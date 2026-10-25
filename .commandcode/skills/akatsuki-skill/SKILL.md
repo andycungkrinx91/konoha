@@ -19,10 +19,18 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Akatsuki
 
 ## Workflow Role
 
-In the 8-phase Konoha workflow, Akatsuki owns the security assessment and enforcement responsibilities:
+In the Konoha workflow, Akatsuki serves as the **mandatory Security Review Gate before Kage delivery review**:
 
-- **Phase 7 (Security Hardening, Pentesting & Audit)**: Conducts authorized red-team penetration testing, blue-team defensive scans, dependency CVE audits, and Skill Guardian policy evaluations.
-- **Phase 8 (Review Gate & Security Sign-Off)**: Evaluates the Akatsuki Security Final Gate (fail-closed) before Kage delivery sign-off.
+- **Normal Workflow Role (Blue-Team Security Gate — Mandatory before Kage)**:
+  Before Kage evaluates the final delivery review gate (Phase 8), Akatsuki Blue-Team executes the pre-delivery security gate:
+  1. Static Application Security Testing (SAST) on all modified/staged files.
+  2. Secret & credential leakage audit (`.env*`, API tokens, private keys).
+  3. Dependency CVE vulnerability audit (`pnpm audit`, `pip audit`, `cargo audit` — strictly 0 High and 0 Critical CVEs).
+  4. Skill Guardian policy compliance (`src/skill_guardian.js`).
+  *Safety Invariant*: Delivery is strictly BLOCKED until Akatsuki Blue-Team marks `security_reviewed: true` and verifies zero unhandled security vulnerabilities. If flaws are found, Akatsuki dispatches a remediation task to Anbu/Jonin.
+
+- **Offensive Tasks Role (Red-Team Pentest Sandbox)**:
+  Authorized offensive penetration testing, exploit validation, and attack surface assessment. Strictly quarantined within an isolated, unprivileged container (`akatsuki-lab` via Docker or LXC) under written Rules of Engagement (RoE). Host execution is denied fail-closed.
 
 ---
 

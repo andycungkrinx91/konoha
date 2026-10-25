@@ -1,44 +1,30 @@
 #!/usr/bin/env node
 /**
- * Node.js port of generate_web_demo_gif.py (@napi-rs/canvas + Playwright).
- * Generates a 100% authentic animated GIF for the Konoha Web UI
- * (SvelteKit 3 RC + Svelte 5) by capturing real browser navigation
- * across the Konoha Web Dashboard on 127.0.0.1:1404.
+ * scripts/generate_web_demo_gif.js
+ * Generates an authentic animated WebP/GIF for the Konoha Web UI
+ * (SvelteKit + Svelte 5 + 10-Theme System) using pure Playwright + FFmpeg
+ * by capturing real browser navigation across the Konoha Web Dashboard on 127.0.0.1:1404.
  */
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { chromium } = require('playwright');
-const { saveGif, saveWebP, registerFonts, canvasFont } = require('./lib/shared');
+const { validateAnimatedWebP } = require('../src/tools/document_engine');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
-const TMP_FRAMES_DIR = '/tmp/konoha-web-frames';
+const TMP_FRAMES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-web-frames-'));
 
-// Visual dimensions
 const TARGET_WIDTH = 1100;
 const TARGET_HEIGHT = 680;
-const HEADER_HEIGHT = 38;
 
 fs.mkdirSync(ASSETS_DIR, { recursive: true });
-fs.mkdirSync(TMP_FRAMES_DIR, { recursive: true });
-
-function roundRect(ctx, x1, y1, x2, y2, r) {
-  ctx.beginPath();
-  ctx.moveTo(x1 + r, y1);
-  ctx.arcTo(x2, y1, x2, y2, r);
-  ctx.arcTo(x2, y2, x1, y2, r);
-  ctx.arcTo(x1, y2, x1, y1, r);
-  ctx.arcTo(x1, y1, x2, y1, r);
-  ctx.closePath();
-}
 
 async function ensureWebServer() {
-  /** Ensure Konoha Web server is active on 127.0.0.1:1404. */
   try {
     const res = await fetch('http://127.0.0.1:1404/api/v1/health', {
       signal: AbortSignal.timeout(2000),
@@ -64,128 +50,117 @@ async function ensureWebServer() {
   return true;
 }
 
-/** Compose screenshot into an elegant browser window frame. */
-async function compositeBrowserFrame(screenshotPath, urlDisplay, badgeText) {
-  const baseImg = await loadImage(screenshotPath);
-
-  // Calculate crop / resize for viewport
-  const contentW = TARGET_WIDTH;
-  const contentH = TARGET_HEIGHT - HEADER_HEIGHT;
-
-  // Scale screenshot to fit width
-  const wScale = contentW / baseImg.width;
-  const scaledH = Math.round(baseImg.height * wScale);
-
-  const content = createCanvas(contentW, contentH);
-  const cctx = content.getContext('2d');
-  if (scaledH > contentH) {
-    // Crop top
-    cctx.drawImage(baseImg, 0, 0, baseImg.width, baseImg.height, 0, 0, contentW, scaledH);
-  } else {
-    // Pad bottom with slate background
-    cctx.fillStyle = 'rgb(248,250,252)';
-    cctx.fillRect(0, 0, contentW, contentH);
-    cctx.drawImage(baseImg, 0, 0, baseImg.width, baseImg.height, 0, 0, contentW, scaledH);
+function buildCompositeHtml(dataUri, urlDisplay, badgeText) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: ${TARGET_WIDTH}px;
+    height: ${TARGET_HEIGHT}px;
+    background: #081026;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
-
-  // Create canvas
-  const canvas = createCanvas(TARGET_WIDTH, TARGET_HEIGHT);
-  const ctx = canvas.getContext('2d');
-  ctx.textBaseline = 'top';
-
-  // 1. Header bar
-  ctx.fillStyle = 'rgb(255,255,255)';
-  ctx.fillRect(0, 0, TARGET_WIDTH, HEADER_HEIGHT);
-  ctx.strokeStyle = 'rgb(226,232,240)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, HEADER_HEIGHT - 1.5);
-  ctx.lineTo(TARGET_WIDTH, HEADER_HEIGHT - 1.5);
-  ctx.stroke();
-
-  // 2. Window Controls (traffic lights)
-  const dotY = HEADER_HEIGHT >> 1;
-  ctx.fillStyle = 'rgb(239,68,68)'; // Close (Red)
-  ctx.beginPath();
-  ctx.ellipse(19, dotY, 5, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgb(245,158,11)'; // Minimize (Yellow)
-  ctx.beginPath();
-  ctx.ellipse(35, dotY, 5, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgb(16,185,129)'; // Maximize (Green)
-  ctx.beginPath();
-  ctx.ellipse(51, dotY, 5, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 3. URL Pill Bar
-  const pillX1 = 70;
-  const pillX2 = TARGET_WIDTH - 240;
-  const pillY1 = 6;
-  const pillY2 = HEADER_HEIGHT - 7;
-  roundRect(ctx, pillX1, pillY1, pillX2, pillY2, 6);
-  ctx.fillStyle = 'rgb(241,245,249)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgb(203,213,225)';
-  ctx.stroke();
-
-  // URL Text
-  ctx.font = canvasFont(11, false);
-  ctx.fillStyle = 'rgb(51,65,85)';
-  ctx.fillText(`🔒 ${urlDisplay}`, pillX1 + 10, pillY1 + 4);
-
-  // 4. Badge on Far Right
-  const badgeW = 200;
-  const badgeX = TARGET_WIDTH - badgeW - 14;
-  roundRect(ctx, badgeX, pillY1, badgeX + badgeW, pillY2, 5);
-  ctx.fillStyle = 'rgb(238,242,255)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgb(199,210,254)';
-  ctx.stroke();
-  ctx.font = canvasFont(10, true);
-  ctx.fillStyle = 'rgb(67,56,202)';
-  ctx.fillText(badgeText, badgeX + 8, pillY1 + 4);
-
-  // 5. Paste content
-  ctx.drawImage(content, 0, HEADER_HEIGHT);
-  return canvas;
+  .browser-header {
+    height: 38px;
+    background: #0f1e45;
+    border-bottom: 1px solid #23449b;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .controls {
+    display: flex;
+    gap: 6px;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .dot-red { background: #ef4444; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-green { background: #10b981; }
+  .url-pill {
+    flex: 1;
+    height: 24px;
+    background: #081026;
+    border: 1px solid #23449b;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .badge {
+    height: 22px;
+    background: rgba(79, 131, 255, 0.15);
+    border: 1px solid #4f83ff;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #b18cff;
+    letter-spacing: 0.5px;
+  }
+  .content-frame {
+    width: ${TARGET_WIDTH}px;
+    height: ${TARGET_HEIGHT - 38}px;
+    overflow: hidden;
+  }
+  .content-img {
+    width: ${TARGET_WIDTH}px;
+    height: auto;
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <div class="browser-header">
+    <div class="controls">
+      <div class="dot dot-red"></div>
+      <div class="dot dot-yellow"></div>
+      <div class="dot dot-green"></div>
+    </div>
+    <div class="url-pill">🔒 ${urlDisplay}</div>
+    <div class="badge">${badgeText}</div>
+  </div>
+  <div class="content-frame">
+    <img class="content-img" src="${dataUri}" />
+  </div>
+</body>
+</html>`;
 }
 
 async function main() {
   console.log('==========================================================');
-  console.log('   KONOHA FRONTEND WEB UI DEMO GIF GENERATOR             ');
-  console.log('   SvelteKit 3 (RC) + Svelte 5 + 10 Light-Mode Themes     ');
+  console.log('   KONOHA FRONTEND WEB UI DEMO ANIMATION GENERATOR        ');
+  console.log('   SvelteKit + Svelte 5 + Sharingan Dark Mode / 10 Themes ');
   console.log('==========================================================');
 
-  registerFonts();
   await ensureWebServer();
 
-  // Check if web auth is already in bootstrap state to avoid redundant session destruction
-  let isAlreadyBootstrap = false;
-  try {
-    const { getAuthConfig } = require('../src/auth');
-    isAlreadyBootstrap = Boolean(getAuthConfig()?.is_bootstrap);
-  } catch (_) {
-    isAlreadyBootstrap = false;
-  }
+  // Reset web auth to guarantee known password
+  spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
 
-  if (!isAlreadyBootstrap) {
-    spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
-  }
-
-  // Set viewport + launch real browser
   console.log('▶ Launching Chromium with viewport 1280x800...');
-  const cachedChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    [
-      path.join(process.env.HOME || '', '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
-      path.join(process.env.HOME || '', '.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'),
-    ].find((p) => p && fs.existsSync(p));
-  const browser = await chromium.launch(cachedChromium ? { executablePath: cachedChromium } : {});
+  const browser = await chromium.launch({
+    executablePath: '/usr/bin/google-chrome',
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+  });
 
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const compositePage = await browser.newPage({ viewport: { width: TARGET_WIDTH, height: TARGET_HEIGHT } });
 
-    // (url, filename, display_url, badge, duration_ms)
     const pages = [
       ['http://127.0.0.1:1404/', '00_login.png', 'http://127.0.0.1:1404/ • Cyberpunk Login Gateway', 'PASSPHRASE AUTH • 10-THEMES', 2800],
       ['http://127.0.0.1:1404/dashboard', '01_dashboard.png', 'http://127.0.0.1:1404/dashboard • Mission Control', 'CPU · MEMORY · DISK · FEATURE METRICS', 3000],
@@ -204,106 +179,126 @@ async function main() {
       ['http://127.0.0.1:1404/docs', '14_docs.png', 'http://127.0.0.1:1404/docs • Documentation', 'ARCHITECTURE • API • CLI REFERENCE', 2400],
     ];
 
-    const frames = [];
-    for (const [url, fname, dispUrl, badge, dur] of pages) {
-      const outPath = path.join(TMP_FRAMES_DIR, fname);
-      console.log(`  • Capturing: ${dispUrl} ...`);
+    const capturedFrames = [];
 
-      // Navigate to URL and take a screenshot
+    for (let i = 0; i < pages.length; i++) {
+      const [url, _fname, dispUrl, badge, dur] = pages[i];
+      console.log(`  • Capturing [${i + 1}/${pages.length}]: ${dispUrl}...`);
+
       await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+
       if (url === 'http://127.0.0.1:1404/') {
         await page.waitForSelector('#login-password', { timeout: 15000 });
-        const passInput = await page.$('#login-password');
-        if (passInput) {
-          await passInput.focus();
-          await page.waitForTimeout(800);
-        }
+        await page.waitForTimeout(600);
       } else if (url.endsWith('/dashboard')) {
-        // Ensure app root has mounted
         await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
-        // Wait for telemetry cards to be fully loaded and rendered
-        console.log('    ⟳ Waiting for Mission Control dashboard telemetry to fully load...');
-        await page.waitForSelector('text=SYSTEM CPU', { timeout: 25000 });
-        await page.waitForSelector('text=VILLAGE TELEMETRY', { timeout: 15000 });
-        await page.waitForSelector('text=CPU UTILIZATION', { timeout: 15000 });
-        // Ensure no error alert exists
-        const errorAlert = await page.$('text=Failed to load metrics');
-        if (errorAlert) {
-          console.warn('    ⚠️ Metrics error detected, waiting for next telemetry poll...');
-          await page.waitForTimeout(6000);
-        }
-        // Allow sparkline and gauge animations to stabilize
-        await page.waitForTimeout(2500);
+        await page.waitForTimeout(1500);
       } else if (url.endsWith('/detector')) {
-        // Run a real scan against a fixture site so the demo shows findings.
         const fixtureDir = path.join('/tmp', 'konoha-demo-ai-site');
         fs.mkdirSync(path.join(fixtureDir, 'components', 'ui'), { recursive: true });
-        const demoHtml = Buffer.from(
-          'PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgbmFtZT0iZ2VuZXJhdG9yIiBjb250ZW50PSJ2MC5kZXYiPjx0aXRsZT5DcmVhdGUgTmV4dCBBcHA8L3RpdGxlPjwvaGVhZD48Ym9keT48aSBkYXRhLWx1Y2lkZT0icGFsZXR0ZSI+PC9pPjwhLS0gQnVpbHQgd2l0aCB2MCAtLT48cD5HZXQgc3RhcnRlZCBieSBlZGl0aW5nIGFwcC9wYWdlLnRzeDwvcD48L2JvZHk+PC9odG1sPg==',
-          'base64'
-        ).toString('utf8');
+        const demoHtml = '<!doctype html><html><head><meta name="generator" content="v0.dev"><title>Create Next App</title></head><body><!-- Built with v0 --><p>Get started</p></body></html>';
         fs.writeFileSync(path.join(fixtureDir, 'index.html'), demoHtml);
-        fs.writeFileSync(path.join(fixtureDir, 'package.json'),
-          JSON.stringify({ name: 'demo', dependencies: { [Buffer.from('bHVjaWRlLXJlYWN0', 'base64').toString('utf8')]: '^1.0.0' } }, null, 2));
+        fs.writeFileSync(path.join(fixtureDir, 'package.json'), JSON.stringify({ name: 'demo', dependencies: { 'lucide-react': '^1.0.0' } }, null, 2));
         await page.fill('#detect-target', fixtureDir);
         await page.click('button:has-text("Run Scan")');
-        await page.waitForSelector('text=Findings', { timeout: 20000 });
+        try {
+          await page.waitForSelector('text=Findings', { timeout: 10000 });
+        } catch (_) {
+          /* ignore detection wait timeout */
+        }
         await page.waitForTimeout(800);
       } else {
         await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
-        await page.waitForTimeout(1200);
+        await page.waitForTimeout(1000);
       }
-      await page.screenshot({ path: outPath });
 
+      const screenshotBuf = await page.screenshot({ type: 'png' });
+      const dataUri = `data:image/png;base64,${screenshotBuf.toString('base64')}`;
+
+      // Composite browser frame
+      const compositeHtml = buildCompositeHtml(dataUri, dispUrl, badge);
+      await compositePage.setContent(compositeHtml);
+      const framePath = path.join(TMP_FRAMES_DIR, `frame_${String(i).padStart(4, '0')}.png`);
+      await compositePage.screenshot({ path: framePath, type: 'png' });
+
+      capturedFrames.push({ path: framePath, durationMs: dur });
+
+      // After capturing login page, authenticate to access subsequent pages
       if (url === 'http://127.0.0.1:1404/') {
         try {
           console.log('    ⟳ Performing authentication and clearing mandatory bootstrap modal...');
           await page.fill('#login-password', 'konohagakure');
           await page.click('button:has-text("LOGIN")');
 
-          // Wait for mandatory password modal to appear
-          await page.waitForSelector('#current-password', { timeout: 15000 });
-          await page.fill('#current-password', 'konohagakure');
-          await page.fill('#new-password', 'konohagakure2026!');
-          await page.fill('#confirm-password', 'konohagakure2026!');
-          await page.click('button:has-text("Update & Continue to Dashboard")');
+          const modalOrRoot = await Promise.race([
+            page.waitForSelector('#current-password', { timeout: 15000 }).then(() => 'modal'),
+            page.waitForSelector('#konoha-app-root', { timeout: 15000 }).then(() => 'root')
+          ]);
 
-          // After password update, auto-kickout to login page occurs (Feedback 3)
-          await page.waitForSelector('#login-password', { timeout: 15000 });
-          await page.fill('#login-password', 'konohagakure2026!');
-          await page.click('button:has-text("LOGIN")');
+          if (modalOrRoot === 'modal') {
+            await page.fill('#current-password', 'konohagakure');
+            await page.fill('#new-password', 'konohagakure2026!');
+            await page.fill('#confirm-password', 'konohagakure2026!');
+            await page.click('button:has-text("Update & Continue to Dashboard")');
 
-          // Wait for dashboard root to be active
-          await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
-          await page.waitForTimeout(1500);
+            await page.waitForSelector('#login-password', { timeout: 15000 });
+            await page.fill('#login-password', 'konohagakure2026!');
+            await page.click('button:has-text("LOGIN")');
+            await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
+          }
+          await page.waitForTimeout(1000);
         } catch (err) {
           console.warn('    ⚠️ Note on auth flow:', err.message);
         }
       }
-
-      // Build composite frame
-      const frameCanvas = await compositeBrowserFrame(outPath, dispUrl, badge);
-      frames.push({ canvas: frameCanvas, duration: dur });
     }
 
-    const isGif = process.argv.includes('--gif');
-    const outExt = isGif ? '.gif' : '.webp';
-    const outName = `demo-web${outExt}`;
-    console.log(`\n▶ Compiling ${frames.length} frames into assets/${outName} ...`);
+    const outName = 'demo-web.webp';
     const outputPath = path.join(ASSETS_DIR, outName);
-    if (isGif) {
-      saveGif(frames, outputPath);
-    } else {
-      saveWebP(frames, outputPath);
+    console.log(`\n▶ Compiling ${capturedFrames.length} frames into assets/${outName} with FFmpeg libwebp_anim...`);
+
+    const listFile = path.join(TMP_FRAMES_DIR, 'frames.txt');
+    let listContent = '';
+    for (let i = 0; i < capturedFrames.length; i++) {
+      const durationSec = Math.max(0.1, capturedFrames[i].durationMs / 1000);
+      listContent += `file '${capturedFrames[i].path}'\nduration ${durationSec.toFixed(3)}\n`;
+    }
+    if (capturedFrames.length > 0) {
+      listContent += `file '${capturedFrames[capturedFrames.length - 1].path}'\n`;
+    }
+    fs.writeFileSync(listFile, listContent);
+
+    const ffmpegRes = spawnSync('ffmpeg', [
+      '-y',
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', listFile,
+      '-vcodec', 'libwebp_anim',
+      '-lossless', '0',
+      '-compression_level', '6',
+      '-q:v', '90',
+      '-preset', 'drawing',
+      '-loop', '0',
+      outputPath
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    if (ffmpegRes.status !== 0) {
+      throw new Error(`FFmpeg failed: ${ffmpegRes.stderr ? ffmpegRes.stderr.toString() : 'unknown error'}`);
     }
 
+    validateAnimatedWebP(outputPath);
     const sizeKb = fs.statSync(outputPath).size / 1024;
-    console.log(`✨ Successfully saved assets/${outName} (${sizeKb.toFixed(1)} KB, ${frames.length} frames)!`);
+    console.log(`✨ Successfully saved assets/${outName} (${sizeKb.toFixed(1)} KB, ${capturedFrames.length} frames)!`);
   } finally {
     try {
       await browser.close();
     } catch (_) {
-      /* ignore browser close error during shutdown */
+      /* ignore browser close errors during shutdown */
+    }
+    try {
+      fs.rmSync(TMP_FRAMES_DIR, { recursive: true, force: true });
+    } catch (_) {
+      /* ignore temp directory cleanup errors */
     }
     // Reset web auth back to clean bootstrap state (guaranteed cleanup)
     spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
@@ -312,7 +307,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((err) => {
-    console.error(err);
+    console.error('Fatal error in generate_web_demo_gif.js:', err);
     process.exit(1);
   });
 }
