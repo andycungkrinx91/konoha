@@ -9,14 +9,21 @@
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Scope Boundaries
 
-A software supply chain security audit of the Konoha codebase was conducted using the local **Socket Security CLI (v1.8.4)** with the refreshed API token. The audit evaluated:
-1. Software Bill of Materials (SBOM) generation via Socket's integrated CycloneDX engine (`socket cdxgen`).
-2. Live dependency scoring and alert profiling via Socket's shallow package security API (`socket package shallow`).
-3. Dependency supply chain hardening via `@socketregistry` overrides.
-4. Vulnerability status of direct and transitive npm dependencies (`pnpm audit`).
-5. Socket platform integration capabilities between local CLI and cloud APIs.
+A software supply chain security audit of the Konoha codebase was conducted using the local **Socket Security CLI (v1.8.4)** with the refreshed API token.
+
+### Audit Scope & Multi-Tier Coverage Boundaries
+To ensure complete transparency and prevent overstating coverage, the evaluation boundaries are divided into three distinct audit tiers:
+
+1. **Direct Packages Scored via Socket API (20 Packages)**:
+   - **12 Direct NPM Dependencies**: 100% of production and web frameworks were directly queried against Socket's package security API (`socket package shallow npm ...`).
+   - **8 PyPI Security Tools & Reference Packages**: Key firmware, reverse-engineering, and networking tools were queried against Socket (`socket package shallow pypi ...`).
+2. **Transitive NPM Dependency Graph (147 Transitive Components)**:
+   - Mapped into a CycloneDX v1.6 SBOM using `socket cdxgen` (159 components total).
+   - Transitive vulnerability checking was executed via `pnpm audit` and `pnpm --dir apps/web audit` (**0 known vulnerabilities** found). Transitives were not individually queried against the Socket API due to rate-limit quotas.
+3. **Full Python Skills Corpus (336 Packages)**:
+   - The broader 336-package Python skill set across 4,199 files was evaluated via our deterministic OSV and PyPI JSON API database auditor (`scripts/audit_python_skills_deps.js`), not via Socket API.
 
 ### Key Audit Findings
 
@@ -24,24 +31,18 @@ A software supply chain security audit of the Konoha codebase was conducted usin
 | :--- | :--- | :--- |
 | **Total SBOM Components** | 159 packages | CycloneDX v1.6 SBOM generated via `socket cdxgen` |
 | **Direct npm Vulnerability Score** | **100 / 100 Clean (12/12)** | Socket Security API (`socket package shallow npm ...`) |
-| **PyPI Modern Replacements** | **100 / 100 Clean** | `unblob@26.6.4` and `binwalk3@3.2.0` both score 100 |
-| **Excluded Legacy Libraries** | **25 / 100 Critical Risk** | Socket flags `chromadb` & `pymetasploit3` as Critical CVEs |
+| **PyPI Modern Replacements** | **100 / 100 Clean** | `unblob@26.6.4` and `binwalk3@3.2.0` both score 100 on Vuln |
+| **Excluded Legacy Libraries** | **25 / 100 Critical Risk** | Socket flags `chromadb` & `pymetasploit3` with `criticalCVE` |
 | **@socketregistry Overrides** | 10 active packages | Verified in dependency graph (zero known CVEs) |
 | **Production Dependency CVEs** | 0 known vulnerabilities | `pnpm audit` & `pnpm --dir apps/web audit` |
-| **License Compliance Profile** | 82 explicit, 77 undeclared | 54 MIT, 10 MPL-2.0 (weak copyleft), 9 Apache-2.0, 5 ISC, 2 Unknown |
+| **NPM License Distribution** | 82 explicit, 77 undeclared | 54 MIT, 10 MPL-2.0 (weak copyleft), 9 Apache-2.0, 5 ISC, 2 Unknown |
 | **Socket Remote Full-Scan** | Plan restricted | API 403: Personal free tier lacks `full-scans:create` |
 
 ---
 
-## 2. Live Socket Security Scores: Direct Dependencies
+## 2. Live Socket Security Scores: Direct NPM Dependencies
 
-Using the refreshed Socket API token, all 12 direct npm dependencies in the repository were queried via `socket package shallow`:
-
-```bash
-$ socket package shallow npm @bufbuild/protobuf@2.16.0 docx@9.14.0 hash-wasm@4.12.0 playwright@1.64.1 ...
-```
-
-### Direct NPM Dependencies Scorecard
+All 12 direct npm dependencies across the root and web workspaces were queried via `socket package shallow npm`:
 
 | Package | Version | Vuln Score | Supply Chain | Quality | License | Socket Alerts / Capabilities |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -58,33 +59,31 @@ $ socket package shallow npm @bufbuild/protobuf@2.16.0 docx@9.14.0 hash-wasm@4.1
 | `three` | 0.186.1 | **100 / 100** | 97 / 100 | 97 / 100 | Apache-2.0 / MIT | `gptSecurity` (middle), `gptAnomaly` (low) |
 | `vite` | 8.3.5 | **100 / 100** | 98 / 100 | 82 / 100 | MIT / BSD / ISC | `urlStrings` (low) |
 
-**Result**: 100% of Konoha's direct npm dependencies achieve a perfect **100/100 Vulnerability Score** with zero high or critical security alerts.
+**Result**: 100% of Konoha's direct npm production dependencies achieve a perfect **100/100 Vulnerability Score** with zero high or critical security alerts.
 
 ---
 
-## 3. Socket Evaluation: Remediated Tools vs. Excluded Legacy Tools
+## 3. Live Socket Security Scores: Audited PyPI Tools & Reference Libraries
 
-To validate Konoha's security decisions against external threat intelligence, Socket's package score API was queried for both modern adopted tools and rejected legacy packages:
+Eight key Python tools and reference libraries were queried via `socket package shallow pypi`.
 
-```bash
-$ socket package shallow pypi unblob@26.6.4 binwalk3@3.2.0 chromadb@1.5.9 binwalk@2.1.0 pymetasploit3@1.0.6
-```
+*Note: Specific CVE IDs listed below are cross-referenced from authoritative OSV/NVD database records matching Socket's severity alerts.*
 
-### Comparative Findings
+| Package | Version | Vuln Score | Supply Chain | Quality | License | Socket Alerts & Cross-Referenced Findings |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`unblob`** *(Adopted)* | 26.6.4 | **100 / 100** | 98 / 100 | 100 / 100 | MIT / Zlib | `hasNativeCode` (middle), `shellAccess` (middle), `filesystemAccess` (low), `urlStrings` (low). 0 CVEs. |
+| **`binwalk3`** *(Adopted)* | 3.2.0 | **100 / 100** | 98 / 100 | 99 / 100 | MIT | `gptDidYouMean` (middle), `shellAccess` (middle), `unpopularPackage` (middle). 0 CVEs. |
+| **`pefile`** *(Audited)* | 2024.8.26 | **100 / 100** | 99 / 100 | 100 / 100 | MIT | `filesystemAccess` (low), `urlStrings` (low). 0 CVEs. |
+| **`scapy`** *(Dual-Use)* | 2.7.0 | **100 / 100** | 74 / 100 | 100 / 100 | **GPL-2.0** (Copyleft) | `mildCVE` (low), `networkAccess` (middle), `shellAccess` (middle), `copyleftLicense` (low). |
+| **`paramiko`** *(Dual-Use)* | 4.0.0 | **99 / 100** | 72–88 / 100 | 100 / 100 | **LGPL-2.1** (Weak copyleft) | `mildCVE` (low), `networkAccess` (middle), `shellAccess` (middle), `copyleftLicense` (low). |
+| **`binwalk`** *(Replaced)* | 2.1.0 | **99 / 100** | 100 / 100 | 98 / 100 | MIT | `mediumCVE` (middle — *cross-ref CVE-2021-4287 symlink traversal*), `unmaintained` (low). |
+| **`chromadb`** *(Dropped)* | 1.5.9 | **25 / 100** | 72–73 / 100 | 100 / 100 | Apache-2.0 | `criticalCVE` (critical — *cross-ref CVE-2026-45830 auth bypass*), multiple `cve` (high) alerts. |
+| **`pymetasploit3`** *(Dropped)* | 1.0.6 | **25 / 100** | 99 / 100 | 100 / 100 | LGPL-3.0 | `criticalCVE` (critical — *cross-ref CVE-2026-5463 command injection*), `copyleftLicense` (low). |
 
-| Tool / Package | Version | Socket Vuln Score | Threat Level | Socket Security Intelligence Findings |
-| :--- | :--- | :--- | :--- | :--- |
-| **`unblob`** *(Adopted)* | 26.6.4 | **100 / 100** | **Clean** | Modern containerized extraction; 0 open CVEs. |
-| **`binwalk3`** *(Adopted)* | 3.2.0 | **100 / 100** | **Clean** | Rust-based binary parser; 0 open CVEs. |
-| **`pefile`** *(Audited)* | 2024.8.26 | **100 / 100** | **Clean** | PE binary parser; 0 open CVEs. |
-| **`chromadb`** *(Dropped)* | 1.5.9 | **25 / 100** | **Critical Risk** | **`criticalCVE`** (Auth bypass CVE-2026-45830), multiple `cve` alerts. |
-| **`pymetasploit3`** *(Dropped)* | 1.0.6 | **25 / 100** | **Critical Risk** | **`criticalCVE`** (Command injection CVE-2026-5463). |
-| **`binwalk`** *(Replaced)* | 2.1.0 | **99 / 100** | **Medium Risk** | `mediumCVE` (CVE-2021-4287 symlink traversal), `unmaintained`. |
-
-**Validation**: Socket's threat feed independently validates Konoha's architecture decisions:
-- Dropping `chromadb` eliminated a package scoring **25/100** with multiple critical CVE alerts.
-- Dropping `pymetasploit3` removed an active critical command injection vulnerability.
-- Upgrading firmware extraction to `unblob` restored a clean **100/100** score.
+### Key Observations on PyPI Tools
+1. **Validation of Exclusions**: Socket rates both `chromadb@1.5.9` and `pymetasploit3@1.0.6` at **25 / 100** with `criticalCVE` alerts, confirming they represent critical supply chain risks.
+2. **License Constraints in Skills**: `scapy` carries a **GPL-2.0 strong copyleft** license and `paramiko` carries an **LGPL-2.1 weak copyleft** license. While acceptable for optional standalone reference scripts, they must not be embedded into proprietary runtime binaries.
+3. **Mild CVE Alerts**: `paramiko` and `scapy` flag `mildCVE` in Socket's feed (minor upstream protocol quirks), reinforcing that offensive networking libraries must only run within containerized sandboxes.
 
 ---
 
@@ -92,7 +91,7 @@ $ socket package shallow pypi unblob@26.6.4 binwalk3@3.2.0 chromadb@1.5.9 binwal
 
 Konoha implements proactive supply chain protection by utilizing **Socket's verified registry overrides (`@socketregistry/*`)** directly in `package.json` under `pnpm.overrides`.
 
-Socket Registry overrides replace common, unmaintained, or historically targeted micro-packages with hardened, audited implementations maintained by Socket Security. The `socket cdxgen` SBOM verified that 10 `@socketregistry` packages are compiled directly into the active dependency tree:
+The `socket cdxgen` SBOM verified that 10 `@socketregistry` packages are compiled directly into the active dependency tree:
 1. `@socketregistry/assert` (replaces `minimalistic-assert`)
 2. `@socketregistry/is-arguments`
 3. `@socketregistry/is-generator-function`
@@ -120,7 +119,7 @@ Of the 159 components in `/tmp/bom.json`, 82 carry explicit license declarations
 - **BlueOak-1.0.0**: 1 package
 - **BSD-3-Clause**: 1 package
 - **Unknown / Unresolved in SBOM**: 2 packages (`jszip@3.10.2` and `pako@1.0.11`)
-- **Strong Copyleft (GPL / AGPL)**: 0 packages identified in production dependencies.
+- **Strong Copyleft in NPM Production**: **0 packages** (no GPL/AGPL dependencies in root or web npm production packages).
 
 ---
 
@@ -137,20 +136,13 @@ The status of Socket CLI commands with the refreshed `personal` plan token (`Xi-
 - Returns comprehensive vulnerability scores, supply chain scores, capabilities, and security alert lists.
 
 ### C. Cloud Full-Scan API (`socket scan create`) — Plan Restricted (403)
-- Execution of `socket scan create .` returns:
-  ```json
-  {
-    "ok": false,
-    "message": "Socket API error",
-    "cause": "Socket API Request failed (403): Insufficient permissions (Permissions: full-scans:create)"
-  }
-  ```
-- **Reason**: The user's token belongs to organization `personal` (Plan: `free`). In Socket's API matrix, uploading full repository scans to the web dashboard (`socket.dev`) requires a Team or Enterprise plan with the `full-scans:create` scope.
+- Execution of `socket scan create .` returns HTTP 403: `Insufficient permissions (Permissions: full-scans:create)`.
+- The user's token belongs to organization `personal` (Plan: `free`). In Socket.dev's API matrix, uploading full repository scans to the web dashboard requires a Team or Enterprise plan.
 
 ---
 
 ## 7. Conclusion & Next Steps
 
 1. **Supply Chain Integrity Verified**: All 12 direct npm dependencies and all audited modern skills tools score **100/100 on Vulnerability**.
-2. **Threat Feed Parity**: Socket's intelligence feed confirms that `chromadb` (25/100) and `pymetasploit3` (25/100) are critical risks that must remain excluded from production playbooks.
-3. **Upgrade Path for Dashboard Sync**: If web dashboard visualization on `socket.dev` is desired, upgrade the organization plan to Team to grant `full-scans:create` permissions.
+2. **Threat Feed Parity**: Socket's threat feed independently confirms that `chromadb` (25/100) and `pymetasploit3` (25/100) are critical risks that must remain excluded.
+3. **Dual-Use Tooling Isolation**: Reference security tools carrying copyleft licenses (`scapy` GPL-2.0, `paramiko` LGPL-2.1) or `mildCVE` alerts must remain quarantined inside Docker environments.
