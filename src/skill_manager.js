@@ -5,6 +5,7 @@ const readline = require('readline');
 const https = require('https');
 const { spawnSync, spawn } = require('child_process');
 const deployUtils = require('./deploy_utils');
+const skillGuardian = require('./skill_guardian');
 
 function runAsyncSpawn(cmd, args, opts) {
   return new Promise((resolve, reject) => {
@@ -309,6 +310,9 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
     }
   }
   validateInputs(normalizedRepo, skillName);
+  if (!options.skipGuardian) {
+    return skillGuardian.installSkillWithGuardian(normalizedRepo, skillName, options);
+  }
   process.stderr.write(`📦 Installing "${skillName}" from ${normalizedRepo}...\n`);
   const isWin = process.platform === 'win32';
   const execCwd = (options && options.projectRoot) || currentCwd;
@@ -552,5 +556,8 @@ module.exports = {
   embedSkillInAgent,
   unembedSkillFromAgent,
   syncAllClientSkills,
-  autoMigrateProjectSkills
+  autoMigrateProjectSkills,
+  scanSkillDirectory: skillGuardian.scanSkillDirectory,
+  installSkillWithGuardian: skillGuardian.installSkillWithGuardian,
+  GUARDIAN_THRESHOLD: skillGuardian.GUARDIAN_THRESHOLD
 };

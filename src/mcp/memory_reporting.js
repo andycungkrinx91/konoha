@@ -303,6 +303,27 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
         }
       }
     }
+
+    if (cleanAgent === 'chunin') {
+      try {
+        const chuninKnowledge = require('../chunin_knowledge');
+        const cd = require('./client_detection');
+        const sessId = cd.getActiveSessionId(pPath);
+        const chuninSaved = chuninKnowledge.recordChuninReport({
+          summary,
+          learnings: allLearnings,
+          validation,
+          filesCreated,
+          filesModified,
+          projectPath: pPath,
+          sessionId: sessId,
+          dbPath: db.DB_PATH
+        });
+        savedIds.push(...chuninSaved);
+      } catch (e) {
+        process.stderr.write(`[mcp report_from_agent] Error recording chunin knowledge: ${e.message}\n`);
+      }
+    }
   }
 
   const result = {

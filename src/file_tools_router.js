@@ -264,16 +264,51 @@ function formatToolResult(data) {
 
 function readFileRange(args = {}) {
   const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
-  const start_line = args.start_line !== undefined ? args.start_line : args.StartLine;
-  const end_line = args.end_line !== undefined ? args.end_line : args.EndLine;
-  if (start_line === undefined || end_line === undefined) {
-    return { error: 'start_line and end_line are required' };
+  let start_line = args.start_line !== undefined ? args.start_line : (
+    args.StartLine !== undefined ? args.StartLine : (
+      args.start !== undefined ? args.start : (
+        args.line_start !== undefined ? args.line_start : (
+          args.from !== undefined ? args.from : (
+            args.offset !== undefined ? args.offset : (
+              args.line !== undefined ? args.line : undefined
+            )
+          )
+        )
+      )
+    )
+  );
+  let end_line = args.end_line !== undefined ? args.end_line : (
+    args.EndLine !== undefined ? args.EndLine : (
+      args.end !== undefined ? args.end : (
+        args.line_end !== undefined ? args.line_end : (
+          args.to !== undefined ? args.to : (
+            args.limit !== undefined && start_line !== undefined ? (Number(start_line) + Number(args.limit) - 1) : (
+              args.lines !== undefined && start_line !== undefined ? (Number(start_line) + Number(args.lines) - 1) : undefined
+            )
+          )
+        )
+      )
+    )
+  );
+
+  if (Array.isArray(args.range) && args.range.length >= 2) {
+    if (start_line === undefined) start_line = args.range[0];
+    if (end_line === undefined) end_line = args.range[1];
   }
+
+  if (start_line === undefined) {
+    return { error: 'start_line is required' };
+  }
+  if (end_line === undefined) {
+    end_line = start_line;
+  }
+
   const resolved = resolveInputPath(filePath);
   return readFileRangeWorker({
     path: resolved,
     start_line: Number(start_line),
     end_line: Number(end_line),
+    byte_budget: args.byte_budget || args.max_bytes,
     auto_paginate: args.auto_paginate !== undefined ? Boolean(args.auto_paginate) : true,
     workspace: getWorkspaceRoot()
   });

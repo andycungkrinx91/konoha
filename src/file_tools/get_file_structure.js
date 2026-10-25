@@ -32,11 +32,33 @@ function structureFile(filePath) {
   } else if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.vue', '.svelte'].includes(ext)) {
     fileLines.forEach((line, idx) => {
       const lineNo = idx + 1;
-      const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s+(\w+)|class\s+(\w+)|const\s+(\w+)\s*=\s*(?:async\s*)?\(|(?:interface|type)\s+(\w+))/);
+      const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s*(\*?\s*\w*)|class\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?function|(?:interface|type|enum)\s+(\w+))/);
       if (match) {
         let snippet = line.trim();
-        if (snippet.length > 100) snippet = snippet.substring(0, 100) + '…';
+        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
         symbols.push({ name: snippet, start_line: lineNo });
+      } else {
+        const methodMatch = line.match(/^\s*(?:static\s+)?(?:async\s+)?(?:get\s+|set\s+)?([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{/);
+        if (methodMatch && !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[1])) {
+          let snippet = line.trim();
+          if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+          symbols.push({ name: snippet, start_line: lineNo });
+        }
+      }
+    });
+  } else if (ext === '.go') {
+    fileLines.forEach((line, idx) => {
+      const lineNo = idx + 1;
+      const fnMatch = line.match(/^\s*func\s+(?:\((?:[^)]+)\)\s+)?([a-zA-Z0-9_]+)\s*\(/);
+      if (fnMatch) {
+        let snippet = line.trim();
+        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+        symbols.push({ name: snippet, start_line: lineNo });
+      } else {
+        const typeMatch = line.match(/^\s*type\s+([a-zA-Z0-9_]+)\s+(?:struct|interface)/);
+        if (typeMatch) {
+          symbols.push({ name: line.trim(), start_line: lineNo });
+        }
       }
     });
   } else {
@@ -45,7 +67,7 @@ function structureFile(filePath) {
       const match = line.match(/^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|class|struct|enum|interface|type)\s+(\w+)/);
       if (match) {
         let snippet = line.trim();
-        if (snippet.length > 100) snippet = snippet.substring(0, 100) + '…';
+        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
         symbols.push({ name: snippet, start_line: lineNo });
       }
     });
@@ -140,6 +162,7 @@ function getFileStructure(args = {}) {
   return {
     path: targetPath,
     is_directory: false,
+    symbols: pageSymbols,
     line_count: pageSymbols.length,
     total_lines: totalLines,
     total_symbols: totalSymbols,

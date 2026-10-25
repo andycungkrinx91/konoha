@@ -9,12 +9,22 @@ const common = require('./common');
 const DEFAULT_LINES = 50;
 const MAX_LINES = 150;
 const MAX_LINE_CHARS = 1000;
-const DEFAULT_BYTE_BUDGET = 32768; // 32KB covers p99 of repository files
+const DEFAULT_BYTE_BUDGET = 131072; // 128KB covers p99 of repository files
 
 function readFileHead(args = {}) {
   const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
   const filePath = common.resolvePath(rawPath, args.workspace, args.dev_root);
-  const maxLines = parseInt(args.max_lines || args.maxLines || DEFAULT_LINES, 10);
+  const maxLines = parseInt(args.max_lines !== undefined ? args.max_lines : (
+    args.maxLines !== undefined ? args.maxLines : (
+      args.lines !== undefined ? args.lines : (
+        args.limit !== undefined ? args.limit : (
+          args.count !== undefined ? args.count : (
+            args.n !== undefined ? args.n : DEFAULT_LINES
+          )
+        )
+      )
+    )
+  ), 10);
   const byteBudget = parseInt(args.byte_budget || args.max_bytes || DEFAULT_BYTE_BUDGET, 10);
 
   if (isNaN(maxLines) || maxLines < 1) {

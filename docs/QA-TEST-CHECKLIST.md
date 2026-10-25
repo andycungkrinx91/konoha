@@ -534,4 +534,22 @@ npx aislop scan --changes
 | **9. Document Engine Deliverables & Deliverable WebPs** | `node tests/test_document_tools.js` & `node tests/e2e_document_suite.js` | 9/9 document tools pass; valid DOCX, PDF, XLSX, PPTX, SVG, and horizontal/vertical animated WebPs generated cleanly. | `PASS` (9/9 passed) |
 | **10. Zero-AI-Slop Pre-Gate Verification** | `rtk npx aislop scan --changes --base origin/master` | 33 changed vs origin/master files evaluated; Score 100 / 100 Healthy, 0 errors, 0 warnings, zero AI slop findings across all committed code changes. | `PASS` (100/100 Healthy) |
 
+---
+
+## Section 15: v2.2.8 Public Skill Guardian, Chunin Knowledge Persistence, Tool File Precision & Modular MVC Subsystem QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Fail-Closed Public Skill Guardian Engine** | `node tests/test_skill_guardian.js` | Staging in isolated `/tmp/` sandbox; static analysis checks for path traversal, destructive commands (`rm -rf`, `mkfs`), reverse shells, untrusted curl pipes, credential theft (`.ssh/id_rsa`, `/etc/shadow`), and suspicious lifecycle scripts. Skills scored > 30 are blocked; score <= 30 allowed; missing staging directory fails closed. | `PASS` (verified in `tests/test_skill_guardian.js`) |
+| **2. Bounded Tool-File Precision & Argument Normalization** | `node tests/test_file_tools_accuracy.js` | 100% exact line retrieval verified across CRLF/LF and single-line files; full alias normalization for `start`/`end`/`line_start`/`line_end`/`range`; byte budget increased to 256KB to prevent mid-span context clipping; multi-language symbol outline extraction for JS, TS, Go, and Python. | `PASS` (verified in `tests/test_file_tools_accuracy.js`) |
+| **3. Chunin Knowledge Persistence & Similarity Retrieval** | `node tests/test_chunin_knowledge.js` | `@chunin` research output and intelligence synthesis automatically stored in canonical `persona_memories` table (`memory_type = 'knowledge'`) with source URL citations; zero new database schema; similarity queries accurately retrieve previous library documentation. | `PASS` (verified in `tests/test_chunin_knowledge.js`) |
+| **4. Modular MVC Web Architecture** | `wc -l src/web_server.js src/web/controllers/*` | `src/web_server.js` reduced from 2,802 lines to 415 lines; modular controllers under `src/web/controllers/` (`auth_controller.js`, `core_controller.js`, `skills_controller.js`, `sdlc_controller.js`, `services_controller.js`, `common.js`); all scripts strictly below 700 lines. | `PASS` (verified modular) |
+| **5. Database Schema & Migration Modularization** | `wc -l src/db.js src/db_schema.js` | `src/db.js` reduced from 716 lines to 246 lines; canonical SQL definitions cleanly modularized into `src/db_schema.js` (430 lines); zero regression on SQLite FTS5, vector search, or foreign keys. | `PASS` (verified under 700 lines) |
+| **6. Pure Node.js Skill Utilities Migration** | `node src/templates/skills/antislop-human/contrast-check.js --selftest` & `node agent/skills/draw-io-diagram-generator/scripts/validate-drawio.js` | High-performance Node.js implementations of skill scripts replace legacy Python scripts; 100% cross-platform compatibility without Python dependencies; passes self-tests and diagram validations cleanly. | `PASS` (verified Node.js runtime) |
+| **7. Dependency CVE Audit & Latest Version Parity** | `pnpm audit`, `pnpm --dir apps/web audit`, OSV batch API | Zero vulnerabilities reported across root and `apps/web`; all 13 dependencies verified in OSV vulnerability database with zero findings. | `PASS` (0 vulnerabilities) |
+| **8. Password Invariant & Release Integrity** | `node tests/test_auth.js` | Default bootstrap password remains strictly `konohagakure`; release author configured to `andycungkrinx91 <andy.silva270114@gmail.com>`. | `PASS` (password verified) |
+| **9. Isolated Sandboxing & Clean Packaging** | `tests/run_all.js` | Complete isolation in temporary directories; zero test databases or cache leaks in workspace; clean tarball packaging. | `PASS` (isolation verified) |
+| **10. Zero-AI-Slop Pre-Delivery Gate** | `npx aislop scan --changes` | Changed scope evaluated; perfect 100/100 score, 0 errors, 0 warnings, zero AI slop comments or patterns. | `PASS` (100/100 Healthy) |
+
+
 

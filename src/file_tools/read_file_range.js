@@ -9,14 +9,47 @@ const common = require('./common');
 const DEFAULT_CHUNK_SIZE = 200;
 const MAX_SPAN = 250;
 const MAX_LINE_CHARS = 1000;
-const DEFAULT_BYTE_BUDGET = 65536; // 64KB covers full spans comfortably
+const DEFAULT_BYTE_BUDGET = 262144; // 256KB covers full spans with rich context
 
 function readFileRange(args = {}) {
   const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
   const filePath = common.resolvePath(rawPath, args.workspace, args.dev_root);
 
-  const startLine = parseInt(args.start_line !== undefined ? args.start_line : args.StartLine, 10);
-  const endLineInput = parseInt(args.end_line !== undefined ? args.end_line : (args.EndLine !== undefined ? args.EndLine : startLine), 10);
+  let startVal = args.start_line !== undefined ? args.start_line : (
+    args.StartLine !== undefined ? args.StartLine : (
+      args.start !== undefined ? args.start : (
+        args.line_start !== undefined ? args.line_start : (
+          args.from !== undefined ? args.from : (
+            args.offset !== undefined ? args.offset : (
+              args.line !== undefined ? args.line : undefined
+            )
+          )
+        )
+      )
+    )
+  );
+
+  let endVal = args.end_line !== undefined ? args.end_line : (
+    args.EndLine !== undefined ? args.EndLine : (
+      args.end !== undefined ? args.end : (
+        args.line_end !== undefined ? args.line_end : (
+          args.to !== undefined ? args.to : (
+            args.limit !== undefined && startVal !== undefined ? (Number(startVal) + Number(args.limit) - 1) : (
+              args.lines !== undefined && startVal !== undefined ? (Number(startVal) + Number(args.lines) - 1) : undefined
+            )
+          )
+        )
+      )
+    )
+  );
+
+  if (Array.isArray(args.range) && args.range.length >= 2) {
+    if (startVal === undefined) startVal = args.range[0];
+    if (endVal === undefined) endVal = args.range[1];
+  }
+
+  const startLine = parseInt(startVal !== undefined ? startVal : 1, 10);
+  const endLineInput = parseInt(endVal !== undefined ? endVal : startLine, 10);
   const byteBudget = parseInt(args.byte_budget || args.max_bytes || DEFAULT_BYTE_BUDGET, 10);
 
   if (isNaN(startLine) || isNaN(endLineInput) || startLine < 1 || endLineInput < 1) {
