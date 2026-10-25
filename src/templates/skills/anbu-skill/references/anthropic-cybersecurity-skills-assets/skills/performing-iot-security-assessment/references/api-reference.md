@@ -5,7 +5,7 @@
 | Tool | Command | Description |
 |------|---------|-------------|
 | nmap | `nmap -sV -sC -p- <target>` | Full port scan with version detection |
-| binwalk | `binwalk -eM <firmware>` | Recursive firmware extraction |
+| unblob | `unblob --extract-dir <output_dir> <firmware>` | Safe recursive firmware extraction (replaces legacy extraction; CVE-2021-4287) |
 | tcpdump | `tcpdump -i <iface> host <ip> -w <pcap>` | Packet capture from device |
 | openssl | `openssl s_client -connect <ip>:<port>` | TLS certificate inspection |
 | flashrom | `flashrom -p ch341a_spi -r <output>` | SPI flash memory dump |

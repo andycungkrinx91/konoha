@@ -135,7 +135,16 @@ function readFileContentSafely(filePath, relativePath) {
   }
 }
 
-function scanFileContent(filePath, relativePath) {
+function isInternalAllowlistedLine(skillName, relPath, lineNo, lineText) {
+  const key = `${skillName}:${relPath}:${lineNo}`;
+  if (key === 'kage-skill:SKILL.md:109' && lineText.includes('Destructive Commands Prohibited')) return true;
+  if (key === 'sannin-skill:SKILL.md:109' && lineText.includes('Destructive Commands Prohibited')) return true;
+  if (key === 'konoha:SKILL.md:546' && lineText.includes('Dangerous or destructive commands')) return true;
+  if (key === 'jonin-skill:references/owasp-security.md:198' && lineText.includes('userInput: "; rm -rf /"')) return true;
+  return false;
+}
+
+function scanFileContent(filePath, relativePath, skillName = '') {
   const findings = [];
   const readRes = readFileContentSafely(filePath, relativePath);
   if (readRes.finding) {
@@ -143,23 +152,14 @@ function scanFileContent(filePath, relativePath) {
     return findings;
   }
   const content = readRes.content;
-  const isMd = path.extname(filePath).toLowerCase() === '.md';
-  let inCodeFence = false;
 
   const lines = content.split(/\r?\n/);
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx];
     const lineNo = idx + 1;
 
-    if (isMd && line.trim().startsWith('```')) {
-      inCodeFence = !inCodeFence;
+    if (isInternalAllowlistedLine(skillName, relativePath, lineNo, line)) {
       continue;
-    }
-
-    if (isMd && !inCodeFence) {
-      if (/^\s*(?:[-*]|\d+\.)?\s*(?:\*\*)?(?:strictly\s+)?(?:forbid|prohibit|never\s+run|do\s+not\s+run|prevent|avoid|warning:)\b/i.test(line)) {
-        continue;
-      }
     }
 
     for (const pattern of DANGEROUS_PATTERNS) {
@@ -272,7 +272,7 @@ function scanSkillDirectory(skillDir, skillName = path.basename(skillDir)) {
         continue;
       }
 
-      const fileFindings = scanFileContent(item.fullPath, item.relPath);
+      const fileFindings = scanFileContent(item.fullPath, item.relPath, skillName);
       findings.push(...fileFindings);
     }
   } catch (scanErr) {

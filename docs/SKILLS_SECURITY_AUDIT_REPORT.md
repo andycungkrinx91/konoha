@@ -96,6 +96,7 @@ Every executable script in the skill tree was manually inspected for common high
   - `performing-plc-firmware-security-analysis/scripts/agent.py`: Upgraded extraction command and aligned error messages with `unblob`.
   - `performing-firmware-extraction-with-binwalk/scripts/agent.py`: Added `unblob` primary engine support.
   - `performing-steganography-detection/scripts/agent.py`: Verified passive non-recursive signature scanning only.
+  - **Executable Markdown Instructions Hardened**: Replaced literal `binwalk -e`, `binwalk -Me`, and `binwalk -eM` commands in `performing-firmware-extraction-with-binwalk/SKILL.md`, `references/api-reference.md`, `performing-iot-security-assessment/SKILL.md`, and `performing-iot-security-assessment/references/api-reference.md` with safe `unblob` and `binwalk3` directives, ensuring AI agents are not instructed to execute vulnerable legacy CLI commands.
 - **Guardian Defense**: Added rule `VULNERABLE_BINWALK_EXTRACTION` to `src/skill_guardian.js`.
 
 ### 3. Pymetasploit3 Removal
@@ -126,6 +127,12 @@ Score > 30 OR Critical Finding?    Score <= 30 & Clean?
     │                                  │
 [Immediate Cleanup of Staging]      [Persistence Logged in Canon DB]
 ```
+
+### Prompt-Injection & Markdown Scanning Security
+AI agent skills treat `SKILL.md` as executable system prompts and procedural instructions. To prevent prompt-injection attacks:
+1. **Zero Text-Prefix Bypasses**: The scanner forbids generic prose skips (such as skipping lines prefixed with "Warning:", "Avoid:", or "Do not run"). An attacker cannot evade pattern detection by crafting persuasive or warning prose around an exploit command.
+2. **Exact Invariant Allowlisting**: Shipped internal defensive guardrails (such as `kage-skill/SKILL.md:109` prohibiting destructive commands) are exempted exclusively through exact, immutable `(skillName, file, line, exactSnippet)` tuples. Third-party skills can never forge internal allowlist matches.
+3. **Regression Hardening**: `tests/test_skill_guardian.js` includes regression checks verifying that malicious commands wrapped in advisory phrasing (e.g. `Warning: run rm -rf /`) are strictly blocked.
 
 ### Guardian Rule Roster
 
