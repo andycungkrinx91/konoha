@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.7). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.8). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.7`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.8`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -534,7 +534,7 @@ npx aislop scan --changes
 | **4. Cross-Task Flow Isolation** | `getServedSkillsSet()` in `src/mcp/skills.js` | Keyed by `flow_hash`; Task 1 and Task 2 running in the same session remain strictly disjoint with zero skill bleeding or cache contamination. | `PASS` (verified in `tests/test_flow_bounded_skills.js`) |
 | **5. Tool Dispatch Argument Forwarding** | `executeToolSync` in `src/mcp/tool_dispatch.js` | `flow_hash` and `session_id` cleanly forwarded to `find_skill`, `get_skill`, and `use_skills`; direct MCP tool calls bind flow skills into SQLite even without `task_id`. | `PASS` (verified in Section 7 tests) |
 | **6. Token Ceilings & KV Cache Prefix Invariance** | `node scripts/verify_provider_cache.js` | All subagent prompts strictly < 8,000 bytes (6,571B – 7,758B); 100% prefix cache equality ($T_1 == T_2 == T_3$) across all 140 checks across 5 clients. | `PASS` (140/140 checks passed) |
-| **7. Isolated `/tmp/` Directory Verification** | `npm pack` -> clean `/tmp/konoha-iso-test-227` | Zero side effects during install (no `~/.konoha` created); explicit `init --yes` configures 8 clients; `konoha version` reports 2.2.7; all artifacts cleaned up. | `PASS` (verified in isolation) |
+| **7. Isolated `/tmp/` Directory Verification** | `npm pack` -> clean `/tmp/konoha-iso-test-228` | Zero side effects during install (no `~/.konoha` created); explicit `init --yes` configures 8 clients; `konoha version` reports 2.2.8; all artifacts cleaned up. | `PASS` (verified in isolation) |
 | **8. Web UI Playwright End-to-End Suite** | `KONOHA_BOOTSTRAP_PASSWORD=konohagakure playwright test` (46 tests across 12 specs) | Full uninterrupted run: 46/46 browser tests passed in 11.9m across login, dialogs, themes, charts, and routing; bootstrap password `konohagakure` verified; SvelteKit check passes with 0 errors and 0 warnings; test artifacts cleaned. | `PASS` (46/46 passed) |
 | **9. Document Engine Deliverables & Deliverable WebPs** | `node tests/test_document_tools.js` & `node tests/e2e_document_suite.js` | 9/9 document tools pass; valid DOCX, PDF, XLSX, PPTX, SVG, and horizontal/vertical animated WebPs generated cleanly. | `PASS` (9/9 passed) |
 | **10. Zero-AI-Slop Pre-Gate Verification** | `rtk npx aislop scan --changes --base origin/master` | 33 changed vs origin/master files evaluated; Score 100 / 100 Healthy, 0 errors, 0 warnings, zero AI slop findings across all committed code changes. | `PASS` (100/100 Healthy) |
@@ -598,6 +598,7 @@ npx aislop scan --changes
 | **7. Isolated `/tmp/` Directory Full Lifecycle Verification** | `npm pack` -> `/tmp/konoha-iso-test-228` | Tarball `konoha-mcp-2.2.8.tgz` packed and installed in clean isolated environment; verified `konoha -v` reports 2.2.8; `konoha doctor` auto-repaired and verified all 46 tools, SQLite DB, and MCP protocols; cleaned up completely. | `PASS` (100% verified in isolation) |
 | **8. Playwright Web UI E2E Regression Suite** | `playwright test` (49 tests across 13 specs) | 49/49 Playwright browser tests passed across login, dialogs, theme switcher (all 10 themes), gauges, navigation, search, and layout consistency. | `PASS` (49/49 tests passed) |
 | **9. Script Line Count Budget & Anti-Slop Audit** | `wc -l` & `rtk npx aislop scan --changes` | All modified files strictly <= 700 lines (`core_controller.js` 632L, `skill_guardian.js` 565L, `common.js` 301L, `antigravity_manager.js` 693L); `npx aislop` scored 100/100 Healthy with 0 errors and 0 warnings. | `PASS` (100/100 Healthy) |
+| **10. Flow Diagrams, Web UI Demo & Documentation Currency** | `node scripts/generate_tokubetsu_flow_webp.js` & `node scripts/generate_web_demo_gif.js` | Regenerated all 6 canonical Tokubetsu-Jonin animated flow diagrams (`konoha-orchestration-flow.webp`, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`) and `assets/demo-web.webp` with `v2.2.8` badges; synchronized all docs and client rules to `2.2.8`. | `PASS` (100% verified currency) |
 
 
 

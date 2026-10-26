@@ -168,15 +168,15 @@
    "assets/konoha-version.png": {
     "title": "konoha version — check version & git updates",
     "cmd": "konoha version",
-    "badge": "RELEASE v2.2.3",
+    "badge": "RELEASE v2.2.8",
     "lines": [
      "[green]✨ Konoha Version Inspector[/green]",
      "[muted]========================================================================[/muted]",
-     "  • [bold]Installed Version[/bold]   : [cyan]v2.2.3 (cross-client unified)[/cyan]",
+     "  • [bold]Installed Version[/bold]   : [cyan]v2.2.8 (cross-client unified)[/cyan]",
      "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
      "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
      "  • [bold]Runtime Mode[/bold]        : [green]Pure Node.js (Single-Runtime)[/green]",
-     "  • [bold]Release Date[/bold]        : [amber]2026-09-20[/amber]",
+     "  • [bold]Release Date[/bold]        : [amber]2026-10-26[/amber]",
      "",
      "  › Checking remote GitHub updates (github:andycungkrinx91/konoha)...",
      "  [green]✓ You are running the latest version of Konoha![/green]",
@@ -193,7 +193,7 @@
      "[muted]========================================================================[/muted]",
      "  › Fetching latest release manifest from GitHub...",
      "  › Installing latest package via pnpm...",
-     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.2.3[/cyan]",
+     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.2.8[/cyan]",
      "",
      "  › Re-syncing SQLite FTS5 database schemas...",
      "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -204,7 +204,7 @@
      "    [green]✓ Command Code updated[/green]",
      "    [green]✓ Codex IDE / CLI updated[/green]",
      "",
-     "[green]✨ Konoha successfully upgraded to v2.2.3! All clients re-synced.[/green]"
+     "[green]✨ Konoha successfully upgraded to v2.2.8! All clients re-synced.[/green]"
     ]
    },
    "assets/konoha-savings.png": {
@@ -1045,7 +1045,7 @@
      "bin/cli.js",
      "version"
     ],
-    "RELEASE v2.2.3"
+    "RELEASE v2.2.8"
    ],
    [
     "assets/konoha-upgrade.png",
@@ -1904,7 +1904,7 @@
      "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
      "",
      "● konoha/read_file_head(path=\"package.json\", max_lines=20)",
-     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.2.1)",
+     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.2.8)",
      "",
      "  [◎ kage & @advisor] active. Final Review Gate: PASSED (100% confidence)",
      "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
@@ -1946,7 +1946,7 @@
     "http://127.0.0.1:1404/",
     "01_home.png",
     "http://127.0.0.1:1404/ • Village Overview",
-    "KONOHA WEB • v2.2.1",
+    "KONOHA WEB • v2.2.8",
     2200
    ],
    [
