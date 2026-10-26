@@ -190,12 +190,12 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
     },
     "semble": {
       "command": "uvx",
-      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"],
+      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
       "autoApprove": ["*", "search", "find_related"]
     },
     "aislop": {
       "command": "npx",
-      "args": ["-y", "-p", "aislop", "aislop-mcp"],
+      "args": ["-y", "-p", "aislop@latest", "aislop-mcp"],
       "autoApprove": ["*", "aislop_scan", "aislop_fix", "aislop_why", "aislop_baseline"]
     }
   }

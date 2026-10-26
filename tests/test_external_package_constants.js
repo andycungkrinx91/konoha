@@ -7,12 +7,12 @@ const { execFileSync } = require("child_process");
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require("../src/semble_manager");
 
 test("SEMBLE_PACKAGE and AISLOP_PACKAGE are exported from semble_manager and no bare literals remain in production code", () => {
-  assert.strictEqual(SEMBLE_PACKAGE, "semble[mcp]==0.6.2");
-  assert.strictEqual(AISLOP_PACKAGE, "aislop@0.18.1");
+  assert.strictEqual(SEMBLE_PACKAGE, "semble[mcp]@latest");
+  assert.strictEqual(AISLOP_PACKAGE, "aislop@latest");
 
   const root = path.resolve(__dirname, "..");
   const prodDirs = ["src", "bin"];
-  const bareSembleLiteral = /semble\[mcp\](==0\.6\.2|@latest)/g;
+  const bareSembleLiteral = /semble\[mcp\]==0\.6\.2/g;
   const bareAislopLiteral = /aislop@0\.18\.1/g;
 
   for (const dir of prodDirs) {

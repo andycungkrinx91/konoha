@@ -54,33 +54,18 @@ function detectAntigravityIde(options = {}) {
 }
 
 const BASE_TOOLS = [
-  'send_message',
-  'find_by_name',
-  'grep_search',
-  'view_file',
-  'list_dir',
-  'read_url_content',
-  'search_web',
-  'schedule',
-  'call_mcp_tool',
+  'send_message', 'find_by_name', 'grep_search', 'view_file', 'list_dir',
+  'read_url_content', 'search_web', 'schedule', 'call_mcp_tool'
 ];
 
 const WRITE_TOOLS = [
-  'multi_replace_file_content',
-  'replace_file_content',
-  'write_to_file',
-  'run_command',
-  'manage_task',
+  'multi_replace_file_content', 'replace_file_content', 'write_to_file',
+  'run_command', 'manage_task'
 ];
 
 const SYSTEM_PROMPT_SECTIONS = [
-  'user_information',
-  'mcp_servers',
-  'skills',
-  'subagent_reminder',
-  'messaging',
-  'artifacts',
-  'user_rules',
+  'user_information', 'mcp_servers', 'skills', 'subagent_reminder',
+  'messaging', 'artifacts', 'user_rules'
 ];
 
 function agentAllowsWriteTools(agent) {
@@ -244,37 +229,24 @@ function syncAntigravityExtensionRegistry(extensionDir) {
   try {
     const extJsonPath = path.join(extensionDir, 'extensions.json');
     if (fs.existsSync(extJsonPath)) {
-      let entries = [];
       try {
-        entries = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      if (Array.isArray(entries)) {
-        const filtered = entries.filter(e => {
-          const id = e?.identifier?.id?.toLowerCase();
-          const rel = e?.relativeLocation || '';
-          return !(id === 'andycungkrinx91.konoha-bridge' || rel.startsWith('andycungkrinx91.konoha-bridge'));
-        });
-        if (filtered.length !== entries.length) {
-          fs.writeFileSync(extJsonPath, JSON.stringify(filtered, null, 2) + '\n');
+        const entries = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
+        if (Array.isArray(entries)) {
+          const filtered = entries.filter(e => e?.identifier?.id?.toLowerCase() !== 'andycungkrinx91.konoha-bridge' && !(e?.relativeLocation || '').startsWith('andycungkrinx91.konoha-bridge'));
+          if (filtered.length !== entries.length) fs.writeFileSync(extJsonPath, JSON.stringify(filtered, null, 2) + '\n');
         }
-      }
+      } catch { /* ignore */ }
     }
-
     const obsoletePath = path.join(extensionDir, '.obsolete');
     if (fs.existsSync(obsoletePath)) {
       try {
         const obsolete = JSON.parse(fs.readFileSync(obsoletePath, 'utf8'));
         let modified = false;
         for (const key of Object.keys(obsolete)) {
-          if (key.startsWith('andycungkrinx91.konoha-bridge')) {
-            delete obsolete[key];
-            modified = true;
-          }
+          if (key.startsWith('andycungkrinx91.konoha-bridge')) { delete obsolete[key]; modified = true; }
         }
-        if (modified) {
-          fs.writeFileSync(obsoletePath, JSON.stringify(obsolete) + '\n');
-        }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        if (modified) fs.writeFileSync(obsoletePath, JSON.stringify(obsolete) + '\n');
+      } catch { /* ignore */ }
     }
     return { ok: true };
   } catch (err) {
@@ -284,21 +256,12 @@ function syncAntigravityExtensionRegistry(extensionDir) {
 
 function deployAntigravityRtkRule(silent = true) {
   const rtkCmd = getRtkCommand();
-  if (!rtkCmd) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
+  if (!rtkCmd) return { ok: false, reason: 'rtk-not-installed' };
   try {
-    spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit',
-      windowsHide: true
-    });
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], { encoding: 'utf-8', timeout: 10000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true });
+  } catch { /* ignore */ }
   const src = path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
-  if (!fs.existsSync(src)) {
-    return { ok: false, reason: 'rtk-rule-template-missing' };
-  }
+  if (!fs.existsSync(src)) return { ok: false, reason: 'rtk-rule-template-missing' };
 
   const targets = [
     path.join(HOME, '.gemini', 'antigravity-cli', 'rules', 'rtk.md'),
@@ -313,15 +276,9 @@ function deployAntigravityRtkRule(silent = true) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(src, dest);
       deployed++;
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) { /* ignore */ }
   }
-
-  if (!silent && deployed > 0) {
-    process.stderr.write(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)\n`);
-  }
-
+  if (!silent && deployed > 0) process.stderr.write(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)\n`);
   return { ok: deployed > 0, deployed };
 }
 
@@ -331,83 +288,30 @@ function ensureAntigravityMcpSchemas() {
     fs.mkdirSync(schemaDir, { recursive: true });
   }
 
-  const subagentsInfo = [
-    {
-      name: 'sannin',
-      description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.',
-      parameters: {
-        type: 'object',
-        properties: {
-          prompt: { type: 'string', description: 'The task prompt directly passed from chat context or instructions.' },
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'kage',
-      description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'jonin',
-      description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'anbu',
-      description: 'Backend Specialist & Cyber Black Ops subagent. Focuses on backend logic, bug fixes, CI/CD, infra, cyber defense, and dev/local penetration testing.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'chunin',
-      description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'tokubetsu_jonin',
-      description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'genin',
-      description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.',
-      parameters: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    }
+  const subagents = [
+    { name: 'sannin', description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.', hasPrompt: true },
+    { name: 'kage', description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.' },
+    { name: 'jonin', description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.' },
+    { name: 'anbu', description: 'Backend Specialist & Cyber Black Ops subagent. Focuses on backend logic, bug fixes, CI/CD, infra, cyber defense, and dev/local penetration testing.' },
+    { name: 'chunin', description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.' },
+    { name: 'tokubetsu_jonin', description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.' },
+    { name: 'genin', description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.' },
+    { name: 'akatsuki', description: 'Red-Team, Blue-Team & Security Final Gate subagent. Focuses on penetration testing, container isolation, and pre-delivery security audits.' }
   ];
 
-  for (const info of subagentsInfo) {
-    const filePath = path.join(schemaDir, `${info.name}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(info, null, 2) + '\n', 'utf8');
+  for (const s of subagents) {
+    const info = {
+      name: s.name,
+      description: s.description,
+      parameters: {
+        type: 'object',
+        properties: {
+          ...(s.hasPrompt ? { prompt: { type: 'string', description: 'The task prompt directly passed from chat context or instructions.' } } : {}),
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    };
+    fs.writeFileSync(path.join(schemaDir, `${s.name}.json`), JSON.stringify(info, null, 2) + '\n', 'utf8');
   }
 
   const manifestPath = path.join(__dirname, 'mcp_tool_manifest.json');
@@ -430,48 +334,32 @@ function ensureAntigravityMcpSchemas() {
     if (fs.existsSync(searchJson) && fs.existsSync(findRelatedJson)) {
       const s1 = JSON.parse(fs.readFileSync(searchJson, 'utf8'));
       const s2 = JSON.parse(fs.readFileSync(findRelatedJson, 'utf8'));
-      if (s1.description !== 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.') {
-        s1.description = 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.';
-        if (s1.parameters?.properties?.max_snippet_lines) s1.parameters.properties.max_snippet_lines.description = 'Lines of source to include per result (default: 10, 0: location only).';
-        if (s1.parameters?.properties?.repo) s1.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
-        fs.writeFileSync(searchJson, JSON.stringify(s1, null, 2) + '\n', 'utf8');
-      }
-      if (s2.description !== 'Find code similar to a known location. Pass file_path and line from prior search result.') {
-        s2.description = 'Find code similar to a known location. Pass file_path and line from prior search result.';
-        if (s2.parameters?.properties?.max_snippet_lines) s2.parameters.properties.max_snippet_lines.description = 'Lines of source per result (default: 10, 0: location only).';
-        if (s2.parameters?.properties?.repo) s2.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
-        fs.writeFileSync(findRelatedJson, JSON.stringify(s2, null, 2) + '\n', 'utf8');
-      }
+      s1.description = 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.';
+      if (s1.parameters?.properties?.max_snippet_lines) s1.parameters.properties.max_snippet_lines.description = 'Lines of source to include per result (default: 10, 0: location only).';
+      if (s1.parameters?.properties?.repo) s1.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
+      fs.writeFileSync(searchJson, JSON.stringify(s1, null, 2) + '\n', 'utf8');
+
+      s2.description = 'Find code similar to a known location. Pass file_path and line from prior search result.';
+      if (s2.parameters?.properties?.max_snippet_lines) s2.parameters.properties.max_snippet_lines.description = 'Lines of source per result (default: 10, 0: location only).';
+      if (s2.parameters?.properties?.repo) s2.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
+      fs.writeFileSync(findRelatedJson, JSON.stringify(s2, null, 2) + '\n', 'utf8');
     }
 
     const aislopDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'aislop');
-    const scanJson = path.join(aislopDir, 'aislop_scan.json');
-    const fixJson = path.join(aislopDir, 'aislop_fix.json');
-    const baselineJson = path.join(aislopDir, 'aislop_baseline.json');
-    const whyJson = path.join(aislopDir, 'aislop_why.json');
-    if (fs.existsSync(scanJson) && fs.existsSync(fixJson) && fs.existsSync(baselineJson) && fs.existsSync(whyJson)) {
-      const s = JSON.parse(fs.readFileSync(scanJson, 'utf8'));
-      const f = JSON.parse(fs.readFileSync(fixJson, 'utf8'));
-      const b = JSON.parse(fs.readFileSync(baselineJson, 'utf8'));
-      const w = JSON.parse(fs.readFileSync(whyJson, 'utf8'));
-
-      b.description = 'Read project baseline score. Returns score, lastScanAt, fileCount, or null.';
-      if (b.parameters?.properties?.path) b.parameters.properties.path.description = 'Project directory path.';
-
-      f.description = 'Apply mechanical fixes (formatting, unused/duplicate imports). Returns counts before/after.';
-      if (f.parameters?.properties?.path) f.parameters.properties.path.description = 'Project directory path.';
-      if (f.parameters?.properties?.force) f.parameters.properties.force.description = 'Run aggressive fixes.';
-
-      s.description = 'Scan project with aislop engines. Returns 0-100 score and top findings.';
-      if (s.parameters?.properties?.path) s.parameters.properties.path.description = 'Project directory path.';
-
-      w.description = 'Explain an aislop rule, rationale, severity, and auto-fixability.';
-      if (w.parameters?.properties?.rule_id) w.parameters.properties.rule_id.description = 'Full rule ID.';
-
-      fs.writeFileSync(scanJson, JSON.stringify(s, null, 2) + '\n', 'utf8');
-      fs.writeFileSync(fixJson, JSON.stringify(f, null, 2) + '\n', 'utf8');
-      fs.writeFileSync(baselineJson, JSON.stringify(b, null, 2) + '\n', 'utf8');
-      fs.writeFileSync(whyJson, JSON.stringify(w, null, 2) + '\n', 'utf8');
+    const files = {
+      'aislop_scan.json': { desc: 'Scan project with aislop engines. Returns 0-100 score and top findings.', param: 'path', paramDesc: 'Project directory path.' },
+      'aislop_fix.json': { desc: 'Apply mechanical fixes (formatting, unused/duplicate imports). Returns counts before/after.', param: 'path', paramDesc: 'Project directory path.' },
+      'aislop_baseline.json': { desc: 'Read project baseline score. Returns score, lastScanAt, fileCount, or null.', param: 'path', paramDesc: 'Project directory path.' },
+      'aislop_why.json': { desc: 'Explain an aislop rule, rationale, severity, and auto-fixability.', param: 'rule_id', paramDesc: 'Full rule ID.' }
+    };
+    for (const [fname, def] of Object.entries(files)) {
+      const p = path.join(aislopDir, fname);
+      if (fs.existsSync(p)) {
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        data.description = def.desc;
+        if (data.parameters?.properties?.[def.param]) data.parameters.properties[def.param].description = def.paramDesc;
+        fs.writeFileSync(p, JSON.stringify(data, null, 2) + '\n', 'utf8');
+      }
     }
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
@@ -484,9 +372,8 @@ function refreshRtk(silent = true) {
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
-    // Install from the official rtk-ai/rtk repo — the plain `cargo install rtk`
-    // crate on crates.io is an unrelated project (Rust Type Kit name collision)
-    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked', '--force'], {
+    // Install from the official rtk-ai/rtk repo — latest release
+    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked', '--force'], {
       encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
@@ -510,12 +397,47 @@ function ensureRtkInstalled(silent = true) {
   addToPath();
   if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
 
-  // 1. Preferred: cargo from official repo with locked dependencies
+  if (process.platform !== 'win32') {
+    try {
+      const scriptRes = spawnSync('sh', ['-c', 'curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh'], {
+        encoding: 'utf-8',
+        timeout: 180000,
+        stdio: silent ? 'ignore' : 'inherit'
+      });
+      if (scriptRes.status === 0) {
+        addToPath();
+        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+
+    try {
+      const brewAvail = spawnSync('brew', ['--version'], { encoding: 'utf-8', timeout: 5000 });
+      if (brewAvail.status === 0) {
+        let result = spawnSync('brew', ['install', 'rtk'], {
+          encoding: 'utf-8',
+          timeout: 180000,
+          stdio: silent ? 'ignore' : 'inherit'
+        });
+        if (result.status !== 0) {
+          result = spawnSync('brew', ['install', 'rtk-ai/tap/rtk'], {
+            encoding: 'utf-8',
+            timeout: 180000,
+            stdio: silent ? 'ignore' : 'inherit'
+          });
+        }
+        if (result.status === 0) {
+          addToPath();
+          if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status === 0) {
-      const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked'], {
+      const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
         encoding: 'utf-8',
         timeout: 600000,
         stdio: silent ? 'ignore' : 'inherit',
@@ -530,24 +452,6 @@ function ensureRtkInstalled(silent = true) {
     if (!silent) process.stderr.write(`[rtk] cargo install unavailable: ${error.message}\n`);
   }
 
-  // 2. Fallback: package manager (Homebrew on macOS / Linux)
-  if (process.platform !== 'win32') {
-    try {
-      const brewAvail = spawnSync('brew', ['--version'], { encoding: 'utf-8', timeout: 5000 });
-      if (brewAvail.status === 0) {
-        const result = spawnSync('brew', ['install', 'rtk-ai/tap/rtk'], {
-          encoding: 'utf-8',
-          timeout: 180000,
-          stdio: silent ? 'ignore' : 'inherit'
-        });
-        if (result.status === 0) {
-          addToPath();
-          if (isRtkInstalled()) return { ok: true, reason: 'installed' };
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
   return { ok: false, reason: 'rtk-install-failed' };
 }
 
@@ -556,11 +460,7 @@ function getAntigravityStatus() {
   const hooksPath = path.join(HOME, '.gemini', 'config', 'hooks.json');
   const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
 
-  let mcpConfigExists = fs.existsSync(mcpConfigPath);
-  let mcpSkillsDb = false;
-  let mcpSemble = false;
-  let mcpAislop = false;
-
+  let mcpConfigExists = fs.existsSync(mcpConfigPath), mcpSkillsDb = false, mcpSemble = false, mcpAislop = false;
   if (mcpConfigExists) {
     try {
       const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
@@ -569,110 +469,51 @@ function getAntigravityStatus() {
         mcpSemble = !!config.mcpServers.semble;
         mcpAislop = !!config.mcpServers.aislop;
       }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* ignore */ }
   }
 
-  let hooksExists = fs.existsSync(hooksPath);
   let hasHooks = false;
-  if (hooksExists) {
+  if (fs.existsSync(hooksPath)) {
     try {
       const content = fs.readFileSync(hooksPath, 'utf8');
       hasHooks = content.includes('antigravity_subagent_hook.js') || content.includes('antigravity_tool_sanitize_hook.js');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* ignore */ }
   }
 
   let agentsCount = 0;
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
   if (fs.existsSync(ANTIGRAVITY_AGENTS_GLOBAL)) {
     try {
-      agentsCount = fs.readdirSync(ANTIGRAVITY_AGENTS_GLOBAL).filter(f => {
-        if (!official.includes(f)) return false;
-        const p = path.join(ANTIGRAVITY_AGENTS_GLOBAL, f);
-        return fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, 'agent.json'));
-      }).length;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      agentsCount = fs.readdirSync(ANTIGRAVITY_AGENTS_GLOBAL).filter(f =>
+        official.includes(f) && fs.existsSync(path.join(ANTIGRAVITY_AGENTS_GLOBAL, f, 'agent.json'))
+      ).length;
+    } catch { /* ignore */ }
   }
 
   let schemasCount = 0;
   if (fs.existsSync(schemaDir)) {
     try {
       schemasCount = fs.readdirSync(schemaDir).filter(f => f.endsWith('.json')).length;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* ignore */ }
   }
 
-  return {
-    mcpConfigExists,
-    mcpSkillsDb,
-    mcpSemble,
-    mcpAislop,
-    hasHooks,
-    agentsCount,
-    schemasCount,
-    rtkInstalled: isRtkInstalled()
-  };
+  return { mcpConfigExists, mcpSkillsDb, mcpSemble, mcpAislop, hasHooks, agentsCount, schemasCount, rtkInstalled: isRtkInstalled() };
 }
 
 function ensureAntigravityPermissions(silent = true) {
+  const konohaToolGrants = (KONOHA_CANONICAL_TOOLS || []).map(t => 'mcp(konoha/' + t + ')');
   const requiredGrants = [
-    'command(rtk)',
-    'command(rtk *)',
-    'command(rtk:*)',
-    'command(node bin/cli.js)',
-    'command(konoha)',
-    'command(konoha *)',
+    'command(rtk)', 'command(rtk *)', 'command(rtk:*)', 'command(node bin/cli.js)',
+    'command(konoha)', 'command(konoha *)',
     'command(node "' + path.join(HOME, '.konoha', 'prompt_hook.js') + '")',
-    'mcp(semble/search)',
-    'mcp(semble/find_related)',
-    'mcp(semble/*)',
-    'mcp(aislop/aislop_scan)',
-    'mcp(aislop/aislop_fix)',
-    'mcp(aislop/aislop_why)',
-    'mcp(aislop/aislop_baseline)',
-    'mcp(aislop/*)',
-    'mcp(konoha/read_file_head)',
-    'mcp(konoha/read_file_range)',
-    'mcp(konoha/file_info)',
-    'mcp(konoha/token_efficient_grep)',
-    'mcp(konoha/get_file_structure)',
-    'mcp(konoha/find_files_clean)',
-    'mcp(konoha/find_skill)',
-    'mcp(konoha/find_skills)',
-    'mcp(konoha/list_skills)',
-    'mcp(konoha/get_skill)',
-    'mcp(konoha/optimize_report)',
-    'mcp(konoha/build_with_image_design)',
-    'mcp(konoha/build_from_source)',
-    'mcp(konoha/build_from_text)',
-    'mcp(konoha/sannin)',
-    'mcp(konoha/kage)',
-    'mcp(konoha/jonin)',
-    'mcp(konoha/anbu)',
-    'mcp(konoha/chunin)',
-    'mcp(konoha/tokubetsu_jonin)',
-    'mcp(konoha/genin)',
-    'mcp(konoha/report_from_agent)',
-    'mcp(konoha/get_project_context)',
-    'mcp(konoha/save_project_context)',
-    'mcp(konoha/query_project_memory)',
-    'mcp(konoha/web_search)',
-    'mcp(konoha/migrate_skills)',
-    'mcp(konoha/save_persona_memory)',
-    'mcp(konoha/query_persona_memory)',
-    'mcp(konoha/list_persona_memories)',
-    'mcp(konoha/delete_persona_memory)',
-    'mcp(skills-db/*)',
-    'mcp(konoha-files/*)',
-    'mcp(konoha/*)',
-    'mcp__konoha__*',
-    'mcp__semble__*',
-    'mcp__aislop__*',
-    'mcp:konoha:*',
-    'mcp:semble:*',
-    'mcp:aislop:*',
-    'rtk',
-    'rtk *',
-    'konoha',
-    'konoha *'
+    'mcp(semble/search)', 'mcp(semble/find_related)', 'mcp(semble/*)',
+    'mcp(aislop/aislop_scan)', 'mcp(aislop/aislop_fix)', 'mcp(aislop/aislop_why)', 'mcp(aislop/aislop_baseline)', 'mcp(aislop/*)',
+    ...konohaToolGrants,
+    'mcp(konoha/find_skills)', 'mcp(konoha/optimize_report)', 'mcp(konoha/build_with_image_design)',
+    'mcp(skills-db/*)', 'mcp(konoha-files/*)', 'mcp(konoha/*)',
+    'mcp__konoha__*', 'mcp__semble__*', 'mcp__aislop__*',
+    'mcp:konoha:*', 'mcp:semble:*', 'mcp:aislop:*',
+    'rtk', 'rtk *', 'konoha', 'konoha *'
   ];
 
   const settingsPaths = [
@@ -688,7 +529,7 @@ function ensureAntigravityPermissions(silent = true) {
       if (!fs.existsSync(path.dirname(sPath))) {
         fs.mkdirSync(path.dirname(sPath), { recursive: true });
       }
-      let settings = {};
+      let settings = {}, modified = false;
       if (fs.existsSync(sPath)) {
         try {
           settings = JSON.parse(fs.readFileSync(sPath, 'utf8')) || {};
@@ -702,69 +543,31 @@ function ensureAntigravityPermissions(silent = true) {
         }
       }
       if (!settings.permissions) settings.permissions = {};
-      const allowRaw = settings.permissions.allow;
-      settings.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
-
-      let modified = false;
-
-      const initialAllowLen = settings.permissions.allow.length;
-      settings.permissions.allow = settings.permissions.allow.filter(g =>
+      const prevAllowLen = Array.isArray(settings.permissions.allow) ? settings.permissions.allow.length : 0;
+      settings.permissions.allow = (Array.isArray(settings.permissions.allow) ? settings.permissions.allow : []).filter(g =>
         typeof g !== 'string' || !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g)
       );
-      if (settings.permissions.allow.length !== initialAllowLen) {
-        modified = true;
-      }
-
+      if (settings.permissions.allow.length !== prevAllowLen) modified = true;
       for (const grant of requiredGrants) {
-        if (!settings.permissions.allow.includes(grant)) {
-          settings.permissions.allow.push(grant);
-          modified = true;
-        }
+        if (!settings.permissions.allow.includes(grant)) { settings.permissions.allow.push(grant); modified = true; }
       }
 
-      const konohaToolsAutoApprove = (KONOHA_CANONICAL_TOOLS || []).map(t => 'mcp(konoha/' + t + ')');
       const safeAutoApprove = [
-        ...konohaToolsAutoApprove,
-        'mcp(semble/search)',
-        'mcp(semble/find_related)',
-        'mcp(aislop/aislop_scan)',
-        'mcp(aislop/aislop_fix)',
-        'mcp(aislop/aislop_why)',
-        'mcp(aislop/aislop_baseline)',
-        'rtk',
-        'rtk *',
-        'konoha',
-        'konoha *'
+        ...konohaToolGrants,
+        'mcp(semble/search)', 'mcp(semble/find_related)',
+        'mcp(aislop/aislop_scan)', 'mcp(aislop/aislop_fix)', 'mcp(aislop/aislop_why)', 'mcp(aislop/aislop_baseline)',
+        'rtk', 'rtk *', 'konoha', 'konoha *'
       ];
-      if (!Array.isArray(settings.autoApprove)) {
-        settings.autoApprove = [];
-      }
-      const initialAutoLen = settings.autoApprove.length;
-      settings.autoApprove = settings.autoApprove.filter(g =>
-        typeof g !== 'string' || !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g)
+      const prevAutoLen = Array.isArray(settings.autoApprove) ? settings.autoApprove.length : 0;
+      settings.autoApprove = (Array.isArray(settings.autoApprove) ? settings.autoApprove : []).filter(g =>
+        typeof g !== 'string' || (g !== '*' && !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g))
       );
-      if (settings.autoApprove.length !== initialAutoLen) {
-        modified = true;
-      }
+      if (settings.autoApprove.length !== prevAutoLen) modified = true;
       for (const grant of safeAutoApprove) {
-        if (!settings.autoApprove.includes(grant)) {
-          settings.autoApprove.push(grant);
-          modified = true;
-        }
+        if (!settings.autoApprove.includes(grant)) { settings.autoApprove.push(grant); modified = true; }
       }
-      const starIdx = settings.autoApprove.indexOf('*');
-      if (starIdx !== -1) {
-        settings.autoApprove.splice(starIdx, 1);
-        modified = true;
-      }
-      if (settings.permissionMode === 'allowAll') {
-        delete settings.permissionMode;
-        modified = true;
-      }
-      if (settings.confirmDangerousCommands === false) {
-        delete settings.confirmDangerousCommands;
-        modified = true;
-      }
+      if (settings.permissionMode === 'allowAll') { delete settings.permissionMode; modified = true; }
+      if (settings.confirmDangerousCommands === false) { delete settings.confirmDangerousCommands; modified = true; }
 
       if (modified || !fs.existsSync(sPath)) {
         fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
@@ -773,7 +576,6 @@ function ensureAntigravityPermissions(silent = true) {
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  // Also ensure mcp_config.json files have scoped autoApprove
   const mcpConfigPaths = [
     path.join(HOME, '.gemini', 'config', 'mcp_config.json'),
     path.join(HOME, '.gemini', 'antigravity-cli', 'mcp_config.json'),
@@ -781,44 +583,27 @@ function ensureAntigravityPermissions(silent = true) {
   ];
 
   for (const mPath of mcpConfigPaths) {
-    if (fs.existsSync(mPath)) {
-      try {
-        const mConfig = JSON.parse(fs.readFileSync(mPath, 'utf8')) || {};
-        if (mConfig.mcpServers) {
-          let mModified = false;
-          for (const serverName of ['konoha', 'semble', 'aislop']) {
-            if (mConfig.mcpServers[serverName]) {
-              if (Array.isArray(mConfig.mcpServers[serverName].autoApprove)) {
-                const starIdx = mConfig.mcpServers[serverName].autoApprove.indexOf('*');
-                if (starIdx !== -1) {
-                  mConfig.mcpServers[serverName].autoApprove.splice(starIdx, 1);
-                  mModified = true;
-                }
-              }
-              if (!mConfig.mcpServers[serverName].autoApprove || mConfig.mcpServers[serverName].autoApprove.length === 0) {
-                if (serverName === 'konoha') {
-                  mConfig.mcpServers[serverName].autoApprove = KONOHA_CANONICAL_TOOLS
-                    ? [...KONOHA_CANONICAL_TOOLS]
-                    : [];
-                } else if (serverName === 'semble') {
-                  mConfig.mcpServers[serverName].autoApprove = ['search', 'find_related'];
-                } else if (serverName === 'aislop') {
-                  mConfig.mcpServers[serverName].autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
-                }
-                mModified = true;
-              }
-              if (!mConfig.mcpServers[serverName].auto_approve) {
-                mConfig.mcpServers[serverName].auto_approve = true;
-                mModified = true;
-              }
-            }
-          }
-          if (mModified) {
-            fs.writeFileSync(mPath, JSON.stringify(mConfig, null, 2) + '\n', 'utf8');
-          }
+    if (!fs.existsSync(mPath)) continue;
+    try {
+      const mConfig = JSON.parse(fs.readFileSync(mPath, 'utf8')) || {};
+      if (!mConfig.mcpServers) continue;
+      let mModified = false;
+      for (const serverName of ['konoha', 'semble', 'aislop']) {
+        const srv = mConfig.mcpServers[serverName];
+        if (!srv) continue;
+        if (Array.isArray(srv.autoApprove)) {
+          const starIdx = srv.autoApprove.indexOf('*');
+          if (starIdx !== -1) { srv.autoApprove.splice(starIdx, 1); mModified = true; }
         }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
+        if (!srv.autoApprove || srv.autoApprove.length === 0) {
+          srv.autoApprove = serverName === 'konoha' ? [...(KONOHA_CANONICAL_TOOLS || [])]
+            : (serverName === 'semble' ? ['search', 'find_related'] : ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline']);
+          mModified = true;
+        }
+        if (!srv.auto_approve) { srv.auto_approve = true; mModified = true; }
+      }
+      if (mModified) fs.writeFileSync(mPath, JSON.stringify(mConfig, null, 2) + '\n', 'utf8');
+    } catch { /* intentional best-effort fallback */ }
   }
 
   if (!silent && updatedCount > 0) {
@@ -867,21 +652,15 @@ function ensureAntigravitySetup(options = {}) {
   for (const mcpConfigPath of targetPaths) {
     const dir = path.dirname(mcpConfigPath);
     if (!fs.existsSync(dir)) {
-      if (mcpConfigPath === targetPaths[0]) {
-        fs.mkdirSync(dir, { recursive: true });
-      } else {
-        continue;
-      }
+      if (mcpConfigPath === targetPaths[0]) fs.mkdirSync(dir, { recursive: true });
+      else continue;
     }
-
     let config = { mcpServers: {} };
     if (fs.existsSync(mcpConfigPath)) {
       try {
-        config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
+        config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8')) || {};
         if (!config.mcpServers) config.mcpServers = {};
-      } catch {
-        config = { mcpServers: {} };
-      }
+      } catch { config = { mcpServers: {} }; }
     }
     Object.assign(config.mcpServers, servers);
     fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');

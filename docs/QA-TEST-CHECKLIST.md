@@ -571,6 +571,19 @@ npx aislop scan --changes
 | **6. Dark-Mode Legibility of Ninja's Soul Creed** | `pnpm --dir apps/web exec playwright test tests/e2e/feedback_ui_fixes.spec.js` | `html.theme-dark .gradient-text` updated with luminous accent stops; `Persona.svelte` creed title `Konohagakure Core Doctrine — Ninja's Soul` styled with high-contrast text-amber-500/dark:text-amber-400; verified visible, legible, and high-contrast in dark mode via Playwright. | `PASS` (verified legibility) |
 | **7. Stale In-Progress Task Lifecycle Reconciliation** | `node tests/test_stale_tasks_and_workspaces.js` & `Tasks.svelte` | `reconcileStaleTasks()` reconciles tasks whose active lease expired (> 30 min) to terminal `timed_out` status without modifying live active tasks; `Tasks.svelte` exposes `Reconcile Stale` button and `Timed Out (Stale)` status badge. | `PASS` (verified reconciliation) |
 
+---
+
+## Section 17: Package Modernization, RTK Installer Alignment & Hygiene QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Unbounded Semble Latest Package Integration** | `node tests/test_external_package_constants.js` & `node tests/test_verification_and_toolchain.js` | `SEMBLE_PACKAGE` updated to `semble[mcp]@latest`; unpinned from legacy `0.6.2`; verified 0.7.0 resolution on PyPI; all 8 MCP client configs updated across root and `apps/web`. | `PASS` (verified latest `semble[mcp]@latest`) |
+| **2. Unbounded Aislop Latest Package Integration** | `node tests/test_external_package_constants.js` & `src/semble_manager.js` | `AISLOP_PACKAGE` updated to `aislop@latest`; verified latest npm distribution (0.18.1+); all client templates and web configurations use `aislop@latest`. | `PASS` (verified latest `aislop@latest`) |
+| **3. Official RTK Latest Installer Integration** | `rtk --version` & `src/antigravity_manager.js` | RTK upgraded to `v1.1.0` via official installer script `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh \| sh`; manager includes `brew install rtk` fallback; legacy `--tag v0.51.0` pin excised. | `PASS` (verified `rtk 1.1.0`) |
+| **4. Stale Plan & Report Artifacts Removal** | `git status` & repo search | Stale plan `SKILLS_SECURITY_GUARDIAN_PLAN.md` and unused report `docs/SOCKET_SECURITY_AUDIT_REPORT.md` excised; working tree clean; 0 junk files. | `PASS` (excised clean) |
+| **5. Core Password Invariant & Release Author Integrity** | `tests/test_auth.js` | Bootstrap password remains strictly `konohagakure`; release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`. | `PASS` (invariants maintained) |
+
+
 
 
 

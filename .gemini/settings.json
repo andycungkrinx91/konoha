@@ -5,7 +5,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "semble[mcp]==0.6.2",
+        "semble[mcp]@latest",
         "semble",
         "--content",
         "all"
@@ -23,7 +23,7 @@
         "-y",
         "--prefer-offline",
         "-p",
-        "aislop@0.18.1",
+        "aislop@latest",
         "aislop-mcp"
       ],
       "autoApprove": [

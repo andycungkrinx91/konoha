@@ -1,7 +1,7 @@
 'use strict';
 
-const SEMBLE_PACKAGE = 'semble[mcp]==0.6.2';
-const AISLOP_PACKAGE = 'aislop@0.18.1';
+const SEMBLE_PACKAGE = 'semble[mcp]@latest';
+const AISLOP_PACKAGE = 'aislop@latest';
 
 const path = require('path');
 const os = require('os');

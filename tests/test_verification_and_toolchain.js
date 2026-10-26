@@ -27,9 +27,8 @@ test('Batch 4: npm run lint executes successfully with 0 errors across backend c
   assert.ok(res.stdout.includes('0 errors and 0 warnings'), 'Linter output must confirm 0 errors and 0 warnings');
 });
 
-test('Batch 4: SEMBLE_PACKAGE is pinned to immutable semver and does not use unpinned @latest', (t) => {
-  assert.strictEqual(SEMBLE_PACKAGE, 'semble[mcp]==0.6.2', 'SEMBLE_PACKAGE must be pinned to immutable 0.6.2 version');
-  assert.ok(!SEMBLE_PACKAGE.includes('@latest'), 'SEMBLE_PACKAGE must not use unpinned @latest');
+test('Batch 4: SEMBLE_PACKAGE uses latest unconstrained package spec', (t) => {
+  assert.strictEqual(SEMBLE_PACKAGE, 'semble[mcp]@latest', 'SEMBLE_PACKAGE must use latest version spec');
 });
 
 test('Batch 4: apps/web Playwright dependency is pinned hermetically', (t) => {

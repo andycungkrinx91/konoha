@@ -161,11 +161,11 @@ args = ["/home/<user>/.konoha/server.js"]
 
 [mcp_servers.semble]
 command = "uvx"
-args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
+args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
 
 [mcp_servers.aislop]
 command = "npx"
-args = ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
+args = ["-y", "-p", "aislop@latest", "aislop-mcp"]
 auto_approve = true
 
 [mcp_servers.aislop.tools.aislop_scan]
@@ -210,11 +210,11 @@ approval_mode = "auto"
     },
     "semble": {
       "command": "uvx",
-      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
+      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
     },
     "aislop": {
       "command": "npx",
-      "args": ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
+      "args": ["-y", "-p", "aislop@latest", "aislop-mcp"]
     }
   }
 }
@@ -250,12 +250,12 @@ approval_mode = "auto"
     "semble": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
+      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
     },
     "aislop": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
+      "args": ["-y", "-p", "aislop@latest", "aislop-mcp"]
     }
   }
 }

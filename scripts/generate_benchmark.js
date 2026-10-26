@@ -227,7 +227,7 @@ function generateBenchmarkMarkdown() {
     '| **Last 7 Days** | 261 | **~12.3M tokens** | 99% |',
     '| **All Time** | 3,200 | **~158.4M tokens** | 98% |',
     '',
-    '*Source: `uvx --from semble[mcp]==0.6.2 semble savings` (3.2k queries, 98% efficiency).*',
+    '*Source: `uvx --from semble[mcp]@latest semble savings` (3.2k queries, 98% efficiency).*',
     '',
     '---',
     '',

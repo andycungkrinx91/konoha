@@ -905,7 +905,7 @@ Return a validated, side-effect-free premium specification for Next.js, Nuxt 3, 
 
 ### semble — Semantic Code Search (default)
 
-The `semble` server provides AI-powered semantic code search across the entire codebase. Registered via `uvx --from semble[mcp]==0.6.2 semble`. **Use semble instead of built-in grep/glob/find or Cursor `Grep`/`Glob`/`SemanticSearch` for codebase discovery.**
+The `semble` server provides AI-powered semantic code search across the entire codebase. Registered via `uvx --from semble[mcp]@latest semble`. **Use semble instead of built-in grep/glob/find or Cursor `Grep`/`Glob`/`SemanticSearch` for codebase discovery.**
 
 > Semble by MinishLab — [@software{minishlab2026semble}](https://github.com/MinishLab/semble). Uses ~98% fewer tokens than grep+read.
 
