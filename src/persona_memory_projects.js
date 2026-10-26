@@ -8,7 +8,7 @@ const db = require('./db');
 let DB_PATH = db.DB_PATH;
 
 function getDefaultDbPath() {
-  return DB_PATH || db.DB_PATH;
+  return db.DB_PATH || DB_PATH;
 }
 
 function getDb(dbPath = null) {
@@ -146,7 +146,7 @@ function initMemoryTables(conn) {
   db.setupSchema(conn);
 }
 
-function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null, dbPath = DB_PATH) {
+function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null, dbPath = null) {
   if (!projectPath || !String(projectPath).trim()) {
     return "";
   }
@@ -215,7 +215,7 @@ function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null,
   }
 }
 
-function getProjectProfile(projectPathOrHash, dbPath = DB_PATH) {
+function getProjectProfile(projectPathOrHash, dbPath = null) {
   if (!projectPathOrHash || !String(projectPathOrHash).trim()) {
     return null;
   }
@@ -242,7 +242,7 @@ function getProjectProfile(projectPathOrHash, dbPath = DB_PATH) {
   }
 }
 
-function listProjects(limit = 50, dbPath = DB_PATH) {
+function listProjects(limit = 50, dbPath = null) {
   if (typeof limit === 'string' && (limit.includes('/') || limit.includes('\\') || limit.endsWith('.db'))) {
     dbPath = limit;
     limit = 50;
@@ -263,7 +263,7 @@ function listProjects(limit = 50, dbPath = DB_PATH) {
   }
 }
 
-function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPath = DB_PATH) {
+function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPath = null) {
   if (!projectPathOrHash) return false;
   const target = String(projectPathOrHash).trim();
   const pHash = (target.includes('/') || target.includes('\\') || fs.existsSync(target))
@@ -287,7 +287,7 @@ function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPat
   }
 }
 
-function pruneAllProjects(options = {}, dbPath = DB_PATH) {
+function pruneAllProjects(options = {}, dbPath = null) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);

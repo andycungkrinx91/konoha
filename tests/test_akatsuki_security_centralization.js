@@ -12,6 +12,8 @@
  * 6. Final delivery workflow integration and non-bypassability.
  */
 
+process.env.KONOHA_AKATSUKI_REDTEAM = '1';
+
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

@@ -657,6 +657,12 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
   const fused = reciprocalRankFusion([vecSkillNames, ftsSkillNames], 60);
   let candidateSkills = fused.slice(0, candidateK).map(x => x[0]);
   const cleanQ = query.trim().toLowerCase();
+  try {
+    const exactRow = conn.prepare("SELECT name FROM skills WHERE LOWER(name) = ? OR LOWER(skill_name) = ? ORDER BY CASE WHEN type = 'skill' THEN 0 ELSE 1 END LIMIT 1").get(cleanQ, cleanQ);
+    if (exactRow && exactRow.name) {
+      candidateSkills = [exactRow.name, ...candidateSkills.filter(s => s !== exactRow.name)];
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
   const exactIdx = candidateSkills.findIndex(s => s.toLowerCase() === cleanQ);
   if (exactIdx > 0) {
     const exactName = candidateSkills[exactIdx];

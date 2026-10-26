@@ -128,6 +128,33 @@ async function testSkillGuardian() {
     assert(fakeKageRes.findings.some(f => f.ruleId === 'REMOTE_CODE_EXECUTION_PIPE'), 'Must detect REMOTE_CODE_EXECUTION_PIPE on fake kage-skill line 109');
     console.log('✓ Fake third-party skill named kage-skill with payload on line 109 blocked (realpath & hash check enforced)');
 
+    // Test input URL & skill name validation
+    assert.throws(() => skillGuardian.validateSkillSourceTarget('file:///etc/passwd', 'valid-skill'), /scheme not permitted/);
+    assert.throws(() => skillGuardian.validateSkillSourceTarget('https://evil.com;rm -rf /', 'valid-skill'), /command injection/);
+    assert.throws(() => skillGuardian.validateSkillSourceTarget('https://github.com/foo/bar', '../traversal'), /path traversal/);
+    console.log('✓ URL and skill name validation rejects dangerous schemes and injections');
+
+    // Test environment sanitization
+    process.env.TEST_SECRET_KEY = 'supersecret';
+    process.env.TEST_GITHUB_TOKEN = 'ghp_fake';
+    const sanitizedEnv = skillGuardian.buildSanitizedEnvironment();
+    assert.strictEqual(sanitizedEnv.TEST_SECRET_KEY, undefined, 'Secret keys must not leak to child environment');
+    assert.strictEqual(sanitizedEnv.TEST_GITHUB_TOKEN, undefined, 'Tokens must not leak to child environment');
+    assert.strictEqual(sanitizedEnv.npm_config_ignore_scripts, 'true', 'npm_config_ignore_scripts must be enabled');
+    delete process.env.TEST_SECRET_KEY;
+    delete process.env.TEST_GITHUB_TOKEN;
+    console.log('✓ Environment sanitization strips secrets and blocks lifecycle scripts');
+
+    // Test binary executable disguised as text
+    const binarySkillDir = path.join(tmpBase, 'binary-payload-skill');
+    fs.mkdirSync(binarySkillDir, { recursive: true });
+    const elfHeader = Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00]);
+    fs.writeFileSync(path.join(binarySkillDir, 'SKILL.md'), elfHeader);
+    const binRes = skillGuardian.scanSkillDirectory(binarySkillDir, 'binary-payload-skill');
+    assert.strictEqual(binRes.verdict, 'block', 'Binary disguised as markdown must be blocked');
+    assert(binRes.findings.some(f => f.ruleId === 'BINARY_EXECUTABLE_PAYLOAD'), 'Must detect BINARY_EXECUTABLE_PAYLOAD');
+    console.log('✓ Binary executable disguised as markdown blocked');
+
     console.log('All test_skill_guardian checks passed successfully!');
   } finally {
     try {

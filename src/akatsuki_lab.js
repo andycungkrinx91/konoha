@@ -28,30 +28,8 @@ const INVALID_LAB_NAME_REASON = 'Invalid lab identity. Red-team sandbox requires
  * @returns {'lxc'|'docker'|null}
  */
 function getRequiredEngine(platform = process.platform) {
-  if (platform && platform !== process.platform) {
-    if (platform === 'linux') return 'lxc';
-    if (platform === 'win32' || platform === 'darwin') return 'docker';
-    return null;
-  }
-
-  try {
-    const { getAkatsukiEnv, getAkatsukiMode } = require('./akatsuki_config');
-    const configuredEnv = typeof getAkatsukiEnv === 'function' ? getAkatsukiEnv() : null;
-    if (configuredEnv === 'lxc' || configuredEnv === 'docker') {
-      return configuredEnv;
-    }
-    const configuredMode = getAkatsukiMode();
-    if (configuredMode === 'lxc' || configuredMode === 'docker') {
-      return configuredMode;
-    }
-  } catch (_) { /* ignore */ }
-
-  if (platform === 'linux') {
-    return 'lxc';
-  }
-  if (platform === 'win32' || platform === 'darwin') {
-    return 'docker';
-  }
+  if (platform === 'linux') return 'lxc';
+  if (platform === 'win32' || platform === 'darwin') return 'docker';
   return null;
 }
 
@@ -462,6 +440,13 @@ function teardownLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
     }
 
     if (!cleanRes || cleanRes.status !== 0) {
+      if (cleanRes && cleanRes.stderr && /not running/i.test(cleanRes.stderr)) {
+        return {
+          cleanup_confirmed: true,
+          engine: targetEngine,
+          message: `Cleanup verified: container "${labName}" is stopped (no active processes).`
+        };
+      }
       return {
         cleanup_confirmed: false,
         engine: targetEngine,

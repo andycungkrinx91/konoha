@@ -1,110 +1,12 @@
-| |/ /  / _ \ | \| | / _ \ | || |   / \
-| ' /  | | | || .` || | | || __ |  / _ \
-|_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
-Konoha — MCP Tools Orchestrator
-Token reduction: 83-98% via on-demand search
-Maintainer: Andy Setiyawan
+ϟ Web UI application installed to $HOME/.konoha/apps/web
+  ϟ Pre-built Web UI installed to $HOME/.konoha/apps/web/build (v2.2.8)
 
-📋 Konoha MCP Status
-════════════════════════════════════════════════════════════
-
-  Environment & Files:
-    ┌─────────────────────┬──────────┬───────────┬──────────────────────────────────────┐
-    │ Resource / Path     │ Status   │      Size │ Location                             │
-    ├─────────────────────┼──────────┼───────────┼──────────────────────────────────────┤
-    │ Python 3            │ ACTIVE   │         - │ Python 3.10.12                       │
-    │ Server File         │ EXISTS   │  147.1 KB │ ~/.konoha/server.py                  │
-    │ Migration Script    │ EXISTS   │   27.1 KB │ ~/.konoha/migrate.py                 │
-    │ Database File       │ EXISTS   │ 1904.0 KB │ ~/.konoha/skills.db                  │
-    │ MCP Configuration   │ EXISTS   │    1.0 KB │ ~/.gemini/config/mcp_config.json     │
-    │ GEMINI Instructions │ EXISTS   │   15.5 KB │ ~/.gemini/GEMINI.md                  │
-    │ AGENTS Definition   │ EXISTS   │   26.2 KB │ ~/.agents/AGENTS.md                  │
-    └─────────────────────┴──────────┴───────────┴──────────────────────────────────────┘
-
-  MCP Integrations:
-  1. 🔌 MCP Clients Configuration
-  Auto-setup bridges Konoha directly into IDE and CLI configuration files.
-
-  ✔ Antigravity IDE / CLI
-     Config Path: ~/.gemini/config/mcp_config.json
-     Status:      Healthy (Konoha MCP Registered)
-     Command:     cmd: node $HOME/.konoha/file_tools_launcher.js
-
-  ✔ Cursor IDE
-     Config Path: ~/.cursor/mcp.yaml
-     Status:      Healthy (Konoha MCP Registered)
-     Command:     cmd: node $HOME/.konoha/file_tools_launcher.js
-
-  ✔ Claude Code CLI
-     Config Path: ~/.claude.json
-     Status:      Healthy (Konoha MCP Registered)
-     Command:     cmd: node $HOME/.konoha/file_tools_launcher.js
-
-  ✔ OpenCode IDE
-     Config Path: ~/.opencode/config.json
-     Status:      Healthy (Konoha MCP Registered)
-     Command:     cmd: node $HOME/.konoha/file_tools_launcher.js
-
-  ✔ Command Code CLI
-     Config Path: ~/.commandcode/mcp.json
-     Status:      Healthy (Konoha MCP Registered)
-     Command:     cmd: node $HOME/.konoha/file_tools_launcher.js
-
-  Antigravity IDE/CLI Integrations:
-    • ~/.gemini/config/mcp_config.json [ ACTIVE     ] │ konoha + semble
-    • Antigravity MCP schemas        [ ACTIVE     ] │ 21 in ~/.gemini/antigravity-cli/mcp/konoha/
-    • Sanitize Hook config           [ ACTIVE     ] │ sanitize hooks active
-    • RTK (Token Killer)             [ ACTIVE     ] │ rtk binary available — rules deployed to antigravity-cl...
-
-  Cursor IDE/CLI Integrations:
-    • ~/.cursor/mcp.yaml             [ ACTIVE     ] │ konoha + semble
-    • Cursor skills                  [ ACTIVE     ] │ 14 in ~/.cursor/skills/ (mirrored from ~/.agents/skills/)
-    • CLI permissions                [ ACTIVE     ] │ MCP auto-allow configured
-    • sessionStart hook              [ ACTIVE     ] │ auto-bootstrap on session
-    • Project .cursor/               [ ACTIVE     ] │ mcp:yes skills:0 rule:yes
-    • RTK (Token Killer)             [ ACTIVE     ] │ rtk rule deployed to ~/.cursor/rules/
-
-  Claude Code Integrations:
-    • ~/.claude.json                 [ ACTIVE     ] │ konoha + semble
-    • RTK (Token Killer)             [ ACTIVE     ] │ rtk rule deployed to ~/.claude/rules/
-
-  OpenCode Integrations:
-    • ~/.opencode/config.json        [ ACTIVE     ] │ konoha + semble
-    • RTK (Token Killer)             [ ACTIVE     ] │ rtk rule deployed to ~/.opencode/rules/
-
-  Command Code Integrations:
-    • ~/.commandcode/mcp.json        [ ACTIVE     ] │ konoha + semble
-    • RTK (Token Killer)             [ ACTIVE     ] │ rtk rule deployed to ~/.commandcode/rules/
-    • GEMINI.md instructions         [ ACTIVE     ] │ skills-db active
-
-  Subagents (Naruto Ninja Ranks):
-    ┌────────────────────┬──────────────────────────────────────────────────┐
-    │ Rank / Name        │ Skills Configuration                             │
-    ├────────────────────┼──────────────────────────────────────────────────┤
-    │ ✧ Sannin           │ sannin-skill                                     │
-    │ ⚑ Genin            │ genin-skill                                      │
-    │ ◎ Kage             │ kage-skill, kage-skill/drawio-skill, kage-ski... │
-    │ ▫ Chunin           │ chunin-skill                                     │
-    │ ♦ Jonin            │ jonin-skill, jonin-skill/angular-code-expert,... │
-    │ ♠ Anbu             │ anbu-skill, anbu-skill/anthropic-cybersecurit... │
-    │ ⬡ Tokubetsu-jonin  │ tokubetsu-jonin-skill, tokubetsu-jonin-skill/... │
-    └────────────────────┴──────────────────────────────────────────────────┘
-
-  Database Stats:
-  ⚡ SQLite FTS5 database is healthy:
-    ┌──────────────────┬──────────────┐
-    │ Metric           │ Value        │
-    ├──────────────────┼──────────────┤
-    │ Total Entries    │ 48           │
-    │ Unique Skills    │ 10           │
-    │ Reference Files  │ 38           │
-    │ Indexed size     │ 428.8 KB     │
-    └──────────────────┴──────────────┘
-
-  Skills Directories:
-    ┌────────────────────────────────────────────────────┬────────────┐
-    │ Path                                               │ Count      │
-    ├────────────────────────────────────────────────────┼────────────┤
-    │ ~/.agents/skills                                   │ 8 skills   │
-    │ ~/experiment/portofolio/data/konoha/.agents/skills │ 8 skills   │
-    └────────────────────────────────────────────────────┴────────────┘
+[STDERR]
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)

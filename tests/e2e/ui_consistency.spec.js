@@ -29,7 +29,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
 
     for (const route of STANDARD_ROUTES) {
       await page.goto(`http://127.0.0.1:4173${route}`);
-      await page.waitForTimeout(300);
+      await page.locator('.console-content-container').waitFor({ state: 'visible', timeout: 15000 });
 
       const metrics = await page.evaluate(() => {
         const container = document.querySelector('.console-content-container');
@@ -94,7 +94,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
 
     for (const route of STANDARD_ROUTES) {
       await page.goto(`http://127.0.0.1:4173${route}`);
-      await page.waitForTimeout(300);
+      await page.locator('.glass-card-3d').first().waitFor({ state: 'visible', timeout: 15000 });
 
       const heroInfo = await page.evaluate(() => {
         const hero = document.querySelector('.glass-card-3d');

@@ -12,7 +12,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const BASELINE_PATH = path.join(ROOT, 'docs', 'architecture', 'TOKEN-BASELINE.md');
-const WORKFLOW_PATH = path.join(ROOT, 'src', 'mcp', 'workflow.js');
+const WORKFLOW_PATH = path.join(ROOT, 'src', 'mcp', 'workflow_runner.js');
 
 console.log('Running test_reconcile_presentation.js...');
 

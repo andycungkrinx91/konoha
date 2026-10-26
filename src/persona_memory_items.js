@@ -421,7 +421,7 @@ function listMemories(
   }
 }
 
-function deleteMemory(memoryId, dbPath = DB_PATH) {
+function deleteMemory(memoryId, dbPath = null) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
@@ -436,7 +436,7 @@ function deleteMemory(memoryId, dbPath = DB_PATH) {
   }
 }
 
-function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = DB_PATH) {
+function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = null) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);

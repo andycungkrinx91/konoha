@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_VERSION = '2.2.7';
+const CONTRACT_VERSION = '2.2.8';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 

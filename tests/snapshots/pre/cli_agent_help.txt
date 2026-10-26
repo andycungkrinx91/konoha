@@ -1,38 +1,8 @@
-👤 Konoha Subagent (Ninja) Management Help 👤
-  ========================================================================
-  An "Agent" (or Ninja) is a specialized AI assistant that handles specific tasks.
-  By splitting work among multiple subagents, we get better results at lower cost.
-  - @genin: Scout for read-only codebase reconnaissance & tracing code dependencies.
-  - @kage: Village Leader for high-level architecture decisions & security audits.
-  - @chunin: Intelligence researcher for looking up documentation and best practices.
-  - @jonin: Builder for high-quality frontend styling and component creation.
-  - @anbu: Black Ops backend developer for fixing bugs, API logic, and DevOps/CI-CD.
-  - @tokubetsu-jonin: Scribe for writing READMEs, API specs, and runbooks.
-  ========================================================================
+ϟ Web UI application installed to $HOME/.konoha/apps/web
+  ϟ Pre-built Web UI installed to $HOME/.konoha/apps/web/build (v2.2.8)
 
-USAGE
-  konoha agent <subcommand> [args]
-
-SUBCOMMANDS
-  list                        List all active agents and their skills.
-  create <agent-name> [options] Create a custom subagent manually.
-                              Options: --title, --purpose, --instructions, --keywords.
-  skill [agent-name]          Interactively toggle (embed or remove) a skill for an agent.
-  delete <agent-name>         Permanently delete/prune an agent and prune its historical statistics.
-  status                      View detailed call statistics (today, 7 days, all time) for subagents.
-
-EXAMPLES FOR BEGINNERS
-  1. View all configured agents in your village:
-     konoha agent list
-
-  2. Interactively teach @genin a new skill (toggle from list):
-     konoha agent skill genin
-
-  3. View subagent call frequency statistics:
-     konoha agent status
-
-  4. Permanently delete/prune an agent and clean up its database stats:
-     konoha agent delete name
-
-  6. Create a custom subagent manually:
-     konoha agent create my-agent --title "Special Agent" --purpose "Custom tasks" --instructions "Custom instructions" --keywords "my-agent"
+[STDERR]
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)

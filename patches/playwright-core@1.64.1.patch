@@ -1,0 +1,92 @@
+diff --git a/bin/reinstall_msedge_beta_win.ps1 b/bin/reinstall_msedge_beta_win.ps1
+index cce0d0bf70b15601f6878d3b37f08eb8d30ec844..f4f1e7c9aff862379e27d444e98a7a6ecea230ef 100644
+--- a/bin/reinstall_msedge_beta_win.ps1
++++ b/bin/reinstall_msedge_beta_win.ps1
+@@ -1,23 +1,3 @@
+ $ErrorActionPreference = 'Stop'
+-$url = $args[0]
+-
+-Write-Host "Downloading Microsoft Edge Beta"
+-$wc = New-Object net.webclient
+-$msiInstaller = "$env:temp\microsoft-edge-beta.msi"
+-$wc.Downloadfile($url, $msiInstaller)
+-
+-Write-Host "Installing Microsoft Edge Beta"
+-$arguments = "/i `"$msiInstaller`" /quiet"
+-Start-Process msiexec.exe -ArgumentList $arguments -Wait
+-Remove-Item $msiInstaller
+-
+-$suffix = "\\Microsoft\\Edge Beta\\Application\\msedge.exe"
+-if (Test-Path "${env:ProgramFiles(x86)}$suffix") {
+-    (Get-Item "${env:ProgramFiles(x86)}$suffix").VersionInfo
+-} elseif (Test-Path "${env:ProgramFiles}$suffix") {
+-    (Get-Item "${env:ProgramFiles}$suffix").VersionInfo
+-} else {
+-    Write-Host "ERROR: Failed to install Microsoft Edge Beta."
+-    Write-Host "ERROR: This could be due to insufficient privileges, in which case re-running as Administrator may help."
+-    exit 1
+-}
++Write-Host "Disabled: Microsoft Edge beta silent reinstallation has been neutralized for supply-chain security compliance."
++exit 0
+diff --git a/bin/reinstall_msedge_dev_win.ps1 b/bin/reinstall_msedge_dev_win.ps1
+index 22e6db84b8b183f843d550cfe700f8377c52cb86..a9d50cd762391f1bf40e30fea8296cca0e6dbb6d 100644
+--- a/bin/reinstall_msedge_dev_win.ps1
++++ b/bin/reinstall_msedge_dev_win.ps1
+@@ -1,23 +1,3 @@
+ $ErrorActionPreference = 'Stop'
+-$url = $args[0]
+-
+-Write-Host "Downloading Microsoft Edge Dev"
+-$wc = New-Object net.webclient
+-$msiInstaller = "$env:temp\microsoft-edge-dev.msi"
+-$wc.Downloadfile($url, $msiInstaller)
+-
+-Write-Host "Installing Microsoft Edge Dev"
+-$arguments = "/i `"$msiInstaller`" /quiet"
+-Start-Process msiexec.exe -ArgumentList $arguments -Wait
+-Remove-Item $msiInstaller
+-
+-$suffix = "\\Microsoft\\Edge Dev\\Application\\msedge.exe"
+-if (Test-Path "${env:ProgramFiles(x86)}$suffix") {
+-    (Get-Item "${env:ProgramFiles(x86)}$suffix").VersionInfo
+-} elseif (Test-Path "${env:ProgramFiles}$suffix") {
+-    (Get-Item "${env:ProgramFiles}$suffix").VersionInfo
+-} else {
+-    Write-Host "ERROR: Failed to install Microsoft Edge Dev."
+-    Write-Host "ERROR: This could be due to insufficient privileges, in which case re-running as Administrator may help."
+-    exit 1
+-}
++Write-Host "Disabled: Microsoft Edge dev silent reinstallation has been neutralized for supply-chain security compliance."
++exit 0
+diff --git a/bin/reinstall_msedge_stable_win.ps1 b/bin/reinstall_msedge_stable_win.ps1
+index 31fdf51386cccbad739c7ada79146c2693907366..8b338ac89e6fe27a9630ded2fb281edd4c3e5fdd 100644
+--- a/bin/reinstall_msedge_stable_win.ps1
++++ b/bin/reinstall_msedge_stable_win.ps1
+@@ -1,24 +1,3 @@
+ $ErrorActionPreference = 'Stop'
+-
+-$url = $args[0]
+-
+-Write-Host "Downloading Microsoft Edge"
+-$wc = New-Object net.webclient
+-$msiInstaller = "$env:temp\microsoft-edge-stable.msi"
+-$wc.Downloadfile($url, $msiInstaller)
+-
+-Write-Host "Installing Microsoft Edge"
+-$arguments = "/i `"$msiInstaller`" /quiet"
+-Start-Process msiexec.exe -ArgumentList $arguments -Wait
+-Remove-Item $msiInstaller
+-
+-$suffix = "\\Microsoft\\Edge\\Application\\msedge.exe"
+-if (Test-Path "${env:ProgramFiles(x86)}$suffix") {
+-    (Get-Item "${env:ProgramFiles(x86)}$suffix").VersionInfo
+-} elseif (Test-Path "${env:ProgramFiles}$suffix") {
+-    (Get-Item "${env:ProgramFiles}$suffix").VersionInfo
+-} else {
+-    Write-Host "ERROR: Failed to install Microsoft Edge."
+-    Write-Host "ERROR: This could be due to insufficient privileges, in which case re-running as Administrator may help."
+-    exit 1
+-}
+\ No newline at end of file
++Write-Host "Disabled: Microsoft Edge silent reinstallation has been neutralized for supply-chain security compliance."
++exit 0

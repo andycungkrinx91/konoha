@@ -147,7 +147,7 @@ async function run() {
       });
       assert.ok(agentMems.length >= 1);
       const block = personaMemory.formatProjectContextForPrompt(profileAll, agentMems, 2, true);
-      assert.ok(block.includes('Project Context Memory'));
+      assert.ok(block.includes('Persistent Project Context'));
       assert.ok(block.includes('Next.js'));
       assert.ok(block.includes('pnpm'));
     }

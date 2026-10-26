@@ -164,6 +164,127 @@ function spawnGatewayDaemon() {
   return child;
 }
 
+const BLOCKED_HOST_PATTERNS = [
+  /^169\.254\./,
+  /^metadata\.google\.internal$/i,
+  /^instance-data$/i,
+  /^100\.100\.100\.200$/,
+  /^fd00:/i,
+  /^fe80:/i,
+  /^::ffff:169\.254\./i
+];
+
+function validateBridgeTargetUrl(urlString) {
+  if (typeof urlString !== 'string' || !urlString.trim()) {
+    return { ok: false, reason: 'Empty or missing target URL' };
+  }
+  let parsed;
+  try {
+    parsed = new URL(urlString.trim());
+  } catch (err) {
+    return { ok: false, reason: `Malformed URL: ${err.message}` };
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, reason: `Disallowed protocol scheme "${parsed.protocol}"` };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  for (const pattern of BLOCKED_HOST_PATTERNS) {
+    if (pattern.test(hostname)) {
+      return { ok: false, reason: `Target host "${hostname}" blocked by SSRF protection policy` };
+    }
+  }
+
+  const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+  if (port < 80 || (port > 80 && port < 1024 && port !== 443)) {
+    return { ok: false, reason: `Target port ${port} is a restricted system port` };
+  }
+
+  return { ok: true, parsed };
+}
+
+function isAuthorizedRequest(req, sessionToken) {
+  if (!req) return false;
+  const webAuth = require('../../auth');
+  const sessionId = getClientSessionId(req);
+  if (sessionId && webAuth.getSession(sessionId)) return true;
+
+  const headerToken = req.headers['x-konoha-web-token'] ||
+    (typeof req.headers['authorization'] === 'string' ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
+  if (headerToken && headerToken === sessionToken) return true;
+
+  const cookieHeader = req.headers.cookie || '';
+  if (sessionToken && cookieHeader.split(';').some(c => c.trim() === `konoha-web-token=${sessionToken}`)) return true;
+
+  return false;
+}
+
+function discoverClientModels() {
+  const discovered = [], seenIds = new Set(), HOME = os.homedir();
+  try {
+    const ompDbPath = path.join(HOME, '.omp', 'agent', 'models.db');
+    if (fs.existsSync(ompDbPath)) {
+      const Database = require('../../sqlite_driver');
+      const ompConn = new Database(ompDbPath);
+      try {
+        const rows = ompConn.prepare('SELECT models FROM model_cache').all();
+        for (const row of rows) {
+          if (!row.models) continue;
+          try {
+            const list = JSON.parse(row.models);
+            if (Array.isArray(list)) {
+              for (const m of list) {
+                if (m && m.id && !seenIds.has(m.id)) {
+                  seenIds.add(m.id);
+                  discovered.push({ id: m.id, model_name: m.name || m.id, bridge: m.provider || 'omp', owned_by: m.provider || 'omp', source: 'client:omp' });
+                }
+              }
+            }
+          } catch (_) { /* ignore */ }
+        }
+      } finally { ompConn.close(); }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  try {
+    const claudeJsonPath = path.join(HOME, '.claude.json');
+    if (fs.existsSync(claudeJsonPath)) {
+      const data = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf8'));
+      if (data && typeof data === 'object') {
+        const cModels = data.models || data.customModels || [];
+        if (Array.isArray(cModels)) {
+          for (const m of cModels) {
+            const id = typeof m === 'string' ? m : (m && m.id);
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              discovered.push({ id, model_name: typeof m === 'object' && m.name ? m.name : id, bridge: 'claude', owned_by: 'claude', source: 'client:claude' });
+            }
+          }
+        }
+      }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  try {
+    const opencodePath = path.join(HOME, '.config', 'opencode', 'opencode.json');
+    if (fs.existsSync(opencodePath)) {
+      const data = JSON.parse(fs.readFileSync(opencodePath, 'utf8'));
+      if (data && Array.isArray(data.models)) {
+        for (const m of data.models) {
+          const id = typeof m === 'string' ? m : (m && m.id);
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            discovered.push({ id, model_name: id, bridge: 'opencode', owned_by: 'opencode', source: 'client:opencode' });
+          }
+        }
+      }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  return discovered;
+}
+
 module.exports = {
   MAX_BODY_BYTES,
   sendJson,
@@ -173,5 +294,8 @@ module.exports = {
   getTrustedClientIp,
   getClientSessionId,
   isBrowserClient,
-  spawnGatewayDaemon
+  spawnGatewayDaemon,
+  validateBridgeTargetUrl,
+  isAuthorizedRequest,
+  discoverClientModels
 };

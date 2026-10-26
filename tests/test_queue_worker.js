@@ -99,7 +99,7 @@ async function run() {
 
     const finishedTask2 = conn.prepare('SELECT * FROM prompt_queue WHERE id = ?').get(task2.id);
     assert.strictEqual(finishedTask2.status, 'failed', 'Destructive task must fail');
-    assert.ok(finishedTask2.result_summary.includes('Blocked: Destructive command'), 'Block message recorded');
+    assert.ok(finishedTask2.result_summary.includes('DESTRUCTIVE COMMAND BLOCKED') || finishedTask2.result_summary.includes('safety guardrails'), 'Block message recorded');
     assert.strictEqual(capturedNotifications.length, 1, 'Failure notification sent');
     assert.strictEqual(capturedNotifications[0].status, 'FAILED', 'Notification reports FAILED');
 

@@ -1,3 +1,12 @@
+ϟ Web UI application installed to $HOME/.konoha/apps/web
+  ϟ Pre-built Web UI installed to $HOME/.konoha/apps/web/build (v2.2.8)
+
 Served Models via Proxy Gateway
 ════════════════════════════════════════════════════════════
   No enabled bridges found.
+
+[STDERR]
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)

@@ -1,6 +1,6 @@
 ✨ Konoha Version
 ════════════════════════════════════════════════════════════
-  Current Version:  2.2.7
+  Current Version:  2.2.8
 
   › Checking for latest release from npm registry...
-  ✓ You are already running the latest version of Konoha (2.2.7).
+  ✓ You are already running the latest version of Konoha (2.2.8).

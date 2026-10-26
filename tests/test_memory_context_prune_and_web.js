@@ -49,6 +49,7 @@ async function run() {
   console.log('Running test_memory_context_prune_and_web tests...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mem_prune_test_'));
   const testDbPath = path.join(tmpDir, 'test_konoha.db');
+  process.env.KONOHA_DB_PATH = testDbPath;
   personaMemory.DB_PATH = testDbPath;
   db.DB_PATH = testDbPath;
 

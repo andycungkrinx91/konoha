@@ -1,25 +1,12 @@
-› Konoha data
+ϟ Web UI application installed to $HOME/.konoha/apps/web
+  ϟ Pre-built Web UI installed to $HOME/.konoha/apps/web/build (v2.2.8)
 
-konoha data — Manage SQLite active session history and database size
-
-USAGE
-  konoha data <subcommand>
-
-SUBCOMMANDS
-  view      📊 See how much disk size and records are in your database knowledge data.
-  prune     🧹 Clean up old active sessions and usage logs, then vacuum disk space.
-  export    📤 Export indexed skills and database knowledge into a Markdown report.
-  vacuum    ⚡ Defragment and compress SQLite database file directly.
-
-EXAMPLES
-  1. View current database statistics:
-     konoha data view
-
-  2. Prune usage logs and clean database free space:
-     konoha data prune
-
-  3. Export skills database to a Markdown persona file:
-     konoha data export
-
-  4. Defragment and compress database size directly:
-     konoha data vacuum
+[STDERR]
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)
+✓ Generated and deployed configs to:
+  - $HOME/.cursor/agents
+  - $HOME/.gemini/antigravity-cli/agents
+  - $HOME/.claude.yaml (Claude Code)

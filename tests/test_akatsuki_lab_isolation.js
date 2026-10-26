@@ -17,6 +17,8 @@
  * 10. Akatsuki Security Final Gate enforcement of sandbox evidence and cleanup proof.
  */
 
+process.env.KONOHA_AKATSUKI_REDTEAM = '1';
+
 const assert = require('assert');
 const path = require('path');
 

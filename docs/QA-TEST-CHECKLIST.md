@@ -583,6 +583,22 @@ npx aislop scan --changes
 | **4. Stale Plan & Report Artifacts Removal** | `git status` & repo search | Stale plan `SKILLS_SECURITY_GUARDIAN_PLAN.md` and unused report `docs/SOCKET_SECURITY_AUDIT_REPORT.md` excised; working tree clean; 0 junk files. | `PASS` (excised clean) |
 | **5. Core Password Invariant & Release Author Integrity** | `tests/test_auth.js` | Bootstrap password remains strictly `konohagakure`; release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`. | `PASS` (invariants maintained) |
 
+---
+
+## Section 18: v2.2.8 Supply-Chain Remediation, SSRF Defense & Dependency Modernization QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. SheetJS Anomalous Seed Neutralization (`cfb.js`)** | `pnpm patch` -> `patches/cfb@1.2.2.patch` | Neutralized internal `\u0001Sh33tJ5` seed entry in Compound File Binary structure; eliminated anomalous supply-chain tampering indicators; verified with `xlsx-populate` spreadsheet generation. | `PASS` (verified neutralized) |
+| **2. Stream Modernization & `core-util-is` Elimination** | `pnpm why core-util-is` & `pnpm why readable-stream` | Overrode `readable-stream` to `^4.7.0` (4.8.0) across `package.json` overrides and resolutions; completely eliminated unmaintained legacy `core-util-is@1.0.3` from dependency tree; verified DOCX, XLSX, and PPTX document engines operate with 0 errors. | `PASS` (verified eliminated) |
+| **3. Neutralization of Untrusted Edge Reinstall Scripts** | `patches/playwright-core@1.64.1.patch` | Excised silent MSI downloader scripts `reinstall_msedge_*_win.ps1` from `playwright-core`; neutralized arbitrary download and execution vectors; verified with Playwright test runner. | `PASS` (verified neutralized) |
+| **4. Removal of Unused `@socketregistry/assert` Override** | `grep -rn "@socketregistry/assert" package.json` | Removed unused `@socketregistry/assert` override from `pnpm.overrides` and `overrides`; verified dependency tree integrity. | `PASS` (removed clean) |
+| **5. Hardened Skill Guardian Environment & Ingress Controls** | `node tests/test_skill_guardian.js` | Added `validateSkillSourceTarget` (rejects `file:`, `ssh:`, `data:`, command injection metacharacters, and path traversal in skill names) and `buildSanitizedEnvironment` (strips all API keys, tokens, and secrets before spawning network-sourced CLIs; enforces `npm_config_ignore_scripts=true`); added binary executable payload detection (`BINARY_EXECUTABLE_PAYLOAD`). | `PASS` (all 14 guardian checks pass) |
+| **6. SSRF Protection & Endpoint Authorization** | `src/web/controllers/common.js` & `core_controller.js` | Implemented `validateBridgeTargetUrl` blocking AWS/GCP/Azure cloud metadata (`169.254.169.254`, `metadata.google.internal`), link-local IPs, and restricted system ports; enforced session/token authorization on `/api/v1/system/metrics` and gateway lifecycle routes (`/api/v1/bridges/gateway/*`). | `PASS` (verified SSRF boundary) |
+| **7. Isolated `/tmp/` Directory Full Lifecycle Verification** | `npm pack` -> `/tmp/konoha-iso-test-228` | Tarball `konoha-mcp-2.2.8.tgz` packed and installed in clean isolated environment; verified `konoha -v` reports 2.2.8; `konoha doctor` auto-repaired and verified all 46 tools, SQLite DB, and MCP protocols; cleaned up completely. | `PASS` (100% verified in isolation) |
+| **8. Playwright Web UI E2E Regression Suite** | `playwright test` (49 tests across 13 specs) | 49/49 Playwright browser tests passed across login, dialogs, theme switcher (all 10 themes), gauges, navigation, search, and layout consistency. | `PASS` (49/49 tests passed) |
+| **9. Script Line Count Budget & Anti-Slop Audit** | `wc -l` & `rtk npx aislop scan --changes` | All modified files strictly <= 700 lines (`core_controller.js` 632L, `skill_guardian.js` 565L, `common.js` 301L, `antigravity_manager.js` 693L); `npx aislop` scored 100/100 Healthy with 0 errors and 0 warnings. | `PASS` (100/100 Healthy) |
+
 
 
 

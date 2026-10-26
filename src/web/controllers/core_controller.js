@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { URL } = require('url');
 const db = require('../../db');
 const dbBridges = require('../../db_bridges');
 const dbSavings = require('../../db_savings');
@@ -18,90 +17,11 @@ const {
   parseBody,
   getClientSessionId,
   isClientConfigured,
-  spawnGatewayDaemon
+  spawnGatewayDaemon,
+  validateBridgeTargetUrl,
+  isAuthorizedRequest,
+  discoverClientModels
 } = require('./common');
-
-function discoverClientModels() {
-  const discovered = [];
-  const seenIds = new Set();
-  const HOME = os.homedir();
-
-  try {
-    const ompDbPath = path.join(HOME, '.omp', 'agent', 'models.db');
-    if (fs.existsSync(ompDbPath)) {
-      const Database = require('../../sqlite_driver');
-      const ompConn = new Database(ompDbPath);
-      try {
-        const rows = ompConn.prepare('SELECT models FROM model_cache').all();
-        for (const row of rows) {
-          if (!row.models) continue;
-          try {
-            const list = JSON.parse(row.models);
-            if (Array.isArray(list)) {
-              for (const m of list) {
-                if (m && m.id && !seenIds.has(m.id)) {
-                  seenIds.add(m.id);
-                  discovered.push({
-                    id: m.id,
-                    model_name: m.name || m.id,
-                    bridge: m.provider || 'omp',
-                    owned_by: m.provider || 'omp',
-                    source: 'client:omp'
-                  });
-                }
-              }
-            }
-          } catch (_) { /* ignore */ }
-        }
-      } finally {
-        ompConn.close();
-      }
-    }
-  } catch (_) { /* non-fatal best effort */ }
-
-  try {
-    const claudeJsonPath = path.join(HOME, '.claude.json');
-    if (fs.existsSync(claudeJsonPath)) {
-      const data = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf8'));
-      if (data && typeof data === 'object') {
-        const cModels = data.models || data.customModels || [];
-        if (Array.isArray(cModels)) {
-          for (const m of cModels) {
-            const id = typeof m === 'string' ? m : (m && m.id);
-            if (id && !seenIds.has(id)) {
-              seenIds.add(id);
-              discovered.push({
-                id,
-                model_name: typeof m === 'object' && m.name ? m.name : id,
-                bridge: 'claude',
-                owned_by: 'claude',
-                source: 'client:claude'
-              });
-            }
-          }
-        }
-      }
-    }
-  } catch (_) { /* non-fatal best effort */ }
-
-  try {
-    const opencodePath = path.join(HOME, '.config', 'opencode', 'opencode.json');
-    if (fs.existsSync(opencodePath)) {
-      const data = JSON.parse(fs.readFileSync(opencodePath, 'utf8'));
-      if (data && Array.isArray(data.models)) {
-        for (const m of data.models) {
-          const id = typeof m === 'string' ? m : (m && m.id);
-          if (id && !seenIds.has(id)) {
-            seenIds.add(id);
-            discovered.push({ id, model_name: id, bridge: 'opencode', owned_by: 'opencode', source: 'client:opencode' });
-          }
-        }
-      }
-    }
-  } catch (_) { /* non-fatal best effort */ }
-
-  return discovered;
-}
 
 async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
   const { port, host, sessionToken, systemMetrics, broadcastEvent, isRemote } = ctx;
@@ -164,6 +84,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
   }
 
   if (method === 'GET' && pathname === '/api/v1/system/metrics') {
+    const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress);
+    if (!isLoopback && !isAuthorizedRequest(req, sessionToken)) {
+      return sendJson(res, 401, { error: 'Unauthorized: Authentication required to view system metrics' });
+    }
     const cpuCount = os.cpus().length;
     const cpuModel = (os.cpus()[0] && os.cpus()[0].model || '').trim();
     const loadAvg = os.platform() === 'win32' ? null : os.loadavg();
@@ -367,6 +291,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
       if (!body.name || !body.port || !body.provider) {
         return sendJson(res, 400, { error: 'Missing required fields: name, port, provider' });
       }
+      if (body.target_url) {
+        const check = validateBridgeTargetUrl(body.target_url);
+        if (!check.ok) return sendJson(res, 400, { error: check.reason });
+      }
       dbBridges.upsertBridge({
         name: body.name,
         port: parseInt(body.port, 10),
@@ -389,6 +317,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
       if (typeof body.enabled === 'boolean') {
         dbBridges.setEnabled(bridgeName, body.enabled);
       } else {
+        if (body.target_url) {
+          const check = validateBridgeTargetUrl(body.target_url);
+          if (!check.ok) return sendJson(res, 400, { error: check.reason });
+        }
         dbBridges.upsertBridge({
           name: bridgeName,
           port: parseInt(body.port, 10),
@@ -455,8 +387,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
           if (targetPath.endsWith('/v1')) targetPath = targetPath + '/models';
           else targetPath = targetPath + '/v1/models';
         }
+        const check = validateBridgeTargetUrl(targetPath);
+        if (!check.ok) return { bridge: bridge.name, data: [] };
         try {
-          const parsed = new URL(targetPath);
+          const parsed = check.parsed;
           const mod = parsed.protocol === 'https:' ? require('https') : require('http');
           const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
           const headers = {};
@@ -523,6 +457,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
   }
 
   if (method === 'POST' && pathname === '/api/v1/bridges/gateway/start') {
+    const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress);
+    if (!isLoopback && !isAuthorizedRequest(req, sessionToken)) {
+      return sendJson(res, 401, { error: 'Unauthorized: Authentication required for gateway lifecycle' });
+    }
     try {
       const alreadyRunning = await checkPortActive(19999);
       if (alreadyRunning) {
@@ -538,6 +476,10 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
   }
 
   if (method === 'POST' && pathname === '/api/v1/bridges/gateway/stop') {
+    const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress);
+    if (!isLoopback && !isAuthorizedRequest(req, sessionToken)) {
+      return sendJson(res, 401, { error: 'Unauthorized: Authentication required for gateway lifecycle' });
+    }
     try {
       const pidFile = path.join(SKILLS_DB_DIR, 'bridge.pid');
       if (fs.existsSync(pidFile)) {

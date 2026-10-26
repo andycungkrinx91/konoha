@@ -124,13 +124,68 @@ function createBlockVerdict(skillName, ruleId, message, scannedCount = 0) {
   };
 }
 
+function validateSkillSourceTarget(repoUrl, skillName) {
+  if (typeof repoUrl !== 'string' || !repoUrl.trim()) {
+    throw new Error('Invalid skill source URL: repository source URL is required');
+  }
+  const cleanUrl = repoUrl.trim();
+  if (cleanUrl.startsWith('-')) {
+    throw new Error(`Invalid skill source URL: option injection detected: "${cleanUrl}"`);
+  }
+  if (/[;&|`$\r\n]/.test(cleanUrl)) {
+    throw new Error(`Invalid skill source URL: command injection characters detected: "${cleanUrl}"`);
+  }
+  if (/^(?:javascript|file|data|gopher|ssh|ftp):/i.test(cleanUrl)) {
+    throw new Error(`Invalid skill source URL: protocol scheme not permitted: "${cleanUrl}"`);
+  }
+
+  if (typeof skillName !== 'string' || !skillName.trim()) {
+    throw new Error('Invalid skill name: skill name is required');
+  }
+  const cleanName = skillName.trim();
+  if (cleanName.startsWith('-') || /[;&|`$\r\n\\/\0]/.test(cleanName) || cleanName.includes('..')) {
+    throw new Error(`Invalid skill name: disallowed characters or path traversal: "${cleanName}"`);
+  }
+  return { valid: true, cleanUrl, cleanName };
+}
+
+function buildSanitizedEnvironment() {
+  const allowedKeys = new Set([
+    'PATH', 'Path', 'PATHEXT', 'HOME', 'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE',
+    'TMP', 'TEMP', 'TMPDIR', 'SYSTEMROOT', 'SystemRoot', 'COMSPEC', 'SHELL',
+    'LANG', 'LC_ALL', 'TERM', 'NODE', 'NODE_EXE'
+  ]);
+  const sanitized = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (allowedKeys.has(k) || allowedKeys.has(k.toUpperCase())) {
+      if (/token|secret|key|pass|cred|auth|bearer|aws_|github_|openai_|anthropic_|gemini_/i.test(k)) continue;
+      sanitized[k] = v;
+    }
+  }
+  sanitized.npm_config_ignore_scripts = 'true';
+  sanitized.npm_config_audit = 'false';
+  sanitized.PNPM_SCRIPTS = 'false';
+  sanitized.NODE_OPTIONS = '';
+  return sanitized;
+}
+
 function readFileContentSafely(filePath, relativePath) {
   try {
     const stat = fs.statSync(filePath);
     if (stat.size > 2 * 1024 * 1024) {
       return { finding: createFinding('LARGE_UNINSPECTED_FILE', 'medium', 15, relativePath, 0, 'File exceeds 2MB size cap') };
     }
-    return { content: fs.readFileSync(filePath, 'utf8') };
+    const buf = fs.readFileSync(filePath);
+    if (buf.length >= 4) {
+      const isElf = buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46;
+      const isPe = buf[0] === 0x4d && buf[1] === 0x5a;
+      const isMacho = (buf[0] === 0xfe && buf[1] === 0xed && buf[2] === 0xfa && (buf[3] === 0xce || buf[3] === 0xcf)) ||
+                      (buf[0] === 0xcf && buf[1] === 0xfa && buf[2] === 0xed && buf[3] === 0xfe);
+      if (isElf || isPe || isMacho) {
+        return { finding: createFinding('BINARY_EXECUTABLE_PAYLOAD', 'critical', 100, relativePath, 1, 'Compiled binary executable payload detected in skill package') };
+      }
+    }
+    return { content: buf.toString('utf8') };
   } catch (err) {
     return { finding: createFinding('UNREADABLE_FILE', 'medium', 20, relativePath, 0, `Unreadable: ${err.message}`) };
   }
@@ -398,16 +453,18 @@ function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
 }
 
 async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
+  const { cleanUrl, cleanName } = validateSkillSourceTarget(repoUrl, skillName);
+  const targetUrl = cleanUrl;
+  const targetName = cleanName;
   const stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_guardian_staging_'));
   const isWin = process.platform === 'win32';
   const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
-  const deployUtils = require('./deploy_utils');
-  const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
+  const childEnv = buildSanitizedEnvironment();
 
   try {
-    process.stderr.write(`🛡️  Guardian: staging skill "${skillName}" in isolated sandbox...\n`);
+    process.stderr.write(`🛡️  Guardian: staging skill "${targetName}" in isolated sandbox...\n`);
 
-    const run = await runAsyncSpawn(pnpmCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], {
+    const run = await runAsyncSpawn(pnpmCmd, ['dlx', 'skills', 'add', targetUrl, '--skill', targetName, '-y', '--agent', '*'], {
       cwd: stagingRoot,
       shell: isWin,
       env: childEnv
@@ -419,10 +476,10 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
     }
 
     const possiblePaths = [
-      path.join(stagingRoot, '.agents', 'skills', skillName),
-      path.join(stagingRoot, '.cursor', 'skills', skillName),
-      path.join(stagingRoot, 'skills', skillName),
-      path.join(stagingRoot, skillName)
+      path.join(stagingRoot, '.agents', 'skills', targetName),
+      path.join(stagingRoot, '.cursor', 'skills', targetName),
+      path.join(stagingRoot, 'skills', targetName),
+      path.join(stagingRoot, targetName)
     ];
 
     let stagedPath = null;
@@ -470,6 +527,7 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
     process.stderr.write(`✓ Guardian: skill "${skillName}" passed security audit (Risk score: ${scanResult.score}/100 <= ${GUARDIAN_THRESHOLD}).\n`);
 
     const { AGENTS } = require('../bin/lib/paths');
+    const deployUtils = require('./deploy_utils');
     const execCwd = (options && options.projectRoot) || process.cwd();
     const liveTargetDir = path.join(execCwd, '.agents', 'skills', skillName);
 
@@ -501,5 +559,7 @@ module.exports = {
   DANGEROUS_PATTERNS,
   scanSkillDirectory,
   installSkillWithGuardian,
-  recordGuardianFindingToKnowledge
+  recordGuardianFindingToKnowledge,
+  validateSkillSourceTarget,
+  buildSanitizedEnvironment
 };
