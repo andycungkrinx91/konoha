@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.8",
+  "version": "2.2.9",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -28,7 +28,6 @@
   "files": [
     "bin/",
     "src/",
-    "patches/",
     "apps/web/build/",
     "apps/web/package.json",
     "assets/",
@@ -140,7 +139,8 @@
       "typedarray.prototype.slice": "npm:@socketregistry/typedarray.prototype.slice@1.0.7",
       "unbox-primitive": "npm:@socketregistry/unbox-primitive@1.0.8",
       "uuid": ">=11.1.1",
-      "readable-stream": "^4.7.0",
+      "readable-stream": "^3.6.2",
+      "abort-controller": "npm:node-abort-controller@^3.1.1",
       "which-boxed-primitive": "npm:@socketregistry/which-boxed-primitive@1.0.8",
       "which-collection": "npm:@socketregistry/which-collection@1.0.7",
       "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8",
@@ -219,7 +219,8 @@
     "typedarray.prototype.slice": "npm:@socketregistry/typedarray.prototype.slice@1.0.7",
     "unbox-primitive": "npm:@socketregistry/unbox-primitive@1.0.8",
     "uuid": ">=11.1.1",
-    "readable-stream": "^4.7.0",
+    "readable-stream": "^3.6.2",
+    "abort-controller": "npm:node-abort-controller@^3.1.1",
     "which-boxed-primitive": "npm:@socketregistry/which-boxed-primitive@1.0.8",
     "which-collection": "npm:@socketregistry/which-collection@1.0.7",
     "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8"
@@ -284,10 +285,7 @@
     "which-boxed-primitive": "npm:@socketregistry/which-boxed-primitive@1.0.8",
     "which-collection": "npm:@socketregistry/which-collection@1.0.7",
     "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8",
-    "readable-stream": "^4.7.0"
-  },
-  "devDependencies": {
-    "@napi-rs/canvas": "^1.0.13",
-    "gifenc": "^1.0.3"
+    "readable-stream": "^3.6.2",
+    "abort-controller": "npm:node-abort-controller@^3.1.1"
   }
 }

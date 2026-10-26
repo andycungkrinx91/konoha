@@ -89,9 +89,18 @@ async function run() {
     const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
     assert.ok(gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must contain Start Konoha marker');
     assert.ok(gitignoreText.includes('.agents'), '.gitignore must contain .agents');
+    assert.ok(gitignoreText.includes('.claude*'), '.gitignore must contain .claude*');
+    assert.ok(gitignoreText.includes('.commandcode*'), '.gitignore must contain .commandcode*');
+    assert.ok(gitignoreText.includes('.cursor*'), '.gitignore must contain .cursor*');
     assert.ok(gitignoreText.includes('.cursorrules*'), '.gitignore must contain .cursorrules*');
+    assert.ok(gitignoreText.includes('.gemini*'), '.gitignore must contain .gemini*');
+    assert.ok(gitignoreText.includes('.omp*'), '.gitignore must contain .omp*');
+    assert.ok(gitignoreText.includes('AGENTS.md'), '.gitignore must contain AGENTS.md');
+    assert.ok(gitignoreText.includes('CLAUDE.md'), '.gitignore must contain CLAUDE.md');
+    assert.ok(gitignoreText.includes('GEMINI.md'), '.gitignore must contain GEMINI.md');
     assert.ok(gitignoreText.includes('## End Konoha config+skill'), '.gitignore must contain End Konoha marker');
     assert.ok(dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must contain Start Konoha marker');
+    assert.ok(dockerignoreText.includes('.agents'), '.dockerignore must contain .agents');
     assert.ok(dockerignoreText.includes('## End Konoha config+skill'), '.dockerignore must contain End Konoha marker');
 
     // Assert core konoha root is excluded from consumer ignore block

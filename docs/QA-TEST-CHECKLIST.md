@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.8). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.9). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.8`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.9`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -599,6 +599,21 @@ npx aislop scan --changes
 | **8. Playwright Web UI E2E Regression Suite** | `playwright test` (49 tests across 13 specs) | 49/49 Playwright browser tests passed across login, dialogs, theme switcher (all 10 themes), gauges, navigation, search, and layout consistency. | `PASS` (49/49 tests passed) |
 | **9. Script Line Count Budget & Anti-Slop Audit** | `wc -l` & `rtk npx aislop scan --changes` | All modified files strictly <= 700 lines (`core_controller.js` 632L, `skill_guardian.js` 565L, `common.js` 301L, `antigravity_manager.js` 693L); `npx aislop` scored 100/100 Healthy with 0 errors and 0 warnings. | `PASS` (100/100 Healthy) |
 | **10. Flow Diagrams, Web UI Demo & Documentation Currency** | `node scripts/generate_tokubetsu_flow_webp.js` & `node scripts/generate_web_demo_gif.js` | Regenerated all 6 canonical Tokubetsu-Jonin animated flow diagrams (`konoha-orchestration-flow.webp`, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`) and `assets/demo-web.webp` with `v2.2.8` badges; synchronized all docs and client rules to `2.2.8`. | `PASS` (100% verified currency) |
+
+---
+
+## Section 19: v2.2.9 Supply-Chain Hardening, Edge Script Removal, Socket.dev & Gitignore Synchronization QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Consumer Workspace Gitignore & Dockerignore Sync** | `node tests/test_cli_project_commands.js` | Verified automated injection of `## Start Konoha config+skill ... ## End Konoha config+skill` containing `.agents`, `.claude*`, `.commandcode*`, `.cursor*`, `.cursorrules*`, `.gemini*`, `.omp*`, `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` into consumer `.gitignore` and `.dockerignore`. | `PASS` (verified synced) |
+| **2. Playwright Edge Reinstall PowerShell Scripts Removal** | `patches/playwright-core@1.64.1.patch` & directory check | Completely excised `reinstall_msedge_*_win.ps1` from `playwright-core` patches; verified 0 powershell reinstall scripts remain in repository. | `PASS` (excised clean) |
+| **3. SheetJS Anomalous Seed Marker Neutralization Verification** | `node tests/test_document_tools.js` | Verified `cfb` patch neutralizes `\u0001Sh33tJ5` marker; verified XLSX spreadsheet creation and encryption routines pass with 0 errors. | `PASS` (verified neutralized) |
+| **4. Maintained Abort-Controller & Zero Vulnerability Stack** | `pnpm why abort-controller` & `node tests/test_document_tools.js` | Replaced unmaintained `abort-controller@3.0.0` with maintained `node-abort-controller@^3.1.1` and `readable-stream@^3.6.2`; verified 0 vulnerability alerts on socket CLI. | `PASS` (verified maintained) |
+| **5. Socket.dev Policy Configuration (`socket.yml`)** | `rtk socket fix --no-apply-fixes .` | Configured `socket.yml` with version 2, ignoring non-production directories (`patches/**`, `tests/**`, `docs/**`, `assets/**`) and suppressing benign OpenXML schema URL warnings. | `PASS` (policy verified) |
+| **6. File Line Count Budget & Zero-Slop Verification** | `wc -l` & `rtk npx aislop scan --changes` | All modified and new files strictly <= 700 lines; `npx aislop` scored 100/100 Healthy with 0 errors, 0 warnings, and 0 slop comments. | `PASS` (100/100 Healthy) |
+| **7. Isolated `/tmp/` Directory Full Lifecycle Verification** | `npm pack` -> `/tmp/konoha-iso-test-229` | Tarball `konoha-mcp-2.2.9.tgz` packed and verified in clean isolated environment; verified `konoha -v` reports 2.2.9; clean teardown. | `PASS` (100% verified in isolation) |
+| **8. Author & Default Password Invariant** | `git config` & `tests/test_auth.js` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password strictly `konohagakure`. | `PASS` (invariants maintained) |
 
 
 

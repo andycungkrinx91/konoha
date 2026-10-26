@@ -2,6 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.9] - 2026-10-26
+
+### Supply-Chain Hardening, Edge Script Removal, Socket.dev Integration & Gitignore Fixes
+
+- **Consumer Gitignore & Dockerignore Complete Synchronization**: Updated `src/agent_deployer.js` to automatically inject and maintain the full managed block (`## Start Konoha config+skill ... ## End Konoha config+skill`) with all client config entries (`.agents`, `.claude*`, `.commandcode*`, `.cursor*`, `.cursorrules*`, `.gemini*`, `.omp*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) into consumer projects on project deployment and update.
+- **Excised Playwright Edge Reinstall PowerShell Scripts**: Completely removed `bin/reinstall_msedge_beta_win.ps1`, `bin/reinstall_msedge_dev_win.ps1`, and `bin/reinstall_msedge_stable_win.ps1` from `playwright-core` patches, eliminating unverified remote MSI downloader vectors permanently.
+- **Maintained Abort-Controller & Stream Modernization**: Overrode `readable-stream` to `^3.6.2` and resolved `abort-controller` to zero-vulnerability, maintained `node-abort-controller@^3.1.1` across `package.json` overrides and resolutions.
+- **Socket.dev Repository Policy Configuration**: Added repository-level `socket.yml` policy file scoping scanner ignore paths (`patches/**`, `tests/**`, `docs/**`, `assets/**`) and disabling benign OpenXML schema URL alerts.
+- **Repository Hygiene & Manifest Invariants**: Purged unused development dependencies (`@napi-rs/canvas`, `gifenc`) from root `package.json`, maintained strict 0-devDependency invariant, and verified all core files remain strictly <= 700 lines.
+
 ## [2.2.8] - 2026-10-26
 
 ### Supply-Chain Security Hardening, SSRF Protection & Dependency Modernization

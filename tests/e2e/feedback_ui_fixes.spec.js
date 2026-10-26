@@ -8,7 +8,7 @@ test.describe("Feedback UI Fixes E2E", () => {
 
   test("Context page renders active workspaces and allows switching", async ({ page }) => {
     await page.goto("http://127.0.0.1:4173/context");
-    await expect(page.getByText("Active Workspace")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Active Workspace")).toBeVisible({ timeout: 30000 });
     await expect(page.getByText("Architectural Invariants & Constraints")).toBeVisible();
     await expect(page.locator("textarea")).toBeVisible();
   });

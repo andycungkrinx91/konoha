@@ -119,7 +119,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
 
     // Settings password fields
     await page.goto('http://127.0.0.1:4173/settings');
-    await page.waitForTimeout(300);
+    await page.waitForSelector('#settings-current-password', { timeout: 15000 });
     const settingsInputs = await page.evaluate(() => {
       const inputs = Array.from(document.querySelectorAll('input[type="password"]'));
       return inputs.map(i => {

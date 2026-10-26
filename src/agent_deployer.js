@@ -502,7 +502,15 @@ function deployProjectWorkspace(projectRoot, options = {}) {
     const ignoreBlock = [
       '## Start Konoha config+skill',
       '.agents',
+      '.claude*',
+      '.commandcode*',
+      '.cursor*',
       '.cursorrules*',
+      '.gemini*',
+      '.omp*',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'GEMINI.md',
       '## End Konoha config+skill'
     ].join('\n');
 
@@ -516,6 +524,11 @@ function deployProjectWorkspace(projectRoot, options = {}) {
         if (!existing.includes('## Start Konoha config+skill')) {
           const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n\n' : (existing.length > 0 ? '\n' : '');
           fs.writeFileSync(ignorePath, existing + separator + ignoreBlock + '\n', 'utf8');
+          deployedFiles.push(ignorePath);
+        } else if (!existing.includes(ignoreBlock)) {
+          const blockRegex = /## Start Konoha config\+skill[\s\S]*?## End Konoha config\+skill/;
+          const updated = existing.replace(blockRegex, ignoreBlock);
+          fs.writeFileSync(ignorePath, updated, 'utf8');
           deployedFiles.push(ignorePath);
         }
       } catch (_) { /* intentional best-effort fallback */ }

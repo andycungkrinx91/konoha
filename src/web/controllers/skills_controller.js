@@ -409,6 +409,7 @@ async function handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method) {
             WHERE workspace_root IS NOT NULL AND workspace_root != 'unknown' AND workspace_root != ''
             GROUP BY client, workspace_root
             ORDER BY last_active_at DESC
+            LIMIT 25
           `).all();
 
           const workspaceMap = new Map();
