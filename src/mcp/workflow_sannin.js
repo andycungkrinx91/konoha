@@ -71,7 +71,15 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
     }
   }
 
-  if (!bestAgent) bestAgent = 'kage';
+  if (!bestAgent) {
+    if (/\b(c|c\+\+|clang|llvm|allocator|buffer overflow|memory leak|backend|devops|api|database|server)\b/i.test(promptLower)) {
+      bestAgent = 'anbu';
+    } else if (/\b(frontend|ui|css|html|tailwind|component|react|vue|svelte)\b/i.test(promptLower)) {
+      bestAgent = 'jonin';
+    } else {
+      bestAgent = 'kage';
+    }
+  }
   const writeSignals = ['prd', 'write a prd', 'technical doc', 'write the doc', 'draft the doc', 'write docs', 'author', 'write a spec'];
   if (writeSignals.some(sig => promptLower.includes(sig))) {
     bestAgent = 'tokubetsu_jonin';

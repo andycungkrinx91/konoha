@@ -201,10 +201,10 @@ function runSuiteAsync(cmd, args, name) {
 }
 
 async function runAllParallel() {
-  // Attribution tests access shared client user-directory logs; isolate them to sequential execution
-  const isAttribution = f => f.includes('_attribution.');
-  const parallelPool = jsTests.filter(f => !isAttribution(f));
-  const sequentialPool = jsTests.filter(f => isAttribution(f));
+  // Host daemon, attribution, and vector search access shared resources; run them sequentially
+  const isSequential = f => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_vector_search.js';
+  const parallelPool = jsTests.filter(f => !isSequential(f));
+  const sequentialPool = jsTests.filter(f => isSequential(f));
 
   let index = 0;
   async function worker() {

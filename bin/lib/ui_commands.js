@@ -338,7 +338,7 @@ async function cmdUiStart(args = []) {
   }
 
   let started = false;
-  const maxAttempts = 30;
+  const maxAttempts = process.platform === 'win32' ? 30 : 15;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await checkPortActive(port)) {

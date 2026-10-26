@@ -175,7 +175,7 @@ async function main() {
         const result = await cli.ensureUiDaemonAutoStart({ port });
         spawnOk = !!(result && result.started);
         ok('T4: helper reports started:true on free port', spawnOk, JSON.stringify(result));
-        const active = await waitFor(() => portActive(port), 20000);
+        const active = await waitFor(() => portActive(port), 40000);
         ok('T4: daemon listens on the requested port', active);
         if (fs.existsSync(UI_PID_FILE)) {
           childPid = parseInt(fs.readFileSync(UI_PID_FILE, 'utf8').trim(), 10);

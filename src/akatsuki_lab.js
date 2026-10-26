@@ -105,7 +105,7 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
   try {
     if (targetEngine === 'lxc') {
       // 1. Query LXC container state and network device mapping
-      const listRes = runner('lxc', ['list', `^${labName}$`, '--format=json'], { timeout: 5000 });
+      const listRes = runner('lxc', ['list', `^${labName}$`, '--format=json'], { timeout: 15000 });
       let isRunning = false;
       let bridgeName = null;
       const containerIps = [];
@@ -139,7 +139,7 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
 
       // If bridgeName was not resolved from lxc list, query lxc config show
       if (!bridgeName) {
-        const configRes = runner('lxc', ['config', 'show', labName], { timeout: 5000 });
+        const configRes = runner('lxc', ['config', 'show', labName], { timeout: 15000 });
         if (configRes && configRes.status === 0 && configRes.stdout) {
           const match = configRes.stdout.match(/(?:network|parent):\s*([a-zA-Z0-9_-]+)/);
           if (match) {
@@ -150,7 +150,7 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
 
       // If container was not found via lxc list or lxc config
       if (!listRes || listRes.status !== 0 || !listRes.stdout.trim() || listRes.stdout.trim() === '[]') {
-        const infoRes = runner('lxc-info', ['-n', labName], { timeout: 3000 });
+        const infoRes = runner('lxc-info', ['-n', labName], { timeout: 8000 });
         if (!infoRes || infoRes.status !== 0) {
           return { exists: false, running: false, network_isolated: false, details: 'Container not found' };
         }
@@ -162,7 +162,7 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
       let isolationDetails = '';
 
       if (bridgeName) {
-        const netRes = runner('lxc', ['network', 'show', bridgeName], { timeout: 5000 });
+        const netRes = runner('lxc', ['network', 'show', bridgeName], { timeout: 15000 });
         if (netRes && netRes.status === 0 && netRes.stdout) {
           const natMatch = netRes.stdout.match(/ipv4\.nat:\s*"?([a-zA-Z0-9_-]+)"?/);
           const natValue = natMatch ? natMatch[1].toLowerCase() : 'true'; // default LXD bridges have nat: true
