@@ -123,6 +123,7 @@
       "regexp.prototype.flags": "npm:@socketregistry/regexp.prototype.flags@1.0.7",
       "safe-array-concat": "npm:@socketregistry/safe-array-concat@1.0.8",
       "safe-buffer": "npm:@socketregistry/safe-buffer@1.0.9",
+      "minimalistic-assert": "npm:@socketregistry/assert@^1.0.23",
       "safe-regex-test": "npm:@socketregistry/safe-regex-test@1.0.7",
       "set-function-length": "npm:@socketregistry/set-function-length@1.0.9",
       "sharp": ">=0.35.4",
@@ -201,6 +202,7 @@
     "regexp.prototype.flags": "npm:@socketregistry/regexp.prototype.flags@1.0.7",
     "safe-array-concat": "npm:@socketregistry/safe-array-concat@1.0.8",
     "safe-buffer": "npm:@socketregistry/safe-buffer@1.0.9",
+    "minimalistic-assert": "npm:@socketregistry/assert@^1.0.23",
     "safe-regex-test": "npm:@socketregistry/safe-regex-test@1.0.7",
     "set-function-length": "npm:@socketregistry/set-function-length@1.0.9",
     "sharp": ">=0.35.4",
@@ -283,5 +285,9 @@
     "which-collection": "npm:@socketregistry/which-collection@1.0.7",
     "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8",
     "readable-stream": "^4.7.0"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.13",
+    "gifenc": "^1.0.3"
   }
 }

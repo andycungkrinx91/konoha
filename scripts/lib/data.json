@@ -1640,9 +1640,9 @@
     "node tests/run_all.js",
     [
      "node",
-     "tests/run_all.js"
+     "scripts/lib/test_summary_output.js"
     ],
-    "142 TEST SUITES PASSING (100% OK)",
+    "179 TEST SUITES PASSING (100% OK)",
     null,
     true,
     null,
