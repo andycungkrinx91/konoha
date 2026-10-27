@@ -130,7 +130,9 @@ class TokenCounter:
                 except KeyError:
                     # Fall back to cl100k_base for unknown models
                     self._encoding = tiktoken.get_encoding("cl100k_base")
-                    logger.warning(f"Unknown model '{self.model}', using cl100k_base encoding")
+                    logger.warning(
+                        f"Unknown model '{self.model}', using cl100k_base encoding"
+                    )
 
         except ImportError:
             logger.warning("tiktoken not available, using approximation")
@@ -247,7 +249,9 @@ class TokenBudgetGuard:
             conversation=conversation_tokens,
             retrieved_docs=docs_tokens,
             total=total,
-            budget_remaining=self.context_limit - total - self.allocation.output_reserve,
+            budget_remaining=self.context_limit
+            - total
+            - self.allocation.output_reserve,
         )
 
     def fit_to_budget(
@@ -336,7 +340,9 @@ class TokenBudgetGuard:
         for msg in reversed(other_msgs):
             tokens = self.counter.count(msg.get("content", "")) + 4
             if used + tokens <= budget:
-                fitted.insert(len([m for m in fitted if m.get("role") == "system"]), msg)
+                fitted.insert(
+                    len([m for m in fitted if m.get("role") == "system"]), msg
+                )
                 used += tokens
             else:
                 break
@@ -415,9 +421,9 @@ class TokenBudgetGuard:
 
         prices = PRICING.get(self.model, {"input": 1.0, "output": 3.0})
 
-        return (input_tokens / 1_000_000) * prices["input"] + (output_tokens / 1_000_000) * prices[
-            "output"
-        ]
+        return (input_tokens / 1_000_000) * prices["input"] + (
+            output_tokens / 1_000_000
+        ) * prices["output"]
 
     def get_stats(self) -> dict:
         """Get budget guard statistics."""

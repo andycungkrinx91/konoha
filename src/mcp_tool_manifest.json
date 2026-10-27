@@ -892,6 +892,93 @@
           },
           "flow_hash": {
             "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "type": "string"
+          },
+          "custom_tools": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "allow_controlled_exploit_verification": {
+            "type": "boolean"
+          },
+          "allow_external_scope": {
+            "type": "boolean"
+          },
+          "engine": {
+            "type": "string",
+            "enum": [
+              "docker",
+              "lxc",
+              "both",
+              "auto"
+            ]
+          },
+          "lab_name": {
+            "type": "string"
+          },
+          "report": {
+            "type": "object"
+          },
+          "authorized": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "akatsuki_init",
+      "description": "Initialize Akatsuki Red-Team Lab containers (Docker, LXC, or both), manage offensive toolsets, and query Kali tool catalog.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "init",
+              "status",
+              "list_tools",
+              "add_tool",
+              "remove_tool"
+            ]
+          },
+          "engines": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "docker",
+              "lxc",
+              "both"
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "minimal",
+              "standard"
+            ]
+          },
+          "lab_name": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
           }
         },
         "additionalProperties": false

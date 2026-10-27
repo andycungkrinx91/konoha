@@ -40,7 +40,15 @@ function testCuratedToolRegistry() {
     'sqlmap',
     'testssl',
     'trivy',
-    'curl_probe'
+    'curl_probe',
+    'httpx',
+    'katana',
+    'feroxbuster',
+    'wpscan',
+    'droopescan',
+    'searchsploit',
+    'whatweb',
+    'nikto'
   ];
 
   for (const toolId of expectedTools) {
@@ -53,13 +61,13 @@ function testCuratedToolRegistry() {
     assert.ok(Array.isArray(tool.binary_candidates) && tool.binary_candidates.length > 0);
     assert.ok(Array.isArray(tool.allowed_operations) && tool.allowed_operations.length > 0);
     assert.strictEqual(tool.required_scope, 'local_or_dev');
-    assert.ok(tool.timeout_ms >= 1000 && tool.timeout_ms <= 120000);
+    assert.ok(tool.timeout_ms >= 1000 && tool.timeout_ms <= 3600000);
     assert.ok(Array.isArray(tool.cleanup_steps) && tool.cleanup_steps.length > 0);
   }
 
   const supportedList = listSupportedTools();
   assert.strictEqual(supportedList.length, expectedTools.length);
-  console.log('✓ Curated registry contains 10 verified tools with complete metadata.');
+  console.log(`✓ Curated registry contains ${expectedTools.length} verified tools with complete metadata.`);
 }
 
 function testCustomToolValidation() {
@@ -334,6 +342,7 @@ async function testAkatsukiCliAndFeatureToggle() {
 
   const tmpConfig = path.join(os.tmpdir(), `akatsuki_test_${Date.now()}.json`);
   process.env.KONOHA_AKATSUKI_CONFIG = tmpConfig;
+  process.env.KONOHA_MOCK_PROVISION = '1';
 
   try {
     // 6a: Test disabling red-team operations
@@ -377,6 +386,7 @@ async function testAkatsukiCliAndFeatureToggle() {
       if (fs.existsSync(tmpConfig)) fs.unlinkSync(tmpConfig);
     } catch (_) {}
     delete process.env.KONOHA_AKATSUKI_CONFIG;
+    delete process.env.KONOHA_MOCK_PROVISION;
   }
 }
 

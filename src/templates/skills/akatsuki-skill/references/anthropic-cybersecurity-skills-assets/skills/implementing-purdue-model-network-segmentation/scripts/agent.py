@@ -5,12 +5,10 @@ Audits OT/ICS network segmentation against the Purdue Enterprise
 Reference Architecture by testing connectivity between network zones,
 verifying firewall rules, and mapping discovered hosts to Purdue levels.
 """
+
 import argparse
 import json
-import os
 import socket
-import subprocess
-import sys
 from datetime import datetime, timezone
 
 
@@ -25,7 +23,11 @@ PURDUE_LEVELS = {
 }
 
 PROHIBITED_FLOWS = [
-    {"from_level": 5, "to_level": 0, "description": "Internet to Process (critical violation)"},
+    {
+        "from_level": 5,
+        "to_level": 0,
+        "description": "Internet to Process (critical violation)",
+    },
     {"from_level": 5, "to_level": 1, "description": "Internet to Basic Control"},
     {"from_level": 5, "to_level": 2, "description": "Internet to SCADA"},
     {"from_level": 4, "to_level": 0, "description": "Corporate to Process"},
@@ -43,11 +45,13 @@ def test_connectivity(source_ip, target_ip, ports, timeout=3):
             result = sock.connect_ex((target_ip, port))
             sock.close()
             reachable = result == 0
-            results.append({
-                "target": target_ip,
-                "port": port,
-                "reachable": reachable,
-            })
+            results.append(
+                {
+                    "target": target_ip,
+                    "port": port,
+                    "reachable": reachable,
+                }
+            )
         except (socket.error, OSError):
             results.append({"target": target_ip, "port": port, "reachable": False})
     return results
@@ -70,22 +74,26 @@ def audit_zone_separation(zone_map):
                 results = test_connectivity(src, dst, common_ports)
                 open_ports = [r for r in results if r["reachable"]]
                 if open_ports:
-                    findings.append({
-                        "check": f"Zone {from_level} -> Zone {to_level}",
-                        "severity": "CRITICAL",
-                        "source": src,
-                        "destination": dst,
-                        "open_ports": [r["port"] for r in open_ports],
-                        "detail": flow["description"],
-                        "recommendation": "Block traffic between these zones via firewall",
-                    })
+                    findings.append(
+                        {
+                            "check": f"Zone {from_level} -> Zone {to_level}",
+                            "severity": "CRITICAL",
+                            "source": src,
+                            "destination": dst,
+                            "open_ports": [r["port"] for r in open_ports],
+                            "detail": flow["description"],
+                            "recommendation": "Block traffic between these zones via firewall",
+                        }
+                    )
 
     if not findings:
-        findings.append({
-            "check": "Prohibited zone flows",
-            "severity": "INFO",
-            "detail": "No prohibited cross-zone connectivity detected",
-        })
+        findings.append(
+            {
+                "check": "Prohibited zone flows",
+                "severity": "INFO",
+                "detail": "No prohibited cross-zone connectivity detected",
+            }
+        )
 
     return findings
 
@@ -114,14 +122,16 @@ def audit_ot_protocols(target_ips):
                 result = sock.connect_ex((ip, port))
                 sock.close()
                 if result == 0:
-                    findings.append({
-                        "check": f"Exposed OT protocol: {protocol}",
-                        "severity": "HIGH",
-                        "host": ip,
-                        "port": port,
-                        "protocol": protocol,
-                        "detail": f"{protocol} on {ip}:{port} is accessible",
-                    })
+                    findings.append(
+                        {
+                            "check": f"Exposed OT protocol: {protocol}",
+                            "severity": "HIGH",
+                            "host": ip,
+                            "port": port,
+                            "protocol": protocol,
+                            "detail": f"{protocol} on {ip}:{port} is accessible",
+                        }
+                    )
             except (socket.error, OSError):
                 pass
 
@@ -138,13 +148,15 @@ def load_zone_map(config_path):
 def format_summary(zone_findings, protocol_findings, zone_map):
     """Print audit summary."""
     all_findings = zone_findings + protocol_findings
-    print(f"\n{'='*60}")
-    print(f"  Purdue Model Network Segmentation Audit")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  Purdue Model Network Segmentation Audit")
+    print(f"{'=' * 60}")
 
     for level, info in sorted(PURDUE_LEVELS.items()):
         host_count = len(zone_map.get(str(level), []))
-        print(f"  Level {level}: {info['name']:20s} ({host_count} hosts) - {info['description']}")
+        print(
+            f"  Level {level}: {info['name']:20s} ({host_count} hosts) - {info['description']}"
+        )
 
     print(f"\n  Zone Separation Findings : {len(zone_findings)}")
     print(f"  Protocol Exposure Findings: {len(protocol_findings)}")
@@ -155,10 +167,12 @@ def format_summary(zone_findings, protocol_findings, zone_map):
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
     if all_findings:
-        print(f"\n  Critical/High Issues:")
+        print("\n  Critical/High Issues:")
         for f in all_findings:
             if f["severity"] in ("CRITICAL", "HIGH"):
-                print(f"    [{f['severity']:8s}] {f['check']}: {f.get('detail', '')[:50]}")
+                print(
+                    f"    [{f['severity']:8s}] {f['check']}: {f.get('detail', '')[:50]}"
+                )
 
     return severity_counts
 
@@ -167,10 +181,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Purdue model OT network segmentation audit agent"
     )
-    parser.add_argument("--zone-map", required=True,
-                        help="JSON file mapping Purdue levels to host IPs")
-    parser.add_argument("--scan-protocols", action="store_true",
-                        help="Scan for exposed OT protocols")
+    parser.add_argument(
+        "--zone-map", required=True, help="JSON file mapping Purdue levels to host IPs"
+    )
+    parser.add_argument(
+        "--scan-protocols", action="store_true", help="Scan for exposed OT protocols"
+    )
     parser.add_argument("--output", "-o", help="Output JSON report")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
@@ -195,8 +211,10 @@ def main():
         "protocol_findings": protocol_findings,
         "severity_counts": severity_counts,
         "risk_level": (
-            "CRITICAL" if severity_counts.get("CRITICAL", 0) > 0
-            else "HIGH" if severity_counts.get("HIGH", 0) > 0
+            "CRITICAL"
+            if severity_counts.get("CRITICAL", 0) > 0
+            else "HIGH"
+            if severity_counts.get("HIGH", 0) > 0
             else "LOW"
         ),
     }

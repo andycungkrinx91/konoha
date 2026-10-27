@@ -73,12 +73,18 @@ def score(data):
         req = s.get("requirement")
         status = s.get("status")
         if req not in VALID_REQ:
-            raise ValueError(f"{sid}: requirement '{req}' invalid (required|addressable)")
+            raise ValueError(
+                f"{sid}: requirement '{req}' invalid (required|addressable)"
+            )
         if status not in VALID_STATUS:
-            raise ValueError(f"{sid}: status '{status}' invalid (implemented|partial|gap)")
+            raise ValueError(
+                f"{sid}: status '{status}' invalid (implemented|partial|gap)"
+            )
 
         section = str(s.get("section", "")).replace("164.", "").strip()
-        sec_rec = by_section.setdefault(section, {"implemented": 0, "partial": 0, "gap": 0})
+        sec_rec = by_section.setdefault(
+            section, {"implemented": 0, "partial": 0, "gap": 0}
+        )
         sec_rec[status] += 1
 
         w = WEIGHT[req]
@@ -103,7 +109,17 @@ def score(data):
             if is_high:
                 escalated.append(s)
 
-        rows.append((sid, section, name, req, status, s.get("alternative_documented", None), is_high))
+        rows.append(
+            (
+                sid,
+                section,
+                name,
+                req,
+                status,
+                s.get("alternative_documented", None),
+                is_high,
+            )
+        )
 
     readiness = (100.0 * earned_weight / total_weight) if total_weight else 0.0
     return {
@@ -119,19 +135,27 @@ def score(data):
 def render(data, res):
     org = data.get("org", {})
     lines = []
-    lines.append(f"# HIPAA Security Rule Gap Assessment - {org.get('name','Organization')}")
+    lines.append(
+        f"# HIPAA Security Rule Gap Assessment - {org.get('name', 'Organization')}"
+    )
     lines.append("")
     if org.get("role"):
         lines.append(f"- **Role:** {org['role']}")
-    lines.append(f"- **Weighted readiness:** **{res['readiness']:.0f}%** "
-                 "(required specifications weighted 2x addressable)")
-    lines.append(f"- **Required gaps:** {len(res['required_gaps'])} | "
-                 f"Addressable gaps (no documented alternative): {len(res['addressable_gaps'])}")
+    lines.append(
+        f"- **Weighted readiness:** **{res['readiness']:.0f}%** "
+        "(required specifications weighted 2x addressable)"
+    )
+    lines.append(
+        f"- **Required gaps:** {len(res['required_gaps'])} | "
+        f"Addressable gaps (no documented alternative): {len(res['addressable_gaps'])}"
+    )
     lines.append("")
 
     if res["escalated"]:
-        lines.append("> **OCR-priority gap detected:** Risk Analysis / Risk Management is "
-                     "incomplete. This is the most-cited HIPAA finding - remediate first.")
+        lines.append(
+            "> **OCR-priority gap detected:** Risk Analysis / Risk Management is "
+            "incomplete. This is the most-cited HIPAA finding - remediate first."
+        )
         lines.append("")
 
     # status by section
@@ -161,10 +185,17 @@ def render(data, res):
     lines.append("")
     order = []
     order += [(s, "ESCALATED (Risk Analysis/Mgmt)") for s in res["escalated"]]
-    order += [(s, "Required gap") for s in res["required_gaps"] if s not in res["escalated"]]
-    order += [(s, "Addressable - implement or document alternative") for s in res["addressable_gaps"]]
+    order += [
+        (s, "Required gap") for s in res["required_gaps"] if s not in res["escalated"]
+    ]
+    order += [
+        (s, "Addressable - implement or document alternative")
+        for s in res["addressable_gaps"]
+    ]
     if not order:
-        lines.append("No outstanding gaps. Maintain documentation and re-evaluate on change.")
+        lines.append(
+            "No outstanding gaps. Maintain documentation and re-evaluate on change."
+        )
     else:
         seen = set()
         i = 1
@@ -173,19 +204,28 @@ def render(data, res):
             if key in seen:
                 continue
             seen.add(key)
-            lines.append(f"{i}. **{s.get('id')}** {s.get('name','')} - {why} "
-                         f"(currently {s.get('status')}).")
+            lines.append(
+                f"{i}. **{s.get('id')}** {s.get('name', '')} - {why} "
+                f"(currently {s.get('status')})."
+            )
             i += 1
 
     return "\n".join(lines)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="HIPAA Security Rule safeguard gap-assessment scorer")
-    ap.add_argument("--input", "-i", required=True, help="Path to safeguard-status JSON")
+    ap = argparse.ArgumentParser(
+        description="HIPAA Security Rule safeguard gap-assessment scorer"
+    )
+    ap.add_argument(
+        "--input", "-i", required=True, help="Path to safeguard-status JSON"
+    )
     ap.add_argument("--output", "-o", help="Write Markdown gap assessment to this path")
-    ap.add_argument("--fail-on-required-gap", action="store_true",
-                    help="Exit non-zero if any required specification is partial/gap")
+    ap.add_argument(
+        "--fail-on-required-gap",
+        action="store_true",
+        help="Exit non-zero if any required specification is partial/gap",
+    )
     args = ap.parse_args()
 
     try:
@@ -209,12 +249,18 @@ def main():
     else:
         print(md)
 
-    print(f"Readiness {res['readiness']:.0f}%; required gaps {len(res['required_gaps'])}; "
-          f"escalated {len(res['escalated'])}.", file=sys.stderr)
+    print(
+        f"Readiness {res['readiness']:.0f}%; required gaps {len(res['required_gaps'])}; "
+        f"escalated {len(res['escalated'])}.",
+        file=sys.stderr,
+    )
 
     if args.fail_on_required_gap and res["required_gaps"]:
         ids = ", ".join(s.get("id", "?") for s in res["required_gaps"])
-        print(f"FAIL: {len(res['required_gaps'])} required specification gap(s): {ids}", file=sys.stderr)
+        print(
+            f"FAIL: {len(res['required_gaps'])} required specification gap(s): {ids}",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

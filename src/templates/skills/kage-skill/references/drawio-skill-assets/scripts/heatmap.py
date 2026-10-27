@@ -18,6 +18,7 @@ colour ramp (heat|cool|warm), `--reverse` flips it (so low = hot).
 Usage: python3 heatmap.py <file.drawio> --metrics <file.csv|json> [-o out.drawio]
        [--palette heat|cool|warm] [--reverse] [--size] [--no-legend]
 """
+
 import argparse
 import csv
 import html
@@ -29,9 +30,9 @@ import xml.etree.ElementTree as ET
 
 # Sequential ramps as (low, mid, high) anchor colours; value is lerped across them.
 PALETTES = {
-    "heat": ("#57bb8a", "#ffd666", "#e67c73"),   # green -> yellow -> red
-    "cool": ("#deebf7", "#6baed6", "#08519c"),   # light -> deep blue
-    "warm": ("#fff7bc", "#fec44f", "#d95f0e"),   # pale -> deep amber
+    "heat": ("#57bb8a", "#ffd666", "#e67c73"),  # green -> yellow -> red
+    "cool": ("#deebf7", "#6baed6", "#08519c"),  # light -> deep blue
+    "warm": ("#fff7bc", "#fec44f", "#d95f0e"),  # pale -> deep amber
 }
 
 
@@ -72,14 +73,14 @@ def load_metrics(path):
         if len(row) < 2:
             continue
         v = _num(row[-1])
-        if v is not None:                       # skip header / non-numeric rows
+        if v is not None:  # skip header / non-numeric rows
             out[row[0].strip()] = v
     return out
 
 
 def _rgb(c):
     c = c.lstrip("#")
-    return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+    return tuple(int(c[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def ramp(anchors, t):
@@ -107,7 +108,11 @@ def vertices(root):
         elif child.tag in ("UserObject", "object"):
             inner = child.find("mxCell")
             if inner is not None and inner.get("vertex") == "1":
-                yield inner, child.get("id"), clean(child.get("label") or child.get("value"))
+                yield (
+                    inner,
+                    child.get("id"),
+                    clean(child.get("label") or child.get("value")),
+                )
 
 
 def scale_geom(cell, factor):
@@ -138,7 +143,9 @@ def content_bounds(root):
     xs, ys = [], []
     for child in root:
         cell = child if child.tag == "mxCell" else child.find("mxCell")
-        if cell is None or cell.get("parent") != "1":     # skip nested (relative-coord) cells
+        if (
+            cell is None or cell.get("parent") != "1"
+        ):  # skip nested (relative-coord) cells
             continue
         g = cell.find("mxGeometry")
         x, y = (_num(g.get("x")), _num(g.get("y"))) if g is not None else (None, None)
@@ -152,32 +159,59 @@ def add_legend(root, anchors, lo, hi, reverse):
     """Drop a small min/mid/max swatch legend just left of the page's content."""
     w, h = 90, 26
     cx, cy = content_bounds(root)
-    x0, y0 = cx - w - 40, cy                               # to the left of the diagram
+    x0, y0 = cx - w - 40, cy  # to the left of the diagram
 
     def cell(cid, value, style, gy, gh):
-        c = ET.SubElement(root, "mxCell", {"id": cid, "value": value, "style": style,
-                                           "vertex": "1", "parent": "1"})
-        ET.SubElement(c, "mxGeometry", {"x": "%g" % x0, "y": "%g" % gy,
-                                        "width": "%g" % w, "height": "%g" % gh, "as": "geometry"})
+        c = ET.SubElement(
+            root,
+            "mxCell",
+            {"id": cid, "value": value, "style": style, "vertex": "1", "parent": "1"},
+        )
+        ET.SubElement(
+            c,
+            "mxGeometry",
+            {
+                "x": "%g" % x0,
+                "y": "%g" % gy,
+                "width": "%g" % w,
+                "height": "%g" % gh,
+                "as": "geometry",
+            },
+        )
 
-    cell("hm-title", "Heatmap",
-         "text;html=1;fontStyle=1;align=left;verticalAlign=middle;", y0, 20)
+    cell(
+        "hm-title",
+        "Heatmap",
+        "text;html=1;fontStyle=1;align=left;verticalAlign=middle;",
+        y0,
+        20,
+    )
     for i, val in enumerate((hi, (lo + hi) / 2, lo)):
         fill, stroke, _ = color_for(val, lo, hi, anchors, reverse)
-        cell("hm-%d" % i, "%g" % val,
-             set_style("rounded=0;whiteSpace=wrap;html=1;", fill, stroke),
-             y0 + 24 + i * (h + 4), h)
+        cell(
+            "hm-%d" % i,
+            "%g" % val,
+            set_style("rounded=0;whiteSpace=wrap;html=1;", fill, stroke),
+            y0 + 24 + i * (h + 4),
+            h,
+        )
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Recolour a .drawio into a metric heatmap.")
+    ap = argparse.ArgumentParser(
+        description="Recolour a .drawio into a metric heatmap."
+    )
     ap.add_argument("file", help="input .drawio (uncompressed)")
     ap.add_argument("-m", "--metrics", required=True, help="metrics .csv or .json")
-    ap.add_argument("-o", "--output", help="output .drawio (default: <name>-heat.drawio)")
+    ap.add_argument(
+        "-o", "--output", help="output .drawio (default: <name>-heat.drawio)"
+    )
     ap.add_argument("--palette", default="heat", choices=list(PALETTES))
     ap.add_argument("--reverse", action="store_true", help="flip the ramp (low = hot)")
     ap.add_argument("--size", action="store_true", help="also scale node size by value")
-    ap.add_argument("--no-legend", dest="legend", action="store_false", help="skip the legend")
+    ap.add_argument(
+        "--no-legend", dest="legend", action="store_false", help="skip the legend"
+    )
     args = ap.parse_args()
 
     if not os.path.isfile(args.file):
@@ -196,7 +230,7 @@ def main():
     for diagram in tree.getroot().iter("diagram"):
         model = diagram.find("mxGraphModel")
         root = model.find("root") if model is not None else None
-        if root is None:                       # compressed / empty page
+        if root is None:  # compressed / empty page
             continue
         if first_root is None:
             first_root = root
@@ -218,7 +252,9 @@ def main():
     out = args.output or os.path.splitext(args.file)[0] + "-heat.drawio"
     tree.write(out, encoding="utf-8", xml_declaration=False)
     if matched == 0:
-        sys.stderr.write("warning: no nodes matched any metric key (check ids/labels)\n")
+        sys.stderr.write(
+            "warning: no nodes matched any metric key (check ids/labels)\n"
+        )
     sys.stderr.write(f"wrote {out} ({matched}/{len(metrics)} metrics matched)\n")
 
 

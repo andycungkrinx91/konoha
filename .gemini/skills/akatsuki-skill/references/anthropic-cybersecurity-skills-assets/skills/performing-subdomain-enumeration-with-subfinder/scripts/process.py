@@ -6,11 +6,9 @@ Automates subdomain discovery, validation, and reporting.
 
 import subprocess
 import json
-import csv
 import sys
 import os
 from datetime import datetime
-from pathlib import Path
 
 
 def run_subfinder(domain: str, output_dir: str, use_all_sources: bool = False) -> list:

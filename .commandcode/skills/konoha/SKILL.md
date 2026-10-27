@@ -688,6 +688,14 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Socket.dev Repository Policy Governance**: Configured `socket.yml` with `urlStrings: false` (suppressing benign OpenXML/Microsoft Office relationship namespaces in `docx@9.14.0`), `gptSecurity: false` (bypassing installer wrapper heuristics), and `gptAnomaly: false`. Scoped ignore paths to include `.omp`.
     - **Consumer Planning Artifacts Ignore Synchronization**: Updated `src/agent_deployer.js` to automatically inject `PLAN.md`, `PLAN*.md`, `PLAN_*.md`, `.omp/plans/`, and `.omp/plans` into consumer `.gitignore` and `.dockerignore` blocks. Updated root `.npmignore` to exclude `*.tgz`.
     - **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.10` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all 12 client template contracts. Synchronized all documentation, benchmarks, and WebP animations.
+114. **Akatsuki Red-Team Professionalization & Multi-Hypervisor Sandbox Isolation (v2.2.11)**:
+    - **Never-Decline Red-Team Execution**: Mode `red` (`konoha akatsuki mode red` or `KONOHA_AKATSUKI_MODE=red`) constitutes standing operator authorization across all clients. Red-team requests are never declined when red mode is enabled, defaulting missing target scope safely to in-sandbox loopback (`127.0.0.1`) self-assessment.
+    - **Akatsuki Init Multi-Hypervisor Orchestrator**: Added `akatsuki_init` canonical MCP tool and CLI command (`konoha akatsuki init [--engine auto|docker|lxc|both] [--profile minimal|standard]`) with automatic hypervisor detection (Docker, LXC, or both simultaneously).
+    - **Chunin Reconnaissance & Threat Intelligence Phase**: Integrated `@chunin` directly into Phase 3 of the offensive workflow, synthesizing passive OSINT, PTES methodology, MITRE ATT&CK / OWASP mappings, and non-destructive canary payloads.
+    - **Tokubetsu-Jonin Standard Red-Team PDF Report**: Added standard PDF report generation (`src/akatsuki_report.js`) with 8 publication sections, executive summary, findings CVSS table, and sandbox teardown proof.
+    - **SQLite-Backed Kali Linux Tool Catalog**: Added `kali_tools.json` and SQLite table `kali_tools` (360+ tools from kali.org/tools) with auto-seeding for high-performance zero-I/O querying.
+    - **Unrestricted Tool Capabilities**: Unlocked all operations across curated profiles (`allowed_operations: ['*', 'all_operations', ...]`, `blocked_operations: []`) with an extended 3600s execution timeout returning immediately upon task completion.
+    - **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.11` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all client template contracts.
 
 
 

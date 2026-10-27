@@ -19,7 +19,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 
 EFI_EXTENSIONS = (".efi", ".sys", ".dll")
 

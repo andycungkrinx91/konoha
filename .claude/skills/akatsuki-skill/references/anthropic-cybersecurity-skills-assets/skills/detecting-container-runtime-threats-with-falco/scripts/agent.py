@@ -15,6 +15,7 @@ Examples:
   python agent.py --validate ./falco_rules.local.yaml
   python agent.py --triage /var/log/falco/events.json --min-priority WARNING
 """
+
 import argparse
 import json
 import shutil
@@ -22,8 +23,16 @@ import subprocess
 import sys
 from collections import Counter
 
-PRIORITIES = ["DEBUG", "INFO", "NOTICE", "WARNING", "ERROR",
-              "CRITICAL", "ALERT", "EMERGENCY"]
+PRIORITIES = [
+    "DEBUG",
+    "INFO",
+    "NOTICE",
+    "WARNING",
+    "ERROR",
+    "CRITICAL",
+    "ALERT",
+    "EMERGENCY",
+]
 REQUIRED_RULE_FIELDS = {"rule", "desc", "condition", "output", "priority"}
 
 
@@ -49,7 +58,9 @@ def validate_rules(path):
     rules = [i for i in items if isinstance(i, dict) and "rule" in i]
     macros = [i for i in items if isinstance(i, dict) and "macro" in i]
     lists = [i for i in items if isinstance(i, dict) and "list" in i]
-    print(f"[+] parsed {len(rules)} rule(s), {len(macros)} macro(s), {len(lists)} list(s)")
+    print(
+        f"[+] parsed {len(rules)} rule(s), {len(macros)} macro(s), {len(lists)} list(s)"
+    )
 
     errors = 0
     for r in rules:
@@ -66,8 +77,12 @@ def validate_rules(path):
     if shutil.which("falco"):
         print("[*] running 'falco --validate' ...")
         try:
-            proc = subprocess.run(["falco", "--validate", path],
-                                  capture_output=True, text=True, timeout=60)
+            proc = subprocess.run(
+                ["falco", "--validate", path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
             sys.stdout.write(proc.stdout)
             sys.stderr.write(proc.stderr)
             if proc.returncode != 0:
@@ -115,7 +130,9 @@ def triage_alerts(path, min_priority):
             cname = fields.get("container.name") or fields.get("container.id") or "host"
             by_container[cname] += 1
 
-    print(f"[+] parsed {total} alert lines, {kept} at/above {min_priority or 'DEBUG'}\n")
+    print(
+        f"[+] parsed {total} alert lines, {kept} at/above {min_priority or 'DEBUG'}\n"
+    )
     print("== By priority ==")
     for p, c in sorted(by_priority.items(), key=lambda x: -x[1]):
         print(f"  {p:10s} {c}")
@@ -130,10 +147,13 @@ def triage_alerts(path, min_priority):
 def main():
     p = argparse.ArgumentParser(description="Falco rule validator / alert triage")
     g = p.add_mutually_exclusive_group(required=True)
-    g.add_argument("--validate", metavar="RULES_YAML", help="validate a Falco rules file")
+    g.add_argument(
+        "--validate", metavar="RULES_YAML", help="validate a Falco rules file"
+    )
     g.add_argument("--triage", metavar="ALERTS_JSON", help="triage Falco JSON output")
-    p.add_argument("--min-priority", default="DEBUG",
-                   help="minimum priority to include in triage")
+    p.add_argument(
+        "--min-priority", default="DEBUG", help="minimum priority to include in triage"
+    )
     args = p.parse_args()
 
     if args.validate:

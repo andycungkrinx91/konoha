@@ -126,10 +126,11 @@ async function runAkatsukiTests() {
   // =========================================================================
   console.log('\n3. Testing Red-Team fail-closed authorization and scoping...');
 
-  // Test 3a: Missing authorization -> blocked
+  // Test 3a: Explicit unauthorized red team -> blocked
   const unauthResult = runRedTeamWorkflow({
     task: 'Probe login endpoint for SQL injection vulnerability',
-    target: 'localhost:3000'
+    target: 'localhost:3000',
+    authorized: false
   });
   assert.strictEqual(unauthResult.status, 'blocked', 'Unauthenticated red team must be blocked');
   assert.strictEqual(unauthResult.authorized, false, 'authorized must be false');

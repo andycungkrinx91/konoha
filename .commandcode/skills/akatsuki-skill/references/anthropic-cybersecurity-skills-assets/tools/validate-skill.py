@@ -5,6 +5,7 @@ Usage:
     python tools/validate-skill.py skills/my-skill/
     python tools/validate-skill.py --all
 """
+
 import os
 import re
 import sys
@@ -12,15 +13,27 @@ import glob
 
 # Kept in sync with the CI workflow (.github/workflows/validate-skills.yml),
 # which now delegates to this script so there is a single source of truth.
-REQUIRED_FIELDS = ["name", "description", "domain", "subdomain", "tags",
-                   "version", "author", "license"]
+REQUIRED_FIELDS = [
+    "name",
+    "description",
+    "domain",
+    "subdomain",
+    "tags",
+    "version",
+    "author",
+    "license",
+]
 
 # Canonical subdomain → set of accepted aliases (including canonical itself).
 # When a skill uses an alias, the validator accepts it but the canonical form
 # is the first entry in each group below.  New skills should use the canonical.
 _SUBDOMAIN_ALIASES = {
     # identity
-    "identity-access-management": {"identity-access-management", "identity-and-access-management", "identity-security"},
+    "identity-access-management": {
+        "identity-access-management",
+        "identity-and-access-management",
+        "identity-security",
+    },
     # zero-trust
     "zero-trust-architecture": {"zero-trust-architecture", "zero-trust"},
     # OT/ICS
@@ -53,7 +66,11 @@ _SUBDOMAIN_ALIASES = {
     "blockchain-security": {"blockchain-security"},
     "data-protection": {"data-protection"},
     "deception-technology": {"deception-technology"},
-    "hardware-firmware-security": {"hardware-firmware-security", "firmware-analysis", "firmware-security"},
+    "hardware-firmware-security": {
+        "hardware-firmware-security",
+        "firmware-analysis",
+        "firmware-security",
+    },
     "privacy-compliance": {"privacy-compliance"},
     "purple-team": {"purple-team"},
     "supply-chain-security": {"supply-chain-security"},
@@ -114,7 +131,12 @@ def parse_frontmatter(text):
         stripped = line.strip()
 
         # Flush a completed folded scalar when we hit the next top-level key.
-        if in_folded and stripped and not line.startswith(" ") and not line.startswith("\t"):
+        if (
+            in_folded
+            and stripped
+            and not line.startswith(" ")
+            and not line.startswith("\t")
+        ):
             if current_key and folded_lines:
                 data[current_key] = " ".join(folded_lines)
             in_folded = False
@@ -162,7 +184,7 @@ def parse_frontmatter(text):
             continue
 
         # Handle key: value (plain scalar)
-        m = re.match(r'^(\w[\w_-]*):\s*(.*)$', stripped)
+        m = re.match(r"^(\w[\w_-]*):\s*(.*)$", stripped)
         if m:
             current_key = m.group(1)
             val = m.group(2).strip().strip('"').strip("'")
@@ -199,12 +221,10 @@ def validate_skill(skill_dir):
     if fm is None:
         return ["No valid YAML frontmatter found (must start with ---)"]
 
-    # Check required fields.
     for field in REQUIRED_FIELDS:
         if field not in fm:
             errors.append(f"Missing required field: {field}")
 
-    # Validate name.
     name = fm.get("name", "")
     if name:
         if not KEBAB_RE.match(name):
@@ -214,7 +234,6 @@ def validate_skill(skill_dir):
         if len(name) > 64:
             errors.append(f"Name too long ({len(name)} chars, max 64)")
 
-    # Validate description.
     desc = fm.get("description", "")
     if isinstance(desc, list):
         errors.append("Description must be a string value, not a list")
@@ -226,12 +245,10 @@ def validate_skill(skill_dir):
         # No hard upper-limit enforced; multi-line folded scalars (>-) produce
         # long strings that are valid and common in this repo.
 
-    # Validate domain.
     domain = fm.get("domain", "")
     if domain and domain != "cybersecurity":
         errors.append(f"Domain must be 'cybersecurity', got '{domain}'")
 
-    # Validate subdomain.
     subdomain = fm.get("subdomain", "")
     if subdomain:
         if subdomain not in ALLOWED_SUBDOMAINS:
@@ -247,7 +264,6 @@ def validate_skill(skill_dir):
                     f" canonical form is '{canonical}'"
                 )
 
-    # Validate tags.
     tags = fm.get("tags", [])
     if isinstance(tags, str):
         tags = [tags]
@@ -266,8 +282,7 @@ def main():
         # Skip .bak backup directories — they are stale copies without a SKILL.md.
         # glob may return OS-native separators, so normalize before checking.
         skill_dirs = sorted(
-            d for d in glob.glob("skills/*/")
-            if not d.rstrip("/\\").endswith(".bak")
+            d for d in glob.glob("skills/*/") if not d.rstrip("/\\").endswith(".bak")
         )
         if not skill_dirs:
             print("ERROR: No skill directories found. Run from the repository root.")
@@ -297,8 +312,10 @@ def main():
             passed += 1
             print(f"{GREEN}PASS{RESET} {name}")
 
-    print(f"\n{'='*50}")
-    print(f"Total: {total}  {GREEN}Passed: {passed}{RESET}  {RED}Failed: {failed}{RESET}")
+    print(f"\n{'=' * 50}")
+    print(
+        f"Total: {total}  {GREEN}Passed: {passed}{RESET}  {RED}Failed: {failed}{RESET}"
+    )
 
     sys.exit(0 if failed == 0 else 1)
 

@@ -14,10 +14,8 @@ import json
 import os
 import sys
 import argparse
-import socket
 import datetime
 from pathlib import Path
-from typing import Optional
 
 
 def run_command(cmd: list[str], timeout: int = 300) -> tuple[str, str, int]:

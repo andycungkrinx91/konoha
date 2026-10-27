@@ -17,8 +17,10 @@ except ImportError:
 
 def get_clients(region="us-east-1"):
     """Create Security Hub and S3 clients."""
-    return (boto3.client("securityhub", region_name=region),
-            boto3.client("s3", region_name=region))
+    return (
+        boto3.client("securityhub", region_name=region),
+        boto3.client("s3", region_name=region),
+    )
 
 
 def get_compliance_findings(hub_client, standard_filter=None, max_results=100):
@@ -34,7 +36,8 @@ def get_compliance_findings(hub_client, standard_filter=None, max_results=100):
         resp = hub_client.get_findings(
             Filters=filters,
             SortCriteria=[{"Field": "SeverityNormalized", "SortOrder": "desc"}],
-            MaxResults=max_results)
+            MaxResults=max_results,
+        )
         return resp.get("Findings", [])
     except ClientError as e:
         print(f"[!] Error getting findings: {e}")
@@ -66,10 +69,15 @@ def analyze_compliance_gaps(findings):
             control_details[title]["resource_types"].add(r.get("Type", ""))
     for k in control_details:
         control_details[k]["accounts"] = list(control_details[k]["accounts"])
-        control_details[k]["resource_types"] = list(control_details[k]["resource_types"])
-    return {"by_control": dict(by_control.most_common(20)),
-            "by_severity": dict(by_severity), "by_account": dict(by_account.most_common(10)),
-            "control_details": control_details}
+        control_details[k]["resource_types"] = list(
+            control_details[k]["resource_types"]
+        )
+    return {
+        "by_control": dict(by_control.most_common(20)),
+        "by_severity": dict(by_severity),
+        "by_account": dict(by_account.most_common(10)),
+        "control_details": control_details,
+    }
 
 
 def remediate_s3_public_access(s3_client, bucket_name):
@@ -78,8 +86,12 @@ def remediate_s3_public_access(s3_client, bucket_name):
         s3_client.put_public_access_block(
             Bucket=bucket_name,
             PublicAccessBlockConfiguration={
-                "BlockPublicAcls": True, "IgnorePublicAcls": True,
-                "BlockPublicPolicy": True, "RestrictPublicBuckets": True})
+                "BlockPublicAcls": True,
+                "IgnorePublicAcls": True,
+                "BlockPublicPolicy": True,
+                "RestrictPublicBuckets": True,
+            },
+        )
         return {"bucket": bucket_name, "status": "remediated"}
     except ClientError as e:
         return {"bucket": bucket_name, "status": "error", "message": str(e)}
@@ -97,10 +109,15 @@ def auto_remediate_findings(hub_client, s3_client, findings):
                     result = remediate_s3_public_access(s3_client, bucket)
                     if result["status"] == "remediated":
                         hub_client.batch_update_findings(
-                            FindingIdentifiers=[{"Id": f["Id"], "ProductArn": f["ProductArn"]}],
+                            FindingIdentifiers=[
+                                {"Id": f["Id"], "ProductArn": f["ProductArn"]}
+                            ],
                             Workflow={"Status": "RESOLVED"},
-                            Note={"Text": "Auto-remediated: public access blocked",
-                                  "UpdatedBy": "compliance-agent"})
+                            Note={
+                                "Text": "Auto-remediated: public access blocked",
+                                "UpdatedBy": "compliance-agent",
+                            },
+                        )
                     remediated.append(result)
     return remediated
 
@@ -109,9 +126,13 @@ def create_compliance_insight(hub_client, name, group_by_attr, severity_filter=N
     """Create a custom Security Hub insight for compliance tracking."""
     filters = {"ComplianceStatus": [{"Value": "FAILED", "Comparison": "EQUALS"}]}
     if severity_filter:
-        filters["SeverityLabel"] = [{"Value": s, "Comparison": "EQUALS"} for s in severity_filter]
+        filters["SeverityLabel"] = [
+            {"Value": s, "Comparison": "EQUALS"} for s in severity_filter
+        ]
     try:
-        resp = hub_client.create_insight(Name=name, Filters=filters, GroupByAttribute=group_by_attr)
+        resp = hub_client.create_insight(
+            Name=name, Filters=filters, GroupByAttribute=group_by_attr
+        )
         return {"insight_arn": resp["InsightArn"]}
     except ClientError as e:
         return {"error": str(e)}
@@ -121,34 +142,36 @@ def run_compliance_report(region="us-east-1"):
     """Generate full compliance report."""
     hub_client, s3_client = get_clients(region)
 
-    print(f"\n{'='*60}")
-    print(f"  AWS SECURITY HUB COMPLIANCE REPORT")
+    print(f"\n{'=' * 60}")
+    print("  AWS SECURITY HUB COMPLIANCE REPORT")
     print(f"  Region: {region}")
     print(f"  Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     findings = get_compliance_findings(hub_client)
     analysis = analyze_compliance_gaps(findings)
 
-    print(f"--- FINDINGS BY SEVERITY ---")
+    print("--- FINDINGS BY SEVERITY ---")
     for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
         count = analysis["by_severity"].get(sev, 0)
         bar = "#" * min(count, 40)
         print(f"  {sev:<12} {count:>4} {bar}")
 
-    print(f"\n--- TOP FAILED CONTROLS ---")
+    print("\n--- TOP FAILED CONTROLS ---")
     for control, count in list(analysis["by_control"].items())[:10]:
         detail = analysis["control_details"].get(control, {})
         acct_count = len(detail.get("accounts", []))
         print(f"  [{count:3d}] {control[:60]}")
-        print(f"        Severity: {detail.get('severity', 'N/A')} | Accounts: {acct_count}")
+        print(
+            f"        Severity: {detail.get('severity', 'N/A')} | Accounts: {acct_count}"
+        )
 
-    print(f"\n--- TOP AFFECTED ACCOUNTS ---")
+    print("\n--- TOP AFFECTED ACCOUNTS ---")
     for acct, count in list(analysis["by_account"].items())[:5]:
         print(f"  {acct}: {count} failed controls")
 
     print(f"\n  Total failed findings: {len(findings)}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     return {"findings_count": len(findings), "analysis": analysis}
 
 
@@ -156,7 +179,9 @@ def main():
     parser = argparse.ArgumentParser(description="AWS Security Hub Compliance Agent")
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--audit", action="store_true", help="Run compliance audit")
-    parser.add_argument("--remediate", action="store_true", help="Auto-remediate safe findings")
+    parser.add_argument(
+        "--remediate", action="store_true", help="Auto-remediate safe findings"
+    )
     parser.add_argument("--output", help="Save report to JSON")
     args = parser.parse_args()
 

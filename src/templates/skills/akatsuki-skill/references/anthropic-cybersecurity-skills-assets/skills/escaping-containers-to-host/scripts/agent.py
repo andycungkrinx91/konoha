@@ -45,8 +45,9 @@ def check_capabilities():
                     # CAP_SYS_ADMIN is bit 21
                     findings["cap_sys_admin"] = bool(mask & (1 << 21))
                     # "all caps" full-width masks observed in privileged ctrs
-                    findings["all_caps"] = hexval.lower().endswith("3fffffffff") or \
-                        hexval.lower().endswith("ffffffffff")
+                    findings["all_caps"] = hexval.lower().endswith(
+                        "3fffffffff"
+                    ) or hexval.lower().endswith("ffffffffff")
     except OSError as exc:
         findings["error"] = str(exc)
     return findings
@@ -58,10 +59,17 @@ def check_docker_socket():
     present = os.path.exists(sock)
     reachable = False
     if present:
-        rc, out, _ = _run([
-            "curl", "-s", "--max-time", "5", "--unix-socket", sock,
-            "http://localhost/version",
-        ])
+        rc, out, _ = _run(
+            [
+                "curl",
+                "-s",
+                "--max-time",
+                "5",
+                "--unix-socket",
+                sock,
+                "http://localhost/version",
+            ]
+        )
         reachable = rc == 0 and "ApiVersion" in out
     return {"present": present, "reachable": reachable}
 
@@ -76,8 +84,11 @@ def check_host_mounts():
                 if len(parts) < 5:
                     continue
                 src, dst = parts[3], parts[4]
-                if src == "/" or "/var/run/docker.sock" in line or \
-                        dst.startswith("/host"):
+                if (
+                    src == "/"
+                    or "/var/run/docker.sock" in line
+                    or dst.startswith("/host")
+                ):
                     suspects.append({"source": src, "mountpoint": dst})
     except OSError as exc:
         return {"error": str(exc)}
@@ -89,8 +100,10 @@ def check_namespaces():
     shared_pid = False
     try:
         # If we can read the host init's root and see many host pids, likely shared
-        shared_pid = os.path.isdir("/proc/1/root/bin") and \
-            len([p for p in os.listdir("/proc") if p.isdigit()]) > 50
+        shared_pid = (
+            os.path.isdir("/proc/1/root/bin")
+            and len([p for p in os.listdir("/proc") if p.isdigit()]) > 50
+        )
     except OSError:
         pass
     return {"likely_host_pid_ns": shared_pid}
@@ -119,7 +132,8 @@ def check_runtime_cves():
     # 2025 family: <= 1.2.7, 1.3.2, 1.4.0-rc.2  -> fixed 1.2.8 / 1.3.3 / 1.4.0-rc.3
     if ver <= (1, 2, 7) or (1, 3, 0) <= ver <= (1, 3, 2):
         result["vulns"].append(
-            "CVE-2025-31133/52565/52881 (procfs write-redirect family)")
+            "CVE-2025-31133/52565/52881 (procfs write-redirect family)"
+        )
     return result
 
 
@@ -133,7 +147,9 @@ def assess():
         "runtime": check_runtime_cves(),
     }
     primitives = []
-    if report["capabilities"].get("cap_sys_admin") or report["capabilities"].get("all_caps"):
+    if report["capabilities"].get("cap_sys_admin") or report["capabilities"].get(
+        "all_caps"
+    ):
         primitives.append("privileged/CAP_SYS_ADMIN -> cgroup release_agent escape")
     if report["docker_socket"].get("reachable"):
         primitives.append("docker.sock mounted -> spawn host-root container")
@@ -149,7 +165,8 @@ def assess():
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Assess container escape posture (authorized testing only)")
+        description="Assess container escape posture (authorized testing only)"
+    )
     ap.add_argument("-o", "--output", help="write JSON report to file")
     ap.add_argument("--quiet", action="store_true", help="JSON only, no banner")
     args = ap.parse_args()

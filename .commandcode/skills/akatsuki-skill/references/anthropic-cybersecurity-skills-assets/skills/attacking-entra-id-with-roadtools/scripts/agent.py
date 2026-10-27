@@ -13,8 +13,8 @@ Examples
     python agent.py pivot -r azrm          # exchange stored RT to ARM
     python agent.py describe                # decode .roadtools_auth token
 """
+
 import argparse
-import json
 import shutil
 import subprocess
 import sys
@@ -22,7 +22,9 @@ import sys
 
 def require(binary):
     if shutil.which(binary) is None:
-        sys.exit(f"[!] '{binary}' not found on PATH. Install with: pip install {binary}")
+        sys.exit(
+            f"[!] '{binary}' not found on PATH. Install with: pip install {binary}"
+        )
 
 
 def run(cmd):
@@ -48,7 +50,9 @@ def auth_args(args):
         return ["--refresh-token", args.refresh_token]
     if args.user and args.password:
         return ["-u", args.user, "-p", args.password]
-    sys.exit("[!] provide an auth method: --device-code | --access-token | --refresh-token | -u/-p")
+    sys.exit(
+        "[!] provide an auth method: --device-code | --access-token | --refresh-token | -u/-p"
+    )
 
 
 def cmd_recon(args):
@@ -65,7 +69,10 @@ def cmd_recon(args):
         run(["roadrecon", "plugin", "bloodhound"])
     if args.policies:
         run(["roadrecon", "plugin", "policies"])
-    print("[+] recon complete. Run 'roadrecon gui' to explore roadrecon.db", file=sys.stderr)
+    print(
+        "[+] recon complete. Run 'roadrecon gui' to explore roadrecon.db",
+        file=sys.stderr,
+    )
 
 
 def cmd_tokens(args):
@@ -102,29 +109,38 @@ def cmd_describe(args):
             with open(".roadtools_auth", "r", encoding="utf-8") as fh:
                 data = fh.read()
         except FileNotFoundError:
-            sys.exit("[!] .roadtools_auth not found; authenticate first or pass --token")
-        proc = subprocess.run(["roadtx", "describe"], input=data, text=True,
-                              capture_output=True)
+            sys.exit(
+                "[!] .roadtools_auth not found; authenticate first or pass --token"
+            )
+        proc = subprocess.run(
+            ["roadtx", "describe"], input=data, text=True, capture_output=True
+        )
         print(proc.stdout or proc.stderr)
 
 
 def main():
-    p = argparse.ArgumentParser(description="ROADtools engagement orchestrator (authorized use only)")
+    p = argparse.ArgumentParser(
+        description="ROADtools engagement orchestrator (authorized use only)"
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def add_auth(sp):
-        sp.add_argument("-u", "--user"); sp.add_argument("-p", "--password")
+        sp.add_argument("-u", "--user")
+        sp.add_argument("-p", "--password")
         sp.add_argument("--device-code", action="store_true")
-        sp.add_argument("--access-token"); sp.add_argument("--refresh-token")
+        sp.add_argument("--access-token")
+        sp.add_argument("--refresh-token")
 
-    sr = sub.add_parser("recon"); add_auth(sr)
+    sr = sub.add_parser("recon")
+    add_auth(sr)
     sr.add_argument("--gather", action="store_true")
     sr.add_argument("--mfa", action="store_true")
     sr.add_argument("--bloodhound", action="store_true")
     sr.add_argument("--policies", action="store_true")
 
     st = sub.add_parser("tokens")
-    st.add_argument("-u", "--user"); st.add_argument("-p", "--password")
+    st.add_argument("-u", "--user")
+    st.add_argument("-p", "--password")
     st.add_argument("--refresh-token")
     st.add_argument("-c", "--client", default="azcli")
     st.add_argument("-r", "--resource", default="msgraph")
@@ -133,11 +149,16 @@ def main():
     sp_.add_argument("-r", "--resource", required=True)
     sp_.add_argument("-c", "--client")
 
-    sd = sub.add_parser("describe"); sd.add_argument("--token")
+    sd = sub.add_parser("describe")
+    sd.add_argument("--token")
 
     args = p.parse_args()
-    {"recon": cmd_recon, "tokens": cmd_tokens,
-     "pivot": cmd_pivot, "describe": cmd_describe}[args.cmd](args)
+    {
+        "recon": cmd_recon,
+        "tokens": cmd_tokens,
+        "pivot": cmd_pivot,
+        "describe": cmd_describe,
+    }[args.cmd](args)
 
 
 if __name__ == "__main__":

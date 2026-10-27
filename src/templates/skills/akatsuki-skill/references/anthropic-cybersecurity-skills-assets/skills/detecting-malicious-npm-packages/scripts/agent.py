@@ -9,6 +9,7 @@ emits a structured verdict report.
 WARNING: download with scripts disabled and run only in an isolated, disposable
 environment with no production credentials. Defensive / authorized use only.
 """
+
 import argparse
 import json
 import re
@@ -56,7 +57,11 @@ def guarddog_scan(target: str, version: str | None) -> dict:
         cmd += ["--rules", rule]
     rc, out, err = run(cmd)
     try:
-        return {"returncode": rc, "result": json.loads(out)} if out.strip() else {"returncode": rc, "stderr": err}
+        return (
+            {"returncode": rc, "result": json.loads(out)}
+            if out.strip()
+            else {"returncode": rc, "stderr": err}
+        )
     except json.JSONDecodeError:
         return {"returncode": rc, "raw": out, "stderr": err}
 
@@ -93,7 +98,8 @@ def inspect_tarball(tgz: Path, workdir: Path) -> dict:
         try:
             data = json.loads(pkg_json.read_text(encoding="utf-8"))
             findings["lifecycle_scripts"] = {
-                k: v for k, v in (data.get("scripts") or {}).items()
+                k: v
+                for k, v in (data.get("scripts") or {}).items()
                 if k in ("preinstall", "install", "postinstall")
             }
         except (json.JSONDecodeError, OSError):
@@ -105,7 +111,9 @@ def inspect_tarball(tgz: Path, workdir: Path) -> dict:
         except OSError:
             continue
         for m in SUSPECT_RE.finditer(text):
-            findings["suspicious_lines"].append({"file": str(src.relative_to(extract)), "match": m.group(0)})
+            findings["suspicious_lines"].append(
+                {"file": str(src.relative_to(extract)), "match": m.group(0)}
+            )
         findings["urls"].extend(URL_RE.findall(text))
     findings["urls"] = sorted(set(findings["urls"]))[:50]
     findings["suspicious_lines"] = findings["suspicious_lines"][:50]
@@ -116,7 +124,11 @@ def verdict(gd: dict, insp: dict) -> str:
     score = 0
     res = gd.get("result")
     if isinstance(res, dict):
-        for v in res.get("results", res).values() if isinstance(res.get("results", res), dict) else []:
+        for v in (
+            res.get("results", res).values()
+            if isinstance(res.get("results", res), dict)
+            else []
+        ):
             if v:
                 score += 2
     if insp.get("lifecycle_scripts"):
@@ -146,18 +158,26 @@ def main() -> int:
         if args.tarball:
             tgz = Path(args.tarball)
             report["guarddog"] = (
-                guarddog_scan(str(tgz), None) if shutil.which("guarddog") else {"error": "no guarddog"}
+                guarddog_scan(str(tgz), None)
+                if shutil.which("guarddog")
+                else {"error": "no guarddog"}
             )
         else:
             report["guarddog"] = guarddog_scan(args.package, args.version)
             tgz = download_tarball(args.package, args.version, work)
 
-        report["inspection"] = inspect_tarball(tgz, work) if tgz and tgz.exists() else {"error": "no tarball"}
+        report["inspection"] = (
+            inspect_tarball(tgz, work)
+            if tgz and tgz.exists()
+            else {"error": "no tarball"}
+        )
 
     report["verdict"] = verdict(report["guarddog"], report["inspection"])
     print(f"[+] verdict: {report['verdict']}")
     if report["inspection"].get("lifecycle_scripts"):
-        print(f"[!] install scripts present: {report['inspection']['lifecycle_scripts']}")
+        print(
+            f"[!] install scripts present: {report['inspection']['lifecycle_scripts']}"
+        )
     if report["inspection"].get("urls"):
         print(f"[i] {len(report['inspection']['urls'])} URL(s) found in source")
 

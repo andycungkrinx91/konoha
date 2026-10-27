@@ -10,7 +10,6 @@ import json
 import csv
 import sys
 import os
-import xml.etree.ElementTree as ET
 from collections import defaultdict, Counter
 from datetime import datetime
 

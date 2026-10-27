@@ -82,9 +82,11 @@ def summarize(detections):
         total += n
         rules[name] += n
         levels[level] += n
-    return {"total_hits": total,
-            "by_level": dict(levels),
-            "top_rules": rules.most_common(15)}
+    return {
+        "total_hits": total,
+        "by_level": dict(levels),
+        "top_rules": rules.most_common(15),
+    }
 
 
 def main():
@@ -96,7 +98,9 @@ def main():
     p.add_argument("-r", "--rules", help="Chainsaw rules directory")
     p.add_argument("--level", help="Filter by Sigma level (e.g. high)")
     p.add_argument("--status", help="Filter by rule status (e.g. stable)")
-    p.add_argument("--search", dest="search_pattern", help="Run a search instead of a hunt")
+    p.add_argument(
+        "--search", dest="search_pattern", help="Run a search instead of a hunt"
+    )
     p.add_argument("--regex", action="store_true", help="Treat --search as a regex")
     p.add_argument("-i", "--ignore-case", action="store_true")
     p.add_argument("--report", help="Write JSON output to this path")
@@ -105,16 +109,27 @@ def main():
     binary = find_binary(args.bin)
 
     if args.search_pattern:
-        results = search(binary, args.evtx, args.search_pattern,
-                         args.regex, args.ignore_case)
-        out = {"mode": "search", "pattern": args.search_pattern,
-               "hits": len(results) if isinstance(results, list) else 0}
+        results = search(
+            binary, args.evtx, args.search_pattern, args.regex, args.ignore_case
+        )
+        out = {
+            "mode": "search",
+            "pattern": args.search_pattern,
+            "hits": len(results) if isinstance(results, list) else 0,
+        }
         print(f"[+] search hits: {out['hits']}")
     else:
         if not (args.sigma and args.mapping):
             p.error("hunt mode requires --sigma and --mapping")
-        results = hunt(binary, args.evtx, args.sigma, args.mapping,
-                       args.rules, args.level, args.status)
+        results = hunt(
+            binary,
+            args.evtx,
+            args.sigma,
+            args.mapping,
+            args.rules,
+            args.level,
+            args.status,
+        )
         out = summarize(results)
         out["mode"] = "hunt"
         print(f"[+] {out['total_hits']} hits across {len(out['top_rules'])} rules")

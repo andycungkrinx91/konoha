@@ -18,10 +18,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from ipaddress import ip_address, ip_network
-from typing import Optional
 
 try:
-    from scapy.all import rdpcap, sniff, IP, TCP, UDP, Ether, ARP
+    from scapy.all import rdpcap, sniff, IP, TCP, UDP, Ether
 except ImportError:
     print("[ERROR] scapy is required: pip install scapy")
     sys.exit(1)

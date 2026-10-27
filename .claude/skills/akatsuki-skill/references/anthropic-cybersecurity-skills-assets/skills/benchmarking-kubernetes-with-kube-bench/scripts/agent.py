@@ -23,9 +23,11 @@ def ensure_kube_bench() -> str:
     """Return the kube-bench path or exit with install guidance."""
     path = shutil.which("kube-bench")
     if not path:
-        print("[!] kube-bench not found on PATH. Install: "
-              "https://github.com/aquasecurity/kube-bench/releases",
-              file=sys.stderr)
+        print(
+            "[!] kube-bench not found on PATH. Install: "
+            "https://github.com/aquasecurity/kube-bench/releases",
+            file=sys.stderr,
+        )
         sys.exit(2)
     return path
 
@@ -43,8 +45,11 @@ def run_kube_bench(binary: str, targets: str, benchmark: str, timeout: int) -> d
         sys.exit(3)
     # kube-bench may exit non-zero when checks fail; results are still on stdout.
     if not proc.stdout.strip():
-        print(f"[!] kube-bench produced no output (rc={proc.returncode}): "
-              f"{proc.stderr.strip()}", file=sys.stderr)
+        print(
+            f"[!] kube-bench produced no output (rc={proc.returncode}): "
+            f"{proc.stderr.strip()}",
+            file=sys.stderr,
+        )
         sys.exit(proc.returncode or 4)
     try:
         return json.loads(proc.stdout)
@@ -79,28 +84,40 @@ def summarise(report: dict):
         per_section.setdefault(sid, [stext, Counter()])
         per_section[sid][1][state] += 1
         if state in ("FAIL", "WARN"):
-            failures.append({
-                "section": sid,
-                "id": check.get("test_number"),
-                "desc": check.get("test_desc"),
-                "status": state,
-                "remediation": (check.get("remediation") or "").strip(),
-            })
+            failures.append(
+                {
+                    "section": sid,
+                    "id": check.get("test_number"),
+                    "desc": check.get("test_desc"),
+                    "status": state,
+                    "remediation": (check.get("remediation") or "").strip(),
+                }
+            )
     return overall, per_section, failures
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="kube-bench CIS compliance helper")
-    parser.add_argument("--targets", default="master,node",
-                        help="Comma list: master,node,etcd,policies,controlplane")
+    parser.add_argument(
+        "--targets",
+        default="master,node",
+        help="Comma list: master,node,etcd,policies,controlplane",
+    )
     parser.add_argument("--benchmark", default="", help="Pin benchmark, e.g. cis-1.8")
     parser.add_argument("--timeout", type=int, default=300, help="Run timeout (s)")
-    parser.add_argument("--show-remediation", action="store_true",
-                        help="Print remediation text for each failing check")
-    parser.add_argument("--fail-on-warn", action="store_true",
-                        help="Treat WARN as gating in addition to FAIL")
-    parser.add_argument("--gate", action="store_true",
-                        help="Exit non-zero when failing checks exist")
+    parser.add_argument(
+        "--show-remediation",
+        action="store_true",
+        help="Print remediation text for each failing check",
+    )
+    parser.add_argument(
+        "--fail-on-warn",
+        action="store_true",
+        help="Treat WARN as gating in addition to FAIL",
+    )
+    parser.add_argument(
+        "--gate", action="store_true", help="Exit non-zero when failing checks exist"
+    )
     parser.add_argument("--output", help="Write JSON summary to file")
     args = parser.parse_args()
 
@@ -115,9 +132,11 @@ def main() -> None:
     print("\n--- Per section ---")
     for sid in sorted(per_section):
         text, counts = per_section[sid]
-        print(f"  [{sid}] {text}: "
-              f"PASS={counts.get('PASS',0)} FAIL={counts.get('FAIL',0)} "
-              f"WARN={counts.get('WARN',0)}")
+        print(
+            f"  [{sid}] {text}: "
+            f"PASS={counts.get('PASS', 0)} FAIL={counts.get('FAIL', 0)} "
+            f"WARN={counts.get('WARN', 0)}"
+        )
 
     print(f"\n--- Findings requiring action ({len(failures)}) ---")
     for f in failures:

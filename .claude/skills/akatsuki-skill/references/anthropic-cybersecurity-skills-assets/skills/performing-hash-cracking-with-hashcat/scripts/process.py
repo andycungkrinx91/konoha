@@ -15,18 +15,18 @@ Usage:
     python process.py create-test-hashes --output test_hashes.txt
 """
 
-import os
 import re
-import sys
 import json
 import hashlib
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from collections import Counter
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 HASH_PATTERNS = {
@@ -54,18 +54,22 @@ def identify_hash(hash_value: str) -> List[Dict]:
     for pattern, hash_types in HASH_PATTERNS.items():
         if re.match(pattern, hash_value, re.IGNORECASE):
             for name, mode in hash_types:
-                matches.append({
-                    "hash_type": name,
-                    "hashcat_mode": mode,
-                    "confidence": "high" if len(hash_types) == 1 else "medium",
-                })
+                matches.append(
+                    {
+                        "hash_type": name,
+                        "hashcat_mode": mode,
+                        "confidence": "high" if len(hash_types) == 1 else "medium",
+                    }
+                )
 
     if not matches:
-        matches.append({
-            "hash_type": "Unknown",
-            "hashcat_mode": None,
-            "confidence": "none",
-        })
+        matches.append(
+            {
+                "hash_type": "Unknown",
+                "hashcat_mode": None,
+                "confidence": "none",
+            }
+        )
 
     return matches
 
@@ -114,10 +118,25 @@ def generate_hashcat_command(
 def create_test_hashes(output_path: str) -> Dict:
     """Create a set of test password hashes for practice."""
     test_passwords = [
-        "password", "123456", "admin", "letmein", "welcome",
-        "monkey", "dragon", "master", "qwerty", "login",
-        "P@ssw0rd", "Summer2024!", "company123", "test1234",
-        "hunter2", "trustno1", "batman", "shadow", "sunshine",
+        "password",
+        "123456",
+        "admin",
+        "letmein",
+        "welcome",
+        "monkey",
+        "dragon",
+        "master",
+        "qwerty",
+        "login",
+        "P@ssw0rd",
+        "Summer2024!",
+        "company123",
+        "test1234",
+        "hunter2",
+        "trustno1",
+        "batman",
+        "shadow",
+        "sunshine",
         "iloveyou",
     ]
 
@@ -152,7 +171,9 @@ def analyze_cracked_results(potfile_path: str, hash_file_path: str) -> Dict:
 
     total_hashes = 0
     if hash_file.exists():
-        total_hashes = sum(1 for line in hash_file.read_text().strip().split("\n") if line.strip())
+        total_hashes = sum(
+            1 for line in hash_file.read_text().strip().split("\n") if line.strip()
+        )
 
     cracked_passwords = []
     for line in potfile.read_text().strip().split("\n"):
@@ -166,7 +187,12 @@ def analyze_cracked_results(potfile_path: str, hash_file_path: str) -> Dict:
 
     # Password analysis
     lengths = [len(p) for p in cracked_passwords]
-    charset_analysis = {"lowercase_only": 0, "with_uppercase": 0, "with_digits": 0, "with_special": 0}
+    charset_analysis = {
+        "lowercase_only": 0,
+        "with_uppercase": 0,
+        "with_digits": 0,
+        "with_special": 0,
+    }
 
     for pwd in cracked_passwords:
         has_upper = any(c.isupper() for c in pwd)
@@ -231,7 +257,11 @@ def main():
     gen = subparsers.add_parser("generate-cmd", help="Generate hashcat command")
     gen.add_argument("--hash-file", required=True, help="Hash file path")
     gen.add_argument("--mode", type=int, required=True, help="Hashcat hash mode")
-    gen.add_argument("--attack", choices=["dictionary", "bruteforce", "hybrid_wm", "hybrid_mw"], default="dictionary")
+    gen.add_argument(
+        "--attack",
+        choices=["dictionary", "bruteforce", "hybrid_wm", "hybrid_mw"],
+        default="dictionary",
+    )
     gen.add_argument("--wordlist", default="rockyou.txt")
     gen.add_argument("--rules", help="Rules file")
     gen.add_argument("--mask", help="Mask pattern")
@@ -249,7 +279,9 @@ def main():
         result = identify_hash(args.hash)
         print(json.dumps(result, indent=2))
     elif args.command == "generate-cmd":
-        cmd = generate_hashcat_command(args.hash_file, args.mode, args.attack, args.wordlist, args.rules, args.mask)
+        cmd = generate_hashcat_command(
+            args.hash_file, args.mode, args.attack, args.wordlist, args.rules, args.mask
+        )
         print(cmd)
     elif args.command == "create-test-hashes":
         result = create_test_hashes(args.output)

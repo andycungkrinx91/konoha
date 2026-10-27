@@ -20,6 +20,7 @@ from fastapi import HTTPException, Request, status
 # Rate Limit Result
 # ============================================================================
 
+
 @dataclass
 class RateLimitResult:
     """Result of a rate limit check."""
@@ -46,6 +47,7 @@ class RateLimitResult:
 # Rate Limit Configuration
 # ============================================================================
 
+
 class RateLimitTier(Enum):
     """User tier for rate limiting."""
 
@@ -66,6 +68,7 @@ TIER_LIMITS = {
 # ============================================================================
 # Token Bucket Rate Limiter
 # ============================================================================
+
 
 class TokenBucketLimiter:
     """
@@ -173,6 +176,7 @@ class TokenBucketLimiter:
 # Sliding Window Counter
 # ============================================================================
 
+
 class SlidingWindowLimiter:
     """
     Sliding window counter rate limiter.
@@ -246,6 +250,7 @@ class SlidingWindowLimiter:
 # ============================================================================
 # FastAPI Integration
 # ============================================================================
+
 
 def create_rate_limit_dependency(
     limiter: TokenBucketLimiter,
@@ -339,7 +344,9 @@ if __name__ == "__main__":
                 key="user:123",
                 tier=RateLimitTier.FREE,
             )
-            print(f"Request {i+1}: allowed={result.allowed}, remaining={result.remaining}")
+            print(
+                f"Request {i + 1}: allowed={result.allowed}, remaining={result.remaining}"
+            )
             if not result.allowed:
                 print(f"  Retry after: {result.retry_after}s")
                 break

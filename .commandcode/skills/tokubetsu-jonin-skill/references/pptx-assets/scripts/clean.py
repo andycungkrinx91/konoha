@@ -181,7 +181,15 @@ def get_referenced_files(unpacked_dir: Path) -> set:
 
 
 def remove_orphaned_files(unpacked_dir: Path, referenced: set) -> list[str]:
-    resource_dirs = ["media", "embeddings", "charts", "diagrams", "tags", "drawings", "ink"]
+    resource_dirs = [
+        "media",
+        "embeddings",
+        "charts",
+        "diagrams",
+        "tags",
+        "drawings",
+        "ink",
+    ]
     removed = []
 
     for dir_name in resource_dirs:

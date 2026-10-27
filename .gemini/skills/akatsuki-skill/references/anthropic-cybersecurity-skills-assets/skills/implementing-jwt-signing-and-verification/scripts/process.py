@@ -16,11 +16,8 @@ Usage:
 """
 
 import os
-import sys
 import json
 import time
-import hmac
-import hashlib
 import base64
 import argparse
 import logging

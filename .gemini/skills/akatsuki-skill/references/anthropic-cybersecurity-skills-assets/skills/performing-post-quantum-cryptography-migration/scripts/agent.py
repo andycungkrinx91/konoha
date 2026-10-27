@@ -17,13 +17,11 @@ import struct
 import argparse
 import logging
 import subprocess
-import hashlib
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import defaultdict
 
-import requests
 
 # ---------------------------------------------------------------------------
 # Logging

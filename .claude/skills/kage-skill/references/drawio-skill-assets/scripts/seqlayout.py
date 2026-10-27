@@ -36,6 +36,7 @@ draw.io afterwards.
 
 Usage: python3 seqlayout.py <seq.json> [-o diagram.drawio]
 """
+
 import argparse
 import json
 import sys
@@ -46,20 +47,29 @@ BAR_W = 10
 TOP, ROW, SELF_ROW, NOTE_ROW, BOTTOM_PAD = 40, 50, 70, 60, 40
 MIN_SPACING = 200
 
-LIFELINE = ("shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;"
-            "container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;"
-            f"portConstraint=eastwest;size={HEADER_H};")
+LIFELINE = (
+    "shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;"
+    "container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;"
+    f"portConstraint=eastwest;size={HEADER_H};"
+)
 # Actor lifelines render a stick figure in the header — anchor the name at
 # the header bottom (white-backed) so figure and label don't overlap.
-ACTOR = LIFELINE + ("participant=umlActor;verticalAlign=bottom;"
-                    "spacingBottom=-14;labelBackgroundColor=#ffffff;")
-BAR = "html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;"
-NOTE = ("shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;"
-        "strokeColor=#d6b656;")
+ACTOR = LIFELINE + (
+    "participant=umlActor;verticalAlign=bottom;"
+    "spacingBottom=-14;labelBackgroundColor=#ffffff;"
+)
+BAR = (
+    "html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;fillColor=#ffffff;"
+)
+NOTE = (
+    "shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;"
+)
 SYNC = "html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;"
 ASYNC = "html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;"
-RETURN = ("html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;"
-          "strokeColor=#999999;fontColor=#999999;")
+RETURN = (
+    "html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;"
+    "strokeColor=#999999;fontColor=#999999;"
+)
 
 
 def attr(value):
@@ -79,14 +89,16 @@ def layout(spec):
         sys.exit("error: duplicate participant ids")
 
     # x axis: uniform spacing, widened if any label needs it (~7px/char).
-    spacing = max([MIN_SPACING] + [7 * len(str(p.get("label", p["id"]))) + 80 for p in parts])
-    spacing = -(-spacing // 10) * 10                      # snap up to the grid
+    spacing = max(
+        [MIN_SPACING] + [7 * len(str(p.get("label", p["id"]))) + 80 for p in parts]
+    )
+    spacing = -(-spacing // 10) * 10  # snap up to the grid
     cx = {p["id"]: TOP + i * spacing + LIFELINE_W // 2 for i, p in enumerate(parts)}
 
     # y axis: walk the messages once, assigning each row a y position and
     # tracking one open activation bar per participant ({pid: start_y}).
     y = TOP + HEADER_H + 50
-    rows, open_bar, bars = [], {}, []           # bars: (pid, y0, y1)
+    rows, open_bar, bars = [], {}, []  # bars: (pid, y0, y1)
 
     def close(pid, at):
         if pid in open_bar:
@@ -107,9 +119,9 @@ def layout(spec):
             continue
         rows.append(("msg", m, y))
         if is_return:
-            close(src, y)                       # returning ends the caller's work
+            close(src, y)  # returning ends the caller's work
         elif m.get("activate", True) and dst not in open_bar:
-            open_bar[dst] = y                   # call starts work on the target
+            open_bar[dst] = y  # call starts work on the target
         if m.get("deactivate"):
             close(src, y)
         y += ROW
@@ -125,10 +137,11 @@ def layout(spec):
             f'style="{style}" vertex="1" parent="1">\n'
             f'          <mxGeometry x="{cx[p["id"]] - LIFELINE_W // 2}" y="{TOP}" '
             f'width="{LIFELINE_W}" height="{height}" as="geometry"/>\n'
-            "        </mxCell>")
+            "        </mxCell>"
+        )
 
     # Activation bars: children of their lifeline (coordinates relative to it).
-    bar_of = {}                                 # pid -> list of (y0, y1, cell_id)
+    bar_of = {}  # pid -> list of (y0, y1, cell_id)
     for n, (pid, y0, y1) in enumerate(bars):
         bid = f"act{n}"
         bar_of.setdefault(pid, []).append((y0, y1, bid))
@@ -137,7 +150,8 @@ def layout(spec):
             f'parent="{attr(pid)}">\n'
             f'          <mxGeometry x="{LIFELINE_W // 2 - BAR_W // 2}" y="{y0 - TOP}" '
             f'width="{BAR_W}" height="{y1 - y0}" as="geometry"/>\n'
-            "        </mxCell>")
+            "        </mxCell>"
+        )
 
     def anchor(pid, my, side):
         """(cell_id, exitX-style fragment values) for a message endpoint: the
@@ -158,7 +172,8 @@ def layout(spec):
                 f'vertex="1" parent="1">\n'
                 f'          <mxGeometry x="{cx[pid] + 20}" y="{my - 20}" '
                 f'width="{min(w, spacing - 60)}" height="40" as="geometry"/>\n'
-                "        </mxCell>")
+                "        </mxCell>"
+            )
             continue
         src, dst = m["from"], m["to"]
         style = RETURN if m.get("return") else ASYNC if m.get("async") else SYNC
@@ -173,9 +188,10 @@ def layout(spec):
                 f'          <mxGeometry relative="1" as="geometry">\n'
                 f'            <Array as="points">'
                 f'<mxPoint x="{loop_x}" y="{my}"/><mxPoint x="{loop_x}" y="{my + 30}"/>'
-                f'</Array>\n'
+                f"</Array>\n"
                 "          </mxGeometry>\n"
-                "        </mxCell>")
+                "        </mxCell>"
+            )
             continue
         rightward = order[src] < order[dst]
         sid, sx, sy = anchor(src, my, "right" if rightward else "left")
@@ -185,7 +201,8 @@ def layout(spec):
             f'style="{style}exitX={sx};exitY={sy};entryX={tx};entryY={ty};" '
             f'edge="1" parent="1" source="{attr(sid)}" target="{attr(tid)}">\n'
             f'          <mxGeometry relative="1" as="geometry"/>\n'
-            "        </mxCell>")
+            "        </mxCell>"
+        )
 
     name = attr(spec.get("title", "Sequence"))
     return (
@@ -212,8 +229,11 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(xml)
-        print(f"wrote {args.output} ({len(spec['participants'])} participants, "
-              f"{len(spec.get('messages', []))} messages)", file=sys.stderr)
+        print(
+            f"wrote {args.output} ({len(spec['participants'])} participants, "
+            f"{len(spec.get('messages', []))} messages)",
+            file=sys.stderr,
+        )
     else:
         sys.stdout.write(xml)
 

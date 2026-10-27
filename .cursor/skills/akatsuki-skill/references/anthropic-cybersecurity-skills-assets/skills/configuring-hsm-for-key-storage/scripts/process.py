@@ -108,8 +108,6 @@ def pkcs11_operations_demo(token_label: str, pin: str, lib_path: str) -> Dict:
     try:
         import pkcs11
         from pkcs11 import KeyType, Attribute, ObjectClass, Mechanism
-        from pkcs11.util.rsa import encode_rsa_public_key
-        from pkcs11.util.ec import encode_named_curve_parameters
     except ImportError:
         return {
             "status": "error",

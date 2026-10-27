@@ -8,7 +8,6 @@ vulnerability reports across multiple container images.
 
 import json
 import os
-import sys
 import subprocess
 from datetime import datetime
 from collections import defaultdict

@@ -16,7 +16,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any, Set, Tuple
+from typing import List, Dict, Optional, Any, Tuple
 from urllib.parse import urlparse
 
 

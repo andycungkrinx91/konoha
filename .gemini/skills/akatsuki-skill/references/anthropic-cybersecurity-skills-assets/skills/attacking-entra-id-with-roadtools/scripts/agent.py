@@ -14,7 +14,6 @@ Examples
     python agent.py describe                # decode .roadtools_auth token
 """
 import argparse
-import json
 import shutil
 import subprocess
 import sys

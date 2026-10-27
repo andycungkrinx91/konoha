@@ -6,7 +6,6 @@ For authorized security monitoring and defensive operations only.
 """
 
 import argparse
-import hashlib
 import json
 import logging
 import re
@@ -18,8 +17,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
-from urllib.parse import quote_plus, urljoin
 
 import requests
 

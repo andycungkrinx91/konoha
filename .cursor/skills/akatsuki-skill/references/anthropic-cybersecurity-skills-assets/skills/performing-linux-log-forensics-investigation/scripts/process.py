@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Linux Log Forensic Analyzer - Parses auth.log for forensic investigation."""
 import re, json, os, sys
-from datetime import datetime
 from collections import defaultdict
 
 def parse_auth_log(path: str, output_dir: str) -> str:

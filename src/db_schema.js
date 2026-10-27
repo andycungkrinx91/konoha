@@ -235,6 +235,16 @@ function setupSchema(conn, backupDatabaseFn = null) {
         session_id TEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS kali_tools (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        package TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT,
+        url TEXT
+    );
   `);
 
   try {
@@ -430,7 +440,11 @@ function setupSchema(conn, backupDatabaseFn = null) {
     CREATE INDEX IF NOT EXISTS idx_active_sessions_last_active ON active_sessions(last_active_at);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_status ON prompt_queue(status);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_created ON prompt_queue(created_at);
+    CREATE INDEX IF NOT EXISTS idx_kali_tools_category ON kali_tools(category);
+    CREATE INDEX IF NOT EXISTS idx_kali_tools_slug ON kali_tools(slug);
   `);
+
+  seedKaliTools(conn);
 
   try {
     const queueCols = conn.prepare("PRAGMA table_info(prompt_queue)").all().map(c => c.name);
@@ -481,11 +495,45 @@ function setupSchema(conn, backupDatabaseFn = null) {
   return conn;
 }
 
+/**
+ * Seed Kali tools into SQLite table from local JSON catalog if empty.
+ *
+ * @param {Object} conn
+ */
+function seedKaliTools(conn) {
+  try {
+    const row = conn.prepare('SELECT count(*) as count FROM kali_tools').get();
+    const count = row ? (row.count !== undefined ? row.count : Object.values(row)[0] || 0) : 0;
+    if (count > 0) return;
+
+    const path = require('path');
+    const kaliJsonPath = path.join(__dirname, 'templates', 'akatsuki_lab', 'kali_tools.json');
+    if (!fs.existsSync(kaliJsonPath)) return;
+    const tools = JSON.parse(fs.readFileSync(kaliJsonPath, 'utf8'));
+    if (!Array.isArray(tools) || tools.length === 0) return;
+
+    const stmt = conn.prepare(`
+      INSERT OR REPLACE INTO kali_tools (id, slug, name, package, category, description, url)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    conn.transaction(() => {
+      for (const t of tools) {
+        const id = t.id || t.slug;
+        stmt.run(id, t.slug, t.name || t.slug, t.package || t.slug, t.category || 'general', t.description || '', t.url || '');
+      }
+    })();
+  } catch (_) {
+    // Non-blocking best effort seed
+  }
+}
+
 module.exports = {
   CURRENT_SCHEMA_VERSION,
   getCurrentUserVersion,
   setUserVersion,
   verifyIntegrity,
   hasFts5Support,
-  setupSchema
+  setupSchema,
+  seedKaliTools
 };

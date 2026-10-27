@@ -18,7 +18,6 @@ Usage:
 
 import os
 import ssl
-import sys
 import json
 import socket
 import argparse

@@ -11,7 +11,7 @@ import os
 import sys
 import urllib.request
 import urllib.error
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 
 
@@ -132,16 +132,18 @@ def generate_org_report(org: str, token: str) -> dict:
         )
 
     report["severity_summary"] = dict(report["severity_summary"])
-    top_cwes_sorted = sorted(report["top_cwes"].items(), key=lambda x: x[1], reverse=True)[:10]
+    top_cwes_sorted = sorted(
+        report["top_cwes"].items(), key=lambda x: x[1], reverse=True
+    )[:10]
     report["top_cwes"] = dict(top_cwes_sorted)
     return report
 
 
 def print_report(report: dict) -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"GHAS Code Scanning Report: {report['organization']}")
     print(f"Generated: {report['generated_at']}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Total repositories: {report['total_repositories']}")
     print(f"Repositories with scanning enabled: {report['repositories_with_scanning']}")
     coverage = (
@@ -151,20 +153,26 @@ def print_report(report: dict) -> None:
     )
     print(f"Coverage: {coverage:.1f}%")
     print(f"Total open alerts: {report['total_open_alerts']}")
-    print(f"\nSeverity Summary:")
+    print("\nSeverity Summary:")
     for sev in ["critical", "high", "medium", "low", "unknown"]:
         count = report["severity_summary"].get(sev, 0)
         if count > 0:
             print(f"  {sev.upper():12s}: {count}")
-    print(f"\nTop CWEs:")
+    print("\nTop CWEs:")
     for cwe, count in report.get("top_cwes", {}).items():
         print(f"  {cwe:15s}: {count}")
-    print(f"\nRepository Details:")
-    for repo in sorted(report["repo_details"], key=lambda r: r["open_alerts"], reverse=True):
+    print("\nRepository Details:")
+    for repo in sorted(
+        report["repo_details"], key=lambda r: r["open_alerts"], reverse=True
+    ):
         mttr_str = (
-            f"{repo['mttr']['avg_mttr_hours']}h" if repo["mttr"]["avg_mttr_hours"] else "N/A"
+            f"{repo['mttr']['avg_mttr_hours']}h"
+            if repo["mttr"]["avg_mttr_hours"]
+            else "N/A"
         )
-        print(f"  {repo['repository']:40s} | Open: {repo['open_alerts']:4d} | Avg MTTR: {mttr_str}")
+        print(
+            f"  {repo['repository']:40s} | Open: {repo['open_alerts']:4d} | Avg MTTR: {mttr_str}"
+        )
 
 
 def main():

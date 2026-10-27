@@ -5,6 +5,7 @@ Wraps the Semgrep CLI to perform static application security testing
 using built-in rulesets and custom rules. Parses JSON output to produce
 structured vulnerability findings with severity, CWE, and OWASP mappings.
 """
+
 import argparse
 import json
 import os
@@ -27,9 +28,17 @@ def find_semgrep_binary():
     sys.exit(1)
 
 
-def run_scan(semgrep_bin, target, configs=None, severity=None,
-             exclude=None, include=None, max_target_bytes=None,
-             timeout_per_rule=None, verbose=False):
+def run_scan(
+    semgrep_bin,
+    target,
+    configs=None,
+    severity=None,
+    exclude=None,
+    include=None,
+    max_target_bytes=None,
+    timeout_per_rule=None,
+    verbose=False,
+):
     """Run semgrep scan and return JSON results."""
     cmd = [semgrep_bin, "scan", "--json"]
 
@@ -109,9 +118,9 @@ def parse_findings(raw_json):
 
 def format_summary(findings, stats, target):
     """Print human-readable scan summary."""
-    print(f"\n{'='*60}")
-    print(f"  Semgrep SAST Scan Report")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  Semgrep SAST Scan Report")
+    print(f"{'=' * 60}")
     print(f"  Target       : {target}")
     print(f"  Files Scanned: {stats.get('files_scanned_count', 0)}")
     print(f"  Findings     : {len(findings)}")
@@ -122,7 +131,7 @@ def format_summary(findings, stats, target):
         sev = f.get("severity", "WARNING")
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
-    print(f"\n  By Severity:")
+    print("\n  By Severity:")
     for sev in ["ERROR", "WARNING", "INFO"]:
         count = severity_counts.get(sev, 0)
         if count > 0:
@@ -146,7 +155,7 @@ def format_summary(findings, stats, target):
         print(f"    {filepath:50s}: {len(items)} finding(s)")
 
     if findings:
-        print(f"\n  Critical/Error Findings:")
+        print("\n  Critical/Error Findings:")
         for f in findings[:15]:
             if f["severity"] == "ERROR":
                 cwe = f["cwe"][0] if f["cwe"] else ""
@@ -156,21 +165,33 @@ def format_summary(findings, stats, target):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Semgrep SAST scanning agent"
+    parser = argparse.ArgumentParser(description="Semgrep SAST scanning agent")
+    parser.add_argument(
+        "--target", required=True, help="Path to source code directory or file to scan"
     )
-    parser.add_argument("--target", required=True,
-                        help="Path to source code directory or file to scan")
-    parser.add_argument("--config", nargs="+", default=None,
-                        help="Semgrep config(s): auto, p/security-audit, p/owasp-top-ten, or path to .yaml")
-    parser.add_argument("--severity", choices=["INFO", "WARNING", "ERROR"],
-                        help="Minimum severity to report")
-    parser.add_argument("--exclude", nargs="+",
-                        help="File patterns to exclude (e.g., tests/ vendor/)")
-    parser.add_argument("--include", nargs="+",
-                        help="File patterns to include (e.g., *.py *.js)")
-    parser.add_argument("--timeout-per-rule", type=int, default=30,
-                        help="Timeout per rule in seconds (default: 30)")
+    parser.add_argument(
+        "--config",
+        nargs="+",
+        default=None,
+        help="Semgrep config(s): auto, p/security-audit, p/owasp-top-ten, or path to .yaml",
+    )
+    parser.add_argument(
+        "--severity",
+        choices=["INFO", "WARNING", "ERROR"],
+        help="Minimum severity to report",
+    )
+    parser.add_argument(
+        "--exclude", nargs="+", help="File patterns to exclude (e.g., tests/ vendor/)"
+    )
+    parser.add_argument(
+        "--include", nargs="+", help="File patterns to include (e.g., *.py *.js)"
+    )
+    parser.add_argument(
+        "--timeout-per-rule",
+        type=int,
+        default=30,
+        help="Timeout per rule in seconds (default: 30)",
+    )
     parser.add_argument("--output", "-o", help="Output JSON report path")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
@@ -179,9 +200,14 @@ def main():
     print(f"[*] Using semgrep: {semgrep_bin}")
 
     raw_json, stderr, exit_code = run_scan(
-        semgrep_bin, args.target, args.config, args.severity,
-        args.exclude, args.include, timeout_per_rule=args.timeout_per_rule,
-        verbose=args.verbose
+        semgrep_bin,
+        args.target,
+        args.config,
+        args.severity,
+        args.exclude,
+        args.include,
+        timeout_per_rule=args.timeout_per_rule,
+        verbose=args.verbose,
     )
 
     findings, stats = parse_findings(raw_json)
@@ -197,9 +223,12 @@ def main():
         "findings_count": len(findings),
         "findings": findings,
         "risk_level": (
-            "CRITICAL" if severity_counts.get("ERROR", 0) > 5
-            else "HIGH" if severity_counts.get("ERROR", 0) > 0
-            else "MEDIUM" if severity_counts.get("WARNING", 0) > 0
+            "CRITICAL"
+            if severity_counts.get("ERROR", 0) > 5
+            else "HIGH"
+            if severity_counts.get("ERROR", 0) > 0
+            else "MEDIUM"
+            if severity_counts.get("WARNING", 0) > 0
             else "LOW"
         ),
     }

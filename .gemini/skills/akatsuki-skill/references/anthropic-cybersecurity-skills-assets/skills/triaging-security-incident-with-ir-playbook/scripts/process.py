@@ -19,7 +19,6 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Optional
 
 try:
     import requests

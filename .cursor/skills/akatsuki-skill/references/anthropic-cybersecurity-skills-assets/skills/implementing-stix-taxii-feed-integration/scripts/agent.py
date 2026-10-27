@@ -19,7 +19,6 @@ except ImportError:
     HAS_TAXII_CLIENT = False
 
 try:
-    from stix2 import parse as stix_parse
     HAS_STIX2 = True
 except ImportError:
     HAS_STIX2 = False

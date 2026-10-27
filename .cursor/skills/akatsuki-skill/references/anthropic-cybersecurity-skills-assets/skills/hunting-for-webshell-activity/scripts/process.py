@@ -2,7 +2,6 @@
 """Web Shell Detection - Analyzes process and file events for web shell indicators on web servers."""
 
 import json, csv, argparse, datetime, re
-from collections import defaultdict
 from pathlib import Path
 
 WEB_SERVER_PROCESSES = {"w3wp.exe", "httpd.exe", "nginx.exe", "apache.exe", "tomcat.exe", "java.exe", "php-cgi.exe", "node.exe"}

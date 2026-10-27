@@ -17,7 +17,6 @@ Usage:
 import argparse
 import os
 import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -36,8 +35,13 @@ class NiktoScanner:
         self.timeout = timeout
         self.results = []
 
-    def scan_target(self, target: str, tuning: str = "123456789abc",
-                    pause: int = 1, ssl: bool = False) -> dict:
+    def scan_target(
+        self,
+        target: str,
+        tuning: str = "123456789abc",
+        pause: int = 1,
+        ssl: bool = False,
+    ) -> dict:
         """Run Nikto scan against a single target."""
         parsed = urlparse(target if "://" in target else f"http://{target}")
         safe_name = parsed.netloc.replace(":", "_").replace("/", "_")
@@ -46,13 +50,19 @@ class NiktoScanner:
 
         cmd = [
             "nikto",
-            "-h", target,
-            "-Tuning", tuning,
-            "-Pause", str(pause),
-            "-timeout", "10",
+            "-h",
+            target,
+            "-Tuning",
+            tuning,
+            "-Pause",
+            str(pause),
+            "-timeout",
+            "10",
             "-nointeractive",
-            "-output", str(xml_output),
-            "-Format", "xml",
+            "-output",
+            str(xml_output),
+            "-Format",
+            "xml",
         ]
 
         if ssl or parsed.scheme == "https":
@@ -149,11 +159,29 @@ class NiktoScanner:
 
                     # Classify severity based on description keywords
                     desc_lower = finding["description"].lower()
-                    if any(w in desc_lower for w in ["remote code", "command execution", "backdoor", "rce"]):
+                    if any(
+                        w in desc_lower
+                        for w in ["remote code", "command execution", "backdoor", "rce"]
+                    ):
                         finding["severity"] = "Critical"
-                    elif any(w in desc_lower for w in ["sql injection", "xss", "cross-site", "file inclusion"]):
+                    elif any(
+                        w in desc_lower
+                        for w in [
+                            "sql injection",
+                            "xss",
+                            "cross-site",
+                            "file inclusion",
+                        ]
+                    ):
                         finding["severity"] = "High"
-                    elif any(w in desc_lower for w in ["directory listing", "information disclosure", "version"]):
+                    elif any(
+                        w in desc_lower
+                        for w in [
+                            "directory listing",
+                            "information disclosure",
+                            "version",
+                        ]
+                    ):
                         finding["severity"] = "Medium"
                     elif any(w in desc_lower for w in ["header", "cookie", "x-frame"]):
                         finding["severity"] = "Low"
@@ -186,16 +214,20 @@ class NiktoScanner:
         sev_counts = df["severity"].value_counts().to_dict()
 
         # Target summary
-        target_summary = (df.groupby(["scan_target", "target_port"])
-                          .agg(findings=("nikto_id", "count"),
-                               critical=("severity", lambda x: (x == "Critical").sum()),
-                               high=("severity", lambda x: (x == "High").sum()))
-                          .reset_index())
+        target_summary = (
+            df.groupby(["scan_target", "target_port"])
+            .agg(
+                findings=("nikto_id", "count"),
+                critical=("severity", lambda x: (x == "Critical").sum()),
+                high=("severity", lambda x: (x == "High").sum()),
+            )
+            .reset_index()
+        )
 
         html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Nikto Scan Report - {datetime.now().strftime('%Y-%m-%d')}</title>
+    <title>Nikto Scan Report - {datetime.now().strftime("%Y-%m-%d")}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
         .header {{ background: #16213e; color: white; padding: 20px; border-radius: 8px; }}
@@ -216,26 +248,26 @@ class NiktoScanner:
 <body>
     <div class="header">
         <h1>Nikto Web Scan Report</h1>
-        <p>Targets: {len(self.results)} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <p>Targets: {len(self.results)} | Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
     </div>
 
     <div class="cards">
-        <div class="card" style="border-top:4px solid #e74c3c"><h3>{sev_counts.get('Critical', 0)}</h3><p>Critical</p></div>
-        <div class="card" style="border-top:4px solid #e67e22"><h3>{sev_counts.get('High', 0)}</h3><p>High</p></div>
-        <div class="card" style="border-top:4px solid #f39c12"><h3>{sev_counts.get('Medium', 0)}</h3><p>Medium</p></div>
-        <div class="card" style="border-top:4px solid #3498db"><h3>{sev_counts.get('Low', 0)}</h3><p>Low</p></div>
+        <div class="card" style="border-top:4px solid #e74c3c"><h3>{sev_counts.get("Critical", 0)}</h3><p>Critical</p></div>
+        <div class="card" style="border-top:4px solid #e67e22"><h3>{sev_counts.get("High", 0)}</h3><p>High</p></div>
+        <div class="card" style="border-top:4px solid #f39c12"><h3>{sev_counts.get("Medium", 0)}</h3><p>Medium</p></div>
+        <div class="card" style="border-top:4px solid #3498db"><h3>{sev_counts.get("Low", 0)}</h3><p>Low</p></div>
     </div>
 
     <h2>Target Summary</h2>
     <table>
         <tr><th>Target</th><th>Port</th><th>Total</th><th>Critical</th><th>High</th></tr>
-        {''.join(f"<tr><td>{r.scan_target}</td><td>{r.target_port}</td><td>{r.findings}</td><td>{r.critical}</td><td>{r.high}</td></tr>" for r in target_summary.itertuples())}
+        {"".join(f"<tr><td>{r.scan_target}</td><td>{r.target_port}</td><td>{r.findings}</td><td>{r.critical}</td><td>{r.high}</td></tr>" for r in target_summary.itertuples())}
     </table>
 
     <h2>All Findings</h2>
     <table>
         <tr><th>Target</th><th>Severity</th><th>URI</th><th>Description</th><th>OSVDB</th></tr>
-        {''.join(f'<tr><td>{r.scan_target}</td><td class="sev-{r.severity.lower()}">{r.severity}</td><td>{r.uri}</td><td>{r.description[:150]}</td><td>{r.osvdb_id}</td></tr>' for r in df.sort_values("severity").itertuples())}
+        {"".join(f'<tr><td>{r.scan_target}</td><td class="sev-{r.severity.lower()}">{r.severity}</td><td>{r.uri}</td><td>{r.description[:150]}</td><td>{r.osvdb_id}</td></tr>' for r in df.sort_values("severity").itertuples())}
     </table>
 </body>
 </html>"""
@@ -259,18 +291,23 @@ def main():
     scan_p.add_argument("--pause", type=int, default=1, help="Pause between requests")
 
     parse_p = subparsers.add_parser("parse", help="Parse existing Nikto XML results")
-    parse_p.add_argument("--xml-dir", required=True, help="Directory with Nikto XML files")
+    parse_p.add_argument(
+        "--xml-dir", required=True, help="Directory with Nikto XML files"
+    )
     parse_p.add_argument("--report", required=True, help="HTML report output path")
 
     args = parser.parse_args()
 
     if args.command == "scan":
         with open(args.targets) as f:
-            targets = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+            targets = [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
 
         scanner = NiktoScanner(args.output_dir, args.timeout)
-        scanner.scan_targets(targets, max_parallel=args.parallel,
-                             tuning=args.tuning, pause=args.pause)
+        scanner.scan_targets(
+            targets, max_parallel=args.parallel, tuning=args.tuning, pause=args.pause
+        )
 
         report_path = args.report or os.path.join(args.output_dir, "nikto_report.html")
         scanner.generate_report(report_path)
@@ -281,11 +318,13 @@ def main():
 
         for xml_file in xml_dir.glob("*.xml"):
             findings = scanner.parse_xml(str(xml_file))
-            scanner.results.append({
-                "target": xml_file.stem,
-                "status": "parsed",
-                "findings": findings,
-            })
+            scanner.results.append(
+                {
+                    "target": xml_file.stem,
+                    "status": "parsed",
+                    "findings": findings,
+                }
+            )
 
         scanner.generate_report(args.report)
 

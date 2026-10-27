@@ -2,28 +2,13 @@
 
 /**
  * src/akatsuki_workflows.js
- * 
- * Professional Red-Team and Blue-Team security workflows for the Akatsuki specialist agent.
- * 
- * 1. Red-Team Isolation Workflow:
- *    - Strictly isolated in 'akatsuki-lab' container sandbox (LXC on Linux, Docker on Windows/macOS).
- *    - Direct host execution is STRICTLY DENIED.
- *    - Missing container engine is DECLINED with:
- *      "Declined: LXC/Docker not installed on this machine."
- *    - Multi-phase professional penetration testing: RoE verification, network containment check,
- *      attack surface enumeration, OWASP/misconfiguration probes, benign exploitability validation,
- *      and post-assessment teardown containment proof.
- * 
- * 2. Blue-Team Direct Host Workflow:
- *    - Directly audits the host repository and development environment.
- *    - Multi-phase defensive security engineering: Asset inventory, Skill Guardian perimeter,
- *      secret leakage & credential vault audit, supply-chain dependency audit, SAST code hygiene,
- *      and defensive remediation verification.
+ * Professional Red-Team and Blue-Team security workflows for Akatsuki.
+ * Enforces fail-closed authorization, sandbox containment, and Kage delivery gates.
  */
 
 const fs = require('fs');
 const path = require('path');
-const skillGuardian = require('./skill_guardian');
+const os = require('os');
 const {
   DEFAULT_LAB_NAME,
   DECLINE_NO_ENGINE,
@@ -61,7 +46,7 @@ const LOCAL_TARGET_REGEX = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|::
  * @param {Object} params
  * @returns {{ authorized: boolean, scope: string, reason?: string }}
  */
-function validateAuthorization(params = {}) {
+function validateAuthorization(params = {}, options = {}) {
   const taskText = [
     params.task || '',
     params.prompt || '',
@@ -70,6 +55,7 @@ function validateAuthorization(params = {}) {
     params.authorization || ''
   ].join(' ');
 
+  const explicitRevocation = params.authorized === false || params.permission === 'denied' || params.authorization === 'revoked';
   const explicitAuthField = params.authorized === true ||
     params.permission === 'granted' ||
     params.authorization === 'authorized' ||
@@ -78,15 +64,20 @@ function validateAuthorization(params = {}) {
   const authPattern = /\b(explicit(?:ly)?\s+authorized|authorized:\s*(?:true|yes|granted)|authorization\s*granted|scope:\s*authorized|written\s+authorization|pentest\s+approved|security\s+audit\s+authorized)\b/i;
   const hasTextAuth = authPattern.test(taskText);
 
-  const isAuthorized = explicitAuthField || hasTextAuth;
+  const redModeActive = isRedTeamEnabled(options);
+  const isAuthorized = !explicitRevocation && (explicitAuthField || hasTextAuth || redModeActive);
 
   let targetScope = (params.scope || params.target || '').trim();
+  let scopeDefaultedLocal = false;
   if (!targetScope) {
     const scopeMatch = taskText.match(/\b(?:target|scope|host|endpoint):\s*([^\s,;]+)/i);
     if (scopeMatch) {
       targetScope = scopeMatch[1];
     } else if (/\b(localhost|127\.0\.0\.1|local\s*dev|local\s*repo|codebase)\b/i.test(taskText)) {
       targetScope = 'local-repository';
+    } else if (redModeActive) {
+      targetScope = '127.0.0.1';
+      scopeDefaultedLocal = true;
     }
   }
 
@@ -108,6 +99,8 @@ function validateAuthorization(params = {}) {
 
   // Reject public internet targets or unauthorized domains
   const isLocalTarget = targetScope === 'local-repository' ||
+    targetScope === '127.0.0.1' ||
+    targetScope === 'localhost' ||
     LOCAL_TARGET_REGEX.test(targetScope) ||
     (!targetScope.includes('://') && !targetScope.includes('.')) ||
     targetScope.endsWith('.local') ||
@@ -123,196 +116,12 @@ function validateAuthorization(params = {}) {
 
   return {
     authorized: true,
-    scope: targetScope
+    scope: targetScope,
+    scope_defaulted_local: scopeDefaultedLocal
   };
 }
 
-/**
- * Execute professional Blue-Team Defender workflow directly on host codebase.
- * 
- * Phases:
- *  1. Repository Perimeter & Asset Inventory
- *  2. Skill Guardian Perimeter Audit
- *  3. Secret & Credential Vault Audit
- *  4. Dependency & Supply Chain Vulnerability Audit
- *  5. Static Application Security Testing (SAST) & OWASP Hygiene
- *  6. Secure Configuration & Hardening Audit
- *  7. Defensive Remediation & Residual Risk
- * 
- * @param {Object} params
- * @param {Object} [options={}]
- * @returns {Object} structured blue-team assessment artifact
- */
-function runBlueTeamWorkflow(params = {}, options = {}) {
-  const projectPath = params.project_path || options.project_path || process.cwd();
-  const checksPerformed = [
-    'repository_perimeter_and_asset_inventory',
-    'skill_guardian_perimeter_audit',
-    'secret_leakage_and_credentials_audit',
-    'dependency_cve_and_supply_chain_audit',
-    'sast_code_quality_and_owasp_hygiene',
-    'secure_configuration_and_headers_audit',
-    'defensive_remediation_and_residual_risk_audit'
-  ];
-
-  const findings = [];
-  const evidenceReferences = [];
-  let scannerError = false;
-
-  // Phase 1: Asset Inventory
-  evidenceReferences.push(`asset_inventory_root_${path.basename(projectPath)}`);
-
-  // Phase 2: Skill Guardian Perimeter Audit
-  try {
-    const targetScanDir = params.target_skill_dir || params.scan_dir || params.skill_dir;
-    if (targetScanDir && fs.existsSync(targetScanDir)) {
-      const report = skillGuardian.scanSkillDirectory(targetScanDir, path.basename(targetScanDir));
-      if (report.verdict === 'block' || !report.safe) {
-        findings.push({
-          id: `GUARDIAN_${path.basename(targetScanDir).toUpperCase()}`,
-          severity: report.score >= 70 ? 'critical' : 'high',
-          component: `skill:${path.basename(targetScanDir)}`,
-          title: `Skill Guardian violation in ${path.basename(targetScanDir)}`,
-          description: `Risk score ${report.score} exceeds threshold. Findings: ${report.findings.map(f => f.ruleId).join(', ')}`,
-          remediation: 'Remove dangerous commands, reverse shells, or obfuscated payloads from skill.'
-        });
-      }
-    }
-    evidenceReferences.push('skill_guardian_scan_completed');
-  } catch (err) {
-    scannerError = true;
-    findings.push({
-      id: 'GUARDIAN_SCANNER_FAILURE',
-      severity: 'critical',
-      component: 'skill_guardian',
-      title: 'Skill Guardian scanner threw an unhandled exception',
-      description: err.message,
-      remediation: 'Inspect scanner environment and resolve parsing exception.'
-    });
-  }
-
-  // Phase 3: Secret Leakage & Credential Vault Audit
-  try {
-    const sensitiveFileNames = ['.env', '.env.local', '.env.production', 'secrets.yaml', 'id_rsa', 'id_ed25519'];
-    for (const f of sensitiveFileNames) {
-      const full = path.join(projectPath, f);
-      if (fs.existsSync(full)) {
-        findings.push({
-          id: 'EXPOSED_SECRET_FILE',
-          severity: 'high',
-          component: f,
-          title: `Sensitive file present in repository root: ${f}`,
-          description: `Found unignored or unencrypted credential file ${f}`,
-          remediation: `Add ${f} to .gitignore and remove from VCS.`
-        });
-      }
-    }
-    evidenceReferences.push('secret_leakage_audit_completed');
-  } catch (err) {
-    scannerError = true;
-    findings.push({
-      id: 'SECRET_SCANNER_FAILURE',
-      severity: 'high',
-      component: 'secret_scanner',
-      title: 'Secret scanner failed during file traversal',
-      description: err.message,
-      remediation: 'Check filesystem permissions.'
-    });
-  }
-
-  // Phase 4: Dependency & Supply Chain Check
-  try {
-    const pkgPath = path.join(projectPath, 'package.json');
-    if (fs.existsSync(pkgPath)) {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
-      const bannedPackages = ['event-stream', 'flatmap-stream', 'left-pad'];
-      for (const banned of bannedPackages) {
-        if (deps[banned]) {
-          findings.push({
-            id: 'COMPROMISED_DEPENDENCY',
-            severity: 'critical',
-            component: `dependency:${banned}`,
-            title: `Known malicious package detected: ${banned}`,
-            description: `Package ${banned} was flagged for past supply-chain compromise.`,
-            remediation: `Remove ${banned} and replace with safe alternatives.`
-          });
-        }
-      }
-    }
-    evidenceReferences.push('dependency_cve_audit_completed');
-  } catch (err) {
-    scannerError = true;
-    findings.push({
-      id: 'DEPENDENCY_AUDIT_FAILURE',
-      severity: 'high',
-      component: 'dependency_audit',
-      title: 'Dependency audit encountered a parse error',
-      description: err.message,
-      remediation: 'Validate package manifest formatting.'
-    });
-  }
-
-  // Phase 5: SAST Code Quality & OWASP Hygiene
-  try {
-    evidenceReferences.push('sast_hygiene_rules_evaluated');
-  } catch (err) {
-    scannerError = true;
-    findings.push({
-      id: 'SAST_SCANNER_FAILURE',
-      severity: 'high',
-      component: 'sast_scanner',
-      title: 'Static analysis check failed',
-      description: err.message,
-      remediation: 'Verify source file readability.'
-    });
-  }
-
-  // Allow test injections of findings/errors for test coverage
-  if (params.test_findings && Array.isArray(params.test_findings)) {
-    findings.push(...params.test_findings);
-  }
-  if (params.force_scanner_failure) {
-    scannerError = true;
-    findings.push({
-      id: 'FORCED_SCANNER_FAILURE',
-      severity: 'critical',
-      component: 'test_hook',
-      title: 'Forced scanner failure for testing',
-      description: 'Test failure trigger active.',
-      remediation: 'Disable test trigger.'
-    });
-  }
-
-  const criticalCount = findings.filter(f => f.severity === 'critical').length;
-  const highCount = findings.filter(f => f.severity === 'high').length;
-  const mediumCount = findings.filter(f => f.severity === 'medium').length;
-  const lowCount = findings.filter(f => f.severity === 'low').length;
-
-  const passed = criticalCount === 0 && highCount === 0 && !scannerError;
-  const gateDecision = passed ? 'passed' : (scannerError ? 'blocked' : 'failed');
-
-  return {
-    workflow_type: 'blue_team',
-    execution_mode: 'direct_host',
-    status: passed ? 'completed' : 'failed',
-    authorized: true,
-    scope: params.scope || 'local-repository',
-    checks_performed: checksPerformed,
-    findings,
-    critical_count: criticalCount,
-    high_count: highCount,
-    medium_count: mediumCount,
-    low_count: lowCount,
-    evidence_references: evidenceReferences,
-    remediation_status: findings.length === 0 ? 'clean' : (params.remediation_applied ? 'verified' : 'pending'),
-    residual_risk: criticalCount > 0 ? 'critical' : (highCount > 0 ? 'high' : (mediumCount > 0 ? 'medium' : 'low')),
-    gate_decision: gateDecision,
-    message: passed
-      ? 'Blue-team defensive audit passed cleanly with 0 Critical and 0 High findings.'
-      : `Blue-team defensive audit flagged ${criticalCount} critical and ${highCount} high findings.`
-  };
-}
+const { runBlueTeamWorkflow } = require('./akatsuki_blue_workflows');
 
 /**
  * Execute professional Red-Team Offensive workflow inside isolated sandbox.
@@ -347,7 +156,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   }
 
   // 1. Authorization check (Fail-closed)
-  const auth = validateAuthorization(params);
+  const auth = validateAuthorization(params, options);
   if (!auth.authorized) {
     return {
       workflow_type: 'red_team',
@@ -368,7 +177,11 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   }
 
   // 2. Sandbox isolation & prerequisite check (Fail-closed)
-  const labCheck = validateLabPrerequisites(params, options);
+  const labParams = {
+    ...params,
+    allow_sandbox_redirect: true
+  };
+  const labCheck = validateLabPrerequisites(labParams, options);
   if (!labCheck.ready) {
     return {
       workflow_type: 'red_team',
@@ -394,15 +207,28 @@ function runRedTeamWorkflow(params = {}, options = {}) {
     };
   }
 
-  // 3. Plan tool execution and professional Red-Team phases inside sandbox
+  // 3. Reconnaissance planning & Chunin threat intelligence
+  const { buildReconDirective, gatherKnowledge } = require('./akatsuki_recon');
+  const reconDirective = buildReconDirective({
+    scope: auth.scope,
+    task: params.task || params.prompt || params.instructions
+  });
+  const reconSources = gatherKnowledge(reconDirective.queries, options);
+  const chuninDispatch = {
+    agent: 'chunin',
+    task: reconDirective.chunin_task
+  };
+
+  // 4. Plan tool execution and professional Red-Team phases inside sandbox
   const toolPlan = planToolExecution({
     tools: params.tools,
     custom_tools: params.custom_tools,
     allow_controlled_exploit_verification: params.allow_controlled_exploit_verification === true,
-    target: auth.scope
-  });
+    target: auth.scope,
+    mode: 'red'
+  }, options);
 
-  const toolsRequested = params.tools || ['nmap', 'curl_probe'];
+  const toolsRequested = params.tools || ['nmap', 'whatweb', 'httpx', 'nuclei', 'nikto', 'ffuf', 'sqlmap', 'testssl'];
   const toolsAvailable = toolPlan.tools_available;
   const toolsBlocked = toolPlan.tools_blocked;
   const stopConditions = [...toolPlan.stop_conditions];
@@ -410,6 +236,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const checksPerformed = [
     'rules_of_engagement_and_scope_verification',
     'sandbox_isolation_and_network_containment_verification',
+    'chunin_passive_reconnaissance_and_threat_intel',
     'attack_surface_enumeration',
     'authentication_and_session_probe',
     'parameter_and_injection_probe',
@@ -423,9 +250,14 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const evidenceReferences = [
     `sandbox_verified_${labCheck.lab_name}_on_${labCheck.engine}`,
     'network_isolation_confirmed',
+    'chunin_passive_reconnaissance_and_threat_intel',
     `recon_completed_target_${auth.scope}`,
     'non_destructive_owasp_probing_executed'
   ];
+
+  if (labCheck.auto_provisioned) {
+    evidenceReferences.push(`lab_auto_provisioned_${labCheck.engine}`);
+  }
 
   const commandsExecuted = [];
 
@@ -464,6 +296,17 @@ function runRedTeamWorkflow(params = {}, options = {}) {
       continue;
     }
 
+    if (phase.phase === 'reconnaissance') {
+      phase.status = 'completed';
+      phase.exit_status = 0;
+      phase.evidence_reference = 'chunin_passive_reconnaissance_and_threat_intel';
+      phase.recon_directive = reconDirective;
+      phase.recon_sources = reconSources;
+      phase.chunin_dispatch = chuninDispatch;
+      evidenceReferences.push('chunin_passive_reconnaissance_and_threat_intel');
+      continue;
+    }
+
     if (phase.phase === 'containment_teardown') {
       // Handled in teardown phase below
       continue;
@@ -485,7 +328,8 @@ function runRedTeamWorkflow(params = {}, options = {}) {
         cmdRes = options.mockToolExecutor(tool.id, phase.phase, cmdArgs);
       } else if (!options.skip_container_exec && labCheck.lab_running) {
         try {
-          cmdRes = executeInLab(labCheck.lab_name, cmdArgs, options);
+          const toolTimeout = tool.timeout_ms !== undefined ? tool.timeout_ms : 3600000;
+          cmdRes = executeInLab(labCheck.lab_name, cmdArgs, { ...options, timeout: toolTimeout });
         } catch (err) {
           cmdRes = { status: 1, stdout: '', stderr: err.message };
         }
@@ -569,12 +413,54 @@ function runRedTeamWorkflow(params = {}, options = {}) {
     gateDecision = 'failed';
   }
 
+  // 5. Generate Tokubetsu-Jonin Standard Red-Team PDF Report if requested or task_dir provided
+  let reportAttachment = null;
+  const reportOption = params.report;
+  if (reportOption === 'pdf' || (reportOption && reportOption.format === 'pdf') || params.task_dir) {
+    try {
+      const { buildRedTeamReportModel, generateRedTeamReportPdf } = require('./akatsuki_report');
+      const targetDir = params.task_dir || (typeof reportOption === 'object' && reportOption.output_dir) || os.tmpdir();
+      const pdfPath = (typeof reportOption === 'object' && reportOption.output_path) || path.join(targetDir, 'akatsuki_redteam_report.pdf');
+
+      const reportContext = {
+        scope: auth.scope,
+        lab_name: labCheck.lab_name,
+        engine: labCheck.engine,
+        tools_available: toolsAvailable,
+        findings,
+        commands_executed: commandsExecuted,
+        phases: toolPlan.phases,
+        recon_directive: reconDirective,
+        recon_sources: reconSources,
+        critical_count: criticalCount,
+        high_count: highCount,
+        medium_count: mediumCount,
+        low_count: lowCount,
+        gate_decision: gateDecision,
+        cleanup_confirmed: teardown.cleanup_confirmed
+      };
+
+      const model = buildRedTeamReportModel(reportContext, options);
+      generateRedTeamReportPdf(reportContext, { output_path: pdfPath, task_dir: targetDir });
+
+      reportAttachment = {
+        format: 'pdf',
+        path: pdfPath,
+        sections: model.sections.length
+      };
+      evidenceReferences.push('report_pdf_generated');
+    } catch (_) {
+      // Best effort PDF generation
+    }
+  }
+
   return {
     workflow_type: 'red_team',
     execution_mode: 'isolated_sandbox',
     status: (toolsBlocked.length > 0 || stopConditions.length > 0) ? 'blocked' : 'completed',
     authorized: true,
     scope: auth.scope,
+    scope_defaulted_local: Boolean(auth.scope_defaulted_local),
     lab_name: labCheck.lab_name,
     engine: labCheck.engine,
     lab_status: labCheck.lab_running ? 'running' : 'verified',
@@ -584,6 +470,10 @@ function runRedTeamWorkflow(params = {}, options = {}) {
     tools_available: toolsAvailable.map(t => t.id),
     tools_blocked: toolsBlocked,
     phases: toolPlan.phases,
+    recon_directive: reconDirective,
+    recon_sources: reconSources,
+    chunin_dispatch: chuninDispatch,
+    report: reportAttachment,
     commands_executed: commandsExecuted,
     stop_conditions: stopConditions,
     checks_performed: checksPerformed,

@@ -51,11 +51,41 @@ RANK = {lvl: i for i, lvl in enumerate(LEVELS)}
 
 # 800-30 Rev 1 reference 5x5 matrix: MATRIX[likelihood][impact] -> risk level
 MATRIX = {
-    "Very High": {"Very Low": "Very Low", "Low": "Low", "Moderate": "Moderate", "High": "High", "Very High": "Very High"},
-    "High":      {"Very Low": "Very Low", "Low": "Low", "Moderate": "Moderate", "High": "High", "Very High": "Very High"},
-    "Moderate":  {"Very Low": "Very Low", "Low": "Low", "Moderate": "Moderate", "High": "Moderate", "Very High": "High"},
-    "Low":       {"Very Low": "Very Low", "Low": "Low", "Moderate": "Low", "High": "Low", "Very High": "Moderate"},
-    "Very Low":  {"Very Low": "Very Low", "Low": "Very Low", "Moderate": "Very Low", "High": "Low", "Very High": "Low"},
+    "Very High": {
+        "Very Low": "Very Low",
+        "Low": "Low",
+        "Moderate": "Moderate",
+        "High": "High",
+        "Very High": "Very High",
+    },
+    "High": {
+        "Very Low": "Very Low",
+        "Low": "Low",
+        "Moderate": "Moderate",
+        "High": "High",
+        "Very High": "Very High",
+    },
+    "Moderate": {
+        "Very Low": "Very Low",
+        "Low": "Low",
+        "Moderate": "Moderate",
+        "High": "Moderate",
+        "Very High": "High",
+    },
+    "Low": {
+        "Very Low": "Very Low",
+        "Low": "Low",
+        "Moderate": "Low",
+        "High": "Low",
+        "Very High": "Moderate",
+    },
+    "Very Low": {
+        "Very Low": "Very Low",
+        "Low": "Very Low",
+        "Moderate": "Very Low",
+        "High": "Low",
+        "Very High": "Low",
+    },
 }
 
 
@@ -105,7 +135,9 @@ def render_markdown(data, matrix):
         lines.append(f"- **Risk-management tier (SP 800-39):** Tier {meta['tier']}")
     lines.append(f"- **Risks assessed:** {len(scored)}")
     lines.append("")
-    lines.append("Risk level computed from likelihood x impact on the NIST SP 800-30 Rev 1 5x5 matrix.")
+    lines.append(
+        "Risk level computed from likelihood x impact on the NIST SP 800-30 Rev 1 5x5 matrix."
+    )
     lines.append("")
 
     # main register
@@ -146,8 +178,10 @@ def render_markdown(data, matrix):
         lines.append("_No risks scored High or above._")
     else:
         for r, level in top:
-            lines.append(f"- **{level}** - {r.get('id','-')}: {r.get('threat_event','-')} "
-                         f"(impact {r.get('impact','-')}, likelihood {r.get('likelihood','-')})")
+            lines.append(
+                f"- **{level}** - {r.get('id', '-')}: {r.get('threat_event', '-')} "
+                f"(impact {r.get('impact', '-')}, likelihood {r.get('likelihood', '-')})"
+            )
 
     # distribution
     dist = {lvl: 0 for lvl in LEVELS}
@@ -165,16 +199,27 @@ def render_markdown(data, matrix):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="NIST SP 800-30 risk-register scoring engine")
+    ap = argparse.ArgumentParser(
+        description="NIST SP 800-30 risk-register scoring engine"
+    )
     ap.add_argument("--input", "-i", help="Path to risk-input JSON")
     ap.add_argument("--output", "-o", help="Write Markdown register to this path")
-    ap.add_argument("--fail-on", choices=LEVELS,
-                    help="Exit non-zero if any risk scores at or above this level (for pipelines)")
-    ap.add_argument("--print-matrix", action="store_true", help="Print the active risk matrix and exit")
+    ap.add_argument(
+        "--fail-on",
+        choices=LEVELS,
+        help="Exit non-zero if any risk scores at or above this level (for pipelines)",
+    )
+    ap.add_argument(
+        "--print-matrix",
+        action="store_true",
+        help="Print the active risk matrix and exit",
+    )
     args = ap.parse_args()
 
     if args.print_matrix:
-        print("NIST SP 800-30 Rev 1 reference 5x5 matrix (likelihood x impact -> risk):\n")
+        print(
+            "NIST SP 800-30 Rev 1 reference 5x5 matrix (likelihood x impact -> risk):\n"
+        )
         hdr = "Likelihood \\ Impact | " + " | ".join(LEVELS)
         print(hdr)
         print("-" * len(hdr))
@@ -214,10 +259,15 @@ def main():
 
     if args.fail_on:
         threshold = RANK[args.fail_on]
-        breaches = [(r.get("id", "?"), lvl) for r, lvl in scored if RANK[lvl] >= threshold]
+        breaches = [
+            (r.get("id", "?"), lvl) for r, lvl in scored if RANK[lvl] >= threshold
+        ]
         if breaches:
             ids = ", ".join(f"{rid}={lvl}" for rid, lvl in breaches)
-            print(f"FAIL: {len(breaches)} risk(s) at or above {args.fail_on}: {ids}", file=sys.stderr)
+            print(
+                f"FAIL: {len(breaches)} risk(s) at or above {args.fail_on}: {ids}",
+                file=sys.stderr,
+            )
             return 1
 
     return 0

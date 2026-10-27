@@ -12,10 +12,7 @@ Usage:
 import argparse
 import json
 import sys
-import time
-import hashlib
 from pathlib import Path
-from urllib.parse import urljoin
 
 try:
     import requests

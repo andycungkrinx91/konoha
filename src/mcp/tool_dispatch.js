@@ -132,7 +132,46 @@ function _executeToolInternal(toolName, args, agent) {
     const sessId = args.session_id || args.sessionId;
     return runSannin(prompt, args.task_dir, projPath, sessId);
   }
-  if (toolName === 'akatsuki' && (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow)) {
+  if (toolName === 'akatsuki_init') {
+    const akatsukiInit = require('../akatsuki_init');
+    const action = args.action || 'init';
+    if (action === 'status') {
+      const { getLabStatus, detectEngines } = require('../akatsuki_lab');
+      const detected = detectEngines();
+      const labName = args.lab_name || 'akatsuki-lab';
+      const engineStatuses = detected.available.map(e => ({
+        engine: e,
+        status: getLabStatus(labName, e)
+      }));
+      return JSON.stringify({
+        status: 'ok',
+        detected_engines: detected,
+        labs: engineStatuses
+      }, null, 2);
+    }
+    if (action === 'list_tools') {
+      const tools = akatsukiInit.listKaliTools({ query: args.query, category: args.category });
+      return JSON.stringify({ status: 'ok', count: tools.length, tools }, null, 2);
+    }
+    if (action === 'add_tool') {
+      const res = akatsukiInit.addTool(args.tool || args);
+      return JSON.stringify(res, null, 2);
+    }
+    if (action === 'remove_tool') {
+      const res = akatsukiInit.removeTool(args.tool_id || args.id || (args.tool && args.tool.id));
+      return JSON.stringify(res, null, 2);
+    }
+    const res = akatsukiInit.initLab(args);
+    return JSON.stringify(res, null, 2);
+  }
+  const akatsukiRedIntent = toolName === 'akatsuki' && /\b(red[- ]team|pentest|penetration test|exploit|adversary|attack simulation|fuzz)\b/i.test([
+    args.task || '',
+    args.prompt || '',
+    args.instructions || '',
+    args.context || ''
+  ].join(' '));
+
+  if (toolName === 'akatsuki' && (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow || akatsukiRedIntent)) {
     const { dispatchAkatsuki } = require('../akatsuki_workflows');
     return dispatchAkatsuki(args);
   }

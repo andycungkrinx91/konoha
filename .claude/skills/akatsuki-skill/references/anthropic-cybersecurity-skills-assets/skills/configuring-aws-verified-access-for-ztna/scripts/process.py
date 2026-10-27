@@ -6,8 +6,6 @@ Generates Cedar access policies, validates configurations,
 and monitors Verified Access deployments.
 """
 
-import json
-import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -61,10 +59,10 @@ when {{
 }};'''
 
     def forbid_unmanaged_devices(self) -> str:
-        return f'''forbid(principal, action, resource)
+        return f"""forbid(principal, action, resource)
 when {{
     !context.{self.device_ref}.assessment.sensor_config.status == "active"
-}};'''
+}};"""
 
     def permit_admin_high_trust(self, admin_group: str, min_score: int = 90) -> str:
         return f'''permit(principal, action, resource)
@@ -86,22 +84,39 @@ class VerifiedAccessConfigGenerator:
         self.groups: list[AccessGroup] = []
         self.endpoints: list[AccessEndpoint] = []
 
-    def add_trust_provider(self, name: str, provider_type: str,
-                           reference_name: str, config: dict = None):
-        self.trust_providers.append(TrustProvider(
-            name=name, provider_type=provider_type,
-            reference_name=reference_name, config=config or {}
-        ))
+    def add_trust_provider(
+        self, name: str, provider_type: str, reference_name: str, config: dict = None
+    ):
+        self.trust_providers.append(
+            TrustProvider(
+                name=name,
+                provider_type=provider_type,
+                reference_name=reference_name,
+                config=config or {},
+            )
+        )
 
     def add_group(self, name: str, description: str, policy: str):
-        self.groups.append(AccessGroup(name=name, description=description, policy=policy))
+        self.groups.append(
+            AccessGroup(name=name, description=description, policy=policy)
+        )
 
-    def add_endpoint(self, group_name: str, name: str, domain: str,
-                     port: int = 443, policy: str = "", alb_arn: str = ""):
+    def add_endpoint(
+        self,
+        group_name: str,
+        name: str,
+        domain: str,
+        port: int = 443,
+        policy: str = "",
+        alb_arn: str = "",
+    ):
         endpoint = AccessEndpoint(
-            name=name, application_domain=domain,
-            endpoint_type="load-balancer", port=port,
-            policy=policy, alb_arn=alb_arn
+            name=name,
+            application_domain=domain,
+            endpoint_type="load-balancer",
+            port=port,
+            policy=policy,
+            alb_arn=alb_arn,
         )
         for group in self.groups:
             if group.name == group_name:
@@ -111,14 +126,14 @@ class VerifiedAccessConfigGenerator:
     def generate_terraform(self) -> str:
         sections = [self._provider_block()]
 
-        sections.append('\n# Verified Access Instance')
-        sections.append('''resource "aws_verifiedaccess_instance" "main" {
+        sections.append("\n# Verified Access Instance")
+        sections.append("""resource "aws_verifiedaccess_instance" "main" {
   description = "Production Zero Trust Access"
   tags = {
     Environment = "production"
     ManagedBy   = "terraform"
   }
-}''')
+}""")
 
         for tp in self.trust_providers:
             sections.append(self._trust_provider_block(tp))
@@ -132,14 +147,14 @@ class VerifiedAccessConfigGenerator:
         return "\n\n".join(sections)
 
     def _provider_block(self) -> str:
-        return '''terraform {
+        return """terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
-}'''
+}"""
 
     def _trust_provider_block(self, tp: TrustProvider) -> str:
         resource_name = tp.name.replace("-", "_")
@@ -169,11 +184,11 @@ resource "aws_verifiedaccess_instance_trust_provider_attachment" "{resource_name
         resource_name = endpoint.name.replace("-", "_").replace(".", "_")
         policy_block = ""
         if endpoint.policy:
-            policy_block = f'''
+            policy_block = f"""
 
   policy_document = <<-CEDAR
     {endpoint.policy}
-  CEDAR'''
+  CEDAR"""
 
         return f'''resource "aws_verifiedaccess_endpoint" "{resource_name}" {{
   verified_access_group_id = aws_verifiedaccess_group.web_apps.id
@@ -197,10 +212,12 @@ def main():
     # Generate Cedar policies
     cedar = CedarPolicyGenerator(identity_ref="okta", device_ref="crowdstrike")
 
-    group_policy = cedar.combine_policies([
-        cedar.permit_group_with_device_trust("production-access", 50),
-        cedar.forbid_unmanaged_devices(),
-    ])
+    group_policy = cedar.combine_policies(
+        [
+            cedar.permit_group_with_device_trust("production-access", 50),
+            cedar.forbid_unmanaged_devices(),
+        ]
+    )
 
     admin_policy = cedar.permit_admin_high_trust("platform-admins", 90)
     readonly_policy = cedar.permit_group_read_only("read-only-users", 30)
@@ -209,9 +226,9 @@ def main():
     print("=" * 60)
     print("\nGroup Policy (production access):")
     print(group_policy)
-    print(f"\nAdmin Policy:")
+    print("\nAdmin Policy:")
     print(admin_policy)
-    print(f"\nRead-Only Policy:")
+    print("\nRead-Only Policy:")
     print(readonly_policy)
 
     # Generate Terraform config
@@ -220,8 +237,13 @@ def main():
     gen.add_trust_provider("crowdstrike-device", "device", "crowdstrike")
     gen.add_group("web-apps", "Production Web Applications", group_policy)
     gen.add_endpoint("web-apps", "internal-app", "app.internal.company.com", 443)
-    gen.add_endpoint("web-apps", "admin-portal", "admin.internal.company.com", 443,
-                     policy=admin_policy)
+    gen.add_endpoint(
+        "web-apps",
+        "admin-portal",
+        "admin.internal.company.com",
+        443,
+        policy=admin_policy,
+    )
 
     config = gen.export_terraform("verified_access.tf")
     print("\n" + "=" * 60)

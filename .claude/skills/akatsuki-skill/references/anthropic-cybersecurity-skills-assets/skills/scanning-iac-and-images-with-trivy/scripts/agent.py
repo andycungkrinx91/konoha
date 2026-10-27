@@ -23,9 +23,11 @@ def ensure_trivy() -> str:
     """Return the trivy executable path or exit with guidance."""
     path = shutil.which("trivy")
     if not path:
-        print("[!] trivy not found on PATH. Install: "
-              "https://trivy.dev/latest/getting-started/installation/",
-              file=sys.stderr)
+        print(
+            "[!] trivy not found on PATH. Install: "
+            "https://trivy.dev/latest/getting-started/installation/",
+            file=sys.stderr,
+        )
         sys.exit(2)
     return path
 
@@ -56,8 +58,10 @@ def run_scan(cmd: list, timeout: int) -> dict:
     if proc.returncode not in (0,):
         # Trivy writes scan results to stdout; real errors go to stderr.
         if not proc.stdout.strip():
-            print(f"[!] Trivy failed (rc={proc.returncode}): {proc.stderr.strip()}",
-                  file=sys.stderr)
+            print(
+                f"[!] Trivy failed (rc={proc.returncode}): {proc.stderr.strip()}",
+                file=sys.stderr,
+            )
             sys.exit(proc.returncode)
     try:
         return json.loads(proc.stdout)
@@ -76,35 +80,41 @@ def summarise(report: dict) -> tuple:
         for vuln in result.get("Vulnerabilities", []) or []:
             sev = (vuln.get("Severity") or "UNKNOWN").upper()
             counts[sev] += 1
-            findings.append({
-                "type": "vuln",
-                "target": target,
-                "id": vuln.get("VulnerabilityID"),
-                "pkg": vuln.get("PkgName"),
-                "installed": vuln.get("InstalledVersion"),
-                "fixed": vuln.get("FixedVersion"),
-                "severity": sev,
-            })
+            findings.append(
+                {
+                    "type": "vuln",
+                    "target": target,
+                    "id": vuln.get("VulnerabilityID"),
+                    "pkg": vuln.get("PkgName"),
+                    "installed": vuln.get("InstalledVersion"),
+                    "fixed": vuln.get("FixedVersion"),
+                    "severity": sev,
+                }
+            )
         for mis in result.get("Misconfigurations", []) or []:
             sev = (mis.get("Severity") or "UNKNOWN").upper()
             counts[sev] += 1
-            findings.append({
-                "type": "misconfig",
-                "target": target,
-                "id": mis.get("ID"),
-                "title": mis.get("Title"),
-                "severity": sev,
-            })
+            findings.append(
+                {
+                    "type": "misconfig",
+                    "target": target,
+                    "id": mis.get("ID"),
+                    "title": mis.get("Title"),
+                    "severity": sev,
+                }
+            )
         for sec in result.get("Secrets", []) or []:
             sev = (sec.get("Severity") or "UNKNOWN").upper()
             counts[sev] += 1
-            findings.append({
-                "type": "secret",
-                "target": target,
-                "id": sec.get("RuleID"),
-                "title": sec.get("Title"),
-                "severity": sev,
-            })
+            findings.append(
+                {
+                    "type": "secret",
+                    "target": target,
+                    "id": sec.get("RuleID"),
+                    "title": sec.get("Title"),
+                    "severity": sev,
+                }
+            )
     return counts, findings
 
 
@@ -120,17 +130,27 @@ def gate(counts: Counter, threshold: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Trivy scan + CI/CD gate helper")
     parser.add_argument("subject", help="Image ref, directory, repo URL, or SBOM file")
-    parser.add_argument("--target", default="image",
-                        choices=["image", "fs", "config", "repo", "sbom"],
-                        help="Trivy scan target subcommand")
-    parser.add_argument("--scanners", default="vuln",
-                        help="Comma list: vuln,misconfig,secret,license")
-    parser.add_argument("--severity", default="HIGH,CRITICAL",
-                        help="Severities to include")
-    parser.add_argument("--ignore-unfixed", action="store_true",
-                        help="Skip vulns with no fix available")
-    parser.add_argument("--gate", default="", choices=["", *SEVERITY_ORDER],
-                        help="Exit non-zero if findings >= this severity")
+    parser.add_argument(
+        "--target",
+        default="image",
+        choices=["image", "fs", "config", "repo", "sbom"],
+        help="Trivy scan target subcommand",
+    )
+    parser.add_argument(
+        "--scanners", default="vuln", help="Comma list: vuln,misconfig,secret,license"
+    )
+    parser.add_argument(
+        "--severity", default="HIGH,CRITICAL", help="Severities to include"
+    )
+    parser.add_argument(
+        "--ignore-unfixed", action="store_true", help="Skip vulns with no fix available"
+    )
+    parser.add_argument(
+        "--gate",
+        default="",
+        choices=["", *SEVERITY_ORDER],
+        help="Exit non-zero if findings >= this severity",
+    )
     parser.add_argument("--timeout", type=int, default=600, help="Scan timeout (s)")
     parser.add_argument("--output", help="Write JSON summary to file")
     args = parser.parse_args()

@@ -11,7 +11,6 @@ import argparse
 from datetime import datetime, timedelta
 
 import boto3
-from botocore.exceptions import ClientError
 
 
 CLOUDTRAIL_DDL = """

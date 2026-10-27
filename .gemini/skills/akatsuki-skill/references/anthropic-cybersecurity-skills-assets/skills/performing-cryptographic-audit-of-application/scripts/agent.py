@@ -12,7 +12,6 @@ import os
 import re
 import ssl
 import socket
-import sys
 from datetime import datetime, timezone
 
 try:

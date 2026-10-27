@@ -15,6 +15,7 @@ References:
   - Azure Monitor Query API  https://learn.microsoft.com/rest/api/loganalytics/dataaccess/query/get
   - AADGraphActivityLogs      https://learn.microsoft.com/entra/identity/monitoring-health/concept-aad-graph-activity-logs
 """
+
 import argparse
 import json
 import os
@@ -74,15 +75,22 @@ MicrosoftGraphActivityLogs
 def run_query(workspace, token, kql):
     url = API.format(ws=workspace)
     body = json.dumps({"query": kql}).encode()
-    req = urllib.request.Request(url, data=body, method="POST", headers={
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    })
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
-        raise SystemExit(f"[!] query failed HTTP {e.code}: {e.read().decode(errors='replace')[:300]}")
+        raise SystemExit(
+            f"[!] query failed HTTP {e.code}: {e.read().decode(errors='replace')[:300]}"
+        )
     except urllib.error.URLError as e:
         raise SystemExit(f"[!] network error: {e.reason}")
 
@@ -105,20 +113,34 @@ def print_table(result):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Hunt Entra offensive-tool fingerprints in Graph logs.")
-    p.add_argument("--workspace", required=True, help="Log Analytics workspace ID (GUID)")
-    p.add_argument("--token", default=os.environ.get("AZ_MONITOR_TOKEN"),
-                   help="AAD bearer token for api.loganalytics.io (or set AZ_MONITOR_TOKEN)")
-    p.add_argument("--hunt", choices=list(HUNTS) + ["all"], default="all",
-                   help="Which hunt to run")
+    p = argparse.ArgumentParser(
+        description="Hunt Entra offensive-tool fingerprints in Graph logs."
+    )
+    p.add_argument(
+        "--workspace", required=True, help="Log Analytics workspace ID (GUID)"
+    )
+    p.add_argument(
+        "--token",
+        default=os.environ.get("AZ_MONITOR_TOKEN"),
+        help="AAD bearer token for api.loganalytics.io (or set AZ_MONITOR_TOKEN)",
+    )
+    p.add_argument(
+        "--hunt", choices=list(HUNTS) + ["all"], default="all", help="Which hunt to run"
+    )
     p.add_argument("--days", type=int, default=7, help="Lookback window in days")
-    p.add_argument("--threshold", type=int, default=200,
-                   help="Read-count threshold for volume-outlier hunt")
+    p.add_argument(
+        "--threshold",
+        type=int,
+        default=200,
+        help="Read-count threshold for volume-outlier hunt",
+    )
     args = p.parse_args()
 
     if not args.token:
-        raise SystemExit("[!] provide --token or set AZ_MONITOR_TOKEN "
-                         "(az account get-access-token --resource https://api.loganalytics.io)")
+        raise SystemExit(
+            "[!] provide --token or set AZ_MONITOR_TOKEN "
+            "(az account get-access-token --resource https://api.loganalytics.io)"
+        )
 
     selected = list(HUNTS) if args.hunt == "all" else [args.hunt]
     for name in selected:

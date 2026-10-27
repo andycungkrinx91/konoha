@@ -15,12 +15,11 @@ import json
 import sys
 import zlib
 from datetime import datetime, timezone
-from urllib.parse import urlencode, parse_qs, urlparse
+from urllib.parse import urlencode
 
 try:
     import requests
     from cryptography import x509
-    from cryptography.hazmat.primitives import serialization
 except ImportError:
     print("[ERROR] Required: pip install requests cryptography")
     sys.exit(1)

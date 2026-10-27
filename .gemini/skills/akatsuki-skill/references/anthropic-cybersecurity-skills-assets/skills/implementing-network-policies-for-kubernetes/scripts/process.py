@@ -9,7 +9,7 @@ and identifies namespaces without proper segmentation.
 import subprocess
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

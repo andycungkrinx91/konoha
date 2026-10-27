@@ -10,8 +10,6 @@ import json
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
-from collections import defaultdict
 
 
 def parse_fuzzer_stats(stats_file: str) -> dict:

@@ -9,18 +9,12 @@ summary reports for AWS security posture assessment.
 import json
 import subprocess
 import sys
-import os
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
 
 
-def run_scoutsuite_scan(
-    services=None,
-    regions=None,
-    profile=None,
-    report_dir=None
-):
+def run_scoutsuite_scan(services=None, regions=None, profile=None, report_dir=None):
     """Execute ScoutSuite scan against AWS account."""
     cmd = ["scout", "aws", "--no-browser"]
 
@@ -64,11 +58,7 @@ def parse_scoutsuite_results(report_dir):
 
 def extract_findings(results):
     """Extract and categorize findings from ScoutSuite results."""
-    findings_summary = {
-        "danger": [],
-        "warning": [],
-        "good": []
-    }
+    findings_summary = {"danger": [], "warning": [], "good": []}
     service_summary = defaultdict(lambda: {"danger": 0, "warning": 0, "good": 0})
 
     services = results.get("services", {})
@@ -88,7 +78,7 @@ def extract_findings(results):
                 "rationale": rationale,
                 "flagged_items": flagged,
                 "checked_items": total,
-                "level": level
+                "level": level,
             }
 
             if flagged > 0:
@@ -120,13 +110,13 @@ def generate_report(findings_summary, service_summary, output_file=None):
     warning_count = len(findings_summary["warning"])
     good_count = len(findings_summary["good"])
 
-    report_lines.append(f"\n## Executive Summary")
+    report_lines.append("\n## Executive Summary")
     report_lines.append(f"  Critical Findings : {danger_count}")
     report_lines.append(f"  Warning Findings  : {warning_count}")
     report_lines.append(f"  Passing Checks    : {good_count}")
 
     # Service breakdown
-    report_lines.append(f"\n## Service Breakdown")
+    report_lines.append("\n## Service Breakdown")
     report_lines.append(f"{'Service':<20} {'Danger':<10} {'Warning':<10} {'Good':<10}")
     report_lines.append("-" * 50)
     for service, counts in sorted(service_summary.items()):
@@ -136,23 +126,31 @@ def generate_report(findings_summary, service_summary, output_file=None):
 
     # Critical findings detail
     if findings_summary["danger"]:
-        report_lines.append(f"\n## Critical Findings (Requires Immediate Action)")
+        report_lines.append("\n## Critical Findings (Requires Immediate Action)")
         report_lines.append("-" * 50)
-        for finding in sorted(findings_summary["danger"], key=lambda x: x["flagged_items"], reverse=True):
+        for finding in sorted(
+            findings_summary["danger"], key=lambda x: x["flagged_items"], reverse=True
+        ):
             report_lines.append(f"\n  [{finding['service'].upper()}] {finding['id']}")
             report_lines.append(f"  Description: {finding['description']}")
-            report_lines.append(f"  Flagged Items: {finding['flagged_items']}/{finding['checked_items']}")
+            report_lines.append(
+                f"  Flagged Items: {finding['flagged_items']}/{finding['checked_items']}"
+            )
             if finding["rationale"]:
                 report_lines.append(f"  Rationale: {finding['rationale']}")
 
     # Warning findings
     if findings_summary["warning"]:
-        report_lines.append(f"\n## Warning Findings")
+        report_lines.append("\n## Warning Findings")
         report_lines.append("-" * 50)
-        for finding in sorted(findings_summary["warning"], key=lambda x: x["flagged_items"], reverse=True)[:20]:
+        for finding in sorted(
+            findings_summary["warning"], key=lambda x: x["flagged_items"], reverse=True
+        )[:20]:
             report_lines.append(f"\n  [{finding['service'].upper()}] {finding['id']}")
             report_lines.append(f"  Description: {finding['description']}")
-            report_lines.append(f"  Flagged Items: {finding['flagged_items']}/{finding['checked_items']}")
+            report_lines.append(
+                f"  Flagged Items: {finding['flagged_items']}/{finding['checked_items']}"
+            )
 
     report = "\n".join(report_lines)
 
@@ -174,13 +172,19 @@ def check_compliance_gate(findings_summary, max_danger=0, max_warning=10):
     passed = True
 
     if danger_count > max_danger:
-        print(f"[FAIL] {danger_count} critical findings exceed threshold of {max_danger}")
+        print(
+            f"[FAIL] {danger_count} critical findings exceed threshold of {max_danger}"
+        )
         passed = False
     else:
-        print(f"[PASS] Critical findings ({danger_count}) within threshold ({max_danger})")
+        print(
+            f"[PASS] Critical findings ({danger_count}) within threshold ({max_danger})"
+        )
 
     if warning_count > max_warning:
-        print(f"[WARN] {warning_count} warning findings exceed threshold of {max_warning}")
+        print(
+            f"[WARN] {warning_count} warning findings exceed threshold of {max_warning}"
+        )
 
     return passed
 
@@ -190,14 +194,29 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="ScoutSuite AWS Security Assessment")
     parser.add_argument("--scan", action="store_true", help="Run ScoutSuite scan")
-    parser.add_argument("--parse", type=str, help="Parse existing ScoutSuite results directory")
-    parser.add_argument("--services", nargs="+", default=None, help="AWS services to scan")
-    parser.add_argument("--regions", nargs="+", default=None, help="AWS regions to scan")
+    parser.add_argument(
+        "--parse", type=str, help="Parse existing ScoutSuite results directory"
+    )
+    parser.add_argument(
+        "--services", nargs="+", default=None, help="AWS services to scan"
+    )
+    parser.add_argument(
+        "--regions", nargs="+", default=None, help="AWS regions to scan"
+    )
     parser.add_argument("--profile", type=str, default=None, help="AWS profile name")
-    parser.add_argument("--report-dir", type=str, default="./scoutsuite-report", help="Report output directory")
-    parser.add_argument("--output", type=str, default=None, help="Output file for summary report")
+    parser.add_argument(
+        "--report-dir",
+        type=str,
+        default="./scoutsuite-report",
+        help="Report output directory",
+    )
+    parser.add_argument(
+        "--output", type=str, default=None, help="Output file for summary report"
+    )
     parser.add_argument("--gate", action="store_true", help="Run compliance gate check")
-    parser.add_argument("--max-danger", type=int, default=0, help="Max allowed danger findings")
+    parser.add_argument(
+        "--max-danger", type=int, default=0, help="Max allowed danger findings"
+    )
 
     args = parser.parse_args()
 
@@ -206,7 +225,7 @@ if __name__ == "__main__":
             services=args.services,
             regions=args.regions,
             profile=args.profile,
-            report_dir=args.report_dir
+            report_dir=args.report_dir,
         )
         if not success:
             sys.exit(1)

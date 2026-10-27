@@ -7,11 +7,9 @@ between current and target profiles, and improvement roadmap generation.
 """
 
 import json
-import csv
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
-from typing import Optional
 
 # CSF 2.0 Category structure
 CSF_CATEGORIES = {

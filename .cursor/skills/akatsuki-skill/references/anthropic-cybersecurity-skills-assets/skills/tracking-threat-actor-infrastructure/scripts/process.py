@@ -21,7 +21,6 @@ import argparse
 import json
 import sys
 from datetime import datetime
-from collections import defaultdict
 from typing import Optional
 
 import requests

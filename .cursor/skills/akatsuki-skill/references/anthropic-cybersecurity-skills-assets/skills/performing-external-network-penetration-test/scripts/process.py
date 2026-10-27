@@ -11,16 +11,12 @@ Usage:
 
 import subprocess
 import json
-import csv
 import os
-import sys
 import argparse
 import socket
 import ssl
 import datetime
-import ipaddress
 from pathlib import Path
-from typing import Optional
 
 
 def run_command(cmd: list[str], timeout: int = 300) -> tuple[str, str, int]:

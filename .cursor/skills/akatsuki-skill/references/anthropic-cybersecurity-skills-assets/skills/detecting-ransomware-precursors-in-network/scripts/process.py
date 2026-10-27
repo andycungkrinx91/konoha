@@ -12,17 +12,14 @@ Analyzes network logs (Zeek format) to detect ransomware precursor patterns:
 Reads Zeek TSV logs and generates structured alerts.
 """
 
-import csv
 import json
-import math
 import os
 import sys
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass

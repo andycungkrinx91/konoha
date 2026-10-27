@@ -22,6 +22,7 @@ transparent containers) and is never replaced.
 
 Usage: restyle.py <file.drawio> --preset <name|path.json> [-o <out.drawio>]
 """
+
 import argparse
 import colorsys
 import json
@@ -32,17 +33,35 @@ import xml.etree.ElementTree as ET
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Canonical hue (degrees) of each palette slot in the built-in conventions.
-SLOT_HUES = {"primary": 210, "success": 120, "warning": 50, "accent": 30,
-             "danger": 0, "secondary": 280}
-SLOT_ORDER = ["primary", "success", "warning", "accent", "danger", "neutral", "secondary"]
+SLOT_HUES = {
+    "primary": 210,
+    "success": 120,
+    "warning": 50,
+    "accent": 30,
+    "danger": 0,
+    "secondary": 280,
+}
+SLOT_ORDER = [
+    "primary",
+    "success",
+    "warning",
+    "accent",
+    "danger",
+    "neutral",
+    "secondary",
+]
 
 
 def find_preset(name):
     """Resolve a preset name/path to its JSON dict (user dir, then built-ins)."""
-    candidates = [name] if name.endswith(".json") else [
-        os.path.expanduser(f"~/.drawio-skill/styles/{name.lower()}.json"),
-        os.path.join(SKILL_DIR, "styles", "built-in", f"{name.lower()}.json"),
-    ]
+    candidates = (
+        [name]
+        if name.endswith(".json")
+        else [
+            os.path.expanduser(f"~/.drawio-skill/styles/{name.lower()}.json"),
+            os.path.join(SKILL_DIR, "styles", "built-in", f"{name.lower()}.json"),
+        ]
+    )
     for path in candidates:
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
@@ -54,17 +73,19 @@ def find_preset(name):
 
 def hue_slot(hexcolor, palette):
     """Nearest non-null palette slot for an existing fill color, by hue."""
-    r, g, b = (int(hexcolor[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    r, g, b = (int(hexcolor[i : i + 2], 16) / 255 for i in (1, 3, 5))
     h, l, s = colorsys.rgb_to_hls(r, g, b)
-    if s < 0.15 or l > 0.97 or l < 0.03:                  # grey / near-white / near-black
+    if s < 0.15 or l > 0.97 or l < 0.03:  # grey / near-white / near-black
         slot = "neutral"
     else:
         deg = h * 360
-        slot = min(SLOT_HUES, key=lambda k: min(abs(deg - SLOT_HUES[k]),
-                                                360 - abs(deg - SLOT_HUES[k])))
+        slot = min(
+            SLOT_HUES,
+            key=lambda k: min(abs(deg - SLOT_HUES[k]), 360 - abs(deg - SLOT_HUES[k])),
+        )
     if palette.get(slot):
         return slot
-    for k in SLOT_ORDER:                                   # fallback ladder
+    for k in SLOT_ORDER:  # fallback ladder
         if palette.get(k):
             return k
     sys.exit("error: preset palette has no non-null slots")
@@ -85,10 +106,16 @@ def set_keys(style, **kv):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Apply a style preset to an existing .drawio.")
+    p = argparse.ArgumentParser(
+        description="Apply a style preset to an existing .drawio."
+    )
     p.add_argument("file", help="input .drawio")
-    p.add_argument("--preset", required=True, help="preset name (user or built-in) or JSON path")
-    p.add_argument("-o", "--output", help="output path (default: <file>-<preset>.drawio)")
+    p.add_argument(
+        "--preset", required=True, help="preset name (user or built-in) or JSON path"
+    )
+    p.add_argument(
+        "-o", "--output", help="output path (default: <file>-<preset>.drawio)"
+    )
     args = p.parse_args()
 
     if not os.path.isfile(args.file):
@@ -110,7 +137,9 @@ def main():
         model = diagram.find("mxGraphModel")
         root = model.find("root") if model is not None else None
         if root is None:
-            sys.stderr.write(f"warning: skipping compressed page '{diagram.get('name', '?')}'\n")
+            sys.stderr.write(
+                f"warning: skipping compressed page '{diagram.get('name', '?')}'\n"
+            )
             continue
         if extras.get("background"):
             model.set("background", extras["background"])
@@ -124,8 +153,11 @@ def main():
                 if extras.get("edgeColor"):
                     # labelBackgroundColor=none: the default white label box is
                     # unreadable under a light edgeColor on dark backgrounds
-                    kv.update(strokeColor=extras["edgeColor"], fontColor=extras["edgeColor"],
-                              labelBackgroundColor="none")
+                    kv.update(
+                        strokeColor=extras["edgeColor"],
+                        fontColor=extras["edgeColor"],
+                        labelBackgroundColor="none",
+                    )
                 if extras.get("sketch"):
                     kv["sketch"] = "1"
                 if extras.get("globalStrokeWidth") not in (None, 1):
@@ -139,7 +171,9 @@ def main():
             kv = dict(vertex_extra)
             fill = get_key(style, "fillColor")
             if fill and re.fullmatch(r"#[0-9A-Fa-f]{6}", fill):
-                slot = slot_map.setdefault(fill.lower(), hue_slot(fill.lower(), palette))
+                slot = slot_map.setdefault(
+                    fill.lower(), hue_slot(fill.lower(), palette)
+                )
                 pair = palette[slot]
                 kv.update(fillColor=pair["fillColor"], strokeColor=pair["strokeColor"])
             elif fill is None:
@@ -149,12 +183,17 @@ def main():
             cell.set("style", set_keys(style, **kv))
             n_vert += 1
 
-    out = args.output or "%s-%s.drawio" % (os.path.splitext(args.file)[0],
-                                           preset.get("name", "restyled"))
+    out = args.output or "%s-%s.drawio" % (
+        os.path.splitext(args.file)[0],
+        preset.get("name", "restyled"),
+    )
     tree.write(out, encoding="utf-8", xml_declaration=False)
     remap = ", ".join(f"{c}->{s}" for c, s in sorted(slot_map.items()))
-    sys.stderr.write(f"wrote {out} ({n_vert} vertices, {n_edge} edges restyled"
-                     + (f"; colors: {remap}" if remap else "") + ")\n")
+    sys.stderr.write(
+        f"wrote {out} ({n_vert} vertices, {n_edge} edges restyled"
+        + (f"; colors: {remap}" if remap else "")
+        + ")\n"
+    )
 
 
 if __name__ == "__main__":

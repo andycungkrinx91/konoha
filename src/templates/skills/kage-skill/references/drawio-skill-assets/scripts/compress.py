@@ -23,6 +23,7 @@ executive nodes).
 
 Usage: python3 compress.py <diagram.drawio> [-o out.drawio] [--clusters N]
 """
+
 import argparse
 import copy
 import json
@@ -63,8 +64,10 @@ def parse(path):
                 if inner is not None:
                     inner.set("id", child.get("id", ""))
                     cells.append(inner)
-                    labels[child.get("id")] = child.get("label") or child.get("value") or ""
-    parents = {c.get("parent") for c in cells}                # ids that have children
+                    labels[child.get("id")] = (
+                        child.get("label") or child.get("value") or ""
+                    )
+    parents = {c.get("parent") for c in cells}  # ids that have children
     nodes, edges = {}, set()
     for c in cells:
         cid = c.get("id")
@@ -72,11 +75,11 @@ def parse(path):
             s, t = c.get("source"), c.get("target")
             if s and t:
                 edges.add((s, t))
-        elif c.get("vertex") == "1" and cid not in parents:   # leaf vertices only
+        elif c.get("vertex") == "1" and cid not in parents:  # leaf vertices only
             if "edgeLabel" in (c.get("style") or ""):
                 continue
             g = c.find("mxGeometry")
-            if g is not None and g.get("relative") == "1":    # edge-label child
+            if g is not None and g.get("relative") == "1":  # edge-label child
                 continue
             nodes[cid] = (labels.get(cid, ""), c.get("style") or "")
     return nodes, edges
@@ -173,7 +176,8 @@ def layout_exec_page(graph):
         opath = os.path.join(d, "exec.drawio")
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "autolayout.py"), gpath, "-o", opath],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if r.returncode != 0 or not os.path.exists(opath):
             sys.exit(f"error: autolayout failed: {r.stderr.strip()}")
@@ -205,17 +209,23 @@ def copy_original_page(path, page2_id):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Collapse a big .drawio into an executive-summary view with drill-down.")
+        description="Collapse a big .drawio into an executive-summary view with drill-down."
+    )
     ap.add_argument("input", help="source .drawio")
     ap.add_argument("-o", "--output", help="output .drawio path (default: stdout)")
-    ap.add_argument("--clusters", type=int,
-                    help="soft hint for cluster count; label propagation picks the "
-                         "count automatically and may ignore this")
+    ap.add_argument(
+        "--clusters",
+        type=int,
+        help="soft hint for cluster count; label propagation picks the "
+        "count automatically and may ignore this",
+    )
     args = ap.parse_args()
 
     if args.clusters:
-        sys.stderr.write("note: --clusters is a soft hint; label propagation "
-                         "determines the actual cluster count automatically\n")
+        sys.stderr.write(
+            "note: --clusters is a soft hint; label propagation "
+            "determines the actual cluster count automatically\n"
+        )
 
     nodes, edges = parse(args.input)
     if not nodes:
@@ -228,15 +238,22 @@ def main():
 
     degree = compute_degree(nodes.keys(), edges)
     node_labels = {nid: label for nid, (label, _style) in nodes.items()}
-    names = {c: cluster_name(members, node_labels, degree) for c, members in communities.items()}
+    names = {
+        c: cluster_name(members, node_labels, degree)
+        for c, members in communities.items()
+    }
 
     crossings = aggregate_edges(edges, community_of)
 
     page2_id = "full-diagram"
-    exec_nodes = [{"id": f"c_{c}", "label": names[c], "link": f"data:page/id,{page2_id}"}
-                  for c in communities]
-    exec_edges = [{"source": f"c_{s}", "target": f"c_{t}", "label": str(n) if n > 1 else ""}
-                  for (s, t), n in sorted(crossings.items())]
+    exec_nodes = [
+        {"id": f"c_{c}", "label": names[c], "link": f"data:page/id,{page2_id}"}
+        for c in communities
+    ]
+    exec_edges = [
+        {"source": f"c_{s}", "target": f"c_{t}", "label": str(n) if n > 1 else ""}
+        for (s, t), n in sorted(crossings.items())
+    ]
     exec_graph = {"direction": "TB", "nodes": exec_nodes, "edges": exec_edges}
 
     page1 = layout_exec_page(exec_graph)
@@ -246,8 +263,9 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(xml)
-        sys.stderr.write(f"wrote {args.output} ({len(nodes)} nodes -> "
-                         f"{len(communities)} clusters)\n")
+        sys.stderr.write(
+            f"wrote {args.output} ({len(nodes)} nodes -> {len(communities)} clusters)\n"
+        )
     else:
         sys.stdout.write(xml)
         sys.stderr.write(f"{len(nodes)} nodes -> {len(communities)} clusters\n")

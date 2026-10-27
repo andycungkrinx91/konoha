@@ -1,0 +1,3242 @@
+[
+  {
+    "id": "0trace",
+    "name": "0trace",
+    "slug": "0trace",
+    "package": "0trace",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: 0trace",
+    "url": "https://www.kali.org/tools/0trace/"
+  },
+  {
+    "id": "7zip",
+    "name": "7zip",
+    "slug": "7zip",
+    "package": "7zip",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: 7zip",
+    "url": "https://www.kali.org/tools/7zip/"
+  },
+  {
+    "id": "adaptixc2",
+    "name": "adaptixc2",
+    "slug": "adaptixc2",
+    "package": "adaptixc2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: adaptixc2",
+    "url": "https://www.kali.org/tools/adaptixc2/"
+  },
+  {
+    "id": "afflib",
+    "name": "afflib",
+    "slug": "afflib",
+    "package": "afflib",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: afflib",
+    "url": "https://www.kali.org/tools/afflib/"
+  },
+  {
+    "id": "aflplusplus",
+    "name": "aflplusplus",
+    "slug": "aflplusplus",
+    "package": "aflplusplus",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: aflplusplus",
+    "url": "https://www.kali.org/tools/aflplusplus/"
+  },
+  {
+    "id": "aircrack-ng",
+    "name": "aircrack-ng",
+    "slug": "aircrack-ng",
+    "package": "aircrack-ng",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: aircrack-ng",
+    "url": "https://www.kali.org/tools/aircrack-ng/"
+  },
+  {
+    "id": "amap",
+    "name": "amap",
+    "slug": "amap",
+    "package": "amap",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: amap",
+    "url": "https://www.kali.org/tools/amap/"
+  },
+  {
+    "id": "android-sdk-meta",
+    "name": "android-sdk-meta",
+    "slug": "android-sdk-meta",
+    "package": "android-sdk-meta",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: android-sdk-meta",
+    "url": "https://www.kali.org/tools/android-sdk-meta/"
+  },
+  {
+    "id": "apache2",
+    "name": "apache2",
+    "slug": "apache2",
+    "package": "apache2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: apache2",
+    "url": "https://www.kali.org/tools/apache2/"
+  },
+  {
+    "id": "armitage",
+    "name": "armitage",
+    "slug": "armitage",
+    "package": "armitage",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: armitage",
+    "url": "https://www.kali.org/tools/armitage/"
+  },
+  {
+    "id": "arp-scan",
+    "name": "arp-scan",
+    "slug": "arp-scan",
+    "package": "arp-scan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: arp-scan",
+    "url": "https://www.kali.org/tools/arp-scan/"
+  },
+  {
+    "id": "arpwatch",
+    "name": "arpwatch",
+    "slug": "arpwatch",
+    "package": "arpwatch",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: arpwatch",
+    "url": "https://www.kali.org/tools/arpwatch/"
+  },
+  {
+    "id": "asleap",
+    "name": "asleap",
+    "slug": "asleap",
+    "package": "asleap",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: asleap",
+    "url": "https://www.kali.org/tools/asleap/"
+  },
+  {
+    "id": "atftp",
+    "name": "atftp",
+    "slug": "atftp",
+    "package": "atftp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: atftp",
+    "url": "https://www.kali.org/tools/atftp/"
+  },
+  {
+    "id": "atomic-operator",
+    "name": "atomic-operator",
+    "slug": "atomic-operator",
+    "package": "atomic-operator",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: atomic-operator",
+    "url": "https://www.kali.org/tools/atomic-operator/"
+  },
+  {
+    "id": "beef-xss",
+    "name": "beef-xss",
+    "slug": "beef-xss",
+    "package": "beef-xss",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: beef-xss",
+    "url": "https://www.kali.org/tools/beef-xss/"
+  },
+  {
+    "id": "berate-ap",
+    "name": "berate-ap",
+    "slug": "berate-ap",
+    "package": "berate-ap",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: berate-ap",
+    "url": "https://www.kali.org/tools/berate-ap/"
+  },
+  {
+    "id": "bettercap-ui",
+    "name": "bettercap-ui",
+    "slug": "bettercap-ui",
+    "package": "bettercap-ui",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: bettercap-ui",
+    "url": "https://www.kali.org/tools/bettercap-ui/"
+  },
+  {
+    "id": "bind9",
+    "name": "bind9",
+    "slug": "bind9",
+    "package": "bind9",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: bind9",
+    "url": "https://www.kali.org/tools/bind9/"
+  },
+  {
+    "id": "binwalk",
+    "name": "binwalk",
+    "slug": "binwalk",
+    "package": "binwalk",
+    "category": "forensics",
+    "description": "Kali Linux tool package: binwalk",
+    "url": "https://www.kali.org/tools/binwalk/"
+  },
+  {
+    "id": "binwalk3",
+    "name": "binwalk3",
+    "slug": "binwalk3",
+    "package": "binwalk3",
+    "category": "forensics",
+    "description": "Kali Linux tool package: binwalk3",
+    "url": "https://www.kali.org/tools/binwalk3/"
+  },
+  {
+    "id": "bloodhound",
+    "name": "bloodhound",
+    "slug": "bloodhound",
+    "package": "bloodhound",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: bloodhound",
+    "url": "https://www.kali.org/tools/bloodhound/"
+  },
+  {
+    "id": "blue-hydra",
+    "name": "blue-hydra",
+    "slug": "blue-hydra",
+    "package": "blue-hydra",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: blue-hydra",
+    "url": "https://www.kali.org/tools/blue-hydra/"
+  },
+  {
+    "id": "bluez",
+    "name": "bluez",
+    "slug": "bluez",
+    "package": "bluez",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: bluez",
+    "url": "https://www.kali.org/tools/bluez/"
+  },
+  {
+    "id": "bruteshark",
+    "name": "bruteshark",
+    "slug": "bruteshark",
+    "package": "bruteshark",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: bruteshark",
+    "url": "https://www.kali.org/tools/bruteshark/"
+  },
+  {
+    "id": "bulk-extractor",
+    "name": "bulk-extractor",
+    "slug": "bulk-extractor",
+    "package": "bulk-extractor",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: bulk-extractor",
+    "url": "https://www.kali.org/tools/bulk-extractor/"
+  },
+  {
+    "id": "calico",
+    "name": "calico",
+    "slug": "calico",
+    "package": "calico",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: calico",
+    "url": "https://www.kali.org/tools/calico/"
+  },
+  {
+    "id": "capstone",
+    "name": "capstone",
+    "slug": "capstone",
+    "package": "capstone",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: capstone",
+    "url": "https://www.kali.org/tools/capstone/"
+  },
+  {
+    "id": "ccrypt",
+    "name": "ccrypt",
+    "slug": "ccrypt",
+    "package": "ccrypt",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ccrypt",
+    "url": "https://www.kali.org/tools/ccrypt/"
+  },
+  {
+    "id": "cewl",
+    "name": "cewl",
+    "slug": "cewl",
+    "package": "cewl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cewl",
+    "url": "https://www.kali.org/tools/cewl/"
+  },
+  {
+    "id": "chirp",
+    "name": "chirp",
+    "slug": "chirp",
+    "package": "chirp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: chirp",
+    "url": "https://www.kali.org/tools/chirp/"
+  },
+  {
+    "id": "chkrootkit",
+    "name": "chkrootkit",
+    "slug": "chkrootkit",
+    "package": "chkrootkit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: chkrootkit",
+    "url": "https://www.kali.org/tools/chkrootkit/"
+  },
+  {
+    "id": "chntpw",
+    "name": "chntpw",
+    "slug": "chntpw",
+    "package": "chntpw",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: chntpw",
+    "url": "https://www.kali.org/tools/chntpw/"
+  },
+  {
+    "id": "chromium",
+    "name": "chromium",
+    "slug": "chromium",
+    "package": "chromium",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: chromium",
+    "url": "https://www.kali.org/tools/chromium/"
+  },
+  {
+    "id": "cifs-utils",
+    "name": "cifs-utils",
+    "slug": "cifs-utils",
+    "package": "cifs-utils",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cifs-utils",
+    "url": "https://www.kali.org/tools/cifs-utils/"
+  },
+  {
+    "id": "cilium-cli",
+    "name": "cilium-cli",
+    "slug": "cilium-cli",
+    "package": "cilium-cli",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cilium-cli",
+    "url": "https://www.kali.org/tools/cilium-cli/"
+  },
+  {
+    "id": "ciphey",
+    "name": "ciphey",
+    "slug": "ciphey",
+    "package": "ciphey",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ciphey",
+    "url": "https://www.kali.org/tools/ciphey/"
+  },
+  {
+    "id": "cisco-auditing-tool",
+    "name": "cisco-auditing-tool",
+    "slug": "cisco-auditing-tool",
+    "package": "cisco-auditing-tool",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cisco-auditing-tool",
+    "url": "https://www.kali.org/tools/cisco-auditing-tool/"
+  },
+  {
+    "id": "cisco-global-exploiter",
+    "name": "cisco-global-exploiter",
+    "slug": "cisco-global-exploiter",
+    "package": "cisco-global-exploiter",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: cisco-global-exploiter",
+    "url": "https://www.kali.org/tools/cisco-global-exploiter/"
+  },
+  {
+    "id": "clamav",
+    "name": "clamav",
+    "slug": "clamav",
+    "package": "clamav",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: clamav",
+    "url": "https://www.kali.org/tools/clamav/"
+  },
+  {
+    "id": "cloud-enum",
+    "name": "cloud-enum",
+    "slug": "cloud-enum",
+    "package": "cloud-enum",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cloud-enum",
+    "url": "https://www.kali.org/tools/cloud-enum/"
+  },
+  {
+    "id": "code-oss",
+    "name": "code-oss",
+    "slug": "code-oss",
+    "package": "code-oss",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: code-oss",
+    "url": "https://www.kali.org/tools/code-oss/"
+  },
+  {
+    "id": "colly",
+    "name": "colly",
+    "slug": "colly",
+    "package": "colly",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: colly",
+    "url": "https://www.kali.org/tools/colly/"
+  },
+  {
+    "id": "command-not-found",
+    "name": "command-not-found",
+    "slug": "command-not-found",
+    "package": "command-not-found",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: command-not-found",
+    "url": "https://www.kali.org/tools/command-not-found/"
+  },
+  {
+    "id": "copy-router-config",
+    "name": "copy-router-config",
+    "slug": "copy-router-config",
+    "package": "copy-router-config",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: copy-router-config",
+    "url": "https://www.kali.org/tools/copy-router-config/"
+  },
+  {
+    "id": "cosign",
+    "name": "cosign",
+    "slug": "cosign",
+    "package": "cosign",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cosign",
+    "url": "https://www.kali.org/tools/cosign/"
+  },
+  {
+    "id": "cowpatty",
+    "name": "cowpatty",
+    "slug": "cowpatty",
+    "package": "cowpatty",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: cowpatty",
+    "url": "https://www.kali.org/tools/cowpatty/"
+  },
+  {
+    "id": "crack",
+    "name": "crack",
+    "slug": "crack",
+    "package": "crack",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: crack",
+    "url": "https://www.kali.org/tools/crack/"
+  },
+  {
+    "id": "crackmapexec",
+    "name": "crackmapexec",
+    "slug": "crackmapexec",
+    "package": "crackmapexec",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: crackmapexec",
+    "url": "https://www.kali.org/tools/crackmapexec/"
+  },
+  {
+    "id": "cri-tools",
+    "name": "cri-tools",
+    "slug": "cri-tools",
+    "package": "cri-tools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cri-tools",
+    "url": "https://www.kali.org/tools/cri-tools/"
+  },
+  {
+    "id": "cryptsetup",
+    "name": "cryptsetup",
+    "slug": "cryptsetup",
+    "package": "cryptsetup",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cryptsetup",
+    "url": "https://www.kali.org/tools/cryptsetup/"
+  },
+  {
+    "id": "cryptsetup-nuke-password",
+    "name": "cryptsetup-nuke-password",
+    "slug": "cryptsetup-nuke-password",
+    "package": "cryptsetup-nuke-password",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: cryptsetup-nuke-password",
+    "url": "https://www.kali.org/tools/cryptsetup-nuke-password/"
+  },
+  {
+    "id": "cupid-wpa",
+    "name": "cupid-wpa",
+    "slug": "cupid-wpa",
+    "package": "cupid-wpa",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: cupid-wpa",
+    "url": "https://www.kali.org/tools/cupid-wpa/"
+  },
+  {
+    "id": "curl",
+    "name": "curl",
+    "slug": "curl",
+    "package": "curl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: curl",
+    "url": "https://www.kali.org/tools/curl/"
+  },
+  {
+    "id": "cymothoa",
+    "name": "cymothoa",
+    "slug": "cymothoa",
+    "package": "cymothoa",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: cymothoa",
+    "url": "https://www.kali.org/tools/cymothoa/"
+  },
+  {
+    "id": "ddrescue",
+    "name": "ddrescue",
+    "slug": "ddrescue",
+    "package": "ddrescue",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ddrescue",
+    "url": "https://www.kali.org/tools/ddrescue/"
+  },
+  {
+    "id": "defectdojo",
+    "name": "defectdojo",
+    "slug": "defectdojo",
+    "package": "defectdojo",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: defectdojo",
+    "url": "https://www.kali.org/tools/defectdojo/"
+  },
+  {
+    "id": "detect-it-easy",
+    "name": "detect-it-easy",
+    "slug": "detect-it-easy",
+    "package": "detect-it-easy",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: detect-it-easy",
+    "url": "https://www.kali.org/tools/detect-it-easy/"
+  },
+  {
+    "id": "dex2jar",
+    "name": "dex2jar",
+    "slug": "dex2jar",
+    "package": "dex2jar",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dex2jar",
+    "url": "https://www.kali.org/tools/dex2jar/"
+  },
+  {
+    "id": "dfdatetime",
+    "name": "dfdatetime",
+    "slug": "dfdatetime",
+    "package": "dfdatetime",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dfdatetime",
+    "url": "https://www.kali.org/tools/dfdatetime/"
+  },
+  {
+    "id": "dfvfs",
+    "name": "dfvfs",
+    "slug": "dfvfs",
+    "package": "dfvfs",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dfvfs",
+    "url": "https://www.kali.org/tools/dfvfs/"
+  },
+  {
+    "id": "dfwinreg",
+    "name": "dfwinreg",
+    "slug": "dfwinreg",
+    "package": "dfwinreg",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dfwinreg",
+    "url": "https://www.kali.org/tools/dfwinreg/"
+  },
+  {
+    "id": "dirb",
+    "name": "dirb",
+    "slug": "dirb",
+    "package": "dirb",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dirb",
+    "url": "https://www.kali.org/tools/dirb/"
+  },
+  {
+    "id": "dislocker",
+    "name": "dislocker",
+    "slug": "dislocker",
+    "package": "dislocker",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dislocker",
+    "url": "https://www.kali.org/tools/dislocker/"
+  },
+  {
+    "id": "distorm3",
+    "name": "distorm3",
+    "slug": "distorm3",
+    "package": "distorm3",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: distorm3",
+    "url": "https://www.kali.org/tools/distorm3/"
+  },
+  {
+    "id": "dns2tcp",
+    "name": "dns2tcp",
+    "slug": "dns2tcp",
+    "package": "dns2tcp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dns2tcp",
+    "url": "https://www.kali.org/tools/dns2tcp/"
+  },
+  {
+    "id": "dnscat2",
+    "name": "dnscat2",
+    "slug": "dnscat2",
+    "package": "dnscat2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dnscat2",
+    "url": "https://www.kali.org/tools/dnscat2/"
+  },
+  {
+    "id": "dnsmap",
+    "name": "dnsmap",
+    "slug": "dnsmap",
+    "package": "dnsmap",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dnsmap",
+    "url": "https://www.kali.org/tools/dnsmap/"
+  },
+  {
+    "id": "donut-shellcode",
+    "name": "donut-shellcode",
+    "slug": "donut-shellcode",
+    "package": "donut-shellcode",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: donut-shellcode",
+    "url": "https://www.kali.org/tools/donut-shellcode/"
+  },
+  {
+    "id": "dos2unix",
+    "name": "dos2unix",
+    "slug": "dos2unix",
+    "package": "dos2unix",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dos2unix",
+    "url": "https://www.kali.org/tools/dos2unix/"
+  },
+  {
+    "id": "dploot",
+    "name": "dploot",
+    "slug": "dploot",
+    "package": "dploot",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dploot",
+    "url": "https://www.kali.org/tools/dploot/"
+  },
+  {
+    "id": "dradis",
+    "name": "dradis",
+    "slug": "dradis",
+    "package": "dradis",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dradis",
+    "url": "https://www.kali.org/tools/dradis/"
+  },
+  {
+    "id": "dscan",
+    "name": "dscan",
+    "slug": "dscan",
+    "package": "dscan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dscan",
+    "url": "https://www.kali.org/tools/dscan/"
+  },
+  {
+    "id": "dsniff",
+    "name": "dsniff",
+    "slug": "dsniff",
+    "package": "dsniff",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: dsniff",
+    "url": "https://www.kali.org/tools/dsniff/"
+  },
+  {
+    "id": "dumpsterdiver",
+    "name": "dumpsterdiver",
+    "slug": "dumpsterdiver",
+    "package": "dumpsterdiver",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dumpsterdiver",
+    "url": "https://www.kali.org/tools/dumpsterdiver/"
+  },
+  {
+    "id": "dvwa",
+    "name": "dvwa",
+    "slug": "dvwa",
+    "package": "dvwa",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: dvwa",
+    "url": "https://www.kali.org/tools/dvwa/"
+  },
+  {
+    "id": "edb-debugger",
+    "name": "edb-debugger",
+    "slug": "edb-debugger",
+    "package": "edb-debugger",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: edb-debugger",
+    "url": "https://www.kali.org/tools/edb-debugger/"
+  },
+  {
+    "id": "ettercap",
+    "name": "ettercap",
+    "slug": "ettercap",
+    "package": "ettercap",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: ettercap",
+    "url": "https://www.kali.org/tools/ettercap/"
+  },
+  {
+    "id": "evil-winrm-py",
+    "name": "evil-winrm-py",
+    "slug": "evil-winrm-py",
+    "package": "evil-winrm-py",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: evil-winrm-py",
+    "url": "https://www.kali.org/tools/evil-winrm-py/"
+  },
+  {
+    "id": "exe2hexbat",
+    "name": "exe2hexbat",
+    "slug": "exe2hexbat",
+    "package": "exe2hexbat",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: exe2hexbat",
+    "url": "https://www.kali.org/tools/exe2hexbat/"
+  },
+  {
+    "id": "exifprobe",
+    "name": "exifprobe",
+    "slug": "exifprobe",
+    "package": "exifprobe",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: exifprobe",
+    "url": "https://www.kali.org/tools/exifprobe/"
+  },
+  {
+    "id": "exiv2",
+    "name": "exiv2",
+    "slug": "exiv2",
+    "package": "exiv2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: exiv2",
+    "url": "https://www.kali.org/tools/exiv2/"
+  },
+  {
+    "id": "expect",
+    "name": "expect",
+    "slug": "expect",
+    "package": "expect",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: expect",
+    "url": "https://www.kali.org/tools/expect/"
+  },
+  {
+    "id": "exploitdb",
+    "name": "exploitdb",
+    "slug": "exploitdb",
+    "package": "exploitdb",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: exploitdb",
+    "url": "https://www.kali.org/tools/exploitdb/"
+  },
+  {
+    "id": "exploitdb-bin-sploits",
+    "name": "exploitdb-bin-sploits",
+    "slug": "exploitdb-bin-sploits",
+    "package": "exploitdb-bin-sploits",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: exploitdb-bin-sploits",
+    "url": "https://www.kali.org/tools/exploitdb-bin-sploits/"
+  },
+  {
+    "id": "eyewitness",
+    "name": "eyewitness",
+    "slug": "eyewitness",
+    "package": "eyewitness",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: eyewitness",
+    "url": "https://www.kali.org/tools/eyewitness/"
+  },
+  {
+    "id": "faraday-agent-dispatcher",
+    "name": "faraday-agent-dispatcher",
+    "slug": "faraday-agent-dispatcher",
+    "package": "faraday-agent-dispatcher",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: faraday-agent-dispatcher",
+    "url": "https://www.kali.org/tools/faraday-agent-dispatcher/"
+  },
+  {
+    "id": "fcrackzip",
+    "name": "fcrackzip",
+    "slug": "fcrackzip",
+    "package": "fcrackzip",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: fcrackzip",
+    "url": "https://www.kali.org/tools/fcrackzip/"
+  },
+  {
+    "id": "ffuf",
+    "name": "ffuf",
+    "slug": "ffuf",
+    "package": "ffuf",
+    "category": "web-applications",
+    "description": "Fast web fuzzer written in Go",
+    "url": "https://www.kali.org/tools/ffuf/"
+  },
+  {
+    "id": "firefox-developer-edition-kbx",
+    "name": "firefox-developer-edition-kbx",
+    "slug": "firefox-developer-edition-kbx",
+    "package": "firefox-developer-edition-kbx",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: firefox-developer-edition-kbx",
+    "url": "https://www.kali.org/tools/firefox-developer-edition-kbx/"
+  },
+  {
+    "id": "firmware-mod-kit",
+    "name": "firmware-mod-kit",
+    "slug": "firmware-mod-kit",
+    "package": "firmware-mod-kit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: firmware-mod-kit",
+    "url": "https://www.kali.org/tools/firmware-mod-kit/"
+  },
+  {
+    "id": "flashrom",
+    "name": "flashrom",
+    "slug": "flashrom",
+    "package": "flashrom",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: flashrom",
+    "url": "https://www.kali.org/tools/flashrom/"
+  },
+  {
+    "id": "forensic-artifacts",
+    "name": "forensic-artifacts",
+    "slug": "forensic-artifacts",
+    "package": "forensic-artifacts",
+    "category": "forensics",
+    "description": "Kali Linux tool package: forensic-artifacts",
+    "url": "https://www.kali.org/tools/forensic-artifacts/"
+  },
+  {
+    "id": "forensics-colorize",
+    "name": "forensics-colorize",
+    "slug": "forensics-colorize",
+    "package": "forensics-colorize",
+    "category": "forensics",
+    "description": "Kali Linux tool package: forensics-colorize",
+    "url": "https://www.kali.org/tools/forensics-colorize/"
+  },
+  {
+    "id": "fping",
+    "name": "fping",
+    "slug": "fping",
+    "package": "fping",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: fping",
+    "url": "https://www.kali.org/tools/fping/"
+  },
+  {
+    "id": "freeradius",
+    "name": "freeradius",
+    "slug": "freeradius",
+    "package": "freeradius",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: freeradius",
+    "url": "https://www.kali.org/tools/freeradius/"
+  },
+  {
+    "id": "freerdp3",
+    "name": "freerdp3",
+    "slug": "freerdp3",
+    "package": "freerdp3",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: freerdp3",
+    "url": "https://www.kali.org/tools/freerdp3/"
+  },
+  {
+    "id": "ftester",
+    "name": "ftester",
+    "slug": "ftester",
+    "package": "ftester",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ftester",
+    "url": "https://www.kali.org/tools/ftester/"
+  },
+  {
+    "id": "fwbuilder",
+    "name": "fwbuilder",
+    "slug": "fwbuilder",
+    "package": "fwbuilder",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: fwbuilder",
+    "url": "https://www.kali.org/tools/fwbuilder/"
+  },
+  {
+    "id": "gdb",
+    "name": "gdb",
+    "slug": "gdb",
+    "package": "gdb",
+    "category": "reverse-engineering",
+    "description": "Kali Linux tool package: gdb",
+    "url": "https://www.kali.org/tools/gdb/"
+  },
+  {
+    "id": "gdb-peda",
+    "name": "gdb-peda",
+    "slug": "gdb-peda",
+    "package": "gdb-peda",
+    "category": "reverse-engineering",
+    "description": "Kali Linux tool package: gdb-peda",
+    "url": "https://www.kali.org/tools/gdb-peda/"
+  },
+  {
+    "id": "gdisk",
+    "name": "gdisk",
+    "slug": "gdisk",
+    "package": "gdisk",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gdisk",
+    "url": "https://www.kali.org/tools/gdisk/"
+  },
+  {
+    "id": "git",
+    "name": "git",
+    "slug": "git",
+    "package": "git",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: git",
+    "url": "https://www.kali.org/tools/git/"
+  },
+  {
+    "id": "gitleaks",
+    "name": "gitleaks",
+    "slug": "gitleaks",
+    "package": "gitleaks",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gitleaks",
+    "url": "https://www.kali.org/tools/gitleaks/"
+  },
+  {
+    "id": "glibc",
+    "name": "glibc",
+    "slug": "glibc",
+    "package": "glibc",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: glibc",
+    "url": "https://www.kali.org/tools/glibc/"
+  },
+  {
+    "id": "gnuradio",
+    "name": "gnuradio",
+    "slug": "gnuradio",
+    "package": "gnuradio",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gnuradio",
+    "url": "https://www.kali.org/tools/gnuradio/"
+  },
+  {
+    "id": "gobuster",
+    "name": "gobuster",
+    "slug": "gobuster",
+    "package": "gobuster",
+    "category": "web-applications",
+    "description": "Directory, DNS, and vhost busting tool",
+    "url": "https://www.kali.org/tools/gobuster/"
+  },
+  {
+    "id": "golang-github-binject-go-donut",
+    "name": "golang-github-binject-go-donut",
+    "slug": "golang-github-binject-go-donut",
+    "package": "golang-github-binject-go-donut",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: golang-github-binject-go-donut",
+    "url": "https://www.kali.org/tools/golang-github-binject-go-donut/"
+  },
+  {
+    "id": "google-nexus-tools",
+    "name": "google-nexus-tools",
+    "slug": "google-nexus-tools",
+    "package": "google-nexus-tools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: google-nexus-tools",
+    "url": "https://www.kali.org/tools/google-nexus-tools/"
+  },
+  {
+    "id": "gophish",
+    "name": "gophish",
+    "slug": "gophish",
+    "package": "gophish",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gophish",
+    "url": "https://www.kali.org/tools/gophish/"
+  },
+  {
+    "id": "gparted",
+    "name": "gparted",
+    "slug": "gparted",
+    "package": "gparted",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gparted",
+    "url": "https://www.kali.org/tools/gparted/"
+  },
+  {
+    "id": "gqrx-sdr",
+    "name": "gqrx-sdr",
+    "slug": "gqrx-sdr",
+    "package": "gqrx-sdr",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gqrx-sdr",
+    "url": "https://www.kali.org/tools/gqrx-sdr/"
+  },
+  {
+    "id": "gr-air-modes",
+    "name": "gr-air-modes",
+    "slug": "gr-air-modes",
+    "package": "gr-air-modes",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gr-air-modes",
+    "url": "https://www.kali.org/tools/gr-air-modes/"
+  },
+  {
+    "id": "gr-iqbal",
+    "name": "gr-iqbal",
+    "slug": "gr-iqbal",
+    "package": "gr-iqbal",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gr-iqbal",
+    "url": "https://www.kali.org/tools/gr-iqbal/"
+  },
+  {
+    "id": "gr-osmosdr",
+    "name": "gr-osmosdr",
+    "slug": "gr-osmosdr",
+    "package": "gr-osmosdr",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gr-osmosdr",
+    "url": "https://www.kali.org/tools/gr-osmosdr/"
+  },
+  {
+    "id": "grokevt",
+    "name": "grokevt",
+    "slug": "grokevt",
+    "package": "grokevt",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: grokevt",
+    "url": "https://www.kali.org/tools/grokevt/"
+  },
+  {
+    "id": "gsocket",
+    "name": "gsocket",
+    "slug": "gsocket",
+    "package": "gsocket",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gsocket",
+    "url": "https://www.kali.org/tools/gsocket/"
+  },
+  {
+    "id": "gss-ntlmssp",
+    "name": "gss-ntlmssp",
+    "slug": "gss-ntlmssp",
+    "package": "gss-ntlmssp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gss-ntlmssp",
+    "url": "https://www.kali.org/tools/gss-ntlmssp/"
+  },
+  {
+    "id": "gtkhash",
+    "name": "gtkhash",
+    "slug": "gtkhash",
+    "package": "gtkhash",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: gtkhash",
+    "url": "https://www.kali.org/tools/gtkhash/"
+  },
+  {
+    "id": "gvm",
+    "name": "gvm",
+    "slug": "gvm",
+    "package": "gvm",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: gvm",
+    "url": "https://www.kali.org/tools/gvm/"
+  },
+  {
+    "id": "hackrf",
+    "name": "hackrf",
+    "slug": "hackrf",
+    "package": "hackrf",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hackrf",
+    "url": "https://www.kali.org/tools/hackrf/"
+  },
+  {
+    "id": "hak5-wifi-coconut",
+    "name": "hak5-wifi-coconut",
+    "slug": "hak5-wifi-coconut",
+    "package": "hak5-wifi-coconut",
+    "category": "wireless-attacks",
+    "description": "Kali Linux tool package: hak5-wifi-coconut",
+    "url": "https://www.kali.org/tools/hak5-wifi-coconut/"
+  },
+  {
+    "id": "hashcat",
+    "name": "hashcat",
+    "slug": "hashcat",
+    "package": "hashcat",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: hashcat",
+    "url": "https://www.kali.org/tools/hashcat/"
+  },
+  {
+    "id": "hashcat-utils",
+    "name": "hashcat-utils",
+    "slug": "hashcat-utils",
+    "package": "hashcat-utils",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: hashcat-utils",
+    "url": "https://www.kali.org/tools/hashcat-utils/"
+  },
+  {
+    "id": "hashdeep",
+    "name": "hashdeep",
+    "slug": "hashdeep",
+    "package": "hashdeep",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: hashdeep",
+    "url": "https://www.kali.org/tools/hashdeep/"
+  },
+  {
+    "id": "hb-honeypot",
+    "name": "hb-honeypot",
+    "slug": "hb-honeypot",
+    "package": "hb-honeypot",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hb-honeypot",
+    "url": "https://www.kali.org/tools/hb-honeypot/"
+  },
+  {
+    "id": "hcxtools",
+    "name": "hcxtools",
+    "slug": "hcxtools",
+    "package": "hcxtools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hcxtools",
+    "url": "https://www.kali.org/tools/hcxtools/"
+  },
+  {
+    "id": "hexinject",
+    "name": "hexinject",
+    "slug": "hexinject",
+    "package": "hexinject",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hexinject",
+    "url": "https://www.kali.org/tools/hexinject/"
+  },
+  {
+    "id": "hexstrike-ai",
+    "name": "hexstrike-ai",
+    "slug": "hexstrike-ai",
+    "package": "hexstrike-ai",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hexstrike-ai",
+    "url": "https://www.kali.org/tools/hexstrike-ai/"
+  },
+  {
+    "id": "hivex",
+    "name": "hivex",
+    "slug": "hivex",
+    "package": "hivex",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hivex",
+    "url": "https://www.kali.org/tools/hivex/"
+  },
+  {
+    "id": "hostapd-mana",
+    "name": "hostapd-mana",
+    "slug": "hostapd-mana",
+    "package": "hostapd-mana",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hostapd-mana",
+    "url": "https://www.kali.org/tools/hostapd-mana/"
+  },
+  {
+    "id": "hostapd-wpe",
+    "name": "hostapd-wpe",
+    "slug": "hostapd-wpe",
+    "package": "hostapd-wpe",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: hostapd-wpe",
+    "url": "https://www.kali.org/tools/hostapd-wpe/"
+  },
+  {
+    "id": "hotpatch",
+    "name": "hotpatch",
+    "slug": "hotpatch",
+    "package": "hotpatch",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hotpatch",
+    "url": "https://www.kali.org/tools/hotpatch/"
+  },
+  {
+    "id": "httrack",
+    "name": "httrack",
+    "slug": "httrack",
+    "package": "httrack",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: httrack",
+    "url": "https://www.kali.org/tools/httrack/"
+  },
+  {
+    "id": "hurl",
+    "name": "hurl",
+    "slug": "hurl",
+    "package": "hurl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hurl",
+    "url": "https://www.kali.org/tools/hurl/"
+  },
+  {
+    "id": "hydra",
+    "name": "hydra",
+    "slug": "hydra",
+    "package": "hydra",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: hydra",
+    "url": "https://www.kali.org/tools/hydra/"
+  },
+  {
+    "id": "hyperion",
+    "name": "hyperion",
+    "slug": "hyperion",
+    "package": "hyperion",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: hyperion",
+    "url": "https://www.kali.org/tools/hyperion/"
+  },
+  {
+    "id": "i2c-tools",
+    "name": "i2c-tools",
+    "slug": "i2c-tools",
+    "package": "i2c-tools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: i2c-tools",
+    "url": "https://www.kali.org/tools/i2c-tools/"
+  },
+  {
+    "id": "ifenslave",
+    "name": "ifenslave",
+    "slug": "ifenslave",
+    "package": "ifenslave",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ifenslave",
+    "url": "https://www.kali.org/tools/ifenslave/"
+  },
+  {
+    "id": "ike-scan",
+    "name": "ike-scan",
+    "slug": "ike-scan",
+    "package": "ike-scan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ike-scan",
+    "url": "https://www.kali.org/tools/ike-scan/"
+  },
+  {
+    "id": "imhex",
+    "name": "imhex",
+    "slug": "imhex",
+    "package": "imhex",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: imhex",
+    "url": "https://www.kali.org/tools/imhex/"
+  },
+  {
+    "id": "impacket",
+    "name": "impacket",
+    "slug": "impacket",
+    "package": "impacket",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: impacket",
+    "url": "https://www.kali.org/tools/impacket/"
+  },
+  {
+    "id": "impacket-scripts",
+    "name": "impacket-scripts",
+    "slug": "impacket-scripts",
+    "package": "impacket-scripts",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: impacket-scripts",
+    "url": "https://www.kali.org/tools/impacket-scripts/"
+  },
+  {
+    "id": "iodine",
+    "name": "iodine",
+    "slug": "iodine",
+    "package": "iodine",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: iodine",
+    "url": "https://www.kali.org/tools/iodine/"
+  },
+  {
+    "id": "ipv6toolkit",
+    "name": "ipv6toolkit",
+    "slug": "ipv6toolkit",
+    "package": "ipv6toolkit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ipv6toolkit",
+    "url": "https://www.kali.org/tools/ipv6toolkit/"
+  },
+  {
+    "id": "irpas",
+    "name": "irpas",
+    "slug": "irpas",
+    "package": "irpas",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: irpas",
+    "url": "https://www.kali.org/tools/irpas/"
+  },
+  {
+    "id": "isr-evilgrade",
+    "name": "isr-evilgrade",
+    "slug": "isr-evilgrade",
+    "package": "isr-evilgrade",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: isr-evilgrade",
+    "url": "https://www.kali.org/tools/isr-evilgrade/"
+  },
+  {
+    "id": "ivre",
+    "name": "ivre",
+    "slug": "ivre",
+    "package": "ivre",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ivre",
+    "url": "https://www.kali.org/tools/ivre/"
+  },
+  {
+    "id": "jadx",
+    "name": "jadx",
+    "slug": "jadx",
+    "package": "jadx",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: jadx",
+    "url": "https://www.kali.org/tools/jadx/"
+  },
+  {
+    "id": "jboss-autopwn",
+    "name": "jboss-autopwn",
+    "slug": "jboss-autopwn",
+    "package": "jboss-autopwn",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: jboss-autopwn",
+    "url": "https://www.kali.org/tools/jboss-autopwn/"
+  },
+  {
+    "id": "john",
+    "name": "john",
+    "slug": "john",
+    "package": "john",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: john",
+    "url": "https://www.kali.org/tools/john/"
+  },
+  {
+    "id": "joplin",
+    "name": "joplin",
+    "slug": "joplin",
+    "package": "joplin",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: joplin",
+    "url": "https://www.kali.org/tools/joplin/"
+  },
+  {
+    "id": "jsql",
+    "name": "jsql",
+    "slug": "jsql",
+    "package": "jsql",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: jsql",
+    "url": "https://www.kali.org/tools/jsql/"
+  },
+  {
+    "id": "juice-shop",
+    "name": "juice-shop",
+    "slug": "juice-shop",
+    "package": "juice-shop",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: juice-shop",
+    "url": "https://www.kali.org/tools/juice-shop/"
+  },
+  {
+    "id": "kali-community-wallpapers",
+    "name": "kali-community-wallpapers",
+    "slug": "kali-community-wallpapers",
+    "package": "kali-community-wallpapers",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kali-community-wallpapers",
+    "url": "https://www.kali.org/tools/kali-community-wallpapers/"
+  },
+  {
+    "id": "kali-defaults",
+    "name": "kali-defaults",
+    "slug": "kali-defaults",
+    "package": "kali-defaults",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kali-defaults",
+    "url": "https://www.kali.org/tools/kali-defaults/"
+  },
+  {
+    "id": "kali-meta",
+    "name": "kali-meta",
+    "slug": "kali-meta",
+    "package": "kali-meta",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kali-meta",
+    "url": "https://www.kali.org/tools/kali-meta/"
+  },
+  {
+    "id": "kali-wallpapers",
+    "name": "kali-wallpapers",
+    "slug": "kali-wallpapers",
+    "package": "kali-wallpapers",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kali-wallpapers",
+    "url": "https://www.kali.org/tools/kali-wallpapers/"
+  },
+  {
+    "id": "kalibrate-rtl",
+    "name": "kalibrate-rtl",
+    "slug": "kalibrate-rtl",
+    "package": "kalibrate-rtl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kalibrate-rtl",
+    "url": "https://www.kali.org/tools/kalibrate-rtl/"
+  },
+  {
+    "id": "kismet",
+    "name": "kismet",
+    "slug": "kismet",
+    "package": "kismet",
+    "category": "wireless-attacks",
+    "description": "Kali Linux tool package: kismet",
+    "url": "https://www.kali.org/tools/kismet/"
+  },
+  {
+    "id": "krbrelayx",
+    "name": "krbrelayx",
+    "slug": "krbrelayx",
+    "package": "krbrelayx",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: krbrelayx",
+    "url": "https://www.kali.org/tools/krbrelayx/"
+  },
+  {
+    "id": "kubernetes-helm",
+    "name": "kubernetes-helm",
+    "slug": "kubernetes-helm",
+    "package": "kubernetes-helm",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kubernetes-helm",
+    "url": "https://www.kali.org/tools/kubernetes-helm/"
+  },
+  {
+    "id": "kustomize",
+    "name": "kustomize",
+    "slug": "kustomize",
+    "package": "kustomize",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: kustomize",
+    "url": "https://www.kali.org/tools/kustomize/"
+  },
+  {
+    "id": "libewf",
+    "name": "libewf",
+    "slug": "libewf",
+    "package": "libewf",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: libewf",
+    "url": "https://www.kali.org/tools/libewf/"
+  },
+  {
+    "id": "libfindrtp",
+    "name": "libfindrtp",
+    "slug": "libfindrtp",
+    "package": "libfindrtp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: libfindrtp",
+    "url": "https://www.kali.org/tools/libfindrtp/"
+  },
+  {
+    "id": "libimage-exiftool-perl",
+    "name": "libimage-exiftool-perl",
+    "slug": "libimage-exiftool-perl",
+    "package": "libimage-exiftool-perl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: libimage-exiftool-perl",
+    "url": "https://www.kali.org/tools/libimage-exiftool-perl/"
+  },
+  {
+    "id": "libpst",
+    "name": "libpst",
+    "slug": "libpst",
+    "package": "libpst",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: libpst",
+    "url": "https://www.kali.org/tools/libpst/"
+  },
+  {
+    "id": "libsmali-java",
+    "name": "libsmali-java",
+    "slug": "libsmali-java",
+    "package": "libsmali-java",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: libsmali-java",
+    "url": "https://www.kali.org/tools/libsmali-java/"
+  },
+  {
+    "id": "ligolo-mp",
+    "name": "ligolo-mp",
+    "slug": "ligolo-mp",
+    "package": "ligolo-mp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ligolo-mp",
+    "url": "https://www.kali.org/tools/ligolo-mp/"
+  },
+  {
+    "id": "ligolo-ng",
+    "name": "ligolo-ng",
+    "slug": "ligolo-ng",
+    "package": "ligolo-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ligolo-ng",
+    "url": "https://www.kali.org/tools/ligolo-ng/"
+  },
+  {
+    "id": "llm-tools-nmap",
+    "name": "llm-tools-nmap",
+    "slug": "llm-tools-nmap",
+    "package": "llm-tools-nmap",
+    "category": "vulnerability-analysis",
+    "description": "Kali Linux tool package: llm-tools-nmap",
+    "url": "https://www.kali.org/tools/llm-tools-nmap/"
+  },
+  {
+    "id": "llvm-defaults",
+    "name": "llvm-defaults",
+    "slug": "llvm-defaults",
+    "package": "llvm-defaults",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: llvm-defaults",
+    "url": "https://www.kali.org/tools/llvm-defaults/"
+  },
+  {
+    "id": "lsof",
+    "name": "lsof",
+    "slug": "lsof",
+    "package": "lsof",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: lsof",
+    "url": "https://www.kali.org/tools/lsof/"
+  },
+  {
+    "id": "lvm2",
+    "name": "lvm2",
+    "slug": "lvm2",
+    "package": "lvm2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: lvm2",
+    "url": "https://www.kali.org/tools/lvm2/"
+  },
+  {
+    "id": "magicrescue",
+    "name": "magicrescue",
+    "slug": "magicrescue",
+    "package": "magicrescue",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: magicrescue",
+    "url": "https://www.kali.org/tools/magicrescue/"
+  },
+  {
+    "id": "maltego-teeth",
+    "name": "maltego-teeth",
+    "slug": "maltego-teeth",
+    "package": "maltego-teeth",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: maltego-teeth",
+    "url": "https://www.kali.org/tools/maltego-teeth/"
+  },
+  {
+    "id": "maskprocessor",
+    "name": "maskprocessor",
+    "slug": "maskprocessor",
+    "package": "maskprocessor",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: maskprocessor",
+    "url": "https://www.kali.org/tools/maskprocessor/"
+  },
+  {
+    "id": "mc",
+    "name": "mc",
+    "slug": "mc",
+    "package": "mc",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mc",
+    "url": "https://www.kali.org/tools/mc/"
+  },
+  {
+    "id": "mcp-kali-server",
+    "name": "mcp-kali-server",
+    "slug": "mcp-kali-server",
+    "package": "mcp-kali-server",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mcp-kali-server",
+    "url": "https://www.kali.org/tools/mcp-kali-server/"
+  },
+  {
+    "id": "mdbtools",
+    "name": "mdbtools",
+    "slug": "mdbtools",
+    "package": "mdbtools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mdbtools",
+    "url": "https://www.kali.org/tools/mdbtools/"
+  },
+  {
+    "id": "mercurial",
+    "name": "mercurial",
+    "slug": "mercurial",
+    "package": "mercurial",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mercurial",
+    "url": "https://www.kali.org/tools/mercurial/"
+  },
+  {
+    "id": "merlin",
+    "name": "merlin",
+    "slug": "merlin",
+    "package": "merlin",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: merlin",
+    "url": "https://www.kali.org/tools/merlin/"
+  },
+  {
+    "id": "metasploit-framework",
+    "name": "metasploit-framework",
+    "slug": "metasploit-framework",
+    "package": "metasploit-framework",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: metasploit-framework",
+    "url": "https://www.kali.org/tools/metasploit-framework/"
+  },
+  {
+    "id": "minicom",
+    "name": "minicom",
+    "slug": "minicom",
+    "package": "minicom",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: minicom",
+    "url": "https://www.kali.org/tools/minicom/"
+  },
+  {
+    "id": "miredo",
+    "name": "miredo",
+    "slug": "miredo",
+    "package": "miredo",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: miredo",
+    "url": "https://www.kali.org/tools/miredo/"
+  },
+  {
+    "id": "mitmproxy",
+    "name": "mitmproxy",
+    "slug": "mitmproxy",
+    "package": "mitmproxy",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: mitmproxy",
+    "url": "https://www.kali.org/tools/mitmproxy/"
+  },
+  {
+    "id": "mongo-tools",
+    "name": "mongo-tools",
+    "slug": "mongo-tools",
+    "package": "mongo-tools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mongo-tools",
+    "url": "https://www.kali.org/tools/mongo-tools/"
+  },
+  {
+    "id": "msitools",
+    "name": "msitools",
+    "slug": "msitools",
+    "package": "msitools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: msitools",
+    "url": "https://www.kali.org/tools/msitools/"
+  },
+  {
+    "id": "multiforcer",
+    "name": "multiforcer",
+    "slug": "multiforcer",
+    "package": "multiforcer",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: multiforcer",
+    "url": "https://www.kali.org/tools/multiforcer/"
+  },
+  {
+    "id": "myrescue",
+    "name": "myrescue",
+    "slug": "myrescue",
+    "package": "myrescue",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: myrescue",
+    "url": "https://www.kali.org/tools/myrescue/"
+  },
+  {
+    "id": "mysql-defaults",
+    "name": "mysql-defaults",
+    "slug": "mysql-defaults",
+    "package": "mysql-defaults",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: mysql-defaults",
+    "url": "https://www.kali.org/tools/mysql-defaults/"
+  },
+  {
+    "id": "name-that-hash",
+    "name": "name-that-hash",
+    "slug": "name-that-hash",
+    "package": "name-that-hash",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: name-that-hash",
+    "url": "https://www.kali.org/tools/name-that-hash/"
+  },
+  {
+    "id": "nasm",
+    "name": "nasm",
+    "slug": "nasm",
+    "package": "nasm",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: nasm",
+    "url": "https://www.kali.org/tools/nasm/"
+  },
+  {
+    "id": "ncurses-hexedit",
+    "name": "ncurses-hexedit",
+    "slug": "ncurses-hexedit",
+    "package": "ncurses-hexedit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ncurses-hexedit",
+    "url": "https://www.kali.org/tools/ncurses-hexedit/"
+  },
+  {
+    "id": "net-snmp",
+    "name": "net-snmp",
+    "slug": "net-snmp",
+    "package": "net-snmp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: net-snmp",
+    "url": "https://www.kali.org/tools/net-snmp/"
+  },
+  {
+    "id": "net-tools",
+    "name": "net-tools",
+    "slug": "net-tools",
+    "package": "net-tools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: net-tools",
+    "url": "https://www.kali.org/tools/net-tools/"
+  },
+  {
+    "id": "netbase",
+    "name": "netbase",
+    "slug": "netbase",
+    "package": "netbase",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: netbase",
+    "url": "https://www.kali.org/tools/netbase/"
+  },
+  {
+    "id": "netcat",
+    "name": "netcat",
+    "slug": "netcat",
+    "package": "netcat",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: netcat",
+    "url": "https://www.kali.org/tools/netcat/"
+  },
+  {
+    "id": "netexec",
+    "name": "netexec",
+    "slug": "netexec",
+    "package": "netexec",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: netexec",
+    "url": "https://www.kali.org/tools/netexec/"
+  },
+  {
+    "id": "netsniff-ng",
+    "name": "netsniff-ng",
+    "slug": "netsniff-ng",
+    "package": "netsniff-ng",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: netsniff-ng",
+    "url": "https://www.kali.org/tools/netsniff-ng/"
+  },
+  {
+    "id": "netw-ib-ox-ag",
+    "name": "netw-ib-ox-ag",
+    "slug": "netw-ib-ox-ag",
+    "package": "netw-ib-ox-ag",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: netw-ib-ox-ag",
+    "url": "https://www.kali.org/tools/netw-ib-ox-ag/"
+  },
+  {
+    "id": "nfs-utils",
+    "name": "nfs-utils",
+    "slug": "nfs-utils",
+    "package": "nfs-utils",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: nfs-utils",
+    "url": "https://www.kali.org/tools/nfs-utils/"
+  },
+  {
+    "id": "nikto",
+    "name": "nikto",
+    "slug": "nikto",
+    "package": "nikto",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: nikto",
+    "url": "https://www.kali.org/tools/nikto/"
+  },
+  {
+    "id": "nipper-ng",
+    "name": "nipper-ng",
+    "slug": "nipper-ng",
+    "package": "nipper-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: nipper-ng",
+    "url": "https://www.kali.org/tools/nipper-ng/"
+  },
+  {
+    "id": "nmap",
+    "name": "nmap",
+    "slug": "nmap",
+    "package": "nmap",
+    "category": "vulnerability-analysis",
+    "description": "Kali Linux tool package: nmap",
+    "url": "https://www.kali.org/tools/nmap/"
+  },
+  {
+    "id": "nuclei",
+    "name": "nuclei",
+    "slug": "nuclei",
+    "package": "nuclei",
+    "category": "vulnerability-analysis",
+    "description": "Fast and customizable vulnerability scanner",
+    "url": "https://www.kali.org/tools/nuclei/"
+  },
+  {
+    "id": "oclgausscrack",
+    "name": "oclgausscrack",
+    "slug": "oclgausscrack",
+    "package": "oclgausscrack",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: oclgausscrack",
+    "url": "https://www.kali.org/tools/oclgausscrack/"
+  },
+  {
+    "id": "offsec-courses",
+    "name": "offsec-courses",
+    "slug": "offsec-courses",
+    "package": "offsec-courses",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: offsec-courses",
+    "url": "https://www.kali.org/tools/offsec-courses/"
+  },
+  {
+    "id": "oletools",
+    "name": "oletools",
+    "slug": "oletools",
+    "package": "oletools",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: oletools",
+    "url": "https://www.kali.org/tools/oletools/"
+  },
+  {
+    "id": "openssh",
+    "name": "openssh",
+    "slug": "openssh",
+    "package": "openssh",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: openssh",
+    "url": "https://www.kali.org/tools/openssh/"
+  },
+  {
+    "id": "openssh-ssh1",
+    "name": "openssh-ssh1",
+    "slug": "openssh-ssh1",
+    "package": "openssh-ssh1",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: openssh-ssh1",
+    "url": "https://www.kali.org/tools/openssh-ssh1/"
+  },
+  {
+    "id": "openssl",
+    "name": "openssl",
+    "slug": "openssl",
+    "package": "openssl",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: openssl",
+    "url": "https://www.kali.org/tools/openssl/"
+  },
+  {
+    "id": "opentaxii",
+    "name": "opentaxii",
+    "slug": "opentaxii",
+    "package": "opentaxii",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: opentaxii",
+    "url": "https://www.kali.org/tools/opentaxii/"
+  },
+  {
+    "id": "ophcrack",
+    "name": "ophcrack",
+    "slug": "ophcrack",
+    "package": "ophcrack",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: ophcrack",
+    "url": "https://www.kali.org/tools/ophcrack/"
+  },
+  {
+    "id": "osrframework",
+    "name": "osrframework",
+    "slug": "osrframework",
+    "package": "osrframework",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: osrframework",
+    "url": "https://www.kali.org/tools/osrframework/"
+  },
+  {
+    "id": "pack",
+    "name": "pack",
+    "slug": "pack",
+    "package": "pack",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pack",
+    "url": "https://www.kali.org/tools/pack/"
+  },
+  {
+    "id": "pack2",
+    "name": "pack2",
+    "slug": "pack2",
+    "package": "pack2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pack2",
+    "url": "https://www.kali.org/tools/pack2/"
+  },
+  {
+    "id": "parted",
+    "name": "parted",
+    "slug": "parted",
+    "package": "parted",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: parted",
+    "url": "https://www.kali.org/tools/parted/"
+  },
+  {
+    "id": "passdetective",
+    "name": "passdetective",
+    "slug": "passdetective",
+    "package": "passdetective",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: passdetective",
+    "url": "https://www.kali.org/tools/passdetective/"
+  },
+  {
+    "id": "passing-the-hash",
+    "name": "passing-the-hash",
+    "slug": "passing-the-hash",
+    "package": "passing-the-hash",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: passing-the-hash",
+    "url": "https://www.kali.org/tools/passing-the-hash/"
+  },
+  {
+    "id": "patchleaks",
+    "name": "patchleaks",
+    "slug": "patchleaks",
+    "package": "patchleaks",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: patchleaks",
+    "url": "https://www.kali.org/tools/patchleaks/"
+  },
+  {
+    "id": "peass-ng",
+    "name": "peass-ng",
+    "slug": "peass-ng",
+    "package": "peass-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: peass-ng",
+    "url": "https://www.kali.org/tools/peass-ng/"
+  },
+  {
+    "id": "perl-cisco-copyconfig",
+    "name": "perl-cisco-copyconfig",
+    "slug": "perl-cisco-copyconfig",
+    "package": "perl-cisco-copyconfig",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: perl-cisco-copyconfig",
+    "url": "https://www.kali.org/tools/perl-cisco-copyconfig/"
+  },
+  {
+    "id": "php-defaults",
+    "name": "php-defaults",
+    "slug": "php-defaults",
+    "package": "php-defaults",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: php-defaults",
+    "url": "https://www.kali.org/tools/php-defaults/"
+  },
+  {
+    "id": "plaso",
+    "name": "plaso",
+    "slug": "plaso",
+    "package": "plaso",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: plaso",
+    "url": "https://www.kali.org/tools/plaso/"
+  },
+  {
+    "id": "plocate",
+    "name": "plocate",
+    "slug": "plocate",
+    "package": "plocate",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: plocate",
+    "url": "https://www.kali.org/tools/plocate/"
+  },
+  {
+    "id": "pnscan",
+    "name": "pnscan",
+    "slug": "pnscan",
+    "package": "pnscan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pnscan",
+    "url": "https://www.kali.org/tools/pnscan/"
+  },
+  {
+    "id": "pocsuite3",
+    "name": "pocsuite3",
+    "slug": "pocsuite3",
+    "package": "pocsuite3",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pocsuite3",
+    "url": "https://www.kali.org/tools/pocsuite3/"
+  },
+  {
+    "id": "portspoof",
+    "name": "portspoof",
+    "slug": "portspoof",
+    "package": "portspoof",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: portspoof",
+    "url": "https://www.kali.org/tools/portspoof/"
+  },
+  {
+    "id": "poshc2",
+    "name": "poshc2",
+    "slug": "poshc2",
+    "package": "poshc2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: poshc2",
+    "url": "https://www.kali.org/tools/poshc2/"
+  },
+  {
+    "id": "powershell",
+    "name": "powershell",
+    "slug": "powershell",
+    "package": "powershell",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: powershell",
+    "url": "https://www.kali.org/tools/powershell/"
+  },
+  {
+    "id": "powershell-empire",
+    "name": "powershell-empire",
+    "slug": "powershell-empire",
+    "package": "powershell-empire",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: powershell-empire",
+    "url": "https://www.kali.org/tools/powershell-empire/"
+  },
+  {
+    "id": "procps",
+    "name": "procps",
+    "slug": "procps",
+    "package": "procps",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: procps",
+    "url": "https://www.kali.org/tools/procps/"
+  },
+  {
+    "id": "proxify",
+    "name": "proxify",
+    "slug": "proxify",
+    "package": "proxify",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: proxify",
+    "url": "https://www.kali.org/tools/proxify/"
+  },
+  {
+    "id": "proxmark3",
+    "name": "proxmark3",
+    "slug": "proxmark3",
+    "package": "proxmark3",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: proxmark3",
+    "url": "https://www.kali.org/tools/proxmark3/"
+  },
+  {
+    "id": "proxychains-ng",
+    "name": "proxychains-ng",
+    "slug": "proxychains-ng",
+    "package": "proxychains-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: proxychains-ng",
+    "url": "https://www.kali.org/tools/proxychains-ng/"
+  },
+  {
+    "id": "pskracker",
+    "name": "pskracker",
+    "slug": "pskracker",
+    "package": "pskracker",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pskracker",
+    "url": "https://www.kali.org/tools/pskracker/"
+  },
+  {
+    "id": "pspy",
+    "name": "pspy",
+    "slug": "pspy",
+    "package": "pspy",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pspy",
+    "url": "https://www.kali.org/tools/pspy/"
+  },
+  {
+    "id": "pyinstaller",
+    "name": "pyinstaller",
+    "slug": "pyinstaller",
+    "package": "pyinstaller",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: pyinstaller",
+    "url": "https://www.kali.org/tools/pyinstaller/"
+  },
+  {
+    "id": "python-defaults",
+    "name": "python-defaults",
+    "slug": "python-defaults",
+    "package": "python-defaults",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-defaults",
+    "url": "https://www.kali.org/tools/python-defaults/"
+  },
+  {
+    "id": "python-faraday",
+    "name": "python-faraday",
+    "slug": "python-faraday",
+    "package": "python-faraday",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-faraday",
+    "url": "https://www.kali.org/tools/python-faraday/"
+  },
+  {
+    "id": "python-ldapdomaindump",
+    "name": "python-ldapdomaindump",
+    "slug": "python-ldapdomaindump",
+    "package": "python-ldapdomaindump",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-ldapdomaindump",
+    "url": "https://www.kali.org/tools/python-ldapdomaindump/"
+  },
+  {
+    "id": "python-pip",
+    "name": "python-pip",
+    "slug": "python-pip",
+    "package": "python-pip",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-pip",
+    "url": "https://www.kali.org/tools/python-pip/"
+  },
+  {
+    "id": "python-pipx",
+    "name": "python-pipx",
+    "slug": "python-pipx",
+    "package": "python-pipx",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-pipx",
+    "url": "https://www.kali.org/tools/python-pipx/"
+  },
+  {
+    "id": "python-virtualenv",
+    "name": "python-virtualenv",
+    "slug": "python-virtualenv",
+    "package": "python-virtualenv",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: python-virtualenv",
+    "url": "https://www.kali.org/tools/python-virtualenv/"
+  },
+  {
+    "id": "qemu",
+    "name": "qemu",
+    "slug": "qemu",
+    "package": "qemu",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: qemu",
+    "url": "https://www.kali.org/tools/qemu/"
+  },
+  {
+    "id": "quark-engine",
+    "name": "quark-engine",
+    "slug": "quark-engine",
+    "package": "quark-engine",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: quark-engine",
+    "url": "https://www.kali.org/tools/quark-engine/"
+  },
+  {
+    "id": "radare2",
+    "name": "radare2",
+    "slug": "radare2",
+    "package": "radare2",
+    "category": "reverse-engineering",
+    "description": "Kali Linux tool package: radare2",
+    "url": "https://www.kali.org/tools/radare2/"
+  },
+  {
+    "id": "rainbowcrack",
+    "name": "rainbowcrack",
+    "slug": "rainbowcrack",
+    "package": "rainbowcrack",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: rainbowcrack",
+    "url": "https://www.kali.org/tools/rainbowcrack/"
+  },
+  {
+    "id": "rcracki-mt",
+    "name": "rcracki-mt",
+    "slug": "rcracki-mt",
+    "package": "rcracki-mt",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: rcracki-mt",
+    "url": "https://www.kali.org/tools/rcracki-mt/"
+  },
+  {
+    "id": "readpe",
+    "name": "readpe",
+    "slug": "readpe",
+    "package": "readpe",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: readpe",
+    "url": "https://www.kali.org/tools/readpe/"
+  },
+  {
+    "id": "reaver",
+    "name": "reaver",
+    "slug": "reaver",
+    "package": "reaver",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: reaver",
+    "url": "https://www.kali.org/tools/reaver/"
+  },
+  {
+    "id": "rebind",
+    "name": "rebind",
+    "slug": "rebind",
+    "package": "rebind",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rebind",
+    "url": "https://www.kali.org/tools/rebind/"
+  },
+  {
+    "id": "recon-ng",
+    "name": "recon-ng",
+    "slug": "recon-ng",
+    "package": "recon-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: recon-ng",
+    "url": "https://www.kali.org/tools/recon-ng/"
+  },
+  {
+    "id": "recoverdm",
+    "name": "recoverdm",
+    "slug": "recoverdm",
+    "package": "recoverdm",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: recoverdm",
+    "url": "https://www.kali.org/tools/recoverdm/"
+  },
+  {
+    "id": "recoverjpeg",
+    "name": "recoverjpeg",
+    "slug": "recoverjpeg",
+    "package": "recoverjpeg",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: recoverjpeg",
+    "url": "https://www.kali.org/tools/recoverjpeg/"
+  },
+  {
+    "id": "redfang",
+    "name": "redfang",
+    "slug": "redfang",
+    "package": "redfang",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: redfang",
+    "url": "https://www.kali.org/tools/redfang/"
+  },
+  {
+    "id": "reglookup",
+    "name": "reglookup",
+    "slug": "reglookup",
+    "package": "reglookup",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: reglookup",
+    "url": "https://www.kali.org/tools/reglookup/"
+  },
+  {
+    "id": "rekono-kbx",
+    "name": "rekono-kbx",
+    "slug": "rekono-kbx",
+    "package": "rekono-kbx",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rekono-kbx",
+    "url": "https://www.kali.org/tools/rekono-kbx/"
+  },
+  {
+    "id": "requests",
+    "name": "requests",
+    "slug": "requests",
+    "package": "requests",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: requests",
+    "url": "https://www.kali.org/tools/requests/"
+  },
+  {
+    "id": "responder",
+    "name": "responder",
+    "slug": "responder",
+    "package": "responder",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: responder",
+    "url": "https://www.kali.org/tools/responder/"
+  },
+  {
+    "id": "rfcat",
+    "name": "rfcat",
+    "slug": "rfcat",
+    "package": "rfcat",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rfcat",
+    "url": "https://www.kali.org/tools/rfcat/"
+  },
+  {
+    "id": "rifiuti2",
+    "name": "rifiuti2",
+    "slug": "rifiuti2",
+    "package": "rifiuti2",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rifiuti2",
+    "url": "https://www.kali.org/tools/rifiuti2/"
+  },
+  {
+    "id": "rizin",
+    "name": "rizin",
+    "slug": "rizin",
+    "package": "rizin",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rizin",
+    "url": "https://www.kali.org/tools/rizin/"
+  },
+  {
+    "id": "rizin-cutter",
+    "name": "rizin-cutter",
+    "slug": "rizin-cutter",
+    "package": "rizin-cutter",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rizin-cutter",
+    "url": "https://www.kali.org/tools/rizin-cutter/"
+  },
+  {
+    "id": "rling",
+    "name": "rling",
+    "slug": "rling",
+    "package": "rling",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: rling",
+    "url": "https://www.kali.org/tools/rling/"
+  },
+  {
+    "id": "robotstxt",
+    "name": "robotstxt",
+    "slug": "robotstxt",
+    "package": "robotstxt",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: robotstxt",
+    "url": "https://www.kali.org/tools/robotstxt/"
+  },
+  {
+    "id": "routerkeygenpc",
+    "name": "routerkeygenpc",
+    "slug": "routerkeygenpc",
+    "package": "routerkeygenpc",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: routerkeygenpc",
+    "url": "https://www.kali.org/tools/routerkeygenpc/"
+  },
+  {
+    "id": "routersploit",
+    "name": "routersploit",
+    "slug": "routersploit",
+    "package": "routersploit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: routersploit",
+    "url": "https://www.kali.org/tools/routersploit/"
+  },
+  {
+    "id": "ruby-pedump",
+    "name": "ruby-pedump",
+    "slug": "ruby-pedump",
+    "package": "ruby-pedump",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ruby-pedump",
+    "url": "https://www.kali.org/tools/ruby-pedump/"
+  },
+  {
+    "id": "rz-ghidra",
+    "name": "rz-ghidra",
+    "slug": "rz-ghidra",
+    "package": "rz-ghidra",
+    "category": "reverse-engineering",
+    "description": "Kali Linux tool package: rz-ghidra",
+    "url": "https://www.kali.org/tools/rz-ghidra/"
+  },
+  {
+    "id": "samba",
+    "name": "samba",
+    "slug": "samba",
+    "package": "samba",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: samba",
+    "url": "https://www.kali.org/tools/samba/"
+  },
+  {
+    "id": "scapy",
+    "name": "scapy",
+    "slug": "scapy",
+    "package": "scapy",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: scapy",
+    "url": "https://www.kali.org/tools/scapy/"
+  },
+  {
+    "id": "screen",
+    "name": "screen",
+    "slug": "screen",
+    "package": "screen",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: screen",
+    "url": "https://www.kali.org/tools/screen/"
+  },
+  {
+    "id": "sdrangel",
+    "name": "sdrangel",
+    "slug": "sdrangel",
+    "package": "sdrangel",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sdrangel",
+    "url": "https://www.kali.org/tools/sdrangel/"
+  },
+  {
+    "id": "seclists",
+    "name": "seclists",
+    "slug": "seclists",
+    "package": "seclists",
+    "category": "password-attacks",
+    "description": "Security Tester's Companion wordlists and fuzzing lists",
+    "url": "https://www.kali.org/tools/seclists/"
+  },
+  {
+    "id": "secure-socket-funneling",
+    "name": "secure-socket-funneling",
+    "slug": "secure-socket-funneling",
+    "package": "secure-socket-funneling",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: secure-socket-funneling",
+    "url": "https://www.kali.org/tools/secure-socket-funneling/"
+  },
+  {
+    "id": "sendemail",
+    "name": "sendemail",
+    "slug": "sendemail",
+    "package": "sendemail",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sendemail",
+    "url": "https://www.kali.org/tools/sendemail/"
+  },
+  {
+    "id": "set",
+    "name": "set",
+    "slug": "set",
+    "package": "set",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: set",
+    "url": "https://www.kali.org/tools/set/"
+  },
+  {
+    "id": "sfuzz",
+    "name": "sfuzz",
+    "slug": "sfuzz",
+    "package": "sfuzz",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sfuzz",
+    "url": "https://www.kali.org/tools/sfuzz/"
+  },
+  {
+    "id": "shell-gpt",
+    "name": "shell-gpt",
+    "slug": "shell-gpt",
+    "package": "shell-gpt",
+    "category": "exploitation-tools",
+    "description": "Kali Linux tool package: shell-gpt",
+    "url": "https://www.kali.org/tools/shell-gpt/"
+  },
+  {
+    "id": "sidguesser",
+    "name": "sidguesser",
+    "slug": "sidguesser",
+    "package": "sidguesser",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sidguesser",
+    "url": "https://www.kali.org/tools/sidguesser/"
+  },
+  {
+    "id": "siege",
+    "name": "siege",
+    "slug": "siege",
+    "package": "siege",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: siege",
+    "url": "https://www.kali.org/tools/siege/"
+  },
+  {
+    "id": "sipcrack",
+    "name": "sipcrack",
+    "slug": "sipcrack",
+    "package": "sipcrack",
+    "category": "password-attacks",
+    "description": "Kali Linux tool package: sipcrack",
+    "url": "https://www.kali.org/tools/sipcrack/"
+  },
+  {
+    "id": "sippts",
+    "name": "sippts",
+    "slug": "sippts",
+    "package": "sippts",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sippts",
+    "url": "https://www.kali.org/tools/sippts/"
+  },
+  {
+    "id": "sipvicious",
+    "name": "sipvicious",
+    "slug": "sipvicious",
+    "package": "sipvicious",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sipvicious",
+    "url": "https://www.kali.org/tools/sipvicious/"
+  },
+  {
+    "id": "sleuthkit",
+    "name": "sleuthkit",
+    "slug": "sleuthkit",
+    "package": "sleuthkit",
+    "category": "forensics",
+    "description": "Kali Linux tool package: sleuthkit",
+    "url": "https://www.kali.org/tools/sleuthkit/"
+  },
+  {
+    "id": "slimtoolkit",
+    "name": "slimtoolkit",
+    "slug": "slimtoolkit",
+    "package": "slimtoolkit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: slimtoolkit",
+    "url": "https://www.kali.org/tools/slimtoolkit/"
+  },
+  {
+    "id": "sliver",
+    "name": "sliver",
+    "slug": "sliver",
+    "package": "sliver",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sliver",
+    "url": "https://www.kali.org/tools/sliver/"
+  },
+  {
+    "id": "snaffler-ng",
+    "name": "snaffler-ng",
+    "slug": "snaffler-ng",
+    "package": "snaffler-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: snaffler-ng",
+    "url": "https://www.kali.org/tools/snaffler-ng/"
+  },
+  {
+    "id": "sniffjoke",
+    "name": "sniffjoke",
+    "slug": "sniffjoke",
+    "package": "sniffjoke",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: sniffjoke",
+    "url": "https://www.kali.org/tools/sniffjoke/"
+  },
+  {
+    "id": "snmpcheck",
+    "name": "snmpcheck",
+    "slug": "snmpcheck",
+    "package": "snmpcheck",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: snmpcheck",
+    "url": "https://www.kali.org/tools/snmpcheck/"
+  },
+  {
+    "id": "snort",
+    "name": "snort",
+    "slug": "snort",
+    "package": "snort",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: snort",
+    "url": "https://www.kali.org/tools/snort/"
+  },
+  {
+    "id": "snowdrop",
+    "name": "snowdrop",
+    "slug": "snowdrop",
+    "package": "snowdrop",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: snowdrop",
+    "url": "https://www.kali.org/tools/snowdrop/"
+  },
+  {
+    "id": "socat",
+    "name": "socat",
+    "slug": "socat",
+    "package": "socat",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: socat",
+    "url": "https://www.kali.org/tools/socat/"
+  },
+  {
+    "id": "sparrow-wifi",
+    "name": "sparrow-wifi",
+    "slug": "sparrow-wifi",
+    "package": "sparrow-wifi",
+    "category": "wireless-attacks",
+    "description": "Kali Linux tool package: sparrow-wifi",
+    "url": "https://www.kali.org/tools/sparrow-wifi/"
+  },
+  {
+    "id": "spiderfoot",
+    "name": "spiderfoot",
+    "slug": "spiderfoot",
+    "package": "spiderfoot",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: spiderfoot",
+    "url": "https://www.kali.org/tools/spiderfoot/"
+  },
+  {
+    "id": "spike",
+    "name": "spike",
+    "slug": "spike",
+    "package": "spike",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: spike",
+    "url": "https://www.kali.org/tools/spike/"
+  },
+  {
+    "id": "spire",
+    "name": "spire",
+    "slug": "spire",
+    "package": "spire",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: spire",
+    "url": "https://www.kali.org/tools/spire/"
+  },
+  {
+    "id": "sprayingtoolkit",
+    "name": "sprayingtoolkit",
+    "slug": "sprayingtoolkit",
+    "package": "sprayingtoolkit",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sprayingtoolkit",
+    "url": "https://www.kali.org/tools/sprayingtoolkit/"
+  },
+  {
+    "id": "sqlmap",
+    "name": "sqlmap",
+    "slug": "sqlmap",
+    "package": "sqlmap",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: sqlmap",
+    "url": "https://www.kali.org/tools/sqlmap/"
+  },
+  {
+    "id": "ssdeep",
+    "name": "ssdeep",
+    "slug": "ssdeep",
+    "package": "ssdeep",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ssdeep",
+    "url": "https://www.kali.org/tools/ssdeep/"
+  },
+  {
+    "id": "sslh",
+    "name": "sslh",
+    "slug": "sslh",
+    "package": "sslh",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sslh",
+    "url": "https://www.kali.org/tools/sslh/"
+  },
+  {
+    "id": "starkiller",
+    "name": "starkiller",
+    "slug": "starkiller",
+    "package": "starkiller",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: starkiller",
+    "url": "https://www.kali.org/tools/starkiller/"
+  },
+  {
+    "id": "statsprocessor",
+    "name": "statsprocessor",
+    "slug": "statsprocessor",
+    "package": "statsprocessor",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: statsprocessor",
+    "url": "https://www.kali.org/tools/statsprocessor/"
+  },
+  {
+    "id": "steghide",
+    "name": "steghide",
+    "slug": "steghide",
+    "package": "steghide",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: steghide",
+    "url": "https://www.kali.org/tools/steghide/"
+  },
+  {
+    "id": "stunnel",
+    "name": "stunnel",
+    "slug": "stunnel",
+    "package": "stunnel",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: stunnel",
+    "url": "https://www.kali.org/tools/stunnel/"
+  },
+  {
+    "id": "subversion",
+    "name": "subversion",
+    "slug": "subversion",
+    "package": "subversion",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: subversion",
+    "url": "https://www.kali.org/tools/subversion/"
+  },
+  {
+    "id": "sudo",
+    "name": "sudo",
+    "slug": "sudo",
+    "package": "sudo",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: sudo",
+    "url": "https://www.kali.org/tools/sudo/"
+  },
+  {
+    "id": "tailscale",
+    "name": "tailscale",
+    "slug": "tailscale",
+    "package": "tailscale",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tailscale",
+    "url": "https://www.kali.org/tools/tailscale/"
+  },
+  {
+    "id": "tcpflow",
+    "name": "tcpflow",
+    "slug": "tcpflow",
+    "package": "tcpflow",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tcpflow",
+    "url": "https://www.kali.org/tools/tcpflow/"
+  },
+  {
+    "id": "tcpreplay",
+    "name": "tcpreplay",
+    "slug": "tcpreplay",
+    "package": "tcpreplay",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tcpreplay",
+    "url": "https://www.kali.org/tools/tcpreplay/"
+  },
+  {
+    "id": "testdisk",
+    "name": "testdisk",
+    "slug": "testdisk",
+    "package": "testdisk",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: testdisk",
+    "url": "https://www.kali.org/tools/testdisk/"
+  },
+  {
+    "id": "tetragon",
+    "name": "tetragon",
+    "slug": "tetragon",
+    "package": "tetragon",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tetragon",
+    "url": "https://www.kali.org/tools/tetragon/"
+  },
+  {
+    "id": "tftp-hpa",
+    "name": "tftp-hpa",
+    "slug": "tftp-hpa",
+    "package": "tftp-hpa",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tftp-hpa",
+    "url": "https://www.kali.org/tools/tftp-hpa/"
+  },
+  {
+    "id": "thc-ipv6",
+    "name": "thc-ipv6",
+    "slug": "thc-ipv6",
+    "package": "thc-ipv6",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: thc-ipv6",
+    "url": "https://www.kali.org/tools/thc-ipv6/"
+  },
+  {
+    "id": "theharvester",
+    "name": "theharvester",
+    "slug": "theharvester",
+    "package": "theharvester",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: theharvester",
+    "url": "https://www.kali.org/tools/theharvester/"
+  },
+  {
+    "id": "tiger",
+    "name": "tiger",
+    "slug": "tiger",
+    "package": "tiger",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tiger",
+    "url": "https://www.kali.org/tools/tiger/"
+  },
+  {
+    "id": "tightvnc",
+    "name": "tightvnc",
+    "slug": "tightvnc",
+    "package": "tightvnc",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tightvnc",
+    "url": "https://www.kali.org/tools/tightvnc/"
+  },
+  {
+    "id": "tnftp",
+    "name": "tnftp",
+    "slug": "tnftp",
+    "package": "tnftp",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tnftp",
+    "url": "https://www.kali.org/tools/tnftp/"
+  },
+  {
+    "id": "traceroute",
+    "name": "traceroute",
+    "slug": "traceroute",
+    "package": "traceroute",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: traceroute",
+    "url": "https://www.kali.org/tools/traceroute/"
+  },
+  {
+    "id": "tzdata",
+    "name": "tzdata",
+    "slug": "tzdata",
+    "package": "tzdata",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: tzdata",
+    "url": "https://www.kali.org/tools/tzdata/"
+  },
+  {
+    "id": "ubertooth",
+    "name": "ubertooth",
+    "slug": "ubertooth",
+    "package": "ubertooth",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: ubertooth",
+    "url": "https://www.kali.org/tools/ubertooth/"
+  },
+  {
+    "id": "uhd",
+    "name": "uhd",
+    "slug": "uhd",
+    "package": "uhd",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: uhd",
+    "url": "https://www.kali.org/tools/uhd/"
+  },
+  {
+    "id": "uhd-images",
+    "name": "uhd-images",
+    "slug": "uhd-images",
+    "package": "uhd-images",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: uhd-images",
+    "url": "https://www.kali.org/tools/uhd-images/"
+  },
+  {
+    "id": "unar",
+    "name": "unar",
+    "slug": "unar",
+    "package": "unar",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: unar",
+    "url": "https://www.kali.org/tools/unar/"
+  },
+  {
+    "id": "unhide",
+    "name": "unhide",
+    "slug": "unhide",
+    "package": "unhide",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: unhide",
+    "url": "https://www.kali.org/tools/unhide/"
+  },
+  {
+    "id": "unicornscan",
+    "name": "unicornscan",
+    "slug": "unicornscan",
+    "package": "unicornscan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: unicornscan",
+    "url": "https://www.kali.org/tools/unicornscan/"
+  },
+  {
+    "id": "uniscan",
+    "name": "uniscan",
+    "slug": "uniscan",
+    "package": "uniscan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: uniscan",
+    "url": "https://www.kali.org/tools/uniscan/"
+  },
+  {
+    "id": "unrar-nonfree",
+    "name": "unrar-nonfree",
+    "slug": "unrar-nonfree",
+    "package": "unrar-nonfree",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: unrar-nonfree",
+    "url": "https://www.kali.org/tools/unrar-nonfree/"
+  },
+  {
+    "id": "util-linux",
+    "name": "util-linux",
+    "slug": "util-linux",
+    "package": "util-linux",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: util-linux",
+    "url": "https://www.kali.org/tools/util-linux/"
+  },
+  {
+    "id": "vboot-utils",
+    "name": "vboot-utils",
+    "slug": "vboot-utils",
+    "package": "vboot-utils",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: vboot-utils",
+    "url": "https://www.kali.org/tools/vboot-utils/"
+  },
+  {
+    "id": "veil",
+    "name": "veil",
+    "slug": "veil",
+    "package": "veil",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: veil",
+    "url": "https://www.kali.org/tools/veil/"
+  },
+  {
+    "id": "vim",
+    "name": "vim",
+    "slug": "vim",
+    "package": "vim",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: vim",
+    "url": "https://www.kali.org/tools/vim/"
+  },
+  {
+    "id": "vlan",
+    "name": "vlan",
+    "slug": "vlan",
+    "package": "vlan",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: vlan",
+    "url": "https://www.kali.org/tools/vlan/"
+  },
+  {
+    "id": "vpnc",
+    "name": "vpnc",
+    "slug": "vpnc",
+    "package": "vpnc",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: vpnc",
+    "url": "https://www.kali.org/tools/vpnc/"
+  },
+  {
+    "id": "vwifi-dkms",
+    "name": "vwifi-dkms",
+    "slug": "vwifi-dkms",
+    "package": "vwifi-dkms",
+    "category": "wireless-attacks",
+    "description": "Kali Linux tool package: vwifi-dkms",
+    "url": "https://www.kali.org/tools/vwifi-dkms/"
+  },
+  {
+    "id": "wapiti",
+    "name": "wapiti",
+    "slug": "wapiti",
+    "package": "wapiti",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: wapiti",
+    "url": "https://www.kali.org/tools/wapiti/"
+  },
+  {
+    "id": "web-cache-vulnerability-scanner",
+    "name": "web-cache-vulnerability-scanner",
+    "slug": "web-cache-vulnerability-scanner",
+    "package": "web-cache-vulnerability-scanner",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: web-cache-vulnerability-scanner",
+    "url": "https://www.kali.org/tools/web-cache-vulnerability-scanner/"
+  },
+  {
+    "id": "wget",
+    "name": "wget",
+    "slug": "wget",
+    "package": "wget",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: wget",
+    "url": "https://www.kali.org/tools/wget/"
+  },
+  {
+    "id": "what-is-python",
+    "name": "what-is-python",
+    "slug": "what-is-python",
+    "package": "what-is-python",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: what-is-python",
+    "url": "https://www.kali.org/tools/what-is-python/"
+  },
+  {
+    "id": "whatweb",
+    "name": "whatweb",
+    "slug": "whatweb",
+    "package": "whatweb",
+    "category": "web-applications",
+    "description": "Next generation web scanner",
+    "url": "https://www.kali.org/tools/whatweb/"
+  },
+  {
+    "id": "whois",
+    "name": "whois",
+    "slug": "whois",
+    "package": "whois",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: whois",
+    "url": "https://www.kali.org/tools/whois/"
+  },
+  {
+    "id": "wifipumpkin3",
+    "name": "wifipumpkin3",
+    "slug": "wifipumpkin3",
+    "package": "wifipumpkin3",
+    "category": "wireless-attacks",
+    "description": "Kali Linux tool package: wifipumpkin3",
+    "url": "https://www.kali.org/tools/wifipumpkin3/"
+  },
+  {
+    "id": "wig-ng",
+    "name": "wig-ng",
+    "slug": "wig-ng",
+    "package": "wig-ng",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: wig-ng",
+    "url": "https://www.kali.org/tools/wig-ng/"
+  },
+  {
+    "id": "windows-binaries",
+    "name": "windows-binaries",
+    "slug": "windows-binaries",
+    "package": "windows-binaries",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: windows-binaries",
+    "url": "https://www.kali.org/tools/windows-binaries/"
+  },
+  {
+    "id": "winregfs",
+    "name": "winregfs",
+    "slug": "winregfs",
+    "package": "winregfs",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: winregfs",
+    "url": "https://www.kali.org/tools/winregfs/"
+  },
+  {
+    "id": "wireshark",
+    "name": "wireshark",
+    "slug": "wireshark",
+    "package": "wireshark",
+    "category": "sniffing-spoofing",
+    "description": "Kali Linux tool package: wireshark",
+    "url": "https://www.kali.org/tools/wireshark/"
+  },
+  {
+    "id": "witnessme",
+    "name": "witnessme",
+    "slug": "witnessme",
+    "package": "witnessme",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: witnessme",
+    "url": "https://www.kali.org/tools/witnessme/"
+  },
+  {
+    "id": "wmi",
+    "name": "wmi",
+    "slug": "wmi",
+    "package": "wmi",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: wmi",
+    "url": "https://www.kali.org/tools/wmi/"
+  },
+  {
+    "id": "wpa-sycophant",
+    "name": "wpa-sycophant",
+    "slug": "wpa-sycophant",
+    "package": "wpa-sycophant",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: wpa-sycophant",
+    "url": "https://www.kali.org/tools/wpa-sycophant/"
+  },
+  {
+    "id": "wsgidav",
+    "name": "wsgidav",
+    "slug": "wsgidav",
+    "package": "wsgidav",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: wsgidav",
+    "url": "https://www.kali.org/tools/wsgidav/"
+  },
+  {
+    "id": "xclip",
+    "name": "xclip",
+    "slug": "xclip",
+    "package": "xclip",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: xclip",
+    "url": "https://www.kali.org/tools/xclip/"
+  },
+  {
+    "id": "xplico",
+    "name": "xplico",
+    "slug": "xplico",
+    "package": "xplico",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: xplico",
+    "url": "https://www.kali.org/tools/xplico/"
+  },
+  {
+    "id": "yara",
+    "name": "yara",
+    "slug": "yara",
+    "package": "yara",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: yara",
+    "url": "https://www.kali.org/tools/yara/"
+  },
+  {
+    "id": "zaproxy",
+    "name": "zaproxy",
+    "slug": "zaproxy",
+    "package": "zaproxy",
+    "category": "web-applications",
+    "description": "Kali Linux tool package: zaproxy",
+    "url": "https://www.kali.org/tools/zaproxy/"
+  },
+  {
+    "id": "zonedb",
+    "name": "zonedb",
+    "slug": "zonedb",
+    "package": "zonedb",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: zonedb",
+    "url": "https://www.kali.org/tools/zonedb/"
+  },
+  {
+    "id": "zsh",
+    "name": "zsh",
+    "slug": "zsh",
+    "package": "zsh",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: zsh",
+    "url": "https://www.kali.org/tools/zsh/"
+  },
+  {
+    "id": "zsh-autosuggestions",
+    "name": "zsh-autosuggestions",
+    "slug": "zsh-autosuggestions",
+    "package": "zsh-autosuggestions",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: zsh-autosuggestions",
+    "url": "https://www.kali.org/tools/zsh-autosuggestions/"
+  },
+  {
+    "id": "zsh-syntax-highlighting",
+    "name": "zsh-syntax-highlighting",
+    "slug": "zsh-syntax-highlighting",
+    "package": "zsh-syntax-highlighting",
+    "category": "information-gathering",
+    "description": "Kali Linux tool package: zsh-syntax-highlighting",
+    "url": "https://www.kali.org/tools/zsh-syntax-highlighting/"
+  }
+]

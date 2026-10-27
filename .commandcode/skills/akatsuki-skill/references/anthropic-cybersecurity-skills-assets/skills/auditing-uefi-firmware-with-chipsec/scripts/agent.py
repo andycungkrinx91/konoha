@@ -15,6 +15,7 @@ Examples:
     sudo python agent.py module --name common.bios_wp
     sudo python agent.py dump --out rom.bin
 """
+
 import argparse
 import json
 import os
@@ -24,8 +25,10 @@ import subprocess
 import sys
 
 # CHIPSEC prints lines like:  [+] PASSED: BIOS region write protection ...
-RESULT_RE = re.compile(r"\[[+\-!*]\]\s*(PASSED|FAILED|WARNING|ERROR|NOT APPLICABLE|INFORMATION)\b[:\s]*(.*)",
-                       re.IGNORECASE)
+RESULT_RE = re.compile(
+    r"\[[+\-!*]\]\s*(PASSED|FAILED|WARNING|ERROR|NOT APPLICABLE|INFORMATION)\b[:\s]*(.*)",
+    re.IGNORECASE,
+)
 
 CORE_MODULES = [
     "common.bios_wp",
@@ -38,12 +41,17 @@ CORE_MODULES = [
 
 def _require(tool: str) -> None:
     if shutil.which(tool) is None:
-        sys.exit(f"error: '{tool}' not found on PATH. Install CHIPSEC: pip install chipsec")
+        sys.exit(
+            f"error: '{tool}' not found on PATH. Install CHIPSEC: pip install chipsec"
+        )
 
 
 def _warn_root() -> None:
     if hasattr(os, "geteuid") and os.geteuid() != 0:
-        print("[!] warning: CHIPSEC needs root/Administrator to load its driver.", file=sys.stderr)
+        print(
+            "[!] warning: CHIPSEC needs root/Administrator to load its driver.",
+            file=sys.stderr,
+        )
 
 
 def _run(argv: list) -> subprocess.CompletedProcess:
@@ -56,7 +64,9 @@ def parse_results(stdout: str) -> list:
     for line in stdout.splitlines():
         m = RESULT_RE.search(line)
         if m:
-            findings.append({"result": m.group(1).upper(), "detail": m.group(2).strip()})
+            findings.append(
+                {"result": m.group(1).upper(), "detail": m.group(2).strip()}
+            )
     return findings
 
 
@@ -112,7 +122,9 @@ def cmd_dump(args) -> int:
         return 1
     size = os.path.getsize(args.out)
     print(json.dumps({"dump": args.out, "bytes": size}, indent=2))
-    print("[*] decode offline with: chipsec_util uefi decode " + args.out, file=sys.stderr)
+    print(
+        "[*] decode offline with: chipsec_util uefi decode " + args.out, file=sys.stderr
+    )
     return 0
 
 
@@ -126,7 +138,9 @@ def main() -> int:
     b.set_defaults(func=cmd_baseline)
 
     m = sub.add_parser("module", help="run one or the core security modules")
-    m.add_argument("--name", help="specific module, e.g. common.bios_wp (default: core set)")
+    m.add_argument(
+        "--name", help="specific module, e.g. common.bios_wp (default: core set)"
+    )
     m.set_defaults(func=cmd_module)
 
     d = sub.add_parser("dump", help="dump SPI flash (read-only)")

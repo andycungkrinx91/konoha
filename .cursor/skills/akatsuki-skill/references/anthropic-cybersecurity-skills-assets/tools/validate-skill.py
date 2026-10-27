@@ -80,7 +80,6 @@ GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-
 def parse_frontmatter(text):
     """Extract YAML frontmatter as a dict (simple stdlib-only parser).
 
@@ -178,7 +177,6 @@ def parse_frontmatter(text):
 
     return data
 
-
 def validate_skill(skill_dir):
     """Validate a single skill directory. Returns list of error strings."""
     errors = []
@@ -199,12 +197,10 @@ def validate_skill(skill_dir):
     if fm is None:
         return ["No valid YAML frontmatter found (must start with ---)"]
 
-    # Check required fields.
     for field in REQUIRED_FIELDS:
         if field not in fm:
             errors.append(f"Missing required field: {field}")
 
-    # Validate name.
     name = fm.get("name", "")
     if name:
         if not KEBAB_RE.match(name):
@@ -214,7 +210,6 @@ def validate_skill(skill_dir):
         if len(name) > 64:
             errors.append(f"Name too long ({len(name)} chars, max 64)")
 
-    # Validate description.
     desc = fm.get("description", "")
     if isinstance(desc, list):
         errors.append("Description must be a string value, not a list")
@@ -226,12 +221,10 @@ def validate_skill(skill_dir):
         # No hard upper-limit enforced; multi-line folded scalars (>-) produce
         # long strings that are valid and common in this repo.
 
-    # Validate domain.
     domain = fm.get("domain", "")
     if domain and domain != "cybersecurity":
         errors.append(f"Domain must be 'cybersecurity', got '{domain}'")
 
-    # Validate subdomain.
     subdomain = fm.get("subdomain", "")
     if subdomain:
         if subdomain not in ALLOWED_SUBDOMAINS:
@@ -247,7 +240,6 @@ def validate_skill(skill_dir):
                     f" canonical form is '{canonical}'"
                 )
 
-    # Validate tags.
     tags = fm.get("tags", [])
     if isinstance(tags, str):
         tags = [tags]
@@ -255,7 +247,6 @@ def validate_skill(skill_dir):
         errors.append(f"Need at least 2 tags, got {len(tags)}")
 
     return errors
-
 
 def main():
     if len(sys.argv) < 2:
@@ -301,7 +292,6 @@ def main():
     print(f"Total: {total}  {GREEN}Passed: {passed}{RESET}  {RED}Failed: {failed}{RESET}")
 
     sys.exit(0 if failed == 0 else 1)
-
 
 if __name__ == "__main__":
     main()

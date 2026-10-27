@@ -12,6 +12,7 @@ Usage:
   sudo python3 esp_bootkit_hunter.py --esp /mnt/esp --baseline baseline.sha256
   sudo python3 esp_bootkit_hunter.py --device /dev/sda1 --mount --yara bootkit.yar
 """
+
 import argparse
 import hashlib
 import json
@@ -19,7 +20,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 
 EFI_EXTENSIONS = (".efi", ".sys", ".dll")
 
@@ -101,10 +101,14 @@ def yara_scan(rules, esp_root):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Hunt bootkits on the EFI System Partition.")
+    ap = argparse.ArgumentParser(
+        description="Hunt bootkits on the EFI System Partition."
+    )
     ap.add_argument("--esp", default="/mnt/esp", help="ESP mountpoint")
     ap.add_argument("--device", help="ESP block device to mount (e.g. /dev/sda1)")
-    ap.add_argument("--mount", action="store_true", help="Mount --device read-only first")
+    ap.add_argument(
+        "--mount", action="store_true", help="Mount --device read-only first"
+    )
     ap.add_argument("--baseline", help="Golden baseline sha256 file to diff against")
     ap.add_argument("--yara", help="YARA ruleset to scan the ESP with")
     ap.add_argument("--json", help="Write findings to this JSON path")
@@ -121,8 +125,13 @@ def main():
     if not os.path.isdir(args.esp):
         sys.exit(f"[!] ESP path not found: {args.esp}")
 
-    report = {"esp": args.esp, "binaries": [], "root_anomalies": [],
-              "baseline_new": [], "yara": None}
+    report = {
+        "esp": args.esp,
+        "binaries": [],
+        "root_anomalies": [],
+        "baseline_new": [],
+        "yara": None,
+    }
 
     # Step 2: anomalous root entries
     report["root_anomalies"] = detect_anomalous_root(args.esp)
@@ -139,7 +148,12 @@ def main():
             continue
         sig = verify_signature(path)
         new = bool(baseline) and digest.lower() not in baseline
-        entry = {"path": path, "sha256": digest, "signature": sig, "new_vs_baseline": new}
+        entry = {
+            "path": path,
+            "sha256": digest,
+            "signature": sig,
+            "new_vs_baseline": new,
+        }
         report["binaries"].append(entry)
         flag = ""
         if sig.startswith("UNSIGNED"):
@@ -155,10 +169,14 @@ def main():
         print(f"[+] YARA results:\n{report['yara']}")
 
     # Summary
-    n_unsigned = sum(1 for b in report["binaries"] if b["signature"].startswith("UNSIGNED"))
-    print(f"\n[=] {len(report['binaries'])} EFI binaries | "
-          f"{n_unsigned} unsigned | {len(report['baseline_new'])} new vs baseline | "
-          f"{len(report['root_anomalies'])} root anomalies")
+    n_unsigned = sum(
+        1 for b in report["binaries"] if b["signature"].startswith("UNSIGNED")
+    )
+    print(
+        f"\n[=] {len(report['binaries'])} EFI binaries | "
+        f"{n_unsigned} unsigned | {len(report['baseline_new'])} new vs baseline | "
+        f"{len(report['root_anomalies'])} root anomalies"
+    )
 
     if args.json:
         with open(args.json, "w") as f:

@@ -32,6 +32,7 @@ from urllib.parse import quote
 import json
 import time
 
+
 class CitationVerifier:
     """Verify citations in research report"""
 
@@ -46,19 +47,25 @@ class CitationVerifier:
         # Hallucination detection patterns (2025 CiteGuard enhancement)
         self.suspicious_patterns = [
             # Generic academic-sounding but fake patterns
-            (r'^(A |An |The )?(Study|Analysis|Review|Survey|Investigation) (of|on|into)',
-             "Generic academic title pattern"),
-            (r'^(Recent|Current|Modern|Contemporary) (Advances|Developments|Trends) in',
-             "Generic 'advances' title pattern"),
+            (
+                r"^(A |An |The )?(Study|Analysis|Review|Survey|Investigation) (of|on|into)",
+                "Generic academic title pattern",
+            ),
+            (
+                r"^(Recent|Current|Modern|Contemporary) (Advances|Developments|Trends) in",
+                "Generic 'advances' title pattern",
+            ),
             # Too perfect, templated titles
-            (r'^[A-Z][a-z]+ [A-Z][a-z]+: A (Comprehensive|Complete|Systematic) (Review|Analysis|Guide)$',
-             "Too perfect, templated structure"),
+            (
+                r"^[A-Z][a-z]+ [A-Z][a-z]+: A (Comprehensive|Complete|Systematic) (Review|Analysis|Guide)$",
+                "Too perfect, templated structure",
+            ),
         ]
 
     def _read_report(self) -> str:
         """Read report file"""
         try:
-            with open(self.report_path, 'r', encoding='utf-8') as f:
+            with open(self.report_path, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as e:
             print(f"L ERROR: Cannot read report: {e}")
@@ -66,7 +73,7 @@ class CitationVerifier:
 
     def extract_bibliography(self) -> List[Dict]:
         """Extract bibliography entries from report"""
-        pattern = r'## Bibliography(.*?)(?=##|\Z)'
+        pattern = r"## Bibliography(.*?)(?=##|\Z)"
         match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE)
 
         if not match:
@@ -77,7 +84,7 @@ class CitationVerifier:
 
         # Parse entries: [N] Author (Year). "Title". Venue. URL
         entries = []
-        lines = bib_section.strip().split('\n')
+        lines = bib_section.strip().split("\n")
 
         current_entry = None
         for line in lines:
@@ -86,7 +93,7 @@ class CitationVerifier:
                 continue
 
             # Check if starts with citation number [N]
-            match_num = re.match(r'^\[(\d+)\]\s+(.+)$', line)
+            match_num = re.match(r"^\[(\d+)\]\s+(.+)$", line)
             if match_num:
                 if current_entry:
                     entries.append(current_entry)
@@ -95,22 +102,22 @@ class CitationVerifier:
                 rest = match_num.group(2)
 
                 # Try to parse: Author (Year). "Title". Venue. URL
-                year_match = re.search(r'\((\d{4})\)', rest)
+                year_match = re.search(r"\((\d{4})\)", rest)
                 title_match = re.search(r'"([^"]+)"', rest)
-                doi_match = re.search(r'doi\.org/(10\.\S+)', rest)
-                url_match = re.search(r'https?://[^\s\)]+', rest)
+                doi_match = re.search(r"doi\.org/(10\.\S+)", rest)
+                url_match = re.search(r"https?://[^\s\)]+", rest)
 
                 current_entry = {
-                    'num': num,
-                    'raw': rest,
-                    'year': year_match.group(1) if year_match else None,
-                    'title': title_match.group(1) if title_match else None,
-                    'doi': doi_match.group(1) if doi_match else None,
-                    'url': url_match.group(0) if url_match else None
+                    "num": num,
+                    "raw": rest,
+                    "year": year_match.group(1) if year_match else None,
+                    "title": title_match.group(1) if title_match else None,
+                    "doi": doi_match.group(1) if doi_match else None,
+                    "url": url_match.group(0) if url_match else None,
                 }
             elif current_entry:
                 # Multi-line entry, append to raw
-                current_entry['raw'] += ' ' + line
+                current_entry["raw"] += " " + line
 
         if current_entry:
             entries.append(current_entry)
@@ -129,26 +136,26 @@ class CitationVerifier:
             # Use content negotiation to get JSON metadata
             url = f"https://doi.org/{quote(doi)}"
             req = request.Request(url)
-            req.add_header('Accept', 'application/vnd.citationstyles.csl+json')
+            req.add_header("Accept", "application/vnd.citationstyles.csl+json")
 
             with request.urlopen(req, timeout=10) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = json.loads(response.read().decode("utf-8"))
 
                 return True, {
-                    'title': data.get('title', ''),
-                    'year': data.get('issued', {}).get('date-parts', [[None]])[0][0],
-                    'authors': [
+                    "title": data.get("title", ""),
+                    "year": data.get("issued", {}).get("date-parts", [[None]])[0][0],
+                    "authors": [
                         f"{a.get('family', '')} {a.get('given', '')}"
-                        for a in data.get('author', [])
+                        for a in data.get("author", [])
                     ],
-                    'venue': data.get('container-title', '')
+                    "venue": data.get("container-title", ""),
                 }
         except error.HTTPError as e:
             if e.code == 404:
-                return False, {'error': 'DOI not found (404)'}
-            return False, {'error': f'HTTP {e.code}'}
+                return False, {"error": "DOI not found (404)"}
+            return False, {"error": f"HTTP {e.code}"}
         except Exception as e:
-            return False, {'error': str(e)}
+            return False, {"error": str(e)}
 
     def verify_url(self, url: str) -> Tuple[bool, str]:
         """
@@ -160,8 +167,8 @@ class CitationVerifier:
 
         try:
             # HEAD request to check accessibility without downloading
-            req = request.Request(url, method='HEAD')
-            req.add_header('User-Agent', 'Mozilla/5.0 (Research Citation Verifier)')
+            req = request.Request(url, method="HEAD")
+            req.add_header("User-Agent", "Mozilla/5.0 (Research Citation Verifier)")
 
             with request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
@@ -181,7 +188,7 @@ class CitationVerifier:
         Returns list of detected issues.
         """
         issues = []
-        title = entry.get('title', '')
+        title = entry.get("title", "")
 
         if not title:
             return issues
@@ -192,26 +199,33 @@ class CitationVerifier:
                 issues.append(f"Suspicious title pattern: {description}")
 
         # Check for overly generic titles
-        generic_words = ['overview', 'introduction', 'guide', 'handbook', 'manual']
-        if any(word in title.lower() for word in generic_words) and len(title.split()) < 5:
+        generic_words = ["overview", "introduction", "guide", "handbook", "manual"]
+        if (
+            any(word in title.lower() for word in generic_words)
+            and len(title.split()) < 5
+        ):
             issues.append("Very generic short title")
 
         # Check for placeholder-like titles
-        if any(x in title.lower() for x in ['tbd', 'todo', 'placeholder', 'example']):
+        if any(x in title.lower() for x in ["tbd", "todo", "placeholder", "example"]):
             issues.append("Placeholder text in title")
 
         # Check for inconsistent metadata
-        if entry.get('year'):
-            year = int(entry['year'])
+        if entry.get("year"):
+            year = int(entry["year"])
             # Very recent without DOI or URL is suspicious
-            if year >= 2024 and not entry.get('doi') and not entry.get('url'):
+            if year >= 2024 and not entry.get("doi") and not entry.get("url"):
                 issues.append("Recent year (2024+) with no verification method")
             # Future year is definitely wrong
             if year > 2025:
                 issues.append(f"Future year: {year}")
             # Very old with modern phrasing is suspicious
-            if year < 2000 and any(word in title.lower() for word in ['ai', 'llm', 'gpt', 'transformer']):
-                issues.append(f"Anachronistic: pre-2000 ({year}) citation mentioning modern AI terms")
+            if year < 2000 and any(
+                word in title.lower() for word in ["ai", "llm", "gpt", "transformer"]
+            ):
+                issues.append(
+                    f"Anachronistic: pre-2000 ({year}) citation mentioning modern AI terms"
+                )
 
         return issues
 
@@ -226,7 +240,7 @@ class CitationVerifier:
         # Normalize: lowercase, remove punctuation, split
         def normalize(s):
             s = s.lower()
-            s = re.sub(r'[^\w\s]', ' ', s)
+            s = re.sub(r"[^\w\s]", " ", s)
             return set(s.split())
 
         words1 = normalize(title1)
@@ -243,80 +257,81 @@ class CitationVerifier:
     def verify_entry(self, entry: Dict) -> Dict:
         """Verify a single bibliography entry (Enhanced 2025 with CiteGuard)"""
         result = {
-            'num': entry['num'],
-            'status': 'unknown',
-            'issues': [],
-            'metadata': {},
-            'verification_methods': []
+            "num": entry["num"],
+            "status": "unknown",
+            "issues": [],
+            "metadata": {},
+            "verification_methods": [],
         }
 
         # STEP 1: Run hallucination detection (CiteGuard 2025)
         hallucination_issues = self.detect_hallucination_patterns(entry)
         if hallucination_issues:
-            result['issues'].extend(hallucination_issues)
-            result['status'] = 'suspicious'
+            result["issues"].extend(hallucination_issues)
+            result["status"] = "suspicious"
 
         # STEP 2: Has DOI?
-        if entry['doi']:
-            print(f"  [{entry['num']}] Checking DOI {entry['doi']}...", end=' ')
-            success, metadata = self.verify_doi(entry['doi'])
+        if entry["doi"]:
+            print(f"  [{entry['num']}] Checking DOI {entry['doi']}...", end=" ")
+            success, metadata = self.verify_doi(entry["doi"])
 
             if success:
-                result['metadata'] = metadata
-                result['status'] = 'verified'
+                result["metadata"] = metadata
+                result["status"] = "verified"
                 print("")
 
                 # Check title similarity if we have both
-                if entry['title'] and metadata.get('title'):
+                if entry["title"] and metadata.get("title"):
                     similarity = self.check_title_similarity(
-                        entry['title'],
-                        metadata['title']
+                        entry["title"], metadata["title"]
                     )
 
                     if similarity < 0.5:
-                        result['issues'].append(
+                        result["issues"].append(
                             f"Title mismatch (similarity: {similarity:.1%})"
                         )
-                        result['status'] = 'suspicious'
+                        result["status"] = "suspicious"
 
                 # Check year match
-                if entry['year'] and metadata.get('year'):
-                    if int(entry['year']) != int(metadata['year']):
-                        result['issues'].append(
+                if entry["year"] and metadata.get("year"):
+                    if int(entry["year"]) != int(metadata["year"]):
+                        result["issues"].append(
                             f"Year mismatch: report says {entry['year']}, DOI says {metadata['year']}"
                         )
-                        result['status'] = 'suspicious'
+                        result["status"] = "suspicious"
 
             else:
                 print(f"✗ {metadata.get('error', 'Failed')}")
-                result['status'] = 'unverified'
-                result['issues'].append(f"DOI resolution failed: {metadata.get('error', 'unknown')}")
+                result["status"] = "unverified"
+                result["issues"].append(
+                    f"DOI resolution failed: {metadata.get('error', 'unknown')}"
+                )
 
         # STEP 3: Check URL accessibility (if no DOI or DOI failed)
-        if entry['url'] and result['status'] != 'verified':
-            url_ok, url_status = self.verify_url(entry['url'])
+        if entry["url"] and result["status"] != "verified":
+            url_ok, url_status = self.verify_url(entry["url"])
             if url_ok:
-                result['verification_methods'].append('URL')
+                result["verification_methods"].append("URL")
                 # Upgrade status if URL verifies
-                if result['status'] in ['unknown', 'no_doi', 'unverified']:
-                    result['status'] = 'url_verified'
+                if result["status"] in ["unknown", "no_doi", "unverified"]:
+                    result["status"] = "url_verified"
                 print(f"  [{entry['num']}] URL accessible ✓")
             else:
-                result['issues'].append(f"URL check failed: {url_status}")
+                result["issues"].append(f"URL check failed: {url_status}")
 
         # STEP 4: Final fallback - no verification method
-        if not entry['doi'] and not entry['url']:
-            if 'No DOI provided' not in ' '.join(result['issues']):
-                result['issues'].append("No DOI or URL - cannot verify")
-            result['status'] = 'suspicious'
+        if not entry["doi"] and not entry["url"]:
+            if "No DOI provided" not in " ".join(result["issues"]):
+                result["issues"].append("No DOI or URL - cannot verify")
+            result["status"] = "suspicious"
 
         return result
 
     def verify_all(self):
         """Verify all bibliography entries"""
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"CITATION VERIFICATION: {self.report_path.name}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         entries = self.extract_bibliography()
 
@@ -335,31 +350,33 @@ class CitationVerifier:
             time.sleep(0.5)
 
         # Summarize
-        print(f"\n{'='*60}")
-        print(f"VERIFICATION SUMMARY")
-        print(f"{'='*60}\n")
+        print(f"\n{'=' * 60}")
+        print("VERIFICATION SUMMARY")
+        print(f"{'=' * 60}\n")
 
-        verified = [r for r in results if r['status'] == 'verified']
-        url_verified = [r for r in results if r['status'] == 'url_verified']
-        suspicious = [r for r in results if r['status'] == 'suspicious']
-        unverified = [r for r in results if r['status'] in ['unverified', 'no_doi', 'unknown']]
+        verified = [r for r in results if r["status"] == "verified"]
+        url_verified = [r for r in results if r["status"] == "url_verified"]
+        suspicious = [r for r in results if r["status"] == "suspicious"]
+        unverified = [
+            r for r in results if r["status"] in ["unverified", "no_doi", "unknown"]
+        ]
 
-        print(f'DOI Verified: {len(verified)}/{len(results)}')
-        print(f'URL Verified: {len(url_verified)}/{len(results)}')
-        print(f'Suspicious: {len(suspicious)}/{len(results)}')
-        print(f'Unverified: {len(unverified)}/{len(results)}')
+        print(f"DOI Verified: {len(verified)}/{len(results)}")
+        print(f"URL Verified: {len(url_verified)}/{len(results)}")
+        print(f"Suspicious: {len(suspicious)}/{len(results)}")
+        print(f"Unverified: {len(unverified)}/{len(results)}")
         print()
 
         if suspicious:
-            print('SUSPICIOUS CITATIONS (Manual Review Needed):')
+            print("SUSPICIOUS CITATIONS (Manual Review Needed):")
             for r in suspicious:
                 print(f"\n  [{r['num']}]")
-                for issue in r['issues']:
+                for issue in r["issues"]:
                     print(f"    - {issue}")
             print()
 
         if unverified and len(unverified) > 0:
-            print('UNVERIFIED CITATIONS (Could not check):')
+            print("UNVERIFIED CITATIONS (Could not check):")
             for r in unverified:
                 print(f"  [{r['num']}] {r['issues'][0] if r['issues'] else 'Unknown'}")
             print()
@@ -368,22 +385,22 @@ class CitationVerifier:
         total_verified = len(verified) + len(url_verified)
 
         if suspicious:
-            print('WARNING: Suspicious citations detected')
+            print("WARNING: Suspicious citations detected")
             if self.strict_mode:
-                print('  STRICT MODE: Failing due to suspicious citations')
+                print("  STRICT MODE: Failing due to suspicious citations")
                 return False
             else:
-                print('  (Continuing in non-strict mode)')
+                print("  (Continuing in non-strict mode)")
 
         if self.strict_mode and unverified:
-            print('STRICT MODE: Unverified citations found')
+            print("STRICT MODE: Unverified citations found")
             return False
 
         if total_verified / len(results) < 0.5:
-            print('WARNING: Less than 50% citations verified')
+            print("WARNING: Less than 50% citations verified")
             return True  # Pass with warning
         else:
-            print('CITATION VERIFICATION PASSED')
+            print("CITATION VERIFICATION PASSED")
             return True
 
 
@@ -397,20 +414,21 @@ Examples:
 
 Note: Requires internet connection to check DOIs.
 Uses free DOI resolver - no API key needed.
-        """
+        """,
     )
 
     parser.add_argument(
-        '--report', '-r',
+        "--report",
+        "-r",
         type=str,
         required=True,
-        help='Path to research report markdown file'
+        help="Path to research report markdown file",
     )
 
     parser.add_argument(
-        '--strict',
-        action='store_true',
-        help='Strict mode: fail on any unverified or suspicious citations'
+        "--strict",
+        action="store_true",
+        help="Strict mode: fail on any unverified or suspicious citations",
     )
 
     args = parser.parse_args()
@@ -426,5 +444,5 @@ Uses free DOI resolver - no API key needed.
     sys.exit(0 if passed else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

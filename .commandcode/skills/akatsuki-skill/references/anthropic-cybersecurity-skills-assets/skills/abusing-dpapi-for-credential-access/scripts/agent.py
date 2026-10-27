@@ -99,9 +99,12 @@ def main():
     parser.add_argument("--pvk", help="Domain DPAPI backup key (.pvk)")
     parser.add_argument("--password", help="User plaintext password")
     parser.add_argument("--ntlm", help="User NTLM hash")
-    parser.add_argument("--mode", choices=["enumerate", "impacket", "sharpdpapi"],
-                        default="enumerate",
-                        help="enumerate artifacts, or drive a decryption tool")
+    parser.add_argument(
+        "--mode",
+        choices=["enumerate", "impacket", "sharpdpapi"],
+        default="enumerate",
+        help="enumerate artifacts, or drive a decryption tool",
+    )
     parser.add_argument("--timeout", type=int, default=120, help="Per-command timeout")
     args = parser.parse_args()
 
@@ -111,8 +114,10 @@ def main():
 
     if args.mode in ("enumerate", "impacket"):
         if not args.profile or not os.path.isdir(args.profile):
-            print("[!] --profile must point to an existing user profile directory",
-                  file=sys.stderr)
+            print(
+                "[!] --profile must point to an existing user profile directory",
+                file=sys.stderr,
+            )
             sys.exit(2)
         artifacts = enumerate_artifacts(args.profile)
         for kind, items in artifacts.items():
@@ -121,13 +126,17 @@ def main():
                 print(f"  {p}")
         if args.mode == "impacket":
             if not args.pvk:
-                print("\n[!] --pvk required for impacket master key decryption",
-                      file=sys.stderr)
+                print(
+                    "\n[!] --pvk required for impacket master key decryption",
+                    file=sys.stderr,
+                )
                 sys.exit(2)
             tool = find_tool(["impacket-dpapi", "dpapi.py"])
             if not tool:
-                print("[!] impacket-dpapi not found. Install: pipx install impacket",
-                      file=sys.stderr)
+                print(
+                    "[!] impacket-dpapi not found. Install: pipx install impacket",
+                    file=sys.stderr,
+                )
                 sys.exit(2)
             print("\n=== Decrypting master keys with backup key ===")
             for mk in artifacts["masterkeys"]:
@@ -140,11 +149,15 @@ def main():
     # sharpdpapi mode (Windows operator host)
     tool = find_tool(["SharpDPAPI.exe", "SharpDPAPI"])
     if not tool:
-        print("[!] SharpDPAPI not found on PATH. Build from "
-              "https://github.com/GhostPack/SharpDPAPI", file=sys.stderr)
+        print(
+            "[!] SharpDPAPI not found on PATH. Build from "
+            "https://github.com/GhostPack/SharpDPAPI",
+            file=sys.stderr,
+        )
         sys.exit(2)
-    result = sharpdpapi_triage(tool, args.profile, args.pvk, args.password,
-                               args.ntlm, args.timeout)
+    result = sharpdpapi_triage(
+        tool, args.profile, args.pvk, args.password, args.ntlm, args.timeout
+    )
     print("=== SharpDPAPI triage ===")
     print(result["output"])
     sys.exit(0 if result["rc"] == 0 else 1)

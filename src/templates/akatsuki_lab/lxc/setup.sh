@@ -68,4 +68,14 @@ if [ "${CURRENT_STATUS}" != "RUNNING" ]; then
   echo "[akatsuki-lab:lxc] Container ${LAB_NAME} started."
 fi
 
+if [ "${PROVISION_TOOLS:-false}" = "true" ]; then
+  echo "[akatsuki-lab:lxc] Staging and executing toolchain provisioning scripts..."
+  for s in provision-core.sh provision-msf.sh provision-exploitdb.sh provision-gotools.sh; do
+    if [ -f "${SCRIPT_DIR}/${s}" ]; then
+      lxc file push "${SCRIPT_DIR}/${s}" "${LAB_NAME}/tmp/${s}" || true
+      lxc exec "${LAB_NAME}" -- bash "/tmp/${s}" || true
+    fi
+  done
+fi
+
 echo "[akatsuki-lab:lxc] Verified: ${LAB_NAME} running on isolated bridge ${LAB_BRIDGE}."

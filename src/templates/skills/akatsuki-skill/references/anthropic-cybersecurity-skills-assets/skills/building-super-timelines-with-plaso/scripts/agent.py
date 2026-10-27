@@ -8,19 +8,26 @@ running the tools natively or through the official Docker image.
 
 Reference: https://plaso.readthedocs.io/
 """
+
 import argparse
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 
 def base_cmd(tool, use_docker, data_dir):
     """Return the argv prefix to invoke a plaso tool, native or via Docker."""
     if use_docker:
         # Mount data_dir at /data inside the container
-        return ["docker", "run", "--rm", "-v", f"{data_dir}:/data",
-                "log2timeline/plaso", tool]
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{data_dir}:/data",
+            "log2timeline/plaso",
+            tool,
+        ]
     found = shutil.which(tool)
     if not found:
         print(f"[!] {tool} not on PATH; consider --docker", file=sys.stderr)
@@ -54,8 +61,15 @@ def info(args):
 
 def export(args):
     cmd = base_cmd("psort.py", args.docker, args.data_dir)
-    cmd += ["--output-time-zone", args.tz, "-o", args.output_module,
-            "-w", args.output, args.storage]
+    cmd += [
+        "--output-time-zone",
+        args.tz,
+        "-o",
+        args.output_module,
+        "-w",
+        args.output,
+        args.storage,
+    ]
     if args.filter:
         cmd.append(args.filter)
     return run(cmd, args.dry_run)
@@ -69,9 +83,18 @@ def psteal(args):
 
 def tsimport(args):
     tool = shutil.which("timesketch_importer") or "timesketch_importer"
-    cmd = [tool, "--host", args.host, "--username", args.username,
-           "--timeline_name", args.timeline_name,
-           "--sketch_id", str(args.sketch_id), args.file]
+    cmd = [
+        tool,
+        "--host",
+        args.host,
+        "--username",
+        args.username,
+        "--timeline_name",
+        args.timeline_name,
+        "--sketch_id",
+        str(args.sketch_id),
+        args.file,
+    ]
     return run(cmd, args.dry_run)
 
 
@@ -88,10 +111,16 @@ def run(cmd, dry_run):
 
 def main():
     p = argparse.ArgumentParser(description="Plaso super-timeline helper")
-    p.add_argument("--docker", action="store_true",
-                   help="Run plaso tools via the log2timeline/plaso image")
-    p.add_argument("--data-dir", default="/cases",
-                   help="Host dir mounted at /data when using --docker")
+    p.add_argument(
+        "--docker",
+        action="store_true",
+        help="Run plaso tools via the log2timeline/plaso image",
+    )
+    p.add_argument(
+        "--data-dir",
+        default="/cases",
+        help="Host dir mounted at /data when using --docker",
+    )
     p.add_argument("--dry-run", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
 

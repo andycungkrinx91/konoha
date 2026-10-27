@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from enum import Enum
-from typing import Optional
 
 
 class LawfulBasis(Enum):

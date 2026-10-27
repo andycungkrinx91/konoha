@@ -40,11 +40,12 @@ def run_soffice(args: Iterable[str], **kwargs) -> subprocess.CompletedProcess:
     with contextlib.ExitStack() as stack:
         if not any(str(a).startswith("-env:UserInstallation") for a in args):
             profile = stack.enter_context(
-                tempfile.TemporaryDirectory(prefix="lo_profile_", ignore_cleanup_errors=True)
+                tempfile.TemporaryDirectory(
+                    prefix="lo_profile_", ignore_cleanup_errors=True
+                )
             )
             args = [f"-env:UserInstallation={Path(profile).as_uri()}"] + args
         return subprocess.run(["soffice"] + args, env=get_soffice_env(), **kwargs)
-
 
 
 def _needs_shim() -> bool:
@@ -77,7 +78,6 @@ def _ensure_shim() -> Path:
     if src.exists():
         src.unlink()
     return shim_so
-
 
 
 _SHIM_SOURCE = r"""
@@ -190,8 +190,8 @@ int close(int fd) {
 """
 
 
-
 if __name__ == "__main__":
     import sys
+
     result = run_soffice(sys.argv[1:])
     sys.exit(result.returncode)

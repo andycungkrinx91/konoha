@@ -2,7 +2,6 @@
 """Email Forwarding Rules Detection - Analyzes logs for T1114.003 indicators."""
 
 import json, csv, argparse, datetime, re
-from collections import defaultdict
 from pathlib import Path
 
 DETECTION_PATTERNS = [

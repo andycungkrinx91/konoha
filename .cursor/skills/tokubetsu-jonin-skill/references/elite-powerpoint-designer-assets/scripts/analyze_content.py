@@ -7,7 +7,7 @@ Analyzes markdown content and recommends brand style and template mapping.
 import sys
 import json
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 class ContentAnalyzer:
     def __init__(self):

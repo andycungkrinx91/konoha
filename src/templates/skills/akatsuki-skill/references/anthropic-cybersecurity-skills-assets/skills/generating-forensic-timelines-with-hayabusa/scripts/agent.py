@@ -44,8 +44,18 @@ def update_rules(binary):
 
 
 def csv_timeline(binary, src, out, profile, min_level, live):
-    cmd = [binary, "csv-timeline", "-o", out, "-p", profile,
-           "-m", min_level, "-w", "-U"]
+    cmd = [
+        binary,
+        "csv-timeline",
+        "-o",
+        out,
+        "-p",
+        profile,
+        "-m",
+        min_level,
+        "-w",
+        "-U",
+    ]
     cmd += ["-l"] if live else ["-d", src]
     proc = run(cmd)
     if not os.path.isfile(out):
@@ -54,8 +64,18 @@ def csv_timeline(binary, src, out, profile, min_level, live):
 
 
 def json_timeline(binary, src, out, profile, min_level, live):
-    cmd = [binary, "json-timeline", "-L", "-o", out, "-p", profile,
-           "-m", min_level, "-w"]
+    cmd = [
+        binary,
+        "json-timeline",
+        "-L",
+        "-o",
+        out,
+        "-p",
+        profile,
+        "-m",
+        min_level,
+        "-w",
+    ]
     cmd += ["-l"] if live else ["-d", src]
     run(cmd)
     return out
@@ -68,18 +88,28 @@ def summarize_csv(path):
     with open(path, newline="", encoding="utf-8", errors="replace") as f:
         reader = csv.DictReader(f)
         # Hayabusa columns include "Level" and "RuleTitle"
-        lvl_key = next((k for k in (reader.fieldnames or []) if k.lower() == "level"), None)
-        title_key = next((k for k in (reader.fieldnames or [])
-                          if k.lower().replace(" ", "") == "ruletitle"), None)
+        lvl_key = next(
+            (k for k in (reader.fieldnames or []) if k.lower() == "level"), None
+        )
+        title_key = next(
+            (
+                k
+                for k in (reader.fieldnames or [])
+                if k.lower().replace(" ", "") == "ruletitle"
+            ),
+            None,
+        )
         for row in reader:
             total += 1
             if lvl_key:
                 levels[row.get(lvl_key, "")] += 1
             if title_key:
                 titles[row.get(title_key, "")] += 1
-    return {"total_detections": total,
-            "by_level": dict(levels),
-            "top_rules": titles.most_common(15)}
+    return {
+        "total_detections": total,
+        "by_level": dict(levels),
+        "top_rules": titles.most_common(15),
+    }
 
 
 def main():
@@ -89,10 +119,18 @@ def main():
     p.add_argument("--bin", help="Path to hayabusa binary")
     p.add_argument("-o", "--output", default="timeline.csv", help="CSV output path")
     p.add_argument("--jsonl", help="Also write a JSONL timeline to this path")
-    p.add_argument("-p", "--profile", default="verbose",
-                   help="Output profile (minimal/standard/verbose/...)")
-    p.add_argument("-m", "--min-level", default="medium",
-                   choices=["informational", "low", "medium", "high", "critical"])
+    p.add_argument(
+        "-p",
+        "--profile",
+        default="verbose",
+        help="Output profile (minimal/standard/verbose/...)",
+    )
+    p.add_argument(
+        "-m",
+        "--min-level",
+        default="medium",
+        choices=["informational", "low", "medium", "high", "critical"],
+    )
     p.add_argument("--no-update", action="store_true", help="Skip update-rules")
     p.add_argument("--report", help="Write JSON summary to this path")
     args = p.parse_args()
@@ -104,11 +142,13 @@ def main():
     if not args.no_update:
         update_rules(binary)
 
-    csv_path = csv_timeline(binary, args.directory, args.output,
-                            args.profile, args.min_level, args.live)
+    csv_path = csv_timeline(
+        binary, args.directory, args.output, args.profile, args.min_level, args.live
+    )
     if args.jsonl:
-        json_timeline(binary, args.directory, args.jsonl,
-                      args.profile, args.min_level, args.live)
+        json_timeline(
+            binary, args.directory, args.jsonl, args.profile, args.min_level, args.live
+        )
 
     summary = summarize_csv(csv_path)
     summary["generated"] = datetime.now(timezone.utc).isoformat()

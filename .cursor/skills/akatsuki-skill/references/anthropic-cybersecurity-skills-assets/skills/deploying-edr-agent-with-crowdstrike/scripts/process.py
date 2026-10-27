@@ -14,7 +14,6 @@ import csv
 from datetime import datetime, timedelta
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
-from urllib.error import HTTPError
 
 
 FALCON_BASE_URL = os.environ.get("FALCON_BASE_URL", "https://api.crowdstrike.com")

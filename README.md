@@ -2,7 +2,7 @@
   <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
-[![Release](https://img.shields.io/badge/Release-v2.2.10-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v2.2.11-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
@@ -12,7 +12,7 @@
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-46%20Canonical-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-47%20Canonical-10b981)](README.md)
 [![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white)](docs/BENCHMARK.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
@@ -47,7 +47,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.2.10](CHANGELOG.md) — Supply-chain hardening, Playwright Edge script excision, SheetJS CF seed neutralization, hash-js replacement with @noble/hashes, and Socket.dev policy configuration.
+* **Latest Release:** [v2.2.11](CHANGELOG.md) — Akatsuki Red-Team professionalization (no-decline in red mode, chunin recon, PDF report, reliable Docker/LXC templates, akatsuki_init, and SQLite-backed Kali tools catalog).
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.10 — Audited & Certified (2026-10-27)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
 
 <details open>
@@ -508,7 +508,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.2.10) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.2.11) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

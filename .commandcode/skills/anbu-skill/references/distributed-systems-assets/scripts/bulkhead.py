@@ -33,22 +33,25 @@ T = TypeVar("T")
 
 class Tier(Enum):
     """Bulkhead tiers for resource prioritization."""
-    CRITICAL = 1   # Highest priority: synthesis, quality gate
-    STANDARD = 2   # Normal priority: analysis agents
-    OPTIONAL = 3   # Lowest priority: enrichment, caching
+
+    CRITICAL = 1  # Highest priority: synthesis, quality gate
+    STANDARD = 2  # Normal priority: analysis agents
+    OPTIONAL = 3  # Lowest priority: enrichment, caching
 
 
 class RejectionPolicy(Enum):
     """Policy when bulkhead is full."""
-    ABORT = "abort"        # Raise exception immediately
+
+    ABORT = "abort"  # Raise exception immediately
     CALLER_RUNS = "caller"  # Execute in caller's context (blocking)
-    DISCARD = "discard"    # Silently drop, return None
-    QUEUE = "queue"        # Wait in bounded queue (default)
+    DISCARD = "discard"  # Silently drop, return None
+    QUEUE = "queue"  # Wait in bounded queue (default)
 
 
 @dataclass
 class BulkheadStats:
     """Bulkhead statistics."""
+
     total_calls: int = 0
     successful_calls: int = 0
     rejected_calls: int = 0
@@ -131,8 +134,14 @@ class Bulkhead:
 
         # Get defaults for tier
         defaults = TIER_DEFAULTS[tier]
-        self.max_concurrent: int = max_concurrent if max_concurrent is not None else int(defaults["max_concurrent"])
-        self.queue_size: int = queue_size if queue_size is not None else int(defaults["queue_size"])
+        self.max_concurrent: int = (
+            max_concurrent
+            if max_concurrent is not None
+            else int(defaults["max_concurrent"])
+        )
+        self.queue_size: int = (
+            queue_size if queue_size is not None else int(defaults["queue_size"])
+        )
         self.timeout = timeout or defaults["timeout"]
         self.rejection_policy = rejection_policy
 
@@ -189,9 +198,7 @@ class Bulkhead:
             self._waiting += 1
             self.stats.total_calls += 1
             self.stats.current_queued = self._waiting
-            self.stats.max_queued_seen = max(
-                self.stats.max_queued_seen, self._waiting
-            )
+            self.stats.max_queued_seen = max(self.stats.max_queued_seen, self._waiting)
 
         try:
             # Wait for semaphore with timeout
@@ -245,7 +252,10 @@ class Bulkhead:
 
         logger.warning(
             f"Bulkhead '{self.name}' (tier={self.tier.name}) rejecting request",
-            extra={"queue_size": self.queue_size, "policy": self.rejection_policy.value},
+            extra={
+                "queue_size": self.queue_size,
+                "policy": self.rejection_policy.value,
+            },
         )
 
         if self.rejection_policy == RejectionPolicy.ABORT:
@@ -269,9 +279,7 @@ class Bulkhead:
         if self._on_timeout:
             self._on_timeout(self.name, timeout)
 
-        logger.warning(
-            f"Bulkhead '{self.name}' operation timed out after {timeout}s"
-        )
+        logger.warning(f"Bulkhead '{self.name}' operation timed out after {timeout}s")
 
         raise BulkheadTimeoutError(self.name, timeout)
 
@@ -390,6 +398,7 @@ def bulkhead(
         async def analyze(content):
             ...
     """
+
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         b = get_registry().get_or_create(name, tier)
 

@@ -27,13 +27,10 @@ import socket
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
 
 try:
     import dns.resolver
     import requests
-    from bs4 import BeautifulSoup
     from rich.console import Console
     from rich.table import Table
     from rich.panel import Panel

@@ -673,25 +673,25 @@ function generateAkatsukiHtml() {
     renderCard(770, 118, 190, 66, C.violet, '4. SKILL GUARDIAN', 'fail-closed AST review'),
     renderCard(1000, 118, 140, 66, C.emerald, '5. BLUE GATE', '0 CVEs · lab stopped'),
 
-    // Middle Sequence: Red-Team RoE Gating (y = 248, h = 64)
-    renderCard(60, 248, 210, 64, C.crimson, '6. MODE: RED INGRESS', 'konoha akatsuki mode red'),
-    renderCard(310, 248, 250, 64, C.amber, '7. WRITTEN RoE GATE', 'scope, cutoff, consent'),
-    renderCard(600, 248, 240, 64, C.crimson, 'UNAUTHORIZED: BLOCKED', 'fail-closed refuse (status 403)'),
-    renderCard(880, 248, 260, 64, C.emerald, 'AUTHORIZED: PROCEED', 'consent verified · setup lab'),
+    // Middle Sequence: Red-Team RoE Gating & Chunin Recon (y = 248, h = 64)
+    renderCard(60, 248, 220, 64, C.crimson, '6. MODE: RED INGRESS', 'konoha akatsuki mode red'),
+    renderCard(310, 248, 260, 64, C.emerald, '7. STANDING AUTHORIZATION', 'operator authorized · zero decline'),
+    renderCard(600, 248, 270, 64, C.amber, '8. AUTO-PROVISION (akatsuki_init)', 'docker | lxc auto-detect · dual setup'),
+    renderCard(900, 248, 240, 64, C.violet, '9. CHUNIN RECON', 'passive OSINT & ATT&CK intel'),
 
     // Bottom Sandbox Cards (y = 378, h = 66)
-    renderCard(60, 378, 210, 66, C.amber, '8. ENGINE SETUP', 'docker (default) | lxc unpriv'),
-    renderCard(300, 378, 230, 66, C.crimson, '9. SANDBOX QUARANTINE', '--cap-drop=ALL · UID 1000'),
-    renderCard(560, 378, 200, 66, C.amber, '10. APPROVED 10 TOOLS', 'nmap, zap, nuclei, sqlmap...'),
+    renderCard(60, 378, 210, 66, C.amber, '10. MULTI-ENGINE SANDBOX', 'akatsuki-lab on docker | lxc'),
+    renderCard(300, 378, 230, 66, C.crimson, '11. UNRESTRICTED TOOLS', '18 curated tools · 3600s cap'),
+    renderCard(560, 378, 200, 66, C.teal, '12. EVIDENCE HARVEST', 'non-destructive PoC probes'),
 
     // Sandbox Middle/Bottom Row (y = 480, h = 66)
-    renderCard(120, 480, 290, 66, C.teal, '11. EVIDENCE HARVESTING', 'non-destructive PoC · /tmp/akatsuki_*'),
-    renderCard(440, 480, 280, 66, C.emerald, '12. DIAGNOSTIC CLEANUP', 'purge transient probes upon exit'),
+    renderCard(120, 480, 290, 66, C.emerald, '13. DIAGNOSTIC CLEANUP', 'purge transient probes upon exit'),
+    renderCard(440, 480, 280, 66, C.azure, '14. TOKUBETSU-JONIN PDF REPORT', 'publication-grade 8-section report'),
 
     // Right Panel Cards
     renderCard(820, 378, 320, 66, C.teal, 'STRICT PERSONA BOUNDARY', 'offensive skills restricted to @akatsuki'),
     renderCard(820, 480, 320, 66, C.crimson, 'REMEDIATION LOOP (♠ ANBU)', 'synthesizes patches for findings'),
-    renderCard(820, 580, 320, 78, C.emerald, '13. KAGE DELIVERY GATE', 'confidence ≥98% · 0 unhandled CVEs', ['0 CRIT/HIGH', 'FAIL-CLOSED'])
+    renderCard(820, 580, 320, 78, C.emerald, '15. KAGE DELIVERY GATE', 'confidence ≥98% · 0 unhandled CVEs', ['0 CRIT/HIGH', 'FAIL-CLOSED'])
   ].join('\n');
 
   const paths = `
@@ -712,42 +712,42 @@ function generateAkatsukiHtml() {
     <path class="bg-track" d="M 150 184 L 150 248" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
     <path class="flow-path" d="M 150 184 L 150 248" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
 
-    <!-- Red Mode to RoE Gate -->
-    <path class="bg-track" d="M 270 280 L 310 280" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 270 280 L 310 280" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
+    <!-- Red Mode to Standing Authorization -->
+    <path class="bg-track" d="M 280 280 L 310 280" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 280 280 L 310 280" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
 
-    <!-- RoE Gate: Missing -> Unauthorized Blocked -->
-    <path class="bg-track" d="M 560 280 L 600 280" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 560 280 L 600 280" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
+    <!-- Standing Auth to Auto-Provision -->
+    <path class="bg-track" d="M 570 280 L 600 280" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 570 280 L 600 280" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
 
-    <!-- RoE Gate: Authorized -> Authorized Proceed -->
-    <path class="bg-track" d="M 840 280 L 880 280" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 840 280 L 880 280" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
+    <!-- Auto-Provision to Chunin Recon -->
+    <path class="bg-track" d="M 870 280 L 900 280" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 870 280 L 900 280" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
 
-    <!-- Authorized Down to Engine Setup -->
-    <path class="bg-track" d="M 1010 312 C 1010 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 1010 312 C 1010 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
+    <!-- Chunin Recon Down to Sandbox Engine Setup -->
+    <path class="bg-track" d="M 1020 312 C 1020 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 1020 312 C 1020 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
 
-    <!-- Sandbox Sequence: Setup -> Quarantine -> 10 Tools -->
+    <!-- Sandbox Sequence: Setup -> Quarantine -> Unrestricted Tools -->
     <path class="bg-track" d="M 270 411 L 300 411" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
     <path class="flow-path" d="M 270 411 L 300 411" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
 
-    <path class="bg-track" d="M 530 411 L 560 411" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 530 411 L 560 411" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
+    <path class="bg-track" d="M 530 411 L 560 411" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 530 411 L 560 411" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
 
-    <!-- 10 Tools Down to Evidence Harvest -->
-    <path class="bg-track" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
+    <!-- Unrestricted Tools Down to Evidence Harvest -->
+    <path class="bg-track" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
 
     <!-- Evidence Harvest to Diagnostic Cleanup -->
-    <path class="bg-track" d="M 410 513 L 440 513" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 410 513 L 440 513" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
+    <path class="bg-track" d="M 410 513 L 440 513" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 410 513 L 440 513" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
 
     <!-- Remediation Loop: Evidence to Anbu Bug Fix -->
     <path d="M 265 546 C 265 570, 820 540, 820 513" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
     <text x="540" y="565" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="${C.crimson}">REMEDIATION LOOP (♠ ANBU)</text>
 
-    <!-- Diagnostic Cleanup to Kage Delivery Gate -->
+    <!-- PDF Report to Kage Delivery Gate -->
     <path class="bg-track" d="M 720 513 C 760 513, 760 619, 820 619" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
     <path class="flow-path" d="M 720 513 C 760 513, 760 619, 820 619" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
   `;

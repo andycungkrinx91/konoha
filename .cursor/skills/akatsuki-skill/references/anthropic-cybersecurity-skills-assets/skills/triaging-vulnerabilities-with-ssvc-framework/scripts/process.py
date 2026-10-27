@@ -8,7 +8,6 @@ Categorization (SSVC) decision tree and produces prioritized triage reports.
 import argparse
 import csv
 import json
-import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone

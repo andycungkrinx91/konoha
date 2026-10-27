@@ -12,8 +12,10 @@ from datetime import datetime
 def compile_spec(restler_path, api_spec):
     """Compile OpenAPI spec into RESTler fuzzing grammar."""
     cmd = [
-        os.path.join(restler_path, "Restler"), "compile",
-        "--api_spec", api_spec,
+        os.path.join(restler_path, "Restler"),
+        "compile",
+        "--api_spec",
+        api_spec,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     compile_dir = os.path.join(os.path.dirname(api_spec), "Compile")
@@ -30,20 +32,36 @@ def compile_spec(restler_path, api_spec):
     return {"status": "failed", "stderr": result.stderr[:500]}
 
 
-def run_fuzz_mode(restler_path, grammar, dictionary, settings, target_ip,
-                  target_port, mode="fuzz-lean", time_budget=1):
+def run_fuzz_mode(
+    restler_path,
+    grammar,
+    dictionary,
+    settings,
+    target_ip,
+    target_port,
+    mode="fuzz-lean",
+    time_budget=1,
+):
     """Run RESTler in test, fuzz-lean, or fuzz mode."""
     cmd = [
-        os.path.join(restler_path, "Restler"), mode,
-        "--grammar_file", grammar,
-        "--dictionary_file", dictionary,
-        "--settings", settings,
-        "--target_ip", target_ip,
-        "--target_port", str(target_port),
-        "--time_budget", str(time_budget),
+        os.path.join(restler_path, "Restler"),
+        mode,
+        "--grammar_file",
+        grammar,
+        "--dictionary_file",
+        dictionary,
+        "--settings",
+        settings,
+        "--target_ip",
+        target_ip,
+        "--target_port",
+        str(target_port),
+        "--time_budget",
+        str(time_budget),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True,
-                            timeout=time_budget * 3600 + 300)
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, timeout=time_budget * 3600 + 300
+    )
     return {
         "mode": mode,
         "exit_code": result.returncode,
@@ -93,12 +111,16 @@ def parse_bug_buckets(results_dir):
             bug_type = "information_leakage"
         elif "500" in content[:200]:
             bug_type = "server_error_500"
-        bugs.append({
-            "file": filename,
-            "type": bug_type,
-            "severity": "CRITICAL" if bug_type in ("use_after_free", "namespace_violation") else "HIGH",
-            "excerpt": content[:300],
-        })
+        bugs.append(
+            {
+                "file": filename,
+                "type": bug_type,
+                "severity": "CRITICAL"
+                if bug_type in ("use_after_free", "namespace_violation")
+                else "HIGH",
+                "excerpt": content[:300],
+            }
+        )
     return bugs
 
 
@@ -106,17 +128,24 @@ def generate_custom_dictionary(output_path):
     """Generate a security-focused fuzzing dictionary for RESTler."""
     dictionary = {
         "restler_fuzzable_string": [
-            "fuzzstring", "' OR '1'='1", "\" OR \"1\"=\"1",
-            "<script>alert(1)</script>", "../../../etc/passwd",
-            "${7*7}", "{{7*7}}", "a]UNION SELECT 1,2,3--",
-            "\"; cat /etc/passwd; echo \"",
+            "fuzzstring",
+            "' OR '1'='1",
+            '" OR "1"="1',
+            "<script>alert(1)</script>",
+            "../../../etc/passwd",
+            "${7*7}",
+            "{{7*7}}",
+            "a]UNION SELECT 1,2,3--",
+            '"; cat /etc/passwd; echo "',
             "A" * 65536,
         ],
         "restler_fuzzable_int": ["0", "-1", "999999999", "2147483647", "-2147483648"],
         "restler_fuzzable_bool": ["true", "false", "null", "1", "0"],
         "restler_fuzzable_datetime": [
-            "2024-01-01T00:00:00Z", "0000-00-00T00:00:00Z",
-            "9999-12-31T23:59:59Z", "invalid-date",
+            "2024-01-01T00:00:00Z",
+            "0000-00-00T00:00:00Z",
+            "9999-12-31T23:59:59Z",
+            "invalid-date",
         ],
         "restler_fuzzable_uuid4": [
             "00000000-0000-0000-0000-000000000000",
@@ -130,17 +159,17 @@ def generate_custom_dictionary(output_path):
 
 def run_audit(args):
     """Execute RESTler fuzzing audit workflow."""
-    print(f"\n{'='*60}")
-    print(f"  RESTLER API FUZZING AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  RESTLER API FUZZING AUDIT")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     report = {}
 
     if args.results_dir:
         summary = parse_run_summary(args.results_dir)
         report["summary"] = summary
-        print(f"--- FUZZING SUMMARY ---")
+        print("--- FUZZING SUMMARY ---")
         print(f"  Total requests: {summary.get('total_requests', 0)}")
         print(f"  2xx responses: {summary.get('valid_2xx', 0)}")
         print(f"  5xx errors: {summary.get('server_errors_5xx', 0)}")
@@ -159,13 +188,13 @@ def run_audit(args):
     if args.gen_dict:
         dict_result = generate_custom_dictionary(args.gen_dict)
         report["dictionary"] = dict_result
-        print(f"\n--- GENERATED DICTIONARY ---")
+        print("\n--- GENERATED DICTIONARY ---")
         print(f"  Path: {dict_result['dictionary_path']}")
 
     if args.compile_spec and args.restler_path:
         comp = compile_spec(args.restler_path, args.compile_spec)
         report["compilation"] = comp
-        print(f"\n--- COMPILATION ---")
+        print("\n--- COMPILATION ---")
         print(f"  Status: {comp['status']}")
 
     return report

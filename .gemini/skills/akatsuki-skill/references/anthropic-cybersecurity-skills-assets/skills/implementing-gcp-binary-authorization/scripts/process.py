@@ -8,7 +8,6 @@ creation for container image supply chain security.
 
 import json
 import subprocess
-import sys
 
 
 def run_gcloud(args):

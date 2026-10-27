@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.9). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.11). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -631,6 +631,21 @@ npx aislop scan --changes
 | **8. Isolated `/tmp/` Directory Full Lifecycle Verification** | `npm pack` -> `/tmp/konoha-iso-2210-*` | Tarball `konoha-mcp-2.2.10.tgz` packed and verified in clean isolated temporary environment; verified `konoha -v` reports 2.2.10; `konoha doctor` passes; clean teardown with 0 lingering junk. | `PASS` (100% verified in isolation) |
 | **9. Script Line Count Budget & Zero-Slop Cleanliness** | `rtk npx aislop scan --changes` | All modified and new files strictly <= 700 lines; `npx aislop` scored 100/100 Healthy with 0 errors, 0 warnings, and 0 slop comments. | `PASS` (100/100 Healthy) |
 | **10. Author & Default Password Invariant** | `git config` & `tests/test_auth.js` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password strictly `konohagakure`. | `PASS` (invariants maintained) |
+
+---
+
+## Section 21: v2.2.11 Akatsuki Red-Team Professionalization & Multi-Hypervisor Sandbox Isolation
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Never-Decline Red-Team Execution Mode** | `KONOHA_AKATSUKI_MODE=red` workflow execution | Red-team tasks execute with standing authorization; missing scope defaults safely to loopback `127.0.0.1` self-test inside sandbox; zero premature declines. | `PASS` (standing auth verified) |
+| **2. Multi-Hypervisor Init & Auto-Detection** | `konoha akatsuki init` & `akatsuki_init` tool | Auto-detects Docker and LXC; provisions both simultaneously when both engines present; sets up network bridges (`labbr0`, `akatsuki-net`). | `PASS` (Docker & LXC init verified) |
+| **3. Chunin Threat Intelligence Recon Phase** | `src/akatsuki_recon.js` & workflow phase 3 | Synthesizes passive OSINT, PTES alignment, MITRE ATT&CK / OWASP mappings, and emits ready-to-dispatch Chunin task prompt. | `PASS` (Chunin recon integrated) |
+| **4. Tokubetsu-Jonin Standard Red-Team PDF Report** | `src/akatsuki_report.js` & `report: 'pdf'` | Generates publication-grade 8-section PDF report with executive summary, CVSS findings table, and teardown proof. | `PASS` (110KB compliant PDF verified) |
+| **5. SQLite-Backed Kali Tools Catalog (360+ Tools)** | `src/templates/akatsuki_lab/kali_tools.json` & `db_schema.js` | Full tool catalog with IDs seeded into SQLite table `kali_tools`; high-performance querying with zero disk I/O. | `PASS` (360 tools seeded & queried) |
+| **6. Unrestricted Tool Capabilities & 3600s Timeout** | `src/akatsuki_tool_profiles.js` | All tools opened with wildcard `*` in `allowed_operations`, `blocked_operations: []`, and 3600s execution timeout cap returning immediately upon finish. | `PASS` (unrestricted operations verified) |
+| **7. Cross-Platform Hardening (Linux, macOS, Windows)** | `tests/test_akatsuki_init.js` & mock matrix | Container-side provisioning without host bash dependencies; Docker-only fallback on Windows/macOS; Linux LXC/Docker auto-detect. | `PASS` (cross-platform matrix green) |
+| **8. Version 2.2.11 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.11 contracts verified) |
 
 
 

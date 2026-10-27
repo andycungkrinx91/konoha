@@ -9,7 +9,6 @@ import os
 import sys
 import json
 import datetime
-import hashlib
 import re
 
 try:
@@ -19,7 +18,6 @@ except ImportError:
     HAS_PYCTI = False
 
 try:
-    import requests
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False

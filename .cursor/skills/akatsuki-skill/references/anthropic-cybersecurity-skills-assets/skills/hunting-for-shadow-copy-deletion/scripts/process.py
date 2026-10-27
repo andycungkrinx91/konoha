@@ -2,7 +2,6 @@
 """Shadow Copy Deletion Detection - Analyzes logs for T1490 indicators."""
 
 import json, csv, argparse, datetime, re
-from collections import defaultdict
 from pathlib import Path
 
 DETECTION_PATTERNS = [

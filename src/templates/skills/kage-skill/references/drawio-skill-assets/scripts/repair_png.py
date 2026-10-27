@@ -12,6 +12,7 @@ Idempotent: the endswith(IEND) guard makes this a no-op once draw.io
 fixes the bug upstream, so it's safe to run unconditionally after every
 -e PNG export.
 """
+
 import sys
 
 IEND = b"\x00\x00\x00\x00IEND\xaeB`\x82"

@@ -214,6 +214,12 @@ function isRedTeamEnabled(options = {}) {
     return envVal === '1' || envVal === 'true' || envVal === 'enabled' || envVal === 'red';
   }
 
+  if (process.env.KONOHA_AKATSUKI_MODE !== undefined) {
+    const envVal = String(process.env.KONOHA_AKATSUKI_MODE).trim().toLowerCase();
+    if (envVal === 'red' || envVal === 'lxc' || envVal === 'docker') return true;
+    if (envVal === 'blue') return false;
+  }
+
   const config = loadAkatsukiConfig(options);
   return config.mode === 'red';
 }

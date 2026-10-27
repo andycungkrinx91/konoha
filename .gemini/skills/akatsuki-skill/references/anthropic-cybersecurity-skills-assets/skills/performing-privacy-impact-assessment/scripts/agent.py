@@ -11,7 +11,6 @@ import json
 import uuid
 import argparse
 from datetime import datetime, timedelta
-from copy import deepcopy
 
 
 # ---------------------------------------------------------------------------

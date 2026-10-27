@@ -17,6 +17,7 @@ are skipped.
 Usage: python3 goimports.py <module_dir> [-o graph.json] [--direction TB|LR]
                                           [--group] [--no-reduce]
 """
+
 import argparse
 import json
 import os
@@ -44,10 +45,14 @@ def discover(root, modpath):
     root = os.path.abspath(root)
     pkgs = {}
     for dirpath, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs
-                   if d not in ("vendor", "testdata") and not d.startswith(".")]
-        gofiles = [os.path.join(dirpath, f) for f in files
-                   if f.endswith(".go") and not f.endswith("_test.go")]
+        dirs[:] = [
+            d for d in dirs if d not in ("vendor", "testdata") and not d.startswith(".")
+        ]
+        gofiles = [
+            os.path.join(dirpath, f)
+            for f in files
+            if f.endswith(".go") and not f.endswith("_test.go")
+        ]
         if not gofiles:
             continue
         rel = os.path.relpath(dirpath, root).replace(os.sep, "/")
@@ -79,24 +84,35 @@ def transitive_reduce(nodes, edges):
     idx = {n: i for i, n in enumerate(nodes)}
     dot = "digraph{" + "".join(f"{idx[s]}->{idx[t]};" for s, t in edges) + "}"
     try:
-        out = subprocess.run(["tred"], input=dot, capture_output=True,
-                             text=True, check=True).stdout
+        out = subprocess.run(
+            ["tred"], input=dot, capture_output=True, text=True, check=True
+        ).stdout
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"warning: tred unavailable, keeping all edges ({exc})\n")
         return edges
     rev = {i: n for n, i in idx.items()}
-    return [(rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)]
+    return [
+        (rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)
+    ]
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Go import graph -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Go import graph -> autolayout graph JSON."
+    )
     ap.add_argument("module", help="module directory (contains go.mod)")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="group nodes into containers by top-level package dir")
-    ap.add_argument("--no-reduce", action="store_true",
-                    help="keep every edge (skip transitive reduction)")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="group nodes into containers by top-level package dir",
+    )
+    ap.add_argument(
+        "--no-reduce",
+        action="store_true",
+        help="keep every edge (skip transitive reduction)",
+    )
     args = ap.parse_args()
 
     modpath = module_path(args.module)
@@ -105,21 +121,31 @@ def main():
     pkgs = discover(args.module, modpath)
     if not pkgs:
         sys.exit(f"error: no Go packages found under {args.module}")
-    edges = sorted({(ip, t) for ip, files in pkgs.items()
-                    for t in imports_of(files, modpath, pkgs) if t != ip})
+    edges = sorted(
+        {
+            (ip, t)
+            for ip, files in pkgs.items()
+            for t in imports_of(files, modpath, pkgs)
+            if t != ip
+        }
+    )
     raw = len(edges)
     if not args.no_reduce:
         edges = transitive_reduce(list(pkgs), edges)
     # Drop the module prefix from labels for readability; ids stay full.
     strip = modpath + "/"
-    label = lambda ip: ip[len(strip):] if ip.startswith(strip) else os.path.basename(ip)
+    label = lambda ip: (
+        ip[len(strip) :] if ip.startswith(strip) else os.path.basename(ip)
+    )
 
     def node(ip):
         d = {"id": ip, "label": label(ip)}
         if args.group:
             rest = label(ip).split("/")
-            if len(rest) > 1:                            # nested under a sub-package
-                d["group"] = "/".join(rest[:-1])         # full sub-package path -> nested boxes
+            if len(rest) > 1:  # nested under a sub-package
+                d["group"] = "/".join(
+                    rest[:-1]
+                )  # full sub-package path -> nested boxes
         return d
 
     graph = {

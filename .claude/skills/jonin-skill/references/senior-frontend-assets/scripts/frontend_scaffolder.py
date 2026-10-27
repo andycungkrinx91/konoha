@@ -13,7 +13,6 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -157,7 +156,11 @@ FEATURES = {
             "src/test/setup.ts": "TEST_SETUP",
             "src/test/utils.tsx": "TEST_UTILS",
         },
-        "dependencies": ["vitest", "@testing-library/react", "@testing-library/jest-dom"],
+        "dependencies": [
+            "vitest",
+            "@testing-library/react",
+            "@testing-library/jest-dom",
+        ],
     },
     "storybook": {
         "description": "Component documentation with Storybook",
@@ -171,7 +174,7 @@ FEATURES = {
 
 # File content templates
 FILE_CONTENTS = {
-    "ROOT_LAYOUT": '''import type { Metadata } from 'next';
+    "ROOT_LAYOUT": """import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
@@ -195,8 +198,8 @@ export default function RootLayout({
     </html>
   );
 }
-''',
-    "HOME_PAGE": '''export default function Home() {
+""",
+    "HOME_PAGE": """export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <h1 className="text-4xl font-bold">Welcome</h1>
@@ -206,8 +209,8 @@ export default function RootLayout({
     </main>
   );
 }
-''',
-    "GLOBALS_CSS": '''@tailwind base;
+""",
+    "GLOBALS_CSS": """@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -244,8 +247,8 @@ export default function RootLayout({
     @apply bg-background text-foreground;
   }
 }
-''',
-    "UI_BUTTON": '''import { forwardRef } from 'react';
+""",
+    "UI_BUTTON": """import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -284,8 +287,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = 'Button';
 
 export { Button, type ButtonProps };
-''',
-    "UI_INPUT": '''import { forwardRef } from 'react';
+""",
+    "UI_INPUT": """import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -318,8 +321,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input';
 
 export { Input, type InputProps };
-''',
-    "UI_CARD": '''import { cn } from '@/lib/utils';
+""",
+    "UI_CARD": """import { cn } from '@/lib/utils';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -352,12 +355,12 @@ function CardFooter({ className, ...props }: CardProps) {
 }
 
 export { Card, CardHeader, CardTitle, CardContent, CardFooter };
-''',
-    "UI_INDEX": '''export { Button } from './button';
+""",
+    "UI_INDEX": """export { Button } from './button';
 export { Input } from './input';
 export { Card, CardHeader, CardTitle, CardContent, CardFooter } from './card';
-''',
-    "UTILS": '''import { type ClassValue, clsx } from 'clsx';
+""",
+    "UTILS": """import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
@@ -375,8 +378,8 @@ export function formatDate(date: Date | string): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-''',
-    "CONSTANTS": '''export const APP_NAME = 'My App';
+""",
+    "CONSTANTS": """export const APP_NAME = 'My App';
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export const ROUTES = {
@@ -390,8 +393,8 @@ export const QUERY_KEYS = {
   user: ['user'],
   products: ['products'],
 } as const;
-''',
-    "HOOK_DEBOUNCE": '''import { useState, useEffect } from 'react';
+""",
+    "HOOK_DEBOUNCE": """import { useState, useEffect } from 'react';
 
 export function useDebounce<T>(value: T, delay: number = 500): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -403,8 +406,8 @@ export function useDebounce<T>(value: T, delay: number = 500): T {
 
   return debouncedValue;
 }
-''',
-    "HOOK_LOCAL_STORAGE": '''import { useState, useEffect } from 'react';
+""",
+    "HOOK_LOCAL_STORAGE": """import { useState, useEffect } from 'react';
 
 export function useLocalStorage<T>(
   key: string,
@@ -429,8 +432,8 @@ export function useLocalStorage<T>(
 
   return [storedValue, setStoredValue];
 }
-''',
-    "TYPES_INDEX": '''export interface User {
+""",
+    "TYPES_INDEX": """export interface User {
   id: string;
   email: string;
   name: string;
@@ -450,8 +453,8 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   totalPages: number;
 }
-''',
-    "HEALTH_ROUTE": '''import { NextResponse } from 'next/server';
+""",
+    "HEALTH_ROUTE": """import { NextResponse } from 'next/server';
 
 export async function GET() {
   return NextResponse.json({
@@ -459,8 +462,8 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   });
 }
-''',
-    "AUTH_PAGE": ''''use client';
+""",
+    "AUTH_PAGE": """'use client';
 
 export default function AuthPage() {
   return (
@@ -471,8 +474,8 @@ export default function AuthPage() {
     </div>
   );
 }
-''',
-    "LAYOUT_HEADER": '''import Link from 'next/link';
+""",
+    "LAYOUT_HEADER": """import Link from 'next/link';
 
 export function Header() {
   return (
@@ -490,8 +493,8 @@ export function Header() {
     </header>
   );
 }
-''',
-    "LAYOUT_FOOTER": '''export function Footer() {
+""",
+    "LAYOUT_FOOTER": """export function Footer() {
   return (
     <footer className="border-t py-6">
       <div className="container text-center text-sm text-muted-foreground">
@@ -500,8 +503,8 @@ export function Header() {
     </footer>
   );
 }
-''',
-    "LAYOUT_SIDEBAR": '''interface SidebarProps {
+""",
+    "LAYOUT_SIDEBAR": """interface SidebarProps {
   children?: React.ReactNode;
 }
 
@@ -512,8 +515,8 @@ export function Sidebar({ children }: SidebarProps) {
     </aside>
   );
 }
-''',
-    "REACT_APP": '''import { Button } from './components/ui';
+""",
+    "REACT_APP": """import { Button } from './components/ui';
 
 function App() {
   return (
@@ -528,8 +531,8 @@ function App() {
 }
 
 export default App;
-''',
-    "REACT_MAIN": '''import React from 'react';
+""",
+    "REACT_MAIN": """import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
@@ -539,15 +542,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>
 );
-''',
+""",
     "EMPTY": "",
 }
 
 
 def generate_structure(
-    base_path: Path,
-    structure: Dict,
-    dry_run: bool = False
+    base_path: Path, structure: Dict, dry_run: bool = False
 ) -> List[str]:
     """Generate directory structure recursively."""
     created_files = []
@@ -576,7 +577,7 @@ def generate_config_files(
     template: str,
     project_name: str,
     features: List[str],
-    dry_run: bool = False
+    dry_run: bool = False,
 ) -> List[str]:
     """Generate configuration files."""
     created_files = []
@@ -593,7 +594,9 @@ def generate_config_files(
     return created_files
 
 
-def get_config_templates(name: str, template: str, features: List[str]) -> Dict[str, str]:
+def get_config_templates(
+    name: str, template: str, features: List[str]
+) -> Dict[str, str]:
     """Get configuration file contents."""
     deps = {
         "nextjs": {
@@ -662,7 +665,7 @@ def get_config_templates(name: str, template: str, features: List[str]) -> Dict[
 
     return {
         "package.json": json.dumps(package_json, indent=2),
-        "tsconfig.json": '''{
+        "tsconfig.json": """{
   "compilerOptions": {
     "target": "ES2020",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -685,8 +688,8 @@ def get_config_templates(name: str, template: str, features: List[str]) -> Dict[
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
-''',
-        "tailwind.config.ts": '''import type { Config } from 'tailwindcss';
+""",
+        "tailwind.config.ts": """import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: [
@@ -734,15 +737,15 @@ const config: Config = {
 };
 
 export default config;
-''',
-        "postcss.config.js": '''module.exports = {
+""",
+        "postcss.config.js": """module.exports = {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
   },
 };
-''',
-        "next.config.js": '''/** @type {import('next').NextConfig} */
+""",
+        "next.config.js": """/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [],
@@ -754,8 +757,8 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-''',
-        "vite.config.ts": '''import { defineConfig } from 'vite';
+""",
+        "vite.config.ts": """import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
@@ -767,23 +770,23 @@ export default defineConfig({
     },
   },
 });
-''',
-        ".eslintrc.json": '''{
+""",
+        ".eslintrc.json": """{
   "extends": ["next/core-web-vitals", "prettier"],
   "rules": {
     "react/no-unescaped-entities": "off"
   }
 }
-''',
-        ".prettierrc": '''{
+""",
+        ".prettierrc": """{
   "semi": true,
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "es5",
   "printWidth": 100
 }
-''',
-        ".gitignore": '''# Dependencies
+""",
+        ".gitignore": """# Dependencies
 node_modules/
 .pnp
 .pnp.js
@@ -814,21 +817,23 @@ Thumbs.db
 
 # Testing
 coverage/
-''',
-        "index.html": '''<!DOCTYPE html>
+""",
+        "index.html": """<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>''' + name + '''</title>
+    <title>"""
+        + name
+        + """</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-''',
+""",
     }
 
 
@@ -873,7 +878,10 @@ def scaffold_project(
                 full_path = project_path / file_path
                 if not dry_run:
                     full_path.parent.mkdir(parents=True, exist_ok=True)
-                    content = FILE_CONTENTS.get(content_key, f"export const {content_key.replace('-', '_')} = () => {{\n  /* Functional implementation for {content_key} */\n}};\n")
+                    content = FILE_CONTENTS.get(
+                        content_key,
+                        f"export const {content_key.replace('-', '_')} = () => {{\n  /* Functional implementation for {content_key} */\n}};\n",
+                    )
                     full_path.write_text(content)
                 created_files.append(str(full_path))
 
@@ -899,9 +907,9 @@ def print_result(result: Dict) -> None:
         print(f"Error: {result['error']}", file=sys.stderr)
         return
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Project Scaffolded: {result['name']}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Template: {result['template_name']}")
     print(f"Location: {result['path']}")
     print(f"Files Created: {result['files_created']}")
@@ -909,56 +917,45 @@ def print_result(result: Dict) -> None:
     if result["features"]:
         print(f"Features: {', '.join(result['features'])}")
 
-    print(f"\nNext Steps:")
+    print("\nNext Steps:")
     for step in result["next_steps"]:
         print(f"  $ {step}")
 
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Scaffold a frontend project with best practices"
     )
+    parser.add_argument("name", help="Project name (kebab-case recommended)")
     parser.add_argument(
-        "name",
-        help="Project name (kebab-case recommended)"
+        "--dir", "-d", default=".", help="Output directory (default: current directory)"
     )
     parser.add_argument(
-        "--dir", "-d",
-        default=".",
-        help="Output directory (default: current directory)"
-    )
-    parser.add_argument(
-        "--template", "-t",
+        "--template",
+        "-t",
         choices=list(TEMPLATES.keys()),
         default="nextjs",
-        help="Project template (default: nextjs)"
+        help="Project template (default: nextjs)",
     )
     parser.add_argument(
-        "--features", "-f",
-        help="Comma-separated features to add (auth,api,forms,testing,storybook)"
+        "--features",
+        "-f",
+        help="Comma-separated features to add (auth,api,forms,testing,storybook)",
     )
     parser.add_argument(
-        "--list-templates",
-        action="store_true",
-        help="List available templates"
+        "--list-templates", action="store_true", help="List available templates"
     )
     parser.add_argument(
-        "--list-features",
-        action="store_true",
-        help="List available features"
+        "--list-features", action="store_true", help="List available features"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be created without creating files"
+        help="Show what would be created without creating files",
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format"
-    )
+    parser.add_argument("--json", action="store_true", help="Output in JSON format")
 
     args = parser.parse_args()
 

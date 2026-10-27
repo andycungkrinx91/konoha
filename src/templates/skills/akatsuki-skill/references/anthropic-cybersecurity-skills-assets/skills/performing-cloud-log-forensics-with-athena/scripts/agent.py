@@ -11,7 +11,6 @@ import argparse
 from datetime import datetime, timedelta
 
 import boto3
-from botocore.exceptions import ClientError
 
 
 CLOUDTRAIL_DDL = """
@@ -607,9 +606,9 @@ class AthenaForensicsAgent:
         for category, queries in query_categories.items():
             report["findings"][category] = {}
             for query_name in queries:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"[*] Category: {category} | Query: {query_name}")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
                 results = self.run_forensic_query(query_name, start_date, end_date)
                 if results is not None:
                     report["findings"][category][query_name] = results
@@ -684,9 +683,7 @@ class AthenaForensicsAgent:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="AWS Athena Cloud Log Forensics Agent"
-    )
+    parser = argparse.ArgumentParser(description="AWS Athena Cloud Log Forensics Agent")
     parser.add_argument(
         "--action",
         required=True,
@@ -777,9 +774,7 @@ def main():
             "timeline_events": results or [],
         }
     else:
-        results = agent.run_forensic_query(
-            args.action, args.start_date, args.end_date
-        )
+        results = agent.run_forensic_query(args.action, args.start_date, args.end_date)
         report = {
             "investigation_type": args.action,
             "generated_at": datetime.utcnow().isoformat(),
@@ -793,9 +788,9 @@ def main():
     print(f"\n[+] Report saved to {args.output}")
 
     if "summary" in report:
-        print(f"\n{'='*60}")
-        print(f"INVESTIGATION SUMMARY")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("INVESTIGATION SUMMARY")
+        print(f"{'=' * 60}")
         summary = report["summary"]
         print(f"Total findings: {summary.get('total_findings', 0)}")
         print(f"Overall severity: {summary.get('overall_severity', 'N/A')}")

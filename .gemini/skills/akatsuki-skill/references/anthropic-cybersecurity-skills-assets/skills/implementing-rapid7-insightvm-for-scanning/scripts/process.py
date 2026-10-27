@@ -22,7 +22,6 @@ import os
 import sys
 import time
 import urllib3
-from datetime import datetime
 
 import pandas as pd
 import requests

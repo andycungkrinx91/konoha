@@ -11,12 +11,9 @@ import json
 import csv
 import socket
 import ssl
-import subprocess
-import sys
 import ipaddress
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 def check_dns_resolution(fqdn: str) -> dict:

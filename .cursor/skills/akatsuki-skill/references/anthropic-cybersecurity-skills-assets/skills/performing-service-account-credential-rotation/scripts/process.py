@@ -14,9 +14,7 @@ import json
 import logging
 import secrets
 import string
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("credential_rotation")

@@ -24,6 +24,7 @@ Model file shape (actor_model.json):
                   "observable_type": "Domain-Name"}]
 }
 """
+
 import argparse
 import json
 import os
@@ -50,7 +51,8 @@ def now_iso():
 
 def relate(api, from_id, to_id, rtype):
     api.stix_core_relationship.create(
-        fromId=from_id, toId=to_id, relationship_type=rtype)
+        fromId=from_id, toId=to_id, relationship_type=rtype
+    )
     print(f"    + {rtype}: {from_id[:18]}... -> {to_id[:18]}...")
 
 
@@ -58,14 +60,18 @@ def build(api, model):
     # Threat actor
     a = model.get("actor", {})
     actor = api.threat_actor_group.create(
-        name=a["name"], description=a.get("description", ""),
-        threat_actor_types=a.get("types", []), update=True)
+        name=a["name"],
+        description=a.get("description", ""),
+        threat_actor_types=a.get("types", []),
+        update=True,
+    )
     print(f"[+] Threat actor: {a['name']} ({actor['id']})")
 
     # Intrusion set
     s = model.get("intrusion_set", {})
     iset = api.intrusion_set.create(
-        name=s["name"], description=s.get("description", ""), update=True)
+        name=s["name"], description=s.get("description", ""), update=True
+    )
     print(f"[+] Intrusion set: {s['name']} ({iset['id']})")
     relate(api, iset["id"], actor["id"], "attributed-to")
 
@@ -74,23 +80,29 @@ def build(api, model):
     campaign = None
     if c:
         campaign = api.campaign.create(
-            name=c["name"], description=c.get("description", ""), update=True)
+            name=c["name"], description=c.get("description", ""), update=True
+        )
         print(f"[+] Campaign: {c['name']} ({campaign['id']})")
         relate(api, campaign["id"], iset["id"], "attributed-to")
 
     # Techniques (attack patterns by MITRE id)
     for t in model.get("techniques", []):
         ap = api.attack_pattern.create(
-            name=t["name"], x_mitre_id=t.get("mitre_id"), update=True)
-        print(f"[+] Technique: {t['name']} {t.get('mitre_id','')} ({ap['id']})")
+            name=t["name"], x_mitre_id=t.get("mitre_id"), update=True
+        )
+        print(f"[+] Technique: {t['name']} {t.get('mitre_id', '')} ({ap['id']})")
         relate(api, iset["id"], ap["id"], "uses")
 
     # Indicators
     for ind in model.get("indicators", []):
         obj = api.indicator.create(
-            name=ind["name"], pattern_type="stix", pattern=ind["pattern"],
+            name=ind["name"],
+            pattern_type="stix",
+            pattern=ind["pattern"],
             x_opencti_main_observable_type=ind.get("observable_type", "Unknown"),
-            valid_from=now_iso(), update=True)
+            valid_from=now_iso(),
+            update=True,
+        )
         print(f"[+] Indicator: {ind['name']} ({obj['id']})")
         relate(api, obj["id"], iset["id"], "indicates")
 
@@ -98,16 +110,17 @@ def build(api, model):
 
 
 def export(api, iset_name):
-    iset = api.intrusion_set.read(filters={
-        "mode": "and",
-        "filters": [{"key": "name", "values": [iset_name]}],
-        "filterGroups": [],
-    })
+    iset = api.intrusion_set.read(
+        filters={
+            "mode": "and",
+            "filters": [{"key": "name", "values": [iset_name]}],
+            "filterGroups": [],
+        }
+    )
     if not iset:
         sys.exit(f"[!] Intrusion set not found: {iset_name}")
     print(f"[+] Intrusion set: {iset['name']} ({iset['id']})")
-    rels = api.stix_core_relationship.list(
-        fromId=iset["id"], relationship_type="uses")
+    rels = api.stix_core_relationship.list(fromId=iset["id"], relationship_type="uses")
     print(f"[+] Techniques used ({len(rels)}):")
     for r in rels:
         to = r.get("to", {})

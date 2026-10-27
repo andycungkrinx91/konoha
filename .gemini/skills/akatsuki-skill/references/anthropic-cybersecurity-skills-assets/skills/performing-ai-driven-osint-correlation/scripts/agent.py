@@ -12,10 +12,8 @@ import csv
 import json
 import os
 import re
-import sys
 from collections import defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
 
 try:
     import requests

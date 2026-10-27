@@ -6,11 +6,10 @@ Tracks physical intrusion testing attempts, documents findings,
 and generates assessment reports with remediation recommendations.
 """
 
-import json
 import os
 from datetime import datetime
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 
 
 @dataclass

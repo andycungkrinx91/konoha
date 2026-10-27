@@ -7,7 +7,6 @@ Validates that HTML reports are properly generated with all sections from MD
 import argparse
 import re
 from pathlib import Path
-from typing import List, Tuple
 
 
 class HTMLVerifier:

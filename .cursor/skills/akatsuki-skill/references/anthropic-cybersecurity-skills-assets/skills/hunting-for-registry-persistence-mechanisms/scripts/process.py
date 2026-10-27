@@ -2,7 +2,6 @@
 """Registry Persistence Detection - Analyzes logs for T1547.001 indicators."""
 
 import json, csv, argparse, datetime, re
-from collections import defaultdict
 from pathlib import Path
 
 DETECTION_PATTERNS = [

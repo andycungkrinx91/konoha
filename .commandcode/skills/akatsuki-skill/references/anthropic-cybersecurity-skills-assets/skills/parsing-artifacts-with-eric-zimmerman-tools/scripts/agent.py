@@ -8,6 +8,7 @@ real EZ Tools flags. Works as a dry-run command generator on any platform.
 
 Reference: https://ericzimmerman.github.io/
 """
+
 import argparse
 import os
 import shutil
@@ -15,31 +16,47 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 # Map of artifact -> (tool exe, builder(collection_root, out_dir) -> argv)
 def _mft(tool, root, out):
     mft = os.path.join(root, "$MFT")
     return [tool, "-f", mft, "--csv", out, "--csvf", "MFT.csv"]
 
+
 def _usn(tool, root, out):
     j = os.path.join(root, "$Extend", "$J")
     return [tool, "-f", j, "--csv", out, "--csvf", "UsnJrnl.csv"]
 
+
 def _prefetch(tool, root, out):
     d = os.path.join(root, "Windows", "Prefetch")
-    return [tool, "-d", d, "--csv", out, "--csvf", "Prefetch.csv",
-            "--json", os.path.join(out, "json")]
+    return [
+        tool,
+        "-d",
+        d,
+        "--csv",
+        out,
+        "--csvf",
+        "Prefetch.csv",
+        "--json",
+        os.path.join(out, "json"),
+    ]
+
 
 def _amcache(tool, root, out):
     f = os.path.join(root, "Windows", "AppCompat", "Programs", "Amcache.hve")
     return [tool, "-f", f, "--csv", out, "-i"]
 
+
 def _shimcache(tool, root, out):
     f = os.path.join(root, "Windows", "System32", "config", "SYSTEM")
     return [tool, "-f", f, "--csv", out]
 
+
 def _evtx(tool, root, out):
     d = os.path.join(root, "Windows", "System32", "winevt", "Logs")
     return [tool, "-d", d, "--csv", out, "--csvf", "EventLogs.csv"]
+
 
 def _registry(tool, root, out, batch):
     d = os.path.join(root, "Windows", "System32", "config")
@@ -47,12 +64,12 @@ def _registry(tool, root, out, batch):
 
 
 ARTIFACTS = {
-    "mft":       ("MFTECmd.exe", _mft),
-    "usn":       ("MFTECmd.exe", _usn),
-    "prefetch":  ("PECmd.exe", _prefetch),
-    "amcache":   ("AmcacheParser.exe", _amcache),
+    "mft": ("MFTECmd.exe", _mft),
+    "usn": ("MFTECmd.exe", _usn),
+    "prefetch": ("PECmd.exe", _prefetch),
+    "amcache": ("AmcacheParser.exe", _amcache),
     "shimcache": ("AppCompatCacheParser.exe", _shimcache),
-    "evtx":      ("EvtxECmd.exe", _evtx),
+    "evtx": ("EvtxECmd.exe", _evtx),
 }
 
 
@@ -91,13 +108,17 @@ def run_one(name, tools_dir, root, out_root, batch, dry_run):
 
 def main():
     p = argparse.ArgumentParser(description="EZ Tools batch driver")
-    p.add_argument("--collection", required=True,
-                   help="Root of the collection (the 'C' directory)")
+    p.add_argument(
+        "--collection", required=True, help="Root of the collection (the 'C' directory)"
+    )
     p.add_argument("--out", required=True, help="Output root directory")
     p.add_argument("--tools-dir", help="Directory containing EZ Tools binaries")
     p.add_argument("--batch", help="RECmd batch (.reb) file for registry")
-    p.add_argument("--artifacts", default="mft,prefetch,amcache,shimcache,evtx",
-                   help="Comma-separated: " + ",".join(list(ARTIFACTS) + ["registry"]))
+    p.add_argument(
+        "--artifacts",
+        default="mft,prefetch,amcache,shimcache,evtx",
+        help="Comma-separated: " + ",".join(list(ARTIFACTS) + ["registry"]),
+    )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
 
@@ -111,15 +132,29 @@ def main():
     for name in requested:
         if name == "registry":
             if not args.batch:
-                print("[!] registry requires --batch (.reb file); skipping",
-                      file=sys.stderr)
+                print(
+                    "[!] registry requires --batch (.reb file); skipping",
+                    file=sys.stderr,
+                )
                 rc = rc or 2
                 continue
-            r = run_one("registry", args.tools_dir, args.collection, args.out,
-                        args.batch, args.dry_run)
+            r = run_one(
+                "registry",
+                args.tools_dir,
+                args.collection,
+                args.out,
+                args.batch,
+                args.dry_run,
+            )
         elif name in ARTIFACTS:
-            r = run_one(name, args.tools_dir, args.collection, args.out,
-                        args.batch, args.dry_run)
+            r = run_one(
+                name,
+                args.tools_dir,
+                args.collection,
+                args.out,
+                args.batch,
+                args.dry_run,
+            )
         else:
             print(f"[!] unknown artifact: {name}", file=sys.stderr)
             r = 2

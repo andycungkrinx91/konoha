@@ -22,35 +22,44 @@ def detect_ptt_events(log_file):
         eid = str(event.get("EventID", ""))
         if eid == "4768":
             if event.get("TicketEncryptionType") == "0x17":
-                detections.append({
-                    "event_id": eid,
-                    "type": "TGT_request_rc4",
-                    "account": event.get("TargetUserName", ""),
-                    "source_ip": event.get("IpAddress", ""),
-                    "severity": "HIGH",
-                    "note": "RC4 TGT request may indicate golden ticket",
-                })
+                detections.append(
+                    {
+                        "event_id": eid,
+                        "type": "TGT_request_rc4",
+                        "account": event.get("TargetUserName", ""),
+                        "source_ip": event.get("IpAddress", ""),
+                        "severity": "HIGH",
+                        "note": "RC4 TGT request may indicate golden ticket",
+                    }
+                )
         elif eid == "4769":
             if event.get("TicketEncryptionType") == "0x17":
-                detections.append({
-                    "event_id": eid,
-                    "type": "service_ticket_rc4",
-                    "account": event.get("TargetUserName", ""),
-                    "service": event.get("ServiceName", ""),
-                    "severity": "MEDIUM",
-                    "note": "RC4 service ticket — potential Kerberoasting or PTT",
-                })
+                detections.append(
+                    {
+                        "event_id": eid,
+                        "type": "service_ticket_rc4",
+                        "account": event.get("TargetUserName", ""),
+                        "service": event.get("ServiceName", ""),
+                        "severity": "MEDIUM",
+                        "note": "RC4 service ticket — potential Kerberoasting or PTT",
+                    }
+                )
         elif eid == "4624":
-            if event.get("LogonType") == "3" and event.get("AuthenticationPackageName") == "Kerberos":
+            if (
+                event.get("LogonType") == "3"
+                and event.get("AuthenticationPackageName") == "Kerberos"
+            ):
                 source = event.get("IpAddress", "")
-                detections.append({
-                    "event_id": eid,
-                    "type": "network_logon_kerberos",
-                    "account": event.get("TargetUserName", ""),
-                    "source_ip": source,
-                    "severity": "INFO",
-                    "note": "Kerberos network logon — correlate with TGT anomalies",
-                })
+                detections.append(
+                    {
+                        "event_id": eid,
+                        "type": "network_logon_kerberos",
+                        "account": event.get("TargetUserName", ""),
+                        "source_ip": source,
+                        "severity": "INFO",
+                        "note": "Kerberos network logon — correlate with TGT anomalies",
+                    }
+                )
     return detections
 
 
@@ -86,7 +95,7 @@ def generate_hunt_queries():
     """Generate threat hunting queries for PTT detection."""
     return {
         "splunk": [
-            'index=wineventlog EventCode=4768 TicketEncryptionType=0x17 | stats count by Account_Name, src_ip',
+            "index=wineventlog EventCode=4768 TicketEncryptionType=0x17 | stats count by Account_Name, src_ip",
             'index=wineventlog EventCode=4769 ServiceName!="krbtgt" TicketEncryptionType=0x17 | table _time Account_Name ServiceName',
         ],
         "kql": [
@@ -98,17 +107,19 @@ def generate_hunt_queries():
 
 def run_detection(log_file=None):
     """Execute Pass-the-Ticket detection analysis."""
-    print(f"\n{'='*60}")
-    print(f"  PASS-THE-TICKET DETECTION ANALYSIS")
+    print(f"\n{'=' * 60}")
+    print("  PASS-THE-TICKET DETECTION ANALYSIS")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     if log_file:
         events = detect_ptt_events(log_file)
         print(f"--- EVENT ANALYSIS ({len(events)} detections) ---")
         for e in events[:15]:
             if "error" not in e:
-                print(f"  [{e['severity']}] {e['type']}: {e.get('account', 'N/A')} from {e.get('source_ip', 'N/A')}")
+                print(
+                    f"  [{e['severity']}] {e['type']}: {e.get('account', 'N/A')} from {e.get('source_ip', 'N/A')}"
+                )
 
     rules = generate_sigma_rules()
     print(f"\n--- SIGMA RULES ({len(rules)}) ---")
@@ -116,13 +127,17 @@ def run_detection(log_file=None):
         print(f"  [{r['level'].upper()}] {r['title']}")
 
     queries = generate_hunt_queries()
-    print(f"\n--- HUNT QUERIES ---")
+    print("\n--- HUNT QUERIES ---")
     for platform, qlist in queries.items():
         print(f"  {platform.upper()}:")
         for q in qlist:
             print(f"    {q[:80]}...")
 
-    return {"detections": events if log_file else [], "sigma_rules": rules, "hunt_queries": queries}
+    return {
+        "detections": events if log_file else [],
+        "sigma_rules": rules,
+        "hunt_queries": queries,
+    }
 
 
 def main():

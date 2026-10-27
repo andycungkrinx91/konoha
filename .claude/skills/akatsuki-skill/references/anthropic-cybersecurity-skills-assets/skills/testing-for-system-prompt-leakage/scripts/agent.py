@@ -12,6 +12,7 @@ Examples
     python agent.py --base-url http://localhost:8000/v1 --model local-model \
         --report leak_report.json
 """
+
 import argparse
 import json
 import os
@@ -80,7 +81,9 @@ def assess(text, canary):
 def main():
     p = argparse.ArgumentParser(description="System-prompt leakage tester")
     p.add_argument("--model", required=True, help="model name")
-    p.add_argument("--base-url", help="OpenAI-compatible base URL (for local/proxy endpoints)")
+    p.add_argument(
+        "--base-url", help="OpenAI-compatible base URL (for local/proxy endpoints)"
+    )
     p.add_argument("--canary", help="known secret/canary embedded in the system prompt")
     p.add_argument("--report", help="write JSON report to this path")
     args = p.parse_args()
@@ -102,12 +105,14 @@ def main():
             leaks += 1
         status = "LEAK" if leaked else "ok"
         print(f"[{status}] payload {i}: {reasons if reasons else 'no markers'}")
-        results.append({
-            "payload": payload,
-            "response": out,
-            "leaked": leaked,
-            "reasons": reasons,
-        })
+        results.append(
+            {
+                "payload": payload,
+                "response": out,
+                "leaked": leaked,
+                "reasons": reasons,
+            }
+        )
 
     summary = {
         "model": args.model,

@@ -17,6 +17,7 @@ that matched nothing are listed on stderr so translations don't silently miss.
 
 Usage: relabel.py <file.drawio> (--extract | --map <labels.json>) [-o <out>]
 """
+
 import argparse
 import json
 import os
@@ -31,9 +32,11 @@ def label_slots(tree):
             yield diagram, "name"
         model = diagram.find("mxGraphModel")
         root = model.find("root") if model is not None else None
-        if root is None:                       # compressed page — can't edit
-            sys.stderr.write("warning: skipping compressed page "
-                             f"'{diagram.get('name', '?')}' (open+save in draw.io to decompress)\n")
+        if root is None:  # compressed page — can't edit
+            sys.stderr.write(
+                "warning: skipping compressed page "
+                f"'{diagram.get('name', '?')}' (open+save in draw.io to decompress)\n"
+            )
             continue
         for child in root:
             if child.tag == "mxCell":
@@ -48,15 +51,26 @@ def label_slots(tree):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Extract or swap .drawio labels via a JSON map.")
+    p = argparse.ArgumentParser(
+        description="Extract or swap .drawio labels via a JSON map."
+    )
     p.add_argument("file", help="input .drawio")
     mode = p.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--extract", action="store_true",
-                      help="dump an identity label map as JSON")
-    mode.add_argument("--map", metavar="JSON", dest="mapfile",
-                      help="JSON map {old label: new label} to apply")
-    p.add_argument("-o", "--output", help="output path (default: stdout for --extract, "
-                                          "<file>-relabel.drawio for --map)")
+    mode.add_argument(
+        "--extract", action="store_true", help="dump an identity label map as JSON"
+    )
+    mode.add_argument(
+        "--map",
+        metavar="JSON",
+        dest="mapfile",
+        help="JSON map {old label: new label} to apply",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        help="output path (default: stdout for --extract, "
+        "<file>-relabel.drawio for --map)",
+    )
     args = p.parse_args()
 
     if not os.path.isfile(args.file):
@@ -93,8 +107,10 @@ def main():
     tree.write(out, encoding="utf-8", xml_declaration=False)
     unused = [k for k in mapping if k not in used]
     if unused:
-        sys.stderr.write("warning: %d map key(s) matched no label: %s\n"
-                         % (len(unused), ", ".join(repr(k)[:60] for k in unused[:10])))
+        sys.stderr.write(
+            "warning: %d map key(s) matched no label: %s\n"
+            % (len(unused), ", ".join(repr(k)[:60] for k in unused[:10]))
+        )
     sys.stderr.write(f"wrote {out} ({matched} labels replaced)\n")
 
 

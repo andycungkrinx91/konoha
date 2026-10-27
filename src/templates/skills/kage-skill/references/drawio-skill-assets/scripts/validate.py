@@ -28,6 +28,7 @@ skipped with a warning — this skill always writes uncompressed XML.
 
 Usage: python3 validate.py <file.drawio> [--strict]
 """
+
 import argparse
 import sys
 import xml.etree.ElementTree as ET
@@ -47,8 +48,12 @@ def rect(cell):
     if g is None:
         return None
     try:
-        return (float(g.get("x", "0")), float(g.get("y", "0")),
-                float(g.get("width", "nan")), float(g.get("height", "nan")))
+        return (
+            float(g.get("x", "0")),
+            float(g.get("y", "0")),
+            float(g.get("width", "nan")),
+            float(g.get("height", "nan")),
+        )
     except ValueError:
         return None
 
@@ -77,6 +82,7 @@ def overlap(a, b):
 # These helpers reason about edge paths. They only apply to edges with explicit
 # waypoints (the route is otherwise computed by draw.io at render time and not
 # stored in the XML), so the checks never guess an auto-routed path.
+
 
 def style_num(style, key):
     """Return float value of ``key=`` in a draw.io style string, or None."""
@@ -128,8 +134,10 @@ def endpoint(edge, end, by_id):
     style = edge.get("style") or ""
     fx = style_num(style, "exitX" if end == "source" else "entryX")
     fy = style_num(style, "exitY" if end == "source" else "entryY")
-    return (x + (fx if fx is not None else 0.5) * w,
-            y + (fy if fy is not None else 0.5) * h)
+    return (
+        x + (fx if fx is not None else 0.5) * w,
+        y + (fy if fy is not None else 0.5) * h,
+    )
 
 
 def edge_waypoints(edge):
@@ -212,18 +220,21 @@ def routes_cross(pa, pb):
 def geometry_warnings(cells, ids, parents):
     """Edge-through-vertex and edge-crossing warnings for waypointed edges."""
     warns = []
-    routed = []          # (edge_id, polyline, {source, target})
+    routed = []  # (edge_id, polyline, {source, target})
     for c in cells:
         if c.get("edge") == "1":
             pts = edge_route(c, ids)
             if pts:
-                routed.append((c.get("id"), pts,
-                               {c.get("source"), c.get("target")}))
+                routed.append((c.get("id"), pts, {c.get("source"), c.get("target")}))
     # Edge routes through an unrelated leaf vertex (containers wrap children, so
     # an edge legitimately traverses them — restrict to leaves, as overlap does).
-    leaves = [(c.get("id"), abs_rect(c, ids)) for c in cells
-              if c.get("vertex") == "1" and c.get("id") not in parents
-              and not is_edge_label(c)]
+    leaves = [
+        (c.get("id"), abs_rect(c, ids))
+        for c in cells
+        if c.get("vertex") == "1"
+        and c.get("id") not in parents
+        and not is_edge_label(c)
+    ]
     leaves = [(vid, box) for vid, box in leaves if box]
     for eid, pts, ends in routed:
         for vid, box in leaves:
@@ -251,7 +262,7 @@ def check_page(diagram):
     # lives on the wrapper, geometry/style on the inner mxCell — fold the two
     # into one cell so edges referencing the wrapper id resolve.
     cells = []
-    for child in (root if root is not None else []):
+    for child in root if root is not None else []:
         if child.tag == "mxCell":
             cells.append(child)
         elif child.tag in ("UserObject", "object"):
@@ -266,7 +277,7 @@ def check_page(diagram):
         if cid in ids:
             errors.append(f"duplicate id {cid!r}")
         ids[cid] = c
-    parents = {c.get("parent") for c in cells}            # ids that have children
+    parents = {c.get("parent") for c in cells}  # ids that have children
     for c in cells:
         cid, parent = c.get("id"), c.get("parent")
         is_v, is_e = c.get("vertex") == "1", c.get("edge") == "1"
@@ -280,7 +291,7 @@ def check_page(diagram):
             errors.append(f"cell {cid!r} reuses reserved id 0/1")
         if is_v and not is_edge_label(c):
             r = rect(c)
-            if r is None or any(v != v for v in r):       # None or NaN
+            if r is None or any(v != v for v in r):  # None or NaN
                 errors.append(f"vertex {cid!r} has missing/invalid geometry")
             else:
                 x, y, w, h = r
@@ -289,9 +300,14 @@ def check_page(diagram):
                 if x < 0 or y < 0:
                     warns.append(f"vertex {cid!r} negative position ({x:g},{y:g})")
     # Sibling overlap: only leaf vertices (containers legitimately wrap children).
-    boxes = [(c.get("id"), c.get("parent"), rect(c)) for c in cells
-             if c.get("vertex") == "1" and c.get("id") not in parents and rect(c)
-             and not any(v != v for v in rect(c))]
+    boxes = [
+        (c.get("id"), c.get("parent"), rect(c))
+        for c in cells
+        if c.get("vertex") == "1"
+        and c.get("id") not in parents
+        and rect(c)
+        and not any(v != v for v in rect(c))
+    ]
     for i in range(len(boxes)):
         for j in range(i + 1, len(boxes)):
             (ia, pa, ra), (ib, pb, rb) = boxes[i], boxes[j]
@@ -302,12 +318,19 @@ def check_page(diagram):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Lint a .drawio file for structural errors.")
+    ap = argparse.ArgumentParser(
+        description="Lint a .drawio file for structural errors."
+    )
     ap.add_argument("file")
-    ap.add_argument("--strict", action="store_true", help="treat warnings as failure too")
-    ap.add_argument("--score", action="store_true",
-                    help="also print a readability score (lower is better) — "
-                         "useful for comparing layout variants of the same graph")
+    ap.add_argument(
+        "--strict", action="store_true", help="treat warnings as failure too"
+    )
+    ap.add_argument(
+        "--score",
+        action="store_true",
+        help="also print a readability score (lower is better) — "
+        "useful for comparing layout variants of the same graph",
+    )
     args = ap.parse_args()
     try:
         tree = ET.parse(args.file)
@@ -330,8 +353,10 @@ def main():
         through = sum(1 for w in warns if "routes through" in w)
         cross = sum(1 for w in warns if " cross" in w)
         olap = sum(1 for w in warns if " overlap" in w)
-        print(f"score: {20 * through + 10 * cross + 5 * olap} "
-              f"({through} through-vertex, {cross} crossings, {olap} overlaps)")
+        print(
+            f"score: {20 * through + 10 * cross + 5 * olap} "
+            f"({through} through-vertex, {cross} crossings, {olap} overlaps)"
+        )
     if errors or (args.strict and warns):
         sys.exit(1)
 

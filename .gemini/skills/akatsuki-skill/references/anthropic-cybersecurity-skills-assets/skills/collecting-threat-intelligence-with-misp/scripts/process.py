@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 try:
-    from pymisp import PyMISP, MISPEvent, MISPAttribute
+    from pymisp import PyMISP
 except ImportError:
     print("ERROR: pymisp not installed. Run: pip install pymisp")
     sys.exit(1)

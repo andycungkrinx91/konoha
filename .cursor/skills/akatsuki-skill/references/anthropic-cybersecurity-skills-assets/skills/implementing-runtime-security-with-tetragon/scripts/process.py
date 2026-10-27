@@ -11,8 +11,8 @@ import json
 import sys
 import subprocess
 import argparse
-from datetime import datetime, timedelta
-from collections import Counter, defaultdict
+from datetime import datetime
+from collections import Counter
 from pathlib import Path
 
 

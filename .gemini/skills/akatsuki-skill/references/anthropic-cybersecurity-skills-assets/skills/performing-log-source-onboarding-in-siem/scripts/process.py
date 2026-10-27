@@ -7,8 +7,6 @@ and generates configuration templates for common SIEM platforms.
 """
 
 import json
-from datetime import datetime
-from typing import Optional
 
 
 class LogSource:

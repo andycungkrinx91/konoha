@@ -5,6 +5,7 @@ Wraps the Gitleaks CLI to scan git repositories, directories, or
 specific commits for hardcoded secrets, API keys, tokens, and
 credentials. Parses JSON output into structured findings.
 """
+
 import argparse
 import json
 import os
@@ -23,13 +24,22 @@ def find_gitleaks_binary():
             full_path = os.path.join(directory, name)
             if os.path.isfile(full_path):
                 return full_path
-    print("[!] gitleaks binary not found. Install: https://github.com/gitleaks/gitleaks",
-          file=sys.stderr)
+    print(
+        "[!] gitleaks binary not found. Install: https://github.com/gitleaks/gitleaks",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
-def run_detect(gitleaks_bin, target, config=None, baseline=None,
-               log_opts=None, no_git=False, verbose=False):
+def run_detect(
+    gitleaks_bin,
+    target,
+    config=None,
+    baseline=None,
+    log_opts=None,
+    no_git=False,
+    verbose=False,
+):
     """Run gitleaks detect on a repository or directory."""
     cmd = [gitleaks_bin, "detect"]
     if no_git:
@@ -55,8 +65,10 @@ def run_detect(gitleaks_bin, target, config=None, baseline=None,
         timeout=600,
     )
     if result.returncode not in (0, 1):
-        print(f"[!] Gitleaks error (exit {result.returncode}): {result.stderr}",
-              file=sys.stderr)
+        print(
+            f"[!] Gitleaks error (exit {result.returncode}): {result.stderr}",
+            file=sys.stderr,
+        )
     return result.stdout, result.stderr, result.returncode
 
 
@@ -95,35 +107,37 @@ def parse_findings(raw_json):
         results = [results]
     for item in results:
         secret_val = item.get("Secret", "")
-        findings.append({
-            "rule_id": item.get("RuleID", "unknown"),
-            "description": item.get("Description", ""),
-            "secret": secret_val[:8] + "..." if secret_val else "",
-            "file": item.get("File", ""),
-            "line": item.get("StartLine", 0),
-            "commit": (item.get("Commit", "") or "")[:12],
-            "author": item.get("Author", ""),
-            "email": item.get("Email", ""),
-            "date": item.get("Date", ""),
-            "message": (item.get("Message", "") or "")[:80],
-            "entropy": item.get("Entropy", 0),
-            "fingerprint": item.get("Fingerprint", ""),
-            "tags": item.get("Tags", []),
-        })
+        findings.append(
+            {
+                "rule_id": item.get("RuleID", "unknown"),
+                "description": item.get("Description", ""),
+                "secret": secret_val[:8] + "..." if secret_val else "",
+                "file": item.get("File", ""),
+                "line": item.get("StartLine", 0),
+                "commit": (item.get("Commit", "") or "")[:12],
+                "author": item.get("Author", ""),
+                "email": item.get("Email", ""),
+                "date": item.get("Date", ""),
+                "message": (item.get("Message", "") or "")[:80],
+                "entropy": item.get("Entropy", 0),
+                "fingerprint": item.get("Fingerprint", ""),
+                "tags": item.get("Tags", []),
+            }
+        )
     return findings
 
 
 def format_summary(findings, target):
     """Print human-readable summary of secrets found."""
-    print(f"\n{'='*60}")
-    print(f"  Gitleaks Secret Scan Report")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  Gitleaks Secret Scan Report")
+    print(f"{'=' * 60}")
     print(f"  Target    : {target}")
     print(f"  Secrets   : {len(findings)}")
 
     if not findings:
-        print(f"  Status    : CLEAN - No secrets detected")
-        print(f"{'='*60}")
+        print("  Status    : CLEAN - No secrets detected")
+        print(f"{'=' * 60}")
         return
 
     by_rule = {}
@@ -131,7 +145,7 @@ def format_summary(findings, target):
         rule = f["rule_id"]
         by_rule.setdefault(rule, []).append(f)
 
-    print(f"\n  Findings by Rule:")
+    print("\n  Findings by Rule:")
     for rule, items in sorted(by_rule.items(), key=lambda x: -len(x[1])):
         print(f"    {rule:40s}: {len(items)} occurrence(s)")
 
@@ -143,27 +157,36 @@ def format_summary(findings, target):
     for filepath, items in sorted(by_file.items(), key=lambda x: -len(x[1]))[:10]:
         print(f"    {filepath} ({len(items)} secret(s))")
 
-    print(f"\n  Top Findings:")
+    print("\n  Top Findings:")
     for f in findings[:15]:
-        print(f"    [{f['rule_id']:30s}] {f['file']}:{f['line']} "
-              f"(commit: {f['commit']}, secret: {f['secret']})")
+        print(
+            f"    [{f['rule_id']:30s}] {f['file']}:{f['line']} "
+            f"(commit: {f['commit']}, secret: {f['secret']})"
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Gitleaks secret scanning agent"
+    parser = argparse.ArgumentParser(description="Gitleaks secret scanning agent")
+    parser.add_argument(
+        "--target", required=True, help="Repository path or directory to scan"
     )
-    parser.add_argument("--target", required=True,
-                        help="Repository path or directory to scan")
-    parser.add_argument("--mode", choices=["detect", "protect"], default="detect",
-                        help="Scan mode: detect (full history) or protect (pre-commit)")
+    parser.add_argument(
+        "--mode",
+        choices=["detect", "protect"],
+        default="detect",
+        help="Scan mode: detect (full history) or protect (pre-commit)",
+    )
     parser.add_argument("--config", help="Path to custom .gitleaks.toml config")
     parser.add_argument("--baseline", help="Path to baseline file for known findings")
-    parser.add_argument("--log-opts", help="Git log options (e.g., '--since=2026-01-01')")
-    parser.add_argument("--no-git", action="store_true",
-                        help="Scan files without git history")
-    parser.add_argument("--staged", action="store_true",
-                        help="Only scan staged changes (protect mode)")
+    parser.add_argument(
+        "--log-opts", help="Git log options (e.g., '--since=2026-01-01')"
+    )
+    parser.add_argument(
+        "--no-git", action="store_true", help="Scan files without git history"
+    )
+    parser.add_argument(
+        "--staged", action="store_true", help="Only scan staged changes (protect mode)"
+    )
     parser.add_argument("--output", "-o", help="Output JSON report path")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
@@ -177,8 +200,13 @@ def main():
         )
     else:
         raw_json, stderr, exit_code = run_detect(
-            gitleaks_bin, args.target, args.config, args.baseline,
-            args.log_opts, args.no_git, args.verbose
+            gitleaks_bin,
+            args.target,
+            args.config,
+            args.baseline,
+            args.log_opts,
+            args.no_git,
+            args.verbose,
         )
 
     findings = parse_findings(raw_json)
@@ -192,9 +220,7 @@ def main():
         "secrets_found": len(findings),
         "findings": findings,
         "risk_level": (
-            "CRITICAL" if len(findings) > 10
-            else "HIGH" if len(findings) > 0
-            else "LOW"
+            "CRITICAL" if len(findings) > 10 else "HIGH" if len(findings) > 0 else "LOW"
         ),
     }
 
@@ -208,7 +234,7 @@ def main():
     if findings:
         print(f"\n[!] {len(findings)} secret(s) detected - remediation required")
     else:
-        print(f"\n[+] No secrets detected")
+        print("\n[+] No secrets detected")
 
 
 if __name__ == "__main__":

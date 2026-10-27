@@ -17,20 +17,30 @@ first network.
 Usage: python3 composeimports.py <compose-file-or-dir> [-o graph.json]
        [--direction TB|LR] [--group]
 """
+
 import argparse
 import json
 import os
 import sys
 
-SERVICE_STYLE = "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
-VOLUME_STYLE = ("shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=15;"
-                "fillColor=#f5f5f5;strokeColor=#666666;")
+SERVICE_STYLE = (
+    "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+)
+VOLUME_STYLE = (
+    "shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=15;"
+    "fillColor=#f5f5f5;strokeColor=#666666;"
+)
 
 
 def find_compose(path):
     if os.path.isfile(path):
         return path
-    for name in ("compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"):
+    for name in (
+        "compose.yaml",
+        "compose.yml",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+    ):
         cand = os.path.join(path, name)
         if os.path.isfile(cand):
             return cand
@@ -44,7 +54,11 @@ def volume_mounts(svc):
             src = v.split(":", 1)[0]
             if src and not src.startswith((".", "/", "~", "$")):
                 yield src
-        elif isinstance(v, dict) and v.get("type", "volume") == "volume" and v.get("source"):
+        elif (
+            isinstance(v, dict)
+            and v.get("type", "volume") == "volume"
+            and v.get("source")
+        ):
             yield v["source"]
 
 
@@ -63,8 +77,11 @@ def main():
     ap.add_argument("path", help="compose file, or directory containing one")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="group services into containers by their first network")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="group services into containers by their first network",
+    )
     args = ap.parse_args()
 
     try:
@@ -82,13 +99,25 @@ def main():
     nodes, edges = [], set()
     for name, svc in services.items():
         svc = svc or {}
-        image = svc.get("image") or ("build: " + str((svc.get("build") or {}).get("context", ".")
-                                                     if isinstance(svc.get("build"), dict)
-                                                     else svc.get("build", ".")))
-        node = {"id": name, "label": f"{name}\n{image}", "style": SERVICE_STYLE,
-                "width": 160, "height": 60}
+        image = svc.get("image") or (
+            "build: "
+            + str(
+                (svc.get("build") or {}).get("context", ".")
+                if isinstance(svc.get("build"), dict)
+                else svc.get("build", ".")
+            )
+        )
+        node = {
+            "id": name,
+            "label": f"{name}\n{image}",
+            "style": SERVICE_STYLE,
+            "width": 160,
+            "height": 60,
+        }
         nets = svc.get("networks")
-        first_net = (sorted(nets)[0] if isinstance(nets, dict) else nets[0]) if nets else None
+        first_net = (
+            (sorted(nets)[0] if isinstance(nets, dict) else nets[0]) if nets else None
+        )
         if args.group and first_net:
             node["group"] = str(first_net)
         nodes.append(node)
@@ -99,11 +128,21 @@ def main():
             if vol in declared_volumes:
                 edges.add((name, f"vol:{vol}"))
     for vol in sorted({t[4:] for _, t in edges if t.startswith("vol:")}):
-        nodes.append({"id": f"vol:{vol}", "label": vol, "style": VOLUME_STYLE,
-                      "width": 120, "height": 70})
+        nodes.append(
+            {
+                "id": f"vol:{vol}",
+                "label": vol,
+                "style": VOLUME_STYLE,
+                "width": 120,
+                "height": 70,
+            }
+        )
 
-    graph = {"direction": args.direction, "nodes": nodes,
-             "edges": [{"source": s, "target": t} for s, t in sorted(edges)]}
+    graph = {
+        "direction": args.direction,
+        "nodes": nodes,
+        "edges": [{"source": s, "target": t} for s, t in sorted(edges)],
+    }
     text = json.dumps(graph, indent=2)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

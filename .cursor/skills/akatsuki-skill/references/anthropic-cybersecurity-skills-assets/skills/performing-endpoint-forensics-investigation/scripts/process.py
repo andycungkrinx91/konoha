@@ -11,7 +11,6 @@ import csv
 import sys
 import os
 from datetime import datetime
-from collections import defaultdict
 
 
 def parse_prefetch_csv(csv_path: str) -> list:

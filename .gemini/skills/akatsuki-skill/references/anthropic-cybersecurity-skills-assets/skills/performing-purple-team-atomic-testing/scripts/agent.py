@@ -18,11 +18,9 @@ Requirements:
 import argparse
 import hashlib
 import json
-import math
 import os
 import re
 import sys
-from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 

@@ -2,7 +2,6 @@
 """Scheduled Task Persistence Detection - Analyzes Windows task creation events for suspicious persistence indicators."""
 
 import json, csv, argparse, datetime, re
-from collections import defaultdict
 from pathlib import Path
 
 SUSPICIOUS_TASK_PATTERNS = {

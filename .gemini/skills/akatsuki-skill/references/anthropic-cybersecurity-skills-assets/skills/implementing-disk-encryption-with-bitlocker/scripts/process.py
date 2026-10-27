@@ -10,7 +10,6 @@ import json
 import subprocess
 import sys
 import os
-import csv
 from datetime import datetime
 
 

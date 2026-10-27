@@ -28,7 +28,7 @@ except ImportError:
     HAS_NETWORKX = False
 
 try:
-    from packaging.version import Version, InvalidVersion
+    from packaging.version import Version
     HAS_PACKAGING = True
 except ImportError:
     HAS_PACKAGING = False

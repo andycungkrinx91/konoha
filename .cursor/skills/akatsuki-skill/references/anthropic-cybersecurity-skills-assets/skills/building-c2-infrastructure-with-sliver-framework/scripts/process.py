@@ -14,7 +14,6 @@ import ssl
 import sys
 import os
 from datetime import datetime
-from pathlib import Path
 
 
 def check_port_open(host: str, port: int, timeout: float = 5.0) -> bool:

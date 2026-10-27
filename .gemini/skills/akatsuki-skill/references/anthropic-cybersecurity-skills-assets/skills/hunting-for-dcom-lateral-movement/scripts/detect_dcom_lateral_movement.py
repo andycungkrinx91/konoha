@@ -19,12 +19,10 @@ import argparse
 import json
 import sys
 import os
-from datetime import datetime, timedelta
-from collections import defaultdict
+from datetime import datetime
 
 try:
     import Evtx.Evtx as evtx
-    import Evtx.Views as evtx_views
     from lxml import etree
 except ImportError:
     print("[!] Required packages not found. Install with: pip install python-evtx lxml")

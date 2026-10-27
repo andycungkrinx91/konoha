@@ -8,8 +8,6 @@ Usage:
     python process.py --scan-file scan-01.csv --authorized-aps authorized.txt --output ./results
 """
 
-import csv
-import json
 import argparse
 import datetime
 from pathlib import Path
@@ -126,12 +124,18 @@ def assess_encryption(aps: list[dict]) -> list[dict]:
     return findings
 
 
-def generate_report(aps: list[dict], clients: list[dict],
-                     rogue_aps: list[dict], findings: list[dict],
-                     output_dir: Path) -> str:
+def generate_report(
+    aps: list[dict],
+    clients: list[dict],
+    rogue_aps: list[dict],
+    findings: list[dict],
+    output_dir: Path,
+) -> str:
     """Generate wireless assessment report."""
     report_file = output_dir / "wireless_assessment_report.md"
-    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%d %H:%M UTC"
+    )
 
     with open(report_file, "w") as f:
         f.write("# Wireless Network Penetration Test Report\n\n")
@@ -145,21 +149,32 @@ def generate_report(aps: list[dict], clients: list[dict],
         f.write("| ESSID | BSSID | Channel | Encryption | Auth | Signal |\n")
         f.write("|-------|-------|---------|-----------|------|--------|\n")
         for ap in aps:
-            f.write(f"| {ap['essid']} | {ap['bssid']} | {ap['channel']} "
-                    f"| {ap['privacy']} | {ap['authentication']} | {ap['power']}dBm |\n")
+            f.write(
+                f"| {ap['essid']} | {ap['bssid']} | {ap['channel']} "
+                f"| {ap['privacy']} | {ap['authentication']} | {ap['power']}dBm |\n"
+            )
         f.write("\n")
 
         if rogue_aps:
             f.write("## Rogue Access Points\n\n")
             f.write(f"**{len(rogue_aps)} unauthorized APs detected**\n\n")
             for rap in rogue_aps:
-                f.write(f"- **{rap['essid']}** ({rap['bssid']}) — Ch {rap['channel']}\n")
+                f.write(
+                    f"- **{rap['essid']}** ({rap['bssid']}) — Ch {rap['channel']}\n"
+                )
             f.write("\n")
 
         f.write("## Security Findings\n\n")
-        for finding in sorted(findings, key=lambda x: {"Critical": 0, "High": 1,
-                                                         "Medium": 2, "Low": 3,
-                                                         "Info": 4}.get(x["severity"], 5)):
+        for finding in sorted(
+            findings,
+            key=lambda x: {
+                "Critical": 0,
+                "High": 1,
+                "Medium": 2,
+                "Low": 3,
+                "Info": 4,
+            }.get(x["severity"], 5),
+        ):
             f.write(f"### [{finding['severity']}] {finding['essid']}\n")
             f.write(f"- BSSID: {finding['bssid']}\n")
             f.write(f"- Issue: {finding['issue']}\n\n")

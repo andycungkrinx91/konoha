@@ -26,6 +26,7 @@ Graphviz (autolayout) and the draw.io CLI — the same tools the importers use.
 Usage: python3 timelapse.py <dir> [--importer NAME] [--importer-args STR]
        [--max-frames N] [-o out.html] [--direction TB|LR] [--keep-frames]
 """
+
 import argparse
 import base64
 import io
@@ -37,8 +38,17 @@ import tarfile
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-IMPORTERS = {"pyimports", "jsimports", "goimports", "rustimports", "pyclasses",
-             "tfimports", "k8simports", "composeimports", "sqlerd"}
+IMPORTERS = {
+    "pyimports",
+    "jsimports",
+    "goimports",
+    "rustimports",
+    "pyclasses",
+    "tfimports",
+    "k8simports",
+    "composeimports",
+    "sqlerd",
+}
 
 
 def git(root, *args):
@@ -71,7 +81,7 @@ def history(root, subpath):
         parts = line.split("\t", 2)
         if len(parts) == 3:
             rows.append(tuple(parts))
-    return list(reversed(rows))                        # oldest first
+    return list(reversed(rows))  # oldest first
 
 
 def extract_tree(root, commit, subpath, dest):
@@ -86,8 +96,8 @@ def extract_tree(root, commit, subpath, dest):
             target_path = os.path.abspath(os.path.join(dest_path, member.name))
             if os.path.commonpath([dest_path, target_path]) == dest_path:
                 safe_members.append(member)
-        if hasattr(tarfile, 'data_filter'):
-            tf.extractall(dest_path, members=safe_members, filter='data')
+        if hasattr(tarfile, "data_filter"):
+            tf.extractall(dest_path, members=safe_members, filter="data")
         else:
             tf.extractall(dest_path, members=safe_members)
     return True
@@ -97,9 +107,16 @@ def build_frame(importer, importer_args, work_path, direction, tmp):
     """Importer -> autolayout -> PNG for one commit. Returns (png_bytes, n, e) or None."""
     graph_json = os.path.join(tmp, "graph.json")
     imp = subprocess.run(
-        [sys.executable, os.path.join(HERE, importer + ".py"), work_path,
-         "-o", graph_json, *importer_args],
-        capture_output=True)
+        [
+            sys.executable,
+            os.path.join(HERE, importer + ".py"),
+            work_path,
+            "-o",
+            graph_json,
+            *importer_args,
+        ],
+        capture_output=True,
+    )
     if imp.returncode != 0 or not os.path.exists(graph_json):
         return None
     graph = json.loads(open(graph_json, encoding="utf-8").read())
@@ -110,12 +127,15 @@ def build_frame(importer, importer_args, work_path, direction, tmp):
     drawio = os.path.join(tmp, "frame.drawio")
     lay = subprocess.run(
         [sys.executable, os.path.join(HERE, "autolayout.py"), graph_json, "-o", drawio],
-        capture_output=True)
+        capture_output=True,
+    )
     if lay.returncode != 0 or not os.path.exists(drawio):
         return None
     png = os.path.join(tmp, "frame.png")
-    exp = subprocess.run(["drawio", "-x", "-f", "png", "--width", "1600",
-                          "-o", png, drawio], capture_output=True)
+    exp = subprocess.run(
+        ["drawio", "-x", "-f", "png", "--width", "1600", "-o", png, drawio],
+        capture_output=True,
+    )
     if exp.returncode != 0 or not os.path.exists(png):
         return None
     return open(png, "rb").read(), len(graph["nodes"]), len(graph["edges"])
@@ -123,9 +143,17 @@ def build_frame(importer, importer_args, work_path, direction, tmp):
 
 def build_html(frames, title):
     """Self-contained HTML player for the frame list."""
-    data = [{"img": "data:image/png;base64," + base64.b64encode(png).decode(),
-             "hash": h[:9], "date": d[:10], "subj": s, "n": n, "e": e}
-            for png, h, d, s, n, e in frames]
+    data = [
+        {
+            "img": "data:image/png;base64," + base64.b64encode(png).decode(),
+            "hash": h[:9],
+            "date": d[:10],
+            "subj": s,
+            "n": n,
+            "e": e,
+        }
+        for png, h, d, s, n, e in frames
+    ]
     peak = max((f["n"] for f in data), default=1) or 1
     payload = json.dumps(data).replace("</", "<\\/")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -199,23 +227,39 @@ show(0);
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Git-history architecture time-lapse -> HTML player.")
+    ap = argparse.ArgumentParser(
+        description="Git-history architecture time-lapse -> HTML player."
+    )
     ap.add_argument("path", help="directory to visualize (inside a git repo)")
-    ap.add_argument("--importer", default="pyimports",
-                    help="bundled importer to run at each commit (default pyimports)")
-    ap.add_argument("--importer-args", default="",
-                    help="extra args passed to the importer, e.g. \"--group\"")
-    ap.add_argument("--max-frames", type=int, default=10, help="sample down to N commits")
+    ap.add_argument(
+        "--importer",
+        default="pyimports",
+        help="bundled importer to run at each commit (default pyimports)",
+    )
+    ap.add_argument(
+        "--importer-args",
+        default="",
+        help='extra args passed to the importer, e.g. "--group"',
+    )
+    ap.add_argument(
+        "--max-frames", type=int, default=10, help="sample down to N commits"
+    )
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
     ap.add_argument("-o", "--output", default="architecture-evolution.html")
-    ap.add_argument("--keep-frames", action="store_true",
-                    help="also write the PNG frames next to the HTML")
+    ap.add_argument(
+        "--keep-frames",
+        action="store_true",
+        help="also write the PNG frames next to the HTML",
+    )
     args = ap.parse_args()
 
     importer = args.importer[:-3] if args.importer.endswith(".py") else args.importer
     if importer not in IMPORTERS:
-        sys.exit(f"error: unknown importer {importer!r} (choose one of: "
-                 + ", ".join(sorted(IMPORTERS)) + ")")
+        sys.exit(
+            f"error: unknown importer {importer!r} (choose one of: "
+            + ", ".join(sorted(IMPORTERS))
+            + ")"
+        )
     if not os.path.isdir(args.path):
         sys.exit(f"error: {args.path} is not a directory")
     code, top = git(args.path, "rev-parse", "--show-toplevel")

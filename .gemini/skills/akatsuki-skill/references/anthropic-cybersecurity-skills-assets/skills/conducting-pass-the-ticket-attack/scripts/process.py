@@ -19,17 +19,13 @@ Requirements:
 """
 
 import argparse
-import base64
 import json
-import struct
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 try:
     from rich.console import Console
-    from rich.table import Table
     from rich.panel import Panel
 except ImportError:
     print("[!] Missing dependencies. Install with: pip install rich")
@@ -182,7 +178,6 @@ def convert_ticket(input_path: str, output_path: str):
     """Convert between ticket formats (kirbi <-> ccache)."""
     try:
         from impacket.krb5.ccache import CCache
-        from impacket.krb5 import constants
 
         if input_path.endswith(".kirbi") and output_path.endswith(".ccache"):
             ccache = CCache.loadKirbiFile(input_path)

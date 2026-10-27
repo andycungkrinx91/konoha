@@ -22,6 +22,7 @@ edge. Heredoc bodies with unbalanced braces are the one known parse limit.
 Usage: python3 tfimports.py <dir-or-file.tf> [-o graph.json]
        [--direction TB|LR] [--group] [--no-reduce] [--no-icons]
 """
+
 import argparse
 import glob
 import importlib.util
@@ -94,7 +95,9 @@ QUERY_OVERRIDES = {
 }
 
 _COMMENT = re.compile(r"/\*.*?\*/|(?:#|//)[^\n]*", re.S)
-_BLOCK = re.compile(r'^[ \t]*(resource|module)[ \t]+"([\w.-]+)"(?:[ \t]+"([\w.-]+)")?[ \t]*\{', re.M)
+_BLOCK = re.compile(
+    r'^[ \t]*(resource|module)[ \t]+"([\w.-]+)"(?:[ \t]+"([\w.-]+)")?[ \t]*\{', re.M
+)
 _REF = re.compile(r"\b([a-z][a-z0-9_]*\.[A-Za-z_][A-Za-z0-9_-]*)")
 
 
@@ -109,7 +112,7 @@ def parse_blocks(text):
             elif text[i] == "}":
                 depth -= 1
             i += 1
-        yield m.group(1), m.group(2), m.group(3), text[m.end():i - 1]
+        yield m.group(1), m.group(2), m.group(3), text[m.end() : i - 1]
 
 
 def load_shapesearch():
@@ -125,6 +128,7 @@ class IconResolver:
 
     def __init__(self):
         import gzip
+
         self.ss = load_shapesearch()
         with gzip.open(self.ss.INDEX, "rt", encoding="utf-8") as f:
             self.shapes = json.load(f)
@@ -153,19 +157,27 @@ class IconResolver:
         hit = None
         if provider in PROVIDERS:
             prefix, want = PROVIDERS[provider]
-            words = (QUERY_OVERRIDES.get(rtype) or
-                     f"{prefix} {rtype.split('_', 1)[1].replace('_', ' ')}").split()
+            words = (
+                QUERY_OVERRIDES.get(rtype)
+                or f"{prefix} {rtype.split('_', 1)[1].replace('_', ' ')}"
+            ).split()
             # Back off one trailing word at a time: "aws lambda event source
             # mapping" eventually matches on "aws lambda".
             while len(words) > 1 and hit is None:
                 allowed = self._and_styles(words)
-                good = [r for r in
-                        self.ss.search(self.shapes, self.tag_map, " ".join(words), 40)
-                        if r["style"] in allowed and want(r["style"])
-                        and "group" not in r["style"].lower()]
+                good = [
+                    r
+                    for r in self.ss.search(
+                        self.shapes, self.tag_map, " ".join(words), 40
+                    )
+                    if r["style"] in allowed
+                    and want(r["style"])
+                    and "group" not in r["style"].lower()
+                ]
                 # Prefer aws4 service icons (resIcon=) over scenario glyphs.
-                hit = next((r for r in good if "resIcon=" in r["style"]), None) or \
-                      (good[0] if good else None)
+                hit = next((r for r in good if "resIcon=" in r["style"]), None) or (
+                    good[0] if good else None
+                )
                 words = words[:-1]
         if hit and max(hit["w"], hit["h"]) < 44:
             # Some sets (GCP) ship tiny nominal sizes; scale up so the icon
@@ -181,30 +193,47 @@ def transitive_reduce(nodes, edges):
     idx = {n: i for i, n in enumerate(nodes)}
     dot = "digraph{" + "".join(f"{idx[s]}->{idx[t]};" for s, t in edges) + "}"
     try:
-        out = subprocess.run(["tred"], input=dot, capture_output=True,
-                             text=True, check=True).stdout
+        out = subprocess.run(
+            ["tred"], input=dot, capture_output=True, text=True, check=True
+        ).stdout
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"warning: tred unavailable, keeping all edges ({exc})\n")
         return edges
     rev = {i: n for n, i in idx.items()}
-    return [(rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)]
+    return [
+        (rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)
+    ]
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Terraform resource graph -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Terraform resource graph -> autolayout graph JSON."
+    )
     ap.add_argument("path", help=".tf file or directory containing .tf files")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="group resources into containers by service (aws_s3_* -> s3)")
-    ap.add_argument("--no-reduce", action="store_true",
-                    help="keep every edge (skip transitive reduction)")
-    ap.add_argument("--no-icons", action="store_true",
-                    help="plain boxes instead of official cloud icons")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="group resources into containers by service (aws_s3_* -> s3)",
+    )
+    ap.add_argument(
+        "--no-reduce",
+        action="store_true",
+        help="keep every edge (skip transitive reduction)",
+    )
+    ap.add_argument(
+        "--no-icons",
+        action="store_true",
+        help="plain boxes instead of official cloud icons",
+    )
     args = ap.parse_args()
 
-    files = ([args.path] if os.path.isfile(args.path)
-             else sorted(glob.glob(os.path.join(args.path, "**", "*.tf"), recursive=True)))
+    files = (
+        [args.path]
+        if os.path.isfile(args.path)
+        else sorted(glob.glob(os.path.join(args.path, "**", "*.tf"), recursive=True))
+    )
     blocks = []
     for path in files:
         with open(path, encoding="utf-8") as f:
@@ -212,13 +241,19 @@ def main():
     if not blocks:
         sys.exit(f"error: no resource/module blocks found under {args.path}")
 
-    declared = {}                                    # node id -> (rtype or None, name, body)
+    declared = {}  # node id -> (rtype or None, name, body)
     for kind, l1, l2, body in blocks:
         nid = f"{l1}.{l2}" if kind == "resource" else f"module.{l1}"
         declared[nid] = (l1 if kind == "resource" else None, l2 or l1, body)
 
-    edges = sorted({(nid, ref) for nid, (_, _, body) in declared.items()
-                    for ref in _REF.findall(body) if ref in declared and ref != nid})
+    edges = sorted(
+        {
+            (nid, ref)
+            for nid, (_, _, body) in declared.items()
+            for ref in _REF.findall(body)
+            if ref in declared and ref != nid
+        }
+    )
     raw = len(edges)
     if not args.no_reduce:
         edges = transitive_reduce(list(declared), edges)
@@ -240,8 +275,11 @@ def main():
             node["group"] = rtype.split("_")[1]
         nodes.append(node)
 
-    graph = {"direction": args.direction, "nodes": nodes,
-             "edges": [{"source": s, "target": t} for s, t in edges]}
+    graph = {
+        "direction": args.direction,
+        "nodes": nodes,
+        "edges": [{"source": s, "target": t} for s, t in edges],
+    }
     if resolver:
         # Icon labels render below the shape — reserve extra layout spacing.
         graph.update(ranksep=0.7, nodesep=0.6)

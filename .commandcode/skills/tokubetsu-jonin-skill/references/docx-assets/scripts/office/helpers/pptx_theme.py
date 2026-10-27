@@ -4,7 +4,6 @@ Reports only; the fix is to move <p:notesMasterIdLst> back to directly after
 <p:sldIdLst> in ppt/presentation.xml.
 """
 
-
 from __future__ import annotations
 
 import posixpath
@@ -13,7 +12,9 @@ from typing import Mapping
 
 from . import part_text
 
-THEME_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"
+THEME_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"
+)
 
 _MASTER_RE = re.compile(
     r"^ppt/(?P<group>slideMasters|notesMasters|handoutMasters)/"
@@ -87,7 +88,7 @@ def _shares(files: Mapping[str, bytes]):
             continue
         rels_path, element, theme = found
         if theme not in files:
-            continue  
+            continue
         if theme in owner:
             yield master, rels_path, element, theme, owner[theme]
         else:

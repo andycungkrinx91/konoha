@@ -20,7 +20,6 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import grpc
     HAS_GRPC = True
 except ImportError:
     HAS_GRPC = False

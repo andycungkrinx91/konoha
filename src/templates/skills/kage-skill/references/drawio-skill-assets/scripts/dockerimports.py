@@ -19,14 +19,19 @@ by their compose project (falling back to their first user network).
 Usage: docker inspect $(docker ps -q) | python3 dockerimports.py - [-o graph.json]
        [--direction TB|LR] [--group]
 """
+
 import argparse
 import json
 import sys
 
-CONTAINER_STYLE = "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+CONTAINER_STYLE = (
+    "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+)
 NETWORK_STYLE = "ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
-VOLUME_STYLE = ("shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=15;"
-                "fillColor=#f5f5f5;strokeColor=#666666;")
+VOLUME_STYLE = (
+    "shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=15;"
+    "fillColor=#f5f5f5;strokeColor=#666666;"
+)
 # Docker's built-in networks are topology noise — a compose stack's own
 # networks are what tell the architecture story.
 BUILTIN_NETS = {"bridge", "host", "none", "ingress"}
@@ -53,7 +58,9 @@ def links_of(obj):
 
 def depends_on(obj):
     """Compose service names this container depends on (label form)."""
-    label = (obj.get("Config") or {}).get("Labels", {}).get("com.docker.compose.depends_on")
+    label = (
+        (obj.get("Config") or {}).get("Labels", {}).get("com.docker.compose.depends_on")
+    )
     if not label:
         return set()
     # "db:service_healthy:false,cache:service_started:false" -> {db, cache}
@@ -61,15 +68,24 @@ def depends_on(obj):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="`docker inspect` output -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="`docker inspect` output -> autolayout graph JSON."
+    )
     ap.add_argument("input", help="`docker inspect` JSON file, or - for stdin")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="group containers by compose project (else first network)")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="group containers by compose project (else first network)",
+    )
     args = ap.parse_args()
 
-    text = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
+    text = (
+        sys.stdin.read()
+        if args.input == "-"
+        else open(args.input, encoding="utf-8").read()
+    )
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -84,7 +100,9 @@ def main():
     # services) can resolve to the real container node.
     svc_to_name = {}
     for c in containers:
-        svc = (c.get("Config") or {}).get("Labels", {}).get("com.docker.compose.service")
+        svc = (
+            (c.get("Config") or {}).get("Labels", {}).get("com.docker.compose.service")
+        )
         if svc:
             svc_to_name[svc] = cname(c)
 
@@ -93,11 +111,19 @@ def main():
         name = cname(c)
         image = (c.get("Config") or {}).get("Image") or "?"
         labels = (c.get("Config") or {}).get("Labels", {}) or {}
-        node = {"id": name, "label": f"{name}\n{image}", "style": CONTAINER_STYLE,
-                "width": 160, "height": 60}
+        node = {
+            "id": name,
+            "label": f"{name}\n{image}",
+            "style": CONTAINER_STYLE,
+            "width": 160,
+            "height": 60,
+        }
 
-        attached = [n for n in ((c.get("NetworkSettings") or {}).get("Networks") or {})
-                    if n not in BUILTIN_NETS]
+        attached = [
+            n
+            for n in ((c.get("NetworkSettings") or {}).get("Networks") or {})
+            if n not in BUILTIN_NETS
+        ]
         if args.group:
             project = labels.get("com.docker.compose.project")
             grp = project or (attached[0] if attached else None)
@@ -121,14 +147,31 @@ def main():
                 edges.add((name, target))
 
     for net in sorted(nets):
-        nodes.append({"id": f"net:{net}", "label": net, "style": NETWORK_STYLE,
-                      "width": 120, "height": 70})
+        nodes.append(
+            {
+                "id": f"net:{net}",
+                "label": net,
+                "style": NETWORK_STYLE,
+                "width": 120,
+                "height": 70,
+            }
+        )
     for vol in sorted(vols):
-        nodes.append({"id": f"vol:{vol}", "label": vol, "style": VOLUME_STYLE,
-                      "width": 120, "height": 70})
+        nodes.append(
+            {
+                "id": f"vol:{vol}",
+                "label": vol,
+                "style": VOLUME_STYLE,
+                "width": 120,
+                "height": 70,
+            }
+        )
 
-    graph = {"direction": args.direction, "nodes": nodes,
-             "edges": [{"source": s, "target": t} for s, t in sorted(edges)]}
+    graph = {
+        "direction": args.direction,
+        "nodes": nodes,
+        "edges": [{"source": s, "target": t} for s, t in sorted(edges)],
+    }
     out = json.dumps(graph, indent=2)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
@@ -136,8 +179,10 @@ def main():
         sys.stderr.write(f"wrote {args.output}\n")
     else:
         sys.stdout.write(out)
-    sys.stderr.write(f"{len(nodes)} nodes ({len(containers)} containers, "
-                     f"{len(nets)} networks, {len(vols)} volumes), {len(edges)} edges\n")
+    sys.stderr.write(
+        f"{len(nodes)} nodes ({len(containers)} containers, "
+        f"{len(nets)} networks, {len(vols)} volumes), {len(edges)} edges\n"
+    )
 
 
 if __name__ == "__main__":

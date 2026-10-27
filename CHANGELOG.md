@@ -2,6 +2,20 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.11] - 2026-10-27
+
+### Akatsuki Red-Team Professionalization, Multi-Hypervisor Sandbox, Chunin Recon & Standard PDF Report
+
+- **Never-Decline Red-Team Execution Mode**: Mode `red` (`konoha akatsuki mode red` or `KONOHA_AKATSUKI_MODE=red`) constitutes standing operator authorization across all clients. Red-team pentest operations never decline when red mode is active, defaulting missing scope safely to in-sandbox loopback (`127.0.0.1`) self-assessment.
+- **Multi-Hypervisor Lab Initialization (`akatsuki_init`)**: Added canonical `akatsuki_init` MCP tool and CLI command (`konoha akatsuki init [--engine auto|docker|lxc|both] [--profile minimal|standard]`) that auto-detects Docker and LXC, setting up both hypervisors simultaneously when both are installed.
+- **Chunin Passive Threat Intelligence & Recon Phase**: Integrated `@chunin` directly into Phase 3 of the offensive workflow, querying persistent Chunin knowledge, formulating PTES methodology directives, and mapping attack operations to MITRE ATT&CK for Enterprise and OWASP Top 10.
+- **Tokubetsu-Jonin Standard Red-Team PDF Report**: Added `src/akatsuki_report.js` generating publication-grade 8-section PDF reports (executive summary, RoE boundary proof, ATT&CK mapping, findings CVSS table, tool inventory, teardown confirmation, command ledger) via the native document engine.
+- **SQLite-Backed Kali Linux Tool Catalog (360+ Tools)**: Extracted and cataloged 360+ Kali Linux packages from `kali.org/tools` into `kali_tools.json` and SQLite table `kali_tools` with automated database seeding for instant zero-I/O querying.
+- **Unrestricted Tool Capabilities & 3600s Timeout Cap**: Unlocked all operations across curated profiles (`allowed_operations: ['*', 'all_operations', ...]`, `blocked_operations: []`) with an extended 3600s execution timeout cap that returns immediately upon task finish without unnecessary waiting.
+- **Container-Side Provisioning & Cross-Platform Hardening**: Migrated host-side bash provisioning into container-side execution, enabling safe execution on Windows/macOS with Docker and Docker/LXC auto-detection on Linux.
+- **Curated Offensive Toolchain Parity**: Expanded curated tool profiles to 18 tools including `whatweb`, `httpx`, `katana`, `feroxbuster`, `nikto`, `wpscan`, `droopescan`, and `searchsploit` with professional command arguments.
+- **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.11` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all 12 client template contracts.
+
 ## [2.2.10] - 2026-10-27
 
 ### Supply-Chain Hardening, Edge Script Excision, SheetJS CF Seed Neutralization, hash-js Replacement & Socket.dev Policy

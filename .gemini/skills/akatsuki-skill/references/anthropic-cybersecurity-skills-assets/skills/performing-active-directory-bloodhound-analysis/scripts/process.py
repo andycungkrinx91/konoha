@@ -12,7 +12,6 @@ import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

@@ -6,7 +6,6 @@ Analyzes alert data to identify false positive patterns,
 recommend tuning actions, and track FP reduction metrics.
 """
 
-import json
 from datetime import datetime
 from collections import Counter
 

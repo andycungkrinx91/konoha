@@ -68,6 +68,7 @@ def validate_redirector(args):
     try:
         import requests
         from urllib3.exceptions import InsecureRequestWarning
+
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     except ImportError:
         sys.exit("[!] pip install requests for --validate")
@@ -77,19 +78,39 @@ def validate_redirector(args):
 
     # 1. Non-matching request should be diverted (302/redirect to decoy)
     r1 = requests.get(base + "/", allow_redirects=False, verify=False, timeout=15)
-    diverted = r1.status_code in (301, 302) and args.decoy.rstrip("/") in \
-        r1.headers.get("Location", "")
-    report["results"].append({"check": "non_c2_diverted", "status": r1.status_code,
-                              "location": r1.headers.get("Location"), "pass": diverted})
+    diverted = r1.status_code in (301, 302) and args.decoy.rstrip(
+        "/"
+    ) in r1.headers.get("Location", "")
+    report["results"].append(
+        {
+            "check": "non_c2_diverted",
+            "status": r1.status_code,
+            "location": r1.headers.get("Location"),
+            "pass": diverted,
+        }
+    )
 
     # 2. Matching request (correct UA + C2 URI) should be proxied (not 302-decoy)
     c2_path = "/" + args.uri[0].strip().lstrip("/").split("|")[0]
-    r2 = requests.get(base + c2_path, headers={"User-Agent": args.user_agent},
-                      allow_redirects=False, verify=False, timeout=15)
-    proxied = not (r2.status_code in (301, 302) and
-                   args.decoy.rstrip("/") in r2.headers.get("Location", ""))
-    report["results"].append({"check": "c2_proxied", "path": c2_path,
-                              "status": r2.status_code, "pass": proxied})
+    r2 = requests.get(
+        base + c2_path,
+        headers={"User-Agent": args.user_agent},
+        allow_redirects=False,
+        verify=False,
+        timeout=15,
+    )
+    proxied = not (
+        r2.status_code in (301, 302)
+        and args.decoy.rstrip("/") in r2.headers.get("Location", "")
+    )
+    report["results"].append(
+        {
+            "check": "c2_proxied",
+            "path": c2_path,
+            "status": r2.status_code,
+            "pass": proxied,
+        }
+    )
 
     print(json.dumps(report, indent=2))
     return all(x["pass"] for x in report["results"])
@@ -101,9 +122,13 @@ def main():
 
     g = sub.add_parser("generate", help="Generate an nginx redirector config")
     g.add_argument("--domain", required=True, help="Public redirector domain")
-    g.add_argument("--teamserver", required=True, help="https://team-server backend URL")
+    g.add_argument(
+        "--teamserver", required=True, help="https://team-server backend URL"
+    )
     g.add_argument("--decoy", required=True, help="Decoy site URL for non-C2 traffic")
-    g.add_argument("--uri", required=True, nargs="+", help="C2 URI patterns (no leading /)")
+    g.add_argument(
+        "--uri", required=True, nargs="+", help="C2 URI patterns (no leading /)"
+    )
     g.add_argument("--user-agent", required=True, help="Implant User-Agent string")
     g.add_argument("--output", help="Write config to file")
 

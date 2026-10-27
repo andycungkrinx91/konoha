@@ -13,10 +13,9 @@ import sys
 from datetime import datetime, timezone
 
 try:
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa, padding
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.backends import default_backend
-    from cryptography.x509 import load_pem_x509_certificate
     HAS_CRYPTO = True
 except ImportError:
     HAS_CRYPTO = False

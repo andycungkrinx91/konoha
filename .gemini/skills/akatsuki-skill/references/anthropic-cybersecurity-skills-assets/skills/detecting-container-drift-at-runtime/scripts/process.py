@@ -11,7 +11,6 @@ import subprocess
 import sys
 import argparse
 from datetime import datetime
-from collections import defaultdict
 
 
 def run_command(cmd: list[str], timeout: int = 30) -> str:

@@ -9,6 +9,7 @@ Subcommands:
   parse     - Parse a Promptfoo results.json and report attack-success-rate per
               plugin, returning non-zero if any rate exceeds a threshold (CI gate).
 """
+
 import argparse
 import json
 import shutil
@@ -40,8 +41,9 @@ redteam:
 
 
 def cmd_scaffold(args):
-    cfg = STARTER_CONFIG.format(target=args.target, purpose=args.purpose,
-                                num_tests=args.num_tests)
+    cfg = STARTER_CONFIG.format(
+        target=args.target, purpose=args.purpose, num_tests=args.num_tests
+    )
     with open(args.out, "w", encoding="utf-8") as fh:
         fh.write(cfg)
     print(f"[+] wrote {args.out} targeting {args.target}")
@@ -51,7 +53,10 @@ def cmd_scaffold(args):
 
 def cmd_run(args):
     if shutil.which("promptfoo") is None:
-        print("[!] promptfoo not found. Install: npm install -g promptfoo", file=sys.stderr)
+        print(
+            "[!] promptfoo not found. Install: npm install -g promptfoo",
+            file=sys.stderr,
+        )
         return 1
     cmd = ["promptfoo", "redteam", "run", "-c", args.config, "--no-progress-bar"]
     if args.output:
@@ -77,8 +82,12 @@ def _walk_results(data):
         return
     for r in rows:
         meta = r.get("metadata", {}) or {}
-        plugin = (meta.get("pluginId") or meta.get("plugin")
-                  or r.get("vars", {}).get("pluginId") or "unknown")
+        plugin = (
+            meta.get("pluginId")
+            or meta.get("plugin")
+            or r.get("vars", {}).get("pluginId")
+            or "unknown"
+        )
         passed = bool(r.get("success", r.get("pass", False)))
         yield plugin, passed
 
@@ -90,7 +99,7 @@ def cmd_parse(args):
     for plugin, passed in _walk_results(data):
         a = agg.setdefault(plugin, {"total": 0, "attack_success": 0})
         a["total"] += 1
-        if not passed:                       # a failed assertion == successful attack
+        if not passed:  # a failed assertion == successful attack
             a["attack_success"] += 1
     if not agg:
         print("[!] no parseable results found", file=sys.stderr)
@@ -106,8 +115,10 @@ def cmd_parse(args):
         print(f"{plugin:<32} {a['total']:>6} {asr:>6.0%}{flag}")
 
     if breached:
-        print(f"\n[FAIL] {len(breached)} plugin(s) exceed ASR {args.max_asr:.0%}: "
-              + ", ".join(breached))
+        print(
+            f"\n[FAIL] {len(breached)} plugin(s) exceed ASR {args.max_asr:.0%}: "
+            + ", ".join(breached)
+        )
         return 2
     print(f"\n[PASS] all plugins within ASR threshold {args.max_asr:.0%}")
     return 0
@@ -118,7 +129,9 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("scaffold", help="write a starter promptfooconfig.yaml")
-    s.add_argument("--target", required=True, help="endpoint or provider id, e.g. openai:gpt-4o")
+    s.add_argument(
+        "--target", required=True, help="endpoint or provider id, e.g. openai:gpt-4o"
+    )
     s.add_argument("--purpose", default="Describe the application under test.")
     s.add_argument("--num-tests", type=int, default=10)
     s.add_argument("--out", default="promptfooconfig.yaml")
@@ -130,10 +143,16 @@ def main():
     r.add_argument("--timeout", type=int, default=3600)
     r.set_defaults(func=cmd_run)
 
-    pa = sub.add_parser("parse", help="parse results.json and gate on attack-success-rate")
+    pa = sub.add_parser(
+        "parse", help="parse results.json and gate on attack-success-rate"
+    )
     pa.add_argument("--results", required=True)
-    pa.add_argument("--max-asr", type=float, default=0.0,
-                    help="max allowed attack-success-rate per plugin (0.0 = zero tolerance)")
+    pa.add_argument(
+        "--max-asr",
+        type=float,
+        default=0.0,
+        help="max allowed attack-success-rate per plugin (0.0 = zero tolerance)",
+    )
     pa.set_defaults(func=cmd_parse)
 
     args = p.parse_args()

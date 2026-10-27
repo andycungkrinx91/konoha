@@ -16,6 +16,7 @@ References:
   - AADInternals  https://aadinternals.com/aadinternals/
   - getuserrealm  https://login.microsoftonline.com/getuserrealm.srf
 """
+
 import argparse
 import json
 import shutil
@@ -34,7 +35,10 @@ def _get_json(url: str) -> dict:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
-        return {"_error": f"HTTP {e.code}", "_body": e.read().decode(errors="replace")[:200]}
+        return {
+            "_error": f"HTTP {e.code}",
+            "_body": e.read().decode(errors="replace")[:200],
+        }
     except urllib.error.URLError as e:
         return {"_error": str(e.reason)}
 
@@ -42,8 +46,11 @@ def _get_json(url: str) -> dict:
 def get_user_realm(domain: str) -> dict:
     """Mirror AADInternals: getuserrealm.srf reveals managed vs federated + auth URL."""
     user = f"nn@{domain}"
-    url = ("https://login.microsoftonline.com/getuserrealm.srf?login="
-           + urllib.parse.quote(user) + "&xml=0")
+    url = (
+        "https://login.microsoftonline.com/getuserrealm.srf?login="
+        + urllib.parse.quote(user)
+        + "&xml=0"
+    )
     return _get_json(url)
 
 
@@ -65,8 +72,12 @@ def recon(args) -> int:
         print(f"[!] getuserrealm failed: {realm['_error']}", file=sys.stderr)
     else:
         ns = realm.get("NameSpaceType", "Unknown")
-        print(f"    NameSpaceType  : {ns}  ({'Federated' if ns=='Federated' else 'Managed/cloud'})")
-        print(f"    Brand          : {realm.get('FederationBrandName') or realm.get('DomainName')}")
+        print(
+            f"    NameSpaceType  : {ns}  ({'Federated' if ns == 'Federated' else 'Managed/cloud'})"
+        )
+        print(
+            f"    Brand          : {realm.get('FederationBrandName') or realm.get('DomainName')}"
+        )
         if realm.get("AuthURL"):
             print(f"    Federation Auth: {realm['AuthURL']}")
         if realm.get("federation_protocol"):
@@ -90,14 +101,17 @@ def run_cmdlet(args) -> int:
     script = f"Import-Module AADInternals; {cmdlet}{extra}"
     print(f"[*] {shell} -> {script}")
     try:
-        return subprocess.run([shell, "-NoProfile", "-Command", script],
-                              check=False).returncode
+        return subprocess.run(
+            [shell, "-NoProfile", "-Command", script], check=False
+        ).returncode
     except KeyboardInterrupt:
         return 130
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Entra outsider recon + AADInternals launcher.")
+    p = argparse.ArgumentParser(
+        description="Entra outsider recon + AADInternals launcher."
+    )
     sub = p.add_subparsers(dest="mode", required=True)
 
     r = sub.add_parser("recon", help="Unauthenticated outsider recon (pure Python)")
@@ -107,8 +121,11 @@ def main() -> int:
 
     c = sub.add_parser("run", help="Run an AADInternals cmdlet via PowerShell")
     c.add_argument("cmdlet", help="Cmdlet name, e.g. Get-AADIntAccessTokenForMSGraph")
-    c.add_argument("args", nargs=argparse.REMAINDER,
-                   help="Extra args passed verbatim (e.g. -SaveToCache)")
+    c.add_argument(
+        "args",
+        nargs=argparse.REMAINDER,
+        help="Extra args passed verbatim (e.g. -SaveToCache)",
+    )
     c.set_defaults(func=run_cmdlet)
 
     args = p.parse_args()

@@ -11,6 +11,7 @@ References:
   https://github.com/anchore/grype
   https://github.com/sigstore/cosign
 """
+
 import argparse
 import json
 import shutil
@@ -74,8 +75,7 @@ def summarize(grype_json_text):
         return Counter()
     counts = Counter()
     for match in data.get("matches", []):
-        sev = (match.get("vulnerability", {})
-                    .get("severity", "Unknown")).lower()
+        sev = (match.get("vulnerability", {}).get("severity", "Unknown")).lower()
         counts[sev] += 1
     return counts
 
@@ -133,8 +133,9 @@ def main():
         return syft_generate(args.source, args.format, args.out, args.dry_run)
 
     if args.cmd == "scan":
-        rc, out = grype_scan(args.sbom, args.out, args.fail_on,
-                             args.only_fixed, args.dry_run)
+        rc, out = grype_scan(
+            args.sbom, args.out, args.fail_on, args.only_fixed, args.dry_run
+        )
         if out:
             print_summary(summarize(out))
         return rc
@@ -144,13 +145,19 @@ def main():
         if rc not in (0,) and not args.dry_run:
             print("[!] SBOM generation failed", file=sys.stderr)
             return rc
-        scan_rc, out = grype_scan(args.sbom_out, args.vulns_out, args.fail_on,
-                                  args.only_fixed, args.dry_run)
+        scan_rc, out = grype_scan(
+            args.sbom_out, args.vulns_out, args.fail_on, args.only_fixed, args.dry_run
+        )
         if out:
             print_summary(summarize(out))
         if args.attest_image:
-            cosign_attest(args.attest_image, args.sbom_out, args.attest_type,
-                          args.cosign_key, args.dry_run)
+            cosign_attest(
+                args.attest_image,
+                args.sbom_out,
+                args.attest_type,
+                args.cosign_key,
+                args.dry_run,
+            )
         return scan_rc
     return 2
 

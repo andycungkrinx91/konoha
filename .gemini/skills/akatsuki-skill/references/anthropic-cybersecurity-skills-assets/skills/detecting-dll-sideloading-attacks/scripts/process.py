@@ -10,7 +10,6 @@ import csv
 import argparse
 import datetime
 import re
-from collections import defaultdict
 from pathlib import Path
 
 KNOWN_SIDELOAD_TARGETS = {

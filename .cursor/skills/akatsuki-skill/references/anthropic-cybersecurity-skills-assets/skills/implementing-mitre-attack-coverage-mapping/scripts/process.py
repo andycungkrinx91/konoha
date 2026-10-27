@@ -6,7 +6,6 @@ Builds and analyzes detection coverage maps against the
 MITRE ATT&CK framework for SOC detection gap analysis.
 """
 
-import json
 from datetime import datetime
 
 

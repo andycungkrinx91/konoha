@@ -9,7 +9,6 @@ and generates actionable reports.
 import subprocess
 import json
 import sys
-import os
 import argparse
 from datetime import datetime
 from dataclasses import dataclass, field

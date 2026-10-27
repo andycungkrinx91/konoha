@@ -15,7 +15,6 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
 
 
 # Component templates
@@ -83,7 +82,6 @@ export function use{name}(options: Use{name}Options = {{}}): Use{name}Return {{
 ''',
 
     "test": '''import {{ render, screen }} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import {{ {name} }} from './{name}';
 
 describe('{name}', () => {{

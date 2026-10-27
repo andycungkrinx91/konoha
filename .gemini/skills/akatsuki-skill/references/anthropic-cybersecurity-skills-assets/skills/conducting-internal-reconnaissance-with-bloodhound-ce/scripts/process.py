@@ -10,7 +10,6 @@ import json
 import sys
 import os
 from datetime import datetime
-from collections import defaultdict
 
 
 def load_bloodhound_data(filepath: str) -> dict:

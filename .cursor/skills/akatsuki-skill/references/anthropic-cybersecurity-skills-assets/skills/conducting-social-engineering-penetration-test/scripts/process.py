@@ -10,11 +10,9 @@ Usage:
 """
 
 import json
-import csv
 import argparse
 import datetime
 from pathlib import Path
-from typing import Optional
 
 try:
     import requests

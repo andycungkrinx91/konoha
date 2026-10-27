@@ -10,9 +10,7 @@ import json
 import subprocess
 import sys
 import argparse
-import ssl
-import socket
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 

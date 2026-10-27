@@ -42,6 +42,7 @@ ACCESS_POINTS = {"system": 4, "network": 3, "physical": 2, "none": 0}
 CRIT_POINTS = {"high": 4, "medium": 2, "low": 1}
 INTEG_POINTS = {"deep": 2, "moderate": 1, "none": 0}
 
+
 # tier thresholds on total inherent score (max ~17)
 def tier_for(score):
     if score >= 13:
@@ -52,34 +53,57 @@ def tier_for(score):
         return "Moderate"
     return "Low"
 
+
 # per-tier expectations
 TIER_PLAYBOOK = {
     "Critical": {
         "depth": "Full SIG + SOC 2 Type II (12-month period) + ISO 27001 + recent pen-test + assessor call",
         "cadence": "Reassess annually; continuous security-ratings monitoring",
-        "require": {"sig": ("full", "core"), "soc2_type": ("II",), "iso27001": True, "pentest_max_months": 12},
+        "require": {
+            "sig": ("full", "core"),
+            "soc2_type": ("II",),
+            "iso27001": True,
+            "pentest_max_months": 12,
+        },
     },
     "High": {
         "depth": "SIG Core + SOC 2 Type II + pen-test summary",
         "cadence": "Reassess annually",
-        "require": {"sig": ("full", "core"), "soc2_type": ("II",), "iso27001": False, "pentest_max_months": 18},
+        "require": {
+            "sig": ("full", "core"),
+            "soc2_type": ("II",),
+            "iso27001": False,
+            "pentest_max_months": 18,
+        },
     },
     "Moderate": {
         "depth": "SIG Lite or CAIQ + key attestations",
         "cadence": "Reassess every 2 years",
-        "require": {"sig": ("full", "core", "lite", "caiq"), "soc2_type": ("II", "I"), "iso27001": False, "pentest_max_months": None},
+        "require": {
+            "sig": ("full", "core", "lite", "caiq"),
+            "soc2_type": ("II", "I"),
+            "iso27001": False,
+            "pentest_max_months": None,
+        },
     },
     "Low": {
         "depth": "Lightweight questionnaire / self-attestation",
         "cadence": "Reassess every 3 years or on change",
-        "require": {"sig": ("full", "core", "lite", "caiq", "none"), "soc2_type": ("II", "I", "none"), "iso27001": False, "pentest_max_months": None},
+        "require": {
+            "sig": ("full", "core", "lite", "caiq", "none"),
+            "soc2_type": ("II", "I", "none"),
+            "iso27001": False,
+            "pentest_max_months": None,
+        },
     },
 }
 
 
 def score_inherent(p):
     breakdown = {}
-    breakdown["data_sensitivity"] = DATA_POINTS.get(p.get("data_sensitivity", "internal"), 1)
+    breakdown["data_sensitivity"] = DATA_POINTS.get(
+        p.get("data_sensitivity", "internal"), 1
+    )
     breakdown["access"] = ACCESS_POINTS.get(p.get("access", "none"), 0)
     breakdown["criticality"] = CRIT_POINTS.get(p.get("criticality", "low"), 1)
     breakdown["integration"] = INTEG_POINTS.get(p.get("integration", "none"), 0)
@@ -94,21 +118,31 @@ def check_evidence(tier, ev):
     gaps = []
     sig = (ev.get("sig") or "none").lower()
     if sig not in req["sig"]:
-        gaps.append(f"Questionnaire '{sig}' insufficient for {tier} (need one of {', '.join(req['sig'])})")
-    soc = (ev.get("soc2_type") or "none")
+        gaps.append(
+            f"Questionnaire '{sig}' insufficient for {tier} (need one of {', '.join(req['sig'])})"
+        )
+    soc = ev.get("soc2_type") or "none"
     if soc not in req["soc2_type"]:
-        gaps.append(f"SOC 2 type '{soc}' insufficient for {tier} (need {', '.join(req['soc2_type'])})")
+        gaps.append(
+            f"SOC 2 type '{soc}' insufficient for {tier} (need {', '.join(req['soc2_type'])})"
+        )
     if soc == "II" and ev.get("soc2_period_months", 0) < 6:
-        gaps.append("SOC 2 Type II period under 6 months - limited operating-effectiveness assurance")
+        gaps.append(
+            "SOC 2 Type II period under 6 months - limited operating-effectiveness assurance"
+        )
     if req["iso27001"] and not ev.get("iso27001"):
         gaps.append(f"ISO 27001 certificate expected for {tier}")
     pmax = req["pentest_max_months"]
     if pmax is not None:
         age = ev.get("pentest_age_months")
         if age is None:
-            gaps.append(f"No pen-test on file (expected within {pmax} months for {tier})")
+            gaps.append(
+                f"No pen-test on file (expected within {pmax} months for {tier})"
+            )
         elif age > pmax:
-            gaps.append(f"Pen-test is {age} months old (>{pmax} for {tier}) - request a current test")
+            gaps.append(
+                f"Pen-test is {age} months old (>{pmax} for {tier}) - request a current test"
+            )
     return gaps
 
 
@@ -122,10 +156,14 @@ def render(data):
     total, breakdown = score_inherent(profile)
     tier = tier_for(total)
     play = TIER_PLAYBOOK[tier]
-    gaps = check_evidence(tier, evidence) if evidence else ["No evidence provided - collect tier-appropriate evidence"]
+    gaps = (
+        check_evidence(tier, evidence)
+        if evidence
+        else ["No evidence provided - collect tier-appropriate evidence"]
+    )
 
     lines = []
-    lines.append(f"# Vendor Risk Assessment - {vendor.get('name','Vendor')}")
+    lines.append(f"# Vendor Risk Assessment - {vendor.get('name', 'Vendor')}")
     lines.append("")
     if vendor.get("service"):
         lines.append(f"- **Service:** {vendor['service']}")
@@ -136,12 +174,22 @@ def render(data):
     lines.append("")
     lines.append("| Factor | Value | Points |")
     lines.append("|---|---|---|")
-    lines.append(f"| Data sensitivity | {profile.get('data_sensitivity','-')} | {breakdown['data_sensitivity']} |")
-    lines.append(f"| Access | {profile.get('access','-')} | {breakdown['access']} |")
-    lines.append(f"| Criticality | {profile.get('criticality','-')} | {breakdown['criticality']} |")
-    lines.append(f"| Integration | {profile.get('integration','-')} | {breakdown['integration']} |")
-    lines.append(f"| Regulated scope | {', '.join(profile.get('regulated_scope', [])) or 'none'} | {breakdown['regulated_scope']} |")
-    lines.append(f"| Concentration | {profile.get('concentration', False)} | {breakdown['concentration']} |")
+    lines.append(
+        f"| Data sensitivity | {profile.get('data_sensitivity', '-')} | {breakdown['data_sensitivity']} |"
+    )
+    lines.append(f"| Access | {profile.get('access', '-')} | {breakdown['access']} |")
+    lines.append(
+        f"| Criticality | {profile.get('criticality', '-')} | {breakdown['criticality']} |"
+    )
+    lines.append(
+        f"| Integration | {profile.get('integration', '-')} | {breakdown['integration']} |"
+    )
+    lines.append(
+        f"| Regulated scope | {', '.join(profile.get('regulated_scope', [])) or 'none'} | {breakdown['regulated_scope']} |"
+    )
+    lines.append(
+        f"| Concentration | {profile.get('concentration', False)} | {breakdown['concentration']} |"
+    )
     lines.append(f"| **Total** | | **{total}** |")
     lines.append("")
 
@@ -154,7 +202,9 @@ def render(data):
     lines.append("## Evidence gaps")
     lines.append("")
     if not gaps:
-        lines.append(f"Evidence on file meets the {tier}-tier bar. Proceed to findings review and contracting.")
+        lines.append(
+            f"Evidence on file meets the {tier}-tier bar. Proceed to findings review and contracting."
+        )
     else:
         for g in gaps:
             lines.append(f"- {g}")
@@ -162,21 +212,32 @@ def render(data):
 
     lines.append("## Next steps")
     lines.append("")
-    lines.append("1. Close the evidence gaps above (or document risk-accepted exceptions).")
-    lines.append("2. Review collected evidence critically (SOC 2 exceptions, ISO scope, CAIQ 'no' answers).")
+    lines.append(
+        "1. Close the evidence gaps above (or document risk-accepted exceptions)."
+    )
+    lines.append(
+        "2. Review collected evidence critically (SOC 2 exceptions, ISO scope, CAIQ 'no' answers)."
+    )
     lines.append("3. Record findings, residual risk, and a risk-owner decision.")
-    lines.append("4. Codify security terms, breach SLA, right-to-audit, and subprocessor flowdown in the contract.")
+    lines.append(
+        "4. Codify security terms, breach SLA, right-to-audit, and subprocessor flowdown in the contract."
+    )
     lines.append("5. Enroll in continuous monitoring per the cadence above.")
 
     return "\n".join(lines), tier, gaps
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Vendor inherent-risk tiering + evidence-gap checker")
+    ap = argparse.ArgumentParser(
+        description="Vendor inherent-risk tiering + evidence-gap checker"
+    )
     ap.add_argument("--input", "-i", required=True, help="Path to vendor profile JSON")
     ap.add_argument("--output", "-o", help="Write Markdown assessment to this path")
-    ap.add_argument("--fail-on-evidence-gap", action="store_true",
-                    help="Exit non-zero if any evidence gap remains for the tier")
+    ap.add_argument(
+        "--fail-on-evidence-gap",
+        action="store_true",
+        help="Exit non-zero if any evidence gap remains for the tier",
+    )
     args = ap.parse_args()
 
     try:

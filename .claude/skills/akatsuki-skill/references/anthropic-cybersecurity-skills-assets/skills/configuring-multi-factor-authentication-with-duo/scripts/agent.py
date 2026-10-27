@@ -34,13 +34,18 @@ class DuoAdminClient:
         sig = hmac.new(self.skey.encode(), canon_str.encode(), hashlib.sha1).hexdigest()
         auth = f"{self.ikey}:{sig}"
         import base64
-        return {"Date": now, "Authorization": f"Basic {base64.b64encode(auth.encode()).decode()}"}
+
+        return {
+            "Date": now,
+            "Authorization": f"Basic {base64.b64encode(auth.encode()).decode()}",
+        }
 
     def _get(self, endpoint, params=None):
         params = params or {}
         headers = self._sign("GET", endpoint, params)
-        resp = requests.get(f"https://{self.host}{endpoint}",
-                            headers=headers, params=params, timeout=30)
+        resp = requests.get(
+            f"https://{self.host}{endpoint}", headers=headers, params=params, timeout=30
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -67,7 +72,11 @@ def audit_mfa_coverage(users_data):
     enrolled = sum(1 for u in users if u.get("status") == "active" and u.get("phones"))
     bypass = sum(1 for u in users if u.get("status") == "bypass")
     disabled = sum(1 for u in users if u.get("status") == "disabled")
-    no_device = [u["username"] for u in users if not u.get("phones") and u.get("status") == "active"]
+    no_device = [
+        u["username"]
+        for u in users
+        if not u.get("phones") and u.get("status") == "active"
+    ]
     return {
         "total_users": total,
         "enrolled": enrolled,
@@ -76,8 +85,15 @@ def audit_mfa_coverage(users_data):
         "no_device": no_device[:20],
         "enrollment_rate": round(enrolled / max(total, 1) * 100, 1),
         "findings": [
-            {"severity": "HIGH", "issue": f"{bypass} users in bypass mode"} if bypass else None,
-            {"severity": "MEDIUM", "issue": f"{len(no_device)} users without MFA device"} if no_device else None,
+            {"severity": "HIGH", "issue": f"{bypass} users in bypass mode"}
+            if bypass
+            else None,
+            {
+                "severity": "MEDIUM",
+                "issue": f"{len(no_device)} users without MFA device",
+            }
+            if no_device
+            else None,
         ],
     }
 
@@ -91,28 +107,30 @@ def analyze_auth_logs(logs_data):
         "total_authentications": len(logs),
         "denied": len(denied),
         "fraud_reported": len(fraud),
-        "top_denied_users": list(set(l.get("user", {}).get("name", "") for l in denied[:10])),
+        "top_denied_users": list(
+            set(l.get("user", {}).get("name", "") for l in denied[:10])
+        ),
     }
 
 
 def run_audit(ikey, skey, host):
     """Execute Duo MFA audit."""
     client = DuoAdminClient(ikey, skey, host)
-    print(f"\n{'='*60}")
-    print(f"  DUO MFA CONFIGURATION AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  DUO MFA CONFIGURATION AUDIT")
     print(f"  Host: {host}")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     summary = client.get_info_summary()
     info = summary.get("response", {})
-    print(f"--- ACCOUNT SUMMARY ---")
+    print("--- ACCOUNT SUMMARY ---")
     print(f"  Users: {info.get('user_count', 0)}")
     print(f"  Integrations: {info.get('integration_count', 0)}")
 
     users = client.list_users()
     coverage = audit_mfa_coverage(users)
-    print(f"\n--- MFA COVERAGE ---")
+    print("\n--- MFA COVERAGE ---")
     print(f"  Enrollment rate: {coverage['enrollment_rate']}%")
     print(f"  Bypass mode: {coverage['bypass_mode']}")
     print(f"  No device: {len(coverage['no_device'])}")

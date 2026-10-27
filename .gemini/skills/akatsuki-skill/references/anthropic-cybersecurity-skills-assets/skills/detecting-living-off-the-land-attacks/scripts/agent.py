@@ -13,7 +13,6 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from datetime import datetime
 
 try:
     import Evtx.Evtx as evtx

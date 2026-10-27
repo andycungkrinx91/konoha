@@ -90,7 +90,7 @@ async function cmdAkatsukiStatus() {
   log('');
 
   // Curated tools table
-  sectionTitle('APPROVED SANDBOX TOOLS INVENTORY (10 Tools)');
+  sectionTitle(`APPROVED SANDBOX TOOLS INVENTORY (${tools.length} Tools)`);
 
   const headers = ['Tool', 'Category', 'Safety Class', 'Allowed Operations', 'Timeout'];
   const rows = tools.map(t => [
@@ -213,6 +213,108 @@ function cmdAkatsukiEnv(targetEnv) {
 }
 
 /**
+ * Initialize Akatsuki Red-Team Lab containers (LXC, Docker, or both).
+ *
+ * @param {string[]} args
+ */
+async function cmdAkatsukiInit(args = []) {
+  log('');
+  header('AKATSUKI RED-TEAM LAB INITIALIZATION');
+
+  const { initLab } = require('../../src/akatsuki_init');
+
+  let engines = 'auto';
+  let profile = 'standard';
+  let labName = DEFAULT_LAB_NAME;
+
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i].toLowerCase();
+    if (a === '--engine' || a === '--engines' || a === '-e') {
+      engines = (args[i + 1] || 'auto').toLowerCase();
+      i++;
+    } else if (a === '--profile' || a === '-p') {
+      profile = (args[i + 1] || 'standard').toLowerCase();
+      i++;
+    } else if (a === '--name' || a === '-n') {
+      labName = args[i + 1] || DEFAULT_LAB_NAME;
+      i++;
+    }
+  }
+
+  info(`Target Engines: ${C.cyan}${engines.toUpperCase()}${C.reset} | Profile: ${C.cyan}${profile.toUpperCase()}${C.reset} | Sandbox: ${C.bold}${labName}${C.reset}`);
+  log(`  ${C.dim}Auto-detecting available hypervisors (Docker / LXC)...${C.reset}\n`);
+
+  const res = initLab({ engines, profile, lab_name: labName });
+
+  if (res.ok) {
+    success(`✓ ${res.message}`);
+    for (const e of res.engines) {
+      log(`  ${C.green}●${C.reset} ${C.bold}${e.engine.toUpperCase()}:${C.reset} status=${e.status} isolated=${e.network_isolated}`);
+      if (e.tools_installed && e.tools_installed.length > 0) {
+        log(`    ${C.dim}Tools ready: ${e.tools_installed.join(', ')}${C.reset}`);
+      }
+    }
+  } else {
+    warn(`Initialization completed with warnings: ${res.message}`);
+    for (const e of res.engines) {
+      log(`  ${e.ok ? C.green : C.red}●${C.reset} ${C.bold}${e.engine.toUpperCase()}:${C.reset} ${e.error || e.status}`);
+    }
+  }
+  log('');
+}
+
+/**
+ * Manage and query Kali tools catalog and custom tools.
+ *
+ * @param {string[]} args
+ */
+async function cmdAkatsukiTools(args = []) {
+  const { listKaliTools, listCustomTools } = require('../../src/akatsuki_init');
+  const action = args[0] ? args[0].toLowerCase() : 'list';
+
+  if (action === 'search' || action === 'list') {
+    const query = args[1] || '';
+    const tools = listKaliTools({ query });
+    log('');
+    header(`KALI LINUX TOOLS CATALOG (${tools.length} Tools Available)`);
+    if (query) info(`Filter: "${query}"`);
+
+    const headers = ['Tool Slug', 'Category', 'Package', 'Description'];
+    const rows = tools.slice(0, 30).map(t => [
+      t.slug,
+      t.category || 'general',
+      t.package || t.slug,
+      (t.description || '').slice(0, 50)
+    ]);
+
+    const widths = computeTableWidths(headers, rows);
+    const aligns = ['left', 'left', 'left', 'left'];
+    const rowColors = rows.map(() => [C.bold, C.cyan, C.yellow, C.dim]);
+    drawTable(headers, widths, aligns, rows, rowColors);
+
+    if (tools.length > 30) {
+      log(`\n  ${C.dim}... and ${tools.length - 30} more tools. Refine search: konoha akatsuki tools search <query>${C.reset}`);
+    }
+    log('');
+    return;
+  }
+
+  if (action === 'custom') {
+    const custom = listCustomTools();
+    const count = Object.keys(custom).length;
+    log('');
+    header(`CUSTOM AKATSUKI TOOLS (${count} Registered)`);
+    for (const [id, t] of Object.entries(custom)) {
+      log(`  ${C.cyan}●${C.reset} ${C.bold}${id}${C.reset} [${t.category}] - ${t.display_name}`);
+    }
+    log('');
+    return;
+  }
+
+  error(`Unknown tools command "${action}". Supported: list, search <query>, custom`);
+}
+
+/**
  * Print help for konoha akatsuki.
  */
 function cmdAkatsukiHelp() {
@@ -221,13 +323,15 @@ ${C.bold}Usage:${C.reset}
   konoha akatsuki <subcommand>
 
 ${C.bold}Subcommands:${C.reset}
-  ${C.cyan}status${C.reset}             Show Akatsuki security controls, engine, mode, env, and lab status
-  ${C.cyan}mode [blue|red]${C.reset}    Switch between defensive Blue-Team and offensive Red-Team mode
-  ${C.cyan}env [docker|lxc]${C.reset}   View or set container execution environment (docker / lxc)
-  ${C.cyan}enable${C.reset}             Alias for "mode red" (automated sandbox setup)
-  ${C.cyan}disable${C.reset}            Alias for "mode blue" (stop sandbox and fail-closed)
-  ${C.cyan}redteam enable${C.reset}     Alias for "mode red"
-  ${C.cyan}redteam disable${C.reset}    Alias for "mode blue"
+  ${C.cyan}status${C.reset}                          Show Akatsuki security controls, engine, mode, env, and lab status
+  ${C.cyan}init [--engine auto|docker|lxc|both]${C.reset} Initialize sandbox containers across auto-detected engines
+  ${C.cyan}tools [list|search <query>|custom]${C.reset}   Query Kali tool catalog (360+ tools) or custom profiles
+  ${C.cyan}mode [blue|red]${C.reset}                 Switch between defensive Blue-Team and offensive Red-Team mode
+  ${C.cyan}env [docker|lxc]${C.reset}                View or set container execution environment (docker / lxc)
+  ${C.cyan}enable${C.reset}                          Alias for "mode red" (automated sandbox setup)
+  ${C.cyan}disable${C.reset}                         Alias for "mode blue" (stop sandbox and fail-closed)
+  ${C.cyan}redteam enable${C.reset}                  Alias for "mode red"
+  ${C.cyan}redteam disable${C.reset}                 Alias for "mode blue"
 
 ${C.bold}Security Policy:${C.reset}
   Red-Team execution is strictly confined to the ${C.bold}akatsuki-lab${C.reset} container.
@@ -248,6 +352,14 @@ async function cmdAkatsuki(args = []) {
   switch (sub) {
     case 'status':
       await cmdAkatsukiStatus();
+      break;
+
+    case 'init':
+      await cmdAkatsukiInit(args.slice(1));
+      break;
+
+    case 'tools':
+      await cmdAkatsukiTools(args.slice(1));
       break;
 
     case 'mode':

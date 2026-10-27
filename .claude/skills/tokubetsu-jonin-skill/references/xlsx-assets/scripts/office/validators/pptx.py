@@ -11,7 +11,6 @@ from .base import BaseSchemaValidator
 
 
 class PPTXSchemaValidator(BaseSchemaValidator):
-
     PRESENTATIONML_NAMESPACE = (
         "http://schemas.openxmlformats.org/presentationml/2006/main"
     )
@@ -96,8 +95,10 @@ class PPTXSchemaValidator(BaseSchemaValidator):
             for message in shared:
                 print(f"  {message}")
             if any(m.startswith(_NOTES_MASTERS) for m in shared):
-                print("  Fix: in ppt/presentation.xml, move <p:notesMasterIdLst> back to "
-                      "directly after <p:sldIdLst>. PowerPoint reads that happily.")
+                print(
+                    "  Fix: in ppt/presentation.xml, move <p:notesMasterIdLst> back to "
+                    "directly after <p:sldIdLst>. PowerPoint reads that happily."
+                )
             else:
                 print("  Fix: give each master its own theme part.")
             return False
@@ -111,7 +112,9 @@ class PPTXSchemaValidator(BaseSchemaValidator):
 
         problems = find_chart_problems(self._package_map())
         if problems:
-            print(f"FAILED - Found {len(problems)} chart problem(s) PowerPoint rejects:")
+            print(
+                f"FAILED - Found {len(problems)} chart problem(s) PowerPoint rejects:"
+            )
             for message in problems:
                 print(f"  {message}")
             return False
@@ -136,7 +139,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                 with zipfile.ZipFile(self.original_file, "r") as zf:
                     safe_extract(zf, temp_path)
             except (zipfile.BadZipFile, ValueError, OSError):
-                return set()  
+                return set()
 
             for part in sorted(temp_path.rglob("*.xml")):
                 relative = part.relative_to(temp_path).as_posix()
@@ -172,7 +175,9 @@ class PPTXSchemaValidator(BaseSchemaValidator):
             if ok is None or not errors:
                 continue
 
-            unreadable = [f"{relative}: {e}" for e in errors if not is_schema_verdict(e)]
+            unreadable = [
+                f"{relative}: {e}" for e in errors if not is_schema_verdict(e)
+            ]
             if unreadable:
                 broken.extend(unreadable)
                 continue
@@ -181,7 +186,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
 
             for message in fatal_slide_errors(set(errors)):
                 if message in inherited:
-                    continue  
+                    continue
                 problems.append(f"{relative}: {message}")
 
         if broken:
@@ -190,7 +195,9 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                 print(f"  {message[:240]}")
 
         if problems:
-            print(f"FAILED - Found {len(problems)} slide problem(s) PowerPoint rejects:")
+            print(
+                f"FAILED - Found {len(problems)} slide problem(s) PowerPoint rejects:"
+            )
             for message in sorted(problems):
                 print(f"  {message[:240]}")
 
@@ -219,7 +226,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
 
         children = list(root)
         if children.index(notes) < children.index(slides):
-            return xml_doc  
+            return xml_doc
 
         root.remove(notes)
         root.insert(list(root).index(slides), notes)
@@ -377,7 +384,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
         import lxml.etree
 
         errors = []
-        notes_slide_references = {}  
+        notes_slide_references = {}
 
         slide_rels_files = list(self.unpacked_dir.glob("ppt/slides/_rels/*.xml.rels"))
 
@@ -401,9 +408,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                             rel.get("TargetMode", ""),
                         )
                         if part:
-                            slide_name = rels_file.stem.replace(
-                                ".xml", ""
-                            )  
+                            slide_name = rels_file.stem.replace(".xml", "")
 
                             notes_slide_references.setdefault(part, []).append(
                                 (slide_name, rels_file)

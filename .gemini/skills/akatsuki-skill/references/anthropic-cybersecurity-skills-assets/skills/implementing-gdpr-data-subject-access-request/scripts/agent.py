@@ -22,7 +22,6 @@ import csv
 import io
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 # ---------------------------------------------------------------------------
 # PII Regex Patterns -- sourced from Netwrix, PII Crawler, and Varonis

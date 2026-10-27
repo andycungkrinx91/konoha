@@ -12,7 +12,6 @@ import argparse
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 
 def base_cmd(tool, use_docker, data_dir):

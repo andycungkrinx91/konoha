@@ -10,7 +10,6 @@ import os
 import plistlib
 import re
 import subprocess
-import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path

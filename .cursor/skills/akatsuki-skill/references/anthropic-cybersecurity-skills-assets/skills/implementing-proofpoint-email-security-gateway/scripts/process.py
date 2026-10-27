@@ -15,9 +15,7 @@ Usage:
 import argparse
 import json
 import re
-import sys
 from dataclasses import dataclass, field, asdict
-from typing import Optional
 
 try:
     import dns.resolver

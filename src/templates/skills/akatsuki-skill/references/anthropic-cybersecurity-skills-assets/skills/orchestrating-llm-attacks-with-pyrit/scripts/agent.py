@@ -16,6 +16,7 @@ Example:
       --objective "Elicit restricted content via gradual escalation" \
       --max-turns 10 --export out.json
 """
+
 import argparse
 import asyncio
 import json
@@ -29,7 +30,9 @@ def build_parser():
     p.add_argument("--objective", required=True, help="attack objective string")
     p.add_argument("--target-model", default="gpt-4o-mini")
     p.add_argument("--adversarial-model", default="gpt-4o")
-    p.add_argument("--target-endpoint", default=None, help="override target endpoint URL")
+    p.add_argument(
+        "--target-endpoint", default=None, help="override target endpoint URL"
+    )
     p.add_argument("--max-turns", type=int, default=8)
     p.add_argument("--max-backtracks", type=int, default=5, help="crescendo only")
     p.add_argument("--tap-width", type=int, default=4, help="tap only")
@@ -54,7 +57,9 @@ async def run(args):
         sys.exit(f"PyRIT not installed ({exc}). Run: python -m pip install -U pyrit")
 
     if not os.environ.get("OPENAI_API_KEY"):
-        print("[!] OPENAI_API_KEY is not set; OpenAI targets will fail.", file=sys.stderr)
+        print(
+            "[!] OPENAI_API_KEY is not set; OpenAI targets will fail.", file=sys.stderr
+        )
 
     initialize_pyrit(memory_db_type=IN_MEMORY)
 
@@ -115,8 +120,16 @@ async def run(args):
             for p in pieces
         ]
         with open(args.export, "w", encoding="utf-8") as fh:
-            json.dump({"objective": args.objective, "strategy": args.strategy,
-                       "turns": records}, fh, indent=2, default=str)
+            json.dump(
+                {
+                    "objective": args.objective,
+                    "strategy": args.strategy,
+                    "turns": records,
+                },
+                fh,
+                indent=2,
+                default=str,
+            )
         print(f"[*] Exported {len(records)} conversation pieces to {args.export}")
 
 

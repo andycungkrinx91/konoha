@@ -9,7 +9,6 @@ import argparse
 import json
 import os
 import socket
-import subprocess
 import sys
 from datetime import datetime, timezone
 

@@ -28,6 +28,7 @@ Examples:
   # List the local inventory
   python3 honeytoken_agent.py inventory
 """
+
 import argparse
 import json
 import os
@@ -37,16 +38,29 @@ from datetime import datetime, timezone
 try:
     import requests
 except ImportError:
-    sys.stderr.write("ERROR: install dependency with: python3 -m pip install requests\n")
+    sys.stderr.write(
+        "ERROR: install dependency with: python3 -m pip install requests\n"
+    )
     sys.exit(2)
 
 DEFAULT_BASE = "https://canarytokens.org"
 INVENTORY = os.environ.get("CANARY_INVENTORY", "canarytoken_inventory.json")
 
 VALID_TYPES = {
-    "http", "dns", "aws_keys", "msword", "adobe_pdf", "slack_api",
-    "kubeconfig", "azure_id", "qr_code", "web_image", "log4shell",
-    "cmd", "cloned_web", "sql_server",
+    "http",
+    "dns",
+    "aws_keys",
+    "msword",
+    "adobe_pdf",
+    "slack_api",
+    "kubeconfig",
+    "azure_id",
+    "qr_code",
+    "web_image",
+    "log4shell",
+    "cmd",
+    "cloned_web",
+    "sql_server",
 }
 
 
@@ -72,7 +86,9 @@ def _save_inventory(items):
 
 def generate(args):
     if args.type not in VALID_TYPES:
-        sys.stderr.write(f"ERROR: unknown type '{args.type}'. Valid: {sorted(VALID_TYPES)}\n")
+        sys.stderr.write(
+            f"ERROR: unknown type '{args.type}'. Valid: {sorted(VALID_TYPES)}\n"
+        )
         sys.exit(1)
     if not args.email and not args.webhook:
         sys.stderr.write("ERROR: provide --email and/or --webhook for alerting.\n")
@@ -95,7 +111,9 @@ def generate(args):
     try:
         body = resp.json()
     except ValueError:
-        sys.stderr.write("ERROR: non-JSON response from server:\n" + resp.text[:500] + "\n")
+        sys.stderr.write(
+            "ERROR: non-JSON response from server:\n" + resp.text[:500] + "\n"
+        )
         sys.exit(1)
 
     token_id = body.get("token") or body.get("canarytoken")
@@ -118,8 +136,10 @@ def generate(args):
 
     print(json.dumps({k: v for k, v in record.items() if v is not None}, indent=2))
     if args.type in ("msword", "adobe_pdf", "aws_keys") and token_id and record["auth"]:
-        dl = (f"{record['base_url']}/download?fmt={args.type}"
-              f"&token={token_id}&auth={record['auth']}")
+        dl = (
+            f"{record['base_url']}/download?fmt={args.type}"
+            f"&token={token_id}&auth={record['auth']}"
+        )
         print(f"\nDownload artifact:\n  curl -s '{dl}' -o token_artifact")
     return 0
 
@@ -127,8 +147,11 @@ def generate(args):
 def history(args):
     url = args.base_url.rstrip("/") + "/history"
     try:
-        resp = requests.get(url, params={"token": args.token_id, "auth": args.auth},
-                            timeout=args.timeout)
+        resp = requests.get(
+            url,
+            params={"token": args.token_id, "auth": args.auth},
+            timeout=args.timeout,
+        )
         resp.raise_for_status()
     except requests.RequestException as exc:
         sys.stderr.write(f"ERROR: history request failed: {exc}\n")
@@ -148,24 +171,35 @@ def inventory(_args):
     print(f"{'TYPE':<12} {'D3FEND':<8} {'MEMO':<40} LOCATION")
     print("-" * 90)
     for rec in inv:
-        print(f"{rec.get('type',''):<12} {rec.get('d3fend',''):<8} "
-              f"{(rec.get('memo','') or '')[:40]:<40} {rec.get('location','')}")
+        print(
+            f"{rec.get('type', ''):<12} {rec.get('d3fend', ''):<8} "
+            f"{(rec.get('memo', '') or '')[:40]:<40} {rec.get('location', '')}"
+        )
     print(f"\nTotal tokens deployed: {len(inv)}")
     return 0
 
 
 def build_parser():
-    p = argparse.ArgumentParser(description="Canarytoken generation, validation and inventory helper.")
-    p.add_argument("--base-url", default=DEFAULT_BASE,
-                   help=f"Canarytokens frontend base URL (default {DEFAULT_BASE})")
+    p = argparse.ArgumentParser(
+        description="Canarytoken generation, validation and inventory helper."
+    )
+    p.add_argument(
+        "--base-url",
+        default=DEFAULT_BASE,
+        help=f"Canarytokens frontend base URL (default {DEFAULT_BASE})",
+    )
     p.add_argument("--timeout", type=int, default=20, help="HTTP timeout seconds")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     g = sub.add_parser("generate", help="Create a new canarytoken")
-    g.add_argument("--type", required=True, help="Token type (e.g. http, dns, aws_keys, msword)")
+    g.add_argument(
+        "--type", required=True, help="Token type (e.g. http, dns, aws_keys, msword)"
+    )
     g.add_argument("--email", help="Alert email address")
     g.add_argument("--webhook", help="Alert webhook URL")
-    g.add_argument("--memo", required=True, help="Reminder of where the token is planted")
+    g.add_argument(
+        "--memo", required=True, help="Reminder of where the token is planted"
+    )
     g.add_argument("--location", help="Where the token will be planted (for inventory)")
     g.add_argument("--d3fend", help="MITRE D3FEND mapping, e.g. D3-DF or D3-DUC")
     g.set_defaults(func=generate)

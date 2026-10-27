@@ -13,11 +13,10 @@ Usage:
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, Optional, Tuple
 
 
 # Known heavy packages and their lighter alternatives
@@ -25,58 +24,58 @@ HEAVY_PACKAGES = {
     "moment": {
         "size": "290KB",
         "alternative": "date-fns (12KB) or dayjs (2KB)",
-        "reason": "Large locale files bundled by default"
+        "reason": "Large locale files bundled by default",
     },
     "lodash": {
         "size": "71KB",
         "alternative": "lodash-es with tree-shaking or individual imports (lodash/get)",
-        "reason": "Full library often imported when only few functions needed"
+        "reason": "Full library often imported when only few functions needed",
     },
     "jquery": {
         "size": "87KB",
         "alternative": "Native DOM APIs or React/Vue patterns",
-        "reason": "Rarely needed in modern frameworks"
+        "reason": "Rarely needed in modern frameworks",
     },
     "axios": {
         "size": "14KB",
         "alternative": "Native fetch API (0KB) or ky (3KB)",
-        "reason": "Fetch API covers most use cases"
+        "reason": "Fetch API covers most use cases",
     },
     "underscore": {
         "size": "17KB",
         "alternative": "Native ES6+ methods or lodash-es",
-        "reason": "Most utilities now in standard JavaScript"
+        "reason": "Most utilities now in standard JavaScript",
     },
     "chart.js": {
         "size": "180KB",
         "alternative": "recharts (bundled with React) or lightweight-charts",
-        "reason": "Consider if you need all chart types"
+        "reason": "Consider if you need all chart types",
     },
     "three": {
         "size": "600KB",
         "alternative": "None - use dynamic import for 3D features",
-        "reason": "Very large, should be lazy-loaded"
+        "reason": "Very large, should be lazy-loaded",
     },
     "firebase": {
         "size": "400KB+",
         "alternative": "Import specific modules (firebase/auth, firebase/firestore)",
-        "reason": "Modular imports significantly reduce size"
+        "reason": "Modular imports significantly reduce size",
     },
     "material-ui": {
         "size": "Large",
         "alternative": "shadcn/ui (copy-paste components) or Tailwind",
-        "reason": "Heavy runtime, consider headless alternatives"
+        "reason": "Heavy runtime, consider headless alternatives",
     },
     "@mui/material": {
         "size": "Large",
         "alternative": "shadcn/ui or Radix UI + Tailwind",
-        "reason": "Heavy runtime, consider headless alternatives"
+        "reason": "Heavy runtime, consider headless alternatives",
     },
     "antd": {
         "size": "Large",
         "alternative": "shadcn/ui or Radix UI + Tailwind",
-        "reason": "Heavy runtime, consider headless alternatives"
-    }
+        "reason": "Heavy runtime, consider headless alternatives",
+    },
 }
 
 # Recommended optimizations by package
@@ -91,10 +90,28 @@ PACKAGE_OPTIMIZATIONS = {
 
 # Development dependencies that should not be in dependencies
 DEV_ONLY_PACKAGES = [
-    "typescript", "@types/", "eslint", "prettier", "jest", "vitest",
-    "@testing-library", "cypress", "playwright", "storybook", "@storybook",
-    "webpack", "vite", "rollup", "esbuild", "tailwindcss", "postcss",
-    "autoprefixer", "sass", "less", "husky", "lint-staged"
+    "typescript",
+    "@types/",
+    "eslint",
+    "prettier",
+    "jest",
+    "vitest",
+    "@testing-library",
+    "cypress",
+    "playwright",
+    "storybook",
+    "@storybook",
+    "webpack",
+    "vite",
+    "rollup",
+    "esbuild",
+    "tailwindcss",
+    "postcss",
+    "autoprefixer",
+    "sass",
+    "less",
+    "husky",
+    "lint-staged",
 ]
 
 
@@ -123,57 +140,72 @@ def analyze_dependencies(package_json: Dict) -> Dict:
     # Check for heavy packages
     for pkg, info in HEAVY_PACKAGES.items():
         if pkg in deps:
-            issues.append({
-                "package": pkg,
-                "type": "heavy_dependency",
-                "size": info["size"],
-                "alternative": info["alternative"],
-                "reason": info["reason"]
-            })
+            issues.append(
+                {
+                    "package": pkg,
+                    "type": "heavy_dependency",
+                    "size": info["size"],
+                    "alternative": info["alternative"],
+                    "reason": info["reason"],
+                }
+            )
 
     # Check for dev dependencies in production
     for pkg in deps.keys():
         for dev_pattern in DEV_ONLY_PACKAGES:
             if dev_pattern in pkg:
-                warnings.append({
-                    "package": pkg,
-                    "type": "dev_in_production",
-                    "message": f"{pkg} should be in devDependencies, not dependencies"
-                })
+                warnings.append(
+                    {
+                        "package": pkg,
+                        "type": "dev_in_production",
+                        "message": f"{pkg} should be in devDependencies, not dependencies",
+                    }
+                )
 
     # Check for optimization opportunities
     for pkg in deps.keys():
         for opt_pkg, opt_tip in PACKAGE_OPTIMIZATIONS.items():
             if opt_pkg in pkg:
-                optimizations.append({
-                    "package": pkg,
-                    "tip": opt_tip
-                })
+                optimizations.append({"package": pkg, "tip": opt_tip})
 
     # Check for outdated React patterns
-    if "prop-types" in deps and ("typescript" in dev_deps or "@types/react" in dev_deps):
-        warnings.append({
-            "package": "prop-types",
-            "type": "redundant",
-            "message": "prop-types is redundant when using TypeScript"
-        })
+    if "prop-types" in deps and (
+        "typescript" in dev_deps or "@types/react" in dev_deps
+    ):
+        warnings.append(
+            {
+                "package": "prop-types",
+                "type": "redundant",
+                "message": "prop-types is redundant when using TypeScript",
+            }
+        )
 
     # Check for multiple state management libraries
-    state_libs = ["redux", "@reduxjs/toolkit", "mobx", "zustand", "jotai", "recoil", "valtio"]
+    state_libs = [
+        "redux",
+        "@reduxjs/toolkit",
+        "mobx",
+        "zustand",
+        "jotai",
+        "recoil",
+        "valtio",
+    ]
     found_state_libs = [lib for lib in state_libs if lib in deps]
     if len(found_state_libs) > 1:
-        warnings.append({
-            "packages": found_state_libs,
-            "type": "multiple_state_libs",
-            "message": f"Multiple state management libraries found: {', '.join(found_state_libs)}"
-        })
+        warnings.append(
+            {
+                "packages": found_state_libs,
+                "type": "multiple_state_libs",
+                "message": f"Multiple state management libraries found: {', '.join(found_state_libs)}",
+            }
+        )
 
     return {
         "total_dependencies": len(deps),
         "total_dev_dependencies": len(dev_deps),
         "issues": issues,
         "warnings": warnings,
-        "optimizations": optimizations
+        "optimizations": optimizations,
     }
 
 
@@ -182,7 +214,7 @@ def check_nextjs_config(project_dir: Path) -> Dict:
     config_paths = [
         project_dir / "next.config.js",
         project_dir / "next.config.mjs",
-        project_dir / "next.config.ts"
+        project_dir / "next.config.ts",
     ]
 
     for config_path in config_paths:
@@ -193,27 +225,33 @@ def check_nextjs_config(project_dir: Path) -> Dict:
 
                 # Check for image optimization
                 if "images" not in content:
-                    suggestions.append("Configure images.remotePatterns for optimized image loading")
+                    suggestions.append(
+                        "Configure images.remotePatterns for optimized image loading"
+                    )
 
                 # Check for package optimization
                 if "optimizePackageImports" not in content:
-                    suggestions.append("Add experimental.optimizePackageImports for lucide-react, @heroicons/react")
+                    suggestions.append(
+                        "Add experimental.optimizePackageImports for lucide-react, @heroicons/react"
+                    )
 
                 # Check for transpilePackages
                 if "transpilePackages" not in content and "swc" not in content:
-                    suggestions.append("Consider transpilePackages for monorepo packages")
+                    suggestions.append(
+                        "Consider transpilePackages for monorepo packages"
+                    )
 
                 return {
                     "found": True,
                     "path": str(config_path),
-                    "suggestions": suggestions
+                    "suggestions": suggestions,
                 }
             except Exception:
                 pass
 
     return {
         "found": False,
-        "suggestions": ["Create next.config.js with image and bundle optimizations"]
+        "suggestions": ["Create next.config.js with image and bundle optimizations"],
     }
 
 
@@ -223,9 +261,18 @@ def analyze_imports(project_dir: Path) -> Dict:
     src_dirs = [project_dir / "src", project_dir / "app", project_dir / "pages"]
 
     patterns_to_check = [
-        (r"import\s+\*\s+as\s+\w+\s+from\s+['\"]lodash['\"]", "Avoid import * from lodash, use individual imports"),
-        (r"import\s+moment\s+from\s+['\"]moment['\"]", "Consider replacing moment with date-fns or dayjs"),
-        (r"import\s+\{\s*\w+(?:,\s*\w+){5,}\s*\}\s+from\s+['\"]react-icons", "Import icons from specific icon sets (react-icons/fa)"),
+        (
+            r"import\s+\*\s+as\s+\w+\s+from\s+['\"]lodash['\"]",
+            "Avoid import * from lodash, use individual imports",
+        ),
+        (
+            r"import\s+moment\s+from\s+['\"]moment['\"]",
+            "Consider replacing moment with date-fns or dayjs",
+        ),
+        (
+            r"import\s+\{\s*\w+(?:,\s*\w+){5,}\s*\}\s+from\s+['\"]react-icons",
+            "Import icons from specific icon sets (react-icons/fa)",
+        ),
     ]
 
     files_checked = 0
@@ -243,17 +290,16 @@ def analyze_imports(project_dir: Path) -> Dict:
                     content = file_path.read_text()
                     for pattern, message in patterns_to_check:
                         if re.search(pattern, content):
-                            issues.append({
-                                "file": str(file_path.relative_to(project_dir)),
-                                "issue": message
-                            })
+                            issues.append(
+                                {
+                                    "file": str(file_path.relative_to(project_dir)),
+                                    "issue": message,
+                                }
+                            )
                 except Exception:
                     continue
 
-    return {
-        "files_checked": files_checked,
-        "issues": issues
-    }
+    return {"files_checked": files_checked, "issues": issues}
 
 
 def calculate_score(analysis: Dict) -> Tuple[int, str]:
@@ -264,8 +310,16 @@ def calculate_score(analysis: Dict) -> Tuple[int, str]:
     score -= len(analysis["dependencies"]["issues"]) * 10
 
     # Deduct for dev deps in production
-    score -= len([w for w in analysis["dependencies"]["warnings"]
-                  if w.get("type") == "dev_in_production"]) * 5
+    score -= (
+        len(
+            [
+                w
+                for w in analysis["dependencies"]["warnings"]
+                if w.get("type") == "dev_in_production"
+            ]
+        )
+        * 5
+    )
 
     # Deduct for import issues
     score -= len(analysis.get("imports", {}).get("issues", [])) * 3
@@ -300,7 +354,9 @@ def print_report(analysis: Dict) -> None:
     print(f"\nBundle Health Score: {score}/100 ({grade})")
 
     deps = analysis["dependencies"]
-    print(f"\nDependencies: {deps['total_dependencies']} production, {deps['total_dev_dependencies']} dev")
+    print(
+        f"\nDependencies: {deps['total_dependencies']} production, {deps['total_dev_dependencies']} dev"
+    )
 
     # Heavy dependencies
     if deps["issues"]:
@@ -361,17 +417,11 @@ def main():
         "project_dir",
         nargs="?",
         default=".",
-        help="Project directory to analyze (default: current directory)"
+        help="Project directory to analyze (default: current directory)",
     )
+    parser.add_argument("--json", action="store_true", help="Output in JSON format")
     parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format"
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Include detailed import analysis"
+        "--verbose", "-v", action="store_true", help="Include detailed import analysis"
     )
 
     args = parser.parse_args()
@@ -389,7 +439,7 @@ def main():
     analysis = {
         "project": str(project_dir),
         "dependencies": analyze_dependencies(package_json),
-        "nextjs": check_nextjs_config(project_dir)
+        "nextjs": check_nextjs_config(project_dir),
     }
 
     if args.verbose:

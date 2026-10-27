@@ -14,11 +14,8 @@ Usage:
 import argparse
 import json
 import re
-import hashlib
-import sys
 from dataclasses import dataclass, field, asdict
 from collections import Counter
-from datetime import datetime
 
 
 @dataclass

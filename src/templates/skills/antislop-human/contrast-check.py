@@ -19,7 +19,9 @@ import os
 import re
 import sys
 
-REFERENCE_HEADER = "| Pairing (text on background) | Ratio | Normal text (4.5) | Large text (3.0) |"
+REFERENCE_HEADER = (
+    "| Pairing (text on background) | Ratio | Normal text (4.5) | Large text (3.0) |"
+)
 NAMED_COLORS = {"black": (0, 0, 0), "white": (255, 255, 255)}
 
 
@@ -29,7 +31,7 @@ def parse_hex(value):
         value = "".join(ch * 2 for ch in value)
     if not re.fullmatch(r"[0-9A-Fa-f]{6}", value):
         raise ValueError(f"expected a hex color like #FFFFFF, got {value!r}")
-    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def parse_pairing(pairing):
@@ -93,12 +95,14 @@ def parse_reference_rows(path):
             if len(cells) != 4:
                 continue
             pairing, ratio, normal, large = cells
-            rows.append({
-                "pairing": pairing,
-                "ratio": float(ratio),
-                "normal": normal,
-                "large": large,
-            })
+            rows.append(
+                {
+                    "pairing": pairing,
+                    "ratio": float(ratio),
+                    "normal": normal,
+                    "large": large,
+                }
+            )
     return rows
 
 
@@ -124,13 +128,19 @@ def selftest():
         expected_large = "Pass" if computed >= 3.0 else "Fail"
         if f"{computed:.2f}" != f"{row['ratio']:.2f}":
             failures += 1
-            print(f"selftest: {row['pairing']}: table says {row['ratio']}, the formula says {computed:.2f}")
+            print(
+                f"selftest: {row['pairing']}: table says {row['ratio']}, the formula says {computed:.2f}"
+            )
         if row["normal"] != expected_normal:
             failures += 1
-            print(f"selftest: {row['pairing']}: normal text marked {row['normal']}, should be {expected_normal}")
+            print(
+                f"selftest: {row['pairing']}: normal text marked {row['normal']}, should be {expected_normal}"
+            )
         if row["large"] != expected_large:
             failures += 1
-            print(f"selftest: {row['pairing']}: large text marked {row['large']}, should be {expected_large}")
+            print(
+                f"selftest: {row['pairing']}: large text marked {row['large']}, should be {expected_large}"
+            )
 
     if failures:
         return 1

@@ -9,7 +9,6 @@ Usage:
 """
 
 import csv
-import json
 import argparse
 import datetime
 from pathlib import Path

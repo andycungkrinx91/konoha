@@ -24,6 +24,7 @@ intra-crate paths (without `crate::`) are not resolved.
 Usage: python3 rustimports.py <crate_dir> [-o graph.json] [--direction TB|LR]
                                            [--group] [--no-reduce]
 """
+
 import argparse
 import json
 import os
@@ -37,8 +38,10 @@ USE = re.compile(r"\buse\s+([^;]+);")
 def crate_name(root):
     cargo = os.path.join(root, "Cargo.toml")
     if os.path.exists(cargo):
-        m = re.search(r'(?m)^\s*name\s*=\s*"([^"]+)"',
-                      open(cargo, encoding="utf-8", errors="ignore").read())
+        m = re.search(
+            r'(?m)^\s*name\s*=\s*"([^"]+)"',
+            open(cargo, encoding="utf-8", errors="ignore").read(),
+        )
         if m:
             return m.group(1)
     return "crate"
@@ -47,7 +50,9 @@ def crate_name(root):
 def discover(root):
     """Map module path (tuple of segments; () is the crate root) -> file path."""
     root = os.path.abspath(root)
-    src = os.path.join(root, "src") if os.path.isdir(os.path.join(root, "src")) else root
+    src = (
+        os.path.join(root, "src") if os.path.isdir(os.path.join(root, "src")) else root
+    )
     modules = {}
     for dirpath, dirs, files in os.walk(src):
         dirs[:] = [d for d in dirs if d != "target" and not d.startswith(".")]
@@ -58,7 +63,7 @@ def discover(root):
             if parts[-1] == "mod":
                 parts = parts[:-1]
             if len(parts) == 1 and parts[0] in ("main", "lib"):
-                parts = []                                   # crate root
+                parts = []  # crate root
             modules[tuple(parts)] = os.path.join(dirpath, fn)
     return modules, src
 
@@ -96,9 +101,9 @@ def base_segments(prefix, current):
             n += 1
             segs = segs[1:]
         if n > len(current):
-            return None                                      # climbs above the crate root
+            return None  # climbs above the crate root
         return list(current)[: len(current) - n] + segs
-    return None                                              # std / external crate
+    return None  # std / external crate
 
 
 def resolve(parts, modules, current):
@@ -123,7 +128,7 @@ def edges_of(current, path, modules):
     for stmt in USE.findall(src):
         if "{" in stmt:
             prefix = stmt[: stmt.index("{")]
-            inner = stmt[stmt.index("{") + 1: stmt.rindex("}")] if "}" in stmt else ""
+            inner = stmt[stmt.index("{") + 1 : stmt.rindex("}")] if "}" in stmt else ""
             leaves = split_top(inner)
         else:
             prefix, leaves = stmt, [None]
@@ -147,24 +152,35 @@ def transitive_reduce(nodes, edges):
     idx = {n: i for i, n in enumerate(nodes)}
     dot = "digraph{" + "".join(f"{idx[s]}->{idx[t]};" for s, t in edges) + "}"
     try:
-        out = subprocess.run(["tred"], input=dot, capture_output=True,
-                             text=True, check=True).stdout
+        out = subprocess.run(
+            ["tred"], input=dot, capture_output=True, text=True, check=True
+        ).stdout
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"warning: tred unavailable, keeping all edges ({exc})\n")
         return edges
     rev = {i: n for n, i in idx.items()}
-    return [(rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)]
+    return [
+        (rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)
+    ]
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Rust module-use graph -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Rust module-use graph -> autolayout graph JSON."
+    )
     ap.add_argument("crate", help="crate directory (contains Cargo.toml and/or src/)")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="box modules by their parent module path (nested)")
-    ap.add_argument("--no-reduce", action="store_true",
-                    help="keep every edge (skip transitive reduction)")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="box modules by their parent module path (nested)",
+    )
+    ap.add_argument(
+        "--no-reduce",
+        action="store_true",
+        help="keep every edge (skip transitive reduction)",
+    )
     args = ap.parse_args()
 
     modules, _ = discover(args.crate)
@@ -172,8 +188,13 @@ def main():
         sys.exit(f"error: no .rs modules found under {args.crate}")
     name = crate_name(args.crate)
     mid = lambda parts: name if not parts else "::".join(parts)
-    edges = sorted({(mid(m), mid(t)) for m, path in modules.items()
-                    for t in edges_of(m, path, modules)})
+    edges = sorted(
+        {
+            (mid(m), mid(t))
+            for m, path in modules.items()
+            for t in edges_of(m, path, modules)
+        }
+    )
     raw = len(edges)
     if not args.no_reduce:
         edges = transitive_reduce([mid(m) for m in modules], edges)
@@ -181,7 +202,7 @@ def main():
     def node(parts):
         d = {"id": mid(parts), "label": name if not parts else parts[-1]}
         if args.group and len(parts) > 1:
-            d["group"] = "/".join(parts[:-1])                # parent module path -> nested boxes
+            d["group"] = "/".join(parts[:-1])  # parent module path -> nested boxes
         return d
 
     graph = {
