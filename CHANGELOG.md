@@ -12,6 +12,8 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Socket.dev Repository Policy Governance**: Configured `socket.yml` with `urlStrings: false` (suppressing benign OpenXML/Microsoft Office relationship namespaces in `docx@9.14.0`), `gptSecurity: false` (bypassing installer wrapper heuristics), and `gptAnomaly: false`. Scoped ignore paths to include `.omp`.
 - **Consumer Planning Artifacts Ignore Synchronization**: Updated `src/agent_deployer.js` to automatically inject `PLAN.md`, `PLAN*.md`, `PLAN_*.md`, `.omp/plans/`, and `.omp/plans` into consumer `.gitignore` and `.dockerignore` blocks. Updated root `.npmignore` to exclude `*.tgz`.
 - **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.10` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all 12 client template contracts. Synchronized all documentation, benchmarks, and WebP animations.
+- **Security Compliance Certification (v2.2.10)**: Authored and certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md` certifying 100% compliance across Google Cloud enterprise policies, complete supply-chain remediation, and Playwright E2E automation.
+- **Architecture Diagram Synchronization (Page 16: Akatsuki Security Controls)**: Integrated Page 16 (`16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle`) into `docs/diagrams/konoha-architecture.drawio` and `docs/diagrams/konoha-enterprise-architecture.drawio`, providing full visual parity with Workflow 14 covering dual-mode switching (`mode: blue | red`), LXC/Docker unprivileged sandboxing, and persona boundary enforcement.
 
 ## [2.2.9] - 2026-10-26
 

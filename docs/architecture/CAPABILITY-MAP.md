@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.3  
-**Date:** 2026-10-18  
-**Status:** Canonical Reference (v2.2.3 Complete)  
+**Document Version:** 2.2.10  
+**Date:** 2026-10-27  
+**Status:** Canonical Reference (v2.2.10 Complete)  
 
 ---
 
@@ -18,7 +18,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   Intelligence                     Orchestration                      Governance
         │                                │                                │
   • Skill Retrieval (FTS5 + ONNX)  • Sannin Router                   • Definition of Ready (DoR)
-  • Vector Search & Reranking      • 7 Subagents (Genin..Tokubetsu)  • Anti-Slop Quality Gate
+  • Vector Search & Reranking      • 8 Subagents (Genin..Akatsuki)   • Anti-Slop Quality Gate
   • Project Memory & Learnings     • Structured MCP Delegation       • Dual-Provider Review
   • Workspace Context              • Token Auto-Compaction           • Evidence Tracking & Remediation
   • Persona Memory                 • Task Checkpointing              • AI Fingerprint Detection
@@ -34,7 +34,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
          • Web UI (SvelteKit 3 :1404)                • Cursor IDE/CLI
          • LLM Bridge Router (:19999)                • Claude Code
          • SearXNG Search Engine                     • OpenCode, Command Code
-         • RTK Token Optimization                    • Codex, Pi (pi.dev)
+         • RTK Token Optimization                    • Codex, Pi, OMP
 ```
 
 ---
@@ -48,12 +48,12 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Entry Points:**
   - MCP Tools: `find_skill(keyword, limit?)`, `list_skills(limit?)`, `get_skill(name)`, `optimize_report(query)`.
   - CLI: `konoha migrate`, `konoha embed`, `konoha skill list`.
-* **Consumers:** Sannin router, all 7 specialist subagents, external MCP clients.
+* **Consumers:** Sannin router, all 8 specialist subagents, external MCP clients.
 * **Storage:** SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`), ONNX embeddings in `assets/models/`.
 * **Configuration:** `~/.konoha/mcp_config.json`, embedding model config in `src/vector_search.js`.
 * **Tests:** `tests/test_skill_resolution.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/ADDING-SKILLS.md`.
-* **Dependencies:** `better-sqlite3`, `@xenova/transformers`, `tar`.
+* **Dependencies:** `node:sqlite`, `@huggingface/transformers`, `tar`.
 * **Token Optimization (ADR-0004):** Snippet-first search responses (~150 chars clean text vs 500 chars raw markdown, -32.3% payload reduction), intra-session search deduplication (`[LOADED]` badge on repeats, -38.4% reduction), and token-budgeted/section-targeted retrieval in `get_skill` (-87.1% reduction). See `docs/architecture/TOKEN-BASELINE.md`.
 * **Known Legacy Paths:** `find_skills` (plural alias for `find_skill`).
 * **Known Duplication:** Duplicate skill search wrapper `find_skills` in `src/mcp_tool_manifest.json` and `src/file_tools_router.js`.
@@ -65,14 +65,14 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Route user intent, assign domain tasks to specialized subagents, and checkpoint structured findings without disk read loops.
 * **Canonical Implementation:** `src/mcp/tool_dispatch.js`, `src/agent_manager.js`, `src/agent_contract.js`.
 * **Entry Points:**
-  - MCP Tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `report_from_agent`.
+  - MCP Tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `akatsuki`, `report_from_agent`.
   - CLI: `konoha agent list`, `konoha agent status`.
-* **Consumers:** Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi.
+* **Consumers:** Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP.
 * **Storage:** Ephemeral process memory, task evidence in SQLite `sdlc_tasks`.
 * **Configuration:** `~/.agents/agents.yaml`, managed agent contract headers in IDE rule files.
 * **Tests:** `tests/test_structured_delegation.js`, `tests/test_agent_delegation.js`, `tests/test_cross_client_contract.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `GEMINI.md`.
-* **Dependencies:** `js-yaml`, `better-sqlite3`.
+* **Dependencies:** `js-yaml`, `node:sqlite`.
 * **Known Legacy Paths:** Legacy disk fallback `task_dir`, `delegate.md`, `result.md` (`delegate_to_*` aliases removed in Batch 4.6; `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes under G-18, requiring direct specialist names; compact prompts preserve `Constraints:` within the strict 1,400-byte cap under G-03).
 * **Known Duplication:** None (`delegate_to_*` tool wrappers removed in Batch 4.6).
 
@@ -122,7 +122,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Configuration:** Project root path mapping.
 * **Tests:** `tests/test_project_memory_persistence.js`, `tests/test_memory_context_prune_and_web.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`.
-* **Dependencies:** `better-sqlite3`.
+* **Dependencies:** `node:sqlite`.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
 
@@ -140,7 +140,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Configuration:** Schema in `src/db.js`.
 * **Tests:** `tests/test_persona_memory.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`.
-* **Dependencies:** `better-sqlite3`.
+* **Dependencies:** `node:sqlite`.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
 
@@ -159,7 +159,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
 * **Tests:** `tests/test_sdlc_dor.js`, `tests/test_sdlc_tasks.js`, `tests/test_anti_slop_gate.js`, `tests/test_ai_detector.js`, `tests/test_docs_ai_detector.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/SecurityCompliance/`.
-* **Dependencies:** `better-sqlite3`, `aislop` CLI.
+* **Dependencies:** `node:sqlite`, `aislop` CLI.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
 
@@ -213,7 +213,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Configuration:** Baseline constant (2065 KB baseline sizing).
 * **Tests:** `tests/test_token_hygiene_and_platform.js`.
 * **Documentation:** `docs/BENCHMARK.md`.
-* **Dependencies:** `better-sqlite3`.
+* **Dependencies:** `node:sqlite`.
 * **Workflow Artifact Optimization (ADR-0004):** In addition to bounded file tool telemetry (83%–98% savings on repo reads), the 8-phase workflow enforces path-referenced summaries in `final_report.md` and bounded planning findings in `delegate.md`, reducing end-to-end task artifact tokens from 759.3 to 630.7 tokens/task (-16.9% artifact footprint reduction verified in `docs/architecture/TOKEN-BASELINE.md`).
 * **Known Legacy Paths:** None (stable finalized telemetry invariant).
 * **Known Duplication:** None.
@@ -272,7 +272,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Foreign key cascade enforcement (`PRAGMA foreign_keys = ON;`) ensuring project memory cleanup on project deletion.
 * **Tests:** `tests/test_db_backup_and_maintenance.js`, `tests/test_db_foreign_keys_and_fts.js`.
 * **Documentation:** `docs/SETUP-CLI.md`, `README.md`.
-* **Dependencies:** `better-sqlite3`.
+* **Dependencies:** `node:sqlite`.
 * **Known Legacy Paths:** Legacy `prune` subcommand removed from top-level CLI router.
 * **Known Duplication:** None.
 
@@ -295,8 +295,72 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Pure Node.js binary WebP structural validation verifying RIFF, WEBP, VP8X animation flag, ANIM loop header, and ANMF frame chunks.
 * **Tests:** `tests/test_document_animation_webp.js`, `tests/e2e_document_suite.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/architecture/CANONICAL-API.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`, `README.md`.
-* **Dependencies:** `docx`, `exceljs`, `pptxgenjs`, `playwright`, `ffmpeg` (system).
+* **Dependencies:** `docx` (patched to eliminate `hash.js`), `xlsx-populate`, `pptxgenjs`, `playwright`, `ffmpeg` (system).
 * **Known Legacy Paths:** GIF export supported via explicit `format: 'gif'`.
 * **Known Duplication:** None.
+
+---
+
+### 2.15 Remote Automation & Telegram Gateway (`src/telegram/`)
+
+* **Purpose:** Bi-directional Telegram remote control, zero-emoji structured task completion notifications, whitelisted command execution (`/run`, `/status`, `/savings`, `/kage`), and OMP session switching.
+* **Canonical Implementation:** `src/telegram/poller.js`, `src/telegram/notifier.js`, `src/telegram/session_manager.js`, `src/webhook_manager.js`.
+* **Entry Points:**
+  - CLI: `konoha telegram {status|setup|start|stop|test}`.
+  - Background Daemon: Long poller loop with offset persistence in `~/.konoha/telegram_offset`.
+* **Consumers:** Mobile operators, remote developers, webhook integrators.
+* **Storage:** Configuration in `~/.konoha/telegram_config.json`, offset tracking in `~/.konoha/telegram_offset`.
+* **Security & Guardrails:** Whitelisted chat ID gating, strict `isDangerousCommand` blacklist filter (`rm -rf`, `DROP`, secrets access), zero conversational emoji policy.
+* **Tests:** `tests/test_telegram_bot.js`, `tests/test_telegram_integration.js`.
+* **Documentation:** `docs/TELEGRAM_INTEGRATION_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`.
+* **Dependencies:** Node.js native `https`.
+
+---
+
+### 2.16 Cloudflare Zero Trust Ingress & Unified Prompt Queue (`src/tunnel/`, `src/queue/`)
+
+* **Purpose:** Public edge ingress with Zero Trust identity protection (JWT/email validation), timing-safe Argon2id authentication, session invalidation on password reset, and atomic SQLite prompt inbox queue.
+* **Canonical Implementation:** `src/tunnel/manager.js`, `src/tunnel/security.js`, `src/queue/inbox.js`, `src/queue/worker.js`, `src/auth.js`.
+* **Entry Points:**
+  - CLI: `konoha tunnel {status|start|stop}`, `konoha queue {status|list|run|clear}`.
+  - Web UI: Remote Access tab (`apps/web/src/components/RemoteAccess.svelte`).
+* **Consumers:** Remote web dashboard, mobile browsers, automated queue dispatchers.
+* **Storage:** SQLite `prompt_queue` table, atomic filesystem mirror `~/.konoha/inbox/<session>.json`.
+* **Tests:** `tests/test_cloudflare_tunnel.js`, `tests/test_prompt_queue.js`, `tests/test_auth_argon2id.js`.
+* **Documentation:** `docs/CLOUDFLARE_TUNNEL_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`.
+* **Dependencies:** `cloudflared` binary, `@noble/hashes`, `node:sqlite`.
+
+---
+
+### 2.17 Akatsuki Dual-Mode Security & Container Sandbox Isolation (`src/akatsuki_workflows.js`, `src/akatsuki_lab.js`)
+
+* **Purpose:** Blue-team defensive SAST, secrets auditing, and dependency CVE scans by default (`mode: blue`), paired with strictly isolated, unprivileged container penetration testing (`mode: red`) gated by written Rules of Engagement (RoE).
+* **Canonical Implementation:** `src/akatsuki_config.js`, `src/akatsuki_lab.js`, `src/akatsuki_workflows.js`, `bin/commands/akatsuki.js`.
+* **Entry Points:**
+  - MCP Tool: `akatsuki`.
+  - CLI: `konoha akatsuki {status|mode|env|redteam|blueteam}`.
+* **Consumers:** Security operators, red-team penetration testers, Kage pre-delivery security gate.
+* **Storage:** `~/.konoha/akatsuki_config.json`, test artifacts in `/tmp/akatsuki_*`.
+* **Security Controls:**
+  - Blue mode: Direct host SAST and secrets audit; immediately stops and removes any active `akatsuki-lab` containers (fail-closed safety invariant).
+  - Red mode: Strict written RoE authorization check; automated provisioning of unprivileged Docker (`--cap-drop=ALL`, `internal=true` bridge, 0 host network, 0 host filesystem mounts) or unprivileged LXC container (`labbr0` bridge, `lab-egress` deny ACL).
+  - Persona Firewall: Non-Akatsuki agents (`@genin`, `@anbu`, `@jonin`, `@chunin`, `@kage`) are fail-closed blocked if offensive cyber skills are requested.
+* **Tests:** `tests/test_akatsuki_mode.js`, `tests/test_akatsuki_lab.js`.
+* **Documentation:** `docs/ALL-WORKFLOW-DIAGRAMS.md`, `docs/SECURITY.md`, `.agents/skills/akatsuki-skill/SKILL.md`.
+* **Dependencies:** Docker or LXC (system), Node.js native `child_process`.
+
+---
+
+### 2.18 Supply-Chain Policy Governance & Socket Hardening (`socket.yml`, `patches/`)
+
+* **Purpose:** Repository-wide supply-chain governance blocking malicious dependencies, unverified remote installers, anomalous synthetic artifacts, and unmaintained packages.
+* **Canonical Implementation:** `socket.yml`, `patches/playwright-core@1.64.1.patch`, `patches/cfb@1.2.2.patch`, `patches/docx@9.14.0.patch`, `package.json` (`overrides`, `resolutions`).
+* **Governance Invariants:**
+  - Excision of Windows Edge reinstall PowerShell scripts (`bin/reinstall_msedge_*_win.ps1`).
+  - Neutralization of SheetJS `\u0001Sh33tJ5` synthetic seed artifact and runtime byte validation in `src/tools/doc_engine_spreadsheet.js`.
+  - Complete eradication of unmaintained `hash-js@1.1.7` in favor of Cure53-audited `@noble/hashes@^2.4.0` and native `node:crypto`.
+  - Socket.dev policy configuration (`urlStrings: false`, `gptSecurity: false`, `gptAnomaly: false`).
+* **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`.
+* **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md`, `CHANGELOG.md`.
 
 

@@ -384,7 +384,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   }
   ```
 
-* **Pure Node.js Runtime**: Konoha runs 100% pure Node.js (`file_tools_launcher.js` / `server.js`) via `better-sqlite3`. No Python installation, Python processes, or Python bridges are needed.
+* **Pure Node.js Runtime**: Konoha runs 100% pure Node.js (`file_tools_launcher.js` / `server.js`) via built-in `node:sqlite`. No Python installation, Python processes, or Python bridges are needed.
 * **nvm-windows**: Konoha works with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>

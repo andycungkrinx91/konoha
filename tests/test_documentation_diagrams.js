@@ -44,7 +44,7 @@ async function run() {
     pages.push({ name: unescapedName, content: dMatch[2] });
   }
 
-  assert.strictEqual(pages.length, 15);
+  assert.strictEqual(pages.length, 16);
   const expectedPageNames = new Set([
     '01 System Architecture',
     '02 Runtime Query Lifecycle',
@@ -60,7 +60,8 @@ async function run() {
     '12 CLI Upgrade & Progress Engine',
     '13 QA Automation Workflow',
     '14 Remote Access & Telegram Inbound/Outbound',
-    '15 Cloudflare Zero Trust Ingress & Prompt Queue'
+    '15 Cloudflare Zero Trust Ingress & Prompt Queue',
+    '16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle'
   ]);
   assert.deepStrictEqual(new Set(pages.map(p => p.name)), expectedPageNames);
 

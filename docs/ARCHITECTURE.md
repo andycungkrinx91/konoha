@@ -48,11 +48,12 @@ flowchart TB
     subgraph Specialists ["Specialized Subagents (Sannin Router)"]
         Sannin["✧ sannin (Router)"]
         Jonin["♦ jonin (Elite Frontend Builder · aislop_fix)"]
-        Anbu["♠ anbu (Backend, DevOps, QA & Dev/Local Pentest · aislop_fix)"]
+        Anbu["♠ anbu (Backend, DevOps, Bug Fixing & QA · aislop_fix)"]
         Kage["◎ kage (Security, Architecture & Zero-AI-Slop Gate)"]
         Genin["⚑ genin (genin-skill Code Explorer · Baseline Scan)"]
         Chunin["▫ chunin (Research & Web Intel)"]
         Tokubetsu["⬡ tokubetsu-jonin / tokubetsu_jonin (Technical Documentation)"]
+        Akatsuki["🛡️ akatsuki (Red/Blue Security Specialist · Lab Isolation)"]
     end
 
     subgraph UniversalInvariants ["Universal Website Archetypes & Layout Engine"]
@@ -80,7 +81,7 @@ flowchart TB
 
     class User,Clients,Orchestrator clientNode;
     class KonohaMCP,SembleMCP,AislopMCP,SQLiteDB,VectorEngine mcpNode;
-    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu agentNode;
+    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki agentNode;
     class Archetypes,Invariants,SSRSafety invNode;
 ```
 
@@ -116,7 +117,7 @@ All database interactions across the entire Konoha codebase are consolidated und
 
 1. **Canonical Path Ownership**: `DB_PATH = path.join(os.homedir(), ".konoha", "konoha.db")` is defined exclusively in `src/db.js` (with automatic one-time legacy migration from `skills.db`).
 2. **Unified Pragmas**: Every connection opened via `db.getConnection()` automatically configures:
-   - Native `better-sqlite3` database handle
+   - Built-in `node:sqlite` driver (zero native C++ build addons)
    - `PRAGMA journal_mode=WAL;` (Write-Ahead Logging for high-concurrency read/write)
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)

@@ -19,10 +19,10 @@
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white)](docs/SETUP-SEARXNG.md)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
 [![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Zero%20Trust%20Tunnel-F38020?logo=cloudflare&logoColor=white)](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.3_2026-10-19.md)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.3-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.3_2026-10-19.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.10-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
 [![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
@@ -48,7 +48,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 ## 📸 Preview
 
 * **Latest Release:** [v2.2.10](CHANGELOG.md) — Supply-chain hardening, Playwright Edge script excision, SheetJS CF seed neutralization, hash-js replacement with @noble/hashes, and Socket.dev policy configuration.
-* **Latest Security Compliance:** [Google Policy Compliance v2.2.3 — Audited & Certified (2026-10-19)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.3_2026-10-19.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.2.10 — Audited & Certified (2026-10-27)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
 
 <details open>
 <summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.webp</code>)</b></summary>

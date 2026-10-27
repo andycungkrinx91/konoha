@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
-**Document Version:** 2.2.4  
-**Date:** 2026-10-20  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.4 Complete)  
+**Document Version:** 2.2.10  
+**Date:** 2026-10-27  
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.10 Complete)  
 
 ---
 
@@ -71,6 +71,7 @@ All tools (46 active) are served through the `konoha` MCP server over stdio JSON
 | `jonin` | `jonin` | `jonin-skill` | Frontend development & UI design matching |
 | `anbu` | `anbu` | `anbu-skill` | Backend dev, DevOps, infrastructure, testing |
 | `tokubetsu-jonin` | `tokubetsu_jonin` | `tokubetsu-jonin-skill` | Documentation, specs, runbooks, reports |
+| `akatsuki` | `akatsuki` | `akatsuki-skill` | Red-team penetration testing, blue-team defensive auditing & security review gates |
 
 ---
 
@@ -90,6 +91,8 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 | `sdlc_task_evidence` | Relational | Review evidence, command outputs, confidence scores |
 | `bridges` | Relational | Local LLM bridge configurations & routing targets |
 | `savings` | Relational | Token savings telemetry & invocation counters |
+| `prompt_queue` | Relational | Unified inbound task queue (`pending`, `processing`, `completed`) |
+| `vault_secrets` | Relational + AES-256-GCM | Encrypted credential vault at rest (`src/crypto_vault.js`) |
 
 ---
 
@@ -110,3 +113,10 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 * `konoha task {list|show|slop|delete|clear}`
 * `konoha agent {list|status}`
 * `konoha skill {list|add}`
+* `konoha akatsuki {status|mode|env|redteam|blueteam}`
+* `konoha telegram {status|setup|start|stop|test}`
+* `konoha tunnel {status|start|stop}`
+* `konoha queue {status|list|run|clear}`
+* `konoha detect-ai <target>`
+* `konoha detect-docs <file>`
+* `konoha data {backup|rebuild-fts|prune}`
