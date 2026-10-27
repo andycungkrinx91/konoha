@@ -7,7 +7,7 @@ const {
   diagramCreate,
   animationExport,
   validateAnimatedWebP
-} = require('../src/tools/document_engine');
+} = require('../src/workflow/tokubetsu-scribe/document_engine');
 
 async function runBenchmark() {
   console.log('Running GIF vs Animated WebP Compression Benchmark...');

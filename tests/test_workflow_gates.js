@@ -355,7 +355,7 @@ async function run() {
   const origHitlMode = process.env.KONOHA_HITL_MODE;
   process.env.KONOHA_HITL_MODE = 'enabled';
   try {
-    const sdlcManager = require('../src/sdlc_manager');
+    const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
     const taskId = path.basename(root8);
     seedPrompt(root8, 'Feature with HITL gates');
     const r1 = JSON.parse(server.runMcpWorkflow(root8));

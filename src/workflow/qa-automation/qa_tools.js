@@ -471,7 +471,7 @@ function runQaRetention(currentRunId, options = {}) {
     protectedRunIds = new Set(options.protectedRunIds);
   } else if (lookupAvailable) {
     try {
-      const sdlcManager = require('./sdlc_manager');
+      const sdlcManager = require('../kage-reviewer/sdlc_manager');
       const tasks = sdlcManager.listTasks({ limit: 1000 });
       for (const t of tasks) {
         if (t.status !== 'completed' && t.evidence) {

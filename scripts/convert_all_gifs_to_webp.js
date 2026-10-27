@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { validateAnimatedWebP } = require('../src/tools/document_engine');
+const { validateAnimatedWebP } = require('../src/workflow/tokubetsu-scribe/document_engine');
 
 const ASSETS_DIR = path.resolve(__dirname, '..', 'assets');
 

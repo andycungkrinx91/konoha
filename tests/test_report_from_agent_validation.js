@@ -5,7 +5,7 @@ assertSandbox();
 
 const assert = require('assert');
 const { reportFromAgent } = require('../src/mcp/memory_reporting');
-const { detectReviewIndependence } = require('../src/sdlc_manager');
+const { detectReviewIndependence } = require('../src/workflow/kage-reviewer/sdlc_manager');
 const db = require('../src/db');
 
 // Setup DB connection

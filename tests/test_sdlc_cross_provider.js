@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
 const Database = require('../src/sqlite_driver');
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 const { getDiagnostics } = require('../src/doctor');
 
 async function run() {

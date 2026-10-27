@@ -21,7 +21,7 @@ const initConn = db.getConnection(dbPath);
 db.setupSchema(initConn);
 initConn.close();
 
-const sdlcManager = require('../src/sdlc_manager');
+const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
 const notifierModule = require('../src/telegram/notifier');
 const pollerModule = require('../src/telegram/poller');
 const configModule = require('../src/telegram/config');

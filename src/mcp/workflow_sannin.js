@@ -159,7 +159,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   let resolvedTaskDir;
   if (!taskDir && prompt && typeof prompt === 'string' && prompt.trim()) {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const freshTaskId = sdlcManager.generateTaskId();
     const tmpRoot = getKonohaTmpRoot(resolvedProjPath, resolvedSessionId);
     resolvedTaskDir = path.join(tmpRoot, 'scratch', 'tasks', freshTaskId);
@@ -169,7 +169,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
 
   const taskId = path.basename(resolvedTaskDir);
-  const sdlcManager = require('../sdlc_manager');
+  const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   let status = loadWorkflowStatus(resolvedTaskDir);
 
   const normalizedPrompt = (s) => (s || '').replace(/\r\n/g, '\n').trim();

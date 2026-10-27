@@ -20,7 +20,7 @@ const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 const server = require('../src/server');
-const sdlcManager = require('../src/sdlc_manager');
+const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 async function run() {
   console.log('Running test_anti_slop_gate tests...');

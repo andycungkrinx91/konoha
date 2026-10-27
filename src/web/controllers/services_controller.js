@@ -23,7 +23,7 @@ async function handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method) 
       return sendJson(res, 400, { error: 'Missing required query parameter: target (site directory path or http(s) URL)' });
     }
     try {
-      const { detectWebsiteAiAsync } = require('../../ai_detector');
+      const { detectWebsiteAiAsync } = require('../../workflow/jonin-builder/ai_detector');
       const result = await detectWebsiteAiAsync(target);
       if (result && result.error) {
         return sendJson(res, 400, result);
@@ -40,7 +40,7 @@ async function handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method) 
       return sendJson(res, 400, { error: 'Missing required query parameter: file_path (document file path)' });
     }
     try {
-      const { detectDocsAi } = require('../../docs_ai_detector');
+      const { detectDocsAi } = require('../../workflow/kage-reviewer/docs_ai_detector');
       const result = detectDocsAi(file_path);
       if (result && result.error) {
         return sendJson(res, 400, result);
@@ -62,7 +62,7 @@ async function handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method) 
       const tmpFile = path.join(tmpDir, `konoha_docs_detect_${Date.now()}.txt`);
       fs.writeFileSync(tmpFile, text, 'utf8');
       try {
-        const { detectDocsAi } = require('../../docs_ai_detector');
+        const { detectDocsAi } = require('../../workflow/kage-reviewer/docs_ai_detector');
         const detectResult = detectDocsAi(tmpFile);
         if (detectResult && detectResult.error) {
           return sendJson(res, 400, detectResult);

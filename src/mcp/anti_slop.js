@@ -327,7 +327,7 @@ function runAntiSlopAudit(args = {}, agentName = null) {
   const taskId = args.task_id || args.taskId || args.id;
   if (taskId) {
     try {
-      const sdlcManager = require('../sdlc_manager');
+      const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
       sdlcManager.recordSlopResult(taskId, {
         clean: isClean,
         findings_count: totalFindings,

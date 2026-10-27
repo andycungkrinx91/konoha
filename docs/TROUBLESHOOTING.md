@@ -465,7 +465,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Workflow Abandoned on Session Resume across coding clients (`v2.0.0-beta.7`)**:
   - **Symptom**: When resuming an existing conversation with `--resume` or `--continue`, agents bypassed the Konoha workflow.
   - **Reason**: Contracts are loaded at session start, but session resume lacked a re-engagement trigger.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by registering `src/workflow_reminder.js` as UserPromptSubmit and SessionStart hooks (`resume|compact|clear`) for Claude Code and Command Code.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by registering `src/workflow/sannin-orchestrator/workflow_reminder.js` as UserPromptSubmit and SessionStart hooks (`resume|compact|clear`) for Claude Code and Command Code.
 * **Pi (pi.dev) `[Skill conflicts]` warning at startup (`v2.0.0-beta.7`)**:
   - **Symptom**: Running `pi` in a project with `.agents/skills` prints `[Skill conflicts]` collisions between global user skills (`~/.agents/skills`) and project local skills (`.agents/skills`).
   - **Reason**: Pi scans both global and local skill directories; identical mirror copies on disk have different physical file paths, causing Pi to log collision diagnostics.

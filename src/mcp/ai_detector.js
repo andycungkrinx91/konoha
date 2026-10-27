@@ -1,6 +1,6 @@
 'use strict';
 
-const { detectWebsiteAi, detectWebsiteAiAsync } = require('../ai_detector');
+const { detectWebsiteAi, detectWebsiteAiAsync } = require('../workflow/jonin-builder/ai_detector');
 const { logToolCall } = require('./skills');
 
 // Sync variant for directory targets (MCP sync dispatch path); URL targets return null → use the async path or a subprocess.

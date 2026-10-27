@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_workflows.js
+ * src/workflow/akatsuki/workflows.js
  * Professional Red-Team and Blue-Team security workflows for Akatsuki.
  * Enforces fail-closed authorization, sandbox containment, and Kage delivery gates.
  */
@@ -20,7 +20,7 @@ const {
   validateLabPrerequisites,
   executeInLab,
   teardownLab
-} = require('./akatsuki_lab');
+} = require('./lab');
 const {
   CURATED_TOOL_REGISTRY,
   VALID_CATEGORIES,
@@ -30,12 +30,12 @@ const {
   listSupportedTools,
   planToolExecution,
   buildPhaseCommand
-} = require('./akatsuki_tool_registry');
+} = require('./tool_registry');
 const {
   isRedTeamEnabled,
   loadAkatsukiConfig,
   setRedTeamEnabled
-} = require('./akatsuki_config');
+} = require('./config');
 
 const LOCAL_TARGET_REGEX = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|app|web|dev|staging|container|cluster)(?::\d+)?(\/.*)?$/i;
 
@@ -121,7 +121,7 @@ function validateAuthorization(params = {}, options = {}) {
   };
 }
 
-const { runBlueTeamWorkflow } = require('./akatsuki_blue_workflows');
+const { runBlueTeamWorkflow } = require('./blue_workflows');
 
 /**
  * Execute professional Red-Team Offensive workflow inside isolated sandbox.
@@ -208,7 +208,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   }
 
   // 3. Reconnaissance planning & Chunin threat intelligence
-  const { buildReconDirective, gatherKnowledge } = require('./akatsuki_recon');
+  const { buildReconDirective, gatherKnowledge } = require('./recon');
   const reconDirective = buildReconDirective({
     scope: auth.scope,
     task: params.task || params.prompt || params.instructions
@@ -418,7 +418,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const reportOption = params.report;
   if (reportOption === 'pdf' || (reportOption && reportOption.format === 'pdf') || params.task_dir) {
     try {
-      const { buildRedTeamReportModel, generateRedTeamReportPdf } = require('./akatsuki_report');
+      const { buildRedTeamReportModel, generateRedTeamReportPdf } = require('./report');
       const targetDir = params.task_dir || (typeof reportOption === 'object' && reportOption.output_dir) || os.tmpdir();
       const pdfPath = (typeof reportOption === 'object' && reportOption.output_path) || path.join(targetDir, 'akatsuki_redteam_report.pdf');
 

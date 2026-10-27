@@ -1,14 +1,14 @@
 'use strict';
 
 /**
- * src/akatsuki_recon.js
+ * src/workflow/akatsuki/recon.js
  *
  * Reconnaissance and Threat Intelligence coordinator for Akatsuki Red-Team.
  * Synthesizes Chunin research directives, MITRE ATT&CK / OWASP method mappings,
  * and standard non-destructive payload libraries.
  */
 
-const { findSimilarChuninKnowledge } = require('./chunin_knowledge');
+const { findSimilarChuninKnowledge } = require('../chunin-intel/chunin_knowledge');
 
 const STANDARD_ATTACK_METHODS = [
   {

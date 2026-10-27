@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_tool_registry.js
+ * src/workflow/akatsuki/tool_registry.js
  *
  * Strict profile registry and command validation for Akatsuki Red-Team sandbox tools.
  * Governs which tools are permitted to execute inside 'akatsuki-lab' container sandbox.
@@ -10,8 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { CURATED_TOOL_REGISTRY } = require('./akatsuki_tool_profiles');
-const { isRedTeamEnabled } = require('./akatsuki_config');
+const { CURATED_TOOL_REGISTRY } = require('./tool_profiles');
+const { isRedTeamEnabled } = require('./config');
 
 const VALID_CATEGORIES = new Set([
   'network_discovery',
@@ -230,6 +230,35 @@ function getToolProfile(toolId, customProfiles = {}, options = {}) {
     if (persisted[normalizedId]) {
       profile = { ...persisted[normalizedId] };
     }
+  }
+
+  if (!profile) {
+    try {
+      const { listKaliTools } = require('./init');
+      const kaliMatches = listKaliTools({ query: normalizedId, limit: 5 });
+      const kaliMatch = (kaliMatches || []).find(
+        (t) => t.slug === normalizedId || t.id === normalizedId || t.name === normalizedId
+      );
+      if (kaliMatch) {
+        profile = {
+          id: kaliMatch.slug || kaliMatch.id,
+          display_name: `Kali Linux Tool: ${kaliMatch.name}`,
+          version: 'kali-rolling',
+          category: 'vulnerability_audit',
+          binary_candidates: [kaliMatch.package || kaliMatch.slug, `/usr/bin/${kaliMatch.slug}`],
+          container_images: ['kalilinux/kali-rolling'],
+          safety_class: 'active_recon',
+          allowed_operations: ['*', 'all_operations', 'full_unrestricted_capabilities'],
+          blocked_operations: [],
+          required_scope: 'local_or_dev',
+          timeout_ms: 3600000,
+          evidence_outputs: [`/tmp/akatsuki_${kaliMatch.slug}.out`],
+          cleanup_steps: [`rm -f /tmp/akatsuki_${kaliMatch.slug}.*`, `pkill -f "${kaliMatch.slug}" || true`],
+          is_kali_catalog: true,
+          kali_url: kaliMatch.url
+        };
+      }
+    } catch (_) { /* non-fatal fallback */ }
   }
 
   if (profile && isRed) {

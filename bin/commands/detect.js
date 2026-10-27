@@ -49,7 +49,7 @@ async function cmdDetectAi(args = []) {
     return cmdDetectDocs(args);
   }
 
-  const { detectWebsiteAi, detectWebsiteAiAsync } = require('../../src/ai_detector');
+  const { detectWebsiteAi, detectWebsiteAiAsync } = require('../../src/workflow/jonin-builder/ai_detector');
   const result = /^https?:\/\//i.test(target)
     ? await detectWebsiteAiAsync(target)
     : detectWebsiteAi(target);
@@ -124,7 +124,7 @@ async function cmdDetectDocs(args = []) {
     return;
   }
 
-  const { detectDocsAi } = require('../../src/docs_ai_detector');
+  const { detectDocsAi } = require('../../src/workflow/kage-reviewer/docs_ai_detector');
   const result = detectDocsAi(target);
 
   if (json) {

@@ -69,7 +69,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ## 6. Document & Diagram Engine Hardening
 
-### 6.1 Shared Chromium Launcher (`src/tools/chromium_utils.js`)
+### 6.1 Shared Chromium Launcher (`src/workflow/tokubetsu-scribe/chromium_utils.js`)
 - Chromium launches headless with sandbox enabled by default. Safe `--no-sandbox` fallback is attempted only when container host permissions specifically demand it, emitting an explicit warning log.
 - Hardcoded `/usr/bin/google-chrome` paths were eliminated in favor of Playwright bundled Chromium resolution or optional `process.env.KONOHA_CHROME_PATH`.
 

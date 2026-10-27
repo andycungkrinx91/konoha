@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_lab.js
+ * src/workflow/akatsuki/lab.js
  * 
  * Isolated sandbox lifecycle and containment management for Akatsuki Red-Team operations.
  * Enforces mandatory sandbox execution in 'akatsuki-lab':
@@ -571,8 +571,8 @@ function provisionLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
 
   const path = require('path');
   const templateScript = targetEngine === 'lxc'
-    ? path.join(__dirname, 'templates', 'akatsuki_lab', 'lxc', 'setup.sh')
-    : path.join(__dirname, 'templates', 'akatsuki_lab', 'docker', 'setup.sh');
+    ? path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'lxc', 'setup.sh')
+    : path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'docker', 'setup.sh');
 
   try {
     const fs = require('fs');

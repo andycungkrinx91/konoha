@@ -255,7 +255,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Upgraded local extension binary (`assets/konoha-bridge-1.6.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
 15. **Cross-Client Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
    - Synchronizes official skills from canonical source `.agents/skills` across active repository mirror trees (`src/templates/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, `.omp/skills`) via `node scripts/sync_skills.js`.
-   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 8 supported coding clients.
+   - Universal stdout reminder in `src/workflow/sannin-orchestrator/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 8 supported coding clients.
    - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
 16. **Strict Non-Destructive Preservation & Union-Merge (v2.0.2)**:
    - User custom skills and configuration are never pruned or overwritten during fresh installs or upgrades (`copySkillsDirFast` additive-only, `--clean` removed from default migrations, `injectManagedConfig` preserving custom user rule blocks, and custom agent union-merge in `agents.yaml`).
@@ -332,7 +332,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 
 ## 🔄 8-Phase Multi-Agent Workflow & Native SDLC Governance Lifecycle
 
-Konoha coordinates all software development through an autonomous, state-driven 8-phase orchestration pipeline governed by `src/mcp/workflow.js` and backed by the native SDLC task engine in `src/sdlc_manager.js` (visualized in Draw.io diagram [Page 11: Kage Pre-Delivery Reviewer Workflow Gate](diagrams/README.md#manifest)):
+Konoha coordinates all software development through an autonomous, state-driven 8-phase orchestration pipeline governed by `src/mcp/workflow.js` and backed by the native SDLC task engine in `src/workflow/kage-reviewer/sdlc_manager.js` (visualized in Draw.io diagram [Page 11: Kage Pre-Delivery Reviewer Workflow Gate](diagrams/README.md#manifest)):
 
 ```mermaid
 ---

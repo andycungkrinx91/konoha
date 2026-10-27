@@ -95,7 +95,7 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 * **Canonical Replacement:**
   - Agent Name: `tokubetsu-jonin`
   - MCP Tool Name: `tokubetsu_jonin`
-* **Internal Consumers:** `src/agent_manager.js`, `src/mcp/tool_dispatch.js`, `src/sdlc_manager.js`.
+* **Internal Consumers:** `src/agent_manager.js`, `src/mcp/tool_dispatch.js`, `src/workflow/kage-reviewer/sdlc_manager.js`.
 * **External Consumers:** MCP host tool calls.
 * **Resolution:** Canonicalize the bidirectional mapping `cleanAgentName(name) = name.replace(/_/g, '-')` in `src/agent_manager.js` and document this as standard protocol behavior.
 * **Status:** Canonical mapping documented.

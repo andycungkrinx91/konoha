@@ -39,7 +39,7 @@ function runMcpWorkflow(taskDir = null) {
   status.session_id = status.session_id || cd.getActiveSessionId();
   status.client = status.client || cd.detectActiveClient() || '';
 
-  const sdlcManager = require('../sdlc_manager');
+  const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   const { getWorkspaceRoot } = require('./runtime_state');
   const resolvedProjPath = status.project_path || getWorkspaceRoot() || process.cwd();
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);

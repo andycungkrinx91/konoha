@@ -137,7 +137,7 @@ async function run() {
 
     const res4 = JSON.parse(server.runMcpWorkflow(tmpDir));
     if (res4.status === 'pending_human_signoff') {
-      const sdlc = require('../src/sdlc_manager');
+      const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
       const rootId = path.basename(tmpDir);
       sdlc.updateTask(rootId, { status: 'completed' });
       const res4Final = JSON.parse(server.runMcpWorkflow(tmpDir));

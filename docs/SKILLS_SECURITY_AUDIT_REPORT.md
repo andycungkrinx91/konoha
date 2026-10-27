@@ -87,7 +87,7 @@ Every executable script in the skill tree was manually inspected for common high
   ```bash
   python -m pip install qdrant-client pinecone-client weaviate-client
   ```
-- **Guardian Defense**: Added rule `UNPATCHED_CHROMADB_DEPENDENCY` to `src/skill_guardian.js` to block any public skill attempting to install or import ChromaDB.
+- **Guardian Defense**: Added rule `UNPATCHED_CHROMADB_DEPENDENCY` to `src/workflow/kage-reviewer/skill_guardian.js` to block any public skill attempting to install or import ChromaDB.
 
 ### 2. The Binwalk Remediation: Migration to `unblob`
 - **Initial Vulnerability**: `binwalk==2.1.0` on PyPI has unpatched CVE-2021-4287 / GHSA-8m3f-g62j-3vx8.
@@ -97,7 +97,7 @@ Every executable script in the skill tree was manually inspected for common high
   - `performing-firmware-extraction-with-binwalk/scripts/agent.py`: Added `unblob` primary engine support.
   - `performing-steganography-detection/scripts/agent.py`: Verified passive non-recursive signature scanning only.
   - **Executable Markdown Instructions Hardened**: Replaced literal `binwalk -e`, `binwalk -Me`, and `binwalk -eM` commands in `performing-firmware-extraction-with-binwalk/SKILL.md`, `references/api-reference.md`, `performing-iot-security-assessment/SKILL.md`, and `performing-iot-security-assessment/references/api-reference.md` with safe `unblob` and `binwalk3` directives, ensuring AI agents are not instructed to execute vulnerable legacy CLI commands.
-- **Guardian Defense**: Added rule `VULNERABLE_BINWALK_EXTRACTION` to `src/skill_guardian.js`.
+- **Guardian Defense**: Added rule `VULNERABLE_BINWALK_EXTRACTION` to `src/workflow/kage-reviewer/skill_guardian.js`.
 
 ### 3. Pymetasploit3 Removal
 - **Initial Vulnerability**: `pymetasploit3` <= 1.0.6 is affected by CVE-2026-5463 (command injection).
@@ -107,7 +107,7 @@ Every executable script in the skill tree was manually inspected for common high
 
 ## 5. Skill Guardian Architecture & Fail-Closed Gate
 
-The Skill Guardian (`src/skill_guardian.js`) provides an automated perimeter defense for skill installations:
+The Skill Guardian (`src/workflow/kage-reviewer/skill_guardian.js`) provides an automated perimeter defense for skill installations:
 
 ```
 [Public Skill Source]
@@ -163,7 +163,7 @@ AI agent skills treat `SKILL.md` as executable system prompts and procedural ins
 
 Chunin research synthesis was audited to verify that no external, vulnerable vector databases (such as ChromaDB) are utilized for persistence.
 
-- **Persistence Layer**: Built on Konoha's canonical SQLite engine (`src/chunin_knowledge.js`).
+- **Persistence Layer**: Built on Konoha's canonical SQLite engine (`src/workflow/chunin-intel/chunin_knowledge.js`).
 - **Schema Re-use**: Utilizes existing `persona_memories` table with `memory_type = 'knowledge'`.
 - **Search Capabilities**: Indexed via SQLite FTS5 (Full-Text Search) with BM25 ranking.
 - **Evidence Schema**: Stores exact citation URLs, retrieval dates, package names, versions, claims, and confidence boundaries.

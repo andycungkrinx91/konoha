@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const db = require('../src/db');
-const chuninKnowledge = require('../src/chunin_knowledge');
+const chuninKnowledge = require('../src/workflow/chunin-intel/chunin_knowledge');
 
 async function testChuninKnowledge() {
   console.log('Running test_chunin_knowledge...');

@@ -157,9 +157,9 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | | **4 Supported Frameworks** | `src/mcp/build_spec.js` | Official CLI scaffolding: Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+ | ✅ `ACTIVE` |
 | | **10 Palette Themes × Light/Dark** | `apps/web/src/` | Pure light-mode first class + dark mode; floating bottom-left theme picker FAB (`fixed bottom-6 left-6 z-50`) with neon focus | ✅ `ACTIVE` |
 | | **Image Mockup Replication** | `build_from_source` | 100% exact layout, spacing, typography, and asset replication | ✅ `ACTIVE` |
-| | **AI-Website Fingerprint Detector**| `src/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
-| **Document Engineering** | **Office Deliverables** | `src/tools/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
-| | **Animated WebP Pipeline** | `src/tools/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
+| | **AI-Website Fingerprint Detector**| `src/workflow/jonin-builder/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
+| **Document Engineering** | **Office Deliverables** | `src/workflow/tokubetsu-scribe/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
+| | **Animated WebP Pipeline** | `src/workflow/tokubetsu-scribe/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
 | **Remote Operations & Mobile** | **Cloudflare Zero Trust Ingress**| `src/tunnel/` | Out-of-band tunnel (`/remote`) with Edge PIN & Cloudflare Access | ✅ `ACTIVE` |
 | | **Two-Stage Telegram Approvals** | `src/telegram/` | Real-time Gate 1 & Gate 2 interactive approval buttons, `/approval list`, `/doctor`, `/session` | ✅ `ACTIVE` |
 | | **Persistent Prompt Queue** | `src/queue/` | SQLite atomic state machine (`pending` -> `processing` -> `completed`) | ✅ `ACTIVE` |

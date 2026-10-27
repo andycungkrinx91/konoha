@@ -78,7 +78,7 @@ async function cmdTask(args) {
   await chidoriTransition('task');
   const sub = args[0] || 'list';
   const subArgs = args.slice(1);
-  const sdlcManager = require('../../src/sdlc_manager');
+  const sdlcManager = require('../../src/workflow/kage-reviewer/sdlc_manager');
 
   if (sub === 'help' || sub === '--help' || sub === '-h') {
     cmdTaskHelp();

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_init.js
+ * src/workflow/akatsuki/init.js
  *
  * Orchestration engine for Akatsuki Red-Team Lab initialization,
  * multi-engine auto-detection (LXC, Docker, or both), toolset provisioning,
@@ -17,18 +17,18 @@ const {
   provisionLab,
   getLabStatus,
   executeInLab
-} = require('./akatsuki_lab');
+} = require('./lab');
 const {
   validateCustomToolProfile,
   getToolProfile
-} = require('./akatsuki_tool_registry');
+} = require('./tool_registry');
 const {
   loadAkatsukiConfig,
   saveAkatsukiConfig,
   setRedTeamEnabled
-} = require('./akatsuki_config');
+} = require('./config');
 
-const KALI_TOOLS_PATH = path.join(__dirname, 'templates', 'akatsuki_lab', 'kali_tools.json');
+const KALI_TOOLS_PATH = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'kali_tools.json');
 
 function getCustomToolsPath() {
   return process.env.KONOHA_CUSTOM_TOOLS_PATH
@@ -69,7 +69,7 @@ function listKaliTools(filter = {}, dbOrPath = null) {
 
   let localConn = null;
   try {
-    const { getConnection, setupSchema } = require('./db');
+    const { getConnection, setupSchema } = require('../../db');
     let conn = dbOrPath;
     if (!conn || typeof conn.prepare !== 'function') {
       localConn = getConnection(typeof dbOrPath === 'string' ? dbOrPath : null, false);
@@ -250,7 +250,7 @@ function installToolset(engine, labName = DEFAULT_LAB_NAME, profile = 'standard'
 
   try {
     if (engine === 'lxc') {
-      const lxcTemplateDir = path.join(__dirname, 'templates', 'akatsuki_lab', 'lxc');
+      const lxcTemplateDir = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'lxc');
       const stageScripts = [
         'provision-core.sh',
         'provision-msf.sh',

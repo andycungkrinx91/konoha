@@ -133,10 +133,10 @@ function _executeToolInternal(toolName, args, agent) {
     return runSannin(prompt, args.task_dir, projPath, sessId);
   }
   if (toolName === 'akatsuki_init') {
-    const akatsukiInit = require('../akatsuki_init');
+    const akatsukiInit = require('../workflow/akatsuki/init');
     const action = args.action || 'init';
     if (action === 'status') {
-      const { getLabStatus, detectEngines } = require('../akatsuki_lab');
+      const { getLabStatus, detectEngines } = require('../workflow/akatsuki/lab');
       const detected = detectEngines();
       const labName = args.lab_name || 'akatsuki-lab';
       const engineStatuses = detected.available.map(e => ({
@@ -172,7 +172,7 @@ function _executeToolInternal(toolName, args, agent) {
   ].join(' '));
 
   if (toolName === 'akatsuki' && (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow || akatsukiRedIntent)) {
-    const { dispatchAkatsuki } = require('../akatsuki_workflows');
+    const { dispatchAkatsuki } = require('../workflow/akatsuki/workflows');
     return dispatchAkatsuki(args);
   }
   if (
@@ -192,7 +192,7 @@ function _executeToolInternal(toolName, args, agent) {
     const taskId = args.task_id || args.taskId || (taskDir ? path.basename(taskDir) : null);
     if (!flowHash && taskId) {
       try {
-        const sdlcManager = require('../sdlc_manager');
+        const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
         const t = sdlcManager.getTask(taskId);
         if (t && t.evidence) {
           const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
@@ -361,14 +361,14 @@ function boundPersonaMemories(mems) {
     }
   }
   if (toolName === 'check_readiness') {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const taskInput = args.task || args.prompt || args.description || '';
     const projPath = args.project_path || getWorkspaceRoot();
     const result = sdlcManager.checkReadiness(taskInput, projPath);
     return JSON.stringify(result);
   }
   if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const taskId = args.task_id || args.id;
     if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
     const task = sdlcManager.getTask(taskId);
@@ -450,31 +450,31 @@ async function executeTool(toolName, args = {}) {
   }
 
   if (toolName === 'document_create') {
-    const { documentCreate } = require('../tools/document_engine');
+    const { documentCreate } = require('../workflow/tokubetsu-scribe/document_engine');
     const res = await documentCreate(args);
     return JSON.stringify(res);
   }
 
   if (toolName === 'spreadsheet_create') {
-    const { spreadsheetCreate } = require('../tools/document_engine');
+    const { spreadsheetCreate } = require('../workflow/tokubetsu-scribe/document_engine');
     const res = await spreadsheetCreate(args);
     return JSON.stringify(res);
   }
 
   if (toolName === 'presentation_create') {
-    const { presentationCreate } = require('../tools/document_engine');
+    const { presentationCreate } = require('../workflow/tokubetsu-scribe/document_engine');
     const res = await presentationCreate(args);
     return JSON.stringify(res);
   }
 
   if (toolName === 'diagram_create') {
-    const { diagramCreate } = require('../tools/document_engine');
+    const { diagramCreate } = require('../workflow/tokubetsu-scribe/document_engine');
     const res = await diagramCreate(args);
     return JSON.stringify(res);
   }
 
   if (toolName === 'animation_export') {
-    const { animationExport } = require('../tools/document_engine');
+    const { animationExport } = require('../workflow/tokubetsu-scribe/document_engine');
     const res = await animationExport(args);
     return JSON.stringify(res);
   }

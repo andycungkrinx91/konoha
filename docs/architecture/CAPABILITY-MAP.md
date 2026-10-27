@@ -149,7 +149,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.7 SDLC Governance & Quality Gates
 
 * **Purpose:** Enforce Definition of Ready (DoR), dual-model independent code review, Zero-AI-Slop gating, remediation loops, and audit trails.
-* **Canonical Implementation:** `src/sdlc_tasks.js`, `src/sdlc_manager.js`, `src/ai_detector.js`, `src/docs_ai_detector.js`, `src/mcp/workflow.js`.
+* **Canonical Implementation:** `src/sdlc_tasks.js`, `src/workflow/kage-reviewer/sdlc_manager.js`, `src/workflow/jonin-builder/ai_detector.js`, `src/workflow/kage-reviewer/docs_ai_detector.js`, `src/mcp/workflow.js`.
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
   - CLI: `konoha task`, `konoha detect-ai <path-file-or-url>`, `konoha detect-docs <path-or-url>`.
@@ -279,7 +279,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.14 Native Document Engineering & Publication Deliverables (`document_engine`)
 
 * **Purpose:** High-fidelity Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification and zero-AI quality gates.
-* **Canonical Implementation:** `src/tools/document_engine.js`.
+* **Canonical Implementation:** `src/workflow/tokubetsu-scribe/document_engine.js`.
 * **Entry Points:**
   - MCP Tools: `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`.
   - Delegated Subagent: `tokubetsu_jonin` (Technical Writing & Scribe).
@@ -332,10 +332,10 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ---
 
-### 2.17 Akatsuki Dual-Mode Security & Container Sandbox Isolation (`src/akatsuki_workflows.js`, `src/akatsuki_lab.js`)
+### 2.17 Akatsuki Dual-Mode Security & Container Sandbox Isolation (`src/workflow/akatsuki/workflows.js`, `src/workflow/akatsuki/lab.js`)
 
 * **Purpose:** Blue-team defensive SAST, secrets auditing, and dependency CVE scans by default (`mode: blue`), paired with strictly isolated, unprivileged container penetration testing (`mode: red`) gated by written Rules of Engagement (RoE).
-* **Canonical Implementation:** `src/akatsuki_config.js`, `src/akatsuki_lab.js`, `src/akatsuki_workflows.js`, `bin/commands/akatsuki.js`.
+* **Canonical Implementation:** `src/workflow/akatsuki/config.js`, `src/workflow/akatsuki/lab.js`, `src/workflow/akatsuki/workflows.js`, `bin/commands/akatsuki.js`.
 * **Entry Points:**
   - MCP Tool: `akatsuki`.
   - CLI: `konoha akatsuki {status|mode|env|redteam|blueteam}`.

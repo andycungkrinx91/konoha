@@ -1,5 +1,5 @@
 /**
- * src/ai_detector.js — Website AI-Fingerprint Detector (anonymiz.com-style).
+ * src/workflow/jonin-builder/ai_detector.js — Website AI-Fingerprint Detector (anonymiz.com-style).
  *
  * Scans a built or source website (directory or URL) for the fingerprints
  * AI-website detectors score on: generator meta tags, Lucide icon packages,

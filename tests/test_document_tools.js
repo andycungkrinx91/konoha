@@ -6,7 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { executeToolSync, executeTool } = require('../src/mcp/tool_dispatch.js');
-const { validateAnimatedWebP } = require('../src/tools/document_engine');
+const { validateAnimatedWebP } = require('../src/workflow/tokubetsu-scribe/document_engine');
 
 const TMP_DIR = path.resolve(__dirname, '.tmp_doctools');
 

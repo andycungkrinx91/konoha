@@ -1,6 +1,6 @@
 'use strict';
 
-const { detectDocsAi } = require('../docs_ai_detector');
+const { detectDocsAi } = require('../workflow/kage-reviewer/docs_ai_detector');
 const { logToolCall } = require('./skills');
 
 function runDocsAiDetectorSync(target, agentName = null) {

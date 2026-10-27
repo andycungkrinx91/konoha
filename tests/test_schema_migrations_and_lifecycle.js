@@ -13,7 +13,7 @@ const {
   verifyIntegrity,
   setupSchema
 } = require('../src/db_schema');
-const sdlcManager = require('../src/sdlc_manager');
+const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 async function run() {
   console.log('Running test_schema_migrations_and_lifecycle...');

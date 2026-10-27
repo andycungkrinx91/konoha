@@ -8,7 +8,7 @@ const os = require('os');
 const http = require('http');
 
 const db = require('../src/db');
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 async function run() {
   console.log('Running test_stale_tasks_and_workspaces...');

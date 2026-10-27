@@ -17,7 +17,7 @@ const {
   getProjectOutputDirs,
   copyFailureEvidence,
   runQaRetention
-} = require('../src/qa_tools');
+} = require('../src/workflow/qa-automation/qa_tools');
 
 console.log('Running test_qa_housekeeping.js...');
 

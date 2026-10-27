@@ -5,7 +5,7 @@ const readline = require('readline');
 const https = require('https');
 const { spawnSync, spawn } = require('child_process');
 const deployUtils = require('./deploy_utils');
-const skillGuardian = require('./skill_guardian');
+const skillGuardian = require('./workflow/kage-reviewer/skill_guardian');
 
 function runAsyncSpawn(cmd, args, opts) {
   return new Promise((resolve, reject) => {

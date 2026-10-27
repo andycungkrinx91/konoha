@@ -26,7 +26,7 @@ const runtimeState = require('../src/mcp/runtime_state');
 const { getResolvedTaskDir, runSannin } = require('../src/mcp/workflow');
 const { executeTool } = require('../src/mcp/tool_dispatch');
 const persona = require('../src/persona_memory');
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 async function run() {
   console.log('Running test_session_sandbox_isolation tests...');

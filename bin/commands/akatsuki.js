@@ -31,7 +31,7 @@ const {
   getAkatsukiMode,
   setAkatsukiEnv,
   getAkatsukiEnv
-} = require('../../src/akatsuki_config');
+} = require('../../src/workflow/akatsuki/config');
 
 const {
   getLabStatus,
@@ -39,11 +39,11 @@ const {
   provisionLab,
   stopLab,
   DEFAULT_LAB_NAME
-} = require('../../src/akatsuki_lab');
+} = require('../../src/workflow/akatsuki/lab');
 
 const {
   listSupportedTools
-} = require('../../src/akatsuki_tool_registry');
+} = require('../../src/workflow/akatsuki/tool_registry');
 
 /**
  * Display formatted Akatsuki Security and Red-Team status.
@@ -221,7 +221,7 @@ async function cmdAkatsukiInit(args = []) {
   log('');
   header('AKATSUKI RED-TEAM LAB INITIALIZATION');
 
-  const { initLab } = require('../../src/akatsuki_init');
+  const { initLab } = require('../../src/workflow/akatsuki/init');
 
   let engines = 'auto';
   let profile = 'standard';
@@ -269,7 +269,7 @@ async function cmdAkatsukiInit(args = []) {
  * @param {string[]} args
  */
 async function cmdAkatsukiTools(args = []) {
-  const { listKaliTools, listCustomTools } = require('../../src/akatsuki_init');
+  const { listKaliTools, listCustomTools } = require('../../src/workflow/akatsuki/init');
   const action = args[0] ? args[0].toLowerCase() : 'list';
 
   if (action === 'search' || action === 'list') {

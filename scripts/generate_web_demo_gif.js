@@ -13,7 +13,7 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
-const { validateAnimatedWebP } = require('../src/tools/document_engine');
+const { validateAnimatedWebP } = require('../src/workflow/tokubetsu-scribe/document_engine');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');

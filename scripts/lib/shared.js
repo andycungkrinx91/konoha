@@ -16,7 +16,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const { GIFEncoder, quantize, applyPalette } = require('gifenc');
-const { validateAnimatedWebP } = require('../../src/tools/document_engine');
+const { validateAnimatedWebP } = require('../../src/workflow/tokubetsu-scribe/document_engine');
 
 const FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf';
 const BOLD_FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf';

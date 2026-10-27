@@ -148,7 +148,7 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
 
     if (cleanAgent === 'chunin') {
       try {
-        const chuninKnowledge = require('../chunin_knowledge');
+        const chuninKnowledge = require('../workflow/chunin-intel/chunin_knowledge');
         const cd = require('./client_detection');
         const sessId = cd.getActiveSessionId(pPath);
         const chuninSaved = chuninKnowledge.recordChuninReport({
@@ -185,7 +185,7 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
 
   let actClient = '';
   try {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const cd = require('./client_detection');
     actClient = cd.getActiveClient() || cd.detectActiveClient() || '';
     const sessId = cd.getActiveSessionId(pPath);

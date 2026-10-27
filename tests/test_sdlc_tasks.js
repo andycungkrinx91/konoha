@@ -18,7 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 const server = require('../src/server');
 const { executeTool } = require('../src/mcp/tool_dispatch');
 

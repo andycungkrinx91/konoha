@@ -151,7 +151,7 @@ try {
 
 // 4. Normalization Checks (Kept vs Removed Behavior)
 console.log('Testing 4: Agent normalization in sdlc_manager and memory_reporting...');
-const sdlcManager = require('../src/sdlc_manager');
+const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
 const memoryReporting = require('../src/mcp/memory_reporting');
 const Database = require('../src/sqlite_driver');
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const sdlcManager = require('../../sdlc_manager');
+const sdlcManager = require('../../workflow/kage-reviewer/sdlc_manager');
 const {
   sendJson,
   parseBody,

@@ -195,7 +195,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const sessionKey = getSessionKey(resolvedProjPath, resolvedSessionId);
   getAndIncrementSessionTurn(sessionKey);
 
-  const sdlcManager = require('../sdlc_manager');
+  const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   let dorResult = null;
   if (task && typeof task === 'string' && task.trim()) {

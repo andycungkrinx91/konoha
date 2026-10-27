@@ -196,7 +196,7 @@ config:
 ---
 flowchart TD
     Trigger["Task Dispatch Trigger"] --> Inspect["Inspect Task Definition<br/>(title, prompt, context, parameters)"]
-    Inspect --> Engine["DoR Assessment Engine<br/>(`src/sdlc_manager.js`)"]
+    Inspect --> Engine["DoR Assessment Engine<br/>(`src/workflow/kage-reviewer/sdlc_manager.js`)"]
 
     subgraph AssessmentRules ["Multi-Rule Verification Engine"]
         R1["Length &amp; Context Rule<br/>• Prompt &gt; 4 words<br/>• Explicit functional directive"]
@@ -408,7 +408,7 @@ flowchart TD
 
     CheckBreaker -- "YES (> 7 cycles)" --> Tripped["TRIP CIRCUIT BREAKER<br/>• Halt autonomous recursion<br/>• Set status = 'blocked'<br/>• Surface findings to user"]
 
-    CheckBreaker -- "NO (<= 7 cycles)" --> Triage["Autonomous Triage Engine<br/>(`src/sdlc_manager.js`)"]
+    CheckBreaker -- "NO (<= 7 cycles)" --> Triage["Autonomous Triage Engine<br/>(`src/workflow/kage-reviewer/sdlc_manager.js`)"]
     Triage --> CheckType{"Are findings<br/>UI / Frontend related?"}
 
     CheckType -- "YES" --> AssignJonin["Dispatch Fix Task to ♦ JONIN<br/>• Priority: High<br/>• Focus: CSS / Component / Tailwind fixes"]
@@ -927,7 +927,7 @@ flowchart TD
         TJ --> RouteCheck{"Deliverable Type?"}
     end
 
-    subgraph OfficePipeline ["Office Document Generation (src/tools/document_engine.js)"]
+    subgraph OfficePipeline ["Office Document Generation (src/workflow/tokubetsu-scribe/document_engine.js)"]
         RouteCheck -- "DOCX / PDF" --> DocCreate["document_create()<br/>• 4 Generative Cover Art Models<br/>• Discrete per-page Word sections<br/>• Static TextRun page numbers (No grey shading)"]
         RouteCheck -- "Spreadsheet XLSX" --> SheetCreate["spreadsheet_create()<br/>• 10 Curated Palettes<br/>• Summary KPI Cards + Formulas<br/>• Auto-Fit Column Widths"]
         RouteCheck -- "Presentation PPTX" --> PresCreate["presentation_create()<br/>• 16:9 Widescreen Layouts<br/>• Pure Light Mode &amp; Gradient Accent Slides"]

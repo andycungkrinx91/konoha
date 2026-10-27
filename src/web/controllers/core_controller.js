@@ -183,7 +183,7 @@ async function handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method) {
     } catch (_) { /* intentional best-effort fallback */ }
 
     try {
-      const sdlcManager = require('../../sdlc_manager');
+      const sdlcManager = require('../../workflow/kage-reviewer/sdlc_manager');
       const tasks = sdlcManager.listTasks({ limit: 500 });
       features.sdlc_total = tasks.length;
       features.sdlc_by_status = tasks.reduce((acc, t) => {

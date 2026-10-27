@@ -17,7 +17,7 @@ const os = require('os');
 const http = require('http');
 const assert = require('assert');
 
-const { detectWebsiteAi, detectWebsiteAiAsync, evaluateRules, classify } = require('../src/ai_detector');
+const { detectWebsiteAi, detectWebsiteAiAsync, evaluateRules, classify } = require('../src/workflow/jonin-builder/ai_detector');
 
 let passed = 0;
 let failed = 0;

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_blue_workflows.js
+ * src/workflow/akatsuki/blue_workflows.js
  *
  * Professional Blue-Team Defender workflow executed directly on host codebase.
  * Evaluates repository perimeter, secret leakage, dependency vulnerabilities,
@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const skillGuardian = require('./skill_guardian');
+const skillGuardian = require('../kage-reviewer/skill_guardian');
 
 /**
  * Execute professional Blue-Team Defender workflow directly on host codebase.

@@ -156,7 +156,7 @@ function resolveFlowHashFromTask(flowHash, taskId) {
   if (flowHash) return flowHash;
   if (!taskId) return null;
   try {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const t = sdlcManager.getTask(taskId);
     if (t && t.evidence) {
       const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;

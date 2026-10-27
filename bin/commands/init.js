@@ -465,7 +465,7 @@ async function cmdInit(args, options = {}) {
     copyFile(promptHookSrc, promptHookDest);
   }
 
-  const reminderSrc = path.join(SRC_DIR, 'workflow_reminder.js');
+  const reminderSrc = path.join(SRC_DIR, 'workflow', 'sannin-orchestrator', 'workflow_reminder.js');
   const reminderDest = path.join(SKILLS_DB_DIR, 'workflow_reminder.js');
   if (fileExists(reminderSrc)) {
     copyFile(reminderSrc, reminderDest);

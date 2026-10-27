@@ -19,7 +19,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 const { runMcpWorkflow } = require('../src/mcp/workflow');
 
 async function run() {

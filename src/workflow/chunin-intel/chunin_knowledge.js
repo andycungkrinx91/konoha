@@ -1,7 +1,7 @@
 'use strict';
 
-const personaMemory = require('./persona_memory');
-const db = require('./db');
+const personaMemory = require('../../persona_memory');
+const db = require('../../db');
 
 function saveChuninKnowledge({
   title,

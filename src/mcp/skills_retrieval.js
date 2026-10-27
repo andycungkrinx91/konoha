@@ -399,7 +399,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
     }
     if (taskId) {
       try {
-        const sdlcManager = require('../sdlc_manager');
+        const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
         const t = sdlcManager.getTask(taskId);
         if (t && t.evidence) {
           const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;

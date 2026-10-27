@@ -1,5 +1,5 @@
 /**
- * src/docs_ai_detector.js — Enterprise Document AI-Fingerprint Detector.
+ * src/workflow/kage-reviewer/docs_ai_detector.js — Enterprise Document AI-Fingerprint Detector.
  *
  * Scans generated and source documents (.docx, .pdf, .pptx, .xlsx, .md, .txt)
  * for AI fingerprints, watermarks, metadata generator footprints, monotonous

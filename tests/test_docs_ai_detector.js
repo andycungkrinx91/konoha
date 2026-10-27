@@ -11,7 +11,7 @@ const path = require('path');
 const os = require('os');
 const assert = require('assert');
 
-const { detectDocsAi } = require('../src/docs_ai_detector');
+const { detectDocsAi } = require('../src/workflow/kage-reviewer/docs_ai_detector');
 const { runDocsAiDetectorSync } = require('../src/mcp/docs_ai_detector');
 const { executeToolSync } = require('../src/mcp/tool_dispatch');
 

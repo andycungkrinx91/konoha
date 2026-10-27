@@ -312,7 +312,7 @@ async function handleMessage(msg) {
   }
 
   if (rawText.startsWith('/approval') || rawText.startsWith('/approvals')) {
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const sub = rawText.replace(/^\/approvals?(?:@\w+)?\s*/i, '').trim();
 
     if (!sub || sub === 'list' || sub === 'ls') {
@@ -374,7 +374,7 @@ async function handleMessage(msg) {
       );
       return;
     }
-    const sdlcManager = require('../sdlc_manager');
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const task = sdlcManager.getTask(taskId);
     if (!task) {
       await notifierModule.sendTelegramMessage(
@@ -521,7 +521,7 @@ async function pollOnce(token, timeout = 30) {
 }
 
 async function applyTaskVerdict(taskId, newStatus, isApproved, cb, chatId, messageId) {
-  const sdlcManager = require('../sdlc_manager');
+  const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   sdlcManager.updateTask(taskId, { status: newStatus });
   const icon = isApproved ? '✅' : '❌';
   const label = isApproved ? 'APPROVED' : 'REJECTED';
@@ -550,7 +550,7 @@ async function handleCallbackQuery(cb) {
 
   const action = match[1];
   const taskId = match[2];
-  const sdlcManager = require('../sdlc_manager');
+  const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   const task = sdlcManager.getTask(taskId);
 
   const chatId = cb.message?.chat?.id;

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_report.js
+ * src/workflow/akatsuki/report.js
  *
  * Professional Red-Team Assessment PDF report generator.
  * Designed to Tokubetsu-Jonin engineering publication standards:
@@ -247,7 +247,7 @@ async function generateRedTeamReportPdf(workflowResult = {}, options = {}) {
   const outputPath = options.output_path || path.join(targetDir, 'akatsuki_redteam_report.pdf');
 
   try {
-    const { documentCreate } = require('./tools/document_engine');
+    const { documentCreate } = require('../tokubetsu-scribe/document_engine');
     const docRes = await documentCreate({
       format: 'pdf',
       output_path: outputPath,

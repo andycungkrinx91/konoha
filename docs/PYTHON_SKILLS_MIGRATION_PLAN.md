@@ -86,11 +86,11 @@ graph LR
 ### Phase 1: Native Hot-Path Migration (Completed)
 - Ported WCAG color contrast engine to pure Node.js (`src/templates/skills/antislop-human/contrast-check.js`).
 - Ported Draw.io diagram XML validator to pure Node.js (`agent/skills/draw-io-diagram-generator/scripts/validate-drawio.js`).
-- Integrated `src/skill_guardian.js` fail-closed scoring engine into installer pipelines.
+- Integrated `src/workflow/kage-reviewer/skill_guardian.js` fail-closed scoring engine into installer pipelines.
 
 ### Phase 2: High-Signal Utility Migration to TypeScript
 - Migrate Genin research scripts (`source_evaluator.py`, `citation_manager.py`, `md_to_html.py`, `dependency_mapper.py`) to pure TypeScript in `src/tools/`.
-- Replace Python DOCX/XLSX/PPTX format checking scripts with existing pure JS `src/tools/document_engine.js`.
+- Replace Python DOCX/XLSX/PPTX format checking scripts with existing pure JS `src/workflow/tokubetsu-scribe/document_engine.js`.
 
 ### Phase 3: Go-Based Sandboxed Subprocess Runner
 - For specialized Python security scripts (`scapy`, `impacket`, `volatility3`), construct a lightweight, statically compiled Go sandbox runner (`konoha-sandbox`) that executes isolated subshells under restricted cgroups / AppArmor profiles, eliminating host exposure.

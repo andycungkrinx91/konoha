@@ -16,8 +16,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { detectDocsAi } = require('../docs_ai_detector');
-const { detectWebsiteAi } = require('../ai_detector');
+const { detectDocsAi } = require('../workflow/kage-reviewer/docs_ai_detector');
+const { detectWebsiteAi } = require('../workflow/jonin-builder/ai_detector');
 
 const MAX_GATE_ATTEMPTS = parseInt(process.env.KONOHA_DOC_GATE_MAX_ATTEMPTS || '3', 10);
 const GATE_THRESHOLD = 3.0; // strictly below 3.0%

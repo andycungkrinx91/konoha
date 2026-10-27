@@ -184,7 +184,7 @@ function workflowReviewApproved(taskDir, status) {
 
       status.review = review;
       try {
-        const sdlcManager = require('../sdlc_manager');
+        const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
         const slopGate = sdlcManager.evaluateAntiSlopDeliveryGate(review);
         status.slop_result = slopGate;
         const rootTaskId = path.basename(taskDir || '');
@@ -216,7 +216,7 @@ function workflowReviewApproved(taskDir, status) {
 
       let sdlcTasksComplete = true;
       try {
-        const sdlcMgr = require('../sdlc_manager');
+        const sdlcMgr = require('../workflow/kage-reviewer/sdlc_manager');
         const rootTaskId = status.task_id || path.basename(taskDir);
         if (rootTaskId) {
           const rootTask = sdlcMgr.getTask(rootTaskId);

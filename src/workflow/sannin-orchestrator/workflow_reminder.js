@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * src/workflow_reminder.js — Konoha workflow re-engagement hook.
+ * src/workflow/sannin-orchestrator/workflow_reminder.js — Konoha workflow re-engagement hook.
  *
  * Dual-mode output:
  *  - Claude Code (UserPromptSubmit / SessionStart): plain text on stdout is
@@ -24,7 +24,7 @@ function ensureWorkspaceRules(targetCwd) {
     if (!targetCwd || targetCwd === HOME || !fs.existsSync(targetCwd)) return;
     const geminiMdPath = path.join(targetCwd, 'GEMINI.md');
     if (!fs.existsSync(geminiMdPath)) {
-      const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
+      const templatePath = path.join(__dirname, '..', '..', 'templates', 'GEMINI.md');
       const globalGeminiMd = path.join(HOME, '.gemini', 'GEMINI.md');
       const src = fs.existsSync(templatePath) ? templatePath : (fs.existsSync(globalGeminiMd) ? globalGeminiMd : null);
       if (src) fs.copyFileSync(src, geminiMdPath);
@@ -32,7 +32,7 @@ function ensureWorkspaceRules(targetCwd) {
     const agentsDir = path.join(targetCwd, '.agents');
     const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
     if (!fs.existsSync(agentsMdPath)) {
-      const templateAgents = path.join(__dirname, 'templates', 'AGENTS.md');
+      const templateAgents = path.join(__dirname, '..', '..', 'templates', 'AGENTS.md');
       const globalAgentsMd = path.join(HOME, '.agents', 'AGENTS.md');
       const src = fs.existsSync(templateAgents) ? templateAgents : (fs.existsSync(globalAgentsMd) ? globalAgentsMd : null);
       if (src) {

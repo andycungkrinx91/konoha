@@ -26,7 +26,7 @@ const {
   presentationCreate,
   diagramCreate,
   animationExport
-} = require('../src/tools/document_engine');
+} = require('../src/workflow/tokubetsu-scribe/document_engine');
 
 // Dynamic target output directory
 const OUTPUT_DIR = path.resolve(

@@ -192,9 +192,9 @@ function readFileContentSafely(filePath, relativePath) {
 }
 
 const REPO_SHIPPED_SKILLS_DIRS = [
-  path.resolve(__dirname, '../src/templates/skills'),
-  path.resolve(__dirname, '../agent/skills'),
-  path.resolve(__dirname, '../.agents/skills')
+  path.resolve(__dirname, '../../../src/templates/skills'),
+  path.resolve(__dirname, '../../../agent/skills'),
+  path.resolve(__dirname, '../../../.agents/skills')
 ];
 
 const HASH_PINNED_INTERNAL_LINES = new Map([
@@ -402,9 +402,9 @@ function scanSkillDirectory(skillDir, skillName = path.basename(skillDir)) {
 
 function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
   try {
-    const personaMemory = require('./persona_memory');
-    const cd = require('./mcp/client_detection');
-    const db = require('./db');
+    const personaMemory = require('../../persona_memory');
+    const cd = require('../../mcp/client_detection');
+    const db = require('../../db');
     const projectPath = process.cwd();
     const sessionId = cd.getActiveSessionId(projectPath);
 
@@ -526,8 +526,8 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
 
     process.stderr.write(`✓ Guardian: skill "${skillName}" passed security audit (Risk score: ${scanResult.score}/100 <= ${GUARDIAN_THRESHOLD}).\n`);
 
-    const { AGENTS } = require('../bin/lib/paths');
-    const deployUtils = require('./deploy_utils');
+    const { AGENTS } = require('../../../bin/lib/paths');
+    const deployUtils = require('../../deploy_utils');
     const execCwd = (options && options.projectRoot) || process.cwd();
     const liveTargetDir = path.join(execCwd, '.agents', 'skills', skillName);
 
@@ -541,7 +541,7 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
       } catch (_) { /* intentional best-effort fallback */ }
     }
 
-    const skillManager = require('./skill_manager');
+    const skillManager = require('../../skill_manager');
     if (typeof skillManager.syncAllClientSkills === 'function') {
       skillManager.syncAllClientSkills({ projectRoot: execCwd, silent: false });
     }

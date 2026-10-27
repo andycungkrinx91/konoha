@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * src/akatsuki_tool_profiles.js
+ * src/workflow/akatsuki/tool_profiles.js
  *
  * Curated, versioned tool profiles approved for Akatsuki sandbox execution.
  * Includes network discovery, packet analysis, web enumeration,
@@ -487,6 +487,63 @@ const CURATED_TOOL_REGISTRY = {
     cleanup_steps: [
       'rm -f /tmp/akatsuki_msf*',
       'pkill -f "msfconsole" || true'
+    ]
+  },
+
+  burpsuite: {
+    id: 'burpsuite',
+    display_name: 'PortSwigger Burp Suite Community / Headless Security Proxy',
+    version: '2024+',
+    category: 'web_api_assessment',
+    binary_candidates: ['burpsuite', '/usr/bin/burpsuite'],
+    container_images: ['kalilinux/kali-rolling'],
+    safety_class: 'vulnerability_audit',
+    allowed_operations: [
+      '*',
+      'all_operations',
+      'full_unrestricted_capabilities',
+      'proxy_traffic_interception',
+      'passive_vulnerability_scan',
+      'active_vulnerability_scan',
+      'csrf_poc_generation',
+      'auth_token_analysis',
+      'headless_project_analysis'
+    ],
+    blocked_operations: [],
+    required_scope: 'local_or_dev',
+    timeout_ms: 60000,
+    evidence_outputs: ['/tmp/akatsuki_burpsuite.xml', '/tmp/akatsuki_burpsuite.json'],
+    cleanup_steps: [
+      'rm -f /tmp/akatsuki_burpsuite.*',
+      'pkill -f "burpsuite" || true'
+    ]
+  },
+
+  msfvenom: {
+    id: 'msfvenom',
+    display_name: 'Metasploit Standalone Payload Generator (msfvenom)',
+    version: '6.x+',
+    category: 'controlled_verification',
+    binary_candidates: ['msfvenom', '/usr/bin/msfvenom', '/opt/metasploit-framework/bin/msfvenom'],
+    container_images: ['kalilinux/kali-rolling'],
+    safety_class: 'controlled_verification',
+    allowed_operations: [
+      '*',
+      'all_operations',
+      'full_unrestricted_capabilities',
+      'payload_generation',
+      'controlled_poc_verification',
+      'shellcode_encoding',
+      'format_conversion',
+      'architecture_validation'
+    ],
+    blocked_operations: [],
+    required_scope: 'local_or_dev',
+    timeout_ms: 45000,
+    evidence_outputs: ['/tmp/akatsuki_payload.bin', '/tmp/akatsuki_msfvenom.log'],
+    cleanup_steps: [
+      'rm -f /tmp/akatsuki_payload.* /tmp/akatsuki_msfvenom.log',
+      'pkill -f "msfvenom" || true'
     ]
   }
 };

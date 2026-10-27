@@ -144,7 +144,7 @@ async function run() {
     console.log('✓ DELETE /api/v1/sdlc/tasks/:id CSRF gate passed');
 
     // 12. Create a test task, delete by ID, and verify 404 on re-deletion
-    const sdlcManager = require('../src/sdlc_manager');
+    const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
     const apiTestTask = sdlcManager.createTask({
       id: 'task_api_delete_me_1',
       description: 'API delete test task',

@@ -1,5 +1,5 @@
 /**
- * src/sdlc_manager.js — Konoha Native Medium-Weight SDLC Governance Layer.
+ * src/workflow/kage-reviewer/sdlc_manager.js — Konoha Native Medium-Weight SDLC Governance Layer.
  *
  * Implements PLAN_NATIVE_SDLC.md:
  * 1. GateLevel policy constants (advisory, soft-mandatory, hard-mandatory).
@@ -13,8 +13,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const db = require('./db');
-const personaMemory = require('./persona_memory');
+const db = require('../../db');
+const personaMemory = require('../../persona_memory');
 
 // Quality Gate Levels
 
@@ -121,13 +121,13 @@ function createTask(data = {}, dbPath = null) {
     const projectPath = data.project_path || '';
     const sessionId = data.session_id || (function() {
       try {
-        const cd = require('./mcp/client_detection');
+        const cd = require('../../mcp/client_detection');
         return cd.getActiveSessionId(projectPath);
       } catch (_) { return ''; }
     })() || '';
     const client = data.client || (function() {
       try {
-        const cd = require('./mcp/client_detection');
+        const cd = require('../../mcp/client_detection');
         return cd.getActiveClient() || cd.detectActiveClient() || '';
       } catch (_) { return ''; }
     })() || '';

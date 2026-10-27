@@ -22,7 +22,7 @@ const initConn = db.getConnection(dbPath);
 db.setupSchema(initConn);
 initConn.close();
 
-const sdlc = require('../src/sdlc_manager');
+const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 console.log('Running test_sdlc_hitl tests...');
 
