@@ -51,13 +51,19 @@ const FORBIDDEN_CAPABILITIES = [
 let _cachedCustomTools = null;
 let _cachedCustomToolsMtime = 0;
 
+function getCustomToolsPath() {
+  return process.env.KONOHA_CUSTOM_TOOLS_PATH
+    ? path.normalize(process.env.KONOHA_CUSTOM_TOOLS_PATH)
+    : path.join(os.homedir(), '.konoha', 'akatsuki_custom_tools.json');
+}
+
 /**
  * Load persisted custom tool profiles from ~/.konoha/akatsuki_custom_tools.json.
  *
  * @returns {Object.<string, Object>}
  */
 function loadPersistedCustomTools() {
-  const customFile = path.join(os.homedir(), '.konoha', 'akatsuki_custom_tools.json');
+  const customFile = getCustomToolsPath();
   try {
     if (!fs.existsSync(customFile)) return {};
     const stat = fs.statSync(customFile);
@@ -315,6 +321,8 @@ function planToolExecution(params = {}, options = {}) {
 
   const toolsAvailable = [];
   const stopConditions = [];
+  const exploitPermitted = params.allow_controlled_exploit_verification === true ||
+    (params.allow_controlled_exploit_verification === undefined && isRed);
 
   for (const rawTool of requestedTools) {
     const toolId = String(rawTool).trim().toLowerCase();
@@ -329,8 +337,6 @@ function planToolExecution(params = {}, options = {}) {
     }
 
     // High-risk controlled exploit verification check (automatically open in Red-Team mode unless explicitly disabled)
-    const exploitPermitted = params.allow_controlled_exploit_verification === true ||
-      (params.allow_controlled_exploit_verification === undefined && isRed);
     if (profile.safety_class === 'controlled_verification' && !exploitPermitted) {
       toolsBlocked.push({
         tool: toolId,
@@ -418,7 +424,7 @@ function planToolExecution(params = {}, options = {}) {
   }
 
   const verificationTools = toolsAvailable.filter(t => t.safety_class === 'controlled_verification');
-  if (verificationTools.length > 0 && params.allow_controlled_exploit_verification) {
+  if (verificationTools.length > 0 && exploitPermitted) {
     phases.push({
       phase: 'controlled_verification',
       title: 'Controlled Non-Destructive Exploitability Proof',

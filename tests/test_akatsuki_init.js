@@ -139,6 +139,14 @@ async function runAkatsukiInitTests() {
     assert.ok(listRes.custom_fuzzer);
     assert.equal(listRes.custom_fuzzer.id, 'custom_fuzzer');
 
+    // Verify registry picks up custom tool via KONOHA_CUSTOM_TOOLS_PATH
+    const { listSupportedTools, getToolProfile } = require('../src/akatsuki_tool_registry.js');
+    const supportedWithCustom = listSupportedTools({ includeCustom: true });
+    assert.ok(supportedWithCustom.some(t => t.id === 'custom_fuzzer'), 'listSupportedTools must include custom_fuzzer');
+    const profileCustom = getToolProfile('custom_fuzzer');
+    assert.ok(profileCustom, 'getToolProfile must resolve custom_fuzzer via custom tools path');
+    assert.equal(profileCustom.id, 'custom_fuzzer');
+
     // Remove custom tool
     const rmRes = removeTool('custom_fuzzer');
     assert.equal(rmRes.ok, true);

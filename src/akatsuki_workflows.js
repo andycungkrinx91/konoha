@@ -223,7 +223,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const toolPlan = planToolExecution({
     tools: params.tools,
     custom_tools: params.custom_tools,
-    allow_controlled_exploit_verification: params.allow_controlled_exploit_verification === true,
+    allow_controlled_exploit_verification: params.allow_controlled_exploit_verification,
     target: auth.scope,
     mode: 'red'
   }, options);

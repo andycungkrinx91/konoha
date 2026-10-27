@@ -80,7 +80,7 @@ function mcpFindSkillNoAgent(keyword, convId = null) {
     input: payload,
     env,
     encoding: 'utf8',
-    timeout: 30000
+    timeout: 120000
   });
 
   if (proc.status !== 0) {

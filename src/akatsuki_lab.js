@@ -613,7 +613,10 @@ function provisionLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
  * @returns {{ ok: boolean, status: string, lab_name: string, engine: string }}
  */
 function stopLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
-  if (options.mockStopResult || process.env.KONOHA_MOCK_PROVISION === '1') {
+  if (options.mockStopResult) {
+    return options.mockStopResult;
+  }
+  if (process.env.KONOHA_MOCK_PROVISION === '1') {
     return { ok: true, status: 'stopped', lab_name: labName, engine: engine || 'docker' };
   }
 

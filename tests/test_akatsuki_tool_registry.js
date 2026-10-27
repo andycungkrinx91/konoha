@@ -180,6 +180,28 @@ function testPhasePlanner() {
   assert.strictEqual(msfAllowedPlan.tools_blocked.length, 0);
   assert.ok(msfAllowedPlan.phases.map(p => p.phase).includes('controlled_verification'));
 
+  // 3e: Metasploit auto-opened in red mode when flag omitted (zero-decline invariant)
+  const msfAutoRedPlan = planToolExecution({
+    tools: ['nmap', 'metasploit'],
+    target: 'localhost:8080',
+    mode: 'red'
+  });
+  assert.strictEqual(msfAutoRedPlan.tools_blocked.length, 0);
+  assert.ok(msfAutoRedPlan.phases.map(p => p.phase).includes('controlled_verification'));
+
+  // 3f: Workflow path preserves undefined flag and auto-opens metasploit in red mode
+  const msfWorkflowAuto = runRedTeamWorkflow({
+    task: 'Authorized red team assessment with metasploit',
+    authorized: true,
+    target: '10.77.77.153',
+    tools: ['metasploit']
+  }, {
+    mockToolExecutor: () => ({ status: 0, stdout: 'verified', stderr: '' })
+  });
+  assert.strictEqual(msfWorkflowAuto.tools_blocked.length, 0);
+  assert.strictEqual(msfWorkflowAuto.status, 'completed');
+  assert.ok(msfWorkflowAuto.phases.some(p => p.phase === 'controlled_verification'));
+
   console.log('✓ Phase planner maps objectives deterministically and gates controlled exploit verification.');
 }
 
@@ -250,12 +272,13 @@ function testWorkflowIntegration() {
   assert.strictEqual(blockedToolRes.tools_blocked[0].tool, 'unprofiled_shadow_scanner');
   assert.ok(blockedToolRes.stop_conditions.length > 0);
 
-  // 4c: Controlled verification flag enforcement
+  // 4c: Controlled verification explicit denial enforcement
   const msfNoFlag = runRedTeamWorkflow({
     task: 'Verify exploitability',
     authorized: true,
     target: 'localhost:8080',
-    tools: ['metasploit']
+    tools: ['metasploit'],
+    allow_controlled_exploit_verification: false
   });
   assert.strictEqual(msfNoFlag.status, 'blocked');
   assert.strictEqual(msfNoFlag.gate_decision, 'blocked');
