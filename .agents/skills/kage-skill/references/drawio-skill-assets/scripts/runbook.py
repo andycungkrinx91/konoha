@@ -16,6 +16,7 @@ any external tool.
 
 Usage: python3 runbook.py <file.drawio> [-o out.html]
 """
+
 import argparse
 import html
 import json
@@ -54,9 +55,11 @@ def parse(path):
                 if inner is not None:
                     inner.set("id", child.get("id", ""))
                     cells.append(inner)
-                    labels[child.get("id")] = child.get("label") or child.get("value") or ""
+                    labels[child.get("id")] = (
+                        child.get("label") or child.get("value") or ""
+                    )
 
-    parents = {c.get("parent") for c in cells}             # ids that have children
+    parents = {c.get("parent") for c in cells}  # ids that have children
     order, styles, edges = [], {}, []
     for c in cells:
         cid = c.get("id")
@@ -99,11 +102,15 @@ def parse(path):
 
     # Start node: the ellipse with no incoming edges; else the unique in-degree-0
     # node; else the first node in document order. Warn to stderr if ambiguous.
-    ellipse_zero_in = [nid for nid in order if "ellipse" in styles[nid] and indeg[nid] == 0]
+    ellipse_zero_in = [
+        nid for nid in order if "ellipse" in styles[nid] and indeg[nid] == 0
+    ]
     if len(ellipse_zero_in) == 1:
         start_id = ellipse_zero_in[0]
     elif len(ellipse_zero_in) > 1:
-        sys.stderr.write("warning: multiple ellipse nodes with in-degree 0; picking the first\n")
+        sys.stderr.write(
+            "warning: multiple ellipse nodes with in-degree 0; picking the first\n"
+        )
         start_id = ellipse_zero_in[0]
     else:
         zero_in = [nid for nid in order if indeg[nid] == 0]
@@ -113,7 +120,9 @@ def parse(path):
             sys.stderr.write("warning: no unique in-degree-0 node; picking the first\n")
             start_id = zero_in[0]
         elif order:
-            sys.stderr.write("warning: no start node found by heuristics; using the first node\n")
+            sys.stderr.write(
+                "warning: no start node found by heuristics; using the first node\n"
+            )
             start_id = order[0]
         else:
             start_id = None
@@ -125,8 +134,12 @@ def build_html(title, nodes, edges, start_id):
     [{source,target,label}, ...]; start_id: node id to begin the walk at."""
     adjacency = {}
     for e in edges:
-        adjacency.setdefault(e["source"], []).append({"target": e["target"], "label": e["label"]})
-    payload = json.dumps({"nodes": nodes, "edges": adjacency, "start": start_id}).replace("</", "<\\/")
+        adjacency.setdefault(e["source"], []).append(
+            {"target": e["target"], "label": e["label"]}
+        )
+    payload = json.dumps(
+        {"nodes": nodes, "edges": adjacency, "start": start_id}
+    ).replace("</", "<\\/")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title><style>
@@ -217,7 +230,9 @@ render();
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Turn a flowchart .drawio into a click-through HTML runbook.")
+    ap = argparse.ArgumentParser(
+        description="Turn a flowchart .drawio into a click-through HTML runbook."
+    )
     ap.add_argument("file")
     ap.add_argument("-o", "--output", help="output .html (default: alongside input)")
     args = ap.parse_args()

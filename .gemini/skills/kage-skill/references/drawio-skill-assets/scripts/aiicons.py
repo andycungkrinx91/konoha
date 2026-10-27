@@ -22,6 +22,7 @@ identification only — the same basis on which draw.io ships AWS/Azure icons.
 Usage: python3 aiicons.py <query> [--limit N] [--variant color|mono|text]
                                   [--size PX] [--embed] [--json] [--list]
 """
+
 import argparse
 import base64
 import json
@@ -31,8 +32,10 @@ import sys
 import urllib.request
 
 MANIFEST = os.path.join(os.path.dirname(__file__), "..", "data", "lobe-icons.json")
-STYLE = ("shape=image;html=1;imageAspect=0;aspect=fixed;"
-         "verticalLabelPosition=bottom;verticalAlign=top;image=")
+STYLE = (
+    "shape=image;html=1;imageAspect=0;aspect=fixed;"
+    "verticalLabelPosition=bottom;verticalAlign=top;image="
+)
 _VARIANT = re.compile(r"-(?:color|text(?:-[a-z]{2})?|brand(?:-color)?)$")
 
 # Common RAG/LLM data stores that lobe-icons lacks, mapped to simple-icons
@@ -114,9 +117,11 @@ def search_supplement(query):
 
 
 def pick_variant(base, variants, prefer):
-    order = {"color": ["-color", "-brand-color", "", "-brand", "-text", "-text-cn"],
-             "mono":  ["", "-brand", "-color", "-brand-color", "-text", "-text-cn"],
-             "text":  ["-text", "-text-cn", "-brand", "-brand-color", "-color", ""]}[prefer]
+    order = {
+        "color": ["-color", "-brand-color", "", "-brand", "-text", "-text-cn"],
+        "mono": ["", "-brand", "-color", "-brand-color", "-text", "-text-cn"],
+        "text": ["-text", "-text-cn", "-brand", "-brand-color", "-color", ""],
+    }[prefer]
     for suffix in order:
         cand = base + suffix
         if cand in variants:
@@ -125,13 +130,23 @@ def pick_variant(base, variants, prefer):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Find AI/LLM brand logos as draw.io styles (lobe-icons via CDN).")
+    ap = argparse.ArgumentParser(
+        description="Find AI/LLM brand logos as draw.io styles (lobe-icons via CDN)."
+    )
     ap.add_argument("query", nargs="?", help='brand name, e.g. "openai" or "claude"')
     ap.add_argument("--limit", type=int, default=8)
     ap.add_argument("--variant", choices=["color", "mono", "text"], default="color")
-    ap.add_argument("--size", type=int, default=48, help="cell width/height in px (icons are square)")
-    ap.add_argument("--embed", action="store_true",
-                    help="inline the SVG as a data URI (fetches it now; portable, no network at render time)")
+    ap.add_argument(
+        "--size",
+        type=int,
+        default=48,
+        help="cell width/height in px (icons are square)",
+    )
+    ap.add_argument(
+        "--embed",
+        action="store_true",
+        help="inline the SVG as a data URI (fetches it now; portable, no network at render time)",
+    )
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--list", action="store_true", help="list all brand names and exit")
     args = ap.parse_args()
@@ -159,18 +174,27 @@ def main():
             if args.embed:
                 try:
                     svg = urllib.request.urlopen(url, timeout=15).read()
-                except Exception as exc:                   # noqa: BLE001 - report and skip
+                except Exception as exc:  # noqa: BLE001 - report and skip
                     sys.stderr.write(f"warning: could not fetch {url} ({exc})\n")
                     continue
                 # Rewrite the 1em intrinsic size so draw.io scales the inlined SVG.
-                svg = svg.replace(b'width="1em"', b'width="24"').replace(b'height="1em"', b'height="24"')
+                svg = svg.replace(b'width="1em"', b'width="24"').replace(
+                    b'height="1em"', b'height="24"'
+                )
                 # Marker-less base64: draw.io splits style values on ';', so a
                 # ';base64,' marker would truncate the image= value (issue #80).
                 image = "data:image/svg+xml," + base64.b64encode(svg).decode()
             else:
                 image = url
-            results.append({"brand": base, "file": file, "w": args.size, "h": args.size,
-                            "style": STYLE + image})
+            results.append(
+                {
+                    "brand": base,
+                    "file": file,
+                    "w": args.size,
+                    "h": args.size,
+                    "style": STYLE + image,
+                }
+            )
     else:
         # lobe has no logo for this brand; fall back to the simple-icons supplement.
         brand = search_supplement(args.query)
@@ -183,14 +207,25 @@ def main():
                     svg = urllib.request.urlopen(url, timeout=15).read()
                     # Marker-less base64 (see issue #80 note above).
                     image = "data:image/svg+xml," + base64.b64encode(svg).decode()
-                except Exception as exc:                   # noqa: BLE001 - keep the CDN URL
-                    sys.stderr.write(f"warning: could not fetch {url} ({exc}); using CDN URL\n")
-            results.append({"brand": brand, "file": f"simpleicons:{slug}",
-                            "w": args.size, "h": args.size, "style": STYLE + image})
+                except Exception as exc:  # noqa: BLE001 - keep the CDN URL
+                    sys.stderr.write(
+                        f"warning: could not fetch {url} ({exc}); using CDN URL\n"
+                    )
+            results.append(
+                {
+                    "brand": brand,
+                    "file": f"simpleicons:{slug}",
+                    "w": args.size,
+                    "h": args.size,
+                    "style": STYLE + image,
+                }
+            )
 
     if not results:
-        sys.exit(f"no logo for {args.query!r} — for a data store try a cylinder "
-                 f"(shape=cylinder3) or shapesearch.py '{args.query} database'")
+        sys.exit(
+            f"no logo for {args.query!r} — for a data store try a cylinder "
+            f"(shape=cylinder3) or shapesearch.py '{args.query} database'"
+        )
 
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))

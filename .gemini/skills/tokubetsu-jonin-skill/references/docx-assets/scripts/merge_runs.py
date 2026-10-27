@@ -23,7 +23,6 @@ Usage:
     python merge_runs.py document.docx -o out.docx
 """
 
-
 import argparse
 import sys
 import tempfile
@@ -62,8 +61,6 @@ def merge_runs(input_dir: str) -> tuple[int, str]:
 
     except Exception as e:
         return 0, f"Error: {e}"
-
-
 
 
 def _is_element(node, tag: str) -> bool:
@@ -125,8 +122,6 @@ def _is_adjacent(elem1, elem2) -> bool:
     return False
 
 
-
-
 def _remove_elements(root, tag: str):
     for elem in _find_elements(root, tag):
         if elem.parentNode:
@@ -140,8 +135,6 @@ def _strip_rsid_attrs(runs: list):
                 run.removeAttribute(attr.name)
 
 
-
-
 def _merge_runs_in(container, run_names: set[str]) -> int:
     merge_count = 0
     run = _first_child_run(container, run_names)
@@ -149,7 +142,11 @@ def _merge_runs_in(container, run_names: set[str]) -> int:
     while run:
         while True:
             next_elem = _next_element_sibling(run)
-            if next_elem and _is_run(next_elem, run_names) and _can_merge(run, next_elem):
+            if (
+                next_elem
+                and _is_run(next_elem, run_names)
+                and _can_merge(run, next_elem)
+            ):
                 _merge_run_content(run, next_elem)
                 container.removeChild(next_elem)
                 merge_count += 1
@@ -200,7 +197,7 @@ def _can_merge(run1, run2) -> bool:
         return False
     if rpr1 is None:
         return True
-    return rpr1.toxml() == rpr2.toxml()  
+    return rpr1.toxml() == rpr2.toxml()
 
 
 def _merge_run_content(target, source):
@@ -261,8 +258,6 @@ def _consolidate_text_elements(run, tag: str):
             run.removeChild(curr)
 
 
-
-
 def _merge_or_die(path: Path) -> str:
     _, msg = merge_runs(str(path))
     if msg.startswith("Error"):
@@ -277,7 +272,8 @@ def main() -> None:
     )
     p.add_argument("input", help="Unpacked DOCX directory OR a .docx/.dotx file")
     p.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output .docx path (only valid when input is a .docx; default: overwrite input)",
     )
     args = p.parse_args()
@@ -287,7 +283,9 @@ def main() -> None:
     try:
         if src.is_dir():
             if args.output:
-                p.error("--output is only valid for .docx input; directory input is modified in place")
+                p.error(
+                    "--output is only valid for .docx input; directory input is modified in place"
+                )
             print(_merge_or_die(src))
         elif src.is_file() and src.suffix.lower() in (".docx", ".dotx"):
             out = Path(args.output) if args.output else src
@@ -299,7 +297,10 @@ def main() -> None:
                 rezip(tmp_path, out)
             print(f"{msg}; wrote {out}")
         else:
-            print(f"Error: {src} is neither a directory nor a .docx/.dotx file", file=sys.stderr)
+            print(
+                f"Error: {src} is neither a directory nor a .docx/.dotx file",
+                file=sys.stderr,
+            )
             sys.exit(1)
     except (OSError, ValueError, zipfile.BadZipFile) as e:
         print(f"Error: {e}", file=sys.stderr)

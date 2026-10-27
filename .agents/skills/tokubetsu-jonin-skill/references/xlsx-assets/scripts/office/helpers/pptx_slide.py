@@ -4,7 +4,6 @@ A denylist over lxml's messages, so an unrecognised error class is a miss rather
 than a false alarm.
 """
 
-
 from __future__ import annotations
 
 import re

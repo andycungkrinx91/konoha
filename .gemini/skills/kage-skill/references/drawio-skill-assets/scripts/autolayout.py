@@ -23,6 +23,7 @@ for the draw.io root cells). Requires Graphviz `dot` on PATH.
 
 Usage: python3 autolayout.py graph.json [-o diagram.drawio]
 """
+
 import argparse
 import json
 import os
@@ -34,18 +35,36 @@ from xml.sax.saxutils import escape
 DEFAULT_W, DEFAULT_H = 120, 60
 NODE_STYLE = "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
 EDGE_STYLE = "html=1;rounded=0;"
-GROUP_STYLE = ("rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;"
-               "verticalAlign=top;fontStyle=2;dashed=1;")
+GROUP_STYLE = (
+    "rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;"
+    "verticalAlign=top;fontStyle=2;dashed=1;"
+)
 # Group colours come from the skill's own palette (styles/built-in/default.json)
 # so there is a single source of truth, not a second list baked in here. When a
 # grouped graph is laid out, each top-level group takes the next colour (cycled
 # in a fixed, harmonious role order) so related modules read as a coloured
 # cluster. Nodes that carry their own `style` keep it; only styleless grouped
 # nodes are tinted. Disable with --mono.
-_PALETTE_ORDER = ["primary", "success", "accent", "secondary", "warning", "danger", "neutral"]
-_PALETTE_FILE = os.path.join(os.path.dirname(__file__), "..", "styles", "built-in", "default.json")
-_FALLBACK_PALETTE = [("#dae8fc", "#6c8ebf"), ("#d5e8d4", "#82b366"), ("#ffe6cc", "#d79b00"),
-                     ("#e1d5e7", "#9673a6"), ("#fff2cc", "#d6b656"), ("#f8cecc", "#b85450")]
+_PALETTE_ORDER = [
+    "primary",
+    "success",
+    "accent",
+    "secondary",
+    "warning",
+    "danger",
+    "neutral",
+]
+_PALETTE_FILE = os.path.join(
+    os.path.dirname(__file__), "..", "styles", "built-in", "default.json"
+)
+_FALLBACK_PALETTE = [
+    ("#dae8fc", "#6c8ebf"),
+    ("#d5e8d4", "#82b366"),
+    ("#ffe6cc", "#d79b00"),
+    ("#e1d5e7", "#9673a6"),
+    ("#fff2cc", "#d6b656"),
+    ("#f8cecc", "#b85450"),
+]
 
 
 def load_palette():
@@ -54,7 +73,11 @@ def load_palette():
     try:
         with open(_PALETTE_FILE, encoding="utf-8") as fh:
             pal = json.load(fh)["palette"]
-        colors = [(pal[r]["fillColor"], pal[r]["strokeColor"]) for r in _PALETTE_ORDER if r in pal]
+        colors = [
+            (pal[r]["fillColor"], pal[r]["strokeColor"])
+            for r in _PALETTE_ORDER
+            if r in pal
+        ]
         if colors:
             return colors
     except (OSError, KeyError, ValueError):
@@ -117,10 +140,14 @@ def build_dot(graph):
     rankdir = "LR" if str(graph.get("direction", "TB")).upper() == "LR" else "TB"
     # Optional graph-level spacing (inches). Icon nodes render their label below
     # the shape, so importers emitting icons ask for extra rank/node separation.
-    sep = "".join(f" {k}={float(graph[k]):.2f};" for k in ("ranksep", "nodesep") if k in graph)
+    sep = "".join(
+        f" {k}={float(graph[k]):.2f};" for k in ("ranksep", "nodesep") if k in graph
+    )
     # splines=ortho makes dot route edges as orthogonal polylines; we replay
     # those bends as draw.io waypoints so edges go around nodes, not through them.
-    lines = [f"digraph G {{ rankdir={rankdir};{sep} splines=ortho; node [shape=box fixedsize=true];"]
+    lines = [
+        f"digraph G {{ rankdir={rankdir};{sep} splines=ortho; node [shape=box fixedsize=true];"
+    ]
     # Group nodes into (possibly nested) clusters so dot keeps each group
     # together; a node's first appearance fixes its cluster, so list members
     # before the size attributes. The cluster margin reserves room for the
@@ -130,10 +157,10 @@ def build_dot(graph):
     cidx = {p: i for i, p in enumerate(ordered)}
 
     def emit_cluster(p, pad):
-        lines.append(f'{pad}subgraph cluster_{cidx[p]} {{ margin={GROUP_PAD};')
+        lines.append(f"{pad}subgraph cluster_{cidx[p]} {{ margin={GROUP_PAD};")
         for c in children.get(p, []):
             emit_cluster(c, pad + "  ")
-        lines.extend(f'{pad}  {dot_quote(m)};' for m in direct.get(p, []))
+        lines.extend(f"{pad}  {dot_quote(m)};" for m in direct.get(p, []))
         lines.append(pad + "}")
 
     for root in [p for p in ordered if len(p) == 1]:
@@ -142,9 +169,9 @@ def build_dot(graph):
         # Pass our pixel sizes to dot as inches so it lays out at the real size.
         w = node.get("width", DEFAULT_W) / 72.0
         h = node.get("height", DEFAULT_H) / 72.0
-        lines.append(f'{dot_quote(node["id"])} [width={w:.4f} height={h:.4f}];')
+        lines.append(f"{dot_quote(node['id'])} [width={w:.4f} height={h:.4f}];")
     for edge in graph.get("edges", []):
-        lines.append(f'{dot_quote(edge["source"])} -> {dot_quote(edge["target"])};')
+        lines.append(f"{dot_quote(edge['source'])} -> {dot_quote(edge['target'])};")
     lines.append("}")
     return "\n".join(lines)
 
@@ -157,8 +184,11 @@ def layout(dot_src):
     """
     try:
         proc = subprocess.run(
-            ["dot", "-Tplain"], input=dot_src,
-            capture_output=True, text=True, check=True,
+            ["dot", "-Tplain"],
+            input=dot_src,
+            capture_output=True,
+            text=True,
+            check=True,
         )
     except FileNotFoundError:
         sys.exit("error: Graphviz `dot` not found on PATH (brew install graphviz)")
@@ -170,10 +200,10 @@ def layout(dot_src):
         if not tok:
             continue
         if tok[0] == "graph":
-            height = float(tok[3])                        # graph scale width height
+            height = float(tok[3])  # graph scale width height
         elif tok[0] == "node":
             pos[tok[1]] = (float(tok[2]), float(tok[3]))  # node name x y ...
-        elif tok[0] == "edge":                            # edge tail head n x1 y1 ... xn yn
+        elif tok[0] == "edge":  # edge tail head n x1 y1 ... xn yn
             n = int(tok[3])
             edges[(tok[1], tok[2])] = [
                 (float(tok[4 + 2 * i]), float(tok[5 + 2 * i])) for i in range(n)
@@ -183,8 +213,10 @@ def layout(dot_src):
 
 def group_style(stroke):
     """Container box styled with a group's colour (coloured border + title)."""
-    return (f"rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor={stroke};"
-            f"fontColor={stroke};verticalAlign=top;fontStyle=2;dashed=1;")
+    return (
+        f"rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor={stroke};"
+        f"fontColor={stroke};verticalAlign=top;fontStyle=2;dashed=1;"
+    )
 
 
 def page_cells(graph, height, pos, edge_pts, color=True):
@@ -200,7 +232,7 @@ def page_cells(graph, height, pos, edge_pts, color=True):
         w, h = node.get("width", DEFAULT_W), node.get("height", DEFAULT_H)
         xc, yc = pos[nid]
         x = snap(xc * 72 - w / 2)
-        y = snap((height - yc) * 72 - h / 2)             # flip: dot origin is bottom-left
+        y = snap((height - yc) * 72 - h / 2)  # flip: dot origin is bottom-left
         rects[nid] = (x, y, w, h)
     # Parse the (possibly nested) group tree and assign each container a
     # collision-free id and a title (the path's last segment, or a member's groupLabel).
@@ -223,7 +255,7 @@ def page_cells(graph, height, pos, edge_pts, color=True):
     gid, glabel = {}, {}
     for i, p in enumerate(ordered):
         cid = f"group_{i}"
-        while cid in used:                               # never collide with a node id
+        while cid in used:  # never collide with a node id
             cid += "_"
         used.add(cid)
         gid[p] = cid
@@ -232,10 +264,21 @@ def page_cells(graph, height, pos, edge_pts, color=True):
     # computed deepest-first so a parent can wrap its already-sized children.
     gbox = {}
     for p in sorted(ordered, key=len, reverse=True):
-        xs = [(rects[m][0], rects[m][1], rects[m][0] + rects[m][2], rects[m][1] + rects[m][3])
-              for m in direct.get(p, []) if m in rects]
-        xs += [(gbox[c][0], gbox[c][1], gbox[c][0] + gbox[c][2], gbox[c][1] + gbox[c][3])
-               for c in children.get(p, []) if c in gbox]
+        xs = [
+            (
+                rects[m][0],
+                rects[m][1],
+                rects[m][0] + rects[m][2],
+                rects[m][1] + rects[m][3],
+            )
+            for m in direct.get(p, [])
+            if m in rects
+        ]
+        xs += [
+            (gbox[c][0], gbox[c][1], gbox[c][0] + gbox[c][2], gbox[c][1] + gbox[c][3])
+            for c in children.get(p, [])
+            if c in gbox
+        ]
         if not xs:
             continue
         x0 = min(b[0] for b in xs) - GROUP_PAD
@@ -277,27 +320,33 @@ def page_cells(graph, height, pos, edge_pts, color=True):
         if nid not in rects:
             continue
         rx, ry, w, h = rects[nid]
-        x, y, parent = rebase(rx, ry, gpath.get(nid) if gpath.get(nid) in gbox else None)
+        x, y, parent = rebase(
+            rx, ry, gpath.get(nid) if gpath.get(nid) in gbox else None
+        )
         if node.get("style"):
-            style = node["style"]                         # explicit style always wins
+            style = node["style"]  # explicit style always wins
         elif color and nid in gpath:
-            fill, stroke = gcolor(gpath[nid][0])          # tint styleless nodes by group
+            fill, stroke = gcolor(gpath[nid][0])  # tint styleless nodes by group
             style = f"rounded=1;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};"
         else:
             style = NODE_STYLE
-        body = (f'style="{attr(style)}" vertex="1" parent="{attr(parent)}">\n'
-                f'          <mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" as="geometry"/>\n'
-                f"        </mxCell>")
+        body = (
+            f'style="{attr(style)}" vertex="1" parent="{attr(parent)}">\n'
+            f'          <mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" as="geometry"/>\n'
+            f"        </mxCell>"
+        )
         if node.get("link"):
             # Links ride on a UserObject wrapper (id + label move to it).
             cells.append(
                 f'        <UserObject label="{attr(node.get("label", nid))}" '
                 f'link="{attr(node["link"])}" id="{attr(nid)}">\n'
-                f"          <mxCell " + body + "\n        </UserObject>")
+                f"          <mxCell " + body + "\n        </UserObject>"
+            )
         else:
             cells.append(
                 f'        <mxCell id="{attr(nid)}" value="{attr(node.get("label", nid))}" '
-                + body)
+                + body
+            )
     for i, edge in enumerate(graph.get("edges", [])):
         # Drop the first/last points (they sit on the node borders, where
         # draw.io attaches anyway) and replay the interior bends as waypoints.
@@ -307,8 +356,10 @@ def page_cells(graph, height, pos, edge_pts, color=True):
                 f'<mxPoint x="{snap(x * 72) + dx}" y="{snap((height - y) * 72) + dy}"/>'
                 for x, y in interior
             )
-            geom = (f'<mxGeometry relative="1" as="geometry">'
-                    f'<Array as="points">{points}</Array></mxGeometry>')
+            geom = (
+                f'<mxGeometry relative="1" as="geometry">'
+                f'<Array as="points">{points}</Array></mxGeometry>'
+            )
         else:
             geom = '<mxGeometry relative="1" as="geometry"/>'
         cells.append(
@@ -337,9 +388,11 @@ def wrap_page(cells, page_id="autolayout", name="Page-1"):
 
 
 def to_drawio(graph, height, pos, edge_pts, color=True):
-    return ("<mxfile>\n"
-            + wrap_page(page_cells(graph, height, pos, edge_pts, color=color))
-            + "</mxfile>\n")
+    return (
+        "<mxfile>\n"
+        + wrap_page(page_cells(graph, height, pos, edge_pts, color=color))
+        + "</mxfile>\n"
+    )
 
 
 def route_score(graph, height, pos, edge_pts):
@@ -347,6 +400,7 @@ def route_score(graph, height, pos, edge_pts):
     of edge-through-vertex hits and edge-edge crossings, with total edge length
     as a tiebreak. Uses the same geometry predicates as validate.py."""
     import importlib.util
+
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "validate.py")
     spec = importlib.util.spec_from_file_location("validate", path)
     v = importlib.util.module_from_spec(spec)
@@ -361,26 +415,49 @@ def route_score(graph, height, pos, edge_pts):
     for edge in graph.get("edges", []):
         pts = edge_pts.get((edge["source"], edge["target"]))
         if pts:
-            routes.append(([(x * 72, (height - y) * 72) for x, y in pts],
-                           {edge["source"], edge["target"]}))
-    through = sum(1 for pts, ends in routes for nid, box in rects.items()
-                  if nid not in ends and v.route_hits_rect(pts, box))
-    cross = sum(1 for i in range(len(routes)) for j in range(i + 1, len(routes))
-                if v.routes_cross(routes[i][0], routes[j][0]))
-    length = sum(abs(b[0] - a[0]) + abs(b[1] - a[1])
-                 for pts, _ in routes for a, b in zip(pts, pts[1:]))
+            routes.append(
+                (
+                    [(x * 72, (height - y) * 72) for x, y in pts],
+                    {edge["source"], edge["target"]},
+                )
+            )
+    through = sum(
+        1
+        for pts, ends in routes
+        for nid, box in rects.items()
+        if nid not in ends and v.route_hits_rect(pts, box)
+    )
+    cross = sum(
+        1
+        for i in range(len(routes))
+        for j in range(i + 1, len(routes))
+        if v.routes_cross(routes[i][0], routes[j][0])
+    )
+    length = sum(
+        abs(b[0] - a[0]) + abs(b[1] - a[1])
+        for pts, _ in routes
+        for a, b in zip(pts, pts[1:])
+    )
     return 20 * through + 10 * cross + length / 100000
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Auto-layout a graph JSON into draw.io XML.")
+    ap = argparse.ArgumentParser(
+        description="Auto-layout a graph JSON into draw.io XML."
+    )
     ap.add_argument("input", help="graph JSON file")
     ap.add_argument("-o", "--output", help="output .drawio path (default: stdout)")
-    ap.add_argument("--mono", action="store_true",
-                    help="don't colour groups by palette (monochrome boxes)")
-    ap.add_argument("--tune", action="store_true",
-                    help="lay out in both directions (TB and LR), keep the more "
-                         "readable one (fewer crossings / through-vertex routes)")
+    ap.add_argument(
+        "--mono",
+        action="store_true",
+        help="don't colour groups by palette (monochrome boxes)",
+    )
+    ap.add_argument(
+        "--tune",
+        action="store_true",
+        help="lay out in both directions (TB and LR), keep the more "
+        "readable one (fewer crossings / through-vertex routes)",
+    )
     args = ap.parse_args()
     with open(args.input, encoding="utf-8") as f:
         graph = json.load(f)
@@ -400,8 +477,11 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(xml)
-        print(f"wrote {args.output} ({len(graph['nodes'])} nodes, "
-              f"{len(graph.get('edges', []))} edges)", file=sys.stderr)
+        print(
+            f"wrote {args.output} ({len(graph['nodes'])} nodes, "
+            f"{len(graph.get('edges', []))} edges)",
+            file=sys.stderr,
+        )
     else:
         sys.stdout.write(xml)
 

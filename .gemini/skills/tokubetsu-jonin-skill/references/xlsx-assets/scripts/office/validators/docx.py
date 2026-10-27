@@ -17,7 +17,6 @@ from .base import BaseSchemaValidator
 
 
 class DOCXSchemaValidator(BaseSchemaValidator):
-
     WORD_2006_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     W14_NAMESPACE = "http://schemas.microsoft.com/office/word/2010/wordml"
     W16CID_NAMESPACE = "http://schemas.microsoft.com/office/word/2016/wordml/cid"
@@ -303,7 +302,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                                     f"durableId={val} is not valid hex"
                                 )
             except lxml.etree.XMLSyntaxError:
-                continue  
+                continue
 
         if errors:
             print(f"FAILED - {len(errors)} ID constraint violations:")
@@ -383,7 +382,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 for comment_id in sorted(
                     invalid_refs, key=lambda x: int(x) if x and x.isdigit() else 0
                 ):
-                    if comment_id:  
+                    if comment_id:
                         errors.append(
                             f'  document.xml: marker id="{comment_id}" references non-existent comment'
                         )
@@ -409,7 +408,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
     def repair_durableId(self) -> int:
         DURABLE_ID_ATTRS = ("w16cid:durableId", "w16cex:durableId")
         repairs = 0
-        renames: dict = {}  
+        renames: dict = {}
 
         for xml_file in self.xml_files:
             try:
@@ -417,7 +416,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 dom = defusedxml.minidom.parseString(content)
                 is_numbering = xml_file.name == "numbering.xml"
                 base = 10 if is_numbering else 16
-                pending = []  
+                pending = []
                 seen_in_file = set()
                 modified = False
 

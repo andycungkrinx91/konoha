@@ -20,6 +20,7 @@ reported but cannot be described (this skill always writes uncompressed XML).
 
 Usage: python3 explain.py <file.drawio> [-o out.md]
 """
+
 import argparse
 import html
 import re
@@ -28,11 +29,19 @@ import xml.etree.ElementTree as ET
 
 # style fragment -> human noun. First match wins; order matters (specific first).
 SHAPE_TYPES = [
-    ("mxgraph.aws", "AWS"), ("img/lib/azure", "Azure"), ("mxgraph.gcp", "GCP"),
-    ("mxgraph.kubernetes", "Kubernetes"), ("umlActor", "actor"), ("shape=actor", "actor"),
-    ("shape=cylinder", "data store"), ("shape=datastore", "data store"),
-    ("shape=cloud", "cloud"), ("rhombus", "decision"), ("mscae", "Azure"),
-    ("shape=process", "process"), ("shape=hexagon", "queue"),
+    ("mxgraph.aws", "AWS"),
+    ("img/lib/azure", "Azure"),
+    ("mxgraph.gcp", "GCP"),
+    ("mxgraph.kubernetes", "Kubernetes"),
+    ("umlActor", "actor"),
+    ("shape=actor", "actor"),
+    ("shape=cylinder", "data store"),
+    ("shape=datastore", "data store"),
+    ("shape=cloud", "cloud"),
+    ("rhombus", "decision"),
+    ("mscae", "Azure"),
+    ("shape=process", "process"),
+    ("shape=hexagon", "queue"),
 ]
 
 
@@ -57,7 +66,7 @@ def cells_of(page):
     model = page.find("mxGraphModel")
     root = model.find("root") if model is not None else None
     if root is None:
-        return None                                    # compressed / empty page
+        return None  # compressed / empty page
     out = []
     for child in root:
         if child.tag == "mxCell":
@@ -66,8 +75,13 @@ def cells_of(page):
             inner = child.find("mxCell")
             if inner is not None:
                 inner.set("id", child.get("id", ""))
-                out.append((inner, child.get("id"),
-                            clean(child.get("label") or child.get("value"))))
+                out.append(
+                    (
+                        inner,
+                        child.get("id"),
+                        clean(child.get("label") or child.get("value")),
+                    )
+                )
     return out
 
 
@@ -81,9 +95,12 @@ def describe_page(page):
     parents = {c.get("parent") for c, _, _ in cells if c.get("parent")}
 
     vertices = [(c, cid) for c, cid, _ in cells if c.get("vertex") == "1"]
-    containers = {cid for c, cid in vertices if cid in parents}   # holds other cells
-    leaves = [(c, cid) for c, cid in vertices
-              if cid not in containers and "edgeLabel" not in style.get(cid, "")]
+    containers = {cid for c, cid in vertices if cid in parents}  # holds other cells
+    leaves = [
+        (c, cid)
+        for c, cid in vertices
+        if cid not in containers and "edgeLabel" not in style.get(cid, "")
+    ]
 
     # Group leaves by their container's label (else "Ungrouped").
     groups, order = {}, []
@@ -112,7 +129,7 @@ def describe_page(page):
     rels = []
     for e in edges:
         s, t = label.get(e.get("source")), label.get(e.get("target"))
-        if not s or not t:                             # dangling endpoint — skip
+        if not s or not t:  # dangling endpoint — skip
             continue
         verb = clean(e.get("value"))
         rels.append(f"- {s} —{verb}→ {t}" if verb else f"- {s} → {t}")

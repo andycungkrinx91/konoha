@@ -18,6 +18,7 @@ per cycle, `--dash` the dash pattern, `--reverse` flips the flow direction.
 Usage: python3 svgflow.py <file.drawio|file.svg> [-o out.svg]
        [--speed SEC] [--dash "6 4"] [--reverse]
 """
+
 import argparse
 import os
 import re
@@ -25,7 +26,9 @@ import subprocess
 import sys
 import tempfile
 
-EDGE_PATH = re.compile(r'(<path )((?:(?!/?>)[^>])*pointer-events="stroke"(?:(?!/?>)[^>])*/?>)')
+EDGE_PATH = re.compile(
+    r'(<path )((?:(?!/?>)[^>])*pointer-events="stroke"(?:(?!/?>)[^>])*/?>)'
+)
 
 
 def to_svg(path):
@@ -35,8 +38,9 @@ def to_svg(path):
             return f.read()
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "d.svg")
-        r = subprocess.run(["drawio", "-x", "-f", "svg", "-o", out, path],
-                           capture_output=True)
+        r = subprocess.run(
+            ["drawio", "-x", "-f", "svg", "-o", out, path], capture_output=True
+        )
         if r.returncode != 0 or not os.path.exists(out):
             sys.exit("error: draw.io SVG export failed (is the draw.io CLI installed?)")
         with open(out, encoding="utf-8") as f:
@@ -49,18 +53,24 @@ def animate(svg, speed, dash, reverse):
     # One dash+gap of travel per cycle => seamless loop. Reverse flips the sign.
     period = sum(float(x) for x in dash.split()) or 10
     offset = period if reverse else -period
-    style = (f"<style>.dio-flow{{stroke-dasharray:{dash};"
-             f"animation:dio-flow {speed}s linear infinite;}}"
-             f"@keyframes dio-flow{{to{{stroke-dashoffset:{offset:g};}}}}</style>")
+    style = (
+        f"<style>.dio-flow{{stroke-dasharray:{dash};"
+        f"animation:dio-flow {speed}s linear infinite;}}"
+        f"@keyframes dio-flow{{to{{stroke-dashoffset:{offset:g};}}}}</style>"
+    )
     svg = re.sub(r"(<svg\b[^>]*>)", r"\1" + style, svg, count=1)
     return svg, n
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Animate a diagram's edges into a flowing SVG.")
+    ap = argparse.ArgumentParser(
+        description="Animate a diagram's edges into a flowing SVG."
+    )
     ap.add_argument("file", help=".drawio (exported to SVG) or an .svg")
     ap.add_argument("-o", "--output", help="output .svg (default: <name>-flow.svg)")
-    ap.add_argument("--speed", type=float, default=1.2, help="seconds per flow cycle (default 1.2)")
+    ap.add_argument(
+        "--speed", type=float, default=1.2, help="seconds per flow cycle (default 1.2)"
+    )
     ap.add_argument("--dash", default="6 4", help='dash pattern, e.g. "6 4" (default)')
     ap.add_argument("--reverse", action="store_true", help="flow toward the source")
     args = ap.parse_args()
@@ -72,8 +82,9 @@ def main():
         sys.exit("error: no <svg> element found in the exported output")
     svg, n = animate(svg, args.speed, args.dash, args.reverse)
     if n == 0:
-        sys.stderr.write("warning: no edges found to animate "
-                         "(a diagram with no connectors?)\n")
+        sys.stderr.write(
+            "warning: no edges found to animate (a diagram with no connectors?)\n"
+        )
 
     out = args.output or os.path.splitext(args.file)[0] + "-flow.svg"
     with open(out, "w", encoding="utf-8") as f:

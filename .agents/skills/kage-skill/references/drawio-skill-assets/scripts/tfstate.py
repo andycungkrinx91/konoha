@@ -19,6 +19,7 @@ edges come from the dependencies Terraform recorded in state (`depends_on`).
 Usage: terraform show -json | python3 tfstate.py - [-o graph.json]
        [--direction TB|LR] [--group] [--no-reduce] [--no-icons]
 """
+
 import argparse
 import importlib.util
 import json
@@ -37,36 +38,61 @@ def load_tfimports():
 def walk_module(mod, out):
     """Collect (address, type, name, index, module_path, depends_on) for every
     managed resource, recursing into child modules."""
-    addr = mod.get("address", "")                    # "" for root, else module.x[...]
+    addr = mod.get("address", "")  # "" for root, else module.x[...]
     for r in mod.get("resources") or []:
         if r.get("mode") == "data":
             continue
-        out.append((r.get("address"), r.get("type"), r.get("name"),
-                    r.get("index"), addr, r.get("depends_on") or []))
+        out.append(
+            (
+                r.get("address"),
+                r.get("type"),
+                r.get("name"),
+                r.get("index"),
+                addr,
+                r.get("depends_on") or [],
+            )
+        )
     for child in mod.get("child_modules") or []:
         walk_module(child, out)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="`terraform show -json` -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="`terraform show -json` -> autolayout graph JSON."
+    )
     ap.add_argument("input", help="`terraform show -json` output file, or - for stdin")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="group resources into containers by module")
-    ap.add_argument("--no-reduce", action="store_true",
-                    help="keep every edge (skip transitive reduction)")
-    ap.add_argument("--no-icons", action="store_true",
-                    help="plain boxes instead of official cloud icons")
+    ap.add_argument(
+        "--group", action="store_true", help="group resources into containers by module"
+    )
+    ap.add_argument(
+        "--no-reduce",
+        action="store_true",
+        help="keep every edge (skip transitive reduction)",
+    )
+    ap.add_argument(
+        "--no-icons",
+        action="store_true",
+        help="plain boxes instead of official cloud icons",
+    )
     args = ap.parse_args()
 
-    text = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
+    text = (
+        sys.stdin.read()
+        if args.input == "-"
+        else open(args.input, encoding="utf-8").read()
+    )
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        sys.exit(f"error: input is not valid JSON ({exc}) — feed `terraform show -json`")
+        sys.exit(
+            f"error: input is not valid JSON ({exc}) — feed `terraform show -json`"
+        )
     # State: top-level "values"; saved plan: "planned_values".
-    root = ((data.get("values") or data.get("planned_values") or {}).get("root_module")) or {}
+    root = (
+        (data.get("values") or data.get("planned_values") or {}).get("root_module")
+    ) or {}
     resources = []
     walk_module(root, resources)
     if not resources:
@@ -82,8 +108,15 @@ def main():
             return {dep}
         return {a for a in addresses if a.startswith(dep + "[")}
 
-    edges = sorted({(addr, t) for addr, _, _, _, _, deps in resources
-                    for dep in deps for t in targets(dep) if t != addr})
+    edges = sorted(
+        {
+            (addr, t)
+            for addr, _, _, _, _, deps in resources
+            for dep in deps
+            for t in targets(dep)
+            if t != addr
+        }
+    )
 
     tf = load_tfimports()
     raw = len(edges)
@@ -106,8 +139,11 @@ def main():
             node["group"] = mpath
         nodes.append(node)
 
-    graph = {"direction": args.direction, "nodes": nodes,
-             "edges": [{"source": s, "target": t} for s, t in edges]}
+    graph = {
+        "direction": args.direction,
+        "nodes": nodes,
+        "edges": [{"source": s, "target": t} for s, t in edges],
+    }
     if resolver:
         # Icon labels render below the shape — reserve extra layout spacing.
         graph.update(ranksep=0.7, nodesep=0.6)

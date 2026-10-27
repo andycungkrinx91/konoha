@@ -313,7 +313,9 @@ class LLMFallbackChain:
                 else 0
             ),
             "cache_hit_rate": (
-                self.stats.cache_hits / self.stats.total_calls if self.stats.total_calls > 0 else 0
+                self.stats.cache_hits / self.stats.total_calls
+                if self.stats.total_calls > 0
+                else 0
             ),
         }
 

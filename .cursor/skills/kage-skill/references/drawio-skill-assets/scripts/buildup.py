@@ -24,6 +24,7 @@ HTML is written regardless).
 Usage: python3 buildup.py <file.drawio> [-o out.html] [--gif out.gif]
        [--fps N] [--hold N] [--keep-frames]
 """
+
 import argparse
 import base64
 import copy
@@ -54,7 +55,9 @@ def parse_page(path):
     if not pages:
         sys.exit(f"error: no <diagram> pages in {path}")
     if len(pages) > 1:
-        sys.stderr.write(f"warning: {path} has {len(pages)} pages, animating the first only\n")
+        sys.stderr.write(
+            f"warning: {path} has {len(pages)} pages, animating the first only\n"
+        )
     model = pages[0].find("mxGraphModel")
     root = model.find("root") if model is not None else None
     if root is None:
@@ -67,18 +70,33 @@ def parse_page(path):
             continue
         g = inner.find("mxGeometry")
         relative = g is not None and g.get("relative") == "1"
-        if g is not None and not relative and g.get("x") is not None and g.get("width") is not None:
+        if (
+            g is not None
+            and not relative
+            and g.get("x") is not None
+            and g.get("width") is not None
+        ):
             x, y = float(g.get("x")), float(g.get("y", 0))
             w, h = float(g.get("width")), float(g.get("height", 0))
         else:
             x = y = w = h = None
-        cells.append({
-            "id": el.get("id"), "el": el,
-            "vertex": inner.get("vertex") == "1", "edge": inner.get("edge") == "1",
-            "parent": inner.get("parent"), "source": inner.get("source"),
-            "target": inner.get("target"), "style": inner.get("style") or "",
-            "relative": relative, "x": x, "y": y, "w": w, "h": h,
-        })
+        cells.append(
+            {
+                "id": el.get("id"),
+                "el": el,
+                "vertex": inner.get("vertex") == "1",
+                "edge": inner.get("edge") == "1",
+                "parent": inner.get("parent"),
+                "source": inner.get("source"),
+                "target": inner.get("target"),
+                "style": inner.get("style") or "",
+                "relative": relative,
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+            }
+        )
     return tree, cells
 
 
@@ -120,7 +138,7 @@ def reveal_order(node_ids, edges):
     """Kahn topological order over node_ids given directed (source, target)
     edges. Ties among ready nodes, and any nodes left over from a cycle, fall
     back to document order (node_ids' input order)."""
-    doc = list(dict.fromkeys(node_ids))                    # de-dup, keep doc order
+    doc = list(dict.fromkeys(node_ids))  # de-dup, keep doc order
     idx = {nid: i for i, nid in enumerate(doc)}
     adj = {nid: [] for nid in doc}
     indeg = {nid: 0 for nid in doc}
@@ -130,6 +148,7 @@ def reveal_order(node_ids, edges):
             indeg[t] += 1
 
     import heapq
+
     ready = list({idx[n] for n in doc if indeg[n] == 0})
     heapq.heapify(ready)
     order, seen = [], set()
@@ -141,7 +160,7 @@ def reveal_order(node_ids, edges):
             indeg[nxt] -= 1
             if indeg[nxt] == 0:
                 heapq.heappush(ready, idx[nxt])
-    for nid in doc:                                        # cycle remnants, document order
+    for nid in doc:  # cycle remnants, document order
         if nid not in seen:
             order.append(nid)
     return order
@@ -153,7 +172,9 @@ def reveal_steps(node_order, edges):
     revealed (endpoints outside node_order, e.g. a container, count as step 0
     — already shown)."""
     node_step = {nid: i for i, nid in enumerate(node_order)}
-    edge_step = {eid: max(node_step.get(s, 0), node_step.get(t, 0)) for eid, s, t in edges}
+    edge_step = {
+        eid: max(node_step.get(s, 0), node_step.get(t, 0)) for eid, s, t in edges
+    }
     return node_step, edge_step
 
 
@@ -166,9 +187,15 @@ def label_of(el):
 
 def build_html(frames, title):
     """Self-contained HTML player. frames: [(png_bytes, label, step, total)]."""
-    data = [{"img": "data:image/png;base64," + base64.b64encode(png).decode(),
-             "label": label, "step": step, "total": total}
-            for png, label, step, total in frames]
+    data = [
+        {
+            "img": "data:image/png;base64," + base64.b64encode(png).decode(),
+            "label": label,
+            "step": step,
+            "total": total,
+        }
+        for png, label, step, total in frames
+    ]
     payload = json.dumps(data).replace("</", "<\\/")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -243,23 +270,40 @@ def make_gif(pngs, out_path, fps, hold):
     try:
         from PIL import Image
     except ImportError:
-        sys.stderr.write("warning: Pillow not installed, skipping --gif (pip install Pillow)\n")
+        sys.stderr.write(
+            "warning: Pillow not installed, skipping --gif (pip install Pillow)\n"
+        )
         return
     frames = [Image.open(io.BytesIO(p)).convert("RGB") for p in pngs]
     duration = [int(1000 / fps)] * (len(frames) - 1) + [int(hold * 1000)]
-    frames[0].save(out_path, save_all=True, append_images=frames[1:],
-                   duration=duration, loop=0)
+    frames[0].save(
+        out_path, save_all=True, append_images=frames[1:], duration=duration, loop=0
+    )
     sys.stderr.write(f"wrote {out_path} ({len(frames)} frames)\n")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Animate a .drawio building itself -> self-contained HTML player.")
+    ap = argparse.ArgumentParser(
+        description="Animate a .drawio building itself -> self-contained HTML player."
+    )
     ap.add_argument("file", help="input .drawio (uncompressed)")
-    ap.add_argument("-o", "--output", help="output .html (default: buildup.html alongside input)")
-    ap.add_argument("--gif", help="also assemble frames into an animated GIF (needs Pillow)")
-    ap.add_argument("--fps", type=float, default=2.0, help="GIF frames per second (default 2)")
-    ap.add_argument("--hold", type=float, default=1.5, help="seconds to hold the final GIF frame")
-    ap.add_argument("--keep-frames", action="store_true", help="also write the PNG frames next to the output")
+    ap.add_argument(
+        "-o", "--output", help="output .html (default: buildup.html alongside input)"
+    )
+    ap.add_argument(
+        "--gif", help="also assemble frames into an animated GIF (needs Pillow)"
+    )
+    ap.add_argument(
+        "--fps", type=float, default=2.0, help="GIF frames per second (default 2)"
+    )
+    ap.add_argument(
+        "--hold", type=float, default=1.5, help="seconds to hold the final GIF frame"
+    )
+    ap.add_argument(
+        "--keep-frames",
+        action="store_true",
+        help="also write the PNG frames next to the output",
+    )
     args = ap.parse_args()
 
     if not os.path.isfile(args.file):
@@ -279,15 +323,18 @@ def main():
     n_total = len(order)
 
     out = args.output or os.path.join(
-        os.path.dirname(os.path.abspath(args.file)) or ".", "buildup.html")
+        os.path.dirname(os.path.abspath(args.file)) or ".", "buildup.html"
+    )
 
     frames = []
     with tempfile.TemporaryDirectory() as tmp:
         for k in range(n_total):
-            revealed_nodes = set(order[:k + 1])
+            revealed_nodes = set(order[: k + 1])
             revealed_edges = {eid for eid, _, _ in edge_list if edge_step[eid] <= k}
             keep = {"0", "1"} | containers | revealed_nodes | revealed_edges
-            keep |= {c["id"] for c in cells if c["id"] not in keep and c["parent"] in keep}
+            keep |= {
+                c["id"] for c in cells if c["id"] not in keep and c["parent"] in keep
+            }
 
             frame_tree = copy.deepcopy(tree)
             model = frame_tree.getroot().find("diagram").find("mxGraphModel")
@@ -301,17 +348,35 @@ def main():
             src = os.path.join(tmp, f"step{k:03d}.drawio")
             frame_tree.write(src, encoding="utf-8", xml_declaration=False)
             png_path = os.path.join(tmp, f"step{k:03d}.png")
-            r = subprocess.run(["drawio", "-x", "-f", "png", "--page-index", "1",
-                                "--width", "2000", "-o", png_path, src], capture_output=True)
+            r = subprocess.run(
+                [
+                    "drawio",
+                    "-x",
+                    "-f",
+                    "png",
+                    "--page-index",
+                    "1",
+                    "--width",
+                    "2000",
+                    "-o",
+                    png_path,
+                    src,
+                ],
+                capture_output=True,
+            )
             if r.returncode != 0 or not os.path.exists(png_path):
-                sys.stderr.write(f"warning: step {k + 1}/{n_total} export failed — skipped\n")
+                sys.stderr.write(
+                    f"warning: step {k + 1}/{n_total} export failed — skipped\n"
+                )
                 continue
             with open(png_path, "rb") as f:
                 png = f.read()
             label = labels.get(order[k], order[k])
             frames.append((png, label, k + 1, n_total))
             if args.keep_frames:
-                with open(f"{os.path.splitext(out)[0]}-frame{k + 1:03d}.png", "wb") as f:
+                with open(
+                    f"{os.path.splitext(out)[0]}-frame{k + 1:03d}.png", "wb"
+                ) as f:
                     f.write(png)
             sys.stderr.write(f"[{k + 1}/{n_total}] revealed {label!r}\n")
 

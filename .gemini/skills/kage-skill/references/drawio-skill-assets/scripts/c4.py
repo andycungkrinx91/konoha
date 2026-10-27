@@ -54,6 +54,7 @@ ALL levels (pages share one link namespace). Requires Graphviz `dot`.
 
 Usage: python3 c4.py <c4.json> [-o out.drawio] [--direction TB|LR]
 """
+
 import argparse
 import importlib.util
 import json
@@ -64,25 +65,52 @@ import sys
 # Official draw.io C4 template styles (colors from c4model.com).
 _BASE = "html=1;whiteSpace=wrap;fontSize=12;fontColor=#ffffff;align=center;"
 STYLES = {
-    "person": ("shape=mxgraph.c4.person2;" + _BASE +
-               "fillColor=#083F75;strokeColor=#06315C;", 200, 180),
-    "system": ("rounded=1;arcSize=10;" + _BASE +
-               "fillColor=#1061B0;strokeColor=#0D5091;", 240, 120),
-    "external": ("rounded=1;arcSize=10;" + _BASE +
-                 "fillColor=#8C8496;strokeColor=#736782;", 240, 120),
-    "container": ("rounded=1;arcSize=10;" + _BASE +
-                  "fillColor=#23A2D9;strokeColor=#0E7DAD;", 240, 120),
-    "component": ("rounded=1;arcSize=10;" + _BASE +
-                  "fillColor=#63BEF2;strokeColor=#2086C9;", 240, 120),
-    "database": ("shape=cylinder3;size=15;boundedLbl=1;" + _BASE +
-                 "fillColor=#23A2D9;strokeColor=#0E7DAD;", 240, 120),
+    "person": (
+        "shape=mxgraph.c4.person2;" + _BASE + "fillColor=#083F75;strokeColor=#06315C;",
+        200,
+        180,
+    ),
+    "system": (
+        "rounded=1;arcSize=10;" + _BASE + "fillColor=#1061B0;strokeColor=#0D5091;",
+        240,
+        120,
+    ),
+    "external": (
+        "rounded=1;arcSize=10;" + _BASE + "fillColor=#8C8496;strokeColor=#736782;",
+        240,
+        120,
+    ),
+    "container": (
+        "rounded=1;arcSize=10;" + _BASE + "fillColor=#23A2D9;strokeColor=#0E7DAD;",
+        240,
+        120,
+    ),
+    "component": (
+        "rounded=1;arcSize=10;" + _BASE + "fillColor=#63BEF2;strokeColor=#2086C9;",
+        240,
+        120,
+    ),
+    "database": (
+        "shape=cylinder3;size=15;boundedLbl=1;"
+        + _BASE
+        + "fillColor=#23A2D9;strokeColor=#0E7DAD;",
+        240,
+        120,
+    ),
 }
-TYPE_WORD = {"person": "Person", "system": "Software System",
-             "external": "Software System", "container": "Container",
-             "component": "Component", "database": "Container"}
-EDGE = ("endArrow=blockThin;endFill=1;endSize=10;html=1;fontSize=11;"
-        "fontColor=#404040;strokeColor=#828282;labelBackgroundColor=#ffffff;"
-        "rounded=0;")
+TYPE_WORD = {
+    "person": "Person",
+    "system": "Software System",
+    "external": "Software System",
+    "container": "Container",
+    "component": "Component",
+    "database": "Container",
+}
+EDGE = (
+    "endArrow=blockThin;endFill=1;endSize=10;html=1;fontSize=11;"
+    "fontColor=#404040;strokeColor=#828282;labelBackgroundColor=#ffffff;"
+    "rounded=0;"
+)
 
 
 def load_autolayout():
@@ -127,34 +155,61 @@ def main():
         nodes = []
         for el in lv.get("elements", []):
             if el["id"] in seen:
-                sys.exit(f"error: duplicate element id {el['id']!r} "
-                         "(ids must be unique across all levels)")
+                sys.exit(
+                    f"error: duplicate element id {el['id']!r} "
+                    "(ids must be unique across all levels)"
+                )
             seen.add(el["id"])
             style, w, h = STYLES.get(el.get("type", "system"), STYLES["system"])
-            node = {"id": el["id"], "label": c4_label(el), "style": style,
-                    "width": w, "height": h}
+            node = {
+                "id": el["id"],
+                "label": c4_label(el),
+                "style": style,
+                "width": w,
+                "height": h,
+            }
             child = el.get("children")
             if child:
                 if child not in page_ids:
-                    sys.exit(f"error: element {el['id']!r} drills down to "
-                             f"unknown level {child!r}")
+                    sys.exit(
+                        f"error: element {el['id']!r} drills down to "
+                        f"unknown level {child!r}"
+                    )
                 node["link"] = f"data:page/id,{page_ids[child]}"
             nodes.append(node)
-        edges = [{"source": r["from"], "target": r["to"],
-                  "label": r.get("label", ""), "style": EDGE}
-                 for r in lv.get("relations", [])]
-        graph = {"direction": args.direction, "nodes": nodes, "edges": edges,
-                 "ranksep": 0.9, "nodesep": 0.5}
+        edges = [
+            {
+                "source": r["from"],
+                "target": r["to"],
+                "label": r.get("label", ""),
+                "style": EDGE,
+            }
+            for r in lv.get("relations", [])
+        ]
+        graph = {
+            "direction": args.direction,
+            "nodes": nodes,
+            "edges": edges,
+            "ranksep": 0.9,
+            "nodesep": 0.5,
+        }
         height, pos, edge_pts = al.layout(al.build_dot(graph))
-        pages.append(al.wrap_page(al.page_cells(graph, height, pos, edge_pts, color=False),
-                                  page_id=page_ids[lv["name"]], name=lv["name"]))
+        pages.append(
+            al.wrap_page(
+                al.page_cells(graph, height, pos, edge_pts, color=False),
+                page_id=page_ids[lv["name"]],
+                name=lv["name"],
+            )
+        )
 
     xml = "<mxfile>\n" + "".join(pages) + "</mxfile>\n"
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(xml)
-        print(f"wrote {args.output} ({len(pages)} pages, {len(seen)} elements)",
-              file=sys.stderr)
+        print(
+            f"wrote {args.output} ({len(pages)} pages, {len(seen)} elements)",
+            file=sys.stderr,
+        )
     else:
         sys.stdout.write(xml)
 

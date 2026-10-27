@@ -35,14 +35,16 @@ T = TypeVar("T")
 
 class CircuitState(Enum):
     """Circuit breaker states."""
-    CLOSED = "closed"      # Normal operation, counting failures
-    OPEN = "open"          # Failing fast, rejecting requests
+
+    CLOSED = "closed"  # Normal operation, counting failures
+    OPEN = "open"  # Failing fast, rejecting requests
     HALF_OPEN = "half_open"  # Testing recovery
 
 
 @dataclass
 class CircuitStats:
     """Circuit breaker statistics."""
+
     total_calls: int = 0
     successful_calls: int = 0
     failed_calls: int = 0
@@ -55,11 +57,12 @@ class CircuitStats:
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker."""
-    failure_threshold: int = 5          # Failures before opening
-    success_threshold: int = 2          # Successes in half-open to close
-    recovery_timeout: float = 30.0      # Seconds before half-open transition
-    sliding_window_size: int = 10       # Requests to track
-    slow_call_threshold: float = 10.0   # Seconds - calls slower count as failures
+
+    failure_threshold: int = 5  # Failures before opening
+    success_threshold: int = 2  # Successes in half-open to close
+    recovery_timeout: float = 30.0  # Seconds before half-open transition
+    sliding_window_size: int = 10  # Requests to track
+    slow_call_threshold: float = 10.0  # Seconds - calls slower count as failures
     slow_call_rate_threshold: float = 0.5  # Percentage of slow calls to trip
 
 
@@ -330,10 +333,10 @@ class CircuitBreakerFactory:
         """Circuit breaker optimized for LLM APIs."""
         return CircuitBreaker(
             name=name,
-            failure_threshold=3,        # LLM APIs can be unstable
+            failure_threshold=3,  # LLM APIs can be unstable
             success_threshold=2,
-            recovery_timeout=60.0,      # Give API time to recover
-            slow_call_threshold=30.0,   # LLM calls can be slow
+            recovery_timeout=60.0,  # Give API time to recover
+            slow_call_threshold=30.0,  # LLM calls can be slow
         )
 
     @staticmethod
@@ -379,11 +382,11 @@ if __name__ == "__main__":
         for i in range(20):
             try:
                 result = await breaker.call(unreliable_service)
-                print(f"Call {i+1}: {result}")
+                print(f"Call {i + 1}: {result}")
             except CircuitOpenError as e:
-                print(f"Call {i+1}: REJECTED - {e}")
+                print(f"Call {i + 1}: REJECTED - {e}")
             except ConnectionError as e:
-                print(f"Call {i+1}: FAILED - {e}")
+                print(f"Call {i + 1}: FAILED - {e}")
 
             await asyncio.sleep(0.5)
 

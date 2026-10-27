@@ -38,6 +38,7 @@ T = TypeVar("T")
 @dataclass
 class RetryStats:
     """Statistics for retry operations."""
+
     total_attempts: int = 0
     successful_attempts: int = 0
     failed_attempts: int = 0
@@ -48,6 +49,7 @@ class RetryStats:
 @dataclass
 class RetryConfig:
     """Configuration for retry behavior."""
+
     max_attempts: int = 3
     base_delay: float = 1.0
     max_delay: float = 60.0
@@ -62,9 +64,7 @@ class MaxRetriesExceededError(Exception):
     def __init__(self, attempts: int, last_error: Exception):
         self.attempts = attempts
         self.last_error = last_error
-        super().__init__(
-            f"Max retries ({attempts}) exceeded. Last error: {last_error}"
-        )
+        super().__init__(f"Max retries ({attempts}) exceeded. Last error: {last_error}")
 
 
 # Default retryable exceptions
@@ -441,7 +441,8 @@ class RetryPresets:
             exponential_base=2.0,
             jitter=True,
             retryable_check=lambda e: (
-                getattr(e, "code", None) in {
+                getattr(e, "code", None)
+                in {
                     "rate_limit_exceeded",
                     "server_error",
                     "overloaded",
@@ -458,10 +459,12 @@ if __name__ == "__main__":
     async def unreliable_api(fail_rate: float = 0.7) -> str:
         """Simulated unreliable API."""
         if random.random() < fail_rate:
-            error_type = random.choice([
-                ConnectionError("Connection refused"),
-                TimeoutError("Request timed out"),
-            ])
+            error_type = random.choice(
+                [
+                    ConnectionError("Connection refused"),
+                    TimeoutError("Request timed out"),
+                ]
+            )
             raise error_type
         return "Success!"
 

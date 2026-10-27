@@ -18,7 +18,9 @@ OOXML_FAMILY = {
 
 _SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*:")
 
-SLIDE_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+SLIDE_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+)
 
 
 def opc_target(target: str, source_part: str, target_mode: str = "") -> str | None:
@@ -57,7 +59,9 @@ def opc_target(target: str, source_part: str, target_mode: str = "") -> str | No
 
 def rels_source_part(rels_file: Path, unpacked_dir: Path) -> str:
     owner_dir = rels_file.parent.parent.relative_to(unpacked_dir)
-    return posixpath.join(owner_dir.as_posix(), rels_file.name[: -len(".rels")]).lstrip("./")
+    return posixpath.join(owner_dir.as_posix(), rels_file.name[: -len(".rels")]).lstrip(
+        "./"
+    )
 
 
 def part_text(data: bytes) -> str:
@@ -93,7 +97,9 @@ def rezip(src_dir: Path, out_path: Path) -> None:
         with os.fdopen(fd, "wb") as fh:
             with zipfile.ZipFile(fh, "w", zipfile.ZIP_DEFLATED) as zf:
                 if ct.exists():
-                    zf.write(ct, ct.relative_to(src_dir), compress_type=zipfile.ZIP_STORED)
+                    zf.write(
+                        ct, ct.relative_to(src_dir), compress_type=zipfile.ZIP_STORED
+                    )
                 for f in files:
                     if f == ct:
                         continue

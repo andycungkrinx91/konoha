@@ -4,7 +4,6 @@ Detection only: for either fault more than one repair is valid, and only the
 author knows which was meant.
 """
 
-
 from __future__ import annotations
 
 import re
@@ -18,6 +17,7 @@ _CHART_PART_RE = re.compile(r"ppt/charts/chart\d+\.xml")
 _GROUPING_RE = re.compile(r"""<c:grouping\b[^>]*?\bval=["'](\w+)["']""")
 _DLBL_POS_RE = re.compile(r"""<c:dLblPos\b[^>]*?\bval=["'](\w+)["']""")
 
+
 def _strip_ext_lst(text: str) -> str:
     out, cursor = [], 0
     for lo, hi in _ext_lst_spans(text):
@@ -26,7 +26,10 @@ def _strip_ext_lst(text: str) -> str:
     out.append(text[cursor:])
     return "".join(out)
 
-_BAR_GROUP_RE = re.compile(r"<c:(bar3DChart|barChart)\b[^>]*(?<!/)>.*?</c:\1\s*>", re.DOTALL)
+
+_BAR_GROUP_RE = re.compile(
+    r"<c:(bar3DChart|barChart)\b[^>]*(?<!/)>.*?</c:\1\s*>", re.DOTALL
+)
 
 STACKED_GROUPINGS = frozenset({"stacked", "percentStacked"})
 ILLEGAL_ON_STACKED = frozenset({"outEnd"})
@@ -53,7 +56,6 @@ def _check_stacked_label_positions(part: str, xml: str) -> list[str]:
     return problems
 
 
-
 _ANY_CHART_GROUP_RE = re.compile(r"<c:(\w+Chart)\b[^>]*(?<!/)>.*?</c:\1\s*>", re.DOTALL)
 
 _AXID_RE = re.compile(
@@ -65,17 +67,33 @@ _AXIS_DECL_RE = re.compile(
 )
 
 AXID_LIMIT = {
-    "barChart": 2, "lineChart": 2, "areaChart": 2, "scatterChart": 2,
-    "bubbleChart": 2, "radarChart": 2, "stockChart": 2,
-    "bar3DChart": 3, "line3DChart": 3, "area3DChart": 3,
-    "surfaceChart": 3, "surface3DChart": 3,
+    "barChart": 2,
+    "lineChart": 2,
+    "areaChart": 2,
+    "scatterChart": 2,
+    "bubbleChart": 2,
+    "radarChart": 2,
+    "stockChart": 2,
+    "bar3DChart": 3,
+    "line3DChart": 3,
+    "area3DChart": 3,
+    "surfaceChart": 3,
+    "surface3DChart": 3,
 }
 
 AXID_MINIMUM = {
-    "barChart": 2, "lineChart": 2, "areaChart": 2, "scatterChart": 2,
-    "bubbleChart": 2, "radarChart": 2, "stockChart": 2,
-    "bar3DChart": 2, "area3DChart": 2, "surfaceChart": 2,
-    "line3DChart": 3, "surface3DChart": 3,
+    "barChart": 2,
+    "lineChart": 2,
+    "areaChart": 2,
+    "scatterChart": 2,
+    "bubbleChart": 2,
+    "radarChart": 2,
+    "stockChart": 2,
+    "bar3DChart": 2,
+    "area3DChart": 2,
+    "surfaceChart": 2,
+    "line3DChart": 3,
+    "surface3DChart": 3,
 }
 
 
@@ -98,7 +116,9 @@ def _canonical_ids(axes: dict[str, list[str]], limit: int) -> list[str] | None:
     return ids
 
 
-def _undeclared_axes(kind: str, block: str, axes: dict[str, list[str]]) -> list[str] | None:
+def _undeclared_axes(
+    kind: str, block: str, axes: dict[str, list[str]]
+) -> list[str] | None:
     if kind not in AXID_LIMIT:
         return None
     ids = _AXID_RE.findall(block)
@@ -128,10 +148,15 @@ def _check_chart_axis_references(part: str, xml: str) -> list[str]:
         if canonical is not None and len(canonical) >= AXID_MINIMUM[kind]:
             hint = f"Fix: point them at the axes this part declares ({', '.join(canonical)})"
         else:
-            hint = ("Fix: the part declares several axes of a kind -- declare the "
-                    "secondary axes the series expects, or drop them")
-        detail = (f"of which {', '.join(dead)} name no declared axis"
-                  if dead else f"only {len(ids)} of which this part declares")
+            hint = (
+                "Fix: the part declares several axes of a kind -- declare the "
+                "secondary axes the series expects, or drop them"
+            )
+        detail = (
+            f"of which {', '.join(dead)} name no declared axis"
+            if dead
+            else f"only {len(ids)} of which this part declares"
+        )
         problems.append(
             f"{part}: <c:{kind}> references axId {', '.join(ids)}, {detail}, "
             f"leaving fewer than two live axes; PowerPoint discards the chart. {hint}"

@@ -64,11 +64,17 @@ def setup_libreoffice_macro(profile_dir: Path, timeout=30):
     except FileNotFoundError:
         return None, SOFFICE_MISSING
     except subprocess.TimeoutExpired:
-        return None, "LibreOffice timed out creating its profile; formulas were NOT recalculated"
+        return (
+            None,
+            "LibreOffice timed out creating its profile; formulas were NOT recalculated",
+        )
 
     macro_dir = profile_dir / "user" / "basic" / "Standard"
     if not macro_dir.exists():
-        return None, "LibreOffice did not create a usable profile; formulas were NOT recalculated"
+        return (
+            None,
+            "LibreOffice did not create a usable profile; formulas were NOT recalculated",
+        )
 
     try:
         (macro_dir / MACRO_FILENAME).write_text(RECALCULATE_MACRO)
@@ -96,7 +102,8 @@ def external_links_at_risk(filename):
         external_names = [
             name
             for name, dn in formulas.defined_names.items()
-            if isinstance(getattr(dn, "value", None), str) and EXTERNAL_REF_RE.search(dn.value)
+            if isinstance(getattr(dn, "value", None), str)
+            and EXTERNAL_REF_RE.search(dn.value)
         ]
         name_re = (
             re.compile(r"\b(" + "|".join(re.escape(n) for n in external_names) + r")\b")
@@ -107,7 +114,7 @@ def external_links_at_risk(filename):
         at_risk = []
         for sheet in formulas.sheetnames:
             ws = formulas[sheet]
-            if not hasattr(ws, "iter_rows"):  
+            if not hasattr(ws, "iter_rows"):
                 continue
             cached = values[sheet]
             for row in ws.iter_rows():
@@ -115,7 +122,9 @@ def external_links_at_risk(filename):
                     v = cell.value
                     if not (isinstance(v, str) and v.startswith("=")):
                         continue
-                    reaches_out = EXTERNAL_REF_RE.search(v) or (name_re and name_re.search(v))
+                    reaches_out = EXTERNAL_REF_RE.search(v) or (
+                        name_re and name_re.search(v)
+                    )
                     if reaches_out and cached[cell.coordinate].value is None:
                         at_risk.append(f"{sheet}!{cell.coordinate}")
         return at_risk
@@ -128,17 +137,19 @@ def recalc(filename, timeout=30, force=False):
     abs_path = str(Path(filename).absolute())
 
     if not os.access(abs_path, os.W_OK):
-        return {"error": f"{filename} is not writable; recalculation rewrites the file in place"}
+        return {
+            "error": f"{filename} is not writable; recalculation rewrites the file in place"
+        }
 
     try:
         get_soffice_env()
-    except Exception as e:  
+    except Exception as e:
         return {"error": f"Could not prepare the LibreOffice environment: {e}"}
 
     if not force:
         try:
             at_risk = external_links_at_risk(filename)
-        except Exception as e:  
+        except Exception as e:
             return {"error": f"Could not inspect {filename} for external links: {e}"}
         if at_risk:
             shown = at_risk[:MAX_LOCATIONS]
@@ -189,7 +200,11 @@ def _recalc_with_profile(filename, abs_path, timeout, profile_dir: Path):
 
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, env=get_soffice_env(), timeout=timeout + 15
+            cmd,
+            capture_output=True,
+            text=True,
+            env=get_soffice_env(),
+            timeout=timeout + 15,
         )
     except subprocess.TimeoutExpired:
         return {"error": timed_out}
@@ -228,7 +243,7 @@ def _recalc_with_profile(filename, abs_path, timeout, profile_dir: Path):
 
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
-            if not hasattr(ws, "iter_rows"):  
+            if not hasattr(ws, "iter_rows"):
                 continue
             for row in ws.iter_rows():
                 for cell in row:
@@ -248,7 +263,10 @@ def _recalc_with_profile(filename, abs_path, timeout, profile_dir: Path):
 
         for err_type, locations in error_details.items():
             if locations:
-                entry = {"count": len(locations), "locations": locations[:MAX_LOCATIONS]}
+                entry = {
+                    "count": len(locations),
+                    "locations": locations[:MAX_LOCATIONS],
+                }
                 if len(locations) > MAX_LOCATIONS:
                     entry["locations_truncated"] = len(locations) - MAX_LOCATIONS
                 result["error_summary"][err_type] = entry
@@ -259,7 +277,7 @@ def _recalc_with_profile(filename, abs_path, timeout, profile_dir: Path):
         formula_count = 0
         for sheet_name in wb_formulas.sheetnames:
             ws = wb_formulas[sheet_name]
-            if not hasattr(ws, "iter_rows"):  
+            if not hasattr(ws, "iter_rows"):
                 continue
             for row in ws.iter_rows():
                 for cell in row:

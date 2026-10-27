@@ -21,41 +21,41 @@ def _load_schema(schema_path: str):
         )
     return lxml.etree.XMLSchema(xsd_doc)
 
-class BaseSchemaValidator:
 
+class BaseSchemaValidator:
     IGNORED_VALIDATION_ERRORS = [
         "hyphenationZone",
         "purl.org/dc/terms",
     ]
 
     UNIQUE_ID_REQUIREMENTS = {
-        "comment": ("id", "file"),  
-        "commentrangestart": ("id", "file"),  
-        "commentrangeend": ("id", "file"),  
-        "bookmarkstart": ("id", "file"),  
-        "bookmarkend": ("id", "file"),  
-        "sldid": ("id", "file"),  
-        "sldmasterid": ("id", "global"),  
-        "sldlayoutid": ("id", "global"),  
-        "cm": ("authorid", "file"),  
-        "sheet": ("sheetid", "file"),  
-        "definedname": ("id", "file"),  
-        "cxnsp": ("id", "file"),  
-        "sp": ("id", "file"),  
-        "pic": ("id", "file"),  
-        "grpsp": ("id", "file"),  
+        "comment": ("id", "file"),
+        "commentrangestart": ("id", "file"),
+        "commentrangeend": ("id", "file"),
+        "bookmarkstart": ("id", "file"),
+        "bookmarkend": ("id", "file"),
+        "sldid": ("id", "file"),
+        "sldmasterid": ("id", "global"),
+        "sldlayoutid": ("id", "global"),
+        "cm": ("authorid", "file"),
+        "sheet": ("sheetid", "file"),
+        "definedname": ("id", "file"),
+        "cxnsp": ("id", "file"),
+        "sp": ("id", "file"),
+        "pic": ("id", "file"),
+        "grpsp": ("id", "file"),
     }
 
     EXCLUDED_ID_CONTAINERS = {
-        "sectionlst",  
+        "sectionlst",
     }
 
     ELEMENT_RELATIONSHIP_TYPES = {}
 
     SCHEMA_MAPPINGS = {
-        "word": "ISO-IEC29500-4_2016/wml.xsd",  
-        "ppt": "ISO-IEC29500-4_2016/pml.xsd",  
-        "xl": "ISO-IEC29500-4_2016/sml.xsd",  
+        "word": "ISO-IEC29500-4_2016/wml.xsd",
+        "ppt": "ISO-IEC29500-4_2016/pml.xsd",
+        "xl": "ISO-IEC29500-4_2016/sml.xsd",
         "[Content_Types].xml": "ecma/fouth-edition/opc-contentTypes.xsd",
         "app.xml": "ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
         "core.xml": "ecma/fouth-edition/opc-coreProperties.xsd",
@@ -131,7 +131,7 @@ class BaseSchemaValidator:
             try:
                 content = xml_file.read_text(encoding="utf-8")
                 dom = defusedxml.minidom.parseString(content)
-                pending = []  
+                pending = []
 
                 for elem in dom.getElementsByTagName("*"):
                     local_name = elem.tagName.rsplit(":", 1)[-1]
@@ -139,14 +139,21 @@ class BaseSchemaValidator:
                         text = "".join(
                             child.data
                             for child in elem.childNodes
-                            if child.nodeType in (child.TEXT_NODE, child.CDATA_SECTION_NODE)
+                            if child.nodeType
+                            in (child.TEXT_NODE, child.CDATA_SECTION_NODE)
                         )
                         ws = (" ", "\t", "\n", "\r")
                         if text and (text.startswith(ws) or text.endswith(ws)):
                             if elem.getAttribute("xml:space") != "preserve":
                                 elem.setAttribute("xml:space", "preserve")
-                                text_preview = repr(text[:30]) + "..." if len(text) > 30 else repr(text)
-                                pending.append(f"  Repaired: {xml_file.name}: Added xml:space='preserve' to {elem.tagName}: {text_preview}")
+                                text_preview = (
+                                    repr(text[:30]) + "..."
+                                    if len(text) > 30
+                                    else repr(text)
+                                )
+                                pending.append(
+                                    f"  Repaired: {xml_file.name}: Added xml:space='preserve' to {elem.tagName}: {text_preview}"
+                                )
 
                 if pending:
                     xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
@@ -192,7 +199,7 @@ class BaseSchemaValidator:
         for xml_file in self.xml_files:
             try:
                 root = lxml.etree.parse(str(xml_file)).getroot()
-                declared = set(root.nsmap.keys()) - {None}  
+                declared = set(root.nsmap.keys()) - {None}
 
                 for attr_val in [
                     v for k, v in root.attrib.items() if k.endswith("Ignorable")
@@ -217,12 +224,12 @@ class BaseSchemaValidator:
 
     def validate_unique_ids(self):
         errors = []
-        global_ids = {}  
+        global_ids = {}
 
         for xml_file in self.xml_files:
             try:
                 root = lxml.etree.parse(str(xml_file)).getroot()
-                file_ids = {}  
+                file_ids = {}
 
                 mc_elements = root.xpath(
                     ".//mc:AlternateContent", namespaces={"mc": self.MC_NAMESPACE}
@@ -241,7 +248,8 @@ class BaseSchemaValidator:
 
                     if tag in self.UNIQUE_ID_REQUIREMENTS:
                         in_excluded_container = any(
-                            ancestor.tag.split("}")[-1].lower() in self.EXCLUDED_ID_CONTAINERS
+                            ancestor.tag.split("}")[-1].lower()
+                            in self.EXCLUDED_ID_CONTAINERS
                             for ancestor in elem.iterancestors()
                         )
                         if in_excluded_container:
@@ -323,7 +331,7 @@ class BaseSchemaValidator:
                 file_path.is_file()
                 and file_path.name != "[Content_Types].xml"
                 and not file_path.name.endswith(".rels")
-            ):  
+            ):
                 all_files.append(file_path.resolve())
 
         all_referenced_files = set()
@@ -349,9 +357,7 @@ class BaseSchemaValidator:
                     target = rel.get("Target")
                     if rel.get("TargetMode") == "External":
                         continue
-                    if target and not target.startswith(
-                        ("http", "mailto:")
-                    ):  
+                    if target and not target.startswith(("http", "mailto:")):
                         if target.startswith("/"):
                             target_path = self.unpacked_dir / target.lstrip("/")
                         elif rels_file.name == ".rels":
@@ -498,7 +504,7 @@ class BaseSchemaValidator:
             return self.ELEMENT_RELATIONSHIP_TYPES[elem_lower]
 
         if elem_lower.endswith("id") and len(elem_lower) > 2:
-            prefix = elem_lower[:-2]  
+            prefix = elem_lower[:-2]
             if prefix.endswith("master"):
                 return prefix.lower()
             elif prefix.endswith("layout"):
@@ -509,7 +515,7 @@ class BaseSchemaValidator:
                 return prefix.lower()
 
         if elem_lower.endswith("reference") and len(elem_lower) > 9:
-            prefix = elem_lower[:-9]  
+            prefix = elem_lower[:-9]
             return prefix.lower()
 
         return None
@@ -545,11 +551,11 @@ class BaseSchemaValidator:
                 "sld",
                 "sldLayout",
                 "sldMaster",
-                "presentation",  
-                "document",  
+                "presentation",
+                "document",
                 "workbook",
-                "worksheet",  
-                "theme",  
+                "worksheet",
+                "theme",
             }
 
             media_extensions = {
@@ -587,7 +593,7 @@ class BaseSchemaValidator:
                         )
 
                 except Exception:
-                    continue  
+                    continue
 
             for file_path in all_files:
                 if file_path.suffix.lower() in {".xml", ".rels"}:
@@ -629,9 +635,9 @@ class BaseSchemaValidator:
         )
 
         if is_valid is None:
-            return None, set()  
+            return None, set()
         elif is_valid:
-            return True, set()  
+            return True, set()
 
         original_errors = self._get_original_file_errors(xml_file)
 
@@ -639,7 +645,8 @@ class BaseSchemaValidator:
         new_errors = current_errors - original_errors
 
         new_errors = {
-            e for e in new_errors
+            e
+            for e in new_errors
             if not any(pattern in e for pattern in self.IGNORED_VALIDATION_ERRORS)
         }
 
@@ -682,7 +689,7 @@ class BaseSchemaValidator:
                 continue
 
             new_errors.append(f"  {relative_path}: {len(new_file_errors)} new error(s)")
-            for error in list(new_file_errors)[:3]:  
+            for error in list(new_file_errors)[:3]:
                 new_errors.append(
                     f"    - {error[:250]}..." if len(error) > 250 else f"    - {error}"
                 )
@@ -778,7 +785,7 @@ class BaseSchemaValidator:
     def _validate_single_file_xsd(self, xml_file, base_path, schema_path=None):
         schema_path = schema_path or self._get_schema_path(xml_file)
         if not schema_path:
-            return None, None  
+            return None, None
 
         try:
             schema = _load_schema(str(schema_path))

@@ -27,6 +27,7 @@ from stdin: `kubectl get all,ing,cm,secret,pvc -o json | k8simports.py -`.
 Usage: python3 k8simports.py <dir-or-manifest...|-> [-o graph.json]
        [--direction TB|LR] [--group] [--no-icons]
 """
+
 import argparse
 import glob
 import gzip
@@ -37,18 +38,44 @@ import sys
 
 # Object kind -> prIcon name inside the mxgraph.kubernetes.icon2 shape set.
 KIND_ICON = {
-    "ClusterRole": "c-role", "ClusterRoleBinding": "crb", "ConfigMap": "cm",
-    "CronJob": "cronjob", "CustomResourceDefinition": "crd", "DaemonSet": "ds",
-    "Deployment": "deploy", "Endpoints": "ep", "HorizontalPodAutoscaler": "hpa",
-    "Ingress": "ing", "Job": "job", "Namespace": "ns", "NetworkPolicy": "netpol",
-    "Node": "node", "PersistentVolume": "pv", "PersistentVolumeClaim": "pvc",
-    "Pod": "pod", "ReplicaSet": "rs", "Role": "role", "RoleBinding": "rb",
-    "Secret": "secret", "Service": "svc", "ServiceAccount": "sa",
-    "StatefulSet": "sts", "StorageClass": "sc",
+    "ClusterRole": "c-role",
+    "ClusterRoleBinding": "crb",
+    "ConfigMap": "cm",
+    "CronJob": "cronjob",
+    "CustomResourceDefinition": "crd",
+    "DaemonSet": "ds",
+    "Deployment": "deploy",
+    "Endpoints": "ep",
+    "HorizontalPodAutoscaler": "hpa",
+    "Ingress": "ing",
+    "Job": "job",
+    "Namespace": "ns",
+    "NetworkPolicy": "netpol",
+    "Node": "node",
+    "PersistentVolume": "pv",
+    "PersistentVolumeClaim": "pvc",
+    "Pod": "pod",
+    "ReplicaSet": "rs",
+    "Role": "role",
+    "RoleBinding": "rb",
+    "Secret": "secret",
+    "Service": "svc",
+    "ServiceAccount": "sa",
+    "StatefulSet": "sts",
+    "StorageClass": "sc",
 }
-WORKLOADS = {"Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob", "Pod"}
-_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data",
-                      "shape-index.json.gz")
+WORKLOADS = {
+    "Deployment",
+    "StatefulSet",
+    "DaemonSet",
+    "ReplicaSet",
+    "Job",
+    "CronJob",
+    "Pod",
+}
+_INDEX = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "shape-index.json.gz"
+)
 
 
 def icon_styles():
@@ -72,12 +99,14 @@ def load_manifests(paths):
     for p in paths:
         if os.path.isdir(p):
             for ext in ("yaml", "yml", "json"):
-                files.extend(glob.glob(os.path.join(p, "**", f"*.{ext}"), recursive=True))
+                files.extend(
+                    glob.glob(os.path.join(p, "**", f"*.{ext}"), recursive=True)
+                )
         else:
             files.append(p)
     objs = []
     for path in sorted(set(files)):
-        if path == "-":                                  # `kubectl get ... -o json | k8simports.py -`
+        if path == "-":  # `kubectl get ... -o json | k8simports.py -`
             docs = [json.loads(sys.stdin.read())]
         elif path.endswith(".json"):
             with open(path, encoding="utf-8") as f:
@@ -88,8 +117,10 @@ def load_manifests(paths):
             try:
                 import yaml
             except ImportError:
-                sys.exit(f"error: {path} is YAML but PyYAML is not installed "
-                         "(pip install pyyaml) — or feed JSON from `kubectl get ... -o json`")
+                sys.exit(
+                    f"error: {path} is YAML but PyYAML is not installed "
+                    "(pip install pyyaml) — or feed JSON from `kubectl get ... -o json`"
+                )
             docs = list(yaml.safe_load_all(text))
         for doc in docs:
             if not isinstance(doc, dict):
@@ -125,7 +156,10 @@ def mounted_refs(pspec):
     for c in (pspec.get("containers") or []) + (pspec.get("initContainers") or []):
         for e in c.get("env") or []:
             vf = e.get("valueFrom") or {}
-            for key, kind in (("configMapKeyRef", "ConfigMap"), ("secretKeyRef", "Secret")):
+            for key, kind in (
+                ("configMapKeyRef", "ConfigMap"),
+                ("secretKeyRef", "Secret"),
+            ):
                 if vf.get(key, {}).get("name"):
                     refs.add((kind, vf[key]["name"]))
         for e in c.get("envFrom") or []:
@@ -160,13 +194,18 @@ def ingress_backends(obj):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Kubernetes manifests -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Kubernetes manifests -> autolayout graph JSON."
+    )
     ap.add_argument("paths", nargs="+", help="manifest files and/or directories")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
     ap.add_argument("--group", action="store_true", help="group objects by namespace")
-    ap.add_argument("--no-icons", action="store_true",
-                    help="plain boxes instead of official Kubernetes icons")
+    ap.add_argument(
+        "--no-icons",
+        action="store_true",
+        help="plain boxes instead of official Kubernetes icons",
+    )
     args = ap.parse_args()
 
     objs = load_manifests(args.paths)
@@ -195,8 +234,11 @@ def main():
             sel = (obj.get("spec") or {}).get("selector") or {}
             if sel:
                 for tk, target in by_key.items():
-                    if (tk[0] == ns and tk[1] in WORKLOADS
-                            and sel.items() <= pod_labels(target).items()):
+                    if (
+                        tk[0] == ns
+                        and tk[1] in WORKLOADS
+                        and sel.items() <= pod_labels(target).items()
+                    ):
                         edges.add((k, tk))
         elif kind in WORKLOADS:
             for tkind, tname in mounted_refs(pod_spec(obj)):
@@ -223,8 +265,11 @@ def main():
             node["group"] = ns
         nodes.append(node)
 
-    graph = {"direction": args.direction, "nodes": nodes,
-             "edges": [{"source": nid(s), "target": nid(t)} for s, t in sorted(edges)]}
+    graph = {
+        "direction": args.direction,
+        "nodes": nodes,
+        "edges": [{"source": nid(s), "target": nid(t)} for s, t in sorted(edges)],
+    }
     if icons:
         # Icon labels render below the shape — reserve extra layout spacing.
         graph.update(ranksep=0.7, nodesep=0.6)

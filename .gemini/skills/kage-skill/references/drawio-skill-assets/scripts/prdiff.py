@@ -17,6 +17,7 @@ still useful). Missing git, or `--repo` not a git repository, is fatal.
 
 Usage: python3 prdiff.py --base <ref> [--head <ref>] [--repo <dir>] [--out-dir <dir>] [-o report.md]
 """
+
 import argparse
 import os
 import shutil
@@ -35,8 +36,19 @@ def changed_drawios(base, head, repo):
     """
     try:
         r = subprocess.run(
-            ["git", "-C", repo, "diff", "--name-status", f"{base}..{head}", "--", "*.drawio"],
-            capture_output=True, text=True)
+            [
+                "git",
+                "-C",
+                repo,
+                "diff",
+                "--name-status",
+                f"{base}..{head}",
+                "--",
+                "*.drawio",
+            ],
+            capture_output=True,
+            text=True,
+        )
     except FileNotFoundError:
         sys.exit("error: not a git repo / git not found (git not on PATH)")
     if r.returncode != 0:
@@ -47,14 +59,22 @@ def changed_drawios(base, head, repo):
             continue
         parts = line.split("\t")
         code, path = parts[0], parts[-1]
-        status = "added" if code.startswith("A") else "removed" if code.startswith("D") else "modified"
+        status = (
+            "added"
+            if code.startswith("A")
+            else "removed"
+            if code.startswith("D")
+            else "modified"
+        )
         entries.append((path, status))
     return entries
 
 
 def git_show_file(repo, ref, path, dest):
     """Write the blob at ref:path (in repo) to dest. False if it doesn't exist there."""
-    r = subprocess.run(["git", "-C", repo, "show", f"{ref}:{path}"], capture_output=True)
+    r = subprocess.run(
+        ["git", "-C", repo, "show", f"{ref}:{path}"], capture_output=True
+    )
     if r.returncode != 0:
         return False
     with open(dest, "wb") as f:
@@ -64,8 +84,10 @@ def git_show_file(repo, ref, path, dest):
 
 def export_png(src_drawio, out_png):
     """CLI-export page 1 of src_drawio to out_png. True on success."""
-    r = subprocess.run(["drawio", "-x", "-f", "png", "--page-index", "1", "-o", out_png, src_drawio],
-                       capture_output=True)
+    r = subprocess.run(
+        ["drawio", "-x", "-f", "png", "--page-index", "1", "-o", out_png, src_drawio],
+        capture_output=True,
+    )
     return r.returncode == 0 and os.path.exists(out_png)
 
 
@@ -73,12 +95,29 @@ def export_diff_png(base_drawio, head_drawio, out_png, tmp):
     """drawiodiff.py -> autolayout.py -> CLI export a coloured diff PNG. True on success."""
     diff_json = os.path.join(tmp, "diff.json")
     diff_drawio = os.path.join(tmp, "diff.drawio")
-    r1 = subprocess.run([sys.executable, os.path.join(HERE, "drawiodiff.py"),
-                        base_drawio, head_drawio, "-o", diff_json], capture_output=True)
+    r1 = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(HERE, "drawiodiff.py"),
+            base_drawio,
+            head_drawio,
+            "-o",
+            diff_json,
+        ],
+        capture_output=True,
+    )
     if r1.returncode != 0 or not os.path.exists(diff_json):
         return False
-    r2 = subprocess.run([sys.executable, os.path.join(HERE, "autolayout.py"),
-                        diff_json, "-o", diff_drawio], capture_output=True)
+    r2 = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(HERE, "autolayout.py"),
+            diff_json,
+            "-o",
+            diff_drawio,
+        ],
+        capture_output=True,
+    )
     if r2.returncode != 0 or not os.path.exists(diff_drawio):
         return False
     return export_png(diff_drawio, out_png)
@@ -142,7 +181,11 @@ def render_markdown(entries, out_dir):
             lines.append("")
             lines.append("_draw.io CLI not available — images skipped._")
             continue
-        base_r, head_r, diff_r = rel(e.get("base_png")), rel(e.get("head_png")), rel(e.get("diff_png"))
+        base_r, head_r, diff_r = (
+            rel(e.get("base_png")),
+            rel(e.get("head_png")),
+            rel(e.get("diff_png")),
+        )
         lines.append("")
         if base_r:
             lines.append(f"![base]({base_r})")
@@ -156,13 +199,23 @@ def render_markdown(entries, out_dir):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Render PNGs + a Markdown report for .drawio files "
-                                              "changed between two git refs.")
+    ap = argparse.ArgumentParser(
+        description="Render PNGs + a Markdown report for .drawio files "
+        "changed between two git refs."
+    )
     ap.add_argument("--base", required=True, help="base git ref/sha")
     ap.add_argument("--head", default="HEAD", help="head git ref/sha (default HEAD)")
-    ap.add_argument("--repo", default=".", help="path to the git repo (default: current directory)")
-    ap.add_argument("--out-dir", default="drawio-pr", help="directory for exported PNGs (default: ./drawio-pr)")
-    ap.add_argument("-o", "--output", help="write the Markdown report here (default: stdout)")
+    ap.add_argument(
+        "--repo", default=".", help="path to the git repo (default: current directory)"
+    )
+    ap.add_argument(
+        "--out-dir",
+        default="drawio-pr",
+        help="directory for exported PNGs (default: ./drawio-pr)",
+    )
+    ap.add_argument(
+        "-o", "--output", help="write the Markdown report here (default: stdout)"
+    )
     args = ap.parse_args()
 
     changed = changed_drawios(args.base, args.head, args.repo)
@@ -171,12 +224,24 @@ def main():
 
     drawio_available = shutil.which("drawio") is not None
     if not drawio_available and changed:
-        sys.stderr.write("warning: draw.io CLI not found - image export skipped, "
-                         "Markdown will list files only (is the draw.io CLI installed?)\n")
+        sys.stderr.write(
+            "warning: draw.io CLI not found - image export skipped, "
+            "Markdown will list files only (is the draw.io CLI installed?)\n"
+        )
     os.makedirs(args.out_dir, exist_ok=True)
 
-    entries = [build_entry(args.repo, args.base, args.head, path, status, args.out_dir, drawio_available)
-               for path, status in changed]
+    entries = [
+        build_entry(
+            args.repo,
+            args.base,
+            args.head,
+            path,
+            status,
+            args.out_dir,
+            drawio_available,
+        )
+        for path, status in changed
+    ]
     report = render_markdown(entries, args.out_dir)
 
     if args.output:

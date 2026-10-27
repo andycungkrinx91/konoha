@@ -40,17 +40,18 @@ import sys
 import xml.etree.ElementTree as ET
 
 _spec = importlib.util.spec_from_file_location(
-    "validate", os.path.join(os.path.dirname(os.path.abspath(__file__)), "validate.py"))
+    "validate", os.path.join(os.path.dirname(os.path.abspath(__file__)), "validate.py")
+)
 validate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(validate)
 
 # Port coordinates per side. Each entry is (fixed_axis_value, varies_along_x).
 # 'varies_along_x' says which coordinate the evenly-spaced slot fills in.
 SIDES = {
-    "N": (0.0, True),    # top edge:    y=0, x varies
-    "S": (1.0, True),    # bottom edge: y=1, x varies
-    "W": (0.0, False),   # left edge:   x=0, y varies
-    "E": (1.0, False),   # right edge:  x=1, y varies
+    "N": (0.0, True),  # top edge:    y=0, x varies
+    "S": (1.0, True),  # bottom edge: y=1, x varies
+    "W": (0.0, False),  # left edge:   x=0, y varies
+    "E": (1.0, False),  # right edge:  x=1, y varies
 }
 
 
@@ -72,19 +73,26 @@ def side_facing(src_rect, dst_rect):
 def has_port(style, end):
     """True if the edge already pins this end's port (hand-tuned — leave it)."""
     prefix = "exit" if end == "source" else "entry"
-    return (validate.style_num(style, prefix + "X") is not None
-            and validate.style_num(style, prefix + "Y") is not None)
+    return (
+        validate.style_num(style, prefix + "X") is not None
+        and validate.style_num(style, prefix + "Y") is not None
+    )
 
 
 def set_style(style, end, px, py):
     """Return style with this end's port keys set, other keys order-preserved."""
     prefix = "exit" if end == "source" else "entry"
     drop = {prefix + "X", prefix + "Y", prefix + "Dx", prefix + "Dy"}
-    parts = [p for p in (style or "").split(";")
-             if p and p.split("=", 1)[0] not in drop]
+    parts = [
+        p for p in (style or "").split(";") if p and p.split("=", 1)[0] not in drop
+    ]
     # Dx/Dy are perpendicular offsets in px; reset them so a re-run is stable.
-    parts += [f"{prefix}X={px:g}", f"{prefix}Y={py:g}",
-              f"{prefix}Dx=0", f"{prefix}Dy=0"]
+    parts += [
+        f"{prefix}X={px:g}",
+        f"{prefix}Y={py:g}",
+        f"{prefix}Dx=0",
+        f"{prefix}Dy=0",
+    ]
     return ";".join(parts) + ";"
 
 
@@ -94,7 +102,7 @@ def assign(cells, by_id):
     for c in cells:
         if c.get("vertex") == "1" and not validate.is_edge_label(c):
             r = validate.abs_rect(c, by_id)
-            if r and not any(v != v for v in r):   # NaN width/height guard
+            if r and not any(v != v for v in r):  # NaN width/height guard
                 rects[c.get("id")] = r
 
     # Collect ends: one entry per (edge, end) whose node and peer are known.
@@ -105,7 +113,7 @@ def assign(cells, by_id):
         style = e.get("style") or ""
         src, dst = e.get("source"), e.get("target")
         if src not in rects or dst not in rects:
-            continue                                # dangling — validate.py's job
+            continue  # dangling — validate.py's job
         for end, me, peer in (("source", src, dst), ("target", dst, src)):
             if has_port(style, end):
                 continue
@@ -115,14 +123,18 @@ def assign(cells, by_id):
     ports = {}
     for (node_id, side), ends in groups.items():
         if len(ends) < 2:
-            continue                                # single edge: centre is fine
+            continue  # single edge: centre is fine
         fixed, along_x = SIDES[side]
         # Sort by the far endpoint's position across the axis we spread along.
         # Tie-break on the other axis, then edge id, so the order is total and
         # the output is deterministic.
-        ends.sort(key=lambda t: (centre(t[2])[0] if along_x else centre(t[2])[1],
-                                 centre(t[2])[1] if along_x else centre(t[2])[0],
-                                 t[0].get("id") or ""))
+        ends.sort(
+            key=lambda t: (
+                centre(t[2])[0] if along_x else centre(t[2])[1],
+                centre(t[2])[1] if along_x else centre(t[2])[0],
+                t[0].get("id") or "",
+            )
+        )
         for i, (edge, end, _) in enumerate(ends):
             slot = (i + 1) / float(len(ends) + 1)
             ports[(edge, end)] = (slot, fixed) if along_x else (fixed, slot)
@@ -130,19 +142,23 @@ def assign(cells, by_id):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("file", help="input .drawio")
     ap.add_argument("-o", "--output", help="output path (default: edit in place)")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="report what would change, write nothing")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="report what would change, write nothing"
+    )
     args = ap.parse_args()
 
     try:
         tree = ET.parse(args.file)
     except ET.ParseError as exc:
-        sys.exit(f"error: {args.file} is not parseable XML ({exc}). "
-                 "Compressed .drawio files must be saved uncompressed first.")
+        sys.exit(
+            f"error: {args.file} is not parseable XML ({exc}). "
+            "Compressed .drawio files must be saved uncompressed first."
+        )
 
     total = 0
     for model in tree.getroot().iter("mxGraphModel"):
@@ -192,11 +208,11 @@ def demo():
 
     ports = assign(cells, by_id)
     exits = {e.get("id"): p for (e, end), p in ports.items() if end == "source"}
-    assert set(exits) == {"e1", "e2", "e3"}, exits   # e4 pre-pinned, untouched
+    assert set(exits) == {"e1", "e2", "e3"}, exits  # e4 pre-pinned, untouched
     assert all(x == 1.0 for x, _ in exits.values())  # all leave the east side
-    ys = [exits[i][1] for i in ("e2", "e3", "e1")]   # targets ordered top->bottom
-    assert ys == sorted(ys), ys                      # ports follow => no crossing
-    assert len(set(ys)) == 3, ys                     # and no two stack
+    ys = [exits[i][1] for i in ("e2", "e3", "e1")]  # targets ordered top->bottom
+    assert ys == sorted(ys), ys  # ports follow => no crossing
+    assert len(set(ys)) == 3, ys  # and no two stack
 
     for (edge, end), (px, py) in ports.items():
         edge.set("style", set_style(edge.get("style"), end, px, py))

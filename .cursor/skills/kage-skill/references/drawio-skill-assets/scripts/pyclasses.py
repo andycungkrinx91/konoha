@@ -18,6 +18,7 @@ that is deliberately out of scope.
 Usage: python3 pyclasses.py <project_dir> [-o graph.json] [--direction TB|LR]
                                           [--group] [--no-reduce]
 """
+
 import argparse
 import ast
 import json
@@ -31,7 +32,11 @@ def discover(root):
     """Map dotted module name -> file path; qualify with the package name when
     root is itself a package (mirrors pyimports.py)."""
     root = os.path.abspath(root)
-    base = os.path.basename(root) if os.path.exists(os.path.join(root, "__init__.py")) else ""
+    base = (
+        os.path.basename(root)
+        if os.path.exists(os.path.join(root, "__init__.py"))
+        else ""
+    )
     modules = {}
     for dirpath, _, files in os.walk(root):
         for fn in files:
@@ -75,29 +80,40 @@ def transitive_reduce(nodes, edges):
     idx = {n: i for i, n in enumerate(nodes)}
     dot = "digraph{" + "".join(f"{idx[s]}->{idx[t]};" for s, t in edges) + "}"
     try:
-        out = subprocess.run(["tred"], input=dot, capture_output=True,
-                             text=True, check=True).stdout
+        out = subprocess.run(
+            ["tred"], input=dot, capture_output=True, text=True, check=True
+        ).stdout
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"warning: tred unavailable, keeping all edges ({exc})\n")
         return edges
     rev = {i: n for n, i in idx.items()}
-    return [(rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)]
+    return [
+        (rev[int(a)], rev[int(b)]) for a, b in re.findall(r"(\d+)\s*->\s*(\d+)", out)
+    ]
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Python class-inheritance graph -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Python class-inheritance graph -> autolayout graph JSON."
+    )
     ap.add_argument("project", help="package or project directory")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--group", action="store_true",
-                    help="box classes by their module (nested by sub-package)")
-    ap.add_argument("--no-reduce", action="store_true",
-                    help="keep every edge (skip transitive reduction)")
+    ap.add_argument(
+        "--group",
+        action="store_true",
+        help="box classes by their module (nested by sub-package)",
+    )
+    ap.add_argument(
+        "--no-reduce",
+        action="store_true",
+        help="keep every edge (skip transitive reduction)",
+    )
     args = ap.parse_args()
 
     modules, base = discover(args.project)
-    classes = {}                                         # qualified id -> (module, bases)
-    by_name = {}                                         # simple name -> [qualified ids]
+    classes = {}  # qualified id -> (module, bases)
+    by_name = {}  # simple name -> [qualified ids]
     for mod, path in modules.items():
         for cid, name, bases in classes_in(mod, path):
             classes[cid] = (mod, bases)
@@ -109,8 +125,8 @@ def main():
         cands = by_name.get(name, [])
         same = [c for c in cands if classes[c][0] == module]
         if same:
-            return same[0]                               # prefer a class in the same module
-        return cands[0] if len(cands) == 1 else None     # else only if unambiguous
+            return same[0]  # prefer a class in the same module
+        return cands[0] if len(cands) == 1 else None  # else only if unambiguous
 
     edges = set()
     for cid, (mod, bases) in classes.items():
@@ -124,7 +140,7 @@ def main():
         edges = transitive_reduce(list(classes), edges)
 
     strip = base + "." if base else ""
-    short = lambda m: m[len(strip):] if strip and m.startswith(strip) else m
+    short = lambda m: m[len(strip) :] if strip and m.startswith(strip) else m
 
     def node(cid):
         # No hard-coded colour: autolayout tints nodes by their group (module),
@@ -132,7 +148,7 @@ def main():
         d = {"id": cid, "label": cid.rsplit(".", 1)[1]}
         if args.group:
             mod = classes[cid][0]
-            path = short(mod).replace(".", "/")          # module path -> nested boxes
+            path = short(mod).replace(".", "/")  # module path -> nested boxes
             if path:
                 d["group"] = path
         return d

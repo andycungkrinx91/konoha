@@ -20,6 +20,7 @@ Requires PyYAML (pip install pyyaml).
 Usage: python3 ciimports.py <repo-root | workflow.yml ...> [-o graph.json]
        [--direction TB|LR]
 """
+
 import argparse
 import json
 import os
@@ -29,8 +30,19 @@ JOB_STYLE = "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8
 REUSE_STYLE = "rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
 TRIGGER_STYLE = "ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;"
 
-GITLAB_RESERVED = {"stages", "variables", "workflow", "default", "include", "image",
-                   "services", "before_script", "after_script", "cache", "pages"}
+GITLAB_RESERVED = {
+    "stages",
+    "variables",
+    "workflow",
+    "default",
+    "include",
+    "image",
+    "services",
+    "before_script",
+    "after_script",
+    "cache",
+    "pages",
+}
 
 
 def find_workflows(path):
@@ -38,8 +50,15 @@ def find_workflows(path):
     if os.path.isfile(path):
         return [path]
     wfdir = os.path.join(path, ".github", "workflows")
-    files = sorted(os.path.join(wfdir, f) for f in os.listdir(wfdir)
-                   if f.endswith((".yml", ".yaml"))) if os.path.isdir(wfdir) else []
+    files = (
+        sorted(
+            os.path.join(wfdir, f)
+            for f in os.listdir(wfdir)
+            if f.endswith((".yml", ".yaml"))
+        )
+        if os.path.isdir(wfdir)
+        else []
+    )
     gitlab = os.path.join(path, ".gitlab-ci.yml")
     if os.path.isfile(gitlab):
         files.append(gitlab)
@@ -52,7 +71,7 @@ def matrix_size(strategy):
     n = 1
     matrix = (strategy or {}).get("matrix") or {}
     if not isinstance(matrix, dict):
-        return 0                                # dynamic (fromJSON) — unknown
+        return 0  # dynamic (fromJSON) — unknown
     for key, vals in matrix.items():
         if key not in ("include", "exclude") and isinstance(vals, list):
             n *= len(vals)
@@ -65,11 +84,22 @@ def parse_actions(spec, wf_id, wf_name, group):
     nodes, edges = [], []
     # YAML 1.1 quirk: bare `on:` parses as boolean True
     on = spec.get("on", spec.get(True, {}))
-    events = sorted(on) if isinstance(on, dict) else \
-        ([on] if isinstance(on, str) else sorted(on or []))
+    events = (
+        sorted(on)
+        if isinstance(on, dict)
+        else ([on] if isinstance(on, str) else sorted(on or []))
+    )
     trig_id = f"{wf_id}//trigger"
-    nodes.append({"id": trig_id, "label": "on: " + (", ".join(events) or "?"),
-                  "style": TRIGGER_STYLE, "width": 160, "height": 50, "group": group})
+    nodes.append(
+        {
+            "id": trig_id,
+            "label": "on: " + (", ".join(events) or "?"),
+            "style": TRIGGER_STYLE,
+            "width": 160,
+            "height": 50,
+            "group": group,
+        }
+    )
     jobs = spec.get("jobs") or {}
     for jid, job in jobs.items():
         job = job or {}
@@ -81,14 +111,24 @@ def parse_actions(spec, wf_id, wf_name, group):
             style = JOB_STYLE
             runner = job.get("runs-on")
             if runner:
-                lines.append(str(runner if isinstance(runner, str) else ", ".join(runner)))
+                lines.append(
+                    str(runner if isinstance(runner, str) else ", ".join(runner))
+                )
         n = matrix_size(job.get("strategy"))
         if n > 1:
             lines.append(f"matrix ×{n}")
         elif n == 0:
             lines.append("matrix (dynamic)")
-        nodes.append({"id": f"{wf_id}//{jid}", "label": "\n".join(lines),
-                      "style": style, "width": 180, "height": 60, "group": group})
+        nodes.append(
+            {
+                "id": f"{wf_id}//{jid}",
+                "label": "\n".join(lines),
+                "style": style,
+                "width": 180,
+                "height": 60,
+                "group": group,
+            }
+        )
         needs = job.get("needs") or []
         needs = [needs] if isinstance(needs, str) else needs
         for dep in needs:
@@ -102,36 +142,57 @@ def parse_actions(spec, wf_id, wf_name, group):
 def parse_gitlab(spec, wf_id, group_prefix):
     """A .gitlab-ci.yml -> (nodes, edges); jobs grouped by stage."""
     stages = spec.get("stages") or ["build", "test", "deploy"]
-    jobs = {k: v for k, v in spec.items()
-            if isinstance(v, dict) and k not in GITLAB_RESERVED and not k.startswith(".")
-            and ("script" in v or "trigger" in v or "extends" in v or "stage" in v)}
+    jobs = {
+        k: v
+        for k, v in spec.items()
+        if isinstance(v, dict)
+        and k not in GITLAB_RESERVED
+        and not k.startswith(".")
+        and ("script" in v or "trigger" in v or "extends" in v or "stage" in v)
+    }
     nodes, edges = [], []
     by_stage = {}
     for jid, job in jobs.items():
         stage = job.get("stage") or "test"
         by_stage.setdefault(stage, []).append(jid)
-        nodes.append({"id": f"{wf_id}//{jid}", "label": jid, "style": JOB_STYLE,
-                      "width": 160, "height": 50,
-                      "group": f"{group_prefix}{stage}"})
+        nodes.append(
+            {
+                "id": f"{wf_id}//{jid}",
+                "label": jid,
+                "style": JOB_STYLE,
+                "width": 160,
+                "height": 50,
+                "group": f"{group_prefix}{stage}",
+            }
+        )
     order = [s for s in stages if s in by_stage]
     for jid, job in jobs.items():
-        needs = [(n.get("job") if isinstance(n, dict) else n) for n in job.get("needs") or []]
+        needs = [
+            (n.get("job") if isinstance(n, dict) else n) for n in job.get("needs") or []
+        ]
         needs = [n for n in needs if n in jobs]
         if needs:
-            edges.extend({"source": f"{wf_id}//{n}", "target": f"{wf_id}//{jid}"} for n in needs)
-        else:                                   # stage DAG: all jobs of the previous stage
+            edges.extend(
+                {"source": f"{wf_id}//{n}", "target": f"{wf_id}//{jid}"} for n in needs
+            )
+        else:  # stage DAG: all jobs of the previous stage
             stage = job.get("stage") or "test"
             i = order.index(stage) if stage in order else 0
             if i > 0:
-                edges.extend({"source": f"{wf_id}//{p}", "target": f"{wf_id}//{jid}"}
-                             for p in by_stage[order[i - 1]])
+                edges.extend(
+                    {"source": f"{wf_id}//{p}", "target": f"{wf_id}//{jid}"}
+                    for p in by_stage[order[i - 1]]
+                )
     return nodes, edges
 
 
 def main():
     ap = argparse.ArgumentParser(description="CI pipeline -> autolayout graph JSON.")
-    ap.add_argument("paths", nargs="+",
-                    help="repo root, or workflow file(s) (.github/workflows/*.yml, .gitlab-ci.yml)")
+    ap.add_argument(
+        "paths",
+        nargs="+",
+        help="repo root, or workflow file(s) (.github/workflows/*.yml, .gitlab-ci.yml)",
+    )
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="LR", choices=["TB", "LR"])
     args = ap.parse_args()
@@ -152,9 +213,11 @@ def main():
                 continue
         wf_id = os.path.splitext(os.path.basename(path))[0]
         if os.path.basename(path) == ".gitlab-ci.yml" or (
-                "jobs" not in spec and "stages" in spec):
-            n, e = parse_gitlab(spec, wf_id, "stage: " if len(files) == 1
-                                else f"{wf_id} / stage: ")
+            "jobs" not in spec and "stages" in spec
+        ):
+            n, e = parse_gitlab(
+                spec, wf_id, "stage: " if len(files) == 1 else f"{wf_id} / stage: "
+            )
         elif spec.get("jobs"):
             wf_name = spec.get("name") or wf_id
             group = wf_name if len(files) > 1 else None
@@ -175,7 +238,9 @@ def main():
         sys.stderr.write(f"wrote {args.output}\n")
     else:
         sys.stdout.write(text)
-    sys.stderr.write(f"{len(nodes)} nodes, {len(edges)} edges from {len(files)} file(s)\n")
+    sys.stderr.write(
+        f"{len(nodes)} nodes, {len(edges)} edges from {len(files)} file(s)\n"
+    )
 
 
 if __name__ == "__main__":

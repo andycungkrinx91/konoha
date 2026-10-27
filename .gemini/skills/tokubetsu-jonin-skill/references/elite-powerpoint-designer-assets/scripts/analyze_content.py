@@ -9,37 +9,80 @@ import json
 import re
 from typing import Dict, List
 
+
 class ContentAnalyzer:
     def __init__(self):
         self.keywords = {
-            'tech-keynote': ['product', 'launch', 'innovation', 'demo', 'revolutionary', 'future', 'transform'],
-            'corporate-professional': ['business', 'strategy', 'report', 'proposal', 'enterprise', 'quarter', 'results'],
-            'creative-bold': ['brand', 'marketing', 'campaign', 'creative', 'design', 'experience', 'engage'],
-            'financial-elite': ['investment', 'financial', 'investor', 'portfolio', 'capital', 'returns', 'valuation'],
-            'startup-pitch': ['startup', 'funding', 'traction', 'growth', 'market', 'team', 'vision', 'problem', 'solution']
+            "tech-keynote": [
+                "product",
+                "launch",
+                "innovation",
+                "demo",
+                "revolutionary",
+                "future",
+                "transform",
+            ],
+            "corporate-professional": [
+                "business",
+                "strategy",
+                "report",
+                "proposal",
+                "enterprise",
+                "quarter",
+                "results",
+            ],
+            "creative-bold": [
+                "brand",
+                "marketing",
+                "campaign",
+                "creative",
+                "design",
+                "experience",
+                "engage",
+            ],
+            "financial-elite": [
+                "investment",
+                "financial",
+                "investor",
+                "portfolio",
+                "capital",
+                "returns",
+                "valuation",
+            ],
+            "startup-pitch": [
+                "startup",
+                "funding",
+                "traction",
+                "growth",
+                "market",
+                "team",
+                "vision",
+                "problem",
+                "solution",
+            ],
         }
 
         self.slide_patterns = {
-            'title_slide': r'^#\s+(.+)$',
-            'chapter_intro': r'^##\s+(.+)$',
-            'key_message': r'^###\s+(.+)$',
-            'bullet_list': r'^\*\s+(.+)$|^-\s+(.+)$',
-            'quote': r'^>\s+(.+)$',
-            'image': r'!\[.*?\]\((.+?)\)',
-            'table': r'^\|.+\|.+\|$',
-            'metrics': r'(\d+\.?\d*[%$€£¥M-Z]*)',
-            'section_break': r'^===+$'
+            "title_slide": r"^#\s+(.+)$",
+            "chapter_intro": r"^##\s+(.+)$",
+            "key_message": r"^###\s+(.+)$",
+            "bullet_list": r"^\*\s+(.+)$|^-\s+(.+)$",
+            "quote": r"^>\s+(.+)$",
+            "image": r"!\[.*?\]\((.+?)\)",
+            "table": r"^\|.+\|.+\|$",
+            "metrics": r"(\d+\.?\d*[%$€£¥M-Z]*)",
+            "section_break": r"^===+$",
         }
 
     def analyze(self, content: str) -> Dict:
         """Analyze content and return recommendations."""
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         # Extract frontmatter if present
         frontmatter = self._extract_frontmatter(content)
 
         # Analyze content for style recommendation
-        style = frontmatter.get('style') or self._recommend_style(content)
+        style = frontmatter.get("style") or self._recommend_style(content)
 
         # Map slides
         slides = self._map_slides(lines)
@@ -51,18 +94,18 @@ class ContentAnalyzer:
         slide_stats = self._calculate_stats(slides)
 
         return {
-            'recommended_style': style,
-            'frontmatter': frontmatter,
-            'total_slides': len(slides),
-            'slide_structure': slides,
-            'key_metrics': metrics,
-            'statistics': slide_stats,
-            'estimated_duration': len(slides)  # 1 slide per minute rule
+            "recommended_style": style,
+            "frontmatter": frontmatter,
+            "total_slides": len(slides),
+            "slide_structure": slides,
+            "key_metrics": metrics,
+            "statistics": slide_stats,
+            "estimated_duration": len(slides),  # 1 slide per minute rule
         }
 
     def _extract_frontmatter(self, content: str) -> Dict:
         """Extract YAML frontmatter from markdown."""
-        match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
+        match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
         if not match:
             return {}
 
@@ -70,10 +113,10 @@ class ContentAnalyzer:
         yaml_content = match.group(1)
 
         # Simple YAML parser (only handles key: value pairs)
-        for line in yaml_content.split('\n'):
-            if ':' in line:
-                key, value = line.split(':', 1)
-                frontmatter[key.strip()] = value.strip().strip('"\'')
+        for line in yaml_content.split("\n"):
+            if ":" in line:
+                key, value = line.split(":", 1)
+                frontmatter[key.strip()] = value.strip().strip("\"'")
 
         return frontmatter
 
@@ -91,7 +134,7 @@ class ContentAnalyzer:
 
         # Default to corporate-professional if no clear winner
         if recommended[1] == 0:
-            return 'corporate-professional'
+            return "corporate-professional"
 
         return recommended[0]
 
@@ -107,91 +150,80 @@ class ContentAnalyzer:
                 continue
 
             # Title slide (# Header)
-            if re.match(r'^#\s+[^#]', line):
+            if re.match(r"^#\s+[^#]", line):
                 if current_slide:
                     slides.append(current_slide)
                 current_slide = {
-                    'type': 'title_slide',
-                    'template': 'title_slide',
-                    'content': {
-                        'title': re.sub(r'^#\s+', '', line)
-                    },
-                    'line_number': i + 1
+                    "type": "title_slide",
+                    "template": "title_slide",
+                    "content": {"title": re.sub(r"^#\s+", "", line)},
+                    "line_number": i + 1,
                 }
 
             # Section/Chapter (## Header)
-            elif re.match(r'^##\s+[^#]', line):
+            elif re.match(r"^##\s+[^#]", line):
                 if current_slide:
                     slides.append(current_slide)
                 current_slide = {
-                    'type': 'section',
-                    'template': 'chapter_intro',
-                    'content': {
-                        'title': re.sub(r'^##\s+', '', line)
-                    },
-                    'line_number': i + 1
+                    "type": "section",
+                    "template": "chapter_intro",
+                    "content": {"title": re.sub(r"^##\s+", "", line)},
+                    "line_number": i + 1,
                 }
 
             # Key message (### Header)
-            elif re.match(r'^###\s+', line):
+            elif re.match(r"^###\s+", line):
                 if current_slide:
                     slides.append(current_slide)
                 current_slide = {
-                    'type': 'key_message',
-                    'template': 'key_metrics_dashboard',
-                    'content': {
-                        'title': re.sub(r'^###\s+', '', line),
-                        'bullets': []
-                    },
-                    'line_number': i + 1
+                    "type": "key_message",
+                    "template": "key_metrics_dashboard",
+                    "content": {"title": re.sub(r"^###\s+", "", line), "bullets": []},
+                    "line_number": i + 1,
                 }
 
             # Bullets
-            elif re.match(r'^[\*\-]\s+', line):
-                if current_slide and 'bullets' in current_slide['content']:
-                    bullet_text = re.sub(r'^[\*\-]\s+', '', line)
-                    current_slide['content']['bullets'].append(bullet_text)
+            elif re.match(r"^[\*\-]\s+", line):
+                if current_slide and "bullets" in current_slide["content"]:
+                    bullet_text = re.sub(r"^[\*\-]\s+", "", line)
+                    current_slide["content"]["bullets"].append(bullet_text)
                 else:
                     if current_slide:
                         slides.append(current_slide)
                     current_slide = {
-                        'type': 'bullets',
-                        'template': 'two_column_text',
-                        'content': {
-                            'bullets': [re.sub(r'^[\*\-]\s+', '', line)]
-                        },
-                        'line_number': i + 1
+                        "type": "bullets",
+                        "template": "two_column_text",
+                        "content": {"bullets": [re.sub(r"^[\*\-]\s+", "", line)]},
+                        "line_number": i + 1,
                     }
 
             # Quote
-            elif re.match(r'^>\s+', line):
+            elif re.match(r"^>\s+", line):
                 if current_slide:
                     slides.append(current_slide)
                 current_slide = {
-                    'type': 'quote',
-                    'template': 'quote_testimonial',
-                    'content': {
-                        'quote': re.sub(r'^>\s+', '', line)
-                    },
-                    'line_number': i + 1
+                    "type": "quote",
+                    "template": "quote_testimonial",
+                    "content": {"quote": re.sub(r"^>\s+", "", line)},
+                    "line_number": i + 1,
                 }
 
             # Image
-            elif re.search(r'!\[.*?\]\((.+?)\)', line):
-                images = re.findall(r'!\[.*?\]\((.+?)\)', line)
+            elif re.search(r"!\[.*?\]\((.+?)\)", line):
+                images = re.findall(r"!\[.*?\]\((.+?)\)", line)
                 if current_slide:
                     slides.append(current_slide)
                 current_slide = {
-                    'type': 'image',
-                    'template': 'full_image_slide' if len(images) == 1 else 'two_column_text',
-                    'content': {
-                        'images': images
-                    },
-                    'line_number': i + 1
+                    "type": "image",
+                    "template": "full_image_slide"
+                    if len(images) == 1
+                    else "two_column_text",
+                    "content": {"images": images},
+                    "line_number": i + 1,
                 }
 
             # Section break
-            elif re.match(r'^===+$', line):
+            elif re.match(r"^===+$", line):
                 # Mark next slide as section intro
                 if current_slide:
                     slides.append(current_slide)
@@ -207,7 +239,7 @@ class ContentAnalyzer:
         metrics = []
 
         # Find numbers with units/symbols
-        pattern = r'(\d+\.?\d*)\s*([%$€£¥MKB]?)'
+        pattern = r"(\d+\.?\d*)\s*([%$€£¥MKB]?)"
         matches = re.finditer(pattern, content)
 
         for match in matches:
@@ -216,11 +248,17 @@ class ContentAnalyzer:
 
             # Only include significant numbers (> 10 or with units)
             if float(value) > 10 or unit:
-                metrics.append({
-                    'value': value,
-                    'unit': unit,
-                    'context': content[max(0, match.start()-50):min(len(content), match.end()+50)]
-                })
+                metrics.append(
+                    {
+                        "value": value,
+                        "unit": unit,
+                        "context": content[
+                            max(0, match.start() - 50) : min(
+                                len(content), match.end() + 50
+                            )
+                        ],
+                    }
+                )
 
         return metrics[:10]  # Top 10 metrics
 
@@ -228,15 +266,16 @@ class ContentAnalyzer:
         """Calculate statistics about slide composition."""
         types = {}
         for slide in slides:
-            slide_type = slide['type']
+            slide_type = slide["type"]
             types[slide_type] = types.get(slide_type, 0) + 1
 
         return {
-            'slide_types': types,
-            'has_images': any(s['type'] == 'image' for s in slides),
-            'has_metrics': any('metrics' in str(s) for s in slides),
-            'has_quotes': any(s['type'] == 'quote' for s in slides)
+            "slide_types": types,
+            "has_images": any(s["type"] == "image" for s in slides),
+            "has_metrics": any("metrics" in str(s) for s in slides),
+            "has_quotes": any(s["type"] == "quote" for s in slides),
         }
+
 
 def main():
     if len(sys.argv) < 2:
@@ -246,7 +285,7 @@ def main():
     input_file = sys.argv[1]
 
     try:
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             content = f.read()
     except FileNotFoundError:
         print(f"Error: File '{input_file}' not found")
@@ -257,5 +296,6 @@ def main():
 
     print(json.dumps(result, indent=2))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -11,6 +11,7 @@ Two modes:
 
 Usage: python3 encode_drawio_url.py [--edit] <path/to/input.drawio>
 """
+
 import base64
 import json
 import sys

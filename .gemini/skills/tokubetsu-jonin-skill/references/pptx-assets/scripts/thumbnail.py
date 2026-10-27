@@ -100,7 +100,7 @@ def _is_hidden(zf: zipfile.ZipFile, part: str) -> bool:
     try:
         with zf.open(part) as f:
             for _, root in ElementTree.iterparse(f, events=("start",)):
-                return root.get("show") in ("0", "false")  
+                return root.get("show") in ("0", "false")
     except (KeyError, ElementTree.ParseError):
         return False
     return False
@@ -189,13 +189,22 @@ def convert_to_images(pptx_path: Path, temp_dir: Path) -> list[Path]:
     pdf_path = temp_dir / f"{pptx_path.stem}.pdf"
 
     result = run_soffice(
-        ["--headless", "--convert-to", "pdf", "--outdir", str(temp_dir), str(pptx_path)],
+        [
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(temp_dir),
+            str(pptx_path),
+        ],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0 or not pdf_path.exists():
         detail = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(f"PDF conversion failed: {detail}" if detail else "PDF conversion failed")
+        raise RuntimeError(
+            f"PDF conversion failed: {detail}" if detail else "PDF conversion failed"
+        )
 
     result = subprocess.run(
         [

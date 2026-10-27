@@ -31,6 +31,7 @@ and a note is written to stderr.
 
 Usage: python3 raster2drawio.py <graph.json|-> [-o out.drawio]
 """
+
 import argparse
 import json
 import os
@@ -117,13 +118,22 @@ def build_autolayout_graph(nodes, edges):
     return {
         "direction": "TB",
         "nodes": [
-            {"id": n["id"], "label": n.get("label", n["id"]), "style": node_style(n),
-             "width": n.get("w", DEFAULT_W), "height": n.get("h", DEFAULT_H)}
+            {
+                "id": n["id"],
+                "label": n.get("label", n["id"]),
+                "style": node_style(n),
+                "width": n.get("w", DEFAULT_W),
+                "height": n.get("h", DEFAULT_H),
+            }
             for n in nodes
         ],
         "edges": [
-            {"source": e["source"], "target": e["target"], "label": e.get("label", ""),
-             "style": edge_style(e)}
+            {
+                "source": e["source"],
+                "target": e["target"],
+                "label": e.get("label", ""),
+                "style": edge_style(e),
+            }
             for e in edges
         ],
     }
@@ -137,8 +147,9 @@ def run_autolayout(graph):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(graph, f)
-        r = subprocess.run([sys.executable, autolayout, graph_path],
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            [sys.executable, autolayout, graph_path], capture_output=True, text=True
+        )
     finally:
         os.unlink(graph_path)
     if r.returncode != 0:
@@ -148,7 +159,8 @@ def run_autolayout(graph):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Convert an image-extracted graph JSON into an editable .drawio.")
+        description="Convert an image-extracted graph JSON into an editable .drawio."
+    )
     ap.add_argument("input", help="graph JSON file, or - for stdin")
     ap.add_argument("-o", "--output", help="output .drawio path (default: stdout)")
     args = ap.parse_args()
@@ -180,14 +192,17 @@ def main():
     if any(n.get("x") is None or n.get("y") is None for n in nodes):
         xml = run_autolayout(build_autolayout_graph(nodes, edges))
         sys.stderr.write(
-            "note: some nodes had no x/y — positions were auto-placed via autolayout.py\n")
+            "note: some nodes had no x/y — positions were auto-placed via autolayout.py\n"
+        )
     else:
         xml = to_drawio(nodes, edges)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(xml)
-        sys.stderr.write(f"wrote {args.output} ({len(nodes)} nodes, {len(edges)} edges)\n")
+        sys.stderr.write(
+            f"wrote {args.output} ({len(nodes)} nodes, {len(edges)} edges)\n"
+        )
     else:
         sys.stdout.write(xml)
 

@@ -17,6 +17,7 @@ for a faithful, richly-styled diagram keep the `.drawio`.
 
 Usage: python3 drawio2mermaid.py <file.drawio> [-o out] [--direction TD|LR] [--fenced]
 """
+
 import argparse
 import html
 import re
@@ -44,12 +45,12 @@ def node_form(safe_id, label, style):
     """Mermaid node declaration, shape chosen from the draw.io style."""
     lbl = f'"{esc(label)}"'
     if "shape=cylinder" in style or "shape=datastore" in style:
-        return f"{safe_id}[({lbl})]"                    # database
+        return f"{safe_id}[({lbl})]"  # database
     if "rhombus" in style:
-        return f"{safe_id}{{{lbl}}}"                    # decision
+        return f"{safe_id}{{{lbl}}}"  # decision
     if "ellipse" in style or "shape=cloud" in style:
-        return f"{safe_id}(({lbl}))"                    # circle-ish
-    return f"{safe_id}[{lbl}]"                          # default box
+        return f"{safe_id}(({lbl}))"  # circle-ish
+    return f"{safe_id}[{lbl}]"  # default box
 
 
 def cells_of(page):
@@ -66,8 +67,13 @@ def cells_of(page):
             inner = child.find("mxCell")
             if inner is not None:
                 inner.set("id", child.get("id", ""))
-                out.append((inner, child.get("id"),
-                            clean(child.get("label") or child.get("value"))))
+                out.append(
+                    (
+                        inner,
+                        child.get("id"),
+                        clean(child.get("label") or child.get("value")),
+                    )
+                )
     return out
 
 
@@ -81,10 +87,13 @@ def page_to_mermaid(page, direction):
 
     verts = [(c, cid) for c, cid, _ in cells if c.get("vertex") == "1"]
     containers = {cid for c, cid in verts if cid in parents}
-    leaves = [(c, cid) for c, cid in verts
-              if cid not in containers and "edgeLabel" not in style.get(cid, "")]
+    leaves = [
+        (c, cid)
+        for c, cid in verts
+        if cid not in containers and "edgeLabel" not in style.get(cid, "")
+    ]
 
-    sid = {cid: f"n{i}" for i, (_, cid) in enumerate(leaves)}   # mermaid-safe ids
+    sid = {cid: f"n{i}" for i, (_, cid) in enumerate(leaves)}  # mermaid-safe ids
     lines = [f"flowchart {direction}"]
 
     # Nodes, grouped into subgraphs by their container.
@@ -95,14 +104,18 @@ def page_to_mermaid(page, direction):
         by_container.setdefault(key, []).append(cid)
 
     def emit_node(cid, indent):
-        lines.append(indent + node_form(sid[cid], label.get(cid) or cid, style.get(cid, "")))
+        lines.append(
+            indent + node_form(sid[cid], label.get(cid) or cid, style.get(cid, ""))
+        )
 
     for cid in by_container.get(None, []):
         emit_node(cid, "    ")
     for cont, members in by_container.items():
         if cont is None:
             continue
-        lines.append(f'    subgraph {sid.get(cont, "g_" + cont)}["{esc(label.get(cont) or "")}"]')
+        lines.append(
+            f'    subgraph {sid.get(cont, "g_" + cont)}["{esc(label.get(cont) or "")}"]'
+        )
         for cid in members:
             emit_node(cid, "        ")
         lines.append("    end")
@@ -120,11 +133,15 @@ def page_to_mermaid(page, direction):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Convert a .drawio to Mermaid flowchart text.")
+    ap = argparse.ArgumentParser(
+        description="Convert a .drawio to Mermaid flowchart text."
+    )
     ap.add_argument("file")
     ap.add_argument("-o", "--output", help="output path (default: stdout)")
     ap.add_argument("--direction", default="TD", choices=["TD", "LR", "TB", "RL", "BT"])
-    ap.add_argument("--fenced", action="store_true", help="wrap each graph in a ```mermaid fence")
+    ap.add_argument(
+        "--fenced", action="store_true", help="wrap each graph in a ```mermaid fence"
+    )
     args = ap.parse_args()
     try:
         root = ET.parse(args.file).getroot()
@@ -144,7 +161,9 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(text)
-        sys.stderr.write(f"wrote {args.output} ({len(pages)} page{'s' if len(pages) != 1 else ''})\n")
+        sys.stderr.write(
+            f"wrote {args.output} ({len(pages)} page{'s' if len(pages) != 1 else ''})\n"
+        )
     else:
         sys.stdout.write(text)
 

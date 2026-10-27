@@ -30,21 +30,22 @@ original icons/shapes are replaced by status colours (the label is kept).
 Usage: python3 drawiodiff.py <old.drawio> <new.drawio> [-o diff.json]
        [--direction TB|LR] [--by-label]
 """
+
 import argparse
 import json
 import sys
 import xml.etree.ElementTree as ET
 
 STYLE = {
-    "added":   "rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;",
+    "added": "rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;",
     "removed": "rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;",
     "changed": "rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;",
-    "same":    "rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;",
+    "same": "rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;",
 }
 EDGE_STYLE = {
-    "added":   "endArrow=classic;html=1;strokeColor=#82b366;strokeWidth=2;",
+    "added": "endArrow=classic;html=1;strokeColor=#82b366;strokeWidth=2;",
     "removed": "endArrow=classic;html=1;strokeColor=#b85450;strokeWidth=2;dashed=1;",
-    "same":    "endArrow=classic;html=1;strokeColor=#999999;",
+    "same": "endArrow=classic;html=1;strokeColor=#999999;",
 }
 
 
@@ -74,8 +75,10 @@ def parse(path):
                 if inner is not None:
                     inner.set("id", child.get("id", ""))
                     cells.append(inner)
-                    labels[child.get("id")] = child.get("label") or child.get("value") or ""
-    parents = {c.get("parent") for c in cells}                # ids that have children
+                    labels[child.get("id")] = (
+                        child.get("label") or child.get("value") or ""
+                    )
+    parents = {c.get("parent") for c in cells}  # ids that have children
     nodes, edges = {}, set()
     for c in cells:
         cid = c.get("id")
@@ -83,25 +86,30 @@ def parse(path):
             s, t = c.get("source"), c.get("target")
             if s and t:
                 edges.add((s, t))
-        elif c.get("vertex") == "1" and cid not in parents:   # leaf vertices only
+        elif c.get("vertex") == "1" and cid not in parents:  # leaf vertices only
             if "edgeLabel" in (c.get("style") or ""):
                 continue
             g = c.find("mxGeometry")
-            if g is not None and g.get("relative") == "1":    # edge-label child
+            if g is not None and g.get("relative") == "1":  # edge-label child
                 continue
             nodes[cid] = (labels.get(cid, ""), c.get("style") or "")
     return nodes, edges
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Diff two .drawio files -> autolayout graph JSON.")
+    ap = argparse.ArgumentParser(
+        description="Diff two .drawio files -> autolayout graph JSON."
+    )
     ap.add_argument("old", help="baseline .drawio")
     ap.add_argument("new", help="updated .drawio")
     ap.add_argument("-o", "--output", help="output JSON path (default: stdout)")
     ap.add_argument("--direction", default="TB", choices=["TB", "LR"])
-    ap.add_argument("--by-label", action="store_true",
-                    help="match nodes by visible label instead of cell id "
-                         "(for hand-drawn diagrams with non-stable ids)")
+    ap.add_argument(
+        "--by-label",
+        action="store_true",
+        help="match nodes by visible label instead of cell id "
+        "(for hand-drawn diagrams with non-stable ids)",
+    )
     args = ap.parse_args()
 
     old_n, old_e = parse(args.old)
@@ -111,7 +119,9 @@ def main():
         """Map match-key -> label. By id (default) the key is the cell id and the
         value is its label; by label the key *is* the label."""
         if args.by_label:
-            return {lbl: lbl for lbl, _ in nodes.values()}, {i: lbl for i, (lbl, _) in nodes.items()}
+            return {lbl: lbl for lbl, _ in nodes.values()}, {
+                i: lbl for i, (lbl, _) in nodes.items()
+            }
         return {i: lbl for i, (lbl, _) in nodes.items()}, {i: i for i in nodes}
 
     old_keys, old_id2key = keyed(old_n)
@@ -123,13 +133,20 @@ def main():
             status, label = "removed", old_keys[key]
         elif key in new_keys and key not in old_keys:
             status, label = "added", new_keys[key]
-        elif old_keys[key] != new_keys[key]:                  # matched, label moved
+        elif old_keys[key] != new_keys[key]:  # matched, label moved
             status, label = "changed", new_keys[key]
         else:
             status, label = "same", new_keys[key]
         counts[status] += 1
-        nodes.append({"id": key, "label": label or key, "style": STYLE[status],
-                      "width": 160, "height": 60})
+        nodes.append(
+            {
+                "id": key,
+                "label": label or key,
+                "style": STYLE[status],
+                "width": 160,
+                "height": 60,
+            }
+        )
 
     def edge_keys(edges, id2key):
         out = set()
@@ -144,8 +161,11 @@ def main():
     for s, t in sorted(old_ek | new_ek):
         if s not in node_keys or t not in node_keys:
             continue
-        status = "same" if (s, t) in old_ek and (s, t) in new_ek else \
-                 ("added" if (s, t) in new_ek else "removed")
+        status = (
+            "same"
+            if (s, t) in old_ek and (s, t) in new_ek
+            else ("added" if (s, t) in new_ek else "removed")
+        )
         edges.append({"source": s, "target": t, "style": EDGE_STYLE[status]})
 
     graph = {"direction": args.direction, "nodes": nodes, "edges": edges}
@@ -156,8 +176,10 @@ def main():
         sys.stderr.write(f"wrote {args.output}\n")
     else:
         sys.stdout.write(text)
-    sys.stderr.write(f"+{counts['added']} added, -{counts['removed']} removed, "
-                     f"~{counts['changed']} changed, ={counts['same']} unchanged\n")
+    sys.stderr.write(
+        f"+{counts['added']} added, -{counts['removed']} removed, "
+        f"~{counts['changed']} changed, ={counts['same']} unchanged\n"
+    )
 
 
 if __name__ == "__main__":

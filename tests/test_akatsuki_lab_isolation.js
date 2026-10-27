@@ -33,13 +33,13 @@ const {
   validateLabPrerequisites,
   executeInLab,
   teardownLab
-} = require('../src/akatsuki_lab');
+} = require('../src/workflow/akatsuki/lab');
 
 const {
   runRedTeamWorkflow,
   runBlueTeamWorkflow,
   runAkatsukiFinalGate
-} = require('../src/akatsuki_workflows');
+} = require('../src/workflow/akatsuki/workflows');
 
 let testsPassed = 0;
 

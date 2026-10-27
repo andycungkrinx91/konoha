@@ -23,7 +23,6 @@ from helpers import rendered_text, safe_extract
 
 
 class RedliningValidator:
-
     def __init__(self, unpacked_dir, original_docx, verbose=False):
         self.unpacked_dir = Path(unpacked_dir)
         self.original_docx = Path(original_docx)
@@ -99,9 +98,7 @@ class RedliningValidator:
     def _text_elements(self, elem):
         w = self.namespaces["w"]
         return [
-            node
-            for node in elem.iter()
-            if node.tag in (f"{{{w}}}t", f"{{{w}}}delText")
+            node for node in elem.iter() if node.tag in (f"{{{w}}}t", f"{{{w}}}delText")
         ]
 
     def _tracked_change_key(self, elem):
@@ -144,7 +141,7 @@ class RedliningValidator:
         for key, elems in by_group.items():
             rebuilt = text_of(elems)
             if rebuilt and rebuilt == text_of(unmatched_original.get(key, [])):
-                continue  
+                continue
             new.update(elems)
         return new
 
@@ -194,8 +191,8 @@ class RedliningValidator:
                         "git",
                         "diff",
                         "--word-diff=plain",
-                        "--word-diff-regex=.",  
-                        "-U0",  
+                        "--word-diff-regex=.",
+                        "-U0",
                         "--no-index",
                         str(original_file),
                         str(modified_file),
@@ -223,7 +220,7 @@ class RedliningValidator:
                         "git",
                         "diff",
                         "--word-diff=plain",
-                        "-U0",  
+                        "-U0",
                         "--no-index",
                         str(original_file),
                         str(modified_file),

@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const skillGuardian = require('../src/skill_guardian');
+const skillGuardian = require('../src/workflow/kage-reviewer/skill_guardian');
 
 async function testSkillGuardian() {
   console.log('Running test_skill_guardian...');

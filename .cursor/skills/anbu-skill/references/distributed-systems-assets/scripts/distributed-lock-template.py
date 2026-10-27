@@ -265,7 +265,9 @@ class PostgresAdvisoryLock(DistributedLock):
         else:
             # Blocking with statement timeout
             timeout_ms = int(timeout.total_seconds() * 1000) if timeout else 10000
-            await self._session.execute(text(f"SET LOCAL statement_timeout = {timeout_ms}"))
+            await self._session.execute(
+                text(f"SET LOCAL statement_timeout = {timeout_ms}")
+            )
             try:
                 await self._session.execute(
                     text(f"SELECT {func}(:lock_id)"),

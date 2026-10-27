@@ -28,6 +28,7 @@ bend. A line with no "color" is assigned one from the default tube palette by or
 
 Usage: python3 tubemap.py <metro.json> [-o out.drawio] [--grid N]
 """
+
 import argparse
 import json
 import sys
@@ -46,8 +47,12 @@ TUBE_PALETTE = [
 
 
 def esc(s):
-    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-             .replace('"', "&quot;"))
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 def octilinear_waypoints(x1, y1, x2, y2):
@@ -62,9 +67,9 @@ def octilinear_waypoints(x1, y1, x2, y2):
     sx = 1 if dx > 0 else -1
     sy = 1 if dy > 0 else -1
     d = min(abs(dx), abs(dy))
-    if abs(dx) > abs(dy):          # diagonal first, then horizontal into the target
+    if abs(dx) > abs(dy):  # diagonal first, then horizontal into the target
         return [(x1 + sx * d, y2)]
-    return [(x2, y1 + sy * d)]      # diagonal first, then vertical into the target
+    return [(x2, y1 + sy * d)]  # diagonal first, then vertical into the target
 
 
 def build(data, grid=110):
@@ -76,8 +81,10 @@ def build(data, grid=110):
     for ln in lines:
         for sid in ln.get("stations", []):
             if sid not in stations:
-                sys.exit(f"error: line {ln.get('name', '?')!r} references unknown "
-                         f"station id {sid!r}")
+                sys.exit(
+                    f"error: line {ln.get('name', '?')!r} references unknown "
+                    f"station id {sid!r}"
+                )
 
     ox = oy = 80
     G = grid
@@ -90,12 +97,14 @@ def build(data, grid=110):
     maxy = oy + max(int(s["gy"]) for s in stations.values()) * G + 120
     lw = max(8, G // 12)
 
-    out = ['<?xml version="1.0" encoding="UTF-8"?>',
-           '<mxfile host="drawio-skill" type="device">',
-           '  <diagram id="tube" name="Tube Map">',
-           f'    <mxGraphModel dx="0" dy="0" grid="0" gridSize="10" pageWidth="{maxx}" '
-           f'pageHeight="{maxy}" math="0" shadow="0" background="#ffffff">',
-           '      <root><mxCell id="0"/><mxCell id="1" parent="0"/>']
+    out = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<mxfile host="drawio-skill" type="device">',
+        '  <diagram id="tube" name="Tube Map">',
+        f'    <mxGraphModel dx="0" dy="0" grid="0" gridSize="10" pageWidth="{maxx}" '
+        f'pageHeight="{maxy}" math="0" shadow="0" background="#ffffff">',
+        '      <root><mxCell id="0"/><mxCell id="1" parent="0"/>',
+    ]
 
     nid = [2]
 
@@ -122,7 +131,8 @@ def build(data, grid=110):
                 f'rounded=1;html=1;edgeStyle=none;">'
                 f'<mxGeometry relative="1" as="geometry">'
                 f'<mxPoint x="{x1}" y="{y1}" as="sourcePoint"/>'
-                f'<mxPoint x="{x2}" y="{y2}" as="targetPoint"/>{arr}</mxGeometry></mxCell>')
+                f'<mxPoint x="{x2}" y="{y2}" as="targetPoint"/>{arr}</mxGeometry></mxCell>'
+            )
 
     # 2) Station markers + labels.
     for sid, s in stations.items():
@@ -130,24 +140,28 @@ def build(data, grid=110):
         label = esc(str(s.get("label", sid)))
         if s.get("interchange"):
             r = lw + 6
-            marker = (f'ellipse;fillColor=#ffffff;strokeColor=#111111;strokeWidth=3;'
-                      f'html=1;')
+            marker = (
+                "ellipse;fillColor=#ffffff;strokeColor=#111111;strokeWidth=3;html=1;"
+            )
         else:
             r = lw - 1
-            marker = (f'ellipse;fillColor=#ffffff;strokeColor=#555555;strokeWidth=2;'
-                      f'html=1;')
+            marker = (
+                "ellipse;fillColor=#ffffff;strokeColor=#555555;strokeWidth=2;html=1;"
+            )
         out.append(
             f'        <mxCell id="s{cid()}" vertex="1" parent="1" style="{marker}" '
             f'value=""><mxGeometry x="{x - r}" y="{y - r}" width="{2 * r}" '
-            f'height="{2 * r}" as="geometry"/></mxCell>')
+            f'height="{2 * r}" as="geometry"/></mxCell>'
+        )
         out.append(
             f'        <mxCell id="l{cid()}" vertex="1" parent="1" '
             f'style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;'
             f'fontColor=#222222;labelBackgroundColor=#ffffff;" value="{label}">'
             f'<mxGeometry x="{x + lw + 8}" y="{y - 12}" width="170" height="24" '
-            f'as="geometry"/></mxCell>')
+            f'as="geometry"/></mxCell>'
+        )
 
-    out.append('      </root></mxGraphModel></diagram></mxfile>')
+    out.append("      </root></mxGraphModel></diagram></mxfile>")
     return "\n".join(out), len(stations), len(lines)
 
 
@@ -155,10 +169,16 @@ def main():
     ap = argparse.ArgumentParser(description="Restyle a graph as a metro / tube map.")
     ap.add_argument("input", help="metro JSON (or - for stdin)")
     ap.add_argument("-o", "--output", help="output .drawio (default: stdout)")
-    ap.add_argument("--grid", type=int, default=110, help="grid pitch in px (default 110)")
+    ap.add_argument(
+        "--grid", type=int, default=110, help="grid pitch in px (default 110)"
+    )
     args = ap.parse_args()
 
-    raw = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
+    raw = (
+        sys.stdin.read()
+        if args.input == "-"
+        else open(args.input, encoding="utf-8").read()
+    )
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:

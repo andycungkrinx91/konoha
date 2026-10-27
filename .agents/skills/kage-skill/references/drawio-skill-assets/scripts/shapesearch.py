@@ -17,6 +17,7 @@ shape data — see data/SHAPE-INDEX-NOTICE.md.
 Usage:
   python3 shapesearch.py "aws lambda" [--limit N] [--json]
 """
+
 import argparse
 import gzip
 import json
@@ -25,8 +26,8 @@ import re
 import sys
 
 INDEX = os.path.join(os.path.dirname(__file__), "..", "data", "shape-index.json.gz")
-_SOUNDEX_MAP = "01230120022455012603010202"   # A..Z digit codes
-_TRAIL = re.compile(r"\.*\d*$")               # strip trailing digits/dots before soundex
+_SOUNDEX_MAP = "01230120022455012603010202"  # A..Z digit codes
+_TRAIL = re.compile(r"\.*\d*$")  # strip trailing digits/dots before soundex
 
 
 def soundex(name):
@@ -130,14 +131,30 @@ def search(shapes, tag_map, query, limit):
         toks = set(re.split(r"[^a-z0-9]+", shapes[idx].get("title", "").casefold()))
         return len(term_set & toks)
 
-    ranked = sorted(scores, key=lambda i: (-scores[i], -title_hits(i),
-                                           shapes[i].get("title", "").casefold(), i))
-    return [{"style": shapes[i]["style"], "w": shapes[i]["w"],
-             "h": shapes[i]["h"], "title": shapes[i]["title"]} for i in ranked[:limit]]
+    ranked = sorted(
+        scores,
+        key=lambda i: (
+            -scores[i],
+            -title_hits(i),
+            shapes[i].get("title", "").casefold(),
+            i,
+        ),
+    )
+    return [
+        {
+            "style": shapes[i]["style"],
+            "w": shapes[i]["w"],
+            "h": shapes[i]["h"],
+            "title": shapes[i]["title"],
+        }
+        for i in ranked[:limit]
+    ]
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Search official draw.io shapes for their style strings.")
+    ap = argparse.ArgumentParser(
+        description="Search official draw.io shapes for their style strings."
+    )
     ap.add_argument("query", help='keywords, e.g. "aws lambda" or "uml actor"')
     ap.add_argument("--limit", type=int, default=10)
     ap.add_argument("--json", action="store_true", help="emit JSON instead of a table")

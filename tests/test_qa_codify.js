@@ -10,7 +10,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { qaCodify } = require('../src/qa_tools');
+const { qaCodify } = require('../src/workflow/qa-automation/qa_tools');
 
 console.log('Running test_qa_codify.js...');
 

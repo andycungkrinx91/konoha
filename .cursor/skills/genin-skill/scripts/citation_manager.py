@@ -13,12 +13,15 @@ import hashlib
 @dataclass
 class Citation:
     """Represents a single citation"""
+
     id: str
     title: str
     url: str
     authors: Optional[List[str]] = None
     publication_date: Optional[str] = None
-    retrieved_date: str = field(default_factory=lambda: datetime.now().strftime('%Y-%m-%d'))
+    retrieved_date: str = field(
+        default_factory=lambda: datetime.now().strftime("%Y-%m-%d")
+    )
     source_type: str = "web"  # web, academic, documentation, book, paper
     doi: Optional[str] = None
     citation_count: int = 0
@@ -44,7 +47,9 @@ class Citation:
 
     def to_markdown(self, index: int) -> str:
         """Generate markdown link format"""
-        return f"[{index}] [{self.title}]({self.url}) (Retrieved: {self.retrieved_date})"
+        return (
+            f"[{index}] [{self.title}]({self.url}) (Retrieved: {self.retrieved_date})"
+        )
 
 
 class CitationManager:
@@ -61,7 +66,7 @@ class CitationManager:
         authors: Optional[List[str]] = None,
         publication_date: Optional[str] = None,
         source_type: str = "web",
-        doi: Optional[str] = None
+        doi: Optional[str] = None,
     ) -> str:
         """Add a source and return its citation ID"""
         # Generate unique ID based on URL
@@ -75,7 +80,7 @@ class CitationManager:
                 authors=authors,
                 publication_date=publication_date,
                 source_type=source_type,
-                doi=doi
+                doi=doi,
             )
             self.citations[citation_id] = citation
             self.citation_order.append(citation_id)
@@ -118,11 +123,11 @@ class CitationManager:
     def get_statistics(self) -> Dict[str, any]:
         """Get citation statistics"""
         return {
-            'total_sources': len(self.citations),
-            'total_citations': sum(c.citation_count for c in self.citations.values()),
-            'source_types': self._count_by_type(),
-            'most_cited': self._get_most_cited(5),
-            'uncited': self._get_uncited()
+            "total_sources": len(self.citations),
+            "total_citations": sum(c.citation_count for c in self.citations.values()),
+            "source_types": self._count_by_type(),
+            "most_cited": self._get_most_cited(5),
+            "uncited": self._get_uncited(),
         }
 
     def _count_by_type(self) -> Dict[str, int]:
@@ -135,12 +140,12 @@ class CitationManager:
     def _get_most_cited(self, n: int = 5) -> List[tuple]:
         """Get most cited sources"""
         sorted_citations = sorted(
-            self.citations.items(),
-            key=lambda x: x[1].citation_count,
-            reverse=True
+            self.citations.items(), key=lambda x: x[1].citation_count, reverse=True
         )
-        return [(self.get_citation_number(cid), c.title, c.citation_count)
-                for cid, c in sorted_citations[:n]]
+        return [
+            (self.get_citation_number(cid), c.title, c.citation_count)
+            for cid, c in sorted_citations[:n]
+        ]
 
     def _get_uncited(self) -> List[str]:
         """Get sources that were added but never cited"""
@@ -148,12 +153,12 @@ class CitationManager:
 
     def export_to_file(self, filepath: str, style: str = "markdown"):
         """Export bibliography to file"""
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             f.write(self.generate_bibliography(style))
 
 
 # Example usage
-if __name__ == '__main__':
+if __name__ == "__main__":
     manager = CitationManager()
 
     # Add sources
@@ -161,13 +166,13 @@ if __name__ == '__main__':
         url="https://example.com/article1",
         title="Understanding Deep Research",
         authors=["Smith, J.", "Johnson, K."],
-        publication_date="2025"
+        publication_date="2025",
     )
 
     id2 = manager.add_source(
         url="https://example.com/article2",
         title="AI Research Methods",
-        source_type="academic"
+        source_type="academic",
     )
 
     # Use citations

@@ -29,7 +29,7 @@ const {
   runAkatsukiFinalGate,
   dispatchAkatsuki,
   isSecurityApplicable
-} = require('../src/akatsuki_workflows');
+} = require('../src/workflow/akatsuki/workflows');
 const { workflowReviewApproved } = require('../src/mcp/workflow_dispatch');
 
 async function runAkatsukiTests() {
