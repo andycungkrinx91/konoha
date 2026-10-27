@@ -6,8 +6,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { loginAndUnlock } from './auth_helper.js';
 
 test("Akatsuki Tools Exploration Flow", async ({ page }) => {
-  await page.goto("http://127.0.0.1:1404/dashboard");
-  await page.goto("http://127.0.0.1:1404/skills");
+  await loginAndUnlock(page);
+  await page.goto("http://127.0.0.1:4173/skills");
+  await expect(page.locator("body")).toBeVisible();
 });
