@@ -110,24 +110,24 @@ function buildHtmlPage(width, height, contentSvg, extraCss = '') {
       <stop offset="50%" stop-color="#8B5CF6" />
       <stop offset="100%" stop-color="#10B981" />
     </linearGradient>
-    <!-- Arrowheads -->
-    <marker id="arrow-azure" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#3B82F6" />
+    <!-- Sleek Architectural Arrowheads -->
+    <marker id="arrow-azure" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#3B82F6" />
     </marker>
-    <marker id="arrow-violet" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#8B5CF6" />
+    <marker id="arrow-violet" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#8B5CF6" />
     </marker>
-    <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#14B8A6" />
+    <marker id="arrow-teal" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#14B8A6" />
     </marker>
-    <marker id="arrow-amber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#F97316" />
+    <marker id="arrow-amber" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#F97316" />
     </marker>
-    <marker id="arrow-emerald" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#10B981" />
+    <marker id="arrow-emerald" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#10B981" />
     </marker>
-    <marker id="arrow-crimson" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-      <path d="M 1 1.5 L 6 4 L 1 6.5 Z" fill="#EF4444" />
+    <marker id="arrow-crimson" viewBox="0 0 10 8" refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">
+      <path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="#EF4444" />
     </marker>
   </defs>
 
@@ -243,8 +243,8 @@ function generateOrchestrationHtml() {
     <path class="bg-track" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
     <path class="flow-path" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
 
-    <path class="bg-track" d="M 340 466 C 340 495, 85 490, 85 510" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 340 466 C 340 495, 85 490, 85 510" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
+    <path class="bg-track" d="M 230 428 C 120 428, 85 460, 85 510" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 230 428 C 120 428, 85 460, 85 510" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
 
     <path class="bg-track" d="M 155 542 L 170 542" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
     <path class="flow-path" d="M 155 542 L 170 542" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
@@ -681,7 +681,7 @@ function generateAkatsukiHtml() {
 
     // Bottom Sandbox Cards (y = 378, h = 66)
     renderCard(60, 378, 210, 66, C.amber, '10. MULTI-ENGINE SANDBOX', 'akatsuki-lab on docker | lxc'),
-    renderCard(300, 378, 230, 66, C.crimson, '11. UNRESTRICTED TOOLS', '18 curated tools · 3600s cap'),
+    renderCard(300, 378, 230, 66, C.crimson, '11. UNRESTRICTED TOOLS', '20 curated tools · 3600s cap'),
     renderCard(560, 378, 200, 66, C.teal, '12. EVIDENCE HARVEST', 'non-destructive PoC probes'),
 
     // Sandbox Middle/Bottom Row (y = 480, h = 66)

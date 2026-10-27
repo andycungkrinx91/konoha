@@ -31,8 +31,14 @@
                 <mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="sannin Router&#10;Route and close delegated work" vertex="1">
                     <mxGeometry height="75" width="260" x="350" y="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-agents" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin" vertex="1">
+                <mxCell id="p1-agents" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin | akatsuki" vertex="1">
                     <mxGeometry height="100" width="430" x="710" y="61" as="geometry" />
+                </mxCell>
+                <mxCell id="p1-akatsuki" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="akatsuki Security&#10;Red/Blue · Sandbox · Gate" vertex="1">
+                    <mxGeometry height="35" width="260" x="350" y="155" as="geometry" />
+                </mxCell>
+                <mxCell id="p1-e12" edge="1" parent="1" source="p1-sannin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p1-akatsuki" value="security gate">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-task" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;;overflow=visible;" value="Task Artifacts&#10;Structured Tool Calls" vertex="1">
                     <mxGeometry height="75" width="280" x="1210" y="70" as="geometry" />
@@ -149,7 +155,7 @@
                 <mxCell id="p2-sannin" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;;overflow=visible;" value="sannin Router" vertex="1">
                     <mxGeometry height="75" width="260" x="650" y="390" as="geometry" />
                 </mxCell>
-                <mxCell id="p2-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;;overflow=visible;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin" vertex="1">
+                <mxCell id="p2-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;;overflow=visible;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin / akatsuki" vertex="1">
                     <mxGeometry height="85" width="360" x="990" y="385" as="geometry" />
                 </mxCell>
                 <mxCell id="p2-artifact" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="Task Directory&#10;Structured Results" vertex="1">
@@ -157,6 +163,12 @@
                 </mxCell>
                 <mxCell id="p2-response" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="Synthesized Response" vertex="1">
                     <mxGeometry height="75" width="260" x="650" y="590" as="geometry" />
+                </mxCell>
+                <mxCell id="p2-akatsuki-gate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;;overflow=visible;" value="Akatsuki Security Final Gate&#10;SAST, Secrets &amp; Sandbox Audit" vertex="1">
+                    <mxGeometry height="75" width="260" x="990" y="590" as="geometry" />
+                </mxCell>
+                <mxCell id="p2-e13" edge="1" parent="1" source="p2-artifact" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p2-akatsuki-gate" value="security audit">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p2-e1" edge="1" parent="1" source="p2-user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;" target="p2-client" value="1. prompt">
                     <mxGeometry relative="1" as="geometry" />
@@ -264,6 +276,12 @@
                 </mxCell>
                 <mxCell id="p3-toku" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="710" as="geometry" />
+                </mxCell>
+                <mxCell id="p3-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontStyle=1;;overflow=visible;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
+                    <mxGeometry height="60" width="280" x="651" y="785" as="geometry" />
+                </mxCell>
+                <mxCell id="p3-e13" edge="1" parent="1" source="p3-sannin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;exitX=1;exitY=0.99;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p3-akatsuki" value="security audit">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-mcp" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Konoha MCP&#10;find_skill / get_skill / direct specialist tools" vertex="1">
                     <mxGeometry height="80" width="320" x="1080" y="290" as="geometry" />
@@ -406,6 +424,12 @@
                 <mxCell id="p4-sidecar" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="Sidecar protocol cascade&#10;proto -&gt; raw -&gt; gRPC&#10;retries inside sidecar" vertex="1">
                     <mxGeometry height="95" width="280" x="1200" y="427.5" as="geometry" />
                 </mxCell>
+                <mxCell id="p4-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Perimeter Guard&#10;Timing-safe tokens, Argon2id &amp; 127.0.0.1 lock" vertex="1">
+                    <mxGeometry height="70" width="280" x="390" y="530" as="geometry" />
+                </mxCell>
+                <mxCell id="p4-e11" edge="1" parent="1" source="p4-gateway" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p4-akatsuki" value="security audit">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
                 <mxCell id="p4-e1" edge="1" parent="1" source="p4-client" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;" target="p4-gateway" value="HTTP / REST">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
@@ -485,6 +509,12 @@
                 </mxCell>
                 <mxCell id="p5-cache" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;;overflow=visible;" value="SearXNG caches&#10;instances: 24h | best instance: 1h" vertex="1">
                     <mxGeometry height="80" width="320" x="820" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p5-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Threat Recon&#10;Passive OSINT, PTES Scoping &amp; Target Verification" vertex="1">
+                    <mxGeometry height="80" width="320" x="820" y="170" as="geometry" />
+                </mxCell>
+                <mxCell id="p5-e10" edge="1" parent="1" source="p5-return" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p5-akatsuki" value="OSINT feeds">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p5-e1" edge="1" parent="1" source="p5-query" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p5-s1" value="query">
                     <mxGeometry relative="1" as="geometry">
@@ -583,6 +613,15 @@
                 <mxCell id="p6-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Any Supported Client&#10;Konoha MCP runtime" vertex="1">
                     <mxGeometry height="95" width="250" x="1420" y="390" as="geometry" />
                 </mxCell>
+                <mxCell id="p6-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Skill Guardian&#10;Perimeter Defense &amp; Malicious Script Filter" vertex="1">
+                    <mxGeometry height="80" width="310" x="640" y="110" as="geometry" />
+                </mxCell>
+                <mxCell id="p6-e10" edge="1" parent="1" source="p6-files" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p6-akatsuki" value="scan skill">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p6-e11" edge="1" parent="1" source="p6-akatsuki" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;" target="p6-migrate" value="quarantine / allow">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
                 <mxCell id="p6-e1" edge="1" parent="1" source="p6-developer" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p6-registry" value="install skill">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
@@ -650,6 +689,9 @@
                 <mxCell id="p7-chunk" parent="p7-after" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Relevant preview or full reference&#10;bounded response" vertex="1">
                     <mxGeometry height="90" width="380" x="150" y="330" as="geometry" />
                 </mxCell>
+                <mxCell id="p7-akatsuki" parent="p7-after" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki On-Demand Security (360+ Tools)&#10;Zero resident token burn in system prompt" vertex="1">
+                    <mxGeometry height="60" width="380" x="150" y="450" as="geometry" />
+                </mxCell>
                 <mxCell id="p7-e1" edge="1" parent="1" source="p7-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ef4444;" target="p7-refs" value="load everything">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
@@ -705,6 +747,12 @@
                 </mxCell>
                 <mxCell id="p8-output" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="Final Response" vertex="1">
                     <mxGeometry height="75" width="280" x="380" y="560" as="geometry" />
+                </mxCell>
+                <mxCell id="p8-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Security Audit Gate&#10;SAST, Secrets, CVEs &amp; Sandbox Integrity" vertex="1">
+                    <mxGeometry height="75" width="300" x="1120" y="415" as="geometry" />
+                </mxCell>
+                <mxCell id="p8-e10" edge="1" parent="1" source="p8-result" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;" target="p8-akatsuki" value="security gate">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-e1" edge="1" parent="1" source="p8-input" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;exitX=1;exitY=0.333333;exitDx=0;exitDy=0;" target="p8-orch" value="start / resume">
                     <mxGeometry relative="1" as="geometry" />
@@ -783,6 +831,12 @@
                 <mxCell id="p9-targets" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=0;align=left;spacingLeft=15;" value="Supported Canonical Frameworks&#10;• Next.js 16.3+ (React 19, Motion 12, Tailwind v4)&#10;• SvelteKit 2 (Svelte 5 Runes, Tailwind v4)&#10;• Nuxt 3.15+ (Vue 3.5, Tailwind v4)&#10;• Angular v19+ (Signals, Tailwind v4)" vertex="1">
                     <mxGeometry height="180" width="400" x="760" y="380" as="geometry" />
                 </mxCell>
+                <mxCell id="p9-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Web Security Audit&#10;XSS Prevention · CSP Headers · Zero Secret Leakage" vertex="1">
+                    <mxGeometry height="80" width="300" x="380" y="460" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-edge5" edge="1" parent="1" source="p9-jonin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p9-akatsuki" value="security review">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
                 <mxCell id="p9-edge1" edge="1" parent="1" source="p9-spec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;" target="p9-jonin">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
@@ -822,6 +876,12 @@
                 </mxCell>
                 <mxCell id="p10-compactor" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" value="Unified Token-Bounded Prompt Engine&#10;• Single bounded architecture across all turns (&lt; 8 KB)&#10;• 100% prefix determinism for provider KV caching&#10;• On-demand skills served via konoha.get_skill&#10;• Permanent memory continuity without hallucination" vertex="1">
                     <mxGeometry height="170" width="420" x="820" y="220" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Secret &amp; Credential Vault Audit&#10;Audits project memory context for leaked secrets" vertex="1">
+                    <mxGeometry height="80" width="320" x="400" y="400" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-edge4" edge="1" parent="1" source="p10-profiler" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p10-akatsuki" value="secrets audit">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p10-edge1" edge="1" parent="1" source="p10-workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;" target="p10-profiler">
                     <mxGeometry relative="1" as="geometry" />
@@ -872,6 +932,15 @@
                 </mxCell>
                 <mxCell id="p11-done" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="8. Done Phase&#10;(Delivered to User)" vertex="1">
                     <mxGeometry height="70" width="160" x="150" y="440" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Security Final Gate&#10;runAkatsukiFinalGate&#10;Pre-condition for Kage Review Approval" vertex="1">
+                    <mxGeometry height="70" width="220" x="1100" y="380" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-e8" edge="1" parent="1" source="p11-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p11-akatsuki">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-e9" edge="1" parent="1" source="p11-akatsuki" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ef4444;strokeWidth=2;" target="p11-review">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-e1" edge="1" parent="1" source="p11-route" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;" target="p11-explore">
                     <mxGeometry relative="1" as="geometry" />
@@ -943,6 +1012,12 @@
                 </mxCell>
                 <mxCell id="p12-done" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#15803d;fontStyle=1;" value="100% Upgrade Finalized&#10;All MCP servers healthy" vertex="1">
                     <mxGeometry height="60" width="250" x="360" y="460" as="geometry" />
+                </mxCell>
+                <mxCell id="p12-akatsuki" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;fontStyle=1;" value="Akatsuki Lab &amp; Toolchain Sync&#10;konoha akatsuki init / mode / status&#10;Docker &amp; LXC Sandbox Engine Refresh" vertex="1">
+                    <mxGeometry height="60" width="250" x="680" y="460" as="geometry" />
+                </mxCell>
+                <mxCell id="p12-e10" edge="1" parent="1" source="p12-done" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p12-akatsuki">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p12-e1" edge="1" parent="1" source="p12-start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0284c7;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p12-pbar">
                     <mxGeometry relative="1" as="geometry" />
@@ -1052,6 +1127,12 @@
                 </mxCell>
                 <mxCell id="p13-stop" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#475569;fontStyle=1;align=center;" value="STOP: ask user&#10;if depth &gt; 7" vertex="1">
                     <mxGeometry height="55" width="140" x="700" y="670" as="geometry" />
+                </mxCell>
+                <mxCell id="p13-akatsuki" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;align=center;" value="Akatsuki Security Suite&#10;Red/Blue Test Gates &amp; Sandbox Integrity" vertex="1">
+                    <mxGeometry height="55" width="200" x="960" y="100" as="geometry" />
+                </mxCell>
+                <mxCell id="p13-e24" edge="1" parent="1" source="p13-kage-plan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#dc2626;strokeWidth=2;dashed=1;" target="p13-akatsuki" value="security suite">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p13-e1" edge="1" parent="1" source="p13-sannin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0284c7;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p13-genin">
                     <mxGeometry relative="1" as="geometry" />
@@ -1220,6 +1301,12 @@
                 <mxCell id="p14-worker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Autonomous Queue Worker&#10;• Operational: bash -i -c (0 LLM Tokens)&#10;• AI Coding: agy -p (Kage Gate Review)" vertex="1">
                     <mxGeometry height="80" width="180" x="990" y="530" as="geometry" />
                 </mxCell>
+                <mxCell id="p14-akatsuki" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Ingress Security Audit&#10;PIN rate-limiting, timingSafeEqual, loopback binding" vertex="1">
+                    <mxGeometry height="70" width="260" x="420" y="480" as="geometry" />
+                </mxCell>
+                <mxCell id="p14-e-akatsuki" edge="1" parent="1" source="p14-poll-loop" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p14-akatsuki" value="security verify">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
                 <mxCell id="p14-e1" parent="1" edge="1" source="p14-task-event" target="p14-format" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#2563eb;"><mxGeometry relative="1" as="geometry" /></mxCell>
                 <mxCell id="p14-e2" parent="1" edge="1" source="p14-format" target="p14-check" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#475569;"><mxGeometry relative="1" as="geometry" /></mxCell>
                 <mxCell id="p14-e3" parent="1" edge="1" source="p14-check" target="p14-post" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#059669;"><mxGeometry relative="1" as="geometry" /></mxCell>
@@ -1278,6 +1365,12 @@
                 </mxCell>
                 <mxCell id="p15-notify" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" value="Outbound Telegram Report&#10;Message delivered to authorized chat_id&#10;Zero-Emoji Structured Notification" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="560" as="geometry" />
+                </mxCell>
+                <mxCell id="p15-akatsuki" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Akatsuki Zero-Trust Attack Surface Audit&#10;Tunnel token validation, unprivileged container boundaries" vertex="1">
+                    <mxGeometry height="70" width="300" x="400" y="460" as="geometry" />
+                </mxCell>
+                <mxCell id="p15-e-akatsuki" edge="1" parent="1" source="p15-cloudflared" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#dc2626;strokeWidth=2;" target="p15-akatsuki" value="perimeter audit">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p15-e1" parent="1" edge="1" source="p15-user" target="p15-edge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#2563eb;"><mxGeometry relative="1" as="geometry" /></mxCell>
                 <mxCell id="p15-e2" parent="1" edge="1" source="p15-edge" target="p15-cloudflared" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#d97706;"><mxGeometry relative="1" as="geometry" /></mxCell>

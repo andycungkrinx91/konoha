@@ -662,6 +662,10 @@ npx aislop scan --changes
 | **7. Multi-Mirror Skill Synchronization** | `scripts/sync_skills.js` | Synchronized byte-identical skills across all 6 client mirrors (`.agents`, `.cursor`, `.gemini`, `.commandcode`, `.claude`, `.omp`). | `PASS` (4,239 files synced) |
 | **8. Container Template Toolchain Registration** | `src/templates/akatsuki_lab/docker` & `lxc` | All default red-team tools registered in Dockerfile and LXC provision scripts (including Burp Suite, msfvenom, feroxbuster, testssl.sh, zap, trivy). | `PASS` (templates registered) |
 | **9. Preserved Invariants & Clean Author** | `git config` & `package.json` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password `konohagakure`; version maintained at v2.2.11 per user mandate. | `PASS` (invariants maintained) |
+| **10. DrawIO 16-Tab Akatsuki Security Integration** | `docs/diagrams/konoha-architecture.drawio` | All 16 pages/tabs verified to include Akatsuki security integration cells, edges, and defense perimeters; validated via `test_documentation_diagrams.js`. | `PASS` (all 16 tabs updated & verified) |
+| **11. WebP Diagram Arrow Refinement** | `scripts/generate_tokubetsu_flow_webp.js` | Sleek architectural arrowheads with `markerUnits="userSpaceOnUse"`, dart geometry, and smoothed sweeping bezier curves regenerated across all animated WebP diagrams. | `PASS` (all diagrams regenerated cleanly) |
+| **12. Supply Chain & Socket CLI Audit** | `socket scan create .` & `pnpm audit --prod` | Socket CLI v1.8.4 executed; `pnpm audit --prod` confirmed 0 vulnerabilities across production dependencies. | `PASS` (0 vulnerabilities) |
+| **13. Deterministic QA Codify & Flow Verification** | `src/workflow/qa-automation/qa_tools.js` | Agent-browser flow `akatsuki_tools_flow.json` codified to Playwright spec via `qaCodify`; verified against live web interface. | `PASS` (deterministic codify verified) |
 
 
 
