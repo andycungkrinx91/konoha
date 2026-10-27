@@ -17,15 +17,10 @@ playwright/.cache/
 .commandcode*
 .cursor*
 .cursorrules*
+.codex*
 .gemini*
 .omp*
-.codex*
 AGENTS.md
 CLAUDE.md
 GEMINI.md
-PLAN.md
-PLAN*.md
-PLAN_*.md
-.omp/plans/
-.omp/plans
 ## End Konoha config+skill
