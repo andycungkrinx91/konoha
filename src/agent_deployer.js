@@ -508,6 +508,7 @@ function deployProjectWorkspace(projectRoot, options = {}) {
       '.cursorrules*',
       '.gemini*',
       '.omp*',
+      '.codex*',
       'AGENTS.md',
       'CLAUDE.md',
       'GEMINI.md',

@@ -95,6 +95,7 @@ async function run() {
     assert.ok(gitignoreText.includes('.cursorrules*'), '.gitignore must contain .cursorrules*');
     assert.ok(gitignoreText.includes('.gemini*'), '.gitignore must contain .gemini*');
     assert.ok(gitignoreText.includes('.omp*'), '.gitignore must contain .omp*');
+    assert.ok(gitignoreText.includes('.codex*'), '.gitignore must contain .codex*');
     assert.ok(gitignoreText.includes('AGENTS.md'), '.gitignore must contain AGENTS.md');
     assert.ok(gitignoreText.includes('CLAUDE.md'), '.gitignore must contain CLAUDE.md');
     assert.ok(gitignoreText.includes('GEMINI.md'), '.gitignore must contain GEMINI.md');
