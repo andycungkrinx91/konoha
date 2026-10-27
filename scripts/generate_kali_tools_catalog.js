@@ -13,10 +13,11 @@ const https = require('https');
 
 const KALI_URL = 'https://www.kali.org/tools/all-tools/';
 const OUTPUT_PATH = path.join(__dirname, '../src/templates/akatsuki_lab/kali_tools.json');
+const PKG_VERSION = require('../package.json').version;
 
 function fetchHtml(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'Konoha-MCP/2.2.11 (+https://github.com/andycungkrinx/konoha-mcp)' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': `Konoha-MCP/${PKG_VERSION} (+https://github.com/andycungkrinx/konoha-mcp)` } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return fetchHtml(res.headers.location).then(resolve).catch(reject);
       }

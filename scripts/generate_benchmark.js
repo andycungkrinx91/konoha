@@ -20,6 +20,7 @@ const { getDriftMetrics } = require('../src/token_sampler');
 
 const ROOT = path.resolve(__dirname, '..');
 const BENCHMARK_PATH = path.join(ROOT, 'docs', 'BENCHMARK.md');
+const PKG_VERSION = require('../package.json').version;
 
 function getRtkMetrics() {
   try {
@@ -276,7 +277,7 @@ function generateBenchmarkMarkdown() {
     '### ⚖️ Architectural Efficiency Comparison',
     '| Architecture | Active Process Count | Memory per Agent | Cold Start Latency | Communication Overhead |',
     '|:---|:---:|:---:|:---:|:---:|',
-    '| **Konoha MCP Village (v2.2.11)** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |',
+    `| **Konoha MCP Village (v${PKG_VERSION})** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |`,
     '| Multi-Process Microservices | 7+ separate runtimes | ~65–120 MB / agent | ~850–2,400 ms | HTTP/gRPC network loopback serialization |',
     '| Containerized Agent Swarms | 7+ Docker containers | ~250–500 MB / agent | ~3,000–8,000 ms | Bridge network, overlay FS, container daemon |',
     '',
