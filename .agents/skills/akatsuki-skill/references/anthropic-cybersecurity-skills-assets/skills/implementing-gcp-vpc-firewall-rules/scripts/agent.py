@@ -24,24 +24,42 @@ def list_firewall_rules(project_id):
     client = get_firewall_client()
     rules = []
     for rule in client.list(project=project_id):
-        rules.append({
-            "name": rule.name,
-            "network": rule.network.split("/")[-1] if rule.network else "",
-            "direction": rule.direction,
-            "priority": rule.priority,
-            "action": "ALLOW" if rule.allowed else "DENY",
-            "source_ranges": list(rule.source_ranges) if rule.source_ranges else [],
-            "destination_ranges": list(rule.destination_ranges) if rule.destination_ranges else [],
-            "target_tags": list(rule.target_tags) if rule.target_tags else [],
-            "allowed": [{"protocol": a.I_p_protocol,
-                         "ports": list(a.ports) if a.ports else ["all"]}
-                        for a in rule.allowed] if rule.allowed else [],
-            "denied": [{"protocol": d.I_p_protocol,
-                        "ports": list(d.ports) if d.ports else ["all"]}
-                       for d in rule.denied] if rule.denied else [],
-            "disabled": rule.disabled,
-            "log_config_enabled": rule.log_config.enable if rule.log_config else False,
-        })
+        rules.append(
+            {
+                "name": rule.name,
+                "network": rule.network.split("/")[-1] if rule.network else "",
+                "direction": rule.direction,
+                "priority": rule.priority,
+                "action": "ALLOW" if rule.allowed else "DENY",
+                "source_ranges": list(rule.source_ranges) if rule.source_ranges else [],
+                "destination_ranges": list(rule.destination_ranges)
+                if rule.destination_ranges
+                else [],
+                "target_tags": list(rule.target_tags) if rule.target_tags else [],
+                "allowed": [
+                    {
+                        "protocol": a.I_p_protocol,
+                        "ports": list(a.ports) if a.ports else ["all"],
+                    }
+                    for a in rule.allowed
+                ]
+                if rule.allowed
+                else [],
+                "denied": [
+                    {
+                        "protocol": d.I_p_protocol,
+                        "ports": list(d.ports) if d.ports else ["all"],
+                    }
+                    for d in rule.denied
+                ]
+                if rule.denied
+                else [],
+                "disabled": rule.disabled,
+                "log_config_enabled": rule.log_config.enable
+                if rule.log_config
+                else False,
+            }
+        )
     return sorted(rules, key=lambda r: r["priority"])
 
 
@@ -55,17 +73,24 @@ def find_overly_permissive_rules(project_id):
         if "0.0.0.0/0" in rule.get("source_ranges", []):
             for allowed in rule.get("allowed", []):
                 ports = allowed.get("ports", ["all"])
-                severity = "CRITICAL" if "all" in ports or "22" in ports or "3389" in ports \
-                    else "HIGH" if "80" in ports or "443" in ports else "MEDIUM"
-                findings.append({
-                    "rule_name": rule["name"],
-                    "network": rule["network"],
-                    "severity": severity,
-                    "protocol": allowed["protocol"],
-                    "ports": ports,
-                    "issue": "Source range 0.0.0.0/0 allows traffic from any IP",
-                    "recommendation": "Restrict source ranges to specific CIDR blocks",
-                })
+                severity = (
+                    "CRITICAL"
+                    if "all" in ports or "22" in ports or "3389" in ports
+                    else "HIGH"
+                    if "80" in ports or "443" in ports
+                    else "MEDIUM"
+                )
+                findings.append(
+                    {
+                        "rule_name": rule["name"],
+                        "network": rule["network"],
+                        "severity": severity,
+                        "protocol": allowed["protocol"],
+                        "ports": ports,
+                        "issue": "Source range 0.0.0.0/0 allows traffic from any IP",
+                        "recommendation": "Restrict source ranges to specific CIDR blocks",
+                    }
+                )
     return findings
 
 
@@ -76,16 +101,26 @@ def audit_default_rules(project_id):
     for rule in rules:
         if "default" in rule["name"].lower():
             if "0.0.0.0/0" in rule.get("source_ranges", []) and not rule["disabled"]:
-                default_issues.append({
-                    "rule": rule["name"],
-                    "issue": "Default rule allows traffic from all sources",
-                    "action": "Disable or restrict default permissive rules",
-                })
+                default_issues.append(
+                    {
+                        "rule": rule["name"],
+                        "issue": "Default rule allows traffic from all sources",
+                        "action": "Disable or restrict default permissive rules",
+                    }
+                )
     return default_issues
 
 
-def create_firewall_rule(project_id, name, network, direction, priority,
-                         allowed_protocols, source_ranges, target_tags=None):
+def create_firewall_rule(
+    project_id,
+    name,
+    network,
+    direction,
+    priority,
+    allowed_protocols,
+    source_ranges,
+    target_tags=None,
+):
     """Create a new VPC firewall rule."""
     client = get_firewall_client()
     allowed = []
@@ -127,17 +162,20 @@ def check_logging_status(project_id):
     rules = list_firewall_rules(project_id)
     unlogged = [r for r in rules if not r["log_config_enabled"] and not r["disabled"]]
     logged = [r for r in rules if r["log_config_enabled"]]
-    return {"logged": len(logged), "unlogged": len(unlogged),
-            "unlogged_rules": [r["name"] for r in unlogged]}
+    return {
+        "logged": len(logged),
+        "unlogged": len(unlogged),
+        "unlogged_rules": [r["name"] for r in unlogged],
+    }
 
 
 def run_firewall_audit(project_id):
     """Run a comprehensive firewall audit."""
-    print(f"\n{'='*60}")
-    print(f"  GCP VPC FIREWALL AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  GCP VPC FIREWALL AUDIT")
     print(f"  Project: {project_id}")
     print(f"  Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     rules = list_firewall_rules(project_id)
     print(f"--- ALL RULES ({len(rules)}) ---")
@@ -148,7 +186,9 @@ def run_firewall_audit(project_id):
     findings = find_overly_permissive_rules(project_id)
     print(f"\n--- OVERLY PERMISSIVE RULES ({len(findings)}) ---")
     for f in findings:
-        print(f"  [{f['severity']}] {f['rule_name']}: {f['protocol']} ports {f['ports']}")
+        print(
+            f"  [{f['severity']}] {f['rule_name']}: {f['protocol']} ports {f['ports']}"
+        )
         print(f"    {f['recommendation']}")
 
     default_issues = audit_default_rules(project_id)
@@ -157,13 +197,16 @@ def run_firewall_audit(project_id):
         print(f"  {d['rule']}: {d['issue']}")
 
     logging = check_logging_status(project_id)
-    print(f"\n--- LOGGING STATUS ---")
+    print("\n--- LOGGING STATUS ---")
     print(f"  Rules with logging:    {logging['logged']}")
     print(f"  Rules without logging: {logging['unlogged']}")
 
-    print(f"\n{'='*60}\n")
-    return {"total_rules": len(rules), "permissive_findings": len(findings),
-            "logging": logging}
+    print(f"\n{'=' * 60}\n")
+    return {
+        "total_rules": len(rules),
+        "permissive_findings": len(findings),
+        "logging": logging,
+    }
 
 
 def main():

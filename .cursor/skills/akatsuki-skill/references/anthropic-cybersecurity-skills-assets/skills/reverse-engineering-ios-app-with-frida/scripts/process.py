@@ -87,7 +87,11 @@ def main():
 
     # Parse results
     try:
-        lines = [l for l in enum_output.split("\n") if l.startswith('{"') or l.startswith("[")]
+        lines = [
+            l
+            for l in enum_output.split("\n")
+            if l.startswith('{"') or l.startswith("[")
+        ]
         results = json.loads(lines[0]) if lines else {}
     except (json.JSONDecodeError, IndexError):
         results = {"classes": [], "auth_methods": [], "crypto_methods": []}

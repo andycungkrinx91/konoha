@@ -16,4 +16,11 @@ if command -v msfdb >/dev/null 2>&1; then
   msfdb init --non-interactive 2>/dev/null || true
 fi
 
-echo "[akatsuki-provision:msf] Metasploit provisioning complete."
+if [ -f /opt/metasploit-framework/bin/msfconsole ] && [ ! -f /usr/local/bin/msfconsole ]; then
+  ln -sf /opt/metasploit-framework/bin/msfconsole /usr/local/bin/msfconsole || true
+fi
+if [ -f /opt/metasploit-framework/bin/msfvenom ] && [ ! -f /usr/local/bin/msfvenom ]; then
+  ln -sf /opt/metasploit-framework/bin/msfvenom /usr/local/bin/msfvenom || true
+fi
+
+echo "[akatsuki-provision:msf] Metasploit and msfvenom provisioning complete."

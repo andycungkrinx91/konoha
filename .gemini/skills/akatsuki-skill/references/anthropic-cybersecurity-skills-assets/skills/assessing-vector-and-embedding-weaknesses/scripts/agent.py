@@ -16,13 +16,16 @@ Examples
     python agent.py isolation --url http://localhost:6333 --collection docs \
         --tenant-field tenant_id --tenant B --query "salary information"
 """
+
 import argparse
 import re
 import sys
 
 INJECTION_PATTERNS = [
     r"ignore (all|previous|the above) instructions",
-    r"system prompt", r"you are now", r"disregard previous",
+    r"system prompt",
+    r"you are now",
+    r"disregard previous",
     r"</?(system|instructions)>",
 ]
 
@@ -31,7 +34,9 @@ def get_embedder(model_name):
     try:
         from sentence_transformers import SentenceTransformer
     except ImportError:
-        sys.exit("[!] sentence-transformers not installed. pip install sentence-transformers")
+        sys.exit(
+            "[!] sentence-transformers not installed. pip install sentence-transformers"
+        )
     return SentenceTransformer(model_name)
 
 
@@ -45,12 +50,15 @@ def get_qdrant(url):
 
 def cmd_inversion(args):
     from sklearn.metrics.pairwise import cosine_similarity
+
     model = get_embedder(args.model)
     tv = model.encode([args.secret])
     gv = model.encode([args.guess])
     sim = float(cosine_similarity(tv, gv)[0][0])
     print(f"inversion cosine(secret, guess) = {sim:.4f}")
-    verdict = "HIGH inversion risk" if sim >= 0.85 else "moderate" if sim >= 0.6 else "low"
+    verdict = (
+        "HIGH inversion risk" if sim >= 0.85 else "moderate" if sim >= 0.6 else "low"
+    )
     print(f"verdict: {verdict}")
     return 1 if sim >= 0.85 else 0
 
@@ -77,28 +85,42 @@ def cmd_membership(args):
 
 def cmd_isolation(args):
     from qdrant_client.models import Filter, FieldCondition, MatchValue
+
     model = get_embedder(args.model)
     client = get_qdrant(args.url)
     vec = model.encode([args.query])[0].tolist()
 
     filtered = client.search(
-        collection_name=args.collection, query_vector=vec, limit=10,
-        query_filter=Filter(must=[FieldCondition(
-            key=args.tenant_field, match=MatchValue(value=args.tenant))]),
+        collection_name=args.collection,
+        query_vector=vec,
+        limit=10,
+        query_filter=Filter(
+            must=[
+                FieldCondition(
+                    key=args.tenant_field, match=MatchValue(value=args.tenant)
+                )
+            ]
+        ),
     )
-    leak_filtered = [h for h in filtered
-                     if h.payload.get(args.tenant_field) != args.tenant]
+    leak_filtered = [
+        h for h in filtered if h.payload.get(args.tenant_field) != args.tenant
+    ]
 
-    unfiltered = client.search(collection_name=args.collection, query_vector=vec, limit=10)
-    leak_unfiltered = [h for h in unfiltered
-                       if h.payload.get(args.tenant_field) != args.tenant]
+    unfiltered = client.search(
+        collection_name=args.collection, query_vector=vec, limit=10
+    )
+    leak_unfiltered = [
+        h for h in unfiltered if h.payload.get(args.tenant_field) != args.tenant
+    ]
 
     print(f"filtered query foreign rows   : {len(leak_filtered)}")
     print(f"unfiltered query foreign rows : {len(leak_unfiltered)}")
     if leak_filtered:
         print("CRITICAL: filtered query returned other tenants' data")
     elif leak_unfiltered:
-        print("WARNING: isolation appears client-side only; server returns cross-tenant data")
+        print(
+            "WARNING: isolation appears client-side only; server returns cross-tenant data"
+        )
     else:
         print("isolation OK at server level for this query")
     return 1 if (leak_filtered or leak_unfiltered) else 0
@@ -108,7 +130,9 @@ def cmd_injection(args):
     model = get_embedder(args.model)
     client = get_qdrant(args.url)
     vec = model.encode([args.query])[0].tolist()
-    hits = client.search(collection_name=args.collection, query_vector=vec, limit=args.limit)
+    hits = client.search(
+        collection_name=args.collection, query_vector=vec, limit=args.limit
+    )
     found = 0
     for h in hits:
         text = (h.payload or {}).get("text", "")
@@ -125,22 +149,32 @@ def main():
     p.add_argument("--model", default="all-MiniLM-L6-v2", help="embedding model")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("inversion"); s.add_argument("--secret", required=True); s.add_argument("--guess", required=True)
+    s = sub.add_parser("inversion")
+    s.add_argument("--secret", required=True)
+    s.add_argument("--guess", required=True)
     s = sub.add_parser("membership")
-    s.add_argument("--url", required=True); s.add_argument("--collection", required=True)
-    s.add_argument("--quote", required=True); s.add_argument("--control", required=True)
+    s.add_argument("--url", required=True)
+    s.add_argument("--collection", required=True)
+    s.add_argument("--quote", required=True)
+    s.add_argument("--control", required=True)
     s = sub.add_parser("isolation")
-    s.add_argument("--url", required=True); s.add_argument("--collection", required=True)
-    s.add_argument("--tenant-field", default="tenant_id"); s.add_argument("--tenant", required=True)
+    s.add_argument("--url", required=True)
+    s.add_argument("--collection", required=True)
+    s.add_argument("--tenant-field", default="tenant_id")
+    s.add_argument("--tenant", required=True)
     s.add_argument("--query", required=True)
     s = sub.add_parser("injection")
-    s.add_argument("--url", required=True); s.add_argument("--collection", required=True)
-    s.add_argument("--query", default="help"); s.add_argument("--limit", type=int, default=10)
+    s.add_argument("--url", required=True)
+    s.add_argument("--collection", required=True)
+    s.add_argument("--query", default="help")
+    s.add_argument("--limit", type=int, default=10)
 
     args = p.parse_args()
     dispatch = {
-        "inversion": cmd_inversion, "membership": cmd_membership,
-        "isolation": cmd_isolation, "injection": cmd_injection,
+        "inversion": cmd_inversion,
+        "membership": cmd_membership,
+        "isolation": cmd_isolation,
+        "injection": cmd_injection,
     }
     try:
         sys.exit(dispatch[args.cmd](args))

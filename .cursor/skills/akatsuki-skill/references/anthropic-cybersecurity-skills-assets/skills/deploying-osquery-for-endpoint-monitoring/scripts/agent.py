@@ -30,7 +30,11 @@ def run_osquery(query, output_format="json"):
             return json.loads(result.stdout)
         return [{"raw": result.stdout[:1000]}]
     except FileNotFoundError:
-        return [{"error": "osquery not installed. Install from https://osquery.io/downloads/"}]
+        return [
+            {
+                "error": "osquery not installed. Install from https://osquery.io/downloads/"
+            }
+        ]
     except (json.JSONDecodeError, subprocess.TimeoutExpired) as e:
         return [{"error": str(e)}]
 
@@ -38,28 +42,34 @@ def run_osquery(query, output_format="json"):
 def check_fleet_status(fleet_url, api_token):
     """Check Fleet server host enrollment status."""
     import requests
+
     headers = {"Authorization": f"Bearer {api_token}"}
     try:
-        resp = requests.get(f"{fleet_url}/api/v1/fleet/hosts", headers=headers, timeout=10)
+        resp = requests.get(
+            f"{fleet_url}/api/v1/fleet/hosts", headers=headers, timeout=10
+        )
         resp.raise_for_status()
         hosts = resp.json().get("hosts", [])
-        return [{
-            "hostname": h.get("hostname", ""),
-            "platform": h.get("platform", ""),
-            "osquery_version": h.get("osquery_version", ""),
-            "status": h.get("status", ""),
-            "last_seen": h.get("seen_time", ""),
-        } for h in hosts]
+        return [
+            {
+                "hostname": h.get("hostname", ""),
+                "platform": h.get("platform", ""),
+                "osquery_version": h.get("osquery_version", ""),
+                "status": h.get("status", ""),
+                "last_seen": h.get("seen_time", ""),
+            }
+            for h in hosts
+        ]
     except Exception as e:
         return [{"error": str(e)}]
 
 
 def run_audit(queries=None, fleet_url=None, api_token=None):
     """Execute osquery security audit."""
-    print(f"\n{'='*60}")
-    print(f"  OSQUERY ENDPOINT MONITORING AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  OSQUERY ENDPOINT MONITORING AUDIT")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     selected = queries or list(SECURITY_QUERIES.keys())
     results = {}
@@ -69,7 +79,7 @@ def run_audit(queries=None, fleet_url=None, api_token=None):
             results[name] = data
             count = len(data) if isinstance(data, list) else 0
             print(f"--- {name.upper()} ({count} results) ---")
-            for row in (data[:5] if isinstance(data, list) else []):
+            for row in data[:5] if isinstance(data, list) else []:
                 if "error" not in row:
                     print(f"  {json.dumps(row)[:100]}")
 
@@ -86,8 +96,12 @@ def run_audit(queries=None, fleet_url=None, api_token=None):
 
 def main():
     parser = argparse.ArgumentParser(description="osquery Monitoring Agent")
-    parser.add_argument("--queries", nargs="+", choices=list(SECURITY_QUERIES.keys()),
-                        help="Specific queries to run")
+    parser.add_argument(
+        "--queries",
+        nargs="+",
+        choices=list(SECURITY_QUERIES.keys()),
+        help="Specific queries to run",
+    )
     parser.add_argument("--fleet-url", help="Fleet server URL")
     parser.add_argument("--api-token", help="Fleet API token")
     parser.add_argument("--output", help="Save report to JSON file")

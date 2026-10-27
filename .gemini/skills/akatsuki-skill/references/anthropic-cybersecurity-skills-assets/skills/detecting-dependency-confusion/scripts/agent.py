@@ -12,6 +12,7 @@ Optionally shells out to `confused` if it is installed for cross-validation.
 
 Authorized defensive / authorized-testing use only.
 """
+
 import argparse
 import fnmatch
 import json
@@ -28,7 +29,11 @@ REGISTRY = {
     "pip": "https://pypi.org/pypi/{name}/json",
     "rubygems": "https://rubygems.org/api/v1/gems/{name}.json",
 }
-MANIFEST = {"npm": "package.json", "pip": "requirements.txt", "rubygems": "Gemfile.lock"}
+MANIFEST = {
+    "npm": "package.json",
+    "pip": "requirements.txt",
+    "rubygems": "Gemfile.lock",
+}
 
 
 def http_status(url: str, timeout: int = 15) -> int:
@@ -50,7 +55,12 @@ def parse_npm(path: Path) -> list[str]:
         print(f"[warn] cannot parse {path}: {exc}", file=sys.stderr)
         return []
     names: set[str] = set()
-    for key in ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies"):
+    for key in (
+        "dependencies",
+        "devDependencies",
+        "optionalDependencies",
+        "peerDependencies",
+    ):
         names.update((data.get(key) or {}).keys())
     return sorted(names)
 
@@ -115,7 +125,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Dependency confusion detector")
     ap.add_argument("--path", default=".", help="Root path to scan")
     ap.add_argument("--ecosystem", choices=list(REGISTRY), required=True)
-    ap.add_argument("--secure-namespaces", default="", help="Comma-separated glob patterns")
+    ap.add_argument(
+        "--secure-namespaces", default="", help="Comma-separated glob patterns"
+    )
     ap.add_argument("--output", help="Write JSON report to this file")
     args = ap.parse_args()
 
@@ -139,13 +151,20 @@ def main() -> int:
                 continue
             status = http_status(REGISTRY[eco].format(name=encode_name(eco, name)))
             verdict = (
-                "CLAIMABLE (404 on public registry)" if status == 404
-                else "present on public registry" if status == 200
+                "CLAIMABLE (404 on public registry)"
+                if status == 404
+                else "present on public registry"
+                if status == 200
                 else f"unknown (HTTP {status})"
             )
             if status != 200:
                 findings.append(
-                    {"manifest": str(manifest), "name": name, "status": status, "verdict": verdict}
+                    {
+                        "manifest": str(manifest),
+                        "name": name,
+                        "status": status,
+                        "verdict": verdict,
+                    }
                 )
                 print(f"[!] {name}  ->  {verdict}  ({manifest})")
 
@@ -157,7 +176,9 @@ def main() -> int:
     if args.output:
         Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"[+] report written to {args.output}")
-    print(f"[+] {len(findings)} confusion candidate(s) across {len(manifests)} manifest(s)")
+    print(
+        f"[+] {len(findings)} confusion candidate(s) across {len(manifests)} manifest(s)"
+    )
     return 0
 
 

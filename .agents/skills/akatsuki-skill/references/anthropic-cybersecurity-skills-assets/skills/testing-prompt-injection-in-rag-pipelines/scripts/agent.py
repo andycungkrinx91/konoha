@@ -14,6 +14,7 @@ Examples:
   python agent.py inject --url https://t/api/chat --token T --field answer
   python agent.py embed  --query "remote work policy" --payload "ignore policy"
 """
+
 import argparse
 import json
 import sys
@@ -71,17 +72,31 @@ def run_inject(args):
     for idx, p in enumerate(payloads, 1):
         out = send_payload(args.url, args.token, p, args.field, args.timeout)
         answer = out.get("answer", "")
-        hit = any(m.lower() in answer.lower() for m in SUCCESS_MARKERS) if answer else False
+        hit = (
+            any(m.lower() in answer.lower() for m in SUCCESS_MARKERS)
+            if answer
+            else False
+        )
         status = "VULNERABLE" if hit else ("ERROR" if "error" in out else "blocked")
         print(f"  [{idx:02d}] {status:10s} :: {p[:60]}")
-        results.append({"payload": p, "answer": answer[:500],
-                        "vulnerable": hit, "error": out.get("error")})
+        results.append(
+            {
+                "payload": p,
+                "answer": answer[:500],
+                "vulnerable": hit,
+                "error": out.get("error"),
+            }
+        )
 
     vuln = sum(1 for r in results if r["vulnerable"])
     report = {
         "generated": datetime.now(timezone.utc).isoformat(),
-        "target": args.url, "total": len(results), "vulnerable": vuln,
-        "atlas": "AML.T0051", "owasp": "LLM01:2025", "results": results,
+        "target": args.url,
+        "total": len(results),
+        "vulnerable": vuln,
+        "atlas": "AML.T0051",
+        "owasp": "LLM01:2025",
+        "results": results,
     }
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:

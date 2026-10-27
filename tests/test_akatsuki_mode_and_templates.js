@@ -11,14 +11,14 @@ const {
   getAkatsukiMode,
   setRedTeamEnabled,
   loadAkatsukiConfig
-} = require('../src/akatsuki_config');
+} = require('../src/workflow/akatsuki/config');
 
 const {
   getRequiredEngine,
   provisionLab,
   stopLab,
   DEFAULT_LAB_NAME
-} = require('../src/akatsuki_lab');
+} = require('../src/workflow/akatsuki/lab');
 
 const { getSkill } = require('../src/mcp/skills_retrieval');
 const { findSkill } = require('../src/mcp/skills_search');
@@ -31,7 +31,7 @@ async function run() {
   process.env.KONOHA_AKATSUKI_CONFIG = tmpConfig;
 
   try {
-    const { getAkatsukiEnv, setAkatsukiEnv } = require('../src/akatsuki_config');
+    const { getAkatsukiEnv, setAkatsukiEnv } = require('../src/workflow/akatsuki/config');
     const defaultMode = getAkatsukiMode();
     assert.strictEqual(defaultMode, 'blue', 'Default mode must be blue');
     const defaultEnv = getAkatsukiEnv();
@@ -73,6 +73,33 @@ async function run() {
     assert.ok(fs.existsSync(dockerFile), 'Docker Dockerfile template must exist');
     assert.ok(fs.existsSync(dockerSetup), 'Docker setup.sh template must exist');
     assert.ok(fs.existsSync(dockerTeardown), 'Docker teardown.sh template must exist');
+
+    const dockerContent = fs.readFileSync(dockerFile, 'utf8');
+    const requiredDockerTools = [
+      'metasploit-framework',
+      'burpsuite',
+      'nmap',
+      'tshark',
+      'sqlmap',
+      'nikto',
+      'whatweb',
+      'feroxbuster',
+      'wpscan',
+      'testssl.sh',
+      'zaproxy',
+      'trivy',
+      'droopescan',
+      'nuclei',
+      'httpx',
+      'katana',
+      'ffuf'
+    ];
+    for (const tool of requiredDockerTools) {
+      assert.ok(
+        dockerContent.includes(tool),
+        `Dockerfile template must register tool: ${tool}`
+      );
+    }
 
     const mockRunner = (cmd, args) => ({ status: 0, stdout: 'ok', stderr: '' });
     const provMock = provisionLab('akatsuki-lab', 'lxc', {

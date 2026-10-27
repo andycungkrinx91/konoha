@@ -13,6 +13,7 @@ import re
 
 try:
     from pycti import OpenCTIApiClient
+
     HAS_PYCTI = True
 except ImportError:
     HAS_PYCTI = False
@@ -51,7 +52,9 @@ def enrich_indicator(client, indicator_value):
             "valid_from": ind.get("valid_from"),
             "valid_until": ind.get("valid_until"),
             "score": ind.get("x_opencti_score"),
-            "created_by": ind.get("createdBy", {}).get("name", "Unknown") if ind.get("createdBy") else "Unknown",
+            "created_by": ind.get("createdBy", {}).get("name", "Unknown")
+            if ind.get("createdBy")
+            else "Unknown",
             "labels": [l.get("value") for l in ind.get("objectLabel", [])],
             "kill_chain_phases": [
                 f"{k.get('kill_chain_name')}:{k.get('phase_name')}"
@@ -80,7 +83,9 @@ def enrich_observable(client, observable_value):
             "value": obs.get("observable_value"),
             "score": obs.get("x_opencti_score"),
             "labels": [l.get("value") for l in obs.get("objectLabel", [])],
-            "created_by": obs.get("createdBy", {}).get("name", "Unknown") if obs.get("createdBy") else "Unknown",
+            "created_by": obs.get("createdBy", {}).get("name", "Unknown")
+            if obs.get("createdBy")
+            else "Unknown",
         }
         enriched.append(entry)
     return enriched
@@ -96,12 +101,16 @@ def get_relationships(client, entity_id, relationship_type=None):
         "filterGroups": [],
     }
     if relationship_type:
-        filters["filters"].append({"key": "relationship_type", "values": [relationship_type]})
+        filters["filters"].append(
+            {"key": "relationship_type", "values": [relationship_type]}
+        )
     rels = client.stix_core_relationship.list(filters=filters)
     return [
         {
             "type": r.get("relationship_type"),
-            "target": r.get("to", {}).get("name", r.get("to", {}).get("observable_value", "?")),
+            "target": r.get("to", {}).get(
+                "name", r.get("to", {}).get("observable_value", "?")
+            ),
             "confidence": r.get("confidence"),
             "start_time": r.get("start_time"),
         }
@@ -131,7 +140,13 @@ def build_enrichment_report(client, iocs):
     report = {"timestamp": datetime.datetime.utcnow().isoformat() + "Z", "iocs": []}
     for ioc in iocs:
         ioc_type = classify_ioc(ioc)
-        entry = {"value": ioc, "type": ioc_type, "indicators": [], "observables": [], "relationships": []}
+        entry = {
+            "value": ioc,
+            "type": ioc_type,
+            "indicators": [],
+            "observables": [],
+            "relationships": [],
+        }
         if client:
             entry["indicators"] = enrich_indicator(client, ioc)
             entry["observables"] = enrich_observable(client, ioc)
@@ -149,7 +164,11 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"  pycti available: {HAS_PYCTI}")
 
-    demo_iocs = ["198.51.100.42", "evil-domain.example.com", "d41d8cd98f00b204e9800998ecf8427e"]
+    demo_iocs = [
+        "198.51.100.42",
+        "evil-domain.example.com",
+        "d41d8cd98f00b204e9800998ecf8427e",
+    ]
     if len(sys.argv) > 1:
         demo_iocs = sys.argv[1:]
 

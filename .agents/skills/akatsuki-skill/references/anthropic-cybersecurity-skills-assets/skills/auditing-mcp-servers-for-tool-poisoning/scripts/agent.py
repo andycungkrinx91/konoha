@@ -13,6 +13,7 @@ Examples:
   python agent.py static --config ~/.cursor/mcp.json
   python agent.py enum --command node --args ./suspect-mcp-server.js
 """
+
 import argparse
 import json
 import re
@@ -48,26 +49,38 @@ def heuristic_flags(description: str):
 
 
 def run_static(args):
-    findings = {"ts": datetime.now(timezone.utc).isoformat(),
-                "config": args.config, "atlas": "AML.T0010", "scanner": None,
-                "heuristic": []}
+    findings = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "config": args.config,
+        "atlas": "AML.T0010",
+        "scanner": None,
+        "heuristic": [],
+    }
 
     # 1. Invoke mcp-scan if available
     runner = shutil.which("uvx") or shutil.which("mcp-scan")
     if runner:
-        cmd = ([runner, "mcp-scan@latest", "--json", args.config]
-               if "uvx" in runner else [runner, "--json", args.config])
+        cmd = (
+            [runner, "mcp-scan@latest", "--json", args.config]
+            if "uvx" in runner
+            else [runner, "--json", args.config]
+        )
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
             try:
                 findings["scanner"] = json.loads(res.stdout)
             except json.JSONDecodeError:
-                findings["scanner"] = {"raw": res.stdout[:4000], "stderr": res.stderr[:1000]}
+                findings["scanner"] = {
+                    "raw": res.stdout[:4000],
+                    "stderr": res.stderr[:1000],
+                }
         except subprocess.TimeoutExpired:
             findings["scanner"] = {"error": "mcp-scan timed out"}
     else:
-        findings["scanner"] = {"error": "uvx/mcp-scan not found; install uv: "
-                                        "curl -LsSf https://astral.sh/uv/install.sh | sh"}
+        findings["scanner"] = {
+            "error": "uvx/mcp-scan not found; install uv: "
+            "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        }
 
     # 2. Local heuristic scan of any descriptions embedded in the config
     try:
@@ -108,21 +121,26 @@ def run_enum(args):
 
     async def _enum():
         params = StdioServerParameters(command=args.command, args=args.args or [])
-        out = {"ts": datetime.now(timezone.utc).isoformat(),
-               "server": f"{args.command} {' '.join(args.args or [])}",
-               "atlas": "AML.T0010", "tools": []}
+        out = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "server": f"{args.command} {' '.join(args.args or [])}",
+            "atlas": "AML.T0010",
+            "tools": [],
+        }
         async with stdio_client(params) as (r, w):
             async with ClientSession(r, w) as s:
                 await s.initialize()
                 tools = await s.list_tools()
                 for t in tools.tools:
                     flags = heuristic_flags(t.description or "")
-                    out["tools"].append({
-                        "name": t.name,
-                        "desc_len": len(t.description or ""),
-                        "flags": flags,
-                        "verdict": "POISONED?" if flags else "clean",
-                    })
+                    out["tools"].append(
+                        {
+                            "name": t.name,
+                            "desc_len": len(t.description or ""),
+                            "flags": flags,
+                            "verdict": "POISONED?" if flags else "clean",
+                        }
+                    )
         print(json.dumps(out, indent=2))
         return out
 

@@ -11,6 +11,7 @@ Collects:
 Emits a JSON report and a human-readable summary. Read-only by default.
 Authorized assessment use only; run from a trusted/live environment.
 """
+
 import argparse
 import glob
 import hashlib
@@ -72,7 +73,9 @@ def dbx_status() -> dict:
         info["dbxtool_entries"] = len(lines)
         info["sample"] = lines[:5]
         if len(lines) < 50:
-            info["warning"] = "low dbx entry count; platform may be behind on revocations"
+            info["warning"] = (
+                "low dbx entry count; platform may be behind on revocations"
+            )
     elif shutil.which("efi-readvar"):
         rc, out, err = run(["efi-readvar", "-v", "dbx"])
         info["efi_readvar_dbx_excerpt"] = out[:800]
@@ -89,7 +92,9 @@ def hash_esp_binaries() -> list[dict]:
     for path in Path(base).rglob("*.efi"):
         try:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            results.append({"file": str(path), "sha256": digest, "size": path.stat().st_size})
+            results.append(
+                {"file": str(path), "sha256": digest, "size": path.stat().st_size}
+            )
         except OSError as exc:
             results.append({"file": str(path), "error": str(exc)})
     return results
@@ -98,19 +103,29 @@ def hash_esp_binaries() -> list[dict]:
 def chipsec_secureboot() -> dict:
     if not shutil.which("chipsec_main"):
         return {"error": "chipsec_main not installed"}
-    rc, out, err = run(["chipsec_main", "-m", "common.secureboot.variables"], timeout=600)
-    verdict = "PASSED" if "PASSED" in out else "FAILED" if "FAILED" in out else "UNKNOWN"
+    rc, out, err = run(
+        ["chipsec_main", "-m", "common.secureboot.variables"], timeout=600
+    )
+    verdict = (
+        "PASSED" if "PASSED" in out else "FAILED" if "FAILED" in out else "UNKNOWN"
+    )
     return {"verdict": verdict, "tail": out[-1200:]}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Secure Boot / bootkit assessment")
-    ap.add_argument("--check-chipsec", action="store_true", help="Run CHIPSEC secureboot module (root)")
+    ap.add_argument(
+        "--check-chipsec",
+        action="store_true",
+        help="Run CHIPSEC secureboot module (root)",
+    )
     ap.add_argument("--output", help="Write JSON report")
     args = ap.parse_args()
 
     if platform.system() == "Linux" and os.geteuid() != 0:
-        print("[warn] not running as root; some checks may be incomplete", file=sys.stderr)
+        print(
+            "[warn] not running as root; some checks may be incomplete", file=sys.stderr
+        )
 
     report = {
         "secure_boot": secure_boot_state(),
@@ -123,12 +138,18 @@ def main() -> int:
     sb = report["secure_boot"]
     print(f"[+] Secure Boot enabled: {sb.get('enabled')}")
     if not sb.get("enabled"):
-        print("[!] Secure Boot is NOT enabled — platform is unprotected against bootkits")
+        print(
+            "[!] Secure Boot is NOT enabled — platform is unprotected against bootkits"
+        )
     if "warning" in report["dbx"]:
         print(f"[!] dbx: {report['dbx']['warning']}")
-    print(f"[+] {len([b for b in report['esp_binaries'] if 'sha256' in b])} EFI binaries hashed")
+    print(
+        f"[+] {len([b for b in report['esp_binaries'] if 'sha256' in b])} EFI binaries hashed"
+    )
     if args.check_chipsec:
-        print(f"[+] CHIPSEC secureboot.variables: {report['chipsec_secureboot_variables'].get('verdict')}")
+        print(
+            f"[+] CHIPSEC secureboot.variables: {report['chipsec_secureboot_variables'].get('verdict')}"
+        )
 
     if args.output:
         Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")

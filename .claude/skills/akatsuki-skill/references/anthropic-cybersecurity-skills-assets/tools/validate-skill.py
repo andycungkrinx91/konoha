@@ -221,10 +221,12 @@ def validate_skill(skill_dir):
     if fm is None:
         return ["No valid YAML frontmatter found (must start with ---)"]
 
+    # Check required fields.
     for field in REQUIRED_FIELDS:
         if field not in fm:
             errors.append(f"Missing required field: {field}")
 
+    # Validate name.
     name = fm.get("name", "")
     if name:
         if not KEBAB_RE.match(name):
@@ -234,6 +236,7 @@ def validate_skill(skill_dir):
         if len(name) > 64:
             errors.append(f"Name too long ({len(name)} chars, max 64)")
 
+    # Validate description.
     desc = fm.get("description", "")
     if isinstance(desc, list):
         errors.append("Description must be a string value, not a list")
@@ -245,10 +248,12 @@ def validate_skill(skill_dir):
         # No hard upper-limit enforced; multi-line folded scalars (>-) produce
         # long strings that are valid and common in this repo.
 
+    # Validate domain.
     domain = fm.get("domain", "")
     if domain and domain != "cybersecurity":
         errors.append(f"Domain must be 'cybersecurity', got '{domain}'")
 
+    # Validate subdomain.
     subdomain = fm.get("subdomain", "")
     if subdomain:
         if subdomain not in ALLOWED_SUBDOMAINS:
@@ -264,6 +269,7 @@ def validate_skill(skill_dir):
                     f" canonical form is '{canonical}'"
                 )
 
+    # Validate tags.
     tags = fm.get("tags", [])
     if isinstance(tags, str):
         tags = [tags]

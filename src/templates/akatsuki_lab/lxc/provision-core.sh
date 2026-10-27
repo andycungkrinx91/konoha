@@ -10,6 +10,13 @@ apt-get install -y --no-install-recommends \
   libpcap-dev \
   postgresql \
   nmap \
+  tshark \
+  nikto \
+  whatweb \
+  burpsuite \
+  testssl.sh \
+  trivy \
+  zaproxy \
   sqlite3 \
   golang \
   python3 \

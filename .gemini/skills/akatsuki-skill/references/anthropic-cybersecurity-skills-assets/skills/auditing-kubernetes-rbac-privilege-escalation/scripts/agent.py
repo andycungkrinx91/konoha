@@ -48,8 +48,12 @@ def _kubectl(args):
 
 
 def list_service_accounts(namespace=None):
-    args = ["get", "serviceaccounts", "-o",
-            "jsonpath={range .items[*]}{.metadata.namespace}/{.metadata.name}{\"\\n\"}{end}"]
+    args = [
+        "get",
+        "serviceaccounts",
+        "-o",
+        'jsonpath={range .items[*]}{.metadata.namespace}/{.metadata.name}{"\\n"}{end}',
+    ]
     if namespace:
         args += ["-n", namespace]
     else:
@@ -67,7 +71,9 @@ def can_i(verb, resource, subject=None, all_ns=True):
     if all_ns:
         args.append("--all-namespaces")
     if subject:
-        args.append(f"--as=system:serviceaccount:{subject.split('/')[0]}:{subject.split('/')[1]}")
+        args.append(
+            f"--as=system:serviceaccount:{subject.split('/')[0]}:{subject.split('/')[1]}"
+        )
     rc, out, _ = _kubectl(args)
     return out.strip() == "yes"
 
@@ -79,21 +85,26 @@ def audit_subject(subject):
             findings.append({"verb": verb, "resource": resource})
     severity = "none"
     flat = {(f["verb"], f["resource"]) for f in findings}
-    if ("*", "*") in flat or ("escalate", "roles") in flat or \
-            ("bind", "clusterroles") in flat or ("impersonate", "users") in flat:
+    if (
+        ("*", "*") in flat
+        or ("escalate", "roles") in flat
+        or ("bind", "clusterroles") in flat
+        or ("impersonate", "users") in flat
+    ):
         severity = "critical"
-    elif ("create", "pods") in flat or ("list", "secrets") in flat or \
-            ("create", "serviceaccounts/token") in flat:
+    elif (
+        ("create", "pods") in flat
+        or ("list", "secrets") in flat
+        or ("create", "serviceaccounts/token") in flat
+    ):
         severity = "high"
     elif findings:
         severity = "medium"
-    return {"subject": subject, "severity": severity,
-            "dangerous_permissions": findings}
+    return {"subject": subject, "severity": severity, "dangerous_permissions": findings}
 
 
 def cluster_admin_bindings():
-    rc, out, _ = _kubectl([
-        "get", "clusterrolebindings", "-o", "json"])
+    rc, out, _ = _kubectl(["get", "clusterrolebindings", "-o", "json"])
     if rc != 0:
         return []
     try:
@@ -103,18 +114,21 @@ def cluster_admin_bindings():
     result = []
     for item in data.get("items", []):
         if item.get("roleRef", {}).get("name") == "cluster-admin":
-            subs = [f"{s.get('kind')}:{s.get('name')}"
-                    for s in (item.get("subjects") or [])]
+            subs = [
+                f"{s.get('kind')}:{s.get('name')}" for s in (item.get("subjects") or [])
+            ]
             result.append({"binding": item["metadata"]["name"], "subjects": subs})
     return result
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Audit Kubernetes RBAC for privilege-escalation paths")
+        description="Audit Kubernetes RBAC for privilege-escalation paths"
+    )
     ap.add_argument("-n", "--namespace", help="limit to one namespace")
-    ap.add_argument("-s", "--subject",
-                    help="audit a single subject NS/SA instead of all")
+    ap.add_argument(
+        "-s", "--subject", help="audit a single subject NS/SA instead of all"
+    )
     ap.add_argument("-o", "--output", help="write JSON report to file")
     args = ap.parse_args()
 
@@ -140,8 +154,9 @@ def main():
         r = audit_subject(subj)
         results.append(r)
         if r["severity"] != "none":
-            perms = ", ".join(f"{f['verb']} {f['resource']}"
-                              for f in r["dangerous_permissions"])
+            perms = ", ".join(
+                f"{f['verb']} {f['resource']}" for f in r["dangerous_permissions"]
+            )
             print(f"  [{r['severity'].upper():8}] {subj}: {perms}")
 
     report = {

@@ -1,6 +1,6 @@
 # Skill Guardian Security Engine
 
-The Skill Guardian (`src/skill_guardian.js`) is Konoha's perimeter defense system that inspects all skills, plugins, and custom agent extensions before installation and execution.
+The Skill Guardian (`src/workflow/kage-reviewer/skill_guardian.js`) is Konoha's perimeter defense system that inspects all skills, plugins, and custom agent extensions before installation and execution.
 
 ## Core Rules & Risk Scores
 

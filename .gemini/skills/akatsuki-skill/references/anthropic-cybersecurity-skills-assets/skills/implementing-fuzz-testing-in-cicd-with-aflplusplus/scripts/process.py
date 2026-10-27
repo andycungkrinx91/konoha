@@ -28,7 +28,13 @@ def parse_fuzzer_stats(stats_file: str) -> dict:
 def count_files_in_dir(directory: str) -> int:
     if not os.path.isdir(directory):
         return 0
-    return len([f for f in os.listdir(directory) if f != "README.txt" and os.path.isfile(os.path.join(directory, f))])
+    return len(
+        [
+            f
+            for f in os.listdir(directory)
+            if f != "README.txt" and os.path.isfile(os.path.join(directory, f))
+        ]
+    )
 
 
 def analyze_fuzzer_instance(instance_dir: str) -> dict:
@@ -63,12 +69,14 @@ def collect_crash_info(instance_dir: str) -> list:
             continue
         fpath = os.path.join(crashes_dir, fname)
         if os.path.isfile(fpath):
-            crashes.append({
-                "file": fname,
-                "path": fpath,
-                "size": os.path.getsize(fpath),
-                "instance": os.path.basename(instance_dir),
-            })
+            crashes.append(
+                {
+                    "file": fname,
+                    "path": fpath,
+                    "size": os.path.getsize(fpath),
+                    "instance": os.path.basename(instance_dir),
+                }
+            )
     return crashes
 
 
@@ -88,7 +96,9 @@ def analyze_campaign(findings_dir: str) -> dict:
     instance_dirs = []
     for entry in sorted(os.listdir(findings_dir)):
         full_path = os.path.join(findings_dir, entry)
-        if os.path.isdir(full_path) and os.path.exists(os.path.join(full_path, "fuzzer_stats")):
+        if os.path.isdir(full_path) and os.path.exists(
+            os.path.join(full_path, "fuzzer_stats")
+        ):
             instance_dirs.append(full_path)
 
     if not instance_dirs:
@@ -116,26 +126,28 @@ def analyze_campaign(findings_dir: str) -> dict:
 
 
 def print_report(report: dict) -> None:
-    print(f"\n{'='*60}")
-    print(f"AFL++ Fuzzing Campaign Report")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("AFL++ Fuzzing Campaign Report")
+    print(f"{'=' * 60}")
     print(f"Findings directory: {report['findings_dir']}")
     print(f"Analyzed at: {report['analyzed_at']}")
     print(f"Fuzzer instances: {len(report['instances'])}")
-    print(f"\nAggregate Statistics:")
+    print("\nAggregate Statistics:")
     print(f"  Total executions: {report['total_execs']:,}")
     print(f"  Avg exec/sec: {report['avg_execs_per_sec']:,.1f}")
     print(f"  Total corpus entries: {report['total_corpus']}")
     print(f"  Total unique crashes: {report['total_crashes']}")
     print(f"  Total hangs: {report['total_hangs']}")
 
-    print(f"\nInstance Details:")
+    print("\nInstance Details:")
     for inst in report["instances"]:
-        print(f"  {inst['name']:20s} | Execs: {inst['execs_done']:>12,} | "
-              f"Speed: {inst['execs_per_sec']:>8.1f}/s | "
-              f"Crashes: {inst['crashes_total']:3d} | "
-              f"Corpus: {inst['corpus_count']:5d} | "
-              f"Cycles: {inst['cycles_done']}")
+        print(
+            f"  {inst['name']:20s} | Execs: {inst['execs_done']:>12,} | "
+            f"Speed: {inst['execs_per_sec']:>8.1f}/s | "
+            f"Crashes: {inst['crashes_total']:3d} | "
+            f"Corpus: {inst['corpus_count']:5d} | "
+            f"Cycles: {inst['cycles_done']}"
+        )
 
     if report["all_crashes"]:
         print(f"\nCrash Files ({len(report['all_crashes'])} total):")

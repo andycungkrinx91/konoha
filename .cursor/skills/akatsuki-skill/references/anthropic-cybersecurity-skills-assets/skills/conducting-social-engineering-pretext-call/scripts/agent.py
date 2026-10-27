@@ -55,17 +55,19 @@ def create_call_tracking_sheet(targets):
     """Create tracking sheet for pretext calls."""
     tracking = []
     for target in targets:
-        tracking.append({
-            "name": target.get("name", ""),
-            "phone": target.get("phone", ""),
-            "department": target.get("department", ""),
-            "pretext": target.get("pretext", "IT Help Desk"),
-            "status": "pending",
-            "result": None,
-            "info_obtained": [],
-            "call_duration": None,
-            "notes": "",
-        })
+        tracking.append(
+            {
+                "name": target.get("name", ""),
+                "phone": target.get("phone", ""),
+                "department": target.get("department", ""),
+                "pretext": target.get("pretext", "IT Help Desk"),
+                "status": "pending",
+                "result": None,
+                "info_obtained": [],
+                "call_duration": None,
+                "notes": "",
+            }
+        )
     return tracking
 
 
@@ -89,10 +91,10 @@ def analyze_results(call_results):
 
 def run_planning(targets_file=None, results_file=None):
     """Execute pretext call planning and analysis."""
-    print(f"\n{'='*60}")
-    print(f"  SOCIAL ENGINEERING PRETEXT CALL PLANNER")
+    print(f"\n{'=' * 60}")
+    print("  SOCIAL ENGINEERING PRETEXT CALL PLANNER")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     templates = generate_pretext_templates()
     print(f"--- PRETEXT TEMPLATES ({len(templates)}) ---")
@@ -113,7 +115,7 @@ def run_planning(targets_file=None, results_file=None):
         with open(results_file, "r") as f:
             results = json.load(f)
         metrics = analyze_results(results)
-        print(f"\n--- CAMPAIGN METRICS ---")
+        print("\n--- CAMPAIGN METRICS ---")
         for k, v in metrics.items():
             print(f"  {k}: {v}")
 

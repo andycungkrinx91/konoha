@@ -36,8 +36,9 @@ class PrismaAccessClient:
 
     def _get(self, path, params=None):
         headers = {"Authorization": f"Bearer {self.token}"}
-        resp = requests.get(f"{self.base_url}{path}", headers=headers,
-                            params=params, timeout=15)
+        resp = requests.get(
+            f"{self.base_url}{path}", headers=headers, params=params, timeout=15
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -68,26 +69,30 @@ def audit_security_rules(rules):
             src = rule.get("source", [])
             dst = rule.get("destination", [])
             if "any" in src and "any" in dst:
-                findings.append({
-                    "rule": rule.get("name", ""),
-                    "issue": "Allow-any-to-any rule detected",
-                    "severity": "HIGH",
-                })
+                findings.append(
+                    {
+                        "rule": rule.get("name", ""),
+                        "issue": "Allow-any-to-any rule detected",
+                        "severity": "HIGH",
+                    }
+                )
         if not rule.get("log_end", False):
-            findings.append({
-                "rule": rule.get("name", ""),
-                "issue": "Logging not enabled on rule",
-                "severity": "MEDIUM",
-            })
+            findings.append(
+                {
+                    "rule": rule.get("name", ""),
+                    "issue": "Logging not enabled on rule",
+                    "severity": "MEDIUM",
+                }
+            )
     return findings
 
 
 def run_audit(tsg_id, client_id, client_secret):
     """Execute Prisma Access zero trust audit."""
-    print(f"\n{'='*60}")
-    print(f"  PRISMA ACCESS ZERO TRUST AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  PRISMA ACCESS ZERO TRUST AUDIT")
     print(f"  Generated: {datetime.utcnow().isoformat()} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     client = PrismaAccessClient(tsg_id, client_id, client_secret)
     report = {}

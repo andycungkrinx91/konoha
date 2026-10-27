@@ -8,6 +8,7 @@ All commands are real velociraptor subcommands.
 
 Reference: https://docs.velociraptor.app/
 """
+
 import argparse
 import json
 import shutil
@@ -76,8 +77,10 @@ def validate_artifact(path):
         for e in errors:
             print(f"[!] {e}", file=sys.stderr)
         return 1
-    print(f"[+] Artifact '{doc['name']}' is structurally valid "
-          f"({len(sources)} source(s)).")
+    print(
+        f"[+] Artifact '{doc['name']}' is structurally valid "
+        f"({len(sources)} source(s))."
+    )
     return 0
 
 
@@ -87,14 +90,16 @@ def scaffold(name, regex):
         "name": name,
         "description": "Auto-generated fleet hunt artifact.",
         "parameters": [{"name": "regex", "default": regex}],
-        "sources": [{
-            "query": (
-                "SELECT Pid, Name, CommandLine, "
-                "timestamp(epoch=now()) AS Collected\n"
-                "FROM pslist()\n"
-                "WHERE Name =~ \"powershell\" AND CommandLine =~ regex\n"
-            )
-        }],
+        "sources": [
+            {
+                "query": (
+                    "SELECT Pid, Name, CommandLine, "
+                    "timestamp(epoch=now()) AS Collected\n"
+                    "FROM pslist()\n"
+                    'WHERE Name =~ "powershell" AND CommandLine =~ regex\n'
+                )
+            }
+        ],
     }
     if yaml:
         print(yaml.safe_dump(doc, sort_keys=False))
@@ -109,8 +114,7 @@ def _exec(cmd, dry_run, capture):
         return 0
     try:
         if capture:
-            proc = subprocess.run(cmd, check=False, text=True,
-                                  capture_output=True)
+            proc = subprocess.run(cmd, check=False, text=True, capture_output=True)
             if proc.stdout:
                 print(proc.stdout)
             if proc.returncode != 0 and proc.stderr:
@@ -143,8 +147,9 @@ def main():
 
     s = sub.add_parser("scaffold", help="Emit a custom hunt artifact")
     s.add_argument("--name", default="Custom.Hunt.SuspiciousPowershell")
-    s.add_argument("--regex",
-                   default="(?i)(-enc|frombase64string|downloadstring|-w hidden|iex)")
+    s.add_argument(
+        "--regex", default="(?i)(-enc|frombase64string|downloadstring|-w hidden|iex)"
+    )
 
     args = p.parse_args()
 

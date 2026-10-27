@@ -39,30 +39,44 @@ def enable_database_secrets_engine(client, path="database"):
         return {"error": str(e)}
 
 
-def configure_postgres_connection(client, name, connection_url, username, password,
-                                  path="database"):
+def configure_postgres_connection(
+    client, name, connection_url, username, password, path="database"
+):
     """Configure a PostgreSQL database connection in Vault."""
     try:
         client.secrets.database.configure(
-            name=name, plugin_name="postgresql-database-plugin",
+            name=name,
+            plugin_name="postgresql-database-plugin",
             connection_url=connection_url,
             allowed_roles=["*"],
-            username=username, password=password,
-            mount_point=path)
+            username=username,
+            password=password,
+            mount_point=path,
+        )
         return {"connection": name, "status": "configured"}
     except VaultError as e:
         return {"error": str(e)}
 
 
-def create_database_role(client, role_name, db_name, creation_statements,
-                         default_ttl="1h", max_ttl="24h", path="database"):
+def create_database_role(
+    client,
+    role_name,
+    db_name,
+    creation_statements,
+    default_ttl="1h",
+    max_ttl="24h",
+    path="database",
+):
     """Create a dynamic database role for credential generation."""
     try:
         client.secrets.database.create_role(
-            name=role_name, db_name=db_name,
+            name=role_name,
+            db_name=db_name,
             creation_statements=creation_statements,
-            default_ttl=default_ttl, max_ttl=max_ttl,
-            mount_point=path)
+            default_ttl=default_ttl,
+            max_ttl=max_ttl,
+            mount_point=path,
+        )
         return {"role": role_name, "ttl": default_ttl, "status": "created"}
     except VaultError as e:
         return {"error": str(e)}
@@ -72,7 +86,8 @@ def generate_database_credentials(client, role_name, path="database"):
     """Generate dynamic database credentials for a role."""
     try:
         resp = client.secrets.database.generate_credentials(
-            name=role_name, mount_point=path)
+            name=role_name, mount_point=path
+        )
         return {
             "username": resp["data"]["username"],
             "password": resp["data"]["password"],
@@ -99,21 +114,33 @@ def configure_aws_root(client, access_key, secret_key, region="us-east-1", path=
     """Configure AWS root credentials for dynamic IAM generation."""
     try:
         client.secrets.aws.configure_root_iam_credentials(
-            access_key=access_key, secret_key=secret_key, region=region,
-            mount_point=path)
+            access_key=access_key,
+            secret_key=secret_key,
+            region=region,
+            mount_point=path,
+        )
         return {"status": "configured", "region": region}
     except VaultError as e:
         return {"error": str(e)}
 
 
-def create_aws_role(client, role_name, policy_arns, credential_type="iam_user",
-                    default_ttl="1h", path="aws"):
+def create_aws_role(
+    client,
+    role_name,
+    policy_arns,
+    credential_type="iam_user",
+    default_ttl="1h",
+    path="aws",
+):
     """Create an AWS dynamic role for generating IAM credentials."""
     try:
         client.secrets.aws.create_or_update_role(
-            name=role_name, credential_type=credential_type,
-            policy_arns=policy_arns, default_sts_ttl=default_ttl,
-            mount_point=path)
+            name=role_name,
+            credential_type=credential_type,
+            policy_arns=policy_arns,
+            default_sts_ttl=default_ttl,
+            mount_point=path,
+        )
         return {"role": role_name, "type": credential_type, "status": "created"}
     except VaultError as e:
         return {"error": str(e)}
@@ -122,8 +149,7 @@ def create_aws_role(client, role_name, policy_arns, credential_type="iam_user",
 def generate_aws_credentials(client, role_name, path="aws"):
     """Generate dynamic AWS credentials for a role."""
     try:
-        resp = client.secrets.aws.generate_credentials(
-            name=role_name, mount_point=path)
+        resp = client.secrets.aws.generate_credentials(name=role_name, mount_point=path)
         return {
             "access_key": resp["data"]["access_key"],
             "secret_key": resp["data"]["secret_key"],
@@ -167,36 +193,40 @@ def revoke_lease(client, lease_id):
 
 def run_vault_audit(client):
     """Run Vault dynamic secrets audit."""
-    print(f"\n{'='*60}")
-    print(f"  HASHICORP VAULT DYNAMIC SECRETS AUDIT")
+    print(f"\n{'=' * 60}")
+    print("  HASHICORP VAULT DYNAMIC SECRETS AUDIT")
     print(f"  Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     health = client.sys.read_health_status(method="GET")
-    print(f"--- VAULT STATUS ---")
+    print("--- VAULT STATUS ---")
     print(f"  Initialized: {health.get('initialized')}")
     print(f"  Sealed: {health.get('sealed')}")
     print(f"  Version: {health.get('version')}")
 
     mounts = client.sys.list_mounted_secrets_engines()
-    print(f"\n--- SECRETS ENGINES ---")
+    print("\n--- SECRETS ENGINES ---")
     for path, config in mounts.get("data", mounts).items():
         if isinstance(config, dict):
             print(f"  {path}: {config.get('type', 'unknown')}")
 
     auth_methods = client.sys.list_auth_methods()
-    print(f"\n--- AUTH METHODS ---")
+    print("\n--- AUTH METHODS ---")
     for path, config in auth_methods.get("data", auth_methods).items():
         if isinstance(config, dict):
             print(f"  {path}: {config.get('type', 'unknown')}")
 
-    print(f"\n{'='*60}\n")
+    print(f"\n{'=' * 60}\n")
     return {"sealed": health.get("sealed"), "version": health.get("version")}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HashiCorp Vault Dynamic Secrets Agent")
-    parser.add_argument("--vault-url", default="http://127.0.0.1:8200", help="Vault URL")
+    parser = argparse.ArgumentParser(
+        description="HashiCorp Vault Dynamic Secrets Agent"
+    )
+    parser.add_argument(
+        "--vault-url", default="http://127.0.0.1:8200", help="Vault URL"
+    )
     parser.add_argument("--token", help="Vault token")
     parser.add_argument("--role-id", help="AppRole role ID")
     parser.add_argument("--secret-id", help="AppRole secret ID")

@@ -39,7 +39,9 @@ def get_jail_status(jail_name):
     try:
         result = subprocess.run(
             [FAIL2BAN_CLIENT, "status", jail_name],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             return {"error": result.stderr.strip()}
@@ -68,7 +70,9 @@ def ban_ip(ip_address, jail_name="sshd"):
     try:
         result = subprocess.run(
             [FAIL2BAN_CLIENT, "set", jail_name, "banip", ip_address],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return {
             "action": "ban",
@@ -86,7 +90,9 @@ def unban_ip(ip_address, jail_name="sshd"):
     try:
         result = subprocess.run(
             [FAIL2BAN_CLIENT, "set", jail_name, "unbanip", ip_address],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return {
             "action": "unban",
@@ -115,16 +121,18 @@ def parse_fail2ban_log(log_path=None, limit=5000):
             if i > limit:
                 break
             if "Ban " in line:
-                ip_match = re.search(r'Ban\s+(\d+\.\d+\.\d+\.\d+)', line)
-                jail_match = re.search(r'\[([^\]]+)\]', line)
+                ip_match = re.search(r"Ban\s+(\d+\.\d+\.\d+\.\d+)", line)
+                jail_match = re.search(r"\[([^\]]+)\]", line)
                 if ip_match:
                     ip = ip_match.group(1)
                     jail = jail_match.group(1) if jail_match else "unknown"
                     bans[ip] += 1
                     jails[jail] += 1
-                    recent_bans.append({"ip": ip, "jail": jail, "line": line.strip()[:200]})
+                    recent_bans.append(
+                        {"ip": ip, "jail": jail, "line": line.strip()[:200]}
+                    )
             elif "Unban " in line:
-                ip_match = re.search(r'Unban\s+(\d+\.\d+\.\d+\.\d+)', line)
+                ip_match = re.search(r"Unban\s+(\d+\.\d+\.\d+\.\d+)", line)
                 if ip_match:
                     unbans[ip_match.group(1)] += 1
 
@@ -151,14 +159,14 @@ def parse_auth_log_ssh(log_path=None):
     with open(log_path, "r") as f:
         for line in f:
             if "Failed password" in line or "Failed publickey" in line:
-                ip_match = re.search(r'from\s+(\d+\.\d+\.\d+\.\d+)', line)
-                user_match = re.search(r'for\s+(?:invalid\s+user\s+)?(\S+)', line)
+                ip_match = re.search(r"from\s+(\d+\.\d+\.\d+\.\d+)", line)
+                user_match = re.search(r"for\s+(?:invalid\s+user\s+)?(\S+)", line)
                 if ip_match:
                     failed_ips[ip_match.group(1)] += 1
                 if user_match:
                     failed_users[user_match.group(1)] += 1
             elif "Accepted password" in line or "Accepted publickey" in line:
-                ip_match = re.search(r'from\s+(\d+\.\d+\.\d+\.\d+)', line)
+                ip_match = re.search(r"from\s+(\d+\.\d+\.\d+\.\d+)", line)
                 if ip_match:
                     success_ips[ip_match.group(1)] += 1
 
@@ -181,14 +189,16 @@ def detect_port_scan_from_logs(log_path=None):
     with open(log_path, "r") as f:
         for line in f:
             if "UFW BLOCK" in line or "iptables" in line.lower():
-                ip_match = re.search(r'SRC=(\d+\.\d+\.\d+\.\d+)', line)
+                ip_match = re.search(r"SRC=(\d+\.\d+\.\d+\.\d+)", line)
                 if ip_match:
                     scanners[ip_match.group(1)] += 1
 
     port_scanners = {ip: count for ip, count in scanners.items() if count > 20}
     return {
         "potential_scanners": len(port_scanners),
-        "scanner_ips": sorted(port_scanners.items(), key=lambda x: x[1], reverse=True)[:20],
+        "scanner_ips": sorted(port_scanners.items(), key=lambda x: x[1], reverse=True)[
+            :20
+        ],
     }
 
 
@@ -222,4 +232,6 @@ if __name__ == "__main__":
     elif action == "ssh":
         print(json.dumps(parse_auth_log_ssh(), indent=2))
     else:
-        print("Usage: agent.py [report|status|jail <name>|ban <ip> [jail]|unban <ip> [jail]|bans|ssh]")
+        print(
+            "Usage: agent.py [report|status|jail <name>|ban <ip> [jail]|unban <ip> [jail]|bans|ssh]"
+        )

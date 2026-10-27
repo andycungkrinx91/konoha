@@ -12,7 +12,6 @@ from typing import List
 try:
     import requests
 except ImportError:
-    import sys; sys.exit("requests is required: pip install requests")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)

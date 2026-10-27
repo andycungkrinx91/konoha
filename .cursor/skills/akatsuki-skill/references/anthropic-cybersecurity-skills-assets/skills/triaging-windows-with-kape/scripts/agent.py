@@ -12,6 +12,7 @@ a pure command generator on any platform (--dry-run).
 
 Reference: https://ericzimmerman.github.io/KapeDocs/
 """
+
 import argparse
 import csv
 import hashlib
@@ -21,8 +22,18 @@ import sys
 from pathlib import Path
 
 
-def build_collect_cmd(kape, tsource, target, tdest, vss=False, container=None,
-                      tflush=False, module=None, mdest=None, mflush=False):
+def build_collect_cmd(
+    kape,
+    tsource,
+    target,
+    tdest,
+    vss=False,
+    container=None,
+    tflush=False,
+    module=None,
+    mdest=None,
+    mflush=False,
+):
     """Construct a KAPE target (and optional module) command as an argv list."""
     if not tsource or not target or not tdest:
         raise ValueError("collection requires --tsource, --target and --tdest")
@@ -70,7 +81,11 @@ def verify_copylog(copylog_path):
         reader = csv.DictReader(fh)
         # KAPE CopyLog columns vary; look for dest path + sha1 columns flexibly
         for row in reader:
-            dest = row.get("DestinationFile") or row.get("CopiedTo") or row.get("Destination")
+            dest = (
+                row.get("DestinationFile")
+                or row.get("CopiedTo")
+                or row.get("Destination")
+            )
             expected = (row.get("SHA1") or row.get("Sha1") or "").lower().strip()
             if not dest or not expected:
                 continue
@@ -104,7 +119,9 @@ def run(cmd, dry_run):
 def main():
     p = argparse.ArgumentParser(description="KAPE triage helper")
     p.add_argument("--kape", default="kape.exe", help="Path to kape.exe")
-    p.add_argument("--dry-run", action="store_true", help="Print commands, do not execute")
+    p.add_argument(
+        "--dry-run", action="store_true", help="Print commands, do not execute"
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("collect", help="Collect a target set")
@@ -135,23 +152,35 @@ def main():
     args = p.parse_args()
     try:
         if args.cmd == "collect":
-            cmd = build_collect_cmd(args.kape, args.tsource, args.target, args.tdest,
-                                    vss=args.vss, container=args.container,
-                                    tflush=args.tflush, module=args.module,
-                                    mdest=args.mdest, mflush=args.mflush)
+            cmd = build_collect_cmd(
+                args.kape,
+                args.tsource,
+                args.target,
+                args.tdest,
+                vss=args.vss,
+                container=args.container,
+                tflush=args.tflush,
+                module=args.module,
+                mdest=args.mdest,
+                mflush=args.mflush,
+            )
             return run(cmd, args.dry_run)
         if args.cmd == "process":
-            cmd = build_process_cmd(args.kape, args.msource, args.mdest,
-                                    args.module, mflush=args.mflush)
+            cmd = build_process_cmd(
+                args.kape, args.msource, args.mdest, args.module, mflush=args.mflush
+            )
             return run(cmd, args.dry_run)
         if args.cmd == "batch":
-            path = write_batch_cli(args.kape_dir, args.target,
-                                   container=not args.no_container)
+            path = write_batch_cli(
+                args.kape_dir, args.target, container=not args.no_container
+            )
             print(f"[+] Wrote {path}")
             return 0
         if args.cmd == "verify":
             res = verify_copylog(args.copylog)
-            print(f"[+] verified ok={res['ok']} mismatch={res['mismatch']} missing={res['missing']}")
+            print(
+                f"[+] verified ok={res['ok']} mismatch={res['mismatch']} missing={res['missing']}"
+            )
             return 1 if res["mismatch"] else 0
     except ValueError as e:
         print(f"[!] {e}", file=sys.stderr)

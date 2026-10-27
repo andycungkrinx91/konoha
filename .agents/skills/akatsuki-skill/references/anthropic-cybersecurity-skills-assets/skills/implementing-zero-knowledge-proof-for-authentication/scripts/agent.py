@@ -17,7 +17,7 @@ def generate_keypair():
     """Generate a ZKP key pair (private key x, public key y = g^x mod p)."""
     x = secrets.randbelow(SAFE_PRIME - 2) + 1
     y = pow(GENERATOR, x, SAFE_PRIME)
-    print(f"[*] Generated key pair")
+    print("[*] Generated key pair")
     print(f"  Public key (y): {hex(y)[:40]}...")
     return x, y
 
@@ -38,7 +38,9 @@ def schnorr_verify(public_key, proof):
     r, c, s = proof["commitment"], proof["challenge"], proof["response"]
     lhs = pow(GENERATOR, s, SAFE_PRIME) * pow(public_key, c, SAFE_PRIME) % SAFE_PRIME
     valid = lhs == r
-    print(f"  [{'+'if valid else '!'}] Verification: {'PASSED' if valid else 'FAILED'}")
+    print(
+        f"  [{'+' if valid else '!'}] Verification: {'PASSED' if valid else 'FAILED'}"
+    )
     return valid
 
 
@@ -48,7 +50,7 @@ def zkp_password_register(password):
     pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
     x = int.from_bytes(pwd_hash, "big") % (SAFE_PRIME - 2) + 1
     y = pow(GENERATOR, x, SAFE_PRIME)
-    print(f"[*] Registered user (server stores salt + public key, never the password)")
+    print("[*] Registered user (server stores salt + public key, never the password)")
     return {"salt": salt, "public_key": y, "private_key": x}
 
 
@@ -68,7 +70,7 @@ def run_protocol_demo(rounds=5):
     x, y = generate_keypair()
     successes = 0
     for i in range(rounds):
-        print(f"\n[*] Round {i+1}/{rounds}")
+        print(f"\n[*] Round {i + 1}/{rounds}")
         proof = schnorr_prove(x)
         if schnorr_verify(y, proof):
             successes += 1
@@ -78,7 +80,9 @@ def run_protocol_demo(rounds=5):
     wrong_x = secrets.randbelow(SAFE_PRIME - 2) + 1
     wrong_proof = schnorr_prove(wrong_x)
     forgery = schnorr_verify(y, wrong_proof)
-    print(f"[*] Soundness (wrong key rejected): {'VERIFIED' if not forgery else 'FAILED'}")
+    print(
+        f"[*] Soundness (wrong key rejected): {'VERIFIED' if not forgery else 'FAILED'}"
+    )
     return successes == rounds and not forgery
 
 
@@ -96,10 +100,18 @@ def run_password_demo(password="SecureP@ss123"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Zero-Knowledge Proof Authentication Agent")
-    parser.add_argument("action", choices=["demo-protocol", "demo-password", "keygen", "full-test"])
-    parser.add_argument("--rounds", type=int, default=5, help="Protocol verification rounds")
-    parser.add_argument("--password", default="SecureP@ss123", help="Password for ZKP demo")
+    parser = argparse.ArgumentParser(
+        description="Zero-Knowledge Proof Authentication Agent"
+    )
+    parser.add_argument(
+        "action", choices=["demo-protocol", "demo-password", "keygen", "full-test"]
+    )
+    parser.add_argument(
+        "--rounds", type=int, default=5, help="Protocol verification rounds"
+    )
+    parser.add_argument(
+        "--password", default="SecureP@ss123", help="Password for ZKP demo"
+    )
     parser.add_argument("-o", "--output", default="zkp_report.json")
     args = parser.parse_args()
 

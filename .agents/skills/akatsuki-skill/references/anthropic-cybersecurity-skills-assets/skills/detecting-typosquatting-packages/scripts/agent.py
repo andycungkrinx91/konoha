@@ -21,6 +21,7 @@ Examples:
     # Pull registry metadata for triage
     python agent.py enrich --ecosystem pypi --name reqeusts
 """
+
 import argparse
 import json
 import sys
@@ -28,13 +29,37 @@ import urllib.request
 import urllib.error
 
 QWERTY_ADJ = {
-    "q": "wa", "w": "qeas", "e": "wrsd", "r": "etdf", "t": "ryfg",
-    "y": "tugh", "u": "yihj", "i": "uojk", "o": "ipkl", "p": "ol",
-    "a": "qwsz", "s": "awedxz", "d": "serfcx", "f": "drtgvc",
-    "g": "ftyhbv", "h": "gyujnb", "j": "huikmn", "k": "jiolm",
-    "l": "kop", "z": "asx", "x": "zsdc", "c": "xdfv", "v": "cfgb",
-    "b": "vghn", "n": "bhjm", "m": "njk",
-    "0": "9", "1": "2", "2": "13", "3": "24", "4": "35",
+    "q": "wa",
+    "w": "qeas",
+    "e": "wrsd",
+    "r": "etdf",
+    "t": "ryfg",
+    "y": "tugh",
+    "u": "yihj",
+    "i": "uojk",
+    "o": "ipkl",
+    "p": "ol",
+    "a": "qwsz",
+    "s": "awedxz",
+    "d": "serfcx",
+    "f": "drtgvc",
+    "g": "ftyhbv",
+    "h": "gyujnb",
+    "j": "huikmn",
+    "k": "jiolm",
+    "l": "kop",
+    "z": "asx",
+    "x": "zsdc",
+    "c": "xdfv",
+    "v": "cfgb",
+    "b": "vghn",
+    "n": "bhjm",
+    "m": "njk",
+    "0": "9",
+    "1": "2",
+    "2": "13",
+    "3": "24",
+    "4": "35",
 }
 DELIMS = ["-", "_", ".", ""]
 
@@ -45,17 +70,17 @@ def mutations(name):
     n = name.lower()
     # 1. omission
     for i in range(len(n)):
-        out.add(n[:i] + n[i + 1:])
+        out.add(n[:i] + n[i + 1 :])
     # 2. repetition
     for i in range(len(n)):
         out.add(n[:i] + n[i] + n[i:])
     # 3. transposition / swap of adjacent chars
     for i in range(len(n) - 1):
-        out.add(n[:i] + n[i + 1] + n[i] + n[i + 2:])
+        out.add(n[:i] + n[i + 1] + n[i] + n[i + 2 :])
     # 4. keyboard-adjacency 1-edit substitution
     for i, ch in enumerate(n):
         for repl in QWERTY_ADJ.get(ch, ""):
-            out.add(n[:i] + repl + n[i + 1:])
+            out.add(n[:i] + repl + n[i + 1 :])
     # 5. delimiter swaps
     for d in DELIMS:
         for d2 in DELIMS:
@@ -92,9 +117,9 @@ def load_corpus(path):
         data = json.load(fh)
     names = set()
     # Accept several common corpus shapes
-    if isinstance(data, dict) and "rows" in data:          # top-pypi-packages
+    if isinstance(data, dict) and "rows" in data:  # top-pypi-packages
         names = {r["project"] for r in data["rows"]}
-    elif isinstance(data, dict) and "objects" in data:     # npm search
+    elif isinstance(data, dict) and "objects" in data:  # npm search
         names = {o["package"]["name"] for o in data["objects"]}
     elif isinstance(data, list):
         names = {(x if isinstance(x, str) else x.get("name", "")) for x in data}
@@ -177,7 +202,10 @@ def cmd_screen(args):
             flagged += 1
             top = ", ".join(f"{l}(d={d})" for l, d in hits[:3])
             print(f"[FLAG] {cand} -> resembles {top}")
-    print(f"\nScreened {len(set(candidates))} name(s), flagged {flagged}.", file=sys.stderr)
+    print(
+        f"\nScreened {len(set(candidates))} name(s), flagged {flagged}.",
+        file=sys.stderr,
+    )
     sys.exit(1 if flagged else 0)
 
 

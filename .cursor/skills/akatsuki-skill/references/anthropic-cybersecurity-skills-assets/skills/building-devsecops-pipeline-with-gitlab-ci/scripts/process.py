@@ -49,7 +49,9 @@ def get_project_vulnerabilities(base_url: str, token: str, project_id: int) -> l
     return gitlab_api_get(url, token)
 
 
-def get_pipeline_jobs(base_url: str, token: str, project_id: int, pipeline_id: int) -> list:
+def get_pipeline_jobs(
+    base_url: str, token: str, project_id: int, pipeline_id: int
+) -> list:
     url = f"{base_url}/api/v4/projects/{project_id}/pipelines/{pipeline_id}/jobs"
     return gitlab_api_get(url, token)
 
@@ -96,7 +98,8 @@ def generate_report(base_url: str, token: str, group_id: str) -> dict:
             report["severity_totals"][v.get("severity", "unknown")] += 1
 
         pipelines = gitlab_api_get(
-            f"{base_url}/api/v4/projects/{pid}/pipelines?per_page=1&status=success", token
+            f"{base_url}/api/v4/projects/{pid}/pipelines?per_page=1&status=success",
+            token,
         )
         scanners_enabled = {}
         if pipelines and isinstance(pipelines, list):
@@ -106,13 +109,15 @@ def generate_report(base_url: str, token: str, group_id: str) -> dict:
                 if enabled:
                     report["scanner_coverage"][scanner] += 1
 
-        report["project_details"].append({
-            "project": name,
-            "open_vulnerabilities": len(vulns),
-            "by_severity": dict(severity_counts),
-            "by_scanner": dict(scanner_counts),
-            "scanners_enabled": scanners_enabled,
-        })
+        report["project_details"].append(
+            {
+                "project": name,
+                "open_vulnerabilities": len(vulns),
+                "by_severity": dict(severity_counts),
+                "by_scanner": dict(scanner_counts),
+                "scanners_enabled": scanners_enabled,
+            }
+        )
 
     report["scanner_coverage"] = dict(report["scanner_coverage"])
     report["severity_totals"] = dict(report["severity_totals"])
@@ -120,19 +125,23 @@ def generate_report(base_url: str, token: str, group_id: str) -> dict:
 
 
 def print_report(report: dict) -> None:
-    print(f"\n{'='*65}")
-    print(f"GitLab DevSecOps Security Report")
+    print(f"\n{'=' * 65}")
+    print("GitLab DevSecOps Security Report")
     print(f"Instance: {report['gitlab_instance']}")
     print(f"Generated: {report['generated_at']}")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print(f"\nTotal Projects: {report['total_projects']}")
 
-    print(f"\nScanner Coverage:")
+    print("\nScanner Coverage:")
     for scanner, count in sorted(report["scanner_coverage"].items()):
-        pct = count / report["total_projects"] * 100 if report["total_projects"] > 0 else 0
+        pct = (
+            count / report["total_projects"] * 100
+            if report["total_projects"] > 0
+            else 0
+        )
         print(f"  {scanner:25s}: {count:3d}/{report['total_projects']} ({pct:.0f}%)")
 
-    print(f"\nVulnerability Summary:")
+    print("\nVulnerability Summary:")
     for sev in ["critical", "high", "medium", "low", "info", "unknown"]:
         count = report["severity_totals"].get(sev, 0)
         if count > 0:
@@ -141,7 +150,7 @@ def print_report(report: dict) -> None:
     total = sum(report["severity_totals"].values())
     print(f"  {'TOTAL':12s}: {total}")
 
-    print(f"\nTop 10 Projects by Open Vulnerabilities:")
+    print("\nTop 10 Projects by Open Vulnerabilities:")
     sorted_projects = sorted(
         report["project_details"], key=lambda p: p["open_vulnerabilities"], reverse=True
     )

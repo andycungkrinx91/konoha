@@ -22,20 +22,58 @@ logging.basicConfig(
 logger = logging.getLogger("ransomware_detector")
 
 RANSOMWARE_EXTENSIONS = {
-    ".locked", ".encrypted", ".crypt", ".locky", ".cerber", ".wncry",
-    ".dharma", ".basta", ".blackcat", ".hive", ".royal", ".akira",
-    ".lockbit", ".conti", ".ryuk", ".maze", ".revil", ".phobos",
+    ".locked",
+    ".encrypted",
+    ".crypt",
+    ".locky",
+    ".cerber",
+    ".wncry",
+    ".dharma",
+    ".basta",
+    ".blackcat",
+    ".hive",
+    ".royal",
+    ".akira",
+    ".lockbit",
+    ".conti",
+    ".ryuk",
+    ".maze",
+    ".revil",
+    ".phobos",
 }
 
 RANSOM_NOTE_NAMES = {
-    "readme.txt", "readme.html", "decrypt.txt", "decrypt.html",
-    "how_to_decrypt.txt", "restore_files.txt", "how_to_recover.txt",
+    "readme.txt",
+    "readme.html",
+    "decrypt.txt",
+    "decrypt.html",
+    "how_to_decrypt.txt",
+    "restore_files.txt",
+    "how_to_recover.txt",
 }
 
 HIGH_VALUE_EXTENSIONS = {
-    ".docx", ".xlsx", ".pptx", ".pdf", ".doc", ".xls", ".ppt",
-    ".csv", ".sql", ".mdb", ".accdb", ".bak", ".zip", ".7z",
-    ".pst", ".ost", ".eml", ".jpg", ".png", ".dwg", ".vmdk",
+    ".docx",
+    ".xlsx",
+    ".pptx",
+    ".pdf",
+    ".doc",
+    ".xls",
+    ".ppt",
+    ".csv",
+    ".sql",
+    ".mdb",
+    ".accdb",
+    ".bak",
+    ".zip",
+    ".7z",
+    ".pst",
+    ".ost",
+    ".eml",
+    ".jpg",
+    ".png",
+    ".dwg",
+    ".vmdk",
 }
 
 
@@ -61,7 +99,7 @@ def analyze_file_entropy(filepath):
 
     chunk_size = min(4096, file_size // 4) if file_size > 16 else file_size
     first_entropy = shannon_entropy(data[:chunk_size])
-    mid_entropy = shannon_entropy(data[file_size // 2: file_size // 2 + chunk_size])
+    mid_entropy = shannon_entropy(data[file_size // 2 : file_size // 2 + chunk_size])
     last_entropy = shannon_entropy(data[-chunk_size:])
 
     return {
@@ -101,7 +139,8 @@ def scan_directory_entropy(directory, extensions=None):
 
     results["encryption_ratio"] = (
         round(results["encrypted_files"] / results["total_files"], 4)
-        if results["total_files"] > 0 else 0
+        if results["total_files"] > 0
+        else 0
     )
     return results
 
@@ -131,12 +170,17 @@ def detect_ransomware_indicators(directory):
             if len(parts) >= 3:
                 original_ext = "." + parts[-2].lower()
                 appended_ext = "." + parts[-1].lower()
-                if original_ext in HIGH_VALUE_EXTENSIONS and appended_ext in RANSOMWARE_EXTENSIONS:
-                    indicators["renamed_files"].append({
-                        "path": filepath,
-                        "original_ext": original_ext,
-                        "ransomware_ext": appended_ext,
-                    })
+                if (
+                    original_ext in HIGH_VALUE_EXTENSIONS
+                    and appended_ext in RANSOMWARE_EXTENSIONS
+                ):
+                    indicators["renamed_files"].append(
+                        {
+                            "path": filepath,
+                            "original_ext": original_ext,
+                            "ransomware_ext": appended_ext,
+                        }
+                    )
 
             # Check for ransom notes
             if lower_name in RANSOM_NOTE_NAMES:
@@ -147,10 +191,12 @@ def detect_ransomware_indicators(directory):
                 try:
                     analysis = analyze_file_entropy(filepath)
                     if analysis["is_encrypted"]:
-                        indicators["high_entropy_files"].append({
-                            "path": filepath,
-                            "entropy": analysis["overall"],
-                        })
+                        indicators["high_entropy_files"].append(
+                            {
+                                "path": filepath,
+                                "entropy": analysis["overall"],
+                            }
+                        )
                 except (OSError, PermissionError):
                     continue
 
@@ -204,11 +250,13 @@ def compare_snapshots(before, after):
         if path not in after:
             changes["deleted"].append(path)
         elif after[path]["hash"] != info["hash"]:
-            changes["modified"].append({
-                "path": path,
-                "size_before": info["size"],
-                "size_after": after[path]["size"],
-            })
+            changes["modified"].append(
+                {
+                    "path": path,
+                    "size_before": info["size"],
+                    "size_after": after[path]["size"],
+                }
+            )
 
     for path in after:
         if path not in before:
@@ -237,7 +285,9 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("\nUsage:")
-        print("  python agent.py scan <directory>          Scan for ransomware indicators")
+        print(
+            "  python agent.py scan <directory>          Scan for ransomware indicators"
+        )
         print("  python agent.py entropy <directory>       Entropy scan of files")
         print("  python agent.py entropy-file <file>       Analyze single file entropy")
         print("  python agent.py snapshot <directory>      Take baseline snapshot")
@@ -250,7 +300,7 @@ if __name__ == "__main__":
         target = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
         print(f"\n[*] Scanning {target} for ransomware indicators...")
         results = detect_ransomware_indicators(target)
-        print(f"\n--- Ransomware Detection Results ---")
+        print("\n--- Ransomware Detection Results ---")
         print(f"  Score: {results['score']}/100")
         print(f"  Verdict: {results['verdict']}")
         print(f"  Ransomware extensions found: {len(results['ransomware_extensions'])}")
@@ -263,7 +313,7 @@ if __name__ == "__main__":
         target = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
         print(f"\n[*] Entropy scanning {target}...")
         results = scan_directory_entropy(target, HIGH_VALUE_EXTENSIONS)
-        print(f"\n--- Entropy Scan Results ---")
+        print("\n--- Entropy Scan Results ---")
         print(f"  Total files scanned: {results['total_files']}")
         print(f"  Files with encrypted entropy: {results['encrypted_files']}")
         print(f"  Encryption ratio: {results['encryption_ratio']}")
@@ -276,7 +326,7 @@ if __name__ == "__main__":
             sys.exit(1)
         filepath = sys.argv[2]
         analysis = analyze_file_entropy(filepath)
-        print(f"\n--- File Entropy Analysis ---")
+        print("\n--- File Entropy Analysis ---")
         print(f"  File: {filepath}")
         print(f"  Overall entropy: {analysis['overall']}")
         print(f"  First chunk: {analysis['first_chunk']}")
@@ -303,7 +353,7 @@ if __name__ == "__main__":
         with open(sys.argv[3]) as f:
             snap2 = json.load(f)
         changes = compare_snapshots(snap1, snap2)
-        print(f"\n--- Snapshot Comparison ---")
+        print("\n--- Snapshot Comparison ---")
         print(f"  Modified: {len(changes['modified'])}")
         print(f"  Deleted: {len(changes['deleted'])}")
         print(f"  Created: {len(changes['created'])}")

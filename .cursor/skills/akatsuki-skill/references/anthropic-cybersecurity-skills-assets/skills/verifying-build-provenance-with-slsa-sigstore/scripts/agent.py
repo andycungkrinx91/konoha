@@ -22,6 +22,7 @@ Examples:
         --source-uri github.com/myorg/myrepo \
         --source-tag v1.2.3
 """
+
 import argparse
 import base64
 import json
@@ -46,8 +47,7 @@ def verify_image(args) -> int:
     _require("cosign")
     issuer = args.oidc_issuer
     # 1) signature
-    sig = ["cosign", "verify",
-           "--certificate-oidc-issuer", issuer]
+    sig = ["cosign", "verify", "--certificate-oidc-issuer", issuer]
     if args.identity:
         sig += ["--certificate-identity", args.identity]
     else:
@@ -59,8 +59,14 @@ def verify_image(args) -> int:
     print("[+] signature OK", file=sys.stderr)
 
     # 2) SLSA provenance attestation
-    att = ["cosign", "verify-attestation", "--type", args.predicate_type,
-           "--certificate-oidc-issuer", issuer]
+    att = [
+        "cosign",
+        "verify-attestation",
+        "--type",
+        args.predicate_type,
+        "--certificate-oidc-issuer",
+        issuer,
+    ]
     if args.identity:
         att += ["--certificate-identity", args.identity]
     else:
@@ -78,10 +84,14 @@ def verify_image(args) -> int:
         payload = json.loads(proc.stdout.splitlines()[0])["payload"]
         decoded = json.loads(base64.b64decode(payload))
         pred = decoded.get("predicate", {})
-        builder = (pred.get("runDetails", {}).get("builder", {}).get("id")
-                   or pred.get("builder", {}).get("id"))
-        print(json.dumps({"image": args.image, "verified": True,
-                          "builder_id": builder}, indent=2))
+        builder = pred.get("runDetails", {}).get("builder", {}).get("id") or pred.get(
+            "builder", {}
+        ).get("id")
+        print(
+            json.dumps(
+                {"image": args.image, "verified": True, "builder_id": builder}, indent=2
+            )
+        )
     except Exception:
         print(json.dumps({"image": args.image, "verified": True}, indent=2))
     return 0
@@ -89,9 +99,15 @@ def verify_image(args) -> int:
 
 def verify_artifact(args) -> int:
     _require("slsa-verifier")
-    argv = ["slsa-verifier", "verify-artifact", args.artifact,
-            "--provenance-path", args.provenance,
-            "--source-uri", args.source_uri]
+    argv = [
+        "slsa-verifier",
+        "verify-artifact",
+        args.artifact,
+        "--provenance-path",
+        args.provenance,
+        "--source-uri",
+        args.source_uri,
+    ]
     if args.source_tag:
         argv += ["--source-tag", args.source_tag]
     if args.builder_id:
@@ -100,14 +116,24 @@ def verify_artifact(args) -> int:
     if rc != 0:
         print("[!] artifact provenance verification FAILED", file=sys.stderr)
         return 1
-    print(json.dumps({"artifact": args.artifact, "verified": True,
-                      "source_uri": args.source_uri,
-                      "source_tag": args.source_tag}, indent=2))
+    print(
+        json.dumps(
+            {
+                "artifact": args.artifact,
+                "verified": True,
+                "source_uri": args.source_uri,
+                "source_tag": args.source_tag,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Verify Sigstore signatures and SLSA provenance.")
+    p = argparse.ArgumentParser(
+        description="Verify Sigstore signatures and SLSA provenance."
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     im = sub.add_parser("image", help="verify container image signature + provenance")
@@ -119,7 +145,9 @@ def main() -> int:
     im.add_argument("--predicate-type", default="slsaprovenance")
     im.set_defaults(func=verify_image)
 
-    ar = sub.add_parser("artifact", help="verify binary/artifact provenance via slsa-verifier")
+    ar = sub.add_parser(
+        "artifact", help="verify binary/artifact provenance via slsa-verifier"
+    )
     ar.add_argument("--artifact", required=True)
     ar.add_argument("--provenance", required=True)
     ar.add_argument("--source-uri", required=True)

@@ -15,6 +15,7 @@ Examples:
   python agent.py --since 2026-06-15T00:00:00Z --min-ips 2
   python agent.py --since 2026-06-15T00:00:00Z --event-type user.session.start --json out.json
 """
+
 import argparse
 import json
 import os
@@ -56,13 +57,15 @@ def fetch_logs(org, token, since, event_type, page_limit):
         link = resp.headers.get("link", "")
         for part in link.split(","):
             if 'rel="next"' in part:
-                url = part[part.find("<") + 1:part.find(">")]
+                url = part[part.find("<") + 1 : part.find(">")]
         pages += 1
     return events
 
 
 def analyze(events, min_ips):
-    sessions = defaultdict(lambda: {"ips": set(), "agents": set(), "users": set(), "count": 0})
+    sessions = defaultdict(
+        lambda: {"ips": set(), "agents": set(), "users": set(), "count": 0}
+    )
     for ev in events:
         ctx = ev.get("authenticationContext") or {}
         sid = ctx.get("externalSessionId")
@@ -83,28 +86,43 @@ def analyze(events, min_ips):
     findings = []
     for sid, rec in sessions.items():
         if len(rec["ips"]) >= min_ips or len(rec["agents"]) >= 2:
-            findings.append({
-                "session_id": sid,
-                "users": sorted(rec["users"]),
-                "distinct_ips": sorted(rec["ips"]),
-                "distinct_user_agents": sorted(rec["agents"]),
-                "event_count": rec["count"],
-            })
+            findings.append(
+                {
+                    "session_id": sid,
+                    "users": sorted(rec["users"]),
+                    "distinct_ips": sorted(rec["ips"]),
+                    "distinct_user_agents": sorted(rec["agents"]),
+                    "event_count": rec["count"],
+                }
+            )
     findings.sort(key=lambda f: len(f["distinct_ips"]), reverse=True)
     return findings
 
 
 def main():
     p = argparse.ArgumentParser(description="Okta SSO token-abuse hunter")
-    p.add_argument("--org", default=os.environ.get("OKTA_ORG"),
-                   help="Okta org domain, e.g. example.okta.com (or OKTA_ORG)")
-    p.add_argument("--token", default=os.environ.get("OKTA_API_TOKEN"),
-                   help="Okta API token (or OKTA_API_TOKEN)")
+    p.add_argument(
+        "--org",
+        default=os.environ.get("OKTA_ORG"),
+        help="Okta org domain, e.g. example.okta.com (or OKTA_ORG)",
+    )
+    p.add_argument(
+        "--token",
+        default=os.environ.get("OKTA_API_TOKEN"),
+        help="Okta API token (or OKTA_API_TOKEN)",
+    )
     p.add_argument("--since", required=True, help="ISO-8601 start time")
-    p.add_argument("--event-type", default="policy.evaluate_sign_on",
-                   help="Okta eventType to query")
-    p.add_argument("--min-ips", type=int, default=2,
-                   help="flag sessions seen from >= this many IPs")
+    p.add_argument(
+        "--event-type",
+        default="policy.evaluate_sign_on",
+        help="Okta eventType to query",
+    )
+    p.add_argument(
+        "--min-ips",
+        type=int,
+        default=2,
+        help="flag sessions seen from >= this many IPs",
+    )
     p.add_argument("--max-pages", type=int, default=20, help="max API pages to pull")
     p.add_argument("--json", metavar="FILE", help="write findings JSON to file")
     args = p.parse_args()
@@ -113,7 +131,9 @@ def main():
         sys.exit("error: provide --org/--token or set OKTA_ORG/OKTA_API_TOKEN")
 
     print(f"[*] fetching Okta '{args.event_type}' events since {args.since} ...")
-    events = fetch_logs(args.org, args.token, args.since, args.event_type, args.max_pages)
+    events = fetch_logs(
+        args.org, args.token, args.since, args.event_type, args.max_pages
+    )
     print(f"[+] retrieved {len(events)} events")
 
     findings = analyze(events, args.min_ips)
@@ -121,7 +141,9 @@ def main():
     for f in findings:
         print(f"  session {f['session_id']} user={','.join(f['users'])}")
         print(f"    IPs ({len(f['distinct_ips'])}): {', '.join(f['distinct_ips'])}")
-        print(f"    UAs ({len(f['distinct_user_agents'])}): {len(f['distinct_user_agents'])} distinct")
+        print(
+            f"    UAs ({len(f['distinct_user_agents'])}): {len(f['distinct_user_agents'])} distinct"
+        )
         print(f"    events: {f['event_count']}")
 
     if args.json:

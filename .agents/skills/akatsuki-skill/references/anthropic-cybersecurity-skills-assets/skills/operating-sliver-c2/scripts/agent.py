@@ -28,9 +28,7 @@ try:
     from sliver import SliverClientConfig, SliverClient
     from sliver import client_pb2
 except ImportError:
-    sys.stderr.write(
-        "[!] sliver-py is not installed. Run: pip install sliver-py\n"
-    )
+    sys.stderr.write("[!] sliver-py is not installed. Run: pip install sliver-py\n")
     sys.exit(1)
 
 
@@ -51,8 +49,10 @@ async def cmd_sessions(client):
         return
     print(f"[*] {len(sessions)} active session(s):")
     for s in sessions:
-        print(f"  ID={s.ID}  {s.Name}  user={s.Username}  "
-              f"host={s.Hostname}  os={s.OS}/{s.Arch}  remote={s.RemoteAddress}")
+        print(
+            f"  ID={s.ID}  {s.Name}  user={s.Username}  "
+            f"host={s.Hostname}  os={s.OS}/{s.Arch}  remote={s.RemoteAddress}"
+        )
 
 
 async def cmd_beacons(client):
@@ -62,8 +62,10 @@ async def cmd_beacons(client):
         return
     print(f"[*] {len(beacons)} active beacon(s):")
     for b in beacons:
-        print(f"  ID={b.ID}  {b.Name}  user={b.Username}  "
-              f"host={b.Hostname}  interval={b.Interval}s  jitter={b.Jitter}")
+        print(
+            f"  ID={b.ID}  {b.Name}  user={b.Username}  "
+            f"host={b.Hostname}  interval={b.Interval}s  jitter={b.Jitter}"
+        )
 
 
 async def cmd_jobs(client):
@@ -124,8 +126,12 @@ def build_parser():
     default_cfg = os.path.join(
         os.path.expanduser("~"), ".sliver-client", "configs", "default.cfg"
     )
-    p.add_argument("-c", "--config", default=default_cfg,
-                   help="path to operator .cfg (default: %(default)s)")
+    p.add_argument(
+        "-c",
+        "--config",
+        default=default_cfg,
+        help="path to operator .cfg (default: %(default)s)",
+    )
     sub = p.add_subparsers(dest="action", required=True)
 
     sub.add_parser("sessions", help="list active sessions")
@@ -134,14 +140,20 @@ def build_parser():
 
     g = sub.add_parser("generate", help="generate an implant build")
     g.add_argument("--host", required=True, help="C2 host[:port]")
-    g.add_argument("--proto", default="mtls",
-                   choices=["mtls", "http", "https", "dns"])
-    g.add_argument("--os", dest="os_target", default="windows",
-                   choices=["windows", "linux", "darwin"])
-    g.add_argument("--arch", default="amd64",
-                   choices=["amd64", "386", "arm64"])
-    g.add_argument("--format", dest="fmt", default="exe",
-                   choices=["exe", "shellcode", "shared", "service"])
+    g.add_argument("--proto", default="mtls", choices=["mtls", "http", "https", "dns"])
+    g.add_argument(
+        "--os",
+        dest="os_target",
+        default="windows",
+        choices=["windows", "linux", "darwin"],
+    )
+    g.add_argument("--arch", default="amd64", choices=["amd64", "386", "arm64"])
+    g.add_argument(
+        "--format",
+        dest="fmt",
+        default="exe",
+        choices=["exe", "shellcode", "shared", "service"],
+    )
     g.add_argument("--save", default=".", help="output directory")
 
     e = sub.add_parser("exec", help="run a command in a session")
@@ -161,8 +173,15 @@ async def run(args):
         elif args.action == "jobs":
             await cmd_jobs(client)
         elif args.action == "generate":
-            await cmd_generate(client, args.host, args.proto, args.os_target,
-                               args.arch, args.fmt, args.save)
+            await cmd_generate(
+                client,
+                args.host,
+                args.proto,
+                args.os_target,
+                args.arch,
+                args.fmt,
+                args.save,
+            )
         elif args.action == "exec":
             await cmd_exec(client, args.session, args.command)
     finally:

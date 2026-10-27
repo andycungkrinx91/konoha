@@ -13,7 +13,6 @@ import sys
 import json
 import ssl
 import socket
-import struct
 import argparse
 import logging
 import subprocess
@@ -89,7 +88,7 @@ NIST_MIGRATION_DEADLINES = {
     "deprecation": "2030",
     "disallowed": "2035",
     "description": "NIST IR 8547: quantum-vulnerable algorithms deprecated by 2030, "
-                   "disallowed by 2035 for federal systems",
+    "disallowed by 2035 for federal systems",
 }
 
 # ML-KEM parameters per FIPS 203
@@ -166,6 +165,7 @@ SLHDSA_PARAMS = {
 # TLS Endpoint Scanning
 # ---------------------------------------------------------------------------
 
+
 def scan_tls_endpoint(host, port=443, timeout=10):
     """
     Scan a TLS endpoint to extract cryptographic algorithm details.
@@ -208,8 +208,12 @@ def scan_tls_endpoint(host, port=443, timeout=10):
                 cipher = tls_sock.cipher()
                 result["tls_version"] = tls_sock.version()
                 result["cipher_suite"] = cipher[0] if cipher else None
-                result["cipher_protocol"] = cipher[1] if cipher and len(cipher) > 1 else None
-                result["cipher_bits"] = cipher[2] if cipher and len(cipher) > 2 else None
+                result["cipher_protocol"] = (
+                    cipher[1] if cipher and len(cipher) > 1 else None
+                )
+                result["cipher_bits"] = (
+                    cipher[2] if cipher and len(cipher) > 2 else None
+                )
 
                 # Parse key exchange from cipher suite name
                 cipher_name = cipher[0] if cipher else ""
@@ -223,8 +227,13 @@ def scan_tls_endpoint(host, port=443, timeout=10):
                 # Assess quantum vulnerability
                 _assess_quantum_vulnerability(result)
 
-        logger.info("Scanned %s:%d -- %s [%s]", host, port,
-                     result["cipher_suite"], result["tls_version"])
+        logger.info(
+            "Scanned %s:%d -- %s [%s]",
+            host,
+            port,
+            result["cipher_suite"],
+            result["tls_version"],
+        )
 
     except ssl.SSLError as e:
         result["error"] = f"SSL error: {e}"
@@ -333,7 +342,9 @@ def _openssl_parse_cert_der(cert_der):
         if pk_match:
             details["public_key_algorithm"] = pk_match.group(1).strip()
 
-        bits_match = re.search(r"(?:RSA Public-Key|Public-Key):\s+\((\d+) bit\)", output)
+        bits_match = re.search(
+            r"(?:RSA Public-Key|Public-Key):\s+\((\d+) bit\)", output
+        )
         if bits_match:
             details["public_key_bits"] = int(bits_match.group(1))
 
@@ -359,12 +370,14 @@ def _assess_quantum_vulnerability(result):
     if any(v in kx_base for v in ["RSA", "ECDH", "ECDHE", "DHE", "DH"]):
         if not any(pq in kx_base for pq in ["MLKEM", "KYBER"]):
             is_vulnerable = True
-            vulnerabilities.append({
-                "component": "key_exchange",
-                "algorithm": kx,
-                "threat": "Shor's algorithm can break this key exchange",
-                "severity": "critical",
-            })
+            vulnerabilities.append(
+                {
+                    "component": "key_exchange",
+                    "algorithm": kx,
+                    "threat": "Shor's algorithm can break this key exchange",
+                    "severity": "critical",
+                }
+            )
             recommendations.append(
                 "Migrate to hybrid key exchange X25519MLKEM768 for TLS 1.3"
             )
@@ -372,14 +385,18 @@ def _assess_quantum_vulnerability(result):
     # Check certificate signature algorithm
     sig_algo = result.get("certificate", {}).get("signature_algorithm", "").lower()
     if any(v in sig_algo for v in ["rsa", "ecdsa", "dsa"]):
-        if not any(pq in sig_algo for pq in ["mldsa", "dilithium", "slhdsa", "sphincs"]):
+        if not any(
+            pq in sig_algo for pq in ["mldsa", "dilithium", "slhdsa", "sphincs"]
+        ):
             is_vulnerable = True
-            vulnerabilities.append({
-                "component": "certificate_signature",
-                "algorithm": sig_algo,
-                "threat": "Shor's algorithm can forge signatures",
-                "severity": "high",
-            })
+            vulnerabilities.append(
+                {
+                    "component": "certificate_signature",
+                    "algorithm": sig_algo,
+                    "threat": "Shor's algorithm can forge signatures",
+                    "severity": "high",
+                }
+            )
             recommendations.append(
                 "Plan migration to ML-DSA (FIPS 204) for certificate signatures"
             )
@@ -391,28 +408,34 @@ def _assess_quantum_vulnerability(result):
     if "rsa" in pk_algo:
         is_vulnerable = True
         if pk_bits < 2048:
-            vulnerabilities.append({
-                "component": "certificate_public_key",
-                "algorithm": f"RSA-{pk_bits}",
-                "threat": "Below minimum key size AND quantum-vulnerable",
-                "severity": "critical",
-            })
+            vulnerabilities.append(
+                {
+                    "component": "certificate_public_key",
+                    "algorithm": f"RSA-{pk_bits}",
+                    "threat": "Below minimum key size AND quantum-vulnerable",
+                    "severity": "critical",
+                }
+            )
         else:
-            vulnerabilities.append({
-                "component": "certificate_public_key",
-                "algorithm": f"RSA-{pk_bits}",
-                "threat": "Quantum-vulnerable (adequate classically)",
-                "severity": "high",
-            })
+            vulnerabilities.append(
+                {
+                    "component": "certificate_public_key",
+                    "algorithm": f"RSA-{pk_bits}",
+                    "threat": "Quantum-vulnerable (adequate classically)",
+                    "severity": "high",
+                }
+            )
 
     if "ec" in pk_algo or "ecdsa" in pk_algo:
         is_vulnerable = True
-        vulnerabilities.append({
-            "component": "certificate_public_key",
-            "algorithm": pk_algo,
-            "threat": "Shor's algorithm breaks elliptic curve discrete log",
-            "severity": "high",
-        })
+        vulnerabilities.append(
+            {
+                "component": "certificate_public_key",
+                "algorithm": pk_algo,
+                "threat": "Shor's algorithm breaks elliptic curve discrete log",
+                "severity": "high",
+            }
+        )
 
     # Check TLS version
     tls_version = result.get("tls_version", "")
@@ -468,6 +491,7 @@ def scan_multiple_endpoints(targets_file, port=443):
 # ---------------------------------------------------------------------------
 # Crypto-Agility Assessment
 # ---------------------------------------------------------------------------
+
 
 def assess_crypto_agility(scan_results):
     """
@@ -534,7 +558,8 @@ def assess_crypto_agility(scan_results):
 
     # Bonus for modern configurations
     modern_kx = sum(
-        v for k, v in assessment["key_exchange_algorithms"].items()
+        v
+        for k, v in assessment["key_exchange_algorithms"].items()
         if k in ("ECDHE", "DHE")
     )
     if total > 0:
@@ -548,63 +573,78 @@ def assess_crypto_agility(scan_results):
         "tls13_percentage": round(tls13_pct, 1),
         "unique_cipher_suites": unique_ciphers,
         "risk_level": (
-            "critical" if vuln_pct > 90 else
-            "high" if vuln_pct > 70 else
-            "medium" if vuln_pct > 40 else
-            "low"
+            "critical"
+            if vuln_pct > 90
+            else "high"
+            if vuln_pct > 70
+            else "medium"
+            if vuln_pct > 40
+            else "low"
         ),
     }
 
     # Findings
     if vuln_pct > 0:
-        assessment["findings"].append({
-            "finding": f"{assessment['quantum_vulnerable_endpoints']}/{total} "
-                       f"endpoints ({vuln_pct:.0f}%) use quantum-vulnerable algorithms",
-            "severity": "critical" if vuln_pct > 70 else "high",
-            "category": "quantum_vulnerability",
-        })
+        assessment["findings"].append(
+            {
+                "finding": f"{assessment['quantum_vulnerable_endpoints']}/{total} "
+                f"endpoints ({vuln_pct:.0f}%) use quantum-vulnerable algorithms",
+                "severity": "critical" if vuln_pct > 70 else "high",
+                "category": "quantum_vulnerability",
+            }
+        )
 
     if tls13_pct < 100:
         not_tls13 = total - assessment["tls13_ready"]
-        assessment["findings"].append({
-            "finding": f"{not_tls13} endpoints do not support TLS 1.3 "
-                       f"(required for hybrid PQC key exchange)",
-            "severity": "high",
-            "category": "protocol_version",
-        })
+        assessment["findings"].append(
+            {
+                "finding": f"{not_tls13} endpoints do not support TLS 1.3 "
+                f"(required for hybrid PQC key exchange)",
+                "severity": "high",
+                "category": "protocol_version",
+            }
+        )
 
     # Recommendations
     if tls13_pct < 100:
-        assessment["recommendations"].append({
-            "priority": 1,
-            "action": "Upgrade all TLS endpoints to TLS 1.3",
-            "rationale": "Hybrid PQC key exchange (X25519MLKEM768) requires TLS 1.3",
+        assessment["recommendations"].append(
+            {
+                "priority": 1,
+                "action": "Upgrade all TLS endpoints to TLS 1.3",
+                "rationale": "Hybrid PQC key exchange (X25519MLKEM768) requires TLS 1.3",
+                "effort": "medium",
+            }
+        )
+
+    assessment["recommendations"].append(
+        {
+            "priority": 2,
+            "action": "Deploy hybrid key exchange X25519MLKEM768 on TLS 1.3 endpoints",
+            "rationale": "Provides quantum-resistant key exchange while maintaining "
+            "classical security as fallback",
+            "effort": "low" if tls13_pct > 80 else "medium",
+        }
+    )
+
+    assessment["recommendations"].append(
+        {
+            "priority": 3,
+            "action": "Update OpenSSL to 3.5+ or install oqs-provider for PQC support",
+            "rationale": "OpenSSL 3.5 provides native ML-KEM/ML-DSA support; "
+            "oqs-provider adds PQC to OpenSSL 3.0-3.4",
             "effort": "medium",
-        })
+        }
+    )
 
-    assessment["recommendations"].append({
-        "priority": 2,
-        "action": "Deploy hybrid key exchange X25519MLKEM768 on TLS 1.3 endpoints",
-        "rationale": "Provides quantum-resistant key exchange while maintaining "
-                     "classical security as fallback",
-        "effort": "low" if tls13_pct > 80 else "medium",
-    })
-
-    assessment["recommendations"].append({
-        "priority": 3,
-        "action": "Update OpenSSL to 3.5+ or install oqs-provider for PQC support",
-        "rationale": "OpenSSL 3.5 provides native ML-KEM/ML-DSA support; "
-                     "oqs-provider adds PQC to OpenSSL 3.0-3.4",
-        "effort": "medium",
-    })
-
-    assessment["recommendations"].append({
-        "priority": 4,
-        "action": "Plan certificate migration to ML-DSA (FIPS 204) signatures",
-        "rationale": "Certificate signatures need PQC before the NIST 2030 "
-                     "deprecation deadline",
-        "effort": "high",
-    })
+    assessment["recommendations"].append(
+        {
+            "priority": 4,
+            "action": "Plan certificate migration to ML-DSA (FIPS 204) signatures",
+            "rationale": "Certificate signatures need PQC before the NIST 2030 "
+            "deprecation deadline",
+            "effort": "high",
+        }
+    )
 
     # Convert defaultdicts to regular dicts for JSON serialization
     assessment["algorithm_inventory"] = dict(assessment["algorithm_inventory"])
@@ -617,6 +657,7 @@ def assess_crypto_agility(scan_results):
 # ---------------------------------------------------------------------------
 # Hybrid TLS Testing
 # ---------------------------------------------------------------------------
+
 
 def test_hybrid_tls_support(host, port=443):
     """
@@ -646,7 +687,8 @@ def test_hybrid_tls_support(host, port=443):
     try:
         proc = subprocess.run(
             ["openssl", "version"],
-            capture_output=True, timeout=5,
+            capture_output=True,
+            timeout=5,
         )
         result["openssl_version"] = proc.stdout.decode().strip()
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -683,9 +725,12 @@ def _test_tls_group(host, port, group):
 
     try:
         cmd = [
-            "openssl", "s_client",
-            "-connect", f"{host}:{port}",
-            "-groups", group,
+            "openssl",
+            "s_client",
+            "-connect",
+            f"{host}:{port}",
+            "-groups",
+            group,
             "-brief",
         ]
         proc = subprocess.run(
@@ -728,6 +773,7 @@ def _test_tls_group(host, port, group):
 # ---------------------------------------------------------------------------
 # ML-KEM (FIPS 203) Validation
 # ---------------------------------------------------------------------------
+
 
 def test_mlkem_support():
     """
@@ -835,7 +881,7 @@ def _test_mlkem_python(level_name, params):
         result["performance"]["decaps_ms"] = round(decaps_ms, 2)
 
         # Verify shared secrets match
-        result["shared_secret_match"] = (shared_secret == shared_secret_dec)
+        result["shared_secret_match"] = shared_secret == shared_secret_dec
         result["ss_bytes"] = len(shared_secret)
         result["supported"] = result["shared_secret_match"]
 
@@ -897,6 +943,7 @@ def _test_mlkem_openssl(level_name, params):
 # ML-DSA (FIPS 204) Validation
 # ---------------------------------------------------------------------------
 
+
 def test_mldsa_support():
     """
     Test ML-DSA (CRYSTALS-Dilithium / FIPS 204) digital signature support.
@@ -952,7 +999,8 @@ def _test_mldsa_openssl(level_name, algo, params):
             # Generate key pair
             proc = subprocess.run(
                 ["openssl", "genpkey", "-algorithm", algo, "-out", key_path],
-                capture_output=True, timeout=30,
+                capture_output=True,
+                timeout=30,
             )
             if proc.returncode != 0:
                 stderr = proc.stderr.decode("utf-8", errors="replace")
@@ -963,7 +1011,8 @@ def _test_mldsa_openssl(level_name, algo, params):
             # Extract public key
             proc = subprocess.run(
                 ["openssl", "pkey", "-in", key_path, "-pubout", "-out", pub_path],
-                capture_output=True, timeout=15,
+                capture_output=True,
+                timeout=15,
             )
             if proc.returncode != 0:
                 result["error"] = "public key extraction failed"
@@ -975,18 +1024,26 @@ def _test_mldsa_openssl(level_name, algo, params):
 
             # Sign
             proc = subprocess.run(
-                ["openssl", "pkeyutl", "-sign",
-                 "-inkey", key_path,
-                 "-in", msg_path,
-                 "-out", sig_path],
-                capture_output=True, timeout=30,
+                [
+                    "openssl",
+                    "pkeyutl",
+                    "-sign",
+                    "-inkey",
+                    key_path,
+                    "-in",
+                    msg_path,
+                    "-out",
+                    sig_path,
+                ],
+                capture_output=True,
+                timeout=30,
             )
             if proc.returncode != 0:
                 # Try dgst approach
                 proc = subprocess.run(
-                    ["openssl", "dgst", "-sign", key_path,
-                     "-out", sig_path, msg_path],
-                    capture_output=True, timeout=30,
+                    ["openssl", "dgst", "-sign", key_path, "-out", sig_path, msg_path],
+                    capture_output=True,
+                    timeout=30,
                 )
             if proc.returncode == 0:
                 result["sign"] = True
@@ -996,17 +1053,34 @@ def _test_mldsa_openssl(level_name, algo, params):
 
             # Verify
             proc = subprocess.run(
-                ["openssl", "pkeyutl", "-verify",
-                 "-pubin", "-inkey", pub_path,
-                 "-in", msg_path,
-                 "-sigfile", sig_path],
-                capture_output=True, timeout=30,
+                [
+                    "openssl",
+                    "pkeyutl",
+                    "-verify",
+                    "-pubin",
+                    "-inkey",
+                    pub_path,
+                    "-in",
+                    msg_path,
+                    "-sigfile",
+                    sig_path,
+                ],
+                capture_output=True,
+                timeout=30,
             )
             if proc.returncode != 0:
                 proc = subprocess.run(
-                    ["openssl", "dgst", "-verify", pub_path,
-                     "-signature", sig_path, msg_path],
-                    capture_output=True, timeout=30,
+                    [
+                        "openssl",
+                        "dgst",
+                        "-verify",
+                        pub_path,
+                        "-signature",
+                        sig_path,
+                        msg_path,
+                    ],
+                    capture_output=True,
+                    timeout=30,
                 )
             if proc.returncode == 0:
                 result["verify"] = True
@@ -1025,6 +1099,7 @@ def _test_mldsa_openssl(level_name, algo, params):
 # ---------------------------------------------------------------------------
 # Migration Roadmap Generation
 # ---------------------------------------------------------------------------
+
 
 def generate_migration_roadmap(scan_results, agility_assessment=None):
     """
@@ -1051,16 +1126,19 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
 
     total = len(scan_results)
     vuln_count = sum(1 for r in scan_results if r.get("quantum_vulnerable"))
-    tls13_count = sum(1 for r in scan_results
-                      if "1.3" in r.get("tls_version", ""))
+    tls13_count = sum(1 for r in scan_results if "1.3" in r.get("tls_version", ""))
 
     roadmap["executive_summary"] = (
-        f"Scanned {total} TLS endpoints: {vuln_count} ({vuln_count/total*100:.0f}%) "
-        f"use quantum-vulnerable algorithms. {tls13_count} ({tls13_count/total*100:.0f}%) "
-        f"support TLS 1.3 (prerequisite for hybrid PQC). "
-        f"NIST mandates deprecation of quantum-vulnerable algorithms by 2030 and "
-        f"complete removal by 2035."
-    ) if total > 0 else "No endpoints scanned."
+        (
+            f"Scanned {total} TLS endpoints: {vuln_count} ({vuln_count / total * 100:.0f}%) "
+            f"use quantum-vulnerable algorithms. {tls13_count} ({tls13_count / total * 100:.0f}%) "
+            f"support TLS 1.3 (prerequisite for hybrid PQC). "
+            f"NIST mandates deprecation of quantum-vulnerable algorithms by 2030 and "
+            f"complete removal by 2035."
+        )
+        if total > 0
+        else "No endpoints scanned."
+    )
 
     # Phase 1: Immediate (0-6 months)
     phase1_actions = [
@@ -1069,23 +1147,23 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "priority": "P0",
             "effort": "medium",
             "description": "Extend scanning beyond TLS to include code libraries, "
-                           "key stores, HSMs, certificates, VPN configurations, "
-                           "and embedded systems.",
+            "key stores, HSMs, certificates, VPN configurations, "
+            "and embedded systems.",
         },
         {
             "action": "Upgrade OpenSSL to 3.5+ on development and staging systems",
             "priority": "P0",
             "effort": "low",
             "description": "OpenSSL 3.5 provides native ML-KEM, ML-DSA, SLH-DSA support. "
-                           "For OpenSSL 3.0-3.4, install oqs-provider as interim solution.",
+            "For OpenSSL 3.0-3.4, install oqs-provider as interim solution.",
         },
         {
             "action": "Enable X25519MLKEM768 hybrid key exchange on TLS 1.3 endpoints",
             "priority": "P1",
             "effort": "low",
             "description": "Add X25519MLKEM768 to supported_groups in TLS configuration. "
-                           "This is a drop-in change for servers already on TLS 1.3 with "
-                           "OpenSSL 3.5+ or oqs-provider.",
+            "This is a drop-in change for servers already on TLS 1.3 with "
+            "OpenSSL 3.5+ or oqs-provider.",
         },
     ]
 
@@ -1096,28 +1174,28 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "priority": "P1",
             "effort": "medium",
             "description": f"{total - tls13_count} endpoints need TLS 1.3 upgrade. "
-                           "Hybrid PQC key exchange is only available in TLS 1.3.",
+            "Hybrid PQC key exchange is only available in TLS 1.3.",
         },
         {
             "action": "Deploy hybrid key exchange across production infrastructure",
             "priority": "P1",
             "effort": "medium",
             "description": "Configure X25519MLKEM768 as preferred key exchange group "
-                           "on all production TLS endpoints.",
+            "on all production TLS endpoints.",
         },
         {
             "action": "Test ML-DSA certificate chains in staging environments",
             "priority": "P2",
             "effort": "high",
             "description": "Issue test certificates with ML-DSA signatures from internal CA. "
-                           "Validate certificate chain verification across all clients.",
+            "Validate certificate chain verification across all clients.",
         },
         {
             "action": "Assess HSM and KMS PQC compatibility",
             "priority": "P2",
             "effort": "medium",
             "description": "Verify that hardware security modules and key management "
-                           "systems support PQC key sizes and algorithms.",
+            "systems support PQC key sizes and algorithms.",
         },
     ]
 
@@ -1128,21 +1206,21 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "priority": "P2",
             "effort": "high",
             "description": "Deploy hybrid certificates (classical + ML-DSA) for backward "
-                           "compatibility, then transition to pure ML-DSA.",
+            "compatibility, then transition to pure ML-DSA.",
         },
         {
             "action": "Update code signing and software supply chain to PQC",
             "priority": "P2",
             "effort": "high",
             "description": "Migrate code signing certificates, package signatures, "
-                           "and firmware signing to ML-DSA or SLH-DSA.",
+            "and firmware signing to ML-DSA or SLH-DSA.",
         },
         {
             "action": "Replace quantum-vulnerable VPN and IPsec configurations",
             "priority": "P2",
             "effort": "medium",
             "description": "Upgrade VPN concentrators and IPsec configurations to "
-                           "support PQC key exchange.",
+            "support PQC key exchange.",
         },
     ]
 
@@ -1153,49 +1231,65 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "priority": "P3",
             "effort": "high",
             "description": "Remove RSA, ECDH, ECDSA, DH, DSA from all systems. "
-                           "Ensure 100% PQC coverage before NIST 2030 deadline.",
+            "Ensure 100% PQC coverage before NIST 2030 deadline.",
         },
         {
             "action": "Validate SLH-DSA (FIPS 205) as backup signature standard",
             "priority": "P3",
             "effort": "low",
             "description": "Maintain tested SLH-DSA deployment capability as fallback "
-                           "in case ML-DSA is found vulnerable.",
+            "in case ML-DSA is found vulnerable.",
         },
     ]
 
     roadmap["phases"] = [
-        {"name": "Phase 1: Discovery and Quick Wins", "timeline": "0-6 months",
-         "actions": phase1_actions},
-        {"name": "Phase 2: Hybrid Deployment", "timeline": "6-18 months",
-         "actions": phase2_actions},
-        {"name": "Phase 3: Full PQC Migration", "timeline": "18-36 months",
-         "actions": phase3_actions},
-        {"name": "Phase 4: Algorithm Deprecation", "timeline": "36-60 months",
-         "actions": phase4_actions},
+        {
+            "name": "Phase 1: Discovery and Quick Wins",
+            "timeline": "0-6 months",
+            "actions": phase1_actions,
+        },
+        {
+            "name": "Phase 2: Hybrid Deployment",
+            "timeline": "6-18 months",
+            "actions": phase2_actions,
+        },
+        {
+            "name": "Phase 3: Full PQC Migration",
+            "timeline": "18-36 months",
+            "actions": phase3_actions,
+        },
+        {
+            "name": "Phase 4: Algorithm Deprecation",
+            "timeline": "36-60 months",
+            "actions": phase4_actions,
+        },
     ]
 
     # Quick wins (can be done immediately with minimal effort)
     if tls13_count > 0:
-        roadmap["quick_wins"].append({
-            "action": f"Enable X25519MLKEM768 on {tls13_count} TLS 1.3 endpoints",
-            "effort": "configuration change only",
-            "impact": "Immediate quantum-resistant key exchange for existing TLS 1.3 servers",
-        })
+        roadmap["quick_wins"].append(
+            {
+                "action": f"Enable X25519MLKEM768 on {tls13_count} TLS 1.3 endpoints",
+                "effort": "configuration change only",
+                "impact": "Immediate quantum-resistant key exchange for existing TLS 1.3 servers",
+            }
+        )
 
-    roadmap["quick_wins"].append({
-        "action": "Increase AES key sizes to 256-bit where currently using 128-bit",
-        "effort": "configuration change",
-        "impact": "Grover's algorithm halves effective symmetric key strength; "
-                  "AES-256 provides 128-bit post-quantum security",
-    })
+    roadmap["quick_wins"].append(
+        {
+            "action": "Increase AES key sizes to 256-bit where currently using 128-bit",
+            "effort": "configuration change",
+            "impact": "Grover's algorithm halves effective symmetric key strength; "
+            "AES-256 provides 128-bit post-quantum security",
+        }
+    )
 
     # Risk register
     roadmap["risk_register"] = [
         {
             "risk": "Harvest Now, Decrypt Later (HNDL) attacks",
             "description": "Adversaries record encrypted traffic today to decrypt when "
-                           "quantum computers become available",
+            "quantum computers become available",
             "likelihood": "high",
             "impact": "critical for long-lived secrets (government, healthcare, finance)",
             "mitigation": "Priority migration of systems handling data with >10yr confidentiality",
@@ -1206,7 +1300,7 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "likelihood": "medium",
             "impact": "high",
             "mitigation": "Use NIST-validated implementations, conduct security audits, "
-                          "deploy hybrid schemes for defense-in-depth",
+            "deploy hybrid schemes for defense-in-depth",
         },
         {
             "risk": "Performance degradation",
@@ -1214,7 +1308,7 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "likelihood": "medium",
             "impact": "medium",
             "mitigation": "Benchmark PQC under production load, optimize TLS handshake "
-                          "configurations, consider ML-KEM-768 (balanced performance)",
+            "configurations, consider ML-KEM-768 (balanced performance)",
         },
         {
             "risk": "Compatibility issues",
@@ -1222,7 +1316,7 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
             "likelihood": "high",
             "impact": "medium",
             "mitigation": "Hybrid schemes ensure backward compatibility; maintain classical "
-                          "fallback during transition",
+            "fallback during transition",
         },
     ]
 
@@ -1232,6 +1326,7 @@ def generate_migration_roadmap(scan_results, agility_assessment=None):
 # ---------------------------------------------------------------------------
 # OpenSSL and oqs-provider Configuration
 # ---------------------------------------------------------------------------
+
 
 def check_openssl_pqc_support():
     """
@@ -1252,8 +1347,9 @@ def check_openssl_pqc_support():
 
     # Get OpenSSL version
     try:
-        proc = subprocess.run(["openssl", "version", "-a"],
-                              capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["openssl", "version", "-a"], capture_output=True, timeout=5
+        )
         result["openssl_version"] = proc.stdout.decode().strip()
     except (FileNotFoundError, subprocess.TimeoutExpired):
         result["error"] = "openssl not found"
@@ -1261,11 +1357,13 @@ def check_openssl_pqc_support():
 
     # List providers
     try:
-        proc = subprocess.run(["openssl", "list", "-providers"],
-                              capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["openssl", "list", "-providers"], capture_output=True, timeout=5
+        )
         output = proc.stdout.decode()
         result["providers"] = [
-            line.strip() for line in output.split("\n")
+            line.strip()
+            for line in output.split("\n")
             if line.strip() and "name:" in line.lower()
         ]
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -1273,8 +1371,9 @@ def check_openssl_pqc_support():
 
     # Check for PQC KEM algorithms
     try:
-        proc = subprocess.run(["openssl", "list", "-kem-algorithms"],
-                              capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["openssl", "list", "-kem-algorithms"], capture_output=True, timeout=5
+        )
         output = proc.stdout.decode()
         for line in output.split("\n"):
             line = line.strip().lower()
@@ -1285,20 +1384,25 @@ def check_openssl_pqc_support():
 
     # Check for PQC signature algorithms
     try:
-        proc = subprocess.run(["openssl", "list", "-signature-algorithms"],
-                              capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["openssl", "list", "-signature-algorithms"], capture_output=True, timeout=5
+        )
         output = proc.stdout.decode()
         for line in output.split("\n"):
             line = line.strip().lower()
-            if any(pqc in line for pqc in ["mldsa", "dilithium", "slhdsa", "sphincs", "falcon"]):
+            if any(
+                pqc in line
+                for pqc in ["mldsa", "dilithium", "slhdsa", "sphincs", "falcon"]
+            ):
                 result["pqc_signature_algorithms"].append(line)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
     # Check for hybrid groups
     try:
-        proc = subprocess.run(["openssl", "list", "-tls1-3-groups"],
-                              capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["openssl", "list", "-tls1-3-groups"], capture_output=True, timeout=5
+        )
         output = proc.stdout.decode()
         for line in output.split("\n"):
             line_stripped = line.strip()
@@ -1360,6 +1464,7 @@ MinProtocol = TLSv1.2
 # Main CLI
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Post-Quantum Cryptography Migration Assessment Agent",
@@ -1385,23 +1490,42 @@ Examples:
   python agent.py --action full_assessment --targets hosts.txt --output full_report.json
         """,
     )
-    parser.add_argument("--action", required=True, choices=[
-        "scan_tls", "assess_agility", "test_hybrid_tls",
-        "test_mlkem", "test_mldsa", "check_openssl",
-        "roadmap", "full_assessment",
-    ])
-    parser.add_argument("--target", default=None,
-                        help="Single target host[:port] for scanning")
-    parser.add_argument("--targets", default=None,
-                        help="File with one host[:port] per line")
-    parser.add_argument("--port", type=int, default=443,
-                        help="Default port for TLS scanning")
-    parser.add_argument("--scan-results", default=None,
-                        help="Path to previous scan results JSON (for assess/roadmap)")
-    parser.add_argument("--agility-results", default=None,
-                        help="Path to agility assessment JSON (for roadmap)")
-    parser.add_argument("--output", default="pqc_report.json",
-                        help="Output file for results")
+    parser.add_argument(
+        "--action",
+        required=True,
+        choices=[
+            "scan_tls",
+            "assess_agility",
+            "test_hybrid_tls",
+            "test_mlkem",
+            "test_mldsa",
+            "check_openssl",
+            "roadmap",
+            "full_assessment",
+        ],
+    )
+    parser.add_argument(
+        "--target", default=None, help="Single target host[:port] for scanning"
+    )
+    parser.add_argument(
+        "--targets", default=None, help="File with one host[:port] per line"
+    )
+    parser.add_argument(
+        "--port", type=int, default=443, help="Default port for TLS scanning"
+    )
+    parser.add_argument(
+        "--scan-results",
+        default=None,
+        help="Path to previous scan results JSON (for assess/roadmap)",
+    )
+    parser.add_argument(
+        "--agility-results",
+        default=None,
+        help="Path to agility assessment JSON (for roadmap)",
+    )
+    parser.add_argument(
+        "--output", default="pqc_report.json", help="Output file for results"
+    )
     args = parser.parse_args()
 
     report = {
@@ -1431,30 +1555,37 @@ Examples:
 
         report["tls_scan"] = scan_results
         vuln = sum(1 for r in scan_results if r.get("quantum_vulnerable"))
-        print(f"[+] Scanned {len(scan_results)} endpoints: "
-              f"{vuln} quantum-vulnerable")
+        print(f"[+] Scanned {len(scan_results)} endpoints: {vuln} quantum-vulnerable")
         for r in scan_results:
             status = "VULNERABLE" if r.get("quantum_vulnerable") else "OK"
             err = r.get("error", "")
             if err:
                 print(f"    {r['host']}:{r['port']} -- ERROR: {err}")
             else:
-                print(f"    {r['host']}:{r['port']} -- [{status}] "
-                      f"{r.get('cipher_suite', 'N/A')} ({r.get('tls_version', 'N/A')})")
+                print(
+                    f"    {r['host']}:{r['port']} -- [{status}] "
+                    f"{r.get('cipher_suite', 'N/A')} ({r.get('tls_version', 'N/A')})"
+                )
 
     # --- Crypto-Agility Assessment ---
     if args.action in ("assess_agility", "full_assessment"):
         if not scan_results and args.scan_results:
             with open(args.scan_results, encoding="utf-8") as f:
                 data = json.load(f)
-                scan_results = data.get("tls_scan", data) if isinstance(data, dict) else data
+                scan_results = (
+                    data.get("tls_scan", data) if isinstance(data, dict) else data
+                )
 
         if scan_results:
             agility = assess_crypto_agility(scan_results)
             report["agility_assessment"] = agility
             print(f"[+] Crypto-agility score: {agility['agility_score']}/100")
-            print(f"    Risk level: {agility['risk_summary'].get('risk_level', 'unknown')}")
-            print(f"    TLS 1.3 ready: {agility['risk_summary'].get('tls13_percentage', 0)}%")
+            print(
+                f"    Risk level: {agility['risk_summary'].get('risk_level', 'unknown')}"
+            )
+            print(
+                f"    TLS 1.3 ready: {agility['risk_summary'].get('tls13_percentage', 0)}%"
+            )
         else:
             print("[!] No scan results available for agility assessment")
 
@@ -1469,34 +1600,42 @@ Examples:
             port = int(host_port[1]) if len(host_port) > 1 else 443
             hybrid_result = test_hybrid_tls_support(host, port)
             report["hybrid_tls"] = hybrid_result
-            pqc_status = "SUPPORTED" if hybrid_result["pqc_supported"] else "NOT SUPPORTED"
+            pqc_status = (
+                "SUPPORTED" if hybrid_result["pqc_supported"] else "NOT SUPPORTED"
+            )
             print(f"[+] Hybrid TLS (X25519MLKEM768): {pqc_status}")
             print(f"    OpenSSL: {hybrid_result.get('openssl_version', 'unknown')}")
             for group_test in hybrid_result.get("hybrid_groups_tested", []):
                 status = "OK" if group_test.get("supported") else "FAIL"
-                print(f"    {group_test['group']}: [{status}] "
-                      f"{group_test.get('error', '')}")
+                print(
+                    f"    {group_test['group']}: [{status}] "
+                    f"{group_test.get('error', '')}"
+                )
 
     # --- ML-KEM Testing ---
     if args.action in ("test_mlkem", "full_assessment"):
         mlkem_result = test_mlkem_support()
         report["mlkem_validation"] = mlkem_result
-        print(f"[+] ML-KEM (FIPS 203) validation via {mlkem_result.get('library', 'N/A')}:")
+        print(
+            f"[+] ML-KEM (FIPS 203) validation via {mlkem_result.get('library', 'N/A')}:"
+        )
         for level, result in mlkem_result.get("levels", {}).items():
             status = "PASS" if result.get("supported") else "FAIL"
             perf = result.get("performance", {})
             perf_str = ""
             if perf:
-                perf_str = (f" (keygen={perf.get('keygen_ms', '?')}ms, "
-                            f"encaps={perf.get('encaps_ms', '?')}ms, "
-                            f"decaps={perf.get('decaps_ms', '?')}ms)")
+                perf_str = (
+                    f" (keygen={perf.get('keygen_ms', '?')}ms, "
+                    f"encaps={perf.get('encaps_ms', '?')}ms, "
+                    f"decaps={perf.get('decaps_ms', '?')}ms)"
+                )
             print(f"    {level}: [{status}]{perf_str}")
 
     # --- ML-DSA Testing ---
     if args.action in ("test_mldsa", "full_assessment"):
         mldsa_result = test_mldsa_support()
         report["mldsa_validation"] = mldsa_result
-        print(f"[+] ML-DSA (FIPS 204) validation:")
+        print("[+] ML-DSA (FIPS 204) validation:")
         for level, result in mldsa_result.get("levels", {}).items():
             status = "PASS" if result.get("supported") else "FAIL"
             err = result.get("error", "")
@@ -1506,13 +1645,15 @@ Examples:
     if args.action in ("check_openssl", "full_assessment"):
         ossl = check_openssl_pqc_support()
         report["openssl_pqc"] = ossl
-        print(f"[+] OpenSSL PQC support check:")
+        print("[+] OpenSSL PQC support check:")
         print(f"    Version: {ossl.get('openssl_version', 'unknown')}")
         print(f"    PQC ready: {ossl.get('pqc_ready', False)}")
         if ossl.get("pqc_kem_algorithms"):
             print(f"    KEM algorithms: {', '.join(ossl['pqc_kem_algorithms'][:5])}")
         if ossl.get("pqc_signature_algorithms"):
-            print(f"    Signature algorithms: {', '.join(ossl['pqc_signature_algorithms'][:5])}")
+            print(
+                f"    Signature algorithms: {', '.join(ossl['pqc_signature_algorithms'][:5])}"
+            )
         if ossl.get("hybrid_groups"):
             print(f"    Hybrid groups: {', '.join(ossl['hybrid_groups'][:5])}")
 
@@ -1529,7 +1670,9 @@ Examples:
         if not scan_results and args.scan_results:
             with open(args.scan_results, encoding="utf-8") as f:
                 data = json.load(f)
-                scan_results = data.get("tls_scan", data) if isinstance(data, dict) else data
+                scan_results = (
+                    data.get("tls_scan", data) if isinstance(data, dict) else data
+                )
 
         agility = None
         if args.agility_results:
@@ -1539,16 +1682,18 @@ Examples:
         if scan_results:
             roadmap = generate_migration_roadmap(scan_results, agility)
             report["migration_roadmap"] = roadmap
-            print(f"\n[+] Migration Roadmap")
+            print("\n[+] Migration Roadmap")
             print(f"    {roadmap['executive_summary']}")
-            print(f"\n    NIST Timeline: deprecation by {NIST_MIGRATION_DEADLINES['deprecation']}, "
-                  f"removal by {NIST_MIGRATION_DEADLINES['disallowed']}")
+            print(
+                f"\n    NIST Timeline: deprecation by {NIST_MIGRATION_DEADLINES['deprecation']}, "
+                f"removal by {NIST_MIGRATION_DEADLINES['disallowed']}"
+            )
             for phase in roadmap["phases"]:
                 print(f"\n    {phase['name']} ({phase['timeline']}):")
                 for action in phase["actions"]:
                     print(f"      [{action['priority']}] {action['action']}")
             if roadmap["quick_wins"]:
-                print(f"\n    Quick Wins:")
+                print("\n    Quick Wins:")
                 for qw in roadmap["quick_wins"]:
                     print(f"      - {qw['action']}")
         else:

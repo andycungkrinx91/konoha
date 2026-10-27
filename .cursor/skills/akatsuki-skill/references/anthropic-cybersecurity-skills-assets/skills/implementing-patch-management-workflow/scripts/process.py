@@ -15,7 +15,6 @@ Usage:
 """
 
 import argparse
-import csv
 import json
 from datetime import datetime, timedelta
 
@@ -61,8 +60,7 @@ class PatchComplianceTracker:
 
         # Merge with asset data
         merged = self.patches.merge(
-            self.assets[["hostname", "tier", "os"]],
-            on="hostname", how="left"
+            self.assets[["hostname", "tier", "os"]], on="hostname", how="left"
         )
 
         # Calculate per-host compliance
@@ -82,18 +80,20 @@ class PatchComplianceTracker:
             penalty = critical * 10 + high * 5 + medium * 2 + low * 0.5
             score = max(0, max_score - penalty)
 
-            host_compliance.append({
-                "hostname": hostname,
-                "tier": tier,
-                "os": os_name,
-                "critical_missing": critical,
-                "high_missing": high,
-                "medium_missing": medium,
-                "low_missing": low,
-                "total_missing": total,
-                "compliance_score": round(score, 1),
-                "compliant": total == 0,
-            })
+            host_compliance.append(
+                {
+                    "hostname": hostname,
+                    "tier": tier,
+                    "os": os_name,
+                    "critical_missing": critical,
+                    "high_missing": high,
+                    "medium_missing": medium,
+                    "low_missing": low,
+                    "total_missing": total,
+                    "compliance_score": round(score, 1),
+                    "compliant": total == 0,
+                }
+            )
 
         self.compliance = pd.DataFrame(host_compliance)
         self.compliance = self.compliance.sort_values("compliance_score")
@@ -142,8 +142,9 @@ class DeploymentPlanner:
     def __init__(self, rings_config: dict = None):
         self.rings = rings_config or self.DEFAULT_RINGS
 
-    def create_deployment_plan(self, patches: list, assets: pd.DataFrame,
-                               start_date: datetime = None) -> dict:
+    def create_deployment_plan(
+        self, patches: list, assets: pd.DataFrame, start_date: datetime = None
+    ) -> dict:
         """Create a phased deployment plan for patches."""
         start = start_date or datetime.now()
         plan = {
@@ -163,7 +164,9 @@ class DeploymentPlanner:
                 "ring": ring_id,
                 "name": ring_config["name"],
                 "start_date": current_date.isoformat(),
-                "end_date": (current_date + timedelta(hours=ring_config["soak_hours"])).isoformat(),
+                "end_date": (
+                    current_date + timedelta(hours=ring_config["soak_hours"])
+                ).isoformat(),
                 "soak_hours": ring_config["soak_hours"],
                 "host_count": len(ring_hosts),
                 "hosts": ring_hosts,
@@ -180,21 +183,28 @@ class DeploymentPlanner:
         plan["estimated_completion"] = current_date.isoformat()
         return plan
 
-    def _assign_ring_hosts(self, assets: pd.DataFrame, ring_id: str,
-                           percentage: int) -> list:
+    def _assign_ring_hosts(
+        self, assets: pd.DataFrame, ring_id: str, percentage: int
+    ) -> list:
         """Assign hosts to deployment rings based on tier and percentage."""
         if assets.empty or percentage == 0:
             return []
 
         ring_map = {
             "ring0": lambda df: df[df["tier"] == "test"],
-            "ring1": lambda df: df[df["tier"].isin(["dev", "it"])].sample(
-                frac=min(percentage / 100, 1.0), random_state=42
-            ) if len(df[df["tier"].isin(["dev", "it"])]) > 0 else pd.DataFrame(),
+            "ring1": lambda df: (
+                df[df["tier"].isin(["dev", "it"])].sample(
+                    frac=min(percentage / 100, 1.0), random_state=42
+                )
+                if len(df[df["tier"].isin(["dev", "it"])]) > 0
+                else pd.DataFrame()
+            ),
             "ring2": lambda df: df[df["tier"] == "staging"],
-            "ring3": lambda df: df[df["tier"] == "production"].sample(
-                frac=0.6, random_state=42
-            ) if len(df[df["tier"] == "production"]) > 0 else pd.DataFrame(),
+            "ring3": lambda df: (
+                df[df["tier"] == "production"].sample(frac=0.6, random_state=42)
+                if len(df[df["tier"] == "production"]) > 0
+                else pd.DataFrame()
+            ),
             "ring4": lambda df: df[df["tier"].isin(["production", "critical"])],
         }
 
@@ -214,15 +224,16 @@ class DeploymentPlanner:
         print(f"[+] Deployment plan exported to: {output_path}")
 
 
-def generate_compliance_report(summary: dict, compliance_df: pd.DataFrame,
-                                output_path: str):
+def generate_compliance_report(
+    summary: dict, compliance_df: pd.DataFrame, output_path: str
+):
     """Generate HTML compliance report."""
     top_noncompliant = compliance_df.head(20)
 
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Patch Compliance Report - {datetime.now().strftime('%Y-%m-%d')}</title>
+    <title>Patch Compliance Report - {datetime.now().strftime("%Y-%m-%d")}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
         .header {{ background: #1a1a2e; color: white; padding: 20px; border-radius: 8px; }}
@@ -243,25 +254,25 @@ def generate_compliance_report(summary: dict, compliance_df: pd.DataFrame,
 <body>
     <div class="header">
         <h1>Patch Compliance Report</h1>
-        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <p>Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
     </div>
     <div class="metrics">
-        <div class="card green"><h3>{summary['compliance_rate']}</h3><p>Compliance Rate</p></div>
-        <div class="card orange"><h3>{summary['total_hosts']}</h3><p>Total Hosts</p></div>
-        <div class="card red"><h3>{summary['total_missing_patches']}</h3><p>Missing Patches</p></div>
-        <div class="card red"><h3>{summary['critical_patches_missing']}</h3><p>Critical Missing</p></div>
+        <div class="card green"><h3>{summary["compliance_rate"]}</h3><p>Compliance Rate</p></div>
+        <div class="card orange"><h3>{summary["total_hosts"]}</h3><p>Total Hosts</p></div>
+        <div class="card red"><h3>{summary["total_missing_patches"]}</h3><p>Missing Patches</p></div>
+        <div class="card red"><h3>{summary["critical_patches_missing"]}</h3><p>Critical Missing</p></div>
     </div>
 
     <h2>Compliance by Tier</h2>
     <table>
         <tr><th>Tier</th><th>Total</th><th>Compliant</th><th>Rate</th><th>Avg Score</th></tr>
-        {''.join(f"<tr><td>{tier}</td><td>{data['total']}</td><td>{data['compliant']}</td><td>{data['rate']}</td><td>{data['avg_score']}</td></tr>" for tier, data in summary['by_tier'].items())}
+        {"".join(f"<tr><td>{tier}</td><td>{data['total']}</td><td>{data['compliant']}</td><td>{data['rate']}</td><td>{data['avg_score']}</td></tr>" for tier, data in summary["by_tier"].items())}
     </table>
 
     <h2>Top Non-Compliant Hosts</h2>
     <table>
         <tr><th>Hostname</th><th>Tier</th><th>OS</th><th>Critical</th><th>High</th><th>Medium</th><th>Score</th></tr>
-        {''.join(f"<tr><td>{r.hostname}</td><td>{r.tier}</td><td>{r.os}</td><td>{r.critical_missing}</td><td>{r.high_missing}</td><td>{r.medium_missing}</td><td>{r.compliance_score}</td></tr>" for r in top_noncompliant.itertuples())}
+        {"".join(f"<tr><td>{r.hostname}</td><td>{r.tier}</td><td>{r.os}</td><td>{r.critical_missing}</td><td>{r.high_missing}</td><td>{r.medium_missing}</td><td>{r.compliance_score}</td></tr>" for r in top_noncompliant.itertuples())}
     </table>
 </body>
 </html>"""
@@ -276,7 +287,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     comp_parser = subparsers.add_parser("compliance", help="Calculate patch compliance")
-    comp_parser.add_argument("--scan-csv", required=True, help="Vulnerability scan results CSV")
+    comp_parser.add_argument(
+        "--scan-csv", required=True, help="Vulnerability scan results CSV"
+    )
     comp_parser.add_argument("--asset-csv", required=True, help="Asset inventory CSV")
     comp_parser.add_argument("--output", default=None, help="Output compliance CSV")
     comp_parser.add_argument("--report", default=None, help="Output HTML report")
@@ -324,10 +337,12 @@ def main():
         plan = planner.create_deployment_plan(patches, assets)
         planner.export_plan(plan, args.output)
 
-        print(f"\n=== Deployment Plan ===")
+        print("\n=== Deployment Plan ===")
         for ring in plan["rings"]:
-            print(f"  {ring['name']}: {ring['host_count']} hosts, "
-                  f"soak: {ring['soak_hours']}h, start: {ring['start_date'][:10]}")
+            print(
+                f"  {ring['name']}: {ring['host_count']} hosts, "
+                f"soak: {ring['soak_hours']}h, start: {ring['start_date'][:10]}"
+            )
         print(f"Estimated completion: {plan['estimated_completion'][:10]}")
 
     else:

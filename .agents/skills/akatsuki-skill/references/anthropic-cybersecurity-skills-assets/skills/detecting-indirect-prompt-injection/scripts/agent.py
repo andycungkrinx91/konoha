@@ -11,6 +11,7 @@ Examples:
   python agent.py --pdf report.pdf --use-llmguard
   python agent.py --image screenshot.png --use-model
 """
+
 import argparse
 import base64
 import codecs
@@ -30,7 +31,9 @@ HEURISTICS = [
     r"disregard (the )?(system|previous) (prompt|instructions)",
     r"you are (now )?(an?|in) (developer|admin|dan|jailbreak)",
     r"reveal (the )?(system prompt|secret|api[_ ]?key)",
-    r"exfiltrat", r"send .* to https?://", r"new instructions?:",
+    r"exfiltrat",
+    r"send .* to https?://",
+    r"new instructions?:",
     r"do not (tell|inform) the user",
 ]
 
@@ -56,11 +59,16 @@ def normalize(text: str) -> str:
 
 def extract_html(path):
     from bs4 import BeautifulSoup, Comment
-    soup = BeautifulSoup(open(path, encoding="utf-8", errors="ignore").read(), "html.parser")
+
+    soup = BeautifulSoup(
+        open(path, encoding="utf-8", errors="ignore").read(), "html.parser"
+    )
     parts = []
     for c in soup.find_all(string=lambda t: isinstance(t, Comment)):
         parts.append(c.strip())
-    for el in soup.select('[style*="display:none"],[style*="visibility:hidden"],[hidden]'):
+    for el in soup.select(
+        '[style*="display:none"],[style*="visibility:hidden"],[hidden]'
+    ):
         parts.append(el.get_text(" ", strip=True))
     for img in soup.find_all("img"):
         if img.get("alt"):
@@ -71,12 +79,14 @@ def extract_html(path):
 
 def extract_pdf(path):
     from pypdf import PdfReader
+
     return "\n".join((pg.extract_text() or "") for pg in PdfReader(path).pages)
 
 
 def extract_image(path):
     from PIL import Image
     import pytesseract
+
     return pytesseract.image_to_string(Image.open(path))
 
 
@@ -89,6 +99,7 @@ def scan_llmguard(text):
     try:
         from llm_guard.input_scanners import PromptInjection
         from llm_guard.input_scanners.prompt_injection import MatchType
+
         s = PromptInjection(threshold=0.5, match_type=MatchType.FULL)
         _, is_valid, risk = s.scan(text)
         return {"available": True, "injection": not is_valid, "risk": risk}
@@ -99,12 +110,16 @@ def scan_llmguard(text):
 def scan_model(text):
     try:
         from transformers import pipeline
-        clf = pipeline("text-classification",
-                       model="protectai/deberta-v3-base-prompt-injection-v2")
+
+        clf = pipeline(
+            "text-classification", model="protectai/deberta-v3-base-prompt-injection-v2"
+        )
         out = clf(text[:512])[0]
-        return {"available": True,
-                "injection": out["label"].upper() == "INJECTION",
-                "score": out["score"]}
+        return {
+            "available": True,
+            "injection": out["label"].upper() == "INJECTION",
+            "score": out["score"],
+        }
     except ImportError:
         return {"available": False}
 

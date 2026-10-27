@@ -39,7 +39,7 @@ import json
 import sys
 
 START_SCORE = 110
-CONDITIONAL_THRESHOLD = 88   # 80% of 110
+CONDITIONAL_THRESHOLD = 88  # 80% of 110
 VALID_STATUS = {"met", "not_met", "partial", "na"}
 VALID_WEIGHTS = {1, 3, 5}
 
@@ -51,8 +51,8 @@ def compute(data):
 
     deductions = 0
     counts = {"met": 0, "not_met": 0, "partial": 0, "na": 0}
-    poam_flags = []   # higher-weight unmet -> verify POA&M eligibility
-    by_family = {}    # family -> {met,not_met,partial,na}
+    poam_flags = []  # higher-weight unmet -> verify POA&M eligibility
+    by_family = {}  # family -> {met,not_met,partial,na}
     detail = []
 
     for r in reqs:
@@ -60,12 +60,16 @@ def compute(data):
         status = r.get("status")
         weight = r.get("weight")
         if status not in VALID_STATUS:
-            raise ValueError(f"{rid}: status '{status}' invalid (met|not_met|partial|na)")
+            raise ValueError(
+                f"{rid}: status '{status}' invalid (met|not_met|partial|na)"
+            )
         if status in ("not_met", "partial", "met") and weight not in VALID_WEIGHTS:
             raise ValueError(f"{rid}: weight '{weight}' invalid (must be 1, 3, or 5)")
 
         fam = r.get("family", rid.rsplit(".", 1)[0])
-        fam_rec = by_family.setdefault(fam, {"met": 0, "not_met": 0, "partial": 0, "na": 0})
+        fam_rec = by_family.setdefault(
+            fam, {"met": 0, "not_met": 0, "partial": 0, "na": 0}
+        )
         fam_rec[status] += 1
         counts[status] += 1
 
@@ -77,9 +81,13 @@ def compute(data):
         elif status == "partial":
             ded = r.get("partial_deduction")
             if ded is None:
-                raise ValueError(f"{rid}: status 'partial' requires 'partial_deduction'")
+                raise ValueError(
+                    f"{rid}: status 'partial' requires 'partial_deduction'"
+                )
             if ded < 0 or ded > weight:
-                raise ValueError(f"{rid}: partial_deduction {ded} out of range (0..{weight})")
+                raise ValueError(
+                    f"{rid}: partial_deduction {ded} out of range (0..{weight})"
+                )
             if ded > 1:
                 poam_flags.append((rid, ded))
         deductions += ded
@@ -99,7 +107,7 @@ def compute(data):
 def render(data, res):
     org = data.get("org", {})
     lines = []
-    lines.append(f"# CMMC Level 2 Readiness - {org.get('name','Organization')}")
+    lines.append(f"# CMMC Level 2 Readiness - {org.get('name', 'Organization')}")
     lines.append("")
     if org.get("scope"):
         lines.append(f"- **Scope:** {org['scope']}")
@@ -108,19 +116,27 @@ def render(data, res):
     score = res["score"]
     lines.append("## SPRS Score (DoD Assessment Methodology)")
     lines.append("")
-    lines.append(f"- **Score:** **{score}** / 110  (started at 110, deducted {res['deductions']})")
+    lines.append(
+        f"- **Score:** **{score}** / 110  (started at 110, deducted {res['deductions']})"
+    )
     lines.append(f"- **Gap to perfect (110):** {110 - score}")
     if score >= CONDITIONAL_THRESHOLD:
-        lines.append(f"- **Conditional threshold (>= {CONDITIONAL_THRESHOLD}):** MET "
-                     f"(margin {score - CONDITIONAL_THRESHOLD}) - eligible for Conditional status "
-                     "if remaining items are POA&M-eligible.")
+        lines.append(
+            f"- **Conditional threshold (>= {CONDITIONAL_THRESHOLD}):** MET "
+            f"(margin {score - CONDITIONAL_THRESHOLD}) - eligible for Conditional status "
+            "if remaining items are POA&M-eligible."
+        )
     else:
-        lines.append(f"- **Conditional threshold (>= {CONDITIONAL_THRESHOLD}):** NOT MET "
-                     f"(short by {CONDITIONAL_THRESHOLD - score}) - not eligible for Conditional "
-                     "certification until the score reaches 88.")
+        lines.append(
+            f"- **Conditional threshold (>= {CONDITIONAL_THRESHOLD}):** NOT MET "
+            f"(short by {CONDITIONAL_THRESHOLD - score}) - not eligible for Conditional "
+            "certification until the score reaches 88."
+        )
     c = res["counts"]
-    lines.append(f"- **Status tally:** met {c['met']}, partial {c['partial']}, "
-                 f"not met {c['not_met']}, N/A {c['na']}")
+    lines.append(
+        f"- **Status tally:** met {c['met']}, partial {c['partial']}, "
+        f"not met {c['not_met']}, N/A {c['na']}"
+    )
     lines.append("")
 
     # by family
@@ -130,36 +146,51 @@ def render(data, res):
     lines.append("|---|---|---|---|---|")
     for fam in sorted(res["by_family"]):
         f = res["by_family"][fam]
-        lines.append(f"| {fam} | {f['met']} | {f['partial']} | {f['not_met']} | {f['na']} |")
+        lines.append(
+            f"| {fam} | {f['met']} | {f['partial']} | {f['not_met']} | {f['na']} |"
+        )
     lines.append("")
 
     # POA&M eligibility flags
     lines.append("## POA&M eligibility check")
     lines.append("")
     if not res["poam_flags"]:
-        lines.append("No unmet requirement carries more than 1 point of deduction. "
-                     "Remaining gaps are most likely POA&M-eligible (still verify against 32 CFR Part 170).")
+        lines.append(
+            "No unmet requirement carries more than 1 point of deduction. "
+            "Remaining gaps are most likely POA&M-eligible (still verify against 32 CFR Part 170)."
+        )
     else:
-        lines.append("The following unmet/partial requirements carry **> 1 point**. The highest-weighted "
-                     "security requirements generally **cannot** sit on a POA&M - verify each against "
-                     "32 CFR Part 170 before relying on Conditional status:")
+        lines.append(
+            "The following unmet/partial requirements carry **> 1 point**. The highest-weighted "
+            "security requirements generally **cannot** sit on a POA&M - verify each against "
+            "32 CFR Part 170 before relying on Conditional status:"
+        )
         lines.append("")
         lines.append("| Requirement | Points lost |")
         lines.append("|---|---|")
         for rid, w in sorted(res["poam_flags"], key=lambda x: -x[1]):
             lines.append(f"| {rid} | {w} |")
     lines.append("")
-    lines.append("> All POA&M items must be closed within **180 days** to convert Conditional -> Final.")
+    lines.append(
+        "> All POA&M items must be closed within **180 days** to convert Conditional -> Final."
+    )
 
     return "\n".join(lines)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="CMMC L2 / NIST 800-171 SPRS score calculator")
+    ap = argparse.ArgumentParser(
+        description="CMMC L2 / NIST 800-171 SPRS score calculator"
+    )
     ap.add_argument("--input", "-i", required=True, help="Path to control-status JSON")
-    ap.add_argument("--output", "-o", help="Write Markdown readiness report to this path")
-    ap.add_argument("--require-conditional", action="store_true",
-                    help="Exit non-zero if SPRS score < 88 (conditional threshold)")
+    ap.add_argument(
+        "--output", "-o", help="Write Markdown readiness report to this path"
+    )
+    ap.add_argument(
+        "--require-conditional",
+        action="store_true",
+        help="Exit non-zero if SPRS score < 88 (conditional threshold)",
+    )
     args = ap.parse_args()
 
     try:
@@ -183,13 +214,17 @@ def main():
     else:
         print(md)
 
-    print(f"SPRS score {res['score']}/110 (deductions {res['deductions']}; "
-          f"not met {res['counts']['not_met']}, partial {res['counts']['partial']}).",
-          file=sys.stderr)
+    print(
+        f"SPRS score {res['score']}/110 (deductions {res['deductions']}; "
+        f"not met {res['counts']['not_met']}, partial {res['counts']['partial']}).",
+        file=sys.stderr,
+    )
 
     if args.require_conditional and res["score"] < CONDITIONAL_THRESHOLD:
-        print(f"FAIL: score {res['score']} < {CONDITIONAL_THRESHOLD} conditional threshold.",
-              file=sys.stderr)
+        print(
+            f"FAIL: score {res['score']} < {CONDITIONAL_THRESHOLD} conditional threshold.",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

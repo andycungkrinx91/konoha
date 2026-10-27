@@ -13,6 +13,7 @@ Examples:
   python agent.py parse --report assessment.report.jsonl
   python agent.py list-probes
 """
+
 import argparse
 import glob
 import json
@@ -20,7 +21,6 @@ import os
 import shutil
 import subprocess
 import sys
-from collections import defaultdict
 
 
 def _garak_cmd():
@@ -55,7 +55,9 @@ def run_scan(args):
         cmd += ["--report_prefix", args.report_prefix]
 
     if args.target_type == "openai" and not os.environ.get("OPENAI_API_KEY"):
-        print("[!] OPENAI_API_KEY is not set; openai target will fail.", file=sys.stderr)
+        print(
+            "[!] OPENAI_API_KEY is not set; openai target will fail.", file=sys.stderr
+        )
 
     print("[*] Executing:", " ".join(cmd))
     try:
@@ -63,11 +65,18 @@ def run_scan(args):
     except FileNotFoundError:
         sys.exit("garak is not installed. Run: python -m pip install -U garak")
     if result.returncode != 0:
-        print(f"[!] garak exited non-zero ({result.returncode}); a non-zero exit "
-              "can indicate findings were detected.", file=sys.stderr)
+        print(
+            f"[!] garak exited non-zero ({result.returncode}); a non-zero exit "
+            "can indicate findings were detected.",
+            file=sys.stderr,
+        )
 
     # Locate the most recent matching report and summarize it.
-    pattern = f"{args.report_prefix}*.report.jsonl" if args.report_prefix else "garak.*.report.jsonl"
+    pattern = (
+        f"{args.report_prefix}*.report.jsonl"
+        if args.report_prefix
+        else "garak.*.report.jsonl"
+    )
     reports = sorted(glob.glob(pattern), key=os.path.getmtime)
     if reports:
         print(f"[*] Parsing latest report: {reports[-1]}")
@@ -104,7 +113,9 @@ def _summarize(report_path):
         detector = r.get("detector", "?")
         passed = r.get("passed", 0)
         total = r.get("total", 0) or 1
-        hit_rate = 1.0 - (passed / total)  # fraction of attempts that succeeded as attacks
+        hit_rate = 1.0 - (
+            passed / total
+        )  # fraction of attempts that succeeded as attacks
         findings.append((hit_rate, probe, detector, passed, total))
 
     findings.sort(reverse=True)
@@ -112,7 +123,9 @@ def _summarize(report_path):
     print(f"{'HIT%':>6}  {'PROBE':<40} {'DETECTOR':<28} PASS/TOTAL")
     for hit_rate, probe, detector, passed, total in findings:
         sev = "HIGH" if hit_rate >= 0.5 else "MED " if hit_rate >= 0.1 else "low "
-        print(f"{hit_rate*100:6.1f}  {probe:<40} {detector:<28} {passed}/{total}  [{sev}]")
+        print(
+            f"{hit_rate * 100:6.1f}  {probe:<40} {detector:<28} {passed}/{total}  [{sev}]"
+        )
 
 
 def parse_report(args):
@@ -127,12 +140,16 @@ def build_parser():
     lp.set_defaults(func=list_probes)
 
     rs = sub.add_parser("run", help="Run a garak scan and summarize")
-    rs.add_argument("--target-type", required=True, help="e.g. openai, huggingface, rest")
+    rs.add_argument(
+        "--target-type", required=True, help="e.g. openai, huggingface, rest"
+    )
     rs.add_argument("--target-name", required=True, help="model name")
     rs.add_argument("--probes", help="comma-separated probe spec")
     rs.add_argument("--generations", type=int, default=0)
     rs.add_argument("--parallel-attempts", type=int, default=0)
-    rs.add_argument("--generator-option-file", help="JSON generator spec (-G), e.g. rest.json")
+    rs.add_argument(
+        "--generator-option-file", help="JSON generator spec (-G), e.g. rest.json"
+    )
     rs.add_argument("--report-prefix", default="garak_run")
     rs.set_defaults(func=run_scan)
 

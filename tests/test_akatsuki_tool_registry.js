@@ -18,13 +18,13 @@ const {
   getToolProfile,
   listSupportedTools,
   planToolExecution
-} = require('../src/akatsuki_tool_registry');
+} = require('../src/workflow/akatsuki/tool_registry');
 const {
   runRedTeamWorkflow,
   runAkatsukiFinalGate,
   isRedTeamEnabled,
   setRedTeamEnabled
-} = require('../src/akatsuki_workflows');
+} = require('../src/workflow/akatsuki/workflows');
 const { cmdAkatsuki } = require('../bin/commands/akatsuki');
 
 function testCuratedToolRegistry() {
@@ -48,7 +48,9 @@ function testCuratedToolRegistry() {
     'droopescan',
     'searchsploit',
     'whatweb',
-    'nikto'
+    'nikto',
+    'burpsuite',
+    'msfvenom'
   ];
 
   for (const toolId of expectedTools) {

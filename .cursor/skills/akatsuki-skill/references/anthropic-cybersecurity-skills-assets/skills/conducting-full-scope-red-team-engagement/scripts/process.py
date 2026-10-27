@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, asdict
 @dataclass
 class RedTeamAction:
     """Represents a single red team action during an engagement."""
+
     timestamp: str
     phase: str
     mitre_tactic: str
@@ -37,6 +38,7 @@ class RedTeamAction:
 @dataclass
 class EngagementConfig:
     """Configuration for a red team engagement."""
+
     engagement_id: str
     client_name: str
     start_date: str
@@ -92,7 +94,10 @@ COMMON_TECHNIQUES = {
     "T1550.002": {"name": "Pass the Hash", "tactic": "TA0008"},
     "T1560": {"name": "Archive Collected Data", "tactic": "TA0009"},
     "T1041": {"name": "Exfiltration Over C2 Channel", "tactic": "TA0010"},
-    "T1048.003": {"name": "Exfiltration Over Unencrypted Non-C2 Protocol", "tactic": "TA0010"},
+    "T1048.003": {
+        "name": "Exfiltration Over Unencrypted Non-C2 Protocol",
+        "tactic": "TA0010",
+    },
     "T1486": {"name": "Data Encrypted for Impact", "tactic": "TA0040"},
 }
 
@@ -100,7 +105,9 @@ COMMON_TECHNIQUES = {
 class RedTeamEngagementTracker:
     """Tracks and reports on red team engagement activities."""
 
-    def __init__(self, config: EngagementConfig, output_dir: str = "./engagement_output"):
+    def __init__(
+        self, config: EngagementConfig, output_dir: str = "./engagement_output"
+    ):
         self.config = config
         self.actions: list[RedTeamAction] = []
         self.output_dir = output_dir
@@ -114,7 +121,9 @@ class RedTeamEngagementTracker:
 
     def _append_to_log(self, action: RedTeamAction) -> None:
         """Append action to engagement log file."""
-        log_path = os.path.join(self.output_dir, f"{self.config.engagement_id}_log.jsonl")
+        log_path = os.path.join(
+            self.output_dir, f"{self.config.engagement_id}_log.jsonl"
+        )
         with open(log_path, "a") as f:
             f.write(json.dumps(asdict(action)) + "\n")
 
@@ -133,7 +142,9 @@ class RedTeamEngagementTracker:
                 delta = (detect_time - action_time).total_seconds() / 3600  # hours
                 detection_deltas.append(delta)
 
-        mttd_hours = sum(detection_deltas) / len(detection_deltas) if detection_deltas else None
+        mttd_hours = (
+            sum(detection_deltas) / len(detection_deltas) if detection_deltas else None
+        )
 
         # Calculate TTP coverage
         unique_techniques = set(a.mitre_technique_id for a in self.actions)
@@ -165,9 +176,13 @@ class RedTeamEngagementTracker:
             "engagement_id": self.config.engagement_id,
             "total_actions": total_actions,
             "successful_actions": len(successful_actions),
-            "success_rate": len(successful_actions) / total_actions * 100 if total_actions else 0,
+            "success_rate": len(successful_actions) / total_actions * 100
+            if total_actions
+            else 0,
             "detected_actions": len(detected_actions),
-            "detection_rate": len(detected_actions) / total_actions * 100 if total_actions else 0,
+            "detection_rate": len(detected_actions) / total_actions * 100
+            if total_actions
+            else 0,
             "mttd_hours": mttd_hours,
             "unique_techniques_used": len(unique_techniques),
             "unique_techniques_detected": len(detected_techniques),
@@ -258,10 +273,14 @@ class RedTeamEngagementTracker:
             name = tech_info.get("name", "Unknown")
             lines.append(f"  [!] {tid} - {name}")
             relevant_actions = [
-                a for a in self.actions if a.mitre_technique_id == tid and not a.detected
+                a
+                for a in self.actions
+                if a.mitre_technique_id == tid and not a.detected
             ]
             for action in relevant_actions:
-                lines.append(f"      Tool: {action.tool_used} | Target: {action.target_host}")
+                lines.append(
+                    f"      Tool: {action.tool_used} | Target: {action.target_host}"
+                )
 
         lines.append("")
         lines.append("-" * 70)
@@ -274,21 +293,29 @@ class RedTeamEngagementTracker:
             lines.append(f"  [{tid}] {name}")
             if tid == "T1003.001":
                 lines.append("    -> Enable Credential Guard and LSASS protection")
-                lines.append("    -> Deploy Sysmon with EventID 10 (ProcessAccess) rules")
+                lines.append(
+                    "    -> Deploy Sysmon with EventID 10 (ProcessAccess) rules"
+                )
             elif tid == "T1558.003":
                 lines.append("    -> Use Group Managed Service Accounts (gMSA)")
                 lines.append("    -> Monitor EventID 4769 for RC4 ticket requests")
             elif tid == "T1055":
                 lines.append("    -> Deploy EDR with memory scanning capabilities")
-                lines.append("    -> Monitor for cross-process injection (Sysmon EventID 8)")
+                lines.append(
+                    "    -> Monitor for cross-process injection (Sysmon EventID 8)"
+                )
             elif tid == "T1021.002":
                 lines.append("    -> Restrict lateral movement with Windows Firewall")
-                lines.append("    -> Monitor for EventID 5140/5145 (network share access)")
+                lines.append(
+                    "    -> Monitor for EventID 5140/5145 (network share access)"
+                )
             elif tid == "T1550.002":
                 lines.append("    -> Enable Restricted Admin Mode for RDP")
                 lines.append("    -> Deploy Windows Defender Credential Guard")
             else:
-                lines.append("    -> Review MITRE ATT&CK mitigations for this technique")
+                lines.append(
+                    "    -> Review MITRE ATT&CK mitigations for this technique"
+                )
                 lines.append("    -> Create detection rule in SIEM for related events")
 
         report_text = "\n".join(lines)
@@ -309,19 +336,41 @@ class RedTeamEngagementTracker:
         )
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "Timestamp", "Phase", "Tactic", "Technique ID", "Technique Name",
-                "Description", "Target", "Tool", "Outcome", "Detected",
-                "Detection Time", "Detection Source", "Operator",
-            ])
+            writer.writerow(
+                [
+                    "Timestamp",
+                    "Phase",
+                    "Tactic",
+                    "Technique ID",
+                    "Technique Name",
+                    "Description",
+                    "Target",
+                    "Tool",
+                    "Outcome",
+                    "Detected",
+                    "Detection Time",
+                    "Detection Source",
+                    "Operator",
+                ]
+            )
             for action in sorted(self.actions, key=lambda a: a.timestamp):
-                writer.writerow([
-                    action.timestamp, action.phase, action.mitre_tactic,
-                    action.mitre_technique_id, action.mitre_technique_name,
-                    action.description, action.target_host, action.tool_used,
-                    action.outcome, action.detected, action.detection_time,
-                    action.detection_source, action.operator,
-                ])
+                writer.writerow(
+                    [
+                        action.timestamp,
+                        action.phase,
+                        action.mitre_tactic,
+                        action.mitre_technique_id,
+                        action.mitre_technique_name,
+                        action.description,
+                        action.target_host,
+                        action.tool_used,
+                        action.outcome,
+                        action.detected,
+                        action.detection_time,
+                        action.detection_source,
+                        action.operator,
+                    ]
+                )
 
         print(f"[+] Timeline CSV saved to: {csv_path}")
         return csv_path
@@ -338,17 +387,17 @@ Period: {self.config.start_date} to {self.config.end_date}
 Threat Profile: {self.config.threat_profile}
 
 KEY FINDINGS:
-- {metrics['unique_techniques_used']} unique ATT&CK techniques were executed
-- {metrics['detection_rate']:.0f}% of red team actions were detected by the SOC
-- {metrics['ttp_coverage_pct']:.0f}% of techniques used had at least one detection
-- {len(metrics.get('undetected_techniques', []))} technique(s) had ZERO detection coverage
-- {metrics['objectives_achieved']}/{metrics['objectives_total']} engagement objectives achieved
+- {metrics["unique_techniques_used"]} unique ATT&CK techniques were executed
+- {metrics["detection_rate"]:.0f}% of red team actions were detected by the SOC
+- {metrics["ttp_coverage_pct"]:.0f}% of techniques used had at least one detection
+- {len(metrics.get("undetected_techniques", []))} technique(s) had ZERO detection coverage
+- {metrics["objectives_achieved"]}/{metrics["objectives_total"]} engagement objectives achieved
 
-RISK RATING: {'CRITICAL' if metrics['detection_rate'] < 30 else 'HIGH' if metrics['detection_rate'] < 50 else 'MEDIUM' if metrics['detection_rate'] < 70 else 'LOW'}
+RISK RATING: {"CRITICAL" if metrics["detection_rate"] < 30 else "HIGH" if metrics["detection_rate"] < 50 else "MEDIUM" if metrics["detection_rate"] < 70 else "LOW"}
 
-The red team {'successfully' if metrics['success_rate'] > 50 else 'partially'} achieved the defined objectives,
+The red team {"successfully" if metrics["success_rate"] > 50 else "partially"} achieved the defined objectives,
 demonstrating that the organization's current security posture requires
-{'immediate remediation' if metrics['detection_rate'] < 30 else 'significant improvement' if metrics['detection_rate'] < 50 else 'targeted improvements' if metrics['detection_rate'] < 70 else 'minor tuning'}.
+{"immediate remediation" if metrics["detection_rate"] < 30 else "significant improvement" if metrics["detection_rate"] < 50 else "targeted improvements" if metrics["detection_rate"] < 70 else "minor tuning"}.
 """
         return summary
 

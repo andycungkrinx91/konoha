@@ -137,14 +137,14 @@ def build_parser():
     s = sub.add_parser("scaffold", help="write a starter Yaotl profile")
     s.add_argument("profile")
     s.add_argument("--host", default="0.0.0.0", help="team server bind host")
-    s.add_argument("--listener-host", default="c2.example.com",
-                   help="Demon callback host")
+    s.add_argument(
+        "--listener-host", default="c2.example.com", help="Demon callback host"
+    )
     s.add_argument("--port", type=int, default=443, help="listener port")
 
     b = sub.add_parser("build", help="run make ts-build / client-build")
     b.add_argument("--dir", default=".", help="path to cloned Havoc repo")
-    b.add_argument("--target", choices=["ts-build", "client-build"],
-                   default="ts-build")
+    b.add_argument("--target", choices=["ts-build", "client-build"], default="ts-build")
 
     r = sub.add_parser("serve", help="launch the team server")
     r.add_argument("--bin", default="./havoc", help="path to havoc binary")
@@ -161,15 +161,17 @@ def main():
         if args.action == "validate":
             sys.exit(0 if validate_profile(args.profile) else 1)
         elif args.action == "scaffold":
-            scaffold_profile(args.profile, args.host, args.listener_host,
-                             args.port)
+            scaffold_profile(args.profile, args.host, args.listener_host, args.port)
         elif args.action == "build":
             sys.exit(run_make(args.dir, args.target))
         elif args.action == "serve":
-            sys.exit(launch_server(args.bin, args.profile, args.verbose,
-                                   args.debug))
-    except (FileNotFoundError, FileExistsError, NotADirectoryError,
-            RuntimeError) as exc:
+            sys.exit(launch_server(args.bin, args.profile, args.verbose, args.debug))
+    except (
+        FileNotFoundError,
+        FileExistsError,
+        NotADirectoryError,
+        RuntimeError,
+    ) as exc:
         sys.stderr.write(f"[!] {exc}\n")
         sys.exit(2)
 

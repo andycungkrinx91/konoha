@@ -234,6 +234,15 @@
     "url": "https://www.kali.org/tools/bulk-extractor/"
   },
   {
+    "id": "burpsuite",
+    "name": "burpsuite",
+    "slug": "burpsuite",
+    "package": "burpsuite",
+    "category": "web-application-analysis",
+    "description": "PortSwigger Burp Suite Community / Headless Security Proxy (https://www.kali.org/tools/burpsuite/)",
+    "url": "https://www.kali.org/tools/burpsuite/"
+  },
+  {
     "id": "calico",
     "name": "calico",
     "slug": "calico",

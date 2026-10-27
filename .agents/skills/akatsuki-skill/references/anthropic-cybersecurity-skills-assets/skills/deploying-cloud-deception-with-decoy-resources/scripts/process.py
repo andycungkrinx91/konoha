@@ -27,6 +27,7 @@ decoys.json format:
       ]
     }
 """
+
 import argparse
 import json
 import sys
@@ -53,10 +54,17 @@ def check_decoy(d):
         issues.append("no IR playbook reference for the alert")
 
     # Credential/principal decoys must be deny-all / least privilege.
-    cred_types = {"canary_access_key", "decoy_principal", "decoy_service_account",
-                  "decoy_service_principal", "decoy_iam_user"}
+    cred_types = {
+        "canary_access_key",
+        "decoy_principal",
+        "decoy_service_account",
+        "decoy_service_principal",
+        "decoy_iam_user",
+    }
     if d.get("type") in cred_types and not d.get("deny_all"):
-        issues.append("credential/principal decoy is not marked deny_all (liability risk)")
+        issues.append(
+            "credential/principal decoy is not marked deny_all (liability risk)"
+        )
 
     val = d.get("validated") or {}
     if not val.get("passed"):
@@ -67,29 +75,41 @@ def check_decoy(d):
 
 
 def render(inv, results):
-    lines = [f"# Cloud Deception Deployment Record",
-             f"\n_Account: {inv.get('account', 'UNKNOWN')} — generated {date.today().isoformat()}_\n",
-             "## 1. Decoy inventory & detection wiring",
-             "| Decoy | Cloud | Type | Placement | Detection (source→rule→sink) | Playbook | Validated | Status |",
-             "|---|---|---|---|---|---|---|---|"]
+    lines = [
+        "# Cloud Deception Deployment Record",
+        f"\n_Account: {inv.get('account', 'UNKNOWN')} — generated {date.today().isoformat()}_\n",
+        "## 1. Decoy inventory & detection wiring",
+        "| Decoy | Cloud | Type | Placement | Detection (source→rule→sink) | Playbook | Validated | Status |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
     for d, issues in results:
         det = d.get("detection") or {}
-        wiring = f"{det.get('source','?')}→{det.get('rule','?')}→{det.get('sink','?')}"
+        wiring = (
+            f"{det.get('source', '?')}→{det.get('rule', '?')}→{det.get('sink', '?')}"
+        )
         val = d.get("validated") or {}
-        vstr = f"{val.get('date','-')} ({val.get('latency_sec','?')}s)" if val.get("passed") else "NO"
+        vstr = (
+            f"{val.get('date', '-')} ({val.get('latency_sec', '?')}s)"
+            if val.get("passed")
+            else "NO"
+        )
         status = "OK" if not issues else f"{len(issues)} issue(s)"
-        lines.append(f"| {d.get('name','?')} | {d.get('cloud','?')} | {d.get('type','?')} | "
-                     f"{d.get('placement','?')} | {wiring} | {det.get('playbook','-')} | {vstr} | {status} |")
+        lines.append(
+            f"| {d.get('name', '?')} | {d.get('cloud', '?')} | {d.get('type', '?')} | "
+            f"{d.get('placement', '?')} | {wiring} | {det.get('playbook', '-')} | {vstr} | {status} |"
+        )
 
     problem = [(d, i) for d, i in results if i]
     if problem:
         lines.append("\n## 2. Issues to remediate before relying on these decoys")
         for d, issues in problem:
-            lines.append(f"\n**{d.get('name','?')}** ({d.get('cloud','?')}):")
+            lines.append(f"\n**{d.get('name', '?')}** ({d.get('cloud', '?')}):")
             for it in issues:
                 lines.append(f"- {it}")
     else:
-        lines.append("\n## 2. Issues\nNone — all decoys have detection wiring, least privilege, and validation.")
+        lines.append(
+            "\n## 2. Issues\nNone — all decoys have detection wiring, least privilege, and validation."
+        )
 
     lines.append("\n## 3. Maintenance")
     lines.append("- Rotation cadence: TBD  ·  Review owner: TBD")
@@ -111,8 +131,10 @@ def main():
     total_issues = sum(len(i) for _, i in results)
     healthy = sum(1 for _, i in results if not i)
 
-    print(f"{len(decoys)} decoy(s): {healthy} healthy, {total_issues} total issue(s).",
-          file=sys.stderr)
+    print(
+        f"{len(decoys)} decoy(s): {healthy} healthy, {total_issues} total issue(s).",
+        file=sys.stderr,
+    )
 
     out = render(inv, results)
     if args.out:

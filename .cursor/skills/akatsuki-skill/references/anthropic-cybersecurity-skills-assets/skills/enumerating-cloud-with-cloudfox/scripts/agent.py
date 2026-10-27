@@ -13,6 +13,7 @@ Examples:
   python agent.py --profile assess --all
   python agent.py --profile assess --commands endpoints secrets role-trusts -o ./loot
 """
+
 import argparse
 import os
 import shutil
@@ -21,15 +22,24 @@ import sys
 
 HIGH_VALUE = {"role-trusts", "secrets", "endpoints", "access-keys", "permissions"}
 DEFAULT_COMMANDS = [
-    "inventory", "endpoints", "instances", "principals",
-    "permissions", "role-trusts", "access-keys", "secrets", "buckets",
+    "inventory",
+    "endpoints",
+    "instances",
+    "principals",
+    "permissions",
+    "role-trusts",
+    "access-keys",
+    "secrets",
+    "buckets",
 ]
 
 
 def require_cloudfox():
     if shutil.which("cloudfox") is None:
-        sys.exit("error: 'cloudfox' not found in PATH. Install: brew install cloudfox "
-                 "or go install github.com/BishopFox/cloudfox@latest")
+        sys.exit(
+            "error: 'cloudfox' not found in PATH. Install: brew install cloudfox "
+            "or go install github.com/BishopFox/cloudfox@latest"
+        )
 
 
 def run_command(provider, profile, command, outdir):
@@ -75,7 +85,9 @@ def main():
     p = argparse.ArgumentParser(description="CloudFox enumeration driver")
     p.add_argument("--provider", default="aws", choices=["aws", "azure"])
     p.add_argument("--profile", help="AWS named profile")
-    p.add_argument("--all", action="store_true", help="run all-checks (AWS) / inventory (Azure)")
+    p.add_argument(
+        "--all", action="store_true", help="run all-checks (AWS) / inventory (Azure)"
+    )
     p.add_argument("--commands", nargs="+", help="specific CloudFox commands to run")
     p.add_argument("-o", "--outdir", default="./cloudfox-loot", help="output directory")
     args = p.parse_args()
@@ -89,7 +101,11 @@ def main():
     elif args.commands:
         commands = args.commands
     else:
-        commands = DEFAULT_COMMANDS if args.provider == "aws" else ["inventory", "rbac", "storage", "vms"]
+        commands = (
+            DEFAULT_COMMANDS
+            if args.provider == "aws"
+            else ["inventory", "rbac", "storage", "vms"]
+        )
 
     for c in commands:
         out = run_command(args.provider, args.profile, c, args.outdir)

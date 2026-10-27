@@ -31,4 +31,15 @@ if command -v gem >/dev/null 2>&1; then
   gem install wpscan --no-document 2>/dev/null || true
 fi
 
+# Additional tool symlinks and packages
+if ! command -v feroxbuster >/dev/null 2>&1; then
+  apt-get install -y feroxbuster 2>/dev/null || true
+fi
+if [ -f "/usr/bin/testssl.sh" ] && [ ! -f "/usr/local/bin/testssl" ]; then
+  ln -sf /usr/bin/testssl.sh /usr/local/bin/testssl || true
+fi
+if [ -f "/usr/bin/zaproxy" ] && [ ! -f "/usr/local/bin/zap" ]; then
+  ln -sf /usr/bin/zaproxy /usr/local/bin/zap || true
+fi
+
 echo "[akatsuki-provision:gotools] Go and web tools provisioning complete."

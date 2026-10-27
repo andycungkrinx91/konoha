@@ -5,11 +5,11 @@ Automates APK upload, static analysis scanning, and report retrieval
 via the MobSF REST API. Extracts security findings including manifest
 analysis, code analysis, binary analysis, and certificate checks.
 """
+
 import argparse
 import json
 import os
 import sys
-import time
 from datetime import datetime, timezone
 
 try:
@@ -103,46 +103,56 @@ def extract_findings(report):
 
     # Manifest analysis
     for item in report.get("manifest_analysis", []):
-        findings.append({
-            "category": "manifest",
-            "title": item.get("title", "Unknown"),
-            "severity": item.get("severity", "info").upper(),
-            "description": item.get("description", ""),
-        })
+        findings.append(
+            {
+                "category": "manifest",
+                "title": item.get("title", "Unknown"),
+                "severity": item.get("severity", "info").upper(),
+                "description": item.get("description", ""),
+            }
+        )
 
     # Code analysis
     code_analysis = report.get("code_analysis", {})
     if isinstance(code_analysis, dict):
         for key, value in code_analysis.items():
             if isinstance(value, dict):
-                findings.append({
-                    "category": "code",
-                    "title": value.get("metadata", {}).get("description", key),
-                    "severity": value.get("metadata", {}).get("severity", "info").upper(),
-                    "description": value.get("metadata", {}).get("cwe", ""),
-                    "files": list(value.get("files", {}).keys())[:5],
-                })
+                findings.append(
+                    {
+                        "category": "code",
+                        "title": value.get("metadata", {}).get("description", key),
+                        "severity": value.get("metadata", {})
+                        .get("severity", "info")
+                        .upper(),
+                        "description": value.get("metadata", {}).get("cwe", ""),
+                        "files": list(value.get("files", {}).keys())[:5],
+                    }
+                )
 
     # Binary analysis
     for item in report.get("binary_analysis", []):
-        findings.append({
-            "category": "binary",
-            "title": item.get("name", "Unknown"),
-            "severity": item.get("severity", "info").upper(),
-            "description": item.get("description", ""),
-        })
+        findings.append(
+            {
+                "category": "binary",
+                "title": item.get("name", "Unknown"),
+                "severity": item.get("severity", "info").upper(),
+                "description": item.get("description", ""),
+            }
+        )
 
     # Certificate analysis
     cert_info = report.get("certificate_analysis", {})
     if isinstance(cert_info, dict):
         cert_findings = cert_info.get("certificate_findings", [])
         for item in cert_findings:
-            findings.append({
-                "category": "certificate",
-                "title": item.get("title", "Certificate finding"),
-                "severity": item.get("severity", "info").upper(),
-                "description": item.get("description", ""),
-            })
+            findings.append(
+                {
+                    "category": "certificate",
+                    "title": item.get("title", "Certificate finding"),
+                    "severity": item.get("severity", "info").upper(),
+                    "description": item.get("description", ""),
+                }
+            )
 
     # Permissions
     permissions = report.get("permissions", {})
@@ -152,12 +162,14 @@ def extract_findings(report):
             if isinstance(details, dict) and details.get("status") == "dangerous":
                 dangerous_perms.append(perm)
     if dangerous_perms:
-        findings.append({
-            "category": "permissions",
-            "title": f"{len(dangerous_perms)} dangerous permissions declared",
-            "severity": "WARNING",
-            "description": ", ".join(dangerous_perms[:10]),
-        })
+        findings.append(
+            {
+                "category": "permissions",
+                "title": f"{len(dangerous_perms)} dangerous permissions declared",
+                "severity": "WARNING",
+                "description": ", ".join(dangerous_perms[:10]),
+            }
+        )
 
     return findings
 
@@ -171,28 +183,30 @@ def format_summary(report, findings):
     sdk_target = report.get("target_sdk", "?")
     security_score = report.get("security_score", "N/A")
 
-    print(f"\n{'='*60}")
-    print(f"  MobSF Static Analysis Report")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  MobSF Static Analysis Report")
+    print(f"{'=' * 60}")
     print(f"  App Name    : {app_name}")
     print(f"  Package     : {package}")
     print(f"  Version     : {version}")
     print(f"  Min SDK     : {sdk_min} | Target SDK: {sdk_target}")
     print(f"  Security    : {security_score}/100")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     severity_counts = {}
     for f in findings:
         sev = f.get("severity", "INFO")
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
-    print(f"\n  Findings Summary:")
+    print("\n  Findings Summary:")
     for sev in ["CRITICAL", "HIGH", "WARNING", "MEDIUM", "INFO", "LOW"]:
         if sev in severity_counts:
             print(f"    {sev:10s}: {severity_counts[sev]}")
 
-    print(f"\n  Top Findings:")
-    high_findings = [f for f in findings if f.get("severity") in ("CRITICAL", "HIGH", "WARNING")]
+    print("\n  Top Findings:")
+    high_findings = [
+        f for f in findings if f.get("severity") in ("CRITICAL", "HIGH", "WARNING")
+    ]
     for f in high_findings[:10]:
         print(f"    [{f['severity']:8s}] [{f['category']:12s}] {f['title']}")
 
@@ -206,8 +220,12 @@ def main():
     parser.add_argument("--apk", required=True, help="Path to the APK file to analyze")
     parser.add_argument("--output", "-o", help="Output JSON report path")
     parser.add_argument("--server", help="MobSF server URL (or set MOBSF_URL env var)")
-    parser.add_argument("--api-key", help="MobSF API key (or set MOBSF_API_KEY env var)")
-    parser.add_argument("--hash", help="Skip upload; use existing hash to retrieve report")
+    parser.add_argument(
+        "--api-key", help="MobSF API key (or set MOBSF_API_KEY env var)"
+    )
+    parser.add_argument(
+        "--hash", help="Skip upload; use existing hash to retrieve report"
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
@@ -240,9 +258,12 @@ def main():
         "severity_counts": severity_counts,
         "findings": findings,
         "risk_level": (
-            "CRITICAL" if severity_counts.get("CRITICAL", 0) > 0
-            else "HIGH" if severity_counts.get("HIGH", 0) > 0
-            else "MEDIUM" if severity_counts.get("WARNING", 0) > 0
+            "CRITICAL"
+            if severity_counts.get("CRITICAL", 0) > 0
+            else "HIGH"
+            if severity_counts.get("HIGH", 0) > 0
+            else "MEDIUM"
+            if severity_counts.get("WARNING", 0) > 0
             else "LOW"
         ),
     }

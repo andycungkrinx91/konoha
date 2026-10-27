@@ -18,13 +18,11 @@ import sys
 import csv
 import os
 from datetime import datetime, timezone
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Optional
 from collections import defaultdict
 
 try:
     import requests
+
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
@@ -42,10 +40,9 @@ class GoPhishClient:
         self.api_key = api_key
         self.verify_ssl = verify_ssl
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        })
+        self.session.headers.update(
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        )
         self.session.verify = verify_ssl
 
     def _get(self, endpoint: str) -> dict:
@@ -64,16 +61,22 @@ class GoPhishClient:
         return resp.status_code == 200
 
     # Sending Profiles
-    def create_sending_profile(self, name: str, host: str, from_address: str,
-                                username: str = "", password: str = "",
-                                ignore_cert: bool = False) -> dict:
+    def create_sending_profile(
+        self,
+        name: str,
+        host: str,
+        from_address: str,
+        username: str = "",
+        password: str = "",
+        ignore_cert: bool = False,
+    ) -> dict:
         data = {
             "name": name,
             "host": host,
             "from_address": from_address,
             "username": username,
             "password": password,
-            "ignore_cert_errors": ignore_cert
+            "ignore_cert_errors": ignore_cert,
         }
         return self._post("/api/smtp/", data)
 
@@ -81,36 +84,45 @@ class GoPhishClient:
         return self._get("/api/smtp/")
 
     # Email Templates
-    def create_template(self, name: str, subject: str, html: str,
-                        text: str = "", attachments: list = None) -> dict:
+    def create_template(
+        self,
+        name: str,
+        subject: str,
+        html: str,
+        text: str = "",
+        attachments: list = None,
+    ) -> dict:
         data = {
             "name": name,
             "subject": subject,
             "html": html,
             "text": text,
-            "attachments": attachments or []
+            "attachments": attachments or [],
         }
         return self._post("/api/templates/", data)
 
     def import_email(self, raw_email: str, convert_links: bool = True) -> dict:
-        data = {
-            "content": raw_email,
-            "convert_links": convert_links
-        }
+        data = {"content": raw_email, "convert_links": convert_links}
         return self._post("/api/import/email", data)
 
     def list_templates(self) -> list:
         return self._get("/api/templates/")
 
     # Landing Pages
-    def create_page(self, name: str, html: str, capture_credentials: bool = True,
-                    capture_passwords: bool = False, redirect_url: str = "") -> dict:
+    def create_page(
+        self,
+        name: str,
+        html: str,
+        capture_credentials: bool = True,
+        capture_passwords: bool = False,
+        redirect_url: str = "",
+    ) -> dict:
         data = {
             "name": name,
             "html": html,
             "capture_credentials": capture_credentials,
             "capture_passwords": capture_passwords,
-            "redirect_url": redirect_url
+            "redirect_url": redirect_url,
         }
         return self._post("/api/pages/", data)
 
@@ -123,10 +135,7 @@ class GoPhishClient:
 
     # User Groups
     def create_group(self, name: str, targets: list) -> dict:
-        data = {
-            "name": name,
-            "targets": targets
-        }
+        data = {"name": name, "targets": targets}
         return self._post("/api/groups/", data)
 
     def import_group_csv(self, name: str, csv_path: str) -> dict:
@@ -138,7 +147,7 @@ class GoPhishClient:
                     "first_name": row.get("First Name", row.get("first_name", "")),
                     "last_name": row.get("Last Name", row.get("last_name", "")),
                     "email": row.get("Email", row.get("email", "")),
-                    "position": row.get("Position", row.get("position", ""))
+                    "position": row.get("Position", row.get("position", "")),
                 }
                 if target["email"]:
                     targets.append(target)
@@ -148,9 +157,17 @@ class GoPhishClient:
         return self._get("/api/groups/")
 
     # Campaigns
-    def create_campaign(self, name: str, template_name: str, page_name: str,
-                        smtp_name: str, group_names: list, url: str,
-                        launch_date: str = "", send_by_date: str = "") -> dict:
+    def create_campaign(
+        self,
+        name: str,
+        template_name: str,
+        page_name: str,
+        smtp_name: str,
+        group_names: list,
+        url: str,
+        launch_date: str = "",
+        send_by_date: str = "",
+    ) -> dict:
         templates = self.list_templates()
         template = next((t for t in templates if t["name"] == template_name), None)
 
@@ -181,7 +198,7 @@ class GoPhishClient:
             "page": {"name": page_name},
             "smtp": {"name": smtp_name},
             "groups": [{"name": g["name"]} for g in groups],
-            "url": url
+            "url": url,
         }
         if launch_date:
             data["launch_date"] = launch_date
@@ -249,7 +266,9 @@ def calculate_campaign_metrics(results: dict) -> dict:
     }
 
     # Department breakdown
-    dept_stats = defaultdict(lambda: {"sent": 0, "opened": 0, "clicked": 0, "submitted": 0})
+    dept_stats = defaultdict(
+        lambda: {"sent": 0, "opened": 0, "clicked": 0, "submitted": 0}
+    )
     for result in results.get("results", []):
         dept = result.get("position", "Unknown")
         email = result.get("email", "")
@@ -303,32 +322,32 @@ tr:hover {{ background: #f8f9fa; }}
 <p><strong>Campaign:</strong> {name}<br>
 <strong>Date:</strong> {created}<br>
 <strong>Status:</strong> {status}<br>
-<strong>Generated:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
+<strong>Generated:</strong> {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}</p>
 
 <h2>Campaign Metrics</h2>
 <div class="metric-grid">
 <div class="metric-card">
-    <div class="metric-value">{metrics['emails_sent']}</div>
+    <div class="metric-value">{metrics["emails_sent"]}</div>
     <div class="metric-label">Emails Sent</div>
 </div>
-<div class="metric-card {'risk-medium' if metrics['open_rate'] > 50 else 'risk-low'}">
-    <div class="metric-value">{metrics['open_rate']}%</div>
+<div class="metric-card {"risk-medium" if metrics["open_rate"] > 50 else "risk-low"}">
+    <div class="metric-value">{metrics["open_rate"]}%</div>
     <div class="metric-label">Open Rate</div>
 </div>
-<div class="metric-card {'risk-high' if metrics['click_rate'] > 20 else 'risk-medium' if metrics['click_rate'] > 10 else 'risk-low'}">
-    <div class="metric-value">{metrics['click_rate']}%</div>
+<div class="metric-card {"risk-high" if metrics["click_rate"] > 20 else "risk-medium" if metrics["click_rate"] > 10 else "risk-low"}">
+    <div class="metric-value">{metrics["click_rate"]}%</div>
     <div class="metric-label">Click Rate</div>
 </div>
-<div class="metric-card {'risk-high' if metrics['submit_rate'] > 10 else 'risk-medium' if metrics['submit_rate'] > 5 else 'risk-low'}">
-    <div class="metric-value">{metrics['submit_rate']}%</div>
+<div class="metric-card {"risk-high" if metrics["submit_rate"] > 10 else "risk-medium" if metrics["submit_rate"] > 5 else "risk-low"}">
+    <div class="metric-value">{metrics["submit_rate"]}%</div>
     <div class="metric-label">Submit Rate</div>
 </div>
 <div class="metric-card risk-low">
-    <div class="metric-value">{metrics['report_rate']}%</div>
+    <div class="metric-value">{metrics["report_rate"]}%</div>
     <div class="metric-label">Report Rate</div>
 </div>
 <div class="metric-card">
-    <div class="metric-value">{metrics['resilience_score']}%</div>
+    <div class="metric-value">{metrics["resilience_score"]}%</div>
     <div class="metric-label">Resilience Score</div>
 </div>
 </div>
@@ -336,16 +355,16 @@ tr:hover {{ background: #f8f9fa; }}
 <h2>Funnel Analysis</h2>
 <table>
 <tr><th>Stage</th><th>Count</th><th>Rate</th><th>Visual</th></tr>
-<tr><td>Emails Sent</td><td>{metrics['emails_sent']}</td><td>100%</td>
+<tr><td>Emails Sent</td><td>{metrics["emails_sent"]}</td><td>100%</td>
     <td><div class="bar-container"><div class="bar" style="width:100%"></div></div></td></tr>
-<tr><td>Emails Opened</td><td>{metrics['emails_opened']}</td><td>{metrics['open_rate']}%</td>
-    <td><div class="bar-container"><div class="bar" style="width:{metrics['open_rate']}%"></div></div></td></tr>
-<tr><td>Links Clicked</td><td>{metrics['links_clicked']}</td><td>{metrics['click_rate']}%</td>
-    <td><div class="bar-container"><div class="bar" style="width:{metrics['click_rate']}%"></div></div></td></tr>
-<tr><td>Data Submitted</td><td>{metrics['data_submitted']}</td><td>{metrics['submit_rate']}%</td>
-    <td><div class="bar-container"><div class="bar" style="width:{metrics['submit_rate']}%"></div></div></td></tr>
-<tr><td>Emails Reported</td><td>{metrics['emails_reported']}</td><td>{metrics['report_rate']}%</td>
-    <td><div class="bar-container"><div class="bar" style="width:{metrics['report_rate']}%"></div></div></td></tr>
+<tr><td>Emails Opened</td><td>{metrics["emails_opened"]}</td><td>{metrics["open_rate"]}%</td>
+    <td><div class="bar-container"><div class="bar" style="width:{metrics["open_rate"]}%"></div></div></td></tr>
+<tr><td>Links Clicked</td><td>{metrics["links_clicked"]}</td><td>{metrics["click_rate"]}%</td>
+    <td><div class="bar-container"><div class="bar" style="width:{metrics["click_rate"]}%"></div></div></td></tr>
+<tr><td>Data Submitted</td><td>{metrics["data_submitted"]}</td><td>{metrics["submit_rate"]}%</td>
+    <td><div class="bar-container"><div class="bar" style="width:{metrics["submit_rate"]}%"></div></div></td></tr>
+<tr><td>Emails Reported</td><td>{metrics["emails_reported"]}</td><td>{metrics["report_rate"]}%</td>
+    <td><div class="bar-container"><div class="bar" style="width:{metrics["report_rate"]}%"></div></div></td></tr>
 </table>
 
 <h2>Department Breakdown</h2>
@@ -355,8 +374,8 @@ tr:hover {{ background: #f8f9fa; }}
     for dept, stats in sorted(metrics.get("department_breakdown", {}).items()):
         dept_click_rate = round(stats["clicked"] / max(stats["sent"], 1) * 100, 1)
         html += f"""
-<tr><td>{dept}</td><td>{stats['sent']}</td><td>{stats['opened']}</td>
-<td>{stats['clicked']}</td><td>{stats['submitted']}</td><td>{dept_click_rate}%</td></tr>"""
+<tr><td>{dept}</td><td>{stats["sent"]}</td><td>{stats["opened"]}</td>
+<td>{stats["clicked"]}</td><td>{stats["submitted"]}</td><td>{dept_click_rate}%</td></tr>"""
 
     html += f"""
 </table>
@@ -364,19 +383,19 @@ tr:hover {{ background: #f8f9fa; }}
 <h2>Industry Benchmarks</h2>
 <table>
 <tr><th>Metric</th><th>Your Result</th><th>Industry Average</th><th>Target</th></tr>
-<tr><td>Click Rate</td><td>{metrics['click_rate']}%</td><td>11-15%</td><td>&lt;5%</td></tr>
-<tr><td>Submit Rate</td><td>{metrics['submit_rate']}%</td><td>3-5%</td><td>&lt;2%</td></tr>
-<tr><td>Report Rate</td><td>{metrics['report_rate']}%</td><td>10-15%</td><td>&gt;70%</td></tr>
+<tr><td>Click Rate</td><td>{metrics["click_rate"]}%</td><td>11-15%</td><td>&lt;5%</td></tr>
+<tr><td>Submit Rate</td><td>{metrics["submit_rate"]}%</td><td>3-5%</td><td>&lt;2%</td></tr>
+<tr><td>Report Rate</td><td>{metrics["report_rate"]}%</td><td>10-15%</td><td>&gt;70%</td></tr>
 </table>
 
 <h2>Recommendations</h2>
 <ul>"""
 
-    if metrics['click_rate'] > 20:
+    if metrics["click_rate"] > 20:
         html += "<li><strong>High Priority:</strong> Click rate exceeds 20%. Implement mandatory phishing awareness training for all employees.</li>"
-    if metrics['submit_rate'] > 10:
+    if metrics["submit_rate"] > 10:
         html += "<li><strong>Critical:</strong> Submit rate exceeds 10%. Deploy MFA across all applications to mitigate credential harvesting risk.</li>"
-    if metrics['report_rate'] < 20:
+    if metrics["report_rate"] < 20:
         html += "<li><strong>Improve Reporting:</strong> Report rate is low. Deploy phishing report button in email client and incentivize reporting.</li>"
 
     html += """
@@ -406,16 +425,26 @@ def generate_text_report(campaign: dict, metrics: dict) -> str:
     lines.append("")
     lines.append("[METRICS]")
     lines.append(f"  Emails Sent:     {metrics['emails_sent']}")
-    lines.append(f"  Emails Opened:   {metrics['emails_opened']} ({metrics['open_rate']}%)")
-    lines.append(f"  Links Clicked:   {metrics['links_clicked']} ({metrics['click_rate']}%)")
-    lines.append(f"  Data Submitted:  {metrics['data_submitted']} ({metrics['submit_rate']}%)")
-    lines.append(f"  Emails Reported: {metrics['emails_reported']} ({metrics['report_rate']}%)")
+    lines.append(
+        f"  Emails Opened:   {metrics['emails_opened']} ({metrics['open_rate']}%)"
+    )
+    lines.append(
+        f"  Links Clicked:   {metrics['links_clicked']} ({metrics['click_rate']}%)"
+    )
+    lines.append(
+        f"  Data Submitted:  {metrics['data_submitted']} ({metrics['submit_rate']}%)"
+    )
+    lines.append(
+        f"  Emails Reported: {metrics['emails_reported']} ({metrics['report_rate']}%)"
+    )
     lines.append(f"  Resilience:      {metrics['resilience_score']}%")
     lines.append("")
     lines.append("[DEPARTMENT BREAKDOWN]")
     for dept, stats in sorted(metrics.get("department_breakdown", {}).items()):
         rate = round(stats["clicked"] / max(stats["sent"], 1) * 100, 1)
-        lines.append(f"  {dept}: {stats['sent']} sent, {stats['clicked']} clicked ({rate}%)")
+        lines.append(
+            f"  {dept}: {stats['sent']} sent, {stats['clicked']} clicked ({rate}%)"
+        )
     lines.append("=" * 60)
     return "\n".join(lines)
 
@@ -426,7 +455,9 @@ def main():
 
     # Create campaign from config
     create_parser = subparsers.add_parser("create", help="Create campaign from config")
-    create_parser.add_argument("--config", required=True, help="Campaign config JSON file")
+    create_parser.add_argument(
+        "--config", required=True, help="Campaign config JSON file"
+    )
 
     # Campaign status
     status_parser = subparsers.add_parser("status", help="Get campaign status")
@@ -436,13 +467,17 @@ def main():
     report_parser = subparsers.add_parser("report", help="Generate campaign report")
     report_parser.add_argument("--campaign-id", type=int, required=True)
     report_parser.add_argument("--output", "-o", help="Output file path")
-    report_parser.add_argument("--format", choices=["html", "text", "json"], default="text")
+    report_parser.add_argument(
+        "--format", choices=["html", "text", "json"], default="text"
+    )
 
     # List campaigns
     subparsers.add_parser("list", help="List all campaigns")
 
     # Import users
-    import_parser = subparsers.add_parser("import-users", help="Import user group from CSV")
+    import_parser = subparsers.add_parser(
+        "import-users", help="Import user group from CSV"
+    )
     import_parser.add_argument("--csv", required=True, help="CSV file path")
     import_parser.add_argument("--group-name", required=True, help="Group name")
 
@@ -453,16 +488,20 @@ def main():
     args = parser.parse_args()
 
     if not HAS_REQUESTS:
-        print("Error: 'requests' library required. Install with: pip install requests",
-              file=sys.stderr)
+        print(
+            "Error: 'requests' library required. Install with: pip install requests",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     api_url = args.api_url
     api_key = args.api_key
 
     if not api_key:
-        print("Error: GoPhish API key required. Set GOPHISH_API_KEY env var or use --api-key",
-              file=sys.stderr)
+        print(
+            "Error: GoPhish API key required. Set GOPHISH_API_KEY env var or use --api-key",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     client = GoPhishClient(api_url, api_key, verify_ssl=not args.no_verify_ssl)
@@ -485,7 +524,9 @@ def main():
         if args.format == "html":
             output = generate_html_report(campaign, metrics)
         elif args.format == "json":
-            output = json.dumps({"campaign": campaign, "metrics": metrics}, indent=2, default=str)
+            output = json.dumps(
+                {"campaign": campaign, "metrics": metrics}, indent=2, default=str
+            )
         else:
             output = generate_text_report(campaign, metrics)
 
@@ -499,8 +540,10 @@ def main():
     elif args.command == "list":
         campaigns = client.list_campaigns()
         for c in campaigns:
-            print(f"  ID: {c['id']} | Name: {c['name']} | Status: {c['status']} | "
-                  f"Created: {c.get('created_date', '')}")
+            print(
+                f"  ID: {c['id']} | Name: {c['name']} | Status: {c['status']} | "
+                f"Created: {c.get('created_date', '')}"
+            )
 
     elif args.command == "import-users":
         result = client.import_group_csv(args.group_name, args.csv)

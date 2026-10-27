@@ -10,6 +10,7 @@ Connects to a MISP instance with PyMISP, searches for fresh, actionable
 
 Defensive threat-intelligence use. Handle exported IOCs per their TLP marking.
 """
+
 import argparse
 import json
 import sys
@@ -87,12 +88,16 @@ def write_sigma(attrs: list, out: Path) -> int:
         "status": "experimental",
         "description": "DNS query to a domain flagged malicious in MISP feeds",
         "logsource": {"category": "dns"},
-        "detection": {"selection": {"query|contains": domains}, "condition": "selection"},
+        "detection": {
+            "selection": {"query|contains": domains},
+            "condition": "selection",
+        },
         "level": "high",
         "tags": ["attack.command_and_control", "attack.t1071.004"],
     }
     try:
         import yaml
+
         out.write_text("", encoding="utf-8")
         with out.open("w", encoding="utf-8") as fh:
             yaml.safe_dump(rule, fh, sort_keys=False, default_flow_style=False)
@@ -108,7 +113,9 @@ def main() -> int:
     ap.add_argument("--key", required=True, help="MISP Auth Key")
     ap.add_argument("--last", default="7d", help="time window (e.g. 7d, 24h)")
     ap.add_argument("--outdir", default="./detections")
-    ap.add_argument("--insecure", action="store_true", help="skip TLS verification (lab)")
+    ap.add_argument(
+        "--insecure", action="store_true", help="skip TLS verification (lab)"
+    )
     args = ap.parse_args()
 
     outdir = Path(args.outdir)

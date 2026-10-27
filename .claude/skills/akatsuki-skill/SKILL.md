@@ -26,7 +26,7 @@ In the Konoha workflow, Akatsuki serves as the **mandatory Security Review Gate 
   1. Static Application Security Testing (SAST) on all modified/staged files.
   2. Secret & credential leakage audit (`.env*`, API tokens, private keys).
   3. Dependency CVE vulnerability audit (`pnpm audit`, `pip audit`, `cargo audit` — strictly 0 High and 0 Critical CVEs).
-  4. Skill Guardian policy compliance (`src/skill_guardian.js`).
+  4. Skill Guardian policy compliance (`src/workflow/kage-reviewer/skill_guardian.js`).
   *Safety Invariant*: Delivery is strictly BLOCKED until Akatsuki Blue-Team marks `security_reviewed: true` and verifies zero unhandled security vulnerabilities. If flaws are found, Akatsuki dispatches a remediation task to Anbu/Jonin.
 
 - **Offensive Tasks Role (Red-Team Pentest Sandbox)**:
@@ -64,7 +64,7 @@ In the Konoha workflow, Akatsuki serves as the **mandatory Security Review Gate 
 4. **Configuration Hardening**: Verify secure HTTP headers, TLS 1.3, strict CORS origins, and unprivileged container security contexts.
 
 ### SOP 4: Skill Guardian Perimeter Defense
-1. **Run Guardian Engine**: Execute `src/skill_guardian.js` rules across all skill files and scripts before deployment.
+1. **Run Guardian Engine**: Execute `src/workflow/kage-reviewer/skill_guardian.js` rules across all skill files and scripts before deployment.
 2. **Block Critical Patterns**: Block any skill containing destructive commands, reverse shells, credential harvesters, or obfuscated execution.
 3. **Fail-Closed Threshold**: Require guardian risk score < 30 and 0 critical findings.
 
@@ -98,6 +98,32 @@ Load specialized security references via `konoha.get_skill("akatsuki-skill/<refe
 | Adversary emulation & contract boundary gating (skills.sh) | `akatsuki-skill/red-team-engagement` |
 | AI/LLM application penetration testing (OWASP Top 10 for LLMs) | `akatsuki-skill/ai-powered-pentesting` |
 | Output formatting, concise response shaping | `akatsuki-skill/i-have-adhd` (`i-have-adhd`) |
+| Blue-Team SAST: static analysis, OWASP sanitization, query safety | `akatsuki-skill/blue-team/sast-static-analysis` |
+| Blue-Team Secret Audit: credential leakage, vault encryption, masking | `akatsuki-skill/blue-team/secret-leakage-audit` |
+| Blue-Team Supply Chain: dependency CVE auditing, lockfile inspection | `akatsuki-skill/blue-team/dependency-cve-audit` |
+| Blue-Team Skill Guardian: perimeter defense, malicious script filter | `akatsuki-skill/blue-team/skill-guardian-perimeter` |
+| Blue-Team Hardening: loopback binding, Argon2id, timing-safe auth | `akatsuki-skill/blue-team/config-hardening` |
+| Blue-Team Security Gate: mandatory pre-Kage verification gate | `akatsuki-skill/blue-team/security-final-gate` |
+| Tool: Nmap network discovery, port scans, service fingerprinting | `akatsuki-skill/tools/nmap` |
+| Tool: WhatWeb web stack & CMS technology identification | `akatsuki-skill/tools/whatweb` |
+| Tool: HTTPX fast HTTP probing, status codes, title grab | `akatsuki-skill/tools/httpx` |
+| Tool: Katana endpoint crawling, DOM and API spidering | `akatsuki-skill/tools/katana` |
+| Tool: FFUF route, directory, and query parameter fuzzing | `akatsuki-skill/tools/ffuf` |
+| Tool: Feroxbuster recursive directory and extension discovery | `akatsuki-skill/tools/feroxbuster` |
+| Tool: Nuclei YAML template-based vulnerability scanning | `akatsuki-skill/tools/nuclei` |
+| Tool: Nikto web server configuration and dangerous file audit | `akatsuki-skill/tools/nikto` |
+| Tool: SQLMap automated SQL injection verification | `akatsuki-skill/tools/sqlmap` |
+| Tool: WPScan WordPress theme, plugin, and core vulnerability audit | `akatsuki-skill/tools/wpscan` |
+| Tool: Droopescan CMS vulnerability audit (Drupal, SilverStripe) | `akatsuki-skill/tools/droopescan` |
+| Tool: SearchSploit local offline Exploit-DB vulnerability search | `akatsuki-skill/tools/searchsploit` |
+| Tool: TestSSL.sh TLS/SSL protocol, cipher, and cert audit | `akatsuki-skill/tools/testssl` |
+| Tool: TShark network protocol capture and packet analysis | `akatsuki-skill/tools/tshark` |
+| Tool: OWASP ZAP baseline and API vulnerability scanning | `akatsuki-skill/tools/zap` |
+| Tool: Trivy filesystem, container, and CVE scanner | `akatsuki-skill/tools/trivy` |
+| Tool: Curl Probe protocol inspection and SSRF verification | `akatsuki-skill/tools/curl_probe` |
+| Tool: Metasploit controlled exploit and patch verification | `akatsuki-skill/tools/metasploit` |
+| Tool: MSFVenom standalone payload generation and encoding | `akatsuki-skill/tools/msfvenom` |
+| Tool: Burp Suite community/headless web proxy and analysis | `akatsuki-skill/tools/burpsuite` |
 
 ---
 

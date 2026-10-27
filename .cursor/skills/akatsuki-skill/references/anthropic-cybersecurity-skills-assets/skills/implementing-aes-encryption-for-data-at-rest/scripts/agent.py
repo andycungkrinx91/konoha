@@ -128,8 +128,11 @@ def verify_encryption(original_path, encrypted_path, password):
 
 def main():
     parser = argparse.ArgumentParser(description="AES-256-GCM Encryption Agent")
-    parser.add_argument("--action", required=True,
-                        choices=["encrypt", "decrypt", "encrypt_dir", "genkey", "verify"])
+    parser.add_argument(
+        "--action",
+        required=True,
+        choices=["encrypt", "decrypt", "encrypt_dir", "genkey", "verify"],
+    )
     parser.add_argument("--input", help="Input file or directory")
     parser.add_argument("--output", help="Output file or directory")
     parser.add_argument("--password", help="Encryption password")

@@ -11,7 +11,7 @@ The Blue-Team Defender workflow is a comprehensive, non-invasive security audit 
 2. **Defensive Inspections**:
    - **Secret Scanning**: Check for exposed credentials, API keys, tokens, `.env` files.
    - **Static Analysis & Sanitization**: Verify parameterized queries, HTML encoding, boundary validation.
-   - **Skill Guardian Perimeter**: Evaluate all local skills and scripts against `src/skill_guardian.js`.
+   - **Skill Guardian Perimeter**: Evaluate all local skills and scripts against `src/workflow/kage-reviewer/skill_guardian.js`.
    - **Supply Chain / CVE Audit**: Run package dependency audit to ensure 0 High / 0 Critical CVEs.
 
 3. **Classification & Evidence**:

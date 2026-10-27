@@ -9,7 +9,6 @@ identify unmanaged endpoints, and generate deployment status reports.
 import json
 import sys
 import os
-import time
 import csv
 from datetime import datetime, timedelta
 from urllib.request import Request, urlopen
@@ -24,10 +23,12 @@ FALCON_CLIENT_SECRET = os.environ.get("FALCON_CLIENT_SECRET", "")
 def get_oauth_token() -> str:
     """Obtain OAuth2 bearer token from CrowdStrike API."""
     url = f"{FALCON_BASE_URL}/oauth2/token"
-    data = urlencode({
-        "client_id": FALCON_CLIENT_ID,
-        "client_secret": FALCON_CLIENT_SECRET,
-    }).encode()
+    data = urlencode(
+        {
+            "client_id": FALCON_CLIENT_ID,
+            "client_secret": FALCON_CLIENT_SECRET,
+        }
+    ).encode()
 
     req = Request(url, data=data, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -58,10 +59,14 @@ def get_all_host_ids(token: str) -> list:
     limit = 5000
 
     while True:
-        result = api_get(token, "/devices/queries/devices-scroll/v1", {
-            "limit": limit,
-            "offset": offset,
-        })
+        result = api_get(
+            token,
+            "/devices/queries/devices-scroll/v1",
+            {
+                "limit": limit,
+                "offset": offset,
+            },
+        )
         resources = result.get("resources", [])
         if not resources:
             break
@@ -78,7 +83,7 @@ def get_host_details(token: str, host_ids: list) -> list:
     all_details = []
 
     for i in range(0, len(host_ids), 100):
-        batch = host_ids[i:i + 100]
+        batch = host_ids[i : i + 100]
         url = f"{FALCON_BASE_URL}/devices/entities/devices/v2"
         data = json.dumps({"ids": batch}).encode()
 
@@ -110,24 +115,32 @@ def analyze_deployment(hosts: list) -> dict:
 
     for host in hosts:
         platform = host.get("platform_name", "Unknown")
-        analysis["os_breakdown"][platform] = analysis["os_breakdown"].get(platform, 0) + 1
+        analysis["os_breakdown"][platform] = (
+            analysis["os_breakdown"].get(platform, 0) + 1
+        )
 
         version = host.get("agent_version", "Unknown")
-        analysis["sensor_versions"][version] = analysis["sensor_versions"].get(version, 0) + 1
+        analysis["sensor_versions"][version] = (
+            analysis["sensor_versions"].get(version, 0) + 1
+        )
 
         status = host.get("status", "unknown")
         last_seen = host.get("last_seen", "")
 
         if last_seen:
             try:
-                last_seen_dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00")).replace(tzinfo=None)
+                last_seen_dt = datetime.fromisoformat(
+                    last_seen.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
                 if last_seen_dt < stale_threshold:
                     analysis["status_breakdown"]["stale"] += 1
-                    analysis["stale_hosts"].append({
-                        "hostname": host.get("hostname", ""),
-                        "last_seen": last_seen,
-                        "platform": platform,
-                    })
+                    analysis["stale_hosts"].append(
+                        {
+                            "hostname": host.get("hostname", ""),
+                            "last_seen": last_seen,
+                            "platform": platform,
+                        }
+                    )
                 elif status == "normal":
                     analysis["status_breakdown"]["online"] += 1
                 else:
@@ -137,18 +150,24 @@ def analyze_deployment(hosts: list) -> dict:
 
         reduced_functionality = host.get("reduced_functionality_mode", "no")
         if reduced_functionality == "yes":
-            analysis["rfm_hosts"].append({
-                "hostname": host.get("hostname", ""),
-                "reason": host.get("device_policies", {}).get("prevention", {}).get("policy_type", "unknown"),
-            })
+            analysis["rfm_hosts"].append(
+                {
+                    "hostname": host.get("hostname", ""),
+                    "reason": host.get("device_policies", {})
+                    .get("prevention", {})
+                    .get("policy_type", "unknown"),
+                }
+            )
 
         prevention_policy = host.get("device_policies", {}).get("prevention", {})
         if not prevention_policy.get("applied", False):
-            analysis["unprotected_hosts"].append({
-                "hostname": host.get("hostname", ""),
-                "platform": platform,
-                "reason": "Prevention policy not applied",
-            })
+            analysis["unprotected_hosts"].append(
+                {
+                    "hostname": host.get("hostname", ""),
+                    "platform": platform,
+                    "reason": "Prevention policy not applied",
+                }
+            )
 
     return analysis
 
@@ -184,22 +203,28 @@ def export_stale_hosts_csv(stale_hosts: list, output_path: str) -> None:
         writer = csv.writer(f)
         writer.writerow(["Hostname", "Platform", "Last Seen", "Action Required"])
         for host in stale_hosts:
-            writer.writerow([
-                host["hostname"],
-                host.get("platform", ""),
-                host["last_seen"],
-                "Investigate connectivity / reinstall sensor",
-            ])
+            writer.writerow(
+                [
+                    host["hostname"],
+                    host.get("platform", ""),
+                    host["last_seen"],
+                    "Investigate connectivity / reinstall sensor",
+                ]
+            )
 
 
 if __name__ == "__main__":
     if not FALCON_CLIENT_ID or not FALCON_CLIENT_SECRET:
-        print("Error: Set FALCON_CLIENT_ID and FALCON_CLIENT_SECRET environment variables")
+        print(
+            "Error: Set FALCON_CLIENT_ID and FALCON_CLIENT_SECRET environment variables"
+        )
         print()
         print("Required environment variables:")
         print("  FALCON_CLIENT_ID     - API client ID from Falcon Console")
         print("  FALCON_CLIENT_SECRET - API client secret")
-        print("  FALCON_BASE_URL      - (Optional) API base URL (default: https://api.crowdstrike.com)")
+        print(
+            "  FALCON_BASE_URL      - (Optional) API base URL (default: https://api.crowdstrike.com)"
+        )
         sys.exit(1)
 
     print("Authenticating with CrowdStrike Falcon API...")
@@ -224,7 +249,7 @@ if __name__ == "__main__":
         export_stale_hosts_csv(analysis["stale_hosts"], csv_path)
         print(f"Stale hosts CSV: {csv_path}")
 
-    print(f"\n--- Deployment Summary ---")
+    print("\n--- Deployment Summary ---")
     print(f"Total hosts: {analysis['total_hosts']}")
     print(f"Online: {analysis['status_breakdown']['online']}")
     print(f"Offline: {analysis['status_breakdown']['offline']}")

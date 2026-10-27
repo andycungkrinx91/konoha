@@ -12,6 +12,7 @@ from collections import defaultdict, Counter
 
 try:
     import requests
+
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
@@ -37,8 +38,7 @@ def query_ransomwatch_api():
     if not HAS_REQUESTS:
         return []
     try:
-        resp = requests.get("https://api.ransomware.live/recentvictims",
-                           timeout=30)
+        resp = requests.get("https://api.ransomware.live/recentvictims", timeout=30)
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
@@ -50,8 +50,9 @@ def query_ransomlook_group(group_name):
     if not HAS_REQUESTS:
         return {}
     try:
-        resp = requests.get(f"https://www.ransomlook.io/api/group/{group_name}",
-                           timeout=30)
+        resp = requests.get(
+            f"https://www.ransomlook.io/api/group/{group_name}", timeout=30
+        )
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException:
@@ -132,7 +133,11 @@ def assess_group_activity(victims, group_name, days=90):
         "total_victims": len(group_victims),
         "recent_victims": len(recent),
         "period_days": days,
-        "activity_level": "HIGH" if len(recent) > 20 else "MEDIUM" if len(recent) > 5 else "LOW",
+        "activity_level": "HIGH"
+        if len(recent) > 20
+        else "MEDIUM"
+        if len(recent) > 5
+        else "LOW",
     }
 
 
@@ -176,15 +181,15 @@ if __name__ == "__main__":
     report = generate_intelligence_report(victims, target_org=query)
     analysis = report["analysis"]
 
-    print(f"\n--- Top Groups ---")
+    print("\n--- Top Groups ---")
     for g, c in list(analysis["top_groups"].items())[:5]:
         print(f"  {g:20s} {c} victims")
 
-    print(f"\n--- Top Sectors ---")
+    print("\n--- Top Sectors ---")
     for s, c in list(analysis["top_sectors"].items())[:5]:
         print(f"  {s:30s} {c}")
 
-    print(f"\n--- Top Countries ---")
+    print("\n--- Top Countries ---")
     for co, c in list(analysis["top_countries"].items())[:5]:
         print(f"  {co:20s} {c}")
 
@@ -192,6 +197,8 @@ if __name__ == "__main__":
         matches = report.get("org_search", {})
         print(f"\n--- Search: '{query}' ({matches.get('matches', 0)} results) ---")
         for m in matches.get("results", [])[:5]:
-            print(f"  {m.get('group_name', '?'):15s} | {m.get('victim', m.get('post_title', '?'))}")
+            print(
+                f"  {m.get('group_name', '?'):15s} | {m.get('victim', m.get('post_title', '?'))}"
+            )
 
     print(f"\n{json.dumps(report, indent=2, default=str)}")

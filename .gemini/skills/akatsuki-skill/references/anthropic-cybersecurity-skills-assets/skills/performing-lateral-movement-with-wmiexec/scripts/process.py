@@ -9,7 +9,6 @@ For authorized red team engagements only.
 
 import json
 import sys
-import os
 from datetime import datetime
 
 
@@ -32,7 +31,7 @@ def generate_movement_report(entries: list) -> str:
         "=" * 60,
         "",
         f"Total Movements: {len(entries)}",
-        ""
+        "",
     ]
 
     hosts_accessed = set()
@@ -56,12 +55,14 @@ def generate_movement_report(entries: list) -> str:
         report.append(f"      Result: {result}")
         report.append("")
 
-    report.extend([
-        f"Unique Hosts Accessed: {len(hosts_accessed)}",
-        f"Unique Credentials Used: {len(credentials_used)}",
-        "",
-        "Hosts:",
-    ])
+    report.extend(
+        [
+            f"Unique Hosts Accessed: {len(hosts_accessed)}",
+            f"Unique Credentials Used: {len(credentials_used)}",
+            "",
+            "Hosts:",
+        ]
+    )
     for host in sorted(hosts_accessed):
         report.append(f"  - {host}")
 
@@ -79,7 +80,7 @@ def create_example_log():
             "method": "wmiexec.py",
             "credential": "domain\\admin (PtH)",
             "timestamp": "2024-01-15T10:30:00",
-            "result": "Shell obtained, credentials harvested"
+            "result": "Shell obtained, credentials harvested",
         }
     ]
     with open("movement_log.json", "w") as f:

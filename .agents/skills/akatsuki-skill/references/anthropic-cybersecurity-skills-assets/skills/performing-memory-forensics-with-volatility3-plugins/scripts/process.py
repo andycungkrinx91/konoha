@@ -13,7 +13,6 @@ Usage:
 import argparse
 import json
 import subprocess
-import sys
 
 
 def run_vol3(dump_path, plugin, extra_args=None, vol3_cmd="vol"):
@@ -63,7 +62,7 @@ def main():
 
     print(json.dumps(report, indent=2, default=str))
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
 

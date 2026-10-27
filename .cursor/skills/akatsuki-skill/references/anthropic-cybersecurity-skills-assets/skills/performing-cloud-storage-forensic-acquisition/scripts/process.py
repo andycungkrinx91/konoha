@@ -7,7 +7,6 @@ from endpoint devices for OneDrive, Google Drive, and Dropbox.
 """
 
 import sqlite3
-import os
 import sys
 import json
 from datetime import datetime
@@ -37,7 +36,9 @@ class CloudStorageArtifactCollector:
                 if full_path.exists():
                     for f in full_path.rglob("*"):
                         if f.is_file():
-                            category = "databases" if f.suffix in (".db", ".dat") else "logs"
+                            category = (
+                                "databases" if f.suffix in (".db", ".dat") else "logs"
+                            )
                             artifacts[category].append(str(f))
 
         # Try to parse SyncEngineDatabase

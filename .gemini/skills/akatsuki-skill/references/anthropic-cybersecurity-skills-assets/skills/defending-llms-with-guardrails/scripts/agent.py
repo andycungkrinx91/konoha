@@ -10,6 +10,7 @@ Examples
     python agent.py llmguard   --input payloads.jsonl --report report.json
     python agent.py llamaguard --model meta-llama/Llama-Guard-3-8B --input payloads.jsonl
 """
+
 import argparse
 import json
 import sys
@@ -38,7 +39,12 @@ def load_corpus(path: str):
 def run_llmguard(corpus):
     try:
         from llm_guard import scan_prompt
-        from llm_guard.input_scanners import PromptInjection, Toxicity, Secrets, TokenLimit
+        from llm_guard.input_scanners import (
+            PromptInjection,
+            Toxicity,
+            Secrets,
+            TokenLimit,
+        )
         from llm_guard.input_scanners.prompt_injection import MatchType
     except ImportError:
         sys.exit("[!] llm-guard not installed. Run: pip install llm-guard")
@@ -57,12 +63,14 @@ def run_llmguard(corpus):
         except Exception as exc:  # scanner runtime error
             print(f"[!] scan error: {exc}", file=sys.stderr)
             blocked, valid, score = False, {}, {}
-        results.append({
-            "label": row["label"],
-            "blocked": blocked,
-            "verdicts": valid,
-            "scores": score,
-        })
+        results.append(
+            {
+                "label": row["label"],
+                "blocked": blocked,
+                "verdicts": valid,
+                "scores": score,
+            }
+        )
     return results
 
 
@@ -71,7 +79,9 @@ def run_llamaguard(corpus, model_id):
         import torch
         from transformers import AutoTokenizer, AutoModelForCausalLM
     except ImportError:
-        sys.exit("[!] transformers/torch not installed. Run: pip install 'transformers>=4.43' torch accelerate")
+        sys.exit(
+            "[!] transformers/torch not installed. Run: pip install 'transformers>=4.43' torch accelerate"
+        )
 
     print(f"[*] loading {model_id} ...", file=sys.stderr)
     tok = AutoTokenizer.from_pretrained(model_id)
@@ -83,19 +93,21 @@ def run_llamaguard(corpus, model_id):
         chat = [{"role": "user", "content": prompt}]
         ids = tok.apply_chat_template(chat, return_tensors="pt").to(model.device)
         out = model.generate(input_ids=ids, max_new_tokens=100, pad_token_id=0)
-        return tok.decode(out[0][ids.shape[-1]:], skip_special_tokens=True).strip()
+        return tok.decode(out[0][ids.shape[-1] :], skip_special_tokens=True).strip()
 
     results = []
     for row in corpus:
         verdict = moderate(row["prompt"])
         blocked = verdict.lower().startswith("unsafe")
         category = verdict.split("\n", 1)[1] if "\n" in verdict else ""
-        results.append({
-            "label": row["label"],
-            "blocked": blocked,
-            "verdict": verdict,
-            "category": category,
-        })
+        results.append(
+            {
+                "label": row["label"],
+                "blocked": blocked,
+                "verdict": verdict,
+                "category": category,
+            }
+        )
     return results
 
 
@@ -124,9 +136,13 @@ def summarize(results):
 
 def main():
     p = argparse.ArgumentParser(description="Guardrail validation harness")
-    p.add_argument("engine", choices=["llmguard", "llamaguard"], help="guardrail engine to test")
+    p.add_argument(
+        "engine", choices=["llmguard", "llamaguard"], help="guardrail engine to test"
+    )
     p.add_argument("--input", required=True, help="JSONL corpus of {prompt,label}")
-    p.add_argument("--model", default="meta-llama/Llama-Guard-3-8B", help="Llama Guard model id")
+    p.add_argument(
+        "--model", default="meta-llama/Llama-Guard-3-8B", help="Llama Guard model id"
+    )
     p.add_argument("--report", help="write detailed JSON report to this path")
     args = p.parse_args()
 

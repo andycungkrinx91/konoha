@@ -14,6 +14,7 @@ Examples:
   python agent.py --technique aws.credential-access.ec2-steal-instance-credentials --detonate --cleanup
   python agent.py --platform aws --tactic persistence --detonate --cleanup
 """
+
 import argparse
 import json
 import shutil
@@ -24,8 +25,10 @@ import time
 
 def require_stratus():
     if shutil.which("stratus") is None:
-        sys.exit("error: 'stratus' binary not found in PATH. Install from "
-                 "https://github.com/DataDog/stratus-red-team")
+        sys.exit(
+            "error: 'stratus' binary not found in PATH. Install from "
+            "https://github.com/DataDog/stratus-red-team"
+        )
 
 
 def run(args, capture=True, check=False):
@@ -90,7 +93,7 @@ def lifecycle(technique, detonate, revert, cleanup):
     if cleanup:
         print("  [*] cleaning up ...")
         rc, out, err = run(["cleanup", technique], capture=False)
-        result["cleaned"] = (rc == 0)
+        result["cleaned"] = rc == 0
         if rc != 0:
             print(f"  [!] cleanup failed: {err.strip()}")
     return result
@@ -98,14 +101,26 @@ def lifecycle(technique, detonate, revert, cleanup):
 
 def main():
     p = argparse.ArgumentParser(description="Stratus Red Team lifecycle helper")
-    p.add_argument("--list", action="store_true", help="list matching techniques and exit")
+    p.add_argument(
+        "--list", action="store_true", help="list matching techniques and exit"
+    )
     p.add_argument("--platform", help="filter: aws|azure|gcp|kubernetes|eks")
-    p.add_argument("--tactic", help="filter by MITRE ATT&CK tactic, e.g. credential-access")
-    p.add_argument("--technique", action="append", default=[],
-                   help="explicit technique ID (repeatable)")
+    p.add_argument(
+        "--tactic", help="filter by MITRE ATT&CK tactic, e.g. credential-access"
+    )
+    p.add_argument(
+        "--technique",
+        action="append",
+        default=[],
+        help="explicit technique ID (repeatable)",
+    )
     p.add_argument("--detonate", action="store_true", help="detonate after warmup")
-    p.add_argument("--revert", action="store_true", help="revert detonation side effects")
-    p.add_argument("--cleanup", action="store_true", help="cleanup prerequisites after run")
+    p.add_argument(
+        "--revert", action="store_true", help="revert detonation side effects"
+    )
+    p.add_argument(
+        "--cleanup", action="store_true", help="cleanup prerequisites after run"
+    )
     p.add_argument("--json", action="store_true", help="emit JSON summary")
     args = p.parse_args()
 
@@ -120,7 +135,9 @@ def main():
     if not targets:
         targets = list_techniques(args.platform, args.tactic)
     if not targets:
-        sys.exit("error: no techniques selected (use --technique or --platform/--tactic)")
+        sys.exit(
+            "error: no techniques selected (use --technique or --platform/--tactic)"
+        )
 
     print(f"[+] {len(targets)} technique(s) selected")
     results = []
@@ -128,7 +145,9 @@ def main():
         for t in targets:
             results.append(lifecycle(t, args.detonate, args.revert, args.cleanup))
     except KeyboardInterrupt:
-        print("\n[!] interrupted — run 'stratus cleanup --all' to remove residual infra")
+        print(
+            "\n[!] interrupted — run 'stratus cleanup --all' to remove residual infra"
+        )
         sys.exit(130)
 
     if args.json:
@@ -136,8 +155,10 @@ def main():
     else:
         print("\n=== Summary ===")
         for r in results:
-            print(f"  {r['technique']}: {r['status']}"
-                  + (f" cleaned={r['cleaned']}" if "cleaned" in r else ""))
+            print(
+                f"  {r['technique']}: {r['status']}"
+                + (f" cleaned={r['cleaned']}" if "cleaned" in r else "")
+            )
 
 
 if __name__ == "__main__":

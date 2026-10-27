@@ -21,6 +21,7 @@ tm.json format:
       "techniques": ["T1078", "T1046", "T1021", "T1552"]
     }
 """
+
 import argparse
 import json
 import sys
@@ -31,16 +32,40 @@ from datetime import date
 TECHNIQUE_TO_ACTIVITIES = {
     "T1078": ("Valid Accounts", ["Decoy Credentials", "Lures", "Decoy Account"]),
     "T1110": ("Brute Force", ["Decoy Credentials", "Security Controls"]),
-    "T1552": ("Unsecured Credentials", ["Decoy Credentials", "Artifact Diversity", "Pocket Litter"]),
-    "T1083": ("File and Directory Discovery", ["Decoy Content", "Pocket Litter", "Artifact Diversity"]),
-    "T1046": ("Network Service Discovery", ["Network Diversity", "Network Manipulation"]),
-    "T1021": ("Remote Services", ["Network Manipulation", "Isolation", "Decoy Content"]),
+    "T1552": (
+        "Unsecured Credentials",
+        ["Decoy Credentials", "Artifact Diversity", "Pocket Litter"],
+    ),
+    "T1083": (
+        "File and Directory Discovery",
+        ["Decoy Content", "Pocket Litter", "Artifact Diversity"],
+    ),
+    "T1046": (
+        "Network Service Discovery",
+        ["Network Diversity", "Network Manipulation"],
+    ),
+    "T1021": (
+        "Remote Services",
+        ["Network Manipulation", "Isolation", "Decoy Content"],
+    ),
     "T1018": ("Remote System Discovery", ["Network Diversity", "Decoy Content"]),
-    "T1057": ("Process Discovery", ["System Activity Monitoring", "Software Manipulation"]),
-    "T1071": ("Application Layer Protocol (C2)", ["Network Monitoring", "Network Manipulation"]),
+    "T1057": (
+        "Process Discovery",
+        ["System Activity Monitoring", "Software Manipulation"],
+    ),
+    "T1071": (
+        "Application Layer Protocol (C2)",
+        ["Network Monitoring", "Network Manipulation"],
+    ),
     "T1105": ("Ingress Tool Transfer", ["Malware Detonation", "Network Monitoring"]),
-    "T1190": ("Exploit Public-Facing Application", ["Introduced Vulnerabilities", "Application Diversity"]),
-    "T1059": ("Command and Scripting Interpreter", ["System Activity Monitoring", "API Monitoring"]),
+    "T1190": (
+        "Exploit Public-Facing Application",
+        ["Introduced Vulnerabilities", "Application Diversity"],
+    ),
+    "T1059": (
+        "Command and Scripting Interpreter",
+        ["System Activity Monitoring", "API Monitoring"],
+    ),
     "T1567": ("Exfiltration Over Web Service", ["Network Monitoring", "Decoy Content"]),
 }
 
@@ -61,8 +86,12 @@ def build_coverage(techniques):
 
 def render_plan(tm, covered, gaps):
     lines = []
-    lines.append(f"# Adversary Engagement Operation Plan: {tm.get('operation_name', 'UNNAMED')}")
-    lines.append(f"\n_Generated {date.today().isoformat()} — DRAFT, requires legal sign-off before deployment._\n")
+    lines.append(
+        f"# Adversary Engagement Operation Plan: {tm.get('operation_name', 'UNNAMED')}"
+    )
+    lines.append(
+        f"\n_Generated {date.today().isoformat()} — DRAFT, requires legal sign-off before deployment._\n"
+    )
     lines.append("## 1. Strategic context")
     lines.append(f"- **Target actor:** {tm.get('target_actor', 'TBD')}")
     lines.append(f"- **Strategic goal (Prepare):** {tm.get('strategic_goal', 'TBD')}")
@@ -71,11 +100,15 @@ def render_plan(tm, covered, gaps):
 
     lines.append("## 2. Engagement Goals + Operational Objectives")
     for g in ENGAGEMENT_GOALS:
-        lines.append(f"- **{g}:** define ≥1 falsifiable, time-bound objective (e.g., alert latency, dwell-time reduction, indicators gained).")
+        lines.append(
+            f"- **{g}:** define ≥1 falsifiable, time-bound objective (e.g., alert latency, dwell-time reduction, indicators gained)."
+        )
     lines.append("")
 
     lines.append("## 3. Activity selection matrix")
-    lines.append("| ATT&CK | Technique | Weakness → Engage Activities | Deployment owner |")
+    lines.append(
+        "| ATT&CK | Technique | Weakness → Engage Activities | Deployment owner |"
+    )
     lines.append("|---|---|---|---|")
     for t, info in covered.items():
         acts = ", ".join(info["activities"])
@@ -92,20 +125,28 @@ def render_plan(tm, covered, gaps):
 
     lines.append("## 4. Engagement environment design")
     lines.append("- Honeynet type (standalone / connected / integrated): TBD")
-    lines.append("- Artifact diversity plan (Persona Creation, Pocket Litter, Artifact/Application/Network Diversity): TBD\n")
+    lines.append(
+        "- Artifact diversity plan (Persona Creation, Pocket Litter, Artifact/Application/Network Diversity): TBD\n"
+    )
 
     lines.append("## 5. Gating criteria & rules of engagement")
     lines.append("- Max blast radius: TBD")
     lines.append("- Tear-down / IR hand-off trigger: TBD")
     lines.append("- Evidence handling & chain of custody: TBD")
     lines.append("- Escalation authority: TBD")
-    lines.append("- Affect Activities limited to defender-owned network only (hard constraint).\n")
+    lines.append(
+        "- Affect Activities limited to defender-owned network only (hard constraint).\n"
+    )
 
     lines.append("## 6. Measurement plan")
-    lines.append("- Metric per objective; baseline before deployment; review cadence: TBD\n")
+    lines.append(
+        "- Metric per objective; baseline before deployment; review cadence: TBD\n"
+    )
 
     lines.append("## 7. After-action report (post-operation)")
-    lines.append("- Objectives met/missed, intel produced, detections promoted to production, threat-model updates: TBD")
+    lines.append(
+        "- Objectives met/missed, intel produced, detections promoted to production, threat-model updates: TBD"
+    )
     return "\n".join(lines)
 
 
@@ -113,7 +154,11 @@ def main():
     p = argparse.ArgumentParser(description="MITRE Engage operation planner")
     p.add_argument("--threat-model", help="Path to threat-model JSON")
     p.add_argument("--out", help="Output markdown path (default: stdout)")
-    p.add_argument("--list-techniques", action="store_true", help="List techniques in the starter map")
+    p.add_argument(
+        "--list-techniques",
+        action="store_true",
+        help="List techniques in the starter map",
+    )
     args = p.parse_args()
 
     if args.list_techniques:
@@ -134,8 +179,10 @@ def main():
     covered, gaps = build_coverage(techniques)
     total = len(techniques)
     pct = (len(covered) / total * 100) if total else 0
-    print(f"Coverage: {len(covered)}/{total} techniques mapped ({pct:.0f}%); {len(gaps)} gap(s).",
-          file=sys.stderr)
+    print(
+        f"Coverage: {len(covered)}/{total} techniques mapped ({pct:.0f}%); {len(gaps)} gap(s).",
+        file=sys.stderr,
+    )
 
     plan = render_plan(tm, covered, gaps)
     if args.out:
