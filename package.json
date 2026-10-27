@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.9",
+  "version": "2.2.10",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -32,6 +32,7 @@
     "apps/web/package.json",
     "assets/",
     ".agents/",
+    "patches/",
     "README.md",
     "LICENSE",
     "!**/anthropic-cybersecurity-skills-assets/**"
@@ -141,6 +142,7 @@
       "uuid": ">=11.1.1",
       "readable-stream": "^3.6.2",
       "abort-controller": "npm:node-abort-controller@^3.1.1",
+      "hash.js": "npm:@noble/hashes@^2.4.0",
       "which-boxed-primitive": "npm:@socketregistry/which-boxed-primitive@1.0.8",
       "which-collection": "npm:@socketregistry/which-collection@1.0.7",
       "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8",
@@ -148,7 +150,8 @@
     },
     "patchedDependencies": {
       "cfb@1.2.2": "patches/cfb@1.2.2.patch",
-      "playwright-core@1.64.1": "patches/playwright-core@1.64.1.patch"
+      "playwright-core@1.64.1": "patches/playwright-core@1.64.1.patch",
+      "docx@9.14.0": "patches/docx@9.14.0.patch"
     }
   },
   "overrides": {
@@ -221,6 +224,7 @@
     "uuid": ">=11.1.1",
     "readable-stream": "^3.6.2",
     "abort-controller": "npm:node-abort-controller@^3.1.1",
+    "hash.js": "npm:@noble/hashes@^2.4.0",
     "which-boxed-primitive": "npm:@socketregistry/which-boxed-primitive@1.0.8",
     "which-collection": "npm:@socketregistry/which-collection@1.0.7",
     "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8"
@@ -286,6 +290,7 @@
     "which-collection": "npm:@socketregistry/which-collection@1.0.7",
     "which-typed-array": "npm:@socketregistry/which-typed-array@1.0.8",
     "readable-stream": "^3.6.2",
-    "abort-controller": "npm:node-abort-controller@^3.1.1"
+    "abort-controller": "npm:node-abort-controller@^3.1.1",
+    "hash.js": "npm:@noble/hashes@^2.4.0"
   }
 }

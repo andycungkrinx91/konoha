@@ -511,6 +511,11 @@ function deployProjectWorkspace(projectRoot, options = {}) {
       'AGENTS.md',
       'CLAUDE.md',
       'GEMINI.md',
+      'PLAN.md',
+      'PLAN*.md',
+      'PLAN_*.md',
+      '.omp/plans/',
+      '.omp/plans',
       '## End Konoha config+skill'
     ].join('\n');
 

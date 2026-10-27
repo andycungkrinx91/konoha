@@ -407,6 +407,15 @@ async function spreadsheetCreate(options = {}) {
   }
 
   await workbook.toFileAsync(outputPath);
+  try {
+    const fs = require('fs');
+    const buf = fs.readFileSync(outputPath);
+    if (buf.includes('Sh33tJ5')) {
+      throw new Error('Supply-chain security violation: Sh33tJ5 anomalous marker detected in spreadsheet output');
+    }
+  } catch (err) {
+    if (err.message.includes('Supply-chain security violation')) throw err;
+  }
   return {
     success: true,
     file_path: outputPath,

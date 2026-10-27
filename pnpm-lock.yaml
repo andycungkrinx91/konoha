@@ -66,6 +66,7 @@ overrides:
   which-typed-array: npm:@socketregistry/which-typed-array@1.0.8
   readable-stream: ^3.6.2
   abort-controller: npm:node-abort-controller@^3.1.1
+  hash.js: npm:@noble/hashes@^2.4.0
   '@tailwindcss/oxide-wasm32-wasi': npm:picocolors@^1.1.1
   adm-zip: '>=0.6.0'
   setimmediate: npm:immediate@^3.3.0
@@ -83,6 +84,9 @@ patchedDependencies:
   cfb@1.2.2:
     hash: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
     path: patches/cfb@1.2.2.patch
+  docx@9.14.0:
+    hash: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
+    path: patches/docx@9.14.0.patch
   playwright-core@1.64.1:
     hash: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
     path: patches/playwright-core@1.64.1.patch
@@ -96,7 +100,7 @@ importers:
         version: 2.16.0
       docx:
         specifier: ^9.14.0
-        version: 9.14.0
+        version: 9.14.0(patch_hash=750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c)
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
@@ -163,6 +167,10 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
 
   '@oxc-project/types@0.155.0':
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
@@ -268,40 +276,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@socketregistry/assert@1.0.23':
-    resolution: {integrity: sha512-Zp6oT24hKnFTl1Kyw7z2A4vjYGwsrAKrNyjjltYAJMDEvy5W8ZX+LmUKmuXIkxsqoV9OrwjaHeeyIfCC6iF2Zw==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/is-arguments@1.0.10':
-    resolution: {integrity: sha512-vpwwSbV0LL25GaNBCAprUzUW6dg7mNU2d8CsozEpoabcRo2jAsHLGKXQuJxf+4zldt0UZSag7GzfaLQmxTctcw==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/is-generator-function@1.0.9':
-    resolution: {integrity: sha512-JmbbfDzqdQB6wrram418P46ustUx2pEmdcHZSs3weRI0aNyyB9+qs3kdTJeI0Ubs3pSZT2LylVmSa18uYC5X2Q==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/is-nan@1.0.8':
-    resolution: {integrity: sha512-PKimUt1i/4yKbVzHOGz/LOgcmCJFXKIXR0OZt5tkNJVFZ6LB0poAq2jyzAnud176tVelY/aDoOebnGLfDK0L1g==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/is-typed-array@1.0.11':
-    resolution: {integrity: sha512-XGW8dqh1KN8fXzzmzSJBlNfPvSflMSHBJ4LF7dQKxFhGr9T/RRwbUpC6VdkiGGOKMxmQ8WKpNPmw4Y64KMPf/A==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/object-is@1.0.8':
-    resolution: {integrity: sha512-vg/N7+c54YiQ1jI9Qcrnrt2XoHhg6Rzkw9bVpQlek6kqdQqMc6omNLkbSNZmTzQ/9Usyslf5lJtfxdFS7ZLvOA==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/object.assign@1.0.7':
-    resolution: {integrity: sha512-va2VFokL7936edVCGqbwSjuD6eX1ExCnZMxudb2+hr8FTHwuExd1TtGKzyNLsdr9n1Xy9c0aWkyRoQfWGTM0rw==}
-    engines: {node: '>=18'}
-
   '@socketregistry/safe-buffer@1.0.9':
     resolution: {integrity: sha512-eV4uYchI1+vQeKpFG+aBlhVQ/AaaPTTXaan+ReiNn/izy8U9hfT4WC8l4g8o8BC3zaeNnsNVxec14hJH/y2y3g==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/which-typed-array@1.0.8':
-    resolution: {integrity: sha512-cotlP5jrJOH6tnoTAyNouFr/iWm5OeYaaTma5OkhCuw/yrCfhBY+7AdGAbrwevyg8RP3D69v8V3vC5PSa3o0Rg==}
     engines: {node: '>=18'}
 
   '@standard-schema/spec@1.1.0':
@@ -519,9 +495,6 @@ packages:
 
   hash-wasm@4.12.0:
     resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
-
-  hash.js@1.1.7:
-    resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}
 
   https@1.0.0:
     resolution: {integrity: sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==}
@@ -830,9 +803,6 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  util@0.12.5:
-    resolution: {integrity: sha512-kZf/K6hEIrWHI6XqOFUiiMa+79wE/D8Q+NCNAWclkyg3b4d2k7s0QGepNjiABc+aR3N1PAyHL7p6UcLY6LmrnA==}
-
   vite@8.3.5:
     resolution: {integrity: sha512-z1YpjieJ9g0ebTmQpLBv/oq9E3F9EIlOe+7LahW8SrE3LTiG3udBRUXQOlYXP9b+IC2q2phHeVxj9xGlw34OEQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -913,6 +883,8 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
+  '@noble/hashes@2.4.0': {}
+
   '@oxc-project/types@0.155.0': {}
 
   '@playwright/test@1.64.1':
@@ -968,28 +940,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@socketregistry/assert@1.0.23':
-    dependencies:
-      is-nan: '@socketregistry/is-nan@1.0.8'
-      object-is: '@socketregistry/object-is@1.0.8'
-      object.assign: '@socketregistry/object.assign@1.0.7'
-      util: 0.12.5
-
-  '@socketregistry/is-arguments@1.0.10': {}
-
-  '@socketregistry/is-generator-function@1.0.9': {}
-
-  '@socketregistry/is-nan@1.0.8': {}
-
-  '@socketregistry/is-typed-array@1.0.11': {}
-
-  '@socketregistry/object-is@1.0.8': {}
-
-  '@socketregistry/object.assign@1.0.7': {}
-
   '@socketregistry/safe-buffer@1.0.9': {}
-
-  '@socketregistry/which-typed-array@1.0.8': {}
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -1132,10 +1083,10 @@ snapshots:
 
   devalue@6.0.2: {}
 
-  docx@9.14.0:
+  docx@9.14.0(patch_hash=750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c):
     dependencies:
       '@types/node': 26.6.5
-      hash.js: 1.1.7
+      hash.js: '@noble/hashes@2.4.0'
       jszip: 3.10.2
       nanoid: 6.0.2
 
@@ -1160,11 +1111,6 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   hash-wasm@4.12.0: {}
-
-  hash.js@1.1.7:
-    dependencies:
-      inherits: 2.0.4
-      minimalistic-assert: '@socketregistry/assert@1.0.23'
 
   https@1.0.0: {}
 
@@ -1438,14 +1384,6 @@ snapshots:
   undici-types@8.9.0: {}
 
   util-deprecate@1.0.2: {}
-
-  util@0.12.5:
-    dependencies:
-      inherits: 2.0.4
-      is-arguments: '@socketregistry/is-arguments@1.0.10'
-      is-generator-function: '@socketregistry/is-generator-function@1.0.9'
-      is-typed-array: '@socketregistry/is-typed-array@1.0.11'
-      which-typed-array: '@socketregistry/which-typed-array@1.0.8'
 
   vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0):
     dependencies:

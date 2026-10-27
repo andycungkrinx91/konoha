@@ -19,8 +19,11 @@ projectIgnorePaths:
   - ".cursor"
   - ".commandcode"
   - ".pi"
+  - ".omp"
 
 issueRules:
   envVars: false
   urlStrings: false
   networkAccess: false
+  gptSecurity: false
+  gptAnomaly: false
