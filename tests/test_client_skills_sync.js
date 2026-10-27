@@ -20,15 +20,7 @@ const CORE_NINJA_SKILLS = [
   'tokubetsu-jonin-skill',
 ];
 
-const CANONICAL_SKILLS = fs.existsSync(AGENTS_DIR)
-  ? fs.readdirSync(AGENTS_DIR, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
-  : CORE_NINJA_SKILLS;
-
 const CLIENT_DIRS = [
-  path.join(ROOT, '.cursor', 'skills'),
-  path.join(ROOT, '.gemini', 'skills'),
-  path.join(ROOT, '.commandcode', 'skills'),
-  path.join(ROOT, '.claude', 'skills'),
   path.join(ROOT, 'src', 'templates', 'skills'),
 ];
 
@@ -49,46 +41,50 @@ async function testClientSkillsSync() {
   syncSkills();
   console.log('✓ scripts/sync_skills.js executed cleanly');
 
-  // 3. Verify all client mirror trees have all canonical skills and zero stray files
+  // 3. Verify templates tree has all canonical skills and zero stray files, and client mirror trees do NOT exist
   for (const cDir of CLIENT_DIRS) {
-    assert.ok(fs.existsSync(cDir), `Mirror directory ${cDir} must exist`);
+    assert.ok(fs.existsSync(cDir), `Templates directory ${cDir} must exist`);
     const entries = fs.readdirSync(cDir, { withFileTypes: true });
 
     // Check all canonical skills are present
     const dirNames = entries.filter(e => e.isDirectory()).map(e => e.name);
-    for (const skill of CANONICAL_SKILLS) {
-      assert.ok(dirNames.includes(skill), `Mirror directory ${cDir} must contain canonical skill ${skill}`);
+    for (const skill of CORE_NINJA_SKILLS) {
+      assert.ok(dirNames.includes(skill), `Templates directory ${cDir} must contain canonical skill ${skill}`);
       const skillMd = path.join(cDir, skill, 'SKILL.md');
       assert.ok(fs.existsSync(skillMd), `${cDir}/${skill}/SKILL.md must exist`);
     }
 
     // Check zero broken symlinks and zero stray files (.claude, .cursor, CLAUDE.md)
     for (const e of entries) {
-      assert.ok(!e.isSymbolicLink(), `Mirror directory ${cDir} must not contain symlink: ${e.name}`);
-      assert.notStrictEqual(e.name, '.claude', `Mirror directory ${cDir} must not contain stray .claude`);
-      assert.notStrictEqual(e.name, '.cursor', `Mirror directory ${cDir} must not contain stray .cursor`);
-      assert.notStrictEqual(e.name, 'CLAUDE.md', `Mirror directory ${cDir} must not contain stray CLAUDE.md`);
-      if (e.name !== '.ignore' && !e.name.endsWith('.fingerprint')) {
-        assert.ok(CANONICAL_SKILLS.includes(e.name), `Unexpected top-level entry in ${cDir}: ${e.name}`);
-      }
+      assert.ok(!e.isSymbolicLink(), `Templates directory ${cDir} must not contain symlink: ${e.name}`);
+      assert.notStrictEqual(e.name, '.claude', `Templates directory ${cDir} must not contain stray .claude`);
+      assert.notStrictEqual(e.name, '.cursor', `Templates directory ${cDir} must not contain stray .cursor`);
+      assert.notStrictEqual(e.name, 'CLAUDE.md', `Templates directory ${cDir} must not contain stray CLAUDE.md`);
     }
-    console.log(`✓ Mirror directory ${path.relative(ROOT, cDir)} verified in 100% parity`);
+    console.log(`✓ Directory ${path.relative(ROOT, cDir)} verified in parity`);
   }
 
-  // 4. Verify skill_manager.syncAllClientSkills supports .commandcode and .claude in projectRoot
+  // Verify client skill directories do not exist in the repo
+  for (const clientName of ['.cursor', '.gemini', '.commandcode', '.claude', '.omp']) {
+    const clientSkillsDir = path.join(ROOT, clientName, 'skills');
+    assert.ok(!fs.existsSync(clientSkillsDir), `Client skill directory ${clientSkillsDir} must not exist`);
+  }
+  console.log('✓ Client mirror directories confirmed absent from workspace');
+
+  // 4. Verify skill_manager.syncAllClientSkills synchronizes ONLY to ~/.agents/skills (never injecting into project)
   const skillManager = require('../src/skill_manager');
   const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-sync-test-'));
   try {
     fs.mkdirSync(path.join(tmpProject, '.commandcode'), { recursive: true });
     fs.mkdirSync(path.join(tmpProject, '.claude'), { recursive: true });
     const syncRes = skillManager.syncAllClientSkills({ projectRoot: tmpProject, silent: true });
-    assert.ok(syncRes.synced >= 9, `Expected at least 9 synced targets, got ${syncRes.synced}`);
-    assert.ok(fs.existsSync(path.join(tmpProject, '.commandcode', 'skills', 'konoha', 'SKILL.md')), 'Project .commandcode/skills must be populated');
-    assert.ok(fs.existsSync(path.join(tmpProject, '.claude', 'skills', 'konoha', 'SKILL.md')), 'Project .claude/skills must be populated');
+    assert.strictEqual(syncRes.synced, 1, `Expected exactly 1 synced target (~/.agents/skills), got ${syncRes.synced}`);
+    assert.ok(!fs.existsSync(path.join(tmpProject, '.commandcode', 'skills')), 'Project .commandcode/skills must NOT be created');
+    assert.ok(!fs.existsSync(path.join(tmpProject, '.claude', 'skills')), 'Project .claude/skills must NOT be created');
   } finally {
     fs.rmSync(tmpProject, { recursive: true, force: true });
   }
-  console.log('✓ skillManager.syncAllClientSkills project-level client synchronization verified');
+  console.log('✓ skillManager.syncAllClientSkills single-source synchronization verified');
 
   // 5. Verify database FTS5 and vector chunks referential integrity
   const db = require('../src/db');

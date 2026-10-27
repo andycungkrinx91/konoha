@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const db = require('../db');
 const { getDb } = db;
 const {
-  getWorkspaceRoot,
   HOME,
   AGENTS_DIR
 } = require('./runtime_state');
@@ -167,18 +166,8 @@ function resolveFlowHashFromTask(flowHash, taskId) {
 }
 
 function getMirrorRoots() {
-  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
   return [
-    path.join(ws, '.agents', 'skills'),
-    path.join(ws, 'src', 'templates', 'skills'),
     path.join(HOME, '.agents', 'skills'),
-    path.join(ws, '.cursor', 'skills'),
-    path.join(ws, '.gemini', 'skills'),
-    path.join(ws, '.commandcode', 'skills'),
-    path.join(ws, '.claude', 'skills'),
-    path.join(ws, '.opencode', 'skills'),
-    path.join(ws, '.codex', 'skills'),
-    path.join(ws, '.omp', 'skills'),
   ];
 }
 

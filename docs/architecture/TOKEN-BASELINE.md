@@ -11,7 +11,7 @@
 
 | Metric Category | Scope / Target | Before (Phase 0) | After (Phase 5 Reconciled) | Absolute Delta | Relative Savings | Verification Status |
 |---|---|---|---|---|---|---|
-| **1. Tool Schema Overhead** | 46 Konoha + 2 Semble + 4 Aislop | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (46 canonical tools locked) |
+| **1. Tool Schema Overhead** | 47 Konoha + 2 Semble + 4 Aislop | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (47 canonical tools locked) |
 | **2. Retrieval Payload Size** | 10 representative queries (`find_skill`) | **7,002 tokens** (700.2 avg) | **4,742 tokens** (474.2 avg) | **-2,260 tokens** | **-32.3%** | 10 distinct queries evaluated with live SQLite FTS5 |
 | **   ↳ Repeat Query Dedup** | Repeated query in same task | 500 tokens | 308 tokens | -192 tokens | **-38.4%** | Session cache returns `[LOADED]` |
 | **   ↳ Targeted Section Read** | `get_skill` with section/budget | 1,719 tokens | 222 tokens | -1,497 tokens | **-87.1%** | Target section slice vs full markdown |
@@ -48,8 +48,8 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
-4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and exactly 46 canonical tools in CI/CD.
-5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, and now 46 with native Document Engineering and Akatsuki) until locked at exactly 46 canonical tools in `src/file_tools_router.js`.
+4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and exactly 47 canonical tools in CI/CD.
+5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, and now 47 with Akatsuki Lab init) until locked at exactly 47 canonical tools in `src/file_tools_router.js`.
 6. **Semble & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across Semble (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json` saving -179 tokens / -36.3%), saving a combined -459 tokens (-35.9%) across auxiliary MCP servers.
 
 ---

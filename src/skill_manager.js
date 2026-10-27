@@ -53,22 +53,8 @@ const {
   AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
 } = require('../bin/lib/paths');
 
-function getSkillsScanDirs(targetCwd = null) {
-  let cwd = targetCwd || null;
-  if (!cwd) {
-    try { cwd = process.cwd(); } catch (_) { cwd = HOME; }
-  }
+function getSkillsScanDirs(_targetCwd = null) {
   const dirs = [
-    path.join(cwd, '.agents', 'skills'),
-    path.join(cwd, '.cursor', 'skills'),
-    path.join(cwd, '.gemini', 'skills'),
-    path.join(cwd, '.commandcode', 'skills'),
-    path.join(cwd, '.claude', 'skills'),
-    path.join(cwd, '.omp', 'skills'),
-    path.join(cwd, 'skills'),
-    path.join(cwd, '.skills'),
-    path.join(cwd, 'agent', 'skills'),
-    path.join(cwd, 'docs', 'skills'),
     path.join(AGENTS, 'skills'),
     path.join(ANTIGRAVITY_CLI, 'skills'),
     path.join(HOME, '.cursor', 'skills'),
@@ -432,7 +418,6 @@ function unembedSkillFromAgent(skillName, agentName) {
 
 function syncAllClientSkills(options = {}) {
   const silent = options.silent !== false;
-  const projectRoot = options.projectRoot || null;
   const sourceSkillsDir = options.sourceSkillsDir || (
     fs.existsSync(path.join(__dirname, '..', 'src', 'templates', 'skills'))
       ? path.join(__dirname, '..', 'src', 'templates', 'skills')
@@ -444,30 +429,8 @@ function syncAllClientSkills(options = {}) {
   if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
 
   const targetDirs = [
-    path.join(HOME, '.cursor', 'skills'),
-    path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
-    path.join(HOME, '.claude', 'skills'),
-    path.join(HOME, '.config', 'opencode', 'skills'),
-    path.join(HOME, '.opencode', 'skills'),
-    path.join(HOME, '.commandcode', 'skills'),
-    path.join(HOME, '.codex', 'skills'),
-    path.join(HOME, '.omp', 'agent', 'skills'),
+    path.join(HOME, '.agents', 'skills')
   ];
-
-  if (projectRoot && fs.existsSync(projectRoot)) {
-    targetDirs.push(path.join(projectRoot, '.cursor', 'skills'));
-    targetDirs.push(path.join(projectRoot, '.gemini', 'skills'));
-    targetDirs.push(path.join(projectRoot, '.commandcode', 'skills'));
-    targetDirs.push(path.join(projectRoot, '.claude', 'skills'));
-    targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
-    targetDirs.push(path.join(projectRoot, '.omp', 'skills'));
-    if (fs.existsSync(path.join(projectRoot, '.config', 'opencode'))) {
-      targetDirs.push(path.join(projectRoot, '.config', 'opencode', 'skills'));
-    }
-    if (fs.existsSync(path.join(projectRoot, '.opencode'))) {
-      targetDirs.push(path.join(projectRoot, '.opencode', 'skills'));
-    }
-  }
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);
   const syncedTargets = [];
@@ -481,7 +444,7 @@ function syncAllClientSkills(options = {}) {
   }
 
   if (!silent) {
-    process.stderr.write(`✓ Synchronized all skills across ${syncedTargets.length} client directories.\n`);
+    process.stderr.write('✓ Synchronized skills to canonical directory: ~/.agents/skills\n');
   }
 
   return { synced: syncedTargets.length, targets: syncedTargets };
@@ -489,7 +452,7 @@ function syncAllClientSkills(options = {}) {
 
 function autoMigrateProjectSkills(projectRoot) {
   const ws = projectRoot || currentCwd;
-  if (!ws || !fs.existsSync(ws)) return { migrated: 0, skills: [] };
+  if (!ws || !fs.existsSync(ws)) return { migrated: 0, skills: [], dirs: [] };
 
   const candidateDirs = [
     path.join(ws, '.agents', 'skills'),
@@ -498,13 +461,16 @@ function autoMigrateProjectSkills(projectRoot) {
     path.join(ws, '.cursor', 'skills'),
     path.join(ws, '.gemini', 'skills'),
     path.join(ws, '.gemini', 'antigravity-cli', 'skills'),
+    path.join(ws, '.commandcode', 'skills'),
     path.join(ws, '.claude', 'skills'),
-    path.join(ws, 'agent', 'skills'),
+    path.join(ws, '.omp', 'skills'),
+    path.join(ws, '.config', 'opencode', 'skills'),
+    path.join(ws, '.opencode', 'skills'),
     path.join(ws, 'docs', 'skills')
   ];
 
   const foundDirs = candidateDirs.filter(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
-  if (foundDirs.length === 0) return { migrated: 0, skills: [] };
+  if (foundDirs.length === 0) return { migrated: 0, skills: [], dirs: [] };
 
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
   const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
@@ -515,7 +481,7 @@ function autoMigrateProjectSkills(projectRoot) {
       if (run.status === 0) {
         totalMigrated++;
       }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* intentional best-effort fallback */ }
   }
   return { migrated: totalMigrated, dirs: foundDirs };
 }

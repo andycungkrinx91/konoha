@@ -35,8 +35,6 @@ try {
 }
 const { parseYaml } = yamlUtils;
 
-let _PROJECT_SKILLS_CACHE = {};
-
 function autoDetectSkills(skillsDir) {
   if (!fs.existsSync(skillsDir) || !fs.statSync(skillsDir).isDirectory()) {
     return [];
@@ -59,6 +57,8 @@ function autoDetectSkills(skillsDir) {
   } catch (_) { /* ignore */ }
   return results;
 }
+
+let _PROJECT_SKILLS_CACHE = {};
 
 function autoMigrateProjectSkills(workspaceRoot = null) {
   const ws = workspaceRoot || getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
@@ -86,7 +86,6 @@ function autoMigrateProjectSkills(workspaceRoot = null) {
     path.join(ws, '.omp', 'skills'),
     path.join(ws, '.config', 'opencode', 'skills'),
     path.join(ws, '.opencode', 'skills'),
-    path.join(ws, 'agent', 'skills'),
     path.join(ws, 'docs', 'skills')
   ];
 
@@ -185,6 +184,16 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
   const cacheKey = `${normKeyword}:${limit}:${compact}:${agentName || ''}:${trackingKey}`;
   if (_SKILL_QUERY_CACHE.has(cacheKey)) {
     return _SKILL_QUERY_CACHE.get(cacheKey);
+  }
+
+  if (agentName !== 'akatsuki' && isOffensiveSkill(normKeyword)) {
+    const emptyResult = JSON.stringify({
+      found: 0,
+      query: keyword,
+      message: `No skills found for '${keyword}'. Use list_skills to see available skills.`
+    });
+    _SKILL_QUERY_CACHE.set(cacheKey, emptyResult);
+    return emptyResult;
   }
 
   const conn = getDb();

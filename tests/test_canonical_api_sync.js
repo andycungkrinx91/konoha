@@ -8,21 +8,19 @@
  */
 
 const assert = require('assert');
-const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { listToolSchemas } = require('../src/file_tools_router');
 const { syncCanonicalApi } = require('../scripts/sync_canonical_api');
 
 const ROOT = path.resolve(__dirname, '..');
-const CANONICAL_API_PATH = path.join(ROOT, 'docs', 'architecture', 'CANONICAL-API.md');
 
 console.log('Running test_canonical_api_sync.js...');
 
 // 1. Tool count lock
 const schemas = listToolSchemas();
-assert.strictEqual(schemas.length, 46, `Expected exactly 46 canonical MCP tools, found ${schemas.length}`);
-console.log('  ✓ Canonical tool count is locked at 46.');
+assert.strictEqual(schemas.length, 47, `Expected exactly 47 canonical MCP tools, found ${schemas.length}`);
+console.log('  ✓ Canonical tool count is locked at 47.');
 
 // 2. Specific schema parameter integrity checks
 const findSkill = schemas.find(t => t.name === 'find_skill');

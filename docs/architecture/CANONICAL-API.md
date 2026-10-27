@@ -8,7 +8,7 @@
 
 ## 1. Canonical MCP Tools (Active Advertised Roster)
 
-All tools (46 active) are served through the `konoha` MCP server over stdio JSON-RPC.
+All tools (47 active) are served through the `konoha` MCP server over stdio JSON-RPC.
 
 | Tool Name | Parameters | Purpose | Return Schema |
 |---|---|---|---|
@@ -32,7 +32,8 @@ All tools (46 active) are served through the `konoha` MCP server over stdio JSON
 | `kage` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate architecture or review work to Kage. | Confidence report & verdict JSON |
 | `jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate frontend work to Jonin. | UI implementation results JSON |
 | `anbu` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate backend or DevOps work to Anbu. | Backend implementation results JSON |
-| `akatsuki` | `task?: string, context?: string, constraints?: string, skills?: array, workflow_type?: string, scope?: string, authorization?: string, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate authorized red-team, blue-team, or security audit work to Akatsuki. | Security review & penetration testing report JSON |
+| `akatsuki` | `task?: string, context?: string, constraints?: string, skills?: array, workflow_type?: string, scope?: string, authorization?: string, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, tools?: array, target?: string, custom_tools?: array, allow_controlled_exploit_verification?: boolean, allow_external_scope?: boolean, engine?: string, lab_name?: string, report?: object, authorized?: boolean` | Delegate authorized red-team, blue-team, or security audit work to Akatsuki. | Security review & penetration testing report JSON |
+| `akatsuki_init` | `action?: string, engines?: string, profile?: string, lab_name?: string, tool?: object, query?: string, category?: string` | Initialize Akatsuki Red-Team Lab containers (Docker, LXC, or both), manage offensive toolsets, and query Kali tool catalog. | JSON result object |
 | `chunin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate research work to Chunin. | Citation-backed report JSON |
 | `tokubetsu_jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate documentation work to Tokubetsu-Jonin. | Generated documentation JSON |
 | `genin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate codebase exploration to Genin. | Structured exploration report JSON |

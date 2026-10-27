@@ -12,10 +12,10 @@ imports:
   # - Manager/handler functions are deliberately long, self-contained TUI/CLI
   #   dispatchers. Thresholds are set at the measured max of this codebase (JSON-RPC
 quality:
-  maxFunctionLoc: 1100
-  maxFileLoc: 9000
-  maxNesting: 12
-  maxParams: 12
+  maxFunctionLoc: 100
+  maxFileLoc: 700
+  maxNesting: 3
+  maxParams: 2
 # Vendored third-party reference assets (upstream skill mirrors, e.g. anthropic-
   # cybersecurity-skills) are documentation, not executed code — excluded.
 exclude:

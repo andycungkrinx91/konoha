@@ -2,7 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [2.2.11] - 2026-10-27
+## [2.2.11] - 2026-10-28
+
+### Single-Source Skills Architecture & Client Disk I/O Optimization
+
+- **Single-Source Global Skills Storage**: Skills are stored and mirrored canonically in `~/.agents/skills/`. Installation and setup inject template skills exclusively into `~/.agents/skills/` without populating skill subtrees in client directories.
+- **Config-Only Client Setup**: All client targets (Cursor, Gemini CLI / Antigravity, Claude Code, OMP, OpenCode, CommandCode, Codex) receive only their configuration, rules/contracts, hooks, and subagent declarations—strictly without duplicated skill trees, drastically optimizing disk I/O and eliminating duplicate prompt definitions.
+- **Global-Only Mirror Fallback**: `getMirrorRoots()` resolves unindexed skills strictly from `~/.agents/skills/`.
+- **Project Skills Import Without Injection**: Project-level skills are imported and embedded on-demand into SQLite `skills.db` via `autoMigrateProjectSkills` without ever injecting Konoha template skills into project folders.
+- **Deprecated Agent Folder Excision**: The legacy `agent/` directory is permanently excised and ignored in `.gitignore`, preventing accidental re-creation.
+- **Pruned 16,900+ Duplicate Client Mirror Files**: Excised all tracked mirror trees (`.cursor/skills/`, `.gemini/skills/`, `.commandcode/skills/`, `.claude/skills/`, `.omp/skills/`) and fingerprint files from git tracking and added them to `.gitignore`.
 
 ### Akatsuki Red-Team Professionalization, Multi-Hypervisor Sandbox, Chunin Recon & Standard PDF Report
 

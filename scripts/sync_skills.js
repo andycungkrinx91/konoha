@@ -17,24 +17,56 @@ const os = require('os');
 const ROOT = path.resolve(__dirname, '..');
 const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
 const TEMPLATES_DIR = path.join(ROOT, 'src', 'templates', 'skills');
-const CURSOR_DIR = path.join(ROOT, '.cursor', 'skills');
-const GEMINI_DIR = path.join(ROOT, '.gemini', 'skills');
-const COMMANDCODE_DIR = path.join(ROOT, '.commandcode', 'skills');
-const CLAUDE_DIR = path.join(ROOT, '.claude', 'skills');
-const OPENCODE_DIR = path.join(ROOT, '.opencode', 'skills');
-const OMP_DIR = path.join(ROOT, '.omp', 'skills');
+const CLIENT_CONFIG_PARENTS = [
+  path.join(ROOT, '.cursor'),
+  path.join(ROOT, '.gemini'),
+  path.join(ROOT, '.commandcode'),
+  path.join(ROOT, '.claude'),
+  path.join(ROOT, '.opencode'),
+  path.join(ROOT, '.omp'),
+];
+
+const LEGACY_CLIENT_SKILL_DIRS = [
+  path.join(ROOT, '.cursor', 'skills'),
+  path.join(ROOT, '.gemini', 'skills'),
+  path.join(ROOT, '.commandcode', 'skills'),
+  path.join(ROOT, '.claude', 'skills'),
+  path.join(ROOT, '.opencode', 'skills'),
+  path.join(ROOT, '.omp', 'skills'),
+];
+
+const LEGACY_FINGERPRINT_FILES = [
+  path.join(ROOT, '.cursor', 'skills.fingerprint'),
+  path.join(ROOT, '.gemini', 'skills.fingerprint'),
+  path.join(ROOT, '.commandcode', 'skills.fingerprint'),
+  path.join(ROOT, '.claude', 'skills.fingerprint'),
+  path.join(ROOT, '.opencode', 'skills.fingerprint'),
+  path.join(ROOT, '.omp', 'skills.fingerprint'),
+];
 
 const ALLOWED_DEPLOYED_ONLY = new Set(['anbu-skill/devops-engineer.md']);
 const ALLOWED_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.py', '.js']);
 
-const CLIENT_MIRRORS = [
-  { name: '.cursor/skills', parent: path.join(ROOT, '.cursor'), dir: CURSOR_DIR },
-  { name: '.gemini/skills', parent: path.join(ROOT, '.gemini'), dir: GEMINI_DIR },
-  { name: '.commandcode/skills', parent: path.join(ROOT, '.commandcode'), dir: COMMANDCODE_DIR },
-  { name: '.claude/skills', parent: path.join(ROOT, '.claude'), dir: CLAUDE_DIR },
-  { name: '.opencode/skills', parent: path.join(ROOT, '.opencode'), dir: OPENCODE_DIR },
-  { name: '.omp/skills', parent: path.join(ROOT, '.omp'), dir: OMP_DIR },
-];
+function pruneLegacyClientMirrors() {
+  let pruned = 0;
+  for (const dir of LEGACY_CLIENT_SKILL_DIRS) {
+    if (fs.existsSync(dir)) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+        pruned++;
+      } catch (_) { /* ignore */ }
+    }
+  }
+  for (const file of LEGACY_FINGERPRINT_FILES) {
+    if (fs.existsSync(file)) {
+      try {
+        fs.rmSync(file, { force: true });
+        pruned++;
+      } catch (_) { /* ignore */ }
+    }
+  }
+  return pruned;
+}
 
 function lockedSkillRoots() {
   try {
@@ -61,7 +93,38 @@ function copyFileIfChanged(src, dest) {
   return true;
 }
 
-function pruneStaleFiles(targetDir, validTopLevels, validRelFiles, isTemplate = false) {
+function walkAndPruneDir(curr, opts) {
+  let subEntries;
+  try {
+    subEntries = fs.readdirSync(curr, { withFileTypes: true });
+  } catch (_) {
+    return 0;
+  }
+  let count = 0;
+  for (const se of subEntries) {
+    const subFull = path.join(curr, se.name);
+    if (se.isDirectory()) {
+      count += walkAndPruneDir(subFull, opts);
+      try {
+        if (fs.readdirSync(subFull).length === 0) {
+          fs.rmdirSync(subFull);
+        }
+      } catch (_) { /* ignore */ }
+      continue;
+    }
+    const rel = path.relative(opts.targetDir, subFull).replace(/\\/g, '/');
+    if (opts.context.isTemplate && ALLOWED_DEPLOYED_ONLY.has(rel)) continue;
+    if (!opts.context.validRelFiles.has(rel)) {
+      try {
+        fs.rmSync(subFull, { force: true });
+        count++;
+      } catch (_) { /* ignore */ }
+    }
+  }
+  return count;
+}
+
+function pruneStaleFiles(targetDir, context = {}) {
   if (!fs.existsSync(targetDir)) return 0;
   let removedCount = 0;
   let entries;
@@ -71,11 +134,12 @@ function pruneStaleFiles(targetDir, validTopLevels, validRelFiles, isTemplate = 
     return 0;
   }
 
+  const opts = { targetDir, context };
   for (const e of entries) {
     if (e.name === '.ignore' || e.name.endsWith('.fingerprint') || e.name === '.fingerprint') continue;
     const full = path.join(targetDir, e.name);
 
-    if (!validTopLevels.has(e.name)) {
+    if (context.validTopLevels && !context.validTopLevels.has(e.name)) {
       try {
         fs.rmSync(full, { recursive: true, force: true });
         removedCount++;
@@ -84,113 +148,68 @@ function pruneStaleFiles(targetDir, validTopLevels, validRelFiles, isTemplate = 
     }
 
     if (e.isDirectory()) {
-      function walkPrune(curr) {
-        let subEntries;
-        try {
-          subEntries = fs.readdirSync(curr, { withFileTypes: true });
-        } catch (_) {
-          return;
-        }
-
-        for (const se of subEntries) {
-          const subFull = path.join(curr, se.name);
-          if (se.isDirectory()) {
-            walkPrune(subFull);
-            try {
-              if (fs.readdirSync(subFull).length === 0) {
-                fs.rmdirSync(subFull);
-              }
-            } catch (_) { /* ignore */ }
-          } else {
-            const rel = path.relative(targetDir, subFull).replace(/\\/g, '/');
-            if (isTemplate && ALLOWED_DEPLOYED_ONLY.has(rel)) continue;
-            if (!validRelFiles.has(rel)) {
-              try {
-                fs.rmSync(subFull, { force: true });
-                removedCount++;
-              } catch (_) { /* ignore */ }
-            }
-          }
-        }
-      }
-      walkPrune(full);
+      removedCount += walkAndPruneDir(full, opts);
     }
   }
   return removedCount;
 }
 
 function syncSkills() {
-  if (!fs.existsSync(AGENTS_DIR)) {
-    console.error(`Error: ${AGENTS_DIR} does not exist`);
+  if (!fs.existsSync(TEMPLATES_DIR) && !fs.existsSync(AGENTS_DIR)) {
+    console.error(`Error: Neither ${TEMPLATES_DIR} nor ${AGENTS_DIR} exists`);
     process.exit(1);
   }
 
+  const legacyPruned = pruneLegacyClientMirrors();
   const lockedRoots = lockedSkillRoots();
   let updatedCount = 0;
   let totalCount = 0;
 
+  const sourceDir = AGENTS_DIR;
+  const destDir = TEMPLATES_DIR;
+
   const validRelFiles = new Set();
   const validTopLevels = new Set();
-  const topEntries = fs.readdirSync(AGENTS_DIR, { withFileTypes: true });
+  const topEntries = fs.readdirSync(sourceDir, { withFileTypes: true });
   for (const t of topEntries) {
     if (t.isDirectory()) validTopLevels.add(t.name);
   }
 
-  // Active client mirrors: any mirror whose parent directory exists
-  const activeMirrors = CLIENT_MIRRORS.filter(m => fs.existsSync(m.parent));
-  for (const m of activeMirrors) {
-    if (!fs.existsSync(m.dir)) {
-      fs.mkdirSync(m.dir, { recursive: true });
-    }
-  }
-
-  function walk(currentDir) {
+  function walk(currentDir, baseDir) {
     const entries = fs.readdirSync(currentDir, { withFileTypes: true });
     for (const e of entries) {
       const full = path.join(currentDir, e.name);
       if (e.isDirectory()) {
-        walk(full);
+        walk(full, baseDir);
       } else if (e.isFile()) {
         const ext = path.extname(e.name).toLowerCase();
         if (!ALLOWED_EXTS.has(ext)) continue;
 
-        const rel = path.relative(AGENTS_DIR, full).replace(/\\/g, '/');
+        const rel = path.relative(baseDir, full).replace(/\\/g, '/');
         const skillRoot = rel.split('/')[0];
         validRelFiles.add(rel);
         totalCount++;
 
-        // Sync to src/templates/skills (unless locked or deployed-only)
         if (!ALLOWED_DEPLOYED_ONLY.has(rel) && !lockedRoots.has(skillRoot)) {
-          const dest = path.join(TEMPLATES_DIR, rel);
-          if (copyFileIfChanged(full, dest)) updatedCount++;
-        }
-
-        // Sync to all active client mirrors (.cursor, .gemini, .commandcode, .claude)
-        for (const m of activeMirrors) {
-          const dest = path.join(m.dir, rel);
+          const dest = path.join(destDir, rel);
           if (copyFileIfChanged(full, dest)) updatedCount++;
         }
       }
     }
   }
 
-  walk(AGENTS_DIR);
+  walk(sourceDir, sourceDir);
 
-  // Prune stray files and broken symlinks across all target trees
-  let prunedCount = pruneStaleFiles(TEMPLATES_DIR, validTopLevels, validRelFiles, true);
-  for (const m of activeMirrors) {
-    prunedCount += pruneStaleFiles(m.dir, validTopLevels, validRelFiles, false);
-  }
-
+  let prunedCount = pruneStaleFiles(destDir, { validTopLevels, validRelFiles, isTemplate: destDir === TEMPLATES_DIR });
   const soulUpdated = syncSoul();
 
-  console.log(`✓ Skill sync complete: ${totalCount} files checked, ${updatedCount} copies updated, ${prunedCount} stray items pruned across ${1 + activeMirrors.length} trees (SOUL.md synced: ${soulUpdated} updated).`);
+  console.log(`✓ Skill sync complete: ${totalCount} files checked, ${updatedCount} copies updated, ${prunedCount} stray items pruned, ${legacyPruned} legacy client mirrors cleaned (SOUL.md synced: ${soulUpdated} updated).`);
 }
 
 function syncSoul() {
-  const soulSrc = fs.existsSync(path.join(ROOT, '.agents', 'SOUL.md'))
-    ? path.join(ROOT, '.agents', 'SOUL.md')
-    : path.join(ROOT, 'src', 'templates', 'SOUL.md');
+  const soulSrc = fs.existsSync(path.join(ROOT, 'src', 'templates', 'SOUL.md'))
+    ? path.join(ROOT, 'src', 'templates', 'SOUL.md')
+    : path.join(ROOT, '.agents', 'SOUL.md');
 
   if (!fs.existsSync(soulSrc)) return 0;
 
@@ -200,9 +219,9 @@ function syncSoul() {
     path.join(ROOT, 'src', 'templates', 'SOUL.md')
   ];
 
-  for (const m of CLIENT_MIRRORS) {
-    if (fs.existsSync(m.parent)) {
-      targets.push(path.join(m.parent, 'SOUL.md'));
+  for (const parent of CLIENT_CONFIG_PARENTS) {
+    if (fs.existsSync(parent)) {
+      targets.push(path.join(parent, 'SOUL.md'));
     }
   }
 

@@ -6,43 +6,8 @@ const os = require('os');
 const path = require('path');
 
 const HOME = os.homedir();
-const KONOHA = path.join(HOME, '.konoha');
 
 function fileExists(p) { try { return fs.existsSync(p); } catch { return false; } }
-
-function expectMirrorIsNoOp(mirrorFunction, name) {
-  // Save state of directories that may be touched
-  const markers = [
-    path.join(HOME, '.cursor', 'skills'),
-    path.join(HOME, '.claude', 'skills'),
-    path.join(KONOHA, '.mirror-test'),
-  ];
-  for (const m of markers) {
-    if (fileExists(m)) {
-      try {
-        const stat = fs.lstatSync(m);
-        if (stat.isDirectory()) {
-          // Snapshot directory contents
-          const before = fs.readdirSync(m).sort();
-          const result = mirrorFunction();
-          const after = fs.readdirSync(m).sort();
-          if (JSON.stringify(before) !== JSON.stringify(after)) {
-            throw new Error(
-              `${name} modified ${m} (before: ${before.length} entries, after: ${after.length})`
-            );
-          }
-        }
-      } catch (e) {
-        if (e.message.includes(name)) throw e;
-      }
-    }
-  }
-  // The function should return 0 (no skills mirrored)
-  const result = mirrorFunction();
-  if (result !== 0 && result !== undefined) {
-    throw new Error(`${name} should return 0 but returned ${result}`);
-  }
-}
 
 let passed = 0;
 let failed = 0;
@@ -159,6 +124,18 @@ test('skill_manager.removeSkill only removes canonical path', () => {
     if (/\.cursor/.test(codeOnly)) {
       throw new Error('removeSkill still references .cursor paths in code');
     }
+  }
+});
+
+// Test 8: skills_common.getMirrorRoots returns strictly ~/.agents/skills
+test('skills_common.getMirrorRoots returns strictly ~/.agents/skills', () => {
+  const { getMirrorRoots } = require('../src/mcp/skills_common');
+  const roots = getMirrorRoots();
+  if (!Array.isArray(roots) || roots.length !== 1) {
+    throw new Error(`Expected exactly 1 mirror root, got ${JSON.stringify(roots)}`);
+  }
+  if (roots[0] !== path.join(HOME, '.agents', 'skills')) {
+    throw new Error(`Expected mirror root to be ${path.join(HOME, '.agents', 'skills')}, got ${roots[0]}`);
   }
 });
 

@@ -14,11 +14,8 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const TREES = [
   path.join(ROOT, 'src', 'templates', 'skills'),
-  path.join(ROOT, '.agents', 'skills'),
-  path.join(ROOT, '.cursor', 'skills'),
-  path.join(ROOT, '.gemini', 'skills')
+  path.join(ROOT, '.agents', 'skills')
 ];
-const SKILL_REL = path.join('i-have-adhd', 'SKILL.md');
 
 const AGENT_SKILLS = {
   genin: path.join(ROOT, 'src', 'templates', 'skills', 'genin-skill', 'SKILL.md'),

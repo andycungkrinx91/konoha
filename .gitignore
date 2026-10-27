@@ -75,12 +75,18 @@ src/__pycache__/
 # Test artifacts
 tests/snapshots/
 tests/.pytest_cache/
-# Client skill-sync side effects from running the test suite
-tests/.agents/
-tests/.cursor/
+# Client skill mirrors (skills are canonical in ~/.agents/skills only)
+.cursor/skills/
+.gemini/skills/
+.commandcode/skills/
+.claude/skills/
+.opencode/skills/
+*.skills.fingerprint
 .agents/plugins/
 
-tests/.gemini/
+# Unused agent folder (deprecated/removed)
+agent/
+
 
 # Build artifacts
 dist/

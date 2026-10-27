@@ -3,7 +3,6 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawnSync } = require('child_process');
 
 require('./helpers/isolate_db');
 const skillManager = require('../src/skill_manager');
@@ -46,6 +45,7 @@ Reference instructions for project ops deployment.
 
     const server = require('../src/server');
     const migrated = server.autoMigrateProjectSkills(tmpProjectDir);
+    assert.ok(Array.isArray(migrated), 'autoMigrateProjectSkills must return an array');
     const res = JSON.parse(server.executeToolSync('find_skill', { keyword: 'test-project-ops' }));
     assert.ok(res.found >= 1, `Expected at least 1 match, got ${JSON.stringify(res)}`);
     const foundNames = res.results.map(r => r.name);
@@ -81,24 +81,21 @@ Reference instructions for project ops deployment.
     assert.ok(content.found >= 1);
   });
 
-  test('2. Synchronizes skills across all supported client directories', () => {
+  test('2. Synchronizes skills exclusively to ~/.agents/skills without polluting client directories', () => {
     const res = skillManager.syncAllClientSkills({ projectRoot: tmpProjectDir, silent: true });
-    assert.ok(res.synced >= 7, 'Expected at least 7 client directories, got ' + res.synced);
+    assert.strictEqual(res.synced, 1, 'Expected exactly 1 target (~/.agents/skills), got ' + res.synced);
+    assert.deepStrictEqual(res.targets, [path.join(os.homedir(), '.agents', 'skills')]);
 
-    const HOME = os.homedir();
-    const clientDirs = [
-      path.join(HOME, '.cursor', 'skills'),
-      path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
-      path.join(HOME, '.claude', 'skills'),
-      path.join(HOME, '.config', 'opencode', 'skills'),
-      path.join(HOME, '.commandcode', 'skills'),
-      path.join(HOME, '.codex', 'skills'),
+    // Verify projectRoot does NOT contain any client skill mirrors
+    const projectClientDirs = [
+      path.join(tmpProjectDir, '.cursor', 'skills'),
+      path.join(tmpProjectDir, '.gemini', 'skills'),
+      path.join(tmpProjectDir, '.claude', 'skills'),
+      path.join(tmpProjectDir, '.commandcode', 'skills'),
+      path.join(tmpProjectDir, '.omp', 'skills'),
     ];
-
-    for (const cDir of clientDirs) {
-      assert.ok(fs.existsSync(cDir), 'Client skill directory should exist: ' + cDir);
-      const files = fs.readdirSync(cDir).filter(f => !f.endsWith('.fingerprint'));
-      assert.ok(files.length > 0, 'Client skill directory ' + cDir + ' should have files');
+    for (const pDir of projectClientDirs) {
+      assert.ok(!fs.existsSync(pDir), 'Project client skill directory must NOT exist: ' + pDir);
     }
   });
 
