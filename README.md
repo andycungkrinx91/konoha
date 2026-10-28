@@ -10,6 +10,7 @@
 [![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue?logo=gnubash&logoColor=white)](README.md)
 [![Codex](https://img.shields.io/badge/Codex-CLI-purple?logo=github&logoColor=white)](README.md)
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
+[![OMP](https://img.shields.io/badge/OMP-CLI-0284c7?logo=linux&logoColor=white)](README.md)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20Tools-47%20Canonical-10b981)](README.md)
@@ -18,11 +19,10 @@
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white)](docs/SETUP-SEARXNG.md)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
-[![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Zero%20Trust%20Tunnel-F38020?logo=cloudflare&logoColor=white)](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md)
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.10-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.11-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md)
 [![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
@@ -43,89 +43,136 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
   👉 <b><a href="https://saweria.co/andycungkrinx">Support Andy on Saweria (Buy Me Some Coffee)</a></b> ☕
 </p>
 
+<p align="center">
+  <b>Quick Navigation:</b>
+  <a href="#-flagship-demos--workflow-previews">Previews</a> •
+  <a href="#-master-architectural-feature-matrix">Feature Matrix</a> •
+  <a href="#-8-phase-sdlc-workflow--interactive-hitl-gates">SDLC &amp; Gates</a> •
+  <a href="#-ninja-specialist-team-8-agents">Ninja Team</a> •
+  <a href="#-supported-coding-clients-matrix">Clients</a> •
+  <a href="#-mcp-tools-catalog">MCP Tools</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-documentation--guides-index">Documentation</a>
+</p>
+
 ---
 
-## 📸 Preview
+<h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
 * **Latest Release:** [v2.2.11](CHANGELOG.md) — Akatsuki Red-Team professionalization (no-decline in red mode, chunin recon, PDF report, reliable Docker/LXC templates, akatsuki_init, and SQLite-backed Kali tools catalog).
-* **Latest Security Compliance:** [Google Policy Compliance v2.2.10 — Audited & Certified (2026-10-27)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.2.11 — Audited & Certified (2026-10-28)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md)
 
-<details open>
-<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.webp</code>)</b></summary>
-<br>
+### ✧ Diagram Flow Konoha Orchestrator
 
 <p align="center">
-  <img src="assets/demo.webp" alt="Konoha Core & Subagent Commands Demo" width="100%">
+  <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
+
+### ♦ Diagram Flow Jonin
+
+<p align="center">
+  <img src="assets/konoha-jonin-flow.webp" alt="Jonin Frontend Engineering Flow" width="100%">
+</p>
+
+### ◎ Diagram Flow Kage
+
+<p align="center">
+  <img src="assets/konoha-kage-gate.webp" alt="Kage Reviewer Confidence Gate Flow" width="100%">
+</p>
+
+### 🧪 Diagram Flow QA
+
+<p align="center">
+  <img src="assets/konoha-qa-flow.webp" alt="QA Automation E2E Verification Flow" width="100%">
+</p>
+
+### 🛡️ Diagram Flow Akatsuki
+
+<p align="center">
+  <img src="assets/konoha-akatsuki-flow.webp" alt="Akatsuki Security Controls & Lab Lifecycle Flow" width="100%">
+</p>
+
+### 📐 Mermaid Diagram: Multi-Agent Orchestration & Execution Flow
+
+<details>
+<summary><b style="display:inline">📐 Click to expand Multi-Agent Orchestration &amp; SDLC Decision Flow (Mermaid Diagram)</b></summary>
+<br>
+
+```mermaid
+---
+title: Konoha Orchestration and Execution Flow
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TB
+    Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
+    Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
+    Orchestrator --> Discover["2. Discover & Resolve Skills<br/>(konoha.find_skill · konoha.use_skills · semble.search)"]
+    Context --> Gate1{"Gate 1: Plan Approval<br/>1. Compact and approve<br/>2. Reject & Regenerate / Refine"}
+    Discover --> Gate1
+    Gate1 -->|Approve| Delegate["3. Structured MCP Delegation<br/>(sannin · jonin · anbu · kage)"]
+    Gate1 -->|Reject / Refine| PlanRebuild["Kage Plan Revision Loop"]
+    PlanRebuild --> Gate1
+    Delegate --> Agent["4. Specialist Ninja Agent (8 Specialists)<br/>(sannin · genin · chunin · jonin · anbu · tokubetsu · kage · akatsuki)"]
+    Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]
+    Report --> Review["6. Kage Review Gate<br/>(Zero-AI-slop pre-gate: aislop_scan + anti_slop + 100% verification)"]
+    Review --> Gate2{"Gate 2: Delivery Sign-Off<br/>1. Compact and approve<br/>2. Remediation"}
+    Gate2 -->|Remediation| Remediate["Remediation Loop<br/>(Anbu / Jonin ≤ 7 cycles)"]
+    Remediate --> Review
+    Gate2 -->|Approve| Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
+    Synthesize --> Response["Synthesized Response"]
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef userNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef orchNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    class Prompt,Response userNode;
+    class Orchestrator,Synthesize,Delegate,Agent orchNode;
+    class Context,Discover,Report mcpNode;
+    class Review reviewNode;
+```
+
 </details>
 
-<details open>
-<summary><b>🌐 Flagship Frontend Demo: SvelteKit 3 Web UI & 10 Gradient Themes (<code>demo-web.webp</code>)</b></summary>
+### 🌐 Demo Web
+
+<details>
+<summary><b style="display:inline">🌐 Flagship Frontend Demo: SvelteKit 3 Web UI &amp; 10 Gradient Themes (<code>demo-web.webp</code>)</b></summary>
 <br>
 
 <p align="center">
   <img src="assets/demo-web.webp" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
 </p>
 </details>
-<br>
+
+### 🎬 Demo TUI
 
 <details>
-<summary><h2 style="display:inline">🔄 Konoha Workflow Preview</h2></summary>
-<br>
-
-<details>
-<summary><b>✧ Sannin Multi-Agent Orchestration & Task Routing Flow (<code>konoha-orchestration-flow.webp</code>)</b></summary>
+<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands &amp; Interactive Workflows in Action (<code>demo.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
+  <img src="assets/demo.webp" alt="Konoha Core & Subagent Commands Demo" width="100%">
 </p>
-</details>
-
-<details>
-<summary><b>♦ Jonin + Taste-Skill Anti-Slop Frontend Engineering Flow (<code>konoha-jonin-flow.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/konoha-jonin-flow.webp" alt="Jonin Frontend Engineering Flow" width="100%">
-</p>
-</details>
-
-<details>
-<summary><b>◎ Kage Reviewer 98% Minimum Confidence & Zero-AI-Slop Delivery Gate (<code>konoha-kage-gate.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/konoha-kage-gate.webp" alt="Kage Reviewer Confidence Gate Flow" width="100%">
-</p>
-</details>
-
-<details>
-<summary><b>🧪 Token-Efficient QA Automation & Playwright E2E Self-Healing (<code>konoha-qa-flow.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/konoha-qa-flow.webp" alt="QA Automation E2E Verification Flow" width="100%">
-</p>
-</details>
-
-<details>
-<summary><b>📱 Dual-Mode Telegram Bot & Cloudflare Tunnel Remote Ingress Flow (<code>konoha-telegram-flow.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/konoha-telegram-flow.webp" alt="Telegram Bot & Cloudflare Tunnel Ingress Flow" width="100%">
-</p>
-</details>
-
-<details>
-<summary><b>🛡️ Akatsuki Security Controls, Dual-Mode Engine & Lab Lifecycle (<code>konoha-akatsuki-flow.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/konoha-akatsuki-flow.webp" alt="Akatsuki Security Controls & Lab Lifecycle Flow" width="100%">
-</p>
-</details>
 </details>
 
 ---
@@ -160,8 +207,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | | **AI-Website Fingerprint Detector**| `src/workflow/jonin-builder/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
 | **Document Engineering** | **Office Deliverables** | `src/workflow/tokubetsu-scribe/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
 | | **Animated WebP Pipeline** | `src/workflow/tokubetsu-scribe/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
-| **Remote Operations & Mobile** | **Cloudflare Zero Trust Ingress**| `src/tunnel/` | Out-of-band tunnel (`/remote`) with Edge PIN & Cloudflare Access | ✅ `ACTIVE` |
-| | **Two-Stage Telegram Approvals** | `src/telegram/` | Real-time Gate 1 & Gate 2 interactive approval buttons, `/approval list`, `/doctor`, `/session` | ✅ `ACTIVE` |
+| **Remote Operations & Mobile** | **Two-Stage Telegram Approvals** | `src/telegram/` | Real-time Gate 1 & Gate 2 interactive approval buttons, `/approval list`, `/doctor`, `/session` | ✅ `ACTIVE` |
 | | **Persistent Prompt Queue** | `src/queue/` | SQLite atomic state machine (`pending` -> `processing` -> `completed`) | ✅ `ACTIVE` |
 | **Security & Cryptography** | **Argon2id Memory-Hard Auth**| `src/auth.js` | Salted Argon2id passphrase verification + CLI reset (`konoha auth reset`) | ✅ `ACTIVE` |
 | | **AES-256-GCM Crypto Vault** | `src/crypto_vault.js` | AEAD authenticated encryption at rest for tokens & credentials | ✅ `ACTIVE` |
@@ -198,8 +244,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | **Terminal Output Noise & Shell Explosion** | Build tools, test runners, and linters dump hundreds of noisy progress bars and logs directly into model context. | **RTK (Rust Token Killer) Global CLI Proxy**: Transparently intercepts terminal commands, compresses noisy outputs, and preserves critical error signals. | **60%–95% terminal output compression**; saves thousands of tokens per command execution. |
 | **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, center-aligned hero clutter, broken mobile layouts, and excessive emoji decor. | **Jonin + Taste-Skill v2 Anti-Slop Frontend Engine**: Strict typography standards (Geist, Cabinet Grotesk), bento CSS grids, 10 four-stop gradient palettes with Light/Dark appearance, bottom mobile dock, and zero emoji policy. | **100/100 `aislop` scan compliance**; production-grade, human-crafted aesthetic fidelity. |
 | **Hallucinated Passes & Broken Builds** | Agents claiming tasks are complete without running tests, silently introducing type regressions and breaking dependencies. | **Kage Reviewer 98% Minimum Confidence Gate & Playwright QA**: Two-step Zero-AI-Slop gate (`aislop_scan` + anti-slop rules), automated E2E test generation (`qa_codify` / `qa_e2e_run`), and strict rejection below 98% confidence. | Mechanical delivery gate; **≥ 98% confidence invariant** across architecture, tests, and security. |
-| **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Cloudflare Tunnel**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications, secured by Cloudflare Zero Trust public ingress. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
-| **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens, bot tokens, and tunnel credentials in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & Cloudflare secrets. |
+| **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Prompt Queue**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
+| **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens and bot tokens in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & credentials. |
 | **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu Black Ops**: Integrated MITRE ATT&CK techniques, penetration testing, exploit analysis, container hardening, and enterprise defense capabilities in dev/local environments. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
 | **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (`delegate.md`/`result.md`), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
 | **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, `.omp`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 8 premier AI coding environments. |
@@ -234,10 +280,6 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **Mobile Viewport Stability**: Uses `min-h-[100dvh]` to eliminate layout jumps on mobile address bar resizing.
 - **Zero-Emoji Policy**: Pure SVG vector iconography (Lucide, Radix, Phosphor); zero emojis in production UI.
 - **Configurable Taste Dials**: `DESIGN_VARIANCE` (1-10), `MOTION_INTENSITY` (1-10), `VISUAL_DENSITY` (1-10).
-
-<p align="center">
-  <img src="assets/konoha-jonin-flow.webp" alt="Jonin Premium UI Build Pipeline" width="100%" />
-</p>
 
 </details>
 
@@ -299,62 +341,6 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption via MCP Tools), specifically engineered to deliver maximum performance, complete cross-IDE portability, and **83–98% token savings**.
 
 > **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Complete Workflow Architecture](docs/ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](docs/diagrams/README.md).
-
-<p align="center">
-  <img src="assets/konoha-orchestration-flow.webp" alt="Konoha MCP Orchestration & Execution Flow" width="100%" />
-</p>
-
-<details>
-<summary><b>📐 View Text-Based Mermaid Source Specification</b></summary>
-
-```mermaid
----
-title: Konoha Orchestration and Execution Flow
-config:
-  theme: base
-  themeVariables:
-    darkMode: false
-    background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#3b82f6'
-    lineColor: '#334155'
-    arrowheadColor: '#334155'
-    secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-    fontSize: '13px'
-  flowchart:
-    nodeSpacing: 45
-    rankSpacing: 55
-    padding: 24
-    wrappingWidth: 380
----
-flowchart TB
-    Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
-    Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
-    Orchestrator --> Discover["2. Discover & Resolve Skills<br/>(konoha.find_skill · konoha.use_skills · semble.search)"]
-    Context --> Delegate["3. Structured MCP Delegation<br/>(jonin / anbu / kage)"]
-    Discover --> Delegate
-    Delegate --> Agent["4. Specialist Ninja Agent<br/>(genin · kage · jonin · anbu · chunin · tokubetsu)"]
-    Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]
-    Report --> Review["6. Kage Review Gate<br/>(Zero-AI-slop pre-gate: aislop_scan + anti_slop + 100% verification)"]
-    Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
-    Synthesize --> Response["Synthesized Response"]
-
-    linkStyle default stroke:#334155,stroke-width:2px;
-    classDef userNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef orchNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    class Prompt,Response userNode;
-    class Orchestrator,Synthesize,Delegate,Agent orchNode;
-    class Context,Discover,Report mcpNode;
-    class Review reviewNode;
-```
-
-</details>
 
 ### Architectural Comparison
 
@@ -423,9 +409,8 @@ npx konoha-mcp init
 > [!IMPORTANT]
 > **Breaking Changes Notice (Post-v2.1.17)**:
 > - **Direct Specialist MCP Tools**: Deprecated `delegate_to_<agent>` MCP tool wrappers are removed in favor of direct specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `akatsuki`). External callers using legacy delegate prefixes on `report_from_agent` are rejected.
-> - **Canonical CLI Syntax (27 Removed Aliases)**: 27 legacy undocumented CLI aliases have been pruned: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`. Canonical subcommands (`konoha task`, `konoha data`, `konoha skill`, `konoha tunnel`, `konoha agent`, `konoha status`, etc.) are strictly enforced.
+> - **Canonical CLI Syntax (27 Removed Aliases)**: 27 legacy undocumented CLI aliases have been pruned: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`. Canonical subcommands (`konoha task`, `konoha data`, `konoha skill`, `konoha agent`, `konoha status`, etc.) are strictly enforced.
 > - **Operational Database Management (`konoha data`)**: Added canonical subcommands `konoha data backup [path]`, `konoha data rebuild-fts`, and `konoha data prune [--retention <days>]`. Note: `konoha data prune` deletes immediately, with no confirmation and no automatic backup (take `konoha data backup` first), and "alltime" stats count only data since the last prune.
-> - **Mandatory Ingress PIN & Security**: Quick and custom tunnels strictly require an authentication PIN (`auth_pin`) when Cloudflare Zero Trust headers are absent; unauthenticated named tunnel access (`open_named`) is removed.
 > - **Session Sandbox Isolation Contract (Decision A)**: Strict per-session isolation partitions episodic memories by `session_id`; agent-facing queries without a session ID do not receive foreign episodic memories while retaining workspace project rules. Administrative listings and Web UI pass `allSessions: true`.
 
 ### 📦 Source / Clone Onboarding
@@ -528,7 +513,6 @@ Once installed, the following CLI commands are available:
 | `konoha project set review-mode <self\|cross-provider>` | Configure project review independence mode |
 | `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `models`, `create`, `delete`, `enable`, `disable`) |
 | `konoha telegram <subcommand>` | Dual-mode Telegram Bot manager (`status`, `config`, `test`, `enable`, `disable`, `start-poller`, `stop-poller`, `notify-kage`, `test-gate`) |
-| `konoha tunnel <subcommand>` | Cloudflare Zero Trust Ingress tunnel manager (`status`, `start`, `stop`, `config`) |
 | `konoha queue <subcommand>` | Unified Inbound Prompt Queue manager (`list`, `enqueue`, `cancel`, `complete`, `status`) |
 | `konoha help` | Show help |
 
@@ -536,38 +520,35 @@ Once installed, the following CLI commands are available:
 
 Konoha structures every development task into an autonomous 8-phase state machine coordinated by `sannin` and validated by `kage`:
 
-1. **`route` (✧ Sannin)**: Runs Definition-of-Readiness (DoR) validation and registers the root task container in SQLite `sdlc_tasks`.
-2. **`explore` (⚑ Genin)**: Read-only reconnaissance mapping codepaths, architecture boundaries, and dependencies (`findings.md`).
-3. **`plan` (◎ Kage)**: Evaluates exploration findings, defines decoupled subtasks (`- [agent]: task`), registers unit subtasks in SQLite `sdlc_tasks`, and detects web research needs.
-4. **`research` (▫ Chunin)**: Performs targeted web queries and documentation verification when requested by the Kage plan (`needs_research: true`).
-5. **`execute` (♦ Jonin / ♠ Anbu)**: Dispatches implementation tasks, executes framework-native builds/lints, runs QA automation loop for browser/E2E tasks owned exclusively by Anbu (see [QA Automation Architecture](docs/QA-AUTOMATION.md)), and records verifiable validation evidence.
-6. **`document` (⬡ Tokubetsu-Jonin)**: Generates human-authentic documentation, API specifications, runbooks, and changelogs (`final_docs.md`).
-7. **`review` (◎ Kage Gate)**: Mandatory Two-Step Zero-AI-Slop Gate (100/100 target) + SDLC subtask completion check + security audit + ≥98% confidence score. Autonomous remediation loop dispatched to `anbu` if slop findings exist.
-8. **`synthesize` & `done` (✧ Sannin)**: Synthesizes `final_report.md` with full evidence table, marks root container `completed`, purges transient scratch files, and delivers cleanly.
+| Phase | Canonical Phase Name | Assigned Specialist | Key Execution Directives & Deliverables | Interactive Gate / Checkpoint |
+|:---:|:---|:---|:---|:---|
+| **1** | **`route`** | `✧ Sannin` | Definition-of-Readiness (DoR) gate validation, prompt triage, task container registration in `sdlc_tasks`. | Readiness & DoR Check |
+| **2** | **`explore`** | `⚑ Genin` | Fast, read-only codepath reconnaissance, dependency mapping (`findings.md`). Zero file writes. | Codebase exploration report |
+| **3** | **`plan`** | `◎ Kage` | Architectural plan formulation (`plan.md`), task breakdown per specialist, research detection. | **Gate 1: Plan Approval** (`pending_plan_approval`)<br>• `1. Compact and approve`<br>• `2. Reject and Regenerate PLAN` (or `Input Refine PLAN`) |
+| **4** | **`research`** | `▫ Chunin` | External web intelligence, library docs, API specs lookup when requested (`needs_research: true`). | Citation-backed research notes |
+| **5** | **`execute`** | `♦ Jonin` / `♠ Anbu` | Code implementation, framework build/lint verification, Playwright E2E automation (`qa_codify`/`qa_e2e_run`). | 0 errors and 0 warnings evidence |
+| **6** | **`document`** | `⬡ Tokubetsu-Jonin` | Production runbooks, API specifications, and handover documentation (`final_docs.md`). | Comprehensive docs package |
+| **7** | **`review`** | `◎ Kage Gate` | Zero-AI-Slop Pre-Gate (`aislop_scan` 100/100, 0 slop findings), ≥98% confidence score audit. | **Gate 2: Delivery Sign-Off** (`pending_human_signoff`)<br>• `1. Compact and approve`<br>• `2. Remediation` (loops to Anbu/Jonin, ≤7 cycles) |
+| **8** | **`synthesize` & `done`** | `✧ Sannin` | Synthesis of `final_report.md` with complete evidence ledger, scratch cleanup, and clean task completion. | Final verified delivery |
 
-## 🏛️ Native SDLC Governance Layer
+## 🏛️ Native SDLC Governance Layer & Interactive HITL Gates
 
 Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDLC) Governance Layer** that operates natively without heavy external orchestration engines or external attestation frameworks:
 
-<p align="center">
-  <img src="assets/konoha-kage-gate.webp" alt="Kage Final Review Gate" width="100%" />
-</p>
-
-- **Definition-of-Readiness (DoR) Gate**: Validates task substance, absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain alignment before dispatch. Configurable per project (`dor_mode: advisory` or `dor_mode: enforced`).
-- **Cross-Provider Review Independence**: Detects when implementing subagents (`anbu`, `jonin`) and the reviewing subagent (`kage`) are served by different underlying LLM models/bridges, ensuring unbiased second-opinion evaluation.
-- **Two-Step Anti-Slop Delivery Gate**: Step 1 `aislop_scan` (aislop scanner code hygiene) → Step 2 `anti-slop` rule review via the vendored `antislop` skill family ([miqdadbadjuber/anti-slop](https://github.com/miqdadbadjuber/anti-slop)), with a mandatory final Delivery Gate verification (`ai_slop_clean: true` and `ai_slop_findings: 0`).
-- **Autonomous Kage → Anbu Remediation Loop**: Automatically converts anti-slop findings into actionable fix directives for `anbu`, re-verifying upon completion and bounded by the delegation-depth circuit breaker (`slop_cycles > 7`).
-- **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Every task's DoR check, review mode, validation evidence, and anti-slop findings are permanently saved in SQLite WAL mode. Queryable via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`).
-- **Web UI SDLC Tasks Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness sandbox tester, task evidence & anti-slop audit modal, and live governance mode toggles (`/api/v1/sdlc/*`).
+| Governance Control | Mechanism & Enforcement | Policy & Validation Threshold | Fallback / Remediation |
+|:---|:---|:---|:---|
+| **Gate 1: Plan Approval** | In-band interactive client prompt on `pending_plan_approval` | Requires explicit human selection:<br>• `1. Compact and approve`<br>• `2. Reject and Regenerate PLAN` (or `Input Refine PLAN`) | Re-dispatches Kage with user feedback if rejected; never auto-advances in HITL mode. |
+| **Gate 2: Delivery Sign-Off** | In-band interactive client prompt on `pending_human_signoff` | Requires explicit human selection:<br>• `1. Compact and approve`<br>• `2. Remediation` | Loops back to Anbu/Jonin with Kage findings; bounded by 7-cycle circuit breaker. |
+| **Definition-of-Readiness (DoR)** | `check_readiness` tool / `sdlc_dor.js` | Evaluates prompt clarity, file existence, and absence of unresolved placeholders | Configurable per project (`dor_mode: advisory` or `dor_mode: enforced`). |
+| **Two-Step Zero-AI-Slop Pre-Gate** | `aislop_scan` + `anti_slop` | Step 1 mechanical scan score = 100/100 · Step 2 anti-slop rules = 0 findings | Bounded remediation loop to Anbu/Jonin (`slop_cycles ≤ 7`). |
+| **Kage Confidence Evaluation** | `src/mcp/workflow_gates.js` | Minimum ≥ 98% confidence across tasks, validation, security, and rollback | Delivery blocked below 98%; re-dispatched for remediation. |
+| **Akatsuki Security Final Gate** | `src/workflow/akatsuki/` | 0 Critical, 0 High findings; Socket CLI supply chain audit clean | Blocks delivery until security audit is approved (`security_reviewed: true`). |
+| **Audit Trails & Evidence** | SQLite WAL `sdlc_tasks` table | Permanent tamper-evident storage of evidence, dispatches, and metrics | Accessible via CLI (`konoha task`) and Web UI (`/tasks`). |
 - **Web UI skills.sh Registry & Vector Chunks Inspector (`/skills`)**: 3-mode search toggle (`🔤 Local FTS5`, `⚡ Neural Vector`, `🌐 skills.sh Registry`), 1-click installation from `skills.sh` with non-interactive execution (`-y --agent '*'`), automated multi-directory migration, and dedicated vector chunks inspection modal with 384d Float32 vector samples.
 
 ## 🧪 Token-Efficient QA Automation (`agent-browser` + Playwright)
 
 > **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md) · [QA Test Checklist](docs/QA-TEST-CHECKLIST.md)
-
-<p align="center">
-  <img src="assets/konoha-qa-flow.webp" alt="Konoha QA Automation Workflow" width="100%" />
-</p>
 
 Konoha implements a token-efficient, bounded QA automation pipeline owned exclusively by `anbu`. By combining `agent-browser` interactive exploration (`snapshot -i -c` taking <500 tokens) with declarative flow specifications (`tests/e2e/flows/*.json`), deterministic `qa_codify` Playwright compilation, and bounded `qa_e2e_run` test execution (<2,000 characters output cap), Konoha achieves **92% token savings** over traditional unconstrained browser trace dumps while completely eliminating fake-green test claims. Working artifacts are directed outside the workspace with automated retention (default 20 newest runs) and managed `.gitignore` isolation in git repositories (opt out via `KONOHA_QA_GITIGNORE=0`).
 
@@ -636,14 +617,10 @@ flowchart TD
 
 ## 📱 Remote Access & Dual-Mode Telegram Automation
 
-> **Canonical editable diagrams:** [14 Remote Access & Telegram Inbound/Outbound](docs/diagrams/konoha-architecture.drawio) · [15 Cloudflare Zero Trust Ingress & Prompt Queue](docs/diagrams/konoha-architecture.drawio)  
-> **Dedicated Guides:** [Telegram Integration Guide](docs/TELEGRAM_INTEGRATION_GUIDE.md) · [Cloudflare Tunnel Guide](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
+> **Canonical editable diagrams:** [14 Remote Access & Telegram Inbound/Outbound](docs/diagrams/konoha-architecture.drawio)  
+> **Dedicated Guides:** [Telegram Integration Guide](docs/TELEGRAM_INTEGRATION_GUIDE.md)
 
 Konoha features an autonomous **Remote Access & Telegram Automation Engine** that enables remote interaction, task dispatch, and real-time execution reporting directly from your mobile device or chat client without opening inbound firewall ports:
-
-<p align="center">
-  <img src="assets/konoha-telegram-flow.webp" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
-</p>
 
 ### 1. Dual-Mode Telegram Bot Engine (`src/telegram/`)
 - **One-Way Notification Mode**: Automatically delivers structured task completion reports, execution duration, token reduction telemetry (83%-98%), and Kage Reviewer confidence scores over outbound HTTPS (`getUpdates` & `sendMessage`). When prompting locally on a workstation (laptop, terminal, IDE), any session passing Kage Final Gate Review (`APPROVED` with 100/100 score and ≥98% confidence) immediately dispatches an outbound Telegram notification to keep the developer updated remotely.
@@ -657,11 +634,7 @@ Konoha features an autonomous **Remote Access & Telegram Automation Engine** tha
 - **Strict Security Invariant**: Enforces a strict numeric `chat_id` whitelist (`telegram_config.chat_id`) dropping unauthorized messages immediately.
 - **Zero Emojis Standard**: All notifications use clean bracketed tags (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[QUEUED]`, `[KAGE REVIEW GATE PASSED]`).
 
-### 2. Cloudflare Zero Trust Ingress Tunnel (`src/tunnel/`)
-- **Zero Inbound Ports**: Background supervisor managing `cloudflared` (or `ngrok`) targeting Web UI port `1404` with automated binary provisioning and live URL detection (`trycloudflare.com` or custom domains).
-- **Mode A: Cloudflare Zero Trust Edge Authentication**: Validates Cloudflare Access identity headers (`Cf-Access-Authenticated-User-Email`) with zero in-app PIN friction while maintaining unauthenticated local access on `localhost:1404`.
-
-### 3. Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)
+### 2. Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)
 - **Atomic SQLite State Machine**: Table `prompt_queue` tracks atomic prompt states (`pending` -> `processing` -> `completed` / `failed` / `cancelled`) with filesystem session mirroring (`~/.konoha/inbox/<session>.json`).
 - **Autonomous Queue Worker (`src/queue/worker.js`)**:
   - **Operational Branch (0 LLM Tokens)**: Deterministic shell commands (`kubectl`, `helm`, `docker`, `git`, `ssh`, `/sh`, etc.) execute via interactive shell (`bash -i -c`) with 100% token elimination.
@@ -682,6 +655,21 @@ If `konoha` is not found after install:
 - **Windows without nvm**: Reinstall Node.js from [nodejs.org](https://nodejs.org/) and ensure PATH is set
 
 Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md](docs/SETUP-IDE.md), [SETUP-CURSOR.md](docs/SETUP-CURSOR.md), [SETUP-MCP-CLIENTS.md](docs/SETUP-MCP-CLIENTS.md).
+
+## 💻 Supported Coding Clients Matrix
+
+Konoha natively integrates across **8 premier agentic coding clients** via standardized stdio Model Context Protocol (MCP) transports and tool auto-approval policies:
+
+| Coding Client | Platform Support | MCP Configuration Path | PreToolUse Hooks & Guardrails | Status |
+|:---|:---|:---|:---|:---:|
+| **Antigravity** | Linux, macOS, Windows | `~/.gemini/config/mcp_config.json` | `antigravity_tool_sanitize_hook.js` (DENY-3 active) | ✅ Verified |
+| **Cursor** | Linux, macOS, Windows | `~/.cursor/mcp.json` | `cli-config.json` permissions + `hooks.json` bootstrap | ✅ Verified |
+| **Claude Code** | Linux, macOS, Windows | `~/.claude.json` / `~/.claude/` | `konoha-bash-guard.js` PreToolUse hook (`^Bash$`) | ✅ Verified |
+| **OpenCode** | Linux, macOS, Windows | `~/.config/opencode/opencode.json` | `permission.mcp = 'allow'` + native rules | ✅ Verified |
+| **Command Code** | Linux, macOS, Windows | `~/.commandcode/mcp.json` | `konoha-native-blocker-cc.js` PreToolUse hook | ✅ Verified |
+| **Codex** | Linux, macOS, Windows | `~/.codex/config.toml` | TOML MCP server registration + prompt rules | ✅ Verified |
+| **Pi (pi.dev)** | Linux, macOS, Windows | `~/.pi/agent/mcp.json` | `konoha-blocker.ts` TypeScript extension | ✅ Verified |
+| **OMP** | Linux, macOS, Windows | `~/.omp/agent/mcp.json` | Runtime workflow contract with `auto_approve` | ✅ Verified |
 
 ### RTK (Rust Token Killer)
 
@@ -925,75 +913,20 @@ The `aislop` server (`scanaislop/aislop`) provides zero-AI-slop and code hygiene
 
 ---
 
-## 🥷 Official Agent Team (Naruto Ninja Ranks)
+## 🥷 Ninja Specialist Team (8 Agents)
 
-The installer updates your configuration to define a cohesive, specialized team of **7 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities and tool access; the host client controls model selection:
+Konoha provisions an official, synchronized team of **8 specialized ninja agents**. Each agent operates within a defined scope and strict role boundaries, with host clients controlling underlying LLM model selection:
 
-> **🧠 ADHD-Friendly Output (`i-have-adhd`)**: genin, chunin, jonin, anbu, and tokubetsu-jonin shape their final responses with the [`i-have-adhd`](https://github.com/ayghri/i-have-adhd) skill — action first, numbered steps, one concrete next action, no preamble or closers. Sannin (router) and Kage (reviewer) keep their delivery-gate output contracts.
-
-### 1. 🍃 Genin (Junior Scout)
-* **Operational Role**: Codebase Reconnaissance & Scout
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Fast, read-only code exploration.
-  - Traces codepaths, maps dependencies, and analyzes repository structure.
-  - *Constraint*: Must never write or modify files on the filesystem.
-  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
-* **Skills-DB Keyword**: `code exploration tracing` (invokes scout-level heuristics on startup).
-
-### 2. 📜 Chunin (Journeyman Intel Gatherer)
-* **Operational Role**: Intel Gathering, Web Research, & Documentation Synthesis
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Researches libraries, API specifications, version histories, and best practices.
-  - Leverages semantic search (`semble`) to discover codebase context before executing web searches.
-  - Batches parallel queries and ranks search results by credibility, freshness, and relevance.
-  - Compiles comprehensive, citation-backed notes with full reference URLs.
-  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
-* **Skills-DB Keyword**: `websearch deep research` (loads intel gathering methodologies).
-
-### 3. 🛡️ Jonin (Elite Builder)
-* **Operational Role**: UI/UX Master, Styling, & Component Architecture
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Builds premium, visually stunning frontends (SvelteKit, Next.js, Tailwind v4, Magic UI, 3D web).
-  - Enforces design tokens, custom typography, smooth gradients, and glassmorphism.
-  - Performs design match comparisons using the `agent-browser` CLI.
-  - Enforces the **Zero-Error Guarantee & Verification Loop** (running local installs, Svelte/Next syncs, check/lint diagnostics, and production builds to guarantee zero compilation errors/warnings before completion).
-  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
-* **Skills-DB Keyword**: `sveltekit tailwind nextjs components` (fetches design standards).
-
-### 4. 👥 Anbu (Special Black Ops)
-* **Operational Role**: Backend Specialist, Bug Resolution, DevOps, & Cybersecurity Defense Engineer
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Designs backend systems, database schemas, APIs (Node.js, Express, GraphQL, Laravel, WordPress, Magento, PHP, Ruby, C++).
-  - Architectures distributed messaging and caching layers (Kafka, RabbitMQ, Redis, Nginx, HAProxy, Varnish).
-  - Implements defensive cybersecurity forensics, threat hunting, OWASP remediation, and authorized penetration testing in dev/local environments (`anthropic-cybersecurity-skills`).
-  - Provisions infrastructure (Terraform, Kubernetes, Helm) and manages secure CI/CD pipelines.
-  - Formulates AI prompt engineering strategies (`prompt-engineer`) and creates/maintains agent skills (`skill-creator`).
-  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
-* **Skills-DB Keyword**: `terraform aws kubernetes helm ci-cd security kafka redis prompt` (loads backend and defense recipes).
-
-### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
-* **Operational Role**: Technical Writing, Documentation, PDF Reporting, & Postmortems
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Authors and maintains README files, API specifications, runbooks, and onboarding guides (`documentation-writer`).
-  - Produces printable professional PDF reports and styled documentation exports (`pdf`).
-  - Drafts incident postmortems, root cause analyses (RCA), and project retrospectives (`postmortem-writer`).
-  - Writes technical blog articles, whitepapers, engineering tutorials, and content (`technical-article-writer`).
-  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
-* **Skills-DB Keyword**: `documentation README API runbook postmortem pdf report article` (retrieves writing standards).
-
-### 6. 🌀 Kage (Village Leader)
-* **Operational Role**: Senior Architect, Strategist, & Deep Problem Solver
-* **Model**: Selected by the host client; Konoha does not inject model fields
-* **Key Responsibilities**:
-  - Guides high-level architecture decisions, security audits, and risk assessments (`risk-assessment`, `improve-codebase-architecture`).
-  - Constructs professional architecture diagrams and visualizations (`drawio-skill`, `mermaid-diagrams`).
-  - Orchestrates the entire subagent team for complex, multi-domain tasks.
-* **Skills-DB Keyword**: `code review architecture devsecops drawio mermaid risk` (loads advanced architectural frameworks).
+| Ninja Agent | Rank & Role | Primary Domains & Skills | Key Responsibilities & Invariants | Output Shaping SOP |
+|:---|:---|:---|:---|:---:|
+| **@sannin** | **Grand Master**<br>Router & Orchestrator | Task triage, domain classification, execution tracking, synthesis | Analyzes prompts, enforces Definition-of-Readiness, selects target subagents, compiles final handover reports. Zero inline edits. | Delivery Contract |
+| **@genin** | **Junior Scout**<br>Codebase Exploration | Codepath tracing, architecture exploration, dependency mapping | Fast read-only codebase reconnaissance; generates `findings.md`. Strictly forbidden from modifying files. | `i-have-adhd` |
+| **@chunin** | **Journeyman**<br>Intel & Web Research | Web search, RFC analysis, vendor documentation, citations | External intelligence gathering with SearXNG/Wikipedia fallback; batches multi-source queries with verified URL citations. | `i-have-adhd` |
+| **@jonin** | **Elite Builder**<br>Frontend & UI/UX | Next.js, SvelteKit, Nuxt 3, Angular, Tailwind v4, 3D Web | Taste-Skill v2 aesthetic engineering, responsive mobile dock, floating 10-theme picker, zero emoji UI policy, framework validation. | `i-have-adhd` |
+| **@anbu** | **Special Black Ops**<br>Backend & DevOps | APIs, databases, microservices, QA automation, containerization | High-concurrency backend design, Playwright E2E testing (`qa_codify`/`qa_e2e_run`), Docker/Helm deployment, bug fixing. | `i-have-adhd` |
+| **@tokubetsu-jonin** | **Special Scribe**<br>Technical Writing | Documentation, API specs, runbooks, native office docs | Authors comprehensive docs, generates native DOCX, PDF, XLSX, and PPTX with <3% AI detection target. | `i-have-adhd` |
+| **@kage** | **Village Leader**<br>Architect & Governor | Systems architecture, risk assessment, delivery review | Authors action plans (`plan.md`), evaluates 98% confidence score, enforces Two-Step Zero-AI-Slop Pre-Gate before synthesis. | Delivery Contract |
+| **@akatsuki** | **Security Specialist**<br>Red/Blue Team | Vulnerability scanning, SAST, CVE audit, isolated pentest | Executes Blue-Team security gates (Socket CLI, secret scan, Skill Guardian) and authorized Red-Team ops in `akatsuki-lab`. | Security Protocol |
 
 ---
 
@@ -1007,7 +940,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Proactive Execution (No commanding back)**: Subagents must never instruct the user to manually create/edit files or run terminal commands that the agent is equipped to perform itself.
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep.
-> * **Locked Subagent Delegation**: Subagent delegation is locked to the 7 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `sannin`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
+> * **Locked Subagent Delegation**: Subagent delegation is locked to the 8 official Konoha agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
 > * **Orchestrator Pipeline (Antigravity)**: User prompt → structured MCP delegation → Konoha subagent → structured result/report. Direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`) are mandated cross-client.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in structured delegation context. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
@@ -1124,6 +1057,23 @@ flowchart TB
 
 For an in-depth breakdown of system behavior, token consumption, configuration fragmentation, and architectural overhead, please read the [Detailed Before vs After Comparison](docs/BENCHMARK.md#-detailed-before-vs-after-comparison) section in the Benchmark Report.
 
+---
+
+## 📖 Documentation & Guides Index
+
+| Guide / Reference | Scope & Content | Key Subsystems Covered |
+|:---|:---|:---|
+| **[System Architecture](docs/ARCHITECTURE.md)** | Full architectural breakdown, layers, and data flows | MCP tools runtime, SQLite schemas, vector indexing |
+| **[Token Savings Benchmark](docs/BENCHMARK.md)** | Empirical token telemetry, byte reduction, and charts | Bounded file tools, Semble MCP, RTK compaction |
+| **[Web UI Guide](docs/SETUP-WEB-UI.md)** | SvelteKit 3 console setup, authentication, and themes | Port 1404, Argon2id security, 10 gradient themes |
+| **[Telegram Remote Guide](docs/TELEGRAM_INTEGRATION_GUIDE.md)** | Remote bot setup, interactive approvals, prompt queue | Long-polling daemon, push alerts, whitelist auth |
+| **[QA Test Runbook](docs/QA-TEST-CHECKLIST.md)** | Comprehensive QA validation checklist and tests | Isolated `/tmp/` tests, Playwright, Socket CLI, Aislop |
+| **[QA Automation Architecture](docs/QA-AUTOMATION.md)** | Playwright E2E compiler and self-healing test loop | `qa_codify`, `qa_e2e_run`, token-efficient flows |
+| **[SearXNG Search Setup](docs/SETUP-SEARXNG.md)** | Zero-API-key privacy search engine deployment | Chunin research agent, Docker Compose, JSON API |
+| **[LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md)** | Multi-provider proxy router on port 19999 | Local model multiplexing, sidecar integration |
+| **[Security Compliance Report](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md)** | Certified policy compliance and threat analysis | Google Policy v2.2.11 audit, AES-256 vault |
+
+---
 
 ## Credits
 

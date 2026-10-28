@@ -15,14 +15,14 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.9`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.11`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
 | `konoha akatsuki enable` | - | Alias for `mode red` (automated sandbox setup). | `PASS` (verified) |
 | `konoha akatsuki disable` | - | Alias for `mode blue` (fail-closed). | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
-| `konoha init` | `--yes`, `--force`, `--client=<cursor\|claude\|opencode\|omp\|codex\|pi\|all>` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers selected/detected MCP clients. | `PASS` (verified) |
+| `konoha init` | `--yes`, `--force`, `--client=<cursor|claude|opencode|omp|codex|pi|all>` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers selected/detected MCP clients. | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
 | `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
@@ -31,10 +31,10 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha clean` | (maintenance) | Deletes transient test databases, debug logs, dangling scratch workspaces, and temporary test artifacts from `/tmp/` and `~/.konoha/tmp/`. | `PASS` (verified) |
 | `konoha skill list` | - | Lists all custom and canonical skills across active agent directories with path and description. | `PASS` (verified) |
 | `konoha skill search` | `<query>` | Queries public skill registry (skills.sh) for matching extensions. | `PASS` (verified) |
-| `konoha skill add` | `<name\|url> [alias]` | Installs skill from Git repo or registry into canonical skills tree. | `PASS` (verified) |
+| `konoha skill add` | `<name|url> [alias]` | Installs skill from Git repo or registry into canonical skills tree. | `PASS` (verified) |
 | `konoha skill remove`| `<name>` | Safely prunes skill and updates SQLite FTS5 index. | `PASS` (verified) |
 | `konoha skill embed` | `<skill> <agent>` | Assigns installed skill to specified Ninja subagent roster. | `PASS` (verified) |
-| `konoha agent list` | - | Renders active 7 subagent roster (Sannin, Genin, Kage, Chunin, Jonin, Anbu, Tokubetsu-jonin) with assigned skills and MCP tools. | `PASS` (verified) |
+| `konoha agent list` | - | Renders active 8 subagent roster (Sannin, Genin, Kage, Chunin, Jonin, Anbu, Tokubetsu-jonin, Akatsuki) with assigned skills and MCP tools. | `PASS` (verified) |
 | `konoha agent status`| - | Displays call frequency metrics (Today, 7 Days, All Time) per subagent and direct tool calls. | `PASS` (verified) |
 | `konoha agent reset` | - | Re-synchronizes subagents and skill bindings back to canonical factory defaults. | `PASS` (verified) |
 | `konoha data view` | - | Displays SQLite database file size, vacuumable prunable space, indexed skill counts, active sessions, and usage records. | `PASS` (verified) |
@@ -50,7 +50,6 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha bridge list` | - | Lists configured local LLM Proxy Gateways and cross-provider second-opinion bridges. | `PASS` (verified) |
 | `konoha queue list` | - | Displays pending inbound prompt queue entries. | `PASS` (verified) |
 | `konoha task list` | - | Displays active and completed SDLC governance tasks (`sdlc_tasks`). | `PASS` (verified) |
-| `konoha tunnel status`| - | Displays Cloudflare Zero Trust public ingress tunnel connection status. | `PASS` (verified) |
 | `konoha telegram status`| - | Displays Telegram Bot integration and alert webhook status. | `PASS` (verified) |
 | `konoha ui status` | - | Reports Web UI daemon status, port 1404 listening state, and systemd service health. | `PASS` (verified) |
 | `konoha web reset-password` | - | Resets Web UI authentication to factory bootstrap (`konohagakure`) and terminates stale sessions. | `PASS` (verified) |
@@ -72,7 +71,10 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `tests/test_no_hardcoded_homedir.js` | Enforces zero hardcoded user paths (`/home/`, `C:\Users\`, `/Users/`) across all JavaScript, JSON, shell, and Python files; verifies dynamic path resolution via `os.homedir()` on POSIX and Windows. | 0 hardcoded paths across entire codebase; POSIX and Windows formats verified. | `PASS` (verified) |
 | `tests/test_workflow_advisor_loop.js` | Evaluates `@advisor` final gate review and autonomous remediation loop; asserts block on rejection, dynamic dispatch to Anbu (backend) / Jonin (UI), approval on fix, and 7-cycle circuit breaker. | 5/5 subtests passed: blocks on rejection, dispatches to Anbu, dispatches to Jonin, approves on fix, trips circuit breaker after 7 cycles. | `PASS` (verified) |
 | `tests/test_web_auth_token_isolation.js` | Validates session token isolation: confirms `/api/v1/auth/status` and `/api/v1/auth/session` do not leak session tokens, and `/api/v1/health` returns minimal metadata. | Token undefined on status and session endpoints; health returns minimal unauthenticated JSON. | `PASS` (verified) |
-| `tests/test_tunnel_auth_enforcement.js` | Enforces constant-time PIN authentication on named tunnels, query parameter rejection (`?pin=` ignored), and trusted socket peer rate limiting. | 6/6 subtests passed. | `PASS` (verified) |
+| `tests/test_no_tunnel_regression.js` | Enforces complete eradication of Cloudflare Tunnel and ngrok subsystem with zero residual endpoints, tables, or CLI commands. | 4/4 subtests passed: filesystem, schema, CLI, and controllers clean. | `PASS` (verified) |
+| `tests/test_sdlc_hitl.js` | Full SDLC verification of interactive Gate 1 (approve, reject, refine) and Gate 2 (delivery sign-off, remediation loop) across prompt inputs and options payloads. | Complete lifecycle verified: Gate 1 approval & rejection/refinement; Gate 2 sign-off & remediation. | `PASS` (verified) |
+| `tests/test_workflow_gates.js` | Unit validation of `buildGate1Prompt`, `buildGate2Prompt`, `parseGateChoice`, and state transitions in `src/mcp/workflow_gates.js`. | 10/10 subtests passed: prompt structure, option parsing, and state updates verified. | `PASS` (verified) |
+| `tests/test_cross_client_workflow_matrix.js` | Cross-client workflow matrix validation across all 8 clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP) asserting correct hook paths and contracts. | 8/8 clients verified: contract parity, MCP config paths, and guardrail hook bindings. | `PASS` (verified) |
 
 ### 1.4 Migration Robustness, Safe Timeouts & Skill RAG Retrieval Invariant (v2.2.3)
 
@@ -136,7 +138,7 @@ flowchart TD
 | **Skills & Hybrid Search** | `/skills` | Searchable skill database table, FTS5 + ONNX 384d vector hybrid RRF retrieval (`k=60`), skill detail modal with rendered Markdown preview, tags, and byte size. | `hybrid_search.spec.js`, `routes_load.spec.js` |
 | **Agents** | `/agents` | Naruto Ninja 7-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
 | **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration (:19999), cross-provider second opinion routing table, latency monitor. | `routes_load.spec.js` |
-| **Remote Access & Tunnels** | `/remote` | Cloudflare tunnel controls, authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
+| **Remote Access & Prompts** | `/remote` | Authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
 | **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | `routes_load.spec.js` |
 | **AI Detectors** | `/detector` | Dual-target website and document AI fingerprint scanner (Human-Built Index 0-20, ZeroGPT defense). | `detector_flow.spec.js`, `routes_load.spec.js` |
 | **Alerts & Dialogs** | (All pages) | Native Svelte 5 runes toasts with `--theme-surface-glass` and 4-gradient accent bars, `<dialog>` confirm modals, form dialogs. | `alerts_and_dialogs.spec.js` |
@@ -383,7 +385,7 @@ npx aislop scan --changes
 | :--- | :--- | :--- | :--- |
 | **1. Web Auth Token Isolation** | `GET /api/v1/auth/status` and `GET /api/v1/auth/session` without auth. | HTTP 200 with `authenticated: false` and strictly NO `token` field present. | `PASS` (verified in `tests/test_web_auth_token_isolation.js`) |
 | **2. Request Body Limit (1 MiB Cap)** | Send POST request with body $> 1$ MiB. | HTTP 413 `Payload Too Large` and immediate connection termination. | `PASS` (verified in `tests/test_body_limit.js`) |
-| **3. Cloudflare Access JWT Verification** | Send remote request with forged JWT or email-only header. | Verification fails signature/JWKS assertion; email-header fallback rejected; requires PIN. | `PASS` (verified in `tests/test_cf_jwt_verification.js`) |
+| **3. Cloudflare Tunnel Subsystem Removal** | Verify absence of tunnel commands, controllers, and routes. | Regression assertion passes with zero residual endpoints, tables, or CLI commands. | `PASS` (verified in `tests/test_no_tunnel_regression.js`) |
 | **4. Telegram `/sh` Deprecation** | Send `/sh echo test` or `/exec uptime` via Telegram. | Decline reply returned; zero shell commands spawned on host. | `PASS` (verified in `tests/test_telegram_no_sh.js`) |
 | **5. Autonomous Worker Safety Gate** | Invoke queue worker without `KONOHA_ALLOW_UNSAFE_AUTONOMY`. | CLI arguments omit `--dangerously-skip-permissions`; dangerous SSH command injections rejected. | `PASS` (verified in `tests/test_queue_guardrails.js`) |
 | **6. Bridge VSIX Removal & Proxy Preservation** | Check extension auto-install and probe local proxy on port 19999. | External VSIX auto-install removed; local OpenAI-compatible proxy gateway active and operational. | `PASS` (verified in `tests/test_bridge_removal_proxy_preserved.js`) |

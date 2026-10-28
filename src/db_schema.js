@@ -41,16 +41,75 @@ function hasFts5Support(conn) {
   }
 }
 
+function _dropLegacyPersonaMemoriesFts(conn) {
+  try {
+    const legacyFtsCols = conn.prepare("PRAGMA table_info(persona_memories_fts)").all().map(c => c.name);
+    if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
+      conn.exec('DROP TABLE persona_memories_fts');
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _tryBackupBeforeMigration(conn, backupDatabaseFn) {
+  if (typeof backupDatabaseFn !== 'function' || !conn.name || conn.name === ':memory:' || !fs.existsSync(conn.name)) {
+    return;
+  }
+  try {
+    backupDatabaseFn(null, conn.name);
+  } catch (_) { /* backup helper fallback */ }
+}
+
+function _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn) {
+  try {
+    const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
+    const hasProjectFk = memFks.some(fk => fk.table === 'projects');
+    if (!hasProjectFk) {
+      _tryBackupBeforeMigration(conn, backupDatabaseFn);
+      conn.exec(`
+        BEGIN TRANSACTION;
+        DELETE FROM persona_memories
+        WHERE project_hash IS NOT NULL
+          AND project_hash != ''
+          AND project_hash NOT IN (SELECT project_hash FROM projects);
+
+        CREATE TABLE IF NOT EXISTS persona_memories_migrated (
+            id TEXT PRIMARY KEY, project_hash TEXT DEFAULT NULL, session_id TEXT DEFAULT '',
+            agent_name TEXT NOT NULL, memory_type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+            tags TEXT, importance INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
+        );
+        INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
+        SELECT id,
+               CASE WHEN project_hash = '' OR project_hash IS NULL THEN NULL ELSE project_hash END,
+               session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
+        FROM persona_memories;
+        DROP TABLE persona_memories;
+        ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
+        COMMIT;
+      `);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _backfillActiveSessionsProjectHash(conn) {
+  try {
+    const unhashedRows = conn.prepare("SELECT rowid, workspace_root FROM active_sessions WHERE project_hash IS NULL OR project_hash = ''").all();
+    if (!unhashedRows.length) return;
+    const personaMemory = require('./persona_memory');
+    const updateStmt = conn.prepare("UPDATE active_sessions SET project_hash = ? WHERE rowid = ?");
+    for (const r of unhashedRows) {
+      if (!r.workspace_root) continue;
+      const ph = personaMemory.computeProjectHash(r.workspace_root);
+      if (ph) updateStmt.run(ph, r.rowid);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
 function setupSchema(conn, backupDatabaseFn = null) {
   const ftsSupported = hasFts5Support(conn);
 
   if (ftsSupported) {
-    try {
-      const legacyFtsCols = conn.prepare("PRAGMA table_info(persona_memories_fts)").all().map(c => c.name);
-      if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
-        conn.exec('DROP TABLE persona_memories_fts');
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
+    _dropLegacyPersonaMemoriesFts(conn);
   }
 
   conn.exec(`
@@ -174,7 +233,7 @@ function setupSchema(conn, backupDatabaseFn = null) {
         id INTEGER PRIMARY KEY CHECK (id = 1),
         enabled INTEGER DEFAULT 0,
         mode TEXT CHECK (mode IN ('one_way', 'two_way')) DEFAULT 'one_way',
-        transport TEXT CHECK (transport IN ('polling', 'cloudflare', 'ngrok')) DEFAULT 'polling',
+        transport TEXT CHECK (transport IN ('polling')) DEFAULT 'polling',
         bot_token TEXT DEFAULT '',
         chat_id TEXT DEFAULT '',
         webhook_secret TEXT DEFAULT '',
@@ -194,20 +253,6 @@ function setupSchema(conn, backupDatabaseFn = null) {
         last_status INTEGER DEFAULT NULL,
         last_delivered_at TEXT DEFAULT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS tunnel_config (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        enabled INTEGER DEFAULT 0,
-        provider TEXT CHECK (provider IN ('cloudflare', 'ngrok')) DEFAULT 'cloudflare',
-        mode TEXT CHECK (mode IN ('ephemeral', 'named')) DEFAULT 'ephemeral',
-        token TEXT DEFAULT '',
-        custom_domain TEXT DEFAULT '',
-        auth_pin TEXT DEFAULT '',
-        public_url TEXT DEFAULT '',
-        active_pid INTEGER DEFAULT 0,
-        started_at TEXT,
         updated_at TEXT NOT NULL
     );
 
@@ -247,39 +292,7 @@ function setupSchema(conn, backupDatabaseFn = null) {
     );
   `);
 
-  try {
-    const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
-    const hasProjectFk = memFks.some(fk => fk.table === 'projects');
-    if (!hasProjectFk) {
-      if (typeof backupDatabaseFn === 'function' && conn.name && conn.name !== ':memory:' && fs.existsSync(conn.name)) {
-        try {
-          backupDatabaseFn(null, conn.name);
-        } catch (_) { /* backup helper fallback */ }
-      }
-      conn.exec(`
-        BEGIN TRANSACTION;
-        DELETE FROM persona_memories
-        WHERE project_hash IS NOT NULL
-          AND project_hash != ''
-          AND project_hash NOT IN (SELECT project_hash FROM projects);
-
-        CREATE TABLE IF NOT EXISTS persona_memories_migrated (
-            id TEXT PRIMARY KEY, project_hash TEXT DEFAULT NULL, session_id TEXT DEFAULT '',
-            agent_name TEXT NOT NULL, memory_type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
-            tags TEXT, importance INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
-        );
-        INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
-        SELECT id,
-               CASE WHEN project_hash = '' OR project_hash IS NULL THEN NULL ELSE project_hash END,
-               session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
-        FROM persona_memories;
-        DROP TABLE persona_memories;
-        ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
-        COMMIT;
-      `);
-    }
-  } catch (_) { /* intentional best-effort fallback */ }
+  _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn);
 
   try {
     conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
@@ -313,19 +326,7 @@ function setupSchema(conn, backupDatabaseFn = null) {
     }
   } catch (_) { /* intentional best-effort fallback */ }
 
-  try {
-    const unhashedRows = conn.prepare("SELECT rowid, workspace_root FROM active_sessions WHERE project_hash IS NULL OR project_hash = ''").all();
-    if (unhashedRows.length > 0) {
-      const personaMemory = require('./persona_memory');
-      const updateStmt = conn.prepare("UPDATE active_sessions SET project_hash = ? WHERE rowid = ?");
-      for (const r of unhashedRows) {
-        if (r.workspace_root) {
-          const ph = personaMemory.computeProjectHash(r.workspace_root);
-          if (ph) updateStmt.run(ph, r.rowid);
-        }
-      }
-    }
-  } catch (_) { /* intentional best-effort fallback */ }
+  _backfillActiveSessionsProjectHash(conn);
 
   if (ftsSupported) {
     try {
@@ -459,7 +460,14 @@ function setupSchema(conn, backupDatabaseFn = null) {
   try {
     const now = new Date().toISOString();
     conn.prepare("INSERT OR IGNORE INTO telegram_config (id, enabled, mode, transport, updated_at) VALUES (1, 0, 'one_way', 'polling', ?)").run(now);
-    conn.prepare("INSERT OR IGNORE INTO tunnel_config (id, enabled, provider, mode, updated_at) VALUES (1, 0, 'cloudflare', 'ephemeral', ?)").run(now);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  try {
+    conn.exec('DROP TABLE IF EXISTS tunnel_config; DROP TABLE IF EXISTS persona_memories_migrated; DROP TABLE IF EXISTS active_sessions_migrated;');
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  try {
+    conn.prepare('DELETE FROM skill_chunks WHERE embedding IS NOT NULL AND length(embedding) != 1536').run();
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
@@ -467,6 +475,12 @@ function setupSchema(conn, backupDatabaseFn = null) {
   } catch (_) { /* intentional best-effort fallback */ }
 
   if (ftsSupported) {
+    try {
+      conn.prepare("DELETE FROM skills_fts WHERE rowid NOT IN (SELECT rowid FROM skills)").run();
+    } catch (_) { /* intentional best-effort fallback */ }
+    try {
+      conn.prepare("DELETE FROM persona_memories_fts WHERE rowid NOT IN (SELECT rowid FROM persona_memories)").run();
+    } catch (_) { /* intentional best-effort fallback */ }
     try {
       conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
     } catch (_) { /* intentional best-effort fallback */ }
@@ -528,6 +542,78 @@ function seedKaliTools(conn) {
   }
 }
 
+/**
+ * Validate that the database contains strictly canonical tables, columns,
+ * vector dimensions (384 float32), and zero orphaned or duplicate records.
+ *
+ * @param {Object} conn
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+function validateCanonicalSchema(conn) {
+  const errors = [];
+  try {
+    const tables = new Set(
+      conn.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name)
+    );
+
+    // Assert absence of legacy tables
+    const forbiddenTables = ['tunnel_config', 'persona_memories_migrated', 'active_sessions_migrated', 'skills_legacy'];
+    for (const forbidden of forbiddenTables) {
+      if (tables.has(forbidden)) {
+        errors.push(`Legacy table '${forbidden}' must not exist`);
+      }
+    }
+
+    // Assert presence of mandatory canonical tables
+    const requiredTables = [
+      'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
+      'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
+      'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
+      'kali_tools'
+    ];
+    for (const req of requiredTables) {
+      if (!tables.has(req)) {
+        errors.push(`Required canonical table '${req}' is missing`);
+      }
+    }
+
+    // Assert absence of legacy columns in agents
+    if (tables.has('agents')) {
+      const agentCols = new Set(conn.prepare('PRAGMA table_info(agents)').all().map(c => c.name));
+      if (agentCols.has('claude_model')) errors.push("Legacy column 'agents.claude_model' must not exist");
+      if (agentCols.has('cursor_model')) errors.push("Legacy column 'agents.cursor_model' must not exist");
+    }
+
+    // Assert vector chunk dimension (384 float32 = 1536 bytes)
+    if (tables.has('skill_chunks')) {
+      const invalidChunks = conn.prepare(
+        'SELECT COUNT(*) as count FROM skill_chunks WHERE embedding IS NOT NULL AND length(embedding) != 1536'
+      ).get();
+      const count = invalidChunks ? (invalidChunks.count || 0) : 0;
+      if (count > 0) {
+        errors.push(`Found ${count} stale vector chunk(s) not matching 384 dimensions (1536 bytes)`);
+      }
+    }
+
+    // Assert zero duplicate skill names
+    if (tables.has('skills')) {
+      const dupSkills = conn.prepare(
+        'SELECT name, COUNT(*) as count FROM skills GROUP BY name HAVING COUNT(*) > 1'
+      ).all();
+      if (dupSkills.length > 0) {
+        errors.push(`Found duplicate skill name(s): ${dupSkills.map(d => d.name).join(', ')}`);
+      }
+    }
+  } catch (err) {
+    errors.push(`Schema validation threw exception: ${err.message}`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
 module.exports = {
   CURRENT_SCHEMA_VERSION,
   getCurrentUserVersion,
@@ -535,5 +621,6 @@ module.exports = {
   verifyIntegrity,
   hasFts5Support,
   setupSchema,
-  seedKaliTools
+  seedKaliTools,
+  validateCanonicalSchema
 };

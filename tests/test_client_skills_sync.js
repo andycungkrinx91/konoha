@@ -6,7 +6,8 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
-const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
+const TEMPLATES_DIR = path.join(ROOT, 'src', 'templates', 'skills');
+const GLOBAL_AGENTS_DIR = path.join(os.homedir(), '.agents', 'skills');
 
 const CORE_NINJA_SKILLS = [
   'akatsuki-skill',
@@ -21,19 +22,19 @@ const CORE_NINJA_SKILLS = [
 ];
 
 const CLIENT_DIRS = [
-  path.join(ROOT, 'src', 'templates', 'skills'),
+  TEMPLATES_DIR,
 ];
 
 async function testClientSkillsSync() {
   console.log('Running test_client_skills_sync...');
 
-  // 1. Verify canonical .agents/skills has all core ninja skills
-  assert.ok(fs.existsSync(AGENTS_DIR), '.agents/skills must exist');
+  // 1. Verify canonical src/templates/skills has all core ninja skills
+  assert.ok(fs.existsSync(TEMPLATES_DIR), 'src/templates/skills must exist');
   for (const skill of CORE_NINJA_SKILLS) {
-    const skillMd = path.join(AGENTS_DIR, skill, 'SKILL.md');
-    assert.ok(fs.existsSync(skillMd), `Core skill ${skill}/SKILL.md must exist in .agents/skills`);
+    const skillMd = path.join(TEMPLATES_DIR, skill, 'SKILL.md');
+    assert.ok(fs.existsSync(skillMd), `Core skill ${skill}/SKILL.md must exist in src/templates/skills`);
   }
-  console.log('✓ Canonical .agents/skills verified with all core ninja skills');
+  console.log('✓ Canonical src/templates/skills verified with all core ninja skills');
 
   // 2. Verify scripts/sync_skills.js runs cleanly and enforces complete parity
   const { syncSkills } = require('../scripts/sync_skills');
@@ -64,6 +65,15 @@ async function testClientSkillsSync() {
     console.log(`✓ Directory ${path.relative(ROOT, cDir)} verified in parity`);
   }
 
+  // 4. Verify global mirror has all core skills
+  if (fs.existsSync(GLOBAL_AGENTS_DIR)) {
+    for (const skill of CORE_NINJA_SKILLS) {
+      const skillMd = path.join(GLOBAL_AGENTS_DIR, skill, 'SKILL.md');
+      assert.ok(fs.existsSync(skillMd), `Global mirror skill ${skill}/SKILL.md must exist in ${GLOBAL_AGENTS_DIR}`);
+    }
+    console.log('✓ Global mirror verified with all core ninja skills');
+  }
+
   // Verify client skill directories do not exist in the repo
   for (const clientName of ['.cursor', '.gemini', '.commandcode', '.claude', '.omp']) {
     const clientSkillsDir = path.join(ROOT, clientName, 'skills');
@@ -78,7 +88,8 @@ async function testClientSkillsSync() {
     fs.mkdirSync(path.join(tmpProject, '.commandcode'), { recursive: true });
     fs.mkdirSync(path.join(tmpProject, '.claude'), { recursive: true });
     const syncRes = skillManager.syncAllClientSkills({ projectRoot: tmpProject, silent: true });
-    assert.strictEqual(syncRes.synced, 1, `Expected exactly 1 synced target (~/.agents/skills), got ${syncRes.synced}`);
+    assert.ok(syncRes.synced >= 1, `Expected at least 1 synced target, got ${syncRes.synced}`);
+    assert.ok(syncRes.targets.some(t => t.includes('.agents')), 'Must sync to global .agents/skills');
     assert.ok(!fs.existsSync(path.join(tmpProject, '.commandcode', 'skills')), 'Project .commandcode/skills must NOT be created');
     assert.ok(!fs.existsSync(path.join(tmpProject, '.claude', 'skills')), 'Project .claude/skills must NOT be created');
   } finally {

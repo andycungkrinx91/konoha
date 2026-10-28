@@ -56,14 +56,9 @@
     { method: 'POST', path: '/api/v1/telegram/config', desc: 'Update Telegram bot token, chat ID, mode & secret' },
     { method: 'POST', path: '/api/v1/telegram/test', desc: 'Send test notification message to configured Telegram chat' },
     { method: 'POST', path: '/api/v1/telegram/stop', desc: 'Stop active Telegram long-polling bot instance' },
-    { method: 'GET', path: '/api/v1/tunnel/status', desc: 'Cloudflare Zero Trust tunnel connection status & public URL' },
-    { method: 'GET', path: '/api/v1/tunnel/config', desc: 'Cloudflare tunnel settings (AES-256 encrypted at rest, masked)' },
-    { method: 'POST', path: '/api/v1/tunnel/config', desc: 'Save Cloudflare tunnel token and access PIN' },
-    { method: 'POST', path: '/api/v1/tunnel/start', desc: 'Start Cloudflare Quick Tunnel or Named Tunnel' },
-    { method: 'POST', path: '/api/v1/tunnel/stop', desc: 'Stop active Cloudflare tunnel daemon' },
     { method: 'GET', path: '/api/v1/queue/status', desc: 'Prompt queue status (pending/processing/completed counts)' },
     { method: 'GET', path: '/api/v1/queue/items', desc: 'List prompt queue jobs with agent assignments & state' },
-    { method: 'POST', path: '/api/v1/queue/enqueue', desc: 'Enqueue a remote prompt from Telegram or tunnel' },
+    { method: 'POST', path: '/api/v1/queue/enqueue', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
     { method: 'POST', path: '/api/v1/queue/retry', desc: 'Retry a failed prompt queue job' },
     { method: 'GET', path: '/api/v1/semble', desc: 'Semble MCP status' },
     { method: 'POST', path: '/api/v1/semble/search', desc: 'Semantic code search proxy' },
@@ -303,8 +298,7 @@
       <section id="remote" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Remote Access &amp; Telegram</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Konoha provides secure out-of-band remote operations via Cloudflare Zero Trust tunnels and a bidirectional
-          Telegram bot interface with persistent SQLite queuing.
+          Konoha provides out-of-band remote operations via a bidirectional Telegram bot interface with persistent SQLite queuing.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
@@ -322,26 +316,19 @@
             </p>
           </div>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
-          <p class="text-xs font-black mb-1" style="color: var(--color-primary);">Cloudflare Zero Trust Ingress (/remote)</p>
-          <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
-            Exposes the local Konoha web interface securely without opening router ports or exposing public IPs. Supports both ephemeral
-            Quick Tunnels (<code class="text-xs font-mono">trycloudflare.com</code>) and enterprise Named Tunnels with mandatory PIN authentication.
-          </p>
-        </div>
       </section>
 
       <!-- Crypto Vault & Security -->
       <section id="crypto" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Crypto Vault &amp; Secret Sanitization</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Enterprise-grade secret management ensures zero plaintext API tokens, bot keys, or tunnel credentials exist in databases, logs, or network wire.
+          Enterprise-grade secret management ensures zero plaintext API tokens, bot keys, or credentials exist in databases, logs, or network wire.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
             <p class="text-xs font-black mb-1" style="color: var(--color-primary);">AES-256-GCM AEAD Encryption</p>
             <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
-              All sensitive values in <code class="text-xs font-mono">telegram_config</code> and <code class="text-xs font-mono">tunnel_config</code>
+              All sensitive values in <code class="text-xs font-mono">telegram_config</code>
               are encrypted at rest using AES-256-GCM with 96-bit unique IVs and 128-bit authentication tags (GMAC) preventing tampering.
             </p>
           </div>
@@ -483,10 +470,6 @@
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
             <span class="font-bold" style="color: var(--color-primary);">konoha telegram &lt;status|start|stop|test|config&gt;</span>
             <span style="color: var(--color-text-muted);"> — manage Telegram bot integration, polling, and alert delivery</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha tunnel &lt;status|start|stop|quick&gt;</span>
-            <span style="color: var(--color-text-muted);"> — configure and run Cloudflare Zero Trust secure tunnel</span>
           </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
             <span class="font-bold" style="color: var(--color-primary);">konoha queue &lt;status|list|clear|retry&gt;</span>

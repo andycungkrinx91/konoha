@@ -4,6 +4,27 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [2.2.11] - 2026-10-28
 
+### Canonical Interactive HITL Gates, 8-Client In-Band Prompting & Workflow Governance
+
+- **Interactive Gate 1 Plan Approval Protocol**: Reconciled Gate 1 prompt contracts to prompt all 8 supported coding clients with explicit in-band numbered options: `1. Compact and approve`, `2. Reject and Regenerate PLAN` (or `Input Refine PLAN`). Auto-advancement in HITL mode is strictly prohibited.
+- **Interactive Gate 2 Delivery Sign-Off Protocol**: Reconciled Gate 2 delivery sign-off with in-band interactive choices: `1. Compact and approve`, `2. Remediation` (looping back to Anbu/Jonin with Kage findings, bounded by a 7-cycle circuit breaker).
+- **Decoupled Workflow Gate Engine (`src/mcp/workflow_gates.js`)**: Extracted shared gate validation, normalization, and prompting logic into a dedicated helper module, preserving line limits across `workflow_completion.js` (668 lines) and `workflow_runner.js` (294 lines).
+- **Transient State Resilience & Route Hardening**: Updated `workflow_runner.js` and `workflow_sannin.js` to resolve human inputs against `status.hitl_gate` rather than transient synthesis states, enabling seamless gate approval from slash commands, options parameters, and conversational inputs.
+- **Telegram HITL Gate Callback Alignment**: Updated Telegram bot inline keyboards and callback query poller to match canonical gate choices: `✅ 1. Compact and approve` and `🔄 2. Remediation` / `❌ 2. Reject / Regenerate`.
+- **Google Policy Compliance Audit (`v2.2.11`)**: Published certified compliance report (`docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md`) validating supply-chain policy compliance, Akatsuki dual-mode isolation, AES-256-GCM vault integrity, and zero AI-slop findings.
+
+### Visual Asset Modernization, Diagram Parity & Tunnel Excision
+
+- **Regenerated 24-Frame WebP Workflow Animations**: Updated `scripts/generate_tokubetsu_flow_webp.js` and HTML canvas templates to reflect 8 supported clients and 47 tools, regenerating all core workflow visuals:
+  - `assets/konoha-orchestration-flow.webp`
+  - `assets/konoha-jonin-flow.webp`
+  - `assets/konoha-kage-gate.webp`
+  - `assets/konoha-qa-flow.webp`
+  - `assets/konoha-akatsuki-flow.webp`
+- **Authenticated Local Web UI Demo (`assets/demo-web.webp`)**: Automated SvelteKit 3 capture pipeline with gateway detach handling and bootstrap password validation, generating an interactive 15-frame demo.
+- **Complete DrawIO Enterprise Architecture Cleansing**: Excised all remaining Cloudflare Tunnel and ngrok artifacts from `docs/diagrams/konoha-enterprise-architecture.drawio` (Page 15 transformed to Authenticated Local Web UI & Ingress Queue).
+- **Text-Based Mermaid Flow Diagram Alignment**: Updated Mermaid diagrams across `README.md` and documentation to show Gate 1 and Gate 2 decision loops and full 8-agent ninja hierarchy including `@akatsuki`.
+
 ### Single-Source Skills Architecture & Client Disk I/O Optimization
 
 - **Single-Source Global Skills Storage**: Skills are stored and mirrored canonically in `~/.agents/skills/`. Installation and setup inject template skills exclusively into `~/.agents/skills/` without populating skill subtrees in client directories.
@@ -23,6 +44,10 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Unrestricted Tool Capabilities & 3600s Timeout Cap**: Unlocked all operations across curated profiles (`allowed_operations: ['*', 'all_operations', ...]`, `blocked_operations: []`) with an extended 3600s execution timeout cap that returns immediately upon task finish without unnecessary waiting.
 - **Container-Side Provisioning & Cross-Platform Hardening**: Migrated host-side bash provisioning into container-side execution, enabling safe execution on Windows/macOS with Docker and Docker/LXC auto-detection on Linux.
 - **Curated Offensive Toolchain Parity**: Expanded curated tool profiles to 18 tools including `whatweb`, `httpx`, `katana`, `feroxbuster`, `nikto`, `wpscan`, `droopescan`, and `searchsploit` with professional command arguments.
+- **Workflow Modularization & Clean Directory Restructuring**: Restructured all workflow engines from legacy `src/tools/` into domain-scoped directories under `src/workflow/` (`akatsuki/`, `jonin-builder/`, `kage-reviewer/`, `tokubetsu-scribe/`, `qa-automation/`) and excised `src/tools/` permanently.
+- **Complexity Decomposition & Zero-Warning Code Quality**: Decomposed functions across all modules to enforce `maxNesting: 3`, `maxFunctionLoc: 150`, `maxParams: 5`, and `maxFileLoc: 700` under `.aislop/config.yml`. Flattened deep nesting in `src/telegram/poller.js`, `src/bridge/sidecar/rpc.js`, `src/bridge/handlers/openai.js`, `src/persona_memory_items.js`, and `src/migrate.js`.
+- **Auto-Scaffolded `.aislop` Configuration**: Added `src/templates/.aislop/config.yml` auto-scaffolding to user workspaces in `deployProjectWorkspace()`, propagating `failBelow: 100` and zero-AI-slop error rules across managed projects.
+- **Runtime Manifest Deployment Parity**: Ensured `mcp_tool_manifest.json` is explicitly copied during runtime sync passes in `src/deploy_installer.js`, preventing missing module resolution in isolated test suites and newly initialized runtime roots.
 - **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.11` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all 12 client template contracts.
 
 ## [2.2.10] - 2026-10-27

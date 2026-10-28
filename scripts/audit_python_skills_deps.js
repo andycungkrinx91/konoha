@@ -6,11 +6,10 @@
  */
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
 const SKILL_DIRS = [
   path.join(__dirname, '..', 'src', 'templates', 'skills'),
-  path.join(__dirname, '..', 'agent', 'skills')
+  path.join(__dirname, '..', '.agents', 'skills')
 ];
 
 // Python standard library modules to exclude
@@ -97,18 +96,29 @@ function getAllFiles(dir, exts, results = []) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name !== 'node_modules' && entry.name !== '.git') {
-        getAllFiles(fullPath, exts, results);
-      }
-    } else {
-      const ext = path.extname(entry.name).toLowerCase();
-      if (exts.includes(ext) || entry.name === 'SKILL.md') {
-        results.push(fullPath);
-      }
+    if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== '.git') {
+      getAllFiles(fullPath, exts, results);
+    } else if (exts.includes(path.extname(entry.name).toLowerCase()) || entry.name === 'SKILL.md') {
+      results.push(fullPath);
     }
   }
   return results;
+}
+
+function parsePyLineImports(line, imports) {
+  const trimmed = line.trim();
+  if (trimmed.startsWith('#')) return;
+  const importMatch = trimmed.match(/^import\s+([a-zA-Z0-9_,\s]+)/);
+  if (importMatch) {
+    const pkgs = importMatch[1].split(',').map(p => p.trim().split('.')[0].split(/\s+as\s+/)[0]);
+    for (const p of pkgs) {
+      if (p && !PYTHON_STDLIB.has(p)) imports.add(p);
+    }
+  }
+  const fromMatch = trimmed.match(/^from\s+([a-zA-Z0-9_]+)/);
+  if (fromMatch && !PYTHON_STDLIB.has(fromMatch[1])) {
+    imports.add(fromMatch[1]);
+  }
 }
 
 function extractFromPyFile(filePath) {
@@ -116,24 +126,21 @@ function extractFromPyFile(filePath) {
   const imports = new Set();
   const lines = content.split('\n');
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('#')) continue;
-    // import foo, bar
-    const importMatch = trimmed.match(/^import\s+([a-zA-Z0-9_,\s]+)/);
-    if (importMatch) {
-      const pkgs = importMatch[1].split(',').map(p => p.trim().split('.')[0].split(/\s+as\s+/)[0]);
-      for (const p of pkgs) {
-        if (p && !PYTHON_STDLIB.has(p)) imports.add(p);
-      }
-    }
-    // from foo import bar
-    const fromMatch = trimmed.match(/^from\s+([a-zA-Z0-9_]+)/);
-    if (fromMatch) {
-      const p = fromMatch[1];
-      if (p && !PYTHON_STDLIB.has(p)) imports.add(p);
-    }
+    parsePyLineImports(line, imports);
   }
   return Array.from(imports);
+}
+
+function parsePipInstallTokens(line, pkgs) {
+  const tokens = line.split(/\s+/);
+  for (const t of tokens) {
+    const clean = t.trim().replace(/^['"`]+|['"`]+$/g, '');
+    if (!clean || clean.startsWith('-') || clean.startsWith('http') || clean.startsWith('.')) continue;
+    const pkgName = clean.split(/[=<>~!]/)[0].trim().toLowerCase();
+    if (pkgName && /^[a-z0-9_\-.]+$/.test(pkgName)) {
+      pkgs.add(pkgName);
+    }
+  }
 }
 
 function extractFromTextFile(filePath) {
@@ -142,18 +149,7 @@ function extractFromTextFile(filePath) {
   const pipRegex = /pip(?:3)?\s+install\s+([^\n\r`"';]+)/gi;
   let match;
   while ((match = pipRegex.exec(content)) !== null) {
-    const line = match[1];
-    // Split by spaces, handle flags
-    const tokens = line.split(/\s+/);
-    for (const t of tokens) {
-      const clean = t.trim().replace(/^['"`]+|['"`]+$/g, '');
-      if (!clean || clean.startsWith('-') || clean.startsWith('http') || clean.startsWith('.')) continue;
-      // Strip version specifier e.g. pkg>=1.0, pkg==2.0
-      const pkgName = clean.split(/[=<>~!]/)[0].trim().toLowerCase();
-      if (pkgName && /^[a-z0-9_\-.]+$/.test(pkgName)) {
-        pkgs.add(pkgName);
-      }
-    }
+    parsePipInstallTokens(match[1], pkgs);
   }
   return Array.from(pkgs);
 }
@@ -166,87 +162,67 @@ const PYPI_CLI_TOOLS = new Set([
   'xsrfprobe', 'cloudsplaining', 'impacket'
 ]);
 
+function extractCodeCliTools(content, found) {
+  const subpRegex = /(?:subprocess\.(?:run|call|Popen)|cmd\s*=\s*)\s*\(\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]|cmd\s*=\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]/g;
+  let m;
+  while ((m = subpRegex.exec(content)) !== null) {
+    const tool = (m[1] || m[2]).toLowerCase();
+    if (PYPI_CLI_TOOLS.has(tool)) found.add(tool);
+  }
+}
+
+function extractMarkdownCliTools(content, found) {
+  const codeBlockRegex = /```(?:bash|sh)\r?\n([\s\S]*?)```/g;
+  let blockMatch;
+  while ((blockMatch = codeBlockRegex.exec(content)) !== null) {
+    const blockLines = blockMatch[1].split('\n');
+    for (const line of blockLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const firstWord = trimmed.split(/\s+/)[0].replace(/^sudo\s+/, '').toLowerCase();
+      if (PYPI_CLI_TOOLS.has(firstWord)) found.add(firstWord);
+    }
+  }
+}
+
 function extractCliInvocations(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const found = new Set();
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.py' || ext === '.js') {
-    // subprocess.run(["tool", ...]) or cmd = ["tool", ...]
-    const subpRegex = /(?:subprocess\.(?:run|call|Popen)|cmd\s*=\s*)\s*\(\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]|cmd\s*=\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]/g;
-    let m;
-    while ((m = subpRegex.exec(content)) !== null) {
-      const tool = (m[1] || m[2]).toLowerCase();
-      if (PYPI_CLI_TOOLS.has(tool)) found.add(tool);
-    }
+    extractCodeCliTools(content, found);
   } else if (ext === '.md') {
-    // Look inside ```bash or ```sh blocks
-    const codeBlockRegex = /```(?:bash|sh)\r?\n([\s\S]*?)```/g;
-    let blockMatch;
-    while ((blockMatch = codeBlockRegex.exec(content)) !== null) {
-      const blockLines = blockMatch[1].split('\n');
-      for (const line of blockLines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const firstWord = trimmed.split(/\s+/)[0].replace(/^sudo\s+/, '').toLowerCase();
-        if (PYPI_CLI_TOOLS.has(firstWord)) {
-          found.add(firstWord);
-        }
-      }
-    }
+    extractMarkdownCliTools(content, found);
   }
   return Array.from(found);
 }
 
-function httpGetJson(url) {
-  return new Promise((resolve) => {
-    https.get(url, { headers: { 'User-Agent': 'Konoha-Dependency-Auditor/1.0' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(data));
-          } catch (_) {
-            resolve(null);
-          }
-        } else {
-          resolve(null);
-        }
-      });
-    }).on('error', () => resolve(null));
-  });
+async function httpGetJson(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Konoha-Dependency-Auditor/1.0' } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
 }
 
-function httpPostJson(url, payload) {
-  return new Promise((resolve) => {
-    const data = JSON.stringify(payload);
-    const req = https.request(url, {
+async function httpPostJson(url, payload) {
+  try {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data),
         'User-Agent': 'Konoha-Dependency-Auditor/1.0'
-      }
-    }, (res) => {
-      let respData = '';
-      res.on('data', chunk => respData += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(respData));
-          } catch (_) {
-            resolve(null);
-          }
-        } else {
-          resolve(null);
-        }
-      });
+      },
+      body: JSON.stringify(payload)
     });
-    req.on('error', () => resolve(null));
-    req.write(data);
-    req.end();
-  });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
 }
 
 async function main() {

@@ -10,6 +10,72 @@ const { extractText } = require('./images');
 // Resolves the workspace directory from the request
 // payload, headers, or VS Code workspace folders.
 
+function _detectWorkspaceFromPromptText(allText) {
+  const explicitMatch = allText.match(
+    /(?:working in.*?directory|current workspace|workspace directory).*?([a-zA-Z]:\\[^\s"'>]+)/i,
+  );
+  if (explicitMatch) {
+    const candidate = explicitMatch[1].trim();
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  const slnMatch = allText.match(/([a-zA-Z]:\\[^\s"'>]+\.sln)/i);
+  if (slnMatch && fs.existsSync(slnMatch[1])) {
+    return path.dirname(slnMatch[1]);
+  }
+  return null;
+}
+
+function _scoreSiblingDirectories(folders, allText) {
+  if (!folders || folders.length === 0 || folders[0].uri.scheme !== 'file') return null;
+  const currentRoot = folders[0].uri.fsPath;
+  const parentDir = path.dirname(currentRoot);
+  if (!fs.existsSync(parentDir)) return null;
+
+  const siblings = fs
+    .readdirSync(parentDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => ({ path: path.join(parentDir, d.name), name: d.name }));
+
+  let bestMatch = null;
+  let bestScore = 0;
+  for (const { path: p, name } of siblings) {
+    if (name.length < 4) continue;
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const score = (allText.match(new RegExp(`\\b${escapedName}\\b`, 'gi')) || []).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = p;
+    }
+  }
+  return bestScore > 0 ? bestMatch : null;
+}
+
+function _inferWorkspaceFromMessages(ctx, messages) {
+  try {
+    const sysMsgs = messages
+      .filter((m) => m.role === 'system')
+      .map((m) => extractText(m.content))
+      .join('\n');
+    const usrMsgs = messages
+      .filter((m) => m.role === 'user')
+      .map((m) => extractText(m.content))
+      .join('\n');
+    const allText = `${sysMsgs}\n${usrMsgs}`;
+
+    const fromText = _detectWorkspaceFromPromptText(allText);
+    if (fromText) return fromText;
+
+    const fromSiblings = _scoreSiblingDirectories(vscode.workspace.workspaceFolders, allText);
+    if (fromSiblings) {
+      log(ctx, `📂 Guessed workspace from prompt keywords: ${fromSiblings}`);
+      return fromSiblings;
+    }
+  } catch (e) {
+    log(ctx, `⚠️ Workspace auto-detect failed: ${e.message}`);
+  }
+  return null;
+}
+
 /**
  * Resolve the workspace directory and file URI from the request context.
  *
@@ -25,72 +91,7 @@ function resolveWorkspace(ctx, messages, payload, req) {
   let workspaceDir = payload.workspace_dir || req.headers['x-workspace-dir'] || null;
 
   if (!workspaceDir) {
-    try {
-      // Combine system and user text for keyword/path scanning
-      const sysMsgs = messages
-        .filter((m) => m.role === 'system')
-        .map((m) => extractText(m.content))
-        .join('\n');
-      const usrMsgs = messages
-        .filter((m) => m.role === 'user')
-        .map((m) => extractText(m.content))
-        .join('\n');
-      const allText = sysMsgs + '\n' + usrMsgs;
-
-      // 1. Look for explicit directory mentions from Cursor system prompt
-      const explicitMatch = allText.match(
-        /(?:working in.*?directory|current workspace|workspace directory).*?([a-zA-Z]:\\[^\s"'>]+)/i,
-      );
-      if (explicitMatch) {
-        const candidate = explicitMatch[1].trim();
-        if (fs.existsSync(candidate)) {
-          workspaceDir = candidate;
-        }
-      }
-
-      // 2. Look for .sln absolute paths (common in C# projects if passed in prompt)
-      if (!workspaceDir) {
-        const slnMatch = allText.match(/([a-zA-Z]:\\[^\s"'>]+\.sln)/i);
-        if (slnMatch && fs.existsSync(slnMatch[1])) {
-          workspaceDir = path.dirname(slnMatch[1]);
-        }
-      }
-
-      // 3. Fallback: Score sibling directories by mentions in the text
-      if (!workspaceDir) {
-        const folders = vscode.workspace.workspaceFolders;
-        if (folders && folders.length > 0 && folders[0].uri.scheme === 'file') {
-          const currentRoot = folders[0].uri.fsPath;
-          const parentDir = path.dirname(currentRoot);
-          if (fs.existsSync(parentDir)) {
-            const siblings = fs
-              .readdirSync(parentDir, { withFileTypes: true })
-              .filter((d) => d.isDirectory())
-              .map((d) => ({ path: path.join(parentDir, d.name), name: d.name }));
-
-            let bestMatch = null;
-            let bestScore = 0;
-            for (const { path: p, name } of siblings) {
-              if (name.length < 4) continue; // Ignore very short directory names
-
-              // Only match whole words, case-insensitive
-              const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const score = (allText.match(new RegExp(`\\b${escapedName}\\b`, 'gi')) || []).length;
-              if (score > bestScore) {
-                bestScore = score;
-                bestMatch = p;
-              }
-            }
-            if (bestMatch && bestScore > 0) {
-              workspaceDir = bestMatch;
-              log(ctx, `📂 Guessed workspace from prompt keywords: ${workspaceDir}`);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      log(ctx, `⚠️ Workspace auto-detect failed: ${e.message}`);
-    }
+    workspaceDir = _inferWorkspaceFromMessages(ctx, messages);
   }
 
   if (!workspaceDir) {
@@ -106,7 +107,7 @@ function resolveWorkspace(ctx, messages, payload, req) {
     workspaceUri = 'file:///' + workspaceDir.replace(/\\/g, '/');
     log(ctx, `📂 Workspace: ${workspaceDir} -> ${workspaceUri}`);
   } else {
-    log(ctx, `⚠️ No workspace dir resolved — Antigravity may pick a random project`);
+    log(ctx, '⚠️ No workspace dir resolved — Antigravity may pick a random project');
   }
 
   return { workspaceDir, workspaceUri };

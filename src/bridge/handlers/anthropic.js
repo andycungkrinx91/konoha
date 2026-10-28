@@ -146,6 +146,117 @@ function writeAnthropicEvent(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function streamRawAnthropicResponse(res, raw, responseText) {
+  if (raw.toolCalls && raw.toolCalls.length > 0) {
+    for (let i = 0; i < raw.toolCalls.length; i++) {
+      const tc = raw.toolCalls[i];
+      writeAnthropicEvent(res, 'content_block_start', {
+        type: 'content_block_start',
+        index: i,
+        content_block: { type: 'tool_use', id: tc.id, name: tc.function.name, input: {} },
+      });
+      writeAnthropicEvent(res, 'content_block_delta', {
+        type: 'content_block_delta',
+        index: i,
+        delta: { type: 'input_json_delta', partial_json: tc.function.arguments || '{}' },
+      });
+      writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: i });
+    }
+    writeAnthropicEvent(res, 'message_delta', {
+      type: 'message_delta',
+      delta: { stop_reason: 'tool_use', stop_sequence: null },
+      usage: { output_tokens: 0 },
+    });
+  } else {
+    writeAnthropicEvent(res, 'content_block_start', {
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'text', text: '' },
+    });
+    if (responseText) {
+      writeAnthropicEvent(res, 'content_block_delta', {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: responseText },
+      });
+    }
+    writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
+    writeAnthropicEvent(res, 'message_delta', {
+      type: 'message_delta',
+      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 0 },
+    });
+  }
+  writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
+  res.end();
+}
+
+function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey) {
+  const content = [];
+  if (raw.toolCalls && raw.toolCalls.length > 0) {
+    for (const tc of raw.toolCalls) {
+      let input;
+      try { input = JSON.parse(tc.function.arguments || '{}'); } catch { input = {}; }
+      content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+    }
+  }
+  if (responseText) content.push({ type: 'text', text: responseText });
+  sendJson(res, 200, {
+    id: `msg_${msgId}`,
+    type: 'message',
+    role: 'assistant',
+    model: modelKey,
+    content,
+    stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
+    stop_sequence: null,
+    usage: { input_tokens: 0, output_tokens: 0 },
+  });
+}
+
+function handleAnthropicError(ctx, err, res) {
+  log(ctx, `⚠️ [Anthropic] Raw inference failed: ${err.message}`);
+  const isRateLimit =
+    err.message.includes('capacity') ||
+    err.message.includes('429') ||
+    err.message.includes('RESOURCE_EXHAUSTED') ||
+    err.message.toLowerCase().includes('sse read timed out') ||
+    err.message.includes('H2 connect') ||
+    err.message.includes('H2 timeout') ||
+    err.message.includes('Sidecar not discovered') ||
+    err.message.includes('No reachable LS port') ||
+    err.message.includes('empty content') ||
+    err.message.includes('HTTP 500') ||
+    err.message.includes('INTERNAL') ||
+    err.message.includes('ECONNRESET') ||
+    err.message.includes('socket hang up');
+  let status = isRateLimit ? 429 : 502;
+  let errType = isRateLimit ? 'rate_limit_error' : 'api_error';
+  let message = `Upstream error: ${extractProviderError(err.message)}`;
+
+  if (err.isUpstreamError) {
+    status = err.statusCode;
+    message = err.message;
+    if (status === 401) errType = 'authentication_error';
+    else if (status === 403) errType = 'permission_error';
+    else if (status === 429) errType = 'rate_limit_error';
+    else if (status === 400) errType = 'invalid_request_error';
+  }
+
+  const retryAfterSecs = parseRetryAfter(err.message);
+  log(
+    ctx,
+    `🛑 [Anthropic][${err.isUpstreamError ? 'upstream' : isRateLimit ? 'rate_limit' : 'server_error'}→${status}] returning ${status} (Retry-After: ${retryAfterSecs}s): ${err.message.substring(0, 120)}`,
+  );
+  const errBody = { type: 'error', error: { type: errType, message } };
+  if (!res.headersSent) {
+    res.setHeader('Retry-After', String(retryAfterSecs));
+    sendJson(res, status, errBody);
+  } else if (!res.writableEnded) {
+    writeAnthropicEvent(res, 'error', errBody);
+    res.end();
+  }
+}
+
 // POST /v1/messages
 
 async function handleAnthropicMessages(ctx, req, res) {
@@ -159,46 +270,33 @@ async function handleAnthropicMessages(ctx, req, res) {
 
   const isStream = payload.stream === true;
   const msgId = randomUUID().replace(/-/g, '').substring(0, 24);
-
-  // Resolve model
   const resolved = resolveModel(payload.model);
   ctx.requestedModel = payload.model;
 
-  // OpenAI provider — skip sidecar enum mapping
-  if (ctx.bridgeConfig && ctx.bridgeConfig.provider === 'openai') {
+  if (ctx.bridgeConfig?.provider === 'openai') {
     return handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId);
   }
 
   log(ctx, `📡 [Anthropic] Model: ${resolved.key} (enum=${resolved.value})`);
-
   const modelEnum = VALUE_TO_MODEL_ENUM[resolved.value];
   if (!modelEnum) {
     const msg = `No raw model enum mapping for value ${resolved.value}.`;
     return sendJson(res, 400, { type: 'error', error: { type: 'invalid_request_error', message: msg } });
   }
 
-  // Rate limit guard (reuse same limits as OpenAI endpoint)
   const now = Date.now();
   if (now - ctx.lastResponseTimestamp < ctx.MIN_REQUEST_INTERVAL_MS) {
-    const errBody = { type: 'error', error: { type: 'rate_limit_error', message: 'Rate limited — please wait.' } };
-    return sendJson(res, 429, errBody);
+    return sendJson(res, 429, { type: 'error', error: { type: 'rate_limit_error', message: 'Rate limited — please wait.' } });
   }
 
-  // Convert Anthropic → OpenAI format
   let openAiMessages = anthropicMessagesToOpenAi(payload.system, payload.messages || []);
   let openAiTools = anthropicToolsToOpenAi(payload.tools);
-
-  // Sanitize the converted OpenAI payload
-  const sanitized = sanitizeRequest({
-    messages: openAiMessages,
-    tools: openAiTools,
-  });
+  const sanitized = sanitizeRequest({ messages: openAiMessages, tools: openAiTools });
   openAiMessages = sanitized.messages;
   openAiTools = sanitized.tools;
 
   if (ctx.chatRequestsInFlight >= ctx.MAX_CONCURRENT_REQUESTS) {
-    const errBody = { type: 'error', error: { type: 'rate_limit_error', message: 'Too many concurrent requests.' } };
-    return sendJson(res, 429, errBody);
+    return sendJson(res, 429, { type: 'error', error: { type: 'rate_limit_error', message: 'Too many concurrent requests.' } });
   }
 
   ctx.chatRequestsInFlight++;
@@ -214,8 +312,6 @@ async function handleAnthropicMessages(ctx, req, res) {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.writeHead(200);
-
-      // message_start
       writeAnthropicEvent(res, 'message_start', {
         type: 'message_start',
         message: buildAnthropicMessage(msgId, resolved.key),
@@ -225,12 +321,7 @@ async function handleAnthropicMessages(ctx, req, res) {
   };
 
   if (isStream) {
-    // Force stream headers after 2 seconds to prevent client TTFB timeouts.
-    preStreamTimer = setTimeout(() => {
-      initiateStream();
-    }, 2000);
-
-    // Send a ping event every 4.5s to reset client read timeouts and surface eventual 429s/errors
+    preStreamTimer = setTimeout(() => initiateStream(), 2000);
     keepAliveTimer = setInterval(() => {
       initiateStream();
       writeAnthropicEvent(res, 'ping', { type: 'ping' });
@@ -248,140 +339,20 @@ async function handleAnthropicMessages(ctx, req, res) {
   try {
     log(ctx, `🧠 [Anthropic] Trying raw inference (${modelEnum})...`);
     const raw = await callRawInference(ctx, openAiMessages, modelEnum, openAiTools, images);
-
     if (!raw || (!raw.content && !raw.toolCalls)) {
       throw new Error('Raw inference returned empty content');
     }
-
     const responseText = raw.content || '';
     log(ctx, `✅ [Anthropic] Raw inference succeeded (${responseText.length} chars)`);
 
     if (isStream) {
-      initiateStream(); // Ensure stream has started
-
-      if (raw.toolCalls && raw.toolCalls.length > 0) {
-        // Emit each tool call as a tool_use block
-        for (let i = 0; i < raw.toolCalls.length; i++) {
-          const tc = raw.toolCalls[i];
-          writeAnthropicEvent(res, 'content_block_start', {
-            type: 'content_block_start',
-            index: i,
-            content_block: { type: 'tool_use', id: tc.id, name: tc.function.name, input: {} },
-          });
-          writeAnthropicEvent(res, 'content_block_delta', {
-            type: 'content_block_delta',
-            index: i,
-            delta: { type: 'input_json_delta', partial_json: tc.function.arguments || '{}' },
-          });
-          writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: i });
-        }
-        writeAnthropicEvent(res, 'message_delta', {
-          type: 'message_delta',
-          delta: { stop_reason: 'tool_use', stop_sequence: null },
-          usage: { output_tokens: 0 },
-        });
-      } else {
-        // Stream text in chunks
-        writeAnthropicEvent(res, 'content_block_start', {
-          type: 'content_block_start',
-          index: 0,
-          content_block: { type: 'text', text: '' },
-        });
-
-        // Send text as a single delta (we have the full response already)
-        if (responseText) {
-          writeAnthropicEvent(res, 'content_block_delta', {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: responseText },
-          });
-        }
-        writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
-        writeAnthropicEvent(res, 'message_delta', {
-          type: 'message_delta',
-          delta: { stop_reason: 'end_turn', stop_sequence: null },
-          usage: { output_tokens: 0 },
-        });
-      }
-
-      writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
-      res.end();
+      initiateStream();
+      streamRawAnthropicResponse(res, raw, responseText);
     } else {
-      // Non-streaming Anthropic response
-      const content = [];
-      if (raw.toolCalls && raw.toolCalls.length > 0) {
-        for (const tc of raw.toolCalls) {
-          let input;
-          try {
-            input = JSON.parse(tc.function.arguments || '{}');
-          } catch {
-            input = {};
-          }
-          content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
-        }
-      }
-      if (responseText) {
-        content.push({ type: 'text', text: responseText });
-      }
-      const response = {
-        id: `msg_${msgId}`,
-        type: 'message',
-        role: 'assistant',
-        model: resolved.key,
-        content,
-        stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
-        stop_sequence: null,
-        usage: { input_tokens: 0, output_tokens: 0 },
-      };
-      sendJson(res, 200, response);
+      sendNonStreamAnthropicResponse(res, raw, responseText, msgId, resolved.key);
     }
   } catch (err) {
-    log(ctx, `⚠️ [Anthropic] Raw inference failed: ${err.message}`);
-    const isRateLimit =
-      err.message.includes('capacity') ||
-      err.message.includes('429') ||
-      err.message.includes('RESOURCE_EXHAUSTED') ||
-      err.message.toLowerCase().includes('sse read timed out') ||
-      err.message.includes('H2 connect') ||
-      err.message.includes('H2 timeout') ||
-      err.message.includes('Sidecar not discovered') ||
-      err.message.includes('No reachable LS port') ||
-      err.message.includes('empty content') ||
-      err.message.includes('HTTP 500') ||
-      err.message.includes('INTERNAL') ||
-      err.message.includes('ECONNRESET') ||
-      err.message.includes('socket hang up');
-    let status = isRateLimit ? 429 : 502;
-    let errType = isRateLimit ? 'rate_limit_error' : 'api_error';
-    let message = `Upstream error: ${extractProviderError(err.message)}`;
-
-    if (err.isUpstreamError) {
-      status = err.statusCode;
-      message = err.message;
-      if (status === 401) {
-        errType = 'authentication_error';
-      } else if (status === 403) {
-        errType = 'permission_error';
-      } else if (status === 429) {
-        errType = 'rate_limit_error';
-      } else if (status === 400) {
-        errType = 'invalid_request_error';
-      }
-    }
-
-    const retryAfterSecs = parseRetryAfter(err.message);
-    log(
-      ctx,
-      `🛑 [Anthropic][${err.isUpstreamError ? 'upstream' : isRateLimit ? 'rate_limit' : 'server_error'}→${status}] returning ${status} (Retry-After: ${retryAfterSecs}s): ${err.message.substring(0, 120)}`,
-    );
-    const errBody = { type: 'error', error: { type: errType, message } };
-    if (!res.headersSent) {
-      res.setHeader('Retry-After', String(retryAfterSecs));
-      sendJson(res, status, errBody);
-    } else if (!res.writableEnded) {
-      writeAnthropicEvent(res, 'error', errBody);
-      res.end();
-    }
+    handleAnthropicError(ctx, err, res);
   } finally {
     if (keepAliveTimer) clearInterval(keepAliveTimer);
     if (preStreamTimer) clearTimeout(preStreamTimer);
@@ -408,7 +379,33 @@ async function handleCountTokens(ctx, req, res) {
 // Anthropic format adapter for OpenAI provider
 // Converts Anthropic → OpenAI → callRawInference → Anthropic response
 
-async function handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId) {
+function streamAnthropicToOpenAi(res, responseText, msgId, model) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.writeHead(200);
+
+  writeAnthropicEvent(res, 'message_start', {
+    type: 'message_start',
+    message: buildAnthropicMessage(msgId, model),
+  });
+  writeAnthropicEvent(res, 'content_block_start', {
+    type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' },
+  });
+  writeAnthropicEvent(res, 'content_block_delta', {
+    type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: responseText },
+  });
+  writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
+  writeAnthropicEvent(res, 'message_delta', {
+    type: 'message_delta', delta: { stop_reason: responseText ? 'end_turn' : 'tool_use', stop_sequence: null },
+    usage: { output_tokens: 0 },
+  });
+  writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
+  res.end();
+}
+
+async function handleAnthropicToOpenAi(ctx, req, res, ...rest) {
+  const [isStream, payload, msgId] = rest;
   let openAiMessages = anthropicMessagesToOpenAi(payload.system, payload.messages || []);
   let openAiTools = anthropicToolsToOpenAi(payload.tools);
 
@@ -423,65 +420,13 @@ async function handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId) 
     if (!raw || (!raw.content && !raw.toolCalls)) throw new Error('Empty response');
 
     const responseText = raw.content || '';
-
     if (isStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.writeHead(200);
-
-      // message_start
-      writeAnthropicEvent(res, 'message_start', {
-        type: 'message_start',
-        message: buildAnthropicMessage(msgId, ctx.requestedModel),
-      });
-
-      // content_block (text)
-      writeAnthropicEvent(res, 'content_block_start', {
-        type: 'content_block_start',
-        index: 0,
-        content_block: { type: 'text', text: '' },
-      });
-      writeAnthropicEvent(res, 'content_block_delta', {
-        type: 'content_block_delta',
-        index: 0,
-        delta: { type: 'text_delta', text: responseText },
-      });
-      writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
-
-      writeAnthropicEvent(res, 'message_delta', {
-        type: 'message_delta',
-        delta: { stop_reason: responseText ? 'end_turn' : 'tool_use', stop_sequence: null },
-        usage: { output_tokens: 0 },
-      });
-      writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
-      res.end();
+      streamAnthropicToOpenAi(res, responseText, msgId, ctx.requestedModel);
     } else {
-      const content = [];
-      if (raw.toolCalls) {
-        for (const tc of raw.toolCalls) {
-          let input;
-          try { input = JSON.parse(tc.function.arguments || '{}'); } catch { input = {}; }
-          content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
-        }
-      }
-      if (responseText) content.push({ type: 'text', text: responseText });
-      sendJson(res, 200, {
-        id: `msg_${msgId}`,
-        type: 'message',
-        role: 'assistant',
-        model: ctx.requestedModel,
-        content,
-        stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
-        stop_sequence: null,
-        usage: { input_tokens: 0, output_tokens: 0 },
-      });
+      sendNonStreamAnthropicResponse(res, raw, responseText, msgId, ctx.requestedModel);
     }
   } catch (err) {
-    sendJson(res, err.statusCode || 502, {
-      type: 'error',
-      error: { type: err.isUpstreamError ? 'api_error' : 'upstream_error', message: err.message }
-    });
+    sendJson(res, 500, { type: 'error', error: { type: 'api_error', message: err.message } });
   }
 }
 

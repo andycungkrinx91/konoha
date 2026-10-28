@@ -50,6 +50,34 @@ function is9RouterInstalled() {
   }
 }
 
+function _parseModelsResponse(body, statusCode) {
+  if (statusCode < 200 || statusCode >= 300) {
+    return { ok: false, statusCode, data: [] };
+  }
+  try {
+    const data = JSON.parse(body);
+    if (data && Array.isArray(data.data)) {
+      return { ok: true, statusCode, data: data.data };
+    }
+  } catch (_) { /* ignore */ }
+  return { ok: false, statusCode, data: [] };
+}
+
+function _wireProbeRequest(req, resolve) {
+  req.on('error', () => resolve({ ok: false, error: 'connection_refused', data: [] }));
+  req.on('timeout', () => {
+    req.destroy();
+    resolve({ ok: false, error: 'timeout', data: [] });
+  });
+}
+
+function _handleProbeResponse(res, resolve) {
+  let body = '';
+  res.setEncoding('utf8');
+  res.on('data', (chunk) => { body += chunk; });
+  res.on('end', () => resolve(_parseModelsResponse(body, res.statusCode)));
+}
+
 /**
  * Probes whether the 9router local HTTP service is currently listening and responsive.
  */
@@ -59,34 +87,9 @@ function probe9RouterEndpoint(port = DEFAULT_9ROUTER_PORT, host = DEFAULT_9ROUTE
       const req = http.get(
         `http://${host}:${port}/v1/models`,
         { timeout: PROBE_TIMEOUT_MS },
-        (res) => {
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => {
-            body += chunk;
-          });
-          res.on('end', () => {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              try {
-                const data = JSON.parse(body);
-                if (data && Array.isArray(data.data)) {
-                  resolve({ ok: true, statusCode: res.statusCode, data: data.data });
-                  return;
-                }
-              } catch (_) {
-                /* ignore response json parse failure */
-              }
-            }
-            resolve({ ok: false, statusCode: res.statusCode, data: [] });
-          });
-        }
+        (res) => _handleProbeResponse(res, resolve)
       );
-
-      req.on('error', () => resolve({ ok: false, error: 'connection_refused', data: [] }));
-      req.on('timeout', () => {
-        req.destroy();
-        resolve({ ok: false, error: 'timeout', data: [] });
-      });
+      _wireProbeRequest(req, resolve);
     } catch (err) {
       resolve({ ok: false, error: err.message, data: [] });
     }

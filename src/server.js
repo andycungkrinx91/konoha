@@ -18,7 +18,7 @@
 const db = require('./db');
 const { getDb } = db;
 
-// 1. Runtime State
+// Runtime State
 const {
   getWorkspaceRoot,
   setWorkspaceRoot,
@@ -31,7 +31,7 @@ const {
   isIdeInstallationDir
 } = require('./mcp/runtime_state');
 
-// 2. Client Detection
+// Client Detection
 const {
   detectActiveClient,
   detectActiveAgent,
@@ -44,7 +44,7 @@ const {
   SESSION_IDLE_RESET_SECONDS
 } = require('./mcp/client_detection');
 
-// 3. Skills
+// Skills
 const {
   normalizeLegacySkillName,
   contentHash,
@@ -60,7 +60,7 @@ const {
   fuzzyResolveSkill
 } = require('./mcp/skills');
 
-// 4. Build Spec
+// Build Spec
 const {
   BUILD_FRAMEWORKS,
   validateBuildInput,
@@ -73,20 +73,20 @@ const {
   buildFromText
 } = require('./mcp/build_spec');
 
-// 5. Workflow
+// Workflow
 const workflowModule = require('./mcp/workflow');
 const {
   getResolvedTaskDir,
   readFileSafe
 } = workflowModule;
 
-// 6. Web Search
+// Web Search
 const {
   runWebSearch,
   queryStartpage
 } = require('./mcp/web_search');
 
-// 6b. Website AI Detector & Docs AI Detector
+// Website AI Detector & Docs AI Detector
 const {
   runWebsiteAiDetector,
 } = require('./mcp/ai_detector');
@@ -94,7 +94,7 @@ const {
   runDocsAiDetector,
 } = require('./mcp/docs_ai_detector');
 
-// 7. Memory & Reporting
+// Memory & Reporting
 const {
   getMainModel,
   applyFileEdits,
@@ -108,7 +108,7 @@ const {
   runMcpAgent
 } = require('./mcp/memory_reporting');
 
-// 8. Tool Dispatch
+// Tool Dispatch
 const {
   validateManifestArguments,
   executeTool,
@@ -116,7 +116,7 @@ const {
   _executeToolInternal
 } = require('./mcp/tool_dispatch');
 
-// 9. Protocol
+// Protocol
 const {
   getServerVersion,
   

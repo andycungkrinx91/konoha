@@ -27,25 +27,28 @@ ${C.bold}EXAMPLES${C.reset}
 }
 
 
-async function cmdVersion(args = []) {
-  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
-    cmdVersionHelp();
-    return;
-  }
+function resolveInstalledVersion() {
   const candidatePkgPaths = [
     path.join(__dirname, '..', '..', 'package.json'),
     path.join(SKILLS_DB_DIR, 'package.json'),
     path.join(os.homedir(), '.konoha', 'package.json')
   ];
-  let currentVersion = '2.0.0';
   for (const p of candidatePkgPaths) {
-    if (fileExists(p)) {
-      try {
-        const v = JSON.parse(fs.readFileSync(p, 'utf8')).version;
-        if (v) { currentVersion = v; break; }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
+    if (!fileExists(p)) continue;
+    try {
+      const v = JSON.parse(fs.readFileSync(p, 'utf8')).version;
+      if (v) return v;
+    } catch (_) { /* intentional best-effort fallback */ }
   }
+  return '2.0.0';
+}
+
+async function cmdVersion(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdVersionHelp();
+    return;
+  }
+  const currentVersion = resolveInstalledVersion();
 
   header('✨ Konoha Version');
   log(`  ${C.bold}Current Version:${C.reset}  ${C.green}${currentVersion}${C.reset}\n`);

@@ -6,7 +6,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
 const { spawnSync } = require("child_process");
 
 const { SKILLS_DB_DIR } = require("../lib/paths");
@@ -66,95 +65,68 @@ function semverCompare(v1, v2) {
   return 0;
 }
 
-function fetchJsonUrl(url, userAgent = 'Konoha-CLI-Updater') {
-  return new Promise((resolve, reject) => {
-    const options = {
+async function fetchJsonUrl(url, userAgent = 'Konoha-CLI-Updater') {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(url, {
       headers: {
         'User-Agent': userAgent,
         'Accept': 'application/json'
       },
-      timeout: 5000
-    };
-    https.get(url, options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error('Failed to parse JSON: ' + e.message));
-          }
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}`));
-        }
-      });
-    }).on('error', reject).on('timeout', () => reject(new Error('Request timed out')));
-  });
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 const getGithubData = fetchJsonUrl;
 
-async function getLatestVersion() {
-  const cachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
+function readCachedVersion(cachePath) {
+  if (!fileExists(cachePath)) return null;
   try {
-    if (fileExists(cachePath)) {
-      const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      if (cached && cached.version && (Date.now() - (cached.timestamp || 0) < 3600000)) {
-        return cached.version;
-      }
+    const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    if (cached && cached.version && (Date.now() - (cached.timestamp || 0) < 3600000)) {
+      return cached.version;
     }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* intentional best-effort fallback */ }
+  return null;
+}
 
+async function collectCandidateTags() {
   const candidateTags = new Set();
-
-  // 1. Primary source of truth: official npm registry (konoha-mcp)
   try {
     const npmLatest = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp/latest');
-    if (npmLatest && npmLatest.version) {
-      candidateTags.add(npmLatest.version);
+    if (npmLatest?.version) candidateTags.add(npmLatest.version);
+  } catch { /* fallback */ }
+  if (candidateTags.size > 0) return candidateTags;
+
+  try {
+    const npmPkg = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp');
+    if (npmPkg?.['dist-tags']?.latest) candidateTags.add(npmPkg['dist-tags'].latest);
+  } catch { /* fallback */ }
+  if (candidateTags.size > 0) return candidateTags;
+
+  try {
+    const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
+    const releaseList = Array.isArray(releases) ? releases : [];
+    for (const r of releaseList) {
+      if (r?.tag_name) candidateTags.add(r.tag_name);
     }
-  } catch { /* intentional best-effort fallback: proceed to npm dist-tags / github fallback */ }
+  } catch { /* fallback */ }
 
-  if (candidateTags.size === 0) {
-    try {
-      const npmPkg = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp');
-      if (npmPkg && npmPkg['dist-tags'] && npmPkg['dist-tags'].latest) {
-        candidateTags.add(npmPkg['dist-tags'].latest);
-      }
-    } catch { /* intentional best-effort fallback */ }
-  }
+  return candidateTags;
+}
 
-  // 2. Secondary fallback: query GitHub releases and tags if npm registry was unreachable
-  if (candidateTags.size === 0) {
-    try {
-      const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
-      if (Array.isArray(releases)) {
-        releases.forEach(r => {
-          if (r && r.tag_name) candidateTags.add(r.tag_name);
-        });
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+async function getLatestVersion() {
+  const cachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
+  const cachedVersion = readCachedVersion(cachePath);
+  if (cachedVersion) return cachedVersion;
 
-    try {
-      const tags = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/tags');
-      if (Array.isArray(tags)) {
-        tags.forEach(t => {
-          if (t && t.name) candidateTags.add(t.name);
-        });
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-    if (candidateTags.size === 0) {
-      try {
-        const release = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases/latest');
-        if (release && release.tag_name) {
-          candidateTags.add(release.tag_name);
-        }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-  }
-
+  const candidateTags = await collectCandidateTags();
   const sorted = Array.from(candidateTags)
     .filter(name => /v?\d+\.\d+\.\d+/.test(name))
     .sort((a, b) => semverCompare(b, a));
@@ -162,7 +134,7 @@ async function getLatestVersion() {
   if (sorted.length > 0) {
     try {
       fs.writeFileSync(cachePath, JSON.stringify({ version: sorted[0], timestamp: Date.now() }), 'utf8');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* best-effort */ }
     return sorted[0];
   }
   throw new Error('No release or version found on npm registry or GitHub');
@@ -188,6 +160,162 @@ ${C.bold}EXAMPLES${C.reset}
 }
 
 
+function buildPackageManagerCandidates(pkgTarget, isWin) {
+  const pmCandidates = [];
+  const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+  const npmCmd = isWin ? 'npm.cmd' : 'npm';
+  const yarnCmd = isWin ? 'yarn.cmd' : 'yarn';
+
+  const checkCmd = (c) => {
+    try {
+      const res = spawnSync(c, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
+      return res.status === 0;
+    } catch { return false; }
+  };
+
+  const scriptPath = (process.argv[1] || '').toLowerCase();
+  const pnpmAvailable = checkCmd(pnpmCmd);
+  const npmAvailable = checkCmd(npmCmd);
+  const yarnAvailable = checkCmd(yarnCmd);
+
+  const addPnpm = () => {
+    if (pnpmAvailable && !pmCandidates.some(c => c.name === 'pnpm')) {
+      pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
+    }
+  };
+  const addNpm = () => {
+    if (npmAvailable && !pmCandidates.some(c => c.name === 'npm')) {
+      pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
+    }
+  };
+  const addYarn = () => {
+    if (yarnAvailable && !pmCandidates.some(c => c.name === 'yarn')) {
+      pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
+    }
+  };
+
+  if (scriptPath.includes('npm')) addNpm();
+  else if (scriptPath.includes('yarn')) addYarn();
+  else if (scriptPath.includes('pnpm')) addPnpm();
+
+  addPnpm();
+  addNpm();
+  addYarn();
+
+  if (pmCandidates.length === 0) {
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
+    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
+  }
+  return pmCandidates;
+}
+
+function tryInstallCandidate(pm, args, spawnOptions) {
+  try {
+    const res = spawnSync(pm.cmd, args, spawnOptions);
+    if (res.status === 0) return { success: true };
+    const errOut = (res.stderr || res.stdout || '').toString().trim();
+    return { success: false, error: errOut ? errOut.split('\n').pop() : `exit status ${res.status}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) {
+  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000, shell: isWin };
+  let lastError = null;
+
+  for (const pm of pmCandidates) {
+    const result = tryInstallCandidate(pm, pm.args, spawnOptions);
+    if (result.success) {
+      pbar.stopPulse();
+      pbar.logStep(`Konoha installed from npm registry via ${pm.name}`);
+      return true;
+    }
+    lastError = result.error;
+  }
+
+  const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
+  for (const pm of pmCandidates) {
+    const fallbackArgs = pm.args.map(a => a === pkgTarget ? gitPkgTarget : a);
+    const result = tryInstallCandidate(pm, fallbackArgs, spawnOptions);
+    if (result.success) {
+      pbar.stopPulse();
+      pbar.logStep(`Konoha ${targetTag} installed from GitHub fallback via ${pm.name}`);
+      return true;
+    }
+  }
+
+  pbar.stopPulse();
+  pbar.logStep(lastError ? `Package manager note (${lastError}); synchronizing local runtime files` : 'Package manager step completed; synchronizing local runtime files');
+  return false;
+}
+
+async function runPostUpgradeInit(pbar, targetTag, uiWasRunning) {
+  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
+  try {
+    await cmdInit(['--force', '--yes'], {
+      skipUiAutoStart: true,
+      onProgress: (stepNum, stepTitle, stepDetail) => {
+        const stageNum = Math.min(6, 2 + stepNum);
+        pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
+      },
+      onStepComplete: (stepTitle) => pbar.logStep(stepTitle)
+    });
+
+    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
+    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
+    try { installAgentBrowser(true); } catch { /* best-effort */ }
+    pbar.stopPulse();
+    pbar.logStep(`Browser automation tools verified`);
+
+    try {
+      const shimReport = reconcileGlobalCommand();
+      const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
+      if (shimsTouched.length > 0) {
+        pbar.logStep(`Global command 'konoha' → ${shimReport.sourceCli} (${shimsTouched.length} shim(s) repaired)`);
+      }
+    } catch { /* best-effort */ }
+
+    try {
+      const { installCliRuntime } = require('../lib/runtime');
+      installCliRuntime();
+    } catch { /* best-effort */ }
+
+    if (uiWasRunning) {
+      pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
+      await cmdUiRestart(['--no-open']);
+    } else {
+      const uiAuto = await ensureUiDaemonAutoStart();
+      if (uiAuto?.started) pbar.logStep('Konoha Web UI daemon auto-started at http://127.0.0.1:1404/');
+    }
+
+    pbar.finish(`Konoha has been successfully upgraded to ${targetTag}!`);
+    log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}${targetTag}${C.reset}`);
+    log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
+  } catch (err) {
+    pbar.stopPulse();
+    error(`Failed to refresh Konoha configuration: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function resolveTargetVersion(localVer) {
+  let targetVer = localVer;
+  let targetTag = `v${localVer}`;
+  try {
+    const latest = await getLatestVersion();
+    if (latest) {
+      const cleanLatest = latest.replace(/^v/, '');
+      const cleanLocal = localVer.replace(/^v/, '');
+      if (semverCompare(cleanLatest, cleanLocal) >= 0) {
+        targetVer = cleanLatest;
+        targetTag = latest.startsWith('v') ? latest : `v${latest}`;
+      }
+    }
+  } catch { /* best-effort */ }
+  return { targetVer, targetTag };
+}
+
 async function cmdUpgrade(args = []) {
   if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
     cmdUpgradeHelp();
@@ -206,212 +334,26 @@ async function cmdUpgrade(args = []) {
 
   log('');
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
-
-  // Remember whether the Web UI daemon is already running: the running process
-  // holds the OLD runtime code in memory, so after the runtime refresh below it
-  // must be restarted (not just left alone) for the upgrade to reach the UI.
   let uiWasRunning = false;
-  try { uiWasRunning = await checkPortActive(1404); } catch (_) { /* intentional best-effort fallback: failure here must never crash the upgrader */ }
+  try { uiWasRunning = await checkPortActive(1404); } catch { /* best-effort */ }
 
-  // Stage 1/7: Environment & Package Manager Detection
   pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager & purging stale caches...`);
   const isWin = process.platform === 'win32';
   purgePackageCaches({ silent: true });
 
-  // Resolve target version from npm registry or local package (never downgrade)
   const localVer = getCliVersion();
-  let targetVer = localVer;
-  let targetTag = `v${localVer}`;
-  try {
-    const latest = await getLatestVersion();
-    if (latest) {
-      const cleanLatest = latest.replace(/^v/, '');
-      const cleanLocal = localVer.replace(/^v/, '');
-      if (semverCompare(cleanLatest, cleanLocal) >= 0) {
-        targetVer = cleanLatest;
-        targetTag = latest.startsWith('v') ? latest : `v${latest}`;
-      }
-    }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
+  const { targetVer, targetTag } = await resolveTargetVersion(localVer);
   const cleanTarget = targetVer.replace(/^v/, '');
   const pkgTarget = `konoha-mcp@${cleanTarget}`;
 
-  // Build package manager fallback chain
-  const pmCandidates = [];
-  const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
-  const npmCmd = isWin ? 'npm.cmd' : 'npm';
-  const yarnCmd = isWin ? 'yarn.cmd' : 'yarn';
-
-  const checkCmd = (c) => {
-    try {
-      const res = spawnSync(c, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
-      return res.status === 0;
-    } catch { return false; }
-  };
-
-  const scriptPath = (process.argv[1] || '').toLowerCase();
-  const prefersNpm = scriptPath.includes('npm');
-  const prefersYarn = scriptPath.includes('yarn');
-  const prefersPnpm = scriptPath.includes('pnpm');
-
-  const pnpmAvailable = checkCmd(pnpmCmd);
-  const npmAvailable = checkCmd(npmCmd);
-  const yarnAvailable = checkCmd(yarnCmd);
-
-  const addPnpm = () => {
-    if (pnpmAvailable && !pmCandidates.some(c => c.name === 'pnpm')) {
-      pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
-    }
-  };
-
-  const addNpm = () => {
-    if (npmAvailable && !pmCandidates.some(c => c.name === 'npm')) {
-      pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
-    }
-  };
-
-  const addYarn = () => {
-    if (yarnAvailable && !pmCandidates.some(c => c.name === 'yarn')) {
-      pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
-    }
-  };
-
-  if (prefersNpm) addNpm();
-  else if (prefersYarn) addYarn();
-  else if (prefersPnpm) addPnpm();
-
-  addPnpm();
-  addNpm();
-  addYarn();
-
-  if (pmCandidates.length === 0) {
-    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
-    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
-  }
-
+  const pmCandidates = buildPackageManagerCandidates(pkgTarget, isWin);
   pbar.logStep(`Target: ${C.green}konoha-mcp@${cleanTarget}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
 
-  // Stage 2/7: Fetching and installing latest release from npm registry
   pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching konoha-mcp@${cleanTarget} from npm registry via ${pmCandidates[0].name}...`);
   pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and installing Konoha package via ${pmCandidates[0].name}...`);
 
-  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 };
-  if (isWin) {
-    spawnOptions.shell = true;
-  }
-
-  let installSuccess = false;
-  let lastError = null;
-
-  for (const pm of pmCandidates) {
-    try {
-      const res = spawnSync(pm.cmd, pm.args, spawnOptions);
-      if (res.status === 0) {
-        installSuccess = true;
-        pbar.stopPulse();
-        pbar.logStep(`Konoha ${cleanTarget} installed from npm registry via ${pm.name}`);
-        break;
-      } else {
-        const errOut = (res.stderr || res.stdout || '').toString().trim();
-        lastError = errOut ? errOut.split('\n').pop() : `exit status ${res.status}`;
-      }
-    } catch (err) {
-      lastError = err.message;
-    }
-  }
-
-  // Fallback: If npm registry install failed across all package managers, attempt GitHub fallback
-  if (!installSuccess) {
-    const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
-    for (const pm of pmCandidates) {
-      try {
-        const fallbackArgs = pm.args.map(a => a === pkgTarget ? gitPkgTarget : a);
-        const res = spawnSync(pm.cmd, fallbackArgs, spawnOptions);
-        if (res.status === 0) {
-          installSuccess = true;
-          pbar.stopPulse();
-          pbar.logStep(`Konoha ${targetTag} installed from GitHub fallback via ${pm.name}`);
-          break;
-        }
-      } catch (_) { /* continue */ }
-    }
-  }
-
-  if (!installSuccess) {
-    pbar.stopPulse();
-    if (lastError) {
-      pbar.logStep(`Package manager note (${lastError}); synchronizing local runtime files`);
-    } else {
-      pbar.logStep(`Package manager step completed; synchronizing local runtime files`);
-    }
-  }
-
-  // Stages 3 through 6: Handled via in-process cmdInit with real-time onProgress updates
-  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
-
-  try {
-    await cmdInit(['--force', '--yes'], {
-      skipUiAutoStart: true, // cmdUpgrade restarts/starts the daemon itself below
-      onProgress: (stepNum, stepTitle, stepDetail) => {
-        const stageNum = Math.min(6, 2 + stepNum);
-        pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
-      },
-      onStepComplete: (stepTitle) => {
-        pbar.logStep(stepTitle);
-      }
-    });
-
-    // Stage 7/7: Browser CLI Tools
-    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
-    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
-    try { installAgentBrowser(true); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    pbar.stopPulse();
-    pbar.logStep(`Browser automation tools verified`);
-
-    // Cross-Platform Global Command Reconciliation: the `konoha` command must
-    // always resolve to the self-contained install at ~/.konoha/bin/cli.js on
-    // every platform (npm/pnpm/yarn shims are repaired or created as needed)
-    try {
-      const shimReport = reconcileGlobalCommand();
-      const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
-      if (shimsTouched.length > 0) {
-        pbar.logStep(`Global command 'konoha' → ${shimReport.sourceCli} (${shimsTouched.length} shim(s) repaired)`);
-      }
-      for (const failure of shimReport.failed) {
-        pbar.logStep(`Shim warning: could not update ${failure.path}: ${failure.error}`);
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-    // Refresh installed Web UI and runtime files before daemon restart
-    try {
-      const { installCliRuntime } = require('../lib/runtime');
-      installCliRuntime();
-    } catch (_) { /* intentional best-effort fallback */ }
-
-    // Auto-start / restart the Web UI daemon so the upgraded runtime is live:
-    // - daemon was running before the upgrade → restart it (old code in memory)
-    // - daemon was not running → auto-start it fresh (opt-out: KONOHA_UI_AUTOSTART=0)
-    try {
-      if (uiWasRunning) {
-        pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
-        await cmdUiRestart(['--no-open']);
-      } else {
-        const uiAuto = await ensureUiDaemonAutoStart();
-        if (uiAuto && uiAuto.started) {
-          pbar.logStep('Konoha Web UI daemon auto-started at http://127.0.0.1:1404/');
-        }
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the upgrader */ }
-
-    pbar.finish(`Konoha has been successfully upgraded to ${targetTag}!`);
-    log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}${targetTag}${C.reset}`);
-    log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
-  } catch (err) {
-    pbar.stopPulse();
-    error(`Failed to refresh Konoha configuration: ${err.message}`);
-    process.exit(1);
-  }
+  executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
+  await runPostUpgradeInit(pbar, targetTag, uiWasRunning);
 }
 
 // cmdRender removed — visual comparison feature deprecated in favor of image/source-to-code (build_from_source)

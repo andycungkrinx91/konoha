@@ -544,14 +544,12 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Configuration & Storage**: Bot token and target chat ID stored in `telegram_config` table in `~/.konoha/konoha.db`. Managed via CLI: `konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>`, `konoha telegram enable`, `konoha telegram disable`, and `konoha telegram test`.
     - **Native Long Polling & Whitelist Gate**: Long polling daemon (`src/telegram/poller.js`) runs with strict `chat_id` whitelist authorization (`telegram_config.chat_id`). Unauthorized sender messages are immediately dropped.
     - **Daemon Commands**: Supports `/run <prompt>`, `/status`, `/savings`, `/kage`, `/cancel`, `/help`.
-82. **Public Tunnel & Cloudflare Zero Trust Ingress Security Invariants (v2.1.17)**:
-    - **Quick Tunnel & Named Domain Ingress**: Child process supervisor (`src/tunnel/manager.js`) manages `cloudflared tunnel --url http://localhost:1404` (or `ngrok`) with process lifecycle tracking and live public URL extraction (`trycloudflare.com`).
-    - **Edge Identity Mode A (No PIN)**: Web server routes validate Cloudflare Zero Trust identity header `Cf-Access-Authenticated-User-Email` when accessed via public tunnel while allowing unauthenticated local access on `localhost:1404`.
-    - **CLI Management**: `konoha tunnel start`, `konoha tunnel stop`, `konoha tunnel status`, `konoha tunnel config`.
+82. **Ingress Architecture & Local Access Invariants (v2.1.17)**:
+    - **Local Loopback & Stdio Ingress**: Ingress is strictly bounded to local stdio MCP processes and the authenticated local Web console on `127.0.0.1:1404`. Public tunnel subsystems (Cloudflare Tunnel, ngrok) are permanently eradicated from the Konoha runtime.
 83. **Unified Prompt Queue & Asynchronous Inbox Architecture (v2.1.17)**:
     - **SQLite Queue Engine**: Table `prompt_queue` maintains atomic prompt state (`pending` -> `processing` -> `completed` / `failed`) with retry count and priority.
     - **Filesystem Mirror**: Mirrored into `~/.konoha/inbox/<session_id>.json` and `~/.konoha/inbox/latest.json` for coding client pickup.
-    - **Remote Access Web UI**: Integrated into SvelteKit dashboard (`/remote` and `RemoteAccess.svelte`) providing live status cards for Telegram, Cloudflare Tunnel, and real-time Inbound Prompt Queue.
+    - **Remote Access Web UI**: Integrated into SvelteKit dashboard (`/remote` and `RemoteAccess.svelte`) providing live status cards for Telegram and real-time Inbound Prompt Queue.
 84. **Interactive Shell Execution & Subagent Direct Dispatch Invariant (v2.1.17)**:
     - **Interactive Shell Execution**: Commands dispatched via `/sh <cmd>` or `/exec <cmd>` execute in the target workspace using the user's interactive shell (`userShell -i -c`) with full alias expansion from `~/.bashrc` (`kubectl`, `kc*`, `helm`, etc.).
     - **Security Guardrail**: Dangerous or destructive commands (`rm -rf /`, `mkfs`, `dd`, `drop database`, `truncate table`, etc.) are unconditionally rejected by `isDangerousCommand`.

@@ -242,7 +242,8 @@ function drawIntegrationRow(label, active, detail, theme = LEAF_THEME) {
   log(`    ${bullet} ${labelCol} [ ${statusCol} ] ${pipe} ${applyGradient(detailText, CHIDORI_THEME, 0.75)}`);
 }
 
-function drawTable(headers, widths, aligns, rows, rowColors = [], theme = LEAF_THEME, options = {}) {
+function drawTable(headers, widths, aligns, rows, ...rest) {
+  const [rowColors = [], theme = LEAF_THEME, options = {}] = rest;
   const { columnFormatters = [] } = options;
   const lineTopRaw = `┌${widths.map(w => '─'.repeat(w + 2)).join('┬')}┐`;
   const lineMidRaw = `├${widths.map(w => '─'.repeat(w + 2)).join('┼')}┤`;

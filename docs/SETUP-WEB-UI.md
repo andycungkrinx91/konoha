@@ -105,7 +105,7 @@ konoha web
 - Safe deletion with modal confirmation.
 
 ### 2. 👤 Subagents Screen (`Agents.svelte`)
-- Manage the 7 official Naruto Ninja Ranks:
+- Manage the 8 official Naruto Ninja Ranks:
   - `✧ Sannin` (MCP Router & Orchestrator)
   - `⚑ Genin` (Codebase Exploration Scout)
   - `◎ Kage` (Village Leader & Architecture/Security Audits)
@@ -113,8 +113,9 @@ konoha web
   - `♦ Jonin` (Elite UI/Frontend Builder)
   - `♠ Anbu` (Black Ops Backend & DevOps)
   - `⬡ Tokubetsu-jonin` (Technical Writing & Scribe)
+  - `🛡️ Akatsuki` (Red-Team Pentest & Blue-Team Security Gate)
 - Interactive embedded skill checkboxes: toggling instantly syncs `~/.agents/agents.yaml` and `konoha.db`. Primary dedicated skills (`kage-skill`, `jonin-skill`, etc.) are strictly preserved at priority index 0.
-- **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).
+- **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `akatsuki-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).
 
 ### 3. 📚 Skills Management Screen (`Skills.svelte`)
 - **3-Mode Search Switcher**:

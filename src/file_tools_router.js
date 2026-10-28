@@ -5,7 +5,21 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const platform = require('./platform_utils');
-const MCP_MANIFEST = require('./mcp_tool_manifest.json');
+const MCP_MANIFEST = (() => {
+  const candidates = [
+    path.join(__dirname, 'mcp_tool_manifest.json'),
+    path.resolve(__dirname, '..', 'src', 'mcp_tool_manifest.json'),
+    path.join(os.homedir(), '.konoha', 'mcp_tool_manifest.json')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      try {
+        return JSON.parse(fs.readFileSync(c, 'utf8'));
+      } catch (_) { /* ignore */ }
+    }
+  }
+  return { protocol_versions: ['2024-11-05'], tools: [] };
+})();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
@@ -69,6 +83,26 @@ function isIdeInstallationDirectory(dirPath) {
   return false;
 }
 
+function _matchConversationWorkspace(mapping, convId) {
+  for (const [p, id] of Object.entries(mapping)) {
+    if (id === convId && fs.existsSync(p) && !isIdeInstallationDirectory(p)) {
+      return p;
+    }
+  }
+  return null;
+}
+
+function _resolveAntigravityWorkspaceFromCache(cacheDir, convId) {
+  if (!convId) return null;
+  const lastConvFile = path.join(cacheDir, 'last_conversations.json');
+  if (!fs.existsSync(lastConvFile)) return null;
+  try {
+    const mapping = JSON.parse(fs.readFileSync(lastConvFile, 'utf8'));
+    return _matchConversationWorkspace(mapping, convId);
+  } catch (_) { /* intentional best-effort fallback */ }
+  return null;
+}
+
 function detectWorkspaceRoot() {
   const envCandidates = [
     process.env.WORKSPACE_ROOT,
@@ -91,21 +125,13 @@ function detectWorkspaceRoot() {
   if (curClient === 'agy' || curClient === 'antigravity') {
     const HOME = os.homedir();
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-
-    const cliCache = path.join(HOME, '.gemini', 'antigravity-cli', 'cache');
-    const ideCache = path.join(HOME, '.gemini', 'antigravity-ide', 'cache');
-    for (const cacheDir of [cliCache, ideCache]) {
-      const lastConvFile = path.join(cacheDir, 'last_conversations.json');
-      if (convId && fs.existsSync(lastConvFile)) {
-        try {
-          const mapping = JSON.parse(fs.readFileSync(lastConvFile, 'utf8'));
-          for (const [p, id] of Object.entries(mapping)) {
-            if (id === convId && fs.existsSync(p) && !isIdeInstallationDirectory(p)) {
-              return p;
-            }
-          }
-        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
+    const cacheDirs = [
+      path.join(HOME, '.gemini', 'antigravity-cli', 'cache'),
+      path.join(HOME, '.gemini', 'antigravity-ide', 'cache')
+    ];
+    for (const cacheDir of cacheDirs) {
+      const match = _resolveAntigravityWorkspaceFromCache(cacheDir, convId);
+      if (match) return match;
     }
   }
 
@@ -177,22 +203,22 @@ function resolveInputPath(rawPath) {
 function assertWithinAllowed(resolvedPath) {
   const pathNorm = platform.normPath(resolvedPath);
 
-  // 0. Explicit block for IDE binary installation directory
+  // Explicit block for IDE binary installation directory
   if (isIdeInstallationDirectory(resolvedPath) || isIdeInstallationDirectory(pathNorm)) {
     throw new Error(`Access to IDE installation directory is forbidden: ${resolvedPath}`);
   }
 
-  // 1. Konoha install directory — always allowed
+  // Konoha install directory — always allowed
   if (pathNorm === KONOHA_DIR_NORM || pathNorm.startsWith(KONOHA_DIR_NORM + path.sep) || pathNorm.startsWith(KONOHA_DIR_NORM + '/')) {
     return;
   }
 
-  // 1b. Dev repository root (source checkout) — allowed in dev mode only
+  // Dev repository root (source checkout) — allowed in dev mode only
   if (DEV_PROJECT_ROOT_NORM && (pathNorm === DEV_PROJECT_ROOT_NORM || pathNorm.startsWith(DEV_PROJECT_ROOT_NORM + path.sep) || pathNorm.startsWith(DEV_PROJECT_ROOT_NORM + '/'))) {
     return;
   }
 
-  // 2. Inside home-scoped agent scratch dirs — IDE internal caches
+  // Inside home-scoped agent scratch dirs — IDE internal caches
   //    These paths are used by tools like read_file_head to inspect
   //    output files written by agent sub-sessions (e.g. Gemini brain/,
   //    Claude sessions, Cursor .md files).
@@ -219,7 +245,7 @@ function assertWithinAllowed(resolvedPath) {
     }
   }
 
-  // 3. Inside workspace root — if set
+  // Inside workspace root — if set
   const workspace = getWorkspaceRoot();
   if (!workspace) return;
   let wsReal;
@@ -235,7 +261,7 @@ function assertWithinAllowed(resolvedPath) {
     return;
   }
 
-  // 4. Not allowed
+  // Path outside workspace boundary
   throw new Error(`Path outside workspace: ${resolvedPath}`);
 }
 

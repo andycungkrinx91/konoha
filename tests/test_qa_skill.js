@@ -8,16 +8,18 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 console.log('Running test_qa_skill.js...');
 
 const ROOT = path.resolve(__dirname, '..');
-const anbuSkillPath = path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'SKILL.md');
-const qaRefPath = path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'qa-automation.md');
+const canonicalSkillDir = path.join(ROOT, 'src', 'templates', 'skills', 'anbu-skill');
+const anbuSkillPath = path.join(canonicalSkillDir, 'SKILL.md');
+const qaRefPath = path.join(canonicalSkillDir, 'references', 'qa-automation.md');
 
 // 1. Verify anbu-skill/SKILL.md has SOP 8 and Domain Routing row
-assert.ok(fs.existsSync(anbuSkillPath), 'anbu-skill/SKILL.md must exist');
+assert.ok(fs.existsSync(anbuSkillPath), 'anbu-skill/SKILL.md must exist in canonical templates');
 const skillContent = fs.readFileSync(anbuSkillPath, 'utf8');
 assert.ok(skillContent.includes('## SOP 8: QA Automation (agent-browser + Playwright)'), 'SKILL.md must include SOP 8 section');
 assert.ok(skillContent.includes('anbu-skill/qa-automation'), 'SKILL.md must include anbu-skill/qa-automation reference in SOP 8 or routing');
@@ -34,26 +36,17 @@ assert.ok(refContent.includes('Playwright Overrides for Agent Runs'), 'Must incl
 assert.ok(refContent.includes('docs/QA-AUTOMATION.md'), 'Must point to docs/QA-AUTOMATION.md');
 
 // 3. Verify qa-automation-assets/references files exist
-const assetsDir = path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'qa-automation-assets', 'references');
+const assetsDir = path.join(canonicalSkillDir, 'references', 'qa-automation-assets', 'references');
 assert.ok(fs.existsSync(path.join(assetsDir, 'explore-checklist.md')), 'explore-checklist.md must exist');
 assert.ok(fs.existsSync(path.join(assetsDir, 'flow-format.md')), 'flow-format.md must exist');
 assert.ok(fs.existsSync(path.join(assetsDir, 'failure-triage.md')), 'failure-triage.md must exist');
 assert.ok(fs.existsSync(path.join(assetsDir, 'report-template.md')), 'report-template.md must exist');
 
-// 4. Verify 5-tree mirror parity
-const trees = [
-  path.join(ROOT, 'src', 'templates', 'skills'),
-  path.join(ROOT, '.cursor', 'skills'),
-  path.join(ROOT, '.gemini', 'skills'),
-  path.join(ROOT, '.commandcode', 'skills'),
-  path.join(ROOT, '.claude', 'skills')
-];
-
-for (const tree of trees) {
-  const mirroredRef = path.join(tree, 'anbu-skill', 'references', 'qa-automation.md');
-  assert.ok(fs.existsSync(mirroredRef), `qa-automation.md must exist in mirror: ${tree}`);
-  const mirroredContent = fs.readFileSync(mirroredRef, 'utf8');
-  assert.strictEqual(mirroredContent, refContent, `Mirrored file in ${tree} must be byte-identical to .agents/skills`);
+// 4. Verify canonical tree parity
+const globalMirror = path.join(os.homedir(), '.agents', 'skills', 'anbu-skill', 'references', 'qa-automation.md');
+if (fs.existsSync(globalMirror)) {
+  const mirroredContent = fs.readFileSync(globalMirror, 'utf8');
+  assert.strictEqual(mirroredContent, refContent, 'File in ~/.agents/skills must be byte-identical to templates');
 }
 
 // 5. Verify database indexing and bounded retrieval via skills module

@@ -147,6 +147,46 @@ function deleteWebhook(id) {
   return res.changes > 0;
 }
 
+function _buildWebhookHeaders(webhook) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'Konoha-Webhook-Engine/2.2.4'
+  };
+  if (!webhook.auth_token) return headers;
+  if (webhook.auth_type === 'bearer' || webhook.auth_type === 'jwt') {
+    headers['Authorization'] = `Bearer ${webhook.auth_token}`;
+  } else if (webhook.auth_type === 'api_key') {
+    headers['X-API-Key'] = webhook.auth_token;
+  } else if (webhook.auth_type === 'custom_header' && webhook.custom_header) {
+    headers[webhook.custom_header] = webhook.auth_token;
+  }
+  return headers;
+}
+
+function _recordWebhookDelivery(webhookId, status) {
+  try {
+    const conn = getDb();
+    conn.prepare(`
+      UPDATE webhooks
+      SET last_status = ?, last_delivered_at = ?
+      WHERE id = ?
+    `).run(status, new Date().toISOString(), webhookId);
+  } catch (_) {
+    // Non-critical audit timestamp update failure
+  }
+}
+
+function _handleWebhookResponse(res, webhookId, resolve) {
+  let respData = '';
+  res.on('data', chunk => { respData += chunk; });
+  res.on('end', () => {
+    const status = res.statusCode;
+    const ok = status >= 200 && status < 300;
+    _recordWebhookDelivery(webhookId, status);
+    resolve({ ok, status, data: respData.slice(0, 500) });
+  });
+}
+
 /**
  * Dispatch HTTP request to a webhook endpoint with payload and configured auth headers.
  */
@@ -156,21 +196,7 @@ function sendWebhookPayload(webhook, payload) {
       const urlObj = new URL(webhook.url);
       const isHttps = urlObj.protocol === 'https:';
       const transport = isHttps ? https : http;
-
-      const headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Konoha-Webhook-Engine/2.2.4'
-      };
-
-      if (webhook.auth_token) {
-        if (webhook.auth_type === 'bearer' || webhook.auth_type === 'jwt') {
-          headers['Authorization'] = `Bearer ${webhook.auth_token}`;
-        } else if (webhook.auth_type === 'api_key') {
-          headers['X-API-Key'] = webhook.auth_token;
-        } else if (webhook.auth_type === 'custom_header' && webhook.custom_header) {
-          headers[webhook.custom_header] = webhook.auth_token;
-        }
-      }
+      const headers = _buildWebhookHeaders(webhook);
 
       const bodyData = JSON.stringify(payload);
       headers['Content-Length'] = Buffer.byteLength(bodyData);
@@ -184,25 +210,7 @@ function sendWebhookPayload(webhook, payload) {
         timeout: 10000
       };
 
-      const req = transport.request(reqOpts, (res) => {
-        let respData = '';
-        res.on('data', chunk => { respData += chunk; });
-        res.on('end', () => {
-          const status = res.statusCode;
-          const ok = status >= 200 && status < 300;
-          try {
-            const conn = getDb();
-            conn.prepare(`
-              UPDATE webhooks
-              SET last_status = ?, last_delivered_at = ?
-              WHERE id = ?
-            `).run(status, new Date().toISOString(), webhook.id);
-          } catch (_) {
-            // Non-critical audit timestamp update failure
-          }
-          resolve({ ok, status, data: respData.slice(0, 500) });
-        });
-      });
+      const req = transport.request(reqOpts, (res) => _handleWebhookResponse(res, webhook.id, resolve));
 
       req.on('timeout', () => {
         req.destroy();

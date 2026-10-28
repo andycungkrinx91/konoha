@@ -31,6 +31,61 @@ function getConversationKey(messages, workspaceDir) {
   return `${prefix}_${String(userMsgs[0]).substring(0, 50)}`;
 }
 
+async function _switchWorkspaceStrict(ctx, workspaceDir, vlog) {
+  if (!workspaceDir) return null;
+  const targetUri = vscode.Uri.file(workspaceDir);
+  const currentFolders = vscode.workspace.workspaceFolders || [];
+  const currentFsPaths = currentFolders.map((f) => f.uri.fsPath);
+  const isStrictMatch = currentFsPaths.length === 1 && currentFsPaths[0] === workspaceDir;
+  if (isStrictMatch) {
+    vlog(`  📂 Workspace already exclusively correct: ${workspaceDir}`);
+    return null;
+  }
+  const originalFolders = currentFolders.map((f) => ({ uri: f.uri, name: f.name }));
+  const success = vscode.workspace.updateWorkspaceFolders(0, currentFolders.length, {
+    uri: targetUri,
+    name: path.basename(workspaceDir),
+  });
+  if (success) {
+    vlog(`  📂 Switched workspace strictly to: ${workspaceDir}`);
+    await new Promise((r) => setTimeout(r, 1000));
+    return originalFolders;
+  }
+  log(ctx, '  ⚠️ updateWorkspaceFolders failed');
+  return null;
+}
+
+async function _createCascadeSession(opts) {
+  const { ctx, workspaceDir, workspaceUri, lsPort, mainCsrf, info, vlog } = opts;
+  while (ctx.isWorkspaceSwitching) await new Promise((r) => setTimeout(r, 100));
+  ctx.isWorkspaceSwitching = true;
+  try {
+    const originalFolders = await _switchWorkspaceStrict(ctx, workspaceDir, vlog);
+    const startPayload = {
+      metadata: buildMetadata(ctx),
+      source: 1, // CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT
+    };
+    if (workspaceUri) {
+      startPayload.workspaceUris = [workspaceUri];
+    }
+    const startBytes = encodeProto('exa.language_server_pb.StartCascadeRequest', startPayload);
+    const respBytes = await makeH2ProtoCall(lsPort, mainCsrf, info.certPath, 'StartCascade', startBytes);
+    const startResult = decodeProto('exa.language_server_pb.StartCascadeResponse', respBytes);
+    const newId = startResult && startResult.cascadeId;
+
+    if (originalFolders && originalFolders.length > 0) {
+      const current = vscode.workspace.workspaceFolders || [];
+      vscode.workspace.updateWorkspaceFolders(0, current.length, ...originalFolders);
+      vlog(`  ♻️ Restored ${originalFolders.length} workspace folders`);
+    }
+
+    if (!newId) throw new Error('StartCascade failed to return cascadeId');
+    return newId;
+  } finally {
+    ctx.isWorkspaceSwitching = false;
+  }
+}
+
 async function callSidecarChat(
   ctx,
   messages,
@@ -89,61 +144,7 @@ async function callSidecarChat(
       vlog(`  ♻️ Reused existing conversation: ${cascadeId.substring(0, 8)}`);
     } else {
       // Must create a new Cascade. Lock the workspace globally to prevent race conditions across parallel conversations!
-      const promise = (async () => {
-        while (ctx.isWorkspaceSwitching) await new Promise((r) => setTimeout(r, 100));
-        ctx.isWorkspaceSwitching = true;
-        try {
-          let originalFolders = null;
-          if (workspaceDir) {
-            const targetUri = vscode.Uri.file(workspaceDir);
-            const currentFolders = vscode.workspace.workspaceFolders || [];
-            const currentFsPaths = currentFolders.map((f) => f.uri.fsPath);
-
-            // Strict match ensures we drop "playground" if it's open alongside the target
-            const isStrictMatch = currentFsPaths.length === 1 && currentFsPaths[0] === workspaceDir;
-
-            if (!isStrictMatch) {
-              originalFolders = currentFolders.map((f) => ({ uri: f.uri, name: f.name }));
-              const success = vscode.workspace.updateWorkspaceFolders(0, currentFolders.length, {
-                uri: targetUri,
-                name: path.basename(workspaceDir),
-              });
-              if (success) {
-                vlog(`  📂 Switched workspace strictly to: ${workspaceDir}`);
-                await new Promise((r) => setTimeout(r, 1000)); // Crucial LSP propagation delay
-              } else {
-                log(ctx, `  ⚠️ updateWorkspaceFolders failed`);
-                originalFolders = null;
-              }
-            } else {
-              vlog(`  📂 Workspace already exclusively correct: ${workspaceDir}`);
-            }
-          }
-
-          const startPayload = {
-            metadata: buildMetadata(ctx),
-            source: 1, // CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT
-          };
-          if (workspaceUri) {
-            startPayload.workspaceUris = [workspaceUri];
-          }
-          const startBytes = encodeProto('exa.language_server_pb.StartCascadeRequest', startPayload);
-          const respBytes = await makeH2ProtoCall(lsPort, mainCsrf, info.certPath, 'StartCascade', startBytes);
-          const startResult = decodeProto('exa.language_server_pb.StartCascadeResponse', respBytes);
-          const newId = startResult && startResult.cascadeId;
-
-          if (originalFolders && originalFolders.length > 0) {
-            const current = vscode.workspace.workspaceFolders || [];
-            vscode.workspace.updateWorkspaceFolders(0, current.length, ...originalFolders);
-            vlog(`  ♻️ Restored ${originalFolders.length} workspace folders`);
-          }
-
-          if (!newId) throw new Error('StartCascade failed to return cascadeId');
-          return newId;
-        } finally {
-          ctx.isWorkspaceSwitching = false;
-        }
-      })();
+      const promise = _createCascadeSession({ ctx, workspaceDir, workspaceUri, lsPort, mainCsrf, info, vlog });
 
       ctx.cascadePromises.set(convKey, promise);
       try {

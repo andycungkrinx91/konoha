@@ -58,6 +58,90 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
 `);
 }
 
+function handleSkillEmbedOrUnembed(subcommand, subArgs) {
+  const isEmbed = (subcommand === 'embed' || subArgs[0] === 'embed');
+  const skillName = (subcommand === 'embed' || subcommand === 'unembed') ? subArgs[0] : subcommand;
+  const agentName = subArgs[1];
+
+  if (!skillName || !agentName) {
+    error(`Usage: konoha skill <skillname> ${isEmbed ? 'embed' : 'unembed'} <agentname>`);
+    process.exit(1);
+  }
+
+  try {
+    if (isEmbed) {
+      const embedded = skillManager.embedSkillInAgent(skillName, agentName);
+      if (embedded) success(`Successfully embedded skill "${skillName}" into @${agentName}`);
+      else warn(`Skill "${skillName}" is already embedded in @${agentName}`);
+    } else {
+      const unembedded = skillManager.unembedSkillFromAgent(skillName, agentName);
+      if (unembedded) success(`Successfully removed skill "${skillName}" from @${agentName}`);
+      else warn(`Skill "${skillName}" was not embedded in @${agentName}`);
+    }
+    info('Re-deployed team configurations.');
+  } catch (err) {
+    error(`Failed to ${isEmbed ? 'embed' : 'unembed'} skill: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+function handleSkillList() {
+  header('Installed Skills');
+  const installed = skillManager.listInstalledSkills();
+  if (installed.length === 0) {
+    warn('No custom skills currently installed.');
+    return;
+  }
+  installed.forEach(s => {
+    success(`${C.bold}${s.name}${C.reset}`);
+    log(`  ${C.dim}Path:${C.reset} ${s.path}`);
+    log(`  ${C.dim}Desc:${C.reset} ${s.description}`);
+  });
+}
+
+function handleSkillSearch(subArgs) {
+  const query = subArgs.join(' ');
+  if (!query) {
+    error('Usage: konoha skill search <query>');
+    process.exit(1);
+  }
+  skillManager.runInteractiveSearch(query);
+}
+
+async function handleSkillAdd(subArgs) {
+  if (subArgs.length === 0) {
+    error('Usage: konoha skill add <skill-name> OR konoha skill add <repository-url> <skill-name>');
+    process.exit(1);
+  }
+  try {
+    if (subArgs.length >= 2) {
+      await skillManager.addSkillDirect(subArgs[0], subArgs[1]);
+    } else {
+      await skillManager.addSkill(subArgs[0]);
+    }
+  } catch (err) {
+    error(`Failed to add skill: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function handleSkillRemove(subArgs) {
+  const name = subArgs[0];
+  if (!name) {
+    error('Usage: konoha skill remove <skill-name>');
+    process.exit(1);
+  }
+  try {
+    skillManager.removeSkill(name);
+    success(`Successfully removed skill: ${name}`);
+    info('Re-indexing SQLite database...');
+    await cmdMigrate([]);
+  } catch (err) {
+    error(`Failed to remove skill: ${err.message}`);
+    process.exit(1);
+  }
+}
+
 async function cmdSkill(args) {
   await chidoriTransition('skill');
   const subcommand = args[0];
@@ -68,108 +152,18 @@ async function cmdSkill(args) {
     process.exit(0);
   }
 
-  // Handle skill embed / unembed syntax:
-  // 1. konoha skill <skillname> embed <agentname>
-  // 2. konoha skill embed <skillname> <agentname>
-  // 3. konoha skill <skillname> unembed <agentname>
-  // 4. konoha skill unembed <skillname> <agentname>
   const isEmbed = (subcommand === 'embed' || subArgs[0] === 'embed');
   const isUnembed = (subcommand === 'unembed' || subArgs[0] === 'unembed');
-
   if (isEmbed || isUnembed) {
-    const skillName = (subcommand === 'embed' || subcommand === 'unembed') ? subArgs[0] : subcommand;
-    const agentName = (subcommand === 'embed' || subcommand === 'unembed') ? subArgs[1] : subArgs[1];
-
-    if (!skillName || !agentName) {
-      error(`Usage: konoha skill <skillname> ${isEmbed ? 'embed' : 'unembed'} <agentname>`);
-      process.exit(1);
-    }
-
-    try {
-      if (isEmbed) {
-        const embedded = skillManager.embedSkillInAgent(skillName, agentName);
-        if (embedded) {
-          success(`Successfully embedded skill "${skillName}" into @${agentName}`);
-        } else {
-          warn(`Skill "${skillName}" is already embedded in @${agentName}`);
-        }
-      } else {
-        const unembedded = skillManager.unembedSkillFromAgent(skillName, agentName);
-        if (unembedded) {
-          success(`Successfully removed skill "${skillName}" from @${agentName}`);
-        } else {
-          warn(`Skill "${skillName}" was not embedded in @${agentName}`);
-        }
-      }
-      info('Re-deployed team configurations.');
-    } catch (err) {
-      error(`Failed to ${isEmbed ? 'embed' : 'unembed'} skill: ${err.message}`);
-      process.exit(1);
-    }
+    handleSkillEmbedOrUnembed(subcommand, subArgs);
     return;
   }
 
   switch (subcommand) {
-    case 'list': {
-      header('Installed Skills');
-      const installed = skillManager.listInstalledSkills();
-      if (installed.length === 0) {
-        warn('No custom skills currently installed.');
-      } else {
-        installed.forEach(s => {
-          success(`${C.bold}${s.name}${C.reset}`);
-          log(`  ${C.dim}Path:${C.reset} ${s.path}`);
-          log(`  ${C.dim}Desc:${C.reset} ${s.description}`);
-        });
-      }
-      break;
-    }
-    case 'search': {
-      const query = subArgs.join(' ');
-      if (!query) {
-        error('Usage: konoha skill search <query>');
-        process.exit(1);
-      }
-      skillManager.runInteractiveSearch(query);
-      break;
-    }
-    case 'add': {
-      if (subArgs.length === 0) {
-        error('Usage: konoha skill add <skill-name> OR konoha skill add <repository-url> <skill-name>');
-        process.exit(1);
-      }
-      try {
-        if (subArgs.length >= 2) {
-          const url = subArgs[0];
-          const name = subArgs[1];
-          await skillManager.addSkillDirect(url, name);
-        } else {
-          const nameOrUrl = subArgs[0];
-          await skillManager.addSkill(nameOrUrl);
-        }
-      } catch (err) {
-        error(`Failed to add skill: ${err.message}`);
-        process.exit(1);
-      }
-      break;
-    }
-    case 'remove': {
-      const name = subArgs[0];
-      if (!name) {
-        error('Usage: konoha skill remove <skill-name>');
-        process.exit(1);
-      }
-      try {
-        skillManager.removeSkill(name);
-        success(`Successfully removed skill: ${name}`);
-        info('Re-indexing SQLite database...');
-        await cmdMigrate([]);
-      } catch (err) {
-        error(`Failed to remove skill: ${err.message}`);
-        process.exit(1);
-      }
-      break;
-    }
+    case 'list': return handleSkillList();
+    case 'search': return handleSkillSearch(subArgs);
+    case 'add': return await handleSkillAdd(subArgs);
+    case 'remove': return await handleSkillRemove(subArgs);
     default:
       error(`Unknown skill subcommand: ${subcommand}`);
       cmdSkillHelp();

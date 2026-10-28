@@ -99,8 +99,8 @@ async function run() {
 
     // Phase 3: Skill loading verification
     console.log('Testing Phase 3: Skill loading...');
-    const taskAnbuSkill = setupTask(taskRoot, 'anbu_skill', null, '---\nyaml: foo\n---\n\nFix this API bug end-to-end.\n');
-    const resAnbuSkill = JSON.parse(server.runMcpAgent('anbu', null, null, null, null, null, null, taskAnbuSkill));
+    const taskAnbuSkill = setupTask(taskRoot, 'anbu_skill');
+    const resAnbuSkill = JSON.parse(server.runMcpAgent('anbu', 'Fix this API bug end-to-end.', null, null, null, null, null, taskAnbuSkill));
     assert.strictEqual(resAnbuSkill.status, 'ready');
     const instrAnbu = resAnbuSkill.instructions;
     assert.ok(instrAnbu.includes('anbu-skill'));
@@ -112,10 +112,16 @@ async function run() {
     assert.ok(instrAnbu.includes('## Execution Protocol'));
     assert.ok(instrAnbu.includes('report_from_agent'));
 
-    const taskJoninSkill = setupTask(taskRoot, 'jonin_skill', null, 'Build a SvelteKit dashboard component.\n');
-    const resJoninSkill = JSON.parse(server.runMcpAgent('jonin', null, null, null, null, null, null, taskJoninSkill));
+    const taskJoninSkill = setupTask(taskRoot, 'jonin_skill');
+    const resJoninSkill = JSON.parse(server.runMcpAgent('jonin', 'Build a SvelteKit dashboard component.', null, null, null, null, null, taskJoninSkill));
     assert.strictEqual(resJoninSkill.status, 'ready');
     assert.ok(resJoninSkill.instructions.includes('jonin-skill'));
+
+    // File-based IPC rejection verification
+    const taskRetired = setupTask(taskRoot, 'retired_ipc', null, 'legacy delegate');
+    const resRetired = JSON.parse(server.runMcpAgent('anbu', null, null, null, null, null, null, taskRetired));
+    assert.strictEqual(resRetired.status, 'error');
+    assert.strictEqual(resRetired.reason, 'retired_file_ipc');
 
     const taskSanninInstr = setupTask(taskRoot, 'sannin_instr');
     const resSanninInstr = JSON.parse(server.runSannin('build a sveltekit landing page component', taskSanninInstr));
@@ -158,11 +164,11 @@ async function run() {
     connSeed.close();
 
     for (const ag of officialAgents) {
-      const taskComp = setupTask(taskRoot, `compact_${ag}`, null, 'Task payload for compaction check.\n');
+      const taskComp = setupTask(taskRoot, `compact_${ag}`);
       const statusFile = path.join(taskComp, 'status.json');
       fs.writeFileSync(statusFile, JSON.stringify({ turn: 2, tasks: [] }), 'utf8');
 
-      const resComp = JSON.parse(runMcpAgent(ag, null, null, null, null, null, null, taskComp));
+      const resComp = JSON.parse(runMcpAgent(ag, 'Task payload for compaction check.', null, null, null, null, null, taskComp));
       assert.strictEqual(resComp.status, 'ready');
       const instr = resComp.instructions;
 

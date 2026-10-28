@@ -186,6 +186,18 @@ function verifyRequiredSkills(conn, requiredSkills = []) {
   return { missing, remainingLegacy: legacyRows.map(r => r.name) };
 }
 
+function _logSummaryGroup(row, currentSkill, logFn) {
+  if (row.skill_name !== currentSkill) {
+    if (currentSkill !== null) logFn();
+    logFn(`\n📦 ${row.skill_name}`);
+  }
+  const label = row.type === 'skill' ? 'SKILL.md' : 'references';
+  const cnt = row.cnt || 0;
+  const bs = row.total_bytes || 0;
+  logFn(`   ${label}: ${cnt} file(s), ${bs.toLocaleString()} bytes`);
+  return { newSkill: row.skill_name, cnt, bs };
+}
+
 function printSummary(conn, options = {}) {
   const dbPath = options.dbPath || '';
   const logFn = options.logFn || console.log;
@@ -205,18 +217,8 @@ function printSummary(conn, options = {}) {
   let currentSkill = null;
 
   for (const row of rows) {
-    if (row.skill_name !== currentSkill) {
-      if (currentSkill !== null) {
-        logFn();
-      }
-      currentSkill = row.skill_name;
-      logFn(`\n📦 ${currentSkill}`);
-    }
-
-    const label = row.type === 'skill' ? 'SKILL.md' : 'references';
-    const cnt = row.cnt || 0;
-    const bs = row.total_bytes || 0;
-    logFn(`   ${label}: ${cnt} file(s), ${bs.toLocaleString()} bytes`);
+    const { newSkill, cnt, bs } = _logSummaryGroup(row, currentSkill, logFn);
+    currentSkill = newSkill;
     totalRows += cnt;
     totalBytes += bs;
   }
@@ -243,6 +245,21 @@ function hasSkillFiles(cand) {
   } catch { return false; }
 }
 
+function _isDetectedSkillEntry(entry, skillsDir) {
+  const entryPath = path.join(skillsDir, entry);
+  try {
+    if (!fs.existsSync(entryPath)) return false;
+    const st = fs.statSync(entryPath);
+    if (st.isDirectory()) {
+      const skillMd = path.join(entryPath, 'SKILL.md');
+      return fs.existsSync(skillMd) && fs.statSync(skillMd).isFile();
+    }
+    return st.isFile() && entry.endsWith('-skill.md');
+  } catch {
+    return false;
+  }
+}
+
 function autoDetectSkills(skillsDir) {
   const { isEmbeddedReference, isCanonicalSkill } = require('./canonical_skills');
   const detected = [];
@@ -263,25 +280,13 @@ function autoDetectSkills(skillsDir) {
 
   for (const entry of entries) {
     if (isEmbeddedReference(entry) && !isCanonicalSkill(entry)) continue;
-    const entryPath = path.join(skillsDir, entry);
-    try {
-      if (!fs.existsSync(entryPath)) continue;
-      const st = fs.statSync(entryPath);
-      if (st.isDirectory()) {
-        const skillMd = path.join(entryPath, 'SKILL.md');
-        if (fs.existsSync(skillMd) && fs.statSync(skillMd).isFile()) {
-          detected.push(entry);
-        }
-      } else if (st.isFile() && entry.endsWith('-skill.md')) {
-        detected.push(entry);
-      }
-    } catch {
-      continue;
+    if (_isDetectedSkillEntry(entry, skillsDir)) {
+      detected.push(entry);
     }
   }
+
   return detected;
 }
-
 function parseCliArgs(args) {
   if (args.includes('--help') || args.includes('-h')) {
     return null;

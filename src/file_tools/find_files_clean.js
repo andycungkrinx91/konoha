@@ -50,12 +50,11 @@ function findFilesClean(args = {}) {
   for (const filePath of common.walkFiles(rootDir)) {
     const rel = path.relative(rootDir, filePath).replace(/\\/g, '/');
     const name = path.basename(filePath);
-    if (matchGlob(name, pattern) || matchGlob(rel, pattern)) {
-      results.push(rel);
-      if (results.length >= limit) {
-        truncated = true;
-        break;
-      }
+    if (!matchGlob(name, pattern) && !matchGlob(rel, pattern)) continue;
+    results.push(rel);
+    if (results.length >= limit) {
+      truncated = true;
+      break;
     }
   }
 

@@ -15,26 +15,27 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const TARGET_DIRS = ['bin', 'src', 'tests', 'scripts'];
 const CONFLICT_MARKER_REGEX = /^(<{7}|={7}|>{7})(?:\s.*)?$/m;
 
+function shouldSkipDir(name) {
+  return name === 'node_modules' || name === '.git' || name.startsWith('.');
+}
+
+function walkJsFiles(current, results) {
+  const entries = fs.readdirSync(current, { withFileTypes: true });
+  for (const entry of entries) {
+    const entryPath = path.join(current, entry.name);
+    if (entry.isDirectory()) {
+      if (!shouldSkipDir(entry.name)) walkJsFiles(entryPath, results);
+    } else if (entry.isFile() && entry.name.endsWith('.js')) {
+      results.push(entryPath);
+    }
+  }
+}
+
 function collectJsFiles(dir) {
   const fullPath = path.join(ROOT_DIR, dir);
   if (!fs.existsSync(fullPath)) return [];
   const results = [];
-
-  function walk(current) {
-    const entries = fs.readdirSync(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const entryPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name !== 'node_modules' && entry.name !== '.git' && !entry.name.startsWith('.')) {
-          walk(entryPath);
-        }
-      } else if (entry.isFile() && entry.name.endsWith('.js')) {
-        results.push(entryPath);
-      }
-    }
-  }
-
-  walk(fullPath);
+  walkJsFiles(fullPath, results);
   return results;
 }
 

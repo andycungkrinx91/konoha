@@ -273,6 +273,33 @@ const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
 
 let _dynamicEmbeddedRefsCache = null;
 
+function _scanReferenceDir(dir, set) {
+  try {
+    const sub = fs.readdirSync(dir, { withFileTypes: true });
+    for (const item of sub) {
+      if (item.isDirectory()) {
+        _scanReferenceDir(path.join(dir, item.name), set);
+      } else if (item.isFile() && item.name.endsWith('.md')) {
+        set.add(item.name.slice(0, -3));
+      }
+    }
+  } catch (_) { /* best-effort */ }
+}
+
+function _scanCanonicalRoot(root, set) {
+  if (!fs.existsSync(root)) return;
+  try {
+    const entries = fs.readdirSync(root, { withFileTypes: true });
+    for (const e of entries) {
+      if (!e.isDirectory() || !CANONICAL_SKILL_NAMES.has(e.name)) continue;
+      const refDir = path.join(root, e.name, 'references');
+      if (fs.existsSync(refDir)) {
+        _scanReferenceDir(refDir, set);
+      }
+    }
+  } catch (_) { /* best-effort */ }
+}
+
 /**
  * Returns the set of all embedded reference names.
  * Dynamically scans known canonical directories and combines with the explicit registry.
@@ -284,36 +311,13 @@ function getEmbeddedReferenceSkills(searchRoots = []) {
 
   const set = new Set(KNOWN_EMBEDDED_REFERENCE_SKILLS);
   const roots = [
+    path.resolve(__dirname, 'templates', 'skills'),
     path.resolve(__dirname, '..', '.agents', 'skills'),
-    path.resolve(__dirname, '..', 'src', 'templates', 'skills'),
     ...(Array.isArray(searchRoots) ? searchRoots : [searchRoots])
   ].filter(Boolean);
 
   for (const root of roots) {
-    if (!fs.existsSync(root)) continue;
-    try {
-      const entries = fs.readdirSync(root, { withFileTypes: true });
-      for (const e of entries) {
-        if (!e.isDirectory() || !CANONICAL_SKILL_NAMES.has(e.name)) continue;
-        const refDir = path.join(root, e.name, 'references');
-        if (!fs.existsSync(refDir)) continue;
-
-        const scanRefs = (dir) => {
-          try {
-            const sub = fs.readdirSync(dir, { withFileTypes: true });
-            for (const item of sub) {
-              if (item.isDirectory()) {
-                scanRefs(path.join(dir, item.name));
-              } else if (item.isFile() && item.name.endsWith('.md')) {
-                const base = item.name.slice(0, -3);
-                set.add(base);
-              }
-            }
-          } catch (_) { /* best-effort */ }
-        };
-        scanRefs(refDir);
-      }
-    } catch (_) { /* best-effort */ }
+    _scanCanonicalRoot(root, set);
   }
 
   if (!searchRoots || searchRoots.length === 0) {
@@ -342,6 +346,33 @@ function isCanonicalSkill(skillName) {
   return CANONICAL_SKILL_NAMES.has(clean);
 }
 
+function _pruneSingleEntry(e, targetDir, embeddedSet) {
+  if (e.name.startsWith('.') || e.name.endsWith('.fingerprint')) return null;
+  if (CANONICAL_SKILL_NAMES.has(e.name)) return null;
+
+  const fullPath = path.join(targetDir, e.name);
+
+  // Clean up broken symlinks pointing to non-existent targets
+  if (e.isSymbolicLink()) {
+    try {
+      if (!fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        return e.name;
+      }
+    } catch (_) { /* best-effort */ }
+  }
+
+  // If this directory/file name is in the embedded reference set, it was consolidated
+  // into a ninja skill and MUST NOT exist as a standalone top-level folder.
+  if (embeddedSet.has(e.name)) {
+    try {
+      fs.rmSync(fullPath, { recursive: true, force: true });
+      return e.name;
+    } catch (_) { /* best-effort */ }
+  }
+  return null;
+}
+
 /**
  * Prune any directory from targetDir that is an embedded reference
  * (or stale non-canonical skill that has been consolidated into ninja references).
@@ -356,30 +387,8 @@ function pruneObsoleteStandaloneSkills(targetDir, _options = {}) {
   try {
     const entries = fs.readdirSync(targetDir, { withFileTypes: true });
     for (const e of entries) {
-      if (e.name.startsWith('.') || e.name.endsWith('.fingerprint')) continue;
-      if (CANONICAL_SKILL_NAMES.has(e.name)) continue;
-
-      const fullPath = path.join(targetDir, e.name);
-
-      // Clean up broken symlinks pointing to non-existent targets
-      if (e.isSymbolicLink()) {
-        try {
-          if (!fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-            removed.push(e.name);
-            continue;
-          }
-        } catch (_) { /* best-effort */ }
-      }
-
-      // If this directory/file name is in the embedded reference set, it was consolidated
-      // into a ninja skill and MUST NOT exist as a standalone top-level folder.
-      if (embeddedSet.has(e.name)) {
-        try {
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          removed.push(e.name);
-        } catch (_) { /* best-effort */ }
-      }
+      const prunedName = _pruneSingleEntry(e, targetDir, embeddedSet);
+      if (prunedName) removed.push(prunedName);
     }
   } catch (_) { /* best-effort */ }
 

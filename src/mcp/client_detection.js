@@ -31,37 +31,38 @@ function getDb() {
   return db.getConnection();
 }
 
+function matchesPattern(pattern, entry) {
+  if (pattern.endsWith('*.jsonl') && entry.endsWith('.jsonl')) return true;
+  if (pattern.endsWith('*.json') && entry.endsWith('.json')) return true;
+  if (pattern.endsWith('prompt.md') && entry === 'prompt.md') return true;
+  return Boolean(pattern.endsWith('transcript.jsonl') && entry === 'transcript.jsonl');
+}
+
+function walkEntry(full, entry, pattern, results) {
+  try {
+    const st = fs.statSync(full);
+    if (st.isDirectory()) walkDir(full, pattern, results);
+    else if (st.isFile() && matchesPattern(pattern, entry)) results.push(full);
+  } catch (_) { /* ignore */ }
+}
+
+function walkDir(dir, pattern, results) {
+  let entries = [];
+  try { entries = fs.readdirSync(dir); } catch (_) { return; }
+  for (const entry of entries) {
+    walkEntry(path.join(dir, entry), entry, pattern, results);
+  }
+}
+
 function globSync(pattern) {
-  // Minimal glob implementation for common transcript paths
-  const results = [];
   const parts = pattern.split('*');
   if (parts.length === 1) {
-    if (fs.existsSync(pattern)) results.push(pattern);
-    return results;
+    return fs.existsSync(pattern) ? [pattern] : [];
   }
-  // Standard recursive search for directory + extension pattern
   const baseDir = parts[0];
   if (!fs.existsSync(baseDir)) return [];
-  function walk(dir) {
-    try {
-      const entries = fs.readdirSync(dir);
-      for (const entry of entries) {
-        const full = path.join(dir, entry);
-        try {
-          const st = fs.statSync(full);
-          if (st.isDirectory()) {
-            walk(full);
-          } else if (st.isFile()) {
-            if (pattern.endsWith('*.jsonl') && entry.endsWith('.jsonl')) results.push(full);
-            else if (pattern.endsWith('*.json') && entry.endsWith('.json')) results.push(full);
-            else if (pattern.endsWith('prompt.md') && entry === 'prompt.md') results.push(full);
-            else if (pattern.endsWith('transcript.jsonl') && entry === 'transcript.jsonl') results.push(full);
-          }
-        } catch (_) { /* ignore */ }
-      }
-    } catch (_) { /* ignore */ }
-  }
-  walk(baseDir);
+  const results = [];
+  walkDir(baseDir, pattern, results);
   return results;
 }
 
@@ -112,6 +113,219 @@ function detectActiveClient() {
   }
 }
 
+function _collectBrainFiles(client, convId) {
+  const brainDirs = [];
+  if (convId) {
+    brainDirs.push(path.join(ANTIGRAVITY_IDE_BRAIN, convId));
+    brainDirs.push(path.join(ANTIGRAVITY_CLI_BRAIN, convId));
+  }
+  if (client === 'claudecode') brainDirs.push(CLAUDE_PROJECTS);
+  else if (client === 'cursor') brainDirs.push(CURSOR_PROJECTS);
+  else {
+    if (!brainDirs.includes(CURSOR_PROJECTS)) brainDirs.push(CURSOR_PROJECTS);
+    if (!brainDirs.includes(CLAUDE_PROJECTS)) brainDirs.push(CLAUDE_PROJECTS);
+    if (!brainDirs.includes(ANTIGRAVITY_IDE_BRAIN)) brainDirs.push(ANTIGRAVITY_IDE_BRAIN);
+    if (!brainDirs.includes(ANTIGRAVITY_CLI_BRAIN)) brainDirs.push(ANTIGRAVITY_CLI_BRAIN);
+  }
+
+  const allFiles = [];
+  for (const bDir of brainDirs) {
+    if (!fs.existsSync(bDir)) continue;
+    if (bDir.includes('cursor') || bDir.includes('claude')) {
+      allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
+    } else if (convId && (bDir.includes('antigravity-ide') || bDir.includes('antigravity-cli'))) {
+      const p1 = path.join(bDir, 'prompt.md');
+      const p2 = path.join(bDir, '.system_generated', 'logs', 'transcript.jsonl');
+      if (fs.existsSync(p1)) allFiles.push(p1);
+      if (fs.existsSync(p2)) allFiles.push(p2);
+    } else {
+      allFiles.push(...globSync(path.join(bDir, 'prompt.md')));
+      allFiles.push(...globSync(path.join(bDir, 'transcript.jsonl')));
+    }
+  }
+
+  const existingFiles = allFiles.filter(f => fs.existsSync(f));
+  existingFiles.sort((a, b) => {
+    try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch (_) { return 0; }
+  });
+  return existingFiles;
+}
+
+function _parsePromptContentForAgent(promptContent) {
+  const lower = promptContent.toLowerCase();
+  if (lower.includes('[konoha] orchestrator active') || lower.includes('[konoha] active') || lower.includes('orchestrator active')) {
+    return 'orchestrator';
+  }
+  const match = promptContent.match(/\[([^\]]+)\]\s+active/);
+  if (match) {
+    const parts = match[1].trim().split(/\s+/);
+    const name = parts[parts.length - 1].toLowerCase();
+    if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) return name;
+    if (['antigravity', 'orchestrator'].includes(name)) return 'orchestrator';
+  }
+  for (const candidate of ['anbu', 'genin', 'chunin', 'tokubetsu-jonin', 'jonin', 'kage']) {
+    if (new RegExp(`\\b${candidate}\\b`, 'i').test(promptContent)) {
+      if (new RegExp(`you\\s+are\\s+(?:the|a)\\s+${candidate}\\s+(?:agent|subagent|scout|builder|intel|scribe|leader)`, 'i').test(promptContent)) {
+        return candidate;
+      }
+      if (new RegExp(`Log:\\s*"\\[.*${candidate}.*\\]\\s*active"`, 'i').test(promptContent)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function _detectFromPromptFile(convDir) {
+  const promptPath = path.join(convDir, 'prompt.md');
+  if (!fs.existsSync(promptPath)) return null;
+  try {
+    return _parsePromptContentForAgent(fs.readFileSync(promptPath, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function extractContentFromBlocks(blocks) {
+  let text = '';
+  for (const block of blocks) {
+    if (block?.type === 'text') text += ' ' + (block.text || '');
+    else if (block?.type === 'tool_use' && block.name === 'Task' && block.input?.subagent_type) {
+      return { subagentType: block.input.subagent_type, text: '' };
+    }
+  }
+  return { subagentType: null, text };
+}
+
+function _parseTranscriptLine(line) {
+  try {
+    const data = JSON.parse(line);
+    let content = data?.content || '';
+    if (data?.message?.content && Array.isArray(data.message.content)) {
+      const extracted = extractContentFromBlocks(data.message.content);
+      if (extracted.subagentType) return extracted.subagentType;
+      content = extracted.text;
+    }
+    if (!content) return null;
+
+    const lower = content.toLowerCase();
+    if (lower.includes('[konoha] orchestrator active') || lower.includes('[konoha] active') || lower.includes('orchestrator active')) {
+      return 'orchestrator';
+    }
+    const match = content.match(/\[([^\]]+)\]\s+active/);
+    if (match) {
+      const parts = match[1].trim().split(/\s+/);
+      const name = parts[parts.length - 1].toLowerCase().replace(/_/g, '-');
+      if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) return name;
+      if (['antigravity', 'orchestrator'].includes(name)) return 'orchestrator';
+    }
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
+function _detectFromTranscriptFile(fpath, convDir) {
+  const isDirectTranscript = (fpath.includes('agent-transcripts') || fpath.includes('claude')) && fpath.endsWith('.jsonl');
+  const transcriptPath = isDirectTranscript ? fpath : path.join(convDir, '.system_generated', 'logs', 'transcript.jsonl');
+  if (!fs.existsSync(transcriptPath)) return null;
+
+  try {
+    const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const detected = _parseTranscriptLine(lines[i]);
+      if (detected) return detected;
+    }
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
+function resolveSessionIdForPath(fpath, convId) {
+  if (convId) return convId;
+  const parts = path.normalize(fpath).split(path.sep);
+  const idx = parts.indexOf('agent-transcripts');
+  if (idx !== -1 && idx + 1 < parts.length) return parts[idx + 1];
+  if (parts.includes('claude')) return path.parse(fpath).name;
+  return null;
+}
+
+function computeAndSaveProjectHash(wsRoot) {
+  if (!wsRoot || wsRoot === 'unknown' || !fs.existsSync(wsRoot)) return '';
+  try {
+    const personaMemory = require('../persona_memory');
+    const pHash = personaMemory.computeProjectHash(wsRoot) || '';
+    personaMemory.saveOrUpdateProject(wsRoot);
+    return pHash;
+  } catch (_) {
+    return '';
+  }
+}
+
+function _saveActiveSession(fpath, convId) {
+  const sessId = resolveSessionIdForPath(fpath, convId);
+  if (!sessId) return;
+
+  let conn = null;
+  try {
+    conn = getDb();
+    conn.prepare(`
+      CREATE TABLE IF NOT EXISTS active_sessions (
+        client TEXT NOT NULL, workspace_root TEXT NOT NULL, session_id TEXT NOT NULL,
+        project_hash TEXT, transcript_path TEXT, last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (client, workspace_root, session_id)
+      )
+    `).run();
+
+    const actClient = getActiveClient() || 'unknown';
+    const wsRoot = getWorkspaceRoot() || 'unknown';
+    const pHash = computeAndSaveProjectHash(wsRoot);
+
+    conn.prepare(`
+      INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+        last_active_at = excluded.last_active_at,
+        project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash),
+        transcript_path = COALESCE(excluded.transcript_path, active_sessions.transcript_path)
+    `).run(actClient, wsRoot, sessId, pHash, fpath);
+  } catch (err) {
+    process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) { /* best-effort */ }
+    }
+  }
+}
+
+function _detectFromSessionDb() {
+  if (!getWorkspaceRoot()) return null;
+  let conn = null;
+  try {
+    conn = getDb();
+    const row = conn.prepare(`
+      SELECT session_id, transcript_path FROM active_sessions WHERE client = ? AND workspace_root = ?
+    `).get(getActiveClient() || 'unknown', getWorkspaceRoot());
+    if (row?.transcript_path && fs.existsSync(row.transcript_path)) {
+      const lines = fs.readFileSync(row.transcript_path, 'utf8').split(/\r?\n/).filter(Boolean);
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const detected = _parseTranscriptLine(lines[i]);
+        if (detected) return detected;
+      }
+    }
+  } catch (_) { /* ignore */ }
+  finally {
+    if (conn) {
+      try { conn.close(); } catch (_) { /* best-effort */ }
+    }
+  }
+  return null;
+}
+
+function resolveConvDir(fpath) {
+  if (fpath.endsWith('prompt.md')) return path.dirname(fpath);
+  if (fpath.includes('agent-transcripts')) return path.dirname(path.dirname(fpath));
+  if (fpath.includes('claude')) return path.dirname(fpath);
+  return path.dirname(path.dirname(path.dirname(fpath)));
+}
+
 function detectActiveAgent() {
   try {
     const client = detectActiveClient();
@@ -120,258 +334,29 @@ function detectActiveAgent() {
       convId = null;
     }
 
-    const brainDirs = [];
-    if (convId) {
-      brainDirs.push(path.join(ANTIGRAVITY_IDE_BRAIN, convId));
-      brainDirs.push(path.join(ANTIGRAVITY_CLI_BRAIN, convId));
-    }
-
-    if (client === 'claudecode') brainDirs.push(CLAUDE_PROJECTS);
-    else if (client === 'cursor') brainDirs.push(CURSOR_PROJECTS);
-    else {
-      if (!brainDirs.includes(CURSOR_PROJECTS)) brainDirs.push(CURSOR_PROJECTS);
-      if (!brainDirs.includes(CLAUDE_PROJECTS)) brainDirs.push(CLAUDE_PROJECTS);
-      if (!brainDirs.includes(ANTIGRAVITY_IDE_BRAIN)) brainDirs.push(ANTIGRAVITY_IDE_BRAIN);
-      if (!brainDirs.includes(ANTIGRAVITY_CLI_BRAIN)) brainDirs.push(ANTIGRAVITY_CLI_BRAIN);
-    }
-
-    const allFiles = [];
-    for (const bDir of brainDirs) {
-      if (!fs.existsSync(bDir)) continue;
-      if (bDir.includes('cursor')) {
-        allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
-      } else if (bDir.includes('claude')) {
-        allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
-      } else if (convId && (bDir.includes('antigravity-ide') || bDir.includes('antigravity-cli'))) {
-        const p1 = path.join(bDir, 'prompt.md');
-        const p2 = path.join(bDir, '.system_generated', 'logs', 'transcript.jsonl');
-        if (fs.existsSync(p1)) allFiles.push(p1);
-        if (fs.existsSync(p2)) allFiles.push(p2);
-      } else {
-        allFiles.push(...globSync(path.join(bDir, 'prompt.md')));
-        allFiles.push(...globSync(path.join(bDir, 'transcript.jsonl')));
-      }
-    }
-
-    const existingFiles = allFiles.filter(f => fs.existsSync(f));
-    existingFiles.sort((a, b) => {
-      try {
-        return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
-      } catch (_) {
-        return 0;
-      }
-    });
-
-    let detected = null;
+    const existingFiles = _collectBrainFiles(client, convId);
     const visitedDirs = new Set();
-    const fallbackAgent = null;
 
     for (const fpath of existingFiles) {
-      let convDir = '';
-      if (fpath.endsWith('prompt.md')) {
-        convDir = path.dirname(fpath);
-      } else if (fpath.includes('agent-transcripts')) {
-        convDir = path.dirname(path.dirname(fpath));
-      } else if (fpath.includes('claude')) {
-        convDir = path.dirname(fpath);
-      } else {
-        convDir = path.dirname(path.dirname(path.dirname(fpath)));
-      }
-      convDir = path.normalize(convDir);
+      const convDir = path.normalize(resolveConvDir(fpath));
       if (visitedDirs.has(convDir)) continue;
       visitedDirs.add(convDir);
 
-      const promptPath = path.join(convDir, 'prompt.md');
-      if (fs.existsSync(promptPath)) {
-        try {
-          const promptContent = fs.readFileSync(promptPath, 'utf8');
-          const lower = promptContent.toLowerCase();
-          if (lower.includes('[konoha] orchestrator active') || lower.includes('[konoha] active') || lower.includes('orchestrator active')) {
-            detected = 'orchestrator';
-          } else {
-            const match = promptContent.match(/\[([^\]]+)\]\s+active/);
-            if (match) {
-              const parts = match[1].trim().split(/\s+/);
-              const name = parts[parts.length - 1].toLowerCase();
-              if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) {
-                detected = name;
-              } else if (['antigravity', 'orchestrator'].includes(name)) {
-                detected = 'orchestrator';
-              }
-            }
-          }
-          if (!detected) {
-            for (const candidate of ['anbu', 'genin', 'chunin', 'tokubetsu-jonin', 'jonin', 'kage']) {
-              if (new RegExp(`\\b${candidate}\\b`, 'i').test(promptContent)) {
-                if (new RegExp(`you\\s+are\\s+(?:the|a)\\s+${candidate}\\s+(?:agent|subagent|scout|builder|intel|scribe|leader)`, 'i').test(promptContent)) {
-                  detected = candidate;
-                  break;
-                }
-                if (new RegExp(`Log:\\s*"\\[.*${candidate}.*\\]\\s*active"`, 'i').test(promptContent)) {
-                  detected = candidate;
-                  break;
-                }
-              }
-            }
-          }
-        } catch (_) { /* ignore */ }
-      }
-
-      if (!detected) {
-        let transcriptPath = '';
-        if ((fpath.includes('agent-transcripts') || fpath.includes('claude')) && fpath.endsWith('.jsonl')) {
-          transcriptPath = fpath;
-        } else {
-          transcriptPath = path.join(convDir, '.system_generated', 'logs', 'transcript.jsonl');
-        }
-
-        if (fs.existsSync(transcriptPath)) {
-          try {
-            const lines = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
-            for (let i = lines.length - 1; i >= 0; i--) {
-              try {
-                const data = JSON.parse(lines[i]);
-                let content = '';
-                if (data && typeof data === 'object' && data.message && typeof data.message === 'object') {
-                  const contentList = data.message.content;
-                  if (Array.isArray(contentList)) {
-                    for (const block of contentList) {
-                      if (block && typeof block === 'object') {
-                        if (block.type === 'text') content += ' ' + (block.text || '');
-                        else if (block.type === 'tool_use' && block.name === 'Task' && block.input && block.input.subagent_type) {
-                          detected = block.input.subagent_type;
-                          break;
-                        }
-                      }
-                    }
-                    if (detected) break;
-                  }
-                }
-                if (!content && data && typeof data === 'object') {
-                  content = data.content || '';
-                }
-                if (!content) continue;
-
-                const lower = content.toLowerCase();
-                if (lower.includes('[konoha] orchestrator active') || lower.includes('[konoha] active') || lower.includes('orchestrator active')) {
-                  detected = 'orchestrator';
-                  break;
-                }
-
-                const match = content.match(/\[([^\]]+)\]\s+active/);
-                if (match) {
-                  const parts = match[1].trim().split(/\s+/);
-                  let name = parts[parts.length - 1].toLowerCase().replace(/_/g, '-');
-                  if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) {
-                    detected = name;
-                    break;
-                  } else if (['antigravity', 'orchestrator'].includes(name)) {
-                    detected = 'orchestrator';
-                    break;
-                  }
-                }
-              } catch (_) { /* ignore */ }
-            }
-          } catch (_) { /* ignore */ }
-        }
-      }
+      let detected = _detectFromPromptFile(convDir);
+      if (!detected) detected = _detectFromTranscriptFile(fpath, convDir);
 
       if (detected) {
-        let conn = null;
-        try {
-          conn = getDb();
-          conn.prepare(`
-            CREATE TABLE IF NOT EXISTS active_sessions (
-              client TEXT NOT NULL,
-              workspace_root TEXT NOT NULL,
-              session_id TEXT NOT NULL,
-              project_hash TEXT,
-              transcript_path TEXT,
-              last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              PRIMARY KEY (client, workspace_root, session_id)
-            )
-          `).run();
-
-          let sessId = convId;
-          if (!sessId) {
-            const parts = path.normalize(fpath).split(path.sep);
-            const idx = parts.indexOf('agent-transcripts');
-            if (idx !== -1 && idx + 1 < parts.length) {
-              sessId = parts[idx + 1];
-            } else if (parts.includes('claude')) {
-              sessId = path.parse(fpath).name;
-            }
-          }
-          if (sessId) {
-            const actClient = getActiveClient() || 'unknown';
-            const wsRoot = getWorkspaceRoot() || 'unknown';
-            let pHash = '';
-            if (wsRoot && wsRoot !== 'unknown' && fs.existsSync(wsRoot)) {
-              try {
-                const personaMemory = require('../persona_memory');
-                pHash = personaMemory.computeProjectHash(wsRoot) || '';
-                personaMemory.saveOrUpdateProject(wsRoot);
-              } catch (_) { /* non-fatal best effort */ }
-            }
-            conn.prepare(`
-              INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
-              VALUES (?, ?, ?, ?, ?, datetime('now'))
-              ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
-                last_active_at = excluded.last_active_at,
-                project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash),
-                transcript_path = COALESCE(excluded.transcript_path, active_sessions.transcript_path)
-            `).run(actClient, wsRoot, sessId, pHash, fpath);
-          }
-        } catch (err) {
-          process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);
-        } finally {
-          if (conn) {
-            try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-          }
-        }
+        _saveActiveSession(fpath, convId);
         return detected;
       }
-
       if (visitedDirs.size >= 15) break;
     }
 
-    if (getWorkspaceRoot()) {
-      let conn = null;
-      try {
-        conn = getDb();
-        const row = conn.prepare(`
-          SELECT session_id, transcript_path FROM active_sessions
-          WHERE client = ? AND workspace_root = ?
-        `).get(getActiveClient() || 'unknown', getWorkspaceRoot());
-        if (row && row.transcript_path && fs.existsSync(row.transcript_path)) {
-          const lines = fs.readFileSync(row.transcript_path, 'utf8').split(/\r?\n/).filter(Boolean);
-          for (let i = lines.length - 1; i >= 0; i--) {
-            try {
-              const data = JSON.parse(lines[i]);
-              let content = data.content || '';
-              if (data.message && Array.isArray(data.message.content)) {
-                content = data.message.content.map(b => b.text || '').join(' ');
-              }
-              const match = content.match(/\[([^\]]+)\]\s+active/);
-              if (match) {
-                const parts = match[1].trim().split(/\s+/);
-                const name = parts[parts.length - 1].toLowerCase().replace(/_/g, '-');
-                if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) {
-                  return name;
-                }
-              }
-            } catch (_) { /* ignore */ }
-          }
-        }
-      } catch (_) { /* ignore */ } finally {
-        if (conn) {
-          try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        }
-      }
-    }
+    const dbDetected = _detectFromSessionDb();
+    if (dbDetected) return dbDetected;
 
-    process.stderr.write(`[mcp konoha] detect_active_agent: no agent detected, returning ${fallbackAgent}\n`);
-    return fallbackAgent;
+    process.stderr.write(`[mcp konoha] detect_active_agent: no agent detected, returning null\n`);
+    return null;
   } catch (e) {
     process.stderr.write(`[mcp konoha] detect_active_agent: fatal error: ${e.message}\n`);
     return null;

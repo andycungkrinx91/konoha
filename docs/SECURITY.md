@@ -23,17 +23,10 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 3. Remote Ingress & Cloudflare Zero Trust Verification
+## 3. Remote Ingress Architecture & Local Authentication
 
-### 3.1 Cryptographic JWT RS256 Verification
-- Incoming requests over named Cloudflare tunnels presenting `Cf-Access-Jwt-Assertion` are cryptographically verified using `RS256` against Cloudflare Access JWKS (`https://${authDomain}/cdn-cgi/access/certs`, cached 10 minutes).
-- **Mandatory Configuration**: Requires `auth_domain` (e.g. `<team>.cloudflareaccess.com`) and optional `aud` (Application Audience Tag). If `auth_domain` is missing, requests are rejected with `requiresPin: true`.
-- **Zero Trust Expiration & Claims**: Validates token expiration (`exp`) and audience tag (`aud`).
-- **Complete Removal of Email Fallback**: The insecure fallback trusting `Cf-Access-Authenticated-User-Email` without cryptographic proof was permanently eliminated.
-- **Quick Tunnel Rejection**: Cloudflare Zero Trust headers on ephemeral `.trycloudflare.com` URLs are rejected by invariant.
-
-### 3.2 Standalone Access PIN Fallback
-- Remote connections without Cloudflare Access must present a timing-safe verified PIN via `Authorization: Bearer <pin>`, `X-Konoha-Pin: <pin>`, or cookie `konoha_pin`. Query string parameters (`?pin=`) are strictly rejected.
+- **Local Loopback & Stdio Exclusivity**: Public tunnel subsystems (Cloudflare Tunnel, ngrok) are permanently eradicated from the Konoha runtime. All ingress routes exclusively over local stdio MCP processes and the authenticated local Web console on `127.0.0.1:1404`.
+- **Argon2id Session Authentication**: Web UI access enforces Argon2id password hashing, session tokens, and strict cookie flags (`HttpOnly`, `SameSite: Lax`). All unauthenticated endpoints reject access without leaking tokens.
 
 ---
 

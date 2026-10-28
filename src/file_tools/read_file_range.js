@@ -11,45 +11,72 @@ const MAX_SPAN = 250;
 const MAX_LINE_CHARS = 1000;
 const DEFAULT_BYTE_BUDGET = 262144; // 256KB covers full spans with rich context
 
-function readFileRange(args = {}) {
-  const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
-  const filePath = common.resolvePath(rawPath, args.workspace, args.dev_root);
-
-  let startVal = args.start_line !== undefined ? args.start_line : (
-    args.StartLine !== undefined ? args.StartLine : (
-      args.start !== undefined ? args.start : (
-        args.line_start !== undefined ? args.line_start : (
-          args.from !== undefined ? args.from : (
-            args.offset !== undefined ? args.offset : (
-              args.line !== undefined ? args.line : undefined
-            )
-          )
-        )
-      )
-    )
-  );
-
-  let endVal = args.end_line !== undefined ? args.end_line : (
-    args.EndLine !== undefined ? args.EndLine : (
-      args.end !== undefined ? args.end : (
-        args.line_end !== undefined ? args.line_end : (
-          args.to !== undefined ? args.to : (
-            args.limit !== undefined && startVal !== undefined ? (Number(startVal) + Number(args.limit) - 1) : (
-              args.lines !== undefined && startVal !== undefined ? (Number(startVal) + Number(args.lines) - 1) : undefined
-            )
-          )
-        )
-      )
-    )
-  );
-
+function _resolveLineBounds(args) {
+  let startVal = args.start_line ?? args.StartLine ?? args.start ?? args.line_start ?? args.from ?? args.offset ?? args.line;
+  let endVal = args.end_line ?? args.EndLine ?? args.end ?? args.line_end ?? args.to;
+  if (endVal === undefined && startVal !== undefined) {
+    if (args.limit !== undefined) endVal = Number(startVal) + Number(args.limit) - 1;
+    else if (args.lines !== undefined) endVal = Number(startVal) + Number(args.lines) - 1;
+  }
   if (Array.isArray(args.range) && args.range.length >= 2) {
     if (startVal === undefined) startVal = args.range[0];
     if (endVal === undefined) endVal = args.range[1];
   }
-
   const startLine = parseInt(startVal !== undefined ? startVal : 1, 10);
   const endLineInput = parseInt(endVal !== undefined ? endVal : startLine, 10);
+  return { startLine, endLineInput };
+}
+
+function _formatReadLine(buf, lineStart, rawLineEnd, currentLine) {
+  let lineEnd = rawLineEnd;
+  if (lineEnd > lineStart && buf[lineEnd - 1] === 0x0D) lineEnd--;
+  let lineStr = buf.toString('utf8', lineStart, lineEnd);
+  if (lineStr.length > MAX_LINE_CHARS) {
+    lineStr = lineStr.substring(0, MAX_LINE_CHARS) + `... [line truncated from ${lineStr.length} chars]`;
+  }
+  return `${String(currentLine).padStart(6, ' ')}|${lineStr}`;
+}
+
+function _collectFileRangeLines(buf, startLine, targetEndLine, byteBudget) {
+  const bufLen = buf.length;
+  let currentLine = 1;
+  let lineStart = 0;
+  const linesOut = [];
+  let bytesCount = 0;
+  let actualEndLine = startLine - 1;
+
+  for (let i = 0; i < bufLen; i++) {
+    if (buf[i] !== 0x0A) continue;
+    if (currentLine >= startLine && currentLine <= targetEndLine) {
+      const formatted = _formatReadLine(buf, lineStart, i, currentLine);
+      const lineBytes = Buffer.byteLength(formatted, 'utf8') + 1;
+      if (linesOut.length > 0 && bytesCount + lineBytes > byteBudget) break;
+      bytesCount += lineBytes;
+      linesOut.push(formatted);
+      actualEndLine = currentLine;
+    }
+    currentLine++;
+    lineStart = i + 1;
+  }
+
+  if (lineStart < bufLen && currentLine >= startLine && currentLine <= targetEndLine) {
+    const formatted = _formatReadLine(buf, lineStart, bufLen, currentLine);
+    const lineBytes = Buffer.byteLength(formatted, 'utf8') + 1;
+    if (linesOut.length === 0 || bytesCount + lineBytes <= byteBudget) {
+      linesOut.push(formatted);
+      actualEndLine = currentLine;
+    }
+  }
+
+  const totalLines = (bufLen === 0) ? 0 : (buf[bufLen - 1] === 0x0A ? currentLine - 1 : currentLine);
+  return { linesOut, actualEndLine, totalLines };
+}
+
+function readFileRange(args = {}) {
+  const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
+  const filePath = common.resolvePath(rawPath, args.workspace, args.dev_root);
+
+  const { startLine, endLineInput } = _resolveLineBounds(args);
   const byteBudget = parseInt(args.byte_budget || args.max_bytes || DEFAULT_BYTE_BUDGET, 10);
 
   if (isNaN(startLine) || isNaN(endLineInput) || startLine < 1 || endLineInput < 1) {
@@ -80,61 +107,7 @@ function readFileRange(args = {}) {
   const targetEndLine = isAutoClamped ? (startLine + DEFAULT_CHUNK_SIZE - 1) : endLineInput;
 
   const buf = fs.readFileSync(filePath);
-  const bufLen = buf.length;
-
-  let currentLine = 1;
-  let lineStart = 0;
-  const linesOut = [];
-  let bytesCount = 0;
-  let actualEndLine = startLine - 1;
-
-  for (let i = 0; i < bufLen; i++) {
-    if (buf[i] === 0x0A) { // \n
-      if (currentLine >= startLine && currentLine <= targetEndLine) {
-        let lineEnd = i;
-        if (lineEnd > lineStart && buf[lineEnd - 1] === 0x0D) { // \r
-          lineEnd--;
-        }
-        let lineStr = buf.toString('utf8', lineStart, lineEnd);
-        if (lineStr.length > MAX_LINE_CHARS) {
-          lineStr = lineStr.substring(0, MAX_LINE_CHARS) + `... [line truncated from ${lineStr.length} chars]`;
-        }
-        const formatted = `${String(currentLine).padStart(6, ' ')}|${lineStr}`;
-        const lineBytes = Buffer.byteLength(formatted, 'utf8') + 1;
-        if (linesOut.length > 0 && bytesCount + lineBytes > byteBudget) {
-          break;
-        }
-        bytesCount += lineBytes;
-        linesOut.push(formatted);
-        actualEndLine = currentLine;
-      }
-      currentLine++;
-      lineStart = i + 1;
-    }
-  }
-
-  // Handle trailing content if file does not end in \n
-  if (lineStart < bufLen) {
-    if (currentLine >= startLine && currentLine <= targetEndLine) {
-      let lineEnd = bufLen;
-      if (lineEnd > lineStart && buf[lineEnd - 1] === 0x0D) {
-        lineEnd--;
-      }
-      let lineStr = buf.toString('utf8', lineStart, lineEnd);
-      if (lineStr.length > MAX_LINE_CHARS) {
-        lineStr = lineStr.substring(0, MAX_LINE_CHARS) + `... [line truncated from ${lineStr.length} chars]`;
-      }
-      const formatted = `${String(currentLine).padStart(6, ' ')}|${lineStr}`;
-      const lineBytes = Buffer.byteLength(formatted, 'utf8') + 1;
-      if (linesOut.length === 0 || bytesCount + lineBytes <= byteBudget) {
-        bytesCount += lineBytes;
-        linesOut.push(formatted);
-        actualEndLine = currentLine;
-      }
-    }
-  }
-
-  const totalLines = (bufLen === 0) ? 0 : (buf[bufLen - 1] === 0x0A ? currentLine - 1 : currentLine);
+  let { linesOut, actualEndLine, totalLines } = _collectFileRangeLines(buf, startLine, targetEndLine, byteBudget);
 
   if (linesOut.length === 0 && startLine <= totalLines) {
     actualEndLine = startLine;

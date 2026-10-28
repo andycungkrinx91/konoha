@@ -30,6 +30,24 @@ function extractToolCall(payload) {
   return { name: tc.name, args };
 }
 
+function _checkRunCommandViolation(rawArgs) {
+  const cmdLine = rawArgs.CommandLine || rawArgs.command || rawArgs.commandLine || '';
+  const cmdStr = typeof cmdLine === 'string' ? cmdLine.trim() : '';
+  if (!cmdStr) return null;
+  if (checkCommandGuardrails) {
+    return checkCommandGuardrails(cmdStr);
+  }
+  const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, '');
+  const FORBIDDEN_SHELL_CMDS = ['cat', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'find', 'fd', 'ag', 'ack', 'less', 'more', 'bat', 'wc', 'zcat'];
+  if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
+    return {
+      category: 'read-bypass',
+      reason: `Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'semble' MCP (search, find_related) for code search instead of shell commands. Prefix safe read/search commands with 'rtk' to run them anyway.`
+    };
+  }
+  return null;
+}
+
 async function main() {
   try {
     const payload = await readStdinJson();
@@ -68,25 +86,8 @@ async function main() {
       return;
     }
 
-    // DENY 3: Enforce the shared guardrail policy on run_command shell calls
-    // (MCP read-bypass, destructive commands, git safety, secret protection).
     if (name === 'run_command') {
-      const cmdLine = rawArgs.CommandLine || rawArgs.command || rawArgs.commandLine || '';
-      const cmdStr = typeof cmdLine === 'string' ? cmdLine.trim() : '';
-      let violation = null;
-      if (cmdStr && checkCommandGuardrails) {
-        violation = checkCommandGuardrails(cmdStr);
-      } else if (cmdStr) {
-        // Legacy fallback (guardrails.js missing): first-word read-bypass check
-        const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, ''); // basename
-        const FORBIDDEN_SHELL_CMDS = ['cat', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'find', 'fd', 'ag', 'ack', 'less', 'more', 'bat', 'wc', 'zcat'];
-        if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
-          violation = {
-            category: 'read-bypass',
-            reason: `Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'semble' MCP (search, find_related) for code search instead of shell commands. Prefix safe read/search commands with 'rtk' to run them anyway.`
-          };
-        }
-      }
+      const violation = _checkRunCommandViolation(rawArgs);
       if (violation) {
         respond({
           decision: 'deny',

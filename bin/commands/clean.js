@@ -28,6 +28,15 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
+function printPurgedArtifacts(details) {
+  if (!details || details.length === 0) return;
+  log(`\n${C.dim}Purged artifacts:${C.reset}`);
+  details.slice(0, 20).forEach(d => log(`  ${C.dim}- ${d}${C.reset}`));
+  if (details.length > 20) {
+    log(`  ${C.dim}...and ${details.length - 20} more files.${C.reset}`);
+  }
+}
+
 async function cmdClean(args = []) {
   if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
     cmdCleanHelp();
@@ -43,19 +52,20 @@ async function cmdClean(args = []) {
     const mb = (cleanResult.reclaimedBytes / (1024 * 1024)).toFixed(2);
     if (cleanResult.purgedFiles > 0) {
       spinner.success(`Cleaned ${cleanResult.purgedFiles} stale files (${mb} MB reclaimed) from ~/.konoha/`);
-      if (cleanResult.details && cleanResult.details.length > 0) {
-        log(`\n${C.dim}Purged artifacts:${C.reset}`);
-        cleanResult.details.slice(0, 20).forEach(d => log(`  ${C.dim}- ${d}${C.reset}`));
-        if (cleanResult.details.length > 20) {
-          log(`  ${C.dim}...and ${cleanResult.details.length - 20} more files.${C.reset}`);
-        }
-      }
+      printPurgedArtifacts(cleanResult.details);
     } else {
       spinner.success('~/.konoha/ runtime is already clean.');
     }
     if (cleanResult.errors && cleanResult.errors.length > 0) {
       cleanResult.errors.forEach(e => warn(`Cleanup notice: ${e}`));
     }
+    try {
+      const wsResult = deployUtils.pruneWorkspacePollution(process.cwd());
+      if (wsResult.removed.length > 0) {
+        log(`\n${C.dim}Cleaned ${wsResult.removed.length} workspace client/skill pollution item(s):${C.reset}`);
+        wsResult.removed.slice(0, 10).forEach(p => log(`  ${C.dim}- ${p}${C.reset}`));
+      }
+    } catch (_) { /* best-effort */ }
   } catch (err) {
     spinner.error(`Failed to clean ~/.konoha/: ${err.message}`);
   }

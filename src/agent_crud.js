@@ -17,17 +17,21 @@ const CANONICAL_OFFICIAL_NINJAS = [
   'akatsuki'
 ];
 
+function _loadDefaultAgentNames() {
+  if (!fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) return [];
+  try {
+    const defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
+    if (!Array.isArray(defaults)) return [];
+    return defaults.filter(a => a && a.name).map(a => a.name.toLowerCase());
+  } catch (_) {
+    return [];
+  }
+}
+
 function getOfficialAgentNames() {
   const names = new Set(CANONICAL_OFFICIAL_NINJAS);
-  if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
-    try {
-      const defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
-      if (Array.isArray(defaults)) {
-        defaults.forEach((a) => {
-          if (a && a.name) names.add(a.name.toLowerCase());
-        });
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
+  for (const name of _loadDefaultAgentNames()) {
+    names.add(name);
   }
   return Array.from(names);
 }

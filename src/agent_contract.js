@@ -40,9 +40,16 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 7 (Security, Hardening & Audit: Akatsuki)
   - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
 - **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
-- **Configurable Two-Stage HITL Gates**:
-  - **Gate 1 (Plan Approval)**: when \`hitl_mode = 'enabled'\` (default/safe), execution blocks after Phase 1 until the user approves the TODO action plan (via laptop IDE or Telegram bot).
-  - **Gate 2 (Delivery Sign-Off)**: when \`hitl_mode = 'enabled'\`, delivery requires human approval in Kage's confidence score and delivery verdict.
+- **Configurable Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
+  - **Gate 1 (Plan Approval)**: when \`hitl_mode = 'enabled'\` (default/safe), execution blocks after Phase 1 until the human operator approves the action plan. When receiving \`pending_plan_approval\`, EVERY client MUST STOP tool chaining and prompt the user interactively with the exact numbered choices:
+    1. Compact and approve
+    2. Reject and Regenerate PLAN (or type 'Input Refine PLAN' with custom refinement guidance)
+    Never proceed without human input. Upon receiving the user's response, submit the choice via \`sannin(task_dir, { choice: <1|2>, refinement: <notes> })\` or \`workflow_gate_choice({ task_dir, choice: <1|2>, refinement: <notes> })\`.
+  - **Gate 2 (Delivery Sign-Off)**: when \`hitl_mode = 'enabled'\`, delivery blocks after Phase 8 until human sign-off. When receiving \`pending_human_signoff\`, EVERY client MUST STOP tool chaining and prompt the user interactively with the exact numbered choices:
+    1. Compact and approve
+    2. Remediation
+    Never conclude delivery without human sign-off. Upon receiving the user's response, submit the choice via \`sannin(task_dir, { choice: <1|2> })\` or \`workflow_gate_choice({ task_dir, choice: <1|2> })\`.
+  - Blanket auto-approvals for tool permissions NEVER auto-advance or bypass Gate 1 or Gate 2.
   - When \`hitl_mode = 'disabled'\` (autonomous mode), gates log advisory checkpoints and proceed hands-free.
 - **RTK Boundary & Anti-cat/Anti-grep Invariant**: file reading is exclusively via \`konoha.read_file_range\` or \`konoha.read_file_head\`; search is via \`semble.search\` or \`konoha.token_efficient_grep\`. Shell reading commands (\`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`, \`fd\`) are strictly blocked (even with \`rtk\`).
 - **Dynamic Polyglot Stack Support**: automatic stack detection across Python (\`uv\`/\`pytest\`/\`ruff\`), Go (\`go test\`/\`golangci-lint\`), Rust (\`cargo test\`/\`clippy\`), PHP (\`pest\`/\`phpstan\`), Java (\`gradlew test\`/\`check\`), and Node/TS (\`pnpm test\`/\`pnpm run lint\`).
@@ -198,6 +205,7 @@ ${roleLabel} on ${clientLabel}. Mandatory every turn.
 - **Konoha is mandatory**: Bounded file tools & skills (\`find_skill\`, \`get_skill\`). No raw cat/grep.
 - **Semble is mandatory**: \`search\`/\`find_related\` with repo path.
 - **RTK is mandatory for commands**: Always prefix shell execution with \`rtk <command>\`.
+- **Interactive HITL Gates**: On Gate 1 (\`pending_plan_approval\`), always prompt user with: 1. Compact and approve, 2. Reject and Regenerate PLAN / Input Refine PLAN. On Gate 2 (\`pending_human_signoff\`), always prompt user with: 1. Compact and approve, 2. Remediation.
 - **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
 - **On-Demand Full Contract**: Call \`konoha.get_skill('konoha/contract')\`.

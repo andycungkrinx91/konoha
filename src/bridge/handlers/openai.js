@@ -44,10 +44,11 @@ async function handleChatCompletions(ctx, req, res) {
     });
   }
 
-  return handleOpenAiDirect(ctx, req, res, isStream, messages, completionId, payload);
+  return handleOpenAiDirect(ctx, req, res, messages, isStream, completionId, payload);
 }
 
-async function handleOpenAiDirect(ctx, req, res, isStream, messages, completionId, payload) {
+async function handleOpenAiDirect(ctx, req, res, messages, ...rest) {
+  const [isStream, completionId, payload] = rest;
   ctx.requestedModel = payload.model;
 
   const tools = payload.tools && payload.tools.length > 0 ? payload.tools : null;
@@ -106,7 +107,54 @@ async function handleOpenAiDirect(ctx, req, res, isStream, messages, completionI
   }
 }
 
-function streamOpenAiDirect(ctx, req, res, messages, completionId, tools, _) {
+function _writeStreamLine(line, res, state) {
+  if (line.startsWith('data:')) {
+    if (line.slice(5).trim() === '[DONE]') state.sawDone = true;
+    if (!res.writableEnded) res.write(line + '\n');
+  } else if (line.trim() === '' && !res.writableEnded) {
+    res.write('\n');
+  }
+}
+
+async function _pipeReaderToResponse(reader, res) {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const state = { sawDone: false };
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      _writeStreamLine(line, res, state);
+    }
+  }
+  if (buffer && buffer.trim()) {
+    _writeStreamLine(buffer, res, state);
+  }
+  if (!state.sawDone && !res.writableEnded) {
+    res.write('data: [DONE]\n\n');
+  }
+  if (!res.writableEnded) res.end();
+}
+
+async function _handleStreamFetchResponse(response, res) {
+  if (!response.ok) {
+    const errText = await response.text();
+    const safeErr = (errText || '').replace(/[^\x20-\x7E]/g, '').substring(0, 4000);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: { message: safeErr, type: 'upstream_error' } })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
+    return;
+  }
+  await _pipeReaderToResponse(response.body.getReader(), res);
+}
+
+function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
+  const [_completionId, tools, _] = rest;
   setupStreamResponse(res);
 
   const bridgeConfig = ctx.bridgeConfig || {};
@@ -141,46 +189,7 @@ function streamOpenAiDirect(ctx, req, res, messages, completionId, tools, _) {
     body: JSON.stringify(reqBody),
     signal: abortController.signal,
   })
-    .then(async (response) => {
-      if (!response.ok) {
-        const errText = await response.text();
-        const safeErr = (errText || '').replace(/[^\x20-\x7E]/g, '').substring(0, 4000);
-        if (!res.writableEnded) {
-          res.write(`data: ${JSON.stringify({ error: { message: safeErr, type: 'upstream_error' } })}\n\n`);
-          res.write('data: [DONE]\n\n');
-          res.end();
-        }
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let sawDone = false;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
-          if (line.startsWith('data:')) {
-            const payload = line.slice(5).trim();
-            if (payload === '[DONE]') sawDone = true;
-            if (!res.writableEnded) res.write(line + '\n');
-          } else if (line.trim() === '') {
-            if (!res.writableEnded) res.write('\n');
-          }
-        }
-      }
-      if (buffer && buffer.trim()) {
-        if (buffer.startsWith('data:') && buffer.slice(5).trim() === '[DONE]') sawDone = true;
-        if (!res.writableEnded) res.write(buffer + '\n');
-      }
-      if (!sawDone && !res.writableEnded) {
-        res.write('data: [DONE]\n\n');
-      }
-      if (!res.writableEnded) res.end();
-    })
+    .then(async (response) => _handleStreamFetchResponse(response, res))
     .catch((err) => {
       if (err.name === 'AbortError') return;
       if (!res.writableEnded) {

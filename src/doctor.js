@@ -27,72 +27,50 @@ const {
   isRtkInstalled
 } = require('./platform_utils');
 
-function getDiagnostics(autoRepair = false) {
-  const results = [];
-  let repairsDone = 0;
-  let hasErrors = false;
-
-  const record = (component, status, details) => {
-    results.push({ component, status, details });
-    if (status === 'FAILED') hasErrors = true;
-    if (status === 'REPAIRED') repairsDone++;
-  };
-
-  const nodeVersion = process.version;
-  const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
-  if (majorVersion < 18) {
-    record('Node.js Environment', 'FAILED', `Node.js >= 18 is required, found ${nodeVersion}`);
-  } else {
-    record('Node.js Environment', 'ACTIVE', `${nodeVersion} (${process.execPath})`);
+function checkSingleFile(srcRel, destPath, label, record, autoRepair) {
+  const srcPath = path.join(SRC_DIR, srcRel);
+  if (fileExists(destPath)) {
+    record(label, 'HEALTHY', 'File is present and healthy');
+    return;
   }
-
-  const checkFile = (srcRel, destPath, label) => {
-    const srcPath = path.join(SRC_DIR, srcRel);
-    if (fileExists(destPath)) {
-      record(label, 'HEALTHY', 'File is present and healthy');
-      return true;
-    }
-    if (autoRepair && fileExists(srcPath)) {
-      ensureDir(path.dirname(destPath));
-      let repairErr = null;
-      try {
-        copyFile(srcPath, destPath);
-      } catch (e) {
-        repairErr = e;
-      }
-      if (repairErr) {
-        process.stderr.write(`[doctor] Repair failed for ${label}: ${repairErr.message}\n`);
-        record(label, 'FAILED', `Repair failed: ${repairErr.message}`);
-        return false;
-      }
+  if (autoRepair && fileExists(srcPath)) {
+    ensureDir(path.dirname(destPath));
+    try {
+      copyFile(srcPath, destPath);
       record(label, 'REPAIRED', 'Restored missing file from package templates');
-      return true;
+      return;
+    } catch (e) {
+      process.stderr.write(`[doctor] Repair failed for ${label}: ${e.message}\n`);
+      record(label, 'FAILED', `Repair failed: ${e.message}`);
+      return;
     }
-    record(label, 'FAILED', 'File missing');
-
-    return false;
-  };
-
-  checkFile('db.js', path.join(SKILLS_DB_DIR, 'db.js'), 'DB Module (db.js)');
-  checkFile('vector_search.js', path.join(SKILLS_DB_DIR, 'vector_search.js'), 'Vector Search Module (vector_search.js)');
-  checkFile('server.js', SERVER_PATH, 'Server File (server.js)');
-  checkFile('migrate.js', MIGRATE_PATH, 'Migration Script (migrate.js)');
-  checkFile('db_stats.js', path.join(SKILLS_DB_DIR, 'db_stats.js'), 'Stats Helper Script (db_stats.js)');
-  checkFile('db_savings.js', path.join(SKILLS_DB_DIR, 'db_savings.js'), 'Savings Helper Script (db_savings.js)');
-  checkFile('agent_stats.js', path.join(SKILLS_DB_DIR, 'agent_stats.js'), 'Agent Stats Helper Script (agent_stats.js)');
-  checkFile('prompt_hook.js', path.join(SKILLS_DB_DIR, 'prompt_hook.js'), 'Prompt Hook Script (prompt_hook.js)');
-  checkFile('antigravity_subagent_hook.js', path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js'), 'Subagent Hook Script (antigravity_subagent_hook.js)');
-  checkFile('file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)');
-  checkFile('file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)');
-  checkFile('file_tools_launcher.js', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.js)');
-  checkFile('platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)');
-
-  if (fileExists(DB_PATH)) {
-    record('Database File (konoha.db)', 'HEALTHY', 'Database file is present');
-  } else {
-    record('Database File (konoha.db)', 'FAILED', 'Database file missing');
   }
+  record(label, 'FAILED', 'File missing');
+}
 
+function checkCoreFiles(record, autoRepair) {
+  const files = [
+    ['db.js', path.join(SKILLS_DB_DIR, 'db.js'), 'DB Module (db.js)'],
+    ['vector_search.js', path.join(SKILLS_DB_DIR, 'vector_search.js'), 'Vector Search Module (vector_search.js)'],
+    ['server.js', SERVER_PATH, 'Server File (server.js)'],
+    ['migrate.js', MIGRATE_PATH, 'Migration Script (migrate.js)'],
+    ['db_stats.js', path.join(SKILLS_DB_DIR, 'db_stats.js'), 'Stats Helper Script (db_stats.js)'],
+    ['db_savings.js', path.join(SKILLS_DB_DIR, 'db_savings.js'), 'Savings Helper Script (db_savings.js)'],
+    ['agent_stats.js', path.join(SKILLS_DB_DIR, 'agent_stats.js'), 'Agent Stats Helper Script (agent_stats.js)'],
+    ['prompt_hook.js', path.join(SKILLS_DB_DIR, 'prompt_hook.js'), 'Prompt Hook Script (prompt_hook.js)'],
+    ['antigravity_subagent_hook.js', path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js'), 'Subagent Hook Script (antigravity_subagent_hook.js)'],
+    ['file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)'],
+    ['file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)'],
+    ['file_tools_launcher.js', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.js)'],
+    ['platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)']
+  ];
+  for (const [src, dest, label] of files) {
+    checkSingleFile(src, dest, label, record, autoRepair);
+  }
+  record('Database File (konoha.db)', fileExists(DB_PATH) ? 'HEALTHY' : 'FAILED', fileExists(DB_PATH) ? 'Database file is present' : 'Database file missing');
+}
+
+function checkMcpConfigJson(record, autoRepair) {
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
       const cfg = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
@@ -118,58 +96,65 @@ function getDiagnostics(autoRepair = false) {
   } else {
     record('MCP Config (mcp_config.json)', 'FAILED', 'Missing mcp_config.json');
   }
+}
 
-  if (fileExists(GEMINI_MD_PATH)) {
-    record('GEMINI Instructions (GEMINI.md)', 'HEALTHY', 'Instructions are active');
-  } else {
-    record('GEMINI Instructions (GEMINI.md)', 'WARNING', 'Missing ~/.gemini/GEMINI.md');
-  }
-
-  if (fileExists(USER_AGENTS_YAML_PATH)) {
-    record('AGENTS Definition (agents.yaml)', 'HEALTHY', 'Ninja ranks are active');
-  } else {
-    record('AGENTS Definition (agents.yaml)', 'WARNING', 'Missing ~/.agents/agents.yaml');
-  }
+function checkClientsIntegration(record) {
+  record('GEMINI Instructions (GEMINI.md)', fileExists(GEMINI_MD_PATH) ? 'HEALTHY' : 'WARNING', fileExists(GEMINI_MD_PATH) ? 'Instructions are active' : 'Missing ~/.gemini/GEMINI.md');
+  record('AGENTS Definition (agents.yaml)', fileExists(USER_AGENTS_YAML_PATH) ? 'HEALTHY' : 'WARNING', fileExists(USER_AGENTS_YAML_PATH) ? 'Ninja ranks are active' : 'Missing ~/.agents/agents.yaml');
 
   try {
     const cursorMgr = require('./cursor_manager');
     record('Cursor IDE/CLI (~/.cursor/)', cursorMgr.isCursorInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Cursor configuration status');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 
   try {
     const mcpClients = require('./mcp_clients_manager');
     record('Claude Code (~/.claude.json)', mcpClients.isClaudeCodeInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Claude Code status');
     record('Command Code (~/.commandcode/mcp.json)', mcpClients.isCommandCodeInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Command Code status');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 
   try {
     const opencodeMgr = require('./opencode_manager');
     record('OpenCode (~/.opencode/config.json)', opencodeMgr.isOpenCodeInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OpenCode status');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 
   try {
     const codexMgr = require('./codex_manager');
     record('Codex (~/.codex/config.toml)', codexMgr.isCodexInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Codex status');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 
   try {
     const ompMgr = require('./omp_manager');
     record('OMP (~/.omp/agent/mcp.json)', ompMgr.isOmpInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OMP status');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 
-  if (isRtkInstalled()) {
-    record('RTK (Token Killer)', 'ACTIVE', 'rtk binary available');
-  } else {
-    record('RTK (Token Killer)', 'WARNING', 'rtk not detected in PATH');
-  }
+  record('RTK (Token Killer)', isRtkInstalled() ? 'ACTIVE' : 'WARNING', isRtkInstalled() ? 'rtk binary available' : 'rtk not detected in PATH');
+}
 
-  // SDLC Governance Layer Advisory Checks
+function repairKageAntislopSkill(record) {
+  try {
+    const agentMgr = require('./agent_manager');
+    const agents = agentMgr.loadAgents(true, true);
+    const kage = agents.find(a => a.name === 'kage');
+    if (kage) {
+      if (!Array.isArray(kage.skills)) kage.skills = [];
+      if (!kage.skills.includes('antislop')) kage.skills.push('antislop');
+      agentMgr.saveAgents(agents);
+      const dbAgents = require('./db_agents');
+      dbAgents.bulkImportAgents(agents, DB_PATH);
+      record('Anti-Slop Gate (Kage)', 'REPAIRED', 'Restored and registered anti-slop skill for Kage reviewer');
+      return true;
+    }
+  } catch { /* best-effort */ }
+  return false;
+}
+
+function checkSdlcGovernance(record, autoRepair) {
   try {
     const dbModule = require('./db');
     const conn = dbModule.getConnection(DB_PATH);
     try {
       dbModule.setupSchema(conn);
-      // Check 1: Cross-provider review setup
       const enabledBridges = conn.prepare('SELECT count(*) as count FROM bridges WHERE enabled = 1').get();
       const bridgeCount = enabledBridges ? enabledBridges.count : 0;
       if (bridgeCount < 2) {
@@ -178,37 +163,21 @@ function getDiagnostics(autoRepair = false) {
         record('Cross-Provider Review Setup', 'HEALTHY', `${bridgeCount} bridges enabled for independent second-opinion reviews`);
       }
 
-      // Check 2: Anti-slop skill for Kage
       let hasAntislopInDb = false;
       try {
         const row = conn.prepare("SELECT 1 FROM skills WHERE name = 'antislop' OR name = 'kage-skill/antislop' OR name LIKE '%antislop%' LIMIT 1").get();
-        hasAntislopInDb = !!row;
-      } catch { /* intentional best-effort fallback */ }
+        hasAntislopInDb = Boolean(row);
+      } catch { /* best-effort */ }
 
       let kageSkills = '';
       try {
         const kageRow = conn.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
         kageSkills = (kageRow && kageRow.skills) ? kageRow.skills.toLowerCase() : '';
-      } catch { /* intentional best-effort fallback */ }
+      } catch { /* best-effort */ }
 
       let hasAntislopSkill = kageSkills.includes('antislop') || kageSkills.includes('anti-slop') || kageSkills.includes('aislop') || (kageSkills.includes('kage-skill') && hasAntislopInDb);
-
       if (!hasAntislopSkill && autoRepair) {
-        try {
-          const agentMgr = require('./agent_manager');
-          const agents = agentMgr.loadAgents(true, true);
-          const kage = agents.find(a => a.name === 'kage');
-          if (kage) {
-            if (!Array.isArray(kage.skills)) kage.skills = [];
-            if (!kage.skills.includes('antislop')) kage.skills.push('antislop');
-            agentMgr.saveAgents(agents);
-            const dbAgents = require('./db_agents');
-            dbAgents.bulkImportAgents(agents, DB_PATH);
-            hasAntislopSkill = true;
-            repairsDone++;
-            record('Anti-Slop Gate (Kage)', 'REPAIRED', 'Restored and registered anti-slop skill for Kage reviewer');
-          }
-        } catch { /* intentional best-effort fallback */ }
+        hasAntislopSkill = repairKageAntislopSkill(record);
       }
 
       if (hasAntislopSkill) {
@@ -217,16 +186,36 @@ function getDiagnostics(autoRepair = false) {
         record('Anti-Slop Gate (Kage)', 'WARNING', 'anti-slop skill not installed for kage (falls back to core zero-slop checks)');
       }
     } finally {
-      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      try { conn.close(); } catch (_) { /* best-effort */ }
     }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch (_) { /* best-effort */ }
+}
 
-  return {
-    results,
-    repairsDone,
-    hasErrors,
-    healthy: !hasErrors
+function getDiagnostics(autoRepair = false) {
+  const results = [];
+  let repairsDone = 0;
+  let hasErrors = false;
+
+  const record = (component, status, details) => {
+    results.push({ component, status, details });
+    if (status === 'FAILED') hasErrors = true;
+    if (status === 'REPAIRED') repairsDone++;
   };
+
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+  if (majorVersion < 18) {
+    record('Node.js Environment', 'FAILED', `Node.js >= 18 is required, found ${nodeVersion}`);
+  } else {
+    record('Node.js Environment', 'ACTIVE', `${nodeVersion} (${process.execPath})`);
+  }
+
+  checkCoreFiles(record, autoRepair);
+  checkMcpConfigJson(record, autoRepair);
+  checkClientsIntegration(record);
+  checkSdlcGovernance(record, autoRepair);
+
+  return { results, repairsDone, hasErrors, healthy: !hasErrors };
 }
 
 function runRepairs(_ = 'all') {

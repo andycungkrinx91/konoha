@@ -92,7 +92,13 @@ const TRACKED_FILES = [
     ]
   },
   {
-    relPath: '.agents/skills/konoha/SKILL.md',
+    absPath: fs.existsSync(path.join(ROOT, '.agents/skills/konoha/SKILL.md'))
+      ? path.join(ROOT, '.agents/skills/konoha/SKILL.md')
+      : path.join(require('os').homedir(), '.agents/skills/konoha/SKILL.md'),
+    relPath: fs.existsSync(path.join(ROOT, '.agents/skills/konoha/SKILL.md'))
+      ? '.agents/skills/konoha/SKILL.md'
+      : '~/.agents/skills/konoha/SKILL.md',
+    optional: true,
     mustInclude: [
       `All 47 canonical MCP tools`,
       `serves ALL 47 canonical tools`
@@ -116,7 +122,7 @@ const TRACKED_FILES = [
   {
     relPath: 'scripts/generate_premium_flow_gifs.js',
     mustInclude: [
-      `47 canonical MCP tools · 7 coding clients`
+      `47 canonical MCP tools · 8 coding clients`
     ],
     forbiddenPatterns: [
       /\b(?:46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
@@ -135,7 +141,8 @@ const TRACKED_FILES = [
 
 // Execute validations
 for (const item of TRACKED_FILES) {
-  const filePath = path.join(ROOT, item.relPath);
+  const filePath = item.absPath || path.join(ROOT, item.relPath);
+  if (item.optional && !fs.existsSync(filePath)) continue;
   assert(fs.existsSync(filePath), `Tracked file must exist: ${item.relPath}`);
   const content = fs.readFileSync(filePath, 'utf-8');
 

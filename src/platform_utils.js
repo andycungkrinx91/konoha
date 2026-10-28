@@ -71,33 +71,39 @@ function normalizePath(p) {
   return normalized.replace(/\\/g, '/');
 }
 
+function _removeExistingLink(linkPath) {
+  if (!fs.existsSync(linkPath)) return;
+  try {
+    const stat = fs.lstatSync(linkPath);
+    if (stat.isSymbolicLink() || stat.isDirectory()) {
+      fs.rmSync(linkPath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(linkPath);
+    }
+  } catch (_) { /* ignore */ }
+}
+
+function _fallbackDirectoryCopy(target, linkPath, origErr) {
+  try {
+    if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+      fs.cpSync(target, linkPath, { recursive: true });
+      return { ok: true, mode: 'copy' };
+    }
+  } catch (copyErr) {
+    return { ok: false, error: origErr.message + ' / copy: ' + copyErr.message };
+  }
+  return { ok: false, error: origErr.message };
+}
+
 function safeSymlink(target, linkPath) {
   try {
     ensureDir(path.dirname(linkPath));
-    if (fs.existsSync(linkPath)) {
-      try {
-        const stat = fs.lstatSync(linkPath);
-        if (stat.isSymbolicLink() || stat.isDirectory()) {
-          fs.rmSync(linkPath, { recursive: true, force: true });
-        } else {
-          fs.unlinkSync(linkPath);
-        }
-      } catch (_) { /* ignore */ }
-    }
+    _removeExistingLink(linkPath);
     const type = IS_WIN ? 'junction' : 'dir';
     fs.symlinkSync(target, linkPath, type);
     return { ok: true, mode: 'symlink' };
   } catch (err) {
-    // Fallback: directory copy on Windows when Developer Mode / symlink permissions are missing
-    try {
-      if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-        fs.cpSync(target, linkPath, { recursive: true });
-        return { ok: true, mode: 'copy' };
-      }
-    } catch (copyErr) {
-      return { ok: false, error: err.message + ' / copy: ' + copyErr.message };
-    }
-    return { ok: false, error: err.message };
+    return _fallbackDirectoryCopy(target, linkPath, err);
   }
 }
 
@@ -370,65 +376,77 @@ function checkPortActive(port, host = '127.0.0.1') {
   });
 }
 
+function _getPidsOnPortWindows(port, pids) {
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8', windowsHide: true });
+    for (const line of out.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length >= 5 && parts[1] && parts[1].includes(`:${port}`)) {
+        const pid = parseInt(parts[parts.length - 1], 10);
+        if (Number.isFinite(pid) && pid > 0) pids.add(pid);
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _parseNumericPids(rawOutput, pids) {
+  for (const part of rawOutput.trim().split(/\s+/)) {
+    const pid = parseInt(part.trim(), 10);
+    if (Number.isFinite(pid) && pid > 0) pids.add(pid);
+  }
+}
+
+function _getPidsOnPortUnix(port, pids) {
+  const { execSync } = require('child_process');
+  try {
+    const out = execSync(`lsof -ti :${port}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    _parseNumericPids(out, pids);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  if (pids.size === 0) {
+    try {
+      const out = execSync(`fuser ${port}/tcp 2>/dev/null`, { encoding: 'utf8' });
+      _parseNumericPids(out, pids);
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
+  if (pids.size === 0) {
+    try {
+      const out = execSync('pgrep -f "file_tools_mcp.js"', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      _parseNumericPids(out, pids);
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+}
+
+function getPidsOnPort(port) {
+  const pids = new Set();
+  if (IS_WIN) {
+    _getPidsOnPortWindows(port, pids);
+  } else {
+    _getPidsOnPortUnix(port, pids);
+  }
+  return Array.from(pids);
+}
+
+function _killSinglePid(pid, signal = 'SIGTERM') {
+  const { execSync } = require('child_process');
+  try {
+    if (IS_WIN) {
+      execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
+    } else {
+      process.kill(pid, signal);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
 async function killProcessOnPort(port) {
   if (!port || typeof port !== 'number') return false;
   const { execSync } = require('child_process');
 
-  function getPidsOnPort() {
-    const pids = new Set();
-    if (IS_WIN) {
-      try {
-        const out = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8', windowsHide: true });
-        const lines = out.split('\n');
-        for (const line of lines) {
-          const parts = line.trim().split(/\s+/);
-          if (parts.length >= 5 && parts[1] && parts[1].includes(`:${port}`)) {
-            const pid = parseInt(parts[parts.length - 1], 10);
-            if (Number.isFinite(pid) && pid > 0) pids.add(pid);
-          }
-        }
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    } else {
-      try {
-        const out = execSync(`lsof -ti :${port}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-        for (const line of out.split('\n')) {
-          const pid = parseInt(line.trim(), 10);
-          if (Number.isFinite(pid) && pid > 0) pids.add(pid);
-        }
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-      if (pids.size === 0) {
-        try {
-          const out = execSync(`fuser ${port}/tcp 2>/dev/null`, { encoding: 'utf8' });
-          for (const part of out.trim().split(/\s+/)) {
-            const pid = parseInt(part.trim(), 10);
-            if (Number.isFinite(pid) && pid > 0) pids.add(pid);
-          }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-
-      if (pids.size === 0) {
-        try {
-          const out = execSync('pgrep -f "file_tools_mcp.js"', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-          for (const line of out.split('\n')) {
-            const pid = parseInt(line.trim(), 10);
-            if (Number.isFinite(pid) && pid > 0) pids.add(pid);
-          }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-    }
-    return Array.from(pids);
-  }
-
-  const pids = getPidsOnPort();
+  const pids = getPidsOnPort(port);
   for (const pid of pids) {
-    try {
-      if (IS_WIN) {
-        execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
-      } else {
-        process.kill(pid, 'SIGTERM');
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    _killSinglePid(pid, 'SIGTERM');
   }
 
   for (let i = 0; i < 8; i++) {
@@ -439,15 +457,13 @@ async function killProcessOnPort(port) {
   }
 
   if (!IS_WIN) {
-    const remainingPids = getPidsOnPort();
+    const remainingPids = getPidsOnPort(port);
     for (const pid of remainingPids) {
-      try {
-        process.kill(pid, 'SIGKILL');
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      _killSinglePid(pid, 'SIGKILL');
     }
     try {
       execSync('pkill -9 -f "file_tools_mcp.js"', { stdio: 'ignore' });
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch (_) { /* intentional best-effort fallback */ }
 
     await new Promise((r) => setTimeout(r, 200));
     return !(await checkPortActive(port));

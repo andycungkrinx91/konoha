@@ -134,6 +134,49 @@ function classify(score) {
   return 'AI-Generated';
 }
 
+function _handleDirectoryEntry(entry, dir, rootDir, stack, ctx) {
+  const full = path.join(dir, entry.name);
+  const rel = path.relative(rootDir, full) || entry.name;
+  if (SKIP_DIRS.has(entry.name)) {
+    if (entry.name === '.vercel') ctx.vercelDir = rel;
+    return;
+  }
+  if (/^(ui|ui-components)$/.test(entry.name) && /components([\\/])?$/.test(path.basename(dir))) {
+    ctx.componentUiDirs.push(rel);
+  }
+  stack.push(full);
+}
+
+function _ingestFileLines(bucket, content, rel) {
+  const lines = content.split('\n').slice(0, 400);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].slice(0, 300);
+    if (line.trim()) bucket.push({ file: rel, line_no: i + 1, line });
+  }
+}
+
+function _processFileEntry(entry, full, rel, ctx) {
+  const ext = path.extname(entry.name).toLowerCase();
+  if (!SCAN_EXTENSIONS.has(ext) && entry.name !== 'package.json') {
+    if (/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(entry.name) && ctx.assets.length < 200) {
+      ctx.assets.push(entry.name);
+    }
+    return 0;
+  }
+  let content;
+  try {
+    const st = fs.statSync(full);
+    if (st.size > MAX_FILE_BYTES) return 0;
+    content = fs.readFileSync(full, 'utf-8');
+  } catch (_) {
+    return 0;
+  }
+  const isHtml = ext === '.html' || ext === '.htm' || ext === '.astro';
+  const bucket = entry.name === 'package.json' ? ctx.packageJsons : (isHtml ? ctx.html : ctx.sources);
+  _ingestFileLines(bucket, content, rel);
+  return Buffer.byteLength(content, 'utf-8');
+}
+
 // ── Directory collection ──────────────────────────────────────────────────────
 function collectDirectorySignals(rootDir) {
   const ctx = {
@@ -153,44 +196,15 @@ function collectDirectorySignals(rootDir) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(rootDir, full) || entry.name;
       if (entry.isDirectory()) {
-        if (SKIP_DIRS.has(entry.name)) {
-          if (entry.name === '.vercel') ctx.vercelDir = rel;
-          continue;
-        }
-        if (/^(ui|ui-components)$/.test(entry.name) && /components([\\/])?$/.test(path.basename(dir))) {
-          ctx.componentUiDirs.push(rel);
-        }
-        stack.push(full);
+        _handleDirectoryEntry(entry, dir, rootDir, stack, ctx);
         continue;
       }
       if (!entry.isFile()) continue;
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!SCAN_EXTENSIONS.has(ext) && entry.name !== 'package.json') {
-        // Assets are tracked by name only (no content read).
-        if (/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(entry.name) && ctx.assets.length < 200) {
-          ctx.assets.push(entry.name);
-        }
-        continue;
+      const bytes = _processFileEntry(entry, full, rel, ctx);
+      if (bytes > 0) {
+        filesScanned++;
+        bytesScanned += bytes;
       }
-      let content;
-      try {
-        const st = fs.statSync(full);
-        if (st.size > MAX_FILE_BYTES) continue;
-        content = fs.readFileSync(full, 'utf-8');
-      } catch (_) { continue; }
-      filesScanned++;
-      bytesScanned += Buffer.byteLength(content, 'utf-8');
-      const isHtml = ext === '.html' || ext === '.htm' || ext === '.astro';
-      const bucket = entry.name === 'package.json' ? ctx.packageJsons : (isHtml ? ctx.html : ctx.sources);
-      // Bounded per-file line capture: first 400 lines, 300 chars per line.
-      const lines = content.split('\n').slice(0, 400);
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].slice(0, 300);
-        if (line.trim()) bucket.push({ file: rel, line_no: i + 1, line });
-      }
-      // components/ui detection for source files (imports reveal it even when
-      // the built output flattens directories).
-      if (/components[\\/]ui[\\/]/.test(rel)) ctx.componentUiDirs.push(rel);
     }
   }
   return { ctx, filesScanned, bytesScanned };

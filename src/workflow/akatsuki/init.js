@@ -52,21 +52,7 @@ function loadKaliToolsCatalog() {
   return [];
 }
 
-/**
- * Filter and query the Kali Linux tool catalog directly from SQLite (with JSON fallback).
- * High performance, zero disk I/O per query.
- *
- * @param {Object} [filter={}]
- * @param {string} [filter.query]
- * @param {string} [filter.category]
- * @param {string} [dbPath=null]
- * @returns {Object[]}
- */
-function listKaliTools(filter = {}, dbOrPath = null) {
-  const q = (filter.query || filter.search || '').trim().toLowerCase();
-  const cat = (filter.category || '').trim().toLowerCase();
-  const limit = filter.limit ? Number(filter.limit) : null;
-
+function _queryKaliToolsFromDb(dbOrPath, q, cat, limit) {
   let localConn = null;
   try {
     const { getConnection, setupSchema } = require('../../db');
@@ -90,25 +76,39 @@ function listKaliTools(filter = {}, dbOrPath = null) {
       params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
 
-    if (conditions.length > 0) {
-      sql += ' WHERE ' + conditions.join(' AND ');
-    }
+    if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY slug ASC';
-    if (limit && limit > 0) {
-      sql += ' LIMIT ' + limit;
-    }
+    if (limit && limit > 0) sql += ' LIMIT ' + limit;
 
     const rows = conn.prepare(sql).all(...params);
-    if (Array.isArray(rows) && rows.length > 0) {
-      return rows;
-    }
+    if (Array.isArray(rows) && rows.length > 0) return rows;
   } catch (_) {
-    // Graceful fallback to JSON if SQLite table or query fails
+    // Graceful fallback to JSON
   } finally {
     if (localConn && typeof localConn.close === 'function') {
       try { localConn.close(); } catch (_) { /* noop */ }
     }
   }
+  return null;
+}
+
+/**
+ * Filter and query the Kali Linux tool catalog directly from SQLite (with JSON fallback).
+ * High performance, zero disk I/O per query.
+ *
+ * @param {Object} [filter={}]
+ * @param {string} [filter.query]
+ * @param {string} [filter.category]
+ * @param {string} [dbPath=null]
+ * @returns {Object[]}
+ */
+function listKaliTools(filter = {}, dbOrPath = null) {
+  const q = (filter.query || filter.search || '').trim().toLowerCase();
+  const cat = (filter.category || '').trim().toLowerCase();
+  const limit = filter.limit ? Number(filter.limit) : null;
+
+  const dbRows = _queryKaliToolsFromDb(dbOrPath, q, cat, limit);
+  if (dbRows) return dbRows;
 
   const catalog = loadKaliToolsCatalog();
   const filtered = catalog.filter(t => {
@@ -196,6 +196,20 @@ function removeTool(toolId) {
   return { ok: true, removed: false };
 }
 
+function _probeToolBinaries(labName, engine, bins, options) {
+  for (const b of bins) {
+    try {
+      const res = executeInLab(labName, ['which', b], { ...options, engine });
+      if (res && res.status === 0 && res.stdout && res.stdout.trim()) {
+        return true;
+      }
+    } catch (_) {
+      // Continue probing
+    }
+  }
+  return false;
+}
+
 /**
  * Probe whether specified tools are installed inside the lab container.
  *
@@ -212,23 +226,33 @@ function getToolStatus(labName = DEFAULT_LAB_NAME, engine, toolIds = [], options
   for (const tid of toolIds) {
     const profile = getToolProfile(tid, {}, options);
     const bins = (profile && profile.binary_candidates) || [tid];
-    let found = false;
-
-    for (const b of bins) {
-      try {
-        const res = executeInLab(labName, ['which', b], { ...options, engine });
-        if (res && res.status === 0 && res.stdout && res.stdout.trim()) {
-          found = true;
-          break;
-        }
-      } catch (_) {
-        // Continue probing
-      }
-    }
-    results[tid] = found;
+    results[tid] = _probeToolBinaries(labName, engine, bins, options);
   }
 
   return results;
+}
+
+function _provisionLxcStageScripts(labName, profile, options) {
+  const lxcTemplateDir = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'lxc');
+  const stageScripts = [
+    'provision-core.sh',
+    'provision-msf.sh',
+    'provision-exploitdb.sh',
+    'provision-gotools.sh'
+  ];
+
+  for (const s of stageScripts) {
+    const scriptPath = path.join(lxcTemplateDir, s);
+    if (!fs.existsSync(scriptPath)) continue;
+
+    executeInLab(labName, ['sh', '-c', `cat << 'EOF' > /tmp/${s}\n${fs.readFileSync(scriptPath, 'utf8')}\nEOF`], options);
+    executeInLab(labName, ['chmod', '+x', `/tmp/${s}`], options);
+
+    if (profile === 'minimal' && s !== 'provision-core.sh') {
+      continue;
+    }
+    executeInLab(labName, ['bash', `/tmp/${s}`], { ...options, timeout: 3600000 });
+  }
 }
 
 /**
@@ -250,28 +274,7 @@ function installToolset(engine, labName = DEFAULT_LAB_NAME, profile = 'standard'
 
   try {
     if (engine === 'lxc') {
-      const lxcTemplateDir = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'lxc');
-      const stageScripts = [
-        'provision-core.sh',
-        'provision-msf.sh',
-        'provision-exploitdb.sh',
-        'provision-gotools.sh'
-      ];
-
-      for (const s of stageScripts) {
-        const scriptPath = path.join(lxcTemplateDir, s);
-        if (fs.existsSync(scriptPath)) {
-          // Push script into container /tmp/
-          executeInLab(labName, ['sh', '-c', `cat << 'EOF' > /tmp/${s}\n${fs.readFileSync(scriptPath, 'utf8')}\nEOF`], options);
-          executeInLab(labName, ['chmod', '+x', `/tmp/${s}`], options);
-
-          // Execute script inside container
-          if (profile === 'minimal' && s !== 'provision-core.sh') {
-            continue; // Minimal profile only executes core
-          }
-          executeInLab(labName, ['bash', `/tmp/${s}`], { ...options, timeout: 3600000 });
-        }
-      }
+      _provisionLxcStageScripts(labName, profile, options);
       toolsInstalled.push('nmap', 'sqlmap', 'whatweb', 'httpx', 'nuclei', 'nikto', 'ffuf', 'testssl', 'searchsploit');
     } else if (engine === 'docker') {
       // In Docker, tools are baked into the kalilinux/kali-rolling Dockerfile image

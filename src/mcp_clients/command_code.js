@@ -24,6 +24,7 @@ const {
   mergeMcpServersBlock,
   backupFile,
   buildClientToolGrants,
+  buildBareToolGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
@@ -47,18 +48,23 @@ function deployCommandCodeRtkRule(silent = true) {
   }
 }
 
-function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+  if (typeof silent === 'object' && silent !== null) {
+    options = silent;
+    silent = options.silent !== false;
+  }
+  const targetConfig = options.configPath || (options.home ? path.join(options.home, '.commandcode', 'mcp.json') : COMMANDCODE_JSON);
   if (!fileExists(serverPath)) return false;
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'commandcode' });
 
-  backupFile(COMMANDCODE_JSON, silent);
+  backupFile(targetConfig, silent);
 
   let existingConfig = {};
-  if (fileExists(COMMANDCODE_JSON)) {
+  if (fileExists(targetConfig)) {
     try {
-      existingConfig = JSON.parse(fs.readFileSync(COMMANDCODE_JSON, 'utf-8')) || {};
+      existingConfig = JSON.parse(fs.readFileSync(targetConfig, 'utf-8')) || {};
     } catch {
-      if (!silent) console.warn(`Invalid JSON in ${COMMANDCODE_JSON}; leaving it unchanged.`);
+      if (!silent) console.warn(`Invalid JSON in ${targetConfig}; leaving it unchanged.`);
       return false;
     }
   }
@@ -69,12 +75,23 @@ function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tr
 
   mergeMcpServersBlock(existingConfig.mcpServers, servers);
 
-  ensureDir(path.dirname(COMMANDCODE_JSON));
-  const tempFile = COMMANDCODE_JSON + '.tmp';
+  ensureDir(path.dirname(targetConfig));
+  const tempFile = targetConfig + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(existingConfig, null, 2) + '\n');
-  fs.renameSync(tempFile, COMMANDCODE_JSON);
-  if (!silent) process.stderr.write(`  ✓ ${path.basename(COMMANDCODE_JSON)} updated with Konoha MCP servers\n`);
+  fs.renameSync(tempFile, targetConfig);
+  if (!silent) process.stderr.write(`  ✓ ${path.basename(targetConfig)} updated with Konoha MCP servers\n`);
   return true;
+}
+
+function _appendMissing(list, items) {
+  let updated = false;
+  for (const item of items) {
+    if (!list.includes(item)) {
+      list.push(item);
+      updated = true;
+    }
+  }
+  return updated;
 }
 
 function registerCommandCodePermissions(silent = true) {
@@ -109,32 +126,31 @@ function registerCommandCodePermissions(silent = true) {
         'rtk',
         'command(rtk)'
       ];
-      for (const grant of grants) {
-        if (!allow.includes(grant)) {
-          allow.push(grant);
-          updated = true;
-        }
-      }
+      if (_appendMissing(allow, grants)) updated = true;
       config.permissions.allow = allow;
 
       const _autoApproveGrants = [
         ...buildClientToolGrants('mcp__'),
         ...buildClientToolGrants('mcp:'),
+        ...buildClientToolGrants(''),
+        ...buildBareToolGrants(),
         'Shell(rtk)',
+        'Shell(rtk:*)',
+        'Shell(rtk *)',
         'Bash(rtk)',
-        'rtk'
+        'Bash(rtk:*)',
+        'Bash(rtk *)',
+        'rtk',
+        'rtk *',
+        'konoha',
+        'konoha *'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
         config.autoApprove = _autoApproveGrants;
         updated = true;
       } else {
         config.autoApprove = config.autoApprove.filter(rule => !invalidRules.includes(rule));
-        for (const g of _autoApproveGrants) {
-          if (!config.autoApprove.includes(g)) {
-            config.autoApprove.push(g);
-            updated = true;
-          }
-        }
+        if (_appendMissing(config.autoApprove, _autoApproveGrants)) updated = true;
       }
 
       const defaultAllowedTools = [
@@ -145,12 +161,7 @@ function registerCommandCodePermissions(silent = true) {
         updated = true;
       } else {
         config.allowedTools = config.allowedTools.filter(t => t !== 'Bash' && t !== 'Shell' && t !== '*');
-        for (const t of defaultAllowedTools) {
-          if (!config.allowedTools.includes(t)) {
-            config.allowedTools.push(t);
-            updated = true;
-          }
-        }
+        if (_appendMissing(config.allowedTools, defaultAllowedTools)) updated = true;
       }
 
       return updated;
@@ -251,6 +262,19 @@ function registerCommandCodeNativeBlocker(silent = true) {
   return { ok: true, blocker: blockerJs };
 }
 
+function _loadCommandCodeSettingsSafe(settingsPath, silent) {
+  if (!fs.existsSync(settingsPath)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) || {};
+  } catch (_) {
+    try {
+      fs.copyFileSync(settingsPath, settingsPath + '.corrupt-' + Date.now());
+      if (!silent) console.warn(`⚠ ${settingsPath} was invalid JSON — backed up`);
+    } catch (_) { /* ignore */ }
+    return {};
+  }
+}
+
 function registerCommandCodeWorkflowReminder(silent = true) {
   const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
   if (!fileExists(reminderPath)) return;
@@ -260,26 +284,13 @@ function registerCommandCodeWorkflowReminder(silent = true) {
     if (!fs.existsSync(path.dirname(settingsPath))) {
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
     }
-    let settings = {};
-    if (fs.existsSync(settingsPath)) {
-      try {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) || {};
-      } catch (_) {
-        try {
-          fs.copyFileSync(settingsPath, settingsPath + '.corrupt-' + Date.now());
-          if (!silent) console.warn(`⚠ ${settingsPath} was invalid JSON — backed up`);
-        } catch (_) { /* ignore */ }
-        settings = {};
-      }
-    }
+    const settings = _loadCommandCodeSettingsSafe(settingsPath, silent);
     if (!settings.hooks) settings.hooks = {};
     if (!Array.isArray(settings.hooks.SessionStart)) settings.hooks.SessionStart = [];
     const already = settings.hooks.SessionStart.some(
       (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('workflow_reminder'))
     );
-    if (already) {
-      return;
-    }
+    if (already) return;
     settings.hooks.SessionStart.push({
       hooks: [{ type: 'command', command: reminderCommand }]
     });
@@ -333,10 +344,12 @@ function ensureCommandCodeSetup(options = {}) {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    silent = false
+    silent = false,
+    force = false,
+    skipDetection = false
   } = options;
 
-  if (!isCommandCodeInstalled()) {
+  if (!force && !skipDetection && !isCommandCodeInstalled()) {
     return { ok: false, reason: 'Command Code not detected' };
   }
 
@@ -344,7 +357,7 @@ function ensureCommandCodeSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  if (!registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent)) {
+  if (!registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options)) {
     return { ok: false, reason: 'commandcode-mcp-registration-failed' };
   }
   registerCommandCodePermissions(silent);
@@ -352,7 +365,7 @@ function ensureCommandCodeSetup(options = {}) {
   const nativeBlocker = registerCommandCodeNativeBlocker(silent);
   const rtkRule = deployCommandCodeRtkRule(silent);
   const contractRule = deployCommandCodeRules(silent);
-  const status = getCommandCodeStatus();
+  const status = getCommandCodeStatus(options);
   if (!status.mcpKonoha || !status.mcpSemble) {
     return { ok: false, reason: 'commandcode-mcp-verification-failed' };
   }
@@ -363,6 +376,25 @@ function ensureCommandCodeSetup(options = {}) {
     contractRule: contractRule.ok ? 'deployed' : contractRule.reason,
     nativeBlocker: nativeBlocker.ok ? 'deployed' : nativeBlocker.reason
   };
+}
+
+function _cleanCommandCodeSettings(config) {
+  let updated = false;
+  if (config.permissions && Array.isArray(config.permissions.allow)) {
+    const initial = config.permissions.allow.length;
+    config.permissions.allow = config.permissions.allow.filter(
+      (p) => !p.startsWith('mcp__konoha') && !p.startsWith('mcp__semble') && !p.startsWith('mcp__aislop') && !p.startsWith('mcp__skills-db')
+    );
+    if (config.permissions.allow.length !== initial) updated = true;
+  }
+  if (config.hooks && Array.isArray(config.hooks.PreToolUse)) {
+    const initial = config.hooks.PreToolUse.length;
+    config.hooks.PreToolUse = config.hooks.PreToolUse.filter(
+      (h) => !(h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc')))
+    );
+    if (config.hooks.PreToolUse.length !== initial) updated = true;
+  }
+  return updated;
 }
 
 function removeCommandCodeConfig(silent = true, options = {}) {
@@ -380,28 +412,7 @@ function removeCommandCodeConfig(silent = true, options = {}) {
   const settingsPath = path.join(home, '.commandcode', 'settings.json');
   if (fileExists(settingsPath)) {
     try {
-      mergeJsonFile(
-        settingsPath,
-        (config) => {
-          let updated = false;
-          if (config.permissions && Array.isArray(config.permissions.allow)) {
-            const initial = config.permissions.allow.length;
-            config.permissions.allow = config.permissions.allow.filter(
-              (p) => !p.startsWith('mcp__konoha') && !p.startsWith('mcp__semble') && !p.startsWith('mcp__aislop') && !p.startsWith('mcp__skills-db')
-            );
-            if (config.permissions.allow.length !== initial) updated = true;
-          }
-          if (config.hooks && Array.isArray(config.hooks.PreToolUse)) {
-            const initial = config.hooks.PreToolUse.length;
-            config.hooks.PreToolUse = config.hooks.PreToolUse.filter(
-              (h) => !(h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc')))
-            );
-            if (config.hooks.PreToolUse.length !== initial) updated = true;
-          }
-          return updated;
-        },
-        silent
-      );
+      mergeJsonFile(settingsPath, _cleanCommandCodeSettings, silent);
     } catch { /* ignore */ }
   }
   const rtkRule = path.join(home, '.commandcode', 'rules', 'rtk.md');
@@ -411,17 +422,48 @@ function removeCommandCodeConfig(silent = true, options = {}) {
   return { ok: true };
 }
 
-function getCommandCodeStatus() {
+function _readCommandCodeConfig() {
+  if (!fileExists(COMMANDCODE_JSON)) return null;
+  try {
+    const raw = fs.readFileSync(COMMANDCODE_JSON, 'utf-8');
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      const { parseYaml } = require('../agent_manager');
+      return parseYaml(raw);
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
+function _readCommandCodeSettingsStatus(status) {
+  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+  if (!fileExists(settingsPath)) return;
+  try {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
+    status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*') && allow.includes('mcp__aislop__*');
+    const ccHooks = settings.hooks || {};
+    status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
+      (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
+    );
+  } catch { /* ignore */ }
+}
+
+function getCommandCodeStatus(options = {}) {
+  const home = options.home || process.env.HOME || HOME;
+  const targetConfig = options.configPath || (options.home ? path.join(home, '.commandcode', 'mcp.json') : COMMANDCODE_JSON);
   const status = {
-    installed: isCommandCodeInstalled(),
-    globalConfig: fileExists(COMMANDCODE_JSON),
+    installed: options.force || options.skipDetection ? true : isCommandCodeInstalled(),
+    globalConfig: fileExists(targetConfig),
     mcpKonoha: false,
     mcpSemble: false,
     mcpSkillsDb: false,
-    path: COMMANDCODE_JSON,
+    path: targetConfig,
     status: 'missing',
     rtkInstalled: isRtkInstalled(),
-    rtkRuleDeployed: fileExists(path.join(HOME, '.commandcode', 'rules', 'rtk.md')),
+    rtkRuleDeployed: fileExists(path.join(home, '.commandcode', 'rules', 'rtk.md')),
     nativeBlockerDeployed: false,
     permissionsAllowed: false
   };
@@ -431,38 +473,25 @@ function getCommandCodeStatus() {
     return status;
   }
 
-  if (status.globalConfig) {
-    try {
-      let config = {};
-      try {
-        config = JSON.parse(fs.readFileSync(COMMANDCODE_JSON, 'utf-8'));
-      } catch (_) {
-        const { parseYaml } = require('../agent_manager');
-        config = parseYaml(fs.readFileSync(COMMANDCODE_JSON, 'utf-8'));
-      }
-      const health = readMcpHealth(config, 'mcpServers');
-      status.mcpKonoha = health.konoha;
-      status.mcpSemble = health.semble;
-      status.mcpAislop = health.aislop;
-      status.mcpSkillsDb = health.skillsDb;
-      status.mcpServers = config.mcpServers || {};
+  let config = null;
+  if (fileExists(targetConfig)) {
+    try { config = JSON.parse(fs.readFileSync(targetConfig, 'utf-8')); } catch { config = null; }
+  } else {
+    config = _readCommandCodeConfig();
+  }
+  if (config) {
+    const health = readMcpHealth(config, 'mcpServers');
+    status.mcpKonoha = health.konoha;
+    status.mcpSemble = health.semble;
+    status.mcpAislop = health.aislop;
+    status.mcpSkillsDb = health.skillsDb;
+    status.mcpServers = config.mcpServers || {};
 
-      const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
-      if (fileExists(settingsPath)) {
-        try {
-          const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
-          status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*') && allow.includes('mcp__aislop__*');
-          const ccHooks = settings.hooks || {};
-          status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
-            (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
-          );
-        } catch { /* ignore */ }
-      }
-      if (health.konoha && health.semble && health.aislop) {
-        status.status = 'ok';
-      }
-    } catch { /* ignore */ }
+    _readCommandCodeSettingsStatus(status);
+
+    if (health.konoha && health.semble && health.aislop) {
+      status.status = 'ok';
+    }
   }
 
   return status;

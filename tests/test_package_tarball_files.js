@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
-test("package.json files array excludes docs/ and preserves bin/cli.js, apps/web/build, .agents", () => {
+test("package.json files array excludes docs/ and preserves bin/cli.js, apps/web/build, src/templates/skills", () => {
   const root = path.resolve(__dirname, "..");
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
@@ -24,5 +24,5 @@ test("package.json files array excludes docs/ and preserves bin/cli.js, apps/web
   // Check preserved files
   assert.ok(packOut.includes("bin/cli.js"), "npm pack must preserve bin/cli.js");
   assert.ok(packOut.includes("apps/web/build"), "npm pack must preserve apps/web/build");
-  assert.ok(packOut.includes(".agents"), "npm pack must preserve .agents");
+  assert.ok(packOut.includes("src/templates/skills"), "npm pack must preserve src/templates/skills");
 });

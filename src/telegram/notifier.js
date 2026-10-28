@@ -176,6 +176,46 @@ function formatTaskReport({
   return lines.join('\n');
 }
 
+async function _postTelegramPayload(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000)
+  });
+  return res.json();
+}
+
+async function _retryAsPlainText(url, targetChatId, text) {
+  const fallbackBody = {
+    chat_id: targetChatId,
+    text: text.replace(/<[^>]+>/g, '')
+  };
+  const fallbackData = await _postTelegramPayload(url, fallbackBody);
+  if (fallbackData.ok) {
+    configModule.recordLastNotified();
+    return { ok: true, result: fallbackData.result };
+  }
+  return null;
+}
+
+function _delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function _sendTelegramAttempt(url, body, targetChatId, text) {
+  const data = await _postTelegramPayload(url, body);
+  if (data.ok) {
+    configModule.recordLastNotified();
+    return { ok: true, result: data.result };
+  }
+  if (data.error_code === 400 && body.parse_mode) {
+    const fallbackResult = await _retryAsPlainText(url, targetChatId, text);
+    if (fallbackResult) return fallbackResult;
+  }
+  return { ok: false, error: data.description || 'Telegram API error', error_code: data.error_code };
+}
+
 /**
  * Send an outbound message to Telegram API.
  */
@@ -214,44 +254,10 @@ async function sendTelegramMessage(text, options = {}) {
   let lastError = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000)
-      });
-
-      const data = await res.json();
-      if (data.ok) {
-        configModule.recordLastNotified();
-        return { ok: true, result: data.result };
-      }
-
-      // Entity parse error recovery (HTTP 400): strip HTML tags and retry as clean plain text
-      if (data.error_code === 400 && body.parse_mode) {
-        const fallbackBody = {
-          chat_id: targetChatId,
-          text: text.replace(/<[^>]+>/g, '')
-        };
-        const fallbackRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fallbackBody),
-          signal: AbortSignal.timeout(15000)
-        });
-        const fallbackData = await fallbackRes.json();
-        if (fallbackData.ok) {
-          configModule.recordLastNotified();
-          return { ok: true, result: fallbackData.result };
-        }
-      }
-
-      return { ok: false, error: data.description || 'Telegram API error', error_code: data.error_code };
+      return await _sendTelegramAttempt(url, body, targetChatId, text);
     } catch (err) {
       lastError = err;
-      if (attempt < 2) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      if (attempt < 2) await _delay(1000);
     }
   }
 
@@ -426,11 +432,12 @@ async function sendInteractiveApproval({
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
   ];
 
+  const isGate2 = gate.includes('Gate 2') || gate.includes('Delivery');
   const markup = {
     inline_keyboard: [
       [
-        { text: '✅ Approve', callback_data: `hitl:approve:${taskId}` },
-        { text: '❌ Reject', callback_data: `hitl:reject:${taskId}` }
+        { text: '✅ 1. Compact and approve', callback_data: `hitl:approve:${taskId}` },
+        { text: isGate2 ? '🔄 2. Remediation' : '❌ 2. Reject / Regenerate', callback_data: `hitl:reject:${taskId}` }
       ]
     ]
   };

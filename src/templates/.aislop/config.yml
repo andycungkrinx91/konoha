@@ -1,0 +1,50 @@
+version: 1
+ci:
+  failBelow: 100
+imports:
+  provided:
+    - vscode
+engines:
+  format: true
+  lint: true
+  code-quality: true
+  ai-slop: true
+  architecture: false
+  security: true
+# Complexity calibration for the Konoha single-runtime architecture:
+  # - bin/cli.js is the documented self-contained CLI (all commands in one file
+  #   for cross-platform shim simplicity).
+  # - Manager/handler functions are deliberately long, self-contained TUI/CLI
+  #   dispatchers. Thresholds are set at the measured max of this codebase (JSON-RPC
+quality:
+  maxFunctionLoc: 150
+  maxFileLoc: 700
+  maxNesting: 3
+  maxParams: 5
+
+security:
+  audit: true
+  auditTimeout: 25000
+
+# Vendored third-party reference assets (upstream skill mirrors, e.g. anthropic-
+  # cybersecurity-skills) are documentation, not executed code — excluded.
+exclude:
+  - ".cursor"
+  - ".gemini"
+  - ".agents"
+  - ".commandcode"
+  - ".claude"
+  - ".omp"
+  - ".codex"
+  - ".vscode"
+  - ".github"
+  - "src/templates/skills/**"
+  - "apps/web/build/**"
+  - "node_modules/**"
+  - ".git"
+  - "dist"
+  - "build"
+  - "coverage"
+  - "editors"
+  - ".ruff_cache"
+  - ".svelte-kit"

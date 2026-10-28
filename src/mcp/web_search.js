@@ -161,6 +161,20 @@ async function querySearxng(instanceUrl, q, num) {
   }
 }
 
+function _parseDdgResultBlock(b) {
+  const titleM = b.match(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
+  if (!titleM) return null;
+  const snippetM = b.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/);
+  let rawUrl = titleM[1];
+  const title = titleM[2].replace(/<[^>]+>/g, '').trim();
+  const snippet = snippetM ? snippetM[1].replace(/<[^>]+>/g, '').trim() : '';
+  try {
+    const parsed = new URL(rawUrl, process.env.KONOHA_DUCKDUCKGO_URL || 'https://duckduckgo.com');
+    rawUrl = parsed.searchParams.get('uddg') || rawUrl;
+  } catch (_) { /* ignore */ }
+  return { title, url: rawUrl, snippet, source: 'DuckDuckGo' };
+}
+
 async function queryDuckDuckGo(q, num) {
   const ddgBase = process.env.KONOHA_DUCKDUCKGO_URL || 'https://html.duckduckgo.com/html/';
   const url = `${ddgBase}?q=${encodeURIComponent(q)}`;
@@ -175,29 +189,11 @@ async function queryDuckDuckGo(q, num) {
     const blocks = [];
     const re = /<div class="result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/g;
     let m;
-    while ((m = re.exec(html)) !== null) {
-      blocks.push(m[1]);
-    }
+    while ((m = re.exec(html)) !== null) blocks.push(m[1]);
     const results = [];
     for (const b of blocks.slice(0, num)) {
-      const titleM = b.match(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
-      const snippetM = b.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/);
-      if (titleM) {
-        let rawUrl = titleM[1];
-        const title = titleM[2].replace(/<[^>]+>/g, '').trim();
-        let snippet = '';
-        if (snippetM) snippet = snippetM[1].replace(/<[^>]+>/g, '').trim();
-        try {
-          const parsed = new URL(rawUrl, process.env.KONOHA_DUCKDUCKGO_URL || 'https://duckduckgo.com');
-          rawUrl = parsed.searchParams.get('uddg') || rawUrl;
-        } catch (_) { /* ignore */ }
-        results.push({
-          title,
-          url: rawUrl,
-          snippet,
-          source: 'DuckDuckGo'
-        });
-      }
+      const res = _parseDdgResultBlock(b);
+      if (res) results.push(res);
     }
     return results;
   } catch (_) {
@@ -239,31 +235,35 @@ async function queryStartpage(q, num) {
   }
 }
 
+function _parseWikiData(data) {
+  if (!Array.isArray(data) || data.length < 4 || !Array.isArray(data[1])) return null;
+  const titles = data[1];
+  const descriptions = data[2] || [];
+  const urls = data[3] || [];
+  const results = [];
+  for (let j = 0; j < titles.length; j++) {
+    results.push({
+      title: titles[j],
+      url: urls[j],
+      snippet: descriptions[j] || `Wikipedia page for ${titles[j]}.`,
+      source: 'Wikipedia'
+    });
+  }
+  return results;
+}
+
 async function queryWikipedia(q, num) {
   try {
     const terms = q.split(/\s+/).filter(Boolean);
+    const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';
     for (let i = 0; i < Math.min(3, terms.length); i++) {
       const term = terms.slice(0, terms.length - i).join(' ');
       if (term.trim().length < 3) continue;
-      const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';
       const url = `${wikiBase}?action=opensearch&search=${encodeURIComponent(term)}&limit=${num}&format=json`;
       const resp = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, 5000);
       const data = await resp.json();
-      if (Array.isArray(data) && data.length >= 4 && Array.isArray(data[1])) {
-        const titles = data[1];
-        const descriptions = data[2] || [];
-        const urls = data[3] || [];
-        const results = [];
-        for (let j = 0; j < titles.length; j++) {
-          results.push({
-            title: titles[j],
-            url: urls[j],
-            snippet: descriptions[j] || `Wikipedia page for ${titles[j]}.`,
-            source: 'Wikipedia'
-          });
-        }
-        return results;
-      }
+      const results = _parseWikiData(data);
+      if (results) return results;
     }
   } catch (_) { /* ignore */ }
   return [];
@@ -287,6 +287,98 @@ function rankScore(r) {
   return score;
 }
 
+async function _querySpecificEngine(engine, q, numResults) {
+  if (engine === 'wikipedia') {
+    const wiki = await queryWikipedia(q, numResults);
+    if (wiki?.length > 0) logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
+    return wiki || [];
+  }
+  if (engine === 'duckduckgo') {
+    const ddg = await queryDuckDuckGo(q, numResults);
+    if (ddg?.length > 0) logSearchActivity('DuckDuckGo HTML', q, ddg.length);
+    return ddg || [];
+  }
+  if (engine === 'searxng') {
+    const candidates = await getCandidateInstances();
+    const bestInstance = await resolveBestInstance(candidates);
+    if (!bestInstance) return [];
+    const sx = await querySearxng(bestInstance, q, numResults);
+    if (sx?.length > 0) logSearchActivity('SearXNG', q, sx.length);
+    return sx || [];
+  }
+  if (engine === 'startpage') {
+    const sp = await queryStartpage(q, numResults);
+    if (sp?.length > 0) logSearchActivity('Startpage HTML', q, sp.length);
+    return sp || [];
+  }
+  return null;
+}
+
+async function _queryWebFallbackChain(q, numResults) {
+  const candidates = await getCandidateInstances();
+  const bestInstance = await resolveBestInstance(candidates);
+  if (bestInstance) {
+    const sx = await querySearxng(bestInstance, q, numResults);
+    if (sx?.length > 0) {
+      logSearchActivity('SearXNG', q, sx.length);
+      return sx;
+    }
+  }
+  const ddg = await queryDuckDuckGo(q, numResults);
+  if (ddg?.length > 0) {
+    logSearchActivity('DuckDuckGo HTML', q, ddg.length);
+    return ddg;
+  }
+  const sp = await queryStartpage(q, numResults);
+  if (sp?.length > 0) {
+    logSearchActivity('Startpage HTML', q, sp.length);
+    return sp;
+  }
+  return [];
+}
+
+async function _queryBlendedSearch(q, numResults, isBlended, requestedEngine) {
+  const webPromise = _queryWebFallbackChain(q, numResults);
+  const wikiPromise = (async () => {
+    if (!isBlended || requestedEngine !== 'all') return [];
+    try {
+      const wikiLimit = Math.min(2, Math.max(1, Math.floor(numResults / 2)));
+      const wiki = await queryWikipedia(q, wikiLimit);
+      if (wiki?.length > 0) {
+        logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
+        return wiki;
+      }
+    } catch (_) { /* best effort */ }
+    return [];
+  })();
+
+  const [webSettled, wikiSettled] = await Promise.allSettled([webPromise, wikiPromise]);
+  const currentResults = [];
+  if (webSettled.status === 'fulfilled' && Array.isArray(webSettled.value)) {
+    currentResults.push(...webSettled.value);
+  }
+  if (wikiSettled.status === 'fulfilled' && Array.isArray(wikiSettled.value)) {
+    currentResults.push(...wikiSettled.value);
+  }
+  if (currentResults.length === 0) {
+    const fallbackWiki = await queryWikipedia(q, numResults);
+    if (fallbackWiki?.length > 0) {
+      logSearchActivity('Wikipedia OpenSearch', q, fallbackWiki.length);
+      currentResults.push(...fallbackWiki);
+    }
+  }
+  return currentResults;
+}
+
+function _appendUniqueResults(currentResults, seenUrls, allResults) {
+  for (const r of currentResults) {
+    if (!seenUrls.has(r.url)) {
+      seenUrls.add(r.url);
+      allResults.push(r);
+    }
+  }
+}
+
 async function runWebSearch(query, numResults = 5, searchDepth = 'standard', agentName = null, options = {}) {
   if (!query || !query.trim()) {
     return JSON.stringify({ status: 'error', message: 'Query is required.' });
@@ -307,100 +399,12 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
   const isBlended = options && options.blended !== undefined ? options.blended : (requestedEngine === 'all');
 
   for (const q of queries) {
-    let currentResults = [];
+    const specific = await _querySpecificEngine(requestedEngine, q, numResults);
+    const currentResults = specific !== null
+      ? specific
+      : await _queryBlendedSearch(q, numResults, isBlended, requestedEngine);
 
-    if (requestedEngine === 'wikipedia') {
-      const wiki = await queryWikipedia(q, numResults);
-      if (wiki && wiki.length > 0) {
-        logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
-        currentResults.push(...wiki);
-      }
-    } else if (requestedEngine === 'duckduckgo') {
-      const ddg = await queryDuckDuckGo(q, numResults);
-      if (ddg && ddg.length > 0) {
-        logSearchActivity('DuckDuckGo HTML', q, ddg.length);
-        currentResults.push(...ddg);
-      }
-    } else if (requestedEngine === 'searxng') {
-      const candidates = await getCandidateInstances();
-      const bestInstance = await resolveBestInstance(candidates);
-      if (bestInstance) {
-        const sx = await querySearxng(bestInstance, q, numResults);
-        if (sx && sx.length > 0) {
-          logSearchActivity('SearXNG', q, sx.length);
-          currentResults.push(...sx);
-        }
-      }
-    } else if (requestedEngine === 'startpage') {
-      const sp = await queryStartpage(q, numResults);
-      if (sp && sp.length > 0) {
-        logSearchActivity('Startpage HTML', q, sp.length);
-        currentResults.push(...sp);
-      }
-    } else {
-      // requestedEngine === 'all' or 'web'
-      const webQueryPromise = (async () => {
-        let webResults = null;
-        const candidates = await getCandidateInstances();
-        const bestInstance = await resolveBestInstance(candidates);
-        if (bestInstance) {
-          webResults = await querySearxng(bestInstance, q, numResults);
-          if (webResults && webResults.length > 0) {
-            logSearchActivity('SearXNG', q, webResults.length);
-          }
-        }
-        if (!webResults || webResults.length === 0) {
-          webResults = await queryDuckDuckGo(q, numResults);
-          if (webResults && webResults.length > 0) {
-            logSearchActivity('DuckDuckGo HTML', q, webResults.length);
-          }
-        }
-        if (!webResults || webResults.length === 0) {
-          webResults = await queryStartpage(q, numResults);
-          if (webResults && webResults.length > 0) {
-            logSearchActivity('Startpage HTML', q, webResults.length);
-          }
-        }
-        return webResults || [];
-      })();
-
-      const wikiPromise = (async () => {
-        if (!isBlended || requestedEngine !== 'all') return [];
-        try {
-          const wikiLimit = Math.min(2, Math.max(1, Math.floor(numResults / 2)));
-          const wiki = await queryWikipedia(q, wikiLimit);
-          if (wiki && wiki.length > 0) {
-            logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
-            return wiki;
-          }
-        } catch (_) { /* best effort */ }
-        return [];
-      })();
-
-      const [webSettled, wikiSettled] = await Promise.allSettled([webQueryPromise, wikiPromise]);
-      if (webSettled.status === 'fulfilled' && Array.isArray(webSettled.value) && webSettled.value.length > 0) {
-        currentResults.push(...webSettled.value);
-      }
-      if (wikiSettled.status === 'fulfilled' && Array.isArray(wikiSettled.value) && wikiSettled.value.length > 0) {
-        currentResults.push(...wikiSettled.value);
-      }
-
-      // If still zero results (e.g. offline fallback test), query Wikipedia as final fallback
-      if (currentResults.length === 0) {
-        const wiki = await queryWikipedia(q, numResults);
-        if (wiki && wiki.length > 0) {
-          logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
-          currentResults.push(...wiki);
-        }
-      }
-    }
-
-    for (const r of currentResults) {
-      if (!seenUrls.has(r.url)) {
-        seenUrls.add(r.url);
-        allResults.push(r);
-      }
-    }
+    _appendUniqueResults(currentResults, seenUrls, allResults);
   }
 
   allResults.sort((a, b) => rankScore(b) - rankScore(a));

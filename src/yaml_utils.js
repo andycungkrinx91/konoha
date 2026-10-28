@@ -43,32 +43,81 @@ function coerceScalar(val) {
 
 // parseYaml — extracted verbatim from src/agent_manager.js (lines 33–180).
 
+function _handleMultiLineState(line, state) {
+  const matchIndent = line.match(/^(\s*)/);
+  const indent = matchIndent ? matchIndent[1].length : 0;
+  if (line.trim() === '' || indent >= state.multiLineIndent) {
+    state.multiLineValue.push(line.slice(state.multiLineIndent));
+    return true;
+  }
+  state.multiLineNode[state.multiLineKey] = state.multiLineValue.join('\n').replace(/\r/g, '');
+  state.inMultiLine = false;
+  return false;
+}
+
+function _handleYamlArrayItem(trimmed, current, stack, indent) {
+  const rest = trimmed.slice(1).trim();
+  const colonIdx = rest.indexOf(':');
+  if (colonIdx !== -1) {
+    const key = rest.slice(0, colonIdx).trim();
+    const val = coerceScalar(rest.slice(colonIdx + 1).trim());
+    const obj = { [key]: val };
+    if (Array.isArray(current)) current.push(obj);
+    stack.push({ indent, value: obj });
+  } else {
+    const val = coerceScalar(rest);
+    if (Array.isArray(current)) current.push(val);
+  }
+}
+
+function _resolveEmptyValBlock(ctx, stack) {
+  const { lines, i, indent, current, key } = ctx;
+  let nextIdx = i + 1;
+  while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+  if (nextIdx < lines.length) {
+    const nextMatch = lines[nextIdx].match(/^(\s*)/);
+    const nextIndent = nextMatch ? nextMatch[1].length : 0;
+    if (nextIndent > indent) {
+      const isNextArray = lines[nextIdx].trim().startsWith('-');
+      const nextVal = isNextArray ? [] : {};
+      current[key] = nextVal;
+      stack.push({ indent, value: nextVal });
+      return;
+    }
+  }
+  current[key] = '';
+}
+
+function _initMultiLineBlock(ctx, state) {
+  const { lines, i, indent, current, key } = ctx;
+  state.inMultiLine = true;
+  state.multiLineValue = [];
+  state.multiLineNode = current;
+  state.multiLineKey = key;
+  let nextIdx = i + 1;
+  while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+  if (nextIdx < lines.length) {
+    const nextMatch = lines[nextIdx].match(/^(\s*)/);
+    state.multiLineIndent = nextMatch ? nextMatch[1].length : 0;
+  } else {
+    state.multiLineIndent = indent + 2;
+  }
+}
+
 function parseYaml(yamlStr) {
   if (!yamlStr) return null;
   const lines = yamlStr.split(/\r?\n/);
   const root = {};
   let isRootArray = false;
-  let rootArray = [];
+  const rootArray = [];
   const stack = [];
   let current = root;
-  let inMultiLine = false;
-  let multiLineIndent = 0;
-  let multiLineValue = [];
-  let multiLineNode = null;
-  let multiLineKey = null;
+  const mlState = { inMultiLine: false, multiLineIndent: 0, multiLineValue: [], multiLineNode: null, multiLineKey: null };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (inMultiLine) {
-      const matchIndent = line.match(/^(\s*)/);
-      const indent = matchIndent ? matchIndent[1].length : 0;
-      if (line.trim() === '' || indent >= multiLineIndent) {
-        multiLineValue.push(line.slice(multiLineIndent));
-        continue;
-      } else {
-        multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
-        inMultiLine = false;
-      }
+    if (mlState.inMultiLine && _handleMultiLineState(line, mlState)) {
+      continue;
     }
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
@@ -78,91 +127,44 @@ function parseYaml(yamlStr) {
     while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
       stack.pop();
     }
-    if (stack.length > 0) {
-      current = stack[stack.length - 1].value;
-    } else {
-      current = isRootArray ? rootArray : root;
-    }
+    current = stack.length > 0 ? stack[stack.length - 1].value : (isRootArray ? rootArray : root);
+
     if (trimmed.startsWith('-')) {
       if (stack.length === 0 && Object.keys(root).length === 0 && !isRootArray) {
         isRootArray = true;
         current = rootArray;
       }
-      const rest = trimmed.slice(1).trim();
-      const colonIdx = rest.indexOf(':');
-      if (colonIdx !== -1) {
-        const key = rest.slice(0, colonIdx).trim();
-        let val = rest.slice(colonIdx + 1).trim();
-        const obj = {};
-        if (Array.isArray(current)) {
-          current.push(obj);
-        }
-        val = coerceScalar(val);
-        obj[key] = val;
-        stack.push({ indent: indent, value: obj });
-      } else {
-        let val = rest;
-        val = coerceScalar(val);
-        if (Array.isArray(current)) {
-          current.push(val);
-        }
-      }
+      _handleYamlArrayItem(trimmed, current, stack, indent);
       continue;
     }
+
     const colonIdx = line.indexOf(':');
-    if (colonIdx !== -1) {
-      const key = line.slice(0, colonIdx).trim();
-      let val = line.slice(colonIdx + 1).trim();
-      if (val === '|') {
-        inMultiLine = true;
-        multiLineValue = [];
-        multiLineNode = current;
-        multiLineKey = key;
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        if (nextIdx < lines.length) {
-          const nextMatch = lines[nextIdx].match(/^(\s*)/);
-          multiLineIndent = nextMatch ? nextMatch[1].length : 0;
-        } else {
-          multiLineIndent = indent + 2;
-        }
-        continue;
-      }
-      if (val === '[]') {
-        current[key] = [];
-        continue;
-      }
-      if (val === '{}') {
-        current[key] = {};
-        continue;
-      }
-      if (val === '') {
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        if (nextIdx < lines.length) {
-          const nextMatch = lines[nextIdx].match(/^(\s*)/);
-          const nextIndent = nextMatch ? nextMatch[1].length : 0;
-          if (nextIndent > indent) {
-            let isNextArray = lines[nextIdx].trim().startsWith('-');
-            const nextVal = isNextArray ? [] : {};
-            current[key] = nextVal;
-            stack.push({ indent: indent, value: nextVal });
-            continue;
-          }
-        }
-        current[key] = '';
-        continue;
-      }
-      val = coerceScalar(val);
-      current[key] = val;
+    if (colonIdx === -1) continue;
+
+    const key = line.slice(0, colonIdx).trim();
+    const val = line.slice(colonIdx + 1).trim();
+
+    if (val === '|') {
+      _initMultiLineBlock({ lines, i, indent, current, key }, mlState);
+      continue;
     }
+    if (val === '[]') {
+      current[key] = [];
+      continue;
+    }
+    if (val === '{}') {
+      current[key] = {};
+      continue;
+    }
+    if (val === '') {
+      _resolveEmptyValBlock({ lines, i, indent, current, key }, stack);
+      continue;
+    }
+    current[key] = coerceScalar(val);
   }
-  if (inMultiLine && multiLineNode && multiLineKey) {
-    multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
+
+  if (mlState.inMultiLine && mlState.multiLineNode && mlState.multiLineKey) {
+    mlState.multiLineNode[mlState.multiLineKey] = mlState.multiLineValue.join('\n').replace(/\r/g, '');
   }
   return isRootArray ? rootArray : root;
 }

@@ -66,6 +66,71 @@ function validateAnimatedWebP(filePath) {
   };
 }
 
+async function _captureAnimationFrames(page, durationSec, fps, tmpFramesDir) {
+  const totalFrames = durationSec * fps;
+  for (let f = 0; f < totalFrames; f++) {
+    const frameTime = f / fps;
+    await page.evaluate((time) => {
+      const svg = document.querySelector('svg');
+      if (svg && typeof svg.setCurrentTime === 'function') svg.setCurrentTime(time);
+      document.querySelectorAll('.flow-path').forEach(p => {
+        p.style.strokeDashoffset = -((time * 24) % 28);
+      });
+    }, frameTime);
+    const framePath = path.join(tmpFramesDir, `frame_${String(f).padStart(4, '0')}.png`);
+    await page.screenshot({ path: framePath, type: 'png' });
+    await page.waitForTimeout(1000 / fps);
+  }
+}
+
+function _encodeWebpWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames) {
+  const ffmpegArgs = [
+    '-y', '-framerate', String(fps),
+    '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
+    '-vcodec', 'libwebp_anim', '-lossless', '0', '-compression_level', '6',
+    '-q:v', '90', '-preset', 'drawing', '-loop', '0', outputPath
+  ];
+  const res = spawnSync('ffmpeg', ffmpegArgs);
+  if (res.status !== 0 || !fs.existsSync(outputPath)) return null;
+
+  const validation = validateAnimatedWebP(outputPath);
+  if (!validation.valid) {
+    return { success: false, error: `WebP structural validation failed: ${validation.error}`, file_path: outputPath };
+  }
+  return {
+    success: true, file_path: outputPath, format: 'webp', frames_captured: totalFrames,
+    width: validation.canvasWidth, height: validation.canvasHeight,
+    duration_ms: validation.totalDurationMs, loop_count: validation.loopCount,
+    validation: 'PASS_WEBP_STRUCTURAL_VALIDATION'
+  };
+}
+
+function _encodeGifWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames) {
+  const ffmpegArgs = [
+    '-y', '-framerate', String(fps),
+    '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
+    '-vf', 'split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer',
+    outputPath
+  ];
+  const res = spawnSync('ffmpeg', ffmpegArgs);
+  if (res.status === 0 && fs.existsSync(outputPath)) {
+    return { success: true, file_path: outputPath, format: 'gif', frames_captured: totalFrames };
+  }
+  return null;
+}
+
+function _tryEncodeAnimation(targetFormat, tmpFramesDir, fps, outputPath, totalFrames) {
+  const checkFfmpeg = spawnSync('which', ['ffmpeg']);
+  if (checkFfmpeg.status !== 0) return null;
+  if (targetFormat === 'webp') {
+    return _encodeWebpWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames);
+  }
+  if (targetFormat === 'gif') {
+    return _encodeGifWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames);
+  }
+  return null;
+}
+
 async function animationExport(options = {}) {
   const inputPath = path.resolve(options.input_path || 'diagram.svg');
   if (!fs.existsSync(inputPath)) {
@@ -80,111 +145,30 @@ async function animationExport(options = {}) {
   const fps = options.fps || 15;
 
   const content = fs.readFileSync(inputPath, 'utf8');
-
-  // Dynamically detect SVG dimensions from viewBox or width/height attributes
   const widthMatch = content.match(/viewBox=["']\s*0\s+0\s+(\d+)\s+(\d+)\s*["']/i) ||
                      content.match(/width=["'](\d+)["'].*?height=["'](\d+)["']/i);
   const animWidth = widthMatch ? parseInt(widthMatch[1], 10) : (options.width || 1600);
   const animHeight = widthMatch ? parseInt(widthMatch[2], 10) : (options.height || 900);
 
   const browser = await chromiumUtils.launchChromium();
-
-  const page = await browser.newPage({
-    viewport: { width: animWidth, height: animHeight },
-    deviceScaleFactor: 1
-  });
+  const page = await browser.newPage({ viewport: { width: animWidth, height: animHeight }, deviceScaleFactor: 1 });
   await chromiumUtils.setupOfflineInterception(page);
-
   await page.setContent(`<!DOCTYPE html><html><body style="margin:0;padding:0;width:${animWidth}px;height:${animHeight}px;overflow:hidden;background:#FAFBFD;">${content}</body></html>`);
 
   const tmpFramesDir = path.join(os.tmpdir(), `konoha_anim_${Date.now()}`);
   fs.mkdirSync(tmpFramesDir, { recursive: true });
-
   const totalFrames = durationSec * fps;
-  try {
-    for (let f = 0; f < totalFrames; f++) {
-      const frameTime = f / fps;
-      // Advance SVG SMIL timeline and scrub CSS strokeDashoffset for deterministic frame-by-frame capture
-      await page.evaluate((time) => {
-        const svg = document.querySelector('svg');
-        if (svg && typeof svg.setCurrentTime === 'function') {
-          svg.setCurrentTime(time);
-        }
-        const paths = document.querySelectorAll('.flow-path');
-        paths.forEach((p) => {
-          const offset = (time * 24) % 28;
-          p.style.strokeDashoffset = -offset;
-        });
-      }, frameTime);
 
-      const framePath = path.join(tmpFramesDir, `frame_${String(f).padStart(4, '0')}.png`);
-      await page.screenshot({ path: framePath, type: 'png' });
-      await page.waitForTimeout(1000 / fps);
-    }
+  try {
+    await _captureAnimationFrames(page, durationSec, fps, tmpFramesDir);
     await browser.close();
 
-    // Check ffmpeg availability
-    const checkFfmpeg = spawnSync('which', ['ffmpeg']);
-    if (checkFfmpeg.status === 0) {
-      if (targetFormat === 'webp') {
-        const ffmpegArgs = [
-          '-y',
-          '-framerate', String(fps),
-          '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
-          '-vcodec', 'libwebp_anim',
-          '-lossless', '0',
-          '-compression_level', '6',
-          '-q:v', '90',
-          '-preset', 'drawing',
-          '-loop', '0',
-          outputPath
-        ];
-        const res = spawnSync('ffmpeg', ffmpegArgs);
-        if (res.status === 0 && fs.existsSync(outputPath)) {
-          const validation = validateAnimatedWebP(outputPath);
-          if (validation.valid) {
-            fs.rmSync(tmpFramesDir, { recursive: true, force: true });
-            return {
-              success: true,
-              file_path: outputPath,
-              format: 'webp',
-              frames_captured: totalFrames,
-              width: validation.canvasWidth,
-              height: validation.canvasHeight,
-              duration_ms: validation.totalDurationMs,
-              loop_count: validation.loopCount,
-              validation: 'PASS_WEBP_STRUCTURAL_VALIDATION'
-            };
-          }
-          fs.rmSync(tmpFramesDir, { recursive: true, force: true });
-          return {
-            success: false,
-            error: `WebP structural validation failed: ${validation.error}`,
-            file_path: outputPath
-          };
-        }
-      } else if (targetFormat === 'gif') {
-        const ffmpegArgs = [
-          '-y',
-          '-framerate', String(fps),
-          '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
-          '-vf', 'split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer',
-          outputPath
-        ];
-        const res = spawnSync('ffmpeg', ffmpegArgs);
-        if (res.status === 0 && fs.existsSync(outputPath)) {
-          fs.rmSync(tmpFramesDir, { recursive: true, force: true });
-          return {
-            success: true,
-            file_path: outputPath,
-            format: 'gif',
-            frames_captured: totalFrames
-          };
-        }
-      }
+    const animRes = _tryEncodeAnimation(targetFormat, tmpFramesDir, fps, outputPath, totalFrames);
+    if (animRes) {
+      fs.rmSync(tmpFramesDir, { recursive: true, force: true });
+      return animRes;
     }
 
-    // Fallback: copy first frame as PNG
     const pngFallback = targetFormat === 'png' ? outputPath : outputPath.replace(/\.[^.]+$/, '.png');
     fs.copyFileSync(path.join(tmpFramesDir, 'frame_0000.png'), pngFallback);
     fs.rmSync(tmpFramesDir, { recursive: true, force: true });

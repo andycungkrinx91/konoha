@@ -150,6 +150,22 @@ function isValidConfig(parsed) {
  *   If persistence fails the throw propagates: an unpersisted bootstrap must never
  *   be advertised as usable trusted server state.
  */
+function _healBootstrapConfig(parsed) {
+  if (!parsed.is_bootstrap) return;
+  const currentBootstrap = resolveBootstrapPassword();
+  if (verifyPasswordHash(currentBootstrap, parsed)) return;
+  const rehashed = hashPassword(currentBootstrap);
+  parsed.format = rehashed.format;
+  parsed.salt = rehashed.salt;
+  parsed.hash = rehashed.hash;
+  parsed.updated_at = new Date().toISOString();
+  try {
+    saveAuthConfig(parsed);
+  } catch (_) {
+    // Ignore persistence errors during opportunistic auto-healing
+  }
+}
+
 function getAuthConfig() {
   const configFile = getAuthConfigPath();
   let exists = false;
@@ -169,21 +185,7 @@ function getAuthConfig() {
     if (!isValidConfig(parsed)) {
       throw new Error('Auth configuration is malformed: missing password verifier');
     }
-    if (parsed.is_bootstrap) {
-      const currentBootstrap = resolveBootstrapPassword();
-      if (!verifyPasswordHash(currentBootstrap, parsed)) {
-        const rehashed = hashPassword(currentBootstrap);
-        parsed.format = rehashed.format;
-        parsed.salt = rehashed.salt;
-        parsed.hash = rehashed.hash;
-        parsed.updated_at = new Date().toISOString();
-        try {
-          saveAuthConfig(parsed);
-        } catch (_) {
-          // Ignore persistence errors during opportunistic auto-healing
-        }
-      }
-    }
+    _healBootstrapConfig(parsed);
     return parsed;
   }
 

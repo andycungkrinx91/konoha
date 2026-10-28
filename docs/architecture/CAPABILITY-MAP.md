@@ -317,18 +317,18 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ---
 
-### 2.16 Cloudflare Zero Trust Ingress & Unified Prompt Queue (`src/tunnel/`, `src/queue/`)
+### 2.16 Unified Prompt Queue & Autonomous Worker (`src/queue/`)
 
-* **Purpose:** Public edge ingress with Zero Trust identity protection (JWT/email validation), timing-safe Argon2id authentication, session invalidation on password reset, and atomic SQLite prompt inbox queue.
-* **Canonical Implementation:** `src/tunnel/manager.js`, `src/tunnel/security.js`, `src/queue/inbox.js`, `src/queue/worker.js`, `src/auth.js`.
+* **Purpose:** Atomic SQLite prompt inbox queue, background worker execution, session mirroring, and timing-safe Argon2id authentication.
+* **Canonical Implementation:** `src/queue/inbox.js`, `src/queue/worker.js`, `src/auth.js`.
 * **Entry Points:**
-  - CLI: `konoha tunnel {status|start|stop}`, `konoha queue {status|list|run|clear}`.
+  - CLI: `konoha queue {status|list|run|clear}`.
   - Web UI: Remote Access tab (`apps/web/src/components/RemoteAccess.svelte`).
-* **Consumers:** Remote web dashboard, mobile browsers, automated queue dispatchers.
+* **Consumers:** Web console, mobile browsers, automated queue dispatchers.
 * **Storage:** SQLite `prompt_queue` table, atomic filesystem mirror `~/.konoha/inbox/<session>.json`.
-* **Tests:** `tests/test_cloudflare_tunnel.js`, `tests/test_prompt_queue.js`, `tests/test_auth_argon2id.js`.
-* **Documentation:** `docs/CLOUDFLARE_TUNNEL_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`.
-* **Dependencies:** `cloudflared` binary, `@noble/hashes`, `node:sqlite`.
+* **Tests:** `tests/test_prompt_queue.js`, `tests/test_auth_argon2id.js`.
+* **Documentation:** `docs/TELEGRAM_INTEGRATION_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`.
+* **Dependencies:** `@noble/hashes`, `node:sqlite`.
 
 ---
 

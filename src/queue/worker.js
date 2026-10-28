@@ -254,8 +254,8 @@ async function finalizeTaskResult(task, { isSuccess, summary, duration, client, 
 function detectExecutingAgent(prompt = '', output = '', fallback = null) {
   const p = (prompt || '').trim();
 
-  // 1. Direct slash command prefix
-  const directMatch = p.match(/^\/(kage|anbu|jonin|genin|chunin|tokubetsu[-_]jonin|sannin)/i);
+  // Direct slash command prefix
+  const directMatch = p.match(/^\/(kage|anbu|jonin|genin|chunin|tokubetsu[-_]jonin|sannin|akatsuki)/i);
   if (directMatch) {
     const raw = directMatch[1].toLowerCase().replace('_', '-');
     const names = {
@@ -265,12 +265,13 @@ function detectExecutingAgent(prompt = '', output = '', fallback = null) {
       genin: 'Scout Genin',
       chunin: 'Intel Ninja Chunin',
       'tokubetsu-jonin': 'Scribe Tokubetsu Jonin',
-      sannin: 'Master Orchestrator Sannin'
+      sannin: 'Master Orchestrator Sannin',
+      akatsuki: 'Security Specialist Akatsuki'
     };
     if (names[raw]) return names[raw];
   }
 
-  // 2. Dynamic output markers: inspect output turns for [icon Agent] active
+  // Dynamic output markers: inspect output turns for [icon Agent] active
   if (output && typeof output === 'string') {
     const matches = output.match(/\[([^\]]+)\]\s+active/gi);
     if (matches && matches.length > 0) {
@@ -285,14 +286,15 @@ function detectExecutingAgent(prompt = '', output = '', fallback = null) {
           genin: 'Scout Genin',
           chunin: 'Intel Ninja Chunin',
           'tokubetsu-jonin': 'Scribe Tokubetsu Jonin',
-          sannin: 'Master Orchestrator Sannin'
+          sannin: 'Master Orchestrator Sannin',
+          akatsuki: 'Security Specialist Akatsuki'
         };
         if (map[key]) return map[key];
       }
     }
   }
 
-  // 3. Fallback heuristic from prompt keywords
+  // Fallback heuristic from prompt keywords
   const lower = p.toLowerCase();
   if (lower.includes('backend') || lower.includes('bug') || lower.includes('fix') || lower.includes('docker') || lower.includes('api') || lower.includes('server')) {
     return 'Black Ops Anbu';
@@ -339,7 +341,7 @@ async function processTask(task) {
     return;
   }
 
-  // 1. Operational Command (0 LLM Tokens)
+  // Operational Command (0 LLM Tokens)
   if (isOperationalCommand(cleanPrompt)) {
     const cmd = extractCommand(cleanPrompt);
     if (!cmd) {
@@ -378,7 +380,7 @@ async function processTask(task) {
     });
   }
 
-  // 2. AI Coding / Reasoning Task via Headless CLI
+  // AI Coding / Reasoning Task via Headless CLI
   // Uses agy CLI with low reasoning effort and 45-minute timeout for complex tasks
   return new Promise((resolve) => {
     const agyBin = resolveAgyBin();

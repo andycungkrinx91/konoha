@@ -35,84 +35,85 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
-async function cmdUninstall(args = []) {
-  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
-    cmdUninstallHelp();
-    return;
-  }
-  header('🗑️  Uninstalling Konoha MCP');
-
-  // Remove server files (preserving the konoha.db database and its metrics)
-  if (fileExists(SKILLS_DB_DIR)) {
-    const files = fs.readdirSync(SKILLS_DB_DIR);
-    const preservedDbs = new Set(['konoha.db', 'konoha.db-journal', 'konoha.db-wal', 'konoha.db-shm', 'skills.db', 'skills.db-journal', 'skills.db-wal', 'skills.db-shm']);
-    files.forEach(file => {
-      if (!preservedDbs.has(file)) {
-        const filePath = path.join(SKILLS_DB_DIR, file);
-        try {
-          if (fs.statSync(filePath).isDirectory()) {
-            fs.rmSync(filePath, { recursive: true, force: true });
-          } else {
-            fs.unlinkSync(filePath);
-          }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+function cleanServerFiles() {
+  if (!fileExists(SKILLS_DB_DIR)) return;
+  const files = fs.readdirSync(SKILLS_DB_DIR);
+  const preservedDbs = new Set(['konoha.db', 'konoha.db-journal', 'konoha.db-wal', 'konoha.db-shm', 'skills.db', 'skills.db-journal', 'skills.db-wal', 'skills.db-shm']);
+  files.forEach(file => {
+    if (preservedDbs.has(file)) return;
+    const filePath = path.join(SKILLS_DB_DIR, file);
+    try {
+      if (fs.statSync(filePath).isDirectory()) {
+        fs.rmSync(filePath, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(filePath);
       }
-    });
-    success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
-  }
+    } catch (_) { /* non-fatal */ }
+  });
+  success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
+}
 
-  // Remove Konoha MCP servers from the Pi (pi.dev) config
-  if (fileExists(piManager.PI_MCP_CONFIG)) {
-    if (piManager.removePiMcp(true)) {
-      success('Removed Konoha MCP servers from Pi (pi.dev) config');
-    } else {
-      warn('Could not update Pi (pi.dev) MCP config');
-    }
-  }
-  piManager.removePiRtkRule(true);
-  piManager.removePiContract(true);
-
+function cleanCommandCodeHooks() {
   const ccSettingsPath = path.join(HOME, '.commandcode', 'settings.json');
-  if (fileExists(ccSettingsPath)) {
-    try {
-      const cfg = JSON.parse(fs.readFileSync(ccSettingsPath, 'utf-8'));
-      if (cfg.hooks && Array.isArray(cfg.hooks.SessionStart)) {
-        const before = cfg.hooks.SessionStart.length;
-        cfg.hooks.SessionStart = cfg.hooks.SessionStart.filter(
-          (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
-        );
-        if (cfg.hooks.SessionStart.length !== before) {
-          fs.writeFileSync(ccSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
-          success('Removed Konoha workflow reminder from Command Code SessionStart hooks');
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+  if (!fileExists(ccSettingsPath)) return;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ccSettingsPath, 'utf-8'));
+    if (!cfg.hooks || !Array.isArray(cfg.hooks.SessionStart)) return;
+    const before = cfg.hooks.SessionStart.length;
+    cfg.hooks.SessionStart = cfg.hooks.SessionStart.filter(
+      (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
+    );
+    if (cfg.hooks.SessionStart.length !== before) {
+      fs.writeFileSync(ccSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
+      success('Removed Konoha workflow reminder from Command Code SessionStart hooks');
+    }
+  } catch (_) { /* non-fatal */ }
+}
 
+function cleanClaudeHooks() {
   const claudeSettingsPath = path.join(HOME, '.claude', 'settings.json');
-  if (fileExists(claudeSettingsPath)) {
-    try {
-      const cfg = JSON.parse(fs.readFileSync(claudeSettingsPath, 'utf-8'));
-      let changed = false;
-      for (const eventName of ['UserPromptSubmit', 'SessionStart']) {
-        if (!cfg.hooks || !Array.isArray(cfg.hooks[eventName])) continue;
-        const before = cfg.hooks[eventName].length;
-        cfg.hooks[eventName] = cfg.hooks[eventName].filter(
-          (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
-        );
-        if (cfg.hooks[eventName].length === 0) delete cfg.hooks[eventName];
-        if (cfg.hooks[eventName].length !== before) changed = true;
-      }
-      if (changed) {
-        fs.writeFileSync(claudeSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
-        success('Removed Konoha workflow reminder from Claude Code hooks');
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+  if (!fileExists(claudeSettingsPath)) return;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(claudeSettingsPath, 'utf-8'));
+    let changed = false;
+    for (const eventName of ['UserPromptSubmit', 'SessionStart']) {
+      if (!cfg.hooks || !Array.isArray(cfg.hooks[eventName])) continue;
+      const before = cfg.hooks[eventName].length;
+      cfg.hooks[eventName] = cfg.hooks[eventName].filter(
+        (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
+      );
+      if (cfg.hooks[eventName].length === 0) delete cfg.hooks[eventName];
+      if (cfg.hooks[eventName].length !== before) changed = true;
+    }
+    if (changed) {
+      fs.writeFileSync(claudeSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
+      success('Removed Konoha workflow reminder from Claude Code hooks');
+    }
+  } catch (_) { /* non-fatal */ }
+}
 
-  // Remove global `konoha` command shims that point into ~/.konoha
-  // (shims pointing at an npm/pnpm-managed package are left for that
-  // package manager to manage)
+function removeShimIfTargetMatches(dir, name, konohaPrefix) {
+  const shimPath = path.join(dir, name);
+  try {
+    if (!fs.existsSync(shimPath) && !fs.lstatSync(shimPath).isSymbolicLink()) return;
+    const st = fs.lstatSync(shimPath);
+    if (st.isSymbolicLink()) {
+      const target = path.resolve(dir, fs.readlinkSync(shimPath));
+      if (target === path.join(SKILLS_DB_DIR, 'bin', 'cli.js')) {
+        fs.unlinkSync(shimPath);
+        success(`Removed command shim: ${shimPath}`);
+      }
+    } else {
+      const content = fs.readFileSync(shimPath, 'utf8');
+      if (content.includes(konohaPrefix)) {
+        fs.unlinkSync(shimPath);
+        success(`Removed command shim: ${shimPath}`);
+      }
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
+function cleanGlobalShims() {
   try {
     const isWin = process.platform === 'win32';
     const homeDir = os.homedir();
@@ -122,7 +123,7 @@ async function cmdUninstall(args = []) {
       const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin });
       const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
       if (prefix && fs.existsSync(prefix)) shimDirs.add(isWin ? prefix : path.join(prefix, 'bin'));
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch (_) { /* non-fatal */ }
     if (isWin) {
       const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
       shimDirs.add(path.join(localAppData, 'pnpm'));
@@ -134,124 +135,104 @@ async function cmdUninstall(args = []) {
     const konohaPrefix = SKILLS_DB_DIR + path.sep;
     for (const dir of shimDirs) {
       for (const name of ['konoha', 'konoha.cmd', 'konoha.ps1']) {
-        const shimPath = path.join(dir, name);
-        try {
-          if (!fs.existsSync(shimPath) && !fs.lstatSync(shimPath).isSymbolicLink()) continue;
-        } catch (_) { continue; }
-        try {
-          const st = fs.lstatSync(shimPath);
-          if (st.isSymbolicLink()) {
-            const target = path.resolve(dir, fs.readlinkSync(shimPath));
-            if (target === path.join(SKILLS_DB_DIR, 'bin', 'cli.js')) {
-              fs.unlinkSync(shimPath);
-              success(`Removed command shim: ${shimPath}`);
-            }
-          } else {
-            const content = fs.readFileSync(shimPath, 'utf8');
-            if (content.includes(konohaPrefix)) {
-              fs.unlinkSync(shimPath);
-              success(`Removed command shim: ${shimPath}`);
-            }
-          }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        removeShimIfTargetMatches(dir, name, konohaPrefix);
       }
     }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch (_) { /* non-fatal */ }
+}
 
-  if (fileExists(MCP_CONFIG_PATH)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      let updated = false;
-      if (config.mcpServers && config.mcpServers['skills-db']) {
-        delete config.mcpServers['skills-db'];
-        success('Removed skills-db from MCP config');
+function cleanMcpConfig() {
+  if (!fileExists(MCP_CONFIG_PATH)) return;
+  try {
+    const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
+    let updated = false;
+    for (const srv of ['skills-db', 'semble', 'aislop', 'konoha-files', 'konoha']) {
+      if (config.mcpServers && config.mcpServers[srv]) {
+        delete config.mcpServers[srv];
+        success(`Removed ${srv} from MCP config`);
         updated = true;
       }
-      if (config.mcpServers && config.mcpServers['semble']) {
-        delete config.mcpServers['semble'];
-        success('Removed semble from MCP config');
-        updated = true;
-      }
-      if (config.mcpServers && config.mcpServers['aislop']) {
-        delete config.mcpServers['aislop'];
-        success('Removed aislop from MCP config');
-        updated = true;
-      }
-      if (config.mcpServers && config.mcpServers['konoha-files']) {
-        delete config.mcpServers['konoha-files'];
-        success('Removed konoha-files from MCP config');
-        updated = true;
-      }
-      if (config.mcpServers && config.mcpServers['konoha']) {
-        delete config.mcpServers['konoha'];
-        success('Removed konoha from MCP config');
-        updated = true;
-      }
-      if (updated) {
-        fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-      }
-    } catch {
-      warn('Could not update MCP config');
     }
+    if (updated) {
+      fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
+    }
+  } catch {
+    warn('Could not update MCP config');
   }
+}
 
-  // Restore or strip Konoha block from GEMINI.md
-  const backupPath = GEMINI_MD_PATH + '.backup';
+function restoreSingleMarkdown(mdPath, defaultHeader) {
+  const backupPath = mdPath + '.backup';
   if (fileExists(backupPath)) {
-    fs.copyFileSync(backupPath, GEMINI_MD_PATH);
+    fs.copyFileSync(backupPath, mdPath);
     fs.unlinkSync(backupPath);
-    success('Restored GEMINI.md from backup');
-  } else if (fileExists(GEMINI_MD_PATH)) {
-    try {
-      const cur = fs.readFileSync(GEMINI_MD_PATH, 'utf8');
-      const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
-      if (stripped && !stripped.startsWith('# Global Agent Instructions')) {
-        fs.writeFileSync(GEMINI_MD_PATH, stripped + '\n', 'utf8');
-      } else {
-        fs.unlinkSync(GEMINI_MD_PATH);
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
+    success(`Restored ${path.basename(mdPath)} from backup`);
+    return;
   }
+  if (!fileExists(mdPath)) return;
+  try {
+    const cur = fs.readFileSync(mdPath, 'utf8');
+    const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
+    if (stripped && !stripped.startsWith(defaultHeader)) {
+      fs.writeFileSync(mdPath, stripped + '\n', 'utf8');
+    } else {
+      fs.unlinkSync(mdPath);
+    }
+  } catch (_) { /* non-fatal */ }
+}
 
-  // Restore or strip Konoha block from AGENTS.md
-  const agentsBackupPath = AGENTS_MD_PATH + '.backup';
-  if (fileExists(agentsBackupPath)) {
-    fs.copyFileSync(agentsBackupPath, AGENTS_MD_PATH);
-    fs.unlinkSync(agentsBackupPath);
-    success('Restored AGENTS.md from backup');
-  } else if (fileExists(AGENTS_MD_PATH)) {
-    try {
-      const cur = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
-      const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
-      if (stripped && !stripped.startsWith('# AGENTS.md — Multi-Agent Team Configuration')) {
-        fs.writeFileSync(AGENTS_MD_PATH, stripped + '\n', 'utf8');
-      } else {
-        fs.unlinkSync(AGENTS_MD_PATH);
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
+function restoreMarkdownFiles() {
+  restoreSingleMarkdown(GEMINI_MD_PATH, '# Global Agent Instructions');
+  restoreSingleMarkdown(AGENTS_MD_PATH, '# AGENTS.md — Multi-Agent Team Configuration');
+}
 
-  const pkgSkillsDir = path.resolve(__dirname, '..', '..', '.agents', 'skills');
+function cleanOfficialSkills() {
+  const pkgSkillsDir = fileExists(path.resolve(__dirname, '..', '..', 'src', 'templates', 'skills'))
+    ? path.resolve(__dirname, '..', '..', 'src', 'templates', 'skills')
+    : path.resolve(__dirname, '..', '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-  if (fileExists(pkgSkillsDir) && fileExists(globalSkillsDir)) {
-    try {
-      const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
-      files.forEach(entry => {
-        const name = entry.name;
-        const targetPath = path.join(globalSkillsDir, name);
-        if (fileExists(targetPath)) {
-          const isOfficial = (entry.isDirectory() && (name.endsWith('-skill') || name === 'konoha')) ||
-                             (entry.isFile() && name.endsWith('-skill.md'));
-          if (isOfficial) {
-            fs.rmSync(targetPath, { recursive: true, force: true });
-            success(`Removed official skill: ${targetPath}`);
-          }
-        }
-      });
-    } catch (_) {
-      // ignore
+  if (!fileExists(pkgSkillsDir) || !fileExists(globalSkillsDir)) return;
+  try {
+    const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
+    files.forEach(entry => {
+      const name = entry.name;
+      const targetPath = path.join(globalSkillsDir, name);
+      if (!fileExists(targetPath)) return;
+      const isOfficial = (entry.isDirectory() && (name.endsWith('-skill') || name === 'konoha')) ||
+                         (entry.isFile() && name.endsWith('-skill.md'));
+      if (isOfficial) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+        success(`Removed official skill: ${targetPath}`);
+      }
+    });
+  } catch (_) { /* non-fatal */ }
+}
+
+async function cmdUninstall(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdUninstallHelp();
+    return;
+  }
+  header('🗑️  Uninstalling Konoha MCP');
+
+  cleanServerFiles();
+
+  if (fileExists(piManager.PI_MCP_CONFIG)) {
+    if (piManager.removePiMcp(true)) {
+      success('Removed Konoha MCP servers from Pi (pi.dev) config');
+    } else {
+      warn('Could not update Pi (pi.dev) MCP config');
     }
   }
+  piManager.removePiRtkRule(true);
+  piManager.removePiContract(true);
+
+  cleanCommandCodeHooks();
+  cleanClaudeHooks();
+  cleanGlobalShims();
+  cleanMcpConfig();
+  restoreMarkdownFiles();
+  cleanOfficialSkills();
 
   log('');
   success('Konoha MCP uninstalled.');

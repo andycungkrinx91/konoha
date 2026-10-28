@@ -22,7 +22,7 @@ if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
  * Cross-platform: Linux, macOS, Windows
  */
 
-const { C, log, error, drawLogo, chidoriTransition } = require('./lib/format');
+const { C, log, error } = require('./lib/format');
 const { closeReadline } = require('./lib/prompt');
 const {
   ensureAutoSetup,
@@ -59,102 +59,143 @@ const { cmdSoul } = require('./commands/soul');
 const { cmdBridge } = require('./commands/bridge');
 const { cmdSearch } = require('./commands/search');
 const { cmdTelegram } = require('./commands/telegram');
-const { cmdTunnel } = require('./commands/tunnel');
 const { cmdQueue } = require('./commands/queue');
-
-async function cmdHelp() {
-  await chidoriTransition('help');
-  drawLogo(false); // Print static logo for help menu
-
-  log(`
-  ${C.bold}🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃${C.reset}
-  ${C.dim}========================================================================
-  Konoha helps you manage a team of specialized AI subagents (Ninjas) across
-  Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi.
-  It stores agent "skills" (instructions, rules, scripts) in a local SQLite FTS5
-  database and exposes them via a searchable MCP server, providing massive token
-  savings (~80-98%) while keeping agents highly capable.
-  ========================================================================${C.reset}
-
-${C.bold}USAGE${C.reset}
-  konoha <command> [options]
-
-${C.bold}CORE COMMANDS${C.reset}
-  ${C.cyan}akatsuki${C.reset}          🛡️  Manage Akatsuki security controls, lab status, and redteam enable/disable.
-  ${C.cyan}agent${C.reset}             👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
-  ${C.cyan}auth${C.reset}              🔐 Manage web console authentication credentials and password reset.
-  ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
-  ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
-  ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
-  ${C.cyan}detect-ai${C.reset}         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
-  ${C.cyan}detect-docs${C.reset}       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
-  ${C.cyan}doctor${C.reset}            🩺 Run environment diagnostics to detect/fix integration issues.
-  ${C.cyan}embed${C.reset}             ⚡ Rebuild vector embeddings for all skills (implies --rebuild-embeddings).
-  ${C.cyan}help, -h${C.reset}          ❓ Show this educational help menu and command catalog.
-  ${C.cyan}init${C.reset}              🚀 Setup MCP servers, migrate local skills, and configure supported clients.
-  ${C.cyan}migrate${C.reset}           🔄 Re-index/migrate your custom skills database (run after editing skills).
-  ${C.cyan}project${C.reset}           📁 Manage persistent project workspaces, detected stacks, and invariants.
-  ${C.cyan}queue${C.reset}             📬 Background task prompt queue and execution worker.
-  ${C.cyan}reinstall${C.reset}         🔄 Force clean re-installation and replace existing configuration (implies --force).
-  ${C.cyan}savings${C.reset}           📊 View your total token savings (Today, 7 days, All time).
-  ${C.cyan}search${C.reset}            🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
-  ${C.cyan}service${C.reset}           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
-  ${C.cyan}skill${C.reset}             📚 Manage skills (list installed, search the public registry, add/remove).
-  ${C.cyan}soul${C.reset}              🔥 Display Ninja's Soul doctrine, tenets, and archetype spirits.
-  ${C.cyan}status${C.reset}            🩺 Check installation health, database size, and loaded skills.
-  ${C.cyan}task${C.reset}              📋 Native SDLC governance tasks, readiness gates, and audits.
-  ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
-  ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
-  ${C.cyan}tunnel${C.reset}            🚇 Manage Cloudflare and ngrok public ingress tunnels.
-  ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
-  ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
-  ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
-  ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
-  ${C.cyan}webhook${C.reset}           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
-
-${C.bold}GLOBAL OPTIONS${C.reset}
-  ${C.dim}--force${C.reset}            Force clean re-installation (used with init).
-  ${C.dim}--skills-dir${C.reset}       Specify a custom directory to scan for skill folders (used with migrate).
-  ${C.dim}--clean${C.reset}            Clean stale records before re-indexing (used with migrate).
-
-${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
-  ${C.dim}1. Setup everything for the first time:${C.reset}
-     pnpm dlx konoha-mcp init  # (or: npm install -g konoha-mcp && konoha init)
-
-  ${C.dim}2. Re-index skills & synchronize vector embeddings:${C.reset}
-     konoha migrate --clean --rebuild-embeddings  # (or: konoha embed)
-
-  ${C.dim}3. Verify MCP server connection:${C.reset}
-     konoha test
-
-  ${C.dim}4. Search for a custom skill on the registry and install it:${C.reset}
-     konoha skill search golang
-
-  ${C.dim}5. Interactively configure subagent skills:${C.reset}
-     konoha agent skill genin
-
-  ${C.dim}6. View byte-weighted token savings metrics:${C.reset}
-     konoha savings
-
-  ${C.dim}7. Inspect database storage and session history:${C.reset}
-     konoha data view
-
-  ${C.dim}8. Scan a website or document for AI markers:${C.reset}
-     konoha detect-ai https://example.com
-     konoha detect-docs report.pdf
-
-  ${C.dim}9. Configure Telegram remote task notifications:${C.reset}
-     konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>
-     konoha telegram test
-
-  ${C.dim}10. Start Cloudflare public tunnel for remote Web UI access:${C.reset}
-     konoha tunnel start
-
-`);
-}
+const { cmdHelp } = require('./commands/help');
 
 const command = process.argv[2];
 const args = process.argv.slice(3);
+
+async function dispatchCoreCommand(cmd, cmdArgs) {
+  switch (cmd) {
+    case 'init':
+    case 'reinstall':
+      if (cmd === 'reinstall' && !cmdArgs.includes('--force')) cmdArgs.push('--force');
+      await cmdInit(cmdArgs);
+      return true;
+    case 'migrate':
+      await cmdMigrate(cmdArgs);
+      return true;
+    case 'embed':
+      if (!cmdArgs.includes('--rebuild-embeddings')) cmdArgs.push('--rebuild-embeddings');
+      await cmdMigrate(cmdArgs);
+      return true;
+    case 'test':
+      await cmdTest(cmdArgs);
+      return true;
+    case 'status':
+      await cmdStatus(cmdArgs);
+      return true;
+    case 'savings':
+      await cmdSavings(cmdArgs);
+      return true;
+    case 'doctor':
+      await cmdDoctor(cmdArgs);
+      return true;
+    case 'clean':
+      await cmdClean(cmdArgs);
+      return true;
+    case 'uninstall':
+      await cmdUninstall(cmdArgs);
+      return true;
+    case 'version':
+    case '--version':
+    case '-v':
+      await cmdVersion(cmdArgs);
+      return true;
+    case 'upgrade':
+      await cmdUpgrade(cmdArgs);
+      return true;
+    case 'help':
+    case '--help':
+    case '-h':
+    case undefined:
+      await cmdHelp();
+      return true;
+    default:
+      return false;
+  }
+}
+
+async function dispatchServiceCommand(cmd, cmdArgs) {
+  switch (cmd) {
+    case 'web':
+      await cmdWeb(cmdArgs);
+      return true;
+    case 'ui':
+      await cmdUi(cmdArgs);
+      return true;
+    case 'service':
+      await cmdUiService(cmdArgs);
+      return true;
+    case 'auth': {
+      const sub = cmdArgs[0];
+      if (sub === 'reset' || sub === 'reset-password') {
+        const auth = require('../src/auth');
+        auth.resetAuthToDefault();
+        process.stdout.write('  \x1b[38;2;0;255;255m⚡\x1b[0m Web console password has been reset to default: \x1b[1mkonohagakure\x1b[0m\n');
+      } else {
+        process.stdout.write('Usage: konoha auth reset\n');
+      }
+      return true;
+    }
+    case 'queue':
+      await cmdQueue(cmdArgs);
+      return true;
+    case 'telegram':
+      await cmdTelegram(cmdArgs);
+      return true;
+    case 'webhook':
+    case 'webhooks': {
+      const { cmdWebhook } = require('./commands/webhook');
+      await cmdWebhook(cmdArgs);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+async function dispatchAgentCommand(cmd, cmdArgs) {
+  switch (cmd) {
+    case 'detect-ai':
+      await cmdDetectAi(cmdArgs);
+      return true;
+    case 'detect-docs':
+      await cmdDetectDocs(cmdArgs);
+      return true;
+    case 'skill':
+      await cmdSkill(cmdArgs);
+      return true;
+    case 'akatsuki': {
+      const { cmdAkatsuki } = require('./commands/akatsuki');
+      await cmdAkatsuki(cmdArgs);
+      return true;
+    }
+    case 'agent':
+      await cmdAgent(cmdArgs);
+      return true;
+    case 'data':
+      await cmdData(cmdArgs);
+      return true;
+    case 'soul':
+      await cmdSoul(cmdArgs);
+      return true;
+    case 'project':
+      await cmdProject(cmdArgs);
+      return true;
+    case 'task':
+      await cmdTask(cmdArgs);
+      return true;
+    case 'bridge':
+      await cmdBridge(cmdArgs);
+      return true;
+    case 'search':
+      await cmdSearch(cmdArgs);
+      return true;
+    default:
+      return false;
+  }
+}
 
 async function main() {
   if (command === undefined) {
@@ -178,131 +219,14 @@ async function main() {
   }
 
   try {
-    switch (command) {
-      case 'init':
-      case 'reinstall':
-        if (command === 'reinstall' && !args.includes('--force')) {
-          args.push('--force');
-        }
-        await cmdInit(args);
-        break;
-      case 'migrate':
-        await cmdMigrate(args);
-        break;
-      case 'embed':
-        if (!args.includes('--rebuild-embeddings')) {
-          args.push('--rebuild-embeddings');
-        }
-        await cmdMigrate(args);
-        break;
-      case 'test':
-        await cmdTest(args);
-        break;
-      case 'status':
-        await cmdStatus(args);
-        break;
-      case 'savings':
-        await cmdSavings(args);
-        break;
-      case 'detect-ai':
-        await cmdDetectAi(args);
-        break;
-      case 'detect-docs':
-        await cmdDetectDocs(args);
-        break;
-      case 'doctor':
-        await cmdDoctor(args);
-        break;
-      case 'clean':
-        await cmdClean(args);
-        break;
-      case 'uninstall':
-        await cmdUninstall(args);
-        break;
-      case 'web':
-        await cmdWeb(args);
-        break;
-      case 'ui':
-        await cmdUi(args);
-        break;
-      case 'auth': {
-        const sub = args[0];
-        if (sub === 'reset' || sub === 'reset-password') {
-          const auth = require('../src/auth');
-          auth.resetAuthToDefault();
-          process.stdout.write('  \x1b[38;2;0;255;255m⚡\x1b[0m Web console password has been reset to default: \x1b[1mkonohagakure\x1b[0m\n');
-        } else {
-          process.stdout.write('Usage: konoha auth reset\n');
-        }
-        break;
-      }
-      case 'service':
-        await cmdUiService(args);
-        break;
-      case 'version':
-      case '--version':
-      case '-v':
-        await cmdVersion(args);
-        break;
-      case 'upgrade':
-        await cmdUpgrade(args);
-        break;
-      case 'skill':
-        await cmdSkill(args);
-        break;
-      case 'akatsuki': {
-        const { cmdAkatsuki } = require('./commands/akatsuki');
-        await cmdAkatsuki(args);
-        break;
-      }
-      case 'agent':
-        await cmdAgent(args);
-        break;
-      case 'data':
-        await cmdData(args);
-        break;
-      case 'soul':
-        await cmdSoul(args);
-        break;
-      case 'project':
-        await cmdProject(args);
-        break;
-      case 'task':
-        await cmdTask(args);
-        break;
-      case 'bridge':
-        await cmdBridge(args);
-        break;
-      case 'search':
-        await cmdSearch(args);
-        break;
-      case 'telegram':
-        await cmdTelegram(args);
-        break;
-      case 'webhook':
-      case 'webhooks': {
-        const { cmdWebhook } = require('./commands/webhook');
-        await cmdWebhook(args);
-        break;
-      }
-      case 'tunnel':
-        await cmdTunnel(args);
-        break;
-      case 'queue':
-        await cmdQueue(args);
-        break;
-      case 'help':
-      case '--help':
-      case '-h':
-        await cmdHelp();
-        break;
-      case undefined:
-        await cmdHelp();
-        break;
-      default:
-        error(`Unknown command: ${command}`);
-        log(`Run ${C.cyan}konoha help${C.reset} for usage.`);
-        process.exit(1);
+    const handled = await dispatchCoreCommand(command, args)
+      || await dispatchServiceCommand(command, args)
+      || await dispatchAgentCommand(command, args);
+
+    if (!handled) {
+      error(`Unknown command: ${command}`);
+      log(`Run ${C.cyan}konoha help${C.reset} for usage.`);
+      process.exit(1);
     }
   } finally {
     closeReadline();

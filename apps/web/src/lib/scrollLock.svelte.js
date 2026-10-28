@@ -5,12 +5,11 @@
 
 export function useScrollLock(getIsActive) {
   $effect(() => {
-    if (getIsActive() && typeof document !== 'undefined') {
-      const previous = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = previous;
-      };
-    }
+    if (!getIsActive() || typeof document === 'undefined') return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
   });
 }

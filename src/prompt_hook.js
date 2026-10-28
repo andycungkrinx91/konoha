@@ -6,6 +6,35 @@ const { readStdinJson, isConfirmedSelf } = require('./hook-base');
 
 const HOME = os.homedir();
 
+function _wrapSingleRtkCandidate(c) {
+  if (!fs.existsSync(c)) return;
+  let content = '';
+  try {
+    content = fs.readFileSync(c, 'utf8');
+  } catch (_) {
+    // Binary or unreadable file
+  }
+  if (content.includes('antigravity')) return;
+  const real = c + '-real';
+  if (!fs.existsSync(real)) {
+    fs.renameSync(c, real);
+  } else {
+    try {
+      fs.unlinkSync(c);
+    } catch (_) {
+      // Best-effort cleanup
+    }
+  }
+  const script = '#!/bin/sh\nif [ "$1" = "hook" ] && [ "$2" = "antigravity" ]; then\n  exit 0\nfi\nexec "' + real + '" "$@"\n';
+  fs.writeFileSync(c, script, { mode: 0o755 });
+  fs.chmodSync(c, 0o755);
+  try {
+    fs.chmodSync(real, 0o755);
+  } catch (_) {
+    // Mode preservation fallback
+  }
+}
+
 function ensureRtkWrapper() {
   try {
     const candidates = [
@@ -14,32 +43,7 @@ function ensureRtkWrapper() {
       path.join(os.homedir(), '.local', 'bin', 'rtk')
     ];
     for (const c of candidates) {
-      if (!fs.existsSync(c)) continue;
-      let content = '';
-      try {
-        content = fs.readFileSync(c, 'utf8');
-      } catch (_) {
-        // Binary or unreadable file
-      }
-      if (content.includes('antigravity')) continue;
-      const real = c + '-real';
-      if (!fs.existsSync(real)) {
-        fs.renameSync(c, real);
-      } else {
-        try {
-          fs.unlinkSync(c);
-        } catch (_) {
-          // Best-effort cleanup
-        }
-      }
-      const script = '#!/bin/sh\nif [ "$1" = "hook" ] && [ "$2" = "antigravity" ]; then\n  exit 0\nfi\nexec "' + real + '" "$@"\n';
-      fs.writeFileSync(c, script, { mode: 0o755 });
-      fs.chmodSync(c, 0o755);
-      try {
-        fs.chmodSync(real, 0o755);
-      } catch (_) {
-        // Mode preservation fallback
-      }
+      _wrapSingleRtkCandidate(c);
     }
   } catch (_) {
     // Fail-open guard for session environment
@@ -47,6 +51,20 @@ function ensureRtkWrapper() {
 }
 ensureRtkWrapper();
 
+function _processTranscriptLine(line, state) {
+  if (!line.trim()) return;
+  try {
+    const record = JSON.parse(line);
+    if (record && record.type === 'USER_INPUT') {
+      state.lastInput = record.content || record.text;
+      state.hasResponseAfterInput = false;
+    } else if (record && (record.type === 'PLANNER_RESPONSE' || record.source === 'MODEL')) {
+      state.hasResponseAfterInput = true;
+    }
+  } catch (_) {
+    // ignore parsing errors for corrupted or partial lines
+  }
+}
 
 async function getLastUserInput(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -59,25 +77,11 @@ async function getLastUserInput(transcriptPath) {
       crlfDelay: Infinity
     });
 
-    let lastInput = null;
-    let hasResponseAfterInput = false;
-    rl.on('line', (line) => {
-      if (!line.trim()) return;
-      try {
-        const record = JSON.parse(line);
-        if (record && record.type === 'USER_INPUT') {
-          lastInput = record.content || record.text;
-          hasResponseAfterInput = false;
-        } else if (record && (record.type === 'PLANNER_RESPONSE' || record.source === 'MODEL')) {
-          hasResponseAfterInput = true;
-        }
-      } catch (_) {
-        // ignore parsing errors for corrupted or partial lines
-      }
-    });
+    const state = { lastInput: null, hasResponseAfterInput: false };
+    rl.on('line', (line) => _processTranscriptLine(line, state));
 
     rl.on('close', () => {
-      resolve({ lastInput, isNewInput: lastInput !== null && !hasResponseAfterInput });
+      resolve({ lastInput: state.lastInput, isNewInput: state.lastInput !== null && !state.hasResponseAfterInput });
     });
 
     fileStream.on('error', () => {
@@ -148,7 +152,7 @@ function ensureWorkspaceRules(targetCwd) {
     const cwd = targetCwd || process.cwd();
     if (!cwd || cwd === HOME || !fs.existsSync(cwd)) return;
 
-    // 1. Scaffold GEMINI.md in workspace root if missing
+    // Scaffold GEMINI.md in workspace root if missing
     const geminiMdPath = path.join(cwd, 'GEMINI.md');
     if (!fs.existsSync(geminiMdPath)) {
       const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
@@ -159,7 +163,7 @@ function ensureWorkspaceRules(targetCwd) {
       }
     }
 
-    // 2. Scaffold .agents/AGENTS.md in workspace root if missing
+    // Scaffold .agents/AGENTS.md in workspace root if missing
     const agentsDir = path.join(cwd, '.agents');
     const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
     if (!fs.existsSync(agentsMdPath)) {

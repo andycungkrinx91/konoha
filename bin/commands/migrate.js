@@ -38,6 +38,107 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
+function runMigrationProcess(runArgs, timeoutMs) {
+  let run = spawnSync(process.execPath, runArgs, {
+    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
+  });
+  if (run.status !== 0) {
+    const fallback = [...runArgs.filter(a => a !== '--rebuild-embeddings'), '--skills-only', '--skip-embeddings'];
+    run = spawnSync(process.execPath, fallback, {
+      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
+    });
+  }
+  return run;
+}
+
+function runCustomDirMigration(customDir, cleanArgs, flags, timeoutMs) {
+  try {
+    const runArgs = [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir];
+    if (flags.hasRebuildEmbeddings) runArgs.push('--rebuild-embeddings');
+    if (flags.hasSkipEmbeddings) runArgs.push('--skip-embeddings');
+    const run = runMigrationProcess(runArgs, timeoutMs);
+    if (run.status !== 0) throw new Error(run.stderr || run.error?.message || 'Migration failed');
+    log(run.stdout);
+    success('Migration complete!');
+  } catch (e) {
+    warn(`Migration timed out or partially failed: ${e.message}`);
+    warn('Run "konoha migrate" again to finish remaining references.');
+  }
+}
+
+function runAutoDirsMigration(skillsDirs, cleanArgs, flags, timeoutMs) {
+  if (skillsDirs.length === 0) {
+    try {
+      const fallbackArgs = [MIGRATE_PATH, ...cleanArgs];
+      if (flags.hasRebuildEmbeddings) fallbackArgs.push('--rebuild-embeddings');
+      if (flags.hasSkipEmbeddings) fallbackArgs.push('--skip-embeddings');
+      const runFallback = runMigrationProcess(fallbackArgs, timeoutMs);
+      if (runFallback.status !== 0) throw new Error(runFallback.stderr || runFallback.error?.message || 'Migration failed');
+      log(runFallback.stdout);
+      success('Migration complete!');
+    } catch (e) {
+      warn(`Migration timed out or partially failed: ${e.message}`);
+      warn('Run "konoha migrate" again to finish remaining references.');
+    }
+    return;
+  }
+
+  const migrateArgs = [MIGRATE_PATH, ...cleanArgs];
+  if (flags.hasRebuildEmbeddings) migrateArgs.push('--rebuild-embeddings');
+  if (flags.hasSkipEmbeddings) migrateArgs.push('--skip-embeddings');
+  for (const dir of skillsDirs) migrateArgs.push('--skills-dir', dir.path);
+
+  try {
+    const run = runMigrationProcess(migrateArgs, timeoutMs);
+    if (run.status === 0) {
+      log(run.stdout);
+      success('Migration complete for all skill directories!');
+    } else {
+      const errMsg = (run.stderr || '').trim() || run.error?.message || `process exited with code ${run.status}`;
+      error(run.error?.code === 'ETIMEDOUT' ? `Migration timed out after ${Math.round(timeoutMs / 1000)}s: ${errMsg}` : `Migration failed: ${errMsg}`);
+      warn('Migration timed out; run "konoha migrate" again to finish remaining references.');
+    }
+  } catch (e) {
+    error(`Migration failed: ${e.message}`);
+  }
+}
+
+function syncTrackedProject(p, cwd) {
+  if (!p?.project_path || p.project_path === cwd || !fileExists(p.project_path)) return false;
+  try {
+    const res = agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
+    return Boolean(res?.ok && !res.skipped);
+  } catch {
+    return false;
+  }
+}
+
+function syncPostMigrationWorkspaces() {
+  try {
+    agentManager.regenerateAndDeploy({ force: true, silent: true });
+    const cwd = process.cwd();
+    let syncedWorkspaces = 0;
+    const res = agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
+    if (res?.ok && !res.skipped) syncedWorkspaces++;
+
+    try {
+      const personaMemory = require('../../src/persona_memory');
+      const { DB_PATH } = require('../lib/paths');
+      const tracked = personaMemory.listProjects(50, DB_PATH) || [];
+      for (const p of tracked) {
+        if (syncTrackedProject(p, cwd)) syncedWorkspaces++;
+      }
+    } catch (_) { /* best-effort */ }
+
+    const msg = syncedWorkspaces > 0
+      ? `GEMINI.md, AGENTS.md, rules, and skills synchronized across ${syncedWorkspaces} project workspace(s) and all client environments.`
+      : 'GEMINI.md, AGENTS.md, rules, and skills synchronized across all client environments.';
+    success(msg);
+  } catch (e) {
+    warn(`Auto-synchronization skipped: ${e.message}`);
+  }
+}
+
 async function cmdMigrate(args = []) {
   if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
     cmdMigrateHelp();
@@ -52,11 +153,13 @@ async function cmdMigrate(args = []) {
   }
 
   const hasForce = args.includes('--force');
-  const hasRebuildEmbeddings = args.includes('--rebuild-embeddings');
-  const hasSkipEmbeddings = args.includes('--skip-embeddings');
+  const flags = {
+    hasRebuildEmbeddings: args.includes('--rebuild-embeddings'),
+    hasSkipEmbeddings: args.includes('--skip-embeddings')
+  };
   const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
   const baseTimeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : 180000;
-  const timeoutMs = hasRebuildEmbeddings ? Math.max(baseTimeout, 600000) : baseTimeout;
+  const timeoutMs = flags.hasRebuildEmbeddings ? Math.max(baseTimeout, 600000) : baseTimeout;
 
   if (hasForce) {
     info('Pruning unused/unembedded skills to prevent duplicate content...');
@@ -65,130 +168,16 @@ async function cmdMigrate(args = []) {
     moveUnusedSkills(skillsDirs, agents);
   }
 
-  const isClean = args.includes('--clean');
-  const cleanArgs = isClean ? ['--clean'] : [];
-
-  // Check for custom skills dir
+  const cleanArgs = args.includes('--clean') ? ['--clean'] : [];
   const customDirIdx = args.indexOf('--skills-dir');
+
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
-    const customDir = args[customDirIdx + 1];
-    try {
-      const runArgs = [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir];
-      if (hasRebuildEmbeddings) runArgs.push('--rebuild-embeddings');
-      if (hasSkipEmbeddings) runArgs.push('--skip-embeddings');
-      let run = spawnSync(process.execPath, runArgs, {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-      });
-      if (run.status !== 0) {
-        run = spawnSync(process.execPath, [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-        });
-      }
-      if (run.status !== 0) throw new Error(run.stderr || run.error?.message || 'Migration failed');
-      log(run.stdout);
-      success('Migration complete!');
-    } catch (e) {
-      warn(`Migration timed out or partially failed: ${e.message}`);
-      warn('Run "konoha migrate" again to finish remaining references.');
-    }
+    runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags, timeoutMs);
   } else {
-    // Migrate all detected skill directories
-    const skillsDirs = detectSkillsDirs();
-    if (skillsDirs.length === 0) {
-      // Fallback: run without args
-      try {
-        const fallbackArgs = [MIGRATE_PATH, ...cleanArgs];
-        if (hasRebuildEmbeddings) fallbackArgs.push('--rebuild-embeddings');
-        if (hasSkipEmbeddings) fallbackArgs.push('--skip-embeddings');
-        let runFallback = spawnSync(process.execPath, fallbackArgs, {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-        });
-        if (runFallback.status !== 0) {
-          runFallback = spawnSync(process.execPath, [MIGRATE_PATH, ...cleanArgs, '--skills-only', '--skip-embeddings'], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-          });
-        }
-        if (runFallback.status !== 0) throw new Error(runFallback.stderr || runFallback.error?.message || 'Migration failed');
-        log(runFallback.stdout);
-        success('Migration complete!');
-      } catch (e) {
-        warn(`Migration timed out or partially failed: ${e.message}`);
-        warn('Run "konoha migrate" again to finish remaining references.');
-      }
-    } else {
-      let anySuccess = false;
-      const migrateArgs = [MIGRATE_PATH, ...cleanArgs];
-      if (hasRebuildEmbeddings) migrateArgs.push('--rebuild-embeddings');
-      if (hasSkipEmbeddings) migrateArgs.push('--skip-embeddings');
-      for (const dir of skillsDirs) {
-        migrateArgs.push('--skills-dir', dir.path);
-      }
-      try {
-        let run = spawnSync(process.execPath, migrateArgs, {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-        });
-        if (run.status !== 0) {
-          run = spawnSync(process.execPath, [...migrateArgs.filter(a => a !== '--rebuild-embeddings'), '--skills-only', '--skip-embeddings'], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-          });
-        }
-        if (run.status === 0) {
-          log(run.stdout);
-          anySuccess = true;
-        } else {
-          const errMsg = (run.stderr || '').trim() || run.error?.message || `process exited with code ${run.status}`;
-          if (run.error && run.error.code === 'ETIMEDOUT') {
-            error(`Migration timed out after ${Math.round(timeoutMs / 1000)}s: ${errMsg}`);
-          } else {
-            error(`Migration failed: ${errMsg}`);
-          }
-        }
-      } catch (e) {
-        error(`Migration failed: ${e.message}`);
-      }
-
-      if (anySuccess) {
-        success('Migration complete for all skill directories!');
-      } else {
-        warn('Migration timed out; run "konoha migrate" again to finish remaining references.');
-      }
-    }
+    runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags, timeoutMs);
   }
 
-  // After migration, automatically synchronize all skills, rules, and configs across project base and all clients
-  try {
-    // 1. Regenerate global configs across all clients
-    agentManager.regenerateAndDeploy({ force: true, silent: true });
-
-    // 2. Synchronize active project workspace
-    const cwd = process.cwd();
-    let syncedWorkspaces = 0;
-    const res = agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
-    if (res && res.ok && !res.skipped) syncedWorkspaces++;
-
-    // 3. Synchronize all tracked project workspaces in Konoha database
-    try {
-      const personaMemory = require('../../src/persona_memory');
-      const { DB_PATH } = require('../lib/paths');
-      const tracked = personaMemory.listProjects(50, DB_PATH) || [];
-      for (const p of tracked) {
-        if (p.project_path && p.project_path !== cwd && fileExists(p.project_path)) {
-          try {
-            const resTracked = agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
-            if (resTracked && resTracked.ok && !resTracked.skipped) syncedWorkspaces++;
-          } catch (_) { /* intentional best-effort fallback */ }
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
-
-    if (syncedWorkspaces > 0) {
-      success(`GEMINI.md, AGENTS.md, rules, and skills synchronized across ${syncedWorkspaces} project workspace(s) and all client environments.`);
-    } else {
-      success('GEMINI.md, AGENTS.md, rules, and skills synchronized across all client environments.');
-    }
-  } catch (e) {
-    warn(`Auto-synchronization skipped: ${e.message}`);
-  }
+  syncPostMigrationWorkspaces();
 }
 
 

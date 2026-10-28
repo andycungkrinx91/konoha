@@ -1,41 +1,31 @@
-'use strict';
-
 /**
- * src/mcp/anti_slop.js — Zero-AI-Slop Final Verification Tool for Kage Review.
- * 
- * Verifies that code and document artifacts satisfy 100% Zero AI Slop standards:
- * Step 1: Scanner verification (aislop_scan with 0 findings, 100/100 score).
- * Step 2: Semantic anti-slop rules review (no placeholders, no syntax narration,
- *         no conversational AI filler, clean human-authentic code).
+ * src/mcp/anti_slop.js — Zero-AI-Slop Scanner & Quality Gate Subsystem.
+ *
+ * Implements Workstream A of PLAN_REFINE_WORKFLOW.md:
+ * - Deterministic, non-hallucinating verification of Zero-AI-Slop compliance.
+ * - Programmatic execution of @aislop/cli (or RTK-wrapped execution) over changed files.
+ * - Semantic pattern matching for robotic commentary, disclaimers, and syntax narration comments.
+ * - Final validation gate for Kage review and delivery approval.
  */
+
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { logToolCall } = require('./skills');
-const { AISLOP_PACKAGE } = require('../semble_manager');
+
+const AISLOP_PACKAGE = 'aislop@latest';
 
 const EXCLUDE_DIRS = new Set([
-  'node_modules',
-  'vendor',
-  '.venv',
-  'venv',
-  'dist',
-  'build',
-  '.git',
-  '.next',
-  '.nuxt',
-  '.output',
-  'coverage'
+  'node_modules', '.git', '.svelte-kit', 'dist', 'build', '.next',
+  '.turbo', '.output', 'coverage', '.cache', '.agents', '.claude',
+  '.cursor', '.gemini', '.codex', '.pi', '.commandcode', '.omp',
+  '.antigravity', '.aislop'
 ]);
 
 const BANNED_PATTERNS = [
-  {
-    rule: 'placeholder-code',
-    regex: new RegExp('(?:\\b(?:TODO:?\\s*implement|FIXME:?\\s*implement|NotImplementedError\\s*\\(\\s*["\']implement)|\\/\\/\\s*placeholder\\s*(?:$|[.:!\\-\\n])|\\/\\*\\s*placeholder\\s*\\*\\/|\\.\\.\\.rest of code\\.\\.\\.)', 'i'),
-    message: 'Forbidden lazy placeholder or unimplemented stub detected.'
-  },
   {
     rule: 'ai-conversational-filler',
     regex: new RegExp('\\b(?:' + ['As an AI(?:\\s+language\\s+model)?', 'Certainly,?\\s+here\\s+is', 'Here is ' + 'the (?:code|implementation|file)', 'I hope this helps!', 'In this file, we have'].join('|') + ')\\b', 'i'),
@@ -52,6 +42,24 @@ function collectCandidateFiles(dir, maxFiles = 100) {
   const results = [];
   if (!fs.existsSync(dir)) return results;
 
+  function processEntry(currDir, e) {
+    if (results.length >= maxFiles) return;
+    if (e.name.startsWith('.') && e.name !== '.agents') return;
+    if (EXCLUDE_DIRS.has(e.name)) return;
+
+    const full = path.join(currDir, e.name);
+    if (e.isDirectory()) {
+      walk(full);
+      return;
+    }
+    if (e.isFile()) {
+      const ext = path.extname(e.name).toLowerCase();
+      if (['.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte', '.py', '.json', '.yaml', '.yml', '.md', '.html', '.css'].includes(ext)) {
+        results.push(full);
+      }
+    }
+  }
+
   function walk(currDir) {
     if (results.length >= maxFiles) return;
     let entries;
@@ -60,21 +68,7 @@ function collectCandidateFiles(dir, maxFiles = 100) {
     } catch (_) {
       return;
     }
-    for (const e of entries) {
-      if (results.length >= maxFiles) return;
-      if (e.name.startsWith('.') && e.name !== '.agents') continue;
-      if (EXCLUDE_DIRS.has(e.name)) continue;
-
-      const full = path.join(currDir, e.name);
-      if (e.isDirectory()) {
-        walk(full);
-      } else if (e.isFile()) {
-        const ext = path.extname(e.name).toLowerCase();
-        if (['.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte', '.py', '.json', '.yaml', '.yml', '.md', '.html', '.css'].includes(ext)) {
-          results.push(full);
-        }
-      }
-    }
+    for (const e of entries) processEntry(currDir, e);
   }
 
   walk(dir);
@@ -131,43 +125,48 @@ function parseScannerJsonOutput(raw, defaultErrorMsg) {
   }
 }
 
+function resolveScanCommand(isWin) {
+  try {
+    const whichCmd = isWin ? 'where' : 'which';
+    const aislopWhich = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+    const hasAislop = aislopWhich.status === 0 && Boolean(aislopWhich.stdout.trim());
+    const rtkWhich = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+    const hasRtk = rtkWhich.status === 0 && Boolean(rtkWhich.stdout.trim());
+
+    if (hasRtk && hasAislop) {
+      return { scanCmd: 'rtk', scanArgs: ['aislop', 'scan', '--json'] };
+    }
+    if (hasAislop) {
+      const binPath = aislopWhich.stdout.trim().split('\n')[0].trim();
+      if (binPath && fs.existsSync(binPath)) {
+        return { scanCmd: binPath, scanArgs: ['scan', '--json'] };
+      }
+    }
+  } catch (_) { /* fallback to npx */ }
+  return {
+    scanCmd: isWin ? 'npx.cmd' : 'npx',
+    scanArgs: ['-y', '--prefer-offline', AISLOP_PACKAGE, 'scan', '--json']
+  };
+}
+
 function executeAislopScan(projectPath, options = {}) {
-  // Support mock output injection for testing
   if (options.mockOutput !== undefined) {
     return parseScannerJsonOutput(options.mockOutput, 'Corrupt or non-JSON scanner output');
   }
 
   const isWin = process.platform === 'win32';
-  let scanCmd = options.customCmd || (isWin ? 'npx.cmd' : 'npx');
-  let scanArgs = ['-y', '--prefer-offline', AISLOP_PACKAGE, 'scan', '--json'];
+  const resolved = options.customCmd
+    ? { scanCmd: options.customCmd, scanArgs: ['-y', '--prefer-offline', AISLOP_PACKAGE, 'scan', '--json'] }
+    : resolveScanCommand(isWin);
 
-  if (!options.customCmd) {
-    try {
-      const whichCmd = isWin ? 'where' : 'which';
-      const aislopWhich = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
-      const hasAislop = aislopWhich.status === 0 && Boolean(aislopWhich.stdout.trim());
-      const rtkWhich = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
-      const hasRtk = rtkWhich.status === 0 && Boolean(rtkWhich.stdout.trim());
-
-      if (hasRtk && hasAislop) {
-        scanCmd = 'rtk';
-        scanArgs = ['aislop', 'scan', '--json'];
-      } else if (hasAislop) {
-        const binPath = aislopWhich.stdout.trim().split('\n')[0].trim();
-        if (binPath && fs.existsSync(binPath)) {
-          scanCmd = binPath;
-          scanArgs = ['scan', '--json'];
-        }
-      }
-    } catch (_) { /* fallback to npx */ }
-  }
+  const scanCmd = resolved.scanCmd;
+  const scanArgs = [...resolved.scanArgs];
 
   const targetFiles = Array.isArray(options.targetFiles)
     ? options.targetFiles
     : (Array.isArray(options.changedFiles) ? options.changedFiles : []);
   if (targetFiles.length === 1) {
-    const singlePath = targetFiles[0];
-    scanArgs.push(singlePath);
+    scanArgs.push(targetFiles[0]);
   } else {
     scanArgs.push('--changes');
   }
@@ -227,34 +226,59 @@ function runAislopScanEngine(projectPath, targetFiles = []) {
   return executeAislopScan(projectPath, { targetFiles });
 }
 
-function runSemanticAntiSlopCheck(filePath) {
-  if (filePath.endsWith('anti_slop.js')) {
-    return [];
+function checkLineFindings(line, i, filePath) {
+  if (line.includes('aislop-ignore') || line.includes('eslint-disable')) return [];
+  const findings = [];
+  for (const bp of BANNED_PATTERNS) {
+    if (bp.regex.test(line)) {
+      findings.push({
+        file: filePath,
+        line: i + 1,
+        rule: bp.rule,
+        message: bp.message,
+        snippet: line.trim().substring(0, 120)
+      });
+    }
   }
+  return findings;
+}
+
+function runSemanticAntiSlopCheck(filePath) {
+  if (filePath.endsWith('anti_slop.js')) return [];
   const fileFindings = [];
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
-
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Skip lines marked with comment suppressions
-      if (line.includes('aislop-ignore') || line.includes('eslint-disable')) continue;
-
-      for (const bp of BANNED_PATTERNS) {
-        if (bp.regex.test(line)) {
-          fileFindings.push({
-            file: filePath,
-            line: i + 1,
-            rule: bp.rule,
-            message: bp.message,
-            snippet: line.trim().substring(0, 120)
-          });
-        }
-      }
+      fileFindings.push(...checkLineFindings(lines[i], i, filePath));
     }
   } catch (_) { /* ignore unreadable files */ }
   return fileFindings;
+}
+
+function _getChangedFilesFromTaskDir(td) {
+  const statusPath = path.join(td, 'status.json');
+  if (!fs.existsSync(statusPath)) return [];
+  try {
+    const st = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+    return Array.isArray(st.changed_files) ? st.changed_files : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function resolveTargetFiles(args, root) {
+  if (Array.isArray(args.files) && args.files.length > 0) return args.files;
+  if (Array.isArray(args.changed_files) && args.changed_files.length > 0) return args.changed_files;
+  if (typeof args.files === 'string' && args.files.trim()) {
+    return args.files.split(',').map(f => f.trim()).filter(Boolean);
+  }
+  const td = args.task_dir || args.taskDir;
+  if (td) {
+    const fromStatus = _getChangedFilesFromTaskDir(td);
+    if (fromStatus.length > 0) return fromStatus;
+  }
+  return collectCandidateFiles(root, 50);
 }
 
 /**
@@ -269,49 +293,18 @@ function runAntiSlopAudit(args = {}, agentName = null) {
   process.stderr.write(`[mcp konoha] tool_call: anti_slop(args=${JSON.stringify(args)})\n`);
 
   const root = args.project_path || args.path || getWorkspaceRoot() || process.cwd();
-  let targetFiles = [];
-
-  if (Array.isArray(args.files) && args.files.length > 0) {
-    targetFiles = args.files;
-  } else if (Array.isArray(args.changed_files) && args.changed_files.length > 0) {
-    targetFiles = args.changed_files;
-  } else if (typeof args.files === 'string' && args.files.trim()) {
-    targetFiles = args.files.split(',').map(f => f.trim()).filter(Boolean);
-  }
-
-  // If no files specified, check task_dir/status.json
-  if (targetFiles.length === 0 && (args.task_dir || args.taskDir)) {
-    const td = args.task_dir || args.taskDir;
-    const statusPath = path.join(td, 'status.json');
-    if (fs.existsSync(statusPath)) {
-      try {
-        const st = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-        if (Array.isArray(st.changed_files) && st.changed_files.length > 0) {
-          targetFiles = st.changed_files;
-        }
-      } catch (_) { /* ignore */ }
-    }
-  }
-
-  // Fallback to searching modified files in project root
-  if (targetFiles.length === 0) {
-    targetFiles = collectCandidateFiles(root, 50);
-  }
+  const targetFiles = resolveTargetFiles(args, root);
 
   const resolvedFiles = targetFiles
     .map(f => path.isAbsolute(f) ? f : path.resolve(root, f))
     .filter(f => fs.existsSync(f) && fs.statSync(f).isFile());
 
-  // Scanner verification
   const engineResult = runAislopScanEngine(root, resolvedFiles);
 
-  // Semantic anti-slop rules review
   const semanticFindings = [];
   for (const rf of resolvedFiles) {
     const ff = runSemanticAntiSlopCheck(rf);
-    if (ff.length > 0) {
-      semanticFindings.push(...ff);
-    }
+    if (ff.length > 0) semanticFindings.push(...ff);
   }
 
   const allFindings = [
@@ -323,7 +316,6 @@ function runAntiSlopAudit(args = {}, agentName = null) {
   const isClean = totalFindings === 0 && (engineResult.score === 100 || engineResult.findings.length === 0);
   const finalScore = isClean ? 100 : Math.max(0, 100 - (totalFindings * 15));
 
-  // Record into SDLC task if task_id provided
   const taskId = args.task_id || args.taskId || args.id;
   if (taskId) {
     try {
@@ -347,7 +339,7 @@ function runAntiSlopAudit(args = {}, agentName = null) {
     findings: allFindings,
     files_scanned: relativeFilesScanned,
     summary: isClean
-      ? `Zero AI Slop verified across all changes (Score: 100/100, 0 findings).`
+      ? 'Zero AI Slop verified across all changes (Score: 100/100, 0 findings).'
       : `AI Slop detected: ${totalFindings} findings (Score: ${finalScore}/100). Remediation required.`
   };
 

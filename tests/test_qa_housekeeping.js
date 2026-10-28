@@ -26,93 +26,17 @@ fs.mkdirSync(testRoot, { recursive: true });
 
 try {
   // =========================================================================
-  // 1. Managed .gitignore Block Tests
+  // 1. Gitignore Injection Disabled Tests (Users handle gitignore manually)
   // =========================================================================
-  console.log('  Testing managed .gitignore block...');
+  console.log('  Testing gitignore injection disabled...');
 
-  // 1.1 Non-git folder: should skip and create no file
-  const nonGitDir = path.join(testRoot, 'non-git-dir');
-  fs.mkdirSync(nonGitDir, { recursive: true });
-  const nonGitRes = ensureQaGitignore(nonGitDir);
-  assert.strictEqual(nonGitRes.status, 'skipped');
-  assert.strictEqual(nonGitRes.reason, 'not a git project');
-  assert.strictEqual(fs.existsSync(path.join(nonGitDir, '.gitignore')), false);
-
-  // 1.2 Git project without .gitignore: creates file with managed block
   const gitProject = path.join(testRoot, 'git-project');
   fs.mkdirSync(path.join(gitProject, '.git'), { recursive: true });
-  const gitRes1 = ensureQaGitignore(gitProject);
-  assert.strictEqual(gitRes1.status, 'added');
-  assert.strictEqual(gitRes1.entries_added, 4);
-
-  const gitignorePath = path.join(gitProject, '.gitignore');
-  assert.ok(fs.existsSync(gitignorePath));
-  const createdContent = fs.readFileSync(gitignorePath, 'utf8');
-  assert.ok(createdContent.includes('# KONOHA-QA-START'));
-  assert.ok(createdContent.includes('test-results/'));
-  assert.ok(createdContent.includes('playwright-report/'));
-  assert.ok(createdContent.includes('blob-report/'));
-  assert.ok(createdContent.includes('playwright/.cache/'));
-  assert.ok(createdContent.includes('# KONOHA-QA-END'));
-  // Invariant: Never ignore deliverables
-  assert.ok(!createdContent.includes('e2e'));
-  assert.ok(!createdContent.includes('flows'));
-
-  // 1.3 Idempotency: Second run changes nothing
-  const gitRes2 = ensureQaGitignore(gitProject);
-  assert.strictEqual(gitRes2.status, 'unchanged');
-  assert.strictEqual(gitRes2.entries_added, 0);
-
-  // 1.4 Existing user lines outside block: byte-for-byte unchanged
-  const gitProjectWithUserLines = path.join(testRoot, 'git-user-lines');
-  fs.mkdirSync(path.join(gitProjectWithUserLines, '.git'), { recursive: true });
-  const customUserHeader = '# My custom ignore rules\nnode_modules/\n.env\n*.log\n';
-  fs.writeFileSync(path.join(gitProjectWithUserLines, '.gitignore'), customUserHeader, 'utf8');
-  
-  ensureQaGitignore(gitProjectWithUserLines);
-  const updatedUserGitignore = fs.readFileSync(path.join(gitProjectWithUserLines, '.gitignore'), 'utf8');
-  assert.ok(updatedUserGitignore.startsWith(customUserHeader.trimEnd()));
-  assert.ok(updatedUserGitignore.includes('# KONOHA-QA-START'));
-
-  // 1.5 De-duplication: entry already listed outside block is not duplicated
-  const gitProjectDuplicate = path.join(testRoot, 'git-dup');
-  fs.mkdirSync(path.join(gitProjectDuplicate, '.git'), { recursive: true });
-  fs.writeFileSync(path.join(gitProjectDuplicate, '.gitignore'), 'test-results/\nnode_modules/\n', 'utf8');
-  const dupRes = ensureQaGitignore(gitProjectDuplicate);
-  assert.strictEqual(dupRes.status, 'added');
-  assert.strictEqual(dupRes.entries_added, 3); // 4 - 1 (test-results/ already outside)
-  const dupContent = fs.readFileSync(path.join(gitProjectDuplicate, '.gitignore'), 'utf8');
-  const blockMatches = dupContent.match(/test-results\//g);
-  assert.strictEqual(blockMatches.length, 1, 'test-results/ should only appear once (outside the block)');
-
-  // 1.6 CRLF preservation and missing trailing newline
-  const gitProjectCrlf = path.join(testRoot, 'git-crlf');
-  fs.mkdirSync(path.join(gitProjectCrlf, '.git'), { recursive: true });
-  fs.writeFileSync(path.join(gitProjectCrlf, '.gitignore'), 'dist/\r\nbuild/', 'utf8'); // No trailing newline, CRLF
-  ensureQaGitignore(gitProjectCrlf);
-  const crlfContent = fs.readFileSync(path.join(gitProjectCrlf, '.gitignore'), 'utf8');
-  assert.ok(crlfContent.includes('\r\n'));
-  assert.ok(!crlfContent.replace(/\r\n/g, '').includes('\n')); // Strictly CRLF
-  assert.ok(crlfContent.endsWith('\r\n'));
-
-  // 1.7 Monorepo subfolder: .git in parent folder, .gitignore written at project_path
-  const monorepoRoot = path.join(testRoot, 'monorepo');
-  const monorepoSub = path.join(monorepoRoot, 'packages', 'web');
-  fs.mkdirSync(path.join(monorepoRoot, '.git'), { recursive: true });
-  fs.mkdirSync(monorepoSub, { recursive: true });
-  const monoRes = ensureQaGitignore(monorepoSub);
-  assert.strictEqual(monoRes.status, 'added');
-  assert.ok(fs.existsSync(path.join(monorepoSub, '.gitignore')));
-
-  // 1.8 Opt-out: KONOHA_QA_GITIGNORE=0 writes nothing
-  const gitProjectOptOut = path.join(testRoot, 'git-optout');
-  fs.mkdirSync(path.join(gitProjectOptOut, '.git'), { recursive: true });
-  process.env.KONOHA_QA_GITIGNORE = '0';
-  const optOutRes = ensureQaGitignore(gitProjectOptOut);
-  delete process.env.KONOHA_QA_GITIGNORE;
-  assert.strictEqual(optOutRes.status, 'skipped');
-  assert.strictEqual(optOutRes.reason, 'opt-out');
-  assert.strictEqual(fs.existsSync(path.join(gitProjectOptOut, '.gitignore')), false);
+  const gitRes = ensureQaGitignore(gitProject);
+  assert.strictEqual(gitRes.status, 'skipped');
+  assert.strictEqual(gitRes.reason, 'disabled');
+  assert.strictEqual(gitRes.entries_added, 0);
+  assert.strictEqual(fs.existsSync(path.join(gitProject, '.gitignore')), false);
 
   // =========================================================================
   // 2. Output Redirection & Evidence Copying Tests
@@ -275,13 +199,12 @@ try {
 
   assert.strictEqual(e2eResult.status, 'passed');
   assert.ok(e2eResult.housekeeping, 'Must include housekeeping section');
-  assert.strictEqual(e2eResult.housekeeping.gitignore.status, 'added');
+  assert.strictEqual(e2eResult.housekeeping.gitignore.status, 'skipped');
   assert.ok(Array.isArray(e2eResult.summary_lines));
-  assert.ok(e2eResult.summary_lines.some(l => l.startsWith('gitignore: added')));
   assert.ok(e2eResult.summary_lines.some(l => l.startsWith('retention:')));
 
-  // Verify .gitignore was added to project
-  assert.ok(fs.existsSync(path.join(e2eProject, '.gitignore')));
+  // Verify .gitignore was NOT created in project (user manages manually)
+  assert.ok(!fs.existsSync(path.join(e2eProject, '.gitignore')));
   // Verify no test-results/ or playwright-report/ created in project
   assert.ok(!fs.existsSync(path.join(e2eProject, 'test-results')));
   assert.ok(!fs.existsSync(path.join(e2eProject, 'playwright-report')));

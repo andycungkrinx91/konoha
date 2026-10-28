@@ -107,7 +107,8 @@ function runAsyncSpawn(cmd, args, opts) {
   });
 }
 
-function createFinding(ruleId, severity, impact, file = '', line = 0, message = '', snippet = '') {
+function createFinding(ruleId, severity, impact, file = '', ...rest) {
+  const [line = 0, message = '', snippet = ''] = rest;
   const item = { ruleId, severity, impact, file, line, message };
   if (snippet) item.snippet = snippet;
   return item;
@@ -238,6 +239,28 @@ function isInternalAllowlistedLine(filePath, relPath, lineNo, lineText) {
   return false;
 }
 
+function _checkPackageJsonScripts(content, relativePath, findings) {
+  try {
+    const pkg = JSON.parse(content);
+    const scripts = pkg.scripts || {};
+    for (const hook of ['preinstall', 'postinstall', 'install']) {
+      if (scripts[hook]) {
+        findings.push({
+          ruleId: 'UNTRUSTED_LIFECYCLE_SCRIPT',
+          severity: 'high',
+          impact: 45,
+          file: relativePath,
+          line: 1,
+          message: `Package contains active lifecycle hook "${hook}": ${scripts[hook]}`,
+          snippet: `${hook}: ${scripts[hook]}`
+        });
+      }
+    }
+  } catch (_) {
+    // Ignored if invalid JSON, caught by other linters
+  }
+}
+
 function scanFileContent(filePath, relativePath) {
   const findings = [];
   const readRes = readFileContentSafely(filePath, relativePath);
@@ -272,28 +295,31 @@ function scanFileContent(filePath, relativePath) {
   }
 
   if (path.basename(filePath) === 'package.json') {
-    try {
-      const pkg = JSON.parse(content);
-      const scripts = pkg.scripts || {};
-      for (const hook of ['preinstall', 'postinstall', 'install']) {
-        if (scripts[hook]) {
-          findings.push({
-            ruleId: 'UNTRUSTED_LIFECYCLE_SCRIPT',
-            severity: 'high',
-            impact: 45,
-            file: relativePath,
-            line: 1,
-            message: `Package contains active lifecycle hook "${hook}": ${scripts[hook]}`,
-            snippet: `${hook}: ${scripts[hook]}`
-          });
-        }
-      }
-    } catch (_) {
-      // Ignored if invalid JSON, caught by other linters
-    }
+    _checkPackageJsonScripts(content, relativePath, findings);
   }
 
   return findings;
+}
+
+function _handleSymlinkEntry(fullPath, relPath, rootDir, files) {
+  try {
+    const real = fs.realpathSync(fullPath);
+    const relToRoot = path.relative(rootDir, real);
+    if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) {
+      files.push({
+        fullPath,
+        relPath,
+        isSymlinkEscaping: true,
+        realTarget: real
+      });
+    }
+  } catch (_) {
+    files.push({
+      fullPath,
+      relPath,
+      isSymlinkBroken: true
+    });
+  }
 }
 
 function collectFilesRecursively(dir, rootDir = dir) {
@@ -305,26 +331,8 @@ function collectFilesRecursively(dir, rootDir = dir) {
     const relPath = path.relative(rootDir, fullPath);
 
     if (entry.isSymbolicLink()) {
-      try {
-        const real = fs.realpathSync(fullPath);
-        const relToRoot = path.relative(rootDir, real);
-        if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) {
-          files.push({
-            fullPath,
-            relPath,
-            isSymlinkEscaping: true,
-            realTarget: real
-          });
-          continue;
-        }
-      } catch (_) {
-        files.push({
-          fullPath,
-          relPath,
-          isSymlinkBroken: true
-        });
-        continue;
-      }
+      _handleSymlinkEntry(fullPath, relPath, rootDir, files);
+      continue;
     }
 
     if (entry.isDirectory()) {
@@ -452,6 +460,69 @@ function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
   }
 }
 
+function _resolveStagedPath(stagingRoot, targetName) {
+  const possiblePaths = [
+    path.join(stagingRoot, '.agents', 'skills', targetName),
+    path.join(stagingRoot, '.cursor', 'skills', targetName),
+    path.join(stagingRoot, 'skills', targetName),
+    path.join(stagingRoot, targetName)
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+      return p;
+    }
+  }
+
+  const entries = fs.readdirSync(stagingRoot);
+  for (const entry of entries) {
+    const candidate = path.join(stagingRoot, entry);
+    if (fs.statSync(candidate).isDirectory() && fs.existsSync(path.join(candidate, 'SKILL.md'))) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function _handleScanResultVerdict(scanResult, skillName) {
+  if (scanResult.verdict !== 'block') return;
+  const reasons = scanResult.findings.map(f => `[${f.severity.toUpperCase()}] ${f.ruleId} in ${f.file || 'root'}:${f.line}: ${f.message}`);
+  process.stderr.write(`❌ Guardian BLOCKED installation of "${skillName}"!\n`);
+  process.stderr.write(`   Risk score: ${scanResult.score}/100 (Threshold: ${GUARDIAN_THRESHOLD})\n`);
+  for (const r of reasons.slice(0, 5)) {
+    process.stderr.write(`   - ${r}\n`);
+  }
+  throw new Error(
+    `Installation of skill "${skillName}" was BLOCKED by Guardian. ` +
+    `Risk score: ${scanResult.score}/100 exceeds safe threshold of ${GUARDIAN_THRESHOLD}. ` +
+    `Threats detected: ${scanResult.findings.map(f => f.ruleId).join(', ')}`
+  );
+}
+
+function _deploySkillTargets(stagedPath, skillName, options) {
+  const { AGENTS } = require('../../../bin/lib/paths');
+  const deployUtils = require('../../deploy_utils');
+  const execCwd = (options && options.projectRoot) || process.cwd();
+  const liveTargetDir = path.join(execCwd, '.agents', 'skills', skillName);
+
+  fs.mkdirSync(path.dirname(liveTargetDir), { recursive: true });
+  deployUtils.copySkillsDirFast(stagedPath, liveTargetDir);
+
+  const globalTargetDir = path.join(AGENTS, 'skills', skillName);
+  if (!fs.existsSync(globalTargetDir)) {
+    try {
+      deployUtils.copySkillsDirFast(stagedPath, globalTargetDir);
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
+  const skillManager = require('../../skill_manager');
+  if (typeof skillManager.syncAllClientSkills === 'function') {
+    skillManager.syncAllClientSkills({ projectRoot: execCwd, silent: false });
+  }
+
+  return liveTargetDir;
+}
+
 async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
   const { cleanUrl, cleanName } = validateSkillSourceTarget(repoUrl, skillName);
   const targetUrl = cleanUrl;
@@ -475,32 +546,7 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
       throw new Error(`Failed to download skill into staging sandbox: ${errDetail}`);
     }
 
-    const possiblePaths = [
-      path.join(stagingRoot, '.agents', 'skills', targetName),
-      path.join(stagingRoot, '.cursor', 'skills', targetName),
-      path.join(stagingRoot, 'skills', targetName),
-      path.join(stagingRoot, targetName)
-    ];
-
-    let stagedPath = null;
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
-        stagedPath = p;
-        break;
-      }
-    }
-
-    if (!stagedPath) {
-      const entries = fs.readdirSync(stagingRoot);
-      for (const entry of entries) {
-        const candidate = path.join(stagingRoot, entry);
-        if (fs.statSync(candidate).isDirectory() && fs.existsSync(path.join(candidate, 'SKILL.md'))) {
-          stagedPath = candidate;
-          break;
-        }
-      }
-    }
-
+    const stagedPath = _resolveStagedPath(stagingRoot, targetName);
     if (!stagedPath) {
       throw new Error(`Skill files for "${skillName}" not found in staging sandbox after download.`);
     }
@@ -510,43 +556,11 @@ async function installSkillWithGuardian(repoUrl, skillName, options = {}) {
 
     recordGuardianFindingToKnowledge(scanResult, repoUrl);
 
-    if (scanResult.verdict === 'block') {
-      const reasons = scanResult.findings.map(f => `[${f.severity.toUpperCase()}] ${f.ruleId} in ${f.file || 'root'}:${f.line}: ${f.message}`);
-      process.stderr.write(`❌ Guardian BLOCKED installation of "${skillName}"!\n`);
-      process.stderr.write(`   Risk score: ${scanResult.score}/100 (Threshold: ${GUARDIAN_THRESHOLD})\n`);
-      for (const r of reasons.slice(0, 5)) {
-        process.stderr.write(`   - ${r}\n`);
-      }
-      throw new Error(
-        `Installation of skill "${skillName}" was BLOCKED by Guardian. ` +
-        `Risk score: ${scanResult.score}/100 exceeds safe threshold of ${GUARDIAN_THRESHOLD}. ` +
-        `Threats detected: ${scanResult.findings.map(f => f.ruleId).join(', ')}`
-      );
-    }
+    _handleScanResultVerdict(scanResult, skillName);
 
     process.stderr.write(`✓ Guardian: skill "${skillName}" passed security audit (Risk score: ${scanResult.score}/100 <= ${GUARDIAN_THRESHOLD}).\n`);
 
-    const { AGENTS } = require('../../../bin/lib/paths');
-    const deployUtils = require('../../deploy_utils');
-    const execCwd = (options && options.projectRoot) || process.cwd();
-    const liveTargetDir = path.join(execCwd, '.agents', 'skills', skillName);
-
-    fs.mkdirSync(path.dirname(liveTargetDir), { recursive: true });
-    deployUtils.copySkillsDirFast(stagedPath, liveTargetDir);
-
-    const globalTargetDir = path.join(AGENTS, 'skills', skillName);
-    if (!fs.existsSync(globalTargetDir)) {
-      try {
-        deployUtils.copySkillsDirFast(stagedPath, globalTargetDir);
-      } catch (_) { /* intentional best-effort fallback */ }
-    }
-
-    const skillManager = require('../../skill_manager');
-    if (typeof skillManager.syncAllClientSkills === 'function') {
-      skillManager.syncAllClientSkills({ projectRoot: execCwd, silent: false });
-    }
-
-    return liveTargetDir;
+    return _deploySkillTargets(stagedPath, skillName, options);
   } finally {
     try {
       fs.rmSync(stagingRoot, { recursive: true, force: true });

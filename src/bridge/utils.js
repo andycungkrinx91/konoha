@@ -31,43 +31,47 @@ function log(ctx, msg, isError = false) {
   }
 }
 
+function _redactVerbosePayload(fullContent) {
+  if (typeof fullContent === 'string') {
+    try {
+      const parsed = JSON.parse(fullContent);
+      return JSON.stringify(redactPayloadKeys(parsed), null, 2);
+    } catch {
+      return fullContent;
+    }
+  }
+  if (typeof fullContent === 'object' && fullContent !== null) {
+    try {
+      return JSON.stringify(redactPayloadKeys(fullContent), null, 2);
+    } catch {
+      return fullContent;
+    }
+  }
+  return fullContent;
+}
+
+function _writeVerbosePayloadLog(fullContent) {
+  if (fullContent === null) return;
+  try {
+    const redactedContent = _redactVerbosePayload(fullContent);
+    const payloadLogPath = path.join(os.tmpdir(), 'ag-local-bridge-payloads.log');
+    const ts = new Date().toISOString().slice(11, 23);
+    fs.appendFileSync(
+      payloadLogPath,
+      `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${redactedContent}\n--- [END PAYLOAD DUMP] ---\n`,
+      'utf8',
+    );
+  } catch {
+    // ignore filesystem errors for log files
+  }
+}
+
 /** Log only when agLocalBridge.logRequests is enabled (verbose/debug output) */
 function verboseLog(ctx, msg, fullContent = null) {
   const config = vscode.workspace.getConfiguration('agLocalBridge');
-  if (config.get('logRequests', false)) {
-    log(ctx, msg);
-
-    // If a massive payload was provided, append it explicitly to a separate payload file, nicely formatted
-    if (fullContent !== null) {
-      try {
-        let redactedContent = fullContent;
-        if (typeof fullContent === 'string') {
-          try {
-            const parsed = JSON.parse(fullContent);
-            redactedContent = JSON.stringify(redactPayloadKeys(parsed), null, 2);
-          } catch {
-            // not valid JSON, leave as is
-          }
-        } else if (typeof fullContent === 'object') {
-          try {
-            redactedContent = JSON.stringify(redactPayloadKeys(fullContent), null, 2);
-          } catch {
-            // fallback
-          }
-        }
-
-        const payloadLogPath = path.join(os.tmpdir(), 'ag-local-bridge-payloads.log');
-        const ts = new Date().toISOString().slice(11, 23);
-        fs.appendFileSync(
-          payloadLogPath,
-          `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${redactedContent}\n--- [END PAYLOAD DUMP] ---\n`,
-          'utf8',
-        );
-      } catch {
-        // ignore filesystem errors for log files
-      }
-    }
-  }
+  if (!config.get('logRequests', false)) return;
+  log(ctx, msg);
+  _writeVerbosePayloadLog(fullContent);
 }
 
 // Status Bar

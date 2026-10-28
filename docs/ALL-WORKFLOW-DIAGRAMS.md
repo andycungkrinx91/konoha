@@ -18,7 +18,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 10. [Workflow 9: Socket.dev Supply Chain Security Gate & Policy Evaluation](#10-workflow-9-socketdev-supply-chain-security-gate--policy-evaluation)
 11. [Workflow 10: Kage Reviewer 98% Minimum Confidence Delivery Gate](#11-workflow-10-kage-reviewer-98-minimum-confidence-delivery-gate)
 12. [Workflow 11: Telegram Remote Reporter & Whitelisted Long Polling Dispatch](#12-workflow-11-telegram-remote-reporter--whitelisted-long-polling-dispatch)
-13. [Workflow 12: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue](#13-workflow-12-cloudflare-zero-trust-ingress-tunnel--unified-prompt-inbox-queue)
+13. [Workflow 12: Unified Prompt Inbox Queue & Governed Agent Dispatch Pipeline](#13-workflow-12-unified-prompt-inbox-queue--governed-agent-dispatch-pipeline)
 14. [Workflow 13: Native Document Engineering & Animated WebP Export Pipeline](#14-workflow-13-native-document-engineering--animated-webp-export-pipeline)
 15. [Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle](#15-workflow-14-akatsuki-security-controls--dual-mode-lab-lifecycle)
 
@@ -819,11 +819,11 @@ flowchart TD
 
 ---
 
-## 13. Workflow 12: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue
+## 13. Workflow 12: Unified Prompt Inbox Queue & Governed Agent Dispatch Pipeline
 
 ```mermaid
 ---
-title: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue
+title: Unified Prompt Inbox Queue & Governed Agent Dispatch Pipeline
 config:
   theme: base
   themeVariables:
@@ -846,27 +846,22 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    subgraph EdgeIngress ["Cloudflare Zero Trust Edge & Tunnel Supervisor"]
-        ExtClient["Remote Browser / Mobile Client"] --> CFEdge["Cloudflare Zero Trust Edge Access<br/>(OAuth / SSO Identity Gate)"]
-        CFEdge --> CFTunnel["Encrypted QUIC / HTTP2 Tunnel<br/>cloudflared tunnel --url http://localhost:1404"]
-        CFTunnel --> LocalSupervisor["Tunnel Supervisor (src/tunnel/manager.js)<br/>• PID &amp; Process Monitoring<br/>• Public URL Extraction (*.trycloudflare.com)"]
+    subgraph IngressLayer ["Ingress Layer (Local HTTP & Telegram Bot)"]
+        WebClient["Web UI Dashboard Operator<br/>(http://127.0.0.1:1404)"] --> WebServer["Konoha Web Server<br/>POST /api/v1/queue/prompts"]
+        TgUser["Authorized Telegram Operator"] --> TgBot["Telegram Long Polling Daemon<br/>(src/telegram/poller.js)"]
     end
 
-    subgraph SecurityGate ["Ingress Security Validation (src/tunnel/security.js)"]
-        LocalSupervisor --> WebServer["Konoha Web Server (Port 1404)<br/>GET/POST /api/v1/* &amp; UI Routes"]
-        WebServer --> ModeCheck{"Request Origin &amp; Auth Mode"}
-        ModeCheck -- "Localhost (127.0.0.1)" --> AllowDirect["Allow Direct Access<br/>(Zero friction local dev)"]
-        ModeCheck -- "Tunnel Ingress (Named tunnel: Zero Trust)" --> EdgeHeaderCheck{"Valid CF-Access-Jwt-Assertion<br/>or Authenticated-User-Email?"}
-        EdgeHeaderCheck -- "Yes" --> Authenticated["Authenticated Request<br/>Identity injected into req.user"]
-        EdgeHeaderCheck -- "No" --> DenyAccess["401 Unauthorized<br/>PIN / Edge Identity Required"]
-        ModeCheck -- "Tunnel Ingress (Quick tunnel or no edge identity)" --> PinCheck{"Constant-time auth_pin<br/>x-konoha-pin / bearer / cookie?"}
-        PinCheck -- "Valid PIN" --> Authenticated
-        PinCheck -- "Invalid PIN" --> DenyAccess
+    subgraph SecurityGate ["Ingress Security Validation"]
+        WebServer --> WebAuthCheck{"Argon2id Session Valid?"}
+        WebAuthCheck -- "Yes" --> Authenticated["Authenticated Request<br/>Identity injected into context"]
+        WebAuthCheck -- "No" --> DenyAccess["401 Unauthorized<br/>Session Login Required"]
+        TgBot --> TgAuthCheck{"Chat ID in Whitelist?<br/>(telegram_config.chat_id)"}
+        TgAuthCheck -- "Yes" --> Authenticated
+        TgAuthCheck -- "No" --> DropTg["Drop & Log Unauthorized Message"]
     end
 
     subgraph PromptQueueLifecycle ["Unified Prompt Queue Engine (src/queue/inbox.js)"]
-        Authenticated --> SubmitPrompt["POST /api/v1/queue/prompts<br/>Prompt payload + task context"]
-        AllowDirect --> SubmitPrompt
+        Authenticated --> SubmitPrompt["Stage Inbound Prompt<br/>Payload + task context"]
         SubmitPrompt --> SQLiteInsert[("Insert SQLite prompt_queue<br/>• status: 'pending'<br/>• source: 'remote_ui' | 'telegram'<br/>• priority: 0, retry_count: 0")]
         SQLiteInsert --> FileMirror["Atomic Mirror Write<br/>• ~/.konoha/inbox/&lt;session_id&gt;.json<br/>• ~/.konoha/inbox/latest.json"]
         FileMirror --> ClientPickup["Coding Client Pickup / Polling<br/>(Antigravity · Cursor · Claude · OpenCode)"]
@@ -876,7 +871,7 @@ flowchart TD
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style EdgeIngress fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style IngressLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
     style SecurityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
     style PromptQueueLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
 
@@ -886,11 +881,11 @@ flowchart TD
     classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
     classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
 
-    class ExtClient,ClientPickup clientNode;
-    class CFEdge,CFTunnel,LocalSupervisor,WebServer edgeNode;
-    class ModeCheck,EdgeHeaderCheck,PinCheck authNode;
-    class AllowDirect,Authenticated,SubmitPrompt,SQLiteInsert,FileMirror,MarkProcessing,MarkCompleted,RemoteDashboard storageNode;
-    class DenyAccess denyNode;
+    class WebClient,TgUser,ClientPickup clientNode;
+    class WebServer,TgBot edgeNode;
+    class WebAuthCheck,TgAuthCheck authNode;
+    class Authenticated,SubmitPrompt,SQLiteInsert,FileMirror,MarkProcessing,MarkCompleted,RemoteDashboard storageNode;
+    class DenyAccess,DropTg denyNode;
 ```
 
 ---

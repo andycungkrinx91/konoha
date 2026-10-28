@@ -28,36 +28,36 @@ const QA_DOC_PATH = path.join(DOCS_DIR, 'QA-AUTOMATION.md');
 // 1. Live Tool Count vs Documentation
 const liveSchemas = listToolSchemas();
 const toolCount = liveSchemas.length;
-assert.strictEqual(toolCount, 46, `Expected 46 registered tools, found ${toolCount}`);
+assert.strictEqual(toolCount, 47, `Expected 47 registered tools, found ${toolCount}`);
 
 const readmeContent = fs.readFileSync(README_PATH, 'utf-8');
 const archContent = fs.readFileSync(ARCH_PATH, 'utf-8');
 
 // Tool count in README badge and intro
 assert.ok(
-  readmeContent.includes(`MCP%20Tools-46%20Canonical`),
-  'README.md badge must state 46 Canonical MCP tools'
+  readmeContent.includes(`MCP%20Tools-47%20Canonical`),
+  'README.md badge must state 47 Canonical MCP tools'
 );
 assert.ok(
-  readmeContent.includes(`exposes 46 canonical tools`),
-  'README.md intro must state 46 canonical tools'
+  readmeContent.includes(`exposes 47 canonical tools`),
+  'README.md intro must state 47 canonical tools'
 );
 
 // Tool count in docs/ARCHITECTURE.md
 assert.ok(
-  archContent.includes(`(46 Canonical Tools)`),
-  'docs/ARCHITECTURE.md title must state 46 Canonical Tools'
+  archContent.includes(`(47 Canonical Tools)`),
+  'docs/ARCHITECTURE.md title must state 47 Canonical Tools'
 );
 assert.ok(
-  archContent.includes(`Registered Tools (46 Total)`),
-  'docs/ARCHITECTURE.md matrix must state 46 Total'
+  archContent.includes(`Registered Tools (47 Total)`),
+  'docs/ARCHITECTURE.md matrix must state 47 Total'
 );
 assert.ok(
-  archContent.includes(`across \`konoha\` (46 tools)`),
-  'docs/ARCHITECTURE.md permissions section must state 46 tools'
+  archContent.includes(`across \`konoha\` (47 tools)`),
+  'docs/ARCHITECTURE.md permissions section must state 47 tools'
 );
 
-// Verify category sum in ARCHITECTURE.md matrix equals 46
+// Verify category sum in ARCHITECTURE.md matrix equals 47
 const categoryRegex = /\*\*([A-Za-z0-9 &]+) \((\d+)\)\*\*/g;
 let catMatch;
 let sumCategories = 0;
@@ -66,8 +66,8 @@ while ((catMatch = categoryRegex.exec(archContent)) !== null) {
 }
 assert.strictEqual(
   sumCategories,
-  46,
-  `Sum of category tool counts in ARCHITECTURE.md must equal 46, got ${sumCategories}`
+  47,
+  `Sum of category tool counts in ARCHITECTURE.md must equal 47, got ${sumCategories}`
 );
 
 // 2. Every registered tool name appears in the docs/ARCHITECTURE.md matrix
@@ -107,7 +107,7 @@ assert.strictEqual(
   closeDiagramCount,
   `Every <diagram> must have a closing </diagram> tag (${openDiagramCount} vs ${closeDiagramCount})`
 );
-assert.strictEqual(pageMatches.length, 15, `Expected exactly 15 pages in drawio, found ${pageMatches.length}`);
+assert.strictEqual(pageMatches.length, 16, `Expected exactly 16 pages in drawio, found ${pageMatches.length}`);
 
 // Check unique mxCell IDs within each page
 for (const page of pageMatches) {
@@ -123,13 +123,13 @@ for (const page of pageMatches) {
     seenIds.add(cellId);
   }
 }
-console.log('  ✓ All 15 drawio pages have valid tags and strictly unique mxCell IDs.');
+console.log('  ✓ All 16 drawio pages have valid tags and strictly unique mxCell IDs.');
 
 // 4. Manifest checks in docs/diagrams/README.md
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 assert.ok(
-  manifestContent.includes('fifteen pages'),
-  'docs/diagrams/README.md must declare fifteen pages'
+  manifestContent.includes('sixteen pages'),
+  'docs/diagrams/README.md must declare sixteen pages'
 );
 
 for (const page of pageMatches) {
@@ -349,7 +349,7 @@ while ((entMatch = entDiagramRegex.exec(entContent)) !== null) {
     body: entMatch[3]
   });
 }
-assert.strictEqual(entPages.length, 15, `Expected exactly 15 pages in enterprise drawio, found ${entPages.length}`);
+assert.strictEqual(entPages.length, 16, `Expected exactly 16 pages in enterprise drawio, found ${entPages.length}`);
 
 // Check unique mxCell IDs
 for (const page of entPages) {

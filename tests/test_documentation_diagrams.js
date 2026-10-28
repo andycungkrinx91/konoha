@@ -60,7 +60,7 @@ async function run() {
     '12 CLI Upgrade & Progress Engine',
     '13 QA Automation Workflow',
     '14 Remote Access & Telegram Inbound/Outbound',
-    '15 Cloudflare Zero Trust Ingress & Prompt Queue',
+    '15 Inbound Prompt Queue & Worker Pipeline',
     '16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle'
   ]);
   assert.deepStrictEqual(new Set(pages.map(p => p.name)), expectedPageNames);

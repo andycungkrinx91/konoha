@@ -17,6 +17,31 @@ let currentDbPath = process.env.KONOHA_DB_PATH
   ? path.normalize(process.env.KONOHA_DB_PATH)
   : path.normalize(path.join(os.homedir(), '.konoha', 'konoha.db'));
 
+function _migrateLegacySkillsDb(dir, targetPath) {
+  if (fs.existsSync(targetPath)) return;
+  const legacyPath = path.join(dir, 'skills.db');
+  if (!fs.existsSync(legacyPath)) return;
+  try {
+    fs.copyFileSync(legacyPath, targetPath);
+    if (fs.existsSync(legacyPath + '-wal')) {
+      try { fs.copyFileSync(legacyPath + '-wal', targetPath + '-wal'); } catch (_) { /* intentional best-effort fallback */ }
+    }
+    if (fs.existsSync(legacyPath + '-shm')) {
+      try { fs.copyFileSync(legacyPath + '-shm', targetPath + '-shm'); } catch (_) { /* intentional best-effort fallback */ }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _loadVectorSearchExtension(db) {
+  try {
+    const vectorSearch = require('./vector_search');
+    const enabled = vectorSearch.isSemanticSearchEnabled && vectorSearch.isSemanticSearchEnabled();
+    if (enabled && typeof vectorSearch.loadVectorExtension === 'function') {
+      vectorSearch.loadVectorExtension(db);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
 /**
  * Opens connection, sets PRAGMA journal_mode=WAL, foreign_keys=ON, busy_timeout=5000,
  * synchronous=NORMAL, and conditionally loads sqlite-vector extension if present and enabled.
@@ -28,21 +53,7 @@ function getConnection(dbPath = null, loadVector = true) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  // Auto-migrate legacy skills.db to konoha.db if konoha.db does not exist yet
-  if (!fs.existsSync(targetPath)) {
-    const legacyPath = path.join(dir, 'skills.db');
-    if (fs.existsSync(legacyPath)) {
-      try {
-        fs.copyFileSync(legacyPath, targetPath);
-        if (fs.existsSync(legacyPath + '-wal')) {
-          try { fs.copyFileSync(legacyPath + '-wal', targetPath + '-wal'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        }
-        if (fs.existsSync(legacyPath + '-shm')) {
-          try { fs.copyFileSync(legacyPath + '-shm', targetPath + '-shm'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        }
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-  }
+  _migrateLegacySkillsDb(dir, targetPath);
 
   const db = new Database(targetPath);
 
@@ -52,16 +63,7 @@ function getConnection(dbPath = null, loadVector = true) {
   db.pragma('synchronous = NORMAL');
 
   if (loadVector) {
-    try {
-      const vectorSearch = require('./vector_search');
-      if (vectorSearch.isSemanticSearchEnabled && vectorSearch.isSemanticSearchEnabled()) {
-        if (typeof vectorSearch.loadVectorExtension === 'function') {
-          vectorSearch.loadVectorExtension(db);
-        }
-      }
-    } catch (_) {
-      // Graceful fallback if vector_search is not yet loaded or fails
-    }
+    _loadVectorSearchExtension(db);
   }
 
   return db;
@@ -77,24 +79,47 @@ function setupSchema(conn) {
   return dbSchema.setupSchema(conn, backupDatabase);
 }
 
+function validateCanonicalSchema(conn) {
+  return dbSchema.validateCanonicalSchema(conn);
+}
+
+function _replaceNearMatch(match, nears) {
+  const validPattern = /^NEAR\(\s*[a-zA-Z0-9_-]+(?:\s+[a-zA-Z0-9_-]+)+(?:\s*,\s*\d+)?\s*\)$/i;
+  const innerMatch = match.match(/\(([^)]*)\)/);
+  const innerText = innerMatch ? innerMatch[1] : '';
+  if (validPattern.test(match)) {
+    const innerCleaned = innerText.trim().split(/\s+/).join(' ');
+    const placeholder = `__NEAR_PLACEHOLDER_${nears.length}__`;
+    nears.push(`NEAR(${innerCleaned})`);
+    return placeholder;
+  }
+  return `near ${innerText}`;
+}
+
+function _isDanglingOperator(words, i) {
+  if (i === 0 || i === words.length - 1) return true;
+  const prevW = words[i - 1].toUpperCase();
+  const nextW = words[i + 1].toUpperCase();
+  return ['AND', 'OR', 'NOT'].includes(prevW) || ['AND', 'OR', 'NOT'].includes(nextW);
+}
+
+function _sanitizeWord(words, i) {
+  const w = words[i];
+  const wUpper = w.toUpperCase();
+  if (['AND', 'OR', 'NOT'].includes(wUpper)) {
+    return _isDanglingOperator(words, i) ? w.toLowerCase() : wUpper;
+  }
+  if (wUpper === 'NEAR') {
+    return w.toLowerCase();
+  }
+  return w;
+}
+
 function sanitizeFts5Query(query) {
   if (!query || typeof query !== 'string') return '';
   let q = query.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
   const nears = [];
-  q = q.replace(/\bNEAR\s*\(([^)]*)\)/gi, (match) => {
-    const validPattern = /^NEAR\(\s*[a-zA-Z0-9_-]+(?:\s+[a-zA-Z0-9_-]+)+(?:\s*,\s*\d+)?\s*\)$/i;
-    if (validPattern.test(match)) {
-      const innerMatch = match.match(/\(([^)]*)\)/);
-      const innerCleaned = (innerMatch ? innerMatch[1] : '').trim().split(/\s+/).join(' ');
-      const placeholder = `__NEAR_PLACEHOLDER_${nears.length}__`;
-      nears.push(`NEAR(${innerCleaned})`);
-      return placeholder;
-    } else {
-      const innerMatch = match.match(/\(([^)]*)\)/);
-      const innerText = innerMatch ? innerMatch[1] : '';
-      return `near ${innerText}`;
-    }
-  });
+  q = q.replace(/\bNEAR\s*\(([^)]*)\)/gi, (match) => _replaceNearMatch(match, nears));
 
   q = q.replace(/[^\p{L}\p{N}_\s*()"]/gu, ' ');
   if ((q.match(/"/g) || []).length % 2 !== 0) {
@@ -111,29 +136,7 @@ function sanitizeFts5Query(query) {
   }
 
   const words = q.trim().split(/\s+/).filter(Boolean);
-  const sanitizedWords = [];
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i];
-    const wUpper = w.toUpperCase();
-    if (['AND', 'OR', 'NOT'].includes(wUpper)) {
-      let isDangling = false;
-      if (i === 0 || i === words.length - 1) {
-        isDangling = true;
-      } else {
-        const prevW = words[i - 1].toUpperCase();
-        const nextW = words[i + 1].toUpperCase();
-        if (['AND', 'OR', 'NOT'].includes(prevW) || ['AND', 'OR', 'NOT'].includes(nextW)) {
-          isDangling = true;
-        }
-      }
-      if (isDangling) sanitizedWords.push(w.toLowerCase());
-      else sanitizedWords.push(wUpper);
-    } else if (wUpper === 'NEAR') {
-      sanitizedWords.push(w.toLowerCase());
-    } else {
-      sanitizedWords.push(w);
-    }
-  }
+  const sanitizedWords = words.map((_, i) => _sanitizeWord(words, i));
   return sanitizedWords.join(' ');
 }
 
@@ -242,5 +245,6 @@ module.exports = {
   sanitizeFts5Query,
   sanitize_fts5_query: sanitizeFts5Query,
   setupSchema,
-  setup_schema: setupSchema
+  setup_schema: setupSchema,
+  validateCanonicalSchema
 };

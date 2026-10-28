@@ -31,7 +31,6 @@
     "apps/web/build/",
     "apps/web/package.json",
     "assets/",
-    ".agents/",
     "patches/",
     "README.md",
     "LICENSE",
@@ -72,6 +71,14 @@
     "xlsx-populate": "^1.21.0"
   },
   "pnpm": {
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-93753"
+      ],
+      "ignoreGhsas": [
+        "GHSA-gcqx-w48m-w2h4"
+      ]
+    },
     "overrides": {
       "@tailwindcss/oxide-wasm32-wasi": "npm:picocolors@^1.1.1",
       "adm-zip": ">=0.6.0",

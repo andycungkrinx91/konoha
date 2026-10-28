@@ -7,6 +7,7 @@ const { spawnSync } = require('child_process');
 
 const yaml = fs.readFileSync(path.join(__dirname, '..', '.cursor', 'mcp.yaml'), 'utf8');
 const cli = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli.js'), 'utf8');
+const helpSrc = fs.readFileSync(path.join(__dirname, '..', 'bin', 'commands', 'help.js'), 'utf8');
 
 const batch43Labels = [
   'setup', 'update', 'saving', 'agents', 'tg', 'tunnels',
@@ -17,14 +18,14 @@ const expectedCanonicals = [
   'init', 'migrate', 'embed', 'test', 'status', 'version',
   'upgrade', 'savings', 'detect-ai', 'detect-docs', 'project',
   'task', 'data', 'soul', 'doctor', 'bridge', 'search',
-  'ui', 'service', 'telegram', 'tunnel', 'clean', 'queue',
+  'ui', 'service', 'telegram', 'clean', 'queue',
   'uninstall', 'skill', 'agent', 'help'
 ];
 
 for (const command of ['init', 'migrate', 'test', 'status', 'version', 'upgrade', 'savings', 'data', 'doctor', 'bridge', 'uninstall', 'skill', 'agent', 'project', 'help']) {
   assert.ok(cli.includes(`case '${command}'`), `missing implementation case for ${command}`);
 }
-assert.ok(cli.includes('Configure Ninja subagents (list, create, toggle skills, models config, delete, status).'));
+assert.ok(helpSrc.includes('Configure Ninja subagents (list, create, toggle skills, models config, delete, status).'));
 assert.ok(!cli.includes('konoha models <subcommand>'), 'konoha models command should be removed');
 assert.ok(!cli.includes('await cmdModels('), 'cmdModels router call should be removed');
 assert.ok(!cli.includes('restore model quotas'));
@@ -84,10 +85,10 @@ try {
 }
 
 // b. Verify cmdHelp lists canonical names and queue, and lists none of the 11 labels
-const coreStart = cli.indexOf('${C.bold}CORE COMMANDS${C.reset}');
-const coreEnd = cli.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');
-assert.ok(coreStart !== -1 && coreEnd !== -1, 'Could not find CORE COMMANDS in bin/cli.js');
-const topLevelListing = cli.slice(coreStart, coreEnd);
+const coreStart = helpSrc.indexOf('${C.bold}CORE COMMANDS${C.reset}');
+const coreEnd = helpSrc.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');
+assert.ok(coreStart !== -1 && coreEnd !== -1, 'Could not find CORE COMMANDS in bin/commands/help.js');
+const topLevelListing = helpSrc.slice(coreStart, coreEnd);
 const topCommands = [...topLevelListing.matchAll(/\${C\.cyan}([^\$]+)\${C\.reset}/g)].map(m => m[1]);
 
 for (const name of expectedCanonicals) {

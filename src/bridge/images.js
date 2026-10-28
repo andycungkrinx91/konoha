@@ -7,6 +7,18 @@ const path = require('path');
 
 // Text Extraction
 
+function _extractPartText(p) {
+  if (typeof p === 'string') return p;
+  if (!p || typeof p !== 'object') return String(p);
+  if (p.type === 'text' && p.text) return p.text;
+  if (p.text) return p.text;
+  try {
+    return JSON.stringify(p);
+  } catch {
+    return '';
+  }
+}
+
 /** Extract text from OpenAI message content (handles both string and content-parts array).
  *  Skips image_url parts — those are handled separately by extractImages(). */
 function extractText(content) {
@@ -14,24 +26,8 @@ function extractText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .filter((p) => {
-        // Skip image parts — they're handled by extractImages()
-        if (p && typeof p === 'object' && p.type === 'image_url') return false;
-        return true;
-      })
-      .map((p) => {
-        if (typeof p === 'string') return p;
-        if (p && typeof p === 'object') {
-          if (p.type === 'text' && p.text) return p.text;
-          if (p.text) return p.text;
-          try {
-            return JSON.stringify(p);
-          } catch {
-            return '';
-          }
-        }
-        return String(p);
-      })
+      .filter((p) => !(p && typeof p === 'object' && p.type === 'image_url'))
+      .map(_extractPartText)
       .filter((t) => t.length > 0)
       .join('\n');
   }
@@ -102,6 +98,16 @@ function extractImages(ctx, content) {
   return images;
 }
 
+async function _resolveImagePayload(ctx, img) {
+  if (!img.remoteUrl) return img;
+  try {
+    return await fetchImageAsBase64(img.remoteUrl);
+  } catch (e) {
+    if (ctx.outputChannel) ctx.outputChannel.appendLine(`⚠️ Failed to fetch remote image: ${e.message}`);
+    return null;
+  }
+}
+
 /**
  * Extract all images from all messages in a conversation.
  * Returns array of ImageData objects ready for the sidecar.
@@ -112,17 +118,8 @@ async function extractAllImages(ctx, messages) {
     if (msg.role !== 'user') continue;
     const images = extractImages(ctx, msg.content);
     for (const img of images) {
-      if (img.remoteUrl) {
-        // Fetch remote image
-        try {
-          const fetched = await fetchImageAsBase64(img.remoteUrl);
-          if (fetched) allImages.push(fetched);
-        } catch (e) {
-          if (ctx.outputChannel) ctx.outputChannel.appendLine(`⚠️ Failed to fetch remote image: ${e.message}`);
-        }
-      } else {
-        allImages.push(img);
-      }
+      const resolved = await _resolveImagePayload(ctx, img);
+      if (resolved) allImages.push(resolved);
     }
   }
   return allImages;

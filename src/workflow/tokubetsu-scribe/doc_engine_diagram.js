@@ -4,30 +4,7 @@ const fs = require('fs');
 const { resolveDynamicOutputPath } = require('./document_engine_common');
 const { selectGradientTheme } = require('./document_cover');
 
-async function diagramCreate(options = {}) {
-  const outputPath = resolveDynamicOutputPath(options.output_path, 'diagram.svg');
-  const title = options.title || 'Architecture & Operational Workflow';
-  const nodes = options.nodes || [];
-  const edges = options.edges || [];
-  const theme = selectGradientTheme(options.theme);
-
-  const orientation = (options.orientation || options.layout || 'horizontal').toLowerCase();
-  const isVertical = orientation === 'vertical';
-
-  const width = options.width || (isVertical ? 900 : 1600);
-  const height = options.height || (isVertical ? 1400 : 900);
-
-  // Collect color palette for premium arrowheads & glow filters
-  const colorPalette = new Set();
-  theme.colors.forEach((c) => colorPalette.add(c));
-  nodes.forEach((n) => { if (n.color) colorPalette.add(n.color); });
-  edges.forEach((e) => { if (e.color) colorPalette.add(e.color); });
-  colorPalette.add('#3B82F6');
-  colorPalette.add('#10B981');
-  colorPalette.add('#8B5CF6');
-  colorPalette.add('#F59E0B');
-  colorPalette.add('#64748B');
-
+function _buildDefsSvg(colorPalette) {
   let defsSvg = `
     <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
       <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.06" />
@@ -47,7 +24,10 @@ async function diagramCreate(options = {}) {
       </feMerge>
     </filter>`;
   });
+  return defsSvg;
+}
 
+function _renderNodesSvg(nodes, width, isVertical, theme) {
   let nodesSvg = '';
   nodes.forEach((n, idx) => {
     const nw = n.width || (isVertical ? 260 : 220);
@@ -64,66 +44,95 @@ async function diagramCreate(options = {}) {
       <text x="${nw / 2}" y="60" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" fill="#64748B">${n.sublabel || ''}</text>
     </g>`;
   });
+  return nodesSvg;
+}
 
+function _getNodeGeom(node, idx, width, isVertical) {
+  const nw = node.width || (isVertical ? 260 : 220);
+  const nh = node.height || 90;
+  const nx = node.x !== undefined ? node.x : (isVertical ? Math.round((width - nw) / 2) : 80 + idx * 300);
+  const ny = node.y !== undefined ? node.y : (isVertical ? 130 + idx * 230 : 380);
+  return { nw, nh, nx, ny };
+}
+
+function _computeEdgeGeometry(fromG, toG, isVertical) {
+  if (isVertical) {
+    const fx = fromG.nx + fromG.nw / 2;
+    const fy = fromG.ny + fromG.nh;
+    const tx = toG.nx + toG.nw / 2;
+    const ty = toG.ny;
+    const midY = (fy + ty) / 2;
+    return {
+      pathD: `M ${fx} ${fy} C ${fx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`,
+      labelTransform: `transform="translate(${Math.max(fx, tx) + 64}, ${midY})"`
+    };
+  }
+  const fx = fromG.nx + fromG.nw;
+  const fy = fromG.ny + fromG.nh / 2;
+  const tx = toG.nx;
+  const ty = toG.ny + toG.nh / 2;
+  const midX = (fx + tx) / 2;
+  return {
+    pathD: `M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}`,
+    labelTransform: `transform="translate(${midX}, ${Math.min(fy, ty) - 24})"`
+  };
+}
+
+function _renderSingleEdge(e, eIdx, nodeMap, edgeOpts) {
+  const { width, isVertical, theme } = edgeOpts;
+  const fromEntry = nodeMap.get(e.from);
+  const toEntry = nodeMap.get(e.to);
+  if (!fromEntry || !toEntry) return '';
+
+  const fromG = _getNodeGeom(fromEntry.node, fromEntry.idx, width, isVertical);
+  const toG = _getNodeGeom(toEntry.node, toEntry.idx, width, isVertical);
+  const { pathD, labelTransform } = _computeEdgeGeometry(fromG, toG, isVertical);
+
+  const edgeCol = e.color || fromEntry.node.color || theme.colors[eIdx % theme.colors.length];
+  const cleanCol = edgeCol.replace('#', '');
+
+  return `
+    <g class="diagram-edge" data-from="${e.from}" data-to="${e.to}">
+      <path d="${pathD}" fill="none" stroke="${edgeCol}" stroke-opacity="0.15" stroke-width="6" stroke-linecap="round" />
+      <path class="flow-path" d="${pathD}" fill="none" stroke="${edgeCol}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" marker-end="url(#arrowhead-${cleanCol})" />
+      <circle r="4" fill="${edgeCol}" filter="url(#glow-${cleanCol})">
+        <animateMotion path="${pathD}" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+      ${e.label ? `
+      <g ${labelTransform}>
+        <rect x="-48" y="-12" width="96" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
+        <text x="0" y="3" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#334155">${e.label}</text>
+      </g>` : ''}
+    </g>`;
+}
+
+async function diagramCreate(options = {}) {
+  const outputPath = resolveDynamicOutputPath(options.output_path, 'diagram.svg');
+  const title = options.title || 'Architecture & Operational Workflow';
+  const nodes = options.nodes || [];
+  const edges = options.edges || [];
+  const theme = selectGradientTheme(options.theme);
+
+  const orientation = (options.orientation || options.layout || 'horizontal').toLowerCase();
+  const isVertical = orientation === 'vertical';
+  const width = options.width || (isVertical ? 900 : 1600);
+  const height = options.height || (isVertical ? 1400 : 900);
+
+  const colorPalette = new Set(['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#64748B']);
+  theme.colors.forEach((c) => colorPalette.add(c));
+  nodes.forEach((n) => { if (n.color) colorPalette.add(n.color); });
+  edges.forEach((e) => { if (e.color) colorPalette.add(e.color); });
+
+  const defsSvg = _buildDefsSvg(colorPalette);
+  const nodesSvg = _renderNodesSvg(nodes, width, isVertical, theme);
+
+  const nodeMap = new Map();
+  nodes.forEach((node, idx) => nodeMap.set(node.id, { node, idx }));
+
+  const edgeOpts = { width, isVertical, theme };
   let edgesSvg = '';
   edges.forEach((e, eIdx) => {
-    const fromIdx = nodes.findIndex((n) => n.id === e.from);
-    const toIdx = nodes.findIndex((n) => n.id === e.to);
-    const fromNode = fromIdx >= 0 ? nodes[fromIdx] : null;
-    const toNode = toIdx >= 0 ? nodes[toIdx] : null;
-    if (fromNode && toNode) {
-      const fromNw = fromNode.width || (isVertical ? 260 : 220);
-      const fromNh = fromNode.height || 90;
-      const fromNx = fromNode.x !== undefined ? fromNode.x : (isVertical ? Math.round((width - fromNw) / 2) : 80 + fromIdx * 300);
-      const fromNy = fromNode.y !== undefined ? fromNode.y : (isVertical ? 130 + fromIdx * 230 : 380);
-
-      const toNw = toNode.width || (isVertical ? 260 : 220);
-      const toNh = toNode.height || 90;
-      const toNx = toNode.x !== undefined ? toNode.x : (isVertical ? Math.round((width - toNw) / 2) : 80 + toIdx * 300);
-      const toNy = toNode.y !== undefined ? toNode.y : (isVertical ? 130 + toIdx * 230 : 380);
-
-      let fx, fy, tx, ty, pathD, labelTransform;
-
-      if (isVertical) {
-        fx = fromNx + fromNw / 2;
-        fy = fromNy + fromNh;
-        tx = toNx + toNw / 2;
-        ty = toNy;
-        const midY = (fy + ty) / 2;
-        pathD = `M ${fx} ${fy} C ${fx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
-        const labelX = Math.max(fx, tx) + 64;
-        const labelY = midY;
-        labelTransform = `transform="translate(${labelX}, ${labelY})"`;
-      } else {
-        fx = fromNx + fromNw;
-        fy = fromNy + fromNh / 2;
-        tx = toNx;
-        ty = toNy + toNh / 2;
-        const midX = (fx + tx) / 2;
-        pathD = `M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}`;
-        labelTransform = `transform="translate(${midX}, ${Math.min(fy, ty) - 24})"`;
-      }
-
-      const edgeCol = e.color || fromNode.color || theme.colors[eIdx % theme.colors.length];
-      const cleanCol = edgeCol.replace('#', '');
-
-      edgesSvg += `
-      <g class="diagram-edge" data-from="${e.from}" data-to="${e.to}">
-        <!-- Soft Ambient Track -->
-        <path d="${pathD}" fill="none" stroke="${edgeCol}" stroke-opacity="0.15" stroke-width="6" stroke-linecap="round" />
-        <!-- Core Animated Dashed Flow Line with Sleek Colored Arrowhead -->
-        <path class="flow-path" d="${pathD}" fill="none" stroke="${edgeCol}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" marker-end="url(#arrowhead-${cleanCol})" />
-        <!-- Flowing Particle Animation -->
-        <circle r="4" fill="${edgeCol}" filter="url(#glow-${cleanCol})">
-          <animateMotion path="${pathD}" dur="2.4s" repeatCount="indefinite" />
-        </circle>
-        ${e.label ? `
-        <g ${labelTransform}>
-          <rect x="-48" y="-12" width="96" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
-          <text x="0" y="3" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#334155">${e.label}</text>
-        </g>` : ''}
-      </g>`;
-    }
+    edgesSvg += _renderSingleEdge(e, eIdx, nodeMap, edgeOpts);
   });
 
   const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -144,17 +153,14 @@ async function diagramCreate(options = {}) {
 
   <rect width="100%" height="100%" fill="#FAFBFD" />
 
-  <!-- Header Rule -->
   <g transform="translate(60, 40)">
     <text x="0" y="32" font-family="'Inter', sans-serif" font-size="24" font-weight="800" fill="#0F172A">${title}</text>
     <text x="0" y="56" font-family="'Inter', sans-serif" font-size="13" fill="#64748B">Enterprise Architectural Topology &amp; Automated Pipeline Flow</text>
   </g>
 
-  <!-- Edges & Nodes -->
   ${edgesSvg}
   ${nodesSvg}
 
-  <!-- Footer Gradient Bar -->
   <g transform="translate(0, ${height - 8})">
     <rect x="0" y="0" width="${width * 0.25}" height="8" fill="${theme.colors[0]}" />
     <rect x="${width * 0.25}" y="0" width="${width * 0.25}" height="8" fill="${theme.colors[1]}" />

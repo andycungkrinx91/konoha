@@ -68,103 +68,124 @@ const [
   TOOL_FIND_CLEAN
 ] = BOUNDED_FILE_TOOL_NAMES;
 
+function _resolveTargetFilePath(query) {
+  if (typeof query !== 'string') return null;
+  try {
+    const parsed = JSON.parse(query);
+    return parsed.path || parsed.file_path || parsed.filepath || parsed.dir;
+  } catch (_) {
+    return query;
+  }
+}
+
+function _resolveFileToolBaseline(query, returnedBytes) {
+  let resolvedSize = 0;
+  try {
+    const rawTarget = _resolveTargetFilePath(query);
+    if (rawTarget) {
+      const checkPath = path.isAbsolute(rawTarget) ? rawTarget : path.resolve(process.cwd(), rawTarget);
+      if (fs.existsSync(checkPath)) {
+        const st = fs.statSync(checkPath);
+        resolvedSize = st.isFile() ? st.size : 100000;
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return Math.max(Number(returnedBytes) || 0, resolvedSize);
+}
+
+function _extractQueryKeywords(query) {
+  let extracted = query;
+  if (typeof query === 'string' && query.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(query);
+      extracted = parsed.query || parsed.keyword || parsed.keywords || parsed.name || query;
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+  return String(extracted || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+}
+
+function _resolveSkillSearchBaseline(conn, query, returnedBytes) {
+  let baseline = Number(returnedBytes) || 0;
+  try {
+    const words = _extractQueryKeywords(query);
+    if (words.length === 0) return baseline;
+    let totalMatched = 0;
+    try {
+      const ftsMatch = words.map(w => `"${w.replace(/"/g, '""')}*"`).join(' OR ');
+      const ftsRow = conn.prepare(`
+        SELECT COALESCE(SUM(s.byte_size), 0) as total_matched
+        FROM (
+          SELECT rowid FROM skills_fts WHERE skills_fts MATCH ? LIMIT 10
+        ) f
+        JOIN skills s ON s.rowid = f.rowid
+      `).get(ftsMatch);
+      if (ftsRow && ftsRow.total_matched > 0) {
+        totalMatched = Number(ftsRow.total_matched);
+      }
+    } catch (_) {
+      const lk = '%' + words[0] + '%';
+      const likeRow = conn.prepare(`
+        SELECT COALESCE(SUM(byte_size), 0) as total_matched
+        FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
+      `).get(lk, lk, lk);
+      if (likeRow && likeRow.total_matched > 0) {
+        totalMatched = Number(likeRow.total_matched);
+      }
+    }
+    if (totalMatched > 0) {
+      baseline = Math.max(baseline, totalMatched);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return baseline;
+}
+
+function _resolveGetSkillBaseline(conn, query, returnedBytes) {
+  let baseline = Number(returnedBytes) || 0;
+  try {
+    let skillTarget = query;
+    if (typeof query === 'string' && query.startsWith('{')) {
+      try { skillTarget = JSON.parse(query).name || query; } catch (_) { /* intentional best-effort fallback */ }
+    }
+    const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
+    if (sRow && sRow.byte_size) {
+      baseline = Math.max(baseline, Number(sRow.byte_size));
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return baseline;
+}
+
+function _calculateBaseline(conn, tool, query, returnedBytes, baselineBytes) {
+  if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
+    return Number(baselineBytes);
+  }
+  if (tool === TOOL_TOKEN_GREP) {
+    return Math.max(Number(returnedBytes) || 0, 150000);
+  }
+  if (tool === TOOL_FIND_CLEAN) {
+    return Math.max(Number(returnedBytes) || 0, 250000);
+  }
+  if ([TOOL_READ_HEAD, TOOL_READ_RANGE, TOOL_FILE_INFO, TOOL_STRUCTURE].includes(tool)) {
+    return _resolveFileToolBaseline(query, returnedBytes);
+  }
+  if (['find_skill', 'find_skills'].includes(tool)) {
+    return _resolveSkillSearchBaseline(conn, query, returnedBytes);
+  }
+  if (tool === 'get_skill') {
+    return _resolveGetSkillBaseline(conn, query, returnedBytes);
+  }
+  if (['list_skills', 'optimize_report'].includes(tool)) {
+    return Math.max(Number(returnedBytes) || 0, 35000);
+  }
+  return Number(returnedBytes) || 0;
+}
+
 function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
   if (!client) {
     client = detectActiveClient();
   }
   const conn = getDb();
   try {
-    let baseline = 0;
-    if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
-      baseline = Number(baselineBytes);
-    } else if (tool === TOOL_TOKEN_GREP) {
-      baseline = Math.max(Number(returnedBytes) || 0, 150000);
-    } else if (tool === TOOL_FIND_CLEAN) {
-      baseline = Math.max(Number(returnedBytes) || 0, 250000);
-    } else if ([TOOL_READ_HEAD, TOOL_READ_RANGE, TOOL_FILE_INFO, TOOL_STRUCTURE].includes(tool)) {
-      let resolvedSize = 0;
-      try {
-        let rawTarget = null;
-        if (typeof query === 'string') {
-          try {
-            const parsed = JSON.parse(query);
-            rawTarget = parsed.path || parsed.file_path || parsed.filepath || parsed.dir;
-          } catch (_) {
-            rawTarget = query;
-          }
-        }
-        if (rawTarget) {
-          const checkPath = path.isAbsolute(rawTarget) ? rawTarget : path.resolve(process.cwd(), rawTarget);
-          if (fs.existsSync(checkPath)) {
-            const st = fs.statSync(checkPath);
-            resolvedSize = st.isFile() ? st.size : 100000;
-          }
-        }
-      } catch (_) {
-        // Ignore file stat errors
-      }
-      baseline = Math.max(Number(returnedBytes) || 0, resolvedSize);
-    } else if (['find_skill', 'find_skills'].includes(tool)) {
-      baseline = Number(returnedBytes) || 0;
-      try {
-        let extractedQuery = query;
-        if (typeof query === 'string' && query.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(query);
-            extractedQuery = parsed.query || parsed.keyword || parsed.keywords || parsed.name || query;
-          } catch (_) { /* best-effort json parse fallback */ }
-        }
-        const words = String(extractedQuery || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-        if (words.length > 0) {
-          let totalMatched = 0;
-          try {
-            const ftsMatch = words.map(w => `"${w.replace(/"/g, '""')}*"`).join(' OR ');
-            const ftsRow = conn.prepare(`
-              SELECT COALESCE(SUM(s.byte_size), 0) as total_matched
-              FROM (
-                SELECT rowid FROM skills_fts WHERE skills_fts MATCH ? LIMIT 10
-              ) f
-              JOIN skills s ON s.rowid = f.rowid
-            `).get(ftsMatch);
-            if (ftsRow && ftsRow.total_matched > 0) {
-              totalMatched = Number(ftsRow.total_matched);
-            }
-          } catch (_) {
-            const lk = '%' + words[0] + '%';
-            const likeRow = conn.prepare(`
-              SELECT COALESCE(SUM(byte_size), 0) as total_matched
-              FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
-            `).get(lk, lk, lk);
-            if (likeRow && likeRow.total_matched > 0) {
-              totalMatched = Number(likeRow.total_matched);
-            }
-          }
-          if (totalMatched > 0) {
-            baseline = Math.max(Number(returnedBytes) || 0, totalMatched);
-          }
-        }
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    } else if (tool === 'get_skill') {
-      baseline = Number(returnedBytes) || 0;
-      try {
-        let skillTarget = query;
-        if (typeof query === 'string' && query.startsWith('{')) {
-          try { skillTarget = JSON.parse(query).name || query; } catch (_) { /* best-effort json parse fallback */ }
-        }
-        const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
-        if (sRow && sRow.byte_size) {
-          baseline = Math.max(Number(returnedBytes) || 0, Number(sRow.byte_size));
-        }
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    } else if (['list_skills', 'optimize_report'].includes(tool)) {
-      // Baseline rationale: Unpruned listing across ~138 skills requires loading raw frontmatter metadata
-      // (averaging ~250 bytes each = ~34.5 KB, standardized to 35,000 bytes baseline). list_skills parses
-      // and delivers concise JSON summaries (~15.7 KB), yielding ~55% empirical token reduction.
-      baseline = Math.max(Number(returnedBytes) || 0, 35000);
-    } else {
-      baseline = Number(returnedBytes) || 0;
-    }
-
+    const baseline = _calculateBaseline(conn, tool, query, returnedBytes, baselineBytes);
     const retBytes = Number(returnedBytes) || 0;
     const bytesSaved = Math.max(baseline - retBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);
@@ -180,12 +201,10 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
       baseline,
       bytesSaved,
       tokensSaved,
-      client
+      String(client || 'unattributed').slice(0, 100)
     );
   } catch (_) {
-    // Fail silently
-  } finally {
-    try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    // Fail-open: telemetry logging must never crash the tool runtime
   }
 }
 

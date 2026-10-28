@@ -45,7 +45,7 @@ function saveTelegramConfig({
 
   const newEnabled = enabled !== undefined ? (enabled ? 1 : 0) : existing.enabled;
   const newMode = mode ? (['one_way', 'two_way'].includes(mode) ? mode : existing.mode) : existing.mode;
-  const newTransport = transport ? (['polling', 'cloudflare', 'ngrok'].includes(transport) ? transport : existing.transport) : existing.transport;
+  const newTransport = transport ? (['polling'].includes(transport) ? transport : existing.transport) : existing.transport;
   const isMaskedToken = typeof bot_token === 'string' && bot_token.includes('...');
   const newToken = (bot_token !== undefined && !isMaskedToken) ? String(bot_token).trim() : existing.bot_token;
   const newChatId = chat_id !== undefined ? String(chat_id).trim() : existing.chat_id;

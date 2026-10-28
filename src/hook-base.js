@@ -70,6 +70,21 @@ function respondNoop() {
  *
  * Used by prompt_hook.js and antigravity_subagent_hook.js.
  */
+function _isSubagentRow(row) {
+  const content = row.content || row.thinking || '';
+  if (row.type === 'USER_INPUT') {
+    if (/acting as the\s*`?@/i.test(content)) return true;
+    if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin|sannin)\b/i.test(content)) return true;
+    if (content.includes('delegate.md') || content.includes('result.md')) return true;
+    if (/(?:Please\s+)?read\s+(?:your task|the delegation)/i.test(content)) return true;
+    if (/\/brain\/[a-f0-9-]+\/scratch\/tasks\//i.test(content)) return true;
+  }
+  if (row.source === 'MODEL' && /\[(?:🍃|🌀|📜|🛡️|👥|🎯)?\s*(?:Genin|Kage|Chunin|Jonin|Anbu|Tokubetsu-jonin)\]\s*active/i.test(content)) {
+    return true;
+  }
+  return false;
+}
+
 function isConfirmedSelf(transcriptPath) {
   if (!transcriptPath) return false;
   if (transcriptPath.includes('/subagents/')) return false;
@@ -77,34 +92,20 @@ function isConfirmedSelf(transcriptPath) {
   try {
     const fullPath = transcriptPath.replace('transcript.jsonl', 'transcript_full.jsonl');
     const targetPath = fs.existsSync(fullPath) ? fullPath : transcriptPath;
-    if (!fs.existsSync(targetPath)) return false; // No file → can't confirm
+    if (!fs.existsSync(targetPath)) return false;
 
-    const limit = 50 * 200; // approximate bytes for 50 lines
+    const limit = 50 * 200;
     const raw = fs.readFileSync(targetPath, 'utf-8').trim().slice(0, limit);
-    if (!raw) return false; // Empty transcript (invocation 0) → can't confirm
+    if (!raw) return false;
 
     const lines = raw.split('\n').filter(Boolean);
-    if (lines.length === 0) return false; // No lines → can't confirm
+    if (lines.length === 0) return false;
 
-    // Scan first 50 lines for subagent indicators
     for (const line of lines.slice(0, 50)) {
       try {
         const row = JSON.parse(line);
-        const content = row.content || row.thinking || '';
-
-        if (row.type === 'USER_INPUT') {
-          if (/acting as the\s*`?@/i.test(content)) return false;
-          if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin|sannin)\b/i.test(content)) return false;
-          // Check for EITHER delegate.md OR result.md (invoke prompt may only mention one)
-          if (content.includes('delegate.md') || content.includes('result.md')) return false;
-          if (/(?:Please\s+)?read\s+(?:your task|the delegation)/i.test(content)) return false;
-          // Brain path in USER_INPUT = subagent prompt (orchestrator never receives these)
-          if (/\/brain\/[a-f0-9-]+\/scratch\/tasks\//i.test(content)) return false;
-        }
-        if (row.source === 'MODEL') {
-          if (/\[(?:🍃|🌀|📜|🛡️|👥|🎯)?\s*(?:Genin|Kage|Chunin|Jonin|Anbu|Tokubetsu-jonin)\]\s*active/i.test(content)) return false;
-        }
-      } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+        if (_isSubagentRow(row)) return false;
+      } catch { /* intentional best-effort fallback */ }
     }
 
     return true;

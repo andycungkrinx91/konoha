@@ -82,74 +82,81 @@ function cleanLineText(line) {
  * @param {{ ansi16: Object, defaultText: number[], mutedColor: number[], clean?: boolean }} opts
  * @returns {{ text: string, color: number[], bold: boolean }[]}
  */
+function parseTruecolor(codes, i) {
+  try {
+    const r = Number.parseInt(codes[i + 2], 10);
+    const g = Number.parseInt(codes[i + 3], 10);
+    const b = Number.parseInt(codes[i + 4], 10);
+    if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) {
+      return [
+        Math.max(0, Math.min(255, r)),
+        Math.max(0, Math.min(255, g)),
+        Math.max(0, Math.min(255, b)),
+      ];
+    }
+  } catch {
+    /* skip malformed truecolor sequence */
+  }
+  return null;
+}
+
+function parseAnsiColorCode(codes, i, state, opts) {
+  let codeStr = codes[i] || '0';
+  const code = Number.parseInt(codeStr, 10);
+  if (Number.isNaN(code)) return 1;
+
+  if (code === 0) {
+    state.currentColor = opts.defaultText;
+    state.currentBold = false;
+  } else if (code === 1) {
+    state.currentBold = true;
+  } else if (code === 2) {
+    state.currentBold = false;
+    state.currentColor = opts.mutedColor;
+  } else if (Object.prototype.hasOwnProperty.call(opts.ansi16, code)) {
+    state.currentColor = opts.ansi16[code];
+  } else if (code === 38 && i + 4 < codes.length && codes[i + 1] === '2') {
+    const color = parseTruecolor(codes, i);
+    if (color) {
+      state.currentColor = color;
+      return 5;
+    }
+  } else if (code === 39) {
+    state.currentColor = opts.defaultText;
+  }
+  return 1;
+}
+
 function parseAnsiToSegments(text, opts) {
   const { ansi16, defaultText, mutedColor, clean = false } = opts;
   if (clean) text = cleanLineText(text);
 
   const segments = [];
   const pattern = /\x1b\[([0-9;]*)m/g;
-  let currentColor = defaultText;
-  let currentBold = false;
+  const state = { currentColor: defaultText, currentBold: false };
   let lastIdx = 0;
   let m;
 
   while ((m = pattern.exec(text)) !== null) {
     const start = m.index;
-    const end = m.index + m[0].length;
     if (start > lastIdx) {
       const chunk = text.slice(lastIdx, start);
-      if (chunk) segments.push({ text: chunk, color: currentColor, bold: currentBold });
+      if (chunk) segments.push({ text: chunk, color: state.currentColor, bold: state.currentBold });
     }
 
     const group = m[1];
     const codes = group ? group.split(';') : ['0'];
     let i = 0;
     while (i < codes.length) {
-      let codeStr = codes[i];
-      if (!codeStr) codeStr = '0';
-      const code = Number.parseInt(codeStr, 10);
-      if (Number.isNaN(code)) {
-        i += 1;
-        continue;
-      }
-
-      if (code === 0) {
-        currentColor = defaultText;
-        currentBold = false;
-      } else if (code === 1) {
-        currentBold = true;
-      } else if (code === 2) {
-        currentBold = false;
-        currentColor = mutedColor;
-      } else if (Object.prototype.hasOwnProperty.call(ansi16, code)) {
-        currentColor = ansi16[code];
-      } else if (code === 38 && i + 4 < codes.length && codes[i + 1] === '2') {
-        try {
-          const r = Number.parseInt(codes[i + 2], 10);
-          const g = Number.parseInt(codes[i + 3], 10);
-          const b = Number.parseInt(codes[i + 4], 10);
-          if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) throw new Error('bad truecolor');
-          currentColor = [
-            Math.max(0, Math.min(255, r)),
-            Math.max(0, Math.min(255, g)),
-            Math.max(0, Math.min(255, b)),
-          ];
-          i += 4;
-        } catch {
-          /* skip malformed truecolor sequence */
-        }
-      } else if (code === 39) {
-        currentColor = defaultText;
-      }
-      i += 1;
+      i += parseAnsiColorCode(codes, i, state, { ansi16, defaultText, mutedColor });
     }
 
-    lastIdx = end;
+    lastIdx = m.index + m[0].length;
   }
 
   if (lastIdx < text.length) {
     const chunk = text.slice(lastIdx);
-    if (chunk) segments.push({ text: chunk, color: currentColor, bold: currentBold });
+    if (chunk) segments.push({ text: chunk, color: state.currentColor, bold: state.currentBold });
   }
 
   return segments;
@@ -232,7 +239,8 @@ function drawEllipse(ctx, box, rgb) {
 }
 
 /** Draw a horizontal divider line (ImageDraw.line with width). */
-function drawHLine(ctx, x1, x2, y, rgb, width = 1) {
+function drawHLine(ctx, x1, x2, ...rest) {
+  const [y, rgb, width = 1] = rest;
   ctx.strokeStyle = css(rgb);
   ctx.lineWidth = width;
   ctx.beginPath();
@@ -242,7 +250,8 @@ function drawHLine(ctx, x1, x2, y, rgb, width = 1) {
 }
 
 /** Draw one styled segment; returns the advance width (getbbox-based). */
-function drawSegment(ctx, x, y, segment, fontSize) {
+function drawSegment(ctx, x, y, ...rest) {
+  const [segment, fontSize] = rest;
   ctx.font = canvasFont(fontSize, segment.bold);
   ctx.fillStyle = css(segment.color);
   ctx.fillText(segment.text, x, y);

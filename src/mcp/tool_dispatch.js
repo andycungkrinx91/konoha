@@ -27,13 +27,8 @@ const {
 
 const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
 
-// Bounded file tools are implemented by src/file_tools_router.js. server.js
-// advertises them in tools/list, so the dispatcher MUST delegate to the router
-// instead of failing with "Unknown tool" (broken pi and server.js clients).
 const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
 
-// Workflow artifacts live in the task dir, never in the workspace root —
-// give agents an actionable hint when they look for them in the wrong place.
 const WORKFLOW_FILENAMES = new Set([
   'plan.md', 'findings.md', 'final_report.md', 'final_docs.md',
   'kage_review.json', 'status.json'
@@ -58,24 +53,35 @@ function annotateWorkflowFileHint(text) {
   }
 }
 
-function _executeToolInternal(toolName, args, agent) {
-  if (FILE_TOOLS.has(toolName)) {
-    const router = require('../file_tools_router');
-    const { text } = router.dispatchTool(toolName, args || {});
-    try {
-      const retBytes = Buffer.byteLength(text || '', 'utf8');
-      const logger = require('../tools_savings_logger');
-      logger.log(toolName, JSON.stringify(args || {}).slice(0, 500), retBytes);
-    } catch (_) {
-      // Best-effort savings logging
-    }
-    return annotateWorkflowFileHint(text);
+function boundPersonaMemories(mems) {
+  return (mems || []).map(m => ({
+    id: m.id,
+    agent_name: m.agent_name,
+    memory_type: m.memory_type,
+    title: m.title,
+    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
+    updated_at: m.updated_at
+  }));
+}
+
+function _dispatchFileTool(toolName, args) {
+  if (!FILE_TOOLS.has(toolName)) return null;
+  const router = require('../file_tools_router');
+  const { text } = router.dispatchTool(toolName, args || {});
+  try {
+    const retBytes = Buffer.byteLength(text || '', 'utf8');
+    const logger = require('../tools_savings_logger');
+    logger.log(toolName, JSON.stringify(args || {}).slice(0, 500), retBytes);
+  } catch (_) {
+    // Best-effort savings logging
   }
+  return annotateWorkflowFileHint(text);
+}
+
+function _dispatchSkillsTool(toolName, args, agent) {
   if (toolName === 'find_skill' || toolName === 'find_skills') {
     let keyword = args.keyword || args.keywords || args.query || args.Query || '';
-    if (Array.isArray(keyword)) {
-      keyword = keyword.join(' ');
-    }
+    if (Array.isArray(keyword)) keyword = keyword.join(' ');
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);
     const compact = Boolean(args.compact);
     const taskId = args.task_id || args.taskId || null;
@@ -107,6 +113,79 @@ function _executeToolInternal(toolName, args, agent) {
   if (toolName === 'optimize_report') {
     return optimizeReport(args.keyword, agent);
   }
+  return null;
+}
+
+function _dispatchAkatsukiInit(args) {
+  const akatsukiInit = require('../workflow/akatsuki/init');
+  const action = args.action || 'init';
+  if (action === 'status') {
+    const { getLabStatus, detectEngines } = require('../workflow/akatsuki/lab');
+    const detected = detectEngines();
+    const labName = args.lab_name || 'akatsuki-lab';
+    const engineStatuses = detected.available.map(e => ({
+      engine: e,
+      status: getLabStatus(labName, e)
+    }));
+    return JSON.stringify({ status: 'ok', detected_engines: detected, labs: engineStatuses }, null, 2);
+  }
+  if (action === 'list_tools') {
+    const tools = akatsukiInit.listKaliTools({ query: args.query, category: args.category });
+    return JSON.stringify({ status: 'ok', count: tools.length, tools }, null, 2);
+  }
+  if (action === 'add_tool') {
+    return JSON.stringify(akatsukiInit.addTool(args.tool || args), null, 2);
+  }
+  if (action === 'remove_tool') {
+    return JSON.stringify(akatsukiInit.removeTool(args.tool_id || args.id || (args.tool && args.tool.id)), null, 2);
+  }
+  return JSON.stringify(akatsukiInit.initLab(args), null, 2);
+}
+
+function _resolveFlowHash(args, taskDir) {
+  let flowHash = args.flow_hash || args.flowHash || null;
+  const taskId = args.task_id || args.taskId || (taskDir ? path.basename(taskDir) : null);
+  if (!flowHash && taskId) {
+    try {
+      const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
+      const t = sdlcManager.getTask(taskId);
+      if (t?.evidence) {
+        const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
+        if (ev?.flow_hash) flowHash = ev.flow_hash;
+      }
+    } catch (_) { /* ignore */ }
+  }
+  return flowHash;
+}
+
+function _dispatchAgentDelegation(toolName, args) {
+  if (toolName === 'akatsuki') {
+    const akatsukiRedIntent = /\b(red[- ]team|pentest|penetration test|exploit|adversary|attack simulation|fuzz)\b/i.test([
+      args.task || '', args.prompt || '', args.instructions || '', args.context || ''
+    ].join(' '));
+    if (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow || akatsukiRedIntent) {
+      const { dispatchAkatsuki } = require('../workflow/akatsuki/workflows');
+      return dispatchAkatsuki(args);
+    }
+  }
+
+  if (!['kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki'].includes(toolName)) {
+    return null;
+  }
+
+  const task = args.task || args.prompt || args.instructions;
+  const projectPath = args.project_path || getWorkspaceRoot();
+  const taskDir = args.task_dir;
+  const sessId = args.session_id || args.sessionId;
+  const flowHash = _resolveFlowHash(args, taskDir);
+
+  return runMcpAgent(
+    toolName, task, args.context, args.constraints, args.skills,
+    args.taste_dials, projectPath, taskDir, sessId, flowHash
+  );
+}
+
+function _dispatchWorkflowCore(toolName, args, agent) {
   if (toolName === 'build_with_image_design' || toolName === 'build_from_source') {
     const { name, source_dir, framework } = args;
     if (!name || !source_dir || !framework) {
@@ -130,112 +209,35 @@ function _executeToolInternal(toolName, args, agent) {
     const prompt = args.prompt || args.task || args.instructions;
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
-    return runSannin(prompt, args.task_dir, projPath, sessId);
+    return runSannin(prompt, args.task_dir, projPath, sessId, args);
   }
-  if (toolName === 'akatsuki_init') {
-    const akatsukiInit = require('../workflow/akatsuki/init');
-    const action = args.action || 'init';
-    if (action === 'status') {
-      const { getLabStatus, detectEngines } = require('../workflow/akatsuki/lab');
-      const detected = detectEngines();
-      const labName = args.lab_name || 'akatsuki-lab';
-      const engineStatuses = detected.available.map(e => ({
-        engine: e,
-        status: getLabStatus(labName, e)
-      }));
-      return JSON.stringify({
-        status: 'ok',
-        detected_engines: detected,
-        labs: engineStatuses
-      }, null, 2);
-    }
-    if (action === 'list_tools') {
-      const tools = akatsukiInit.listKaliTools({ query: args.query, category: args.category });
-      return JSON.stringify({ status: 'ok', count: tools.length, tools }, null, 2);
-    }
-    if (action === 'add_tool') {
-      const res = akatsukiInit.addTool(args.tool || args);
-      return JSON.stringify(res, null, 2);
-    }
-    if (action === 'remove_tool') {
-      const res = akatsukiInit.removeTool(args.tool_id || args.id || (args.tool && args.tool.id));
-      return JSON.stringify(res, null, 2);
-    }
-    const res = akatsukiInit.initLab(args);
-    return JSON.stringify(res, null, 2);
+  if (toolName === 'workflow_gate_choice' || toolName === 'workflow_gate_response') {
+    const choice = args.choice ?? args.gate_choice ?? args.action ?? args.gate_action;
+    const refinement = args.refinement ?? args.feedback ?? args.notes;
+    const taskDir = args.task_dir || args.taskDir;
+    const { runMcpWorkflow } = require('./workflow');
+    return runMcpWorkflow(taskDir, { choice, refinement });
   }
-  const akatsukiRedIntent = toolName === 'akatsuki' && /\b(red[- ]team|pentest|penetration test|exploit|adversary|attack simulation|fuzz)\b/i.test([
-    args.task || '',
-    args.prompt || '',
-    args.instructions || '',
-    args.context || ''
-  ].join(' '));
+  if (toolName === 'check_readiness') {
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
+    const taskInput = args.task || args.prompt || args.description || '';
+    const projPath = args.project_path || getWorkspaceRoot();
+    return JSON.stringify(sdlcManager.checkReadiness(taskInput, projPath));
+  }
+  return null;
+}
 
-  if (toolName === 'akatsuki' && (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow || akatsukiRedIntent)) {
-    const { dispatchAkatsuki } = require('../workflow/akatsuki/workflows');
-    return dispatchAkatsuki(args);
-  }
-  if (
-    [
-      'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki'
-    ].includes(toolName)
-  ) {
-    const task = args.task || args.prompt || args.instructions;
-    const context = args.context;
-    const constraints = args.constraints;
-    const skills = args.skills;
-    const tasteDials = args.taste_dials;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    const taskDir = args.task_dir;
-    const sessId = args.session_id || args.sessionId;
-    let flowHash = args.flow_hash || args.flowHash || null;
-    const taskId = args.task_id || args.taskId || (taskDir ? path.basename(taskDir) : null);
-    if (!flowHash && taskId) {
-      try {
-        const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-        const t = sdlcManager.getTask(taskId);
-        if (t && t.evidence) {
-          const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
-          if (ev && ev.flow_hash) flowHash = ev.flow_hash;
-        }
-      } catch (_) { /* ignore */ }
-    }
-
-    return runMcpAgent(
-      toolName,
-      task,
-      context,
-      constraints,
-      skills,
-      tasteDials,
-      projectPath,
-      taskDir,
-      sessId,
-      flowHash
-    );
-  }
+function _dispatchMemory(toolName, args, agent) {
   if (toolName === 'report_from_agent' || (toolName && toolName.startsWith('report_from_'))) {
     let inferredAgent = (toolName && toolName.startsWith('report_from_'))
       ? toolName.replace('report_from_', '')
       : (args.agent_name || agent);
     if (inferredAgent === 'agent' || !inferredAgent) inferredAgent = args.agent_name || agent;
-    const summary = args.summary || '';
-    const status = args.status || 'completed';
-    const filesCreated = args.files_created || [];
-    const filesModified = args.files_modified || [];
-    const learnings = args.learnings || [];
     const projectPath = args.project_path || getWorkspaceRoot();
     return reportFromAgent(
-      inferredAgent,
-      summary,
-      status,
-      filesCreated,
-      filesModified,
-      learnings,
-      projectPath,
-      args.task_dir,
-      args.dispatch_id,
-      args.validation
+      inferredAgent, args.summary || '', args.status || 'completed',
+      args.files_created || [], args.files_modified || [], args.learnings || [],
+      projectPath, args.task_dir, args.dispatch_id, args.validation
     );
   }
   if (toolName === 'get_project_context') {
@@ -249,65 +251,35 @@ function _executeToolInternal(toolName, args, agent) {
   }
   if (toolName === 'migrate_skills') {
     const migrateModule = require('../migrate');
-    const res = migrateModule.migrate_skills(args);
-    return JSON.stringify(res);
+    return JSON.stringify(migrateModule.migrate_skills(args));
   }
+  return null;
+}
+
+function _dispatchPersonaMemory(toolName, args, agent) {
   if (toolName === 'save_persona_memory') {
     const targetAgent = args.agent_name || agent;
     const content = args.content || '';
-    const title = args.title || '';
-    const memoryType = args.memory_type || 'rule';
-    const tags = args.tags || '';
-    const importance = parseInt(args.importance || 1, 10);
-    const projectPath = args.project_path || getWorkspaceRoot();
-    const sessionId = args.session_id;
-    if (!targetAgent || !content) {
-      return JSON.stringify({ error: 'agent_name and content are required.' });
-    }
+    if (!targetAgent || !content) return JSON.stringify({ error: 'agent_name and content are required.' });
     try {
       const mid = personaMemory.saveMemory({
-        agentName: targetAgent,
-        content,
-        title,
-        memoryType,
-        tags,
-        importance,
-        projectPath,
-        sessionId
+        agentName: targetAgent, content, title: args.title || '', memoryType: args.memory_type || 'rule',
+        tags: args.tags || '', importance: parseInt(args.importance || 1, 10),
+        projectPath: args.project_path || getWorkspaceRoot(), sessionId: args.session_id
       });
       return JSON.stringify({ status: 'saved', id: mid, agent: targetAgent });
     } catch (e) {
       return JSON.stringify({ error: `Failed to save memory: ${e.message}` });
     }
   }
-function boundPersonaMemories(mems) {
-  return (mems || []).map(m => ({
-    id: m.id,
-    agent_name: m.agent_name,
-    memory_type: m.memory_type,
-    title: m.title,
-    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
-    updated_at: m.updated_at
-  }));
-}
-
   if (toolName === 'query_persona_memory') {
     const targetAgent = args.agent_name || agent;
-    const query = args.query || '';
-    const memoryType = args.memory_type;
-    const limit = Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10);
     const projectPath = args.project_path || getWorkspaceRoot();
-    const sessionId = args.session_id || getActiveSessionId(projectPath);
-    const allSessions = Boolean(args.all_sessions || args.allSessions);
     try {
       const mems = personaMemory.queryMemories({
-        agentName: targetAgent,
-        query,
-        memoryType,
-        projectPath,
-        sessionId,
-        allSessions,
-        limit
+        agentName: targetAgent, query: args.query || '', memoryType: args.memory_type,
+        projectPath, sessionId: args.session_id || getActiveSessionId(projectPath),
+        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10)
       });
       const boundedMems = boundPersonaMemories(mems);
       return JSON.stringify({ agent: targetAgent, count: boundedMems.length, memories: boundedMems });
@@ -316,20 +288,12 @@ function boundPersonaMemories(mems) {
     }
   }
   if (toolName === 'list_persona_memories') {
-    const targetAgent = args.agent_name;
-    const memoryType = args.memory_type;
-    const limit = Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20);
     const projectPath = args.project_path || getWorkspaceRoot();
-    const sessionId = args.session_id || getActiveSessionId(projectPath);
-    const allSessions = Boolean(args.all_sessions || args.allSessions);
     try {
       const mems = personaMemory.listMemories({
-        agentName: targetAgent,
-        memoryType,
-        projectPath,
-        sessionId,
-        allSessions,
-        limit
+        agentName: args.agent_name, memoryType: args.memory_type, projectPath,
+        sessionId: args.session_id || getActiveSessionId(projectPath),
+        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20)
       });
       const boundedMems = boundPersonaMemories(mems);
       return JSON.stringify({ count: boundedMems.length, memories: boundedMems });
@@ -338,13 +302,10 @@ function boundPersonaMemories(mems) {
     }
   }
   if (toolName === 'delete_persona_memory') {
-    const memId = args.id;
-    if (!memId) {
-      return JSON.stringify({ error: 'Memory id is required.' });
-    }
+    if (!args.id) return JSON.stringify({ error: 'Memory id is required.' });
     try {
-      const deleted = personaMemory.deleteMemory(memId);
-      return JSON.stringify({ status: deleted ? 'deleted' : 'not_found', id: memId });
+      const deleted = personaMemory.deleteMemory(args.id);
+      return JSON.stringify({ status: deleted ? 'deleted' : 'not_found', id: args.id });
     } catch (e) {
       return JSON.stringify({ error: `Failed to delete memory: ${e.message}` });
     }
@@ -360,13 +321,10 @@ function boundPersonaMemories(mems) {
       return JSON.stringify({ error: `Failed to load soul: ${e.message}` });
     }
   }
-  if (toolName === 'check_readiness') {
-    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-    const taskInput = args.task || args.prompt || args.description || '';
-    const projPath = args.project_path || getWorkspaceRoot();
-    const result = sdlcManager.checkReadiness(taskInput, projPath);
-    return JSON.stringify(result);
-  }
+  return null;
+}
+
+function _dispatchAuditAndDetectors(toolName, args, agent) {
   if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const taskId = args.task_id || args.id;
@@ -374,48 +332,58 @@ function boundPersonaMemories(mems) {
     const task = sdlcManager.getTask(taskId);
     if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
     if (toolName === 'get_task_evidence') {
-      return JSON.stringify({
-        task_id: task.id,
-        status: task.status,
-        evidence: task.evidence || {},
-        updated_at: task.updated_at
-      });
+      return JSON.stringify({ task_id: task.id, status: task.status, evidence: task.evidence || {}, updated_at: task.updated_at });
     }
-    return JSON.stringify({
-      task_id: task.id,
-      status: task.status,
-      slop_result: task.slop_result || {},
-      slop_cycles: task.slop_cycles || 0,
-      updated_at: task.updated_at
-    });
+    return JSON.stringify({ task_id: task.id, status: task.status, slop_result: task.slop_result || {}, slop_cycles: task.slop_cycles || 0, updated_at: task.updated_at });
   }
-
   if (toolName === 'anti_slop') {
     return runAntiSlopAudit(args, agent);
   }
-
   if (toolName === 'website_ai_detector') {
     const target = args.target || args.path || args.url || args.site;
     if (!target) return JSON.stringify({ error: 'Missing required argument: target (site directory path or http(s) URL)' });
     const syncRes = runWebsiteAiDetectorSync(String(target), agent);
     if (syncRes !== null) return syncRes;
-    // URL target: run via subprocess so the sync path stays non-blocking
-    // (mirrors the web_search sync strategy).
     const serverJsPath = path.resolve(__dirname, '..', 'server.js');
     const res = spawnSync(process.execPath, [serverJsPath, '--tool', 'website_ai_detector', JSON.stringify({ target: String(target) })], {
-      encoding: 'utf-8',
-      timeout: 30000,
-      maxBuffer: 10 * 1024 * 1024
+      encoding: 'utf-8', timeout: 30000, maxBuffer: 10 * 1024 * 1024
     });
     if (res.error) return JSON.stringify({ error: res.error.message || String(res.error) });
     return (res.stdout || '').trim() || (res.stderr || '').trim() || JSON.stringify({ status: 'error', message: 'No output from website_ai_detector' });
   }
-
   if (toolName === 'docs_ai_detector') {
     const target = args.file_path || args.target || args.path || args.file;
     if (!target) return JSON.stringify({ error: 'Missing required argument: file_path (document file path)' });
     return runDocsAiDetectorSync(String(target), agent);
   }
+  return null;
+}
+
+function _executeToolInternal(toolName, args, agent) {
+  const fileRes = _dispatchFileTool(toolName, args);
+  if (fileRes !== null) return fileRes;
+
+  const skillsRes = _dispatchSkillsTool(toolName, args, agent);
+  if (skillsRes !== null) return skillsRes;
+
+  const wfRes = _dispatchWorkflowCore(toolName, args, agent);
+  if (wfRes !== null) return wfRes;
+
+  if (toolName === 'akatsuki_init') {
+    return _dispatchAkatsukiInit(args);
+  }
+
+  const agentRes = _dispatchAgentDelegation(toolName, args);
+  if (agentRes !== null) return agentRes;
+
+  const memRes = _dispatchMemory(toolName, args, agent);
+  if (memRes !== null) return memRes;
+
+  const personaRes = _dispatchPersonaMemory(toolName, args, agent);
+  if (personaRes !== null) return personaRes;
+
+  const auditRes = _dispatchAuditAndDetectors(toolName, args, agent);
+  if (auditRes !== null) return auditRes;
 
   return JSON.stringify({ error: `Unknown tool: ${toolName}` });
 }
@@ -438,58 +406,52 @@ function executeToolSync(toolName, args = {}) {
   return _executeToolInternal(toolName, args, agent);
 }
 
-async function executeTool(toolName, args = {}) {
-  let agent = args.agent || args.agent_name;
-  if (!agent) agent = detectActiveAgent();
-
+async function _executeHeavyToolAsync(toolName, args, agent) {
   if (toolName === 'web_search') {
     const query = args.query;
     const numResults = Math.min(Math.max(parseInt(args.num_results || 5, 10), 1), 50);
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
     return await runWebSearch(query, numResults, searchDepth, agent);
   }
-
   if (toolName === 'document_create') {
     const { documentCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    const res = await documentCreate(args);
-    return JSON.stringify(res);
+    return JSON.stringify(await documentCreate(args));
   }
-
   if (toolName === 'spreadsheet_create') {
     const { spreadsheetCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    const res = await spreadsheetCreate(args);
-    return JSON.stringify(res);
+    return JSON.stringify(await spreadsheetCreate(args));
   }
-
   if (toolName === 'presentation_create') {
     const { presentationCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    const res = await presentationCreate(args);
-    return JSON.stringify(res);
+    return JSON.stringify(await presentationCreate(args));
   }
-
   if (toolName === 'diagram_create') {
     const { diagramCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    const res = await diagramCreate(args);
-    return JSON.stringify(res);
+    return JSON.stringify(await diagramCreate(args));
   }
-
   if (toolName === 'animation_export') {
     const { animationExport } = require('../workflow/tokubetsu-scribe/document_engine');
-    const res = await animationExport(args);
-    return JSON.stringify(res);
+    return JSON.stringify(await animationExport(args));
   }
-
   if (toolName === 'website_ai_detector') {
     const target = args.target || args.path || args.url || args.site;
     if (!target) return JSON.stringify({ error: 'Missing required argument: target (site directory path or http(s) URL)' });
     return await runWebsiteAiDetector(String(target), agent);
   }
-
   if (toolName === 'docs_ai_detector') {
     const target = args.file_path || args.target || args.path || args.file;
     if (!target) return JSON.stringify({ error: 'Missing required argument: file_path (document file path)' });
     return await runDocsAiDetector(String(target), agent);
   }
+  return null;
+}
+
+async function executeTool(toolName, args = {}) {
+  let agent = args.agent || args.agent_name;
+  if (!agent) agent = detectActiveAgent();
+
+  const heavyRes = await _executeHeavyToolAsync(toolName, args, agent);
+  if (heavyRes !== null) return heavyRes;
 
   return _executeToolInternal(toolName, args, agent);
 }

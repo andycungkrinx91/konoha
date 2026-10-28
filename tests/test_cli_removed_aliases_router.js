@@ -53,15 +53,10 @@ const canonicalHelpCommands = [
 
 // 1. Static AST / Source Router Inspection
 const cliSrc = fs.readFileSync(cliPath, 'utf8');
-const switchStart = cliSrc.indexOf('switch (command)');
-const switchEnd = cliSrc.indexOf('case undefined:', switchStart);
-assert.ok(switchStart !== -1 && switchEnd !== -1, 'Could not find router switch block in bin/cli.js');
-const routerBlock = cliSrc.slice(switchStart, switchEnd);
-
 for (const label of removedLabels) {
   assert.ok(
-    !routerBlock.includes(`case '${label}':`),
-    `Router switch in bin/cli.js must NOT contain removed label: case '${label}':`
+    !cliSrc.includes(`case '${label}':`),
+    `Router in bin/cli.js must NOT contain removed label: case '${label}':`
   );
 }
 
@@ -132,17 +127,18 @@ try {
   assert.strictEqual(fs.existsSync(pidFile), false, 'Daemon pid file should not exist');
 
   // 6. Assert cmdHelp lists canonical names and queue, and lists none of the 11 removed labels
-  const coreStart = cliSrc.indexOf('${C.bold}CORE COMMANDS${C.reset}');
-  const coreEnd = cliSrc.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');
-  assert.ok(coreStart !== -1 && coreEnd !== -1, 'Could not find CORE COMMANDS in bin/cli.js');
-  const topLevelListing = cliSrc.slice(coreStart, coreEnd);
+  const helpSrc = fs.readFileSync(path.join(repoDir, 'bin', 'commands', 'help.js'), 'utf8');
+  const coreStart = helpSrc.indexOf('${C.bold}CORE COMMANDS${C.reset}');
+  const coreEnd = helpSrc.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');
+  assert.ok(coreStart !== -1 && coreEnd !== -1, 'Could not find CORE COMMANDS in bin/commands/help.js');
+  const topLevelListing = helpSrc.slice(coreStart, coreEnd);
   const topCommands = [...topLevelListing.matchAll(/\${C\.cyan}([^\$]+)\${C\.reset}/g)].map(m => m[1]);
 
   const expectedCanonicals = [
     'init', 'migrate', 'embed', 'test', 'status', 'version',
     'upgrade', 'savings', 'detect-ai', 'detect-docs', 'project',
     'task', 'data', 'soul', 'doctor', 'bridge', 'search',
-    'ui', 'service', 'telegram', 'tunnel', 'clean', 'queue',
+    'ui', 'service', 'telegram', 'clean', 'queue',
     'uninstall', 'skill', 'agent', 'help'
   ];
   for (const name of expectedCanonicals) {

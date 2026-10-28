@@ -194,7 +194,7 @@ async function run() {
       fs.rmSync(td8, { recursive: true, force: true });
     }
 
-    // 9. Agent requires delegate.md
+    // 9. Agent requires task / rejects missing task
     const td9 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('kage', { task_dir: td9 });
@@ -203,11 +203,10 @@ async function run() {
       fs.rmSync(td9, { recursive: true, force: true });
     }
 
-    // 10. Agent loads persona from db
+    // 10. Agent loads persona from db with direct task
     const td10 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td10, 'delegate.md'), '---\ntitle: Test\n---\nAnalyze database migration.');
-      const [resp, err] = await client.callTool('kage', { task_dir: td10 });
+      const [resp, err] = await client.callTool('kage', { task: 'Analyze database migration.', task_dir: td10 });
       assert.strictEqual(err, false);
       assert.strictEqual(resp.status, 'ready');
       assert.ok(resp.agent.includes('kage'));
@@ -220,11 +219,10 @@ async function run() {
       fs.rmSync(td10, { recursive: true, force: true });
     }
 
-    // 11. Anbu loads skills from sqlite
+    // 11. Anbu loads skills from sqlite with direct task
     const td11 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td11, 'delegate.md'), 'Implement database migration.');
-      const [resp, err] = await client.callTool('anbu', { task_dir: td11 });
+      const [resp, err] = await client.callTool('anbu', { task: 'Implement database migration.', task_dir: td11 });
       assert.strictEqual(err, false);
       assert.strictEqual(resp.status, 'ready');
       const instructions = resp.instructions || '';
@@ -238,8 +236,7 @@ async function run() {
     // 12. Agent returns long enriched instructions
     const td12 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td12, 'delegate.md'), 'Fix the login endpoint bug.');
-      const [resp] = await client.callTool('anbu', { task_dir: td12 });
+      const [resp] = await client.callTool('anbu', { task: 'Fix the login endpoint bug.', task_dir: td12 });
       assert.ok((resp.instructions || '').length > 500);
     } finally {
       fs.rmSync(td12, { recursive: true, force: true });
@@ -248,8 +245,7 @@ async function run() {
     // 13. Genin reads from skills db
     const td13 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td13, 'delegate.md'), 'Explore the auth flow codebase.');
-      const [resp, err] = await client.callTool('genin', { task_dir: td13 });
+      const [resp, err] = await client.callTool('genin', { task: 'Explore the auth flow codebase.', task_dir: td13 });
       assert.strictEqual(err, false);
       const instructions = resp.instructions || '';
       assert.strictEqual(instructions.includes('.cursor/skills'), false);

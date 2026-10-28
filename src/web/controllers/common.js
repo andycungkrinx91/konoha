@@ -13,34 +13,38 @@ function sendJson(res, statusCode, data) {
     'Content-Type': 'application/json; charset=utf-8'
   });
   res.end(JSON.stringify(data));
+  return true;
+}
+
+function handleChunkLimit(chunk, state, targetRes, req) {
+  if (state.destroyed) return false;
+  state.bytesCount += chunk.length;
+  if (state.bytesCount > MAX_BODY_BYTES) {
+    state.destroyed = true;
+    if (targetRes && !targetRes.headersSent) {
+      sendJson(targetRes, 413, { error: 'Request body exceeds 1 MiB limit' });
+    }
+    req.destroy();
+    return false;
+  }
+  return true;
 }
 
 function parseBody(req, res = null) {
   const targetRes = res || req._res || null;
   return new Promise((resolve, reject) => {
     let raw = '';
-    let bytesCount = 0;
-    let destroyed = false;
+    const state = { bytesCount: 0, destroyed: false };
     req.on('data', chunk => {
-      if (destroyed) return;
-      bytesCount += chunk.length;
-      if (bytesCount > MAX_BODY_BYTES) {
-        destroyed = true;
-        if (targetRes && !targetRes.headersSent) {
-          sendJson(targetRes, 413, { error: 'Request body exceeds 1 MiB limit' });
-        }
-        req.destroy();
-        return;
-      }
-      raw += chunk;
+      if (handleChunkLimit(chunk, state, targetRes, req)) raw += chunk;
     });
     req.on('end', () => {
-      if (destroyed || bytesCount > MAX_BODY_BYTES) return;
+      if (state.destroyed || state.bytesCount > MAX_BODY_BYTES) return;
       if (!raw) return resolve({});
       try { resolve(JSON.parse(raw)); } catch (_) { resolve({}); }
     });
     req.on('error', err => {
-      if (!destroyed) reject(err);
+      if (!state.destroyed) reject(err);
     });
   });
 }
@@ -220,67 +224,86 @@ function isAuthorizedRequest(req, sessionToken) {
   return false;
 }
 
+function _addDiscoveredModel(discovered, seenIds, item) {
+  if (item?.id && !seenIds.has(item.id)) {
+    seenIds.add(item.id);
+    discovered.push(item);
+  }
+}
+
+function _parseOmpRowModels(row, discovered, seenIds) {
+  if (!row.models) return;
+  try {
+    const list = JSON.parse(row.models);
+    if (!Array.isArray(list)) return;
+    for (const m of list) {
+      _addDiscoveredModel(discovered, seenIds, {
+        id: m?.id,
+        model_name: m?.name || m?.id,
+        bridge: m?.provider || 'omp',
+        owned_by: m?.provider || 'omp',
+        source: 'client:omp'
+      });
+    }
+  } catch (_) { /* ignore */ }
+}
+
+function _discoverOmpModels(discovered, seenIds, HOME) {
+  const ompDbPath = path.join(HOME, '.omp', 'agent', 'models.db');
+  if (!fs.existsSync(ompDbPath)) return;
+  const Database = require('../../sqlite_driver');
+  const ompConn = new Database(ompDbPath);
+  try {
+    const rows = ompConn.prepare('SELECT models FROM model_cache').all();
+    for (const row of rows) _parseOmpRowModels(row, discovered, seenIds);
+  } finally {
+    ompConn.close();
+  }
+}
+
+function _discoverClaudeModels(discovered, seenIds, HOME) {
+  const claudeJsonPath = path.join(HOME, '.claude.json');
+  if (!fs.existsSync(claudeJsonPath)) return;
+  const data = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf8'));
+  const cModels = data?.models || data?.customModels || [];
+  if (!Array.isArray(cModels)) return;
+  for (const m of cModels) {
+    const id = typeof m === 'string' ? m : m?.id;
+    _addDiscoveredModel(discovered, seenIds, {
+      id,
+      model_name: typeof m === 'object' && m.name ? m.name : id,
+      bridge: 'claude',
+      owned_by: 'claude',
+      source: 'client:claude'
+    });
+  }
+}
+
+function _discoverOpenCodeModels(discovered, seenIds, HOME) {
+  const opencodePath = path.join(HOME, '.config', 'opencode', 'opencode.json');
+  if (!fs.existsSync(opencodePath)) return;
+  const data = JSON.parse(fs.readFileSync(opencodePath, 'utf8'));
+  if (!Array.isArray(data?.models)) return;
+  for (const m of data.models) {
+    const id = typeof m === 'string' ? m : m?.id;
+    _addDiscoveredModel(discovered, seenIds, {
+      id,
+      model_name: id,
+      bridge: 'opencode',
+      owned_by: 'opencode',
+      source: 'client:opencode'
+    });
+  }
+}
+
 function discoverClientModels() {
-  const discovered = [], seenIds = new Set(), HOME = os.homedir();
-  try {
-    const ompDbPath = path.join(HOME, '.omp', 'agent', 'models.db');
-    if (fs.existsSync(ompDbPath)) {
-      const Database = require('../../sqlite_driver');
-      const ompConn = new Database(ompDbPath);
-      try {
-        const rows = ompConn.prepare('SELECT models FROM model_cache').all();
-        for (const row of rows) {
-          if (!row.models) continue;
-          try {
-            const list = JSON.parse(row.models);
-            if (Array.isArray(list)) {
-              for (const m of list) {
-                if (m && m.id && !seenIds.has(m.id)) {
-                  seenIds.add(m.id);
-                  discovered.push({ id: m.id, model_name: m.name || m.id, bridge: m.provider || 'omp', owned_by: m.provider || 'omp', source: 'client:omp' });
-                }
-              }
-            }
-          } catch (_) { /* ignore */ }
-        }
-      } finally { ompConn.close(); }
-    }
-  } catch (_) { /* non-fatal best effort */ }
+  const discovered = [];
+  const seenIds = new Set();
+  const HOME = os.homedir();
 
-  try {
-    const claudeJsonPath = path.join(HOME, '.claude.json');
-    if (fs.existsSync(claudeJsonPath)) {
-      const data = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf8'));
-      if (data && typeof data === 'object') {
-        const cModels = data.models || data.customModels || [];
-        if (Array.isArray(cModels)) {
-          for (const m of cModels) {
-            const id = typeof m === 'string' ? m : (m && m.id);
-            if (id && !seenIds.has(id)) {
-              seenIds.add(id);
-              discovered.push({ id, model_name: typeof m === 'object' && m.name ? m.name : id, bridge: 'claude', owned_by: 'claude', source: 'client:claude' });
-            }
-          }
-        }
-      }
-    }
-  } catch (_) { /* non-fatal best effort */ }
-
-  try {
-    const opencodePath = path.join(HOME, '.config', 'opencode', 'opencode.json');
-    if (fs.existsSync(opencodePath)) {
-      const data = JSON.parse(fs.readFileSync(opencodePath, 'utf8'));
-      if (data && Array.isArray(data.models)) {
-        for (const m of data.models) {
-          const id = typeof m === 'string' ? m : (m && m.id);
-          if (id && !seenIds.has(id)) {
-            seenIds.add(id);
-            discovered.push({ id, model_name: id, bridge: 'opencode', owned_by: 'opencode', source: 'client:opencode' });
-          }
-        }
-      }
-    }
-  } catch (_) { /* non-fatal best effort */ }
+  try { _discoverOmpModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
+  try { _discoverClaudeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
+  try { _discoverOpenCodeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
 
   return discovered;
 }

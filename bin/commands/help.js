@@ -4,18 +4,17 @@
  * bin/commands/help.js — Educational CLI Help Menu & Command Catalog.
  */
 
-const { C, log, drawLogo, chidoriTransition } = require("../lib/format");
+const { C, log, drawLogo } = require("../lib/format");
 
 
 async function cmdHelp() {
-  await chidoriTransition('help');
   drawLogo(false); // Print static logo for help menu
   
   log(`
   ${C.bold}🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃${C.reset}
   ${C.dim}========================================================================
   Konoha helps you manage a team of specialized AI subagents (Ninjas) across
-  Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi.
+  Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP.
   It stores agent "skills" (instructions, rules, scripts) in a local SQLite FTS5
   database and exposes them via a searchable MCP server, providing massive token
   savings (~80-98%) while keeping agents highly capable.
@@ -49,7 +48,6 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}task${C.reset}              📋 Native SDLC governance tasks, readiness gates, and audits.
   ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
   ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
-  ${C.cyan}tunnel${C.reset}            🚇 Manage Cloudflare and ngrok public ingress tunnels.
   ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
   ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
@@ -90,10 +88,6 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}9. Configure Telegram remote task notifications:${C.reset}
      konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>
      konoha telegram test
-
-  ${C.dim}10. Start Cloudflare public tunnel for remote Web UI access:${C.reset}
-     konoha tunnel start
-
 `);
 }
 

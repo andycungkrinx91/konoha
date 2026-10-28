@@ -22,6 +22,33 @@ const { SEMBLE_PACKAGE } = require('../../src/semble_manager');
 
 const PINNED_UV_VERSION = '0.9.5';
 
+function installUvWindows(tmpDir, stdioOpt, silent) {
+  const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.ps1`);
+  try {
+    execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt });
+    if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
+      execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, { stdio: stdioOpt });
+    }
+  } catch (psErr) {
+    if (!silent) warn(`PowerShell uv installer failed: ${psErr.message}. Falling back to winget if available.`);
+    execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: stdioOpt });
+  } finally {
+    try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
+  }
+}
+
+function installUvPosix(tmpDir, stdioOpt) {
+  const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.sh`);
+  try {
+    execSync(`curl -LsSf "https://astral.sh/uv/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt });
+    if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
+      execSync(`sh "${scriptPath}"`, { stdio: stdioOpt });
+    }
+  } finally {
+    try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
+  }
+}
+
 function installUv(silent = false) {
   try {
     execSync('uv --version', { stdio: 'ignore' });
@@ -33,32 +60,9 @@ function installUv(silent = false) {
     const stdioOpt = silent ? 'ignore' : 'inherit';
     const tmpDir = os.tmpdir();
     if (process.platform === 'win32') {
-      const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.ps1`);
-      try {
-        execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt });
-        if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
-          execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, { stdio: stdioOpt });
-        }
-      } catch (psErr) {
-        if (!silent) warn(`PowerShell uv installer failed: ${psErr.message}. Falling back to winget if available.`);
-        try {
-          execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: stdioOpt });
-        } catch (_) {
-          throw psErr;
-        }
-      } finally {
-        try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
-      }
+      installUvWindows(tmpDir, stdioOpt, silent);
     } else {
-      const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.sh`);
-      try {
-        execSync(`curl -LsSf "https://astral.sh/uv/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt });
-        if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
-          execSync(`sh "${scriptPath}"`, { stdio: stdioOpt });
-        }
-      } finally {
-        try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
-      }
+      installUvPosix(tmpDir, stdioOpt);
     }
     if (!silent) success('uv installed successfully!');
     return true;
@@ -131,19 +135,9 @@ function getUvxCommand() {
   return 'uvx';
 }
 
-function getAgentBrowserCommand() {
-  const isWin = process.platform === 'win32';
-  const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
-  try {
-    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
-    if (res.status === 0) {
-      return abCmd;
-    }
-  } catch { /* intentional best-effort fallback */ }
-
-  const home = os.homedir();
-  const candidates = [];
+function getCandidateAgentBrowserPaths(isWin, home) {
   if (isWin) {
+    const candidates = [];
     if (process.env.APPDATA) {
       candidates.push(
         path.join(process.env.APPDATA, 'npm', 'agent-browser.cmd'),
@@ -151,80 +145,75 @@ function getAgentBrowserCommand() {
       );
     }
     if (process.env.LOCALAPPDATA) {
-      candidates.push(
-        path.join(process.env.LOCALAPPDATA, 'pnpm', 'agent-browser.cmd')
-      );
+      candidates.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'agent-browser.cmd'));
     }
     candidates.push(
       path.join(home, 'AppData', 'Roaming', 'npm', 'agent-browser.cmd'),
       path.join(home, 'AppData', 'Local', 'pnpm', 'agent-browser.cmd')
     );
-  } else {
-    candidates.push(
-      path.join(home, '.local', 'bin', 'agent-browser'),
-      path.join(home, '.npm-global', 'bin', 'agent-browser'),
-      path.join(home, '.pnpm-global', 'bin', 'agent-browser'),
-      path.join(home, '.yarn', 'bin', 'agent-browser'),
-      '/usr/local/bin/agent-browser',
-      '/usr/bin/agent-browser',
-      '/bin/agent-browser'
-    );
+    return candidates;
   }
+  return [
+    path.join(home, '.local', 'bin', 'agent-browser'),
+    path.join(home, '.npm-global', 'bin', 'agent-browser'),
+    path.join(home, '.pnpm-global', 'bin', 'agent-browser'),
+    path.join(home, '.yarn', 'bin', 'agent-browser'),
+    '/usr/local/bin/agent-browser',
+    '/usr/bin/agent-browser',
+    '/bin/agent-browser'
+  ];
+}
 
+function getAgentBrowserCommand() {
+  const isWin = process.platform === 'win32';
+  const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
+  try {
+    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+    if (res.status === 0) return abCmd;
+  } catch { /* best-effort */ }
+
+  const candidates = getCandidateAgentBrowserPaths(isWin, os.homedir());
   for (const p of candidates) {
-    if (p && fileExists(p)) {
-      try {
-        const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
-        if (res.status === 0) {
-          return p;
-        }
-      } catch { /* intentional best-effort fallback */ }
-    }
+    if (!p || !fileExists(p)) continue;
+    try {
+      const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+      if (res.status === 0) return p;
+    } catch { /* best-effort */ }
   }
-
   return null;
+}
+
+function tryInstallWithPm(pm, isWin, stdioOpt) {
+  try {
+    const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+    if (check.status !== 0) return false;
+    const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin, windowsHide: true });
+    return installRes.status === 0;
+  } catch {
+    return false;
+  }
 }
 
 function installAgentBrowser(silent = false) {
   const existing = getAgentBrowserCommand();
-  if (existing) {
-    return true;
-  }
+  if (existing) return true;
 
   if (!silent) info('Attempting to install "agent-browser" CLI for browser automation...');
 
   const isWin = process.platform === 'win32';
   const PINNED_AB_PACKAGE = 'agent-browser@0.3.1';
   const pkgManagers = [
-    {
-      name: 'npm',
-      cmd: isWin ? 'npm.cmd' : 'npm',
-      args: ['install', '-g', PINNED_AB_PACKAGE]
-    },
-    {
-      name: 'pnpm',
-      cmd: isWin ? 'pnpm.cmd' : 'pnpm',
-      args: ['add', '-g', PINNED_AB_PACKAGE]
-    },
-    {
-      name: 'yarn',
-      cmd: isWin ? 'yarn.cmd' : 'yarn',
-      args: ['global', 'add', PINNED_AB_PACKAGE]
-    }
+    { name: 'npm', cmd: isWin ? 'npm.cmd' : 'npm', args: ['install', '-g', PINNED_AB_PACKAGE] },
+    { name: 'pnpm', cmd: isWin ? 'pnpm.cmd' : 'pnpm', args: ['add', '-g', PINNED_AB_PACKAGE] },
+    { name: 'yarn', cmd: isWin ? 'yarn.cmd' : 'yarn', args: ['global', 'add', PINNED_AB_PACKAGE] }
   ];
 
+  const stdioOpt = silent ? 'ignore' : 'inherit';
   for (const pm of pkgManagers) {
-    try {
-      const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
-      if (check.status === 0) {
-        const stdioOpt = silent ? 'ignore' : 'inherit';
-        const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin, windowsHide: true });
-        if (installRes.status === 0) {
-          if (!silent) success(`agent-browser installed successfully via ${pm.name}!`);
-          return true;
-        }
-      }
-    } catch { /* intentional best-effort fallback */ }
+    if (tryInstallWithPm(pm, isWin, stdioOpt)) {
+      if (!silent) success(`agent-browser installed successfully via ${pm.name}!`);
+      return true;
+    }
   }
 
   if (!silent) {
@@ -245,11 +234,7 @@ function findIdeExecutable(name) {
   for (const d of dirs) {
     for (const ext of exts) {
       const fullPath = path.join(d, name + ext);
-      try {
-        if (fileExists(fullPath)) {
-          return fullPath;
-        }
-      } catch { /* intentional best-effort fallback */ }
+      if (fileExists(fullPath)) return fullPath;
     }
   }
   return null;

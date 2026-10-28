@@ -45,6 +45,47 @@ function countTiktoken(text) {
   return Math.floor(byteLen / 4);
 }
 
+function _gatherSampleCorpus() {
+  const samples = [];
+  try {
+    const { listToolSchemas } = require('./file_tools_router');
+    samples.push(JSON.stringify(listToolSchemas().slice(0, 3)));
+  } catch (_) { /* best-effort */ }
+
+  const candidates = [
+    path.join(__dirname, 'templates', 'skills', 'sannin-skill', 'SKILL.md'),
+    path.join(__dirname, 'db_savings.js')
+  ];
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      samples.push(fs.readFileSync(p, 'utf8').slice(0, 4000));
+    } catch (_) { /* ignore */ }
+  }
+  return samples;
+}
+
+function _batchTokenizeSamples(samples) {
+  if (samples.length === 0) return null;
+  try {
+    const res = spawnSync('python3', [
+      '-c',
+      'import json, tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); samples = json.loads(sys.stdin.read()); print(json.dumps([len(enc.encode(s)) for s in samples]))'
+    ], {
+      input: JSON.stringify(samples),
+      encoding: 'utf8',
+      timeout: 1000
+    });
+    if (res.status === 0 && res.stdout) {
+      const parsed = JSON.parse(res.stdout.trim());
+      if (Array.isArray(parsed) && parsed.length === samples.length) {
+        return parsed;
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return null;
+}
+
 /**
  * Evaluates live drift between the /4 heuristic and real cl100k_base tiktoken tokens
  * across representative payloads (e.g. from skills.db and recent tool payloads).
@@ -58,55 +99,13 @@ function getDriftMetrics(options = {}) {
     return _cachedDrift;
   }
 
-  // Gather sample corpus from standard Konoha payload shapes (code, JSON, markdown)
-  const samples = [];
-  
-  // 1. JSON tool result payload sample (from canonical schemas)
-  try {
-    const { listToolSchemas } = require('./file_tools_router');
-    samples.push(JSON.stringify(listToolSchemas().slice(0, 3)));
-  } catch (_) { /* best-effort sample */ }
+  const samples = _gatherSampleCorpus();
 
-  // 2. Markdown skill document sample
-  const sampleSkillPath = path.join(__dirname, 'templates', 'skills', 'sannin-skill', 'SKILL.md');
-  if (fs.existsSync(sampleSkillPath)) {
-    try {
-      samples.push(fs.readFileSync(sampleSkillPath, 'utf8').slice(0, 4000));
-    } catch (_) { /* ignore */ }
-  }
-
-  // 3. JavaScript code sample
-  const sampleCodePath = path.join(__dirname, 'db_savings.js');
-  if (fs.existsSync(sampleCodePath)) {
-    try {
-      samples.push(fs.readFileSync(sampleCodePath, 'utf8').slice(0, 4000));
-    } catch (_) { /* ignore */ }
-  }
-
-  // Measure each sample (batch tokenization in a single python call)
   let totalBytes = 0;
   let totalTiktoken = 0;
   let totalHeuristic = 0;
 
-  let tikCounts = null;
-  if (samples.length > 0) {
-    try {
-      const res = spawnSync('python3', [
-        '-c',
-        'import json, tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); samples = json.loads(sys.stdin.read()); print(json.dumps([len(enc.encode(s)) for s in samples]))'
-      ], {
-        input: JSON.stringify(samples),
-        encoding: 'utf8',
-        timeout: 1000
-      });
-      if (res.status === 0 && res.stdout) {
-        const parsed = JSON.parse(res.stdout.trim());
-        if (Array.isArray(parsed) && parsed.length === samples.length) {
-          tikCounts = parsed;
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+  const tikCounts = _batchTokenizeSamples(samples);
 
   for (let i = 0; i < samples.length; i++) {
     const text = samples[i];

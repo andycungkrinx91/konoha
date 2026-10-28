@@ -36,6 +36,36 @@ function matchGlob(name, pattern) {
   return re.test(name) || re.test(name.replace(/\\/g, '/'));
 }
 
+function _grepFileLines(filePath, rootDir, regex, matches, maxMatches) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size > 1024 * 1024) return false;
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (!regex.test(content)) return false;
+
+    const rel = path.relative(rootDir, filePath).replace(/\\/g, '/');
+    const lines = content.split(/\r?\n/);
+    for (let lineNo = 1; lineNo <= lines.length; lineNo++) {
+      const line = lines[lineNo - 1];
+      if (!regex.test(line)) continue;
+      let snippet = line.trim();
+      if (snippet.length > MATCH_TRIM) {
+        snippet = snippet.substring(0, MATCH_TRIM) + '…';
+      }
+      matches.push(`[${rel}:${lineNo}] ${snippet}`);
+      if (matches.length >= maxMatches) return true;
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return false;
+}
+
+function _matchesGlobFilter(filePath, name, rootDir, globPattern, hasPathGlob) {
+  if (!globPattern) return true;
+  if (!hasPathGlob) return matchGlob(name, globPattern);
+  const rel = path.relative(rootDir, filePath).replace(/\\/g, '/');
+  return matchGlob(name, globPattern) || matchGlob(rel, globPattern);
+}
+
 function tokenEfficientGrep(args = {}) {
   const pattern = args.pattern || args.Pattern || args.query || args.Query;
   if (!pattern) {
@@ -76,39 +106,14 @@ function tokenEfficientGrep(args = {}) {
     if (!common.isProbablyText(filePath)) continue;
 
     const name = path.basename(filePath);
-    if (globPattern && !hasPathGlob && !matchGlob(name, globPattern)) {
+    if (!_matchesGlobFilter(filePath, name, rootDir, globPattern, hasPathGlob)) {
       continue;
     }
 
-    try {
-      const stat = fs.statSync(filePath);
-      if (stat.size > 1024 * 1024) continue;
-      const content = fs.readFileSync(filePath, 'utf8');
-
-      if (!regex.test(content)) continue;
-
-      const rel = path.relative(rootDir, filePath).replace(/\\/g, '/');
-      if (hasPathGlob && !matchGlob(name, globPattern) && !matchGlob(rel, globPattern)) {
-        continue;
-      }
-
-      const lines = content.split(/\r?\n/);
-      for (let lineNo = 1; lineNo <= lines.length; lineNo++) {
-        const line = lines[lineNo - 1];
-        if (regex.test(line)) {
-          let snippet = line.trim();
-          if (snippet.length > MATCH_TRIM) {
-            snippet = snippet.substring(0, MATCH_TRIM) + '…';
-          }
-          matches.push(`[${rel}:${lineNo}] ${snippet}`);
-          if (matches.length >= maxMatches) {
-            truncated = true;
-            break;
-          }
-        }
-      }
-      if (truncated) break;
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+    if (_grepFileLines(filePath, rootDir, regex, matches, maxMatches)) {
+      truncated = true;
+      break;
+    }
   }
 
   const lines = matches.slice(0, maxMatches);

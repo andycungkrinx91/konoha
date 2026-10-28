@@ -212,6 +212,15 @@ function cmdAkatsukiEnv(targetEnv) {
   log('');
 }
 
+function printEngineDetails(engines) {
+  for (const e of engines) {
+    log(`  ${C.green}●${C.reset} ${C.bold}${e.engine.toUpperCase()}:${C.reset} status=${e.status} isolated=${e.network_isolated}`);
+    if (e.tools_installed && e.tools_installed.length > 0) {
+      log(`    ${C.dim}Tools ready: ${e.tools_installed.join(', ')}${C.reset}`);
+    }
+  }
+}
+
 /**
  * Initialize Akatsuki Red-Team Lab containers (LXC, Docker, or both).
  *
@@ -248,12 +257,7 @@ async function cmdAkatsukiInit(args = []) {
 
   if (res.ok) {
     success(`✓ ${res.message}`);
-    for (const e of res.engines) {
-      log(`  ${C.green}●${C.reset} ${C.bold}${e.engine.toUpperCase()}:${C.reset} status=${e.status} isolated=${e.network_isolated}`);
-      if (e.tools_installed && e.tools_installed.length > 0) {
-        log(`    ${C.dim}Tools ready: ${e.tools_installed.join(', ')}${C.reset}`);
-      }
-    }
+    printEngineDetails(res.engines);
   } else {
     warn(`Initialization completed with warnings: ${res.message}`);
     for (const e of res.engines) {

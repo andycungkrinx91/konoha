@@ -436,6 +436,37 @@ function deleteMemory(memoryId, dbPath = null) {
   }
 }
 
+function _buildPruneProjectQuery(pHash, options) {
+  let sql = "DELETE FROM persona_memories WHERE project_hash = ?";
+  const params = [pHash];
+  if (options.olderThanDays && Number(options.olderThanDays) > 0) {
+    sql += " AND created_at < datetime('now', '-' || ? || ' days')";
+    params.push(Math.floor(Number(options.olderThanDays)));
+  }
+  if (options.minImportance && Number(options.minImportance) > 0) {
+    sql += " AND importance <= ?";
+    params.push(Math.floor(Number(options.minImportance)));
+  }
+  if (options.memoryType) {
+    sql += " AND memory_type = ?";
+    params.push(String(options.memoryType).trim().toLowerCase());
+  }
+  return { sql, params };
+}
+
+function _executePruneProjectTx(conn, sql, params, pHash, options) {
+  const tx = conn.transaction(() => {
+    const res = conn.prepare(sql).run(...params);
+    let invariantsCleared = false;
+    if (options.clearInvariants || options.all) {
+      conn.prepare("UPDATE projects SET context_summary = '' WHERE project_hash = ?").run(pHash);
+      invariantsCleared = true;
+    }
+    return { deleted: res.changes, project_hash: pHash, invariants_cleared: invariantsCleared };
+  });
+  return tx();
+}
+
 function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = null) {
   const conn = getDb(dbPath);
   try {
@@ -449,73 +480,54 @@ function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = null) {
     }
     if (!pHash) return { deleted: 0, project_hash: "" };
 
-    let sql = "DELETE FROM persona_memories WHERE project_hash = ?";
-    const params = [pHash];
-
-    if (options.olderThanDays && Number(options.olderThanDays) > 0) {
-      sql += " AND created_at < datetime('now', '-' || ? || ' days')";
-      params.push(Math.floor(Number(options.olderThanDays)));
-    }
-    if (options.minImportance && Number(options.minImportance) > 0) {
-      sql += " AND importance <= ?";
-      params.push(Math.floor(Number(options.minImportance)));
-    }
-    if (options.memoryType) {
-      sql += " AND memory_type = ?";
-      params.push(String(options.memoryType).trim().toLowerCase());
-    }
-
-    const tx = conn.transaction(() => {
-      const res = conn.prepare(sql).run(...params);
-      let invariantsCleared = false;
-      if (options.clearInvariants || options.all) {
-        conn.prepare("UPDATE projects SET context_summary = '' WHERE project_hash = ?").run(pHash);
-        invariantsCleared = true;
-      }
-      return { deleted: res.changes, project_hash: pHash, invariants_cleared: invariantsCleared };
-    });
-    return tx();
+    const { sql, params } = _buildPruneProjectQuery(pHash, options);
+    return _executePruneProjectTx(conn, sql, params, pHash, options);
   } finally {
     conn.close();
   }
+}
+
+function _resolvePruneProjectHash(options) {
+  if (options.projectHash) return options.projectHash;
+  if (options.projectPath) return computeProjectHash(options.projectPath);
+  return null;
+}
+
+function _buildPruneMemoriesQuery(options) {
+  let sql = "DELETE FROM persona_memories WHERE 1=1";
+  const params = [];
+
+  const pHash = _resolvePruneProjectHash(options);
+  if (pHash) {
+    sql += " AND project_hash = ?";
+    params.push(pHash);
+  }
+  if (options.agentName) {
+    let clean = String(options.agentName).toLowerCase().trim();
+    if (clean.startsWith("mcp_")) clean = clean.substring(4);
+    sql += " AND agent_name = ?";
+    params.push(clean);
+  }
+  if (options.olderThanDays && Number(options.olderThanDays) > 0) {
+    sql += " AND created_at < datetime('now', '-' || ? || ' days')";
+    params.push(Math.floor(Number(options.olderThanDays)));
+  }
+  if (options.minImportance && Number(options.minImportance) > 0) {
+    sql += " AND importance <= ?";
+    params.push(Math.floor(Number(options.minImportance)));
+  }
+  if (options.memoryType) {
+    sql += " AND memory_type = ?";
+    params.push(String(options.memoryType).trim().toLowerCase());
+  }
+  return { sql, params };
 }
 
 function pruneMemories(options = {}, dbPath = DB_PATH) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    let sql = "DELETE FROM persona_memories WHERE 1=1";
-    const params = [];
-
-    if (options.projectPath || options.projectHash) {
-      let pHash = options.projectHash;
-      if (!pHash && options.projectPath) {
-        pHash = computeProjectHash(options.projectPath);
-      }
-      if (pHash) {
-        sql += " AND project_hash = ?";
-        params.push(pHash);
-      }
-    }
-    if (options.agentName) {
-      let clean = String(options.agentName).toLowerCase().trim();
-      if (clean.startsWith("mcp_")) clean = clean.substring(4);
-      sql += " AND agent_name = ?";
-      params.push(clean);
-    }
-    if (options.olderThanDays && Number(options.olderThanDays) > 0) {
-      sql += " AND created_at < datetime('now', '-' || ? || ' days')";
-      params.push(Math.floor(Number(options.olderThanDays)));
-    }
-    if (options.minImportance && Number(options.minImportance) > 0) {
-      sql += " AND importance <= ?";
-      params.push(Math.floor(Number(options.minImportance)));
-    }
-    if (options.memoryType) {
-      sql += " AND memory_type = ?";
-      params.push(String(options.memoryType).trim().toLowerCase());
-    }
-
+    const { sql, params } = _buildPruneMemoriesQuery(options);
     const res = conn.prepare(sql).run(...params);
     return { deleted: res.changes };
   } finally {
@@ -578,7 +590,8 @@ function pruneSessionMemories(sessionId, dbPath = DB_PATH) {
   }
 }
 
-function recordFlowSkill(flowHash, skillName, taskId = null, sessionId = null, projectPath = null, dbPath = DB_PATH) {
+function recordFlowSkill(flowHash, skillName, taskId = null, sessionId = null, ...rest) {
+  const [projectPath = null, dbPath = DB_PATH] = rest;
   if (!flowHash || !skillName) return null;
   const cleanSkill = String(skillName).trim();
   const cleanFlow = String(flowHash).trim();

@@ -22,6 +22,35 @@ function getDefaultEnv() {
   return 'docker';
 }
 
+function _parseAkatsukiConfigObject(parsed) {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  let mode = getDefaultMode();
+  let env = getDefaultEnv();
+
+  if (parsed.mode === 'blue' || parsed.mode === 'red') {
+    mode = parsed.mode;
+  } else if (parsed.mode === 'lxc' || parsed.mode === 'docker') {
+    env = parsed.mode;
+    mode = parsed.redteam_enabled ? 'red' : 'blue';
+  }
+
+  if (parsed.env === 'lxc' || parsed.env === 'docker') {
+    env = parsed.env;
+  }
+
+  if (parsed.redteam_enabled !== undefined && !parsed.mode) {
+    mode = parsed.redteam_enabled ? 'red' : 'blue';
+  }
+
+  return {
+    redteam_enabled: mode === 'red',
+    mode,
+    env,
+    updated_at: parsed.updated_at,
+    updated_by: parsed.updated_by
+  };
+}
+
 /**
  * Load persistent Akatsuki configuration.
  *
@@ -33,34 +62,8 @@ function loadAkatsukiConfig(options = {}) {
   try {
     if (fs.existsSync(configPath)) {
       const raw = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === 'object' && parsed !== null) {
-        let mode = getDefaultMode();
-        let env = getDefaultEnv();
-
-        if (parsed.mode === 'blue' || parsed.mode === 'red') {
-          mode = parsed.mode;
-        } else if (parsed.mode === 'lxc' || parsed.mode === 'docker') {
-          env = parsed.mode;
-          mode = parsed.redteam_enabled ? 'red' : 'blue';
-        }
-
-        if (parsed.env === 'lxc' || parsed.env === 'docker') {
-          env = parsed.env;
-        }
-
-        if (parsed.redteam_enabled !== undefined && !parsed.mode) {
-          mode = parsed.redteam_enabled ? 'red' : 'blue';
-        }
-
-        return {
-          redteam_enabled: mode === 'red',
-          mode,
-          env,
-          updated_at: parsed.updated_at,
-          updated_by: parsed.updated_by
-        };
-      }
+      const parsedConfig = _parseAkatsukiConfigObject(JSON.parse(raw));
+      if (parsedConfig) return parsedConfig;
     }
   } catch (_) {
     // Fall back to default

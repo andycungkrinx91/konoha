@@ -47,6 +47,35 @@ function sanitizeMessagesNames(messages) {
   });
 }
 
+function _collectReceivedToolIds(messages, startIdx) {
+  const received = new Set();
+  let lookAhead = startIdx;
+  while (lookAhead < messages.length && messages[lookAhead].role === 'tool') {
+    if (messages[lookAhead].tool_call_id) {
+      received.add(messages[lookAhead].tool_call_id);
+    }
+    lookAhead++;
+  }
+  return received;
+}
+
+function _findMissingSyntheticTools(messages, i, toolCalls) {
+  const toolCallIds = toolCalls.map((tc) => tc.id).filter(Boolean);
+  if (toolCallIds.length === 0) return [];
+  const received = _collectReceivedToolIds(messages, i + 1);
+  const synthetics = [];
+  for (const id of toolCallIds) {
+    if (!received.has(id)) {
+      synthetics.push({
+        role: 'tool',
+        tool_call_id: id,
+        content: '[No observation returned]',
+      });
+    }
+  }
+  return synthetics;
+}
+
 /**
  * Fix missing tool responses.
  * If an assistant message has tool_calls, the immediately following message MUST contain the results.
@@ -60,32 +89,12 @@ function fixMissingToolResponses(messages) {
     const msg = messages[i];
     newMessages.push(msg);
 
-    // Look for tool calls in the current message
-    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
-      const toolCallIds = msg.tool_calls.map((tc) => tc.id).filter(Boolean);
-
-      if (toolCallIds.length > 0) {
-        // Collect all consecutive tool message IDs that immediately follow
-        const receivedToolIds = new Set();
-        let lookAheadIdx = i + 1;
-        while (lookAheadIdx < messages.length && messages[lookAheadIdx].role === 'tool') {
-          if (messages[lookAheadIdx].tool_call_id) {
-            receivedToolIds.add(messages[lookAheadIdx].tool_call_id);
-          }
-          lookAheadIdx++;
-        }
-
-        // Check for any missing tool IDs and inject synthetic empty observations
-        for (const id of toolCallIds) {
-          if (!receivedToolIds.has(id)) {
-            newMessages.push({
-              role: 'tool',
-              tool_call_id: id,
-              content: '[No observation returned]',
-            });
-          }
-        }
-      }
+    if (msg.role !== 'assistant' || !Array.isArray(msg.tool_calls) || msg.tool_calls.length === 0) {
+      continue;
+    }
+    const synthetics = _findMissingSyntheticTools(messages, i, msg.tool_calls);
+    for (const syn of synthetics) {
+      newMessages.push(syn);
     }
   }
   return newMessages;
@@ -158,17 +167,17 @@ function sanitizeRequest(payload) {
 
   const newPayload = { ...payload };
 
-  // 1. Token field normalization
+  // Token field normalization
   if (newPayload.max_output_tokens !== undefined && newPayload.max_tokens === undefined) {
     newPayload.max_tokens = newPayload.max_output_tokens;
   }
 
-  // 2. Sanitize tools
+  // Sanitize tools
   if (newPayload.tools) {
     newPayload.tools = sanitizeTools(newPayload.tools);
   }
 
-  // 3. Sanitize and compress messages
+  // Sanitize and compress messages
   if (newPayload.messages) {
     let messages = newPayload.messages;
     messages = sanitizeMessagesNames(messages);

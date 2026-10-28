@@ -192,24 +192,27 @@ async function cmdBridgeStart() {
   }
 }
 
+function terminatePid(pid) {
+  if (!Number.isFinite(pid) || pid <= 0) return;
+  try {
+    if (process.platform === 'win32') {
+      const { execSync } = require('child_process');
+      execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+    } else {
+      process.kill(pid, 'SIGTERM');
+    }
+  } catch (_) {
+    /* process may have already exited */
+  }
+}
+
 async function cmdBridgeStop() {
   header('Stopping Bridge Proxy Gateway Service');
   const pidFile = path.join(SKILLS_DB_DIR, 'bridge.pid');
   try {
     if (fileExists(pidFile)) {
       const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-      if (Number.isFinite(pid) && pid > 0) {
-        try {
-          if (process.platform === 'win32') {
-            const { execSync } = require('child_process');
-            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-          } else {
-            process.kill(pid, 'SIGTERM');
-          }
-        } catch (_err) {
-          /* process may have already exited */
-        }
-      }
+      terminatePid(pid);
     }
     await killProcessOnPort(19999);
     if (fileExists(pidFile)) {
@@ -280,6 +283,28 @@ async function cmdBridgeList() {
   });
 }
 
+async function fetchBridgeModels(bridge) {
+  let targetPath = bridge.targetUrl || `http://127.0.0.1:${bridge.port}`;
+  if (targetPath.endsWith('/chat/completions')) {
+    targetPath = targetPath.replace('/chat/completions', '/models');
+  }
+  if (!targetPath.endsWith('/models')) {
+    if (targetPath.endsWith('/')) targetPath = targetPath.slice(0, -1);
+    if (targetPath.endsWith('/v1')) targetPath = targetPath + '/models';
+    else targetPath = targetPath + '/v1/models';
+  }
+  const headers = {};
+  if (bridge.apiKey) headers['Authorization'] = `Bearer ${bridge.apiKey}`;
+
+  try {
+    const res = await fetch(targetPath, { headers, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 async function cmdBridgeModels() {
   header('Served Models via Proxy Gateway');
 
@@ -291,36 +316,7 @@ async function cmdBridgeModels() {
     return;
   }
 
-  const bridgeTargets = bridgeList.map(async bridge => {
-    let targetPath = bridge.targetUrl || `http://127.0.0.1:${bridge.port}`;
-    if (targetPath.endsWith('/chat/completions')) {
-      targetPath = targetPath.replace('/chat/completions', '/models');
-    }
-    if (!targetPath.endsWith('/models')) {
-      if (targetPath.endsWith('/')) targetPath = targetPath.slice(0, -1);
-      if (targetPath.endsWith('/v1')) targetPath = targetPath + '/models';
-      else targetPath = targetPath + '/v1/models';
-    }
-    const parsed = new URL(targetPath);
-    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
-    const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
-    const headers = {};
-    if (bridge.apiKey) {
-      headers['Authorization'] = `Bearer ${bridge.apiKey}`;
-    }
-    return new Promise((resolve) => {
-      const req = mod.get(url, { headers }, (res) => {
-        let d = '';
-        res.on('data', c => d += c);
-        res.on('end', () => {
-          try { resolve(JSON.parse(d)); } catch { resolve(null); }
-        });
-      });
-      req.on('error', () => resolve(null));
-      req.setTimeout(8000, () => { req.destroy(); resolve(null); });
-    });
-  });
-  const targets = await Promise.all(bridgeTargets);
+  const targets = await Promise.all(bridgeList.map(b => fetchBridgeModels(b)));
 
   const models = [];
   for (let i = 0; i < targets.length; i++) {

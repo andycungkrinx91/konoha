@@ -150,20 +150,23 @@ function workflowParseTasks(planContent) {
   return tasks;
 }
 
+function isTransientFile(file) {
+  return file.startsWith('debug_') || file.startsWith('temp_') ||
+         file === 'test_patch.py' || file.endsWith('.tmp');
+}
+
+function _unlinkIfTransient(taskDir, file) {
+  if (!isTransientFile(file)) return;
+  try { fs.unlinkSync(path.join(taskDir, file)); } catch (_) { /* ignore */ }
+}
+
 function cleanupTransientScratchFiles(taskDir = null) {
-  if (taskDir && fs.existsSync(taskDir) && fs.statSync(taskDir).isDirectory()) {
-    try {
-      const files = fs.readdirSync(taskDir);
-      for (const file of files) {
-        if (
-          file.startsWith('debug_') || file.startsWith('temp_') ||
-          file === 'test_patch.py' || file.endsWith('.tmp')
-        ) {
-          try { fs.unlinkSync(path.join(taskDir, file)); } catch (_) { /* ignore */ }
-        }
-      }
-    } catch (_) { /* ignore */ }
-  }
+  if (!taskDir || !fs.existsSync(taskDir) || !fs.statSync(taskDir).isDirectory()) return;
+  try {
+    for (const file of fs.readdirSync(taskDir)) {
+      _unlinkIfTransient(taskDir, file);
+    }
+  } catch (_) { /* ignore */ }
 }
 
 module.exports = {

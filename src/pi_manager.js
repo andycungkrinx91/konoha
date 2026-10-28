@@ -20,7 +20,7 @@ const deployUtils = require('./deploy_utils');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
 const { buildGuardrailCheckerSource } = require('./guardrails');
 
-const HOME = os.homedir();
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const PI_AGENT_DIR = path.join(HOME, '.pi', 'agent');
 const PI_SETTINGS = path.join(PI_AGENT_DIR, 'settings.json');
 const PI_MCP_CONFIG = path.join(PI_AGENT_DIR, 'mcp.json');
@@ -95,14 +95,14 @@ function buildPiWorkflowAddendum() {
 
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
-- **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the delegate.md phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
+- **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
   - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
   - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.
   - **Everything else** → **BRANCH A** (standard multi-agent workflow above).
 - **BRANCH B: Website Scaffolding Pipeline (SKIP standard pipeline)**:
   - Call \`konoha.build_from_text(name, description, framework, taste_dials?)\` or \`konoha.build_from_source(name, source_dir, framework, taste_dials?)\` FIRST before writing any code or scaffolding.
-  - Write \`delegate.md\` with the returned directives as constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
+  - Pass the returned directives directly as structured tool constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
   - Jonin implements the complete working website with an inline \`README.md\` and executes validation commands cleanly. DO NOT delegate to \`tokubetsu-jonin\` or other subagents unless technical documentation was explicitly requested by the user.
 - **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
   - **Header Logo on Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
@@ -225,13 +225,13 @@ function deployPiRtkRule(silent = true) {
   }
 }
 
-function cleanupLegacyRtkAgentsBlock() {
-  if (!fileExists(PI_AGENTS_MD)) return;
+function _cleanPiAgentsMdRtkBlock() {
+  if (!fileExists(PI_AGENTS_MD)) return false;
   try {
     const content = fs.readFileSync(PI_AGENTS_MD, 'utf-8');
     const startIndex = content.indexOf(RTK_BLOCK_START);
     const endIndex = content.indexOf(RTK_BLOCK_END);
-    if (startIndex === -1 || endIndex === -1) return;
+    if (startIndex === -1 || endIndex === -1) return false;
     const before = content.slice(0, startIndex);
     const after = content.slice(endIndex + RTK_BLOCK_END.length);
     const cleaned = (before + after).replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n');
@@ -240,7 +240,24 @@ function cleanupLegacyRtkAgentsBlock() {
     } else {
       fs.unlinkSync(PI_AGENTS_MD);
     }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    return true;
+  } catch (_) { return false; }
+}
+
+const cleanupLegacyRtkAgentsBlock = _cleanPiAgentsMdRtkBlock;
+
+function _uninstallPiRtkExtension() {
+  if (!fileExists(PI_RTK_EXTENSION)) return false;
+  try {
+    const rtkCmd = getRtkCommandSafe();
+    if (rtkCmd) {
+      const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--uninstall'], {
+        encoding: 'utf-8', timeout: 30000, shell: process.platform === 'win32'
+      });
+      return res.status === 0;
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return false;
 }
 
 /**
@@ -248,38 +265,12 @@ function cleanupLegacyRtkAgentsBlock() {
  * AGENTS.md instruction block from earlier konoha versions.
  */
 function removePiRtkRule(silent = true) {
-  let removed = false;
+  let removed = _uninstallPiRtkExtension();
   if (fileExists(PI_RTK_EXTENSION)) {
-    try {
-      const rtkCmd = getRtkCommandSafe();
-      if (rtkCmd) {
-        const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--uninstall'], {
-          encoding: 'utf-8', timeout: 30000, shell: process.platform === 'win32'
-        });
-        if (res.status === 0) removed = true;
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    try { fs.unlinkSync(PI_RTK_EXTENSION); removed = true; } catch (_) { /* intentional best-effort fallback */ }
   }
-  if (fileExists(PI_RTK_EXTENSION)) {
-    try { fs.unlinkSync(PI_RTK_EXTENSION); removed = true; } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-  if (fileExists(PI_AGENTS_MD)) {
-    try {
-      const content = fs.readFileSync(PI_AGENTS_MD, 'utf-8');
-      const startIndex = content.indexOf(RTK_BLOCK_START);
-      const endIndex = content.indexOf(RTK_BLOCK_END);
-      if (startIndex !== -1 && endIndex !== -1) {
-        const before = content.slice(0, startIndex);
-        const after = content.slice(endIndex + RTK_BLOCK_END.length);
-        const cleaned = (before + after).replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n');
-        if (cleaned.trim()) {
-          fs.writeFileSync(PI_AGENTS_MD, cleaned, 'utf-8');
-        } else {
-          fs.unlinkSync(PI_AGENTS_MD);
-        }
-        removed = true;
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  if (_cleanPiAgentsMdRtkBlock()) {
+    removed = true;
   }
   if (removed && !silent) process.stderr.write(`✓ RTK artifacts removed from Pi\n`);
   return true;
@@ -504,70 +495,39 @@ function ensureAdapterPackage(silent = true) {
  * Merges Konoha MCP server entries into the Pi-owned global override
  * (~/.pi/agent/mcp.json). Existing user servers are preserved.
  */
-function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerPiMcp(pythonCmd, serverPath, uvxCmd, silentOrOptions = true) {
+  const silent = typeof silentOrOptions === 'boolean' ? silentOrOptions : (silentOrOptions.silent !== false);
+  const options = typeof silentOrOptions === 'object' && silentOrOptions !== null ? silentOrOptions : {};
+  const targetDir = options.agentDir || (options.home ? path.join(options.home, '.pi', 'agent') : PI_AGENT_DIR);
+  const targetMcp = options.configPath || (options.home ? path.join(targetDir, 'mcp.json') : PI_MCP_CONFIG);
+
   try {
-    ensureDirSafe(PI_AGENT_DIR);
-    let config = {};
-    if (fileExists(PI_MCP_CONFIG)) {
-      const parsed = readJsonSafe(PI_MCP_CONFIG);
-      if (parsed && typeof parsed === 'object') {
-        config = parsed;
-      } else {
-        // Corrupt config: back it up so user servers are recoverable
-        try {
-          fs.copyFileSync(PI_MCP_CONFIG, PI_MCP_CONFIG + '.corrupt-' + Date.now());
-          if (!silent) console.warn(`⚠ ${PI_MCP_CONFIG} was invalid JSON — backed up to ${PI_MCP_CONFIG}.corrupt-*`);
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        config = {};
-      }
-    }
+    ensureDirSafe(targetDir);
+    const config = fileExists(targetMcp) ? (readJsonSafe(targetMcp) || {}) : {};
     if (!config.mcpServers || typeof config.mcpServers !== 'object') config.mcpServers = {};
 
-    const uvxAvailable = (() => {
-      try {
-        const res = spawnSync(uvxCmd || 'uvx', ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
-        return res.status === 0;
-      } catch (_) {
-        return false;
-      }
-    })();
+    const isWin = process.platform === 'win32';
+    const resolvedUvx = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
 
+    // Match the other clients: the konoha entry serves all 47 canonical tools through
+    // the file-tools launcher (which bootstraps node + workspace jail)
     config.mcpServers['konoha'] = {
       command: process.execPath || 'node',
-      // Match the other clients: the konoha entry serves all 47 canonical tools through
-      // the file-tools launcher (which bootstraps node + workspace jail),
-      // not the orchestrator-only server.js
       args: [fileExists(deployUtils.FILE_TOOLS_LAUNCHER_JS) ? deployUtils.FILE_TOOLS_LAUNCHER_JS : deployUtils.FILE_TOOLS_MCP_PATH],
-      env: {
-        ACTIVE_CLIENT: 'pi',
-        KONOHA_CLIENT: 'pi',
-        KONOHA_SEMANTIC_SEARCH: '1'
-      }
+      env: { ACTIVE_CLIENT: 'pi', KONOHA_CLIENT: 'pi', KONOHA_SEMANTIC_SEARCH: '1' }
     };
-    if (uvxAvailable) {
-      config.mcpServers['semble'] = {
-        command: uvxCmd || 'uvx',
-        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all']
-      };
-    }
-    config.mcpServers['aislop'] = {
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp']
-    };
+    config.mcpServers['semble'] = { command: resolvedUvx, args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'] };
+    config.mcpServers['aislop'] = { command: isWin ? 'npx.cmd' : 'npx', args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'] };
 
-    fs.writeFileSync(PI_MCP_CONFIG, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-    if (!silent) process.stderr.write(`✓ Pi MCP servers registered: ${PI_MCP_CONFIG}\n`);
-    return { ok: true };
+    fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    if (!silent) process.stderr.write(`✓ Pi MCP servers registered: ${targetMcp}\n`);
+    return { ok: true, configPath: targetMcp };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi MCP registration failed: ${err.message}`);
     return { ok: false, reason: 'pi-mcp-registration-failed', error: err.message };
   }
 }
 
-/**
- * Removes only Konoha-owned server entries from the Pi MCP config.
- * User-configured servers are never touched.
- */
 function removePiMcp(silent = true) {
   if (!fileExists(PI_MCP_CONFIG)) return true;
   const config = readJsonSafe(PI_MCP_CONFIG);
@@ -589,46 +549,33 @@ function removePiMcp(silent = true) {
   }
 }
 
-/**
- * Full setup: adapter package + MCP server registration.
- * Mirrors the option contract of the other client managers.
- */
 function ensurePiSetup(options = {}) {
   const {
     pythonCmd = null,
     serverPath = null,
     uvxCmd = null,
-    silent = true
+    silent = true,
+    force = false,
+    skipDetection = false
   } = options;
 
-  if (!isPiInstalled()) {
+  if (!force && !skipDetection && !isPiInstalled()) {
     return { ok: false, reason: 'pi-not-installed' };
   }
-  if (!fileExists(PI_AGENT_DIR)) {
-    // pi installed on PATH but never launched — create the agent dir so the
-    // config lands in the documented location
+  const agentDir = options.agentDir || (options.home ? path.join(options.home, '.pi', 'agent') : PI_AGENT_DIR);
+  const settingsPath = options.settingsPath || (options.home ? path.join(agentDir, 'settings.json') : PI_SETTINGS);
+  ensureDirSafe(agentDir);
+
+  if (!fileExists(settingsPath)) {
     try {
-      fs.mkdirSync(PI_AGENT_DIR, { recursive: true });
-    } catch (err) {
-      return { ok: false, reason: 'pi-agent-dir-unavailable', error: err.message };
-    }
-  }
-  if (!fileExists(PI_SETTINGS)) {
-    // Fresh install: pi creates settings.json on first launch; seed a minimal one
-    try {
-      fs.writeFileSync(PI_SETTINGS, JSON.stringify({ packages: [PI_ADAPTER_PACKAGE] }, null, 2) + '\n', 'utf-8');
+      fs.writeFileSync(settingsPath, JSON.stringify({ packages: [PI_ADAPTER_PACKAGE] }, null, 2) + '\n', 'utf-8');
     } catch (err) {
       return { ok: false, reason: 'pi-settings-unavailable', error: err.message };
     }
   }
   const adapter = ensureAdapterPackage(silent);
-  if (!adapter.ok) {
-    return adapter;
-  }
-  const registration = registerPiMcp(pythonCmd, serverPath, uvxCmd, silent);
-  if (!registration.ok) {
-    return registration;
-  }
+  const registration = registerPiMcp(pythonCmd, serverPath, uvxCmd, { ...options, silent });
+  if (!registration.ok) return registration;
   const rtk = deployPiRtkRule(silent);
   const contract = deployPiContract(silent);
   const blocker = deployPiBlockerExtension(silent);

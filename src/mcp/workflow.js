@@ -34,9 +34,28 @@ const {
   runMcpWorkflow
 } = require('./workflow_runner');
 
+const {
+  GATE1_CHOICES,
+  GATE1_REFINE_LABEL,
+  GATE2_CHOICES,
+  buildGate1Prompt,
+  buildGate2Prompt,
+  parseGateChoice,
+  applyGate1Choice,
+  applyGate2Choice
+} = require('./workflow_gates');
+
 module.exports = {
   WORKFLOW_PHASES,
   HITL_GATES,
+  GATE1_CHOICES,
+  GATE1_REFINE_LABEL,
+  GATE2_CHOICES,
+  buildGate1Prompt,
+  buildGate2Prompt,
+  parseGateChoice,
+  applyGate1Choice,
+  applyGate2Choice,
   getResolvedTaskDir,
   readFileSafe,
   runAislopGate,

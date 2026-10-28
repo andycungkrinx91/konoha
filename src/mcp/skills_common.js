@@ -166,107 +166,139 @@ function resolveFlowHashFromTask(flowHash, taskId) {
 }
 
 function getMirrorRoots() {
-  return [
-    path.join(HOME, '.agents', 'skills'),
+  const roots = [];
+  const home = process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
+
+  const candidates = [
+    path.resolve(home, '.agents', 'skills'),
+    path.resolve(home, '.gemini', 'antigravity-cli', 'skills'),
+    path.resolve(home, '.gemini', 'skills'),
+    path.resolve(home, '.cursor', 'skills'),
+    path.resolve(home, '.claude', 'skills'),
+    path.resolve(home, '.commandcode', 'skills'),
+    path.resolve(home, '.codex', 'skills'),
+    path.resolve(home, '.config', 'opencode', 'skills'),
+    path.resolve(home, '.opencode', 'skills'),
+    path.resolve(home, '.pi', 'agent', 'skills'),
+    path.resolve(home, '.pi', 'skills'),
+    path.resolve(home, '.omp', 'agent', 'skills'),
+    path.resolve(home, '.omp', 'skills'),
+    path.resolve(home, '.konoha', 'src', 'templates', 'skills'),
+    path.resolve(__dirname, '..', 'templates', 'skills')
   ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c) && !roots.includes(c)) {
+      roots.push(c);
+    }
+  }
+
+  const globalMirror = path.resolve(home, '.agents', 'skills');
+  return roots.length > 0 ? roots : [globalMirror];
 }
 
-function findInMirror(name) {
-  const norm = normalizeLegacySkillName(name);
-  if (!norm || typeof norm !== 'string') return null;
-  if (norm.includes('..') || path.isAbsolute(norm) || /^[a-zA-Z]:/.test(norm)) {
-    return null;
-  }
-  const mirrorRoots = getMirrorRoots();
-  for (const root of mirrorRoots) {
-    if (!fs.existsSync(root)) continue;
-    const resolvedRoot = path.resolve(root);
-    if (norm.includes('/')) {
-      const parts = norm.split('/');
-      const parentSkill = parts[0];
-      const subName = parts.slice(1).join('/');
-      const candidatePaths = [
-        path.join(root, parentSkill, 'references', `${subName}.md`),
-        path.join(root, parentSkill, 'references', subName),
-        path.join(root, parentSkill, `${subName}.md`),
-        path.join(root, parentSkill, subName, 'SKILL.md'),
-        path.join(root, `${norm}.md`),
-        path.join(root, norm, 'SKILL.md')
-      ];
-      for (const cp of candidatePaths) {
-        const resolvedPath = path.resolve(cp);
-        if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
-        if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
-          return { filePath: cp, type: 'reference' };
-        }
-      }
-    } else {
-      const candidatePaths = [
-        path.join(root, norm, 'SKILL.md'),
-        path.join(root, `${norm}.md`),
-        path.join(root, norm)
-      ];
-      for (const cp of candidatePaths) {
-        const resolvedPath = path.resolve(cp);
-        if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
-        if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
-          return { filePath: cp, type: 'skill' };
-        }
-      }
-      try {
-        const subs = fs.readdirSync(root, { withFileTypes: true });
-        for (const sub of subs) {
-          if (!sub.isDirectory()) continue;
-          const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
-          const resolvedPath = path.resolve(refPath);
-          if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
-          if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
-            return { filePath: refPath, type: 'reference' };
-          }
-        }
-      } catch (_) { /* ignore */ }
+function _findSubpathInMirror(root, norm, resolvedRoot) {
+  const parts = norm.split('/');
+  const parentSkill = parts[0];
+  const subName = parts.slice(1).join('/');
+  const candidatePaths = [
+    path.join(root, parentSkill, 'references', `${subName}.md`),
+    path.join(root, parentSkill, 'references', subName),
+    path.join(root, parentSkill, `${subName}.md`),
+    path.join(root, parentSkill, subName, 'SKILL.md'),
+    path.join(root, `${norm}.md`),
+    path.join(root, norm, 'SKILL.md')
+  ];
+  for (const cp of candidatePaths) {
+    const resolvedPath = path.resolve(cp);
+    const rel = path.relative(resolvedRoot, resolvedPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+      return { filePath: cp, type: 'reference' };
     }
   }
   return null;
 }
 
+function _findTopLevelInMirror(root, norm, resolvedRoot) {
+  const candidatePaths = [
+    path.join(root, norm, 'SKILL.md'),
+    path.join(root, `${norm}.md`),
+    path.join(root, norm)
+  ];
+  for (const cp of candidatePaths) {
+    const resolvedPath = path.resolve(cp);
+    const rel = path.relative(resolvedRoot, resolvedPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+      return { filePath: cp, type: 'skill' };
+    }
+  }
+  try {
+    const subs = fs.readdirSync(root, { withFileTypes: true });
+    for (const sub of subs) {
+      if (!sub.isDirectory()) continue;
+      const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
+      const resolvedPath = path.resolve(refPath);
+      const rel = path.relative(resolvedRoot, resolvedPath);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
+        return { filePath: refPath, type: 'reference' };
+      }
+    }
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
+function findInMirror(name) {
+  const norm = normalizeLegacySkillName(name);
+  if (!norm || typeof norm !== 'string') return null;
+  if (norm.includes('..') || path.isAbsolute(norm) || /^[a-zA-Z]:/.test(norm)) return null;
+
+  for (const root of getMirrorRoots()) {
+    if (!fs.existsSync(root)) continue;
+    const resolvedRoot = path.resolve(root);
+    const hit = norm.includes('/')
+      ? _findSubpathInMirror(root, norm, resolvedRoot)
+      : _findTopLevelInMirror(root, norm, resolvedRoot);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function _searchSingleMirrorEntry(entry, root, terms, seen, hits) {
+  if (!entry.isDirectory()) return;
+  const skillName = entry.name;
+  const skillMd = path.join(root, skillName, 'SKILL.md');
+  if (!fs.existsSync(skillMd)) return;
+  const matchName = skillName.toLowerCase();
+  const matches = terms.some(t => matchName.includes(t));
+  if (!matches || seen.has(skillName)) return;
+
+  seen.add(skillName);
+  try {
+    const content = fs.readFileSync(skillMd, 'utf8');
+    hits.push({
+      name: skillName, skill_name: skillName, type: 'skill', tags: '', content,
+      byte_size: Buffer.byteLength(content, 'utf8'), line_count: (content.match(/\n/g) || []).length + 1,
+      file_path: skillMd, rank: -0.5
+    });
+  } catch (_) { /* ignore */ }
+}
+
 function searchMirrorSkills(keyword, limit = 5) {
   const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return [];
-  const mirrorRoots = getMirrorRoots();
   const hits = [];
   const seen = new Set();
 
-  for (const root of mirrorRoots) {
+  for (const root of getMirrorRoots()) {
     if (!fs.existsSync(root)) continue;
     try {
       const entries = fs.readdirSync(root, { withFileTypes: true });
       for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const skillName = entry.name;
-        const skillMd = path.join(root, skillName, 'SKILL.md');
-        if (fs.existsSync(skillMd)) {
-          const matchName = skillName.toLowerCase();
-          const matches = terms.some(t => matchName.includes(t));
-          if (matches && !seen.has(skillName)) {
-            seen.add(skillName);
-            try {
-              const content = fs.readFileSync(skillMd, 'utf8');
-              hits.push({
-                name: skillName,
-                skill_name: skillName,
-                type: 'skill',
-                tags: '',
-                content,
-                byte_size: Buffer.byteLength(content, 'utf8'),
-                line_count: (content.match(/\n/g) || []).length + 1,
-                file_path: skillMd,
-                rank: -0.5
-              });
-            } catch (_) { /* ignore */ }
-            if (hits.length >= limit) return hits;
-          }
-        }
+        _searchSingleMirrorEntry(entry, root, terms, seen, hits);
+        if (hits.length >= limit) return hits;
       }
     } catch (_) { /* ignore */ }
   }
@@ -274,6 +306,59 @@ function searchMirrorSkills(keyword, limit = 5) {
 }
 
 const LAST_CALL_TIMES = new Map();
+
+function _getFindSkillBaselineBytes(conn, queryStr) {
+  try {
+    const words = String(queryStr || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 15000;
+    const lk = '%' + words.join('%') + '%';
+    const sumRow = conn.prepare(`
+      SELECT COALESCE(SUM(byte_size), 0) as total_matched
+      FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
+    `).get(lk, lk, lk);
+    return sumRow?.total_matched > 0 ? Number(sumRow.total_matched) : 15000;
+  } catch (_) {
+    return 15000;
+  }
+}
+
+function _extractSkillTarget(queryStr) {
+  if (typeof queryStr === 'string' && queryStr.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(queryStr);
+      return parsed.name || queryStr;
+    } catch (_) {
+      return queryStr;
+    }
+  }
+  return queryStr;
+}
+
+function _getGetSkillBaselineBytes(conn, queryStr, returnedBytes) {
+  try {
+    const skillTarget = _extractSkillTarget(queryStr);
+    const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
+    return sRow?.byte_size ? Number(sRow.byte_size) : returnedBytes;
+  } catch (_) {
+    return returnedBytes;
+  }
+}
+
+function _calculateBaselineBytes(conn, toolName, queryStr, returnedBytes, baselineOverride) {
+  if (baselineOverride !== null && baselineOverride !== undefined && Number(baselineOverride) > 0) {
+    return Math.max(returnedBytes, Number(baselineOverride));
+  }
+  if (toolName === 'find_skill' || toolName === 'find_skills') {
+    return Math.max(returnedBytes, _getFindSkillBaselineBytes(conn, queryStr));
+  }
+  if (toolName === 'get_skill') {
+    return Math.max(returnedBytes, _getGetSkillBaselineBytes(conn, queryStr, returnedBytes));
+  }
+  if (['list_skills', 'optimize_report'].includes(toolName)) {
+    return Math.max(returnedBytes, 35000);
+  }
+  return returnedBytes;
+}
 
 function logToolCall(toolName, queryStr, returnedContent, agentName = null, baselineOverride = null) {
   let conn = null;
@@ -284,51 +369,15 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null, base
     const agentKey = (agentName || 'direct').toLowerCase();
     LAST_CALL_TIMES.set(agentKey, currentTime);
 
-    let baselineBytes = returnedBytes;
-    if (baselineOverride !== null && baselineOverride !== undefined && Number(baselineOverride) > 0) {
-      baselineBytes = Math.max(returnedBytes, Number(baselineOverride));
-    } else if (toolName === 'find_skill' || toolName === 'find_skills') {
-      let matchedSize = 0;
-      try {
-        const words = String(queryStr || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-        if (words.length > 0) {
-          const lk = '%' + words.join('%') + '%';
-          const sumRow = conn.prepare(`
-            SELECT COALESCE(SUM(byte_size), 0) as total_matched
-            FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
-          `).get(lk, lk, lk);
-          if (sumRow && sumRow.total_matched > 0) {
-            matchedSize = Number(sumRow.total_matched);
-          }
-        }
-      } catch (_) { /* ignore */ }
-      baselineBytes = Math.max(returnedBytes, matchedSize > 0 ? matchedSize : 15000);
-    } else if (toolName === 'get_skill') {
-      let skillSize = 0;
-      try {
-        let skillTarget = queryStr;
-        if (typeof queryStr === 'string' && queryStr.startsWith('{')) {
-          try { skillTarget = JSON.parse(queryStr).name || queryStr; } catch (_) { /* best-effort json parse fallback */ }
-        }
-        const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
-        if (sRow && sRow.byte_size) {
-          skillSize = Number(sRow.byte_size);
-        }
-      } catch (_) { /* ignore */ }
-      baselineBytes = Math.max(returnedBytes, skillSize > 0 ? skillSize : returnedBytes);
-    } else if (['list_skills', 'optimize_report'].includes(toolName)) {
-      baselineBytes = Math.max(returnedBytes, 35000);
-    }
-
+    const baselineBytes = _calculateBaselineBytes(conn, toolName, queryStr, returnedBytes, baselineOverride);
     const bytesSaved = Math.max(baselineBytes - returnedBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);
-    const totalLibraryBytes = baselineBytes;
-
     const clientName = detectActiveClient();
+
     conn.prepare(`
       INSERT INTO tool_calls (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent, client)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(toolName, queryStr, returnedBytes, totalLibraryBytes, bytesSaved, tokensSaved, agentName, clientName);
+    `).run(toolName, queryStr, returnedBytes, baselineBytes, bytesSaved, tokensSaved, agentName, clientName);
   } catch (_) {
     // Fail silently on logging errors
   } finally {

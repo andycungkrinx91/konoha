@@ -23,6 +23,57 @@ const MODEL_ENUM_TO_VALUE = {
 //   Request:  { prompt: string, model: string }
 //   Response: { response: string }
 
+function _formatSingleTool(tool) {
+  if (tool.type !== 'function' || !tool.function) return [];
+  const fn = tool.function;
+  const lines = [`## ${fn.name}`];
+  if (fn.description) lines.push(fn.description);
+  if (fn.parameters) lines.push('Parameters: ' + JSON.stringify(fn.parameters, null, 2));
+  lines.push('');
+  return lines;
+}
+
+function _formatToolsBlock(tools) {
+  if (!tools || tools.length === 0) return [];
+  const parts = [
+    '# Available Tools\n',
+    'When you need to use a tool, respond with EXACTLY this format (one per line):',
+    '<tool_call>{"name": "tool_name", "arguments": {"arg1": "value1"}}</tool_call>\n',
+    'You may include multiple tool calls. After all tool calls, you may include additional text.',
+    'The human will execute the tools and return the results enclosed in <observation> tags.',
+    'CRITICAL: Do NOT simulate tool execution. Do NOT generate <observation> tags yourself. Stop and wait for the human to return the results.\n',
+  ];
+  for (const tool of tools) {
+    parts.push(..._formatSingleTool(tool));
+  }
+  parts.push('---\n');
+  return parts;
+}
+
+function _formatAssistantMessage(msg, content) {
+  if (!msg.tool_calls || msg.tool_calls.length === 0) {
+    return `[Assistant]\n${content}\n`;
+  }
+  const toolCallTexts = msg.tool_calls.map((tc) => {
+    const fn = tc.function || {};
+    return `<tool_call>{"name": "${fn.name}", "arguments": ${fn.arguments || '{}'}}</tool_call>`;
+  });
+  return `[Assistant]\n${content || ''}${toolCallTexts.join('\n')}\n`;
+}
+
+function _formatSingleMessage(msg) {
+  const role = msg.role || 'user';
+  const content = extractText(msg.content);
+  if (role === 'system') return `[System]\n${content}\n`;
+  if (role === 'user') return `[User]\n${content}\n`;
+  if (role === 'assistant') return _formatAssistantMessage(msg, content);
+  if (role === 'tool') {
+    const toolName = msg.name || msg.tool_call_id || 'tool';
+    return `<observation>\n[Tool Result: ${toolName}]\n${content}\n</observation>\n`;
+  }
+  return '';
+}
+
 /**
  * Format OpenAI-style messages into a single prompt string for GetModelResponse.
  *
@@ -30,60 +81,11 @@ const MODEL_ENUM_TO_VALUE = {
  * with role labels. Tool definitions and results are formatted inline.
  */
 function formatMessagesAsPrompt(messages, tools) {
-  const parts = [];
-
-  // If tools are provided, add them as a system-level block
-  if (tools && tools.length > 0) {
-    parts.push('# Available Tools\n');
-    parts.push('When you need to use a tool, respond with EXACTLY this format (one per line):');
-    parts.push('<tool_call>{"name": "tool_name", "arguments": {"arg1": "value1"}}</tool_call>\n');
-    parts.push('You may include multiple tool calls. After all tool calls, you may include additional text.');
-    parts.push('The human will execute the tools and return the results enclosed in <observation> tags.');
-    parts.push(
-      'CRITICAL: Do NOT simulate tool execution. Do NOT generate <observation> tags yourself. Stop and wait for the human to return the results.\n',
-    );
-    for (const tool of tools) {
-      if (tool.type === 'function' && tool.function) {
-        const fn = tool.function;
-        parts.push(`## ${fn.name}`);
-        if (fn.description) parts.push(fn.description);
-        if (fn.parameters) {
-          parts.push('Parameters: ' + JSON.stringify(fn.parameters, null, 2));
-        }
-        parts.push('');
-      }
-    }
-    parts.push('---\n');
-  }
-
-  // Format each message with role label
+  const parts = _formatToolsBlock(tools);
   for (const msg of messages) {
-    const role = msg.role || 'user';
-    const content = extractText(msg.content);
-
-    if (role === 'system') {
-      parts.push(`[System]\n${content}\n`);
-    } else if (role === 'user') {
-      parts.push(`[User]\n${content}\n`);
-    } else if (role === 'assistant') {
-      if (msg.tool_calls && msg.tool_calls.length > 0) {
-        // Format assistant tool calls so the model sees the conversation flow
-        const toolCallTexts = msg.tool_calls.map((tc) => {
-          const fn = tc.function || {};
-          return `<tool_call>{"name": "${fn.name}", "arguments": ${fn.arguments || '{}'}}</tool_call>`;
-        });
-        parts.push(`[Assistant]\n${content || ''}${toolCallTexts.join('\n')}\n`);
-      } else {
-        parts.push(`[Assistant]\n${content}\n`);
-      }
-    } else if (role === 'tool') {
-      // Tool results are shown with their tool_call_id for context, enclosed in observation tags
-      // to satisfy models that are heavily fine-tuned on XML schema flows (Claude, Minimax)
-      const toolName = msg.name || msg.tool_call_id || 'tool';
-      parts.push(`<observation>\n[Tool Result: ${toolName}]\n${content}\n</observation>\n`);
-    }
+    const formatted = _formatSingleMessage(msg);
+    if (formatted) parts.push(formatted);
   }
-
   return parts.join('\n');
 }
 
@@ -220,6 +222,22 @@ function enqueueInference(fn) {
   return resultPromise;
 }
 
+async function _resolveWorkingLsPort(info, mainCsrf) {
+  const lsPorts = [
+    ...info.actualPorts.filter((p) => p !== info.extensionServerPort),
+    info.extensionServerPort,
+  ];
+  for (const port of lsPorts) {
+    try {
+      await makeH2JsonCall(port, mainCsrf, info.certPath, 'GetStatus', {});
+      return port;
+    } catch {
+      // try next port
+    }
+  }
+  return null;
+}
+
 /**
  * Call the sidecar's GetModelResponse for raw LLM inference.
  *
@@ -283,21 +301,7 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
         throw new Error('Sidecar discovered but no CSRF tokens available');
       }
       mainCsrf = info.csrfTokens[0];
-
-      // Find a working LS port — try non-extension ports first, then extension port as fallback.
-      const lsPorts = [
-        ...info.actualPorts.filter((p) => p !== info.extensionServerPort),
-        info.extensionServerPort,
-      ];
-      for (const port of lsPorts) {
-        try {
-          await makeH2JsonCall(port, mainCsrf, info.certPath, 'GetStatus', {});
-          lsPort = port;
-          break;
-        } catch {
-          // try next port
-        }
-      }
+      lsPort = await _resolveWorkingLsPort(info, mainCsrf);
       if (!lsPort) {
         throw new Error('No reachable LS port');
       }

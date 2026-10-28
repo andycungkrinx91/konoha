@@ -10,7 +10,9 @@ require('./helpers/isolate_db');
 const db = require('../src/db');
 const agentStats = require('../src/agent_stats');
 
-const SERVER = path.join(os.homedir(), '.konoha', 'server.js');
+const SERVER = fs.existsSync(path.join(os.homedir(), '.konoha', 'server.js'))
+  ? path.join(os.homedir(), '.konoha', 'server.js')
+  : path.join(__dirname, '..', 'src', 'server.js');
 const DB = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
 const BRAIN_CLI = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'brain');
 const BRAIN_IDE = path.join(os.homedir(), '.gemini', 'antigravity-ide', 'brain');

@@ -1,4 +1,5 @@
 // Svelte 5 Runes State for Konoha 10-Theme System with Explicit Light / Dark Mode
+import { applyDomTheme } from './themeTokens.js';
 
 export const THEMES = [
   // Cyberpunk — 4 presets
@@ -381,70 +382,19 @@ export function groupThemes(themes = THEMES) {
     .filter(group => group.themes.length > 0);
 }
 
-// Relative luminance helpers for palette-driven accent text decisions.
-function hexToRgb(hex) {
-  const clean = String(hex || '').replace('#', '');
-  const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
-  const value = Number.parseInt(full, 16);
-  if (!Number.isFinite(value)) return null;
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-}
-
-function luminance(hex) {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return 0;
-  const channel = (v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  };
-  return 0.2126 * channel(rgb.r) + 0.7152 * channel(rgb.g) + 0.0722 * channel(rgb.b);
-}
-
-function contrastRatio(a, b) {
-  const la = luminance(a);
-  const lb = luminance(b);
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-}
-
-/**
- * Pick a readable accent for decorative header text (>= 3:1 for large text,
- * targeting 4.5:1 where the palette allows it) against the mode surface.
- * The chosen palette accent is preferred; falls back to the secondary gradient
- * stop or muted text so headings never blend into their background.
- */
-function readableAccent(found, tokens, isDark) {
-  const candidates = isDark
-    ? [found.accent, found.color, found.gradient?.[3], found.gradient?.[2]]
-    : [found.color, found.gradient?.[2], found.gradient?.[1], tokens.text];
-  for (const candidate of candidates) {
-    if (candidate && contrastRatio(candidate, tokens.surface) >= 4.5) return candidate;
+function loadPersistedTheme() {
+  if (typeof window === 'undefined') return { theme: 'sharingan', mode: 'dark' };
+  let theme = 'sharingan';
+  let mode = 'dark';
+  try {
+    const themeVal = localStorage.getItem('konoha-theme');
+    if (themeVal && THEMES.some(t => t.id === themeVal)) theme = themeVal;
+    const modeVal = localStorage.getItem('konoha-appearance-mode');
+    if (modeVal === 'dark' || modeVal === 'light') mode = modeVal;
+  } catch (_) {
+    // Non-fatal
   }
-  for (const candidate of candidates) {
-    if (candidate && contrastRatio(candidate, tokens.surface) >= 3) return candidate;
-  }
-  return tokens.text;
-}
-
-function computeGaugeTokens(found, tokens, isDark) {
-  if (isDark) {
-    // In Dark Mode: surface is dark (luminance <= 0.03).
-    // Ensure track has >= 3.0:1 contrast against surface (luminance >= 0.16)
-    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 20%, rgba(255, 255, 255, 0.58))`;
-    // Arc candidates: pick bright luminous accents so contrast against dark surface is >= 3.5:1
-    const arcCandidates = [found.accent, found.gradient?.[3], found.color, found.gradient?.[2], '#38bdf8'].filter(Boolean);
-    const gaugeArcStart = arcCandidates.find(c => contrastRatio(c, tokens.surface) >= 3.5) || found.accent || '#38bdf8';
-    const gaugeArcEnd = found.accent || found.gradient?.[3] || '#36dfff';
-    return { gaugeTrack, gaugeArcStart, gaugeArcEnd };
-  } else {
-    // In Light Mode: surface is #ffffff (luminance 1.0).
-    // Ensure track has >= 3.0:1 contrast against #ffffff (luminance <= 0.28)
-    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 20%, #475569)`;
-    // Arc candidates: rich saturated stops with >= 3.5:1 against #ffffff
-    const arcCandidates = [found.color, found.gradient?.[1], found.gradient?.[0], '#0f172a'].filter(Boolean);
-    const gaugeArcStart = arcCandidates.find(c => contrastRatio(c, '#ffffff') >= 3.5) || found.color || '#0284c7';
-    const gaugeArcEnd = found.gradient?.[0] || found.color || '#0369a1';
-    return { gaugeTrack, gaugeArcStart, gaugeArcEnd };
-  }
+  return { theme, mode };
 }
 
 export function createThemeState() {
@@ -456,214 +406,7 @@ export function createThemeState() {
     const found = THEMES.find(t => t.id === themeId) || THEMES.find(t => t.id === 'sharingan') || THEMES[0];
     currentTheme = found.id;
     currentMode = mode === 'dark' ? 'dark' : 'light';
-
-    if (typeof document !== 'undefined') {
-      const isDark = currentMode === 'dark';
-      const tokens = isDark ? found.dark : found.light;
-
-      document.documentElement.setAttribute('data-theme', found.id);
-      document.documentElement.setAttribute('data-mode', currentMode);
-
-      if (isDark) {
-        document.documentElement.classList.add('theme-dark');
-        document.documentElement.classList.remove('theme-light');
-      } else {
-        document.documentElement.classList.add('theme-light');
-        document.documentElement.classList.remove('theme-dark');
-      }
-
-      // Base Palette Colors
-      document.documentElement.style.setProperty('--color-primary', found.color);
-      document.documentElement.style.setProperty('--color-accent', found.accent);
-      document.documentElement.style.setProperty('--color-primary-glow', found.glow);
-
-      // Mode-specific Surface & Text Tokens
-      document.documentElement.style.setProperty('--color-bg', tokens.bg);
-      document.documentElement.style.setProperty('--color-surface', tokens.surface);
-      document.documentElement.style.setProperty('--color-surface-hover', tokens.surfaceHover);
-      document.documentElement.style.setProperty('--color-border', tokens.border);
-      document.documentElement.style.setProperty('--color-text', tokens.text);
-      document.documentElement.style.setProperty('--color-text-muted', tokens.textMuted);
-      document.documentElement.style.setProperty('--color-card-bg', tokens.cardBg);
-      document.documentElement.style.setProperty('--color-card-border', tokens.cardBorder);
-
-      // PLAN.md Standardized Semantic Design Tokens
-      document.documentElement.style.setProperty('--theme-bg', tokens.bg);
-      document.documentElement.style.setProperty('--theme-surface', tokens.surface);
-      document.documentElement.style.setProperty(
-        '--theme-surface-glass',
-        isDark
-          ? `color-mix(in srgb, ${tokens.surface} 94%, transparent)`
-          : `color-mix(in srgb, ${tokens.surface} 96%, transparent)`
-      );
-      document.documentElement.style.setProperty('--theme-surface-raised', tokens.cardBg);
-      document.documentElement.style.setProperty('--theme-surface-hover', tokens.surfaceHover);
-      document.documentElement.style.setProperty('--theme-surface-active', tokens.surfaceActive || tokens.surfaceHover);
-      document.documentElement.style.setProperty('--theme-overlay', isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(15, 23, 42, 0.4)');
-      document.documentElement.style.setProperty('--theme-text', tokens.text);
-      document.documentElement.style.setProperty('--theme-text-secondary', tokens.textMuted);
-      // Text-tier token; matches --theme-text-secondary and clears 4.5:1 on surfaces.
-      document.documentElement.style.setProperty('--theme-text-muted', tokens.textMuted);
-      document.documentElement.style.setProperty('--theme-muted', tokens.textMuted);
-      // Secondary text == muted (both >= 4.5:1 on their surfaces); disabled text is
-      // explicitly translucent-free and >= 3:1 so form affordances stay perceivable.
-      document.documentElement.style.setProperty('--theme-text-disabled', isDark ? '#94a3b8' : '#64748b');
-      document.documentElement.style.setProperty('--theme-text-inverse', isDark ? '#0f172a' : '#ffffff');
-      document.documentElement.style.setProperty('--theme-border', tokens.border);
-      document.documentElement.style.setProperty('--theme-border-strong', isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.25)');
-      document.documentElement.style.setProperty('--theme-border-subtle', `color-mix(in srgb, ${tokens.border} 55%, ${tokens.surface})`);
-      document.documentElement.style.setProperty('--theme-border-hover', `color-mix(in srgb, ${tokens.border} 70%, ${tokens.textMuted})`);
-      // Focus ring (3:1 non-text contrast) and links both derive from the palette
-      // but are lifted to a readable accent when the raw palette color is too pale.
-      document.documentElement.style.setProperty('--theme-focus', readableAccent(found, tokens, isDark));
-      document.documentElement.style.setProperty('--theme-link', isDark ? found.accent : found.color);
-      document.documentElement.style.setProperty('--theme-selection', isDark ? 'rgba(56, 189, 248, 0.3)' : 'rgba(2, 132, 199, 0.2)');
-      document.documentElement.style.setProperty('--theme-success', '#10b981');
-      document.documentElement.style.setProperty('--theme-warning', '#f59e0b');
-      document.documentElement.style.setProperty('--theme-danger', '#ef4444');
-      document.documentElement.style.setProperty('--theme-info', '#0ea5e9');
-
-      // Header Breadcrumb Contrast Tokens (Guaranteed >= 4.5:1 in all 10 themes in both modes)
-      const crumbActive = isDark
-        ? (contrastRatio(found.accent, tokens.surface) >= 4.5 ? found.accent : tokens.text)
-        : (contrastRatio(found.color, tokens.surface) >= 4.5 ? found.color : tokens.text);
-      document.documentElement.style.setProperty('--theme-crumb-active', crumbActive);
-      document.documentElement.style.setProperty('--theme-crumb-parent', isDark ? '#cbd5e1' : '#334155');
-      document.documentElement.style.setProperty('--theme-crumb-separator', isDark ? '#cbd5e1' : '#64748b');
-
-      // 3D Gauge & Dial Tokens (Guaranteed >= 3:1 contrast for track and arc against surface)
-      const { gaugeTrack, gaugeArcStart, gaugeArcEnd } = computeGaugeTokens(found, tokens, isDark);
-      document.documentElement.style.setProperty('--theme-gauge-track', gaugeTrack);
-      document.documentElement.style.setProperty('--theme-gauge-arc-start', gaugeArcStart);
-      document.documentElement.style.setProperty('--theme-gauge-arc-end', gaugeArcEnd);
-
-      // Canonical 4-Gradient Stops
-      if (found.gradient && found.gradient.length >= 4) {
-        const [g1, g2, g3, g4] = found.gradient;
-        document.documentElement.style.setProperty('--gradient-1', g1);
-        document.documentElement.style.setProperty('--gradient-2', g2);
-        document.documentElement.style.setProperty('--gradient-3', g3);
-        document.documentElement.style.setProperty('--gradient-4', g4);
-
-        // Canonical 4-gradient properties
-        document.documentElement.style.setProperty('--theme-gradient-1', g1);
-        document.documentElement.style.setProperty('--theme-gradient-2', g2);
-        document.documentElement.style.setProperty('--theme-gradient-3', g3);
-        document.documentElement.style.setProperty('--theme-gradient-4', g4);
-
-        // Rasengan palette tokens (derived per mode and theme for high-contrast visibility)
-        const rasenganStops = found.rasengan
-          ? (isDark ? found.rasengan.dark : found.rasengan.light)
-          : [g1, g2, g3, g4];
-        document.documentElement.style.setProperty('--rasengan-1', rasenganStops[0]);
-        document.documentElement.style.setProperty('--rasengan-2', rasenganStops[1]);
-        document.documentElement.style.setProperty('--rasengan-3', rasenganStops[2]);
-        document.documentElement.style.setProperty('--rasengan-4', rasenganStops[3]);
-        document.documentElement.style.setProperty('--bg-login', isDark ? tokens.bg : '#ffffff');
-
-        // Backward compatibility properties
-        document.documentElement.style.setProperty('--theme-grad-1', g1);
-        document.documentElement.style.setProperty('--theme-grad-2', g2);
-        document.documentElement.style.setProperty('--theme-grad-3', g3);
-        document.documentElement.style.setProperty('--theme-grad-4', g4);
-
-        // Reusable gradient compositions (all four stops ordered and distinct)
-        document.documentElement.style.setProperty('--gradient', `linear-gradient(135deg, ${g1} 0%, ${g2} 33%, ${g3} 66%, ${g4} 100%)`);
-        document.documentElement.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${g1} 0%, ${g2} 33%, ${g3} 66%, ${g4} 100%)`);
-        document.documentElement.style.setProperty('--theme-glow', found.glow);
-        document.documentElement.style.setProperty('--theme-4gradient', `linear-gradient(135deg, ${g1} 0%, ${g2} 33%, ${g3} 66%, ${g4} 100%)`);
-        document.documentElement.style.setProperty('--theme-4gradient-bar', `linear-gradient(90deg, ${g1}, ${g2}, ${g3}, ${g4})`);
-        document.documentElement.style.setProperty('--theme-4gradient-subtle', `linear-gradient(135deg, ${g1}22 0%, ${g2}22 33%, ${g3}22 66%, ${g4}22 100%)`);
-
-        // Glassmorphism Tint
-        const glassTint = isDark
-          ? `linear-gradient(135deg, color-mix(in srgb, ${g1} 14%, transparent) 0%, transparent 45%, color-mix(in srgb, ${found.accent} 14%, transparent) 100%)`
-          : `linear-gradient(135deg, color-mix(in srgb, ${g1} 7%, transparent) 0%, transparent 45%, color-mix(in srgb, ${found.accent} 7%, transparent) 100%)`;
-        document.documentElement.style.setProperty('--glass-tint', glassTint);
-
-        // Sidebar & Header Dynamic Surfaces
-        document.documentElement.style.setProperty(
-          '--theme-sidebar-bg',
-          `linear-gradient(180deg, color-mix(in srgb, ${g1} ${isDark ? '18%' : '10%'}, ${tokens.surface}) 0%, color-mix(in srgb, ${g2} ${isDark ? '12%' : '6%'}, ${tokens.surface}) 35%, color-mix(in srgb, ${g3} ${isDark ? '12%' : '6%'}, ${tokens.surface}) 70%, color-mix(in srgb, ${g4} ${isDark ? '20%' : '12%'}, ${tokens.surface}) 100%)`
-        );
-        document.documentElement.style.setProperty(
-          '--theme-sidebar-header-bg',
-          `linear-gradient(135deg, color-mix(in srgb, ${g1} ${isDark ? '25%' : '16%'}, ${tokens.surface}) 0%, color-mix(in srgb, ${g3} ${isDark ? '15%' : '8%'}, ${tokens.surface}) 100%)`
-        );
-        document.documentElement.style.setProperty(
-          '--theme-sidebar-footer-bg',
-          `linear-gradient(0deg, color-mix(in srgb, ${g4} ${isDark ? '22%' : '14%'}, ${tokens.surface}) 0%, color-mix(in srgb, ${g1} ${isDark ? '12%' : '6%'}, ${tokens.surface}) 100%)`
-        );
-        document.documentElement.style.setProperty(
-          '--theme-header-bg',
-          `linear-gradient(90deg, color-mix(in srgb, ${g1} ${isDark ? '18%' : '10%'}, ${tokens.surface}) 0%, color-mix(in srgb, ${g2} ${isDark ? '12%' : '7%'}, ${tokens.surface}) 30%, color-mix(in srgb, ${g3} ${isDark ? '12%' : '7%'}, ${tokens.surface}) 70%, color-mix(in srgb, ${g4} ${isDark ? '18%' : '12%'}, ${tokens.surface}) 100%)`
-        );
-
-        // Interactive 3D Elements
-        document.documentElement.style.setProperty('--theme-btn-3d-bg', `linear-gradient(135deg, ${g1} 0%, ${g2} 33%, ${g3} 66%, ${g4} 100%)`);
-        document.documentElement.style.setProperty(
-          '--theme-btn-3d-shadow',
-          `0 6px 18px -2px color-mix(in srgb, ${g1} ${isDark ? '60%' : '42%'}, transparent), 0 2px 6px -1px color-mix(in srgb, ${g2} 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, ${isDark ? '0.2' : '0.45'})`
-        );
-        document.documentElement.style.setProperty(
-          '--theme-btn-3d-hover-shadow',
-          `0 10px 24px -3px color-mix(in srgb, ${g1} ${isDark ? '75%' : '55%'}, transparent), 0 4px 10px -2px color-mix(in srgb, ${g2} 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, ${isDark ? '0.35' : '0.65'})`
-        );
-
-        // Modal Styling
-        document.documentElement.style.setProperty('--theme-modal-border', `color-mix(in srgb, ${g1} ${isDark ? '50%' : '38%'}, ${tokens.border})`);
-        document.documentElement.style.setProperty(
-          '--theme-modal-shadow',
-          isDark
-            ? `0 25px 60px -12px rgba(0, 0, 0, 0.75), 0 12px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1.5px 0 rgba(255, 255, 255, 0.1)`
-            : `0 25px 60px -12px color-mix(in srgb, ${g1} 22%, rgba(15, 23, 42, 0.28)), 0 12px 24px -6px color-mix(in srgb, ${g2} 12%, rgba(15, 23, 42, 0.15)), inset 0 1.5px 0 rgba(255, 255, 255, 1)`
-        );
-
-        // Badge styling
-        document.documentElement.style.setProperty('--theme-badge-subtle-bg', `linear-gradient(135deg, color-mix(in srgb, ${g1} ${isDark ? '24%' : '14%'}, ${tokens.surface}) 0%, color-mix(in srgb, ${g3} ${isDark ? '16%' : '8%'}, ${tokens.surface}) 100%)`);
-        document.documentElement.style.setProperty('--theme-badge-subtle-border', `color-mix(in srgb, ${g1} ${isDark ? '45%' : '30%'}, ${tokens.border})`);
-        document.documentElement.style.setProperty('--theme-badge-subtle-text', isDark ? found.accent : g1);
-      }
-
-      // Mode-aware depth tokens (replaces static light-only shadows in dark mode)
-      const shadowColor = isDark ? 'rgba(0, 0, 0, 0.55)' : 'rgba(15, 23, 42, 0.12)';
-      const shadowColorSoft = isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(15, 23, 42, 0.08)';
-      document.documentElement.style.setProperty(
-        '--shadow-3d',
-        `0 12px 36px -4px ${shadowColor}, 0 8px 18px -4px ${shadowColorSoft}, inset 0 1.5px 0 rgba(255, 255, 255, ${isDark ? '0.12' : '0.95'}), inset 0 -1px 0 rgba(0, 0, 0, ${isDark ? '0.5' : '0.06'})`
-      );
-      document.documentElement.style.setProperty(
-        '--shadow-3d-hover',
-        `0 28px 56px -10px ${shadowColor}, 0 14px 28px -6px ${shadowColorSoft}, inset 0 1.5px 0 rgba(255, 255, 255, ${isDark ? '0.18' : '0.95'})`
-      );
-      document.documentElement.style.setProperty(
-        '--glass-edge',
-        isDark
-          ? 'inset 0 1.5px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.5)'
-          : 'inset 0 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.4)'
-      );
-      document.documentElement.style.setProperty(
-        '--glass-highlight',
-        isDark ? 'inset 0 1px 2px rgba(255, 255, 255, 0.15)' : 'inset 0 1px 2px rgba(255, 255, 255, 0.9)'
-      );
-      document.documentElement.style.setProperty('--color-primary-glow', isDark ? `color-mix(in srgb, ${found.color} 26%, transparent)` : found.glow);
-
-      // Semantic accents are lifted per palette and mode so status badges stay
-      // legible on every surface instead of using one fixed mid-tone for all.
-      const semanticSeeds = { success: '#10b981', warning: '#f59e0b', danger: '#ef4444', info: '#0ea5e9' };
-      for (const [name, seed] of Object.entries(semanticSeeds)) {
-        const readable = contrastRatio(seed, tokens.surface) >= 3;
-        document.documentElement.style.setProperty(`--theme-${name}`, readable ? seed : (isDark ? found.accent : tokens.text));
-      }
-
-      // Persist independently
-      try {
-        localStorage.setItem('konoha-theme', found.id);
-        localStorage.setItem('konoha-appearance-mode', currentMode);
-      } catch (_) {
-        // Ignore localStorage errors
-      }
-    }
+    applyDomTheme(found, currentMode);
   }
 
   function toggleMode() {
@@ -678,25 +421,8 @@ export function createThemeState() {
   }
 
   function init() {
-    if (typeof window !== 'undefined') {
-      let savedTheme = 'sharingan';
-      let savedMode = 'dark'; // Default is Dark Mode with Sharingan Royal Indigo
-
-      try {
-        const themeVal = localStorage.getItem('konoha-theme');
-        if (themeVal && THEMES.some(t => t.id === themeVal)) {
-          savedTheme = themeVal;
-        }
-        const modeVal = localStorage.getItem('konoha-appearance-mode');
-        if (modeVal === 'dark' || modeVal === 'light') {
-          savedMode = modeVal;
-        }
-      } catch (_) {
-        // Fallback to default
-      }
-
-      applyTheme(savedTheme, savedMode);
-    }
+    const { theme, mode } = loadPersistedTheme();
+    applyTheme(theme, mode);
   }
 
   return {

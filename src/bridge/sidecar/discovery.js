@@ -15,14 +15,14 @@ const { log } = require('../utils');
 //
 // AUTH DECISION: We use passive sidecar discovery (CSRF + mTLS) rather than
 // reading ~/.gemini/oauth_creds.json or speaking directly to Google APIs.
-// Why:
-//   1. The bridge talks only to the user's own running sidecar process.
-//   2. No credentials are persisted, transmitted, or stored by the bridge.
-//   3. The CSRF token and mTLS cert are scoped to the user's session.
-//      This is functionally identical to the official Antigravity IDE.
-//   4. Using raw Google OAuth tokens (refresh/access) would require storing
-//      sensitive credentials on disk and could be flagged as policy-violating
-//      by Google if token issuance patterns deviate from the official client.
+// Rationale:
+//   - The bridge talks only to the user's own running sidecar process.
+//   - No credentials are persisted, transmitted, or stored by the bridge.
+//   - The CSRF token and mTLS cert are scoped to the user's session.
+//     This is functionally identical to the official Antigravity IDE.
+//   - Using raw Google OAuth tokens (refresh/access) would require storing
+//     sensitive credentials on disk and could be flagged as policy-violating
+//     by Google if token issuance patterns deviate from the official client.
 
 // Platform strategies:
 //   Windows – Get-CimInstance Win32_Process (PowerShell)
@@ -140,6 +140,109 @@ async function execWithFallback(cmdBase, cmdAbsolute, args, options) {
   }
 }
 
+async function _getSingleProcessCommandLine(pid, wmicExe) {
+  try {
+    const { stdout: cmdOut } = await execWithFallback(
+      'wmic',
+      wmicExe,
+      ['process', 'where', `ProcessId=${pid}`, 'get', 'CommandLine', '/FORMAT:LIST'],
+      { encoding: 'utf8', timeout: 3000 },
+    );
+    const cmdMatch = cmdOut && cmdOut.match(/CommandLine=(.+)/);
+    return cmdMatch ? { pid, commandLine: cmdMatch[1].trim(), user: '' } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function _findViaTasklistAndWmic(binaryName, tasklistExe, wmicExe, currentWorkspaceId) {
+  try {
+    const { stdout: taskOut } = await execWithFallback(
+      'tasklist',
+      tasklistExe,
+      ['/FI', `IMAGENAME eq ${binaryName}`, '/FO', 'CSV', '/NH'],
+      { encoding: 'utf8', timeout: 3000 },
+    );
+    if (!taskOut || !taskOut.trim() || taskOut.includes('No tasks')) return null;
+
+    const pids = taskOut
+      .trim()
+      .split('\n')
+      .map((line) => {
+        const m = line.match(/"[^"]+","(\d+)"/);
+        return m ? m[1] : null;
+      })
+      .filter(Boolean);
+
+    const candidates = [];
+    for (const pid of pids) {
+      const candidate = await _getSingleProcessCommandLine(pid, wmicExe);
+      if (candidate) candidates.push(candidate);
+    }
+    return chooseBestProcess(candidates, currentWorkspaceId);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function _findViaWmicFullScan(binaryName, wmicExe, currentWorkspaceId) {
+  try {
+    const { stdout } = await execWithFallback(
+      'wmic',
+      wmicExe,
+      ['process', 'where', `Name='${binaryName}'`, 'get', 'ProcessId,CommandLine', '/FORMAT:CSV'],
+      { encoding: 'utf8', timeout: 5000 },
+    );
+    if (!stdout || !stdout.trim()) return null;
+
+    const lines = stdout
+      .trim()
+      .split('\n')
+      .filter((l) => l.trim() && !l.startsWith('Node'));
+    const candidates = lines
+      .map((line) => {
+        const parts = line.trim().split(',');
+        if (parts.length < 3) return null;
+        const pid = parts[parts.length - 1].trim();
+        const commandLine = parts.slice(1, -1).join(',').trim();
+        return pid && commandLine ? { pid, commandLine, user: '' } : null;
+      })
+      .filter(Boolean);
+
+    return chooseBestProcess(candidates, currentWorkspaceId);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function _findViaPowerShell(binaryName, powershellExe, currentWorkspaceId) {
+  try {
+    const psCmd = `Get-CimInstance Win32_Process -Filter "Name='${binaryName}'" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress`;
+    const { stdout } = await execWithFallback(
+      'powershell.exe',
+      powershellExe,
+      ['-NoProfile', '-NonInteractive', '-Command', psCmd],
+      { encoding: 'utf8', timeout: 10000 },
+    );
+    if (!stdout || !stdout.trim()) return null;
+
+    let parsed = JSON.parse(stdout.trim());
+    if (!Array.isArray(parsed)) parsed = [parsed];
+
+    const candidates = parsed
+      .filter((p) => p.ProcessId && p.CommandLine)
+      .map((p) => ({
+        pid: String(p.ProcessId),
+        commandLine: p.CommandLine,
+        user: '',
+      }));
+
+    return chooseBestProcess(candidates, currentWorkspaceId);
+  } catch (_) {
+    return null;
+  }
+}
+
 function windowsStrategy(binaryNames) {
   return {
     async findProcess(currentWorkspaceId) {
@@ -149,113 +252,10 @@ function windowsStrategy(binaryNames) {
       const powershellExe = `${sysRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
 
       for (const binaryName of binaryNames) {
-        // Strategy 1 (fastest): tasklist to find PIDs, then wmic for each PID's command line.
-        // tasklist is near-instant and doesn't go through WMI.
-        try {
-          const { stdout: taskOut } = await execWithFallback(
-            'tasklist',
-            tasklistExe,
-            ['/FI', `IMAGENAME eq ${binaryName}`, '/FO', 'CSV', '/NH'], // RESTORED FILTER
-            { encoding: 'utf8', timeout: 3000 },
-          );
-          if (taskOut && taskOut.trim() && !taskOut.includes('No tasks')) {
-            const pids = taskOut
-              .trim()
-              .split('\n')
-              .map((line) => {
-                const m = line.match(/"[^"]+","(\d+)"/);
-                return m ? m[1] : null;
-              })
-              .filter(Boolean);
-
-            // Get command line for each PID (wmic for a single PID is fast)
-            const candidates = [];
-            for (const pid of pids) {
-              try {
-                const { stdout: cmdOut } = await execWithFallback(
-                  'wmic',
-                  wmicExe,
-                  ['process', 'where', `ProcessId=${pid}`, 'get', 'CommandLine', '/FORMAT:LIST'],
-                  { encoding: 'utf8', timeout: 3000 },
-                );
-                const cmdMatch = cmdOut && cmdOut.match(/CommandLine=(.+)/);
-                if (cmdMatch) {
-                  candidates.push({ pid, commandLine: cmdMatch[1].trim(), user: '' });
-                }
-              } catch (_) {
-                // wmic failed for this PID — skip it
-              }
-            }
-
-            const best = chooseBestProcess(candidates, currentWorkspaceId);
-            if (best) return best;
-          }
-        } catch (_) {
-          // tasklist or wmic unavailable — fall through
-        }
-
-        // Strategy 2: wmic full scan (fast-ish, no PowerShell startup overhead)
-        try {
-          const { stdout } = await execWithFallback(
-            'wmic',
-            wmicExe,
-            ['process', 'where', `Name='${binaryName}'`, 'get', 'ProcessId,CommandLine', '/FORMAT:CSV'],
-            { encoding: 'utf8', timeout: 5000 },
-          );
-          if (stdout && stdout.trim()) {
-            // CSV format: Node,CommandLine,ProcessId (header line + data lines)
-            const lines = stdout
-              .trim()
-              .split('\n')
-              .filter((l) => l.trim() && !l.startsWith('Node'));
-            const candidates = lines
-              .map((line) => {
-                // CSV: hostname,commandline,pid — but commandline may contain commas
-                const parts = line.trim().split(',');
-                if (parts.length < 3) return null;
-                const pid = parts[parts.length - 1].trim();
-                // Everything between first and last comma is the command line
-                const commandLine = parts.slice(1, -1).join(',').trim();
-                return pid && commandLine ? { pid, commandLine, user: '' } : null;
-              })
-              .filter(Boolean);
-
-            const best = chooseBestProcess(candidates, currentWorkspaceId);
-            if (best) return best;
-          }
-        } catch (_) {
-          // wmic may not be available on newer Windows — fall through to PowerShell
-        }
-
-        // Strategy 3: PowerShell Get-CimInstance (slowest but universally available)
-        try {
-          const psCmd = `Get-CimInstance Win32_Process -Filter "Name='${binaryName}'" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress`;
-          const { stdout } = await execWithFallback(
-            'powershell.exe',
-            powershellExe,
-            ['-NoProfile', '-NonInteractive', '-Command', psCmd],
-            { encoding: 'utf8', timeout: 10000 },
-          );
-
-          if (!stdout || !stdout.trim()) continue;
-
-          let parsed = JSON.parse(stdout.trim());
-          // ConvertTo-Json returns an object when there's 1 result, array when >1
-          if (!Array.isArray(parsed)) parsed = [parsed];
-
-          const candidates = parsed
-            .filter((p) => p.ProcessId && p.CommandLine)
-            .map((p) => ({
-              pid: String(p.ProcessId),
-              commandLine: p.CommandLine,
-              user: '',
-            }));
-
-          const best = chooseBestProcess(candidates, currentWorkspaceId);
-          if (best) return best;
-        } catch (_) {
-          // All strategies failed for this binary name — try next
-        }
+        const found = (await _findViaTasklistAndWmic(binaryName, tasklistExe, wmicExe, currentWorkspaceId))
+          || (await _findViaWmicFullScan(binaryName, wmicExe, currentWorkspaceId))
+          || (await _findViaPowerShell(binaryName, powershellExe, currentWorkspaceId));
+        if (found) return found;
       }
 
       return null;
@@ -418,7 +418,7 @@ async function _discoverSidecarOnce(ctx) {
     const { strategy, binaryNames } = getPlatformStrategy();
     const currentWorkspaceId = getCurrentWorkspaceId();
 
-    // 1. Find the sidecar process — prefer the one matching this workspace
+    // Find the sidecar process — prefer the one matching this workspace
     const proc = await strategy.findProcess(currentWorkspaceId);
     if (!proc) {
       log(ctx, `⚠️ Sidecar process not found (looking for ${binaryNames.join(', ')} on ${os.platform()})`);
@@ -427,14 +427,14 @@ async function _discoverSidecarOnce(ctx) {
 
     const { pid, commandLine } = proc;
 
-    // 2. Parse flags from the command line
+    // Parse flags from the command line
     const extPortMatch = commandLine.match(/--extension_server_port\s+(\d+)/);
     const extCsrfMatch = commandLine.match(/--extension_server_csrf_token\s+([a-f0-9-]+)/);
     const mainCsrfMatch = commandLine.match(/--csrf_token\s+([a-f0-9-]+)/);
     const serverPortMatch = commandLine.match(/--server_port\s+(\d+)/);
     const lspPortMatch = commandLine.match(/--lsp_port[= ](\d+)/);
 
-    // 3. Discover listening ports via platform-specific tool
+    // Discover listening ports via platform-specific tool
     const actualPorts = await strategy.findListeningPorts(pid);
 
     const extPortVal = extPortMatch ? parseInt(extPortMatch[1]) : null;
@@ -444,7 +444,7 @@ async function _discoverSidecarOnce(ctx) {
       return null;
     }
 
-    // 4. Find cert
+    // Find cert
     const agExt = vscode.extensions.getExtension('google.antigravity');
     let certPath = null;
     if (agExt) {
@@ -463,13 +463,13 @@ async function _discoverSidecarOnce(ctx) {
       }
     }
 
-    // 5. Collect tokens (main CSRF first — that's what the HTTPS server validates)
+    // Collect tokens (main CSRF first — that's what the HTTPS server validates)
     const csrfTokens = [];
     if (mainCsrfMatch) csrfTokens.push(mainCsrfMatch[1]);
     if (extCsrfMatch) csrfTokens.push(extCsrfMatch[1]);
     if (csrfTokens.length === 0) csrfTokens.push(''); // fallback for agy / CLI process
 
-    // 6. Collect ports (extension_server_port first, then any discovered listening ports)
+    // Collect ports (extension_server_port first, then any discovered listening ports)
     const portsToTry = [
       ...new Set(
         [

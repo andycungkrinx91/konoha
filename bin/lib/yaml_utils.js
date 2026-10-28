@@ -43,128 +43,116 @@ function coerceScalar(val) {
 
 // parseYaml — extracted verbatim from src/agent_manager.js (lines 33–180).
 
+function handleYamlDash(trimmed, current, stack, indent, rootState) {
+  if (stack.length === 0 && Object.keys(rootState.root).length === 0 && !rootState.isRootArray) {
+    rootState.isRootArray = true;
+    current = rootState.rootArray;
+  }
+  const rest = trimmed.slice(1).trim();
+  const colonIdx = rest.indexOf(':');
+  if (colonIdx !== -1) {
+    const key = rest.slice(0, colonIdx).trim();
+    let val = coerceScalar(rest.slice(colonIdx + 1).trim());
+    const obj = {};
+    if (Array.isArray(current)) current.push(obj);
+    obj[key] = val;
+    stack.push({ indent, value: obj });
+  } else {
+    const val = coerceScalar(rest);
+    if (Array.isArray(current)) current.push(val);
+  }
+  return current;
+}
+
+function findNextNonEmptyLine(lines, startIndex) {
+  let nextIdx = startIndex + 1;
+  while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+  if (nextIdx >= lines.length) return null;
+  const match = lines[nextIdx].match(/^(\s*)/);
+  return { line: lines[nextIdx], indent: match ? match[1].length : 0 };
+}
+
+function handleEmptyYamlColon(entry, lines, i) {
+  const { current, key, stack, indent } = entry;
+  const next = findNextNonEmptyLine(lines, i);
+  if (next && next.indent > indent) {
+    const isNextArray = next.line.trim().startsWith('-');
+    const nextVal = isNextArray ? [] : {};
+    current[key] = nextVal;
+    stack.push({ indent, value: nextVal });
+    return;
+  }
+  current[key] = '';
+}
+
+function handleYamlColon(lineCtx, current, stack, lines, multiLine) {
+  const { line, colonIdx, i } = lineCtx;
+  const indent = line.match(/^(\s*)/)[0].length;
+  const key = line.slice(0, colonIdx).trim();
+  let val = line.slice(colonIdx + 1).trim();
+
+  if (val === '|') {
+    multiLine.inMultiLine = true;
+    multiLine.value = [];
+    multiLine.node = current;
+    multiLine.key = key;
+    const next = findNextNonEmptyLine(lines, i);
+    multiLine.indent = next ? next.indent : indent + 2;
+    return;
+  }
+  if (val === '[]') { current[key] = []; return; }
+  if (val === '{}') { current[key] = {}; return; }
+  if (val === '') {
+    handleEmptyYamlColon({ current, key, stack, indent }, lines, i);
+    return;
+  }
+  current[key] = coerceScalar(val);
+}
+
 function parseYaml(yamlStr) {
   if (!yamlStr) return null;
   const lines = yamlStr.split(/\r?\n/);
-  const root = {};
-  let isRootArray = false;
-  let rootArray = [];
+  const rootState = { root: {}, rootArray: [], isRootArray: false };
   const stack = [];
-  let current = root;
-  let inMultiLine = false;
-  let multiLineIndent = 0;
-  let multiLineValue = [];
-  let multiLineNode = null;
-  let multiLineKey = null;
+  let current = rootState.root;
+  const multiLine = { inMultiLine: false, indent: 0, value: [], node: null, key: null };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (inMultiLine) {
+    if (multiLine.inMultiLine) {
       const matchIndent = line.match(/^(\s*)/);
       const indent = matchIndent ? matchIndent[1].length : 0;
-      if (line.trim() === '' || indent >= multiLineIndent) {
-        multiLineValue.push(line.slice(multiLineIndent));
+      if (line.trim() === '' || indent >= multiLine.indent) {
+        multiLine.value.push(line.slice(multiLine.indent));
         continue;
-      } else {
-        multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
-        inMultiLine = false;
       }
+      multiLine.node[multiLine.key] = multiLine.value.join('\n').replace(/\r/g, '');
+      multiLine.inMultiLine = false;
     }
+
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
     const indent = line.match(/^(\s*)/)[0].length;
     while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
       stack.pop();
     }
-    if (stack.length > 0) {
-      current = stack[stack.length - 1].value;
-    } else {
-      current = isRootArray ? rootArray : root;
-    }
+    current = stack.length > 0 ? stack[stack.length - 1].value : (rootState.isRootArray ? rootState.rootArray : rootState.root);
+
     if (trimmed.startsWith('-')) {
-      if (stack.length === 0 && Object.keys(root).length === 0 && !isRootArray) {
-        isRootArray = true;
-        current = rootArray;
-      }
-      const rest = trimmed.slice(1).trim();
-      const colonIdx = rest.indexOf(':');
-      if (colonIdx !== -1) {
-        const key = rest.slice(0, colonIdx).trim();
-        let val = rest.slice(colonIdx + 1).trim();
-        const obj = {};
-        if (Array.isArray(current)) {
-          current.push(obj);
-        }
-        val = coerceScalar(val);
-        obj[key] = val;
-        stack.push({ indent: indent, value: obj });
-      } else {
-        let val = rest;
-        val = coerceScalar(val);
-        if (Array.isArray(current)) {
-          current.push(val);
-        }
-      }
+      current = handleYamlDash(trimmed, current, stack, indent, rootState);
       continue;
     }
     const colonIdx = line.indexOf(':');
     if (colonIdx !== -1) {
-      const key = line.slice(0, colonIdx).trim();
-      let val = line.slice(colonIdx + 1).trim();
-      if (val === '|') {
-        inMultiLine = true;
-        multiLineValue = [];
-        multiLineNode = current;
-        multiLineKey = key;
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        if (nextIdx < lines.length) {
-          const nextMatch = lines[nextIdx].match(/^(\s*)/);
-          multiLineIndent = nextMatch ? nextMatch[1].length : 0;
-        } else {
-          multiLineIndent = indent + 2;
-        }
-        continue;
-      }
-      if (val === '[]') {
-        current[key] = [];
-        continue;
-      }
-      if (val === '{}') {
-        current[key] = {};
-        continue;
-      }
-      if (val === '') {
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        if (nextIdx < lines.length) {
-          const nextMatch = lines[nextIdx].match(/^(\s*)/);
-          const nextIndent = nextMatch ? nextMatch[1].length : 0;
-          if (nextIndent > indent) {
-            let isNextArray = lines[nextIdx].trim().startsWith('-');
-            const nextVal = isNextArray ? [] : {};
-            current[key] = nextVal;
-            stack.push({ indent: indent, value: nextVal });
-            continue;
-          }
-        }
-        current[key] = '';
-        continue;
-      }
-      val = coerceScalar(val);
-      current[key] = val;
+      handleYamlColon({ line, colonIdx, i }, current, stack, lines, multiLine);
     }
   }
-  if (inMultiLine && multiLineNode && multiLineKey) {
-    multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
+
+  if (multiLine.inMultiLine && multiLine.node && multiLine.key) {
+    multiLine.node[multiLine.key] = multiLine.value.join('\n').replace(/\r/g, '');
   }
-  return isRootArray ? rootArray : root;
+  return rootState.isRootArray ? rootState.rootArray : rootState.root;
 }
 
 // stringifyYaml — extracted verbatim from src/agent_manager.js (lines 182–221).

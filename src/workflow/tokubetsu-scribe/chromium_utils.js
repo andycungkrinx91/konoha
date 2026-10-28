@@ -17,26 +17,28 @@ function getPlaywright() {
   return playwrightModule;
 }
 
+function _ensurePlaywrightBrowsersPath() {
+  if (process.env.PLAYWRIGHT_BROWSERS_PATH) return;
+  const os = require('os');
+  const fs = require('fs');
+  const path = require('path');
+  const defaultPlaywrightDir = path.join(os.homedir(), '.cache', 'ms-playwright');
+  if (fs.existsSync(defaultPlaywrightDir)) return;
+  try {
+    const realHome = os.userInfo?.()?.homedir || process.env.USERPROFILE || '';
+    const realCache = path.join(realHome, '.cache', 'ms-playwright');
+    if (realHome && fs.existsSync(realCache)) {
+      process.env.PLAYWRIGHT_BROWSERS_PATH = realCache;
+    }
+  } catch (_) { /* ignore */ }
+}
+
 /**
  * Launch Chromium with standard flags, optional custom executable path,
  * and graceful sandbox fallback if environment lacks setuid/namespace sandbox permissions.
  */
 async function launchChromium(options = {}) {
-  const os = require('os');
-  const fs = require('fs');
-  const path = require('path');
-  if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
-    const defaultPlaywrightDir = path.join(os.homedir(), '.cache', 'ms-playwright');
-    if (!fs.existsSync(defaultPlaywrightDir)) {
-      try {
-        const realHome = (os.userInfo && os.userInfo().homedir) || process.env.USERPROFILE || '';
-        const realCache = path.join(realHome, '.cache', 'ms-playwright');
-        if (realHome && fs.existsSync(realCache)) {
-          process.env.PLAYWRIGHT_BROWSERS_PATH = realCache;
-        }
-      } catch (_) { /* ignore */ }
-    }
-  }
+  _ensurePlaywrightBrowsersPath();
 
   const playwright = getPlaywright();
   const chromePath = process.env.KONOHA_CHROME_PATH || null;

@@ -74,6 +74,25 @@ function splitLines(str) {
 // Rendering
 // ---------------------------------------------------------------------------
 
+function renderVisibleLines(ctx, visibleLines, ...rest) {
+  const [yStart, xStart, maxY] = rest;
+  let y = yStart;
+  for (const rawLine of visibleLines) {
+    if (y + LINE_HEIGHT > maxY) break;
+    const segments = parseAnsiToSegments(rawLine, {
+      clean: true,
+      ansi16: ANSI_16,
+      defaultText: DEFAULT_TEXT,
+      mutedColor: MUTED_COLOR,
+    });
+    let curX = xStart;
+    for (const seg of segments) {
+      curX += drawSegment(ctx, curX, y, seg, FONT_SIZE);
+    }
+    y += LINE_HEIGHT;
+  }
+}
+
 /**
  * Render a single high-fidelity terminal window image (1100x680 canvas).
  */
@@ -127,22 +146,7 @@ function renderTerminalFrame(commandStr, visibleLines, opts = {}) {
   drawHLine(ctx, xStart, WIDTH - 22, y, [30, 41, 59], 1);
   y += 12;
 
-  const maxY = HEIGHT - 20;
-  for (const rawLine of visibleLines) {
-    if (y + LINE_HEIGHT > maxY) break;
-    const segments = parseAnsiToSegments(rawLine, {
-      clean: true,
-      ansi16: ANSI_16,
-      defaultText: DEFAULT_TEXT,
-      mutedColor: MUTED_COLOR,
-    });
-    let curX = xStart;
-    for (const seg of segments) {
-      curX += drawSegment(ctx, curX, y, seg, FONT_SIZE);
-    }
-    y += LINE_HEIGHT;
-  }
-
+  renderVisibleLines(ctx, visibleLines, y, xStart, HEIGHT - 20);
   return canvas;
 }
 
@@ -202,6 +206,32 @@ function executeRealCommand(cmdArgs, extraEnv = null, cwd = null) {
 // Scene builders
 // ---------------------------------------------------------------------------
 
+function buildScrollingFrames(cmdStr, rawLines, renderOpts) {
+  const maxLinesPerScreen = 29;
+  const totalLines = rawLines.length;
+  const frames = [];
+
+  frames.push({
+    canvas: renderTerminalFrame(cmdStr, rawLines.slice(0, maxLinesPerScreen), renderOpts),
+    duration: 2200,
+  });
+
+  if (totalLines > maxLinesPerScreen * 1.4) {
+    const midStart = Math.floor((totalLines - maxLinesPerScreen) / 2);
+    frames.push({
+      canvas: renderTerminalFrame(cmdStr, rawLines.slice(midStart, midStart + maxLinesPerScreen), renderOpts),
+      duration: 1800,
+    });
+  }
+
+  frames.push({
+    canvas: renderTerminalFrame(cmdStr, rawLines.slice(-maxLinesPerScreen), renderOpts),
+    duration: 3200,
+  });
+
+  return frames;
+}
+
 /** Generate typed command and output frames for a real command execution. */
 function buildSceneFrames(cmdStr, cmdArgs, badge, opts = {}) {
   const {
@@ -228,50 +258,15 @@ function buildSceneFrames(cmdStr, cmdArgs, badge, opts = {}) {
 
   const maxLinesPerScreen = 29;
   const totalLines = rawLines.length;
+  const renderOpts = { title, badge, showCursor: false, promptDir };
 
   if (totalLines <= maxLinesPerScreen || !scrollSteps) {
     frames.push({
-      canvas: renderTerminalFrame(cmdStr, rawLines.slice(0, maxLinesPerScreen), {
-        title,
-        badge,
-        showCursor: false,
-        promptDir,
-      }),
+      canvas: renderTerminalFrame(cmdStr, rawLines.slice(0, maxLinesPerScreen), renderOpts),
       duration: 2800,
     });
   } else {
-    frames.push({
-      canvas: renderTerminalFrame(cmdStr, rawLines.slice(0, maxLinesPerScreen), {
-        title,
-        badge,
-        showCursor: false,
-        promptDir,
-      }),
-      duration: 2200,
-    });
-
-    if (totalLines > maxLinesPerScreen * 1.4) {
-      const midStart = Math.floor((totalLines - maxLinesPerScreen) / 2);
-      frames.push({
-        canvas: renderTerminalFrame(cmdStr, rawLines.slice(midStart, midStart + maxLinesPerScreen), {
-          title,
-          badge,
-          showCursor: false,
-          promptDir,
-        }),
-        duration: 1800,
-      });
-    }
-
-    frames.push({
-      canvas: renderTerminalFrame(cmdStr, rawLines.slice(-maxLinesPerScreen), {
-        title,
-        badge,
-        showCursor: false,
-        promptDir,
-      }),
-      duration: 3200,
-    });
+    frames.push(...buildScrollingFrames(cmdStr, rawLines, renderOpts));
   }
 
   return frames;

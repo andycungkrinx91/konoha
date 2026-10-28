@@ -70,20 +70,26 @@ function isOpenCodeInstalled() {
 
 // Config Helpers
 
-function getOpenCodeConfigPath() {
+function getOpenCodeConfigPath(options = {}) {
+  if (options.configPath) return options.configPath;
+  if (options.home) return path.join(options.home, '.config', 'opencode', 'opencode.json');
   if (fileExists(OPENCODE_CONFIG)) return OPENCODE_CONFIG;
   if (fileExists(OPENCODE_LEGACY_CONFIG) && !fileExists(OPENCODE_DIR)) return OPENCODE_LEGACY_CONFIG;
   return OPENCODE_CONFIG;
 }
 
-function readOpenCodeConfig() {
-  const configPath = getOpenCodeConfigPath();
+function readOpenCodeConfig(options = {}) {
+  const configPath = getOpenCodeConfigPath(options);
   if (!fileExists(configPath)) return {};
-  return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return {};
+  }
 }
 
-function writeOpenCodeConfig(config) {
-  const configPath = getOpenCodeConfigPath();
+function writeOpenCodeConfig(config, options = {}) {
+  const configPath = getOpenCodeConfigPath(options);
   ensureDir(path.dirname(configPath));
   const bakPath = `${configPath}.bak`;
   if (fileExists(configPath) && !fileExists(bakPath)) {
@@ -96,29 +102,12 @@ function writeOpenCodeConfig(config) {
 
 
 
-// MCP Server Registration
-
-function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
-  let config;
-  try {
-    config = readOpenCodeConfig();
-  } catch (error) {
-    if (!silent) console.warn(`Invalid OpenCode JSON; leaving it unchanged: ${error.message}`);
-    return { ok: false, reason: 'invalid-config' };
-  }
-
-  // Ensure mcp namespace exists
-  if (!config.mcp) {
-    config.mcp = {};
-  }
-
+function _configureKonohaMcpServer(config, pythonCmd, serverPath) {
   const launcherJs = fileExists(path.join(SKILLS_DB_DIR, 'file_tools_launcher.js'))
     ? path.join(SKILLS_DB_DIR, 'file_tools_launcher.js')
     : (fileExists(FILE_TOOLS_MCP_PATH) ? FILE_TOOLS_MCP_PATH : (serverPath || SERVER_PATH));
 
   const isJsLauncher = launcherJs.endsWith('.js');
-
-  // Add konoha MCP server with auto-approve
   config.mcp['konoha'] = {
     type: 'local',
     command: isJsLauncher
@@ -132,28 +121,25 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     },
     enabled: true
   };
+}
 
-  // Semble MCP registration — only when uvx is actually usable
-  const uvxAvailable = (() => {
-    try {
-      const res = spawnSync(uvxCmd || 'uvx', ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
-      return res.status === 0;
-    } catch { return false; }
-  })();
-  if (uvxAvailable) {
-    config.mcp['semble'] = {
-      type: 'local',
-      command: [uvxCmd || 'uvx', '--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-      environment: {
-        ACTIVE_CLIENT: 'opencode',
-        OPENCODE_CLIENT: '1',
-        KONOHA_CLIENT: 'opencode'
-      },
-      enabled: true
-    };
-  }
+function _configureSembleMcpServer(config, uvxCmd) {
+  const isWin = process.platform === 'win32';
+  const resolvedCmd = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
 
-  // Aislop MCP registration
+  config.mcp['semble'] = {
+    type: 'local',
+    command: [resolvedCmd, '--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
+    environment: {
+      ACTIVE_CLIENT: 'opencode',
+      OPENCODE_CLIENT: '1',
+      KONOHA_CLIENT: 'opencode'
+    },
+    enabled: true
+  };
+}
+
+function _configureAislopMcpServer(config) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
@@ -166,6 +152,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       }
     }
   } catch { /* intentional best-effort fallback */ }
+
   config.mcp['aislop'] = {
     type: 'local',
     command: aislopCommand,
@@ -176,31 +163,24 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     },
     enabled: true
   };
+}
 
-  // V1 permission configuration (OpenCode V1 strictly requires singular 'permission')
+function _configureOpenCodePermissions(config) {
   delete config.permissions;
   delete config.autoApprove;
   delete config.autoApproval;
   delete config.permissionMode;
   if (!config.permission || typeof config.permission !== 'object') {
     config.permission = {
-      read: 'allow',
-      edit: 'allow',
-      glob: 'allow',
-      grep: 'allow',
-      list: 'allow',
-      bash: 'allow',
-      task: 'allow',
-      todowrite: 'allow',
-      question: 'allow',
-      webfetch: 'allow',
-      websearch: 'allow',
-      lsp: 'allow',
-      skill: 'allow'
+      read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+      list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+      question: 'allow', webfetch: 'allow', websearch: 'allow',
+      lsp: 'allow', skill: 'allow', mcp: 'allow'
     };
   }
+}
 
-  // Register ninja agents in opencode.json
+function _registerNinjaAgents(config) {
   const DEFAULT_ROLE_DESCRIPTIONS = {
     'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
     'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
@@ -213,11 +193,10 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
   try {
     const agents = loadAgents();
-    // Merge into the existing agent map — user-defined agents must survive setup
     const agentMap = (config.agent && typeof config.agent === 'object') ? config.agent : {};
 
     for (const agent of agents) {
-      if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      if (!agent?.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const desc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
       agentMap[agent.name] = {
         description: desc,
@@ -226,61 +205,80 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       };
     }
     config.agent = agentMap;
-    // Union with the user's existing instructions — never drop them
     const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
     const existingInstructions = Array.isArray(config.instructions) ? config.instructions : [];
     config.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* intentional best-effort fallback */ }
+}
 
-  writeOpenCodeConfig(config);
+function _syncSingleSettingsFile(sPath) {
+  try {
+    ensureDir(path.dirname(sPath));
+    let sObj = {};
+    if (fileExists(sPath)) {
+      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* ignore */ }
+    }
+    delete sObj.permissions;
+    delete sObj.autoApprove;
+    delete sObj.autoApproval;
+    delete sObj.permissionMode;
+    const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+    const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
+    sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
+    if (!sObj.permission || typeof sObj.permission !== 'object') {
+      sObj.permission = {
+        read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+        list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+        question: 'allow', webfetch: 'allow', websearch: 'allow',
+        lsp: 'allow', skill: 'allow', mcp: 'allow'
+      };
+    }
+    fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
+  } catch { /* ignore */ }
+}
 
-  // Write settings.json in both OpenCode config locations
+function _syncOpenCodeSettingsFiles(config) {
   const openCodeSettingsPaths = [
     path.join(OPENCODE_DIR, 'settings.json'),
     path.join(OPENCODE_LEGACY_DIR, 'settings.json')
   ];
   for (const sPath of openCodeSettingsPaths) {
-    try {
-      ensureDir(path.dirname(sPath));
-      let sObj = {};
-      if (fileExists(sPath)) {
-        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-      delete sObj.permissions;
-      delete sObj.autoApprove;
-      delete sObj.autoApproval;
-      delete sObj.permissionMode;
-      const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
-      const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
-      sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
-      if (!sObj.permission || typeof sObj.permission !== 'object') {
-        sObj.permission = {
-          read: 'allow',
-          edit: 'allow',
-          glob: 'allow',
-          grep: 'allow',
-          list: 'allow',
-          bash: 'allow',
-          task: 'allow',
-          todowrite: 'allow',
-          question: 'allow',
-          webfetch: 'allow',
-          websearch: 'allow',
-          lsp: 'allow',
-          skill: 'allow'
-        };
-      }
-      fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    _syncSingleSettingsFile(sPath);
   }
 
-  // If legacy config exists or legacy directory exists, sync it too
   if (fileExists(OPENCODE_LEGACY_DIR) || fileExists(OPENCODE_LEGACY_CONFIG)) {
     try {
       ensureDir(OPENCODE_LEGACY_DIR);
       fs.writeFileSync(OPENCODE_LEGACY_CONFIG, JSON.stringify(config, null, 2) + '\n');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* ignore */ }
   }
+}
+
+// MCP Server Registration
+
+function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+  if (typeof silent === 'object' && silent !== null) {
+    options = silent;
+    silent = options.silent !== false;
+  }
+  let config;
+  try {
+    config = readOpenCodeConfig(options);
+  } catch (error) {
+    if (!silent) console.warn(`Invalid OpenCode JSON; leaving it unchanged: ${error.message}`);
+    return { ok: false, reason: 'invalid-config' };
+  }
+
+  if (!config.mcp) config.mcp = {};
+
+  _configureKonohaMcpServer(config, pythonCmd, serverPath);
+  _configureSembleMcpServer(config, uvxCmd);
+  _configureAislopMcpServer(config);
+  _configureOpenCodePermissions(config);
+  _registerNinjaAgents(config);
+
+  writeOpenCodeConfig(config, options);
+  _syncOpenCodeSettingsFiles(config);
 
   if (!silent) {
     process.stderr.write('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)\n');
@@ -439,11 +437,13 @@ function ensureOpenCodeSetup(options = {}) {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    silent = true
+    silent = true,
+    force = false,
+    skipDetection = false
   } = options;
 
   // Skip if OpenCode is not installed
-  if (!isOpenCodeInstalled()) {
+  if (!force && !skipDetection && !isOpenCodeInstalled()) {
     return { ok: false, reason: 'opencode-not-installed' };
   }
 
@@ -459,7 +459,7 @@ function ensureOpenCodeSetup(options = {}) {
   }
 
   // Register MCP servers
-  const mcpResult = registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent);
+  const mcpResult = registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent, options);
   if (!mcpResult.ok) {
     return { ok: false, reason: mcpResult.reason || 'opencode-mcp-registration-failed' };
   }

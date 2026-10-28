@@ -135,6 +135,21 @@ function buildReconDirective(params = {}) {
   };
 }
 
+function _collectKnowledgeResults(results, seenIds, sources) {
+  if (!Array.isArray(results)) return;
+  for (const r of results) {
+    if (r?.id && !seenIds.has(r.id)) {
+      seenIds.add(r.id);
+      sources.push({
+        id: r.id,
+        title: r.title || 'Chunin Intelligence',
+        content: (r.content || '').slice(0, 300),
+        tags: r.tags || ''
+      });
+    }
+  }
+}
+
 /**
  * Gather stored Chunin research knowledge relevant to the target scope.
  *
@@ -159,20 +174,7 @@ function gatherKnowledge(queries = [], options = {}) {
         dbPath: options.dbPath,
         limit: 3
       });
-
-      if (Array.isArray(results)) {
-        for (const r of results) {
-          if (r && r.id && !seenIds.has(r.id)) {
-            seenIds.add(r.id);
-            sources.push({
-              id: r.id,
-              title: r.title || 'Chunin Intelligence',
-              content: (r.content || '').slice(0, 300),
-              tags: r.tags || ''
-            });
-          }
-        }
-      }
+      _collectKnowledgeResults(results, seenIds, sources);
     }
   } catch (_) {
     // Non-blocking best effort knowledge retrieval

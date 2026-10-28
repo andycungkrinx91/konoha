@@ -31,6 +31,7 @@ const {
 
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
+const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
 
 const KONOHA_SERVER_KEYS = ['konoha', 'semble', 'aislop'];
 const CONTRACT_START_MARKER = '<!-- KONOHA-CONTRACT-START -->';
@@ -133,7 +134,9 @@ function buildOmpMcpServers(options = {}) {
         ACTIVE_CLIENT: 'omp',
         KONOHA_CLIENT: 'omp',
         KONOHA_SEMANTIC_SEARCH: '1'
-      }
+      },
+      autoApprove: KONOHA_CANONICAL_TOOLS ? [...KONOHA_CANONICAL_TOOLS] : [],
+      auto_approve: true
     },
     semble: {
       type: 'stdio',
@@ -144,7 +147,9 @@ function buildOmpMcpServers(options = {}) {
         'semble',
         '--content',
         'all'
-      ]
+      ],
+      autoApprove: ['search', 'find_related'],
+      auto_approve: true
     },
     aislop: {
       type: 'stdio',
@@ -154,13 +159,32 @@ function buildOmpMcpServers(options = {}) {
         '-p',
         AISLOP_PACKAGE,
         'aislop-mcp'
-      ]
+      ],
+      autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+      auto_approve: true
     }
   };
 }
 
+function _mirrorOmpMcpToLocalDirs(payload) {
+  try {
+    const legacyPath = path.join(OMP_DIR, 'mcp.json');
+    if (fileExists(legacyPath)) {
+      writeJsonAtomic(legacyPath, payload);
+    }
+  } catch (_) { /* best-effort mirror */ }
+
+  try {
+    const projOmpDir = path.join(process.cwd(), '.omp');
+    if (fileExists(projOmpDir)) {
+      const projMcp = path.join(projOmpDir, 'mcp.json');
+      writeJsonAtomic(projMcp, payload);
+    }
+  } catch (_) { /* best-effort mirror */ }
+}
+
 function registerOmpMcp(options = {}) {
-  const configPath = options.configPath || getOmpConfigPath();
+  const configPath = options.configPath || (options.home ? path.join(options.home, '.omp', 'agent', 'mcp.json') : getOmpConfigPath());
   const silent = options.silent !== false;
 
   try {
@@ -179,26 +203,7 @@ function registerOmpMcp(options = {}) {
     writeJsonAtomic(configPath, payload);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);
 
-    // Also mirror to legacy ~/.omp/mcp.json if ~/.omp directory exists to prevent client fallback drift
-    try {
-      const legacyPath = path.join(OMP_DIR, 'mcp.json');
-      if (fileExists(legacyPath)) {
-        writeJsonAtomic(legacyPath, payload);
-      }
-    } catch (_) {
-      // Best-effort mirror to legacy path
-    }
-
-    // Mirror to project-local .omp/mcp.json if .omp exists in project
-    try {
-      const projOmpDir = path.join(process.cwd(), '.omp');
-      if (fileExists(projOmpDir)) {
-        const projMcp = path.join(projOmpDir, 'mcp.json');
-        writeJsonAtomic(projMcp, payload);
-      }
-    } catch (_) {
-      // Best-effort mirror to project path
-    }
+    _mirrorOmpMcpToLocalDirs(payload);
 
     return { ok: true, configPath };
   } catch (err) {

@@ -37,6 +37,7 @@ async function testAll() {
   const dummyOutPath = path.join(dummyTaskDir, 'flow.spec.js');
 
   const universalPayload = {
+    action: 'status',
     file_path: testFile,
     path: testFile,
     dir: testDir,

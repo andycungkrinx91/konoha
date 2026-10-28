@@ -11,8 +11,6 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const db = require('../../db');
 const personaMemory = require('../../persona_memory');
 
@@ -23,26 +21,6 @@ const GateLevel = Object.freeze({
   SOFT_MANDATORY: 'soft-mandatory',
   HARD_MANDATORY: 'hard-mandatory'
 });
-
-// Known domain keywords for skill matching heuristic
-const DOMAIN_KEYWORDS = [
-  'ui', 'frontend', 'backend', 'devops', 'security', 'audit', 'test', 'tests',
-  'spec', 'docs', 'doc', 'readme', 'api', 'research', 'explore', 'investigate',
-  'bug', 'fix', 'refactor', 'database', 'db', 'k8s', 'helm', 'docker', 'css',
-  'style', 'component', 'server', 'client', 'sannin', 'genin', 'kage', 'jonin',
-  'anbu', 'chunin', 'tokubetsu-jonin', 'tailwind', 'svelte', 'nuxt', 'next',
-  'angular', 'node', 'python', 'cli', 'mcp', 'route', 'endpoint', 'migration',
-  'pentest', 'vulnerability', 'deploy', 'deployment', 'scaffold', 'build', 'lint'
-];
-
-// Placeholder regex markers to reject in DoR check
-const PLACEHOLDER_REGEX = /\b(TODO|FIXME|TBD)\b|\?{3,}|<placeholder>|\[placeholder\]|\[insert\b|<insert\b/i;
-
-// Regex to discover potential file path references in task prompts (handles / and \ separators)
-const FILE_PATH_REGEX = /(?:^|\s)([\w.-]+[/\\][\w./\\-]+|\b[\w.-]+\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue))\b/g;
-
-// Words indicating intention to create a new file (so non-existent path is expected)
-const CREATION_WORDS = /\b(create|new|scaffold|add|write|generate|touch|init|implement|build|setup|develop|make|construct)\b/i;
 
 // Database Operations for sdlc_tasks
 
@@ -104,6 +82,26 @@ function safeJsonParse(str, fallback = {}) {
   return (parsed !== null && typeof parsed === 'object') ? parsed : fallback;
 }
 
+function _resolveSessionId(data, projectPath) {
+  if (data.session_id) return data.session_id;
+  try {
+    const cd = require('../../mcp/client_detection');
+    return cd.getActiveSessionId(projectPath) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function _resolveClient(data) {
+  if (data.client) return data.client;
+  try {
+    const cd = require('../../mcp/client_detection');
+    return cd.getActiveClient() || cd.detectActiveClient() || '';
+  } catch (_) {
+    return '';
+  }
+}
+
 /**
  * Creates an SDLC task record in SQLite.
  */
@@ -119,18 +117,8 @@ function createTask(data = {}, dbPath = null) {
     const slopResult = (data.slop_result && typeof data.slop_result === 'object') ? JSON.stringify(data.slop_result) : (data.slop_result || '{}');
     const slopCycles = typeof data.slop_cycles === 'number' ? data.slop_cycles : 0;
     const projectPath = data.project_path || '';
-    const sessionId = data.session_id || (function() {
-      try {
-        const cd = require('../../mcp/client_detection');
-        return cd.getActiveSessionId(projectPath);
-      } catch (_) { return ''; }
-    })() || '';
-    const client = data.client || (function() {
-      try {
-        const cd = require('../../mcp/client_detection');
-        return cd.getActiveClient() || cd.detectActiveClient() || '';
-      } catch (_) { return ''; }
-    })() || '';
+    const sessionId = _resolveSessionId(data, projectPath);
+    const client = _resolveClient(data);
     const now = new Date().toISOString();
 
     const stmt = conn.prepare(`
@@ -167,6 +155,26 @@ function getTask(id, dbPath = null) {
   }
 }
 
+function _applyReconcileUpdates(conn, staleRows, maxAgeMs) {
+  const now = new Date().toISOString();
+  const updateStmt = conn.prepare(`
+    UPDATE sdlc_tasks SET status = 'timed_out', evidence = ?, updated_at = ? WHERE id = ?
+  `);
+  const reconciledIds = [];
+  for (const row of staleRows) {
+    const ev = safeJsonParse(row.evidence, {});
+    ev.reconciliation = {
+      previous_status: row.status,
+      reconciled_at: now,
+      reason: `Task lease expired (inactivity > ${Math.round(maxAgeMs / 60000)}m)`,
+      last_heartbeat_at: row.updated_at
+    };
+    updateStmt.run(JSON.stringify(ev), now, row.id);
+    reconciledIds.push(row.id);
+  }
+  return reconciledIds;
+}
+
 function reconcileStaleTasks(options = {}, dbPath = null) {
   const maxAgeMs = typeof options === 'number' ? options : (options.maxAgeMs || 30 * 60 * 1000);
   const conn = getDbConn(dbPath);
@@ -177,24 +185,7 @@ function reconcileStaleTasks(options = {}, dbPath = null) {
       WHERE status IN ('in_progress', 'remediating', 'pending_plan_approval') AND updated_at < ?
     `).all(cutoff);
 
-    const reconciledIds = [];
-    if (staleRows.length > 0) {
-      const now = new Date().toISOString();
-      const updateStmt = conn.prepare(`
-        UPDATE sdlc_tasks SET status = 'timed_out', evidence = ?, updated_at = ? WHERE id = ?
-      `);
-      for (const row of staleRows) {
-        const ev = safeJsonParse(row.evidence, {});
-        ev.reconciliation = {
-          previous_status: row.status,
-          reconciled_at: now,
-          reason: `Task lease expired (inactivity > ${Math.round(maxAgeMs / 60000)}m)`,
-          last_heartbeat_at: row.updated_at
-        };
-        updateStmt.run(JSON.stringify(ev), now, row.id);
-        reconciledIds.push(row.id);
-      }
-    }
+    const reconciledIds = staleRows.length > 0 ? _applyReconcileUpdates(conn, staleRows, maxAgeMs) : [];
     return { reconciled_count: reconciledIds.length, reconciled_ids: reconciledIds };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
@@ -538,162 +529,12 @@ function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null
   }
 }
 
-// Definition of Readiness (DoR) Engine
-
-function checkReadiness(taskInput, projectPath = null) {
-  let taskText = '';
-  if (typeof taskInput === 'string') {
-    taskText = taskInput.trim();
-  } else if (taskInput && typeof taskInput === 'object') {
-    taskText = (taskInput.task || taskInput.description || taskInput.prompt || '').trim();
-  }
-
-  const missing = [];
-
-  const words = taskText.split(/\s+/).filter(Boolean);
-  if (!taskText || words.length < 5) {
-    missing.push('Task description is too brief (< 5 words). Provide more context or specific instructions.');
-  }
-
-  const placeholderMatch = taskText.match(PLACEHOLDER_REGEX);
-  if (placeholderMatch) {
-    missing.push(`Task contains unresolved placeholder or template marker (${placeholderMatch[0]}).`);
-  }
-
-  if (taskText) {
-    const isCreating = CREATION_WORDS.test(taskText);
-    const matches = taskText.matchAll(FILE_PATH_REGEX);
-    for (const match of matches) {
-      const candidate = match[1];
-      if (
-        candidate.startsWith('http:') || candidate.startsWith('https:') ||
-        candidate.startsWith('@') || candidate.startsWith('node:') ||
-        candidate.includes('..')
-      ) {
-        continue;
-      }
-      const hasExt = /\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue)$/i.test(candidate);
-      const isPathLike = candidate.startsWith('./') || candidate.startsWith('.\\') || candidate.startsWith('../') || candidate.startsWith('..\\') || candidate.startsWith('/') || candidate.startsWith('\\') || /^(?:src|app|components|lib|tests?|docs?|bin|config|public)[/\\]/i.test(candidate);
-      if (hasExt || isPathLike) {
-        if (!isCreating && projectPath && fs.existsSync(projectPath)) {
-          const resolvedCandidate = path.isAbsolute(candidate) ? candidate : path.resolve(projectPath, candidate);
-          if (!fs.existsSync(resolvedCandidate)) {
-            missing.push(`Referenced file or path '${candidate}' does not exist on disk.`);
-          }
-        }
-      }
-    }
-  }
-
-  if (taskText && words.length >= 3) {
-    const lower = taskText.toLowerCase();
-    const taskTokens = new Set(lower.split(/\W+/).filter(Boolean));
-    const matchedDomain = DOMAIN_KEYWORDS.some(kw => {
-      if (kw.includes('-')) return lower.includes(kw);
-      return taskTokens.has(kw);
-    });
-    if (!matchedDomain) {
-      missing.push('No matching skill domain identified from task keywords. Confirm domain (UI, Backend, Docs, Security, etc.).');
-    }
-  }
-
-  const ready = missing.length === 0;
-  let confidence = 'high';
-  if (!ready) {
-    confidence = (missing.length === 1 && words.length >= 5) ? 'medium' : 'low';
-  }
-
-  return {
-    ready,
-    missing,
-    confidence
-  };
-}
-
-// Cross-Provider Independence Detection
-
-function detectReviewIndependence(implementingAgent, reviewerAgent = 'kage', dbPath = null) {
-  const cleanImpl = (implementingAgent || '').toLowerCase().replace(/^mcp_/, '').replace(/_/g, '-');
-  const cleanRev = (reviewerAgent || 'kage').toLowerCase().replace(/^mcp_/, '').replace(/_/g, '-');
-
-  const conn = getDbConn(dbPath);
-  let reviewerModel = null;
-  let implementingModel = null;
-
-  try {
-    const rows = conn.prepare(`
-      SELECT name, model FROM agents WHERE name IN (?, ?, ?, ?)
-    `).all(cleanImpl, cleanImpl.replace(/-/g, '_'), cleanRev, cleanRev.replace(/-/g, '_'));
-
-    for (const row of rows) {
-      const rName = row.name.replace(/_/g, '-');
-      if (rName === cleanRev) reviewerModel = row.model;
-      if (rName === cleanImpl) implementingModel = row.model;
-    }
-  } catch (_) {
-  	/* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */
-  } finally {
-    try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  const isCrossProvider = Boolean(
-    reviewerModel &&
-    implementingModel &&
-    reviewerModel.trim() !== '' &&
-    implementingModel.trim() !== '' &&
-    reviewerModel.trim() !== implementingModel.trim()
-  );
-
-  return {
-    isCrossProvider,
-    reviewMode: isCrossProvider ? 'cross-provider' : 'self',
-    reviewerModel: reviewerModel || 'default',
-    implementingModel: implementingModel || 'default'
-  };
-}
-
-// Anti-Slop Delivery Gate & Remediation Loop Helpers
-
-function evaluateAntiSlopDeliveryGate(reviewArtifact) {
-  if (!reviewArtifact || typeof reviewArtifact !== 'object') {
-    return {
-      pass: false,
-      findings: [{ rule: 'R-00', description: 'No anti-slop review artifact provided' }],
-      scanned_at: new Date().toISOString()
-    };
-  }
-
-  const clean = reviewArtifact.ai_slop_clean === true;
-  const findingsCount = typeof reviewArtifact.ai_slop_findings === 'number' ? reviewArtifact.ai_slop_findings : (reviewArtifact.findings ? reviewArtifact.findings.length : 0);
-  const pass = clean && findingsCount === 0;
-
-  const rawFindings = Array.isArray(reviewArtifact.findings) ? reviewArtifact.findings : [];
-  const findings = rawFindings.map((f, idx) => {
-    if (typeof f === 'string') {
-      return { rule: `R-SLOP-${idx + 1}`, description: f };
-    }
-    return {
-      rule: f.rule || `R-SLOP-${idx + 1}`,
-      description: f.description || f.message || 'AI slop violation'
-    };
-  });
-
-  return {
-    pass,
-    findings,
-    scanned_at: new Date().toISOString()
-  };
-}
-
-function generateSlopFixTask(deliveryGateReport) {
-  const findings = deliveryGateReport && deliveryGateReport.findings ? deliveryGateReport.findings : [];
-  if (findings.length === 0) {
-    return 'Remediate detected AI slop violations and verify clean output.';
-  }
-
-  const items = findings.map(f => `[${f.rule}] ${f.description}`).join('\n- ');
-  return `Remediate the following anti-slop Delivery Gate findings:\n- ${items}\n\nEnsure 0 AI slop findings and re-verify compliance with anti-slop Hard Gate rules.`;
-}
+const {
+  checkReadiness,
+  detectReviewIndependence,
+  evaluateAntiSlopDeliveryGate,
+  generateSlopFixTask
+} = require('./sdlc_readiness');
 
 module.exports = {
   GateLevel,

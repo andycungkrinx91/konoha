@@ -10,10 +10,7 @@ const {
   mergeJsonFile
 } = require('./common');
 
-function registerClaudeCodeNativeBlocker() {
-  if (!fileExists(CLAUDE_SETTINGS)) return;
-  const binDir = path.join(HOME, ".local", "bin");
-  const blockerJs = path.join(binDir, "konoha-native-blocker.js");
+function _writeBlockerScript(binDir, blockerJs) {
   try {
     fs.mkdirSync(binDir, { recursive: true });
     const payload = `#!/usr/bin/env node
@@ -31,6 +28,34 @@ process.stdout.write(JSON.stringify(decision) + "\\n");
 `;
     fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
   } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _matchBlockerHook(hook, blockerRegex) {
+  if (hook.matcher !== blockerRegex) return null;
+  const firstHook = hook.hooks && hook.hooks[0];
+  if (firstHook && firstHook.command && firstHook.command.includes("konoha-native-blocker")) {
+    return firstHook;
+  }
+  return null;
+}
+
+function _updateBlockerHook(config, blockerRegex, blockerCommand) {
+  for (const hook of config.hooks.PreToolUse) {
+    const targetHook = _matchBlockerHook(hook, blockerRegex);
+    if (targetHook) {
+      const changed = targetHook.command !== blockerCommand;
+      targetHook.command = blockerCommand;
+      return { found: true, changed };
+    }
+  }
+  return { found: false, changed: false };
+}
+
+function registerClaudeCodeNativeBlocker() {
+  if (!fileExists(CLAUDE_SETTINGS)) return;
+  const binDir = path.join(HOME, ".local", "bin");
+  const blockerJs = path.join(binDir, "konoha-native-blocker.js");
+  _writeBlockerScript(binDir, blockerJs);
 
   mergeJsonFile(
     CLAUDE_SETTINGS,
@@ -45,26 +70,15 @@ process.stdout.write(JSON.stringify(decision) + "\\n");
       if (config.hooks.PreToolUse.length !== beforeCount) changed = true;
       const blockerRegex = "^(Read|Glob|Grep|View|ReadFile|Replace)$";
       const blockerCommand = `"${process.execPath}" "${blockerJs}"`;
-      for (const hook of config.hooks.PreToolUse) {
-        if (hook.matcher === blockerRegex) {
-          const firstHook = hook.hooks && hook.hooks[0];
-          if (firstHook && firstHook.command && firstHook.command.includes("konoha-native-blocker")) {
-            if (firstHook.command !== blockerCommand) {
-              firstHook.command = blockerCommand;
-              changed = true;
-            }
-            return changed;
-          }
-        }
+
+      const matchRes = _updateBlockerHook(config, blockerRegex, blockerCommand);
+      if (matchRes.found) {
+        return changed || matchRes.changed;
       }
+
       config.hooks.PreToolUse.push({
         matcher: blockerRegex,
-        hooks: [
-          {
-            type: "command",
-            command: blockerCommand
-          }
-        ]
+        hooks: [{ type: "command", command: blockerCommand }]
       });
       return true;
     }
@@ -147,7 +161,49 @@ function registerClaudeCodeBashGuard(silent = true) {
   );
 }
 
-function registerClaudeCodeWorkflowReminder(silent = true) {
+function _updateUserPromptSubmitHook(config, reminderCommand) {
+  const upsEntry = config.hooks.UserPromptSubmit.find(
+    (e) => e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
+  );
+  if (!upsEntry) {
+    config.hooks.UserPromptSubmit.push({
+      hooks: [{ type: 'command', command: reminderCommand }]
+    });
+    return true;
+  }
+  let changed = false;
+  upsEntry.hooks.forEach((h) => {
+    if (h.command && h.command.includes('workflow_reminder') && h.command !== reminderCommand) {
+      h.command = reminderCommand;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+function _updateSessionStartHook(config, reminderCommand, ssMatcher) {
+  const ssEntry = config.hooks.SessionStart.find(
+    (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
+  );
+  if (ssEntry) return false;
+
+  const stale = config.hooks.SessionStart.find(
+    (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder') && h.command !== reminderCommand)
+  );
+  if (stale) {
+    stale.hooks.forEach((h) => {
+      if (h.command && h.command.includes('workflow_reminder')) h.command = reminderCommand;
+    });
+    return true;
+  }
+  config.hooks.SessionStart.push({
+    matcher: ssMatcher,
+    hooks: [{ type: 'command', command: reminderCommand }]
+  });
+  return true;
+}
+
+function registerClaudeCodeWorkflowReminder(_silent = true) {
   const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
   if (!fileExists(reminderPath)) return;
   const reminderCommand = `"${process.execPath}" "${reminderPath}"`;
@@ -159,46 +215,12 @@ function registerClaudeCodeWorkflowReminder(silent = true) {
       if (!Array.isArray(config.hooks.SessionStart)) config.hooks.SessionStart = [];
       let changed = false;
 
-      const upsEntry = config.hooks.UserPromptSubmit.find(
-        (e) => e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
-      );
-      if (!upsEntry) {
-        config.hooks.UserPromptSubmit.push({
-          hooks: [{ type: 'command', command: reminderCommand }]
-        });
-        changed = true;
-      } else {
-        upsEntry.hooks.forEach((h) => {
-          if (h.command && h.command.includes('workflow_reminder') && h.command !== reminderCommand) {
-            h.command = reminderCommand;
-            changed = true;
-          }
-        });
-      }
+      if (_updateUserPromptSubmitHook(config, reminderCommand)) changed = true;
+      if (_updateSessionStartHook(config, reminderCommand, 'resume|compact|clear')) changed = true;
 
-      const ssMatcher = 'resume|compact|clear';
-      const ssEntry = config.hooks.SessionStart.find(
-        (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
-      );
-      if (!ssEntry) {
-        const stale = config.hooks.SessionStart.find(
-          (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder') && h.command !== reminderCommand)
-        );
-        if (stale) {
-          stale.hooks.forEach((h) => { if (h.command && h.command.includes('workflow_reminder')) h.command = reminderCommand; });
-          changed = true;
-        } else {
-          config.hooks.SessionStart.push({
-            matcher: ssMatcher,
-            hooks: [{ type: 'command', command: reminderCommand }]
-          });
-          changed = true;
-        }
-      }
       return changed;
     }
   );
-  if (!silent) process.stderr.write('✓ Konoha workflow reminder registered (UserPromptSubmit + SessionStart resume/compact/clear)\n');
 }
 
 module.exports = {

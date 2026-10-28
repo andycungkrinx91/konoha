@@ -24,23 +24,6 @@
   let tgSaving = $state(false);
   let tgTesting = $state(false);
 
-  // Tunnel State
-  let tunnelStatus = $state({
-    enabled: 0,
-    provider: "cloudflare",
-    mode: "ephemeral",
-    public_url: "",
-    active_pid: 0,
-    custom_domain: "",
-    token: ""
-  });
-  let tunnelTokenInput = $state("");
-  let showTunnelToken = $state(false);
-  let tunnelCustomDomain = $state("");
-  let tunnelProvider = $state("cloudflare");
-  let tunnelLoading = $state(false);
-  let tunnelSaving = $state(false);
-
   // Queue State
   let prompts = $state([]);
   let newPromptText = $state("");
@@ -56,16 +39,14 @@
   let whSaving = $state(false);
   let whTesting = $state(null);
 
-  let copiedUrl = $state(false);
   let showGuideModal = $state(false);
 
   useScrollLock(() => showGuideModal);
 
   async function loadData() {
     try {
-      const [tgRes, tunRes, qRes, whRes] = await Promise.all([
+      const [tgRes, qRes, whRes] = await Promise.all([
         api.get("/api/v1/telegram/config"),
-        api.get("/api/v1/tunnel/status"),
         api.get("/api/v1/queue/prompts?limit=15"),
         api.get("/api/v1/webhooks")
       ]);
@@ -79,17 +60,6 @@
           tgChatIdInput = tgRes.chat_id || "";
         }
         tgModeInput = tgRes.mode || "one_way";
-      }
-
-      if (tunRes && tunRes.ok) {
-        tunnelStatus = tunRes;
-        if (!tunnelCustomDomain || tunnelCustomDomain === tunRes.custom_domain) {
-          tunnelCustomDomain = tunRes.custom_domain || "";
-        }
-        if (!tunnelTokenInput || tunnelTokenInput === tunRes.token) {
-          tunnelTokenInput = tunRes.token || "";
-        }
-        tunnelProvider = tunRes.provider || "cloudflare";
       }
 
       if (qRes && qRes.ok) {
@@ -222,79 +192,6 @@
     }
   }
 
-    function isHostnameValid(raw) {
-    if (!raw || typeof raw !== "string") return false;
-    let str = raw.trim();
-    if (!str || /\s/.test(str)) return false;
-    if (str.includes("://")) {
-      try { str = new URL(str).host; } catch (_) { str = str.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, ""); }
-    }
-    str = str.split("/")[0].split("?")[0].split("#")[0].split(":")[0].toLowerCase().trim();
-    if (!str || str.includes("*")) return false;
-    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(str)) return false;
-    if (/^[0-9a-fA-F:]+$/.test(str) && str.includes(":")) return false;
-    const labels = str.split(".");
-    if (labels.length < 2) return false;
-    return labels.every(l => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(l));
-  }
-
-  async function saveTunnelSettings() {
-    tunnelSaving = true;
-    try {
-      const payload = {
-        provider: tunnelProvider,
-        token: tunnelTokenInput.trim(),
-        custom_domain: tunnelCustomDomain.trim()
-      };
-      const res = await api.post("/api/v1/tunnel/config", payload);
-      if (res && res.ok) {
-        toast.success("Cloudflare Tunnel Token and domain settings saved to SQLite.");
-        await loadData();
-      }
-    } catch (err) {
-      toast.error("Save failed: " + err.message);
-    } finally {
-      tunnelSaving = false;
-    }
-  }
-
-  async function toggleTunnel() {
-    tunnelLoading = true;
-    try {
-      if (tunnelStatus.enabled) {
-        await api.post("/api/v1/tunnel/stop", {});
-        toast.info("Cloudflare ingress tunnel supervisor process stopped.");
-      } else {
-        if (!isHostnameValid(tunnelCustomDomain)) {
-          toast.warning("A valid Public Hostname / Domain (e.g. remote.yourdomain.com) is required to start the tunnel.");
-          return;
-        }
-        const payload = {
-          provider: tunnelProvider,
-          token: tunnelTokenInput.trim() || undefined,
-          domain: tunnelCustomDomain.trim() || undefined
-        };
-        const res = await api.post("/api/v1/tunnel/start", payload);
-        toast.success(res?.status?.public_url
-          ? `Ingress established: ${res.status.public_url}`
-          : "Cloudflare tunnel process spawned via token in background.");
-      }
-      await loadData();
-    } catch (err) {
-      toast.error("Tunnel action failed: " + err.message);
-    } finally {
-      tunnelLoading = false;
-    }
-  }
-
-  function copyPublicUrl() {
-    if (!tunnelStatus.public_url) return;
-    navigator.clipboard.writeText(tunnelStatus.public_url);
-    copiedUrl = true;
-    toast.success("Public URL copied to clipboard");
-    setTimeout(() => { copiedUrl = false; }, 3000);
-  }
-
   async function submitQueuePrompt() {
     if (!newPromptText.trim() || submittingPrompt) return;
     submittingPrompt = true;
@@ -320,7 +217,7 @@
 
 <div class="space-y-8 w-full">
   {#snippet heroDesc()}
-    Cloudflare Zero Trust named tunnels (<span class="font-mono text-xs font-bold">cloudflared tunnel run --token</span>), Telegram task report alerts, and inbound queue prompting.
+    Telegram task report alerts, inbound queue prompting, and outbound webhook integrations.
   {/snippet}
 
   {#snippet heroActions()}
@@ -489,166 +386,11 @@
       </div>
     </div>
 
-    <!-- Card 2: Public Tunnel & Cloudflare Ingress -->
+    <!-- Card 2: Inbound Prompt Queue & Web Prompt Box -->
     <div
       class="metric-card-3d rounded-[5px] p-6 space-y-5 border"
       style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
     >
-      <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: linear-gradient(135deg, #f97316, #ea580c);">
-            CF
-          </div>
-          <div>
-            <h3 class="text-base font-bold" style="color: var(--color-text);">Public Ingress Tunnel</h3>
-            <p class="text-xs font-medium" style="color: var(--color-text-muted);">Cloudflare Zero Trust edge protection</p>
-          </div>
-        </div>
-        <span class={`px-2.5 py-1 text-xs font-bold rounded-[3px] border ${
-          tunnelStatus.enabled
-            ? "bg-status-success-soft text-status-success border-status-success-soft"
-            : "theme-bg-subtle theme-text-secondary theme-border"
-        }`}>
-          {tunnelStatus.enabled ? "Connected" : "Inactive"}
-        </span>
-      </div>
-
-      <!-- Tunnel Information Badge -->
-      <div class="p-3.5 rounded-[3px] border space-y-2" style="background: color-mix(in srgb, var(--theme-surface) 75%, transparent); border-color: var(--theme-border);">
-        <div class="flex items-center justify-between text-xs">
-          <span style="color: var(--color-text-muted);">Target Service:</span>
-          <span class="font-mono font-bold" style="color: var(--color-text);">http://127.0.0.1:1404</span>
-        </div>
-        <div class="flex items-center justify-between text-xs">
-          <span style="color: var(--color-text-muted);">Mode:</span>
-          <span class="font-bold text-status-success">Zero Trust Named Tunnel (Token Run)</span>
-        </div>
-        <div class="flex items-center justify-between text-xs">
-          <span style="color: var(--color-text-muted);">Command:</span>
-          <span class="font-mono text-[11px]" style="color: var(--color-text);">cloudflared tunnel run --token ...</span>
-        </div>
-      </div>
-
-      <!-- Active Public URL Banner -->
-      {#if tunnelStatus.enabled && tunnelStatus.public_url}
-        <div class="p-3.5 rounded-[3px] border space-y-2" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold" style="color: var(--color-primary);">Live Ingress Status</span>
-            <span class="text-[11px] font-mono" style="color: var(--color-text-muted);">PID: {tunnelStatus.active_pid}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              readonly
-              value={tunnelStatus.public_url}
-              class="w-full px-2.5 py-1.5 text-xs font-mono rounded-[3px] border"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
-            />
-            <button
-              type="button"
-              onclick={copyPublicUrl}
-              class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] border shrink-0 cursor-pointer"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
-            >
-              {copiedUrl ? "Copied!" : "Copy"}
-            </button>
-            {#if tunnelStatus.public_url.startsWith('http')}
-              <a
-                href={tunnelStatus.public_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] text-white shrink-0 inline-flex items-center gap-1"
-                style="background-color: var(--color-primary);"
-              >
-                Open
-              </a>
-            {/if}
-          </div>
-        </div>
-      {:else}
-        <div class="p-3.5 rounded-[3px] border border-dashed text-center" style="border-color: var(--color-border); background: var(--theme-surface);">
-          <p class="text-xs font-medium" style="color: var(--color-text-muted);">
-            No active ingress tunnel. Enter your Cloudflare Tunnel Token and click "Start Cloudflare Tunnel".
-          </p>
-        </div>
-      {/if}
-
-      <!-- Cloudflare Tunnel Token & Domain Settings -->
-      <div class="space-y-3 pt-1">
-        <div>
-          <label for="tunnel-token" class="text-xs font-bold block mb-1" style="color: var(--color-text);">
-            Cloudflare Tunnel Token (Zero Trust Dashboard)
-          </label>
-          <div class="relative">
-            <input
-              id="tunnel-token"
-              type={showTunnelToken ? "text" : "password"}
-              bind:value={tunnelTokenInput}
-              placeholder="Paste token from: cloudflared tunnel run --token <TOKEN>"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
-              style="background: var(--color-surface); color: var(--color-text);"
-            />
-            <button
-              type="button"
-              onclick={() => { showTunnelToken = !showTunnelToken; }}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-[3px] border cursor-pointer transition-colors"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
-            >
-              {showTunnelToken ? "Hide" : "Show"}
-            </button>
-          </div>
-          <p class="text-[11px] font-medium mt-1" style="color: var(--color-text-muted);">
-            Obtained from Cloudflare Zero Trust &gt; Networks &gt; Tunnels &gt; Create Tunnel.
-          </p>
-        </div>
-
-        <div>
-          <label for="tunnel-custom-domain" class="text-xs font-bold block mb-1" style="color: var(--color-text);">
-            Public Hostname / Domain <span class="text-status-danger">*</span>
-          </label>
-          <input
-            id="tunnel-custom-domain"
-            type="text"
-            bind:value={tunnelCustomDomain}
-            placeholder="e.g. remote.yourdomain.com"
-            class="w-full px-3 py-2 text-xs rounded-[3px] border login-field-effect focus:outline-hidden transition-colors"
-            style="background: var(--color-surface); color: var(--color-text);"
-          />
-        </div>
-      </div>
-
-      <!-- Tunnel Controls -->
-      <div class="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t" style="border-color: var(--color-border);">
-        <button
-          type="button"
-          onclick={saveTunnelSettings}
-          disabled={tunnelSaving}
-          class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[3px] border cursor-pointer transition-colors"
-        >
-          {tunnelSaving ? "Saving..." : "Save Tunnel Settings"}
-        </button>
-
-        <button
-          type="button"
-          onclick={toggleTunnel}
-          disabled={tunnelLoading || (!tunnelStatus.enabled && !isHostnameValid(tunnelCustomDomain))}
-          class={`btn-3d px-4 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer transition-colors ${
-            tunnelStatus.enabled
-              ? "badge-status badge-status-danger hover:brightness-110"
-              : "btn-3d-primary"
-          }`}
-        >
-          {tunnelLoading ? "Processing..." : (tunnelStatus.enabled ? "Stop Tunnel" : "Start Cloudflare Tunnel")}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Card 3: Inbound Prompt Queue & Web Prompt Box -->
-  <div
-    class="glass-card-3d rounded-[3px] p-6 space-y-5 border"
-    style="background: var(--glass-card); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
     <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
       <div>
         <h3 class="text-base font-bold" style="color: var(--color-text);">Inbound Prompt Queue</h3>
@@ -920,7 +662,7 @@
           </div>
           <div>
             <h3 class="text-base font-bold" style="color: var(--color-text);">Remote Access Setup Guide</h3>
-            <p class="text-xs" style="color: var(--color-text-muted);">Step-by-step setup for Cloudflare Tunnel and Telegram Bot</p>
+            <p class="text-xs" style="color: var(--color-text-muted);">Step-by-step setup for Telegram Bot integration</p>
           </div>
         </div>
         <button
@@ -937,26 +679,10 @@
       </div>
 
       <div class="space-y-5 text-xs leading-relaxed" style="color: var(--color-text);">
-        <!-- Cloudflare Tunnel Guide -->
-        <div class="p-4 rounded-[3px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
-          <div class="font-bold flex items-center gap-2" style="color: var(--color-primary);">
-            <span>1. Cloudflare Zero Trust Named Tunnel</span>
-          </div>
-          <ol class="list-decimal pl-4 space-y-1.5" style="color: var(--color-text-muted);">
-            <li>Go to <strong>Cloudflare Zero Trust Dashboard &gt; Networks &gt; Tunnels</strong>.</li>
-            <li>Click <strong>Create a Tunnel</strong>, choose <strong>Cloudflare Tunnel</strong>.</li>
-            <li>Name your tunnel (e.g. <code>konoha-remote</code>) and choose your OS (Linux).</li>
-            <li>Copy the token string from the command: <code>cloudflared tunnel run --token &lt;TOKEN&gt;</code>.</li>
-            <li>Paste the token into the <strong>Cloudflare Tunnel Token</strong> field above and click <strong>Save Tunnel Settings</strong>.</li>
-            <li>In the Cloudflare dashboard, configure a Public Hostname (e.g. <code>remote.yourdomain.com</code>) pointing to Service <code>http://localhost:1404</code>.</li>
-            <li>Click <strong>Start Cloudflare Tunnel</strong> to establish the live ingress!</li>
-          </ol>
-        </div>
-
         <!-- Telegram Bot Guide -->
         <div class="p-4 rounded-[3px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="font-bold flex items-center gap-2" style="color: var(--color-primary);">
-            <span>2. Telegram Bot Integration</span>
+            <span>Telegram Bot Integration</span>
           </div>
           <ol class="list-decimal pl-4 space-y-1.5" style="color: var(--color-text-muted);">
             <li>Open Telegram and message <strong>@BotFather</strong>. Send <code>/newbot</code> and follow instructions to create a bot.</li>

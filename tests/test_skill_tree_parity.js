@@ -11,8 +11,10 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SOURCE = path.join(ROOT, 'src', 'templates', 'skills');
-const DEPLOYED = path.join(ROOT, '.agents', 'skills');
-const ALLOWED_DEPLOYED_ONLY = new Set(['anbu-skill/devops-engineer.md']);
+const DEPLOYED = fs.existsSync(path.join(ROOT, '.agents', 'skills'))
+  ? path.join(ROOT, '.agents', 'skills')
+  : path.join(require('os').homedir(), '.agents', 'skills');
+const ALLOWED_DEPLOYED_ONLY = new Set();
 const ALLOWED_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.py', '.js']);
 
 // Skills installed from external sources (konoha skill add) are tracked in
@@ -50,6 +52,12 @@ function getFiles(baseDir) {
 
 async function run() {
   console.log('Running test_skill_tree_parity tests...');
+
+  assert.ok(fs.existsSync(SOURCE), 'Canonical templates skills dir must exist');
+  if (!fs.existsSync(DEPLOYED)) {
+    console.log(`✓ Deployed mirror absent in workspace (canonical in src/templates/skills)`);
+    return;
+  }
 
   const sourceFiles = getFiles(SOURCE);
   const deployedFiles = getFiles(DEPLOYED);

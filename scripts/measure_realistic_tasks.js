@@ -65,70 +65,77 @@ function runWorkflowTask(taskData, tdir) {
   server.runMcpWorkflow(tdir); // synthesize -> done
 }
 
+function measureTaskFiles(tdir) {
+  const taskMetrics = {};
+  let total = 0;
+  for (const fname of files) {
+    const fpath = path.join(tdir, fname);
+    const content = fs.existsSync(fpath) ? fs.readFileSync(fpath, 'utf8') : '';
+    const toks = countTiktoken(content);
+    taskMetrics[fname] = toks;
+    total += toks;
+  }
+  taskMetrics.total = total;
+  return taskMetrics;
+}
+
+function measureSingleTask(t) {
+  const tdir = fs.mkdtempSync(path.join(os.tmpdir(), `real_opt_${t.id}_`));
+  try {
+    runWorkflowTask(t, tdir);
+    const taskMetrics = measureTaskFiles(tdir);
+
+    const firstLinePlan = t.plan.trim().split('\n')[0];
+    const unoptReport = [
+      '# Final Report',
+      '',
+      gateBlock,
+      '## Task',
+      t.prompt,
+      '',
+      '## Exploration Findings',
+      t.findings,
+      '',
+      '## Implementation Plan',
+      t.plan,
+      '',
+      '## Research',
+      t.research,
+      '',
+      '## Documentation',
+      t.docs,
+      '',
+      '## Executor Results',
+      '',
+      `- **task-1 / executor**: ${firstLinePlan}`,
+      '',
+      `Result: ${t.exec_result}`,
+      ''
+    ].join('\n');
+
+    const unoptRepToks = countTiktoken(unoptReport);
+    const unoptMetrics = { ...taskMetrics };
+    unoptMetrics['final_report.md'] = unoptRepToks;
+    unoptMetrics.total = files.reduce((acc, f) => acc + (unoptMetrics[f] || 0), 0);
+    return { opt: taskMetrics, unopt: unoptMetrics };
+  } finally {
+    try {
+      fs.rmSync(tdir, { recursive: true, force: true });
+    } catch (_) { /* ignore */ }
+  }
+}
+
 function measureRealisticTasks() {
   const resultsOpt = {};
   const resultsUnopt = {};
 
   for (const t of realisticTasks) {
-    const tdir = fs.mkdtempSync(path.join(os.tmpdir(), `real_opt_${t.id}_`));
-    try {
-      runWorkflowTask(t, tdir);
-
-      const taskMetrics = {};
-      let total = 0;
-      for (const fname of files) {
-        const fpath = path.join(tdir, fname);
-        const content = fs.existsSync(fpath) ? fs.readFileSync(fpath, 'utf8') : '';
-        const toks = countTiktoken(content);
-        taskMetrics[fname] = toks;
-        total += toks;
-      }
-      taskMetrics.total = total;
-      resultsOpt[t.id] = taskMetrics;
-
-      // Calculate unoptimized report size
-      const firstLinePlan = t.plan.trim().split('\n')[0];
-      const unoptReport = [
-        '# Final Report',
-        '',
-        gateBlock,
-        '## Task',
-        t.prompt,
-        '',
-        '## Exploration Findings',
-        t.findings,
-        '',
-        '## Implementation Plan',
-        t.plan,
-        '',
-        '## Research',
-        t.research,
-        '',
-        '## Documentation',
-        t.docs,
-        '',
-        '## Executor Results',
-        '',
-        `- **task-1 / executor**: ${firstLinePlan}`,
-        '',
-        `Result: ${t.exec_result}`,
-        ''
-      ].join('\n');
-
-      const unoptRepToks = countTiktoken(unoptReport);
-      const unoptMetrics = { ...taskMetrics };
-      unoptMetrics['final_report.md'] = unoptRepToks;
-      unoptMetrics.total = files.reduce((acc, f) => acc + (unoptMetrics[f] || 0), 0);
-      resultsUnopt[t.id] = unoptMetrics;
-    } finally {
-      try {
-        fs.rmSync(tdir, { recursive: true, force: true });
-      } catch (_) { /* ignore */ }
-    }
+    const { opt, unopt } = measureSingleTask(t);
+    resultsOpt[t.id] = opt;
+    resultsUnopt[t.id] = unopt;
   }
 
-  const out = { optimized: resultsOpt, unoptimized: resultsUnopt };
-  return out;
+  return { optimized: resultsOpt, unoptimized: resultsUnopt };
 }
 
 if (require.main === module) {

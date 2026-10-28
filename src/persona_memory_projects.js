@@ -36,6 +36,83 @@ function computeProjectHash(projectPath) {
   }
 }
 
+function _detectPackageManager(canonical) {
+  if (fs.existsSync(path.join(canonical, "pnpm-lock.yaml"))) return "pnpm";
+  if (fs.existsSync(path.join(canonical, "bun.lockb")) || fs.existsSync(path.join(canonical, "bun.lock"))) return "bun";
+  if (fs.existsSync(path.join(canonical, "yarn.lock"))) return "yarn";
+  if (fs.existsSync(path.join(canonical, "package-lock.json"))) return "npm";
+  return "pnpm";
+}
+
+function _detectNodeFramework(allDeps) {
+  if ('next' in allDeps) {
+    const ver = allDeps['next'] || '';
+    return ver ? `Next.js (${ver})` : "Next.js";
+  }
+  if ('@sveltejs/kit' in allDeps || 'svelte' in allDeps) return "SvelteKit";
+  if ('nuxt' in allDeps || 'nuxt3' in allDeps) return "Nuxt 3";
+  if ('@angular/core' in allDeps) return "Angular";
+  if ('astro' in allDeps) return "Astro";
+  if ('vue' in allDeps) return "Vue";
+  if ('react' in allDeps) return "React";
+  if ('express' in allDeps) return "Express.js";
+  if ('hono' in allDeps) return "Hono";
+  return "Unknown";
+}
+
+function _detectNodeStyling(allDeps) {
+  if ('tailwindcss' in allDeps) {
+    const twVer = allDeps['tailwindcss'] || '';
+    if ('@tailwindcss/postcss' in allDeps || twVer.startsWith('^4') || twVer.startsWith('4.')) {
+      return "Tailwind CSS v4 (@theme directives)";
+    }
+    return "Tailwind CSS";
+  }
+  if ('@emotion/react' in allDeps || '@emotion/styled' in allDeps) return "Emotion CSS";
+  if ('styled-components' in allDeps) return "Styled Components";
+  if ('unocss' in allDeps) return "UnoCSS";
+  return "Standard CSS";
+}
+
+function _detectNodeDependencies(allDeps) {
+  const relevantKeywords = [
+    'react', 'vue', 'svelte', 'angular', 'next', 'nuxt', 'tailwind',
+    'prisma', 'drizzle', 'fastapi', 'flask', 'express', 'hono', 'zod',
+    'trpc', 'lucide', 'motion', 'three', 'vitest', 'jest', 'playwright'
+  ];
+  const depKeys = Object.keys(allDeps);
+  const filteredDeps = depKeys.filter(k => relevantKeywords.some(kw => k.toLowerCase().includes(kw)));
+  return filteredDeps.length ? filteredDeps.slice(0, 15) : depKeys.slice(0, 10);
+}
+
+function _detectNodeStack(canonical, stackInfo) {
+  const pkgJsonPath = path.join(canonical, "package.json");
+  if (!fs.existsSync(pkgJsonPath)) return;
+  try {
+    const pkgData = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+    if (pkgData.name) stackInfo.project_name = pkgData.name;
+    const allDeps = Object.assign({}, pkgData.dependencies || {}, pkgData.devDependencies || {});
+    stackInfo.dependencies = _detectNodeDependencies(allDeps);
+    const fw = _detectNodeFramework(allDeps);
+    if (fw !== "Unknown") stackInfo.framework = fw;
+    stackInfo.styling = _detectNodeStyling(allDeps);
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _detectPythonStack(canonical, stackInfo) {
+  if (!fs.existsSync(path.join(canonical, "pyproject.toml")) && !fs.existsSync(path.join(canonical, "requirements.txt"))) return;
+  stackInfo.language = "Python";
+  if (stackInfo.framework !== "Unknown") return;
+  const reqPath = path.join(canonical, "requirements.txt");
+  if (!fs.existsSync(reqPath)) return;
+  try {
+    const content = fs.readFileSync(reqPath, 'utf8').toLowerCase();
+    if (content.includes("fastapi")) stackInfo.framework = "FastAPI";
+    else if (content.includes("django")) stackInfo.framework = "Django";
+    else if (content.includes("flask")) stackInfo.framework = "Flask";
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
 function detectProjectStack(workspacePath) {
   const stackInfo = {
     project_name: "",
@@ -56,88 +133,10 @@ function detectProjectStack(workspacePath) {
   } catch (_) { /* intentional best-effort fallback */ }
 
   stackInfo.project_name = path.basename(canonical);
+  stackInfo.package_manager = _detectPackageManager(canonical);
 
-  if (fs.existsSync(path.join(canonical, "pnpm-lock.yaml"))) {
-    stackInfo.package_manager = "pnpm";
-  } else if (fs.existsSync(path.join(canonical, "bun.lockb")) || fs.existsSync(path.join(canonical, "bun.lock"))) {
-    stackInfo.package_manager = "bun";
-  } else if (fs.existsSync(path.join(canonical, "yarn.lock"))) {
-    stackInfo.package_manager = "yarn";
-  } else if (fs.existsSync(path.join(canonical, "package-lock.json"))) {
-    stackInfo.package_manager = "npm";
-  }
-
-  const pkgJsonPath = path.join(canonical, "package.json");
-  if (fs.existsSync(pkgJsonPath)) {
-    try {
-      const pkgData = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-      if (pkgData.name) {
-        stackInfo.project_name = pkgData.name;
-      }
-
-      const allDeps = Object.assign({}, pkgData.dependencies || {}, pkgData.devDependencies || {});
-
-      const relevantKeywords = [
-        'react', 'vue', 'svelte', 'angular', 'next', 'nuxt', 'tailwind',
-        'prisma', 'drizzle', 'fastapi', 'flask', 'express', 'hono', 'zod',
-        'trpc', 'lucide', 'motion', 'three', 'vitest', 'jest', 'playwright'
-      ];
-      const depKeys = Object.keys(allDeps);
-      const filteredDeps = depKeys.filter(k => relevantKeywords.some(kw => k.toLowerCase().includes(kw)));
-      stackInfo.dependencies = filteredDeps.length ? filteredDeps.slice(0, 15) : depKeys.slice(0, 10);
-
-      if ('next' in allDeps) {
-        const ver = allDeps['next'] || '';
-        stackInfo.framework = ver ? `Next.js (${ver})` : "Next.js";
-      } else if ('@sveltejs/kit' in allDeps || 'svelte' in allDeps) {
-        stackInfo.framework = "SvelteKit";
-      } else if ('nuxt' in allDeps || 'nuxt3' in allDeps) {
-        stackInfo.framework = "Nuxt 3";
-      } else if ('@angular/core' in allDeps) {
-        stackInfo.framework = "Angular";
-      } else if ('astro' in allDeps) {
-        stackInfo.framework = "Astro";
-      } else if ('vue' in allDeps) {
-        stackInfo.framework = "Vue";
-      } else if ('react' in allDeps) {
-        stackInfo.framework = "React";
-      } else if ('express' in allDeps) {
-        stackInfo.framework = "Express.js";
-      } else if ('hono' in allDeps) {
-        stackInfo.framework = "Hono";
-      }
-
-      if ('tailwindcss' in allDeps) {
-        const twVer = allDeps['tailwindcss'] || '';
-        if ('@tailwindcss/postcss' in allDeps || twVer.startsWith('^4') || twVer.startsWith('4.')) {
-          stackInfo.styling = "Tailwind CSS v4 (@theme directives)";
-        } else {
-          stackInfo.styling = "Tailwind CSS";
-        }
-      } else if ('@emotion/react' in allDeps || '@emotion/styled' in allDeps) {
-        stackInfo.styling = "Emotion CSS";
-      } else if ('styled-components' in allDeps) {
-        stackInfo.styling = "Styled Components";
-      } else if ('unocss' in allDeps) {
-        stackInfo.styling = "UnoCSS";
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
-
-  if (fs.existsSync(path.join(canonical, "pyproject.toml")) || fs.existsSync(path.join(canonical, "requirements.txt"))) {
-    stackInfo.language = "Python";
-    if (stackInfo.framework === "Unknown") {
-      const reqPath = path.join(canonical, "requirements.txt");
-      if (fs.existsSync(reqPath)) {
-        try {
-          const content = fs.readFileSync(reqPath, 'utf8').toLowerCase();
-          if (content.includes("fastapi")) stackInfo.framework = "FastAPI";
-          else if (content.includes("django")) stackInfo.framework = "Django";
-          else if (content.includes("flask")) stackInfo.framework = "Flask";
-        } catch (_) { /* intentional best-effort fallback */ }
-      }
-    }
-  }
+  _detectNodeStack(canonical, stackInfo);
+  _detectPythonStack(canonical, stackInfo);
 
   return stackInfo;
 }
@@ -287,6 +286,15 @@ function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPat
   }
 }
 
+function _deleteAssociatedMemories(conn, options) {
+  if (options.deleteAssociatedMemories === false) return;
+  if (options.keepCurrent && options.currentHash) {
+    conn.prepare("DELETE FROM persona_memories WHERE project_hash != ? AND project_hash != ''").run(options.currentHash);
+  } else {
+    conn.prepare("DELETE FROM persona_memories WHERE project_hash IS NOT NULL AND project_hash != ''").run();
+  }
+}
+
 function pruneAllProjects(options = {}, dbPath = null) {
   const conn = getDb(dbPath);
   try {
@@ -299,13 +307,7 @@ function pruneAllProjects(options = {}, dbPath = null) {
     }
     const tx = conn.transaction(() => {
       const res = conn.prepare(sql).run(...params);
-      if (options.deleteAssociatedMemories !== false) {
-        if (options.keepCurrent && options.currentHash) {
-          conn.prepare("DELETE FROM persona_memories WHERE project_hash != ? AND project_hash != ''").run(options.currentHash);
-        } else {
-          conn.prepare("DELETE FROM persona_memories WHERE project_hash IS NOT NULL AND project_hash != ''").run();
-        }
-      }
+      _deleteAssociatedMemories(conn, options);
       return { deleted: res.changes };
     });
     return tx();

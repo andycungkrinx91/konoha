@@ -110,7 +110,54 @@ function _connectSidecar(port, certPath) {
   };
 }
 
-function _makeH2UnaryCallOnce(port, csrf, certPath, method, contentType, payload, timeoutMs = 10000) {
+function _handleH2ConnectError(err, conn, wireClient, settleReject, onClientUpdated) {
+  if (!conn.isFallback() && _isTlsFallbackError(err)) {
+    try {
+      conn.tryFallback();
+      const client = conn.getActive();
+      wireClient(client);
+      if (onClientUpdated) onClientUpdated(client);
+      return;
+    } catch (fallbackErr) {
+      return settleReject(new Error('H2 connect: ' + fallbackErr.message));
+    }
+  }
+  settleReject(new Error('H2 connect: ' + err.message));
+}
+
+function _createBaseH2Request(client, reqHeaders) {
+  const req = client.request(reqHeaders);
+  const chunks = [];
+  let status;
+  req.on('response', (h) => {
+    status = h[':status'];
+  });
+  req.on('data', (d) => {
+    chunks.push(d);
+  });
+  return { req, chunks, getStatus: () => status };
+}
+
+function _wireH2UnaryRequest(client, reqHeaders, payload, settle) {
+  const { req, chunks, getStatus } = _createBaseH2Request(client, reqHeaders);
+  req.on('end', () => {
+    const body = Buffer.concat(chunks);
+    const status = getStatus();
+    if (status === 200) {
+      settle.resolve(body);
+    } else {
+      settle.reject(new Error(`HTTP ${status}: ${body.toString('utf8').substring(0, 1000)}`));
+    }
+  });
+  req.on('error', (e) => {
+    settle.reject(e);
+  });
+  req.write(payload);
+  req.end();
+}
+
+function _makeH2UnaryCallOnce(port, csrf, certPath, method, ...rest) {
+  const [contentType, payload, timeoutMs = 10000] = rest;
   return new Promise((resolve, reject) => {
     let conn;
     try {
@@ -119,8 +166,6 @@ function _makeH2UnaryCallOnce(port, csrf, certPath, method, contentType, payload
       return reject(new Error('H2 connect: ' + e.message));
     }
     let client = conn.getActive();
-    const chunks = [];
-    let status;
     let settled = false;
     let timer;
     const settle = (fn, val) => {
@@ -132,50 +177,24 @@ function _makeH2UnaryCallOnce(port, csrf, certPath, method, contentType, payload
       }
     };
     const onConnectError = (err) => {
-      if (!conn.isFallback() && _isTlsFallbackError(err)) {
-        try {
-          conn.tryFallback();
-          client = conn.getActive();
-          // Re-attach handlers on the new client
-          wireClient(client);
-          return;
-        } catch (fallbackErr) {
-          return settle(reject, new Error('H2 connect: ' + fallbackErr.message));
-        }
-      }
-      settle(reject, new Error('H2 connect: ' + err.message));
+      _handleH2ConnectError(err, conn, wireClient, (e) => settle(reject, e), (c) => { client = c; });
     };
     const wireClient = (c) => {
       c.on('error', onConnectError);
       c.on('connect', onConnect);
     };
     const onConnect = () => {
-      const req = client.request({
+      const reqHeaders = {
         ':method': 'POST',
         ':path': `/exa.language_server_pb.LanguageServerService/${method}`,
         'content-type': contentType,
         'connect-protocol-version': '1',
         'x-codeium-csrf-token': csrf,
+      };
+      _wireH2UnaryRequest(client, reqHeaders, payload, {
+        resolve: (body) => settle(resolve, body),
+        reject: (err) => settle(reject, err),
       });
-      req.on('response', (h) => {
-        status = h[':status'];
-      });
-      req.on('data', (d) => {
-        chunks.push(d);
-      });
-      req.on('end', () => {
-        const body = Buffer.concat(chunks);
-        if (status === 200) {
-          settle(resolve, body);
-        } else {
-          settle(reject, new Error(`HTTP ${status}: ${body.toString('utf8').substring(0, 1000)}`));
-        }
-      });
-      req.on('error', (e) => {
-        settle(reject, e);
-      });
-      req.write(payload);
-      req.end();
     };
     wireClient(client);
     timer = setTimeout(() => {
@@ -184,13 +203,33 @@ function _makeH2UnaryCallOnce(port, csrf, certPath, method, contentType, payload
   });
 }
 
+function _wireH2StreamingRequest(client, reqHeaders, payload, settleResolve, settleReject) {
+  const { req, chunks, getStatus } = _createBaseH2Request(client, reqHeaders);
+  req.on('end', () => {
+    const status = getStatus();
+    if (status === 200) settleResolve();
+    else {
+      const body = Buffer.concat(chunks).toString('utf8');
+      settleReject(new Error(`HTTP ${status}: ${body.substring(0, 1000)}`));
+    }
+  });
+  req.on('error', (e) => {
+    const status = getStatus();
+    if (status === 200 || chunks.length > 0) settleResolve();
+    else settleReject(e);
+  });
+  req.write(payload);
+  req.end();
+}
+
 /**
  * Low-level H2 ConnectRPC streaming call (server-streaming).
  * The server streams responses after receiving our single request frame.
  * Timeout resolution (not rejection) is intentional — the sidecar starts
  * processing asynchronously and we poll for results separately.
  */
-function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, payload) {
+function _makeH2StreamingCallOnce(port, csrf, certPath, method, ...rest) {
+  const [contentType, payload] = rest;
   return new Promise((resolve, reject) => {
     let conn;
     try {
@@ -199,9 +238,6 @@ function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, pay
       return reject(new Error('H2 connect: ' + e.message));
     }
     let client = conn.getActive();
-    let status;
-    const chunks = [];
-
     let timer;
     const settleResolve = () => {
       clearTimeout(timer);
@@ -215,17 +251,7 @@ function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, pay
     };
 
     const onConnectError = (err) => {
-      if (!conn.isFallback() && _isTlsFallbackError(err)) {
-        try {
-          conn.tryFallback();
-          client = conn.getActive();
-          wireClient(client);
-          return;
-        } catch (fallbackErr) {
-          return settleReject(new Error('H2 connect: ' + fallbackErr.message));
-        }
-      }
-      settleReject(new Error('H2 connect: ' + err.message));
+      _handleH2ConnectError(err, conn, wireClient, settleReject, (c) => { client = c; });
     };
 
     const wireClient = (c) => {
@@ -234,33 +260,14 @@ function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, pay
     };
 
     const onConnect = () => {
-      // aislop-ignore-next-line code-quality/duplicate-block (HTTP/2 request + JSON settle boilerplate across RPC methods)
-      const req = client.request({
+      const reqHeaders = {
         ':method': 'POST',
         ':path': `/exa.language_server_pb.LanguageServerService/${method}`,
         'content-type': contentType,
         'connect-protocol-version': '1',
         'x-codeium-csrf-token': csrf,
-      });
-      req.on('response', (h) => {
-        status = h[':status'];
-      });
-      req.on('data', (d) => {
-        chunks.push(d);
-      });
-      req.on('end', () => {
-        if (status === 200) settleResolve();
-        else {
-          const body = Buffer.concat(chunks).toString('utf8');
-          settleReject(new Error(`HTTP ${status}: ${body.substring(0, 1000)}`));
-        }
-      });
-      req.on('error', (e) => {
-        if (status === 200 || chunks.length > 0) settleResolve();
-        else settleReject(e);
-      });
-      req.write(payload);
-      req.end();
+      };
+      _wireH2StreamingRequest(client, reqHeaders, payload, settleResolve, settleReject);
     };
     wireClient(client);
     timer = setTimeout(() => {
@@ -293,7 +300,8 @@ async function _withRetry(fn, retries = 2, retryOnTimeout = true) {
 // Public: JSON calls
 
 /** Make a unary H2+JSON ConnectRPC call (with automatic retry) */
-async function makeH2JsonCall(port, csrf, certPath, method, body, retries = 2, timeoutMs = 10000) {
+async function makeH2JsonCall(port, csrf, certPath, method, ...rest) {
+  const [body, retries = 2, timeoutMs = 10000] = rest;
   const payload = Buffer.from(JSON.stringify(body));
   // If caller set a custom timeout (e.g. for inference), don't retry on timeout — the request ran its full duration
   const retryOnTimeout = timeoutMs <= 10000;
@@ -318,7 +326,8 @@ function makeH2StreamingCall(port, csrf, certPath, method, body) {
 // Public: Proto calls
 
 /** Make a unary H2+Proto ConnectRPC call (with automatic retry) */
-async function makeH2ProtoCall(port, csrf, certPath, method, protoBytes, retries = 2) {
+async function makeH2ProtoCall(port, csrf, certPath, method, ...rest) {
+  const [protoBytes, retries = 2] = rest;
   const payload = Buffer.from(protoBytes);
   const raw = await _withRetry(
     () => _makeH2UnaryCallOnce(port, csrf, certPath, method, 'application/proto', payload),
@@ -335,86 +344,84 @@ function makeH2ProtoStreamingCall(port, csrf, certPath, method, protoBytes) {
 
 // Legacy: HTTP/1.1 ConnectRPC (with HTTPS→HTTP fallback)
 
+function _isSslFallbackError(err) {
+  return (
+    err.code === 'ERR_SSL_WRONG_VERSION_NUMBER' ||
+    err.message.includes('SSL') ||
+    err.message.includes('ECONNRESET') ||
+    err.message.includes('disconnected') ||
+    err.message.includes('EPIPE')
+  );
+}
+
+function _handleHttpResponseStream(res, resolve, reject) {
+  const chunks = [];
+  res.on('data', (c) => chunks.push(c));
+  res.on('end', () => {
+    const body = Buffer.concat(chunks).toString('utf8');
+    if (res.statusCode === 200) {
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        resolve(body);
+      }
+    } else {
+      reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 1000)}`));
+    }
+  });
+}
+
+function _executeHttpFallback(options, payload, resolve, reject) {
+  const httpOpts = { ...options };
+  delete httpOpts.ca;
+  delete httpOpts.rejectUnauthorized;
+  const httpReq = http.request(httpOpts, (res) => {
+    _handleHttpResponseStream(res, resolve, reject);
+  });
+  httpReq.on('error', reject);
+  httpReq.setTimeout(10000, () => {
+    httpReq.destroy(new Error('Timeout'));
+  });
+  httpReq.write(payload);
+  httpReq.end();
+}
+
+function _buildHttpsOptions(port, csrf, certPath, servicePath, payload) {
+  const options = {
+    hostname: 'localhost',
+    port,
+    path: servicePath,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      'x-codeium-csrf-token': csrf,
+      'Content-Length': Buffer.byteLength(payload),
+    },
+    rejectUnauthorized: true,
+  };
+
+  if (certPath) {
+    try {
+      options.ca = fs.readFileSync(certPath);
+      options.rejectUnauthorized = true;
+    } catch {
+      // Cert unreadable: keep rejectUnauthorized=true (refuse to talk).
+    }
+  }
+  return options;
+}
+
 function makeConnectRpcCallOnPort(port, csrf, certPath, servicePath, payload) {
   return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'localhost',
-      port,
-      path: servicePath,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Connect-Protocol-Version': '1',
-        'x-codeium-csrf-token': csrf,
-        'Content-Length': Buffer.byteLength(payload),
-      },
-      // Default to rejecting the server cert.  Only relax this if a
-      // sidecar cert has been read successfully from disk.  Never accept
-      // an arbitrary cert blindly.
-      rejectUnauthorized: true,
-    };
-
-    if (certPath) {
-      try {
-        options.ca = fs.readFileSync(certPath);
-        options.rejectUnauthorized = true;
-      } catch {
-        // Cert unreadable: keep rejectUnauthorized=true (refuse to talk).
-      }
-    }
-
+    const options = _buildHttpsOptions(port, csrf, certPath, servicePath, payload);
     const req = https.request(options, (res) => {
-      const chunks = [];
-      res.on('data', (c) => chunks.push(c));
-      res.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        if (res.statusCode === 200) {
-          try {
-            resolve(JSON.parse(body));
-          } catch {
-            resolve(body);
-          }
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 1000)}`));
-        }
-      });
+      _handleHttpResponseStream(res, resolve, reject);
     });
 
     req.on('error', (err) => {
-      // If HTTPS fails, try HTTP
-      if (
-        err.code === 'ERR_SSL_WRONG_VERSION_NUMBER' ||
-        err.message.includes('SSL') ||
-        err.message.includes('ECONNRESET') ||
-        err.message.includes('disconnected') ||
-        err.message.includes('EPIPE')
-      ) {
-        const httpOpts = { ...options };
-        delete httpOpts.ca;
-        delete httpOpts.rejectUnauthorized;
-        const httpReq = http.request(httpOpts, (res) => {
-          const chunks = [];
-          res.on('data', (c) => chunks.push(c));
-          res.on('end', () => {
-            const body = Buffer.concat(chunks).toString('utf8');
-            // aislop-ignore-next-line code-quality/duplicate-block (HTTP/2 request + JSON settle boilerplate across RPC methods)
-            if (res.statusCode === 200) {
-              try {
-                resolve(JSON.parse(body));
-              } catch {
-                resolve(body);
-              }
-            } else {
-              reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 1000)}`));
-            }
-          });
-        });
-        httpReq.on('error', reject);
-        httpReq.setTimeout(10000, () => {
-          httpReq.destroy(new Error('Timeout'));
-        });
-        httpReq.write(payload);
-        httpReq.end();
+      if (_isSslFallbackError(err)) {
+        _executeHttpFallback(options, payload, resolve, reject);
       } else {
         reject(err);
       }

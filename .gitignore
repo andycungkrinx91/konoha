@@ -82,7 +82,13 @@ tests/.pytest_cache/
 .claude/skills/
 .opencode/skills/
 *.skills.fingerprint
-.agents/plugins/
+.agents/
+.cursor/
+.gemini/
+.claude/
+.commandcode/
+.opencode/
+.codex/
 
 # Unused agent folder (deprecated/removed)
 agent/
@@ -131,6 +137,10 @@ PLAN
 /PLAN
 /PLAN.md
 PLAN.md
+PLAN*.md
+/PLAN*.md
+PLAN_*.md
+/PLAN_*.md
 *-plan.md
 /*-plan.md
 *.plan.md

@@ -26,7 +26,7 @@ const os = require('os');
 
 
 /** Home directory (~) */
-const HOME = os.homedir();
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
 /** Project src root (where this file lives: bin/lib/) */
 const LIB_DIR = __dirname;

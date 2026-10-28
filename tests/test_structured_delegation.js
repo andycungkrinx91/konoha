@@ -120,14 +120,19 @@ async function testStructuredDelegation() {
     assert.ok(repUnv.remediation);
     assert.strictEqual(repUnv.learnings_saved_count, 0);
 
-    // 5. Legacy task_dir backward compatibility
+    // 5. Direct structured task execution & retired file IPC rejection
+    const directResStr = server.runMcpAgent('jonin', 'Direct structured task test', 'None', 'None', ['jonin-skill'], null, projectDir);
+    const directRes = JSON.parse(directResStr);
+    assert.strictEqual(directRes.status, 'ready');
+    assert.ok(directRes.instructions.includes('Direct structured task test'));
+
     const taskDir = path.join(tmpDir, 'legacy_task');
     fs.mkdirSync(taskDir, { recursive: true });
     fs.writeFileSync(path.join(taskDir, 'delegate.md'), 'Task: Legacy task fallback test\nSkills: jonin-skill\nConstraints: None');
     const legacyResStr = server.runMcpAgent('jonin', null, null, null, null, null, projectDir, taskDir);
     const legacyRes = JSON.parse(legacyResStr);
-    assert.strictEqual(legacyRes.status, 'ready');
-    assert.ok(legacyRes.instructions.includes('Legacy task fallback test'));
+    assert.strictEqual(legacyRes.status, 'error');
+    assert.strictEqual(legacyRes.reason, 'retired_file_ipc');
 
     console.log('✓ testStructuredDelegation passed');
   } finally {

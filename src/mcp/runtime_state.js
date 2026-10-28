@@ -11,7 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const HOME = os.homedir();
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const KONOHA_DIR = path.join(HOME, ".konoha");
 const AGENTS_DIR = path.join(HOME, ".agents");
 const GEMINI_DIR = path.join(HOME, ".gemini");

@@ -30,35 +30,44 @@ function getDbConnection(dbPath = null) {
   return conn;
 }
 
+function _readYamlAgents() {
+  if (!fs.existsSync(AGENTS_YAML_PATH)) return null;
+  try {
+    const content = fs.readFileSync(AGENTS_YAML_PATH, 'utf-8');
+    const data = parseYaml(content);
+    return Array.isArray(data) && data.length > 0 ? data : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _insertYamlAgents(conn, data) {
+  const stmt = conn.prepare(`
+    INSERT OR REPLACE INTO agents (
+      name, icon, title, model, purpose, skills, delegate_when,
+      constraints_text, workflow, description, instructions, delegation_keywords,
+      enable_mcp_tools
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const tx = conn.transaction(() => {
+    for (const a of data) {
+      if (!a.name || a.name.startsWith('mcp_')) continue;
+      bindAgentRow(stmt, a);
+    }
+  });
+  tx();
+}
+
 function autoMigrateYamlToDb(conn) {
   const row = conn.prepare("SELECT COUNT(*) as cnt FROM agents").get();
   if (row && row.cnt > 0) {
     return;
   }
 
-  if (fs.existsSync(AGENTS_YAML_PATH)) {
-    try {
-      const content = fs.readFileSync(AGENTS_YAML_PATH, 'utf-8');
-      const data = parseYaml(content);
-      if (Array.isArray(data)) {
-        const stmt = conn.prepare(`
-          INSERT OR REPLACE INTO agents (
-            name, icon, title, model, purpose, skills, delegate_when,
-            constraints_text, workflow, description, instructions, delegation_keywords,
-            enable_mcp_tools
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        const tx = conn.transaction(() => {
-          for (const a of data) {
-            const name = a.name;
-            if (!name || name.startsWith('mcp_')) continue;
-            bindAgentRow(stmt, a);
-          }
-        });
-        tx();
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  const data = _readYamlAgents();
+  if (data) {
+    _insertYamlAgents(conn, data);
   }
 }
 
@@ -190,39 +199,31 @@ function bindAgentRow(stmt, a) {
   );
 }
 
+function _replaceAgentsInDb(conn, data) {
+  const tx = conn.transaction(() => {
+    conn.prepare("DELETE FROM agents").run();
+    const stmt = conn.prepare(`
+      INSERT OR REPLACE INTO agents (
+        name, icon, title, model, purpose, skills, delegate_when,
+        constraints_text, workflow, description, instructions, delegation_keywords,
+        enable_mcp_tools
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const a of data) {
+      if (!a.name) continue;
+      bindAgentRow(stmt, a);
+    }
+  });
+  tx();
+}
+
 function importYamlToDb(dbPath = null) {
   const conn = getDbConnection(dbPath);
   try {
-    let data = null;
-    if (fs.existsSync(AGENTS_YAML_PATH)) {
-      try {
-        const content = fs.readFileSync(AGENTS_YAML_PATH, 'utf-8');
-        const payload = parseYaml(content);
-        if (Array.isArray(payload) && payload.length > 0) {
-          data = payload;
-        }
-      } catch (err) {
-        process.stderr.write(`Error: Failed to read agents.yaml: ${err.message}\n`);
-      }
-    }
-
+    const data = _readYamlAgents();
     if (data !== null) {
-      const tx = conn.transaction(() => {
-        conn.prepare("DELETE FROM agents").run();
-        const stmt = conn.prepare(`
-          INSERT OR REPLACE INTO agents (
-            name, icon, title, model, purpose, skills, delegate_when,
-            constraints_text, workflow, description, instructions, delegation_keywords,
-            enable_mcp_tools
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        for (const a of data) {
-          if (!a.name) continue;
-          bindAgentRow(stmt, a);
-        }
-      });
-      tx();
+      _replaceAgentsInDb(conn, data);
     }
   } finally {
     conn.close();
@@ -252,6 +253,15 @@ function bulkImportAgents(agentsList, dbPath = null) {
   }
 }
 
+function _compactAgents(agents) {
+  for (const a of agents) {
+    for (const k of ["instructions", "constraints", "workflow", "description", "constraints_text"]) {
+      if (a[k]) a[k] = "";
+    }
+  }
+  return agents;
+}
+
 function main() {
   const args = process.argv.slice(2);
   if (args.length < 1) {
@@ -263,14 +273,7 @@ function main() {
   if (cmd === '--list' || cmd === 'list') {
     console.log(JSON.stringify(listAgents()));
   } else if (cmd === '--list-compact' || cmd === 'list-compact') {
-    const agents = listAgents();
-    for (const a of agents) {
-      for (const k of ["instructions", "constraints", "workflow", "description", "constraints_text"]) {
-        if (a[k]) {
-          a[k] = "";
-        }
-      }
-    }
+    const agents = _compactAgents(listAgents());
     console.log(JSON.stringify(agents));
   } else if (cmd === '--bulk-import') {
     if (args.length < 2) process.exit(1);

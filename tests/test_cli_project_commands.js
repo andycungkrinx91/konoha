@@ -80,31 +80,19 @@ async function run() {
     assert.strictEqual(resAdd.status, 0, `Error: ${resAdd.stderr}`);
     assert.ok(stripAnsi(resAdd.stdout).includes('Saved architectural invariants'));
 
-    // Assert workspace rules & ignore-injection in consumer project
+    // Assert Konoha does NOT inject into consumer .gitignore or .dockerignore
     const gitignorePath = path.join(projectDir, '.gitignore');
     const dockerignorePath = path.join(projectDir, '.dockerignore');
-    assert.ok(fs.existsSync(gitignorePath), '.gitignore must exist in consumer project');
-    assert.ok(fs.existsSync(dockerignorePath), '.dockerignore must exist in consumer project');
-    const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
-    const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
-    assert.ok(gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must contain Start Konoha marker');
-    assert.ok(gitignoreText.includes('.agents'), '.gitignore must contain .agents');
-    assert.ok(gitignoreText.includes('.claude*'), '.gitignore must contain .claude*');
-    assert.ok(gitignoreText.includes('.commandcode*'), '.gitignore must contain .commandcode*');
-    assert.ok(gitignoreText.includes('.cursor*'), '.gitignore must contain .cursor*');
-    assert.ok(gitignoreText.includes('.cursorrules*'), '.gitignore must contain .cursorrules*');
-    assert.ok(gitignoreText.includes('.gemini*'), '.gitignore must contain .gemini*');
-    assert.ok(gitignoreText.includes('.omp*'), '.gitignore must contain .omp*');
-    assert.ok(gitignoreText.includes('.codex*'), '.gitignore must contain .codex*');
-    assert.ok(gitignoreText.includes('AGENTS.md'), '.gitignore must contain AGENTS.md');
-    assert.ok(gitignoreText.includes('CLAUDE.md'), '.gitignore must contain CLAUDE.md');
-    assert.ok(gitignoreText.includes('GEMINI.md'), '.gitignore must contain GEMINI.md');
-    assert.ok(gitignoreText.includes('## End Konoha config+skill'), '.gitignore must contain End Konoha marker');
-    assert.ok(dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must contain Start Konoha marker');
-    assert.ok(dockerignoreText.includes('.agents'), '.dockerignore must contain .agents');
-    assert.ok(dockerignoreText.includes('## End Konoha config+skill'), '.dockerignore must contain End Konoha marker');
+    if (fs.existsSync(gitignorePath)) {
+      const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
+      assert.ok(!gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must NOT contain Start Konoha marker');
+    }
+    if (fs.existsSync(dockerignorePath)) {
+      const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
+      assert.ok(!dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must NOT contain Start Konoha marker');
+    }
 
-    // Assert core konoha root is excluded from consumer ignore block
+    // Assert core konoha root does NOT contain consumer ignore block
     const konohaGitignoreText = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
     assert.ok(!konohaGitignoreText.includes('## Start Konoha config+skill'), 'Konoha repo root must NOT contain consumer ignore block');
 

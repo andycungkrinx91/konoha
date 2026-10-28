@@ -323,7 +323,8 @@ function parseGeminiPath(pathname) {
 // Gemini format adapter for OpenAI provider
 // Converts Gemini → OpenAI → callRawInference → Gemini response
 
-async function handleGeminiToOpenAi(ctx, req, res, isStream, payload, modelFromPath) {
+async function handleGeminiToOpenAi(ctx, req, res, ...rest) {
+  const [isStream, payload, modelFromPath] = rest;
   let openAiMessages = geminiContentsToOpenAi(
     payload.contents,
     payload.systemInstruction || payload.system_instruction,

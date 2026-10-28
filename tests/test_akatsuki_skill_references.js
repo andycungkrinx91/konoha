@@ -10,6 +10,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { CURATED_TOOL_REGISTRY } = require('../src/workflow/akatsuki/tool_profiles');
 
 console.log('Running test_akatsuki_skill_references.js...');
@@ -83,12 +84,12 @@ console.log('  ✓ Domain routing table contains all tools and blue-team capabil
 
 // 4. Verify byte-identical synchronization across all client mirror trees
 const MIRROR_TREES = [
-  path.join(ROOT, '.agents', 'skills', 'akatsuki-skill'),
-  path.join(ROOT, '.cursor', 'skills', 'akatsuki-skill'),
-  path.join(ROOT, '.gemini', 'skills', 'akatsuki-skill'),
-  path.join(ROOT, '.commandcode', 'skills', 'akatsuki-skill'),
-  path.join(ROOT, '.claude', 'skills', 'akatsuki-skill'),
-  path.join(ROOT, '.omp', 'skills', 'akatsuki-skill')
+  path.join(os.homedir(), '.agents', 'skills', 'akatsuki-skill'),
+  path.join(os.homedir(), '.cursor', 'skills', 'akatsuki-skill'),
+  path.join(os.homedir(), '.gemini', 'skills', 'akatsuki-skill'),
+  path.join(os.homedir(), '.commandcode', 'skills', 'akatsuki-skill'),
+  path.join(os.homedir(), '.claude', 'skills', 'akatsuki-skill'),
+  path.join(os.homedir(), '.omp', 'skills', 'akatsuki-skill')
 ];
 
 function getAllFiles(dir) {

@@ -36,7 +36,6 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha task` | `<subcommand> [options]` | Native SDLC governance tasks, readiness gates, and audits |
 | `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
 | `konoha test` | - | Run integration diagnostics against the MCP server |
-| `konoha tunnel` | `<subcommand> [options]` | Manage Cloudflare and ngrok public ingress tunnels |
 | `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
 | `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
 | `konoha upgrade` | `[--yes] [--force]` | Upgrade local Konoha installation to latest release with progress bar |
@@ -79,7 +78,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha task clear [--status <s>] [--project <p>]` — Clear tasks from database to prevent stale task hallucination.
 
 ### 2.4 Agent Management (`konoha agent`)
-- `konoha agent list [--tui]` — List all 7 official ninja subagents and their assigned skills.
+- `konoha agent list [--tui]` — List all 8 official ninja subagents and their assigned skills.
 - `konoha agent create <agent-name> [options]` — Create a custom subagent (`--title`, `--purpose`, `--instructions`, `--keywords`).
 - `konoha agent skill [agent-name]` — Interactively toggle (embed or remove) a skill for an agent.
 - `konoha agent models [config] [agent-name]` — Interactively configure a bridge-served model (or `--model <id>`).
@@ -131,13 +130,9 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha search status` — Display active search chain, elected instances, and log size.
 - `konoha search prune` — Prune cached instances and query logs.
 
-### 2.10 Remote Notifications & Ingress (`konoha telegram` / `konoha tunnel`)
+### 2.10 Remote Notifications (`konoha telegram`)
 - `konoha telegram status` — Display Telegram integration status.
 - `konoha telegram config [options]` — Configure bot token, chat ID, and mode (`--token`, `--chat-id`, `--mode <one_way|two_way>`).
 - `konoha telegram test` — Send verification test message.
 - `konoha telegram enable` / `konoha telegram disable` — Toggle Telegram notifications.
 - `konoha telegram start-poller` / `konoha telegram stop-poller` — Manage two-way inbound polling listener.
-- `konoha tunnel status` — Display active ingress tunnel status and public URL.
-- `konoha tunnel start [options]` — Start public ingress tunnel (`--provider <cf|ngrok>`, `--port <port>`, `--token <token>`, `--domain <domain>`, `--pin <pin>`).
-- `konoha tunnel stop` — Terminate active ingress tunnel.
-- `konoha tunnel config [options]` — Configure default tunnel credentials.

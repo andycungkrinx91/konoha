@@ -44,8 +44,11 @@ function validateAgentName(name, targetDir) {
 
 function resolveRtkRuleTemplate() {
   const candidates = [
-    path.join(__dirname, '..', '..', '.claude', 'rules', 'rtk.md'),
-    path.join(HOME, '.claude', 'rules', 'rtk.md')
+    path.join(__dirname, '..', 'templates', 'rules', 'rtk.md'),
+    path.join(__dirname, '..', 'templates', 'rules', 'rtk-rules.md'),
+    path.join(__dirname, '..', '..', 'src', 'templates', 'rules', 'rtk.md'),
+    path.join(HOME, '.claude', 'rules', 'rtk.md'),
+    path.join(HOME, '.agents', 'rules', 'rtk-rules.md')
   ];
   return candidates.find((p) => fileExists(p)) || null;
 }
@@ -105,23 +108,17 @@ function buildStdioMcpServers(options = {}) {
     client = 'cursor'
   } = options;
 
-  const uvxAvailable = (() => {
-    try {
-      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
-      return res.status === 0;
-    } catch { return false; }
-  })();
+  const isWin = process.platform === 'win32';
+  const resolvedUvx = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
 
   const servers = {
-    ...(uvxAvailable ? {
-      semble: {
-        type: 'stdio',
-        command: uvxCmd,
-        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-        autoApprove: ['search', 'find_related'],
-        auto_approve: true
-      }
-    } : {}),
+    semble: {
+      type: 'stdio',
+      command: resolvedUvx,
+      args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
+      autoApprove: ['search', 'find_related'],
+      auto_approve: true
+    },
     aislop: resolveAislopMcpConfig()
   };
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
@@ -200,6 +197,11 @@ function buildClientToolGrants(prefix) {
   return [...konohaGrants, ...sembleGrants, ...aislopGrants];
 }
 
+function buildBareToolGrants() {
+  const tools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
+  return [...tools, 'search', 'find_related', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
+}
+
 function readMcpHealth(config, key = 'mcpServers') {
   const block = config[key] || config.mcp || {};
   return {
@@ -241,6 +243,7 @@ module.exports = {
   mergeMcpServersBlock,
   backupFile,
   buildClientToolGrants,
+  buildBareToolGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 };

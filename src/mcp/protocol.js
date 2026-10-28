@@ -80,6 +80,125 @@ function ensureWorkspaceRules(targetCwd) {
   } catch (_) { /* best-effort fallback */ }
 }
 
+function resolveAntigravityClient(isCli, convId) {
+  if (!convId) return isCli ? 'agy' : 'antigravity';
+  if (isCli) return 'agy';
+  if (fs.existsSync(path.join(ANTIGRAVITY_CLI_BRAIN, convId))) return 'agy';
+  if (fs.existsSync(path.join(ANTIGRAVITY_IDE_BRAIN, convId))) return 'antigravity';
+  return 'agy';
+}
+
+function resolveClientFromInfo(clientInfo) {
+  const clientName = (clientInfo?.name || '').toLowerCase();
+  if (clientName.includes('cursor')) return 'cursor';
+  if (clientName.includes('claude')) return 'claudecode';
+  if (clientName.includes('opencode')) return 'opencode';
+  if (clientName.includes('commandcode')) return 'commandcode';
+  if (clientName.includes('omp')) return 'omp';
+  if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'agy';
+  if (clientName.includes('antigravity') || clientName.includes('ide')) {
+    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+    const isCli = (process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy');
+    return resolveAntigravityClient(isCli, convId);
+  }
+  return detectActiveClient();
+}
+
+function resolveWorkspaceFromParams(p) {
+  if (p.rootUri) {
+    const cand = uriToPath(p.rootUri);
+    if (cand && !isIdeInstallationDir(cand)) return cand;
+  }
+  if (Array.isArray(p.workspaceFolders) && p.workspaceFolders.length > 0) {
+    const cand = uriToPath(p.workspaceFolders[0]?.uri);
+    if (cand && !isIdeInstallationDir(cand)) return cand;
+  }
+  if (p.rootPath) {
+    const cand = uriToPath(p.rootPath);
+    if (cand && !isIdeInstallationDir(cand)) return cand;
+  }
+  return null;
+}
+
+function _handleInitialize(p, rid) {
+  const requestedProtocol = p.protocolVersion || SUPPORTED_PROTOCOL_VERSIONS[0];
+  if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requestedProtocol)) {
+    return { jsonrpc: '2.0', id: rid, error: { code: -32602, message: `Unsupported protocol version: ${requestedProtocol}` } };
+  }
+
+  setActiveClient(resolveClientFromInfo(p.clientInfo));
+  const newWs = resolveWorkspaceFromParams(p);
+  if (newWs) setWorkspaceRoot(newWs);
+
+  const currentWs = getWorkspaceRoot() || process.cwd();
+  process.stderr.write(`[mcp konoha] Initialized with workspace root: ${currentWs}\n`);
+  try { autoMigrateProjectSkills(currentWs); } catch (_) { /* ignore */ }
+  try { ensureWorkspaceRules(currentWs); } catch (_) { /* ignore */ }
+
+  MCP_INITIALIZED = true;
+  return {
+    jsonrpc: '2.0',
+    id: rid,
+    result: {
+      protocolVersion: requestedProtocol,
+      capabilities: { tools: {} },
+      serverInfo: { name: 'konoha', version: SERVER_VERSION }
+    }
+  };
+}
+
+function _normalizeToolArgs(rawArgs, toolName) {
+  const args = rawArgs ?? {};
+  if (typeof args !== 'string') return args;
+  try {
+    return JSON.parse(args);
+  } catch (_) {
+    const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+    if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
+      return { task: args.trim() };
+    }
+    return {};
+  }
+}
+
+async function _handleToolsCall(p, rid) {
+  const toolName = p.name;
+  const args = _normalizeToolArgs(p.arguments, toolName);
+  const knownTools = new Set((MCP_MANIFEST.tools || []).map(t => t.name));
+  if (!toolName || !knownTools.has(toolName)) {
+    return { jsonrpc: '2.0', id: rid, error: { code: -32601, message: `Unknown tool: ${toolName}` } };
+  }
+
+  let resultText;
+  try {
+    resultText = await executeTool(toolName, args);
+  } catch (e) {
+    return {
+      jsonrpc: '2.0',
+      id: rid,
+      result: {
+        content: [{ type: 'text', text: JSON.stringify({ error: `Tool execution failed: ${e.message}` }) }],
+        isError: true
+      }
+    };
+  }
+
+  let isError = false;
+  try {
+    const parsed = JSON.parse(resultText);
+    isError = typeof parsed === 'object' && parsed !== null && 'error' in parsed;
+  } catch (_) { /* ignore */ }
+
+  return {
+    jsonrpc: '2.0',
+    id: rid,
+    result: {
+      content: [{ type: 'text', text: resultText }],
+      isError
+    }
+  };
+}
+
 async function handleRequest(req) {
   if (!req || typeof req !== 'object') {
     return { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } };
@@ -93,79 +212,7 @@ async function handleRequest(req) {
   }
 
   if (method === 'initialize') {
-    const p = params || {};
-    const requestedProtocol = p.protocolVersion || SUPPORTED_PROTOCOL_VERSIONS[0];
-    if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requestedProtocol)) {
-      return { jsonrpc: '2.0', id: rid, error: { code: -32602, message: `Unsupported protocol version: ${requestedProtocol}` } };
-    }
-
-    const clientInfo = p.clientInfo || {};
-    const clientName = (clientInfo.name || '').toLowerCase();
-    let detectedClient;
-    if (clientName.includes('cursor')) detectedClient = 'cursor';
-    else if (clientName.includes('claude')) detectedClient = 'claudecode';
-    else if (clientName.includes('opencode')) detectedClient = 'opencode';
-    else if (clientName.includes('commandcode')) detectedClient = 'commandcode';
-    else if (clientName.includes('omp')) detectedClient = 'omp';
-    else if (clientName.includes('antigravity-cli') || clientName.includes('agy')) detectedClient = 'agy';
-    else if (clientName.includes('antigravity') || clientName.includes('ide')) {
-      const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-      const isCli = (process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy');
-      if (convId) {
-        if (isCli) detectedClient = 'agy';
-        else if (fs.existsSync(path.join(ANTIGRAVITY_CLI_BRAIN, convId))) detectedClient = 'agy';
-        else if (fs.existsSync(path.join(ANTIGRAVITY_IDE_BRAIN, convId))) detectedClient = 'antigravity';
-        else detectedClient = 'agy';
-      } else {
-        detectedClient = isCli ? 'agy' : 'antigravity';
-      }
-    } else {
-      detectedClient = detectActiveClient();
-    }
-    setActiveClient(detectedClient);
-
-    let newWs = null;
-    if (p.rootUri) {
-      const cand = uriToPath(p.rootUri);
-      if (cand && !isIdeInstallationDir(cand)) newWs = cand;
-    }
-    if (!newWs && p.workspaceFolders && Array.isArray(p.workspaceFolders) && p.workspaceFolders.length > 0) {
-      const uri = p.workspaceFolders[0].uri;
-      if (uri) {
-        const cand = uriToPath(uri);
-        if (cand && !isIdeInstallationDir(cand)) newWs = cand;
-      }
-    }
-    if (!newWs && p.rootPath) {
-      const cand = uriToPath(p.rootPath);
-      if (cand && !isIdeInstallationDir(cand)) newWs = cand;
-    }
-
-    if (newWs) {
-      setWorkspaceRoot(newWs);
-    }
-
-    const currentWs = getWorkspaceRoot();
-    if (currentWs) {
-      process.stderr.write(`[mcp konoha] Initialized with workspace root: ${currentWs}\n`);
-      try { autoMigrateProjectSkills(currentWs); } catch (_) { /* ignore */ }
-      try { ensureWorkspaceRules(currentWs); } catch (_) { /* ignore */ }
-    } else {
-      process.stderr.write(`[mcp konoha] Initialized with no workspace root; using cwd: ${process.cwd()}\n`);
-      try { autoMigrateProjectSkills(process.cwd()); } catch (_) { /* ignore */ }
-      try { ensureWorkspaceRules(process.cwd()); } catch (_) { /* ignore */ }
-    }
-
-    MCP_INITIALIZED = true;
-    return {
-      jsonrpc: '2.0',
-      id: rid,
-      result: {
-        protocolVersion: requestedProtocol,
-        capabilities: { tools: {} },
-        serverInfo: { name: 'konoha', version: SERVER_VERSION }
-      }
-    };
+    return _handleInitialize(params || {}, rid);
   }
 
   if (method === 'notifications/initialized') {
@@ -180,59 +227,7 @@ async function handleRequest(req) {
   }
 
   if (method === 'tools/call') {
-    const p = params || {};
-    const toolName = p.name;
-    let args = p.arguments;
-    if (args === undefined || args === null) args = {};
-    if (typeof args === 'string') {
-      try {
-        args = JSON.parse(args);
-      } catch (_) {
-        const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
-        if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
-          args = { task: args.trim() };
-        }
-      }
-    }
-
-    const knownTools = new Set((MCP_MANIFEST.tools || []).map(t => t.name));
-    if (!toolName || !knownTools.has(toolName)) {
-      return {
-        jsonrpc: '2.0',
-        id: rid,
-        error: { code: -32601, message: `Unknown tool: ${toolName}` }
-      };
-    }
-
-    let resultText;
-    try {
-      resultText = await executeTool(toolName, args);
-    } catch (e) {
-      // Tool crashes must still answer with the request id so clients can
-      // correlate the error instead of hanging until timeout
-      return {
-        jsonrpc: '2.0',
-        id: rid,
-        result: {
-          content: [{ type: 'text', text: JSON.stringify({ error: `Tool execution failed: ${e.message}` }) }],
-          isError: true
-        }
-      };
-    }
-    let isError = false;
-    try {
-      const parsed = JSON.parse(resultText);
-      isError = typeof parsed === 'object' && parsed !== null && 'error' in parsed;
-    } catch (_) { /* ignore */ }
-
-    return {
-      jsonrpc: '2.0',
-      id: rid,
-      result: {
-        content: [{ type: 'text', text: resultText }],
-        isError
-      }
-    };
+    return await _handleToolsCall(params || {}, rid);
   }
 
   if (rid !== undefined) {

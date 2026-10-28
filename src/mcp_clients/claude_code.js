@@ -28,6 +28,7 @@ const {
   mergeMcpServersBlock,
   backupFile,
   buildClientToolGrants,
+  buildBareToolGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
@@ -39,11 +40,14 @@ const {
   registerClaudeCodeWorkflowReminder
 } = require('./claude_code_hooks');
 
-function deployClaudeCodeRtkRule(silent = true) {
+function deployClaudeCodeRtkRule(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
   if (!isRtkInstalled()) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
-  const dest = path.join(HOME, '.claude', 'rules', 'rtk.md');
+  const dest = path.join(home, '.claude', 'rules', 'rtk.md');
   const src = resolveRtkRuleTemplate();
   if (!src || src === dest) {
     return { ok: true };
@@ -51,25 +55,30 @@ function deployClaudeCodeRtkRule(silent = true) {
   try {
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
-    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    if (!isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
 }
 
-function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+  if (typeof silent === 'object' && silent !== null) {
+    options = silent;
+    silent = options.silent !== false;
+  }
+  const targetConfig = options.configPath || (options.home ? path.join(options.home, '.claude.json') : CLAUDE_JSON);
   if (!fileExists(serverPath)) return false;
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'claudecode' });
 
-  backupFile(CLAUDE_JSON, silent);
+  backupFile(targetConfig, silent);
 
   let existingConfig = {};
-  if (fileExists(CLAUDE_JSON)) {
+  if (fileExists(targetConfig)) {
     try {
-      existingConfig = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8')) || {};
+      existingConfig = JSON.parse(fs.readFileSync(targetConfig, 'utf-8')) || {};
     } catch {
-      if (!silent) console.warn(`Invalid JSON in ${CLAUDE_JSON}; leaving it unchanged.`);
+      if (!silent) console.warn(`Invalid JSON in ${targetConfig}; leaving it unchanged.`);
       return false;
     }
   }
@@ -78,12 +87,44 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
     existingConfig.mcpServers = {};
   }
   mergeMcpServersBlock(existingConfig.mcpServers, servers);
-  ensureDir(path.dirname(CLAUDE_JSON));
-  const tempFile = CLAUDE_JSON + '.tmp';
+  ensureDir(path.dirname(targetConfig));
+  const tempFile = targetConfig + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(existingConfig, null, 2) + '\n');
-  fs.renameSync(tempFile, CLAUDE_JSON);
-  if (!silent) process.stderr.write(`  ✓ ${path.basename(CLAUDE_JSON)} merged with Konoha MCP servers\n`);
+  fs.renameSync(tempFile, targetConfig);
+  if (!silent) process.stderr.write(`  ✓ ${path.basename(targetConfig)} merged with Konoha MCP servers\n`);
   return true;
+}
+
+function _cleanInvalidRules(allowList, invalidRules) {
+  const invalidSet = new Set(invalidRules);
+  const beforeLen = allowList.length;
+  const filtered = allowList.filter(item => !invalidSet.has(item));
+  if (filtered.length !== beforeLen) {
+    allowList.length = 0;
+    allowList.push(...filtered);
+    return true;
+  }
+  return false;
+}
+
+function _appendMissing(list, items) {
+  let updated = false;
+  for (const item of items) {
+    if (!list.includes(item)) {
+      list.push(item);
+      updated = true;
+    }
+  }
+  return updated;
+}
+
+function _ensureAislopMcpServer(config) {
+  if (!config.mcpServers || typeof config.mcpServers !== 'object') return false;
+  if (!config.mcpServers.aislop) {
+    config.mcpServers.aislop = resolveAislopMcpConfig();
+    return true;
+  }
+  return false;
 }
 
 function registerClaudeCodePermissions(silent = true) {
@@ -99,8 +140,6 @@ function registerClaudeCodePermissions(silent = true) {
       if (!config.permissions) config.permissions = {};
       const allowRaw = config.permissions.allow;
       config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
-
-      let updated = false;
 
       const invalidRules = [
         'mcp:konoha:*',
@@ -118,36 +157,28 @@ function registerClaudeCodePermissions(silent = true) {
         'Bash(konoha *)',
         '*'
       ];
-      for (const invalid of invalidRules) {
-        let idx;
-        while ((idx = config.permissions.allow.indexOf(invalid)) !== -1) {
-          config.permissions.allow.splice(idx, 1);
-          updated = true;
-        }
-      }
-
-      for (const grant of grants) {
-        if (!config.permissions.allow.includes(grant)) {
-          config.permissions.allow.push(grant);
-          updated = true;
-        }
-      }
+      let updated = _cleanInvalidRules(config.permissions.allow, invalidRules);
+      if (_appendMissing(config.permissions.allow, grants)) updated = true;
 
       const autoApproveGrants = [
         ...buildClientToolGrants('mcp__'),
+        ...buildClientToolGrants(''),
+        ...buildBareToolGrants(),
         'Bash(rtk)',
-        'Bash(konoha)'
+        'Bash(rtk:*)',
+        'Bash(rtk *)',
+        'Bash(konoha)',
+        'Bash(konoha *)',
+        'rtk',
+        'rtk *',
+        'konoha',
+        'konoha *'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
         config.autoApprove = autoApproveGrants;
         updated = true;
-      } else {
-        for (const g of autoApproveGrants) {
-          if (!config.autoApprove.includes(g)) {
-            config.autoApprove.push(g);
-            updated = true;
-          }
-        }
+      } else if (_appendMissing(config.autoApprove, autoApproveGrants)) {
+        updated = true;
       }
 
       const defaultAllowedTools = [
@@ -159,12 +190,7 @@ function registerClaudeCodePermissions(silent = true) {
         updated = true;
       }
 
-      if (config.mcpServers && typeof config.mcpServers === 'object') {
-        if (!config.mcpServers.aislop) {
-          config.mcpServers.aislop = resolveAislopMcpConfig();
-          updated = true;
-        }
-      }
+      if (_ensureAislopMcpServer(config)) updated = true;
 
       return updated;
     },
@@ -370,6 +396,26 @@ function removeProjectClaudeMd(projectRoot, silent = true) {
   return false;
 }
 
+function _deployClaudeCodeAgents(agents) {
+  if (!agents || !agents.length) return;
+  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  ensureDir(claudeAgentsDir);
+  for (const agent of agents) {
+    if (!agent || !agent.name || !validateAgentName(agent.name, claudeAgentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+    const mdContent = generateClaudeCodeSubagent(agent);
+    const targetPath = path.join(claudeAgentsDir, agent.name + '.md');
+    fs.writeFileSync(targetPath, mdContent);
+  }
+  try {
+    const files = fs.readdirSync(claudeAgentsDir);
+    for (const file of files) {
+      if (file.startsWith('mcp_') && file.endsWith('.md')) {
+        fs.unlinkSync(path.join(claudeAgentsDir, file));
+      }
+    }
+  } catch (_) { /* ignore */ }
+}
+
 function ensureClaudeCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
@@ -379,10 +425,12 @@ function ensureClaudeCodeSetup(options = {}) {
     silent = true,
     agents = [],
     projectRoot = null,
-    deployProject = false
+    deployProject = false,
+    force = false,
+    skipDetection = false
   } = options;
 
-  if (!isClaudeCodeInstalled()) {
+  if (!force && !skipDetection && !isClaudeCodeInstalled()) {
     return { ok: false, reason: 'claude CLI not detected' };
   }
 
@@ -392,7 +440,7 @@ function ensureClaudeCodeSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
+  registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options);
   registerClaudeCodePermissions(silent);
   registerClaudeCodeNativeBlocker();
   registerClaudeCodeBashGuard(silent);
@@ -404,24 +452,7 @@ function ensureClaudeCodeSetup(options = {}) {
     deployClaudeCodeRules(ruleContent, silent);
   }
 
-  if (agents && agents.length > 0) {
-    const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-    ensureDir(claudeAgentsDir);
-    for (const agent of agents) {
-      if (!agent || !agent.name || !validateAgentName(agent.name, claudeAgentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
-      const mdContent = generateClaudeCodeSubagent(agent);
-      const targetPath = path.join(claudeAgentsDir, agent.name + '.md');
-      fs.writeFileSync(targetPath, mdContent);
-    }
-    try {
-      const files = fs.readdirSync(claudeAgentsDir);
-      for (const file of files) {
-        if (file.startsWith('mcp_') && file.endsWith('.md')) {
-          fs.unlinkSync(path.join(claudeAgentsDir, file));
-        }
-      }
-    } catch (_) { /* ignore */ }
-  }
+  _deployClaudeCodeAgents(agents);
 
   if (deployProject && projectRoot) {
     try {
@@ -491,6 +522,68 @@ function getClaudeCodeStatus() {
   return status;
 }
 
+function _filterClaudePermissions(config) {
+  const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+  if (!allowArr.length) return false;
+  const initialLength = allowArr.length;
+  const filtered = allowArr.filter(
+    (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*' && p !== 'mcp__aislop__*'
+  );
+  config.permissions.allow = filtered;
+  return filtered.length !== initialLength;
+}
+
+function _cleanClaudeSettingsPermissions(silent) {
+  if (!fileExists(CLAUDE_SETTINGS)) return;
+  try {
+    mergeJsonFile(CLAUDE_SETTINGS, _filterClaudePermissions, silent);
+  } catch { /* ignore */ }
+}
+
+function _removeClaudeInstructions(silent) {
+  const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
+  if (!fileExists(CLAUDE_MD)) return;
+  try {
+    const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
+    const startMarker = '\n<!-- KONOHA-START -->\n';
+    const endMarker = '\n<!-- KONOHA-END -->\n';
+    const startIndex = content.indexOf(startMarker);
+    const endIndex = content.indexOf(endMarker);
+    if (startIndex !== -1 && endIndex !== -1) {
+      const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
+      fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
+      if (!silent) process.stderr.write(`✓ Removed Konoha instructions from ${CLAUDE_MD}\n`);
+    }
+  } catch { /* ignore */ }
+}
+
+function _restoreClaudeAgents(silent) {
+  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  const backupDir = path.join(HOME, '.claude', 'agents_backup');
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+  for (const name of official) {
+    const p = path.join(claudeAgentsDir, `${name}.md`);
+    if (fileExists(p)) {
+      try { fs.unlinkSync(p); } catch { /* ignore */ }
+    }
+  }
+
+  if (!fileExists(backupDir)) return;
+  try {
+    const files = fs.readdirSync(backupDir);
+    files.forEach((file) => {
+      if (file.endsWith('.md')) {
+        const srcPath = path.join(backupDir, file);
+        const destPath = path.join(claudeAgentsDir, file);
+        fs.copyFileSync(srcPath, destPath);
+        fs.unlinkSync(srcPath);
+        if (!silent) process.stderr.write(`✓ Restored original agent: ${file}\n`);
+      }
+    });
+    fs.rmdirSync(backupDir);
+  } catch { /* ignore */ }
+}
+
 function removeClaudeCodeConfig(silent = true, options = {}) {
   const { projectRoot = null, removeProject = false } = options;
 
@@ -503,26 +596,8 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
       );
     } catch { /* ignore */ }
   }
-  if (fileExists(CLAUDE_SETTINGS)) {
-    try {
-      mergeJsonFile(
-        CLAUDE_SETTINGS,
-        (config) => {
-          const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
-          if (allowArr.length > 0) {
-            const initialLength = allowArr.length;
-            const filtered = allowArr.filter(
-              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*' && p !== 'mcp__aislop__*'
-            );
-            config.permissions.allow = filtered;
-            return filtered.length !== initialLength;
-          }
-          return false;
-        },
-        silent
-      );
-    } catch { /* ignore */ }
-  }
+
+  _cleanClaudeSettingsPermissions(silent);
 
   if (removeProject && projectRoot) {
     try {
@@ -530,57 +605,10 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
     } catch { /* ignore */ }
   }
 
-  const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
-  if (fileExists(CLAUDE_MD)) {
-    try {
-      const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
-      const startMarker = '\n<!-- KONOHA-START -->\n';
-      const endMarker = '\n<!-- KONOHA-END -->\n';
-      const startIndex = content.indexOf(startMarker);
-      const endIndex = content.indexOf(endMarker);
-      if (startIndex !== -1 && endIndex !== -1) {
-        const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
-        fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
-        if (!silent) {
-          process.stderr.write(`✓ Removed Konoha instructions from ${CLAUDE_MD}\n`);
-        }
-      }
-    } catch { /* ignore */ }
-  }
+  _removeClaudeInstructions(silent);
+  _restoreClaudeAgents(silent);
 
-  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-  const backupDir = path.join(HOME, '.claude', 'agents_backup');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
-  for (const name of official) {
-    const p = path.join(claudeAgentsDir, `${name}.md`);
-    if (fileExists(p)) {
-      try {
-        fs.unlinkSync(p);
-      } catch { /* ignore */ }
-    }
-  }
-
-  if (fileExists(backupDir)) {
-    try {
-      const files = fs.readdirSync(backupDir);
-      files.forEach((file) => {
-        if (file.endsWith('.md')) {
-          const srcPath = path.join(backupDir, file);
-          const destPath = path.join(claudeAgentsDir, file);
-          fs.copyFileSync(srcPath, destPath);
-          fs.unlinkSync(srcPath);
-          if (!silent) {
-            process.stderr.write(`✓ Restored original agent: ${file}\n`);
-          }
-        }
-      });
-      fs.rmdirSync(backupDir);
-    } catch (e) {
-      if (!silent) {
-        console.warn(`Warning during agent restore: ${e.message}`);
-      }
-    }
-  }
+  return true;
 }
 
 module.exports = {

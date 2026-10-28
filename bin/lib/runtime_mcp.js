@@ -34,6 +34,40 @@ function ensureCoreDirectories() {
   });
 }
 
+function cleanSingleTempDir(d, activeScript, activeCwd) {
+  const dLower = d.toLowerCase();
+  if (activeScript.startsWith(dLower) || activeCwd.startsWith(dLower)) return;
+  if (fileExists(d)) {
+    try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 3 }); } catch { /* best-effort */ }
+  }
+}
+
+function getTempDirs(isWin) {
+  if (isWin) {
+    const tempDirs = [];
+    if (process.env.LOCALAPPDATA) {
+      tempDirs.push(
+        path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v3', 'tmp'),
+        path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v10', 'tmp'),
+        path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v11', 'tmp'),
+        path.join(process.env.LOCALAPPDATA, 'pnpm-cache')
+      );
+    }
+    if (process.env.TEMP) {
+      tempDirs.push(path.join(process.env.TEMP, 'pnpm'), path.join(process.env.TEMP, 'npm-cache'));
+    }
+    return tempDirs;
+  }
+  return [
+    path.join(os.homedir(), '.cache', 'pnpm'),
+    path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v3', 'tmp'),
+    path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v10', 'tmp'),
+    path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v11', 'tmp'),
+    path.join(os.homedir(), 'Library', 'Caches', 'pnpm'),
+    path.join(os.homedir(), 'Library', 'pnpm', 'store', 'v11', 'tmp')
+  ];
+}
+
 function purgePackageCaches({ _ = false } = {}) {
   const isWin = process.platform === 'win32';
   const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
@@ -43,51 +77,26 @@ function purgePackageCaches({ _ = false } = {}) {
   try {
     const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
     spawnSync(pnpmCmd, ['store', 'prune'], spawnOpts);
-  } catch { /* intentional best-effort fallback */ }
+  } catch { /* best-effort */ }
 
   try {
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
     spawnSync(npmCmd, ['cache', 'clean', '--force'], spawnOpts);
-  } catch { /* intentional best-effort fallback */ }
+  } catch { /* best-effort */ }
 
   try {
     const yarnCmd = isWin ? 'yarn.cmd' : 'yarn';
     spawnSync(yarnCmd, ['cache', 'clean', '--all'], spawnOpts);
-  } catch { /* intentional best-effort fallback */ }
+  } catch { /* best-effort */ }
 
   try {
-    const tempDirs = [];
-    if (isWin) {
-      if (process.env.LOCALAPPDATA) {
-        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v3', 'tmp'));
-        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v10', 'tmp'));
-        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v11', 'tmp'));
-        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm-cache'));
-      }
-      if (process.env.TEMP) {
-        tempDirs.push(path.join(process.env.TEMP, 'pnpm'));
-        tempDirs.push(path.join(process.env.TEMP, 'npm-cache'));
-      }
-    } else {
-      tempDirs.push(path.join(os.homedir(), '.cache', 'pnpm'));
-      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v3', 'tmp'));
-      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v10', 'tmp'));
-      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v11', 'tmp'));
-      tempDirs.push(path.join(os.homedir(), 'Library', 'Caches', 'pnpm'));
-      tempDirs.push(path.join(os.homedir(), 'Library', 'pnpm', 'store', 'v11', 'tmp'));
-    }
+    const tempDirs = getTempDirs(isWin);
     const activeScript = (process.argv[1] || '').toLowerCase();
     const activeCwd = process.cwd().toLowerCase();
     for (const d of tempDirs) {
-      const dLower = d.toLowerCase();
-      if (activeScript.startsWith(dLower) || activeCwd.startsWith(dLower)) {
-        continue;
-      }
-      if (fileExists(d)) {
-        try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 3 }); } catch { /* intentional best-effort fallback */ }
-      }
+      cleanSingleTempDir(d, activeScript, activeCwd);
     }
-  } catch { /* intentional best-effort fallback */ }
+  } catch { /* best-effort */ }
 }
 
 function registerMcp(_python, silent = false, allowAutoApprove = true) {
@@ -177,162 +186,151 @@ function registerPermissions(silent = false) {
   antigravityManager.ensureAntigravityPermissions(silent);
 }
 
+function unregisterSettingsFile(settingsPath, requiredGrants, silent) {
+  if (!fileExists(settingsPath)) return;
+  let settings = {};
+  try {
+    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+  } catch {
+    return;
+  }
+
+  const allowArr = Array.isArray(settings.permissions?.allow) ? settings.permissions.allow : [];
+  if (allowArr.length === 0) return;
+
+  const initialLength = allowArr.length;
+  const filtered = allowArr.filter(grant => !requiredGrants.includes(grant));
+
+  if (filtered.length !== initialLength) {
+    settings.permissions.allow = filtered;
+    try {
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+      if (!silent) success(`Removed command permissions from: ${settingsPath}`);
+    } catch (e) {
+      if (!silent) warn(`Could not update settings.json: ${e.message}`);
+    }
+  }
+}
+
 function unregisterPermissions(silent = false) {
   const settingsPaths = [
     SETTINGS_PATH,
     path.join(HOME, '.gemini', 'settings.json')
   ];
 
+  const requiredGrants = [
+    'command(node bin/cli.js)',
+    'command(konoha)',
+    'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
+    'mcp(semble/search)',
+    'mcp(semble/find_related)',
+    'mcp(semble/*)',
+    'mcp(konoha-files/read_file_head)',
+    'mcp(konoha-files/read_file_range)',
+    'mcp(konoha-files/file_info)',
+    'mcp(konoha-files/token_efficient_grep)',
+    'mcp(konoha-files/get_file_structure)',
+    'mcp(konoha-files/find_files_clean)',
+    'mcp(konoha-files/*)',
+    'mcp(konoha/find_skill)',
+    'mcp(konoha/list_skills)',
+    'mcp(konoha/get_skill)',
+    'mcp(konoha/optimize_report)',
+    'mcp(konoha/*)',
+    'mcp(konoha/read_file_head)',
+    'mcp(konoha/read_file_range)',
+    'mcp(konoha/file_info)',
+    'mcp(konoha/token_efficient_grep)',
+    'mcp(konoha/get_file_structure)',
+    'mcp(konoha/find_files_clean)',
+    'mcp(konoha/find_skill)',
+    'mcp(konoha/list_skills)',
+    'mcp(konoha/get_skill)',
+    'mcp(konoha/optimize_report)',
+    'mcp(konoha/build_from_source)',
+    'mcp(konoha/build_from_text)',
+    'mcp(konoha/*)'
+  ];
+
   for (const settingsPath of settingsPaths) {
-    if (!fileExists(settingsPath)) continue;
-
-    let settings = {};
-    try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    } catch {
-      continue;
-    }
-
-    const allowArr = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
-    if (allowArr.length > 0) {
-      const requiredGrants = [
-        'command(node bin/cli.js)',
-        'command(konoha)',
-        'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
-        'mcp(semble/search)',
-        'mcp(semble/find_related)',
-        'mcp(semble/*)',
-        'mcp(konoha-files/read_file_head)',
-        'mcp(konoha-files/read_file_range)',
-        'mcp(konoha-files/file_info)',
-        'mcp(konoha-files/token_efficient_grep)',
-        'mcp(konoha-files/get_file_structure)',
-        'mcp(konoha-files/find_files_clean)',
-        'mcp(konoha-files/*)',
-        'mcp(konoha/find_skill)',
-        'mcp(konoha/list_skills)',
-        'mcp(konoha/get_skill)',
-        'mcp(konoha/optimize_report)',
-        'mcp(konoha/*)',
-        'mcp(konoha/read_file_head)',
-        'mcp(konoha/read_file_range)',
-        'mcp(konoha/file_info)',
-        'mcp(konoha/token_efficient_grep)',
-        'mcp(konoha/get_file_structure)',
-        'mcp(konoha/find_files_clean)',
-        'mcp(konoha/find_skill)',
-        'mcp(konoha/list_skills)',
-        'mcp(konoha/get_skill)',
-        'mcp(konoha/optimize_report)',
-        'mcp(konoha/build_from_source)',
-        'mcp(konoha/build_from_text)',
-        'mcp(konoha/*)'
-      ];
-
-      const initialLength = allowArr.length;
-      const filtered = allowArr.filter(
-        (grant) => !requiredGrants.includes(grant)
-      );
-
-      if (filtered.length !== initialLength) {
-        settings.permissions.allow = filtered;
-        try {
-          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-          if (!silent) {
-            success(`Removed command permissions from: ${settingsPath}`);
-          }
-        } catch (e) {
-          if (!silent) {
-            warn(`Could not update settings.json: ${e.message}`);
-          }
-        }
-      }
-    }
+    unregisterSettingsFile(settingsPath, requiredGrants, silent);
   }
+}
+
+function readHooksConfig(configPath) {
+  if (!fileExists(configPath)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (_) {
+    try {
+      fs.copyFileSync(configPath, configPath + '.corrupt-' + Date.now());
+      warn(`Existing hooks.json was invalid JSON — backed up to ${configPath}.corrupt-*`);
+    } catch (_) { /* best-effort */ }
+    return {};
+  }
+}
+
+function applyPromptAndSanitizeHooks(config) {
+  const promptHookPath = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
+  const subagentHookPath = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
+  const sanitizeHookPath = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
+
+  delete config['konoha-subagent-hook'];
+  config['konoha-prompt-hook'] = {
+    PreInvocation: [
+      { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
+      { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
+    ],
+  };
+  config['konoha-tool-sanitize'] = {
+    PreToolUse: [
+      {
+        matcher: 'define_subagent|invoke_subagent',
+        hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
+      },
+    ],
+  };
 }
 
 function registerHooks(silent = false, allowHooks) {
   const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
   ensureDir(path.dirname(HOOKS_CONFIG_PATH));
 
-  let config = {};
-  if (fileExists(HOOKS_CONFIG_PATH)) {
-    try {
-      config = JSON.parse(fs.readFileSync(HOOKS_CONFIG_PATH, 'utf-8'));
-    } catch (_) {
-      try {
-        fs.copyFileSync(HOOKS_CONFIG_PATH, HOOKS_CONFIG_PATH + '.corrupt-' + Date.now());
-        warn(`Existing hooks.json was invalid JSON — backed up to ${HOOKS_CONFIG_PATH}.corrupt-*`);
-      } catch (_) { /* intentional best-effort fallback */ }
-      config = {};
-    }
-  }
-
-  const promptHookPath = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
-  const subagentHookPath = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
-  const sanitizeHookPath = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
+  const config = readHooksConfig(HOOKS_CONFIG_PATH);
   const hookExists = config['konoha-prompt-hook'] !== undefined;
   const sanitizeExists = config['konoha-tool-sanitize'] !== undefined;
   const legacySubagentHook = config['konoha-subagent-hook'] !== undefined;
-
   let shouldWrite = false;
 
-  const applyPromptAndSanitizeHooks = () => {
-    delete config['konoha-subagent-hook'];
-    config['konoha-prompt-hook'] = {
-      PreInvocation: [
-        { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
-        { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
-      ],
-    };
-    config['konoha-tool-sanitize'] = {
-      PreToolUse: [
-        {
-          matcher: 'define_subagent|invoke_subagent',
-          hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
-        },
-      ],
-    };
+  if (allowHooks === true || (allowHooks === undefined && hookExists)) {
+    applyPromptAndSanitizeHooks(config);
     shouldWrite = true;
-  };
-
-  if (allowHooks === true) {
-    applyPromptAndSanitizeHooks();
   } else if (allowHooks === false) {
-    if (hookExists) {
-      delete config['konoha-prompt-hook'];
-      shouldWrite = true;
-    }
-    if (sanitizeExists) {
-      delete config['konoha-tool-sanitize'];
-      shouldWrite = true;
-    }
-    if (legacySubagentHook) {
-      delete config['konoha-subagent-hook'];
-      shouldWrite = true;
-    }
-  } else if (allowHooks === undefined) {
-    if (hookExists) {
-      applyPromptAndSanitizeHooks();
-    }
+    if (hookExists) { delete config['konoha-prompt-hook']; shouldWrite = true; }
+    if (sanitizeExists) { delete config['konoha-tool-sanitize']; shouldWrite = true; }
+    if (legacySubagentHook) { delete config['konoha-subagent-hook']; shouldWrite = true; }
   }
 
-  if (shouldWrite) {
-    try {
-      fs.writeFileSync(HOOKS_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-      if (!silent) {
-        if (allowHooks === false) {
-          success(`Removed prompt hook from: ${HOOKS_CONFIG_PATH}`);
-        } else {
-          success(`Registered prompt hook in: ${HOOKS_CONFIG_PATH}`);
-        }
-      }
-    } catch (e) {
-      if (!silent) {
-        warn(`Could not update hooks.json: ${e.message}`);
-      }
+  if (!shouldWrite) return;
+  try {
+    fs.writeFileSync(HOOKS_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
+    if (!silent) {
+      success(allowHooks === false ? `Removed prompt hook from: ${HOOKS_CONFIG_PATH}` : `Registered prompt hook in: ${HOOKS_CONFIG_PATH}`);
     }
+  } catch (e) {
+    if (!silent) warn(`Could not update hooks.json: ${e.message}`);
   }
+}
+
+function parseToolsFromSmokeStdout(stdout) {
+  const lines = (stdout || '').trim().split('\n').filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(lines[i]);
+      if (Array.isArray(parsed.result?.tools)) return parsed.result.tools;
+    } catch (_) { /* ignore */ }
+  }
+  return null;
 }
 
 function smokeTestKonohaFilesMcp(useLauncher = false) {
@@ -342,24 +340,15 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
 
   const cleanEnv = Object.assign({}, process.env);
   for (const k of Object.keys(cleanEnv)) {
-    if (k.toUpperCase() === 'KONOHA_DAEMON') {
-      delete cleanEnv[k];
-    }
+    if (k.toUpperCase() === 'KONOHA_DAEMON') delete cleanEnv[k];
   }
 
   const input = [
     JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
+      jsonrpc: '2.0', id: 1, method: 'initialize',
       params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'konoha-smoke', version: '2.2.1' } }
     }),
-    JSON.stringify({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/list',
-      params: {}
-    }),
+    JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     ''
   ].join('\n');
 
@@ -368,20 +357,13 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     const entry = deployUtils.buildKonohaFilesMcpEntry('execPath');
     if (entry) {
       run = spawnSync(entry.command, entry.args, {
-        input,
-        encoding: 'utf-8',
-        timeout: 15000,
-        env: cleanEnv,
-        shell: process.platform === 'win32'
+        input, encoding: 'utf-8', timeout: 15000, env: cleanEnv, shell: process.platform === 'win32'
       });
     }
   }
   if (!run || run.status !== 0) {
     run = spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
-      input,
-      encoding: 'utf-8',
-      timeout: 15000,
-      env: cleanEnv
+      input, encoding: 'utf-8', timeout: 15000, env: cleanEnv
     });
   }
 
@@ -389,25 +371,11 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     return { ok: false, error: (run.stderr || '').trim() || `exit code ${run.status}` };
   }
 
-  try {
-    const lines = (run.stdout || '').trim().split('\n').filter(Boolean);
-    let tools = null;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const parsed = JSON.parse(lines[i]);
-        if (parsed.result && Array.isArray(parsed.result.tools)) {
-          tools = parsed.result.tools;
-          break;
-        }
-      } catch (_) { /* ignore parse errors on non-json lines */ }
-    }
-    if (!Array.isArray(tools) || tools.length < 4) {
-      return { ok: false, error: `tools/list returned ${tools ? tools.length : 0} tools` };
-    }
-    return { ok: true, toolCount: tools.length };
-  } catch (err) {
-    return { ok: false, error: err.message };
+  const tools = parseToolsFromSmokeStdout(run.stdout);
+  if (!Array.isArray(tools) || tools.length < 4) {
+    return { ok: false, error: `tools/list returned ${tools ? tools.length : 0} tools` };
   }
+  return { ok: true, toolCount: tools.length };
 }
 
 function installFileTools(silent = true) {

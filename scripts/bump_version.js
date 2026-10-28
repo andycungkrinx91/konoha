@@ -46,7 +46,7 @@ function replaceInFile(relPath, pattern, replacement) {
   return count;
 }
 
-function getManagedFileList(version) {
+function getPackageFiles(version) {
   return [
     {
       path: 'package.json',
@@ -85,6 +85,16 @@ function getManagedFileList(version) {
       }
     },
     {
+      path: 'apps/web/src/routes/+layout.svelte',
+      check: (c) => c.includes(`version: '${version}'`),
+      bump: (oldV, newV) => replaceInFile('apps/web/src/routes/+layout.svelte', new RegExp(`version: '${oldV}'`, 'g'), `version: '${newV}'`)
+    }
+  ];
+}
+
+function getTemplateAndConfigFiles(version) {
+  return [
+    {
       path: 'Dockerfile',
       check: (c) => c.includes(`(v${version})`),
       bump: (oldV, newV) => replaceInFile('Dockerfile', new RegExp(`\\(v${oldV}\\)`, 'g'), `(v${newV})`)
@@ -118,12 +128,12 @@ function getManagedFileList(version) {
       path: '.omp/AGENTS.md',
       check: (c) => c.includes(`## Konoha runtime contract (${version})`),
       bump: (oldV, newV) => replaceInFile('.omp/AGENTS.md', new RegExp(`## Konoha runtime contract \\(${oldV}\\)`, 'g'), `## Konoha runtime contract (${newV})`)
-    },
-    {
-      path: 'apps/web/src/routes/+layout.svelte',
-      check: (c) => c.includes(`version: '${version}'`),
-      bump: (oldV, newV) => replaceInFile('apps/web/src/routes/+layout.svelte', new RegExp(`version: '${oldV}'`, 'g'), `version: '${newV}'`)
-    },
+    }
+  ];
+}
+
+function getDocumentationFiles(version) {
+  return [
     {
       path: 'README.md',
       check: (c) => c.includes(`Release-v${version}-blue`) && c.includes(`[v${version}](CHANGELOG.md)`),
@@ -211,6 +221,14 @@ function getManagedFileList(version) {
         return 1;
       }
     }
+  ];
+}
+
+function getManagedFileList(version) {
+  return [
+    ...getPackageFiles(version),
+    ...getTemplateAndConfigFiles(version),
+    ...getDocumentationFiles(version)
   ];
 }
 

@@ -46,7 +46,9 @@ function isCodexInstalled() {
 
 // Config Helpers
 
-function getCodexConfigPath() {
+function getCodexConfigPath(options = {}) {
+  if (options.configPath) return options.configPath;
+  if (options.home) return path.join(options.home, '.codex', 'config.toml');
   return CODEX_CONFIG;
 }
 
@@ -54,6 +56,16 @@ function getCodexConfigPath() {
  * Parses basic TOML for MCP server detection.
  * Returns an object with mcp_servers map.
  */
+function parseTomlStringArray(rawArgs) {
+  const parsed = [];
+  const argItemRegex = /["']([^"']+)["']/g;
+  let m;
+  while ((m = argItemRegex.exec(rawArgs)) !== null) {
+    parsed.push(m[1]);
+  }
+  return parsed;
+}
+
 function parseCodexToml(content) {
   const result = { mcp_servers: {} };
   if (!content || typeof content !== 'string') return result;
@@ -80,37 +92,26 @@ function parseCodexToml(content) {
       continue;
     }
 
-    if (currentServer) {
-      const cmdMatch = rawLine.match(/^command\s*=\s*["']([^"']+)["']/i);
-      if (cmdMatch) {
-        result.mcp_servers[currentServer].command = cmdMatch[1];
-      }
+    if (!currentServer) continue;
 
-      const argsMatch = rawLine.match(/^args\s*=\s*\[(.*)\]/i);
-      if (argsMatch) {
-        const rawArgs = argsMatch[1];
-        const parsedArgs = [];
-        const argItemRegex = /["']([^"']+)["']/g;
-        let m;
-        while ((m = argItemRegex.exec(rawArgs)) !== null) {
-          parsedArgs.push(m[1]);
-        }
-        result.mcp_servers[currentServer].args = parsedArgs;
-      }
-    }
+    const cmdMatch = rawLine.match(/^command\s*=\s*["']([^"']+)["']/i);
+    if (cmdMatch) result.mcp_servers[currentServer].command = cmdMatch[1];
+
+    const argsMatch = rawLine.match(/^args\s*=\s*\[(.*)\]/i);
+    if (argsMatch) result.mcp_servers[currentServer].args = parseTomlStringArray(argsMatch[1]);
   }
 
   return result;
 }
 
-function readCodexConfig() {
-  const configPath = getCodexConfigPath();
+function readCodexConfig(options = {}) {
+  const configPath = getCodexConfigPath(options);
   if (!fileExists(configPath)) return '';
   return fs.readFileSync(configPath, 'utf-8');
 }
 
-function writeCodexConfig(content) {
-  const configPath = getCodexConfigPath();
+function writeCodexConfig(content, options = {}) {
+  const configPath = getCodexConfigPath(options);
   ensureDir(path.dirname(configPath));
   const bakPath = `${configPath}.bak`;
   if (fileExists(configPath) && !fileExists(bakPath)) {
@@ -152,26 +153,18 @@ const KONOHA_TOOLS = getKonohaToolNames();
 const SEMBLE_TOOLS = ['search', 'find_related'];
 const AISLOP_TOOLS = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 
-/**
- * Injects or replaces [mcp_servers.konoha], [mcp_servers.semble], and [mcp_servers.aislop] in TOML content.
- */
-function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
-  const pythonExecutable = pythonCmd || 'python3';
-  const serverEntryPoint = serverPath || SERVER_PATH;
-  const uvxExecutable = uvxCmd || 'uvx';
-  const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
-  // Remove existing managed blocks ([mcp_servers.*], [mcp.*], [agents.*]) and top-level managed keys
+function _filterExistingCodexToml(existingToml) {
   const lines = (existingToml || '').split('\n');
   const preservedLines = [];
   const userOwnedAgentNames = new Set();
+  const userFeatureLines = [];
   let skippingManagedSection = false;
   let hasSeenSection = false;
+  let inFeaturesTable = false;
 
   const MANAGED_SECTION_PATTERNS = [
     /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
     /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
-    // Only strip agent tables Konoha manages — never the user's own agents
     /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)(\..*)?\]/i
   ];
 
@@ -187,163 +180,110 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     /^auto_approve_tools\s*=/i
   ];
 
-  // [features] is merged, not replaced: Konoha's two keys are stripped here and
-  // re-emitted in the featuresBlock below together with the user's own keys
-  let inFeaturesTable = false;
-  const userFeatureLines = [];
-
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
-    if (
-      rawLine === '# Official Konoha Ninja Agents' ||
-      rawLine.includes('A user prompt or conversation resume action')
-    ) {
+    if (rawLine === '# Official Konoha Ninja Agents' || rawLine.includes('A user prompt or conversation resume action')) {
       continue;
     }
 
     if (rawLine.startsWith('[')) {
       hasSeenSection = true;
       if (/^\[features\]/i.test(rawLine)) {
-        // Drop the header here — the merged featuresBlock re-emits it with the
-        // user's keys preserved (see userFeatureLines)
         inFeaturesTable = true;
         skippingManagedSection = false;
         continue;
       }
       inFeaturesTable = false;
-      const isManaged = MANAGED_SECTION_PATTERNS.some(p => p.test(rawLine));
-      if (isManaged) {
+      if (MANAGED_SECTION_PATTERNS.some(p => p.test(rawLine))) {
         skippingManagedSection = true;
         continue;
-      } else {
-        skippingManagedSection = false;
-        const userAgentMatch = rawLine.match(/^\[agents\.([a-zA-Z0-9_-]+)(?:\..*)?\]/i);
-        if (userAgentMatch) {
-          userOwnedAgentNames.add(userAgentMatch[1]);
-        }
-        preservedLines.push(lines[i]);
-        continue;
       }
+      skippingManagedSection = false;
+      const userAgentMatch = rawLine.match(/^\[agents\.([a-zA-Z0-9_-]+)(?:\..*)?\]/i);
+      if (userAgentMatch) userOwnedAgentNames.add(userAgentMatch[1]);
+      preservedLines.push(lines[i]);
+      continue;
     }
 
     if (inFeaturesTable) {
-      if (/^skip_host_skill_discovery\s*=/i.test(rawLine) || /^skill_search\s*=/i.test(rawLine)) {
-        continue;
+      if (!(/^skip_host_skill_discovery\s*=/i.test(rawLine) || /^skill_search\s*=/i.test(rawLine))) {
+        userFeatureLines.push(lines[i]);
       }
-      userFeatureLines.push(lines[i]);
       continue;
     }
 
-    if (skippingManagedSection) {
-      continue;
-    }
-
-    if (!hasSeenSection) {
-      if (TOP_LEVEL_MANAGED_KEYS.some(k => k.test(rawLine))) {
-        continue;
-      }
-    }
-
+    if (skippingManagedSection) continue;
+    if (!hasSeenSection && TOP_LEVEL_MANAGED_KEYS.some(k => k.test(rawLine))) continue;
     preservedLines.push(lines[i]);
   }
 
-  const cleaned = preservedLines.join('\n').trim();
+  return { cleaned: preservedLines.join('\n').trim(), userOwnedAgentNames, userFeatureLines };
+}
 
-  const topDefaults = [
-    'suppress_unstable_features_warning = true'
-  ];
-  const topFlags = topDefaults.join('\n');
-
-  const resolvedUvx = uvxExecutable;
-
-  // Resolve aislop-mcp path
-  let resolvedAislopCmd = npxExecutable;
-  let resolvedAislopArgs = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
+function _resolveAislopCommand(npxExecutable) {
+  let cmd = npxExecutable;
+  let args = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
-    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
-    if (whichAislop.status === 0 && whichAislop.stdout.trim()) {
-      resolvedAislopCmd = whichAislop.stdout.trim().split('\n')[0].trim();
-      resolvedAislopArgs = [];
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
+    if (whichRes.status === 0 && whichRes.stdout.trim()) {
+      cmd = whichRes.stdout.trim().split('\n')[0].trim();
+      args = [];
     }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
+  return { cmd, args };
+}
 
-  const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
-  const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
-  const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
-
+function _buildCodexMcpSection(cfg) {
+  const { pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines } = cfg;
+  const tomlStr = (v) => `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   const normPython = normalizeCommand(pythonExecutable);
   const konohaArgs = [...normPython.prefixArgs, serverEntryPoint];
-  // TOML basic strings treat '\' as an escape char — escape all command/arg paths
-  const tomlStr = (v) => `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
   const konohaBlock = [
     '[mcp_servers.konoha]',
     `command = ${tomlStr(normPython.executable)}`,
     `args = [${konohaArgs.map(tomlStr).join(', ')}]`,
-    'startup_timeout_sec = 30',
-    'tool_timeout_sec = 60',
-    'default_tools_approval_mode = "auto"',
-    '',
-    '[mcp_servers.konoha.env]',
-    'ACTIVE_CLIENT = "codex"',
-    'KONOHA_CLIENT = "codex"',
-    'KONOHA_SEMANTIC_SEARCH = "1"'
+    'startup_timeout_sec = 30', 'tool_timeout_sec = 60', 'default_tools_approval_mode = "auto"',
+    '', '[mcp_servers.konoha.env]',
+    'ACTIVE_CLIENT = "codex"', 'KONOHA_CLIENT = "codex"', 'KONOHA_SEMANTIC_SEARCH = "1"'
   ].join('\n');
+
+  const { cmd: aislopCmd, args: aislopArgs } = _resolveAislopCommand(npxExecutable);
+  const aislopBlock = [
+    '[mcp_servers.aislop]',
+    `command = ${tomlStr(aislopCmd)}`,
+    `args = [${aislopArgs.map(tomlStr).join(', ')}]`,
+    'startup_timeout_sec = 30', 'tool_timeout_sec = 60', 'default_tools_approval_mode = "auto"'
+  ].join('\n');
+
+  const featuresBlock = ['[features]', 'skip_host_skill_discovery = true', 'skill_search = false', ...userFeatureLines].join('\n');
+  const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
+  const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
   const sembleBlock = [
     '[mcp_servers.semble]',
-    `command = ${tomlStr(resolvedUvx)}`,
+    `command = ${tomlStr(uvxExecutable)}`,
     `args = ["--from", "${SEMBLE_PACKAGE}", "semble", "--content", "all"]`,
-    'startup_timeout_sec = 30',
-    'tool_timeout_sec = 60',
-    'default_tools_approval_mode = "auto"'
+    'startup_timeout_sec = 30', 'tool_timeout_sec = 60', 'default_tools_approval_mode = "auto"'
   ].join('\n');
+  const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
-  const aislopBlock = [
-    '[mcp_servers.aislop]',
-    `command = ${tomlStr(resolvedAislopCmd)}`,
-    `args = [${resolvedAislopArgs.map(tomlStr).join(', ')}]`,
-    'startup_timeout_sec = 30',
-    'tool_timeout_sec = 60',
-    'default_tools_approval_mode = "auto"'
+  return [
+    konohaBlock, '', konohaToolBlocks,
+    '', sembleBlock, '', sembleToolBlocks,
+    '', aislopBlock, '', aislopToolBlocks, '', featuresBlock
   ].join('\n');
+}
 
-  const featuresBlock = [
-    '[features]',
-    'skip_host_skill_discovery = true',
-    'skill_search = false',
-    ...userFeatureLines
-  ].join('\n');
-
-  // Only include semble when uvx is actually usable
-  const uvxAvailable = (() => {
-    try {
-      const res = spawnSync(resolvedUvx, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
-      return res.status === 0;
-    } catch { return false; }
-  })();
-
-  // Notice: Parent table headers MUST precede sub-tables in valid TOML
-  const mcpSection = [
-    konohaBlock,
-    '',
-    konohaToolBlocks,
-    ...(uvxAvailable ? ['', sembleBlock, '', sembleToolBlocks] : []),
-    '',
-    aislopBlock,
-    '',
-    aislopToolBlocks,
-    '',
-    featuresBlock
-  ].join('\n');
-
-  const agents = (() => {
-    try {
-      const { loadAgents } = require('./agent_manager');
-      return loadAgents();
-    } catch {
-      return [];
-    }
-  })();
+function _buildCodexAgentBlocks(userOwnedAgentNames) {
+  let agents = [];
+  try {
+    const { loadAgents } = require('./agent_manager');
+    agents = loadAgents();
+  } catch {
+    agents = [];
+  }
 
   const DEFAULT_ROLE_DESCRIPTIONS = {
     'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
@@ -355,11 +295,10 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
   };
 
-
   const emittedAgentNames = new Set();
-  const agentBlocks = agents
+  return agents
     .filter(a => {
-      if (!a || !a.name || !VALID_AGENT_NAME.test(a.name)) return false;
+      if (!a?.name || !VALID_AGENT_NAME.test(a.name)) return false;
       if (a.name.startsWith('mcp_') || a.name.startsWith('cli-test-')) return false;
       if (userOwnedAgentNames.has(a.name)) return false;
       if (emittedAgentNames.has(a.name)) return false;
@@ -368,40 +307,60 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     })
     .map(a => {
       const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
-      return [
-        `[agents.${a.name}]`,
-        `description = "${desc}"`,
-        `prompt = "file:~/.codex/agents/${a.name}.md"`
-      ].join('\n');
+      return `[agents.${a.name}]\ndescription = "${desc}"\nprompt = "file:~/.codex/agents/${a.name}.md"`;
     })
     .join('\n\n');
+}
 
+/**
+ * Injects or replaces [mcp_servers.konoha], [mcp_servers.semble], and [mcp_servers.aislop] in TOML content.
+ */
+function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
+  const pythonExecutable = pythonCmd || 'python3';
+  const serverEntryPoint = serverPath || SERVER_PATH;
+  const uvxExecutable = uvxCmd || 'uvx';
+  const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
+  const { cleaned, userOwnedAgentNames, userFeatureLines } = _filterExistingCodexToml(existingToml);
+  const mcpSection = _buildCodexMcpSection({
+    pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines
+  });
+  const agentBlocks = _buildCodexAgentBlocks(userOwnedAgentNames);
+
+  const topFlags = 'suppress_unstable_features_warning = true';
   const extraSections = [
     mcpSection,
     agentBlocks ? `# Official Konoha Ninja Agents\n${agentBlocks}` : ''
   ].filter(Boolean).join('\n\n');
 
-  if (cleaned.length === 0) {
-    return `${topFlags}\n\n${extraSections}\n`;
-  }
-
+  if (cleaned.length === 0) return `${topFlags}\n\n${extraSections}\n`;
   return `${topFlags}\n\n${cleaned}\n\n${extraSections}\n`;
 }
 
 // MCP Server Registration
 
-function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
+function _resolveUvxPath(uvxCmd) {
+  let resolvedUvx = uvxCmd || 'uvx';
   try {
-    const existing = readCodexConfig();
-    let resolvedUvx = uvxCmd || 'uvx';
-    try {
-      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
-      if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
-        resolvedUvx = whichUvx.stdout.trim().split('\n')[0].trim();
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    let updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
-    writeCodexConfig(updated);
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const whichUvx = spawnSync(whichCmd, [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
+    if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
+      return whichUvx.stdout.trim().split('\n')[0].trim();
+    }
+  } catch { /* best-effort */ }
+  return resolvedUvx;
+}
+
+function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+  if (typeof silent === 'object' && silent !== null) {
+    options = silent;
+    silent = options.silent !== false;
+  }
+  try {
+    const existing = readCodexConfig(options);
+    const resolvedUvx = _resolveUvxPath(uvxCmd);
+    const updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
+    writeCodexConfig(updated, options);
 
     if (!silent) {
       process.stderr.write('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml\n');
@@ -526,23 +485,18 @@ function removeCodexConfig(silent = true) {
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
-      if (
-        /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine) ||
-        /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine)
-      ) {
+      const isBlockStart = /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine) ||
+                           /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine);
+      if (isBlockStart) {
         skippingBlock = true;
         continue;
       }
 
-      if (skippingBlock) {
-        if (rawLine.startsWith('[')) {
-          skippingBlock = false;
-        } else {
-          continue;
-        }
+      if (skippingBlock && rawLine.startsWith('[')) {
+        skippingBlock = false;
       }
 
-      filteredLines.push(lines[i]);
+      if (!skippingBlock) filteredLines.push(lines[i]);
     }
 
     const cleaned = filteredLines.join('\n').trim();
@@ -551,7 +505,7 @@ function removeCodexConfig(silent = true) {
     if (!silent) {
       process.stderr.write('  ✓ Removed Konoha MCP servers from Codex config.toml\n');
     }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* best-effort */ }
 }
 
 // Main Setup Function
@@ -561,10 +515,12 @@ function ensureCodexSetup(options = {}) {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    silent = true
+    silent = true,
+    force = false,
+    skipDetection = false
   } = options;
 
-  if (!isCodexInstalled()) {
+  if (!force && !skipDetection && !isCodexInstalled()) {
     return { ok: false, reason: 'codex-not-installed' };
   }
 
@@ -582,7 +538,7 @@ function ensureCodexSetup(options = {}) {
     return { ok: false, reason: 'konoha-server-not-installed' };
   }
 
-  const mcpResult = registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent);
+  const mcpResult = registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, options);
   if (!mcpResult.ok) {
     return { ok: false, reason: mcpResult.reason || 'codex-mcp-registration-failed' };
   }

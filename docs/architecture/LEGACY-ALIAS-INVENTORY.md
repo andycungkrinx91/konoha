@@ -172,3 +172,84 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 * **External Consumers:** Legacy scripts and user shell history.
 * **Status:** COMPLETED / REMOVED in v2.1.18. Strict canonical routing enforced.
 
+---
+
+### Item 8: Cloudflare Tunnel & ngrok Integration Subsystem
+
+* **Legacy Identifiers:**
+  - `src/tunnel/manager.js`
+  - `src/tunnel/config.js`
+  - `src/tunnel/security.js`
+  - `bin/commands/tunnel.js`
+  - CLI `konoha tunnel <status|start|stop|config>`
+  - HTTP endpoints: `/api/v1/tunnel/*`
+  - Web UI: RemoteAccess Cloudflare Tunnel card
+  - SQLite table: `tunnel_config`
+* **Type:** External Ingress / Tunnel Subsystem
+* **Current Usage:** Retired in canonical architecture in favor of local stdio MCP and authenticated local HTTP.
+* **Canonical Replacement:** Local stdio MCP and authenticated local HTTP console; zero remote tunnel dependencies.
+* **Internal Consumers:** Removed across `bin/cli.js`, `src/web_server.js`, `src/web/controllers/`, `src/db_schema.js`.
+* **External Consumers:** None.
+* **Status:** PURGED / REMOVED. Database table `tunnel_config` dropped via transactional migration.
+
+---
+
+### Item 9: Legacy Skill Name Normalizer (`deep-code-explorer`)
+
+* **Legacy Identifier:** `deep-code-explorer`
+* **Type:** Skill Name Compatibility Alias
+* **Current Usage:** Handled in `normalizeLegacySkillName` in `src/mcp/skills_common.js`.
+* **Canonical Replacement:** `genin-skill`
+* **Internal Consumers:** `src/mcp/skills_common.js`, `src/canonical_skills.js`.
+* **External Consumers:** Pre-v2.0 project skill configurations.
+* **Status:** CANONICAL MAPPING MAINTAINED (1:1 redirect to `genin-skill`).
+
+---
+
+### Item 10: `build_with_image_design` MCP Tool Alias
+
+* **Legacy Identifier:** `build_with_image_design`
+* **Type:** MCP Tool Dispatch Alias
+* **Current Usage:** Deprecated alias pointing to `build_from_source`.
+* **Canonical Replacement:** `build_from_source`
+* **Internal Consumers:** Router dispatch compatibility in `src/file_tools_router.js`.
+* **External Consumers:** Older prompt directives.
+* **Status:** PRUNED from advertised schemas; canonicalized to `build_from_source`.
+
+---
+
+### Item 11: `tunnel_config` Database Table
+
+* **Legacy Identifier:** `tunnel_config` SQLite table
+* **Type:** Relational Database Table
+* **Current Usage:** Dropped in canonical schema (`src/db_schema.js`).
+* **Canonical Replacement:** None (tunnel feature removed).
+* **Internal Consumers:** None.
+* **External Consumers:** None.
+* **Status:** DROPPED via `DROP TABLE IF EXISTS tunnel_config`.
+
+---
+
+### Item 12: Telegram Transport Constraints
+
+* **Legacy Identifiers:** `cloudflare`, `ngrok` values in `telegram_config.transport`
+* **Type:** Database Schema CHECK Constraint
+* **Current Usage:** `transport` column in `telegram_config`.
+* **Canonical Replacement:** `polling`
+* **Internal Consumers:** `src/telegram/config.js`, `src/telegram/poller.js`.
+* **External Consumers:** None.
+* **Status:** CONSTRAINED to `'polling'`.
+
+---
+
+### Item 13: File-Based IPC Fallback (`prompt.md`, `delegate.md`, `result.md`)
+
+* **Legacy Identifiers:** File-based IPC scratch files in workspace
+* **Type:** Process Communication Pattern
+* **Current Usage:** Replaced by structured JSON-RPC MCP tool calls. Isolated scratch directories strictly confined to `~/.konoha/tmp/`.
+* **Canonical Replacement:** Structured MCP tool parameters (`task`, `context`, `constraints`, `skills`).
+* **Internal Consumers:** `src/mcp/memory_reporting.js`, `src/mcp/tool_dispatch.js`.
+* **External Consumers:** None.
+* **Status:** ISOLATED & DEPRECATED in workspace; MCP JSON-RPC canonical.
+
+

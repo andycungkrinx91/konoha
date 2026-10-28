@@ -17,53 +17,56 @@ const platform = require('../../src/platform_utils');
 
 let rlInstance = null;
 
+function getReadlineInterface() {
+  if (!rlInstance) {
+    rlInstance = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+  return rlInstance;
+}
+
+function setupRawEscape(onEscape) {
+  const wasRaw = Boolean(process.stdin?.isRaw);
+  if (process.stdin && !wasRaw && typeof process.stdin.setRawMode === 'function') {
+    process.stdin.setRawMode(true);
+  }
+  const onData = (data) => {
+    if (data.toString() === '\u001b') onEscape();
+  };
+  if (process.stdin) {
+    process.stdin.resume();
+    process.stdin.on('data', onData);
+  }
+  return function cleanup() {
+    if (!process.stdin) return;
+    process.stdin.removeListener('data', onData);
+    if (!wasRaw && typeof process.stdin.setRawMode === 'function') {
+      process.stdin.setRawMode(false);
+    }
+  };
+}
+
 function askQuestion(query) {
   return new Promise((resolve) => {
-    if (!rlInstance) {
-      rlInstance = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
-    }
-
+    const rl = getReadlineInterface();
     let resolved = false;
 
-    const onData = (data) => {
-      const str = data.toString();
-      if (str === '\u001b') {
-        cleanup();
-        resolved = true;
-        closeReadline();
-        process.stdout.write('\n');
-        resolve('ESC');
-      }
-    };
-
-    const wasRaw = process.stdin && process.stdin.isRaw;
-    if (process.stdin && !wasRaw && typeof process.stdin.setRawMode === 'function') {
-      process.stdin.setRawMode(true);
-    }
-    if (process.stdin) {
-      process.stdin.resume();
-      process.stdin.on('data', onData);
-    }
-
-    rlInstance.question(query, (answer) => {
-      if (!resolved) {
-        cleanup();
-        resolved = true;
-        resolve(answer.trim());
-      }
+    const cleanup = setupRawEscape(() => {
+      cleanup();
+      resolved = true;
+      closeReadline();
+      process.stdout.write('\n');
+      resolve('ESC');
     });
 
-    function cleanup() {
-      if (process.stdin) {
-        process.stdin.removeListener('data', onData);
-        if (!wasRaw && typeof process.stdin.setRawMode === 'function') {
-          process.stdin.setRawMode(false);
-        }
-      }
-    }
+    rl.question(query, (answer) => {
+      if (resolved) return;
+      cleanup();
+      resolved = true;
+      resolve(answer.trim());
+    });
   });
 }
 

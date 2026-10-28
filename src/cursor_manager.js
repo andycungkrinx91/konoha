@@ -20,7 +20,7 @@ const PROJECT_CURSOR_DIR = '.cursor';
 const CURSOR_FALLBACK_MODEL = 'inherit';
 
 const CURSOR_RULES_GLOBAL = path.join(CURSOR_DIR, 'rules');
-const CURSOR_RTK_RULE_SRC = path.join(__dirname, '..', '.cursor', 'rules', 'rtk.mdc');
+const CURSOR_RTK_RULE_SRC = path.join(__dirname, 'templates', 'rules', 'rtk.mdc');
 
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
 const {
@@ -31,29 +31,26 @@ const {
 
 // isRtkInstalled is imported from platform_utils
 
-function deployCursorRtkRule(silent = true) {
+function deployCursorRtkRule(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const targetRulesDir = path.join(home, '.cursor', 'rules');
+
   const rtkCmd = getRtkCommand();
-  if (!rtkCmd) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
+  if (!rtkCmd) return { ok: false, reason: 'rtk-not-installed' };
   try {
     spawnSync(rtkCmd, ['init', '-g', '--agent', 'cursor', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit',
-      shell: process.platform === 'win32',
-      windowsHide: true
+      encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', shell: process.platform === 'win32', windowsHide: true
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  if (!fileExists(CURSOR_RTK_RULE_SRC)) {
-    return { ok: false, reason: 'rtk-rule-template-missing' };
-  }
+  if (!fileExists(CURSOR_RTK_RULE_SRC)) return { ok: false, reason: 'rtk-rule-template-missing' };
 
-  ensureDir(CURSOR_RULES_GLOBAL);
-  const dest = path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc');
+  ensureDir(targetRulesDir);
+  const dest = path.join(targetRulesDir, 'rtk.mdc');
   try {
     fs.copyFileSync(CURSOR_RTK_RULE_SRC, dest);
-    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    if (!isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
@@ -61,13 +58,7 @@ function deployCursorRtkRule(silent = true) {
 }
 
 function isCursorInstalled() {
-  return (
-    isCommandAvailable('cursor') ||
-    isCommandAvailable('agent') ||
-    fileExistsCached(CURSOR_DIR) ||
-    fileExistsCached(CURSOR_MCP_GLOBAL) ||
-    fileExistsCached(CURSOR_MCP_LEGACY)
-  );
+  return isCommandAvailable('cursor') || isCommandAvailable('agent') || fileExistsCached(CURSOR_DIR) || fileExistsCached(CURSOR_MCP_GLOBAL) || fileExistsCached(CURSOR_MCP_LEGACY);
 }
 
 function adaptInstructionsForCursor(instructions) {
@@ -155,17 +146,32 @@ NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view sec
   return buildManagedContract(body, contractText);
 }
 
+function _resolveUvxAvailable(uvxCmd) {
+  try {
+    return spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true }).status === 0;
+  } catch { return false; }
+}
 
+function _resolveAislopMcpConfig(npxCmd) {
+  const isWin = process.platform === 'win32';
+  let cmd = npxCmd, args = ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
+  try {
+    const whichRes = spawnSync(isWin ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000, windowsHide: true });
+    if (whichRes.status === 0 && whichRes.stdout.trim()) {
+      const binPath = whichRes.stdout.trim().split('\n')[0].trim();
+      if (binPath && fileExists(binPath)) { cmd = binPath; args = []; }
+    }
+  } catch { /* best-effort */ }
+  return {
+    type: 'stdio', command: cmd, args,
+    autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+    auto_approve: true
+  };
+}
 
 function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  // Only register semble when uvx is actually usable
-  const uvxAvailable = (() => {
-    try {
-      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
-      return res.status === 0;
-    } catch { return false; }
-  })();
+  const uvxAvailable = _resolveUvxAvailable(uvxCmd);
   const servers = {
     ...(uvxAvailable ? {
       semble: {
@@ -176,29 +182,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
         auto_approve: true
       }
     } : {}),
-    aislop: (() => {
-      const isWin = process.platform === 'win32';
-      let cmd = npxCmd;
-      let args = ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
-      try {
-        const whichCmd = isWin ? 'where' : 'which';
-        const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000, windowsHide: true });
-        if (whichRes.status === 0 && whichRes.stdout.trim()) {
-          const binPath = whichRes.stdout.trim().split('\n')[0].trim();
-          if (binPath && fileExists(binPath)) {
-            cmd = binPath;
-            args = [];
-          }
-        }
-      } catch { /* intentional best-effort fallback */ }
-      return {
-        type: 'stdio',
-        command: cmd,
-        args,
-        autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
-        auto_approve: true
-      };
-    })()
+    aislop: _resolveAislopMcpConfig(npxCmd)
   };
 
   const konohaEntry = deployUtils.buildKonohaFilesMcpEntry('cursor');
@@ -212,33 +196,38 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   return servers;
 }
 
-function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+  if (typeof silent === 'object' && silent !== null) {
+    options = silent;
+    silent = options.silent !== false;
+  }
+  const targetMcp = options.configPath || (options.home ? path.join(options.home, '.cursor', 'mcp.json') : CURSOR_MCP_GLOBAL);
+  const targetDir = path.dirname(targetMcp);
+
   if (!serverPath || !fileExists(serverPath)) {
     return false;
   }
 
   const { parseYaml } = require('../bin/lib/yaml_utils');
-  ensureDir(CURSOR_DIR);
+  ensureDir(targetDir);
 
-  const backupPath = CURSOR_MCP_GLOBAL + '.back';
-  if (fileExists(CURSOR_MCP_GLOBAL) && !fileExists(backupPath)) {
-    fs.copyFileSync(CURSOR_MCP_GLOBAL, backupPath);
-    if (!silent) process.stderr.write(`  \u2713 Backed up ${path.basename(CURSOR_MCP_GLOBAL)} \u2192 ${path.basename(backupPath)}\n`);
+  const backupPath = targetMcp + '.back';
+  if (fileExists(targetMcp) && !fileExists(backupPath)) {
+    try { fs.copyFileSync(targetMcp, backupPath); } catch (_) { /* ignore backup error */ }
   }
 
   let config = { mcpServers: {} };
-  if (fileExists(CURSOR_MCP_GLOBAL)) {
+  if (fileExists(targetMcp)) {
     try {
-      config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8')) || {};
+      config = JSON.parse(fs.readFileSync(targetMcp, 'utf-8')) || {};
     } catch {
-      if (!silent) console.warn(`Invalid JSON in ${CURSOR_MCP_GLOBAL}; leaving it unchanged.`);
+      if (!silent) console.warn(`Invalid JSON in ${targetMcp}; leaving it unchanged.`);
       return false;
     }
-  } else if (fileExists(CURSOR_MCP_LEGACY)) {
+  } else if (fileExists(CURSOR_MCP_LEGACY) && targetMcp === CURSOR_MCP_GLOBAL) {
     try {
       config = parseYaml(fs.readFileSync(CURSOR_MCP_LEGACY, 'utf-8')) || {};
     } catch {
-      if (!silent) console.warn(`Invalid legacy YAML in ${CURSOR_MCP_LEGACY}; leaving it unchanged.`);
       return false;
     }
   }
@@ -248,8 +237,8 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   }
   const servers = buildMcpServers(pythonCmd, serverPath, uvxCmd || 'uvx');
   Object.assign(config.mcpServers, servers);
-  fs.writeFileSync(CURSOR_MCP_GLOBAL, JSON.stringify(config, null, 2) + '\n');
-  if (!silent) process.stderr.write(`\u2713 Merged Konoha MCP servers into ${CURSOR_MCP_GLOBAL}\n`);
+  fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n');
+  if (!silent) process.stderr.write(`✓ Merged Konoha MCP servers into ${targetMcp}\n`);
   return true;
 }
 
@@ -320,38 +309,60 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   return true;
 }
 
-function registerCursorCliPermissions(silent = true) {
+function _getCursorGrants() {
   const konohaGrants = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `Mcp(konoha, ${t})`);
-  const grants = [
-    'Mcp(konoha)',
-    ...konohaGrants,
-    'Mcp(semble)',
-    'Mcp(semble, search)',
-    'Mcp(semble, find_related)',
-    'Mcp(aislop)',
-    'Mcp(aislop, aislop_scan)',
-    'Mcp(aislop, aislop_fix)',
-    'Mcp(aislop, aislop_why)',
-    'Mcp(aislop, aislop_baseline)',
-    'Shell(rtk)',
-    'Shell(konoha)'
+  return [
+    'Mcp(konoha)', ...konohaGrants,
+    'Mcp(semble)', 'Mcp(semble, search)', 'Mcp(semble, find_related)',
+    'Mcp(aislop)', 'Mcp(aislop, aislop_scan)', 'Mcp(aislop, aislop_fix)',
+    'Mcp(aislop, aislop_why)', 'Mcp(aislop, aislop_baseline)',
+    'Shell(rtk)', 'Shell(konoha)'
   ];
+}
 
-  ensureDir(CURSOR_DIR);
+function _updateSingleCursorSettingsPath(sPath, grants) {
+  try {
+    let sObj = {};
+    if (fileExists(sPath)) {
+      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* best-effort */ }
+    }
+    const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
+    sObj['cursor.mcp.autoApprove'] = [
+      ...kTools.map(t => 'konoha/' + t), ...kTools.map(t => 'konoha:' + t), ...kTools,
+      'semble/search', 'semble/find_related', 'semble:search', 'semble:find_related', 'search', 'find_related',
+      'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline',
+      'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline',
+      'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'
+    ];
+    sObj['cursor.terminal.autoApprove'] = ['rtk', 'rtk *', 'konoha', 'konoha *'];
+    if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
+    const allowArr = Array.isArray(sObj.permissions.allow) ? sObj.permissions.allow : [];
+    sObj.permissions.allow = allowArr.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
+    for (const grant of grants) {
+      if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
+    }
+    fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
+  } catch { /* best-effort */ }
+}
+
+function registerCursorCliPermissions(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const cursorDir = path.join(home, '.cursor');
+  const cursorCliConfig = path.join(cursorDir, 'cli-config.json');
+
+  const grants = _getCursorGrants();
+  ensureDir(cursorDir);
 
   let config = {};
-  if (fileExists(CURSOR_CLI_CONFIG)) {
-    try {
-      config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8')) || {};
-    } catch {
-      config = {};
-    }
+  if (fileExists(cursorCliConfig)) {
+    try { config = JSON.parse(fs.readFileSync(cursorCliConfig, 'utf-8')) || {}; } catch { config = {}; }
   }
 
   if (!config.permissions) config.permissions = {};
-  const allowRaw = config.permissions.allow;
-  config.permissions.allow = (Array.isArray(allowRaw) ? allowRaw : [])
-    .filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
+  const allowRaw = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+  config.permissions.allow = allowRaw.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
 
   let updated = false;
   for (const grant of grants) {
@@ -361,122 +372,90 @@ function registerCursorCliPermissions(silent = true) {
     }
   }
 
-  const allKonohaAutoApprove = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `konoha:${t}`);
-  config.autoApprove = [
-    'rtk', 'konoha',
-    ...allKonohaAutoApprove,
-    'semble:search', 'semble:find_related',
-    'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'
-  ];
-  updated = true;
+  const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
+  config.autoApprove = ['rtk', 'rtk *', 'konoha', 'konoha *',
+    ...kTools.map(t => `konoha:${t}`), ...kTools.map(t => `konoha/${t}`), ...kTools,
+    'semble:search', 'semble:find_related', 'search', 'find_related',
+    'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'];
 
   try {
-    fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
-    if (updated && !silent) {
-      process.stderr.write(`✓ Cursor CLI permissions updated: ${CURSOR_CLI_CONFIG}\n`);
-    }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    fs.writeFileSync(cursorCliConfig, JSON.stringify(config, null, 2) + '\n');
+    if (updated && !isSilent) process.stderr.write(`✓ Cursor CLI permissions updated: ${cursorCliConfig}\n`);
+  } catch { /* best-effort */ }
 
-  // Only update Cursor settings.json if Cursor is installed or the directory/file exists.
-  // Never modify VS Code ('Code') settings paths.
   const cursorSettingsPaths = [
-    fileExists(CURSOR_DIR) ? path.join(CURSOR_DIR, 'settings.json') : null,
-    process.platform !== 'win32' ? path.join(HOME, '.config', 'Cursor', 'User', 'settings.json') : null,
+    fileExists(cursorDir) ? path.join(cursorDir, 'settings.json') : null,
+    process.platform !== 'win32' ? path.join(home, '.config', 'Cursor', 'User', 'settings.json') : null,
     process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
-    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null
+    process.platform === 'darwin' ? path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null
   ].filter(p => p && (fileExists(p) || fileExists(path.dirname(p))));
 
   for (const sPath of cursorSettingsPaths) {
-    try {
-      let sObj = {};
-      if (fileExists(sPath)) {
-        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-      const konohaToolsPrefixed = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => 'konoha/' + t);
-      sObj['cursor.mcp.autoApprove'] = [
-        ...konohaToolsPrefixed,
-        'semble/search', 'semble/find_related',
-        'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline'
-      ];
-      sObj['cursor.terminal.autoApprove'] = ['rtk', 'konoha'];
-      if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
-      // Merge Konoha grants into the user's existing allow list — never replace it
-      if (!Array.isArray(sObj.permissions.allow)) sObj.permissions.allow = [];
-      sObj.permissions.allow = sObj.permissions.allow.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
-      for (const grant of grants) {
-        if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
-      }
-      fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    _updateSingleCursorSettingsPath(sPath, grants);
   }
-
   return true;
 }
 
-function registerCursorHooks(silent = true, allowHooks = false) {
+function _cleanupCursorSessionStartHook(hooksFilePath) {
+  if (!fileExists(hooksFilePath)) return;
+  try {
+    const config = JSON.parse(fs.readFileSync(hooksFilePath, 'utf-8'));
+    if (!config?.hooks?.sessionStart) return;
+    config.hooks.sessionStart = config.hooks.sessionStart.filter(h => !(h.command?.includes('cursor_bootstrap.js')));
+    if (config.hooks.sessionStart.length === 0) delete config.hooks.sessionStart;
+    fs.writeFileSync(hooksFilePath, JSON.stringify(config, null, 2) + '\n');
+  } catch { /* best-effort */ }
+}
+
+function _loadCursorHooksConfig(hooksFilePath) {
+  if (!fileExists(hooksFilePath)) return { version: 1, hooks: {} };
+  try {
+    const config = JSON.parse(fs.readFileSync(hooksFilePath, 'utf-8'));
+    return { version: 1, ...config, hooks: config?.hooks || {} };
+  } catch {
+    return { version: 1, hooks: {} };
+  }
+}
+
+function registerCursorHooks(silent = true, allowHooks = false, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const cursorDir = path.join(home, '.cursor');
+  const cursorHooksGlobal = path.join(cursorDir, 'hooks.json');
+
   if (!allowHooks) {
-    if (!fileExists(CURSOR_HOOKS_GLOBAL)) return false;
-    try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
-      if (config.hooks && config.hooks.sessionStart) {
-        config.hooks.sessionStart = config.hooks.sessionStart.filter(
-          h => !(h.command && h.command.includes('cursor_bootstrap.js'))
-        );
-        if (config.hooks.sessionStart.length === 0) {
-          delete config.hooks.sessionStart;
-        }
-        fs.writeFileSync(CURSOR_HOOKS_GLOBAL, JSON.stringify(config, null, 2) + '\n');
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    _cleanupCursorSessionStartHook(cursorHooksGlobal);
     return false;
   }
 
-  ensureDir(CURSOR_DIR);
-  let config = { version: 1, hooks: {} };
-
-  if (fileExists(CURSOR_HOOKS_GLOBAL)) {
-    try {
-      config = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
-      if (!config.hooks) config.hooks = {};
-      if (!config.version) config.version = 1;
-    } catch {
-      // Corrupt file: back it up so the user's other hooks are recoverable
-      try {
-        fs.copyFileSync(CURSOR_HOOKS_GLOBAL, CURSOR_HOOKS_GLOBAL + '.corrupt-' + Date.now());
-        console.warn(`⚠ Existing Cursor hooks.json was invalid JSON — backed up to ${CURSOR_HOOKS_GLOBAL}.corrupt-*`);
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      config = { version: 1, hooks: {} };
-    }
-  }
-
-  // Absolute node path: GUI-launched Cursor may not inherit a shell PATH
+  ensureDir(cursorDir);
+  const config = _loadCursorHooksConfig(cursorHooksGlobal);
   const bootstrapCmd = `"${process.execPath}" "${CURSOR_BOOTSTRAP_PATH}"`;
   const existing = config.hooks.sessionStart || [];
-  const hasBootstrap = existing.some(h => h.command && h.command.includes('cursor_bootstrap.js'));
-
-  if (!hasBootstrap) {
-    config.hooks.sessionStart = [
-      ...existing,
-      { command: bootstrapCmd }
-    ];
-    fs.writeFileSync(CURSOR_HOOKS_GLOBAL, JSON.stringify(config, null, 2) + '\n');
-    if (!silent) {
-      process.stderr.write(`✓ Registered Cursor sessionStart hook: ${CURSOR_HOOKS_GLOBAL}\n`);
-    }
+  if (!existing.some(h => h.command?.includes('cursor_bootstrap.js'))) {
+    config.hooks.sessionStart = [...existing, { command: bootstrapCmd }];
+    fs.writeFileSync(cursorHooksGlobal, JSON.stringify(config, null, 2) + '\n');
+    if (!isSilent) process.stderr.write(`✓ Registered Cursor sessionStart hook: ${cursorHooksGlobal}\n`);
   }
   return true;
 }
 
-function deployCursorGlobalRule(agents, silent = true) {
+function deployCursorGlobalRule(agents, silent = true, options = {}) {
   if (!agents || agents.length === 0) return false;
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const cursorRulesGlobal = path.join(home, '.cursor', 'rules');
+
   try {
-    ensureDir(CURSOR_RULES_GLOBAL);
-    const rulePath = path.join(CURSOR_RULES_GLOBAL, 'konoha.mdc');
+    ensureDir(cursorRulesGlobal);
+    const rulePath = path.join(cursorRulesGlobal, 'konoha.mdc');
     const content = generateCursorRule(agents);
     if (!fileExists(rulePath) || fs.readFileSync(rulePath, 'utf8') !== content) {
       fs.writeFileSync(rulePath, content, 'utf8');
     }
-    if (!silent) process.stderr.write(`✓ Deployed global Cursor rule: ${rulePath}\n`);
+    if (!isSilent) process.stderr.write(`✓ Deployed global Cursor rule: ${rulePath}\n`);
     return true;
   } catch {
     return false;
@@ -500,25 +479,19 @@ function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = n
   return true;
 }
 
-function copyCursorHelperScripts(_ = true) {
-  const scripts = ['cursor_bootstrap.js'];
-  ensureDir(SKILLS_DB_DIR);
-  let copied = 0;
-
-  for (const script of scripts) {
-    const src = path.join(SRC_DIR, script);
-    const dest = path.join(SKILLS_DB_DIR, script);
-    if (fileExists(src)) {
-      try {
-        const srcContent = fs.readFileSync(src);
-        if (!fileExists(dest) || !srcContent.equals(fs.readFileSync(dest))) {
-          fs.writeFileSync(dest, srcContent);
-          copied++;
-        }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+function copyCursorHelperScripts() {
+  const src = path.join(SRC_DIR, 'cursor_bootstrap.js');
+  const dest = path.join(SKILLS_DB_DIR, 'cursor_bootstrap.js');
+  if (!fileExists(src)) return false;
+  try {
+    ensureDir(SKILLS_DB_DIR);
+    const srcContent = fs.readFileSync(src);
+    if (!fileExists(dest) || !srcContent.equals(fs.readFileSync(dest))) {
+      fs.writeFileSync(dest, srcContent);
+      return true;
     }
-  }
-  return copied > 0;
+  } catch { /* intentional best-effort fallback */ }
+  return false;
 }
 
 function ensureCursorSetup(options = {}) {
@@ -534,132 +507,104 @@ function ensureCursorSetup(options = {}) {
     ruleContent = null
   } = options;
 
-  copyCursorHelperScripts(silent);
+  copyCursorHelperScripts();
   deployUtils.installFileTools(silent, pythonCmd);
 
   if (!fileExists(serverPath)) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent);
-  registerCursorCliPermissions(silent);
-  registerCursorHooks(silent, allowHooks);
-  deployCursorRtkRule(silent);
-  if (agents.length > 0) deployCursorGlobalRule(agents, silent);
+  registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent, options);
+  registerCursorCliPermissions(silent, options);
+  registerCursorHooks(silent, allowHooks, options);
+  deployCursorRtkRule(silent, options);
+  if (agents.length > 0) deployCursorGlobalRule(agents, silent, options);
 
+  const root = projectRoot || process.cwd();
   if (deployProject) {
-    const root = projectRoot || process.cwd();
     try {
       registerCursorProjectMcp(root, pythonCmd, serverPath, uvxCmd, silent);
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* intentional best-effort fallback */ }
   }
 
   deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject, silent });
 
-  if (agents.length > 0) {
-    if (deployProject) {
-      const root = projectRoot || process.cwd();
-      try {
-        deployProjectCursor(root, agents, silent, ruleContent);
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
+  if (agents.length > 0 && deployProject) {
+    try { deployProjectCursor(root, agents, silent, ruleContent); } catch { /* best effort */ }
   }
 
   return { ok: true };
 }
 
-function removeCursorConfig(silent = true, options = {}) {
-  const home = options.home || process.env.HOME || HOME;
-  const cursorMcp = options.configPath || (home === HOME ? CURSOR_MCP_GLOBAL : path.join(home, '.cursor', 'mcp.json'));
-  // Remove only Konoha-managed MCP entries
-  if (fileExists(cursorMcp)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(cursorMcp, 'utf-8'));
-      let updated = false;
-      if (config.mcpServers) {
-        for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
-          if (config.mcpServers[name]) {
-            delete config.mcpServers[name];
-            updated = true;
-          }
-        }
-      }
-      if (updated) {
-        fs.writeFileSync(cursorMcp, JSON.stringify(config, null, 2) + '\n');
-        if (!silent) process.stderr.write('✓ Removed Konoha MCP servers from ~/.cursor/mcp.json\n');
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+const CURSOR_REMOVAL_GRANTS = new Set([
+  'Mcp(semble)', 'Mcp(semble, search)', 'Mcp(semble, find_related)', 'Mcp(konoha)',
+  'Mcp(konoha, find_skill)', 'Mcp(konoha, get_skill)', 'Mcp(konoha, list_skills)', 'Mcp(konoha, optimize_report)',
+  'Mcp(konoha, read_file_head)', 'Mcp(konoha, read_file_range)', 'Mcp(konoha, file_info)', 'Mcp(konoha, token_efficient_grep)',
+  'Mcp(konoha, get_file_structure)', 'Mcp(konoha, find_files_clean)', 'Mcp(konoha-files)', 'Mcp(konoha-files, read_file_head)',
+  'Mcp(konoha-files, read_file_range)', 'Mcp(konoha-files, file_info)', 'Mcp(konoha-files, token_efficient_grep)',
+  'Mcp(konoha-files, get_file_structure)', 'Mcp(konoha-files, find_files_clean)', 'Shell(konoha)',
+  'Shell(node bin/cli.js)', 'Shell(node */.konoha/cursor_bootstrap.js)'
+]);
 
-  // Remove accidental konoha-bridge extension if present in Cursor extensions
-  const cursorExtDir = options.extensionsDir || path.join(home, '.cursor', 'extensions');
-  if (fileExists(cursorExtDir)) {
-    try {
-      for (const entry of fs.readdirSync(cursorExtDir)) {
-        if (entry.toLowerCase().startsWith('andycungkrinx91.konoha-bridge')) {
-          fs.rmSync(path.join(cursorExtDir, entry), { recursive: true, force: true });
-          if (!silent) process.stderr.write('✓ Removed konoha-bridge extension from ~/.cursor/extensions\n');
-        }
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+function _removeCursorMcpServers(cursorMcp, silent) {
+  if (!fileExists(cursorMcp)) return;
+  try {
+    const config = JSON.parse(fs.readFileSync(cursorMcp, 'utf-8'));
+    if (!config?.mcpServers) return;
+    let updated = false;
+    for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
+      if (config.mcpServers[name]) { delete config.mcpServers[name]; updated = true; }
+    }
+    if (updated) {
+      fs.writeFileSync(cursorMcp, JSON.stringify(config, null, 2) + '\n');
+      if (!silent) process.stderr.write('✓ Removed Konoha MCP servers from ~/.cursor/mcp.json\n');
+    }
+  } catch { /* best-effort */ }
+}
 
-  // Remove global subagents
-  const agentsGlobal = path.join(home, '.cursor', 'agents');
+function _removeCursorBridgeExtension(cursorExtDir, silent) {
+  if (!fileExists(cursorExtDir)) return;
+  try {
+    for (const entry of fs.readdirSync(cursorExtDir)) {
+      if (entry.toLowerCase().startsWith('andycungkrinx91.konoha-bridge')) {
+        fs.rmSync(path.join(cursorExtDir, entry), { recursive: true, force: true });
+        if (!silent) process.stderr.write('✓ Removed konoha-bridge extension from ~/.cursor/extensions\n');
+      }
+    }
+  } catch { /* best-effort */ }
+}
+
+function _cleanCursorCliPermissions(silent) {
+  if (!fileExists(CURSOR_CLI_CONFIG)) return;
+  try {
+    const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
+    const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+    if (allowArr.length === 0) return;
+    const filtered = allowArr.filter(p => !CURSOR_REMOVAL_GRANTS.has(p));
+    if (filtered.length !== allowArr.length) {
+      config.permissions.allow = filtered;
+      fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
+      if (!silent) process.stderr.write('✓ Removed Konoha permissions from ~/.cursor/cli-config.json\n');
+    }
+  } catch { /* best-effort */ }
+}
+
+function _removeGlobalCursorAgents(agentsGlobal) {
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
   for (const name of official) {
     const p = path.join(agentsGlobal, `${name}.md`);
-    if (fileExists(p)) {
-      try {
-        fs.unlinkSync(p);
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
+    if (fileExists(p)) { try { fs.unlinkSync(p); } catch { /* best-effort */ } }
   }
+}
 
-  // Remove Cursor CLI permissions
-  if (fileExists(CURSOR_CLI_CONFIG)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-      const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
-      if (allowArr.length > 0) {
-        const grants = [
-          'Mcp(semble)',
-          'Mcp(semble, search)',
-          'Mcp(semble, find_related)',
-          'Mcp(konoha)',
-          'Mcp(konoha, find_skill)',
-          'Mcp(konoha, get_skill)',
-          'Mcp(konoha, list_skills)',
-          'Mcp(konoha, optimize_report)',
-          'Mcp(konoha, read_file_head)',
-          'Mcp(konoha, read_file_range)',
-          'Mcp(konoha, file_info)',
-          'Mcp(konoha, token_efficient_grep)',
-          'Mcp(konoha, get_file_structure)',
-          'Mcp(konoha, find_files_clean)',
-          'Mcp(konoha-files)',
-          'Mcp(konoha-files, read_file_head)',
-          'Mcp(konoha-files, read_file_range)',
-          'Mcp(konoha-files, file_info)',
-          'Mcp(konoha-files, token_efficient_grep)',
-          'Mcp(konoha-files, get_file_structure)',
-          'Mcp(konoha-files, find_files_clean)',
-          'Shell(konoha)',
-          'Shell(node bin/cli.js)',
-          'Shell(node */.konoha/cursor_bootstrap.js)'
-        ];
-        const initialLength = allowArr.length;
-        const filtered = allowArr.filter(p => !grants.includes(p));
-        if (filtered.length !== initialLength) {
-          config.permissions.allow = filtered;
-          fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
-          if (!silent) process.stderr.write('✓ Removed Konoha permissions from ~/.cursor/cli-config.json\n');
-        }
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+function removeCursorConfig(silent = true, options = {}) {
+  const home = options.home || process.env.HOME || HOME;
+  const cursorMcp = options.configPath || (home === HOME ? CURSOR_MCP_GLOBAL : path.join(home, '.cursor', 'mcp.json'));
 
-  // Remove sessionStart bootstrap hook
+  _removeCursorMcpServers(cursorMcp, silent);
+  _removeCursorBridgeExtension(options.extensionsDir || path.join(home, '.cursor', 'extensions'), silent);
+  _removeGlobalCursorAgents(path.join(home, '.cursor', 'agents'));
+  _cleanCursorCliPermissions(silent);
   registerCursorHooks(silent, false);
 }
 
@@ -684,55 +629,45 @@ function getCursorStatus() {
   if (status.mcpGlobal) {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
-      status.mcpSkillsDb = !!(config.mcpServers && config.mcpServers['konoha']);
-      status.mcpSemble = !!(config.mcpServers && config.mcpServers['semble']);
-      status.mcpKonoha = !!(config.mcpServers && config.mcpServers['konoha']);
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      status.mcpSkillsDb = !!(config.mcpServers?.konoha);
+      status.mcpSemble = !!(config.mcpServers?.semble);
+      status.mcpKonoha = !!(config.mcpServers?.konoha);
+    } catch { /* best-effort */ }
   }
 
   if (fileExists(CURSOR_AGENTS_GLOBAL)) {
     try {
       status.subagentsGlobal = fs.readdirSync(CURSOR_AGENTS_GLOBAL).filter(f => f.endsWith('.md')).length;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* best-effort */ }
   }
 
   if (fileExists(AGENTS_SKILLS)) {
-    try {
-      status.skillsGlobal = deployUtils.listSkillEntries(AGENTS_SKILLS).length;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    try { status.skillsGlobal = deployUtils.listSkillEntries(AGENTS_SKILLS).length; } catch { /* best-effort */ }
   }
 
   if (fileExists(CURSOR_CLI_CONFIG)) {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-      const allows = (config.permissions && Array.isArray(config.permissions.allow)) ? config.permissions.allow : [];
+      const allows = Array.isArray(config.permissions?.allow) ? config.permissions.allow : [];
       status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch { /* best-effort */ }
   }
 
   if (fileExists(CURSOR_HOOKS_GLOBAL)) {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
-      const hooks = (config.hooks && config.hooks.sessionStart) || [];
-      status.hooks = hooks.some(h => h.command && h.command.includes('cursor_bootstrap.js'));
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      const hooks = config.hooks?.sessionStart || [];
+      status.hooks = hooks.some(h => h.command?.includes('cursor_bootstrap.js'));
+    } catch { /* best-effort */ }
   }
 
   const cwd = process.cwd();
-  const projectMcp = path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.json');
-  const projectRule = path.join(cwd, PROJECT_CURSOR_DIR, 'rules', 'konoha.mdc');
   const projectAgents = path.join(cwd, PROJECT_CURSOR_DIR, 'agents');
-
-  status.projectMcp = fileExists(projectMcp);
-  status.projectRule = fileExists(projectRule);
+  status.projectMcp = fileExists(path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.json'));
+  status.projectRule = fileExists(path.join(cwd, PROJECT_CURSOR_DIR, 'rules', 'konoha.mdc'));
   if (fileExists(projectAgents)) {
-    try {
-      status.projectAgents = fs.readdirSync(projectAgents).filter(f => f.endsWith('.md')).length;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    try { status.projectAgents = fs.readdirSync(projectAgents).filter(f => f.endsWith('.md')).length; } catch { /* best-effort */ }
   }
-  // No-op: filesystem mirroring is disabled. Skills are loaded from SQLite DB at runtime.
-  status.skillsProject = 0;
-
   return status;
 }
 

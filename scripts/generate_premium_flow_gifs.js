@@ -46,7 +46,8 @@ function frame(W, H, paint, duration) {
   return { canvas, duration };
 }
 
-function drawFeedbackLoop(ctx, pathPts, alpha, dashOffset, text, tx, ty) {
+function drawFeedbackLoop(ctx, pathPts, ...rest) {
+  const [alpha, dashOffset, text, tx, ty] = rest;
   if (alpha <= 0) return;
   connector(ctx, pathPts, {
     from: THEME.red, to: THEME.amber, alpha, dashed: true, dash: [5, 5], dashOffset,
@@ -94,7 +95,7 @@ function orchestrationScene() {
     ctx: { x: 60, y: 205, w: 350, h: 58, accent: THEME.emerald, title: '1. PROJECT MEMORY & CONTEXT', detail: 'stack detect · auto-inject invariants' },
     disc: { x: 500, y: 205, w: 350, h: 58, accent: THEME.cyan, title: '2. DISCOVER SKILL & HYGIENE', detail: 'find_skill · semble.search · aislop_scan' },
     dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'jonin / anbu / kage' },
-    agents: { x: 345, y: 418, w: 510, h: 74, accent: THEME.violet, title: '4. SPECIALIST NINJA AGENTS', detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu'] },
+    agents: { x: 345, y: 418, w: 510, h: 74, accent: THEME.violet, title: '4. SPECIALIST NINJA AGENTS', detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu', 'akatsuki'] },
     report: { x: 60, y: 545, w: 170, h: 52, accent: THEME.emerald, title: '5. REPORT', detail: 'report_from_agent' },
     kage: { x: 285, y: 535, w: 240, h: 62, accent: THEME.amber, title: '6. KAGE REVIEW GATE', detail: 'zero-AI-slop · ≥98% conf' },
     synth: { x: 580, y: 545, w: 170, h: 52, accent: THEME.violet, title: '7. SYNTHESIZE', detail: 'sannin final report' },
@@ -129,7 +130,7 @@ function orchestrationScene() {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
       subtitle: `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`,
       badge: '83–98% TOKEN SAVINGS',
-      footer: '47 canonical MCP tools · 7 coding clients · zero process cold-start · direct structured MCP tool delegation',
+      footer: '47 canonical MCP tools · 8 coding clients · zero process cold-start · direct structured MCP tool delegation',
     });
 
   const paint = (opts) => (ctx) => {
@@ -184,6 +185,23 @@ function orchestrationScene() {
  * 2. Jonin Premium UI Build Pipeline
  * ================================================================== */
 
+function renderJoninNodes(ctx, cfg) {
+  const { nodes, nodeCount, pulsePos, final, X, NW, NH } = cfg;
+  for (let i = 0; i < nodeCount; i++) {
+    const glow = (pulsePos && insideNode(nodes[i], pulsePos[0], pulsePos[1], 10)) || (final && i === 7);
+    glassCard(ctx, nodes[i], { glow: !!glow });
+    stepBadge(ctx, X - 32, nodes[i].y + NH / 2, i + 1, nodes[i].accent, 1, !!glow);
+    if (nodes[i].note) {
+      ctx.save();
+      ctx.font = '10px "KonohaMono"';
+      ctx.fillStyle = 'rgba(125,146,184,0.85)';
+      ctx.textAlign = 'left';
+      ctx.fillText(nodes[i].note, X + NW + 18, nodes[i].y + NH / 2 + 3.5);
+      ctx.restore();
+    }
+  }
+}
+
 function joninScene() {
   const W = 1200;
   const H = 760;
@@ -220,19 +238,7 @@ function joninScene() {
     }
     let pulsePos = null;
     if (pulseT >= 0) pulsePos = pathPoint([[600, 96], [600, nodes[7].y + NH / 2]], pulseT);
-    for (let i = 0; i < nodeCount; i++) {
-      const glow = (pulsePos && insideNode(nodes[i], pulsePos[0], pulsePos[1], 10)) || (final && i === 7);
-      glassCard(ctx, nodes[i], { glow: !!glow });
-      stepBadge(ctx, X - 32, nodes[i].y + NH / 2, i + 1, nodes[i].accent, 1, !!glow);
-      if (nodes[i].note) {
-        ctx.save();
-        ctx.font = '10px "KonohaMono"';
-        ctx.fillStyle = 'rgba(125,146,184,0.85)';
-        ctx.textAlign = 'left';
-        ctx.fillText(nodes[i].note, X + NW + 18, nodes[i].y + NH / 2 + 3.5);
-        ctx.restore();
-      }
-    }
+    renderJoninNodes(ctx, { nodes, nodeCount, pulsePos, final, X, NW, NH });
     if (pulsePos) pulse(ctx, pulsePos[0], pulsePos[1], THEME.violet);
     if (final) stamp(ctx, 985, nodes[7].y + NH / 2, 'DELIVERED', THEME.emerald, 1, -0.08);
   };
@@ -307,14 +313,46 @@ function kageScene() {
   saveAsset(frames, 'konoha-kage-gate' + EXT);
 }
 
+function renderReviewScene(flow) {
+  const { chrome, steps, text, label, statusText, stampText, assetName, maxSteps, connectorYOffset, BARS } = flow;
+  const metricsConfig = {
+    cx: 890, cy: 240, r: 100, threshold: 98, label,
+    bars: BARS, baseY: 410, fillDenom: 98, statusText, statusY: 375,
+    stampText, stampY: 595,
+  };
+  const paint = (opts) => (ctx) => {
+    chrome(ctx);
+    const { stepCount, dashOffset, loopAlpha = 0, pct = 0, approved = false } = opts;
+    for (let i = 0; i < stepCount - 1; i++) {
+      connector(ctx, [[330, steps[i].y + connectorYOffset], [330, steps[i + 1].y]], { dashOffset, width: 1.8 });
+    }
+    drawFeedbackLoop(ctx, [[600, 437], [635, 437], [635, 515], [600, 515]], loopAlpha, dashOffset, text, 640, connectorYOffset === 58 ? 480 : 410);
+    for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
+    drawReviewMetricsPanel(ctx, { ...metricsConfig, pct, approved });
+  };
+  const frames = buildFlowFrames(1200, 760, paint, maxSteps);
+  saveAsset(frames, assetName + EXT);
+}
+
+function buildFlowFrames(W, H, paint, maxSteps) {
+  const frames = [];
+  frames.push(frame(W, H, paint({ stepCount: 0, dashOffset: 0 }), 1300));
+  for (let n = 1; n <= maxSteps; n++) frames.push(frame(W, H, paint({ stepCount: n, dashOffset: 0 }), 380));
+  frames.push(frame(W, H, paint({ stepCount: maxSteps, dashOffset: 0, loopAlpha: 1, pct: 0 }), 600));
+  const COUNT = 20;
+  for (let i = 1; i <= COUNT; i++) {
+    const pct = Math.round(easeOutCubic(i / COUNT) * 100);
+    frames.push(frame(W, H, paint({ stepCount: maxSteps, dashOffset: -i * 8, loopAlpha: 1, pct, approved: pct >= 98 }), 110));
+  }
+  frames.push(frame(W, H, paint({ stepCount: maxSteps, dashOffset: -80, loopAlpha: 1, pct: 100, approved: true }), 1300));
+  return frames;
+}
+
 /* ================================================================== *
  * 4. Anbu QA Automation Workflow
  * ================================================================== */
 
 function qaScene() {
-  const W = 1200;
-  const H = 760;
-
   const steps = [
     { title: '1. TASK & PORT ISOLATION', detail: 'QA scope identified · preview server isolated on port 4173', accent: THEME.blue },
     { title: '2. AGENT-BROWSER EXPLORATION', detail: 'interactive discovery · scoped snapshot -i -c (<500 tokens)', accent: THEME.cyan },
@@ -333,10 +371,8 @@ function qaScene() {
     { label: 'KAGE GATE CONFIDENCE', val: 98, accent: THEME.violet },
   ];
 
-  const LOOP_PATH = [[600, 437], [635, 437], [635, 515], [600, 515]];
-
   const chrome = (ctx) =>
-    drawChrome(ctx, W, H, {
+    drawChrome(ctx, 1200, 760, {
       title: 'ANBU QA AUTOMATION WORKFLOW',
       subtitle: `agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v${PKG_VERSION}`,
       badge: 'QA AUTOMATION PIPELINE',
@@ -344,32 +380,11 @@ function qaScene() {
       footer: 'token-efficient browser QA · Playwright compilation · isolated preview port · 0 slop · Anbu owner',
     });
 
-  const paint = (opts) => (ctx) => {
-    chrome(ctx);
-    const { stepCount, dashOffset, loopAlpha = 0, pct = 0, approved = false } = opts;
-    for (let i = 0; i < stepCount - 1; i++) {
-      connector(ctx, [[330, steps[i].y + 58], [330, steps[i + 1].y]], { dashOffset, width: 1.8 });
-    }
-    drawFeedbackLoop(ctx, LOOP_PATH, loopAlpha, dashOffset, 'FAIL (RED) → fix', 640, 480);
-    for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
-    drawReviewMetricsPanel(ctx, {
-      cx: 890, cy: 240, r: 100, pct, threshold: 98, label: 'E2E PASS RATE',
-      bars: BARS, baseY: 410, fillDenom: 98, statusText: 'TESTING', statusY: 375,
-      approved, stampText: 'QA VERIFIED', stampY: 595,
-    });
-  };
-
-  const frames = [];
-  frames.push(frame(W, H, paint({ stepCount: 0, dashOffset: 0 }), 1300));
-  for (let n = 1; n <= 8; n++) frames.push(frame(W, H, paint({ stepCount: n, dashOffset: 0 }), 380));
-  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: 0, loopAlpha: 1, pct: 0 }), 600));
-  const COUNT = 20;
-  for (let i = 1; i <= COUNT; i++) {
-    const pct = Math.round(easeOutCubic(i / COUNT) * 100);
-    frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -i * 8, loopAlpha: 1, pct, approved: pct >= 98 }), 110));
-  }
-  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -80, loopAlpha: 1, pct: 100, approved: true }), 1300));
-  saveAsset(frames, 'konoha-qa-flow' + EXT);
+  renderReviewScene({
+    chrome, steps, text: 'FAIL (RED) → fix', label: 'E2E PASS RATE',
+    statusText: 'TESTING', stampText: 'QA VERIFIED', assetName: 'konoha-qa-flow',
+    maxSteps: 8, connectorYOffset: 58, BARS
+  });
 }
 
 /* ================================================================== *
@@ -434,6 +449,47 @@ function telegramScene() {
   saveAsset(frames, 'konoha-telegram-flow' + EXT);
 }
 
+/* ================================================================== *
+ * 6. Akatsuki Red-Team & Blue-Team Security Gate Workflow
+ * ================================================================== */
+
+function akatsukiScene() {
+  const W = 1200;
+  const H = 760;
+
+  const steps = [
+    { title: '1. SURFACE RECON & CREDENTIAL AUDIT', detail: 'credential leak scan · attack surface mapping · zero exposed secrets', accent: THEME.blue },
+    { title: '2. SAST & DEPENDENCY CVE SCAN', detail: 'Socket CLI integration · npm audit · zero high/medium vulnerabilities', accent: THEME.cyan },
+    { title: '3. SKILL GUARDIAN VERIFICATION', detail: 'SHA-256 integrity hash · AST safety · zero prompt injection vectors', accent: THEME.cyan },
+    { title: '4. OFFENSIVE RED-TEAM LAB (CONTAINER)', detail: 'isolated unprivileged LXC/Docker akatsuki-lab · authorized pentest only', accent: THEME.red },
+    { title: '5. BLUE-TEAM HARDENING & DEFENSE', detail: 'strict least-privilege · input sanitization · CSP & security headers', accent: THEME.violet },
+    { title: '6. BLUE-TEAM AUDIT ARTIFACT', detail: 'akatsuki_review.json generated · 0 critical · 0 high findings', accent: THEME.amber },
+    { title: '7. MANDATORY SECURITY GATE PASS', detail: 'security_reviewed: true · handover to Kage delivery review gate', accent: THEME.emerald },
+  ].map((d, i) => ({ ...d, x: 60, y: 96 + i * 86, w: 540, h: 64 }));
+
+  const BARS = [
+    { label: 'SOCKET SECURITY GATE', val: 100, accent: THEME.emerald },
+    { label: 'CVE VULNERABILITY COUNT', val: 100, accent: THEME.cyan },
+    { label: 'SKILL GUARDIAN HASH', val: 100, accent: THEME.violet },
+    { label: 'CRITICAL / HIGH FINDINGS', val: 100, accent: THEME.emerald },
+  ];
+
+  const chrome = (ctx) =>
+    drawChrome(ctx, W, H, {
+      title: 'AKATSUKI SECURITY AUDIT & HARDENING FLOW',
+      subtitle: `Phase 7 Security Gate · Red-Team Lab & Blue-Team Audit · v${PKG_VERSION}`,
+      badge: 'BLUE-TEAM PRE-GATE',
+      badgeAccent: THEME.red,
+      footer: 'Socket CLI · 0 critical/high findings · Skill Guardian · isolated container pentest · Akatsuki owner',
+    });
+
+  renderReviewScene({
+    chrome, steps, text: 'VULN FOUND → harden & re-scan', label: 'SECURITY SCORE',
+    statusText: 'AUDITING', stampText: 'SECURITY PASSED', assetName: 'konoha-akatsuki-flow',
+    maxSteps: 7, connectorYOffset: 64, BARS
+  });
+}
+
 /* ------------------------------------------------------------------ */
 
 function main() {
@@ -442,6 +498,7 @@ function main() {
   joninScene();
   kageScene();
   qaScene();
+  akatsukiScene();
   telegramScene();
   console.log('✓ All premium flow GIFs generated.');
 }

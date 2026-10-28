@@ -82,7 +82,8 @@ function rgba(rgb, a = 1) {
  * Canvas primitives
  * ------------------------------------------------------------------ */
 
-function roundRect(ctx, x, y, w, h, r) {
+function roundRect(ctx, x, y, ...rest) {
+  const [w, h, r] = rest;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -177,7 +178,8 @@ function glassCard(ctx, node, opts = {}) {
 }
 
 /** Centered row of small tag chips inside a card. */
-function drawChips(ctx, chips, cx, cy, accent, alpha = 1) {
+function drawChips(ctx, chips, cx, ...rest) {
+  const [cy, accent, alpha = 1] = rest;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = font('mono', 9);
@@ -202,7 +204,8 @@ function drawChips(ctx, chips, cx, cy, accent, alpha = 1) {
 }
 
 /** Numbered step badge (circle) on the flow spine. */
-function stepBadge(ctx, cx, cy, n, accent, alpha = 1, glow = false) {
+function stepBadge(ctx, cx, cy, ...rest) {
+  const [n, accent, alpha = 1, glow = false] = rest;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.beginPath();
@@ -255,7 +258,8 @@ function connector(ctx, pts, opts = {}) {
 }
 
 /** Dashed quadratic curve connector (for loop-back edges). */
-function curveConnector(ctx, start, control, end, accent, opts = {}) {
+function curveConnector(ctx, start, control, ...rest) {
+  const [end, accent, opts = {}] = rest;
   const alpha = opts.alpha ?? 0.85;
   if (alpha <= 0) return;
   ctx.save();
@@ -278,8 +282,8 @@ function curveConnector(ctx, start, control, end, accent, opts = {}) {
   ctx.fillStyle = rgba(accent, 0.95);
   ctx.beginPath();
   ctx.moveTo(end[0], end[1]);
-  ctx.lineTo(end[0] - s * Math.cos(ang - 0.45), end[1] - s * Math.sin(ang - 0.45));
-  ctx.lineTo(end[0] - s * Math.cos(ang + 0.45), end[1] - s * Math.sin(ang + 0.45));
+  ctx.lineTo(end[0] - s * Math.cos(ang - Math.PI / 6), end[1] - s * Math.sin(ang - Math.PI / 6));
+  ctx.lineTo(end[0] - s * Math.cos(ang + Math.PI / 6), end[1] - s * Math.sin(ang + Math.PI / 6));
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -377,7 +381,8 @@ function measurePill(ctx, text) {
 }
 
 /** Accent pill with status dot; (x, y) is the top-left corner. */
-function drawPill(ctx, x, y, text, accent) {
+function drawPill(ctx, x, y, ...rest) {
+  const [text, accent] = rest;
   ctx.save();
   ctx.font = font('monobold', 11);
   const w = ctx.measureText(text).width + 34;
@@ -399,7 +404,8 @@ function drawPill(ctx, x, y, text, accent) {
 }
 
 /** Rotated verdict stamp (e.g. DELIVERY APPROVED). */
-function stamp(ctx, cx, cy, text, accent, alpha = 1, angle = -0.07) {
+function stamp(ctx, cx, cy, ...rest) {
+  const [text, accent, alpha = 1, angle = -0.07] = rest;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(cx, cy);
@@ -429,7 +435,8 @@ function stamp(ctx, cx, cy, text, accent, alpha = 1, angle = -0.07) {
  * ------------------------------------------------------------------ */
 
 /** 270-degree ring gauge with a threshold tick. pct in 0..100. */
-function ringGauge(ctx, cx, cy, r, pct, opts = {}) {
+function ringGauge(ctx, cx, cy, ...rest) {
+  const [r, pct, opts = {}] = rest;
   const start = Math.PI * 0.75;
   const sweep = Math.PI * 1.5;
   const threshold = opts.threshold ?? 97;
@@ -480,7 +487,8 @@ function ringGauge(ctx, cx, cy, r, pct, opts = {}) {
 }
 
 /** Horizontal metric bar with label and value. */
-function metricBar(ctx, x, y, w, label, val, accent, alpha = 1) {
+function metricBar(ctx, x, y, ...rest) {
+  const [w, label, val, accent, alpha = 1] = rest;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = font('mono', 10);

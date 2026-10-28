@@ -25,36 +25,14 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
-async function cmdTest(args = []) {
-  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
-    cmdTestHelp();
-    return;
-  }
-  header('🧪 Testing Konoha MCP Server');
-
-  if (!fileExists(SERVER_PATH)) {
-    error('Server not installed. Run "konoha init" first.');
-    process.exit(1);
-  }
-
-  if (!fileExists(DB_PATH)) {
-    error('Database not found. Run "konoha migrate" first.');
-    process.exit(1);
-  }
-
-  const tempTestDir = '';
-  const buildFromSourceDir = 'src';
+function buildTestCases() {
   const buildFromSourceReq = JSON.stringify({
     jsonrpc: "2.0",
     id: 8,
     method: "tools/call",
     params: {
       name: "build_from_source",
-      arguments: {
-        name: "test_build",
-        source_dir: buildFromSourceDir,
-        framework: "nextjs"
-      }
+      arguments: { name: "test_build", source_dir: 'src', framework: "nextjs" }
     }
   });
 
@@ -80,17 +58,8 @@ async function cmdTest(args = []) {
     let rpcId = 8;
     const addFileToolTest = (name, toolName, args) => {
       const payload = { jsonrpc: '2.0', id: rpcId++, method: toolName ? 'tools/call' : 'tools/list' };
-      if (toolName) {
-        payload.params = { name: toolName, arguments: args || {} };
-      } else {
-        payload.params = {};
-      }
-      tests.push({
-        name,
-        req: JSON.stringify(payload),
-        useNode: true,
-        init: fileToolsInit
-      });
+      payload.params = toolName ? { name: toolName, arguments: args || {} } : {};
+      tests.push({ name, req: JSON.stringify(payload), useNode: true, init: fileToolsInit });
     };
 
     addFileToolTest('File Tools List');
@@ -102,108 +71,101 @@ async function cmdTest(args = []) {
     addFileToolTest('Find Files Clean', 'find_files_clean', { pattern: '*.py', dir: 'src/file_tools' });
   }
 
+  return tests;
+}
+
+function runTestProcess(test) {
+  const inputParts = [];
+  if (test.init) {
+    inputParts.push(test.init);
+  } else if (!test.useNode && test.name !== 'Initialize') {
+    inputParts.push('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}');
+  }
+  inputParts.push(test.req);
+  const input = inputParts.join('\n');
+
+  const testEnv = Object.assign({}, process.env, { KONOHA_DAEMON: 'false' });
+  const targetPath = test.useNode ? FILE_TOOLS_MCP_PATH : SERVER_PATH;
+  const timeout = test.useNode ? 60000 : 30000;
+  return spawnSync(process.execPath, [targetPath], {
+    input,
+    encoding: 'utf-8',
+    timeout,
+    env: testEnv,
+    cwd: path.join(SRC_DIR, '..')
+  });
+}
+
+function printTestDetails(testName, response) {
+  try {
+    const content = JSON.parse(response.result.content[0].text);
+    if (testName === 'Find Skill (security)') {
+      info(`  Found ${content.found} results for "security"`);
+      (content.results || []).forEach(r => log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`));
+    } else if (testName === 'List Skills') {
+      info(`  Total indexed: ${content.total} entries`);
+    } else if (testName === 'Get Skill (anbu-skill)') {
+      info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
+function evaluateTestResult(test, run) {
+  if (run.status !== 0) {
+    const errText = run.error ? run.error.message + (run.stderr ? '\n' + run.stderr : '') : (run.stderr || `Exit ${run.status}`);
+    error(`${test.name}: FAILED - ${errText}`);
+    return false;
+  }
+  const lines = run.stdout.trim().split('\n').filter(Boolean);
+  const response = JSON.parse(lines[lines.length - 1]);
+  if (response.error) {
+    error(`${test.name}: ${response.error.message}`);
+    return false;
+  }
+
+  let toolError = null;
+  try {
+    const content = JSON.parse(response.result.content[0].text);
+    if (content.error) toolError = content.error;
+  } catch (_) { /* non-fatal */ }
+
+  if (toolError) {
+    error(`${test.name}: FAILED - ${toolError}`);
+    return false;
+  }
+
+  success(`${test.name}: OK`);
+  printTestDetails(test.name, response);
+  return true;
+}
+
+async function cmdTest(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdTestHelp();
+    return;
+  }
+  header('🧪 Testing Konoha MCP Server');
+
+  if (!fileExists(SERVER_PATH)) {
+    error('Server not installed. Run "konoha init" first.');
+    process.exit(1);
+  }
+
+  if (!fileExists(DB_PATH)) {
+    error('Database not found. Run "konoha migrate" first.');
+    process.exit(1);
+  }
+
+  const tests = buildTestCases();
   let allPassed = true;
 
-  try {
-    for (const test of tests) {
-      try {
-        const inputParts = [];
-        if (test.init) {
-          inputParts.push(test.init);
-        } else if (!test.useNode && test.name !== 'Initialize') {
-          inputParts.push('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}');
-        }
-        inputParts.push(test.req);
-        const input = inputParts.join('\n');
-
-        const testEnv = Object.assign({}, process.env);
-        for (const k of Object.keys(testEnv)) {
-          if (k.toUpperCase() === 'KONOHA_DAEMON') {
-            delete testEnv[k];
-          }
-        }
-        testEnv.KONOHA_DAEMON = 'false';
-
-        const run = test.useNode
-          ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
-              input,
-              encoding: 'utf-8',
-              timeout: 60000,
-              env: testEnv,
-              cwd: path.join(SRC_DIR, '..')
-            })
-          : spawnSync(process.execPath, [SERVER_PATH], {
-              input,
-              encoding: 'utf-8',
-              timeout: 30000,
-              env: testEnv,
-              cwd: path.join(SRC_DIR, '..')
-            });
-        if (run.status !== 0) {
-          if (run.error) {
-            throw new Error(run.error.message + (run.stderr ? '\n' + run.stderr : ''));
-          }
-          throw new Error(run.stderr || `Execution failed with exit code ${run.status}`);
-        }
-        const lines = run.stdout.trim().split('\n').filter(Boolean);
-        const response = JSON.parse(lines[lines.length - 1]);
-        if (response.error) {
-          error(`${test.name}: ${response.error.message}`);
-          allPassed = false;
-        } else {
-          // Parse tool content response to check for tool-level errors
-          let toolError = null;
-          try {
-            const content = JSON.parse(response.result.content[0].text);
-            if (content.error) {
-              toolError = content.error;
-            }
-          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-          if (toolError) {
-            error(`${test.name}: FAILED - ${toolError}`);
-            allPassed = false;
-          } else {
-            success(`${test.name}: OK`);
-
-            // Show extra info for specific tests
-            if (test.name === 'Find Skill (security)') {
-              try {
-                const content = JSON.parse(response.result.content[0].text);
-                info(`  Found ${content.found} results for "security"`);
-                if (content.results) {
-                  content.results.forEach(r => {
-                    log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`);
-                  });
-                }
-              } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-            }
-
-            if (test.name === 'List Skills') {
-              try {
-                const content = JSON.parse(response.result.content[0].text);
-                info(`  Total indexed: ${content.total} entries`);
-              } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-            }
-
-            if (test.name === 'Get Skill (anbu-skill)') {
-              try {
-                const content = JSON.parse(response.result.content[0].text);
-                info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
-              } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-            }
-          }
-        }
-      } catch (e) {
-        error(`${test.name}: FAILED - ${e.message}`);
-        allPassed = false;
-      }
-    }
-  } finally {
-    if (tempTestDir) {
-      try {
-        fs.rmSync(tempTestDir, { recursive: true, force: true });
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  for (const test of tests) {
+    try {
+      const run = runTestProcess(test);
+      if (!evaluateTestResult(test, run)) allPassed = false;
+    } catch (e) {
+      error(`${test.name}: FAILED - ${e.message}`);
+      allPassed = false;
     }
   }
 

@@ -111,7 +111,7 @@ function ensureWorkspaceRules(targetCwd) {
     const cwd = targetCwd || process.cwd();
     if (!cwd || cwd === HOME || !fs.existsSync(cwd)) return;
 
-    // 1. Scaffold GEMINI.md in workspace root if missing
+    // Scaffold GEMINI.md in workspace root if missing
     const geminiMdPath = path.join(cwd, 'GEMINI.md');
     if (!fs.existsSync(geminiMdPath)) {
       const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
@@ -122,7 +122,7 @@ function ensureWorkspaceRules(targetCwd) {
       }
     }
 
-    // 2. Scaffold .agents/AGENTS.md in workspace root if missing
+    // Scaffold .agents/AGENTS.md in workspace root if missing
     const agentsDir = path.join(cwd, '.agents');
     const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
     if (!fs.existsSync(agentsMdPath)) {

@@ -106,14 +106,14 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     throw new Error(`Access to IDE installation directory is forbidden: ${resolvedPath}`);
   }
 
-  // 1. Konoha install directory — always allowed
+  // Konoha install directory — always allowed
   const normKonoha = norm(getKonohaHome());
   const sep = path.sep;
   if (normPath === normKonoha || normPath.startsWith(normKonoha + sep) || normPath.startsWith(normKonoha + '/')) {
     return;
   }
 
-  // 1b. Dev repository root
+  // Dev repository root
   if (devRoot) {
     const normDev = norm(devRoot);
     if (normPath === normDev || normPath.startsWith(normDev + sep) || normPath.startsWith(normDev + '/')) {
@@ -121,7 +121,7 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     }
   }
 
-  // 1.5. Inside home-scoped agent scratch dirs
+  // Inside home-scoped agent scratch dirs
   const homeDir = os.homedir();
   const scratchPrefixes = [
     path.join(homeDir, '.gemini'),
@@ -146,7 +146,7 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     }
   }
 
-  // 2. Inside workspace root — if provided
+  // Inside workspace root — if provided
   const workspace = baseDir || process.cwd();
   if (!workspace) return;
   let wsReal = stripWinPrefix(workspace);

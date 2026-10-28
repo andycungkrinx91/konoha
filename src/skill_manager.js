@@ -80,72 +80,81 @@ function fileExists(p) {
   }
 }
 
+function _isEntryDirectory(entry, dir) {
+  if (entry.isDirectory()) return true;
+  if (!entry.isSymbolicLink()) return false;
+  try {
+    const realPath = fs.realpathSync(path.join(dir, entry.name));
+    return fs.statSync(realPath).isDirectory();
+  } catch (_) {
+    return false;
+  }
+}
+
+function _readSkillDescription(skillMd) {
+  try {
+    const content = fs.readFileSync(skillMd, 'utf-8');
+    const descMatch = /description:\s*["']?(.*?)["']?\s*$/m.exec(content);
+    return descMatch && descMatch[1] ? descMatch[1].trim() : 'No description available';
+  } catch (_) {
+    return 'No description available';
+  }
+}
+
+function _scanSkillsFromDir(dir, cwd, installed) {
+  if (!fileExists(dir)) return;
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!_isEntryDirectory(entry, dir)) continue;
+      const skillMd = path.join(dir, entry.name, 'SKILL.md');
+      if (!fileExists(skillMd)) continue;
+      if (installed[entry.name] && !dir.startsWith(cwd)) continue;
+
+      installed[entry.name] = {
+        name: entry.name,
+        path: path.join(dir, entry.name),
+        description: _readSkillDescription(skillMd)
+      };
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+}
+
 // List all installed skills across scan directories
 function listInstalledSkills(targetCwd = null) {
   const installed = {};
   const scanDirs = getSkillsScanDirs(targetCwd);
   const cwd = targetCwd || process.cwd() || HOME;
   for (const dir of scanDirs) {
-    if (fileExists(dir)) {
-      try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          let isDir = entry.isDirectory();
-          if (entry.isSymbolicLink()) {
-            try {
-              const realPath = fs.realpathSync(path.join(dir, entry.name));
-              isDir = fs.statSync(realPath).isDirectory();
-            } catch (_) { /* intentional best-effort fallback */ }
-          }
-          if (isDir) {
-            const skillMd = path.join(dir, entry.name, 'SKILL.md');
-            if (fileExists(skillMd)) {
-              let description = 'No description available';
-              try {
-                const content = fs.readFileSync(skillMd, 'utf-8');
-                const descMatch = /description:\s*["']?(.*?)["']?\s*$/m.exec(content);
-                if (descMatch && descMatch[1]) {
-                  description = descMatch[1].trim();
-                }
-              } catch (_) { /* intentional best-effort fallback */ }
-              
-              // Prevent duplicates if found in multiple paths, prioritize workspace/cwd
-              if (!installed[entry.name] || dir.startsWith(cwd)) {
-                installed[entry.name] = {
-                  name: entry.name,
-                  path: path.join(dir, entry.name),
-                  description
-                };
-              }
-            }
-          }
-        }
-      } catch (_) { /* intentional best-effort fallback */ }
-    }
+    _scanSkillsFromDir(dir, cwd, installed);
   }
   return Object.values(installed);
+}
+
+function _handleRegistryResponse(res, resolve, reject) {
+  if (res.statusCode !== 200) {
+    reject(new Error(`Failed to contact skills.sh API: ${res.statusCode}`));
+    return;
+  }
+  let data = '';
+  res.on('data', (chunk) => data += chunk);
+  res.on('end', () => {
+    try {
+      const payload = JSON.parse(data);
+      resolve(payload.isDuplicate ? [] : (payload.skills || payload.results || payload));
+    } catch (_) {
+      reject(new Error('Failed to parse search results JSON'));
+    }
+  });
 }
 
 // Search skills on skills.sh registry API
 function searchRegistry(query) {
   return new Promise((resolve, reject) => {
     const registryBase = process.env.KONOHA_SKILLS_REGISTRY_URL || 'https://skills.sh/api/search';
-  const url = `${registryBase}?q=${encodeURIComponent(query)}`;
+    const url = `${registryBase}?q=${encodeURIComponent(query)}`;
     const req = https.get(url, { headers: { 'User-Agent': 'konoha-cli' }, timeout: 8000 }, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`Failed to contact skills.sh API: ${res.statusCode}`));
-        return;
-      }
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          const payload = JSON.parse(data);
-          resolve(payload.isDuplicate ? [] : (payload.skills || payload.results || payload));
-        } catch (_) {
-          reject(new Error('Failed to parse search results JSON'));
-        }
-      });
+      _handleRegistryResponse(res, resolve, reject);
     });
     req.on('timeout', () => {
       req.destroy(new Error('skills.sh request timed out'));
@@ -263,6 +272,22 @@ function runInteractiveSearch(query) {
     });
 }
 
+function _syncInstalledSkillPaths(verifiedPath, skillName, execCwd) {
+  const globalSkillDir = path.join(AGENTS, 'skills', skillName);
+  if (verifiedPath !== globalSkillDir && !fs.existsSync(globalSkillDir)) {
+    try {
+      deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(AGENTS, 'skills'));
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+  if (!execCwd || !fs.existsSync(execCwd)) return;
+  const projectSkillDir = path.join(execCwd, '.agents', 'skills', skillName);
+  if (verifiedPath !== projectSkillDir && !fs.existsSync(projectSkillDir)) {
+    try {
+      deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(execCwd, '.agents', 'skills'));
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+}
+
 // Add skill directly from a repository URL
 async function addSkillDirect(repoUrl, skillName, options = {}) {
   let normalizedRepo = (repoUrl || '').trim();
@@ -308,21 +333,7 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
   }
   process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
 
-  // Ensure skill is synced to global ~/.agents/skills if installed in project, or vice-versa
-  const globalSkillDir = path.join(AGENTS, 'skills', skillName);
-  if (verifiedPath !== globalSkillDir && !fs.existsSync(globalSkillDir)) {
-    try {
-      deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(AGENTS, 'skills'));
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
-  if (execCwd && fs.existsSync(execCwd)) {
-    const projectSkillDir = path.join(execCwd, '.agents', 'skills', skillName);
-    if (verifiedPath !== projectSkillDir && !fs.existsSync(projectSkillDir)) {
-      try {
-        deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(execCwd, '.agents', 'skills'));
-      } catch (_) { /* intentional best-effort fallback */ }
-    }
-  }
+  _syncInstalledSkillPaths(verifiedPath, skillName, execCwd);
 
   syncAllClientSkills({ projectRoot: execCwd, silent: false });
 
@@ -418,18 +429,33 @@ function unembedSkillFromAgent(skillName, agentName) {
 
 function syncAllClientSkills(options = {}) {
   const silent = options.silent !== false;
+  const effectiveHome = options.home || process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
   const sourceSkillsDir = options.sourceSkillsDir || (
-    fs.existsSync(path.join(__dirname, '..', 'src', 'templates', 'skills'))
-      ? path.join(__dirname, '..', 'src', 'templates', 'skills')
-      : (fs.existsSync(path.join(HOME, '.agents', 'skills'))
-          ? path.join(HOME, '.agents', 'skills')
-          : path.join(__dirname, '..', '.agents', 'skills'))
+    fs.existsSync(path.join(__dirname, 'templates', 'skills'))
+      ? path.join(__dirname, 'templates', 'skills')
+      : (fs.existsSync(path.join(__dirname, '..', 'src', 'templates', 'skills'))
+          ? path.join(__dirname, '..', 'src', 'templates', 'skills')
+          : (fs.existsSync(path.join(effectiveHome, '.agents', 'skills'))
+              ? path.join(effectiveHome, '.agents', 'skills')
+              : path.join(__dirname, '..', '.agents', 'skills')))
   );
 
   if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
 
   const targetDirs = [
-    path.join(HOME, '.agents', 'skills')
+    path.resolve(effectiveHome, '.agents', 'skills'),
+    path.resolve(effectiveHome, '.gemini', 'antigravity-cli', 'skills'),
+    path.resolve(effectiveHome, '.gemini', 'skills'),
+    path.resolve(effectiveHome, '.cursor', 'skills'),
+    path.resolve(effectiveHome, '.claude', 'skills'),
+    path.resolve(effectiveHome, '.commandcode', 'skills'),
+    path.resolve(effectiveHome, '.codex', 'skills'),
+    path.resolve(effectiveHome, '.config', 'opencode', 'skills'),
+    path.resolve(effectiveHome, '.opencode', 'skills'),
+    path.resolve(effectiveHome, '.pi', 'agent', 'skills'),
+    path.resolve(effectiveHome, '.pi', 'skills'),
+    path.resolve(effectiveHome, '.omp', 'agent', 'skills'),
+    path.resolve(effectiveHome, '.omp', 'skills')
   ];
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);
@@ -444,7 +470,7 @@ function syncAllClientSkills(options = {}) {
   }
 
   if (!silent) {
-    process.stderr.write('✓ Synchronized skills to canonical directory: ~/.agents/skills\n');
+    process.stderr.write(`✓ Synchronized skills to ${syncedTargets.length} mirror location(s)\n`);
   }
 
   return { synced: syncedTargets.length, targets: syncedTargets };
@@ -483,6 +509,11 @@ function autoMigrateProjectSkills(projectRoot) {
       }
     } catch { /* intentional best-effort fallback */ }
   }
+
+  try {
+    deployUtils.pruneWorkspacePollution(ws);
+  } catch (_) { /* intentional best-effort fallback */ }
+
   return { migrated: totalMigrated, dirs: foundDirs };
 }
 

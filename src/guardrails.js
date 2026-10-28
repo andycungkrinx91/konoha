@@ -278,64 +278,74 @@ function checkCommandGuardrails(command) {
     return null;
   }
 
-  var segments = cmd.split(/&&|\|\||;/);
-  for (var s = 0; s < segments.length; s++) {
-    if (!segments[s].trim()) continue;
-    var stages = segments[s].split('|');
-    for (var g = 0; g < stages.length; g++) {
-      if (!stages[g].trim()) continue;
-      var parsed = parseStage(stages[g]);
-      if (!parsed.bin) continue;
+    function checkInterpreterBypass(parsed) {
+      var blockedFlags = INTERPRETER_FLAGS[parsed.bin];
+      if (!blockedFlags) return null;
+      var found = parsed.tokens.slice(1).some(function(tok) {
+        return blockedFlags.indexOf(stripQuotes(tok)) !== -1;
+      });
+      return found ? { category: 'interpreter-bypass', reason: REASON_INTERPRETER_BYPASS } : null;
+    }
 
-      // Interpreter inline execution evasion
-      if (INTERPRETER_FLAGS[parsed.bin]) {
-        var blockedFlags = INTERPRETER_FLAGS[parsed.bin];
-        for (var a = 1; a < parsed.tokens.length; a++) {
-          var argToken = stripQuotes(parsed.tokens[a]);
-          if (blockedFlags.indexOf(argToken) !== -1) {
-            return { category: 'interpreter-bypass', reason: REASON_INTERPRETER_BYPASS };
-          }
-        }
-      }
+    function checkConfigTampering(parsed, rawStage) {
+      if (MUTATING_BINS.indexOf(parsed.bin) === -1 && rawStage.indexOf('>') === -1) return null;
+      var found = parsed.tokens.some(function(tok) {
+        return isProtectedConfigToken(tok);
+      });
+      return found ? { category: 'config-tampering', reason: REASON_CONFIG_TAMPERING } : null;
+    }
 
-      // Config self-tampering prevention
-      if (MUTATING_BINS.indexOf(parsed.bin) !== -1 || stages[g].indexOf('>') !== -1) {
-        for (var p = 0; p < parsed.tokens.length; p++) {
-          if (isProtectedConfigToken(parsed.tokens[p])) {
-            return { category: 'config-tampering', reason: REASON_CONFIG_TAMPERING };
-          }
-        }
-      }
+    function checkSecretTokens(tokens, startIdx) {
+      var found = tokens.slice(startIdx).some(function(tok) {
+        return isSecretPathToken(tok);
+      });
+      return found ? { category: 'secrets', reason: REASON_SECRETS } : null;
+    }
 
-      // Read-bypass: first stage of a pipe chain only, exempt when rtk-prefixed.
-      // Secrets are checked first so the more specific violation wins when a
-      // command is both a raw read and a secret access (e.g. `cat .env`).
-      // rm -rf on root/home targets.
-      if (parsed.bin === 'rm') {
-        var rmViolation = checkRm(parsed.tokens);
-        if (rmViolation) return rmViolation;
-      }
-
-      // Secrets: any reader stage, plus git add/commit.
+    function checkSecretsViolation(parsed) {
       if (SECRET_READERS.indexOf(parsed.bin) !== -1) {
-        for (var k = 1; k < parsed.tokens.length; k++) {
-          if (isSecretPathToken(parsed.tokens[k])) {
-            return { category: 'secrets', reason: REASON_SECRETS };
-          }
-        }
-      } else if (parsed.bin === 'git' && parsed.tokens.length > 1 &&
-                 (parsed.tokens[1] === 'add' || parsed.tokens[1] === 'commit')) {
-        for (var m = 2; m < parsed.tokens.length; m++) {
-          if (isSecretPathToken(parsed.tokens[m])) {
-            return { category: 'secrets', reason: REASON_SECRETS };
-          }
-        }
+        return checkSecretTokens(parsed.tokens, 1);
       }
+      if (parsed.bin === 'git' && parsed.tokens.length > 1 &&
+          (parsed.tokens[1] === 'add' || parsed.tokens[1] === 'commit')) {
+        return checkSecretTokens(parsed.tokens, 2);
+      }
+      return null;
+    }
 
-      if (g === 0 && READ_BYPASS_BINARIES.indexOf(parsed.bin) !== -1) {
+    function checkSingleStage(stageStr, isFirstStage) {
+      if (!stageStr.trim()) return null;
+      var parsed = parseStage(stageStr);
+      if (!parsed.bin) return null;
+      var violation = checkInterpreterBypass(parsed) ||
+                      checkConfigTampering(parsed, stageStr);
+      if (violation) return violation;
+      if (parsed.bin === 'rm') {
+        var rmV = checkRm(parsed.tokens);
+        if (rmV) return rmV;
+      }
+      var secV = checkSecretsViolation(parsed);
+      if (secV) return secV;
+      if (isFirstStage && READ_BYPASS_BINARIES.indexOf(parsed.bin) !== -1) {
         return { category: 'read-bypass', reason: REASON_READ_BYPASS };
       }
+      return null;
     }
+
+    function checkSegment(segStr) {
+      if (!segStr.trim()) return null;
+      var stages = segStr.split('|');
+      for (var g = 0; g < stages.length; g++) {
+        var v = checkSingleStage(stages[g], g === 0);
+        if (v) return v;
+      }
+      return null;
+    }
+
+  var segments = cmd.split(/&&|\|\||;/);
+  for (var s = 0; s < segments.length; s++) {
+    var segViolation = checkSegment(segments[s]);
+    if (segViolation) return segViolation;
   }
 
   return null;

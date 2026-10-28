@@ -28,18 +28,17 @@ function getRtkMetrics() {
       encoding: 'utf8',
       timeout: 4000
     });
-    if (res.status === 0 && res.stdout) {
-      const data = JSON.parse(res.stdout);
-      if (data && data.summary) {
-        return {
-          available: true,
-          commands: data.summary.total_commands,
-          inputTokens: data.summary.total_input,
-          outputTokens: data.summary.total_output,
-          savedTokens: data.summary.total_saved,
-          savingsPct: Number(data.summary.avg_savings_pct.toFixed(1))
-        };
-      }
+    if (!res.stdout || res.status !== 0) throw new Error('rtk failed');
+    const data = JSON.parse(res.stdout);
+    if (data && data.summary) {
+      return {
+        available: true,
+        commands: data.summary.total_commands,
+        inputTokens: data.summary.total_input,
+        outputTokens: data.summary.total_output,
+        savedTokens: data.summary.total_saved,
+        savingsPct: Number(data.summary.avg_savings_pct.toFixed(1))
+      };
     }
   } catch (_) { /* fallback */ }
 
@@ -114,45 +113,20 @@ function getSystemTelemetry() {
   };
 }
 
-function generateBenchmarkMarkdown() {
-  const conn = db.getConnection();
-  sanitizeLegacyRecords(conn);
+function getToolCharacterization(toolName) {
+  if (['read_file_range', 'find_skill', 'read_file_head'].includes(toolName)) {
+    return 'Core bounded retrieval (83%–98% headline)';
+  }
+  if (['token_efficient_grep', 'find_files_clean', 'list_skills', 'get_file_structure', 'file_info'].includes(toolName)) {
+    return 'Aggressive context pruning (> 98% reduction)';
+  }
+  if (['get_skill', 'docs_ai_detector', 'website_ai_detector'].includes(toolName)) {
+    return 'Bounded section delivery & audit (55%–82%)';
+  }
+  return 'Operational router / spec generator (0% base=ret)';
+}
 
-  const report = getSavingsReport();
-  const drift = getDriftMetrics({ force: true });
-  const rtk = getRtkMetrics();
-  const sys = getSystemTelemetry();
-
-  // Query per-tool statistics from live database
-  const toolRows = conn.prepare(`
-    SELECT
-      tool,
-      COUNT(*) as calls,
-      ROUND(SUM(total_library_bytes) / 1048576.0, 2) as base_mb,
-      ROUND(SUM(returned_bytes) / 1048576.0, 2) as ret_mb,
-      ROUND(SUM(bytes_saved) / 1048576.0, 2) as saved_mb,
-      ROUND(AVG(total_library_bytes) / 1024.0, 2) as avg_base_kb,
-      ROUND(AVG(returned_bytes) / 1024.0, 2) as avg_ret_kb,
-      ROUND((SUM(bytes_saved) * 100.0) / NULLIF(SUM(total_library_bytes), 0), 1) as pct_saved
-    FROM tool_calls
-    GROUP BY tool
-    ORDER BY calls DESC
-  `).all();
-
-  // Map category characterization
-  const getToolCharacterization = (toolName, _pct) => {
-    if (['read_file_range', 'find_skill', 'read_file_head'].includes(toolName)) {
-      return 'Core bounded retrieval (83%–98% headline)';
-    }
-    if (['token_efficient_grep', 'find_files_clean', 'list_skills', 'get_file_structure', 'file_info'].includes(toolName)) {
-      return 'Aggressive context pruning (> 98% reduction)';
-    }
-    if (['get_skill', 'docs_ai_detector', 'website_ai_detector'].includes(toolName)) {
-      return 'Bounded section delivery & audit (55%–82%)';
-    }
-    return 'Operational router / spec generator (0% base=ret)';
-  };
-
+function buildSavingsOverview(report, toolRows) {
   const lines = [
     '# 📊 Token Savings & Optimization Benchmark Report',
     '',
@@ -188,7 +162,7 @@ function generateBenchmarkMarkdown() {
   ];
 
   toolRows.forEach((r, idx) => {
-    const charact = getToolCharacterization(r.tool, r.pct_saved);
+    const charact = getToolCharacterization(r.tool);
     lines.push(
       `| ${idx + 1} | \`${r.tool}\` | ${r.calls} | ${r.base_mb} MB | ${r.ret_mb} MB | ${r.saved_mb} MB | ${r.avg_base_kb} KB | ${r.avg_ret_kb} KB | **${r.pct_saved ?? 0}%** | ${charact} |`
     );
@@ -202,7 +176,13 @@ function generateBenchmarkMarkdown() {
     '- **Bounded Section Retrieval (55%–82%)**: `get_skill` yields ~72% savings when retrieving budgeted sections against full skill files, and `list_skills` achieves ~55% savings comparing concise JSON summaries (~15.7 KB) against unpruned raw frontmatter parsing (~35 KB).',
     '- **Operational Routers (0.0%)**: Subagents (`anbu`, `sannin`, `jonin`, `kage`, `tokubetsu_jonin`, `genin`) and specification tools are execution routers whose directives are preserved as-is (`baseline == returned_bytes`), intentionally sanitized to 0% to prevent artificial telemetry inflation.',
     '',
-    '---',
+    '---'
+  );
+  return lines;
+}
+
+function buildVerificationAndSembleSection(drift, rtk) {
+  return [
     '',
     '## 2. 🔬 Wire-Level Verification & Tiktoken Tokenization Accuracy',
     '',
@@ -212,9 +192,9 @@ function generateBenchmarkMarkdown() {
     '- **Transcript Cross-Check**: Empirical verification against `transcript.jsonl` (e.g. Step 3388) demonstrates that the text payload recorded in `tool_calls` (1,243 bytes) matches the prompt-injected transcript text (1,240 bytes) within **3 bytes (99.8% exact fidelity)**, with an 81-byte outer invocation timestamp header added by the CLI harness.',
     '',
     '### B. Live Tiktoken (`cl100k_base`) Sampling vs. `/4` Heuristic',
-    '- **Observed Byte-to-Token Ratio**: **' + drift.empiricalBytesPerToken + ' bytes/token** across live JSON, markdown, and JavaScript source code payloads.',
-    '- **Heuristic Divergence**: **±' + drift.divergencePct + '%** relative to exact `cl100k_base` tokenization.',
-    '- **Telemetry Status**: **' + drift.status.toUpperCase() + '** (mechanically verified by `src/token_sampler.js`).',
+    `- **Observed Byte-to-Token Ratio**: **${drift.empiricalBytesPerToken} bytes/token** across live JSON, markdown, and JavaScript source code payloads.`,
+    `- **Heuristic Divergence**: **±${drift.divergencePct}%** relative to exact \`cl100k_base\` tokenization.`,
+    `- **Telemetry Status**: **${drift.status.toUpperCase()}** (mechanically verified by \`src/token_sampler.js\`).`,
     '',
     '---',
     '',
@@ -247,7 +227,12 @@ function generateBenchmarkMarkdown() {
     '- **Diffs (`diff`)**: **96.1%** reduction (delivers hunk summaries and targeted delta spans).',
     '- **Targeted Grep (`grep`)**: **20.5%** reduction (strips padding, whitespace, and noisy file headers).',
     '',
-    '---',
+    '---'
+  ];
+}
+
+function buildTelemetryAndAppendix(sys) {
+  return [
     '',
     '## 5. ⚡ Real CPU & Memory Usage Telemetry',
     '',
@@ -295,7 +280,7 @@ function generateBenchmarkMarkdown() {
     '|---|---|---|',
     '| Full Test Suite | `rtk node tests/run_all.js` | 100% test suites pass (91+ suites) |',
     '| Zero-AI-Slop Gate | `rtk aislop scan --changes` | 100/100 Healthy, 0 errors, 0 warnings |',
-    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 40 tools in sync) |',
+    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 47 tools in sync) |',
     '| Benchmark Sync | `rtk node scripts/generate_benchmark.js --check` | Exit 0 (structure & telemetry in sync) |',
     '',
     '---',
@@ -310,9 +295,61 @@ function generateBenchmarkMarkdown() {
     '| **Last 7 Days** | 609 | ~190.90 MB (~50.0M tokens) | **99%** |',
     '| **All Time** | 1,301 | ~290.47 MB (~76.1M tokens) | **98%** |',
     ''
-  );
+  ];
+}
+
+function generateBenchmarkMarkdown() {
+  const conn = db.getConnection();
+  sanitizeLegacyRecords(conn);
+
+  const report = getSavingsReport();
+  const drift = getDriftMetrics({ force: true });
+  const rtk = getRtkMetrics();
+  const sys = getSystemTelemetry();
+
+  const toolRows = conn.prepare(`
+    SELECT
+      tool,
+      COUNT(*) as calls,
+      ROUND(SUM(total_library_bytes) / 1048576.0, 2) as base_mb,
+      ROUND(SUM(returned_bytes) / 1048576.0, 2) as ret_mb,
+      ROUND(SUM(bytes_saved) / 1048576.0, 2) as saved_mb,
+      ROUND(AVG(total_library_bytes) / 1024.0, 2) as avg_base_kb,
+      ROUND(AVG(returned_bytes) / 1024.0, 2) as avg_ret_kb,
+      ROUND((SUM(bytes_saved) * 100.0) / NULLIF(SUM(total_library_bytes), 0), 1) as pct_saved
+    FROM tool_calls
+    GROUP BY tool
+    ORDER BY calls DESC
+  `).all();
+
+  const lines = [
+    ...buildSavingsOverview(report, toolRows),
+    ...buildVerificationAndSembleSection(drift, rtk),
+    ...buildTelemetryAndAppendix(sys)
+  ];
 
   return lines.join('\n');
+}
+
+function validateBenchmarkContent(current) {
+  const requiredAnchors = [
+    '# 📊 Token Savings & Optimization Benchmark Report',
+    '## 🏆 Combined Optimization Impact',
+    '## 1. ⚡ Konoha MCP',
+    '## 2. 🔬 Wire-Level Verification & Tiktoken Tokenization Accuracy',
+    '## 3. 🔍 Semble (Semantic Code Search) Savings',
+    '## 4. 🦀 RTK (Rust Token Killer) Empirical Savings',
+    '## 5. ⚡ Real CPU & Memory Usage Telemetry',
+    '## Appendix — Superseded Historical Snapshot',
+    'Byte-Weighted Reduction',
+    'cl100k_base'
+  ];
+
+  for (const anchor of requiredAnchors) {
+    if (!current.includes(anchor)) {
+      throw new Error(`BENCHMARK.md is missing required structural anchor: "${anchor}"`);
+    }
+  }
 }
 
 function syncBenchmark(checkOnly = false) {
@@ -323,32 +360,11 @@ function syncBenchmark(checkOnly = false) {
       throw new Error(`BENCHMARK.md does not exist at ${BENCHMARK_PATH}`);
     }
     const current = fs.readFileSync(BENCHMARK_PATH, 'utf8');
-
-    // Structural validation: verify all required sections and formulas exist
-    const requiredAnchors = [
-      '# 📊 Token Savings & Optimization Benchmark Report',
-      '## 🏆 Combined Optimization Impact',
-      '## 1. ⚡ Konoha MCP',
-      '## 2. 🔬 Wire-Level Verification & Tiktoken Tokenization Accuracy',
-      '## 3. 🔍 Semble (Semantic Code Search) Savings',
-      '## 4. 🦀 RTK (Rust Token Killer) Empirical Savings',
-      '## 5. ⚡ Real CPU & Memory Usage Telemetry',
-      '## Appendix — Superseded Historical Snapshot',
-      'Byte-Weighted Reduction',
-      'cl100k_base'
-    ];
-
-    for (const anchor of requiredAnchors) {
-      if (!current.includes(anchor)) {
-        throw new Error(`BENCHMARK.md is missing required structural anchor: "${anchor}"`);
-      }
-    }
-
+    validateBenchmarkContent(current);
     return true;
   }
 
   fs.writeFileSync(BENCHMARK_PATH, generated, 'utf8');
-  console.log(`✓ Successfully updated ${path.relative(ROOT, BENCHMARK_PATH)} from live telemetry.`);
   return true;
 }
 

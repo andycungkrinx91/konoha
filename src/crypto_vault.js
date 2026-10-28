@@ -1,6 +1,6 @@
 /**
  * Konoha Crypto Vault - AES-256-GCM Secret Encryption Layer
- * Provides authenticated symmetric encryption for sensitive credentials at rest (e.g. Telegram tokens, Cloudflare tunnel tokens).
+ * Provides authenticated symmetric encryption for sensitive credentials at rest (e.g. Telegram bot tokens, webhook secrets).
  */
 
 'use strict';

@@ -151,7 +151,6 @@ async function cmdDataView() {
       try { sessionsCount = conn.prepare("SELECT COUNT(*) as c FROM active_sessions").get().c; } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       let freelistSize = 0;
       try {
-        const _pageCount = conn.pragma("page_count", { simple: true });
         const freelistCount = conn.pragma("freelist_count", { simple: true });
         const pageSize = conn.pragma("page_size", { simple: true });
         freelistSize = freelistCount * pageSize;
@@ -178,75 +177,80 @@ async function cmdDataView() {
   }
 }
 
-async function cmdDataPrune(args = []) {
-  try {
-    if (fileExists(DB_PATH)) {
-      const personaMemory = require('../../src/persona_memory');
-      let projectFilter = null;
-      for (let i = 0; i < args.length; i++) {
-        if ((args[i] === '--project' || args[i] === '-p') && args[i + 1]) {
-          projectFilter = args[++i];
-        }
-      }
-
-      if (args.includes('--memories') || args.includes('memories') || args.includes('--memory') || projectFilter) {
-        info('Pruning episodic memory context...');
-        if (projectFilter) {
-          const res = personaMemory.pruneProjectMemories(projectFilter, {}, DB_PATH);
-          success(`Pruned ${res.deleted} memory item(s) for project (${res.project_hash || projectFilter}).`);
-        } else {
-          const res = personaMemory.pruneMemories({}, DB_PATH);
-          success(`Pruned ${res.deleted} episodic memory item(s) from database.`);
-        }
-      }
-
-      const retentionIdx = args.findIndex(a => a === '--retention' || a === '--days');
-      const hasRetention = retentionIdx !== -1 && args[retentionIdx + 1];
-      const retentionDays = hasRetention ? (parseInt(args[retentionIdx + 1], 10) || 90) : null;
-
-      info('Pruning database (clearing session history, old usage logs)...');
-      const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
-      const { getDb } = require('../../src/db');
-      const conn = getDb(DB_PATH);
-      if (hasRetention) {
-        try {
-          const { pruneToolCalls } = require('../../src/tools_savings_logger');
-          pruneToolCalls(retentionDays, DB_PATH);
-        } catch (_) { /* intentional best-effort fallback */ }
-      } else {
-        try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-      try { conn.prepare("DELETE FROM active_sessions;").run(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      try { conn.exec("VACUUM"); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
-      const saved = Math.max(sizeBefore - sizeAfter, 0);
-
-      // Prune SearXNG logs and cache files
-      const searxngDir = path.join(HOME, '.konoha', 'searxng');
-      const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
-      let searxngSavedBytes = 0;
-      pruneFiles.forEach(f => {
-        const fp = path.join(searxngDir, f);
-        if (fs.existsSync(fp)) {
-          searxngSavedBytes += fs.statSync(fp).size;
-          try {
-            fs.unlinkSync(fp);
-          } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        }
-      });
-
-      const totalSavedBytes = saved + searxngSavedBytes;
-      const sizeBeforeMb = (sizeBefore / (1024 * 1024)).toFixed(2);
-      const sizeAfterMb = (sizeAfter / (1024 * 1024)).toFixed(2);
-      const savedMb = (totalSavedBytes / (1024 * 1024)).toFixed(2);
-
-      success('Successfully pruned active session mappings, usage logs, and SearXNG logs/caches!');
-      log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
-      log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
-      log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
-    } else {
-      error('SQLite database not found.');
+function pruneSearxngLogs() {
+  const searxngDir = path.join(HOME, '.konoha', 'searxng');
+  const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
+  let searxngSavedBytes = 0;
+  pruneFiles.forEach(f => {
+    const fp = path.join(searxngDir, f);
+    if (fs.existsSync(fp)) {
+      searxngSavedBytes += fs.statSync(fp).size;
+      try { fs.unlinkSync(fp); } catch { /* best-effort */ }
     }
+  });
+  return searxngSavedBytes;
+}
+
+function pruneMemoriesByArgs(projectFilter) {
+  const personaMemory = require('../../src/persona_memory');
+  info('Pruning episodic memory context...');
+  if (projectFilter) {
+    const res = personaMemory.pruneProjectMemories(projectFilter, {}, DB_PATH);
+    success(`Pruned ${res.deleted} memory item(s) for project (${res.project_hash || projectFilter}).`);
+  } else {
+    const res = personaMemory.pruneMemories({}, DB_PATH);
+    success(`Pruned ${res.deleted} episodic memory item(s) from database.`);
+  }
+}
+
+async function cmdDataPrune(args = []) {
+  if (!fileExists(DB_PATH)) {
+    error('SQLite database not found.');
+    return;
+  }
+  try {
+    let projectFilter = null;
+    for (let i = 0; i < args.length; i++) {
+      if ((args[i] === '--project' || args[i] === '-p') && args[i + 1]) {
+        projectFilter = args[++i];
+      }
+    }
+
+    if (args.includes('--memories') || args.includes('memories') || args.includes('--memory') || projectFilter) {
+      pruneMemoriesByArgs(projectFilter);
+    }
+
+    const retentionIdx = args.findIndex(a => a === '--retention' || a === '--days');
+    const hasRetention = retentionIdx !== -1 && args[retentionIdx + 1];
+    const retentionDays = hasRetention ? (parseInt(args[retentionIdx + 1], 10) || 90) : null;
+
+    info('Pruning database (clearing session history, old usage logs)...');
+    const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+    const { getDb } = require('../../src/db');
+    const conn = getDb(DB_PATH);
+    if (hasRetention) {
+      try {
+        const { pruneToolCalls } = require('../../src/tools_savings_logger');
+        pruneToolCalls(retentionDays, DB_PATH);
+      } catch (_) { /* best-effort */ }
+    } else {
+      try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) { /* best-effort */ }
+    }
+    try { conn.prepare("DELETE FROM active_sessions;").run(); } catch (_) { /* best-effort */ }
+    try { conn.exec("VACUUM"); } catch (_) { /* best-effort */ }
+    const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+    const saved = Math.max(sizeBefore - sizeAfter, 0);
+
+    const searxngSavedBytes = pruneSearxngLogs();
+    const totalSavedBytes = saved + searxngSavedBytes;
+    const sizeBeforeMb = (sizeBefore / (1024 * 1024)).toFixed(2);
+    const sizeAfterMb = (sizeAfter / (1024 * 1024)).toFixed(2);
+    const savedMb = (totalSavedBytes / (1024 * 1024)).toFixed(2);
+
+    success('Successfully pruned active session mappings, usage logs, and SearXNG logs/caches!');
+    log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
+    log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
+    log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
   } catch (err) {
     error(`Failed to prune database: ${err.message}`);
   }
@@ -314,134 +318,128 @@ async function cmdDataBackup(args = []) {
   }
 }
 
-async function cmdDataExport() {
+function buildExportMarkdown(conn) {
+  let skills = [];
   try {
-    if (fileExists(DB_PATH)) {
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yy = String(now.getFullYear()).slice(-2);
-      const ms = String(now.getMilliseconds()).padStart(3, '0');
-      const filename = `konoha-persona-${dd}${mm}${yy}${ms}.md`;
-      const exportPath = path.join(process.cwd(), filename);
+    skills = conn.prepare("SELECT name, skill_name, type, tags, content, byte_size, line_count FROM skills ORDER BY name ASC").all();
+  } catch (_) { /* best-effort */ }
 
-      info(`Exporting database to Markdown at ${exportPath}...`);
+  let sessions = [];
+  try {
+    sessions = conn.prepare("SELECT client, workspace_root, session_id, last_active_at FROM active_sessions ORDER BY last_active_at DESC").all();
+  } catch (_) { /* best-effort */ }
 
-      const { getDb } = require('../../src/db');
-      const conn = getDb(DB_PATH);
+  let toolCallsSum = { count: 0, bytes_saved: 0, tokens_saved: 0 };
+  try {
+    toolCallsSum = conn.prepare("SELECT COUNT(*) as count, COALESCE(SUM(bytes_saved), 0) as bytes_saved, COALESCE(SUM(tokens_saved), 0) as tokens_saved FROM tool_calls").get();
+  } catch (_) { /* best-effort */ }
 
-      let skills = [];
-      try {
-        skills = conn.prepare("SELECT name, skill_name, type, tags, content, byte_size, line_count FROM skills ORDER BY name ASC").all();
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  let content = `# 🍃 Konoha Persona & Knowledge Export\n\n`;
+  content += `Generated Database Dump: ${DB_PATH}\n`;
+  content += `This file contains the structured skills, agent identities, and active sessions database.\n\n`;
 
-      let sessions = [];
-      try {
-        sessions = conn.prepare("SELECT client, workspace_root, session_id, last_active_at FROM active_sessions ORDER BY last_active_at DESC").all();
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-      let toolCallsSum = { count: 0, bytes_saved: 0, tokens_saved: 0 };
-      try {
-        toolCallsSum = conn.prepare("SELECT COUNT(*) as count, COALESCE(SUM(bytes_saved), 0) as bytes_saved, COALESCE(SUM(tokens_saved), 0) as tokens_saved FROM tool_calls").get();
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-      let content = `# 🍃 Konoha Persona & Knowledge Export\n\n`;
-      content += `Generated Database Dump: ${DB_PATH}\n`;
-      content += `This file contains the structured skills, agent identities, and active sessions database.\n\n`;
-
-      content += `## 👤 Special Agent Village Roster\n`;
-      try {
-        const agentsData = conn.prepare("SELECT name, icon, model_tier, description FROM agents").all();
-        for (const a of agentsData) {
-          content += `- **${a.icon || '👤'} ${a.name}** (Model: ${a.model_tier}): ${a.description}\n`;
-        }
-      } catch (_) {
-        content += `Failed to load agents configuration from database.\n`;
-      }
-      content += `\n`;
-
-      content += `## 📚 Indexed Reference Skills\n`;
-      if (!skills || skills.length === 0) {
-        content += `No skills currently indexed in the SQLite database.\n`;
-      } else {
-        for (const s of skills) {
-          content += `### 📦 ${s.name} (${s.type})\n`;
-          content += `- **Skill Group**: ${s.skill_name}\n`;
-          content += `- **Tags**: ${s.tags || ''}\n`;
-          content += `- **Size**: ${s.byte_size} bytes (${s.line_count} lines)\n\n`;
-          content += `#### Instruction Content:\n`;
-          content += `\`\`\`markdown\n`;
-          content += `${(s.content || '').trim()}\n`;
-          content += `\`\`\`\n\n`;
-          content += `---\n\n`;
-        }
-      }
-
-      content += `## 📊 Active Workspace Sessions\n`;
-      if (!sessions || sessions.length === 0) {
-        content += `No active workspace sessions recorded.\n`;
-      } else {
-        content += `| Client | Workspace Root | Session ID | Last Active |\n`;
-        content += `| --- | --- | --- | --- |\n`;
-        for (const sess of sessions) {
-          content += `| ${sess.client} | ${sess.workspace_root} | ${sess.session_id} | ${sess.last_active_at} |\n`;
-        }
-      }
-      content += `\n`;
-
-      content += `## 📉 Token Telemetry Summary\n`;
-      content += `- **Total Tool Invocations**: ${toolCallsSum.count || 0}\n`;
-      content += `- **Cumulative Bytes Saved**: ${toolCallsSum.bytes_saved || 0} bytes\n`;
-      content += `- **Cumulative Tokens Saved**: ${toolCallsSum.tokens_saved || 0} tokens\n`;
-
-      fs.writeFileSync(exportPath, content, 'utf-8');
-      success(`Successfully exported database knowledge base to ${exportPath}!`);
-    } else {
-      error('SQLite database not found.');
+  content += `## 👤 Special Agent Village Roster\n`;
+  try {
+    const agentsData = conn.prepare("SELECT name, icon, model_tier, description FROM agents").all();
+    for (const a of agentsData) {
+      content += `- **${a.icon || '👤'} ${a.name}** (Model: ${a.model_tier}): ${a.description}\n`;
     }
+  } catch (_) {
+    content += `Failed to load agents configuration from database.\n`;
+  }
+  content += `\n## 📚 Indexed Reference Skills\n`;
+  if (!skills || skills.length === 0) {
+    content += `No skills currently indexed in the SQLite database.\n`;
+  } else {
+    for (const s of skills) {
+      content += `### 📦 ${s.name} (${s.type})\n- **Skill Group**: ${s.skill_name}\n- **Tags**: ${s.tags || ''}\n- **Size**: ${s.byte_size} bytes (${s.line_count} lines)\n\n#### Instruction Content:\n\`\`\`markdown\n${(s.content || '').trim()}\n\`\`\`\n\n---\n\n`;
+    }
+  }
+
+  content += `## 📊 Active Workspace Sessions\n`;
+  if (!sessions || sessions.length === 0) {
+    content += `No active workspace sessions recorded.\n`;
+  } else {
+    content += `| Client | Workspace Root | Session ID | Last Active |\n| --- | --- | --- | --- |\n`;
+    for (const sess of sessions) {
+      content += `| ${sess.client} | ${sess.workspace_root} | ${sess.session_id} | ${sess.last_active_at} |\n`;
+    }
+  }
+  content += `\n## 📉 Token Telemetry Summary\n`;
+  content += `- **Total Tool Invocations**: ${toolCallsSum.count || 0}\n`;
+  content += `- **Cumulative Bytes Saved**: ${toolCallsSum.bytes_saved || 0} bytes\n`;
+  content += `- **Cumulative Tokens Saved**: ${toolCallsSum.tokens_saved || 0} tokens\n`;
+  return content;
+}
+
+async function cmdDataExport() {
+  if (!fileExists(DB_PATH)) {
+    error('SQLite database not found.');
+    return;
+  }
+  try {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    const filename = `konoha-persona-${dd}${mm}${yy}${ms}.md`;
+    const exportPath = path.join(process.cwd(), filename);
+
+    info(`Exporting database to Markdown at ${exportPath}...`);
+    const { getDb } = require('../../src/db');
+    const conn = getDb(DB_PATH);
+    const content = buildExportMarkdown(conn);
+
+    fs.writeFileSync(exportPath, content, 'utf-8');
+    success(`Successfully exported database knowledge base to ${exportPath}!`);
   } catch (err) {
     error(`Failed to export database: ${err.message}`);
   }
 }
 
-async function cmdDataMemory(args) {
-  try {
-    if (fileExists(DB_PATH)) {
-      let agentFilter = null;
-      let projectFilter = null;
-      for (let i = 0; i < args.length; i++) {
-        if ((args[i] === '--project' || args[i] === '-p') && args[i + 1]) {
-          projectFilter = args[++i];
-        } else if (!args[i].startsWith('-') && !agentFilter) {
-          agentFilter = args[i];
-        }
-      }
-
-      const personaMemory = require('../../src/persona_memory');
-      const mems = personaMemory.listMemories({
-        agentName: agentFilter || null,
-        projectPath: projectFilter || null,
-        limit: 50,
-        allSessions: true,
-        dbPath: DB_PATH
-      });
-      const filterLabel = projectFilter ? `(Project: ${path.basename(projectFilter)})` : (agentFilter ? `(@${agentFilter})` : '');
-      header(`🧠 Konoha Saved Persona Memories ${filterLabel}`);
-      if (!mems || mems.length === 0) {
-        log(`  ${C.dim}No saved memories found. Use ${C.cyan}konoha data add <agent> <content>${C.dim} to save rules/learnings.${C.reset}\n`);
-        return;
-      }
-      mems.forEach((m, idx) => {
-        const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
-        log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
-        log(`     ${m.content}`);
-        if (m.tags) log(`     ${C.dim}Tags: ${m.tags}${C.reset}`);
-        log('');
-      });
-      success(`Total: ${mems.length} saved memory item(s).`);
-    } else {
-      error('SQLite database not found.');
+function parseMemoryArgs(args) {
+  let agentFilter = null;
+  let projectFilter = null;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--project' || args[i] === '-p') && args[i + 1]) {
+      projectFilter = args[++i];
+    } else if (!args[i].startsWith('-') && !agentFilter) {
+      agentFilter = args[i];
     }
+  }
+  return { agentFilter, projectFilter };
+}
+
+async function cmdDataMemory(args) {
+  if (!fileExists(DB_PATH)) {
+    error('SQLite database not found.');
+    return;
+  }
+  try {
+    const { agentFilter, projectFilter } = parseMemoryArgs(args);
+    const personaMemory = require('../../src/persona_memory');
+    const mems = personaMemory.listMemories({
+      agentName: agentFilter || null,
+      projectPath: projectFilter || null,
+      limit: 50,
+      allSessions: true,
+      dbPath: DB_PATH
+    });
+    const filterLabel = projectFilter ? `(Project: ${path.basename(projectFilter)})` : (agentFilter ? `(@${agentFilter})` : '');
+    header(`🧠 Konoha Saved Persona Memories ${filterLabel}`);
+    if (!mems || mems.length === 0) {
+      log(`  ${C.dim}No saved memories found. Use ${C.cyan}konoha data add <agent> <content>${C.dim} to save rules/learnings.${C.reset}\n`);
+      return;
+    }
+    mems.forEach((m, idx) => {
+      const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
+      log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
+      log(`     ${m.content}`);
+      if (m.tags) log(`     ${C.dim}Tags: ${m.tags}${C.reset}`);
+      log('');
+    });
+    success(`Total: ${mems.length} saved memory item(s).`);
   } catch (err) {
     error(`Failed to retrieve persona memories: ${err.message}`);
   }

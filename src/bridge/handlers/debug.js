@@ -132,7 +132,7 @@ async function probeSidecar(ctx) {
 async function diagnoseModels(ctx) {
   ctx.outputChannel.show();
 
-  // 1. Show bridge MODEL_MAP (the models available via the OpenAI-compatible API)
+  // Show bridge MODEL_MAP (the models available via the OpenAI-compatible API)
   log(ctx, '─── AG Local Bridge Models ───');
   const visible = Object.entries(MODEL_MAP).filter(([, m]) => !m.hidden);
   if (visible.length === 0) {
@@ -145,7 +145,7 @@ async function diagnoseModels(ctx) {
     log(ctx, `  Default: ${DEFAULT_MODEL_KEY}`);
   }
 
-  // 2. Check sidecar connectivity
+  // Check sidecar connectivity
   log(ctx, '─── Sidecar Status ───');
   const info = await discoverSidecar(ctx);
   if (!info) {

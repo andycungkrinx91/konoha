@@ -49,25 +49,55 @@ function encryptApiKey(rawKey) {
   return encrypted;
 }
 
+function _loadBridgesToInsert() {
+  if (!fs.existsSync(BRIDGES_JSON_PATH)) return DEFAULT_BRIDGES;
+  try {
+    const data = JSON.parse(fs.readFileSync(BRIDGES_JSON_PATH, 'utf-8'));
+    return Array.isArray(data) && data.length > 0 ? data : DEFAULT_BRIDGES;
+  } catch (_) {
+    return DEFAULT_BRIDGES;
+  }
+}
+
+function _isValidTargetUrl(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    return parsed.protocol === 'http:' && ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function _insertSingleBridgeRow(stmt, b) {
+  const name = b.name;
+  if (!name) return;
+  const provider = b.provider || 'openai';
+  const isExternalAntigravity = provider === EXTERNAL_ANTIGRAVITY_PROVIDER;
+  const port = parseInt(b.port !== undefined ? b.port : (isExternalAntigravity ? EXTERNAL_ANTIGRAVITY_PORT : 11435), 10);
+  if (isExternalAntigravity && port !== EXTERNAL_ANTIGRAVITY_PORT) {
+    return;
+  }
+  const enabledDefault = isExternalAntigravity ? false : true;
+  const enabled = (b.enabled !== undefined ? b.enabled : enabledDefault) ? 1 : 0;
+  let targetUrl = b.targetUrl || b.target_url || null;
+  if (isExternalAntigravity && !targetUrl) {
+    targetUrl = EXTERNAL_ANTIGRAVITY_URL;
+  }
+  if (isExternalAntigravity && targetUrl && !_isValidTargetUrl(targetUrl)) {
+    return;
+  }
+  const rawKey = b.apiKey || b.api_key || null;
+  const apiKey = encryptApiKey(rawKey);
+  stmt.run(name, port, provider, enabled, targetUrl, apiKey);
+}
+
 function autoMigrateJsonIfNeeded(conn) {
   const row = conn.prepare("SELECT COUNT(*) as cnt FROM bridges").get();
   if (row && row.cnt > 0) {
     return;
   }
 
-  let bridgesToInsert = [];
-  if (fs.existsSync(BRIDGES_JSON_PATH)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(BRIDGES_JSON_PATH, 'utf-8'));
-      if (Array.isArray(data)) {
-        bridgesToInsert = data;
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  if (!bridgesToInsert.length) {
-    bridgesToInsert = DEFAULT_BRIDGES;
-  }
+  const bridgesToInsert = _loadBridgesToInsert();
 
   const stmt = conn.prepare(`
     INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
@@ -75,33 +105,7 @@ function autoMigrateJsonIfNeeded(conn) {
   `);
 
   for (const b of bridgesToInsert) {
-    const name = b.name;
-    if (!name) continue;
-    const provider = b.provider || 'openai';
-    const isExternalAntigravity = provider === EXTERNAL_ANTIGRAVITY_PROVIDER;
-    const port = parseInt(b.port !== undefined ? b.port : (isExternalAntigravity ? EXTERNAL_ANTIGRAVITY_PORT : 11435), 10);
-    if (isExternalAntigravity && port !== EXTERNAL_ANTIGRAVITY_PORT) {
-      continue;
-    }
-    const enabledDefault = isExternalAntigravity ? false : true;
-    const enabled = (b.enabled !== undefined ? b.enabled : enabledDefault) ? 1 : 0;
-    let targetUrl = b.targetUrl || b.target_url || null;
-    if (isExternalAntigravity && !targetUrl) {
-      targetUrl = EXTERNAL_ANTIGRAVITY_URL;
-    }
-    if (isExternalAntigravity && targetUrl) {
-      try {
-        const parsed = new URL(targetUrl);
-        if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname)) {
-          continue;
-        }
-      } catch (_) {
-        continue;
-      }
-    }
-    const rawKey = b.apiKey || b.api_key || null;
-    const apiKey = encryptApiKey(rawKey);
-    stmt.run(name, port, provider, enabled, targetUrl, apiKey);
+    _insertSingleBridgeRow(stmt, b);
   }
 }
 
@@ -249,6 +253,18 @@ function setEnabled(name, enabledBool, dbPath = null) {
   }
 }
 
+function _isCallerMcpSubprocess() {
+  if (process.env.KONOHA_DAEMON === 'true') return false;
+  try {
+    const ppid = process.ppid;
+    if (fs.existsSync(`/proc/${ppid}/cmdline`)) {
+      const pcmd = fs.readFileSync(`/proc/${ppid}/cmdline`, 'utf8');
+      return pcmd.includes('file_tools_mcp.js');
+    }
+  } catch (_) { /* non-fatal */ }
+  return false;
+}
+
 function main() {
   const args = process.argv.slice(2);
   if (args.length < 1) {
@@ -258,17 +274,10 @@ function main() {
 
   const cmd = args[0];
   if (cmd === '--list' || cmd === 'list') {
-    const isDaemon = process.env.KONOHA_DAEMON === 'true';
-    try {
-      const ppid = process.ppid;
-      if (fs.existsSync(`/proc/${ppid}/cmdline`)) {
-        const pcmd = fs.readFileSync(`/proc/${ppid}/cmdline`, 'utf8');
-        if (pcmd.includes('file_tools_mcp.js') && !isDaemon) {
-          console.log("[]");
-          return;
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    if (_isCallerMcpSubprocess()) {
+      console.log("[]");
+      return;
+    }
     console.log(JSON.stringify(listBridges()));
   } else if (cmd === '--upsert' || cmd === 'upsert') {
     if (args.length < 2) process.exit(1);

@@ -87,6 +87,15 @@ try {
   assert.strictEqual(gate1Res.status, 'pending_plan_approval', 'Must return pending_plan_approval when hitl_mode is enabled');
   assert.strictEqual(gate1Res.phase, 'plan_approval');
   assert.strictEqual(gate1Res.hitl_gate, 'Gate 1 (Plan Approval)');
+  assert.ok(gate1Res.interactive_prompt, 'Gate 1 must return structured interactive_prompt');
+  assert.strictEqual(gate1Res.interactive_prompt.gate, 'gate_1');
+  assert.deepStrictEqual(gate1Res.interactive_prompt.choices, [
+    '1. Compact and approve',
+    '2. Reject and Regenerate PLAN',
+    'Input Refine PLAN'
+  ]);
+  assert.ok(gate1Res.message.includes('1. Compact and approve'));
+  assert.ok(gate1Res.message.includes('2. Reject and Regenerate PLAN'));
 
   // Verify task in DB updated to pending_plan_approval
   const dbTaskGate1 = sdlc.getTask('task_gate1');
@@ -96,13 +105,23 @@ try {
   const gate1PauseRes = JSON.parse(runMcpWorkflow(taskDirGate1));
   assert.strictEqual(gate1PauseRes.status, 'pending_plan_approval');
 
-  // Human approves plan: update task status in DB to in_progress
-  sdlc.updateTask('task_gate1', { status: 'in_progress' });
-  const gate1ApprovedRes = JSON.parse(runMcpWorkflow(taskDirGate1));
+  // Test interactive choice 2: Reject & Regenerate PLAN with refinement
+  const gate1RegenRes = JSON.parse(runMcpWorkflow(taskDirGate1, { choice: '2. Reject and Regenerate PLAN', refinement: 'Add rate limiting' }));
+  assert.strictEqual(gate1RegenRes.phase, 'plan', 'Choice 2 must re-trigger plan phase with Kage');
+  assert.strictEqual(gate1RegenRes.agent, 'kage');
+
+  // Simulate Kage compiling refined plan and re-pausing at Gate 1
+  fs.writeFileSync(path.join(taskDirGate1, 'plan.md'), '# Refined Plan\n- [anbu]: Build auth API with rate limiting\n', 'utf8');
+  fs.writeFileSync(path.join(taskDirGate1, 'result.md'), 'Refined action plan written.', 'utf8');
+  const gate1RePrompt = JSON.parse(runMcpWorkflow(taskDirGate1));
+  assert.strictEqual(gate1RePrompt.status, 'pending_plan_approval');
+
+  // Human approves plan interactively via choice 1: Compact and approve
+  const gate1ApprovedRes = JSON.parse(runMcpWorkflow(taskDirGate1, { choice: '1. Compact and approve' }));
   assert.strictEqual(gate1ApprovedRes.status, 'ready');
   assert.strictEqual(gate1ApprovedRes.phase, 'execute');
   assert.strictEqual(gate1ApprovedRes.agent, 'anbu');
-  console.log('  ✓ Workflow Gate 1 (Plan Approval) enforced and approved successfully.');
+  console.log('  ✓ Workflow Gate 1 (Plan Approval) interactive choices (approve, regenerate/refine) verified successfully.');
 
   // 6. Workflow Gate 2 (Delivery Sign-Off) blocking in enabled mode
   console.log('  Testing Workflow Gate 2 (Delivery Sign-Off)...');
@@ -151,6 +170,14 @@ try {
   assert.strictEqual(gate2Res.status, 'pending_human_signoff', 'Must return pending_human_signoff when hitl_mode is enabled');
   assert.strictEqual(gate2Res.phase, 'delivery_signoff');
   assert.strictEqual(gate2Res.hitl_gate, 'Gate 2 (Delivery Sign-Off)');
+  assert.ok(gate2Res.interactive_prompt, 'Gate 2 must return structured interactive_prompt');
+  assert.strictEqual(gate2Res.interactive_prompt.gate, 'gate_2');
+  assert.deepStrictEqual(gate2Res.interactive_prompt.choices, [
+    '1. Compact and approve',
+    '2. Remediation'
+  ]);
+  assert.ok(gate2Res.message.includes('1. Compact and approve'));
+  assert.ok(gate2Res.message.includes('2. Remediation'));
 
   // Verify task in DB updated to pending_human_signoff
   const dbTaskGate2 = sdlc.getTask('task_gate2');
@@ -160,12 +187,11 @@ try {
   const gate2PauseRes = JSON.parse(runMcpWorkflow(taskDirGate2));
   assert.strictEqual(gate2PauseRes.status, 'pending_human_signoff');
 
-  // Human signs off: update task to completed in DB
-  sdlc.updateTask('task_gate2', { status: 'completed' });
-  const gate2SignedRes = JSON.parse(runMcpWorkflow(taskDirGate2));
+  // Human signs off interactively via choice 1: Compact and approve
+  const gate2SignedRes = JSON.parse(runMcpWorkflow(taskDirGate2, { choice: '1. Compact and approve' }));
   assert.strictEqual(gate2SignedRes.status, 'completed');
   assert.strictEqual(gate2SignedRes.phase, 'done');
-  console.log('  ✓ Workflow Gate 2 (Delivery Sign-Off) enforced and concluded successfully.');
+  console.log('  ✓ Workflow Gate 2 (Delivery Sign-Off) interactive choices verified successfully.');
 
   // 7. Workflow Autonomous Mode (hitl_mode: disabled) bypasses gates
   console.log('  Testing Autonomous Mode (hitl_mode: disabled)...');

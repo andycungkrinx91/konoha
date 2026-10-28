@@ -96,6 +96,7 @@ describe('Migrate Progressive Fallback & Deferred Indexing', () => {
   test('4. cli.js Stage 5 escalation chain argument construction is present', () => {
     const cli = fs.readFileSync(path.join(REPO_ROOT, 'bin', 'cli.js'), 'utf-8') +
       fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'init.js'), 'utf-8') +
+      (fs.existsSync(path.join(REPO_ROOT, 'bin', 'commands', 'init_migration.js')) ? fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'init_migration.js'), 'utf-8') : '') +
       fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'migrate.js'), 'utf-8');
     assert.match(cli, /--skills-only/, 'cli.js must pass --skills-only in final fallback');
     assert.match(cli, /Reference indexing deferred/, 'cli.js must warn about deferred references');

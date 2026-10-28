@@ -9,26 +9,17 @@
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
 const KALI_URL = 'https://www.kali.org/tools/all-tools/';
 const OUTPUT_PATH = path.join(__dirname, '../src/templates/akatsuki_lab/kali_tools.json');
 const PKG_VERSION = require('../package.json').version;
 
-function fetchHtml(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': `Konoha-MCP/${PKG_VERSION} (+https://github.com/andycungkrinx/konoha-mcp)` } }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchHtml(res.headers.location).then(resolve).catch(reject);
-      }
-      if (res.statusCode !== 200) {
-        return reject(new Error(`Failed to fetch ${url}: HTTP ${res.statusCode}`));
-      }
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => resolve(body));
-    }).on('error', reject);
+async function fetchHtml(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': `Konoha-MCP/${PKG_VERSION} (+https://github.com/andycungkrinx/konoha-mcp)` }
   });
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status}`);
+  return await res.text();
 }
 
 function parseKaliTools(html) {

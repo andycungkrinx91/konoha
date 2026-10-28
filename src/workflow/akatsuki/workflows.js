@@ -123,6 +123,246 @@ function validateAuthorization(params = {}, options = {}) {
 
 const { runBlueTeamWorkflow } = require('./blue_workflows');
 
+function _recordBlockedTools(toolsBlocked, stopConditions, findings) {
+  for (const b of toolsBlocked) {
+    stopConditions.push(`Tool "${b.tool}" blocked: ${b.reason}`);
+    findings.push({
+      id: `TOOL_BLOCKED_${String(b.tool).toUpperCase()}`,
+      severity: 'high',
+      component: `tool:${b.tool}`,
+      title: `Red-team tool ${b.tool} blocked by safety policy`,
+      description: b.reason,
+      remediation: 'Supply an explicit valid custom tool profile or ensure explicit authorization flags.'
+    });
+  }
+}
+
+function _executeToolCommand(tool, phase, authScope, labCheck, options) {
+  const cmdArgs = buildPhaseCommand(tool, authScope);
+  const primaryBin = (tool.binary_candidates && tool.binary_candidates[0]) || tool.id;
+  let cmdRes = { status: 0, stdout: 'simulated', stderr: '' };
+
+  if (typeof options.mockToolExecutor === 'function') {
+    cmdRes = options.mockToolExecutor(tool.id, phase.phase, cmdArgs);
+  } else if (!options.skip_container_exec && labCheck.lab_running) {
+    try {
+      const toolTimeout = tool.timeout_ms !== undefined ? tool.timeout_ms : 3600000;
+      cmdRes = executeInLab(labCheck.lab_name, cmdArgs, { ...options, timeout: toolTimeout });
+    } catch (err) {
+      cmdRes = { status: 1, stdout: '', stderr: err.message };
+    }
+  }
+
+  const cmdRecord = {
+    phase: phase.phase,
+    tool: tool.id,
+    binary: primaryBin,
+    args: cmdArgs.slice(1),
+    command: cmdArgs.join(' '),
+    exit_status: cmdRes ? cmdRes.status : 0,
+    timeout_ms: tool.timeout_ms,
+    evidence_reference: `evidence_${phase.phase}_${tool.id}`,
+    timestamp: new Date().toISOString()
+  };
+
+  return { cmdRecord, cmdRes };
+}
+
+function _executeActivePhaseTools(phase, ctx) {
+  const { toolsAvailable, authScope, labCheck, options, findings, evidenceReferences, commandsExecuted } = ctx;
+  let phaseSuccess = true;
+  for (const toolId of (phase.tools || [])) {
+    const tool = toolsAvailable.find(t => t.id === toolId);
+    if (!tool) continue;
+
+    const { cmdRecord, cmdRes } = _executeToolCommand(tool, phase, authScope, labCheck, options);
+    commandsExecuted.push(cmdRecord);
+    phase.commands.push(cmdRecord);
+    evidenceReferences.push(`tool_verified_${tool.id}`);
+    evidenceReferences.push(`evidence_${phase.phase}_${tool.id}`);
+
+    if (cmdRes && cmdRes.status !== 0) {
+      phaseSuccess = false;
+      findings.push({
+        id: `COMMAND_ERROR_${tool.id.toUpperCase()}`,
+        severity: 'medium',
+        component: `tool:${tool.id}`,
+        title: `Command execution returned non-zero status in phase ${phase.phase}`,
+        description: cmdRes.stderr || 'Non-zero exit status',
+        remediation: 'Inspect tool arguments and container environment.'
+      });
+    }
+  }
+  phase.status = phaseSuccess ? 'completed' : 'failed';
+  phase.exit_status = phaseSuccess ? 0 : 1;
+  phase.evidence_reference = `phase_${phase.phase}_completed`;
+}
+
+function _runPhases(phases, reconData, ctx) {
+  for (const phase of phases) {
+    phase.commands = [];
+    if (phase.phase === 'rules_of_engagement' || phase.phase === 'sandbox_containment') {
+      phase.status = 'completed';
+      phase.exit_status = 0;
+      phase.evidence_reference = `${phase.phase}_verified`;
+      ctx.evidenceReferences.push(`${phase.phase}_verified`);
+      continue;
+    }
+    if (phase.phase === 'reconnaissance') {
+      phase.status = 'completed';
+      phase.exit_status = 0;
+      phase.evidence_reference = 'chunin_passive_reconnaissance_and_threat_intel';
+      phase.recon_directive = reconData.reconDirective;
+      phase.recon_sources = reconData.reconSources;
+      phase.chunin_dispatch = reconData.chuninDispatch;
+      ctx.evidenceReferences.push('chunin_passive_reconnaissance_and_threat_intel');
+      continue;
+    }
+    if (phase.phase === 'containment_teardown') continue;
+
+    phase.status = 'in_progress';
+    _executeActivePhaseTools(phase, ctx);
+  }
+}
+
+function _generateTokubetsuPdfReport(reportParams) {
+  const { params, auth, labCheck, toolsAvailable, findings, commandsExecuted, toolPlan, reconDirective, reconSources, criticalCount, highCount, mediumCount, lowCount, gateDecision, teardown, evidenceReferences, options } = reportParams;
+  const reportOption = params.report;
+  if (reportOption !== 'pdf' && (!reportOption || reportOption.format !== 'pdf') && !params.task_dir) {
+    return null;
+  }
+  try {
+    const { buildRedTeamReportModel, generateRedTeamReportPdf } = require('./report');
+    const targetDir = params.task_dir || (typeof reportOption === 'object' && reportOption.output_dir) || os.tmpdir();
+    const pdfPath = (typeof reportOption === 'object' && reportOption.output_path) || path.join(targetDir, 'akatsuki_redteam_report.pdf');
+
+    const reportContext = {
+      scope: auth.scope,
+      lab_name: labCheck.lab_name,
+      engine: labCheck.engine,
+      tools_available: toolsAvailable,
+      findings,
+      commands_executed: commandsExecuted,
+      phases: toolPlan.phases,
+      recon_directive: reconDirective,
+      recon_sources: reconSources,
+      critical_count: criticalCount,
+      high_count: highCount,
+      medium_count: mediumCount,
+      low_count: lowCount,
+      gate_decision: gateDecision,
+      cleanup_confirmed: teardown.cleanup_confirmed
+    };
+
+    const model = buildRedTeamReportModel(reportContext, options);
+    generateRedTeamReportPdf(reportContext, { output_path: pdfPath, task_dir: targetDir });
+    evidenceReferences.push('report_pdf_generated');
+
+    return {
+      format: 'pdf',
+      path: pdfPath,
+      sections: model.sections.length
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function _verifyRedTeamPrerequisites(params, options) {
+  if (!isRedTeamEnabled(options)) {
+    return {
+      earlyExit: true,
+      result: {
+        workflow_type: 'red_team', execution_mode: 'isolated_sandbox', status: 'blocked',
+        authorized: false, scope: params.target || params.scope || 'unassessed',
+        reason: 'Red-Team operations are currently disabled. Enable via: konoha akatsuki redteam enable',
+        checks_performed: [], findings: [], evidence_references: [],
+        remediation_status: 'not_applicable', residual_risk: 'unassessed',
+        gate_decision: 'blocked', cleanup_confirmed: true,
+        message: 'Red-team operation blocked: Red-Team operations are currently disabled. Enable via: konoha akatsuki redteam enable'
+      }
+    };
+  }
+
+  const auth = validateAuthorization(params, options);
+  if (!auth.authorized) {
+    return {
+      earlyExit: true,
+      result: {
+        workflow_type: 'red_team', execution_mode: 'isolated_sandbox', status: 'blocked',
+        authorized: false, scope: auth.scope, reason: auth.reason,
+        checks_performed: [], findings: [], evidence_references: [],
+        remediation_status: 'not_applicable', residual_risk: 'unassessed',
+        gate_decision: 'blocked', cleanup_confirmed: true,
+        message: `Red-team operation blocked: ${auth.reason}`
+      }
+    };
+  }
+
+  const labParams = { ...params, allow_sandbox_redirect: true };
+  const labCheck = validateLabPrerequisites(labParams, options);
+  if (!labCheck.ready) {
+    return {
+      earlyExit: true,
+      result: {
+        workflow_type: 'red_team', execution_mode: 'isolated_sandbox', status: 'blocked',
+        authorized: true, scope: auth.scope, lab_name: labCheck.lab_name || DEFAULT_LAB_NAME,
+        engine: labCheck.engine || null, lab_status: 'blocked', declined: labCheck.declined === true,
+        network_isolated: labCheck.network_isolated === true, host_execution_denied: true,
+        reason: labCheck.reason, checks_performed: [], findings: [], evidence_references: [],
+        remediation_status: 'not_applicable', residual_risk: 'unassessed', gate_decision: 'blocked',
+        cleanup_confirmed: labCheck.cleanup_confirmed !== false,
+        message: `Red-team operation blocked: ${labCheck.reason}`
+      }
+    };
+  }
+
+  return { earlyExit: false, auth, labCheck };
+}
+
+function _buildRedTeamResponse(props) {
+  const { auth, labCheck, toolsRequested, toolsAvailable, toolsBlocked, toolPlan, reconDirective, reconSources, chuninDispatch, reportAttachment, commandsExecuted, stopConditions, checksPerformed, findings, criticalCount, highCount, mediumCount, lowCount, evidenceReferences, teardown, passed, gateDecision, params } = props;
+  return {
+    workflow_type: 'red_team',
+    execution_mode: 'isolated_sandbox',
+    status: (toolsBlocked.length > 0 || stopConditions.length > 0) ? 'blocked' : 'completed',
+    authorized: true,
+    scope: auth.scope,
+    scope_defaulted_local: Boolean(auth.scope_defaulted_local),
+    lab_name: labCheck.lab_name,
+    engine: labCheck.engine,
+    lab_status: labCheck.lab_running ? 'running' : 'verified',
+    network_isolated: true,
+    host_execution_denied: true,
+    tools_requested: toolsRequested,
+    tools_available: toolsAvailable.map(t => t.id),
+    tools_blocked: toolsBlocked,
+    phases: toolPlan.phases,
+    recon_directive: reconDirective,
+    recon_sources: reconSources,
+    chunin_dispatch: chuninDispatch,
+    report: reportAttachment,
+    commands_executed: commandsExecuted,
+    stop_conditions: stopConditions,
+    checks_performed: checksPerformed,
+    findings,
+    critical_count: criticalCount,
+    high_count: highCount,
+    medium_count: mediumCount,
+    low_count: lowCount,
+    evidence_references: evidenceReferences,
+    remediation_status: findings.length === 0 ? 'clean' : (params.remediation_applied ? 'verified' : 'pending'),
+    residual_risk: criticalCount > 0 ? 'critical' : (highCount > 0 ? 'high' : 'low'),
+    gate_decision: gateDecision,
+    cleanup_confirmed: teardown.cleanup_confirmed === true,
+    message: passed
+      ? `Red-team assessment completed in sandbox "${labCheck.lab_name}" on authorized scope "${auth.scope}" with ${toolsAvailable.length} verified tools.`
+      : (toolsBlocked.length > 0
+          ? `Red-team assessment blocked: ${toolsBlocked.length} requested tool(s) blocked by safety policy.`
+          : `Red-team assessment completed with ${criticalCount} critical, ${highCount} high findings or unconfirmed cleanup.`)
+  };
+}
+
 /**
  * Execute professional Red-Team Offensive workflow inside isolated sandbox.
  * Strictly verifies authorization, sandbox prerequisite ('akatsuki-lab' on LXC/Docker),
@@ -135,91 +375,20 @@ const { runBlueTeamWorkflow } = require('./blue_workflows');
  * @returns {Object} structured red-team assessment artifact
  */
 function runRedTeamWorkflow(params = {}, options = {}) {
-  // 0. Operator feature toggle check (Fail-closed if Red-Team is disabled via CLI)
-  if (!isRedTeamEnabled(options)) {
-    return {
-      workflow_type: 'red_team',
-      execution_mode: 'isolated_sandbox',
-      status: 'blocked',
-      authorized: false,
-      scope: params.target || params.scope || 'unassessed',
-      reason: 'Red-Team operations are currently disabled. Enable via: konoha akatsuki redteam enable',
-      checks_performed: [],
-      findings: [],
-      evidence_references: [],
-      remediation_status: 'not_applicable',
-      residual_risk: 'unassessed',
-      gate_decision: 'blocked',
-      cleanup_confirmed: true,
-      message: 'Red-team operation blocked: Red-Team operations are currently disabled. Enable via: konoha akatsuki redteam enable'
-    };
-  }
+  const prereq = _verifyRedTeamPrerequisites(params, options);
+  if (prereq.earlyExit) return prereq.result;
+  const { auth, labCheck } = prereq;
 
-  // 1. Authorization check (Fail-closed)
-  const auth = validateAuthorization(params, options);
-  if (!auth.authorized) {
-    return {
-      workflow_type: 'red_team',
-      execution_mode: 'isolated_sandbox',
-      status: 'blocked',
-      authorized: false,
-      scope: auth.scope,
-      reason: auth.reason,
-      checks_performed: [],
-      findings: [],
-      evidence_references: [],
-      remediation_status: 'not_applicable',
-      residual_risk: 'unassessed',
-      gate_decision: 'blocked',
-      cleanup_confirmed: true,
-      message: `Red-team operation blocked: ${auth.reason}`
-    };
-  }
-
-  // 2. Sandbox isolation & prerequisite check (Fail-closed)
-  const labParams = {
-    ...params,
-    allow_sandbox_redirect: true
-  };
-  const labCheck = validateLabPrerequisites(labParams, options);
-  if (!labCheck.ready) {
-    return {
-      workflow_type: 'red_team',
-      execution_mode: 'isolated_sandbox',
-      status: 'blocked',
-      authorized: true,
-      scope: auth.scope,
-      lab_name: labCheck.lab_name || DEFAULT_LAB_NAME,
-      engine: labCheck.engine || null,
-      lab_status: 'blocked',
-      declined: labCheck.declined === true,
-      network_isolated: labCheck.network_isolated === true,
-      host_execution_denied: true,
-      reason: labCheck.reason,
-      checks_performed: [],
-      findings: [],
-      evidence_references: [],
-      remediation_status: 'not_applicable',
-      residual_risk: 'unassessed',
-      gate_decision: 'blocked',
-      cleanup_confirmed: labCheck.cleanup_confirmed !== false,
-      message: `Red-team operation blocked: ${labCheck.reason}`
-    };
-  }
-
-  // 3. Reconnaissance planning & Chunin threat intelligence
+  // Reconnaissance planning & Chunin threat intelligence
   const { buildReconDirective, gatherKnowledge } = require('./recon');
   const reconDirective = buildReconDirective({
     scope: auth.scope,
     task: params.task || params.prompt || params.instructions
   });
   const reconSources = gatherKnowledge(reconDirective.queries, options);
-  const chuninDispatch = {
-    agent: 'chunin',
-    task: reconDirective.chunin_task
-  };
+  const chuninDispatch = { agent: 'chunin', task: reconDirective.chunin_task };
 
-  // 4. Plan tool execution and professional Red-Team phases inside sandbox
+  // Plan tool execution and professional Red-Team phases inside sandbox
   const toolPlan = planToolExecution({
     tools: params.tools,
     custom_tools: params.custom_tools,
@@ -260,124 +429,18 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   }
 
   const commandsExecuted = [];
-
-  // Record any blocked tools as stop conditions and high-severity findings
   if (toolsBlocked.length > 0) {
-    for (const b of toolsBlocked) {
-      stopConditions.push(`Tool "${b.tool}" blocked: ${b.reason}`);
-      findings.push({
-        id: `TOOL_BLOCKED_${String(b.tool).toUpperCase()}`,
-        severity: 'high',
-        component: `tool:${b.tool}`,
-        title: `Red-team tool ${b.tool} blocked by safety policy`,
-        description: b.reason,
-        remediation: 'Supply an explicit valid custom tool profile or ensure explicit authorization flags.'
-      });
-    }
+    _recordBlockedTools(toolsBlocked, stopConditions, findings);
   }
 
-  // 3b. Execute phased assessments inside sandbox
-  for (const phase of toolPlan.phases) {
-    phase.commands = [];
+  const ctx = { toolsAvailable, authScope: auth.scope, labCheck, options, findings, evidenceReferences, commandsExecuted };
+  _runPhases(toolPlan.phases, { reconDirective, reconSources, chuninDispatch }, ctx);
 
-    if (phase.phase === 'rules_of_engagement') {
-      phase.status = 'completed';
-      phase.exit_status = 0;
-      phase.evidence_reference = 'rules_of_engagement_verified';
-      evidenceReferences.push('rules_of_engagement_verified');
-      continue;
-    }
-
-    if (phase.phase === 'sandbox_containment') {
-      phase.status = 'completed';
-      phase.exit_status = 0;
-      phase.evidence_reference = 'sandbox_containment_verified';
-      evidenceReferences.push('sandbox_containment_verified');
-      continue;
-    }
-
-    if (phase.phase === 'reconnaissance') {
-      phase.status = 'completed';
-      phase.exit_status = 0;
-      phase.evidence_reference = 'chunin_passive_reconnaissance_and_threat_intel';
-      phase.recon_directive = reconDirective;
-      phase.recon_sources = reconSources;
-      phase.chunin_dispatch = chuninDispatch;
-      evidenceReferences.push('chunin_passive_reconnaissance_and_threat_intel');
-      continue;
-    }
-
-    if (phase.phase === 'containment_teardown') {
-      // Handled in teardown phase below
-      continue;
-    }
-
-    // Active execution phases: asset_discovery, packet_analysis, vulnerability_audit, controlled_verification
-    phase.status = 'in_progress';
-    let phaseSuccess = true;
-
-    for (const toolId of (phase.tools || [])) {
-      const tool = toolsAvailable.find(t => t.id === toolId);
-      if (!tool) continue;
-
-      const cmdArgs = buildPhaseCommand(tool, auth.scope);
-      const primaryBin = (tool.binary_candidates && tool.binary_candidates[0]) || tool.id;
-      let cmdRes = { status: 0, stdout: 'simulated', stderr: '' };
-
-      if (typeof options.mockToolExecutor === 'function') {
-        cmdRes = options.mockToolExecutor(tool.id, phase.phase, cmdArgs);
-      } else if (!options.skip_container_exec && labCheck.lab_running) {
-        try {
-          const toolTimeout = tool.timeout_ms !== undefined ? tool.timeout_ms : 3600000;
-          cmdRes = executeInLab(labCheck.lab_name, cmdArgs, { ...options, timeout: toolTimeout });
-        } catch (err) {
-          cmdRes = { status: 1, stdout: '', stderr: err.message };
-        }
-      }
-
-      const cmdRecord = {
-        phase: phase.phase,
-        tool: tool.id,
-        binary: primaryBin,
-        args: cmdArgs.slice(1),
-        command: cmdArgs.join(' '),
-        exit_status: cmdRes ? cmdRes.status : 0,
-        timeout_ms: tool.timeout_ms,
-        evidence_reference: `evidence_${phase.phase}_${tool.id}`,
-        timestamp: new Date().toISOString()
-      };
-
-      commandsExecuted.push(cmdRecord);
-      phase.commands.push(cmdRecord);
-      evidenceReferences.push(`tool_verified_${tool.id}`);
-      evidenceReferences.push(`evidence_${phase.phase}_${tool.id}`);
-
-      if (cmdRes && cmdRes.status !== 0) {
-        phaseSuccess = false;
-        findings.push({
-          id: `COMMAND_ERROR_${tool.id.toUpperCase()}`,
-          severity: 'medium',
-          component: `tool:${tool.id}`,
-          title: `Command execution returned non-zero status in phase ${phase.phase}`,
-          description: cmdRes.stderr || 'Non-zero exit status',
-          remediation: 'Inspect tool arguments and container environment.'
-        });
-      }
-    }
-
-    phase.status = phaseSuccess ? 'completed' : 'failed';
-    phase.exit_status = phaseSuccess ? 0 : 1;
-    phase.evidence_reference = `phase_${phase.phase}_completed`;
-  }
-
-  if (commandsExecuted.length > 0) {
-    evidenceReferences.push('in_sandbox_probe_successful');
-  } else if (!options.skip_container_exec && labCheck.lab_running) {
+  if (commandsExecuted.length > 0 || (!options.skip_container_exec && labCheck.lab_running)) {
     evidenceReferences.push('in_sandbox_probe_successful');
   }
 
-  // Check for test simulated findings
-  if (params.test_findings && Array.isArray(params.test_findings)) {
+  if (Array.isArray(params.test_findings)) {
     findings.push(...params.test_findings);
   }
 
@@ -386,7 +449,6 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const mediumCount = findings.filter(f => f.severity === 'medium').length;
   const lowCount = findings.filter(f => f.severity === 'low').length;
 
-  // 4. Teardown & containment confirmation
   const teardown = teardownLab(labCheck.lab_name, labCheck.engine, options);
   if (teardown.cleanup_confirmed) {
     evidenceReferences.push('containment_and_teardown_verified');
@@ -413,85 +475,60 @@ function runRedTeamWorkflow(params = {}, options = {}) {
     gateDecision = 'failed';
   }
 
-  // 5. Generate Tokubetsu-Jonin Standard Red-Team PDF Report if requested or task_dir provided
-  let reportAttachment = null;
-  const reportOption = params.report;
-  if (reportOption === 'pdf' || (reportOption && reportOption.format === 'pdf') || params.task_dir) {
-    try {
-      const { buildRedTeamReportModel, generateRedTeamReportPdf } = require('./report');
-      const targetDir = params.task_dir || (typeof reportOption === 'object' && reportOption.output_dir) || os.tmpdir();
-      const pdfPath = (typeof reportOption === 'object' && reportOption.output_path) || path.join(targetDir, 'akatsuki_redteam_report.pdf');
+  const reportAttachment = _generateTokubetsuPdfReport({
+    params, auth, labCheck, toolsAvailable, findings, commandsExecuted, toolPlan, reconDirective, reconSources, criticalCount, highCount, mediumCount, lowCount, gateDecision, teardown, evidenceReferences, options
+  });
 
-      const reportContext = {
-        scope: auth.scope,
-        lab_name: labCheck.lab_name,
-        engine: labCheck.engine,
-        tools_available: toolsAvailable,
-        findings,
-        commands_executed: commandsExecuted,
-        phases: toolPlan.phases,
-        recon_directive: reconDirective,
-        recon_sources: reconSources,
-        critical_count: criticalCount,
-        high_count: highCount,
-        medium_count: mediumCount,
-        low_count: lowCount,
-        gate_decision: gateDecision,
-        cleanup_confirmed: teardown.cleanup_confirmed
-      };
+  return _buildRedTeamResponse({
+    auth, labCheck, toolsRequested, toolsAvailable, toolsBlocked, toolPlan, reconDirective, reconSources, chuninDispatch, reportAttachment, commandsExecuted, stopConditions, checksPerformed, findings, criticalCount, highCount, mediumCount, lowCount, evidenceReferences, teardown, passed, gateDecision, params
+  });
+}
 
-      const model = buildRedTeamReportModel(reportContext, options);
-      generateRedTeamReportPdf(reportContext, { output_path: pdfPath, task_dir: targetDir });
+function _resolveRedTeamFailReason(rev) {
+  if (rev.tools_blocked && rev.tools_blocked.length > 0) {
+    return `Security gate blocked: Red-team review lacks required sandbox isolation evidence (requested blocked tools: ${rev.tools_blocked.map(t => t.tool).join(', ')}).`;
+  }
+  if (rev.stop_conditions && rev.stop_conditions.length > 0) {
+    return `Security gate blocked: Red-team review lacks required sandbox isolation evidence (stopped due to safety condition: ${rev.stop_conditions.join('; ')}).`;
+  }
+  if (rev.cleanup_confirmed !== true) {
+    return 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (cleanup could not be confirmed).';
+  }
+  return 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (akatsuki-lab on LXC/Docker with network isolation).';
+}
 
-      reportAttachment = {
-        format: 'pdf',
-        path: pdfPath,
-        sections: model.sections.length
-      };
-      evidenceReferences.push('report_pdf_generated');
-    } catch (_) {
-      // Best effort PDF generation
-    }
+function _evaluateAkatsukiReview(rev) {
+  const critical = rev.critical_count || (rev.findings || []).filter(f => f.severity === 'critical').length;
+  const high = rev.high_count || (rev.findings || []).filter(f => f.severity === 'high').length;
+
+  const isRedTeam = rev.workflow_type === 'red_team';
+  const labValid = !isRedTeam || (
+    rev.lab_name === DEFAULT_LAB_NAME &&
+    rev.network_isolated === true &&
+    rev.host_execution_denied === true &&
+    rev.cleanup_confirmed === true &&
+    (!rev.tools_blocked || rev.tools_blocked.length === 0) &&
+    (!rev.stop_conditions || rev.stop_conditions.length === 0) &&
+    rev.status === 'completed'
+  );
+
+  const passed = rev.gate_decision === 'passed' && critical === 0 && high === 0 && labValid;
+
+  let failReason = 'Akatsuki security review verified clean with required sandbox isolation evidence.';
+  if (isRedTeam && !labValid) {
+    failReason = _resolveRedTeamFailReason(rev);
+  } else if (!passed) {
+    failReason = `Security gate blocked: ${critical} critical, ${high} high findings.`;
   }
 
   return {
-    workflow_type: 'red_team',
-    execution_mode: 'isolated_sandbox',
-    status: (toolsBlocked.length > 0 || stopConditions.length > 0) ? 'blocked' : 'completed',
-    authorized: true,
-    scope: auth.scope,
-    scope_defaulted_local: Boolean(auth.scope_defaulted_local),
-    lab_name: labCheck.lab_name,
-    engine: labCheck.engine,
-    lab_status: labCheck.lab_running ? 'running' : 'verified',
-    network_isolated: true,
-    host_execution_denied: true,
-    tools_requested: toolsRequested,
-    tools_available: toolsAvailable.map(t => t.id),
-    tools_blocked: toolsBlocked,
-    phases: toolPlan.phases,
-    recon_directive: reconDirective,
-    recon_sources: reconSources,
-    chunin_dispatch: chuninDispatch,
-    report: reportAttachment,
-    commands_executed: commandsExecuted,
-    stop_conditions: stopConditions,
-    checks_performed: checksPerformed,
-    findings,
-    critical_count: criticalCount,
-    high_count: highCount,
-    medium_count: mediumCount,
-    low_count: lowCount,
-    evidence_references: evidenceReferences,
-    remediation_status: findings.length === 0 ? 'clean' : (params.remediation_applied ? 'verified' : 'pending'),
-    residual_risk: criticalCount > 0 ? 'critical' : (highCount > 0 ? 'high' : 'low'),
-    gate_decision: gateDecision,
-    cleanup_confirmed: teardown.cleanup_confirmed === true,
-    message: passed
-      ? `Red-team assessment completed in sandbox "${labCheck.lab_name}" on authorized scope "${auth.scope}" with ${toolsAvailable.length} verified tools.`
-      : (toolsBlocked.length > 0
-          ? `Red-team assessment blocked: ${toolsBlocked.length} requested tool(s) blocked by safety policy.`
-          : `Red-team assessment completed with ${criticalCount} critical, ${highCount} high findings or unconfirmed cleanup.`)
+    gate: 'akatsuki_security',
+    decision: passed ? 'passed' : 'blocked',
+    passed,
+    critical_count: critical,
+    high_count: high,
+    findings: rev.findings || [],
+    reason: failReason
   };
 }
 
@@ -549,50 +586,7 @@ function runAkatsukiFinalGate(projectPath, status = {}, options = {}) {
 
   // If a manual or executed Akatsuki review already exists in status
   if (status.akatsuki_review && typeof status.akatsuki_review === 'object') {
-    const rev = status.akatsuki_review;
-    const critical = rev.critical_count || (rev.findings || []).filter(f => f.severity === 'critical').length;
-    const high = rev.high_count || (rev.findings || []).filter(f => f.severity === 'high').length;
-
-    // For red-team workflows: must verify lab isolation evidence!
-    const isRedTeam = rev.workflow_type === 'red_team';
-    const labValid = !isRedTeam || (
-      rev.lab_name === DEFAULT_LAB_NAME &&
-      rev.network_isolated === true &&
-      rev.host_execution_denied === true &&
-      rev.cleanup_confirmed === true &&
-      (!rev.tools_blocked || rev.tools_blocked.length === 0) &&
-      (!rev.stop_conditions || rev.stop_conditions.length === 0) &&
-      rev.status === 'completed'
-    );
-
-    const passed = rev.gate_decision === 'passed' && critical === 0 && high === 0 && labValid;
-
-    let failReason;
-    if (isRedTeam && !labValid) {
-      if (rev.tools_blocked && rev.tools_blocked.length > 0) {
-        failReason = `Security gate blocked: Red-team review lacks required sandbox isolation evidence (requested blocked tools: ${rev.tools_blocked.map(t => t.tool).join(', ')}).`;
-      } else if (rev.stop_conditions && rev.stop_conditions.length > 0) {
-        failReason = `Security gate blocked: Red-team review lacks required sandbox isolation evidence (stopped due to safety condition: ${rev.stop_conditions.join('; ')}).`;
-      } else if (rev.cleanup_confirmed !== true) {
-        failReason = 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (cleanup could not be confirmed).';
-      } else {
-        failReason = 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (akatsuki-lab on LXC/Docker with network isolation).';
-      }
-    } else if (!passed) {
-      failReason = `Security gate blocked: ${critical} critical, ${high} high findings.`;
-    } else {
-      failReason = 'Akatsuki security review verified clean with required sandbox isolation evidence.';
-    }
-
-    const gateResult = {
-      gate: 'akatsuki_security',
-      decision: passed ? 'passed' : 'blocked',
-      passed,
-      critical_count: critical,
-      high_count: high,
-      findings: rev.findings || [],
-      reason: failReason
-    };
+    const gateResult = _evaluateAkatsukiReview(status.akatsuki_review);
     status.akatsuki_gate = gateResult;
     return gateResult;
   }

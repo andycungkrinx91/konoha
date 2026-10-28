@@ -148,6 +148,31 @@ function evaluateDeliverable(filePath, _options = {}) {
   };
 }
 
+function _addSpecificFileCandidate(f, taskDir, candidates) {
+  if (typeof f !== 'string' || !f.trim()) return;
+  const resolved = path.isAbsolute(f) ? f : (taskDir ? path.resolve(taskDir, f) : path.resolve(f));
+  if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+    candidates.add(resolved);
+  }
+}
+
+function _scanTaskDirDeliverables(taskDir, candidates) {
+  if (!taskDir || !fs.existsSync(taskDir) || !fs.statSync(taskDir).isDirectory()) return;
+  const finalDocs = path.join(taskDir, 'final_docs.md');
+  if (fs.existsSync(finalDocs)) candidates.add(finalDocs);
+
+  try {
+    const entries = fs.readdirSync(taskDir);
+    for (const entry of entries) {
+      if (['prompt.md', 'plan.md', 'delegate.md'].includes(entry)) continue;
+      const ext = path.extname(entry).toLowerCase();
+      if (!DOC_EXTENSIONS.has(ext)) continue;
+      const fullPath = path.join(taskDir, entry);
+      if (fs.statSync(fullPath).isFile()) candidates.add(fullPath);
+    }
+  } catch (_) { /* ignore readdir errors */ }
+}
+
 /**
  * Discovers document deliverable artifacts inside a task directory or given file list.
  *
@@ -157,39 +182,10 @@ function evaluateDeliverable(filePath, _options = {}) {
  */
 function discoverDeliverables(taskDir, specificFiles = null) {
   const candidates = new Set();
-
   if (Array.isArray(specificFiles) && specificFiles.length > 0) {
-    for (const f of specificFiles) {
-      if (typeof f === 'string' && f.trim()) {
-        const resolved = path.isAbsolute(f) ? f : (taskDir ? path.resolve(taskDir, f) : path.resolve(f));
-        if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
-          candidates.add(resolved);
-        }
-      }
-    }
+    for (const f of specificFiles) _addSpecificFileCandidate(f, taskDir, candidates);
   }
-
-  if (taskDir && fs.existsSync(taskDir) && fs.statSync(taskDir).isDirectory()) {
-    // Check standard workflow documentation output: final_docs.md
-    const finalDocs = path.join(taskDir, 'final_docs.md');
-    if (fs.existsSync(finalDocs)) candidates.add(finalDocs);
-
-    // Check all files in task dir matching doc extensions
-    try {
-      const entries = fs.readdirSync(taskDir);
-      for (const entry of entries) {
-        if (entry === 'prompt.md' || entry === 'plan.md' || entry === 'delegate.md') continue;
-        const ext = path.extname(entry).toLowerCase();
-        if (DOC_EXTENSIONS.has(ext)) {
-          const fullPath = path.join(taskDir, entry);
-          if (fs.statSync(fullPath).isFile()) {
-            candidates.add(fullPath);
-          }
-        }
-      }
-    } catch (_) { /* ignore readdir errors */ }
-  }
-
+  _scanTaskDirDeliverables(taskDir, candidates);
   return Array.from(candidates);
 }
 

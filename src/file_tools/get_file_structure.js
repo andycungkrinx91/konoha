@@ -7,71 +7,79 @@ const fs = require('fs');
 const path = require('path');
 const common = require('./common');
 
+function _matchPythonSymbol(line, lineNo) {
+  const classMatch = line.match(/^\s*class\s+([a-zA-Z0-9_]+)(?:\((.*?)\))?:/);
+  if (classMatch) {
+    const bases = classMatch[2] ? `(${classMatch[2]})` : '';
+    return { name: `class ${classMatch[1]}${bases}`, start_line: lineNo };
+  }
+  const fnMatch = line.match(/^\s*(async\s+)?def\s+([a-zA-Z0-9_]+)\s*\((.*?)\):/);
+  if (fnMatch) {
+    const prefix = fnMatch[1] ? 'async def' : 'def';
+    return { name: `${prefix} ${fnMatch[2]}(${fnMatch[3]})`, start_line: lineNo };
+  }
+  return null;
+}
+
+function _matchJsTsSymbol(line, lineNo) {
+  const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s*(\*?\s*\w*)|class\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?function|(?:interface|type|enum)\s+(\w+))/);
+  if (match) {
+    let snippet = line.trim();
+    if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+    return { name: snippet, start_line: lineNo };
+  }
+  const methodMatch = line.match(/^\s*(?:static\s+)?(?:async\s+)?(?:get\s+|set\s+)?([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{/);
+  if (methodMatch && !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[1])) {
+    let snippet = line.trim();
+    if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+    return { name: snippet, start_line: lineNo };
+  }
+  return null;
+}
+
+function _matchGoSymbol(line, lineNo) {
+  const fnMatch = line.match(/^\s*func\s+(?:\((?:[^)]+)\)\s+)?([a-zA-Z0-9_]+)\s*\(/);
+  if (fnMatch) {
+    let snippet = line.trim();
+    if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+    return { name: snippet, start_line: lineNo };
+  }
+  const typeMatch = line.match(/^\s*type\s+([a-zA-Z0-9_]+)\s+(?:struct|interface)/);
+  if (typeMatch) {
+    return { name: line.trim(), start_line: lineNo };
+  }
+  return null;
+}
+
+function _matchGenericSymbol(line, lineNo) {
+  const match = line.match(/^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|class|struct|enum|interface|type)\s+(\w+)/);
+  if (match) {
+    let snippet = line.trim();
+    if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
+    return { name: snippet, start_line: lineNo };
+  }
+  return null;
+}
+
+function _getSymbolMatcher(ext) {
+  if (ext === '.py') return _matchPythonSymbol;
+  if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.vue', '.svelte'].includes(ext)) return _matchJsTsSymbol;
+  if (ext === '.go') return _matchGoSymbol;
+  return _matchGenericSymbol;
+}
+
 function structureFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const ext = path.extname(filePath).toLowerCase();
   const fileLines = content.split(/\r?\n/);
   const totalLines = fileLines.length;
   const symbols = [];
+  const matcher = _getSymbolMatcher(ext);
 
-  if (ext === '.py') {
-    fileLines.forEach((line, idx) => {
-      const lineNo = idx + 1;
-      const classMatch = line.match(/^\s*class\s+([a-zA-Z0-9_]+)(?:\((.*?)\))?:/);
-      if (classMatch) {
-        const bases = classMatch[2] ? `(${classMatch[2]})` : '';
-        symbols.push({ name: `class ${classMatch[1]}${bases}`, start_line: lineNo });
-      } else {
-        const fnMatch = line.match(/^\s*(async\s+)?def\s+([a-zA-Z0-9_]+)\s*\((.*?)\):/);
-        if (fnMatch) {
-          const prefix = fnMatch[1] ? 'async def' : 'def';
-          symbols.push({ name: `${prefix} ${fnMatch[2]}(${fnMatch[3]})`, start_line: lineNo });
-        }
-      }
-    });
-  } else if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.vue', '.svelte'].includes(ext)) {
-    fileLines.forEach((line, idx) => {
-      const lineNo = idx + 1;
-      const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s*(\*?\s*\w*)|class\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?function|(?:interface|type|enum)\s+(\w+))/);
-      if (match) {
-        let snippet = line.trim();
-        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
-        symbols.push({ name: snippet, start_line: lineNo });
-      } else {
-        const methodMatch = line.match(/^\s*(?:static\s+)?(?:async\s+)?(?:get\s+|set\s+)?([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{/);
-        if (methodMatch && !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[1])) {
-          let snippet = line.trim();
-          if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
-          symbols.push({ name: snippet, start_line: lineNo });
-        }
-      }
-    });
-  } else if (ext === '.go') {
-    fileLines.forEach((line, idx) => {
-      const lineNo = idx + 1;
-      const fnMatch = line.match(/^\s*func\s+(?:\((?:[^)]+)\)\s+)?([a-zA-Z0-9_]+)\s*\(/);
-      if (fnMatch) {
-        let snippet = line.trim();
-        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
-        symbols.push({ name: snippet, start_line: lineNo });
-      } else {
-        const typeMatch = line.match(/^\s*type\s+([a-zA-Z0-9_]+)\s+(?:struct|interface)/);
-        if (typeMatch) {
-          symbols.push({ name: line.trim(), start_line: lineNo });
-        }
-      }
-    });
-  } else {
-    fileLines.forEach((line, idx) => {
-      const lineNo = idx + 1;
-      const match = line.match(/^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|class|struct|enum|interface|type)\s+(\w+)/);
-      if (match) {
-        let snippet = line.trim();
-        if (snippet.length > 120) snippet = snippet.substring(0, 120) + '…';
-        symbols.push({ name: snippet, start_line: lineNo });
-      }
-    });
-  }
+  fileLines.forEach((line, idx) => {
+    const sym = matcher(line, idx + 1);
+    if (sym) symbols.push(sym);
+  });
 
   for (let i = 0; i < symbols.length; i++) {
     const nextStart = i + 1 < symbols.length ? symbols[i + 1].start_line - 1 : totalLines;
@@ -79,6 +87,53 @@ function structureFile(filePath) {
   }
 
   return { symbols, totalLines };
+}
+
+function _formatDirEntry(targetPath, entry) {
+  const full = path.join(targetPath, entry);
+  try {
+    if (!fs.existsSync(full)) return null;
+    const st = fs.statSync(full);
+    if (st.isDirectory()) return { isDir: true, text: `📁 ${entry}/` };
+    if (st.isFile()) {
+      const sizeStr = st.size < 1024 ? `${st.size}B` : `${Math.floor(st.size / 1024)}KB`;
+      return { isDir: false, text: `📄 ${entry}  (${sizeStr})` };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function _structureDirectory(targetPath) {
+  const entries = fs.readdirSync(targetPath).sort();
+  const dirs = [];
+  const files = [];
+  const skipSet = new Set([
+    'node_modules', '__pycache__', '.git', 'dist', 'build',
+    'venv', '.venv', '.next', '.nuxt', '.svelte-kit'
+  ]);
+
+  for (const entry of entries) {
+    if (entry.startsWith('.') || skipSet.has(entry)) continue;
+    const formatted = _formatDirEntry(targetPath, entry);
+    if (!formatted) continue;
+    if (formatted.isDir) dirs.push(formatted.text);
+    else files.push(formatted.text);
+  }
+
+  const outputLines = dirs.concat(files);
+  const text = outputLines.join('\n');
+  return {
+    path: targetPath,
+    is_directory: true,
+    count: outputLines.length,
+    total_lines: outputLines.length,
+    returned_range: [1, outputLines.length],
+    complete: true,
+    next_range: null,
+    remaining_lines: 0,
+    structure: text,
+    text
+  };
 }
 
 function getFileStructure(args = {}) {
@@ -90,47 +145,7 @@ function getFileStructure(args = {}) {
   }
 
   if (fs.statSync(targetPath).isDirectory()) {
-    const entries = fs.readdirSync(targetPath).sort();
-    const dirs = [];
-    const files = [];
-
-    const skipSet = new Set([
-      'node_modules', '__pycache__', '.git', 'dist', 'build',
-      'venv', '.venv', '.next', '.nuxt', '.svelte-kit'
-    ]);
-
-    for (const entry of entries) {
-      if (entry.startsWith('.') || skipSet.has(entry)) continue;
-      const full = path.join(targetPath, entry);
-      try {
-        if (!fs.existsSync(full)) continue;
-        const st = fs.statSync(full);
-        if (st.isDirectory()) {
-          dirs.push(`📁 ${entry}/`);
-        } else if (st.isFile()) {
-          const size = st.size;
-          const sizeStr = size < 1024 ? `${size}B` : `${Math.floor(size / 1024)}KB`;
-          files.push(`📄 ${entry}  (${sizeStr})`);
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    const outputLines = dirs.concat(files);
-    const text = outputLines.join('\n');
-    return {
-      path: targetPath,
-      is_directory: true,
-      count: outputLines.length,
-      total_lines: outputLines.length,
-      returned_range: [1, outputLines.length],
-      complete: true,
-      next_range: null,
-      remaining_lines: 0,
-      structure: text,
-      text
-    };
+    return _structureDirectory(targetPath);
   }
 
   const { symbols, totalLines } = structureFile(targetPath);

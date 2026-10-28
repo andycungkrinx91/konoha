@@ -75,8 +75,8 @@ function resolveSoulPath(projectPath = null) {
     candidates.push(path.join(path.resolve(projectPath), '.agents', 'SOUL.md'));
     candidates.push(path.join(path.resolve(projectPath), 'SOUL.md'));
   }
-  candidates.push(path.join(__dirname, '..', '.agents', 'SOUL.md'));
   candidates.push(path.join(__dirname, 'templates', 'SOUL.md'));
+  candidates.push(path.join(__dirname, '..', '.agents', 'SOUL.md'));
   candidates.push(path.join(os.homedir(), '.agents', 'SOUL.md'));
 
   for (const c of candidates) {

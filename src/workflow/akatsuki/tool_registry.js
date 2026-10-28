@@ -80,6 +80,26 @@ function loadPersistedCustomTools() {
   }
 }
 
+function _checkDangerousBinaries(binaryCandidates) {
+  const dangerousBinaries = ['rm', 'dd', 'mkfs', 'nc', 'netcat', 'socat', 'bash', 'sh', 'zsh', 'ssh', 'scp', 'sudo'];
+  for (const bin of binaryCandidates) {
+    const baseBin = bin.split(/[/\\]/).pop().toLowerCase();
+    if (dangerousBinaries.includes(baseBin)) {
+      return `Binary candidate "${bin}" is a restricted system utility and cannot be registered as a red-team tool profile.`;
+    }
+  }
+  return null;
+}
+
+function _checkForbiddenCapabilities(combinedText) {
+  for (const pattern of FORBIDDEN_CAPABILITIES) {
+    if (pattern.test(combinedText)) {
+      return `Tool profile violates safety policy: matches restricted pattern ${pattern}.`;
+    }
+  }
+  return null;
+}
+
 /**
  * Validate a user-supplied custom tool profile against safety policies.
  *
@@ -93,7 +113,6 @@ function validateCustomToolProfile(profile, options = {}) {
 
   const isRed = options.mode === 'red' || options.redteam_enabled === true;
 
-  // 1. Mandatory ID
   if (!profile.id || typeof profile.id !== 'string') {
     return { valid: false, reason: 'Tool profile requires a string "id".' };
   }
@@ -102,24 +121,20 @@ function validateCustomToolProfile(profile, options = {}) {
     return { valid: false, reason: `Tool profile id "${profile.id}" contains invalid characters. Must match ^[a-z0-9_-]{2,32}$.` };
   }
 
-  // 2. Display Name
   const displayName = (profile.display_name && typeof profile.display_name === 'string')
     ? profile.display_name.trim()
     : cleanId;
 
-  // 3. Category Validation
   const category = (profile.category || 'custom').toLowerCase();
   if (!VALID_CATEGORIES.has(category)) {
     return { valid: false, reason: `Invalid category "${profile.category}". Must be one of: ${[...VALID_CATEGORIES].join(', ')}` };
   }
 
-  // 4. Safety Class Validation
   const safetyClass = (profile.safety_class || 'vulnerability_audit').toLowerCase();
   if (!VALID_SAFETY_CLASSES.has(safetyClass)) {
     return { valid: false, reason: `Invalid safety_class "${profile.safety_class}". Must be one of: ${[...VALID_SAFETY_CLASSES].join(', ')}` };
   }
 
-  // 5. Binary candidates
   const binaryCandidates = Array.isArray(profile.binary_candidates)
     ? profile.binary_candidates.filter(b => typeof b === 'string' && b.trim())
     : [cleanId];
@@ -127,16 +142,11 @@ function validateCustomToolProfile(profile, options = {}) {
     binaryCandidates.push(cleanId);
   }
 
-  // Check for dangerous binaries
-  const dangerousBinaries = ['rm', 'dd', 'mkfs', 'nc', 'netcat', 'socat', 'bash', 'sh', 'zsh', 'ssh', 'scp', 'sudo'];
-  for (const bin of binaryCandidates) {
-    const baseBin = bin.split(/[/\\]/).pop().toLowerCase();
-    if (dangerousBinaries.includes(baseBin)) {
-      return { valid: false, reason: `Binary candidate "${bin}" is a restricted system utility and cannot be registered as a red-team tool profile.` };
-    }
+  const dangerousReason = _checkDangerousBinaries(binaryCandidates);
+  if (dangerousReason) {
+    return { valid: false, reason: dangerousReason };
   }
 
-  // 6. Allowed operations
   const rawAllowed = Array.isArray(profile.allowed_operations)
     ? profile.allowed_operations.filter(op => typeof op === 'string' && op.trim())
     : ['custom_probe'];
@@ -149,39 +159,28 @@ function validateCustomToolProfile(profile, options = {}) {
     : rawAllowed;
   const blockedOperations = isRed ? [] : rawBlocked;
 
-  // 7. Forbidden capabilities scan (skipped in Red-Team mode to open all abilities)
   if (!isRed) {
     const combinedText = [
-      cleanId,
-      displayName,
-      category,
-      safetyClass,
-      ...binaryCandidates,
-      ...allowedOperations,
-      JSON.stringify(profile.blocked_operations || []),
-      profile.description || ''
+      cleanId, displayName, category, safetyClass,
+      ...binaryCandidates, ...allowedOperations,
+      JSON.stringify(profile.blocked_operations || []), profile.description || ''
     ].join(' ');
-
-    for (const pattern of FORBIDDEN_CAPABILITIES) {
-      if (pattern.test(combinedText)) {
-        return { valid: false, reason: `Tool profile violates safety policy: matches restricted pattern ${pattern}.` };
-      }
+    const forbiddenReason = _checkForbiddenCapabilities(combinedText);
+    if (forbiddenReason) {
+      return { valid: false, reason: forbiddenReason };
     }
   }
 
-  // 8. Scope validation
   const requiredScope = (profile.required_scope || 'local_or_dev').toLowerCase();
   if (requiredScope !== 'local_or_dev') {
     return { valid: false, reason: 'All red-team tools must enforce "local_or_dev" required_scope.' };
   }
 
-  // 9. Timeout (default 3600s / 1 hour; returns immediately upon completion)
   const rawTimeout = Number(profile.timeout_ms);
   const timeoutMs = (!Number.isNaN(rawTimeout) && rawTimeout >= 1000 && rawTimeout <= 3600000)
     ? rawTimeout
     : 3600000;
 
-  // 10. Cleanup Steps
   const cleanupSteps = Array.isArray(profile.cleanup_steps)
     ? profile.cleanup_steps.filter(s => typeof s === 'string' && s.trim())
     : [`pkill -f "${cleanId}" || true`];
@@ -206,6 +205,36 @@ function validateCustomToolProfile(profile, options = {}) {
   return { valid: true, sanitized };
 }
 
+function _lookupKaliCatalogProfile(normalizedId) {
+  try {
+    const { listKaliTools } = require('./init');
+    const kaliMatches = listKaliTools({ query: normalizedId, limit: 5 });
+    const kaliMatch = (kaliMatches || []).find(
+      (t) => t.slug === normalizedId || t.id === normalizedId || t.name === normalizedId
+    );
+    if (!kaliMatch) return null;
+    return {
+      id: kaliMatch.slug || kaliMatch.id,
+      display_name: `Kali Linux Tool: ${kaliMatch.name}`,
+      version: 'kali-rolling',
+      category: 'vulnerability_audit',
+      binary_candidates: [kaliMatch.package || kaliMatch.slug, `/usr/bin/${kaliMatch.slug}`],
+      container_images: ['kalilinux/kali-rolling'],
+      safety_class: 'active_recon',
+      allowed_operations: ['*', 'all_operations', 'full_unrestricted_capabilities'],
+      blocked_operations: [],
+      required_scope: 'local_or_dev',
+      timeout_ms: 3600000,
+      evidence_outputs: [`/tmp/akatsuki_${kaliMatch.slug}.out`],
+      cleanup_steps: [`rm -f /tmp/akatsuki_${kaliMatch.slug}.*`, `pkill -f "${kaliMatch.slug}" || true`],
+      is_kali_catalog: true,
+      kali_url: kaliMatch.url
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * Look up a tool profile by ID across curated registry, custom profiles, and persisted tools.
  * In Red-Team mode, all blocked operations are unlocked and merged into allowed operations.
@@ -220,12 +249,11 @@ function getToolProfile(toolId, customProfiles = {}, options = {}) {
   const normalizedId = toolId.trim().toLowerCase();
   const isRed = options.mode === 'red' || isRedTeamEnabled(options);
 
-  let profile = null;
-  if (CURATED_TOOL_REGISTRY[normalizedId]) {
-    profile = { ...CURATED_TOOL_REGISTRY[normalizedId] };
-  } else if (customProfiles[normalizedId]) {
-    profile = { ...customProfiles[normalizedId] };
-  } else {
+  let profile = CURATED_TOOL_REGISTRY[normalizedId]
+    ? { ...CURATED_TOOL_REGISTRY[normalizedId] }
+    : (customProfiles[normalizedId] ? { ...customProfiles[normalizedId] } : null);
+
+  if (!profile) {
     const persisted = loadPersistedCustomTools();
     if (persisted[normalizedId]) {
       profile = { ...persisted[normalizedId] };
@@ -233,32 +261,7 @@ function getToolProfile(toolId, customProfiles = {}, options = {}) {
   }
 
   if (!profile) {
-    try {
-      const { listKaliTools } = require('./init');
-      const kaliMatches = listKaliTools({ query: normalizedId, limit: 5 });
-      const kaliMatch = (kaliMatches || []).find(
-        (t) => t.slug === normalizedId || t.id === normalizedId || t.name === normalizedId
-      );
-      if (kaliMatch) {
-        profile = {
-          id: kaliMatch.slug || kaliMatch.id,
-          display_name: `Kali Linux Tool: ${kaliMatch.name}`,
-          version: 'kali-rolling',
-          category: 'vulnerability_audit',
-          binary_candidates: [kaliMatch.package || kaliMatch.slug, `/usr/bin/${kaliMatch.slug}`],
-          container_images: ['kalilinux/kali-rolling'],
-          safety_class: 'active_recon',
-          allowed_operations: ['*', 'all_operations', 'full_unrestricted_capabilities'],
-          blocked_operations: [],
-          required_scope: 'local_or_dev',
-          timeout_ms: 3600000,
-          evidence_outputs: [`/tmp/akatsuki_${kaliMatch.slug}.out`],
-          cleanup_steps: [`rm -f /tmp/akatsuki_${kaliMatch.slug}.*`, `pkill -f "${kaliMatch.slug}" || true`],
-          is_kali_catalog: true,
-          kali_url: kaliMatch.url
-        };
-      }
-    } catch (_) { /* non-fatal fallback */ }
+    profile = _lookupKaliCatalogProfile(normalizedId);
   }
 
   if (profile && isRed) {
@@ -275,6 +278,23 @@ function getToolProfile(toolId, customProfiles = {}, options = {}) {
   }
 
   return profile;
+}
+
+function _appendPersistedCustomTools(tools) {
+  const persisted = loadPersistedCustomTools();
+  for (const t of Object.values(persisted)) {
+    if (t?.id && !CURATED_TOOL_REGISTRY[t.id]) {
+      tools.push({
+        id: t.id,
+        display_name: t.display_name || t.id,
+        category: t.category || 'custom',
+        safety_class: t.safety_class || 'vulnerability_audit',
+        allowed_operations: t.allowed_operations || [],
+        timeout_ms: t.timeout_ms || 30000,
+        is_custom: true
+      });
+    }
+  }
 }
 
 /**
@@ -295,23 +315,52 @@ function listSupportedTools(options = {}) {
   }));
 
   if (options && options.includeCustom) {
-    const persisted = loadPersistedCustomTools();
-    for (const t of Object.values(persisted)) {
-      if (t && t.id && !CURATED_TOOL_REGISTRY[t.id]) {
-        tools.push({
-          id: t.id,
-          display_name: t.display_name || t.id,
-          category: t.category || 'custom',
-          safety_class: t.safety_class || 'vulnerability_audit',
-          allowed_operations: t.allowed_operations || [],
-          timeout_ms: t.timeout_ms || 30000,
-          is_custom: true
-        });
-      }
-    }
+    _appendPersistedCustomTools(tools);
   }
 
   return tools;
+}
+
+function _validateAndMapCustomTools(customTools, options, customProfileMap, toolsBlocked) {
+  if (!Array.isArray(customTools)) return;
+  for (const custom of customTools) {
+    const val = validateCustomToolProfile(custom, options);
+    if (val.valid && val.sanitized) {
+      customProfileMap[val.sanitized.id] = val.sanitized;
+    } else {
+      toolsBlocked.push({
+        tool: custom && custom.id ? custom.id : 'unknown',
+        reason: `Invalid custom tool profile: ${val.reason}`
+      });
+    }
+  }
+}
+
+function _resolveRequestedTools(requestedTools, customProfileMap, exploitPermitted, options, toolsBlocked) {
+  const toolsAvailable = [];
+  for (const rawTool of requestedTools) {
+    const toolId = String(rawTool).trim().toLowerCase();
+    const profile = getToolProfile(toolId, customProfileMap, options);
+
+    if (!profile) {
+      toolsBlocked.push({
+        tool: toolId,
+        reason: `Tool "${toolId}" is not recognized or profiled. Supply an explicit custom tool profile.`
+      });
+      continue;
+    }
+
+    if (profile.safety_class === 'controlled_verification' && !exploitPermitted) {
+      toolsBlocked.push({
+        tool: toolId,
+        reason: `Tool "${profile.display_name}" requires explicit flag "allow_controlled_exploit_verification: true".`
+      });
+      continue;
+    }
+
+    toolsAvailable.push(profile);
+  }
+  return toolsAvailable;
 }
 
 /**
@@ -333,49 +382,13 @@ function planToolExecution(params = {}, options = {}) {
   const customProfileMap = {};
   const toolsBlocked = [];
 
-  // Register and validate custom tools if provided
-  if (Array.isArray(params.custom_tools)) {
-    for (const custom of params.custom_tools) {
-      const val = validateCustomToolProfile(custom, options);
-      if (val.valid && val.sanitized) {
-        customProfileMap[val.sanitized.id] = val.sanitized;
-      } else {
-        toolsBlocked.push({
-          tool: custom && custom.id ? custom.id : 'unknown',
-          reason: `Invalid custom tool profile: ${val.reason}`
-        });
-      }
-    }
-  }
+  _validateAndMapCustomTools(params.custom_tools, options, customProfileMap, toolsBlocked);
 
-  const toolsAvailable = [];
-  const stopConditions = [];
   const exploitPermitted = params.allow_controlled_exploit_verification === true ||
     (params.allow_controlled_exploit_verification === undefined && isRed);
 
-  for (const rawTool of requestedTools) {
-    const toolId = String(rawTool).trim().toLowerCase();
-    const profile = getToolProfile(toolId, customProfileMap, options);
-
-    if (!profile) {
-      toolsBlocked.push({
-        tool: toolId,
-        reason: `Tool "${toolId}" is not recognized or profiled. Supply an explicit custom tool profile.`
-      });
-      continue;
-    }
-
-    // High-risk controlled exploit verification check (automatically open in Red-Team mode unless explicitly disabled)
-    if (profile.safety_class === 'controlled_verification' && !exploitPermitted) {
-      toolsBlocked.push({
-        tool: toolId,
-        reason: `Tool "${profile.display_name}" requires explicit flag "allow_controlled_exploit_verification: true".`
-      });
-      continue;
-    }
-
-    toolsAvailable.push(profile);
-  }
+  const toolsAvailable = _resolveRequestedTools(requestedTools, customProfileMap, exploitPermitted, options, toolsBlocked);
+  const stopConditions = [];
 
   // Construct deterministic execution phases
   const phases = [];
