@@ -222,8 +222,7 @@
 
   {#snippet heroActions()}
     <button
-      type="button"
-      onclick={() => { showGuideModal = true; }}
+      type="button" onclick={() => { showGuideModal = true; }}
       class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs border transition-all cursor-pointer"
     >
       <svg class="w-4 h-4 text-[var(--theme-info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -233,8 +232,7 @@
     </button>
 
     <button
-      type="button"
-      onclick={loadData}
+      type="button" onclick={loadData}
       class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -246,10 +244,8 @@
 
   <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <PageHero
-    title="Remote Access Control"
-    badgeText="Remote Ingress & Integrations"
-    desc={heroDesc}
-    actions={heroActions}
+    title="Remote Access Control" badgeText="Remote Ingress & Integrations"
+    desc={heroDesc} actions={heroActions}
   />
 
   <!-- Primary Dual-Card Grid (3D Perspective View) -->
@@ -475,8 +471,9 @@
       </div>
     {/if}
   </div>
+</div>
 
-  <!-- Card 4: Webhook Outbound Integration (Feedback 6) -->
+  <!-- Card 3: Webhook Outbound Integration (Feedback 6) -->
   <div
     class="glass-card-3d p-6 rounded-[3px] border space-y-6"
     style="background: var(--color-surface); border-color: color-mix(in srgb, var(--theme-grad-1) 25%, var(--color-border));"
@@ -617,20 +614,15 @@
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button
-                type="button"
-                onclick={() => testWebhook(wh.id)}
-                disabled={whTesting === wh.id}
+                type="button" onclick={() => testWebhook(wh.id)} disabled={whTesting === wh.id}
                 class="btn-3d btn-3d-secondary px-3 py-1.5 text-xs font-bold rounded-[3px] border cursor-pointer"
               >
                 {whTesting === wh.id ? "Testing..." : "Test Ping"}
               </button>
               <button
-                type="button"
-                onclick={() => deleteWebhook(wh.id, wh.name)}
+                type="button" onclick={() => deleteWebhook(wh.id, wh.name)}
                 class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] border border-status-danger-soft bg-status-danger-soft text-status-danger cursor-pointer hover:bg-status-danger hover:text-white transition-colors"
-              >
-                Delete
-              </button>
+              >Delete</button>
             </div>
           </div>
         {/each}
@@ -666,8 +658,7 @@
           </div>
         </div>
         <button
-          type="button"
-          onclick={() => { showGuideModal = false; }}
+          type="button" onclick={() => { showGuideModal = false; }}
           class="w-7 h-7 rounded-[3px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close guide modal"
@@ -697,12 +688,9 @@
 
       <div class="flex justify-end pt-2 border-t" style="border-color: var(--color-border);">
         <button
-          type="button"
-          onclick={() => { showGuideModal = false; }}
+          type="button" onclick={() => { showGuideModal = false; }}
           class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer shadow-md"
-        >
-          Got it
-        </button>
+        >Got it</button>
       </div>
     </div>
   </div>
