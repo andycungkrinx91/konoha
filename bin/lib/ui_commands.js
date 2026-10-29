@@ -22,14 +22,29 @@ const {
 } = require('./ui_build');
 
 function openUrlInBrowser(targetUrl) {
-  const p = process.platform;
-  let cmd;
-  if (p === 'darwin') cmd = 'open';
-  else if (p === 'win32') cmd = 'start ""';
-  else cmd = 'xdg-open';
-
+  if (typeof targetUrl !== 'string' || !targetUrl.trim()) return;
+  let parsed;
   try {
-    execSync(`${cmd} "${targetUrl}"`, { stdio: 'ignore', windowsHide: true });
+    parsed = new URL(targetUrl.trim());
+  } catch (_) {
+    return;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+
+  const validHostnames = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+  const hostname = parsed.hostname.toLowerCase();
+  if (!validHostnames.includes(hostname)) return;
+
+  const safeUrl = parsed.toString();
+  const p = process.platform;
+  try {
+    if (p === 'darwin') {
+      spawn('open', [safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+    } else if (p === 'win32') {
+      spawn('cmd.exe', ['/c', 'start', '""', safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+    } else {
+      spawn('xdg-open', [safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+    }
   } catch (_) { /* intentional fallback */ }
 }
 
@@ -106,6 +121,7 @@ function parseHostPortOptions(args) {
 
 async function cmdUiDaemon(args = []) {
   const { port, host, token } = parseHostPortOptions(args);
+  const effectiveToken = token || process.env.KONOHA_WEB_TOKEN || null;
   const pidFile = uiPidFileForPort(port);
   try {
     fs.mkdirSync(path.dirname(pidFile), { recursive: true });
@@ -113,7 +129,7 @@ async function cmdUiDaemon(args = []) {
   } catch (_) { /* non-fatal */ }
 
   const { startWebServer } = require('../../src/web_server');
-  const srv = await startWebServer({ port, host, token });
+  const srv = await startWebServer({ port, host, token: effectiveToken });
 
   const shutdown = async () => {
     try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch (_) { /* non-fatal */ }
@@ -174,10 +190,12 @@ async function ensureBuildHandlerPresent(silent) {
 function spawnBackgroundDaemon(port, host, token, silent) {
   const cliPath = path.resolve(__dirname, '..', 'cli.js');
   const daemonArgs = [cliPath, 'ui', 'daemon', `--port=${port}`, `--host=${host}`];
-  if (token) daemonArgs.push(`--token=${token}`);
+
+  const extraEnv = { KONOHA_UI_DAEMON: 'true' };
+  if (token) extraEnv.KONOHA_WEB_TOKEN = token;
 
   const { env: daemonEnv, nodePath: daemonNode } = deployUtils.resolveCompatibleNodeEnv(
-    Object.assign({}, process.env, { KONOHA_UI_DAEMON: 'true' })
+    Object.assign({}, process.env, extraEnv)
   );
 
   const child = spawn(daemonNode, daemonArgs, {

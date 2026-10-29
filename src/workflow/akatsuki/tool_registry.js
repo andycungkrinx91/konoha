@@ -154,10 +154,8 @@ function validateCustomToolProfile(profile, options = {}) {
     ? profile.blocked_operations.filter(op => typeof op === 'string' && op.trim())
     : [];
 
-  const allowedOperations = isRed
-    ? Array.from(new Set([...rawAllowed, ...rawBlocked]))
-    : rawAllowed;
-  const blockedOperations = isRed ? [] : rawBlocked;
+  const allowedOperations = rawAllowed;
+  const blockedOperations = rawBlocked;
 
   if (!isRed) {
     const combinedText = [
@@ -177,9 +175,9 @@ function validateCustomToolProfile(profile, options = {}) {
   }
 
   const rawTimeout = Number(profile.timeout_ms);
-  const timeoutMs = (!Number.isNaN(rawTimeout) && rawTimeout >= 1000 && rawTimeout <= 3600000)
+  const timeoutMs = (!Number.isNaN(rawTimeout) && rawTimeout >= 1000 && rawTimeout <= 120000)
     ? rawTimeout
-    : 3600000;
+    : (isRed ? 60000 : 30000);
 
   const cleanupSteps = Array.isArray(profile.cleanup_steps)
     ? profile.cleanup_steps.filter(s => typeof s === 'string' && s.trim())
@@ -221,10 +219,10 @@ function _lookupKaliCatalogProfile(normalizedId) {
       binary_candidates: [kaliMatch.package || kaliMatch.slug, `/usr/bin/${kaliMatch.slug}`],
       container_images: ['kalilinux/kali-rolling'],
       safety_class: 'active_recon',
-      allowed_operations: ['*', 'all_operations', 'full_unrestricted_capabilities'],
-      blocked_operations: [],
+      allowed_operations: ['scan', 'audit', 'enumerate', 'recon', 'passive_probe', 'active_probe'],
+      blocked_operations: ['rm -rf', 'format', 'dd if=', 'wipe', 'ransomware', 'dos_attack', 'packet_flood', 'exfiltration'],
       required_scope: 'local_or_dev',
-      timeout_ms: 3600000,
+      timeout_ms: 60000,
       evidence_outputs: [`/tmp/akatsuki_${kaliMatch.slug}.out`],
       cleanup_steps: [`rm -f /tmp/akatsuki_${kaliMatch.slug}.*`, `pkill -f "${kaliMatch.slug}" || true`],
       is_kali_catalog: true,
@@ -265,16 +263,8 @@ function getToolProfile(toolId, customProfiles = {}, options = {}) {
   }
 
   if (profile && isRed) {
-    const combined = [
-      '*',
-      'all_operations',
-      'full_unrestricted_capabilities',
-      ...(profile.allowed_operations || []),
-      ...(profile.blocked_operations || [])
-    ];
-    profile.allowed_operations = Array.from(new Set(combined));
-    profile.blocked_operations = [];
-    profile.timeout_ms = profile.timeout_ms || 3600000;
+    // In Red mode, tools execute inside the akatsuki-lab container sandbox with bounded timeouts
+    profile.timeout_ms = Math.min(profile.timeout_ms || 60000, 120000);
   }
 
   return profile;

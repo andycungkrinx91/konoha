@@ -22,8 +22,6 @@ const db = require("../src/db");
 const conn = db.getConnection(testDbPath); db.setupSchema(conn); conn.close();
 
 const webServer = require("../src/web_server");
-const tunnelConfig = require("../src/tunnel/config");
-const tunnelManager = require("../src/tunnel/manager");
 
 function makeRequest(port, options = {}) {
   return new Promise((resolve, reject) => {
@@ -103,7 +101,7 @@ test("Loopback Host Validation and Project Deletion Confirmation", async (t) => 
     assert.strictEqual(res.statusCode, 200);
   });
 
-  await t.test("Rejects tunnel hostname when tunnel is inactive", async () => {
+  await t.test("Rejects non-loopback hostname with 403", async () => {
     const res = await makeRequest(port, {
       path: "/api/v1/health",
       headers: { host: "custom-tunnel.trycloudflare.com" }
@@ -111,32 +109,8 @@ test("Loopback Host Validation and Project Deletion Confirmation", async (t) => 
     assert.strictEqual(res.statusCode, 403);
   });
 
-  await t.test("Accepts tunnel hostname when tunnel is active", async () => {
-    // Save active tunnel config pointing to current PID
-    tunnelConfig.saveTunnelConfig({
-      custom_domain: "active-tunnel.trycloudflare.com",
-      public_url: "https://active-tunnel.trycloudflare.com",
-      active_pid: process.pid,
-      mode: "named"
-    });
-
-    const res = await makeRequest(port, {
-      path: "/api/v1/health",
-      headers: { host: "active-tunnel.trycloudflare.com" }
-    });
-    // Host header is accepted (not 403)
-    assert.notStrictEqual(res.statusCode, 403);
-    assert.strictEqual(res.statusCode, 200);
-
-    // Reset tunnel config
-    tunnelConfig.saveTunnelConfig({
-      public_url: "",
-      active_pid: 0
-    });
-  });
-
   await t.test("DELETE /api/v1/projects requires { confirm: true }", async () => {
-    // 1. Without body
+    // Unconfirmed without body
     const resNoBody = await makeRequest(port, {
       method: "DELETE",
       path: "/api/v1/projects",
@@ -148,7 +122,7 @@ test("Loopback Host Validation and Project Deletion Confirmation", async (t) => 
     assert.strictEqual(resNoBody.statusCode, 400);
     assert.match(resNoBody.body, /confirm/i);
 
-    // 2. With confirm: false
+    // Unconfirmed with confirm false
     const resFalse = await makeRequest(port, {
       method: "DELETE",
       path: "/api/v1/projects",
@@ -161,7 +135,7 @@ test("Loopback Host Validation and Project Deletion Confirmation", async (t) => 
     });
     assert.strictEqual(resFalse.statusCode, 400);
 
-    // 3. With confirm: true
+    // Confirmed with confirm true
     const resTrue = await makeRequest(port, {
       method: "DELETE",
       path: "/api/v1/projects",

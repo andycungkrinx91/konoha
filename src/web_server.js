@@ -252,10 +252,18 @@ function _broadcastSseEvent(sseClients, type, data) {
   }
 }
 
-function _startServer(server, port, host, sessionToken) {
+function _startServer(server, port, host, sessionToken, instance) {
   return new Promise((resolve, reject) => {
     server.listen(port, host, () => {
-      resolve({ port, host, token: sessionToken, url: `http://${host}:${port}?token=${sessionToken}` });
+      resolve({
+        port,
+        host,
+        token: sessionToken,
+        url: `http://${host}:${port}?token=${sessionToken}`,
+        server,
+        instance,
+        stop: instance ? instance.stop : () => new Promise(r => server.close(r))
+      });
     });
     server.on('error', reject);
   });
@@ -298,15 +306,16 @@ function createWebServer(options = {}) {
     handleWebServerRequest(req, res, ctx).catch(err => _onServerError(err, res));
   });
 
-  return {
+  const instance = {
     server,
     port,
     host,
     token: sessionToken,
     broadcastEvent,
-    start: () => _startServer(server, port, host, sessionToken),
+    start: () => _startServer(server, port, host, sessionToken, instance),
     stop: () => new Promise(resolve => server.close(resolve))
   };
+  return instance;
 }
 
 function startWebServer(options = {}) {

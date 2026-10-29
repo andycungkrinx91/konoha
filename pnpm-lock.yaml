@@ -90,6 +90,9 @@ patchedDependencies:
   playwright-core@1.64.1:
     hash: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
     path: patches/playwright-core@1.64.1.patch
+  pptxgenjs@4.0.1:
+    hash: cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783
+    path: patches/pptxgenjs@4.0.1.patch
 
 importers:
 
@@ -109,7 +112,7 @@ importers:
         version: 1.64.1
       pptxgenjs:
         specifier: ^4.0.1
-        version: 4.0.1
+        version: 4.0.1(patch_hash=cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783)
       xlsx-populate:
         specifier: ^1.21.0
         version: 1.21.0
@@ -1277,7 +1280,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  pptxgenjs@4.0.1:
+  pptxgenjs@4.0.1(patch_hash=cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783):
     dependencies:
       '@types/node': 22.20.5
       https: 1.0.0

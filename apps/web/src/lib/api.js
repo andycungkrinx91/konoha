@@ -253,6 +253,7 @@ export async function resetPassword(currentPassword) {
 }
 
 export async function logout() {
+  memoryToken = '';
   try {
     const headers = await csrfHeaders();
     await fetch('/api/v1/auth/logout', { method: 'POST', headers });
@@ -260,5 +261,5 @@ export async function logout() {
     // Network or CSRF-bootstrap failure must still return the UI to the login surface.
   }
   memoryToken = '';
-  return true;
+  return { ok: true };
 }

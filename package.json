@@ -157,8 +157,9 @@
     },
     "patchedDependencies": {
       "cfb@1.2.2": "patches/cfb@1.2.2.patch",
+      "docx@9.14.0": "patches/docx@9.14.0.patch",
       "playwright-core@1.64.1": "patches/playwright-core@1.64.1.patch",
-      "docx@9.14.0": "patches/docx@9.14.0.patch"
+      "pptxgenjs@4.0.1": "patches/pptxgenjs@4.0.1.patch"
     }
   },
   "overrides": {

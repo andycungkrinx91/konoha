@@ -52,6 +52,37 @@ let workerTimer = null;
 let isExecuting = false;
 let workerRunning = false;
 
+function sanitizeExecutionEnv(baseEnv = process.env) {
+  const allowedExact = new Set([
+    'PATH',
+    'HOME',
+    'USER',
+    'LOGNAME',
+    'SHELL',
+    'TERM',
+    'LANG',
+    'LC_ALL',
+    'LC_CTYPE',
+    'TMPDIR',
+    'NODE_PATH',
+    'PYTHONUSERBASE',
+    'PLAYWRIGHT_BROWSERS_PATH',
+    'KONOHA_WORKSPACE',
+    'KONOHA_TASK_ID',
+    'KONOHA_SESSION_ID'
+  ]);
+  const sensitivePattern = /(token|secret|password|passwd|auth|api_?key|credential|private_?key|webhook)/i;
+  const sanitized = {};
+  for (const [key, value] of Object.entries(baseEnv || {})) {
+    if (allowedExact.has(key)) {
+      sanitized[key] = value;
+    } else if (!sensitivePattern.test(key) && !key.startsWith('npm_') && !key.startsWith('npm_config_')) {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 // Legacy compatibility export pattern list; runtime enforcement is powered by checkCommandGuardrails
 const DANGEROUS_PATTERNS = [
   'rm -rf /',
@@ -357,8 +388,9 @@ async function processTask(task) {
       ? process.env.SHELL
       : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh');
 
+    const opEnv = Object.assign(sanitizeExecutionEnv(), { SHELL: userShell });
     return new Promise((resolve) => {
-      execFile(userShell, ['-i', '-c', cmd], { cwd: execCwd, timeout: 30 * 60 * 1000, maxBuffer: 5 * 1024 * 1024, env: { ...process.env, SHELL: userShell } }, async (err, stdout, stderr) => {
+      execFile(userShell, ['-c', cmd], { cwd: execCwd, timeout: 30 * 60 * 1000, maxBuffer: 5 * 1024 * 1024, env: opEnv }, async (err, stdout, stderr) => {
         const duration = formatDuration(Date.now() - startTime);
         const output = (stdout || stderr || (err ? err.message : '')).trim();
         const isSuccess = !err;
@@ -385,12 +417,11 @@ async function processTask(task) {
   return new Promise((resolve) => {
     const agyBin = resolveAgyBin();
     const agyArgs = ['-p', cleanPrompt, '--effort', 'low', '--print-timeout', '45m'];
-    const execEnv = {
-      ...process.env,
+    const execEnv = Object.assign(sanitizeExecutionEnv(), {
       KONOHA_TASK_ID: task.id,
       KONOHA_SESSION_ID: task.session_id || '',
       KONOHA_WORKSPACE: execCwd
-    };
+    });
     execFile(agyBin, agyArgs, { cwd: execCwd, env: execEnv, timeout: 45 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }, async (err, stdout, stderr) => {
       const duration = formatDuration(Date.now() - startTime);
       const output = (stdout || stderr || (err ? err.message : '')).trim();

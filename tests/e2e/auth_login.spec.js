@@ -104,6 +104,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
 
     await expect(page.getByText("Konoha 4-Gradient Theme Palette")).toBeVisible();
     await page.getByRole("button", { name: /^Byakugan Deep Ocean/ }).click();
+    await expect(page.getByText("Konoha 4-Gradient Theme Palette")).not.toBeVisible();
 
     // Verify theme updated
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
@@ -111,6 +112,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
 
     // 10. Test Logout
     const logoutBtn = page.getByRole("button", { name: /Logout \/ Lock|Logout/i }).first();
+    await logoutBtn.scrollIntoViewIfNeeded();
     await logoutBtn.click();
 
     // Returns to Cyberpunk Login screen

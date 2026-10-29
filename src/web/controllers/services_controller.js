@@ -147,14 +147,14 @@ function _handleSavings(res, pathname, method) {
 async function _handleSemble(req, res, pathname, method) {
   if (method === 'GET' && pathname === '/api/v1/semble') {
     try {
-      return sendJson(res, 200, { ok: true, available: sembleManager.isSembleAvailable(), savings: sembleManager.getSembleSavings() });
+      return sendJson(res, 200, sembleManager.getSembleStatus());
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
   }
   if (method === 'GET' && pathname === '/api/v1/semble/savings') {
     try {
-      return sendJson(res, 200, { ok: true, savings: sembleManager.getSembleSavings() });
+      return sendJson(res, 200, sembleManager.getSembleSavings());
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }

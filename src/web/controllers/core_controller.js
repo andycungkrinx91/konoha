@@ -8,8 +8,7 @@ const dbBridges = require('../../db_bridges');
 const dbSavings = require('../../db_savings');
 const agentManager = require('../../agent_manager');
 const { SKILLS_DB_DIR } = require('../../../bin/lib/paths');
-const { killProcessOnPort } = require('../../platform_utils');
-const { checkPortActive } = require('../../bridge/utils');
+const { killProcessOnPort, checkPortActive } = require('../../platform_utils');
 const {
   sendJson,
   parseBody,
@@ -23,6 +22,19 @@ const {
 function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
   if (method !== 'GET') return false;
   if (pathname === '/api/v1/csrf' || pathname === '/api/v1/token') {
+    const rawHost = req.headers['host'] || '';
+    const hStr = String(rawHost).trim().toLowerCase();
+    const hostWithoutPort = hStr.startsWith('[')
+      ? (hStr.indexOf(']') !== -1 ? hStr.slice(0, hStr.indexOf(']') + 1) : hStr)
+      : hStr.split(':')[0];
+    const isLoopbackHost = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(hostWithoutPort);
+    const remoteIp = req.socket?.remoteAddress || '';
+    const isLoopbackIp = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteIp);
+
+    if (!isLoopbackHost || !isLoopbackIp) {
+      return sendJson(res, 403, { error: 'Forbidden: CSRF token retrieval restricted to loopback host' });
+    }
+
     return sendJson(res, 200, {
       token: ctx.sessionToken,
       version: ctx.SERVER_VERSION,
@@ -368,7 +380,11 @@ function _fetchBridgeModels(bridge) {
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
     const headers = {};
-    if (bridge.api_key || bridge.apiKey) headers['Authorization'] = `Bearer ${bridge.api_key || bridge.apiKey}`;
+    const key = bridge.api_key || bridge.apiKey;
+    const isLoopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname.toLowerCase());
+    if (key && (parsed.protocol === 'https:' || isLoopback)) {
+      headers['Authorization'] = `Bearer ${key}`;
+    }
     return new Promise((resolve) => {
       const reqMod = mod.get(url, { headers }, (r) => {
         let d = '';

@@ -20,21 +20,19 @@ const CURATED_TOOL_REGISTRY = {
     container_images: ['instrumentisto/nmap', 'alpine/nmap', 'kalilinux/kali-rolling'],
     safety_class: 'active_recon',
     allowed_operations: [
-      '*',
-      'all_operations',
-      'full_unrestricted_capabilities',
       'port_scan',
       'service_version_detection',
       'banner_grab',
       'os_detection',
       'default_script_scan',
-      'vuln_scripts',
+      'vuln_scripts'
+    ],
+    blocked_operations: [
       'dos_scripts',
       'brute_force_credentials',
       'raw_packet_flooding',
       'external_scan'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_nmap.xml', '/tmp/akatsuki_nmap.txt'],
@@ -56,12 +54,13 @@ const CURATED_TOOL_REGISTRY = {
       'technology_fingerprinting',
       'server_banner_detection',
       'header_analysis',
-      'cms_identification',
+      'cms_identification'
+    ],
+    blocked_operations: [
       'aggressive_probing',
       'exploit_injection',
       'external_scan'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 20000,
     evidence_outputs: ['/tmp/akatsuki_whatweb.json'],
@@ -84,12 +83,13 @@ const CURATED_TOOL_REGISTRY = {
       'status_code_check',
       'technology_detection',
       'tls_inspection',
-      'title_grab',
+      'title_grab'
+    ],
+    blocked_operations: [
       'denial_of_service',
       'high_concurrency_flooding',
       'external_target_sweep'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 25000,
     evidence_outputs: ['/tmp/akatsuki_httpx.json'],
@@ -112,11 +112,12 @@ const CURATED_TOOL_REGISTRY = {
       'form_crawling',
       'javascript_parsing',
       'api_path_enumeration',
-      'recursive_crawl',
+      'recursive_crawl'
+    ],
+    blocked_operations: [
       'credential_stuffing',
       'deep_scope_crawl'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_katana.json'],
@@ -138,11 +139,12 @@ const CURATED_TOOL_REGISTRY = {
       'directory_enumeration',
       'parameter_fuzzing',
       'header_fuzzing',
-      'status_code_filtering',
+      'status_code_filtering'
+    ],
+    blocked_operations: [
       'rate_flooding',
       'comprehensive_fuzzing'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_ffuf.json'],
@@ -164,11 +166,12 @@ const CURATED_TOOL_REGISTRY = {
       'recursive_directory_bruteforce',
       'status_filter',
       'extension_probing',
-      'hidden_resource_discovery',
+      'hidden_resource_discovery'
+    ],
+    blocked_operations: [
       'high_concurrency_crawl',
       'deep_payloads'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_feroxbuster.txt'],
@@ -190,11 +193,12 @@ const CURATED_TOOL_REGISTRY = {
       'template_scan_cve',
       'template_scan_misconfiguration',
       'template_scan_exposed_panels',
-      'safe_protocol_probes',
+      'safe_protocol_probes'
+    ],
+    blocked_operations: [
       'full_cve_exploit_templates',
       'protocol_fuzzing'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 45000,
     evidence_outputs: ['/tmp/akatsuki_nuclei_results.json'],
@@ -216,10 +220,11 @@ const CURATED_TOOL_REGISTRY = {
       'misconfiguration_check',
       'outdated_server_detection',
       'dangerous_files_check',
-      'http_option_enumeration',
+      'http_option_enumeration'
+    ],
+    blocked_operations: [
       'full_tuning_scan'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 35000,
     evidence_outputs: ['/tmp/akatsuki_nikto.json'],
@@ -242,13 +247,14 @@ const CURATED_TOOL_REGISTRY = {
       'error_based_sql_probe',
       'union_query_assessment',
       'time_based_blind_bounded',
-      'batch_mode_non_destructive',
+      'batch_mode_non_destructive'
+    ],
+    blocked_operations: [
       'database_dump',
       'table_enumeration',
       'os_shell_injection',
       'privilege_escalation_audit'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_sqlmap.log'],
@@ -270,11 +276,12 @@ const CURATED_TOOL_REGISTRY = {
       'wordpress_core_vuln_check',
       'plugin_enumeration',
       'theme_enumeration',
-      'user_enumeration',
+      'user_enumeration'
+    ],
+    blocked_operations: [
       'password_bruteforce_audit',
       'vulnerable_plugin_exploit_proof'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_wpscan.json'],
@@ -297,10 +304,11 @@ const CURATED_TOOL_REGISTRY = {
       'silverstripe_audit',
       'wordpress_audit',
       'moodle_audit',
-      'cms_plugin_audit',
+      'cms_plugin_audit'
+    ],
+    blocked_operations: [
       'credential_audit'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 25000,
     evidence_outputs: ['/tmp/akatsuki_droopescan.txt'],
@@ -322,10 +330,11 @@ const CURATED_TOOL_REGISTRY = {
       'cve_lookup',
       'nmap_xml_exploit_match',
       'software_version_correlation',
-      'exploit_source_inspection',
+      'exploit_source_inspection'
+    ],
+    blocked_operations: [
       'exploit_compilation_verification'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 20000,
     evidence_outputs: ['/tmp/akatsuki_searchsploit.json'],
@@ -346,10 +355,11 @@ const CURATED_TOOL_REGISTRY = {
       'tls_version_check',
       'cipher_suite_enumeration',
       'certificate_validation',
-      'vulnerability_checks_heartbleed_poodle',
+      'vulnerability_checks_heartbleed_poodle'
+    ],
+    blocked_operations: [
       'robot_breach_poodle_checks'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 30000,
     evidence_outputs: ['/tmp/akatsuki_testssl.json'],
@@ -371,11 +381,12 @@ const CURATED_TOOL_REGISTRY = {
       'traffic_capture_local_interface',
       'protocol_dissection',
       'pcap_analysis',
-      'tcp_stream_inspection',
+      'tcp_stream_inspection'
+    ],
+    blocked_operations: [
       'promiscuous_sniffing',
       'packet_injection_audit'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 20000,
     evidence_outputs: ['/tmp/akatsuki_tshark.pcap'],
@@ -397,12 +408,13 @@ const CURATED_TOOL_REGISTRY = {
       'passive_baseline_scan',
       'header_security_audit',
       'cookie_flags_inspection',
-      'cors_misconfiguration',
+      'cors_misconfiguration'
+    ],
+    blocked_operations: [
       'active_exploit_attack',
       'ajax_spider_deep',
       'full_fuzzing_audit'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 60000,
     evidence_outputs: ['/tmp/akatsuki_zap_report.json'],
@@ -424,11 +436,12 @@ const CURATED_TOOL_REGISTRY = {
       'image_scan',
       'filesystem_scan',
       'config_scan',
-      'sbom_generation',
+      'sbom_generation'
+    ],
+    blocked_operations: [
       'rootfs_audit',
       'secret_scan'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 40000,
     evidence_outputs: ['/tmp/akatsuki_trivy.json'],
@@ -450,11 +463,12 @@ const CURATED_TOOL_REGISTRY = {
       'header_inspection',
       'http_methods_check',
       'api_request_response_validation',
-      'auth_header_check',
+      'auth_header_check'
+    ],
+    blocked_operations: [
       'arbitrary_header_injection',
       'raw_payload_delivery'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 15000,
     evidence_outputs: ['/tmp/akatsuki_curl.out'],
@@ -475,12 +489,13 @@ const CURATED_TOOL_REGISTRY = {
       'exploit_check_method_only',
       'auxiliary_scanner_read_only',
       'version_probe',
-      'controlled_poc_verification',
+      'controlled_poc_verification'
+    ],
+    blocked_operations: [
       'module_execution',
       'payload_generation',
       'session_verification'
     ],
-    blocked_operations: [],
     required_scope: 'local_or_dev',
     timeout_ms: 45000,
     evidence_outputs: ['/tmp/akatsuki_msf.log'],
@@ -499,17 +514,15 @@ const CURATED_TOOL_REGISTRY = {
     container_images: ['kalilinux/kali-rolling'],
     safety_class: 'vulnerability_audit',
     allowed_operations: [
-      '*',
-      'all_operations',
-      'full_unrestricted_capabilities',
       'proxy_traffic_interception',
       'passive_vulnerability_scan',
-      'active_vulnerability_scan',
       'csrf_poc_generation',
       'auth_token_analysis',
       'headless_project_analysis'
     ],
-    blocked_operations: [],
+    blocked_operations: [
+      'active_vulnerability_scan'
+    ],
     required_scope: 'local_or_dev',
     timeout_ms: 60000,
     evidence_outputs: ['/tmp/akatsuki_burpsuite.xml', '/tmp/akatsuki_burpsuite.json'],
@@ -528,16 +541,14 @@ const CURATED_TOOL_REGISTRY = {
     container_images: ['kalilinux/kali-rolling'],
     safety_class: 'controlled_verification',
     allowed_operations: [
-      '*',
-      'all_operations',
-      'full_unrestricted_capabilities',
-      'payload_generation',
       'controlled_poc_verification',
       'shellcode_encoding',
       'format_conversion',
       'architecture_validation'
     ],
-    blocked_operations: [],
+    blocked_operations: [
+      'payload_generation'
+    ],
     required_scope: 'local_or_dev',
     timeout_ms: 45000,
     evidence_outputs: ['/tmp/akatsuki_payload.bin', '/tmp/akatsuki_msfvenom.log'],
@@ -548,13 +559,7 @@ const CURATED_TOOL_REGISTRY = {
   }
 };
 
-// Ensure every profile has open, unrestricted allowed_operations with zero limiters and 3600s timeout
-for (const profile of Object.values(CURATED_TOOL_REGISTRY)) {
-  const current = profile.allowed_operations || [];
-  profile.allowed_operations = Array.from(new Set(['*', 'all_operations', 'full_unrestricted_capabilities', ...current]));
-  profile.blocked_operations = [];
-  profile.timeout_ms = 3600000;
-}
+
 
 module.exports = {
   CURATED_TOOL_REGISTRY

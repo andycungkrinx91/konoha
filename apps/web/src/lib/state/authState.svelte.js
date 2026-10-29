@@ -79,6 +79,8 @@ function createAuthState() {
       // Ignore transport errors — local session state is cleared regardless.
     }
     resetSession();
+    await checkAuth();
+    return { ok: true };
   }
 
   function openPasswordChangeModal() {

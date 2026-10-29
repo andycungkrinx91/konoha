@@ -47,6 +47,32 @@
   - `urlStrings: false`: Suppresses benign standard OpenXML relationship namespaces in `docx@9.14.0`.
   - `gptSecurity: false`: Silences AI heuristic alerts on browser launcher wrappers while keeping malicious execution blocked.
   - `gptAnomaly: false`: Silences AI heuristic alerts on valid Compound File Binary structures.
+  - `usesEval: false`: Silences lodash dynamic Function evaluation in spreadsheet template rendering.
+  - `newAuthor: false`: Acknowledges jszip authorship handover to jkoops.
+
+### 2.5 CSRF & Token Endpoint Hardening
+- **Threat Vector**: Unauthenticated GET requests to `/api/v1/csrf` and `/api/v1/token` previously risked token leakage across external network origins or DNS-rebinding vectors.
+- **Remediation**: Implemented strict loopback IP (`127.0.0.1`, `::1`) and loopback Host verification (`127.0.0.1`, `localhost`, `::1`, `[::1]`) in `_handleCsrfAndHealth` within `src/web/controllers/core_controller.js` and `src/web_server.js`. Any request with an untrusted or external Host header is rejected immediately with HTTP 403 Forbidden, preserving local Web UI bootstrap while closing DNS-rebinding vectors.
+
+### 2.6 Command Injection Defense in Browser Launcher & Process Token Masking
+- **Threat Vector**: `openUrlInBrowser` in `bin/lib/ui_commands.js` passed user-supplied URLs to `execSync` via string concatenation, risking command injection if CLI host arguments contained shell metacharacters. In addition, background daemon tokens passed via `--token=...` were exposed in system process listings.
+- **Remediation**: Replaced `execSync` with argument-vector `spawn` (`xdg-open`, `open`, `cmd.exe /c start`) without shell interpolation, strictly validating URLs against `http:` / `https:` schemes and loopback hostnames. Migrated background daemon tokens to `KONOHA_WEB_TOKEN` environment variables and restricted-permission local token files (`web_token`), removing them from CLI process argument vectors.
+
+### 2.7 Akatsuki Curated Tool Profile Least-Privilege Hardening
+- **Threat Vector**: An unsafe normalization loop in `src/workflow/akatsuki/tool_profiles.js` previously assigned wildcard permissions (`['*', 'all_operations', ...]`), emptied blocklists, and inflated timeouts to 3600s across all tools.
+- **Remediation**: Removed the wildcard normalization loop. Enforced strictly scoped, least-privilege `allowed_operations` alongside explicit `blocked_operations` (blocking DoS scripts, raw flooding, credential dumping, and unconstrained attacks) with realistic operational timeouts (15s–60s) per tool profile.
+
+### 2.8 Cryptographic RTK Installer Integrity Verification
+- **Threat Vector**: Automated RTK installation previously piped upstream shell scripts directly into a shell interpreter (`curl ... | sh`) without integrity checks.
+- **Remediation**: Implemented `_downloadAndVerifyInstallerScript` in `src/rtk_installer.js`. Upstream installer scripts are downloaded to an isolated temporary path, their SHA-256 digest is cryptographically verified against pinned trusted hashes (`7ca39973...`), and execution is denied fail-closed if integrity checks fail.
+
+### 2.9 Non-Interactive Queue Worker Shell Execution & Sanitized Environment
+- **Threat Vector**: Queue worker operational shell tasks executed via interactive shell (`-i`) and inherited all ambient daemon environment variables, exposing sensitive tokens to prompt-derived commands.
+- **Remediation**: Switched shell execution to non-interactive mode `['-c', cmd]` and implemented `sanitizeExecutionEnv` in `src/queue/worker.js`, filtering inherited variables to standard system paths and stripping all API keys, tokens, passwords, and webhook secrets before spawning child processes.
+
+### 2.10 Eradication of Unmaintained `https@1.0.0`
+- **Threat Vector**: `pptxgenjs@4.0.1` declared `"https": "^1.0.0"` in its dependencies, pulling an abandoned March 2015 npm stub into the transitive dependency graph and dragging down package quality scores.
+- **Remediation**: Created `patches/pptxgenjs@4.0.1.patch` deleting `"https": "^1.0.0"` from `pptxgenjs`'s manifest and registered it in `pnpm.patchedDependencies`. Cleaned extraneous packages; runtime relies strictly on Node.js built-in `node:https`. Verified `https@1.0.0` is 100% eliminated from `pnpm-lock.yaml` and npm tree.
 
 ---
 

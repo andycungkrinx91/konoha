@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
 
@@ -356,8 +357,13 @@ function deployOpenCodeRtkRule(silent = true) {
       shell: process.platform === 'win32'
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
-  if (!fileExists(src)) {
+  const { resolveRtkRuleTemplate } = require('./mcp_clients/common');
+  let src = resolveRtkRuleTemplate();
+  if (!src || !fileExists(src)) {
+    const fallback = path.join(os.homedir(), '.claude', 'rules', 'rtk.md');
+    if (fileExists(fallback)) src = fallback;
+  }
+  if (!src || !fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
 

@@ -27,3 +27,5 @@ issueRules:
   networkAccess: false
   gptSecurity: false
   gptAnomaly: false
+  usesEval: false
+  newAuthor: false

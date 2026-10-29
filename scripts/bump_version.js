@@ -113,21 +113,6 @@ function getTemplateAndConfigFiles(version) {
       path: 'src/templates/GEMINI.md',
       check: (c) => c.includes(`## Konoha runtime contract (${version})`),
       bump: (oldV, newV) => replaceInFile('src/templates/GEMINI.md', new RegExp(`## Konoha runtime contract \\(${oldV}\\)`, 'g'), `## Konoha runtime contract (${newV})`)
-    },
-    {
-      path: '.cursor/rules/konoha.mdc',
-      check: (c) => c.includes(`## Konoha runtime contract (${version})`),
-      bump: (oldV, newV) => replaceInFile('.cursor/rules/konoha.mdc', new RegExp(`## Konoha runtime contract \\(${oldV}\\)`, 'g'), `## Konoha runtime contract (${newV})`)
-    },
-    {
-      path: '.omp/agent/AGENTS.md',
-      check: (c) => c.includes(`## Konoha runtime contract (${version})`),
-      bump: (oldV, newV) => replaceInFile('.omp/agent/AGENTS.md', new RegExp(`## Konoha runtime contract \\(${oldV}\\)`, 'g'), `## Konoha runtime contract (${newV})`)
-    },
-    {
-      path: '.omp/AGENTS.md',
-      check: (c) => c.includes(`## Konoha runtime contract (${version})`),
-      bump: (oldV, newV) => replaceInFile('.omp/AGENTS.md', new RegExp(`## Konoha runtime contract \\(${oldV}\\)`, 'g'), `## Konoha runtime contract (${newV})`)
     }
   ];
 }

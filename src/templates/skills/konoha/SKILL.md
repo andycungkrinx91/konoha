@@ -659,10 +659,7 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
 109. **Migration Timeout Normalization, FTS5/RAG Skill Authority & Mirror Fallback Invariant (v2.2.3)**:
     - **Safe Timeout Normalization & Zero-NaN Invariant**: Exported `MIGRATION_TIMEOUT_MS = 180000` from `bin/lib/paths.js`. Implemented defensive timeout normalization (`Number.isFinite(raw) && raw > 0 ? raw : 180000`) across `migrate.js`, `init.js`, `doctor.js`, and `runtime.js`, allocating 600s (`Math.max(baseTimeout, 600000)`) when `--rebuild-embeddings` is active. This permanently eliminates Node.js `ERR_OUT_OF_RANGE: Received NaN` crashes during `konoha migrate --rebuild-embeddings` and `konoha embed`.
     - **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, all skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first. Local Markdown files (`SKILL.md` and `references/*.md`) serve strictly as secondary fallback mirrors when the database is unavailable or a record is missing.
-    - **Workflow Skill Directives**: Sannin router dispatches across all active phases (`explore`, `plan`, `research`, `execute`, `document`) enforce the skill retrieval invariant:
-      ```json
-      "skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."
-      ```
+    - **Workflow Skill Directives**: Sannin router dispatches across all active phases enforce the skill retrieval invariant: `"skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."`.
 110. **Unified Deterministic Prompt Architecture (< 8 KB), Lightweight Contracts (< 1.2 KB) & Alphabetized CLI Governance (v2.2.4)**:
     - **Single Token-Bounded Prompt Architecture**: Replaced legacy Turn 2 auto-compaction branching (`isAutoCompact`) with a single deterministic, token-bounded prompt architecture across all turns (Turn 1, Turn 2, Turn 3, ...). Subagent prompts are strictly < 8,000 bytes (< 8 KB, ~1,800 tokens) with 100% prefix determinism ($T_1 == T_2 == T_3$) for maximum provider KV prompt cache hits.
     - **Lightweight On-Demand Contract Architecture**: Replaced monolithic 45 KB on-disk markdown instruction files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, etc.) and bundled templates with lightweight pointer contracts (< 1.2 KB, 1,097–1,211 bytes, > 97% file I/O token savings). Full multi-agent contracts and framework specifications are served dynamically on-demand via `konoha.get_skill('konoha/contract')` and `getClientContract(client)`.
@@ -692,11 +689,11 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Chunin Reconnaissance & Threat Intelligence Phase**: Integrated `@chunin` directly into Phase 3 of the offensive workflow, synthesizing passive OSINT, PTES methodology, MITRE ATT&CK / OWASP mappings, and non-destructive canary payloads.
     - **Tokubetsu-Jonin Standard Red-Team PDF Report**: Added standard PDF report generation (`src/workflow/akatsuki/report.js`) with 8 publication sections, executive summary, findings CVSS table, and sandbox teardown proof.
     - **SQLite-Backed Kali Linux Tool Catalog**: Added `kali_tools.json` and SQLite table `kali_tools` (360+ tools from kali.org/tools) with auto-seeding for high-performance zero-I/O querying.
-    - **Unrestricted Tool Capabilities**: Unlocked all operations across curated profiles (`allowed_operations: ['*', 'all_operations', ...]`, `blocked_operations: []`) with an extended 3600s execution timeout returning immediately upon task completion.
+    - **Least-Privilege Curated Tool Capabilities & Bounded Timeouts**: Curated security profiles enforce strictly scoped allowed operations with explicit blocked operations (rejecting DoS, raw flooding, and credential exfiltration) and realistic execution timeouts (15s–60s) rather than blanket wildcards.
     - **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.11` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all client template contracts.
-
-
-
-
-
-
+115. **Socket Security Remediation, Supply-Chain Eradication & Integrity Governance (v2.2.11)**:
+    - **Loopback & Host Header CSRF Protection**: Hardened `/api/v1/csrf` and `/api/v1/token` endpoints with strict loopback IP and Host validation, rejecting DNS-rebinding and non-loopback requests with HTTP 403 while allowing legitimate local Web UI bootstrap.
+    - **Browser Launcher Sanitization & Process Token Masking**: Replaced `execSync` shell string interpolation with argument-vector `spawn` and strict loopback/protocol validation. Relocated daemon CLI tokens to `KONOHA_WEB_TOKEN` env vars to eliminate process listing exposure.
+    - **Cryptographic RTK Installer Integrity Verification**: Replaced raw `curl | sh` piping with pre-download SHA-256 hash verification against pinned upstream digests (`7ca39973...`) before execution.
+    - **Non-Interactive Worker Shell & Sanitized Environment**: Switched queue worker execution from interactive `-i` to `['-c', cmd]` and filtered ambient environment variables to safe system paths, stripping tokens and secrets from child processes.
+    - **Unmaintained Package Eradication & Socket Hardening**: Patched `pptxgenjs@4.0.1` (`patches/pptxgenjs@4.0.1.patch`) removing obsolete `https@1.0.0` dependency. Configured `socket.yml` with `usesEval: false` and `newAuthor: false`.
