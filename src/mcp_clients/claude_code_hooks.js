@@ -51,14 +51,16 @@ function _updateBlockerHook(config, blockerRegex, blockerCommand) {
   return { found: false, changed: false };
 }
 
-function registerClaudeCodeNativeBlocker() {
-  if (!fileExists(CLAUDE_SETTINGS)) return;
-  const binDir = path.join(HOME, ".local", "bin");
+function registerClaudeCodeNativeBlocker(options = {}) {
+  const home = (options && options.home) || HOME;
+  const settingsPath = (options && options.settingsPath) || (options && options.home ? path.join(options.home, ".claude", "settings.json") : CLAUDE_SETTINGS);
+  const binDir = path.join(home, ".local", "bin");
   const blockerJs = path.join(binDir, "konoha-native-blocker.js");
   _writeBlockerScript(binDir, blockerJs);
-
+  const { ensureDir } = require("../platform_utils");
+  ensureDir(path.dirname(settingsPath));
   mergeJsonFile(
-    CLAUDE_SETTINGS,
+    settingsPath,
     (config) => {
       if (!config.hooks) config.hooks = {};
       if (!config.hooks.PreToolUse) config.hooks.PreToolUse = [];
@@ -113,9 +115,11 @@ process.stdout.write(JSON.stringify(decision) + "\\n");
 `;
 }
 
-function registerClaudeCodeBashGuard(silent = true) {
-  if (!fileExists(CLAUDE_SETTINGS)) return;
-  const binDir = path.join(HOME, ".local", "bin");
+function registerClaudeCodeBashGuard(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const home = (opts && opts.home) || HOME;
+  const settingsPath = (opts && opts.settingsPath) || (opts && opts.home ? path.join(opts.home, ".claude", "settings.json") : CLAUDE_SETTINGS);
+  const binDir = path.join(home, ".local", "bin");
   const guardJs = path.join(binDir, "konoha-bash-guard.js");
   try {
     fs.mkdirSync(binDir, { recursive: true });
@@ -127,8 +131,10 @@ function registerClaudeCodeBashGuard(silent = true) {
 
   const guardRegex = "^Bash$";
   const guardCommand = `"${process.execPath}" "${guardJs}"`;
+  const { ensureDir } = require("../platform_utils");
+  ensureDir(path.dirname(settingsPath));
   mergeJsonFile(
-    CLAUDE_SETTINGS,
+    settingsPath,
     (config) => {
       if (!config.hooks) config.hooks = {};
       if (!config.hooks.PreToolUse) config.hooks.PreToolUse = [];
@@ -203,12 +209,37 @@ function _updateSessionStartHook(config, reminderCommand, ssMatcher) {
   return true;
 }
 
-function registerClaudeCodeWorkflowReminder(_silent = true) {
-  const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
-  if (!fileExists(reminderPath)) return;
+function _ensureReminderFile(reminderPath, konohaDir) {
+  if (fileExists(reminderPath)) return true;
+  const cands = [
+    path.join(konohaDir, "workflow", "sannin-orchestrator", "workflow_reminder.js"),
+    path.join(__dirname, "..", "workflow", "sannin-orchestrator", "workflow_reminder.js"),
+    path.join(__dirname, "..", "..", "src", "workflow", "sannin-orchestrator", "workflow_reminder.js")
+  ];
+  for (const c of cands) {
+    if (!fileExists(c)) continue;
+    try {
+      const { ensureDir } = require("../platform_utils");
+      ensureDir(konohaDir);
+      fs.copyFileSync(c, reminderPath);
+      return true;
+    } catch (_) { /* best-effort copy */ }
+  }
+  return fileExists(reminderPath);
+}
+
+function registerClaudeCodeWorkflowReminder(_silent = true, options = {}) {
+  const opts = typeof _silent === "object" && _silent !== null ? _silent : options;
+  const home = (opts && opts.home) || HOME;
+  const konohaDir = path.join(home, ".konoha");
+  const reminderPath = path.join(konohaDir, "workflow_reminder.js");
+  if (!_ensureReminderFile(reminderPath, konohaDir)) return;
   const reminderCommand = `"${process.execPath}" "${reminderPath}"`;
+  const settingsPath = (opts && opts.settingsPath) || (opts && opts.home ? path.join(opts.home, ".claude", "settings.json") : CLAUDE_SETTINGS);
+  const { ensureDir } = require("../platform_utils");
+  ensureDir(path.dirname(settingsPath));
   mergeJsonFile(
-    CLAUDE_SETTINGS,
+    settingsPath,
     (config) => {
       if (!config.hooks) config.hooks = {};
       if (!Array.isArray(config.hooks.UserPromptSubmit)) config.hooks.UserPromptSubmit = [];

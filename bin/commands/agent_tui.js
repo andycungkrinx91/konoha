@@ -38,7 +38,13 @@ function computeListColumnWidths(headers, rows) {
 
 function renderAgentListView(agents, selectedIndex) {
   header('🥷 Subagents Interactive Explorer');
-  log(`  ${C.dim}Use ↑/↓ keys to navigate, Press Enter to view details, ESC to exit${C.reset}\n`);
+  log(`  ${C.dim}Use ↑/↓ keys to navigate, Press Enter to view details, M to toggle YOLO/HITL mode, ESC to exit${C.reset}\n`);
+  try {
+    const sdlcManager = require('../../src/workflow/kage-reviewer/sdlc_manager');
+    const cfg = sdlcManager.getProjectSdlcConfig(process.cwd());
+    const modeLabel = cfg.hitl_mode === 'disabled' ? 'YOLO' : 'HITL';
+    log(`  ${C.bold}Execution Mode:${C.reset} ${C.cyan}${modeLabel}${C.reset} ${C.dim}(hitl_mode=${cfg.hitl_mode}, press M to toggle)${C.reset}\n`);
+  } catch (_) { /* best effort */ }
 
   const headers = [' ', 'Subagent', 'Title', 'Active Skills'];
   const aligns = ['left', 'left', 'left', 'left'];
@@ -175,7 +181,18 @@ function teardownRawStdin(onKey) {
 }
 
 function handleAgentTuiListKey(options) {
-  const { key, state, agents, cleanup, resolve } = options;
+  const { key, state, agents, cleanup, resolve, onModeToggle } = options;
+  if (key === 'm' || key === 'M') {
+    if (typeof onModeToggle === 'function') { onModeToggle(); return true; }
+    try {
+      const sdlcManager = require('../../src/workflow/kage-reviewer/sdlc_manager');
+      const cwd = process.cwd();
+      const cur = sdlcManager.getProjectSdlcConfig(cwd);
+      const next = cur.hitl_mode === 'disabled' ? 'enabled' : 'disabled';
+      sdlcManager.setProjectSdlcConfig(cwd, { hitl_mode: next });
+    } catch (_) { /* best effort */ }
+    return true;
+  }
   if (key === '\u001b[A' || key === 'k') {
     state.selectedIndex = (state.selectedIndex - 1 + agents.length) % agents.length;
     return true;

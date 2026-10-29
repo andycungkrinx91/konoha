@@ -10,9 +10,9 @@ const {
   FILE_TOOLS_MCP_PATH,
   FILE_TOOLS_LAUNCHER_JS,
   FILE_TOOLS_LAUNCHER_PATH,
-  FILE_TOOLS_PY_DIR,
-  IS_WIN
+  FILE_TOOLS_PY_DIR
 } = require('../bin/lib/paths');
+const { IS_WIN } = require('./platform_utils');
 const {
   resolveCompatibleNodeEnv,
   writeNodeExecPathRecord,
@@ -168,6 +168,7 @@ function installFileTools(silent = true, pythonCmd = null) {
   ensureDir(SKILLS_DB_DIR);
   syncRuntimeJsFiles(SRC_DIR, SKILLS_DB_DIR);
   copyIfDifferent(path.join(SRC_DIR, 'mcp_tool_manifest.json'), path.join(SKILLS_DB_DIR, 'mcp_tool_manifest.json'));
+  copyIfDifferent(path.join(SRC_DIR, 'workflow', 'sannin-orchestrator', 'workflow_reminder.js'), path.join(SKILLS_DB_DIR, 'workflow_reminder.js'));
   setupLauncherScript();
   writeNodeExecPathRecord();
   writePythonCmdRecord(pythonCmd);

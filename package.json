@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.12",
+  "version": "2.2.13",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -34,7 +34,24 @@
     "patches/",
     "README.md",
     "LICENSE",
-    "!**/anthropic-cybersecurity-skills-assets/**"
+    "!**/anthropic-cybersecurity-skills-assets/**",
+    "!**/PLAN*",
+    "!**/PLAN*.md",
+    "!**/*-plan.md",
+    "!**/*.plan.md",
+    "!**/.omp/**",
+    "!**/__pycache__/**",
+    "!**/*.pyc",
+    "!**/*.pyo",
+    "!**/.ruff_cache/**",
+    "!**/.pytest_cache/**",
+    "!**/.tmp_*/**",
+    "!**/*.tmp",
+    "!**/*.temp",
+    "!**/*.bak",
+    "!**/*.swp",
+    "!**/.DS_Store",
+    "!**/Thumbs.db"
   ],
   "engines": {
     "node": ">=22.16.0"

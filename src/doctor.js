@@ -23,9 +23,9 @@ const MCP_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'mcp_config.json');
 const {
   fileExists,
   ensureDir,
-  copyFile,
   isRtkInstalled
 } = require('./platform_utils');
+const { copyFile } = require('../bin/lib/prompt');
 
 function checkSingleFile(srcRel, destPath, label, record, autoRepair) {
   const srcPath = path.join(SRC_DIR, srcRel);

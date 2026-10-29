@@ -179,10 +179,13 @@ function deployAgentsToDir(agents, baseDir) {
 }
 
 function ensureAntigravityAgents(agents, options = {}) {
-  const globalResult = deployAgentsToDir(agents, ANTIGRAVITY_AGENTS_GLOBAL);
-
-  deployAgentsToDir(agents, path.join(ANTIGRAVITY_CLI_GLOBAL, 'agents'));
-  deployAgentsToDir(agents, path.join(ANTIGRAVITY_IDE_GLOBAL, 'agents'));
+  const home = options.home || HOME;
+  const globalTarget = options.home ? path.join(home, ".gemini", "config", "agents") : ANTIGRAVITY_AGENTS_GLOBAL;
+  const cliTarget = options.home ? path.join(home, ".gemini", "antigravity-cli", "agents") : path.join(ANTIGRAVITY_CLI_GLOBAL, "agents");
+  const ideTarget = options.home ? path.join(home, ".gemini", "antigravity-ide", "agents") : path.join(ANTIGRAVITY_IDE_GLOBAL, "agents");
+  const globalResult = deployAgentsToDir(agents, globalTarget);
+  deployAgentsToDir(agents, cliTarget);
+  deployAgentsToDir(agents, ideTarget);
 
   let projectResult = null;
   if (options.projectDir) {
@@ -365,8 +368,9 @@ const ANTIGRAVITY_SUBAGENTS = [
   { name: 'akatsuki', description: 'Red-Team, Blue-Team & Security Final Gate subagent. Focuses on penetration testing, container isolation, and pre-delivery security audits.' }
 ];
 
-function ensureAntigravityMcpSchemas() {
-  const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
+function ensureAntigravityMcpSchemas(options = {}) {
+  const home = (options && options.home) || HOME;
+  const schemaDir = path.join(home, ".gemini", "antigravity-cli", "mcp", "konoha");
   if (!fs.existsSync(schemaDir)) {
     fs.mkdirSync(schemaDir, { recursive: true });
   }
@@ -376,19 +380,19 @@ function ensureAntigravityMcpSchemas() {
       name: s.name,
       description: s.description,
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          ...(s.hasPrompt ? { prompt: { type: 'string', description: 'The task prompt directly passed from chat context or instructions.' } } : {}),
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
+          ...(s.hasPrompt ? { prompt: { type: "string", description: "The task prompt directly passed from chat context or instructions." } } : {}),
+          task_dir: { type: "string", description: "Task workspace directory." }
         }
       }
     };
-    fs.writeFileSync(path.join(schemaDir, `${s.name}.json`), JSON.stringify(info, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(path.join(schemaDir, `${s.name}.json`), JSON.stringify(info, null, 2) + "\n", "utf8");
   }
 
   _writeManifestFindSkillsSchema(schemaDir);
-  _updateSembleAuxiliarySchemas(path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'semble'));
-  _updateAislopAuxiliarySchemas(path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'aislop'));
+  _updateSembleAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "semble"));
+  _updateAislopAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "aislop"));
 }
 
 function getAntigravityStatus() {
@@ -649,9 +653,20 @@ function ensureAntigravitySetup(options = {}) {
     _writeTargetAntigravityMcp(mcpConfigPath, idx === 0, servers);
   });
 
-  ensureAntigravityPermissions(silent);
-  ensureAntigravityMcpSchemas();
-  deployAntigravityRtkRule(silent);
+  ensureAntigravityPermissions(silent, options);
+  ensureAntigravityMcpSchemas(options);
+  deployAntigravityRtkRule(silent, options);
+
+  try {
+    const { loadAgents, generateGeminiMd, generateAgentsMd } = require("./agent_manager");
+    const agents = loadAgents();
+    const geminiMd = path.join(home, ".gemini", "GEMINI.md");
+    const agentsMd = path.join(home, ".agents", "AGENTS.md");
+    fs.mkdirSync(path.dirname(geminiMd), { recursive: true });
+    fs.writeFileSync(geminiMd, generateGeminiMd(agents), "utf8");
+    fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
+    fs.writeFileSync(agentsMd, generateAgentsMd(agents), "utf8");
+  } catch (_) { /* best-effort */ }
 
   return { ok: true };
 }

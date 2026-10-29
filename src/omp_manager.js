@@ -213,7 +213,7 @@ function registerOmpMcp(options = {}) {
 }
 
 function deployOmpContract(options = {}) {
-  const targetFile = options.targetFile || OMP_AGENTS_MD;
+  const targetFile = options.targetFile || (options.home ? path.join(options.home, '.omp', 'agent', 'AGENTS.md') : OMP_AGENTS_MD);
   const silent = options.silent !== false;
 
   try {
@@ -234,7 +234,7 @@ function deployOmpContract(options = {}) {
 
 function deployOmpRtkRule(options = {}) {
   const silent = options.silent !== false;
-  const targetDir = options.targetDir || path.join(OMP_DIR, 'rules');
+  const targetDir = options.targetDir || (options.home ? path.join(options.home, '.omp', 'rules') : path.join(OMP_DIR, 'rules'));
   const targetFile = path.join(targetDir, 'rtk.md');
 
   if (!isRtkInstalled()) {
@@ -260,7 +260,8 @@ function deployOmpRtkRule(options = {}) {
 
 function ensureOmpSetup(options = {}) {
   const silent = options.silent !== false;
-  ensureDir(OMP_AGENT_DIR);
+  const targetAgentDir = options.home ? path.join(options.home, '.omp', 'agent') : OMP_AGENT_DIR;
+  ensureDir(targetAgentDir);
 
   const mcpResult = registerOmpMcp({ ...options, silent });
   const contractResult = deployOmpContract({ ...options, silent });

@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.12). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.13). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.12`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.13`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -600,7 +600,7 @@ npx aislop scan --changes
 
 | Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
 | :--- | :--- | :--- | :--- |
-| **1. Consumer Workspace Gitignore & Dockerignore Sync** | `node tests/test_cli_project_commands.js` | Verified automated injection of `## Start Konoha config+skill ... ## End Konoha config+skill` containing `.agents`, `.claude*`, `.commandcode*`, `.cursor*`, `.cursorrules*`, `.gemini*`, `.omp*`, `.codex*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `PLAN*`, and `.omp/plans` into consumer `.gitignore` and `.dockerignore`. | `PASS` (verified synced) |
+| **1. Consumer Workspace Gitignore & Dockerignore Sync** | `node tests/test_cli_project_commands.js` | Verified automated injection of `## Start Konoha config+skill ... ## End Konoha config+skill` containing `.agents/plugins/`, `.aislop/`, `.aislopignore`, `.claude.json`, `.claude/`, `.codex/`, `.commandcode/`, `.cursor/`, `.cursorrules`, `.gemini/`, `.omp/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` into consumer `.gitignore` and `.dockerignore`; engine repos excluded via `package.json` name check. | `PASS` (verified synced) |
 | **2. Playwright Edge Reinstall PowerShell Scripts Removal** | `patches/playwright-core@1.64.1.patch` & directory check | Completely excised `reinstall_msedge_*_win.ps1` from `playwright-core` patches; verified 0 powershell reinstall scripts remain in repository. | `PASS` (excised clean) |
 | **3. SheetJS Anomalous Seed Marker Neutralization Verification** | `node tests/test_document_tools.js` | Verified `cfb` patch neutralizes `\u0001Sh33tJ5` marker; verified XLSX spreadsheet creation and encryption routines pass with 0 errors. | `PASS` (verified neutralized) |
 | **4. Maintained Abort-Controller & Zero Vulnerability Stack** | `pnpm why abort-controller` & `node tests/test_document_tools.js` | Replaced unmaintained `abort-controller@3.0.0` with maintained `node-abort-controller@^3.1.1` and `readable-stream@^3.6.2`; verified 0 vulnerability alerts on socket CLI. | `PASS` (verified maintained) |
@@ -639,7 +639,7 @@ npx aislop scan --changes
 | **5. SQLite-Backed Kali Tools Catalog (360+ Tools)** | `src/templates/akatsuki_lab/kali_tools.json` & `db_schema.js` | Full tool catalog with IDs seeded into SQLite table `kali_tools`; high-performance querying with zero disk I/O. | `PASS` (360 tools seeded & queried) |
 | **6. Least-Privilege Curated Tool Capabilities & Bounded Timeouts** | `src/workflow/akatsuki/tool_profiles.js` | Curated security profiles enforce strictly scoped allowed operations with explicit blocked operations (rejecting DoS, raw flooding, and credential exfiltration) and realistic execution timeouts (15s–60s) rather than blanket wildcards. | `PASS` (least-privilege operations verified) |
 | **7. Cross-Platform Hardening (Linux, macOS, Windows)** | `tests/test_akatsuki_init.js` & mock matrix | Container-side provisioning without host bash dependencies; Docker-only fallback on Windows/macOS; Linux LXC/Docker auto-detect. | `PASS` (cross-platform matrix green) |
-| **8. Version 2.2.12 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.12 contracts verified) |
+| **8. Version 2.2.13 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.13 contracts verified) |
 
 ---
 
@@ -655,7 +655,7 @@ npx aislop scan --changes
 | **6. Blue-Team Security Capabilities** | `akatsuki-skill/references/blue-team/` | 6 defensive capability references added (`sast-static-analysis`, `secret-leakage-audit`, `dependency-cve-audit`, `skill-guardian-perimeter`, `config-hardening`, `security-final-gate`). | `PASS` (all 6 blue-team docs active) |
 | **7. Multi-Mirror Skill Synchronization** | `scripts/sync_skills.js` | Synchronized byte-identical skills across all 6 client mirrors (`.agents`, `.cursor`, `.gemini`, `.commandcode`, `.claude`, `.omp`). | `PASS` (4,239 files synced) |
 | **8. Container Template Toolchain Registration** | `src/templates/akatsuki_lab/docker` & `lxc` | All default red-team tools registered in Dockerfile and LXC provision scripts (including Burp Suite, msfvenom, feroxbuster, testssl.sh, zap, trivy). | `PASS` (templates registered) |
-| **9. Preserved Invariants & Clean Author** | `git config` & `package.json` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password `konohagakure`; version maintained at v2.2.11 per user mandate. | `PASS` (invariants maintained) |
+| **9. Preserved Invariants & Clean Author** | `git config` & `package.json` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password `konohagakure`; version maintained at v2.2.13 per user mandate. | `PASS` (invariants maintained) |
 | **10. DrawIO 16-Tab Akatsuki Security Integration** | `docs/diagrams/konoha-architecture.drawio` | All 16 pages/tabs verified to include Akatsuki security integration cells, edges, and defense perimeters; validated via `test_documentation_diagrams.js`. | `PASS` (all 16 tabs updated & verified) |
 | **11. WebP Diagram Arrow Refinement** | `scripts/generate_tokubetsu_flow_webp.js` | Sleek architectural arrowheads with `markerUnits="userSpaceOnUse"`, dart geometry, and smoothed sweeping bezier curves regenerated across all animated WebP diagrams. | `PASS` (all diagrams regenerated cleanly) |
 | **12. Supply Chain & Socket CLI Audit** | `socket scan create .` & `pnpm audit --prod` | Socket CLI v1.8.4 executed; `pnpm audit --prod` confirmed 0 vulnerabilities across production dependencies. | `PASS` (0 vulnerabilities) |
@@ -690,4 +690,21 @@ npx aislop scan --changes
 | **4. Hook Argument Quoting Governance** | `bin/lib/runtime_mcp.js` & `src/antigravity_manager.js` | Wrapped Node binary and hook scripts in double quotes (`quotePath()`) across `applyPromptAndSanitizeHooks` and Antigravity permission grants, resolving unquoted space failures in `%USERPROFILE%`. | `PASS` (quoted paths verified) |
 | **5. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` | Synchronized runtime contract version `2.2.12` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.12 verified) |
 | **6. Google Policy Compliance v2.2.12** | `docs/SecurityCompliance/` report | Published certified compliance report for v2.2.12; 0 vulnerabilities across production dependencies. | `PASS` (certified) |
+
+---
+
+## Section 25: v2.2.13 Cross-Platform Reliability, Authoritative HITL Gates & Client Bootstrap
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. 111 CLI Subsystem Command Sweep** | `bin/cli.js` & full subcommand matrix in isolated `/tmp/` | Executed all 111 CLI commands and subcommand flags with isolated home/database fixtures; verified deterministic output, exit codes, help contracts, and zero uncaught exceptions. | `PASS` (111/111 CLI commands verified) |
+| **2. 20 Web UI Flow & Route Automation** | Playwright & agent-browser against `http://127.0.0.1:1404` | Verified all 20 web routes and interactive flows in Playwright test suite (`tests/e2e/`) with bootstrap password `konohagakure`, Argon2id auth, theme switching, and real-time SSE telemetry. | `PASS` (20/20 web flows verified) |
+| **3. Authoritative Gate 1 Plan Approval** | `tests/test_sdlc_hitl.js` & `tests/test_workflow_gates.js` | Execution strictly pauses after Phase 1 for explicit human approval; autonomous settings and client YOLO flags cannot bypass; rejection triggers reject -> regenerate -> re-gate loop with refinement notes. | `PASS` (authoritative Gate 1 verified) |
+| **4. Authoritative Gate 2 Delivery Sign-Off** | `tests/test_sdlc_hitl.js` & `tests/test_workflow_gates.js` | Final delivery sign-off requires human sign-off (`1. Compact and approve` or `2. Remediation`); client autonomous/YOLO flags cannot bypass; remediation loops back to Anbu/Jonin bounded by circuit breaker. | `PASS` (authoritative Gate 2 verified) |
+| **5. Transport Failure Fail-Closed Resilience** | `tests/test_telegram_approval.js` & gate tests | When approval transports (Telegram bot, notification webhook, or interactive stream) are unavailable or fail, gates fail closed and execution remains strictly paused awaiting operator verdict. | `PASS` (fail-closed verified) |
+| **6. Client First-Session Bootstrap** | `tests/test_client_first_session_bootstrap.js` | Fresh client initialization in isolated home directories verified to inject Konoha contract, safety rules, and MCP tools before first task execution turn across all supported clients. | `PASS` (first session bootstrap verified) |
+| **7. Windows Upgrade Cache Purge Export Chain** | `bin/lib/runtime_mcp.js` & `bin/commands/upgrade.js` | `purgePackageCaches` helper correctly exported and imported; Stage 3 of `konoha upgrade` executes without `TypeError: purgePackageCaches is not a function`. | `PASS` (export chain verified) |
+| **8. UI Service Default Resilience** | `bin/lib/ui_service.js` & `bin/commands/doctor_services.js` | Service discovery and background daemon lifecycle hardened with reliable defaults and graceful fallbacks. | `PASS` (ui_service verified) |
+| **9. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` | Synchronized runtime contract version `2.2.13` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.13 verified) |
+| **10. Google Policy Compliance v2.2.13** | `docs/SecurityCompliance/` report | Published certified compliance report for v2.2.13; 0 production vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
 

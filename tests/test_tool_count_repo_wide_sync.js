@@ -104,8 +104,8 @@ const TRACKED_FILES = [
       `serves ALL 47 canonical tools`
     ],
     forbiddenPatterns: [
-      /All\s+(?:46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
-      /serves\s+ALL\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i
+      /All\s+(?:49|48|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
+      /serves\s+ALL\s+(?:49|48|46|45|43|42|40|39|38|37|35|33)\s+tools/i
     ]
   },
   {
@@ -115,8 +115,8 @@ const TRACKED_FILES = [
       `serves ALL 47 canonical tools`
     ],
     forbiddenPatterns: [
-      /All\s+(?:46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
-      /serves\s+ALL\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i
+      /All\s+(?:49|48|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
+      /serves\s+ALL\s+(?:49|48|46|45|43|42|40|39|38|37|35|33)\s+tools/i
     ]
   },
   {
@@ -125,7 +125,7 @@ const TRACKED_FILES = [
       `47 canonical MCP tools · 8 coding clients`
     ],
     forbiddenPatterns: [
-      /\b(?:46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
+      /\b(?:49|48|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
     ]
   },
   {
@@ -134,7 +134,7 @@ const TRACKED_FILES = [
       `Tool Registration (47 Tools)`
     ],
     forbiddenPatterns: [
-      /Tool\s+Registration\s+\((?:46|45|43|42|40|39|38|37|35|33)\s+Tools\)/i
+      /Tool\s+Registration\s+\((?:49|48|46|45|43|42|40|39|38|37|35|33)\s+Tools\)/i
     ]
   }
 ];

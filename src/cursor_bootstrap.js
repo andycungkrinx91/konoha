@@ -20,7 +20,9 @@ const FILE_TOOLS_MCP_PATH = path.join(KONOHA_DIR, 'file_tools_mcp.js');
 const CURSOR_RULE = path.join(CURSOR_DIR, 'rules', 'konoha.mdc');
 const CURSOR_RTK_RULE = path.join(CURSOR_DIR, 'rules', 'rtk.mdc');
 const CONTRACT_MARKER = 'KONOHA-CONTRACT-START';
-const CONTRACT_VERSION = '2.0.0-cross-client-1';
+const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
+const agentContract = fileExists(contractPath) ? require(contractPath) : null;
+const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.13';
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -185,6 +187,22 @@ function _scaffoldProjectCursorRule(cwd, agentContract) {
   if ((!projectContent.includes(CONTRACT_MARKER) || !projectContent.includes(CONTRACT_VERSION)) && agentContract) {
     const repaired = agentContract.buildManagedContract(projectContent, agentContract.buildMainAgentContract('cursor'));
     fs.writeFileSync(projectRule, repaired, 'utf8');
+  }
+
+  // Ensure companion workspace rules exist
+  if (agentContract) {
+    const geminiMd = path.join(cwd, 'GEMINI.md');
+    if (!fileExists(geminiMd)) {
+      fs.writeFileSync(geminiMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
+    }
+    const claudeMd = path.join(cwd, 'CLAUDE.md');
+    if (!fileExists(claudeMd)) {
+      fs.writeFileSync(claudeMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('claude')), 'utf8');
+    }
+    const agentsMd = path.join(cwd, 'AGENTS.md');
+    if (!fileExists(agentsMd)) {
+      fs.writeFileSync(agentsMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
+    }
   }
 }
 

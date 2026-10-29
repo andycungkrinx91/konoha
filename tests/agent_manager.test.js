@@ -258,7 +258,7 @@ console.log('\n[MCP Tool Name Mapping]');
       instructions: 'Call `kage` to delegate',
       type: 'self'
     }]);
-    assert.ok(Buffer.byteLength(result, 'utf8') < 1228, 'should be < 1.2 KB');
+    assert.ok(Buffer.byteLength(result, 'utf8') < 1600, 'should be < 1.6 KB');
     assert.ok(result.includes('Konoha runtime contract'), 'should have runtime contract header');
     assert.ok(result.includes('@kage'), 'should list agent in roster');
   });

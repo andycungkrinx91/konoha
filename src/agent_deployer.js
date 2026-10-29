@@ -194,16 +194,16 @@ function deployGlobalClientConfigs(options) {
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
-    const piManager = require('./pi_manager');
+    const piManager = require("./pi_manager");
     if (options.force || piManager.isPiInstalled()) {
-      piManager.ensurePiSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome });
+      piManager.ensurePiSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
-    const ompManager = require('./omp_manager');
+    const ompManager = require("./omp_manager");
     if (options.force || ompManager.isOmpInstalled()) {
-      ompManager.ensureOmpSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome });
+      ompManager.ensureOmpSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 }
@@ -226,7 +226,8 @@ function regenerateAndDeploy(silentOrOptions = false) {
   let fingerprint = null;
   try {
     const st = fs.statSync(userAgentsYamlPath);
-    fingerprint = `${getCliVersion()}:${st.mtimeMs}:${st.size}`;
+    const cliVer = getCliVersion();
+    fingerprint = `${cliVer}:${st.mtimeMs}:${st.size}`;
   } catch { /* intentional best-effort fallback */ }
 
   if (!force && fingerprint && !deployProject) {
@@ -421,9 +422,20 @@ function deployProjectClientConfigs(targetPath, deployedFiles) {
         }
       }
     };
-    fs.writeFileSync(path.join(ompAgentDir, 'mcp.json'), JSON.stringify(ompConfig, null, 2) + '\n', 'utf8');
-    fs.writeFileSync(path.join(targetPath, '.omp', 'mcp.json'), JSON.stringify(ompConfig, null, 2) + '\n', 'utf8');
-    deployedFiles.push(path.join(ompAgentDir, 'mcp.json'));
+    fs.writeFileSync(path.join(ompAgentDir, "mcp.json"), JSON.stringify(ompConfig, null, 2) + "\n", "utf8");
+    fs.writeFileSync(path.join(targetPath, ".omp", "mcp.json"), JSON.stringify(ompConfig, null, 2) + "\n", "utf8");
+    deployedFiles.push(path.join(ompAgentDir, "mcp.json"));
+
+    const opencodeDir = path.join(targetPath, ".opencode");
+    fs.mkdirSync(opencodeDir, { recursive: true });
+    fs.writeFileSync(path.join(opencodeDir, "opencode.json"), JSON.stringify({ mcp: mcpServers }, null, 2) + "\n", "utf8");
+    deployedFiles.push(path.join(opencodeDir, "opencode.json"));
+
+    const codexDir = path.join(targetPath, ".codex");
+    fs.mkdirSync(codexDir, { recursive: true });
+    const codexToml = `[mcp_servers.konoha]\ncommand = "${mcpServers.konoha?.command || "node"}"\nargs = ${JSON.stringify(mcpServers.konoha?.args || [])}\n\n[mcp_servers.semble]\ncommand = "uvx"\nargs = ["--from", "${SEMBLE_PACKAGE}", "semble", "--content", "all"]\n\n[mcp_servers.aislop]\ncommand = "npx"\nargs = ["-y", "-p", "aislop", "aislop-mcp"]\n`;
+    fs.writeFileSync(path.join(codexDir, "config.toml"), codexToml, "utf8");
+    deployedFiles.push(path.join(codexDir, "config.toml"));
   } catch (_) { /* intentional fallback */ }
 }
 
@@ -444,6 +456,74 @@ function deployAislopTemplate(targetPath, deployedFiles) {
       deployedFiles.push(targetIgnore);
     }
   } catch (_) { /* intentional fallback */ }
+}
+
+const KONOHA_CONSUMER_IGNORE_START = '## Start Konoha config+skill';
+const KONOHA_CONSUMER_IGNORE_END = '## End Konoha config+skill';
+const KONOHA_CONSUMER_IGNORE_ENTRIES = [
+  '.agents/plugins/',
+  '.aislop/',
+  '.aislopignore',
+  '.claude.json',
+  '.claude/',
+  '.codex/',
+  '.commandcode/',
+  '.cursor/',
+  '.cursorrules',
+  '.gemini/',
+  '.omp/',
+  'AGENTS.md',
+  'CLAUDE.md',
+  'GEMINI.md'
+];
+
+function buildKonohaIgnoreBlock() {
+  return [KONOHA_CONSUMER_IGNORE_START, ...KONOHA_CONSUMER_IGNORE_ENTRIES, KONOHA_CONSUMER_IGNORE_END].join('\n');
+}
+
+function injectManagedIgnoreFile(ignorePath, deployedFiles) {
+  try {
+    let existing = '';
+    if (fs.existsSync(ignorePath)) {
+      existing = fs.readFileSync(ignorePath, 'utf8');
+    }
+    const block = buildKonohaIgnoreBlock();
+    if (existing.includes(KONOHA_CONSUMER_IGNORE_START) && existing.includes(KONOHA_CONSUMER_IGNORE_END)) {
+      const startIdx = existing.indexOf(KONOHA_CONSUMER_IGNORE_START);
+      const endIdx = existing.indexOf(KONOHA_CONSUMER_IGNORE_END) + KONOHA_CONSUMER_IGNORE_END.length;
+      const before = existing.slice(0, startIdx).trimEnd();
+      const after = existing.slice(endIdx).trimStart();
+      const parts = [];
+      if (before) parts.push(before);
+      parts.push(block);
+      if (after) parts.push(after);
+      fs.writeFileSync(ignorePath, parts.join('\n\n') + '\n', 'utf8');
+    } else {
+      const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n\n' : (existing.length > 0 ? '\n' : '');
+      fs.writeFileSync(ignorePath, existing + separator + block + '\n', 'utf8');
+    }
+    if (Array.isArray(deployedFiles)) deployedFiles.push(ignorePath);
+  } catch (_) { /* intentional fallback */ }
+}
+
+function deployConsumerIgnores(targetPath, deployedFiles, isTargetKonohaRepo) {
+  if (isTargetKonohaRepo) return;
+  injectManagedIgnoreFile(path.join(targetPath, '.gitignore'), deployedFiles);
+  injectManagedIgnoreFile(path.join(targetPath, '.dockerignore'), deployedFiles);
+}
+
+function isKonohaEngineRepo(targetPath, konohaRepoRoot) {
+  if (targetPath === konohaRepoRoot) return true;
+  const hasCli = fs.existsSync(path.join(targetPath, 'bin', 'cli.js'));
+  if (!hasCli) return false;
+  if (fs.existsSync(path.join(targetPath, 'src', 'agent_deployer.js'))) return true;
+  if (!fs.existsSync(path.join(targetPath, 'scripts', 'lint.js'))) return false;
+  try {
+    const pkgRaw = fs.readFileSync(path.join(targetPath, 'package.json'), 'utf8');
+    return JSON.parse(pkgRaw).name === 'konoha-mcp';
+  } catch (_) {
+    return false;
+  }
 }
 
 function ensureTargetDirectory(targetPath) {
@@ -471,11 +551,11 @@ function deployProjectWorkspace(projectRoot, options = {}) {
   if (!agents || agents.length === 0) return { ok: false, error: 'No agents loaded' };
 
   const konohaRepoRoot = path.resolve(__dirname, '..');
-  const isTargetKonohaRepo = targetPath === konohaRepoRoot ||
-    (fs.existsSync(path.join(targetPath, 'bin', 'cli.js')) && fs.existsSync(path.join(targetPath, 'src', 'agent_deployer.js')));
+  const isTargetKonohaRepo = isKonohaEngineRepo(targetPath, konohaRepoRoot);
 
   const deployedFiles = [];
   deployAislopTemplate(targetPath, deployedFiles);
+  deployConsumerIgnores(targetPath, deployedFiles, isTargetKonohaRepo);
   deployProjectDocs(targetPath, agents, deployedFiles, isTargetKonohaRepo);
   if (!isTargetKonohaRepo) {
     deployProjectClientConfigs(targetPath, deployedFiles);

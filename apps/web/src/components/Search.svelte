@@ -70,16 +70,17 @@
         })
       });
 
-      if (res.status === 'success' && Array.isArray(res.results)) {
+      if (res.status === 'success' && Array.isArray(res.results) && res.results.filter(r => r && r.url).length > 0) {
         searchResults = res.results.filter(r => r && r.url);
         searchedQuery = q;
       } else {
         searchResults = [];
-        searchError = res.message || 'No search results found.';
+        searchError = res?.message || 'No search results found.';
       }
       loadStatus();
       loadLogs();
     } catch (err) {
+      searchResults = [];
       searchError = err.message || 'Search request failed.';
       uiState.addNotification('Web search failed: ' + err.message, 'error');
     } finally {

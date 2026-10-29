@@ -11,9 +11,15 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SOURCE = path.join(ROOT, 'src', 'templates', 'skills');
-const DEPLOYED = fs.existsSync(path.join(ROOT, '.agents', 'skills'))
-  ? path.join(ROOT, '.agents', 'skills')
-  : path.join(require('os').homedir(), '.agents', 'skills');
+const _homeSkills = path.join(require('os').homedir(), '.agents', 'skills');
+const _projSkills = path.join(ROOT, '.agents', 'skills');
+function _treeComplete(dir) {
+  try {
+    return fs.existsSync(path.join(dir, 'konoha', 'SKILL.md')) && fs.existsSync(path.join(dir, 'genin-skill', 'SKILL.md'));
+  } catch (_) { return false; }
+}
+const DEPLOYED = _treeComplete(_homeSkills) ? _homeSkills : (_treeComplete(_projSkills) ? _projSkills : _homeSkills);
+const IGNORED_DEPLOYED = new Set(['test-e2e-skill', 'test-e2e-skill/SKILL.md']);
 const ALLOWED_DEPLOYED_ONLY = new Set();
 const ALLOWED_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.py', '.js']);
 
@@ -64,7 +70,7 @@ async function run() {
 
   // 1. Check difference sets
   const lockedRoots = lockedSkillRoots();
-  const extraDeployed = new Set([...deployedFiles].filter(x => !sourceFiles.has(x)));
+  const extraDeployed = new Set([...deployedFiles].filter(x => !sourceFiles.has(x) && !IGNORED_DEPLOYED.has(x) && !IGNORED_DEPLOYED.has(x.split('/')[0])));
   const unexpectedDeployed = [...extraDeployed].filter(
     x => !ALLOWED_DEPLOYED_ONLY.has(x) && !lockedRoots.has(x.split('/')[0])
   );

@@ -417,7 +417,7 @@ function _loadCursorHooksConfig(hooksFilePath) {
   }
 }
 
-function registerCursorHooks(silent = true, allowHooks = false, options = {}) {
+function registerCursorHooks(silent = true, allowHooks = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
@@ -479,9 +479,10 @@ function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = n
   return true;
 }
 
-function copyCursorHelperScripts() {
+function copyCursorHelperScripts(home = null) {
   const src = path.join(SRC_DIR, 'cursor_bootstrap.js');
-  const dest = path.join(SKILLS_DB_DIR, 'cursor_bootstrap.js');
+  const targetDir = home ? path.join(home, ".konoha") : SKILLS_DB_DIR;
+  const dest = path.join(targetDir, 'cursor_bootstrap.js');
   if (!fileExists(src)) return false;
   try {
     ensureDir(SKILLS_DB_DIR);
@@ -503,11 +504,11 @@ function ensureCursorSetup(options = {}) {
     projectRoot = null,
     deployProject = true,
     silent = true,
-    allowHooks = false,
+    allowHooks = true,
     ruleContent = null
   } = options;
 
-  copyCursorHelperScripts();
+  copyCursorHelperScripts(options.home);
   deployUtils.installFileTools(silent, pythonCmd);
 
   if (!fileExists(serverPath)) {
@@ -518,20 +519,17 @@ function ensureCursorSetup(options = {}) {
   registerCursorCliPermissions(silent, options);
   registerCursorHooks(silent, allowHooks, options);
   deployCursorRtkRule(silent, options);
-  if (agents.length > 0) deployCursorGlobalRule(agents, silent, options);
+  const effectiveAgents = (agents && agents.length > 0) ? agents : require('./agent_manager').loadAgents();
+  deployCursorGlobalRule(effectiveAgents, silent, options);
 
   const root = projectRoot || process.cwd();
   if (deployProject) {
     try {
       registerCursorProjectMcp(root, pythonCmd, serverPath, uvxCmd, silent);
-    } catch { /* intentional best-effort fallback */ }
-  }
+      deployProjectCursor(root, effectiveAgents, silent, ruleContent);
+    } catch { /* intentional best-effort fallback */ } }
 
   deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject, silent });
-
-  if (agents.length > 0 && deployProject) {
-    try { deployProjectCursor(root, agents, silent, ruleContent); } catch { /* best effort */ }
-  }
 
   return { ok: true };
 }

@@ -65,7 +65,9 @@ async function run() {
     advanceToPlan(root2);
     write(root2, 'plan.md', '- [anbu]: Fix the API\n- [anbu]: Add the regression test\n');
     write(root2, 'result.md', 'Kage approved two separate tasks.');
-    const execute = JSON.parse(server.runMcpWorkflow(root2));
+    const planGate = JSON.parse(server.runMcpWorkflow(root2));
+    assert.strictEqual(planGate.phase, 'plan_approval');
+    const execute = JSON.parse(server.runMcpWorkflow(root2, { choice: '1. Compact and approve' }));
     assert.strictEqual(execute.phase, 'execute');
     const status = JSON.parse(fs.readFileSync(path.join(root2, 'status.json'), 'utf8'));
     assert.deepStrictEqual(status.tasks.map(t => t.id), ['task-1', 'task-2']);
@@ -83,7 +85,8 @@ async function run() {
     advanceToPlan(root3);
     write(root3, 'plan.md', '- [anbu]: Fix the API\n');
     write(root3, 'result.md', 'Kage approved the implementation plan.');
-    const execute = JSON.parse(server.runMcpWorkflow(root3));
+    server.runMcpWorkflow(root3);
+    const execute = JSON.parse(server.runMcpWorkflow(root3, { choice: '1. Compact and approve' }));
     assert.strictEqual(execute.agent, 'anbu');
     write(root3, 'result.md', 'API fixed.');
     const document = JSON.parse(server.runMcpWorkflow(root3));
@@ -106,7 +109,9 @@ async function run() {
       findings: []
     }));
     write(root3, 'result.md', 'Kage approved all work.');
-    const approved = JSON.parse(server.runMcpWorkflow(root3));
+    const gate2Res = JSON.parse(server.runMcpWorkflow(root3));
+    assert.strictEqual(gate2Res.phase, 'delivery_signoff');
+    const approved = JSON.parse(server.runMcpWorkflow(root3, { choice: '1. Compact and approve' }));
     assert.strictEqual(approved.phase, 'done');
     assert.ok(fs.existsSync(path.join(root3, 'final_report.md')));
     const delivered = JSON.parse(server.runMcpWorkflow(root3));
@@ -124,7 +129,8 @@ async function run() {
     advanceToPlan(root4);
     write(root4, 'plan.md', '- [anbu]: Fix the API\n');
     write(root4, 'result.md', 'Kage approved the implementation plan.');
-    const execute = JSON.parse(server.runMcpWorkflow(root4));
+    server.runMcpWorkflow(root4);
+    const execute = JSON.parse(server.runMcpWorkflow(root4, { choice: '1. Compact and approve' }));
     const repStr = server.reportFromAgent('anbu', 'API fixed', 'completed', null, null, null, null, root4, execute.dispatch_id, ['npm run build exited 0']);
     const report = JSON.parse(repStr);
     assert.strictEqual(report.status, 'recorded');
@@ -147,7 +153,8 @@ async function run() {
     advanceToPlan(root5);
     write(root5, 'plan.md', '- [anbu]: Fix the API\n');
     write(root5, 'result.md', 'Kage approved the implementation plan.');
-    const execute = JSON.parse(server.runMcpWorkflow(root5));
+    server.runMcpWorkflow(root5);
+    const execute = JSON.parse(server.runMcpWorkflow(root5, { choice: '1. Compact and approve' }));
     const repStr = server.reportFromAgent('anbu', 'API fixed (claimed)', 'completed', null, null, null, null, root5, execute.dispatch_id, ['pass']);
     const report = JSON.parse(repStr);
     assert.strictEqual(report.status, 'recorded');
@@ -172,7 +179,8 @@ async function run() {
     advanceToPlan(root6);
     write(root6, 'plan.md', '- [anbu]: Perform penetration testing on local dev authentication endpoint (http://127.0.0.1:3000/auth)\n');
     write(root6, 'result.md', 'Kage approved the security assessment plan.');
-    const execute = JSON.parse(server.runMcpWorkflow(root6));
+    server.runMcpWorkflow(root6);
+    const execute = JSON.parse(server.runMcpWorkflow(root6, { choice: '1. Compact and approve' }));
     assert.strictEqual(execute.agent, 'anbu');
     assert.strictEqual(execute.phase, 'execute');
 
@@ -213,8 +221,8 @@ async function run() {
       findings: []
     }));
     write(root6, 'result.md', 'Kage approved dev/local penetration testing results.');
-
-    const doneState = JSON.parse(server.runMcpWorkflow(root6));
+    server.runMcpWorkflow(root6);
+    const doneState = JSON.parse(server.runMcpWorkflow(root6, { choice: '1. Compact and approve' }));
     assert.strictEqual(doneState.phase, 'done');
     assert.ok(fs.existsSync(path.join(root6, 'final_report.md')));
     console.log('✓ Anbu pentest dev local workflow approval passed');
@@ -268,7 +276,8 @@ async function run() {
     // Phase 5: plan -> execute
     write(root7, 'plan.md', '- [jonin]: Build frontend component\n');
     write(root7, 'result.md', 'Kage finalized implementation plan.');
-    const s5 = JSON.parse(server.runMcpWorkflow(root7));
+    server.runMcpWorkflow(root7);
+    const s5 = JSON.parse(server.runMcpWorkflow(root7, { choice: '1. Compact and approve' }));
     assert.strictEqual(s5.phase, 'execute');
     observedPhases.push(s5.phase);
 
@@ -298,7 +307,8 @@ async function run() {
       findings: []
     }));
     write(root7, 'result.md', 'Kage review approved delivery.');
-    const s8 = JSON.parse(server.runMcpWorkflow(root7));
+    server.runMcpWorkflow(root7);
+    const s8 = JSON.parse(server.runMcpWorkflow(root7, { choice: '1. Compact and approve' }));
     assert.strictEqual(s8.status, 'completed');
     assert.strictEqual(s8.phase, 'done');
     observedPhases.push('synthesize', 'done');

@@ -135,7 +135,8 @@ async function run() {
     server.runMcpWorkflow(taskT07);
     writePlan(taskT07, '## Plan\n\nFix the CSS bug at line 42.\n');
     writeResult(taskT07, 'kage', 'Plan ready.');
-    const r3T07 = JSON.parse(server.runMcpWorkflow(taskT07));
+    server.runMcpWorkflow(taskT07);
+    const r3T07 = JSON.parse(server.runMcpWorkflow(taskT07, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T07.status, 'ready');
     assert.strictEqual(r3T07.phase, 'execute');
     assert.ok(r3T07.agent !== null);
@@ -149,7 +150,8 @@ async function run() {
     server.runMcpWorkflow(taskT08);
     writePlan(taskT08, '## Plan\n\n- [anbu]: Fix authentication middleware in api/handler.py\n- [jonin]: Update the login form styling\n');
     writeResult(taskT08, 'kage', 'Plan ready.');
-    const r3T08 = JSON.parse(server.runMcpWorkflow(taskT08));
+    server.runMcpWorkflow(taskT08);
+    const r3T08 = JSON.parse(server.runMcpWorkflow(taskT08, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T08.status, 'ready');
     assert.strictEqual(r3T08.phase, 'execute');
     assert.strictEqual(r3T08.agent, 'anbu');
@@ -164,7 +166,8 @@ async function run() {
     server.runMcpWorkflow(taskT09);
     writePlan(taskT09, '## Plan\n\n- [anbu]: Fix the API bug\n- [jonin]: Update the login form\n');
     writeResult(taskT09, 'kage', 'Plan ready.');
-    const r3T09 = JSON.parse(server.runMcpWorkflow(taskT09));
+    server.runMcpWorkflow(taskT09);
+    const r3T09 = JSON.parse(server.runMcpWorkflow(taskT09, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T09.phase, 'execute');
     assert.strictEqual(r3T09.agent, 'anbu');
     writeResult(taskT09, 'anbu', 'API bug fixed.');
@@ -183,6 +186,7 @@ async function run() {
     writePlan(taskT10, '## Plan\n\n- [anbu]: Build the API\n- [jonin]: Build the UI\n');
     writeResult(taskT10, 'kage', 'Plan ready.');
     server.runMcpWorkflow(taskT10);
+    server.runMcpWorkflow(taskT10, { choice: '1. Compact and approve' });
     writeResult(taskT10, 'anbu', 'API built.');
     server.runMcpWorkflow(taskT10);
     writeResult(taskT10, 'jonin', 'UI built.');
@@ -220,7 +224,8 @@ async function run() {
     writePlan(taskT11, '## Plan\n\nDo everything.\n');
     writeResearch(taskT11, '{"query": "X best practices", "findings": []}');
     fs.writeFileSync(path.join(taskT11, 'final_docs.md'), '# Final Documentation\n\nAll compiled.');
-    const resT11 = JSON.parse(server.runMcpWorkflow(taskT11));
+    server.runMcpWorkflow(taskT11);
+    const resT11 = JSON.parse(server.runMcpWorkflow(taskT11, { choice: '1. Compact and approve' }));
     assert.strictEqual(resT11.status, 'completed');
     assert.strictEqual(resT11.phase, 'done');
     assert.ok(resT11.final_report_path);

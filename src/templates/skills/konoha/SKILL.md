@@ -138,11 +138,10 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
 7. **Phase 7: Security, Hardening & Audit** (`kage`, `anbu`, `chunin`) — Socket supply chain audit (`rtk socket ci`), penetration testing, CORS/CSP hardening, anti-slop enforcement (`rtk aislop scan`).
 8. **Phase 8: Review Gate, Docs & Handover** (`kage`, `tokubetsu_jonin`, `sannin`) — Presentation of Final Handover Report and awaiting explicit human sign-off (**HITL Gate 2 Sign-Off**). Strict No-Push/No-Release invariant.
 
-### 3. Configurable Two-Stage HITL Gates (`hitl_mode`)
-- **`hitl_mode: 'enabled'` (Default/Safe)**:
-  - **Gate 1 (Plan Approval)**: Execution blocks after Phase 1 until human operator approves the action plan via Web Console or Telegram interactive buttons.
-  - **Gate 2 (Delivery Sign-Off)**: Final handover blocks until human operator approves delivery sign-off in Kage's confidence score.
-- **`hitl_mode: 'disabled'` (Autonomous)**: Both Gate 1 and Gate 2 log advisory checkpoints and bypass pauses automatically for hands-free automation.
+### 3. Authoritative Two-Stage HITL Gates
+- **Mandatory Gate Enforcement**: Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) are authoritative and mandatory across all modes, including client YOLO and autonomous execution. Execution autonomy never bypasses human approval gates; unavailable approval transport fails closed.
+- **Gate 1 (Plan Approval)**: Execution blocks after Phase 1 until human operator explicitly approves the action plan via interactive prompt, Web Console, or Telegram interactive buttons.
+- **Gate 2 (Delivery Sign-Off)**: Final handover blocks until human operator explicitly approves delivery sign-off.
 
 ### 4. Elimination of File-Based IPC
 - `prompt.md`, `delegate.md`, and `result.md` are **DEPRECATED / RETIRED**.
@@ -618,9 +617,9 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Full-Screen Theme Switch Rasengan Transition**: `ThemeSwitcher.svelte` implements a full-viewport transition overlay (`fixed inset-0 w-screen h-screen z-[9999]`) dynamically rendered with the newly selected theme's 4-gradient tokens (`--rasengan-1..4`). Rapid consecutive switches cancel running timers and cleanly restart without stacking effects or WebGL leaks; unmounts completely from DOM upon completion.
     - **Single Shared 3D Rasengan Background Component**: `SharedRasenganBackground.svelte` is mounted once at root level in `+layout.svelte`, persisting across route navigation without re-creating WebGL contexts or restarting animations. Content areas use transparent backgrounds so the animated 3D scene is visible through glass cards and margins while maintaining `>= 4.5:1` text contrast. Respects `visibilitychange` (pauses RAF when hidden) and `prefers-reduced-motion` (static frame).
 101. **Dual-Track Execution Engine, Polyglot Stack Detection & 2-Way HITL Approvals (v2.2.0)**:
-    - **Dual-Track Execution Engine**: Preserves Fast-Track Direct Execution for slash commands (`/anbu <prompt>`, `/jonin <prompt>`, etc.), single-file edits, typo fixes, and ad-hoc inspections with zero pipeline overhead (bypassing 8-phase DAG and Gate 1 pause). Greenfield builds and multi-subsystem refactors execute through the Canonical 8-Phase DAG.
+    - **Dual-Track Execution Engine**: Preserves Fast-Track Direct Execution for slash commands (`/anbu <prompt>`, `/jonin <prompt>`, etc.), single-file edits, typo fixes, and ad-hoc inspections with zero pipeline overhead (targeted subagent dispatch, zero DAG overhead). Greenfield builds and multi-subsystem refactors execute through the Canonical 8-Phase DAG.
     - **Complete Elimination of File-Based IPC**: Zero usage of `prompt.md`, `delegate.md`, or `result.md`. Task inputs are ingested from `<USER_REQUEST>` / `sdlc_tasks.description`, dispatches pass structured tool arguments, and results are reported directly via `konoha.report_from_agent`.
-    - **Configurable Two-Stage HITL Gates**: Enforces Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) strictly through SQLite database status when `hitl_mode === 'enabled'`. Keywords in prompts never self-bypass gates. Autonomous mode (`hitl_mode === 'disabled'`) proceeds hands-free.
+    - **Authoritative Two-Stage HITL Gates**: Enforces Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) authoritatively across all execution modes (including YOLO and autonomous settings). Keywords in prompts never self-bypass gates; unavailable approval transport fails closed.
     - **Telegram 2-Way Interactive Approvals**: Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot. Supports `/approval list` and `/approval <id>`. Enforces strict mutual exclusion between 1-way and 2-way modes to eliminate duplicate notifications. Broadcasts completion alerts across all clients.
     - **Dynamic Polyglot Stack Detector (`src/mcp/stack_detector.js`)**: Inspects workspace manifests and dynamically selects native ecosystem commands across Node/TS, Python, Go, Rust, PHP, and Java.
     - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `semble.search`.
@@ -689,11 +688,13 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Least-Privilege Security Profiles**: Curated profiles enforce explicit allowed/blocked operations, eliminating wildcards and capping timeouts to bounded limits (15s–60s).
     - **Tokubetsu-Jonin Standard Red-Team PDF Report**: Added standard PDF report generation with 8 publication sections, executive summary, findings CVSS table, and sandbox teardown proof.
 115. **Socket Security Remediation, Supply-Chain Eradication & Integrity Governance (v2.2.11)**:
-    - **Loopback & Host Header CSRF Protection**: Enforced strict loopback IP and Host validation on `/api/v1/csrf` and `/api/v1/token` endpoints, defeating DNS rebinding.
-    - **Process Masking, Worker Shell & RTK Verification**: Replaced raw `curl | sh` with pre-download SHA-256 verification, switched queue workers to non-interactive `['-c', cmd]`, and masked daemon tokens in process listings.
-    - **Unmaintained Package Eradication & Socket Policy**: Patched `pptxgenjs@4.0.1` removing obsolete `https@1.0.0` dependency. Configured `socket.yml` with `usesEval: false` and `newAuthor: false`.
+    - **Ingress & Process Hardening**: Enforced loopback IP/Host CSRF protection, pre-download SHA-256 verification on RTK installer, and daemon token masking.
+    - **Unmaintained Package Eradication & Socket Policy**: Patched `pptxgenjs@4.0.1` removing obsolete `https@1.0.0`; configured `socket.yml` policy rules.
 116. **Cross-Platform Progress Engine, Reinstall Resilience & Argument Quoting (v2.2.12)**:
-    - **Progress Bar TUI Lifecycle**: Added `logStep`, `startPulse`, `stopPulse`, and `finish` to `KonohaProgressBar` (`bin/lib/prompt.js`), resolving Windows `pbar.logStep is not a function` during `konoha upgrade` across all stages.
-    - **Windows Reinstall & Daemon Release Resilience**: Added preemptive Web UI daemon shutdown on `konoha uninstall` and `init --force`, safe error recovery for Windows `EBUSY`/`EPERM` locks in `runtime_install.js` and `copyFile`.
-    - **Hook Argument Quoting Governance**: Wrapped Node binary and hook script paths with `quotePath()` across `applyPromptAndSanitizeHooks` (`bin/lib/runtime_mcp.js`) and permission grants in `src/antigravity_manager.js`, resolving unquoted space failures in `%USERPROFILE%`.
-    - **Cross-Client Runtime Contract Synchronization**: Bumped contract to `2.2.12` across `package.json`, `src/agent_contract.js`, `apps/web/package.json`, `Dockerfile`, `+layout.svelte`, and all client contracts.
+    - **Progress Bar API**: Added `logStep`, `startPulse`, `stopPulse`, `finish` to `KonohaProgressBar` (`bin/lib/prompt.js`) resolving Windows upgrade stage errors.
+    - **Windows Daemon & Hook Resilience**: Preemptive UI daemon shutdown on uninstall/init, Windows EBUSY/EPERM retries, and whitespace-safe quoting (`quotePath()`).
+117. **Cross-Platform Reliability, Authoritative HITL Gates & Client Bootstrap (v2.2.13)**:
+    - **Upgrade Import Chain Fix**: Resolved `purgePackageCaches is not a function` in `bin/lib/runtime_mcp.js` and `bin/commands/upgrade.js`.
+    - **Authoritative HITL Gates**: Enforced mandatory Gate 1 & Gate 2 approvals across all modes; reject->regenerate->re-gate lifecycle; fail-closed on unavailable transport.
+    - **Client First-Session Bootstrap**: Injected Konoha contract, rules, and MCP tools before first turn across all clients; ui_service default.
+    - **Cross-Client Runtime Sync**: Bumped contract to `2.2.13` across manifests, runtime contracts, layout, and client templates.

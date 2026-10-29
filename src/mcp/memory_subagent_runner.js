@@ -433,7 +433,17 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   }
 
   const meta = _resolveAgentDbMetadata(dbAgentName);
-  let skillsList = Array.isArray(opts.skills) ? [...opts.skills] : meta.skillsList;
+  let skillsList = Array.isArray(opts.skills) && opts.skills.length > 0 ? [...opts.skills] : meta.skillsList;
+  if (opts.flowHash) {
+    try {
+      const flowSkills = personaMemory.getFlowSkills(opts.flowHash);
+      if (Array.isArray(flowSkills) && flowSkills.length > 0) {
+        skillsList = Array.isArray(opts.skills) && opts.skills.length > 0
+          ? Array.from(new Set([...skillsList, ...flowSkills]))
+          : flowSkills;
+      }
+    } catch (_) { /* ignore */ }
+  }
   if (skillsList.length === 0 && instructions) {
     try {
       const conn = getDb();

@@ -19,7 +19,7 @@ const {
   SKILLS_DB_DIR,
   SERVER_PATH
 } = require('../lib/paths');
-const { fileExists, ensureDir, copyIfDifferent } = require('../../src/platform_utils');
+const { fileExists, ensureDir } = require('../../src/platform_utils');
 const {
   C,
   header,
@@ -44,14 +44,16 @@ const {
 } = require('../lib/runtime_lifecycle');
 const {
   installCliRuntime,
-  purgePackageCaches,
-  refreshSemblePackage
+  copyIfDifferent
 } = require('../lib/runtime_install');
+const { purgePackageCaches } = require('../lib/runtime_mcp');
 const {
   installUv,
-  installAgentBrowser
+  installAgentBrowser,
+  refreshSemblePackage
 } = require('../lib/extension');
-const { checkPortActive, cmdBridgeStart, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
+const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
+const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary } = require('./init_migration');
 
@@ -140,6 +142,7 @@ async function refreshExistingInstallation(flags, options) {
     const dest = path.join(SKILLS_DB_DIR, f);
     if (fileExists(src)) copyIfDifferent(src, dest);
   });
+  copyIfDifferent(path.join(SRC_DIR, 'workflow', 'sannin-orchestrator', 'workflow_reminder.js'), path.join(SKILLS_DB_DIR, 'workflow_reminder.js'));
   installFileTools(true);
   installCliRuntime();
 

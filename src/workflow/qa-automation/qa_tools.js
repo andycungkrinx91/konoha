@@ -13,8 +13,6 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { stripAnsi, getSha256, getAgentBrowserCmd, qaCodify } = require('./qa_codify');
 const {
-  MANAGED_QA_ENTRIES,
-  findGitRoot,
   ensureQaGitignore,
   getProjectOutputDirs,
   copyFailureEvidence,
@@ -253,7 +251,5 @@ module.exports = {
   runQaRetention,
   stripAnsi,
   getSha256,
-  getAgentBrowserCmd,
-  MANAGED_QA_ENTRIES,
-  findGitRoot
+  getAgentBrowserCmd
 };

@@ -46,12 +46,12 @@ function _initWorkflowStatus(status) {
   status.client = status.client || cd.detectActiveClient() || '';
 }
 
-function _checkPlanApproval(status, resolvedTaskDir, sdlcConfig, sdlcManager) {
+function _checkPlanApproval(status, resolvedTaskDir, _sdlcConfig, sdlcManager) {
   const rootTaskId = status.task_id || path.basename(resolvedTaskDir);
   const rootTaskRecord = sdlcManager.getTask(rootTaskId);
   const isApprovedInDb = rootTaskRecord && (rootTaskRecord.status === 'in_progress' || rootTaskRecord.status === 'completed');
 
-  if (status.plan_approved || isApprovedInDb || sdlcConfig.hitl_mode === 'disabled' || status.execution_track === 'fast_track') {
+  if (status.plan_approved || isApprovedInDb) {
     status.plan_approved = true;
     status.hitl_gate = null;
     status.phase = 'execute';
@@ -65,12 +65,12 @@ function _checkPlanApproval(status, resolvedTaskDir, sdlcConfig, sdlcManager) {
   return res;
 }
 
-function _checkDeliverySignoff(status, resolvedTaskDir, sdlcConfig, sdlcManager) {
+function _checkDeliverySignoff(status, resolvedTaskDir, _sdlcConfig, sdlcManager) {
   const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
   const rootTaskRecord = sdlcManager.getTask(rootId);
   const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
 
-  if (status.human_signed_off || isSignedOffInDb || sdlcConfig.hitl_mode === 'disabled') {
+  if (status.human_signed_off || isSignedOffInDb) {
     status.human_signed_off = true;
     status.hitl_gate = null;
     status.phase = 'done';
@@ -201,8 +201,9 @@ function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager
     const g2Outcome = applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
     if (g2Outcome.ok) {
       if (g2Outcome.nextPhase === 'done') {
+        const finalRep = status.report || (fs.existsSync(path.join(resolvedTaskDir, 'final_report.md')) ? path.join(resolvedTaskDir, 'final_report.md') : '');
         return {
-          response: JSON.stringify({ status: 'completed', phase: 'done', final_report_path: status.report || '', task_dir: resolvedTaskDir })
+          response: JSON.stringify({ status: 'completed', phase: 'done', final_report_path: finalRep, task_dir: resolvedTaskDir })
         };
       }
       return { phase: g2Outcome.nextPhase };

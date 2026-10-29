@@ -6,7 +6,7 @@ const { spawn, execSync } = require('child_process');
 const deployUtils = require('../../src/deploy_utils');
 const { fileExists } = require('../../src/platform_utils');
 const { SKILLS_DB_DIR } = require('./paths');
-const { getCliVersion } = require('./runtime');
+const { getCliVersion } = require('./format');
 const { C, header, log, info, success, warn, error, drawLogo } = require('./format');
 
 function checkWebUiPackageCandidate(cand) {
@@ -160,6 +160,9 @@ function setupForegroundShutdown(srv, resolve) {
   };
   process.on('SIGINT', handleShutdown);
   process.on('SIGTERM', handleShutdown);
+  if (process.platform === 'win32') {
+      process.on('SIGBREAK', handleShutdown);
+  }
 }
 
 async function cmdWebForeground(options = {}) {

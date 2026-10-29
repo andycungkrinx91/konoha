@@ -7,13 +7,15 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+const globalKonohaMd = path.join(os.homedir(), '.agents', 'skills', 'konoha', 'SKILL.md');
+const projectKonohaMd = path.join(ROOT, '.agents', 'skills', 'konoha', 'SKILL.md');
 const FILES = [
   path.join(ROOT, 'src', 'templates', 'skills', 'konoha', 'SKILL.md'),
-  path.join(ROOT, '.agents', 'skills', 'konoha', 'SKILL.md'),
-  path.join(ROOT, '.cursor', 'skills', 'konoha', 'SKILL.md')
+  fs.existsSync(projectKonohaMd) ? projectKonohaMd : globalKonohaMd
 ];
 
 const required = [

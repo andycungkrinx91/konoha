@@ -99,9 +99,9 @@ function appendGlobalWebUiCandidates(candidates) {
   const globalRoot = probeNpmGlobalRoot();
   if (!globalRoot) return;
   candidates.push(
-    path.join(globalRoot, 'konoha', 'apps', 'web'),
+    path.join(globalRoot, "konoha", "apps", "web"),
     path.join(globalRoot, 'Konoha', 'apps', 'web'),
-    path.join(globalRoot, 'konohagakure', 'apps', 'web')
+    path.join(globalRoot, "konohagakure", "apps", "web")
   );
 }
 

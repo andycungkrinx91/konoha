@@ -166,9 +166,7 @@ function resolveFlowHashFromTask(flowHash, taskId) {
 }
 
 function getMirrorRoots() {
-  const roots = [];
   const home = process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
-
   const candidates = [
     path.resolve(home, '.agents', 'skills'),
     path.resolve(home, '.gemini', 'antigravity-cli', 'skills'),
@@ -182,19 +180,13 @@ function getMirrorRoots() {
     path.resolve(home, '.pi', 'agent', 'skills'),
     path.resolve(home, '.pi', 'skills'),
     path.resolve(home, '.omp', 'agent', 'skills'),
-    path.resolve(home, '.omp', 'skills'),
-    path.resolve(home, '.konoha', 'src', 'templates', 'skills'),
-    path.resolve(__dirname, '..', 'templates', 'skills')
+    path.resolve(home, '.omp', 'skills')
   ];
-
+  const roots = [];
   for (const c of candidates) {
-    if (fs.existsSync(c) && !roots.includes(c)) {
-      roots.push(c);
-    }
+    if (fs.existsSync(c) && !roots.includes(c)) roots.push(c);
   }
-
-  const globalMirror = path.resolve(home, '.agents', 'skills');
-  return roots.length > 0 ? roots : [globalMirror];
+  return roots.length > 0 ? roots : [path.resolve(home, '.agents', 'skills')];
 }
 
 function _findSubpathInMirror(root, norm, resolvedRoot) {

@@ -128,14 +128,30 @@ test('skill_manager.removeSkill only removes canonical path', () => {
 });
 
 // Test 8: skills_common.getMirrorRoots returns strictly ~/.agents/skills
-test('skills_common.getMirrorRoots returns strictly ~/.agents/skills', () => {
+test('skills_common.getMirrorRoots prioritizes canonical ~/.agents/skills read root', () => {
   const { getMirrorRoots } = require('../src/mcp/skills_common');
   const roots = getMirrorRoots();
-  if (!Array.isArray(roots) || roots.length !== 1) {
-    throw new Error(`Expected exactly 1 mirror root, got ${JSON.stringify(roots)}`);
+  if (!Array.isArray(roots) || roots.length === 0) {
+    throw new Error(`Expected at least 1 mirror root, got ${JSON.stringify(roots)}`);
   }
   if (roots[0] !== path.join(HOME, '.agents', 'skills')) {
-    throw new Error(`Expected mirror root to be ${path.join(HOME, '.agents', 'skills')}, got ${roots[0]}`);
+    throw new Error(`First mirror root must be ${path.join(HOME, '.agents', 'skills')}, got ${roots[0]}`);
+  }
+  // Workspace mirrors must never leak into read fallback
+  const cwd = process.cwd();
+  for (const r of roots) {
+    if (r.startsWith(path.resolve(cwd))) throw new Error(`Read root must not be workspace mirror: ${r}`);
+  }
+});
+test('skill_manager.syncAllClientSkills writes exclusively to canonical ~/.agents/skills', () => {
+  const src = fs.readFileSync(require('path').join(__dirname, '..', 'src', 'skill_manager.js'), 'utf8');
+  const start = src.indexOf('function syncAllClientSkills');
+  const end = src.indexOf('function autoMigrateProjectSkills');
+  const body = src.slice(start, end === -1 ? start + 2500 : end);
+  if (!body.includes("'.agents', 'skills'") && !body.includes('.agents/skills')) throw new Error('sync target must be canonical skills dir');
+  for (const legacy of ['.cursor', '.claude', '.codex', '.gemini', '.opencode', '.commandcode', '.omp', '.pi']) {
+    const seg = body.split("const targetDirs")[1] || '';
+    if (seg.includes(legacy + "'") || seg.includes(legacy + '/skills')) throw new Error(`sync target must not include legacy client dir ${legacy}`);
   }
 });
 

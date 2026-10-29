@@ -123,7 +123,9 @@ async function run() {
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3));
     fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Kage verified 0 AI-slop issues.');
 
-    const res3 = JSON.parse(server.runMcpWorkflow(tmpDir));
+    const res3Gate = JSON.parse(server.runMcpWorkflow(tmpDir));
+    assert.strictEqual(res3Gate.status, 'pending_human_signoff', 'Gate 2 delivery sign-off is authoritative');
+    const res3 = JSON.parse(server.runMcpWorkflow(tmpDir, { choice: '1. Compact and approve' }));
     assert.strictEqual(res3.status, 'completed', 'Clean review must advance to completed phase.');
     assert.strictEqual(res3.phase, 'done');
     assert.ok(fs.existsSync(path.join(tmpDir, 'final_report.md')));

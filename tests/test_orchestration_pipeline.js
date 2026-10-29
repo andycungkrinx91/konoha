@@ -13,7 +13,12 @@ async function run() {
   const rootDir = path.resolve(__dirname, '..');
 
   // 1. Verify Sannin skill enforces canonical 8-phase pipeline
-  const sanninSkillPath = path.join(rootDir, '.agents', 'skills', 'sannin-skill', 'SKILL.md');
+  const projectSannin = path.join(rootDir, '.agents', 'skills', 'sannin-skill', 'SKILL.md');
+  const templateSannin = path.join(rootDir, 'src', 'templates', 'skills', 'sannin-skill', 'SKILL.md');
+  const globalSannin = path.join(require('os').homedir(), '.agents', 'skills', 'sannin-skill', 'SKILL.md');
+  const sanninSkillPath = fs.existsSync(templateSannin)
+    ? templateSannin
+    : (fs.existsSync(projectSannin) ? projectSannin : globalSannin);
   assert.ok(fs.existsSync(sanninSkillPath), 'sannin-skill/SKILL.md must exist');
   const sanninContent = fs.readFileSync(sanninSkillPath, 'utf-8');
 

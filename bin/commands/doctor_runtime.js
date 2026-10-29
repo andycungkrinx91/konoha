@@ -2,7 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { fileExists, ensureDir, copyFile } = require('../../src/platform_utils');
+const { fileExists, ensureDir } = require('../../src/platform_utils');
+const { copyFile } = require('../lib/prompt');
 const {
   SRC_DIR,
   SKILLS_DB_DIR,

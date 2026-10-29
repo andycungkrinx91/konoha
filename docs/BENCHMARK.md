@@ -143,7 +143,7 @@ Konoha's single-process Node.js runtime and in-process SQLite driver eliminate t
 ### ⚖️ Architectural Efficiency Comparison
 | Architecture | Active Process Count | Memory per Agent | Cold Start Latency | Communication Overhead |
 |:---|:---:|:---:|:---:|:---:|
-| **Konoha MCP Village (v2.2.12)** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |
+| **Konoha MCP Village (v2.2.13)** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |
 | Multi-Process Microservices | 7+ separate runtimes | ~65–120 MB / agent | ~850–2,400 ms | HTTP/gRPC network loopback serialization |
 | Containerized Agent Swarms | 7+ Docker containers | ~250–500 MB / agent | ~3,000–8,000 ms | Bridge network, overlay FS, container daemon |
 

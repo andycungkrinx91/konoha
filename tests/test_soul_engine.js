@@ -25,10 +25,13 @@ console.log('Running test_soul_engine.js...');
 
 // 1. Template and .agents SOUL.md existence
 const templatePath = path.join(ROOT, 'src', 'templates', 'SOUL.md');
-const agentsSoulPath = path.join(ROOT, '.agents', 'SOUL.md');
+const homeAgents = path.join(require('os').homedir(), '.agents');
+const homeSoulPath = path.join(homeAgents, 'SOUL.md');
+const projectSoulPath = path.join(ROOT, '.agents', 'SOUL.md');
+const agentsSoulPath = fs.existsSync(projectSoulPath) ? projectSoulPath : homeSoulPath;
 
 assert.ok(fs.existsSync(templatePath), 'src/templates/SOUL.md must exist');
-assert.ok(fs.existsSync(agentsSoulPath), '.agents/SOUL.md must exist');
+assert.ok(fs.existsSync(agentsSoulPath), 'SOUL.md must exist in canonical .agents directory');
 
 const templateContent = fs.readFileSync(templatePath, 'utf8');
 const agentsContent = fs.readFileSync(agentsSoulPath, 'utf8');
@@ -40,18 +43,15 @@ const syncResult = syncSoul();
 assert.ok(typeof syncResult === 'number', 'syncSoul() must return number of updated files');
 
 const clientMirrors = [
-  path.join(ROOT, '.cursor', 'SOUL.md'),
-  path.join(ROOT, '.gemini', 'SOUL.md'),
-  path.join(ROOT, '.commandcode', 'SOUL.md'),
-  path.join(ROOT, '.claude', 'SOUL.md'),
-  path.join(ROOT, '.agents', 'SOUL.md')
+  homeSoulPath,
+  ...(fs.existsSync(projectSoulPath) ? [projectSoulPath] : [])
 ];
 
 for (const mirror of clientMirrors) {
   assert.ok(fs.existsSync(mirror), `Mirror ${mirror} must exist`);
   assert.strictEqual(fs.readFileSync(mirror, 'utf8'), templateContent, `Mirror ${mirror} must match authoritative template`);
 }
-console.log('  ✓ SOUL.md synchronized to all client mirror trees (.cursor, .gemini, .commandcode, .claude, .agents).');
+console.log('  ✓ SOUL.md synchronized to canonical target (~/.agents/SOUL.md).');
 
 // 3. personaMemory.getSoul() general query
 const soul = personaMemory.getSoul({ projectPath: ROOT });

@@ -144,48 +144,6 @@ function optimizeContent(content) {
   return res.trim();
 }
 
-function normalizeLegacySkillNames(conn) {
-  const rows = conn.prepare(
-    "SELECT name, skill_name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
-  ).all();
-
-  let migrated = 0;
-  let removed = 0;
-
-  for (const r of rows) {
-    const name = r.name;
-    const skillName = r.skill_name;
-    const newName = name.replace('deep-code-explorer', 'genin-skill');
-    const newSkillName = skillName === 'deep-code-explorer' ? 'genin-skill' : skillName;
-    const existing = conn.prepare('SELECT 1 FROM skills WHERE name = ?').get(newName);
-    if (existing) {
-      conn.prepare('DELETE FROM skills WHERE name = ?').run(name);
-      removed += 1;
-    } else {
-      conn.prepare('UPDATE skills SET name = ?, skill_name = ? WHERE name = ?').run(newName, newSkillName, name);
-      migrated += 1;
-    }
-  }
-
-  return {
-    migrated,
-    removed,
-    [Symbol.iterator]: function* () {
-      yield migrated;
-      yield removed;
-    }
-  };
-}
-
-function verifyRequiredSkills(conn, requiredSkills = []) {
-  const required = Array.from(new Set((requiredSkills || []).filter(Boolean))).sort();
-  const missing = required.filter(s => !conn.prepare('SELECT 1 FROM skills WHERE name = ?').get(s));
-  const legacyRows = conn.prepare(
-    "SELECT name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
-  ).all();
-  return { missing, remainingLegacy: legacyRows.map(r => r.name) };
-}
-
 function _logSummaryGroup(row, currentSkill, logFn) {
   if (row.skill_name !== currentSkill) {
     if (currentSkill !== null) logFn();
@@ -336,8 +294,6 @@ module.exports = {
   extractTagsFromFilename,
   shieldPromptInjection,
   optimizeContent,
-  normalizeLegacySkillNames,
-  verifyRequiredSkills,
   printSummary,
   hasSkillFiles,
   autoDetectSkills,

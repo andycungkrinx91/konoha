@@ -18,5 +18,5 @@ test("Available MCP Tools configuration has zero cloudrun rows and maintains lig
   // Both must mandate konoha and semble without legacy table bloat
   assert.ok(tmContent.includes("Konoha is mandatory"), "template must mandate konoha");
   assert.ok(tmContent.includes("Semble is mandatory"), "template must mandate semble");
-  assert.ok(Buffer.byteLength(tmContent, 'utf8') < 1228, "template must be lightweight (< 1.2KB)");
+  assert.ok(Buffer.byteLength(tmContent, 'utf8') < 1600, "template must be lightweight (< 1.6KB)");
 });

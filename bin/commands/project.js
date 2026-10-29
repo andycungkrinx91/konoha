@@ -219,6 +219,9 @@ function handleProjectSet(subArgs) {
       if (!['enabled', 'disabled', 'safe', 'autonomous'].includes(settingVal)) return error('Invalid hitl-mode. Must be "enabled" or "disabled".');
       const updated = sdlcManager.setProjectSdlcConfig(targetPath, { hitl_mode: settingVal }, DB_PATH);
       success(`Project hitl-mode set to "${updated.hitl_mode}" for ${targetPath}.`);
+      if (updated.hitl_mode === 'disabled' || settingVal === 'autonomous') {
+        info('Notice: Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) remain authoritative. Human approval is required regardless of execution autonomy.');
+      }
     } else {
       error(`Unknown project setting: ${settingKey}. Supported: dor-mode, review-mode, hitl-mode`);
     }

@@ -21,6 +21,7 @@ const { spawnSync } = require('child_process');
 
 const {
   
+  HOME,
   OPENCODE_DIR,
   OPENCODE_CONFIG,
   OPENCODE_LEGACY_DIR,
@@ -288,17 +289,34 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, optio
   return { ok: true };
 }
 
-function deployOpenCodeRules(silent = true) {
+function _writeOpenCodeAgentsDir(aDir, agents) {
+  try {
+    ensureDir(aDir);
+    for (const agent of agents) {
+      if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      const subagentMd = generateGenericSubagentMd(agent, 'opencode');
+      fs.writeFileSync(path.join(aDir, `${agent.name}.md`), subagentMd, 'utf8');
+    }
+  } catch { /* intentional best-effort fallback */ }
+}
+
+function deployOpenCodeRules(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const isSilent = typeof silent === "boolean" ? silent : (opts.silent !== false);
+  const home = (opts && opts.home) || HOME;
+  const openCodeDir = (opts && opts.home) ? path.join(home, ".config", "opencode") : OPENCODE_DIR;
+  const legacyDir = (opts && opts.home) ? path.join(home, ".opencode") : OPENCODE_LEGACY_DIR;
+
   let agents = [];
   try {
     agents = loadAgents();
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
-  const fullInstructions = generateAgentsMd(agents, 'opencode');
+  const fullInstructions = generateAgentsMd(agents, "opencode");
 
   const targets = [
-    path.join(OPENCODE_DIR, 'AGENTS.md'),
-    path.join(OPENCODE_LEGACY_DIR, 'AGENTS.md')
+    path.join(openCodeDir, "AGENTS.md"),
+    path.join(legacyDir, "AGENTS.md")
   ];
 
   let deployed = 0;
@@ -314,33 +332,25 @@ function deployOpenCodeRules(silent = true) {
 
   // Deploy rules/konoha.md
   const ruleTargets = [
-    path.join(OPENCODE_DIR, 'rules', 'konoha.md'),
-    path.join(OPENCODE_LEGACY_DIR, 'rules', 'konoha.md')
+    path.join(openCodeDir, "rules", "konoha.md"),
+    path.join(legacyDir, "rules", "konoha.md")
   ];
   for (const rDest of ruleTargets) {
     try {
       ensureDir(path.dirname(rDest));
-      fs.writeFileSync(rDest, buildMainAgentContract('opencode') + '\n', 'utf8');
+      fs.writeFileSync(rDest, buildMainAgentContract("opencode") + "\n", "utf8");
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  // Deploy subagents to ~/.config/opencode/agents/ and ~/.opencode/agents/
   const agentDirs = [
-    path.join(OPENCODE_DIR, 'agents'),
-    path.join(OPENCODE_LEGACY_DIR, 'agents')
+    path.join(openCodeDir, "agents"),
+    path.join(legacyDir, "agents")
   ];
   for (const aDir of agentDirs) {
-    try {
-      ensureDir(aDir);
-      for (const agent of agents) {
-        if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
-        const subagentMd = generateGenericSubagentMd(agent, 'opencode');
-        fs.writeFileSync(path.join(aDir, `${agent.name}.md`), subagentMd, 'utf8');
-      }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    _writeOpenCodeAgentsDir(aDir, agents);
   }
 
-  if (!silent && deployed > 0) process.stderr.write(`  ✓ Deployed Konoha instructions & agents to OpenCode\n`);
+  if (!isSilent && deployed > 0) process.stderr.write(`  ✓ Deployed Konoha instructions & agents to OpenCode\n`);
   return { ok: deployed > 0 };
 }
 
@@ -471,8 +481,8 @@ function ensureOpenCodeSetup(options = {}) {
   }
 
   // Deploy the shared contract and RTK rule (OpenCode has no RTK hook).
-  const contractRule = deployOpenCodeRules(silent);
-  const rtkRule = deployOpenCodeRtkRule(silent);
+  const contractRule = deployOpenCodeRules(silent, options);
+  const rtkRule = deployOpenCodeRtkRule(silent, options);
 
   return { ok: true, contractRule, rtkRule };
 }

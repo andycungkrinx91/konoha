@@ -85,7 +85,10 @@ try {
   const cursorManagerSrc = fs.readFileSync(path.join(repoDir, 'src', 'cursor_manager.js'), 'utf8');
   assert.ok(cursorManagerSrc.includes('generateCursorRule'), 'cursor_manager.js must export generateCursorRule');
 
-  const skillSrc = fs.readFileSync(path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md'), 'utf8');
+  const skillFile = fs.existsSync(path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md'))
+    ? path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md')
+    : path.join(os.homedir(), '.agents', 'skills', 'konoha', 'SKILL.md');
+  const skillSrc = fs.readFileSync(skillFile, 'utf8');
   assert.ok(skillSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'konoha SKILL.md must define Rule 56');
 
   const templateSkillSrc = fs.readFileSync(path.join(repoDir, 'src', 'templates', 'skills', 'konoha', 'SKILL.md'), 'utf8');
@@ -95,7 +98,8 @@ try {
   const cliSrc = fs.readFileSync(path.join(repoDir, 'bin', 'cli.js'), 'utf8') +
     fs.readFileSync(path.join(repoDir, 'bin', 'lib', 'runtime.js'), 'utf8') +
     fs.readFileSync(path.join(repoDir, 'bin', 'lib', 'runtime_lifecycle.js'), 'utf8') +
-    fs.readFileSync(path.join(repoDir, 'bin', 'commands', 'doctor.js'), 'utf8');
+    fs.readFileSync(path.join(repoDir, 'bin', 'commands', 'doctor.js'), 'utf8') +
+    fs.readFileSync(path.join(repoDir, 'bin', 'commands', 'doctor_runtime.js'), 'utf8');
   assert.ok(cliSrc.includes("checkAndRepairFile('tools_savings_logger.js'"), 'cmdDoctor must check and repair tools_savings_logger.js');
   assert.ok(cliSrc.includes("case 'reinstall':"), 'CLI must support reinstall command alias');
   assert.ok(cliSrc.includes("case 'init':"), 'CLI must support init command');

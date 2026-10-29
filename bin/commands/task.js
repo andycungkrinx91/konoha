@@ -5,6 +5,7 @@
  */
 
 const { DB_PATH } = require("../lib/paths");
+const { toDisplayStatus } = require("../../src/mcp/gate_status");
 const {
   C,
   log,
@@ -110,7 +111,7 @@ function handleTaskList(sdlcManager, subArgs) {
     }
     tasks.forEach((t, idx) => {
       const dorStatus = t.dor_result && t.dor_result.ready ? `${C.green}ready${C.reset}` : `${C.yellow}advisory-flagged${C.reset}`;
-      log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}${t.id}${C.reset} ${C.yellow}[${t.status.toUpperCase()}]${C.reset} ${C.dim}(Review: ${t.review_mode})${C.reset}`);
+      log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}${t.id}${C.reset} ${C.yellow}[${toDisplayStatus(t.status)}]${C.reset} ${C.dim}(Review: ${t.review_mode})${C.reset}`);
       log(`     ${C.dim}Desc:${C.reset} ${t.description.substring(0, 80)}${t.description.length > 80 ? '...' : ''}`);
       log(`     ${C.dim}DoR:${C.reset} ${dorStatus} | ${C.dim}Slop Cycles:${C.reset} ${t.slop_cycles || 0}`);
       log('');

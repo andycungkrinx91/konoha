@@ -18,7 +18,35 @@
 
   let { children } = $props();
 
-  let health = $state({ status: 'checking', port: 1404, version: '2.2.12' });
+  let health = $state({ status: 'checking', port: 1404, version: '2.2.13' });
+
+  let yoloMode = $state(false);
+  let yoloLoading = $state(false);
+
+  async function loadExecutionMode() {
+    try {
+      const data = await apiRequest('/api/v1/sdlc/config');
+      yoloMode = (data.hitl_mode || 'enabled') === 'disabled';
+    } catch (_) { /* best effort: default HITL */ }
+  }
+
+  async function toggleYoloMode() {
+    if (yoloLoading) return;
+    yoloLoading = true;
+    try {
+      const next = yoloMode ? 'enabled' : 'disabled';
+      await apiRequest('/api/v1/sdlc/config', {
+        method: 'POST',
+        body: JSON.stringify({ hitl_mode: next })
+      });
+      yoloMode = next === 'disabled';
+      toast.success(yoloMode ? 'YOLO mode ON: intent recorded, Gate 1/2 still pause authoritatively' : 'HITL mode ON: Gate 1/2 authoritative');
+    } catch (err) {
+      toast.error('Failed to switch mode: ' + (err.message || err));
+    } finally {
+      yoloLoading = false;
+    }
+  }
 
   const navSections = [
     {
@@ -238,7 +266,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
-              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.2.0'}</span>
+              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.2.13'}</span>
             </h1>
             <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Konoha MCP Orchestrator</p>
           </div>
@@ -404,6 +432,23 @@
           {/if}
           <span class="font-extrabold capitalize text-xs" style="color: var(--theme-crumb-active, var(--color-text));">{breadcrumbLabel}</span>
         </div>
+      </div>
+      <!-- YOLO Mode toggle (Mandatory: header switch) -->
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="hidden sm:inline uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">YOLO Mode</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={yoloMode}
+          aria-label="YOLO Mode"
+          title={yoloMode ? 'YOLO intent ON (gates still pause)' : 'HITL gates authoritative'}
+          onclick={toggleYoloMode}
+          disabled={yoloLoading}
+          class="relative w-11 h-6 rounded-full border transition-all cursor-pointer disabled:opacity-50"
+          style="border-color: var(--color-border); background-color: {yoloMode ? 'var(--theme-grad-1)' : 'var(--color-surface)'};"
+        >
+          <span class="absolute top-0.5 w-5 h-5 rounded-full transition-all" style="left: {yoloMode ? '22px' : '2px'}; background: var(--theme-4gradient-bar);"></span>
+        </button>
       </div>
     </header>
 

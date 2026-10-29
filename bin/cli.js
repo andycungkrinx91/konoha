@@ -58,6 +58,7 @@ const { cmdData } = require('./commands/data');
 const { cmdSoul } = require('./commands/soul');
 const { cmdBridge } = require('./commands/bridge');
 const { cmdSearch } = require('./commands/search');
+const { cmdMode } = require('./commands/mode');
 const { cmdTelegram } = require('./commands/telegram');
 const { cmdQueue } = require('./commands/queue');
 const { cmdHelp } = require('./commands/help');
@@ -191,6 +192,9 @@ async function dispatchAgentCommand(cmd, cmdArgs) {
       return true;
     case 'search':
       await cmdSearch(cmdArgs);
+      return true;
+    case 'mode':
+      await cmdMode(cmdArgs);
       return true;
     default:
       return false;

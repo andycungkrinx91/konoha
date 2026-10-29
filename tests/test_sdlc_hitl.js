@@ -193,11 +193,11 @@ try {
   assert.strictEqual(gate2SignedRes.phase, 'done');
   console.log('  ✓ Workflow Gate 2 (Delivery Sign-Off) interactive choices verified successfully.');
 
-  // 7. Workflow Autonomous Mode (hitl_mode: disabled) bypasses gates
-  console.log('  Testing Autonomous Mode (hitl_mode: disabled)...');
+  // 7. Authoritative Gate Enforcement under Autonomous / YOLO Mode (hitl_mode: disabled)
+  console.log('  Testing Authoritative Gate Enforcement under Autonomous / YOLO Mode (hitl_mode: disabled)...');
   sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' }, dbPath);
 
-  // Autonomous Gate 1 bypass
+  // 7a. Autonomous Gate 1: cannot bypass without explicit human approval
   const taskDirAuto1 = path.join(tmpDir, 'task_auto1');
   fs.mkdirSync(taskDirAuto1, { recursive: true });
   fs.writeFileSync(path.join(taskDirAuto1, 'plan.md'), '# Implementation Plan\n- [anbu]: Build backend\n', 'utf8');
@@ -213,12 +213,34 @@ try {
   saveWorkflowStatus(taskDirAuto1, statusAuto1);
   sdlc.createTask({ id: 'task_auto1', description: 'Auto task', status: 'in_progress', project_path: tmpDir });
 
+  // Autonomous mode must NOT bypass Gate 1
   const auto1Res = JSON.parse(runMcpWorkflow(taskDirAuto1));
-  assert.strictEqual(auto1Res.status, 'ready');
-  assert.strictEqual(auto1Res.phase, 'execute', 'Autonomous mode must bypass Gate 1 directly to execute');
-  console.log('  ✓ Autonomous mode directly bypassed Gate 1 to execute phase.');
+  assert.strictEqual(auto1Res.status, 'pending_plan_approval', 'Autonomous/YOLO mode must NOT bypass Gate 1; explicit approval is mandatory');
+  assert.strictEqual(auto1Res.phase, 'plan_approval');
+  assert.strictEqual(auto1Res.hitl_gate, 'Gate 1 (Plan Approval)');
 
-  // Autonomous Gate 2 bypass
+  // Verify re-running without approval stays strictly paused
+  const auto1PauseRes = JSON.parse(runMcpWorkflow(taskDirAuto1));
+  assert.strictEqual(auto1PauseRes.status, 'pending_plan_approval', 'Re-running without approval must stay paused at Gate 1');
+
+  // Test YOLO Gate 1 rejection with refinement loops back to Kage plan
+  const auto1RejectRes = JSON.parse(runMcpWorkflow(taskDirAuto1, { choice: '2. Reject and Regenerate PLAN', refinement: 'Add schema validation' }));
+  assert.strictEqual(auto1RejectRes.phase, 'plan', 'Gate 1 rejection must loop back to plan phase with Kage');
+  assert.strictEqual(auto1RejectRes.agent, 'kage');
+
+  // Simulate Kage compiling updated plan
+  fs.writeFileSync(path.join(taskDirAuto1, 'plan.md'), '# Refined Auto Plan\n- [anbu]: Build backend with validation\n', 'utf8');
+  fs.writeFileSync(path.join(taskDirAuto1, 'result.md'), 'Refined action plan written.', 'utf8');
+  const auto1RePrompt = JSON.parse(runMcpWorkflow(taskDirAuto1));
+  assert.strictEqual(auto1RePrompt.status, 'pending_plan_approval', 'Must re-pause at Gate 1 after plan regeneration');
+
+  // Explicit approval advances to execute under autonomous mode
+  const auto1ApprovedRes = JSON.parse(runMcpWorkflow(taskDirAuto1, { choice: '1. Compact and approve' }));
+  assert.strictEqual(auto1ApprovedRes.status, 'ready');
+  assert.strictEqual(auto1ApprovedRes.phase, 'execute');
+  console.log('  ✓ Autonomous/YOLO mode strictly paused at Gate 1; rejection looped and approval advanced cleanly.');
+
+  // 7b. Autonomous Gate 2: cannot bypass without explicit human sign-off
   const taskDirAuto2 = path.join(tmpDir, 'task_auto2');
   fs.mkdirSync(taskDirAuto2, { recursive: true });
   fs.writeFileSync(path.join(taskDirAuto2, 'kage_review.json'), JSON.stringify({
@@ -259,10 +281,40 @@ try {
   saveWorkflowStatus(taskDirAuto2, statusAuto2);
   sdlc.createTask({ id: 'task_auto2', description: 'Auto task 2', status: 'in_progress', project_path: tmpDir });
 
+  // Autonomous mode must NOT bypass Gate 2
   const auto2Res = JSON.parse(runMcpWorkflow(taskDirAuto2));
-  assert.strictEqual(auto2Res.status, 'completed', 'Autonomous mode must bypass Gate 2 directly to completed');
-  assert.strictEqual(auto2Res.phase, 'done');
-  console.log('  ✓ Autonomous mode directly bypassed Gate 2 to done phase.');
+  assert.strictEqual(auto2Res.status, 'pending_human_signoff', 'Autonomous/YOLO mode must NOT bypass Gate 2; explicit sign-off is mandatory');
+  assert.strictEqual(auto2Res.phase, 'delivery_signoff');
+  assert.strictEqual(auto2Res.hitl_gate, 'Gate 2 (Delivery Sign-Off)');
+
+  // Verify re-running without sign-off stays strictly paused
+  const auto2PauseRes = JSON.parse(runMcpWorkflow(taskDirAuto2));
+  assert.strictEqual(auto2PauseRes.status, 'pending_human_signoff', 'Re-running without sign-off must stay paused at Gate 2');
+
+  // Test YOLO Gate 2 rejection/remediation loops back to remediation
+  const auto2RemediateRes = JSON.parse(runMcpWorkflow(taskDirAuto2, { choice: '2. Remediation' }));
+  assert.strictEqual(auto2RemediateRes.status, 'ready');
+  assert.strictEqual(auto2RemediateRes.phase, 'execute', 'Gate 2 remediation choice must loop back to execute');
+  const dbTaskAuto2 = sdlc.getTask('task_auto2');
+  assert.strictEqual(dbTaskAuto2.status, 'remediating', 'DB task status must transition to remediating');
+
+  // Complete remediation and pass review again
+  const statusAuto2Rem = {
+    ...statusAuto2,
+    phase: 'review',
+    current_dispatch: { id: 'disp-auto-2b', phase: 'review', agent: 'kage' },
+    completed_dispatches: ['disp-auto-2', 'disp-auto-2b'],
+    dispatch_results: { 'disp-auto-2b': 'Review approved after remediation' }
+  };
+  saveWorkflowStatus(taskDirAuto2, statusAuto2Rem);
+  const auto2RePrompt = JSON.parse(runMcpWorkflow(taskDirAuto2));
+  assert.strictEqual(auto2RePrompt.status, 'pending_human_signoff', 'Must re-pause at Gate 2 awaiting sign-off after remediation');
+
+  // Explicit delivery sign-off advances to done
+  const auto2SignedRes = JSON.parse(runMcpWorkflow(taskDirAuto2, { choice: '1. Compact and approve' }));
+  assert.strictEqual(auto2SignedRes.status, 'completed');
+  assert.strictEqual(auto2SignedRes.phase, 'done');
+  console.log('  ✓ Autonomous/YOLO mode strictly paused at Gate 2; remediation looped and sign-off completed cleanly.');
 
   // 8. Regression: Prompts with keywords ('continue', 'confirm', 'proceed', 'done', 'deliver', 'sign-off')
   // must NEVER self-bypass Gate 1 or Gate 2 when hitl_mode is enabled.
@@ -375,7 +427,7 @@ try {
   assert.strictEqual(routeByKeywordsWithPrompt(null, '/jonin build navigation bar'), 'jonin');
   assert.strictEqual(routeByKeywordsWithPrompt(null, '/tokubetsu-jonin generate docx report'), 'tokubetsu_jonin');
 
-  // 9c. Fast-track tasks bypass Gate 1 pause even when hitl_mode is enabled
+  // 9c. Fast-track tasks require explicit Gate 1 plan approval if a plan is compiled
   sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
   const taskDirFast = path.join(tmpDir, 'task_fast_track');
   fs.mkdirSync(taskDirFast, { recursive: true });
@@ -395,9 +447,117 @@ try {
   sdlc.createTask({ id: 'task_fast_track', description: statusFast.prompt, status: 'in_progress', project_path: tmpDir });
 
   const fastTrackRes = JSON.parse(runMcpWorkflow(taskDirFast));
-  assert.strictEqual(fastTrackRes.status, 'ready', 'Fast-track task must proceed directly to execution without Gate 1 pause');
-  assert.strictEqual(fastTrackRes.phase, 'execute', 'Fast-track phase must transition to execute');
-  console.log('  ✓ Fast-Track bypasses Gate 1 plan pause with zero pipeline overhead.');
+  assert.strictEqual(fastTrackRes.status, 'pending_plan_approval', 'Fast-track tasks must pause at Gate 1 awaiting explicit plan approval');
+  assert.strictEqual(fastTrackRes.phase, 'plan_approval');
+
+  // Explicit approval transitions fast-track task to execution
+  const fastTrackApproved = JSON.parse(runMcpWorkflow(taskDirFast, { choice: '1. Compact and approve' }));
+  assert.strictEqual(fastTrackApproved.status, 'ready');
+  assert.strictEqual(fastTrackApproved.phase, 'execute');
+  console.log('  ✓ Fast-Track tasks strictly pause at Gate 1 and advance only upon explicit approval.');
+
+  // 10. Unavailable Approval Transport Fails Closed
+  console.log('  Testing Unavailable Approval Transport Fails Closed...');
+
+  // 10a. Gate 1 fails closed when transport is unavailable / fails
+  const taskDirFailClose1 = path.join(tmpDir, 'task_fail_close_1');
+  fs.mkdirSync(taskDirFailClose1, { recursive: true });
+  fs.writeFileSync(path.join(taskDirFailClose1, 'plan.md'), '# Plan\n- [anbu]: Deploy service\n', 'utf8');
+  const statusFc1 = {
+    task_id: 'task_fail_close_1',
+    phase: 'plan',
+    prompt: 'Deploy service with disabled notifications',
+    project_path: tmpDir,
+    current_dispatch: { id: 'disp-fc-1', phase: 'plan', agent: 'kage' },
+    completed_dispatches: ['disp-fc-1'],
+    dispatch_results: { 'disp-fc-1': 'Plan generated' }
+  };
+  saveWorkflowStatus(taskDirFailClose1, statusFc1);
+  sdlc.createTask({ id: 'task_fail_close_1', description: statusFc1.prompt, status: 'in_progress', project_path: tmpDir });
+
+  const notifier = require('../src/telegram/notifier');
+  const origSendInteractive = notifier.sendInteractiveApproval;
+  try {
+    // Simulate failing/unavailable transport throwing an error
+    notifier.sendInteractiveApproval = () => {
+      throw new Error('Telegram bot service connection refused (offline)');
+    };
+
+    const fc1Res = JSON.parse(runMcpWorkflow(taskDirFailClose1));
+    assert.strictEqual(fc1Res.status, 'pending_plan_approval', 'Gate 1 must fail closed and pause awaiting approval even if transport errors');
+    assert.strictEqual(fc1Res.phase, 'plan_approval');
+    const dbTaskFc1 = sdlc.getTask('task_fail_close_1');
+    assert.strictEqual(dbTaskFc1.status, 'pending_plan_approval', 'DB task must remain in pending_plan_approval');
+
+    // Re-running without explicit verdict stays paused
+    const fc1Pause = JSON.parse(runMcpWorkflow(taskDirFailClose1));
+    assert.strictEqual(fc1Pause.status, 'pending_plan_approval');
+
+    // Explicit approval via direct choice still unlocks the workflow
+    const fc1Unlock = JSON.parse(runMcpWorkflow(taskDirFailClose1, { choice: '1. Compact and approve' }));
+    assert.strictEqual(fc1Unlock.status, 'ready');
+    assert.strictEqual(fc1Unlock.phase, 'execute');
+    console.log('  ✓ Gate 1 fails closed when transport throws error; remains paused until explicit verdict.');
+
+    // 10b. Gate 2 fails closed when transport is unavailable / fails
+    const taskDirFailClose2 = path.join(tmpDir, 'task_fail_close_2');
+    fs.mkdirSync(taskDirFailClose2, { recursive: true });
+    fs.writeFileSync(path.join(taskDirFailClose2, 'kage_review.json'), JSON.stringify({
+      status: 'approved',
+      approved: true,
+      confidence: 100,
+      ai_slop_clean: true,
+      ai_slop_findings: 0,
+      security_reviewed: true,
+      rollback_reviewed: true,
+      rollback_plan: 'git revert',
+      verified_task_ids: ['task-fc-2'],
+      validation: ['exit 0']
+    }), 'utf8');
+    const statusFc2 = {
+      task_id: 'task_fail_close_2',
+      phase: 'review',
+      prompt: 'Deploy service with disabled notifications 2',
+      project_path: tmpDir,
+      tasks: [{ id: 'task-fc-2', agent: 'anbu', task: 'Deploy', status: 'completed', validation: ['exit 0'] }],
+      completed_executors: ['task-fc-2'],
+      current_dispatch: { id: 'disp-fc-2', phase: 'review', agent: 'kage' },
+      completed_dispatches: ['disp-fc-2'],
+      dispatch_results: { 'disp-fc-2': 'Review approved' },
+      review: {
+        status: 'approved',
+        approved: true,
+        confidence: 100,
+        ai_slop_clean: true,
+        ai_slop_findings: 0,
+        security_reviewed: true,
+        rollback_reviewed: true,
+        rollback_plan: 'git revert',
+        verified_task_ids: ['task-fc-2'],
+        validation: ['exit 0']
+      }
+    };
+    saveWorkflowStatus(taskDirFailClose2, statusFc2);
+    sdlc.createTask({ id: 'task_fail_close_2', description: statusFc2.prompt, status: 'in_progress', project_path: tmpDir });
+
+    const fc2Res = JSON.parse(runMcpWorkflow(taskDirFailClose2));
+    assert.strictEqual(fc2Res.status, 'pending_human_signoff', 'Gate 2 must fail closed and pause awaiting sign-off even if transport errors');
+    assert.strictEqual(fc2Res.phase, 'delivery_signoff');
+    const dbTaskFc2 = sdlc.getTask('task_fail_close_2');
+    assert.strictEqual(dbTaskFc2.status, 'pending_human_signoff', 'DB task must remain in pending_human_signoff');
+
+    // Re-running without explicit sign-off stays paused
+    const fc2Pause = JSON.parse(runMcpWorkflow(taskDirFailClose2));
+    assert.strictEqual(fc2Pause.status, 'pending_human_signoff');
+
+    // Explicit sign-off unlocks delivery
+    const fc2Unlock = JSON.parse(runMcpWorkflow(taskDirFailClose2, { choice: '1. Compact and approve' }));
+    assert.strictEqual(fc2Unlock.status, 'completed');
+    assert.strictEqual(fc2Unlock.phase, 'done');
+    console.log('  ✓ Gate 2 fails closed when transport throws error; remains paused until explicit verdict.');
+  } finally {
+    notifier.sendInteractiveApproval = origSendInteractive;
+  }
 
 } finally {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}

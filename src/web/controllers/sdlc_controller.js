@@ -104,10 +104,16 @@ async function _handleSdlcConfig(req, res, method, parsedUrl, broadcastEvent) {
   try {
     const body = await parseBody(req);
     const projectPath = body.project_path || body.projectPath || process.cwd();
+    let hitlMode = body.hitl_mode !== undefined ? body.hitl_mode : null;
+    if (hitlMode === null && body.mode !== undefined) {
+      const mv = String(body.mode).toLowerCase();
+      if (mv === 'yolo' || mv === 'autonomous' || mv === 'disabled') hitlMode = 'disabled';
+      else if (mv === 'hitl' || mv === 'safe' || mv === 'enabled') hitlMode = 'enabled';
+    }
     const config = sdlcManager.setProjectSdlcConfig(projectPath, {
       dor_mode: body.dor_mode !== undefined ? body.dor_mode : null,
       review_mode: body.review_mode !== undefined ? body.review_mode : null,
-      hitl_mode: body.hitl_mode !== undefined ? body.hitl_mode : null
+      hitl_mode: hitlMode
     });
     broadcastEvent('sdlc_config_updated', { project_path: projectPath, ...config });
     return sendJson(res, 200, { project_path: projectPath, ...config });

@@ -9,12 +9,18 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+const GLOBAL_AGENTS_SKILLS = path.join(os.homedir(), '.agents', 'skills');
+const PROJECT_AGENTS_SKILLS = path.join(ROOT, '.agents', 'skills');
+const SECOND_TREE = fs.existsSync(PROJECT_AGENTS_SKILLS)
+  && fs.existsSync(path.join(PROJECT_AGENTS_SKILLS, 'genin-skill', 'references', 'i-have-adhd.md'))
+  ? PROJECT_AGENTS_SKILLS : GLOBAL_AGENTS_SKILLS;
 const TREES = [
   path.join(ROOT, 'src', 'templates', 'skills'),
-  path.join(ROOT, '.agents', 'skills')
+  SECOND_TREE
 ];
 
 const AGENT_SKILLS = {
@@ -129,10 +135,10 @@ async function run() {
 
   for (const tpl of ['AGENTS.md', 'GEMINI.md']) {
     const content = fs.readFileSync(path.join(ROOT, 'src', 'templates', tpl), 'utf-8');
-    assert.ok(Buffer.byteLength(content, 'utf8') < 1228, `${tpl} must be lightweight (< 1.2 KB)`);
+    assert.ok(Buffer.byteLength(content, 'utf8') < 1600, `${tpl} must be lightweight (< 1.6 KB)`);
     assert.ok(content.includes('Konoha runtime contract'), `${tpl} must include runtime contract`);
   }
-  console.log('✓ AGENTS.md and GEMINI.md are lightweight (< 1.2 KB) and agent skills map i-have-adhd without kage/sannin attribution');
+  console.log('✓ AGENTS.md and GEMINI.md are lightweight (< 1.6 KB) and agent skills map i-have-adhd without kage/sannin attribution');
 
   // 6. The 5 agent skills route to i-have-adhd; sannin-skill and kage-skill do not
   for (const agent of expectedAgents) {

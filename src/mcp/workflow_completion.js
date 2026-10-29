@@ -59,7 +59,7 @@ function handleResearchCompletion(status, dispatchId) {
 }
 
 function handlePlanCompletion(completion, status, context) {
-  const { resolvedTaskDir, sdlcConfig, sdlcManager } = context;
+  const { resolvedTaskDir, _sdlcConfig, sdlcManager } = context;
   const planContent = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || completion.result;
   const planLower = planContent.toLowerCase();
 
@@ -97,7 +97,7 @@ function handlePlanCompletion(completion, status, context) {
   status.pending_executors = status.tasks.map(t => t.id);
   status.completed_executors = [];
 
-  if (sdlcConfig && sdlcConfig.hitl_mode === 'enabled' && !status.plan_approved && status.execution_track !== 'fast_track') {
+  if (!status.plan_approved) {
     status.hitl_gate = 'plan_approval';
     status.assigned_agent = 'sannin';
     try {
@@ -127,7 +127,6 @@ function handlePlanCompletion(completion, status, context) {
     };
   }
 
-  status.plan_approved = true;
   status.phase = 'execute';
   return { nextPhase: 'execute' };
 }
@@ -551,14 +550,16 @@ function sendFinalCompletionNotification(options) {
 }
 
 function handleDeliverySignoffOrFinish(options) {
-  const { status, resolvedTaskDir, sdlcConfig, sdlcManager, rootId, confidenceVal, reportPath, prompt } = options;
+  const { status, resolvedTaskDir, _sdlcConfig, sdlcManager, rootId, confidenceVal, reportPath, prompt } = options;
   const rootTaskRecord = sdlcManager.getTask(rootId);
   const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
 
-  if (sdlcConfig.hitl_mode === 'enabled' && !status.human_signed_off && !isSignedOffInDb) {
+  if (!status.human_signed_off && !isSignedOffInDb) {
     status.hitl_gate = 'delivery_signoff';
     status.phase = 'synthesize';
     status.assigned_agent = 'sannin';
+    status.report = reportPath;
+    status.confidence = confidenceVal;
     try {
       sdlcManager.updateTask(rootId, {
         status: 'pending_human_signoff',
@@ -664,5 +665,7 @@ function handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManage
 
 module.exports = {
   handleWorkflowCompletion,
-  handleWorkflowSynthesis
+  handleWorkflowSynthesis,
+  handleAdvisorRemediation,
+  handleSlopRemediation
 };

@@ -138,9 +138,11 @@ function buildPiManagedContract() {
  * Deploys the Konoha runtime contract + Pi workflow mandate into
  * ~/.pi/agent/AGENTS.md (Pi's global context file) using managed markers.
  */
-function deployPiContract(silent = true, targetFile = null) {
+function deployPiContract(silent = true, targetFile = null, options = {}) {
+  const opts = typeof targetFile === "object" && targetFile !== null ? targetFile : options;
+  const explicitTarget = typeof targetFile === "string" ? targetFile : (opts && opts.targetFile);
   try {
-    const destFile = targetFile || (module.exports && module.exports.PI_AGENTS_MD) || PI_AGENTS_MD;
+    const destFile = explicitTarget || (opts && opts.home ? path.join(opts.home, ".pi", "agent", "AGENTS.md") : ((module.exports && module.exports.PI_AGENTS_MD) || PI_AGENTS_MD));
     ensureDirSafe(path.dirname(destFile));
     const existing = fileExists(destFile) ? fs.readFileSync(destFile, 'utf-8') : '';
     const sanitized = stripStalePiMandates(existing);
@@ -395,17 +397,21 @@ function buildPiBlockerExtensionSource() {
  * when the on-disk source differs. Note: pi loads extensions at startup
  * only — a running pi session must be restarted to pick this up.
  */
-function deployPiBlockerExtension(silent = true) {
+function deployPiBlockerExtension(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const isSilent = typeof silent === "boolean" ? silent : (opts.silent !== false);
+  const targetExtDir = (opts && opts.home ? path.join(opts.home, ".pi", "agent", "extensions") : path.join(PI_AGENT_DIR, "extensions"));
+  const targetExtFile = path.join(targetExtDir, "konoha-blocker.ts");
   try {
-    ensureDirSafe(path.join(PI_AGENT_DIR, 'extensions'));
+    ensureDirSafe(targetExtDir);
     const source = buildPiBlockerExtensionSource();
-    const existing = fileExists(PI_BLOCKER_EXTENSION) ? fs.readFileSync(PI_BLOCKER_EXTENSION, 'utf-8') : null;
+    const existing = fileExists(targetExtFile) ? fs.readFileSync(targetExtFile, "utf-8") : null;
     if (existing === source) {
-      return { ok: true, changed: false, path: PI_BLOCKER_EXTENSION };
+      return { ok: true, changed: false, path: targetExtFile };
     }
-    fs.writeFileSync(PI_BLOCKER_EXTENSION, source, 'utf-8');
-    if (!silent) process.stderr.write(`✓ Konoha native-tool blocker extension deployed to Pi: ${PI_BLOCKER_EXTENSION}\n`);
-    return { ok: true, changed: true, path: PI_BLOCKER_EXTENSION };
+    fs.writeFileSync(targetExtFile, source, "utf-8");
+    if (!isSilent) process.stderr.write(`✓ Konoha native-tool blocker extension deployed to Pi: ${targetExtFile}\n`);
+    return { ok: true, changed: true, path: targetExtFile };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi blocker extension deployment failed: ${err.message}`);
     return { ok: false, reason: 'pi-blocker-deploy-failed', error: err.message };
@@ -577,8 +583,8 @@ function ensurePiSetup(options = {}) {
   const registration = registerPiMcp(pythonCmd, serverPath, uvxCmd, { ...options, silent });
   if (!registration.ok) return registration;
   const rtk = deployPiRtkRule(silent);
-  const contract = deployPiContract(silent);
-  const blocker = deployPiBlockerExtension(silent);
+  const contract = deployPiContract(silent, null, options);
+  const blocker = deployPiBlockerExtension(silent, options);
   return {
     ok: true,
     changed: !!(adapter.changed || contract.changed || blocker.changed),

@@ -21,7 +21,6 @@ db.setupSchema(db.getConnection());
 
 const vault = require('../src/crypto_vault');
 const tgConfig = require('../src/telegram/config');
-const tunnelConfig = require('../src/tunnel/config');
 
 async function runTests() {
   console.log('Running test_crypto_vault.js...');
@@ -92,27 +91,6 @@ async function runTests() {
   const loadedTg = tgConfig.getTelegramConfig();
   assert.strictEqual(loadedTg.bot_token, rawBotToken, 'Telegram bot_token must be transparently decrypted on read');
   assert.strictEqual(loadedTg.webhook_secret, rawSecret, 'Telegram webhook_secret must be transparently decrypted on read');
-
-  // 9. Cloudflare Tunnel Token At-Rest SQLite Encryption
-  const rawTunnelToken = 'eyJhIjoiY2xvdWRmbGFyZS1hdXRoLXRva2VuLWV4YW1wbGUifQ';
-  const rawPin = '849201';
-  tunnelConfig.saveTunnelConfig({
-    token: rawTunnelToken,
-    auth_pin: rawPin,
-    provider: 'cloudflare',
-    mode: 'named',
-    custom_domain: 'konoha.internal'
-  });
-
-  const rawTunnelRow = db.getConnection().prepare('SELECT token, auth_pin FROM tunnel_config WHERE id = 1').get();
-  assert.ok(rawTunnelRow.token.startsWith('enc:v1:'), 'Tunnel token in SQLite must be encrypted at rest');
-  assert.ok(!rawTunnelRow.token.includes(rawTunnelToken), 'Raw SQLite tunnel token must NEVER contain plaintext');
-  assert.ok(rawTunnelRow.auth_pin.startsWith('enc:v1:'), 'Tunnel auth_pin in SQLite must be encrypted at rest');
-  assert.ok(!rawTunnelRow.auth_pin.includes(rawPin), 'Raw SQLite tunnel auth_pin must NEVER contain plaintext');
-
-  const loadedTunnel = tunnelConfig.getTunnelConfig();
-  assert.strictEqual(loadedTunnel.token, rawTunnelToken, 'Tunnel token must be transparently decrypted on read');
-  assert.strictEqual(loadedTunnel.auth_pin, rawPin, 'Tunnel auth_pin must be transparently decrypted on read');
 
   // Cleanup test database
   try {

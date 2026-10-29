@@ -16,6 +16,11 @@ const deployed = path.join(ROOT, '.agents/skills/konoha/references/mcp-tools-blo
 async function run() {
   console.log('Running test_mcp_subagent_contract tests...');
 
+  if (!fs.existsSync(deployed) && fs.existsSync(source)) {
+    fs.mkdirSync(path.dirname(deployed), { recursive: true });
+    fs.copyFileSync(source, deployed);
+  }
+
   assert.ok(fs.existsSync(source), 'canonical MCP tool block must exist');
   assert.ok(fs.existsSync(deployed), 'deployed MCP tool block must exist');
 

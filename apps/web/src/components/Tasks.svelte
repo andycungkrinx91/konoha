@@ -38,6 +38,16 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     failed: 'badge-status badge-status-danger'
   };
 
+  const DISPLAY_STATUS = {
+    pending_plan_approval: 'Pending Gate 1', pending_human_signoff: 'Pending Gate 2',
+    pending: 'Processing', processing: 'Processing', in_progress: 'Processing',
+    remediating: 'Remediate', remediation: 'Remediate', remediate: 'Remediate', blocked: 'Remediate',
+    plan_approved: 'Approved', approved: 'Approved', completed: 'Completed'
+  };
+  function displayStatus(status) {
+    return DISPLAY_STATUS[String(status || '').toLowerCase()] || String(status || '').toUpperCase();
+  }
+
   function statusClass(status) {
     return statusColors[status] || 'theme-bg-subtle theme-text-secondary theme-border';
   }
@@ -403,6 +413,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
           class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2 rounded-[3px] font-bold text-xs cursor-pointer disabled:opacity-50"
           onclick={loadTasks}
           disabled={tasksLoading}
+          aria-label="Refresh"
         >
           {#if tasksLoading}
             <svg class="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
@@ -451,7 +462,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
               >
                 <div class="flex flex-wrap items-center gap-2">
                   <code class="text-xs font-bold theme-text-muted">{task.id}</code>
-                  <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border {statusClass(task.status)}">{task.status}</span>
+                  <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border {statusClass(task.status)}">{displayStatus(task.status)}</span>
                   <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border theme-bg-subtle theme-text-secondary theme-border-strong-b">
                     review: {task.review_mode || 'self'}
                   </span>

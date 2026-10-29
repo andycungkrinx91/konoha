@@ -19,10 +19,14 @@ async function run() {
   console.log('Running test_genin_skill_contract tests...');
 
   // 1. Shipped skill metadata is canonical
+  const globalGeninDir = path.join(os.homedir(), '.agents', 'skills', 'genin-skill');
+  const projectGeninDir = path.join(ROOT, '.agents', 'skills', 'genin-skill');
+  const templateGeninDir = path.join(ROOT, 'src', 'templates', 'skills', 'genin-skill');
   const copies = [
-    path.join(ROOT, 'src', 'templates', 'skills', 'genin-skill'),
-    path.join(ROOT, '.agents', 'skills', 'genin-skill'),
-    path.join(ROOT, '.cursor', 'skills', 'genin-skill')
+    templateGeninDir,
+    ...(fs.existsSync(projectGeninDir)
+      ? [projectGeninDir]
+      : (fs.existsSync(globalGeninDir) ? [globalGeninDir] : []))
   ];
   for (const skillDir of copies) {
     const skillMd = path.join(skillDir, 'SKILL.md');
@@ -41,10 +45,18 @@ async function run() {
     }
   }
 
-  const kageSkillMd1 = path.join(ROOT, '.agents', 'skills', 'kage-skill', 'SKILL.md');
-  const kageSkillMd2 = path.join(ROOT, '.cursor', 'skills', 'kage-skill', 'SKILL.md');
-  assert.ok(!fs.readFileSync(kageSkillMd1, 'utf-8').includes('deep-code-explorer'));
-  assert.ok(!fs.readFileSync(kageSkillMd2, 'utf-8').includes('deep-code-explorer'));
+  const templateKageMd = path.join(ROOT, 'src', 'templates', 'skills', 'kage-skill', 'SKILL.md');
+  const globalKageMd = path.join(os.homedir(), '.agents', 'skills', 'kage-skill', 'SKILL.md');
+  const projectKageMd = path.join(ROOT, '.agents', 'skills', 'kage-skill', 'SKILL.md');
+  const kageCopies = [
+    templateKageMd,
+    ...(fs.existsSync(projectKageMd)
+      ? [projectKageMd]
+      : (fs.existsSync(globalKageMd) ? [globalKageMd] : []))
+  ];
+  for (const kageMd of kageCopies) {
+    assert.ok(!fs.readFileSync(kageMd, 'utf-8').includes('deep-code-explorer'));
+  }
   console.log('✓ Shipped skill metadata is canonical passed');
 
   // 2. Legacy rows canonicalize with canonical precedence

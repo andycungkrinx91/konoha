@@ -231,7 +231,7 @@ function applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
 
     try {
       sdlcManager.updateTask(rootTaskId, {
-        status: 'in_progress',
+        status: 'pending_plan_approval',
         evidence: {
           gate1_verdict: 'rejected_for_regeneration',
           feedback: feedbackNotes,
@@ -257,6 +257,10 @@ function applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
     status.human_signed_off = true;
     status.hitl_gate = null;
     status.phase = 'done';
+    status.history = status.history || [];
+    if (!status.history.some(h => h.phase === 'synthesize')) {
+      status.history.push({ phase: 'synthesize', agent: 'sannin' });
+    }
     status.gate_verdict = {
       gate: 'gate_2',
       action: 'approve',

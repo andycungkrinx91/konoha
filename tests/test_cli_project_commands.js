@@ -19,11 +19,17 @@ function stripAnsi(text) {
 }
 
 let activeTestDbPath = null;
+let activeTestHome = null;
 
 function runCli(args) {
   try {
-    const env = { ...process.env };
-    if (activeTestDbPath) env.KONOHA_DB_PATH = activeTestDbPath;
+    const env = {
+      ...process.env,
+      HOME: activeTestHome || process.env.HOME,
+      USERPROFILE: activeTestHome || process.env.USERPROFILE,
+      KONOHA_DB_PATH: activeTestDbPath || process.env.KONOHA_DB_PATH,
+      KONOHA_UI_AUTOSTART: '0'
+    };
     const stdout = execFileSync(process.execPath, [CLI_JS, ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
@@ -44,8 +50,46 @@ function runCli(args) {
 async function run() {
   console.log('Running test_cli_project_commands tests...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli_proj_'));
+  const testHome = path.join(tmpDir, 'home');
+  const dotKonoha = path.join(testHome, '.konoha');
+  const dotAgents = path.join(testHome, '.agents');
+  fs.mkdirSync(dotKonoha, { recursive: true });
+  fs.mkdirSync(dotAgents, { recursive: true });
+
   const testDbPath = path.join(tmpDir, 'test_konoha.db');
   activeTestDbPath = testDbPath;
+  activeTestHome = testHome;
+
+  const cliVer = require('../package.json').version;
+  fs.writeFileSync(path.join(dotKonoha, 'server.js'), '// dummy');
+  fs.writeFileSync(path.join(dotKonoha, 'file_tools_launcher.js'), '// dummy');
+  fs.writeFileSync(path.join(dotKonoha, 'file_tools_mcp.js'), '// dummy');
+  fs.writeFileSync(path.join(dotKonoha, 'konoha.db'), '');
+  const geminiConfigDir = path.join(testHome, '.gemini', 'config');
+  fs.mkdirSync(geminiConfigDir, { recursive: true });
+  fs.writeFileSync(path.join(geminiConfigDir, 'mcp_config.json'), '{}');
+
+  const agentsYamlPath = path.join(dotAgents, 'agents.yaml');
+  const defaultAgentsSrc = path.join(REPO_ROOT, 'src', 'templates', 'agents.yaml');
+  if (fs.existsSync(defaultAgentsSrc)) {
+    fs.copyFileSync(defaultAgentsSrc, agentsYamlPath);
+  } else {
+    fs.writeFileSync(agentsYamlPath, '[]');
+  }
+  const mtime = fs.statSync(agentsYamlPath).mtimeMs;
+  fs.writeFileSync(path.join(dotKonoha, '.auto_setup_state.json'), JSON.stringify({
+    version: cliVer,
+    agentsMtime: mtime
+  }));
+
+  const origHome = process.env.HOME;
+  const origUserProfile = process.env.USERPROFILE;
+  const origDbPath = process.env.KONOHA_DB_PATH;
+
+  process.env.HOME = testHome;
+  process.env.USERPROFILE = testHome;
+  process.env.KONOHA_DB_PATH = testDbPath;
+
   const personaMemory = require('../src/persona_memory');
   const db = require('../src/db');
   personaMemory.DB_PATH = testDbPath;
@@ -80,16 +124,36 @@ async function run() {
     assert.strictEqual(resAdd.status, 0, `Error: ${resAdd.stderr}`);
     assert.ok(stripAnsi(resAdd.stdout).includes('Saved architectural invariants'));
 
-    // Assert Konoha does NOT inject into consumer .gitignore or .dockerignore
+    // Assert Konoha injects managed ignore block into consumer .gitignore and .dockerignore
+    const expectedIgnoreEntries = [
+      '.agents/plugins/',
+      '.aislop/',
+      '.aislopignore',
+      '.claude.json',
+      '.claude/',
+      '.codex/',
+      '.commandcode/',
+      '.cursor/',
+      '.cursorrules',
+      '.gemini/',
+      '.omp/',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'GEMINI.md'
+    ];
     const gitignorePath = path.join(projectDir, '.gitignore');
     const dockerignorePath = path.join(projectDir, '.dockerignore');
-    if (fs.existsSync(gitignorePath)) {
-      const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
-      assert.ok(!gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must NOT contain Start Konoha marker');
-    }
-    if (fs.existsSync(dockerignorePath)) {
-      const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
-      assert.ok(!dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must NOT contain Start Konoha marker');
+    assert.ok(fs.existsSync(gitignorePath), '.gitignore must exist in consumer project');
+    assert.ok(fs.existsSync(dockerignorePath), '.dockerignore must exist in consumer project');
+    const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
+    const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
+    assert.ok(gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must contain Start Konoha marker');
+    assert.ok(gitignoreText.includes('## End Konoha config+skill'), '.gitignore must contain End Konoha marker');
+    assert.ok(dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must contain Start Konoha marker');
+    assert.ok(dockerignoreText.includes('## End Konoha config+skill'), '.dockerignore must contain End Konoha marker');
+    for (const entry of expectedIgnoreEntries) {
+      assert.ok(gitignoreText.includes(entry), `.gitignore must contain ${entry}`);
+      assert.ok(dockerignoreText.includes(entry), `.dockerignore must contain ${entry}`);
     }
 
     // Assert core konoha root does NOT contain consumer ignore block
@@ -104,7 +168,7 @@ async function run() {
     fs.writeFileSync(path.join(konohaFixtureDir, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.4' }), 'utf8');
     fs.writeFileSync(path.join(konohaFixtureDir, 'bin', 'cli.js'), '#!/usr/bin/env node\n', 'utf8');
     fs.writeFileSync(path.join(konohaFixtureDir, 'scripts', 'lint.js'), 'console.log("ok");\n', 'utf8');
-    const fixtureDeploy = agentManager.deployProjectWorkspace(konohaFixtureDir, { silent: true });
+    const fixtureDeploy = agentManager.deployProjectWorkspace(konohaFixtureDir, { silent: true, home: testHome });
     assert.ok(fixtureDeploy.ok !== false, 'deployProjectWorkspace should succeed for konoha fixture');
     const fixtureGitignore = path.join(konohaFixtureDir, '.gitignore');
     if (fs.existsSync(fixtureGitignore)) {
@@ -118,7 +182,6 @@ async function run() {
     console.log('✓ Project add, list, and ignore-injection commands passed');
 
     // 3. project memory, memory delete, and project prune
-    const personaMemory = require('../src/persona_memory');
     const memId = personaMemory.saveMemory({
       agentName: 'jonin',
       content: 'CLI Test Project Learning',
@@ -161,9 +224,14 @@ async function run() {
 
     console.log('\nAll test_cli_project_commands tests passed!');
   } finally {
+    process.env.HOME = origHome;
+    process.env.USERPROFILE = origUserProfile;
+    if (origDbPath !== undefined) process.env.KONOHA_DB_PATH = origDbPath;
+    else delete process.env.KONOHA_DB_PATH;
+    activeTestDbPath = null;
+    activeTestHome = null;
     const personaMemory = require('../src/persona_memory');
     const db = require('../src/db');
-    activeTestDbPath = null;
     personaMemory.DB_PATH = null;
     db.DB_PATH = null;
     try {

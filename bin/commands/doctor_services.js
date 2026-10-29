@@ -13,13 +13,11 @@ const {
   MCP_CONFIG_PATH,
   GEMINI_MD_PATH,
   FILE_TOOLS_MCP_PATH,
-  MIGRATION_TIMEOUT_MS,
-  SEMBLE_PACKAGE,
-  AISLOP_PACKAGE
+  MIGRATION_TIMEOUT_MS
 } = require('../lib/paths');
-const { updateGeminiMd } = require('../lib/runtime_lifecycle');
+const { updateGeminiMd, detectSkillsDirs, detectCustomSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
-const { detectSkillsDirs, detectCustomSkills } = require('../lib/runtime_install');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
 const { confirmPrompt } = require('../lib/prompt');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 

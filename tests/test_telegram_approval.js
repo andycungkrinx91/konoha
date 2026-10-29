@@ -122,9 +122,9 @@ async function run() {
       assert.ok(sentPayloads.length > 0);
       const payload = sentPayloads[0].body;
       assert.ok(payload.reply_markup);
-      assert.strictEqual(payload.reply_markup.inline_keyboard[0][0].text, '✅ Approve');
+      assert.strictEqual(payload.reply_markup.inline_keyboard[0][0].text, '✅ 1. Compact and approve');
       assert.strictEqual(payload.reply_markup.inline_keyboard[0][0].callback_data, 'hitl:approve:task_demo_123');
-      assert.strictEqual(payload.reply_markup.inline_keyboard[0][1].text, '❌ Reject');
+      assert.strictEqual(payload.reply_markup.inline_keyboard[0][1].text, '❌ 2. Reject / Regenerate');
       console.log('  ✓ sendInteractiveApproval formats inline keyboard buttons.');
 
       // 7. Test /approval list command

@@ -40,7 +40,7 @@ function configureCursor(context) {
     projectRoot: currentCwd,
     deployProject: true,
     silent: true,
-    allowHooks: false,
+    allowHooks: true,
     ruleContent: null
   });
   cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
@@ -61,7 +61,9 @@ function configureClaudeCode(context) {
       silent: true,
       agents: setupAgents,
       projectRoot: currentCwd,
-      deployProject: true
+      deployProject: true,
+      force: true,
+      skipDetection: true
     });
     if (claudeSetup.ok) spinner.success('Claude Code MCP configured.');
     else spinner.warn(`Claude Code setup skipped: ${claudeSetup.reason || 'unknown error'}`);
@@ -78,7 +80,9 @@ function configureOpenCode(context) {
     pythonCmd: context.python,
     serverPath: SERVER_PATH,
     uvxCmd: getUvxCommand(),
-    silent: true
+    silent: true,
+    force: true,
+    skipDetection: true
   });
   if (openCodeSetup.ok) spinner.success('OpenCode MCP and RTK configured.');
   else spinner.warn(`OpenCode setup skipped: ${openCodeSetup.reason || 'unknown error'}`);
@@ -92,7 +96,9 @@ function configureCommandCode(context) {
     pythonCmd: context.python,
     serverPath: SERVER_PATH,
     uvxCmd: getUvxCommand(),
-    silent: true
+    silent: true,
+    force: true,
+    skipDetection: true
   });
   if (commandCodeSetup.ok) spinner.success('Command Code MCP and RTK configured.');
   else spinner.warn(`Command Code setup skipped: ${commandCodeSetup.reason || 'unknown error'}`);
@@ -106,7 +112,9 @@ function configureCodex(context) {
     pythonCmd: context.python,
     serverPath: SERVER_PATH,
     uvxCmd: getUvxCommand(),
-    silent: true
+    silent: true,
+    force: true,
+    skipDetection: true
   });
   if (codexSetup.ok) spinner.success('Codex MCP and RTK configured.');
   else spinner.warn(`Codex setup skipped: ${codexSetup.reason || 'unknown error'}`);
@@ -120,7 +128,9 @@ function configurePi(context) {
     pythonCmd: context.python,
     serverPath: SERVER_PATH,
     uvxCmd: getUvxCommand(),
-    silent: true
+    silent: true,
+    force: true,
+    skipDetection: true
   });
   if (piSetup.ok) spinner.success('Pi pi.dev configured (mcp.json + pi-mcp-adapter).');
   else spinner.warn(`Pi setup skipped: ${piSetup.reason || 'unknown error'}`);
@@ -134,7 +144,8 @@ function configureOmp(context) {
     nodeCmd: process.execPath,
     launcherPath: FILE_TOOLS_LAUNCHER_JS,
     uvxCmd: getUvxCommand(),
-    silent: true
+    silent: true,
+    force: true
   });
   if (ompSetup.ok) spinner.success('OMP configured (plugins + AGENTS.md + MCP tools).');
   else spinner.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);

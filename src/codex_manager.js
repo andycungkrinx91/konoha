@@ -375,9 +375,14 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options 
   }
 }
 
-function deployCodexRules(silent = true) {
-  const { loadAgents, generateAgentsMd } = require('./agent_manager');
-  const { generateGenericSubagentMd } = require('./agent_contract');
+function deployCodexRules(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const _isSilent = typeof silent === "boolean" ? silent : (opts.silent !== false);
+  const home = (opts && opts.home) || HOME;
+  const codexDir = (opts && opts.home) ? path.join(home, ".codex") : CODEX_DIR;
+  const codexRulesDir = (opts && opts.home) ? path.join(codexDir, "rules") : CODEX_RULES_DIR;
+  const { loadAgents, generateAgentsMd } = require("./agent_manager");
+  const { generateGenericSubagentMd } = require("./agent_contract");
 
   let agents = [];
   try {
@@ -385,23 +390,23 @@ function deployCodexRules(silent = true) {
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   try {
-    ensureDir(CODEX_DIR);
-    ensureDir(CODEX_RULES_DIR);
-    const agentsDir = path.join(CODEX_DIR, 'agents');
+    ensureDir(codexDir);
+    ensureDir(codexRulesDir);
+    const agentsDir = path.join(codexDir, "agents");
     ensureDir(agentsDir);
 
-    const fullInstructions = generateAgentsMd(agents, 'codex');
-    writeCodexInstructions(fullInstructions);
+    const fullInstructions = generateAgentsMd(agents, "codex");
+    writeCodexInstructions(fullInstructions, opts);
 
-    // Also write ~/.codex/CODEX.md and ~/.codex/instructions.md
-    const codexMdPath = path.join(CODEX_DIR, 'CODEX.md');
-    const instructionsMdPath = path.join(CODEX_DIR, 'instructions.md');
-    const agentMgr = require('./agent_manager');
-    fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, 'KONOHA'), 'utf8');
-    fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, 'KONOHA'), 'utf8');
+    // Also write CODEX.md and instructions.md
+    const codexMdPath = path.join(codexDir, "CODEX.md");
+    const instructionsMdPath = path.join(codexDir, "instructions.md");
+    const agentMgr = require("./agent_manager");
+    fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, "KONOHA"), "utf8");
+    fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, "KONOHA"), "utf8");
 
     // Deploy rules/konoha.md
-    fs.writeFileSync(path.join(CODEX_RULES_DIR, 'konoha.md'), buildMainAgentContract('codex') + '\n', 'utf8');
+    fs.writeFileSync(path.join(codexRulesDir, "konoha.md"), buildMainAgentContract("codex") + "\n", "utf8");
 
     // Deploy subagents (skip test/internal agents and validate names)
     for (const agent of agents) {
@@ -543,8 +548,8 @@ function ensureCodexSetup(options = {}) {
     return { ok: false, reason: mcpResult.reason || 'codex-mcp-registration-failed' };
   }
 
-  const contractRule = deployCodexRules(silent);
-  const rtkRule = deployCodexRtkRule(silent);
+  const contractRule = deployCodexRules(silent, options);
+  const rtkRule = deployCodexRtkRule(silent, options);
 
   return { ok: true, contractRule, rtkRule };
 }

@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
-const { fileExists, ensureDir } = require('../../src/platform_utils');
+const { fileExists, ensureDir, checkPortActive: defaultCheckPortActive } = require('../../src/platform_utils');
 const { C, header, log, info, success, warn, error } = require('./format');
 
 function getSystemdUserServicePath() {
@@ -252,7 +252,7 @@ async function renderServiceStatusView(isLinux, isMac, checkPortActive) {
   log(`  Web URL:      ${portActive ? `${C.cyan}http://127.0.0.1:1404/ (READY)` : `${C.yellow}PORT 1404 NOT RESPONDING`}${C.reset}\n`);
 }
 
-async function cmdUiService(args = [], checkPortActive) {
+async function cmdUiService(args = [], checkPortActive = defaultCheckPortActive) {
   const subcommand = args[0];
   if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
     cmdUiServiceHelp();

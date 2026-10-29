@@ -37,7 +37,10 @@ async function runTests() {
   console.log('Running test_ui_cross_platform_lifecycle tests...');
 
   const cliSource = fs.readFileSync(path.resolve(__dirname, '..', 'bin', 'cli.js'), 'utf8') +
-    fs.readFileSync(path.resolve(__dirname, '..', 'bin', 'lib', 'ui_commands.js'), 'utf8');
+    fs.readFileSync(path.resolve(__dirname, '..', 'bin', 'lib', 'ui_commands.js'), 'utf8') +
+    (fs.existsSync(path.resolve(__dirname, '..', 'bin', 'lib', 'ui_build.js'))
+      ? fs.readFileSync(path.resolve(__dirname, '..', 'bin', 'lib', 'ui_build.js'), 'utf8')
+      : '');
   const deployUtils = require('../src/deploy_utils');
   const webServerSource = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'web_server.js'), 'utf8');
 

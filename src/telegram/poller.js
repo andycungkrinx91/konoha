@@ -6,6 +6,7 @@
  */
 
 const configModule = require('./config');
+const { toDisplayStatus } = require('../mcp/gate_status');
 const inboxModule = require('../queue/inbox');
 const notifierModule = require('./notifier');
 const sessionManager = require('./session_manager');
@@ -239,7 +240,7 @@ async function _handleApprovalListOrInspect(rawText, chatId) {
     }
     const lines = ['<b>📋 [PENDING HITL APPROVALS]</b>', '━━━━━━━━━━━━━━━━━━━━━━━━━━━━', `Found ${pendingTasks.length} task(s) awaiting approval:\n`];
     pendingTasks.forEach((t, i) => {
-      lines.push(`${i + 1}. <code>${escapeHtml(t.id)}</code> [<b>${t.status}</b>]`);
+      lines.push(`${i + 1}. <code>${escapeHtml(t.id)}</code> [<b>${escapeHtml(toDisplayStatus(t.status))}</b>]`);
       lines.push(`   ${escapeHtml(t.description.slice(0, 70))}`);
       lines.push(`   👉 View: <code>/approval ${t.id}</code>\n`);
     });
@@ -424,7 +425,7 @@ async function handleMessage(msg) {
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/doctor')) {
-    const text = '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n<b>Status:</b> HEALTHY · 100% OPERATIONAL\n<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.4)\n<b>Skills FTS5:</b> 1,027 records indexed\n<b>Token Savings:</b> 83% - 98% active\n<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+    const text = '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n<b>Status:</b> HEALTHY · 100% OPERATIONAL\n<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.13)\n<b>Skills FTS5:</b> 1,027 records indexed\n<b>Token Savings:</b> 83% - 98% active\n<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/cancel')) {
@@ -488,7 +489,7 @@ async function applyTaskVerdict(taskId, newStatus, isApproved, cb, targetMsg) {
     `<b>${isApproved ? '✅ [TASK APPROVED]' : '❌ [TASK REJECTED]'}</b>`,
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
     `<b>🔖 Task ID:</b> <code>${escapeHtml(taskId)}</code>`,
-    `<b>📊 Status:</b> ${escapeHtml(newStatus)}`,
+    `<b>📊 Status:</b> ${escapeHtml(toDisplayStatus(newStatus))}`,
     `<b>⚡ Decision:</b> ${isApproved ? 'Approved by operator via Telegram' : 'Rejected by operator via Telegram'}`,
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
   ].join('\n');

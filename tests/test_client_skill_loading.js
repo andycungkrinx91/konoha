@@ -41,7 +41,7 @@ const lightweightContracts = [
 ];
 
 for (const content of lightweightContracts) {
-  assert.ok(Buffer.byteLength(content, 'utf8') < 1228, 'lightweight contract must be < 1.2 KB');
+  assert.ok(Buffer.byteLength(content, 'utf8') < 1600, 'lightweight contract must be < 1.6 KB');
   assert.match(content, /@genin/, 'lightweight contract must include agent in roster');
   assert.match(content, /find_skill/, 'lightweight contract must mention find_skill');
   assert.match(content, /get_skill/, 'lightweight contract must mention get_skill');

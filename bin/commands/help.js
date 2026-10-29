@@ -36,6 +36,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}help, -h${C.reset}          ❓ Show this educational help menu and command catalog.
   ${C.cyan}init${C.reset}              🚀 Setup MCP servers, migrate local skills, and configure supported clients.
   ${C.cyan}migrate${C.reset}           🔄 Re-index/migrate your custom skills database (run after editing skills).
+  ${C.cyan}mode${C.reset}              ⚡ Switch HITL vs YOLO execution mode (gates stay authoritative).
   ${C.cyan}project${C.reset}           📁 Manage persistent project workspaces, detected stacks, and invariants.
   ${C.cyan}queue${C.reset}             📬 Background task prompt queue and execution worker.
   ${C.cyan}reinstall${C.reset}         🔄 Force clean re-installation and replace existing configuration (implies --force).

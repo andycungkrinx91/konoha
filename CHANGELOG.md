@@ -2,6 +2,17 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.13] - 2026-10-29
+
+### Cross-Platform Reliability, Authoritative HITL Gates & Client Bootstrap
+
+- **Upgrade Import Chain Fix**: Resolved `TypeError: purgePackageCaches is not a function` at Stage 3 of `konoha upgrade` by correctly importing and exporting the helper across `bin/lib/runtime_mcp.js` and `bin/commands/upgrade.js`.
+- **Authoritative In-Band HITL Approval Gates**: Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) are strictly authoritative and mandatory across all execution modes. Client autonomous settings and YOLO flags cannot bypass either gate. Rejection cleanly triggers the reject -> regenerate -> re-gate loop with human refinement notes. Unavailable approval transports fail closed.
+- **Immediate First-Session Client Instruction Bootstrap**: Guaranteed injection of the Konoha contract, safety guardrails, and subagent MCP tools before the client's first execution turn across all supported coding clients (Cursor, Claude Code, Antigravity, OpenCode, Command Code, Codex, Pi, OMP). Preserved `@advisor` delivery review integration.
+- **UI Service Default Resilience**: Hardened `bin/lib/ui_service.js` and service discovery checks with robust fallback defaults and resilient daemon lifecycle controls.
+- **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.13` across `package.json`, `package-lock.json`, `apps/web/package.json`, `src/agent_contract.js`, `Dockerfile`, `+layout.svelte`, and all client contracts and templates.
+- **Google Policy Compliance Audit (`v2.2.13`)**: Published certified compliance report (`docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md`) certifying zero production vulnerabilities, 100/100 `aislop` health, 111 CLI command passes, and 20 Web UI automation passes.
+
 ## [2.2.12] - 2026-10-29
 
 ### Windows Upgrade Progress Engine, Reinstall Resilience & Hook Quoting Governance
@@ -217,7 +228,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 ### Canonical 8-Phase Polyglot & Multi-Agent Architecture Refinement (PLAN_REFINE_WORKFLOW.md)
 
 - **Dynamic Polyglot Stack Detection (`src/mcp/stack_detector.js`)**: Dynamic runtime and validation matrix detection for Python (`uv`/`pytest`/`ruff`), Go (`go test`/`golangci-lint`), Rust (`cargo test`/`clippy`), PHP (`pest`/`phpstan`), Java (`gradlew test`/`check`), and Node/TS (`pnpm test`/`pnpm run lint`). Automated test coverage in `tests/test_stack_detector.js`.
-- **Configurable Two-Stage HITL Mode (`src/db.js`, `src/sdlc_manager.js`, `src/web_server.js`, `apps/web/src/components/Tasks.svelte`, `bin/commands/project.js`)**: Added `projects.hitl_mode` (`enabled` vs `disabled`), Web UI HITL Mode selector with 5px radius and `login-field-effect`, and CLI `konoha project set hitl-mode <val>`. Supports Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) blocking when enabled, and hands-free autonomous execution when disabled.
+- **Two-Stage HITL Mode (`src/db.js`, `src/sdlc_manager.js`, `src/web_server.js`, `apps/web/src/components/Tasks.svelte`, `bin/commands/project.js`)**: Added `projects.hitl_mode` (`enabled` vs `disabled`), Web UI HITL Mode selector with 5px radius and `login-field-effect`, and CLI `konoha project set hitl-mode <val>`. Supports Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) blocking authoritatively across all execution modes.
 - **Telegram 2-Way Interactive Approvals (`src/telegram/poller.js`, `src/telegram/notifier.js`)**: Implemented `/approval list`, `/approval <id>`, inline keyboard buttons `[✅ Approve]` and `[❌ Reject]`, callback query handling updating `sdlc_tasks`, and strict mutual exclusion between 1-way and 2-way notifications. Automated test coverage in `tests/test_telegram_approval.js`.
 - **RTK Boundary & Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Enforced strict blocking on `rtk cat`, `rtk grep`, `cat`, `grep`, `rg`, `find`, redirecting to `konoha.read_file_range` and `konoha.token_efficient_grep`. Automated test coverage in `tests/test_guardrails_anti_cat.js`.
 - **Cross-Client Contract Injection v2.2.0 (`src/agent_contract.js`)**: Bumped `CONTRACT_VERSION` to `2.2.0-cross-client-1`, codified the 8-phase SDLC pipeline, eliminated file-based IPC (`prompt.md` / `delegate.md`), and refreshed managed contracts across all 8 clients (`CLAUDE.md`, `GEMINI.md`).

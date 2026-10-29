@@ -41,7 +41,7 @@ function openUrlInBrowser(targetUrl) {
     if (p === 'darwin') {
       spawn('open', [safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
     } else if (p === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '""', safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+      spawn('cmd.exe', ['/c', 'start', '""', targetUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
     } else {
       spawn('xdg-open', [safeUrl], { stdio: 'ignore', detached: true, windowsHide: true }).unref();
     }
@@ -138,6 +138,9 @@ async function cmdUiDaemon(args = []) {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  if (process.platform === 'win32') {
+    process.on('SIGBREAK', shutdown);
+  }
   await new Promise(() => {});
 }
 
@@ -220,7 +223,7 @@ function spawnBackgroundDaemon(port, host, token, silent) {
 }
 
 async function waitForPortReady(port) {
-  const maxAttempts = 35;
+  const maxAttempts = process.platform === 'win32' ? 30 : 15;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await checkPortActive(port)) return true;
@@ -307,6 +310,19 @@ async function terminatePortListeners(stopPort) {
   } else {
     try {
       execSync(`powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"`, { stdio: 'ignore', windowsHide: true });
+    } catch (_) { /* non-fatal */ }
+    try {
+      const netstat = execSync('netstat -ano -p tcp', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+      const lines = netstat.split('\n');
+      for (const line of lines) {
+        if (line.includes(`:${stopPort} `) && line.includes('LISTENING')) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && /^\d+$/.test(pid) && pid !== '0') {
+            try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (_) {}
+          }
+        }
+      }
     } catch (_) { /* non-fatal */ }
   }
 }

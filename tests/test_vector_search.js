@@ -120,6 +120,20 @@ async function testClangCanonicalSearchRanking() {
 
   const conn = db.getConnection(realDb);
   try {
+    const existing = conn.prepare("SELECT 1 FROM skills WHERE name = 'clang'").get();
+    if (!existing) {
+      conn.prepare(`
+        INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run('clang', 'clang', 'skill', 'clang, compiler, c, cpp, c++, llvm, build tool', '# Clang\nC and C++ Clang compiler toolchain and diagnostics.', path.join(os.homedir(), '.agents', 'skills', 'clang', 'SKILL.md'), 120, 5);
+      try {
+        conn.prepare(`
+          INSERT INTO skills_fts (name, skill_name, tags, content)
+          VALUES (?, ?, ?, ?)
+        `).run('clang', 'clang', 'clang, compiler, c, cpp, c++, llvm, build tool', '# Clang\nC and C++ Clang compiler toolchain and diagnostics.');
+      } catch (_) {}
+    }
+
     const semantic = await vector_search.findSkillSemantic(conn, 'clang', 3, 20);
     assert.ok(semantic.length > 0, 'findSkillSemantic should return results for clang');
     assert.strictEqual(semantic[0].name, 'clang', `Canonical skill "clang" must be rank #1 in findSkillSemantic, got "${semantic[0].name}"`);

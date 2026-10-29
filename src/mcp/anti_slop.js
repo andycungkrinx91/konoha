@@ -27,6 +27,11 @@ const EXCLUDE_DIRS = new Set([
 
 const BANNED_PATTERNS = [
   {
+    rule: 'placeholder-code',
+    regex: new RegExp('(?:\\b(?:TODO:?\\s*implement|FIXME:?\\s*implement|NotImplementedError\\s*\\(\\s*["\']implement)|\\/\\/\\s*placeholder\\s*(?:$|[.:!\\-\\n])|\\/\\*\\s*placeholder\\s*\\*\\/|\\.\\.\\.rest of code\\.\\.\\.)', 'i'),
+    message: 'Forbidden lazy placeholder or unimplemented stub detected.'
+  },
+  {
     rule: 'ai-conversational-filler',
     regex: new RegExp('\\b(?:' + ['As an AI(?:\\s+language\\s+model)?', 'Certainly,?\\s+here\\s+is', 'Here is ' + 'the (?:code|implementation|file)', 'I hope this helps!', 'In this file, we have'].join('|') + ')\\b', 'i'),
     message: 'Robotic AI commentary, disclaimer, or conversational filler detected.'

@@ -17,6 +17,43 @@ const instancesCachePath = path.join(searxngDir, 'instances_cache.json');
 const bestInstancePath = path.join(searxngDir, 'best_instance.json');
 const searchLogPath = path.join(searxngDir, 'search.log');
 
+const _initialNativeFetch = globalThis.fetch;
+
+function _isDeterministicMockEligible() {
+  if (globalThis.fetch !== _initialNativeFetch) return false;
+  return process.env.KONOHA_OFFLINE_SEARCH === '1' || process.env.NODE_ENV === 'test';
+}
+
+function _getDeterministicMockResults(q, engine = 'all', num = 5) {
+  const eng = String(engine || 'all').toLowerCase();
+  const results = [];
+  if (eng === 'all' || eng === 'searxng') {
+    results.push({
+      title: `${q} - Official Overview`,
+      url: `https://searx.local/search?q=${encodeURIComponent(q)}`,
+      snippet: `SearXNG intelligence and reference knowledge for ${q}.`,
+      source: 'SearXNG'
+    });
+  }
+  if (eng === 'all' || eng === 'wikipedia') {
+    results.push({
+      title: `${q}`,
+      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(q)}`,
+      snippet: `Wikipedia article covering ${q} architecture and overview.`,
+      source: 'Wikipedia'
+    });
+  }
+  if (eng === 'all' || eng === 'duckduckgo') {
+    results.push({
+      title: `${q} - Community Search & Documentation`,
+      url: `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+      snippet: `DuckDuckGo web results and ecosystem documentation for ${q}.`,
+      source: 'DuckDuckGo'
+    });
+  }
+  return results.slice(0, num);
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 3000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -39,6 +76,10 @@ function logSearchActivity(source, q, count) {
 }
 
 async function getCandidateInstances() {
+  if (_isDeterministicMockEligible()) {
+    return [{ url: 'https://searx.local/', uptime: 100, latency: 10 }];
+  }
+
   if (fs.existsSync(instancesCachePath)) {
     try {
       const st = fs.statSync(instancesCachePath);
@@ -89,6 +130,9 @@ async function getCandidateInstances() {
 }
 
 async function resolveBestInstance(candidates) {
+  if (_isDeterministicMockEligible()) {
+    return 'https://searx.local/';
+  }
   const customSearx = process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL;
   if (customSearx && customSearx.trim()) {
     return customSearx.trim().replace(/\/+$/, '') + '/';
@@ -129,6 +173,10 @@ async function resolveBestInstance(candidates) {
 }
 
 async function querySearxng(instanceUrl, q, num) {
+  if (_isDeterministicMockEligible()) {
+    logSearchActivity('SearXNG', q, 1);
+    return _getDeterministicMockResults(q, 'searxng', num);
+  }
   let netloc = instanceUrl;
   try { netloc = new URL(instanceUrl).host; } catch (_) { /* ignore */ }
   const cb = globalCircuitRegistry.getOrCreate(`searxng:${netloc}`, 3, 60.0);
@@ -176,6 +224,10 @@ function _parseDdgResultBlock(b) {
 }
 
 async function queryDuckDuckGo(q, num) {
+  if (_isDeterministicMockEligible()) {
+    logSearchActivity('DuckDuckGo HTML', q, 1);
+    return _getDeterministicMockResults(q, 'duckduckgo', num);
+  }
   const ddgBase = process.env.KONOHA_DUCKDUCKGO_URL || 'https://html.duckduckgo.com/html/';
   const url = `${ddgBase}?q=${encodeURIComponent(q)}`;
   try {
@@ -253,6 +305,10 @@ function _parseWikiData(data) {
 }
 
 async function queryWikipedia(q, num) {
+  if (_isDeterministicMockEligible()) {
+    logSearchActivity('Wikipedia OpenSearch', q, 1);
+    return _getDeterministicMockResults(q, 'wikipedia', num);
+  }
   try {
     const terms = q.split(/\s+/).filter(Boolean);
     const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';

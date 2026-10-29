@@ -2,7 +2,7 @@
   <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
-[![Release](https://img.shields.io/badge/Release-v2.2.12-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v2.2.13-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
@@ -19,10 +19,10 @@
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white)](docs/SETUP-SEARXNG.md)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md)
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.12-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.13-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md)
 [![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
@@ -59,8 +59,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
-* **Latest Release:** [v2.2.12](CHANGELOG.md) — Cross-platform Windows upgrade progress bar, installation resilience, and hook argument quoting governance.
-* **Latest Security Compliance:** [Google Policy Compliance v2.2.12 — Audited & Certified (2026-10-29)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md)
+* **Latest Release:** [v2.2.13](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
+* **Latest Security Compliance:** [Google Policy Compliance v2.2.13 — Audited & Certified (2026-10-29)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md)
 
 ### ✧ Diagram Flow Konoha Orchestrator
 
@@ -493,7 +493,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.2.12) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.2.13) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -1071,7 +1071,7 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 | **[QA Automation Architecture](docs/QA-AUTOMATION.md)** | Playwright E2E compiler and self-healing test loop | `qa_codify`, `qa_e2e_run`, token-efficient flows |
 | **[SearXNG Search Setup](docs/SETUP-SEARXNG.md)** | Zero-API-key privacy search engine deployment | Chunin research agent, Docker Compose, JSON API |
 | **[LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md)** | Multi-provider proxy router on port 19999 | Local model multiplexing, sidecar integration |
-| **[Security Compliance Report](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md)** | Certified policy compliance and threat analysis | Google Policy v2.2.12 audit, AES-256 vault |
+| **[Security Compliance Report](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md)** | Certified policy compliance and threat analysis | Google Policy v2.2.13 audit, AES-256 vault |
 
 ---
 

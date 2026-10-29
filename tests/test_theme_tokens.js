@@ -39,11 +39,13 @@ const REQUIRED_TOKEN_KEYS = [
 async function run() {
   console.log('Running test_theme_tokens tests...');
   const themeFile = read('lib/state/themeState.svelte.js');
+  const tokensFile = read('lib/state/themeTokens.js');
   const appCss = read('app.css');
 
   // Evaluate the module with a stubbed rune so plain Node can read THEMES.
   const runnable = themeFile
     .replace(/^\/\* eslint-disable no-undef \*\/\n/, '')
+    .replace(/^import\s+[\s\S]*?from\s+['"][^'"]+['"];?/gm, '')
     .replace(/^export /gm, '');
   const factory = new Function('$state', runnable + '\nreturn { THEMES };');
   const { THEMES } = factory((initial) => initial);
@@ -79,8 +81,9 @@ async function run() {
     '--theme-gradient', '--theme-glow', '--shadow-3d', '--shadow-3d-hover',
     '--glass-edge', '--glass-highlight'
   ];
+  const combinedThemeCode = themeFile + '\n' + tokensFile;
   for (const name of contractVars) {
-    assert.ok(themeFile.includes(`'${name}'`), `themeState must set ${name}`);
+    assert.ok(combinedThemeCode.includes(`'${name}'`), `themeState/themeTokens must set ${name}`);
   }
 
   // 4. app.css mirrors the default Light/Dark token matrix.

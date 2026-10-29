@@ -305,9 +305,10 @@ function generateClaudeCodeSubagent(agent) {
   return frontmatter.join('\n') + body;
 }
 
-function deployClaudeCodeRules(ruleContent, silent = true) {
+function deployClaudeCodeRules(ruleContent, silent = true, options = {}) {
   if (!ruleContent) return false;
-  const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const CLAUDE_MD = (opts && opts.rulesPath) || (opts && opts.home ? path.join(opts.home, ".claude", "CLAUDE.md") : path.join(HOME, ".claude", "CLAUDE.md"));
   ensureDir(path.dirname(CLAUDE_MD));
 
   const startMarker = '\n<!-- KONOHA-START -->\n';
@@ -396,9 +397,20 @@ function removeProjectClaudeMd(projectRoot, silent = true) {
   return false;
 }
 
-function _deployClaudeCodeAgents(agents) {
+function _cleanMcpAgentFiles(dir) {
+  try {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file.startsWith('mcp_') && file.endsWith('.md')) {
+        fs.unlinkSync(path.join(dir, file));
+      }
+    }
+  } catch (_) { /* ignore */ }
+}
+
+function _deployClaudeCodeAgents(agents, options = {}) {
   if (!agents || !agents.length) return;
-  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  const claudeAgentsDir = (options && options.home ? path.join(options.home, ".claude", "agents") : path.join(HOME, ".claude", "agents"));
   ensureDir(claudeAgentsDir);
   for (const agent of agents) {
     if (!agent || !agent.name || !validateAgentName(agent.name, claudeAgentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
@@ -406,14 +418,7 @@ function _deployClaudeCodeAgents(agents) {
     const targetPath = path.join(claudeAgentsDir, agent.name + '.md');
     fs.writeFileSync(targetPath, mdContent);
   }
-  try {
-    const files = fs.readdirSync(claudeAgentsDir);
-    for (const file of files) {
-      if (file.startsWith('mcp_') && file.endsWith('.md')) {
-        fs.unlinkSync(path.join(claudeAgentsDir, file));
-      }
-    }
-  } catch (_) { /* ignore */ }
+  _cleanMcpAgentFiles(claudeAgentsDir);
 }
 
 function ensureClaudeCodeSetup(options = {}) {
@@ -441,22 +446,22 @@ function ensureClaudeCodeSetup(options = {}) {
   }
 
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options);
-  registerClaudeCodePermissions(silent);
-  registerClaudeCodeNativeBlocker();
-  registerClaudeCodeBashGuard(silent);
-  registerClaudeCodeWorkflowReminder(silent);
-  deployClaudeCodeRtkRule(silent);
+  registerClaudeCodePermissions(silent, options);
+  registerClaudeCodeNativeBlocker(options);
+  registerClaudeCodeBashGuard(silent, options);
+  registerClaudeCodeWorkflowReminder(silent, options);
+  deployClaudeCodeRtkRule(silent, options);
   initRtkHook(silent);
 
-  if (ruleContent) {
-    deployClaudeCodeRules(ruleContent, silent);
-  }
+  const effectiveAgents = (agents && agents.length > 0) ? agents : require("../agent_manager").loadAgents();
+  const effectiveRuleContent = ruleContent || require("../agent_manager").generateClaudeCodeMd(effectiveAgents);
+  deployClaudeCodeRules(effectiveRuleContent, silent, options);
 
-  _deployClaudeCodeAgents(agents);
+  _deployClaudeCodeAgents(effectiveAgents, options);
 
   if (deployProject && projectRoot) {
     try {
-      deployProjectClaudeMd(projectRoot, agents, silent, ruleContent);
+      deployProjectClaudeMd(projectRoot, effectiveAgents, silent, effectiveRuleContent);
     } catch { /* ignore */ }
   }
 

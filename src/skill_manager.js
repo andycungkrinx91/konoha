@@ -443,19 +443,7 @@ function syncAllClientSkills(options = {}) {
   if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
 
   const targetDirs = [
-    path.resolve(effectiveHome, '.agents', 'skills'),
-    path.resolve(effectiveHome, '.gemini', 'antigravity-cli', 'skills'),
-    path.resolve(effectiveHome, '.gemini', 'skills'),
-    path.resolve(effectiveHome, '.cursor', 'skills'),
-    path.resolve(effectiveHome, '.claude', 'skills'),
-    path.resolve(effectiveHome, '.commandcode', 'skills'),
-    path.resolve(effectiveHome, '.codex', 'skills'),
-    path.resolve(effectiveHome, '.config', 'opencode', 'skills'),
-    path.resolve(effectiveHome, '.opencode', 'skills'),
-    path.resolve(effectiveHome, '.pi', 'agent', 'skills'),
-    path.resolve(effectiveHome, '.pi', 'skills'),
-    path.resolve(effectiveHome, '.omp', 'agent', 'skills'),
-    path.resolve(effectiveHome, '.omp', 'skills')
+    path.resolve(effectiveHome, '.agents', 'skills')
   ];
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);

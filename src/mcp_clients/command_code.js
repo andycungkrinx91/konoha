@@ -94,8 +94,12 @@ function _appendMissing(list, items) {
   return updated;
 }
 
-function registerCommandCodePermissions(silent = true) {
-  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+function registerCommandCodePermissions(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const home = (opts && opts.home) || HOME;
+  const settingsPath = (opts && opts.settingsPath) || path.join(home, ".commandcode", "settings.json");
+  const { ensureDir } = require("../platform_utils");
+  ensureDir(path.dirname(settingsPath));
   return mergeJsonFile(
     settingsPath,
     (config) => {
@@ -275,11 +279,33 @@ function _loadCommandCodeSettingsSafe(settingsPath, silent) {
   }
 }
 
-function registerCommandCodeWorkflowReminder(silent = true) {
-  const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
-  if (!fileExists(reminderPath)) return;
+function _ensureReminderFile(reminderPath, konohaDir) {
+  if (fileExists(reminderPath)) return true;
+  const cands = [
+    path.join(konohaDir, "workflow", "sannin-orchestrator", "workflow_reminder.js"),
+    path.join(__dirname, "..", "workflow", "sannin-orchestrator", "workflow_reminder.js"),
+    path.join(__dirname, "..", "..", "src", "workflow", "sannin-orchestrator", "workflow_reminder.js")
+  ];
+  for (const c of cands) {
+    if (!fileExists(c)) continue;
+    try {
+      const { ensureDir } = require("../platform_utils");
+      ensureDir(konohaDir);
+      fs.copyFileSync(c, reminderPath);
+      return true;
+    } catch (_) { /* best-effort copy */ }
+  }
+  return fileExists(reminderPath);
+}
+
+function registerCommandCodeWorkflowReminder(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const home = (opts && opts.home) || HOME;
+  const konohaDir = path.join(home, ".konoha");
+  const reminderPath = path.join(konohaDir, "workflow_reminder.js");
+  if (!_ensureReminderFile(reminderPath, konohaDir)) return;
   const reminderCommand = `"${process.execPath}" "${reminderPath}"`;
-  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+  const settingsPath = (opts && opts.settingsPath) || path.join(home, ".commandcode", "settings.json");
   try {
     if (!fs.existsSync(path.dirname(settingsPath))) {
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
@@ -301,17 +327,19 @@ function registerCommandCodeWorkflowReminder(silent = true) {
   }
 }
 
-function deployCommandCodeRules(silent = true) {
-  const { loadAgents, generateAgentsMd } = require('../agent_manager');
+function deployCommandCodeRules(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const home = (opts && opts.home) || HOME;
+  const { loadAgents, generateAgentsMd } = require("../agent_manager");
 
   let agents = [];
   try {
     agents = loadAgents();
   } catch { /* ignore */ }
 
-  const agentsMd = path.join(HOME, '.commandcode', 'AGENTS.md');
-  const ruleDest = path.join(HOME, '.commandcode', 'rules', 'konoha.md');
-  const agentsDir = path.join(HOME, '.commandcode', 'agents');
+  const agentsMd = (opts && opts.agentsMd) || path.join(home, ".commandcode", "AGENTS.md");
+  const ruleDest = (opts && opts.ruleDest) || path.join(home, ".commandcode", "rules", "konoha.md");
+  const agentsDir = (opts && opts.agentsDir) || path.join(home, ".commandcode", "agents");
 
   try {
     ensureDir(path.dirname(agentsMd));
@@ -360,11 +388,11 @@ function ensureCommandCodeSetup(options = {}) {
   if (!registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options)) {
     return { ok: false, reason: 'commandcode-mcp-registration-failed' };
   }
-  registerCommandCodePermissions(silent);
-  registerCommandCodeWorkflowReminder(silent);
-  const nativeBlocker = registerCommandCodeNativeBlocker(silent);
+  registerCommandCodePermissions(silent, options);
+  registerCommandCodeWorkflowReminder(silent, options);
+  const nativeBlocker = registerCommandCodeNativeBlocker(silent, options);
   const rtkRule = deployCommandCodeRtkRule(silent);
-  const contractRule = deployCommandCodeRules(silent);
+  const contractRule = deployCommandCodeRules(silent, options);
   const status = getCommandCodeStatus(options);
   if (!status.mcpKonoha || !status.mcpSemble) {
     return { ok: false, reason: 'commandcode-mcp-verification-failed' };

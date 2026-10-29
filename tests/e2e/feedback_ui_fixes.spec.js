@@ -46,6 +46,6 @@ test.describe("Feedback UI Fixes E2E", () => {
     await page.goto("http://127.0.0.1:4173/tasks");
     await expect(page.getByText("Tasks (").first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: "Reconcile Stale" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
   });
 });
