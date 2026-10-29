@@ -548,6 +548,9 @@ function ensureAntigravityPermissions(silent = true, options = {}) {
   const requiredGrants = [
     'command(rtk)', 'command(rtk *)', 'command(rtk:*)', 'command(node bin/cli.js)', 'command(konoha)', 'command(konoha *)',
     'command(node "' + path.join(home, '.konoha', 'prompt_hook.js') + '")',
+    'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'prompt_hook.js') + '")',
+    'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'antigravity_subagent_hook.js') + '")',
+    'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'antigravity_tool_sanitize_hook.js') + '")',
     'mcp(semble/search)', 'mcp(semble/find_related)', 'mcp(semble/*)',
     'mcp(aislop/aislop_scan)', 'mcp(aislop/aislop_fix)', 'mcp(aislop/aislop_why)', 'mcp(aislop/aislop_baseline)', 'mcp(aislop/*)',
     ...konohaToolGrants,

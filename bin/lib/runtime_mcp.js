@@ -270,23 +270,31 @@ function readHooksConfig(configPath) {
   }
 }
 
+function quotePath(p) {
+  if (typeof p !== 'string') return '""';
+  const trimmed = p.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) return trimmed;
+  return `"${trimmed}"`;
+}
+
 function applyPromptAndSanitizeHooks(config) {
   const promptHookPath = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
   const subagentHookPath = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
   const sanitizeHookPath = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
 
+  const execPath = process.execPath;
   delete config['konoha-subagent-hook'];
   config['konoha-prompt-hook'] = {
     PreInvocation: [
-      { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
-      { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
+      { type: 'command', command: `${quotePath(execPath)} ${quotePath(subagentHookPath)}` },
+      { type: 'command', command: `${quotePath(execPath)} ${quotePath(promptHookPath)}` },
     ],
   };
   config['konoha-tool-sanitize'] = {
     PreToolUse: [
       {
         matcher: 'define_subagent|invoke_subagent',
-        hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
+        hooks: [{ type: 'command', command: `${quotePath(execPath)} ${quotePath(sanitizeHookPath)}`, timeout: 10 }],
       },
     ],
   };

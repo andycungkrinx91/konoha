@@ -186,7 +186,54 @@ class KonohaProgressBar {
     process.stdout.write(line);
   }
 
+  logStep(msg) {
+    if (this.isTTY) {
+      process.stdout.write('\r\x1b[2K');
+      log(`  ${C.green}✓${C.reset} ${msg}`);
+      this.render();
+    } else {
+      log(`  ${C.green}✓${C.reset} ${msg}`);
+    }
+    return this;
+  }
+
+  startPulse(label) {
+    if (typeof label === 'string') this.status = label;
+    this.stopPulse();
+    if (!this.isTTY) {
+      this.render();
+      return this;
+    }
+    let pulseIdx = 0;
+    this.timer = setInterval(() => {
+      pulseIdx = (pulseIdx + 1) % SPINNER_FRAMES.length;
+      const frame = SPINNER_FRAMES[pulseIdx];
+      const ratio = Math.min(1, Math.max(0, this.current / this.total));
+      const percent = Math.round(ratio * 100);
+      const filledLen = Math.round(this.width * ratio);
+      const emptyLen = this.width - filledLen;
+      const bar = `${C.cyan}${'█'.repeat(filledLen)}${C.dim}${'░'.repeat(emptyLen)}${C.reset}`;
+      const line = `\r\x1b[2K  ${C.bold}${this.title}${C.reset} [${bar}] ${C.cyan}${String(percent).padStart(3)}%${C.reset} ${C.dim}${frame} ${this.status}${C.reset}`;
+      process.stdout.write(line);
+    }, SPINNER_INTERVAL_MS || 80);
+    return this;
+  }
+
+  stopPulse() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    return this;
+  }
+
+  finish(finalStatus = 'Complete') {
+    this.stopPulse();
+    return this.complete(finalStatus);
+  }
+
   complete(finalStatus = 'Complete') {
+    this.stopPulse();
     this.current = this.total;
     this.status = finalStatus;
     if (this.isTTY) {
@@ -198,6 +245,7 @@ class KonohaProgressBar {
   }
 
   fail(reason = 'Failed') {
+    this.stopPulse();
     if (this.isTTY) {
       process.stdout.write('\r\x1b[2K');
       log(`  ${C.red}✗${C.reset} ${C.bold}${this.title}${C.reset} — ${C.red}${reason}${C.reset}`);
@@ -219,7 +267,19 @@ function copyFile(src, dest) {
   try {
     if (path.resolve(src) === path.resolve(dest)) return;
   } catch (_) { /* intentional fallback */ }
-  fs.copyFileSync(src, dest);
+  try {
+    fs.copyFileSync(src, dest);
+  } catch (err) {
+    if (process.platform === 'win32' && (err.code === 'EBUSY' || err.code === 'EPERM')) {
+      try {
+        fs.chmodSync(dest, 0o666);
+        fs.unlinkSync(dest);
+        fs.copyFileSync(src, dest);
+      } catch (_) { /* non-fatal best effort */ }
+    } else {
+      throw err;
+    }
+  }
 }
 
 function checkPython() {

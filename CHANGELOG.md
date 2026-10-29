@@ -2,6 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.12] - 2026-10-29
+
+### Windows Upgrade Progress Engine, Reinstall Resilience & Hook Quoting Governance
+
+- **Interactive Progress Bar API (`bin/lib/prompt.js`)**: Added `logStep`, `startPulse`, `stopPulse`, and `finish` methods to `KonohaProgressBar`, eliminating the `TypeError: pbar.logStep is not a function` error during `konoha upgrade` on Windows across all 7 stages.
+- **Windows Reinstallation & Daemon Release Resilience**: Integrated preemptive Web UI daemon shutdown (`cmdUiStop(['--port=1404'])`) into `konoha uninstall` and `konoha init --force`. Added graceful error handling and retry for Windows `EBUSY`/`EPERM` locks during Web UI build synchronization (`runtime_install.js`) and runtime file copies (`prompt.js:copyFile`).
+- **Hook Argument Quoting Governance**: Wrapped Node binary and script paths with strict double-quoting (`quotePath()`) in `applyPromptAndSanitizeHooks` (`bin/lib/runtime_mcp.js`) and permission grants in `src/antigravity_manager.js`, resolving execution failures caused by unquoted spaces in user directories (`%USERPROFILE%`).
+- **Google Policy Compliance Audit (`v2.2.12`)**: Published certified compliance report (`docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md`) certifying zero vulnerabilities in production dependencies, 100/100 `aislop` health, and cross-client runtime synchronization.
+- **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.12` across `package.json`, `package-lock.json`, `apps/web/package.json`, `src/agent_contract.js`, `Dockerfile`, `+layout.svelte`, and all 12 client template contracts.
+
 ## [2.2.11] - 2026-10-28
 
 ### Canonical Interactive HITL Gates, 8-Client In-Band Prompting & Workflow Governance

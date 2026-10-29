@@ -1,6 +1,6 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v2.2.11** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and eight ninja subagents work across all environments.
+Konoha **v2.2.12** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and eight ninja subagents work across all environments.
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 

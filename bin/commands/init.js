@@ -252,7 +252,13 @@ async function cmdInit(args, options = {}) {
     cmdInitHelp();
     return;
   }
-  if (args.includes('--force')) purgePackageCaches({ silent: true });
+  if (args.includes('--force')) {
+    purgePackageCaches({ silent: true });
+    try {
+      const { cmdUiStop } = require('../lib/ui_commands');
+      await cmdUiStop(['--port=1404']);
+    } catch (_) { /* non-fatal best effort */ }
+  }
   syncTemplateSkills();
   drawLogo();
 

@@ -44,9 +44,18 @@ function cleanServerFiles() {
     const filePath = path.join(SKILLS_DB_DIR, file);
     try {
       if (fs.statSync(filePath).isDirectory()) {
-        fs.rmSync(filePath, { recursive: true, force: true });
+        fs.rmSync(filePath, { recursive: true, force: true, maxRetries: 3 });
       } else {
-        fs.unlinkSync(filePath);
+        try {
+          fs.unlinkSync(filePath);
+        } catch (_unlinkErr) {
+          if (process.platform === 'win32') {
+            try {
+              fs.chmodSync(filePath, 0o666);
+              fs.unlinkSync(filePath);
+            } catch (_) { /* non-fatal best effort */ }
+          }
+        }
       }
     } catch (_) { /* non-fatal */ }
   });
@@ -214,6 +223,11 @@ async function cmdUninstall(args = []) {
     return;
   }
   header('🗑️  Uninstalling Konoha MCP');
+
+  try {
+    const { cmdUiStop } = require('../lib/ui_commands');
+    await cmdUiStop(['--port=1404']);
+  } catch (_) { /* non-fatal best effort */ }
 
   cleanServerFiles();
 

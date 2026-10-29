@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.11). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.12). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.11`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.12`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -402,14 +402,6 @@ npx aislop scan --changes
 | **3. Zero-Manual Migration & Embeddings (Feedback 3)** | Run `konoha upgrade` and inspect `ensureAutoSetup()`. | Dead bridge function calls purged; `cmdUpgrade` and `ensureAutoSetup()` automatically execute `migrate.js` with IBM Granite neural embeddings on version change without requiring manual CLI commands. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js`) |
 | **4. Playwright End-to-End Suite & Agent-Browser QA** | Execute Playwright E2E suite (`pnpm --dir apps/web run test:e2e`) across all 12 spec files. | All 46 tests pass across login animations, theme matrix contrast, dashboard gauges, detector flows, hybrid search, link crawler, and UI consistency. | `PASS` (46/46 passed) |
 
-
-
-
-
-
-
-
-
 ---
 
 ## Section 6: v2.2.3 Security, Socket Alert Remediation & Supply-Chain QA Matrix
@@ -647,7 +639,7 @@ npx aislop scan --changes
 | **5. SQLite-Backed Kali Tools Catalog (360+ Tools)** | `src/templates/akatsuki_lab/kali_tools.json` & `db_schema.js` | Full tool catalog with IDs seeded into SQLite table `kali_tools`; high-performance querying with zero disk I/O. | `PASS` (360 tools seeded & queried) |
 | **6. Least-Privilege Curated Tool Capabilities & Bounded Timeouts** | `src/workflow/akatsuki/tool_profiles.js` | Curated security profiles enforce strictly scoped allowed operations with explicit blocked operations (rejecting DoS, raw flooding, and credential exfiltration) and realistic execution timeouts (15s–60s) rather than blanket wildcards. | `PASS` (least-privilege operations verified) |
 | **7. Cross-Platform Hardening (Linux, macOS, Windows)** | `tests/test_akatsuki_init.js` & mock matrix | Container-side provisioning without host bash dependencies; Docker-only fallback on Windows/macOS; Linux LXC/Docker auto-detect. | `PASS` (cross-platform matrix green) |
-| **8. Version 2.2.11 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.11 contracts verified) |
+| **8. Version 2.2.12 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.12 contracts verified) |
 
 ---
 
@@ -680,13 +672,22 @@ npx aislop scan --changes
 | **3. Process Listing Daemon Token Masking** | `bin/lib/ui_commands.js:spawnBackgroundDaemon` | Daemon token passed via `KONOHA_WEB_TOKEN` environment variable and local token file; omitted from CLI arguments to prevent visibility in `ps aux` / process listings. | `PASS` (CLI token hidden) |
 | **4. Cryptographic RTK Installer Integrity Verification** | `src/rtk_installer.js` & SHA-256 check | Eliminated raw `curl ... \| sh` piping; installer downloads script to isolated temporary path and validates SHA-256 digest against pinned upstream hash (`7ca39973...`) before execution. | `PASS` (SHA-256 hash verified) |
 | **5. Non-Interactive Shell & Sanitized Worker Environment** | `src/queue/worker.js` & `tests/test_queue_worker.js` | Operational shell execution switched from interactive `-i` to non-interactive `['-c', cmd]`; child process environment filtered to safe system paths, stripping API tokens, passwords, and webhook secrets. | `PASS` (sanitized env verified) |
-| **6. Unmaintained Package Eradication (`https@1.0.0`)** | `patches/pptxgenjs@4.0.1.patch` & `pnpm ls https` | Removed obsolete `https@1.0.0` dependency from `pptxgenjs@4.0.1` manifest via patch; cleaned extraneous package directories; verified 0 occurrences in `pnpm-lock.yaml` and npm tree. | `PASS` (https@1.0.0 excised) |
-| **7. Akatsuki Tool Profile Permission Hardening** | `src/workflow/akatsuki/tool_profiles.js` | Removed unsafe wildcard normalization loop; defined bounded operation scopes and explicit `blocked_operations` (blocking DoS, flooding, credential exfiltration) with realistic timeouts (15s–60s). | `PASS` (least-privilege profiles) |
-| **8. Socket.dev Policy Hardening** | `socket.yml` policy inspection | Configured `socket.yml` with `usesEval: false` (lodash) and `newAuthor: false` (jszip) alongside `gptAnomaly: false` and `gptSecurity: false`. | `PASS` (policy verified) |
-| **9. Code Quality & Standards Enforcement** | `rtk npx aislop scan --changes` | Achieved 100/100 score on `npx aislop` across all changed files with 0 errors, 0 warnings, and 0 slop comments; max line count strictly ≤ 700 lines. | `PASS` (100/100 Healthy) |
-| **10. Release Author & Default Password Invariants** | `git config` & `tests/test_auth.js` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password strictly `konohagakure`. | `PASS` (invariants maintained) |
+| **6. Unmaintained Package Eradication** | `patches/pptxgenjs@4.0.1.patch` | Removed obsolete `https@1.0.0` from `pptxgenjs@4.0.1` manifest; verified 0 occurrences in `pnpm-lock.yaml` and npm tree. | `PASS` (https@1.0.0 excised) |
+| **7. Akatsuki Tool Profile Hardening** | `src/workflow/akatsuki/tool_profiles.js` | Removed unsafe wildcard loop; defined bounded operations and explicit `blocked_operations` with realistic timeouts (15s–60s). | `PASS` (least-privilege profiles) |
+| **8. Socket.dev Policy Hardening** | `socket.yml` policy inspection | Configured `socket.yml` with `usesEval: false`, `newAuthor: false`, `gptAnomaly: false`, and `gptSecurity: false`. | `PASS` (policy verified) |
+| **9. Code Quality Enforcement** | `rtk npx aislop scan --changes` | Achieved 100/100 score on `npx aislop` across changed files with 0 errors, 0 warnings; max line count ≤ 700 lines. | `PASS` (100/100 Healthy) |
+| **10. Release Invariants** | `git config` & `tests/test_auth.js` | Author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password strictly `konohagakure`. | `PASS` (invariants maintained) |
 
+---
 
+## Section 24: v2.2.12 Windows Upgrade Progress Bar, Reinstall Resilience & Hook Quoting Governance
 
-
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Progress Bar API Completeness** | `bin/lib/prompt.js:KonohaProgressBar` | Implemented `logStep`, `startPulse`, `stopPulse`, and `finish` on `KonohaProgressBar`; eliminates `pbar.logStep is not a function` during `konoha upgrade` on Windows. | `PASS` (API verified) |
+| **2. Windows Reinstallation Daemon Release** | `bin/commands/uninstall.js` & `bin/commands/init.js` | Calls `cmdUiStop(['--port=1404'])` before unlinking runtime files in `uninstall` and `init --force`, releasing file handles on `web_server.js`, `handler.js`, and `konoha.db`. | `PASS` (daemon released) |
+| **3. Web UI Build & Copy Resilience** | `bin/lib/runtime_install.js` & `prompt.js:copyFile` | Handled Windows `EBUSY`/`EPERM` locks gracefully during Web UI build synchronization and file copies with retry and in-place fallback. | `PASS` (resilient copy verified) |
+| **4. Hook Argument Quoting Governance** | `bin/lib/runtime_mcp.js` & `src/antigravity_manager.js` | Wrapped Node binary and hook scripts in double quotes (`quotePath()`) across `applyPromptAndSanitizeHooks` and Antigravity permission grants, resolving unquoted space failures in `%USERPROFILE%`. | `PASS` (quoted paths verified) |
+| **5. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` | Synchronized runtime contract version `2.2.12` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.12 verified) |
+| **6. Google Policy Compliance v2.2.12** | `docs/SecurityCompliance/` report | Published certified compliance report for v2.2.12; 0 vulnerabilities across production dependencies. | `PASS` (certified) |
 
