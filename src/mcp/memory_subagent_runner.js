@@ -495,9 +495,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     `You must now act as ${dbAgentName} and execute the task below.\n\n` +
     '## Execution Protocol\n\n' +
     `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind full references for all routed skills without dropping context.\n` +
-    '1. Semble & RTK Mandates: Code search MUST be executed via Semble (`mcp__semble__search`, `mcp__semble__find_related`). Shell executions MUST be prefixed with `rtk <command>`.\n' +
-    `2. Soul Discipline: Strictly embody the ⚑ ${dbAgentName} soul archetype (calling, voice, and tenets). Avoid all generic AI slop, conversational filler, and ungrounded claims.\n` +
-    (dbAgentName === 'genin' ? '3. Genin Read-Only Mode: Strictly explore, inspect, and analyze only. Do NOT modify any files in the codebase.\n' : '3. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n') +
+    '1. Semble & RTK Mandates: Code search MUST be executed via Semble (`mcp__semble__search`, `mcp__semble__find_related`) with the absolute repo path. Shell executions MUST be prefixed with `rtk <command>`.\n' +
+    `2. Soul Discipline: You MUST strictly embody the ⚑ ${dbAgentName} soul archetype (calling, voice, and tenets). Avoid all generic AI slop, conversational filler, and ungrounded claims.\n` +
+    (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: You MUST strictly explore, inspect, and analyze only. You MUST NOT create, edit, overwrite, modify, or delete any files in the codebase (code-level write guard enforced).\n' : '3. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n') +
     '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
     '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
     '6. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +

@@ -596,6 +596,14 @@ function validateToolArguments(name, args) {
 
 function dispatchTool(name, rawArgs) {
   const args = normalizeToolArguments(name, rawArgs || {});
+  const agent = (args.agent || args.agent_name || '').toLowerCase().replace(/_/g, '-');
+  const GENIN_BLOCKED = ['document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'];
+  if (agent === 'genin' && GENIN_BLOCKED.includes(name)) {
+    return {
+      text: JSON.stringify({ error: `Permission denied: @genin is in strict read-only mode and cannot call '${name}'.` }),
+      isError: true
+    };
+  }
   const handler = TOOL_HANDLERS[name];
   try {
     validateToolArguments(name, args);

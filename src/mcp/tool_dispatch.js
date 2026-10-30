@@ -389,8 +389,16 @@ function _executeToolInternal(toolName, args, agent) {
 }
 
 function executeToolSync(toolName, args = {}) {
-  let agent = args.agent || args.agent_name;
-  if (!agent) agent = detectActiveAgent();
+  let agent = (args.agent || args.agent_name || detectActiveAgent() || '').toLowerCase().replace(/_/g, '-');
+  const GENIN_BLOCKED_MUTATION_TOOLS = [
+    'document_create', 'spreadsheet_create', 'presentation_create',
+    'diagram_create', 'animation_export'
+  ];
+  if (agent === 'genin' && GENIN_BLOCKED_MUTATION_TOOLS.includes(toolName)) {
+    return JSON.stringify({
+      error: `Permission denied: @genin is in strict read-only mode and cannot call '${toolName}'. Use read-only exploration or delegate to anbu/tokubetsu-jonin.`
+    });
+  }
 
   if (['web_search', 'document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'].includes(toolName)) {
     const serverJsPath = path.resolve(__dirname, '..', 'server.js');

@@ -208,11 +208,17 @@ function parseSoulMarkdown(rawMarkdown) {
 
 function formatSoulBehavior(arch, universalAdhd) {
   if (!arch) return '';
+  if (typeof arch === 'string') {
+    const soul = getSoul({ agentName: arch, projectPath: typeof universalAdhd === 'string' ? universalAdhd : null });
+    if (soul?.behavior_directive) return soul.behavior_directive;
+    arch = soul?.archetype || {};
+  }
+  const adhd = arch.adhd_shaping || (typeof universalAdhd === 'string' ? universalAdhd : null) || 'Lead with next action, numbered tasks, zero filler.';
   const lines = [
-    `### 忍 Shinobi Soul & Archetype Voice: ${arch.name} (${arch.role})`,
-    `- Voice: "${arch.voice}"`,
-    `- Calling: ${arch.calling}`,
-    `- ADHD Shaping (Soul-Bound): ${arch.adhd_shaping || universalAdhd || 'Lead with next action, numbered tasks, zero filler.'}`,
+    `### 忍 Shinobi Soul & Archetype Voice: ${arch.name || 'Shinobi'} (${arch.role || 'Ninja'})`,
+    `- Voice: "${arch.voice || ''}"`,
+    `- Calling: ${arch.calling || ''}`,
+    `- ADHD Shaping (Soul-Bound): ${adhd}`,
     `- Anti-Slop Discipline (Soul-Bound): Zero robotic filler, generic AI boilerplate, or decorative slop. Delivery strictly audited at 100/100 score.`
   ];
   return lines.join('\n');
