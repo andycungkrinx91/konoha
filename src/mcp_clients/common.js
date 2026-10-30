@@ -121,7 +121,10 @@ function buildStdioMcpServers(options = {}) {
     },
     aislop: resolveAislopMcpConfig()
   };
-  if (fileExists(FILE_TOOLS_MCP_PATH)) {
+  // buildKonohaFilesMcpEntry falls back to the repo copy when the deployed
+  // runtime is absent (standalone setup before `konoha init`), so the konoha
+  // entry is never silently dropped. Real init installs file_tools first.
+  {
     const entry = deployUtils.buildKonohaFilesMcpEntry(client);
     if (entry) {
       entry.autoApprove = deployUtils.KONOHA_CANONICAL_TOOLS
