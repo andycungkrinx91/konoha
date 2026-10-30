@@ -271,18 +271,22 @@ function _buildTokubetsuDocBlock() {
   );
 }
 
-function _loadPrimarySkillContent(primarySkill, agentName) {
-  if (!primarySkill) return [];
+function _loadSkillsContent(skillsList, agentName) {
+  if (!Array.isArray(skillsList) || skillsList.length === 0) return [];
   let skillConn = null;
   const skillsContent = [];
   try {
     skillConn = getDb();
-    const resolved = fuzzyResolveSkill(primarySkill, skillConn) || primarySkill;
-    const row = skillConn.prepare('SELECT content, type FROM skills WHERE name = ?').get(resolved);
-    if (row?.content) {
-      const preview = row.content.substring(0, 250) + (row.content.length > 250 ? '\n...(Use konoha.get_skill for full reference)' : '');
-      const label = row.type === 'skill' ? 'Skill' : 'Reference';
-      skillsContent.push(`### ${label}: ${resolved}\n\n${preview}`);
+    const queryStmt = skillConn.prepare('SELECT content, type FROM skills WHERE name = ?');
+    for (const skillName of skillsList.slice(0, 5)) {
+      if (!skillName) continue;
+      const resolved = fuzzyResolveSkill(skillName, skillConn) || skillName;
+      const row = queryStmt.get(resolved);
+      if (row?.content) {
+        const preview = row.content.substring(0, 200) + (row.content.length > 200 ? '\n...(Use konoha.get_skill for full reference)' : '');
+        const label = row.type === 'skill' ? 'Skill' : 'Reference';
+        skillsContent.push(`### ${label}: ${resolved}\n\n${preview}`);
+      }
     }
   } catch (e) {
     process.stderr.write(`[mcp ${agentName}] Error loading skill definitions: ${e.message}\n`);
@@ -447,7 +451,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     if (soulInfo?.behavior_directive) soulBehaviorBlock = `${soulInfo.behavior_directive}\n`;
   } catch (_) { /* ignore */ }
 
-  const skillsContent = _loadPrimarySkillContent(skillsList[0], agentName);
+  const skillsContent = _loadSkillsContent(skillsList, agentName);
   const projectContextBlock = _formatProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId);
   const tasteSkillBlock = dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '';
   const docDesignBlock = dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : '';
@@ -480,13 +484,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const executionProtocol = (
     `You must now act as ${dbAgentName} and execute the task below.\n\n` +
     '## Execution Protocol\n\n' +
+    `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind full references for all routed skills without dropping context.\n` +
     '1. Tool Utilization: You are provisioned with the main agent MCP tool catalog. Use bounded file tools, Semble search, and RTK commands within your archetype boundaries.\n' +
-    '2. Mandatory Skills Activation: For any skills informed or routed in this delegation (see `Active Flow Skills` or `Available Skills`), you MUST load and activate their domain rules via `konoha.use_skills(skills=[...])`.\n' +
-    '3. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n' +
-    '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
-    '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '6. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
-    '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
+    '2. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n' +
+    '3. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
+    '4. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
+    '5. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
+    '6. When complete, report results and validation evidence via `report_from_agent`.\n\n'
   );
 
   const taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
