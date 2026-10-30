@@ -79,7 +79,7 @@ function _isSubagentRow(row) {
     if (/(?:Please\s+)?read\s+(?:your task|the delegation)/i.test(content)) return true;
     if (/\/brain\/[a-f0-9-]+\/scratch\/tasks\//i.test(content)) return true;
   }
-  if (row.source === 'MODEL' && /\[(?:🍃|🌀|📜|🛡️|👥|🎯)?\s*(?:Genin|Kage|Chunin|Jonin|Anbu|Tokubetsu-jonin)\]\s*active/i.test(content)) {
+  if (row.source === 'MODEL' && /\[(?:🍃|🌀|📜|🛡️|👥|🎯|☁|🍶)?\s*(?:Genin|Kage|Chunin|Jonin|Anbu|Tokubetsu-jonin|Akatsuki|Sannin)\]\s*active/i.test(content)) {
     return true;
   }
   return false;
