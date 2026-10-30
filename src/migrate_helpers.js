@@ -256,7 +256,7 @@ function parseCliArgs(args) {
     dbPath: null,
     clean: false,
     rebuildEmbeddings: false,
-    skipEmbeddings: false,
+    skipEmbeddings: process.env.KONOHA_SKIP_EMBEDDINGS === '1',
     skillsOnly: false,
     requireSkill: []
   };

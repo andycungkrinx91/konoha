@@ -27,6 +27,7 @@ const {
 const { isEmbeddedReference, isCanonicalSkill } = require('./canonical_skills');
 
 let DB_PATH = db.DB_PATH;
+const SKILLS_DB_DIR = path.dirname(DB_PATH);
 let SKILLS_DIR = path.normalize(path.join(os.homedir(), '.agents', 'skills'));
 
 const CUSTOM_SKILLS = [
@@ -247,34 +248,41 @@ function _migrateRootReferences(conn, skillDir, skillName, skillsOnly) {
 
 function _collectDocFiles(dirPath, prefix = '') {
   if (!fs.existsSync(dirPath)) return [];
+  const results = [];
   try {
-    return fs.readdirSync(dirPath, { withFileTypes: true })
-      .filter(ent => ent.isFile() && ent.name.endsWith('.md'))
-      .map(ent => ({
-        path: path.join(dirPath, ent.name),
-        name: `${prefix}${ent.name.replace(/\.md$/, '').toLowerCase()}`
-      }));
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const ent of entries) {
+      if (ent.name.startsWith('.') || ent.name === 'SecurityCompliance' || ent.name === 'templates' || ent.name === 'node_modules') continue;
+      const fullPath = path.join(dirPath, ent.name);
+      if (ent.isDirectory()) {
+        results.push(..._collectDocFiles(fullPath, `${prefix}${ent.name}-`));
+      } else if (ent.isFile() && ent.name.endsWith('.md')) {
+        results.push({
+          path: fullPath,
+          name: `${prefix}${ent.name.replace(/\.md$/, '').toLowerCase()}`
+        });
+      }
+    }
   } catch (_) {
-    return []; /* ignore unreadable directory */
+    /* ignore unreadable directory */
   }
+  return results;
 }
 
 function _migrateDocumentation(conn, skillsOnly) {
   if (skillsOnly) return 0;
+  const targetDir = (typeof DB_PATH === 'string' && DB_PATH) ? path.dirname(DB_PATH) : SKILLS_DB_DIR;
   const candidates = [
-    path.resolve(process.cwd(), 'docs'),
+    path.join(targetDir, 'docs'),
+    path.normalize(path.join(os.homedir(), '.konoha', 'docs')),
     path.resolve(__dirname, '..', 'docs'),
     path.resolve(__dirname, 'docs'),
-    path.normalize(path.join(os.homedir(), '.konoha', 'docs'))
+    path.resolve(process.cwd(), 'docs')
   ];
   const docsDir = candidates.find(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
   if (!docsDir) return 0;
 
-  const docFiles = [
-    ..._collectDocFiles(docsDir, ''),
-    ..._collectDocFiles(path.join(docsDir, 'architecture'), 'arch-')
-  ];
-
+  const docFiles = _collectDocFiles(docsDir, '');
   let count = 0;
   const stmt = conn.prepare(
     "INSERT OR REPLACE INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, 'documentation', ?, ?, ?, ?, ?)"
@@ -425,11 +433,11 @@ function _buildSkillsToMigrate(options, skillsMap, defaultDir) {
 
 function _cleanDeletedSkills(conn, options) {
   if (!options.clean && !options.pruneDeleted) return;
-  const rows = conn.prepare("SELECT DISTINCT skill_name FROM skills").all();
+  const rows = conn.prepare("SELECT DISTINCT skill_name FROM skills WHERE type = 'skill'").all();
   const deletedSkills = new Set();
   for (const r of rows) {
     const sName = r.skill_name;
-    const fpRows = conn.prepare("SELECT file_path FROM skills WHERE skill_name = ? AND file_path IS NOT NULL").all(sName);
+    const fpRows = conn.prepare("SELECT file_path FROM skills WHERE skill_name = ? AND type = 'skill' AND file_path IS NOT NULL").all(sName);
     const anyExists = fpRows.some(fp => fp.file_path && fs.existsSync(fp.file_path));
     if (!anyExists && fpRows.length) deletedSkills.add(sName);
   }

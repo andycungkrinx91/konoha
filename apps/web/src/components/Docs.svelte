@@ -133,9 +133,9 @@
     } catch (_) {}
 
     try {
-      const allSkills = await api.get('/api/v1/skills?limit=250');
-      if (Array.isArray(allSkills)) {
-        liveDocs = allSkills.filter(s => s.type === 'documentation' || s.name.startsWith('doc:'));
+      const docsRes = await api.get('/api/v1/skills?type=documentation&limit=100');
+      if (Array.isArray(docsRes) && docsRes.length > 0) {
+        liveDocs = docsRes;
       }
     } catch (_) {}
   });
@@ -144,19 +144,15 @@
     docQuery = q;
     if (!q.trim()) {
       try {
-        const all = await api.get('/api/v1/skills?limit=250');
-        if (Array.isArray(all)) {
-          liveDocs = all.filter(s => s.type === 'documentation' || s.name.startsWith('doc:'));
-        }
+        const docsRes = await api.get('/api/v1/skills?type=documentation&limit=100');
+        if (Array.isArray(docsRes)) liveDocs = docsRes;
       } catch (_) {}
       return;
     }
     isSearching = true;
     try {
-      const res = await api.get(`/api/v1/skills?q=${encodeURIComponent(q)}&limit=50`);
-      if (Array.isArray(res)) {
-        liveDocs = res.filter(s => s.type === 'documentation' || s.name.startsWith('doc:') || (s.tags && s.tags.includes('documentation')));
-      }
+      const res = await api.get(`/api/v1/skills?q=${encodeURIComponent(q)}&type=documentation&limit=50`);
+      if (Array.isArray(res)) liveDocs = res;
     } catch (_) {
     } finally {
       isSearching = false;

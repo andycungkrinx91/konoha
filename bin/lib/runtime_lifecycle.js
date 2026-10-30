@@ -250,6 +250,14 @@ function copyRuntimeConfigFiles() {
   const pkgSrc = path.resolve(__dirname, '..', '..', 'package.json');
   const pkgDest = path.join(SKILLS_DB_DIR, 'package.json');
   if (fileExists(pkgSrc)) copyIfDifferent(pkgSrc, pkgDest);
+
+  const docsSrc = path.resolve(__dirname, '..', '..', 'docs');
+  const docsDest = path.join(SKILLS_DB_DIR, 'docs');
+  if (fileExists(docsSrc)) {
+    try {
+      fs.cpSync(docsSrc, docsDest, { recursive: true, force: true });
+    } catch (_) { /* best-effort */ }
+  }
 }
 
 function maybeAutoStartUiDaemon(versionChanged) {

@@ -56,23 +56,33 @@ async function _handleVectorRoutes(res, pathname, method, parsedUrl, broadcastEv
 
 async function _handleGetSkills(res, parsedUrl) {
   const q = (parsedUrl.searchParams.get('q') || '').trim();
+  const type = (parsedUrl.searchParams.get('type') || '').trim();
   const limit = parseInt(parsedUrl.searchParams.get('limit') || '100', 10);
+  let conn = null;
   try {
-    const conn = db.getConnection(null, false);
-    try {
+    conn = db.getConnection(null, false);
+    if (q) {
       const vectorSearch = require('../../vector_search');
-      if (q) {
-        return sendJson(res, 200, await vectorSearch.findSkillHybrid(conn, q, { topK: limit }));
+      let results = await vectorSearch.findSkillHybrid(conn, q, { topK: limit });
+      if (type && Array.isArray(results)) {
+        results = results.filter(r => r.type === type);
       }
-      const allRows = conn.prepare(
-        'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
-      ).all(limit);
-      return sendJson(res, 200, allRows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null })));
-    } finally {
-      conn.close();
+      return sendJson(res, 200, results);
     }
+    if (type) {
+      const rows = conn.prepare(
+        'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills WHERE type = ? ORDER BY name ASC LIMIT ?'
+      ).all(type, limit);
+      return sendJson(res, 200, rows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null })));
+    }
+    const allRows = conn.prepare(
+      'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
+    ).all(limit);
+    return sendJson(res, 200, allRows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null })));
   } catch (err) {
     return sendJson(res, 500, { error: err.message });
+  } finally {
+    if (conn) conn.close();
   }
 }
 

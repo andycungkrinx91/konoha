@@ -107,6 +107,12 @@ function copyRuntimeFiles(copyTree) {
     copyTree(skillsSrc, skillsDest);
   }
 
+  const docsSrc = path.resolve(__dirname, '..', '..', 'docs');
+  const docsDest = path.join(SKILLS_DB_DIR, 'docs');
+  if (fileExists(docsSrc) && path.resolve(docsSrc) !== path.resolve(docsDest)) {
+    copyTree(docsSrc, docsDest);
+  }
+
   const assetsSrc = path.resolve(__dirname, '..', '..', 'assets');
   if (fileExists(assetsSrc)) {
     for (const entry of fs.readdirSync(assetsSrc, { withFileTypes: true })) {
