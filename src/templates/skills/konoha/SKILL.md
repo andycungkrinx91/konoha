@@ -697,4 +697,4 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Upgrade Import Chain Fix**: Resolved `purgePackageCaches is not a function` in `bin/lib/runtime_mcp.js` and `bin/commands/upgrade.js`.
     - **Authoritative HITL Gates**: Enforced mandatory Gate 1 & Gate 2 approvals across all modes; reject->regenerate->re-gate lifecycle; fail-closed on unavailable transport.
     - **Client First-Session Bootstrap**: Injected Konoha contract, rules, and MCP tools before first turn across all clients; ui_service default.
-    - **Cross-Client Runtime Sync**: Bumped contract to `2.2.13` across manifests, runtime contracts, layout, and client templates.
+    - **Cross-Client Runtime Sync**: Bumped contract to `2.2.14` across manifests, runtime contracts, layout, and client templates.

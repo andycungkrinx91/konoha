@@ -339,9 +339,9 @@ function main() {
 
   const pkgVersion = (() => {
     try {
-      return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.13';
+      return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.14';
     } catch (_) {
-      return '2.2.13';
+      return '2.2.14';
     }
   })();
 

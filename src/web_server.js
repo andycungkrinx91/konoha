@@ -297,7 +297,7 @@ function createWebServer(options = {}) {
     sseClients,
     systemMetrics,
     broadcastEvent,
-    SERVER_VERSION: options.version || 'v2.2.13',
+    SERVER_VERSION: options.version || 'v2.2.14',
     PORT: port,
     getSvelteKitHandler
   };

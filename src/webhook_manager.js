@@ -150,7 +150,7 @@ function deleteWebhook(id) {
 function _buildWebhookHeaders(webhook) {
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'Konoha-Webhook-Engine/2.2.13'
+    'User-Agent': 'Konoha-Webhook-Engine/2.2.14'
   };
   if (!webhook.auth_token) return headers;
   if (webhook.auth_type === 'bearer' || webhook.auth_type === 'jwt') {

@@ -145,6 +145,25 @@ function isOperationalCommand(prompt) {
 /**
  * Extract executable shell command from prompt.
  */
+function extractSshInnerCommand(cmd) {
+  if (typeof cmd !== 'string') return null;
+  const trimmed = cmd.trim();
+  if (!/^ssh\s/i.test(trimmed)) return null;
+  const firstSingle = trimmed.indexOf("'");
+  const lastSingle = trimmed.lastIndexOf("'");
+  if (firstSingle !== -1 && lastSingle > firstSingle) {
+    const inner = trimmed.slice(firstSingle + 1, lastSingle).replace(/'\\''/g, "'").trim();
+    if (inner) return inner;
+  }
+  const tokens = trimmed.split(/\s+/);
+  const hostIdx = tokens.findIndex((tok) => tok.includes('@'));
+  if (hostIdx !== -1 && hostIdx + 1 < tokens.length) {
+    const remainder = tokens.slice(hostIdx + 1).join(' ').trim().replace(/^["']|["']$/g, '').trim();
+    if (remainder) return remainder;
+  }
+  return null;
+}
+
 function extractCommand(prompt) {
   const p = prompt.trim();
   if (p.startsWith('/sh ')) return p.slice(4).trim();
@@ -384,6 +403,14 @@ async function processTask(task) {
       await rejectSafetyViolation(`Blocked: Extracted command rejected by Konoha safety guardrails: ${cmdViolation.reason}`);
       return;
     }
+    const sshInner = extractSshInnerCommand(cmd);
+    if (sshInner) {
+      const innerViolation = checkCommandGuardrails(sshInner);
+      if (innerViolation) {
+        await rejectSafetyViolation(`Blocked: SSH remote command rejected by Konoha safety guardrails: ${innerViolation.reason}`);
+        return;
+      }
+    }
     const userShell = (process.env.SHELL && fs.existsSync(process.env.SHELL))
       ? process.env.SHELL
       : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh');
@@ -498,6 +525,7 @@ module.exports = {
   pollAndExecute,
   isOperationalCommand,
   extractCommand,
+  extractSshInnerCommand,
   formatDuration,
   extractTaskSummary,
   extractKageScore,

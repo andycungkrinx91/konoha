@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.13). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.14). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.13`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.14`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -706,5 +706,18 @@ npx aislop scan --changes
 | **7. Windows Upgrade Cache Purge Export Chain** | `bin/lib/runtime_mcp.js` & `bin/commands/upgrade.js` | `purgePackageCaches` helper correctly exported and imported; Stage 3 of `konoha upgrade` executes without `TypeError: purgePackageCaches is not a function`. | `PASS` (export chain verified) |
 | **8. UI Service Default Resilience** | `bin/lib/ui_service.js` & `bin/commands/doctor_services.js` | Service discovery and background daemon lifecycle hardened with reliable defaults and graceful fallbacks. | `PASS` (ui_service verified) |
 | **9. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` | Synchronized runtime contract version `2.2.13` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.13 verified) |
-| **10. Google Policy Compliance v2.2.13** | `docs/SecurityCompliance/` report | Published certified compliance report for v2.2.13; 0 production vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
+| **10. Google Policy Compliance v2.2.13** | `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md` | Published certified compliance report for v2.2.13; 0 production vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
+
+---
+
+## Section 26: v2.2.14 Queue SSH Guardrail, Hook Removal & Full QA Pass
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Queue SSH Inner-Payload Guardrail** | `src/queue/worker.js:extractSshInnerCommand` & `tests/test_queue_guardrails.js` | SSH-wrapped destructive payloads (`ssh host 'rm -rf /'`) rejected as `Blocked: SSH remote command rejected by Konoha safety guardrails`; safe `bin/magento cache:flush` inner passes. | `PASS` (fail-closed verified) |
+| **2. Prompt Hook Tampering Removal** | `src/prompt_hook.js` & `tests/test_prompt_hook.js` | Deleted `_wrapSingleRtkCandidate` + load-time `ensureRtkWrapper()`; zero binary rewrites, 10 prompt_hook tests pass. | `PASS` (tampering removed) |
+| **3. Isolated CLI Sweep** | `/tmp/konoha-qa-2214` with `KONOHA_TEST_SANDBOX=1` | `status/doctor/savings/version/init/migrate --skip-embeddings` exit 0; `queue run` safe completes + destructive fails; read-only sweeps all exit 0. | `PASS` (isolated sweep verified) |
+| **4. Web UI Page-by-Page QA** | Playwright suites + agent-browser on port 1414 | All executed suites green; 17 routes browser-verified; mandatory-change gating + queue API authZ confirmed. | `PASS` (17 routes verified) |
+| **5. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` & `scripts/bump_version.js --check` | Synchronized runtime contract version `2.2.14` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.14 verified) |
+| **6. Google Policy Compliance v2.2.14** | `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.14_2026-10-30.md` | Published certified compliance report for v2.2.14; 0 high vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
 

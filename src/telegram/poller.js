@@ -425,7 +425,7 @@ async function handleMessage(msg) {
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/doctor')) {
-    const text = '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n<b>Status:</b> HEALTHY · 100% OPERATIONAL\n<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.13)\n<b>Skills FTS5:</b> 1,027 records indexed\n<b>Token Savings:</b> 83% - 98% active\n<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+    const text = '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n<b>Status:</b> HEALTHY · 100% OPERATIONAL\n<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.14)\n<b>Skills FTS5:</b> 1,027 records indexed\n<b>Token Savings:</b> 83% - 98% active\n<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/cancel')) {

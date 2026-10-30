@@ -5,6 +5,7 @@ require('./helpers/isolate_db');
 
 const assert = require('assert');
 const worker = require('../src/queue/worker');
+const { checkCommandGuardrails } = require('../src/guardrails');
 
 function run() {
   // 1. Verify DANGEROUS_PATTERNS includes new 2.2.1 patterns
@@ -40,6 +41,17 @@ function run() {
   const invalidHostCmd = 'use command uptime on host not_a_valid_fqdn ssh key ~/.ssh/id_rsa';
   const resInvalidHost = worker.extractCommand(invalidHostCmd);
   assert.strictEqual(resInvalidHost, null, 'Must reject non-FQDN host');
+
+  // 5. Verify assembled SSH commands re-check the remote payload
+  const assembledSafe = worker.extractCommand(safeCmd);
+  const safeInner = worker.extractSshInnerCommand(assembledSafe);
+  assert.strictEqual(safeInner, 'bin/magento cache:flush', 'Extracts safe remote payload');
+  assert.strictEqual(checkCommandGuardrails(safeInner), null, 'Safe remote payload passes guardrails');
+
+  const assembledDestructive = "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=accept-new root@remote.example.com 'rm -rf /'";
+  const destructiveInner = worker.extractSshInnerCommand(assembledDestructive);
+  assert.strictEqual(destructiveInner, 'rm -rf /', 'Extracts destructive remote payload');
+  assert.ok(checkCommandGuardrails(destructiveInner), 'Destructive remote payload is blocked');
 
   console.log('✓ test_queue_guardrails passed');
 }

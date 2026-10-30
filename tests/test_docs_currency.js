@@ -58,6 +58,7 @@ const REQUIRED_DOCS = [
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.14_2026-10-30.md',
   'docs/TELEGRAM_INTEGRATION_GUIDE.md'
 ];
 

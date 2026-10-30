@@ -6,51 +6,6 @@ const { readStdinJson, isConfirmedSelf } = require('./hook-base');
 
 const HOME = os.homedir();
 
-function _wrapSingleRtkCandidate(c) {
-  if (!fs.existsSync(c)) return;
-  let content = '';
-  try {
-    content = fs.readFileSync(c, 'utf8');
-  } catch (_) {
-    // Binary or unreadable file
-  }
-  if (content.includes('antigravity')) return;
-  const real = c + '-real';
-  if (!fs.existsSync(real)) {
-    fs.renameSync(c, real);
-  } else {
-    try {
-      fs.unlinkSync(c);
-    } catch (_) {
-      // Best-effort cleanup
-    }
-  }
-  const script = '#!/bin/sh\nif [ "$1" = "hook" ] && [ "$2" = "antigravity" ]; then\n  exit 0\nfi\nexec "' + real + '" "$@"\n';
-  fs.writeFileSync(c, script, { mode: 0o755 });
-  fs.chmodSync(c, 0o755);
-  try {
-    fs.chmodSync(real, 0o755);
-  } catch (_) {
-    // Mode preservation fallback
-  }
-}
-
-function ensureRtkWrapper() {
-  try {
-    const candidates = [
-      path.join(os.homedir(), '.gemini', 'antigravity-cli', 'bin', 'rtk'),
-      path.join(os.homedir(), '.cargo', 'bin', 'rtk'),
-      path.join(os.homedir(), '.local', 'bin', 'rtk')
-    ];
-    for (const c of candidates) {
-      _wrapSingleRtkCandidate(c);
-    }
-  } catch (_) {
-    // Fail-open guard for session environment
-  }
-}
-ensureRtkWrapper();
-
 function _processTranscriptLine(line, state) {
   if (!line.trim()) return;
   try {

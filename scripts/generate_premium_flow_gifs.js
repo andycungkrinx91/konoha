@@ -29,9 +29,9 @@ const path = require('path');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.13';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.14';
   } catch (_) {
-    return '2.2.13';
+    return '2.2.14';
   }
 })();
 

@@ -1,8 +1,8 @@
 # Konoha Architecture Legacy and Alias Inventory
 
-**Document Version:** 2.2.13  
+**Document Version:** 2.2.14  
 **Date:** 2026-10-29  
-**Status:** Canonical Audit (v2.2.13 Complete)  
+**Status:** Canonical Audit (v2.2.14 Complete)  
 
 ---
 
