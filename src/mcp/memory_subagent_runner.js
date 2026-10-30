@@ -118,13 +118,19 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
     'genin read-only exploration, chunin web research with citations, jonin UI builds and taste-skill craftsmanship, ' +
     'anbu backend/DevOps plus QA automation, tokubetsu-jonin documents and diagrams, akatsuki security audits and lab verification, ' +
     'kage architecture review and delivery gates, sannin routing and delegation.\n' +
-    'Hard mandates still apply: genin never writes (read-only); never git push, npm publish, or create remote tags; ' +
-    'use konoha MCP bounded file tools, never raw shell reads; run `rtk aislop scan --changes` before delivery.\n'
+    'Hard mandates still apply: genin is strictly read-only mode in the codebase and never writes, edits, or modifies files; ' +
+    'Semble is mandatory for all code search; prefix all shell commands with `rtk <command>`; ' +
+    'never git push, npm publish, or create remote tags; use konoha MCP bounded file tools, never raw shell reads; run `rtk aislop scan --changes` before delivery.\n'
   );
   if (['genin', 'kage'].includes(normAgent)) {
     boundaries += (
       'For aislop MCP: you may call `aislop_scan` and `aislop_why`. ' +
       'You are strictly forbidden from calling `aislop_fix` or `aislop_baseline` (read-only mandate).\n'
+    );
+  }
+  if (normAgent === 'genin') {
+    boundaries += (
+      'Genin Read-Only Invariant: You are strictly in read-only mode. You are forbidden from calling file mutation tools or executing file-modifying scripts. Perform non-destructive exploration, symbol search, and dependency analysis only.\n'
     );
   }
 
@@ -478,6 +484,10 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
     '- PRESERVE PROXY GATEWAY: Under no circumstances modify, touch, or disable the local OpenAI proxy gateway (port 19999).\n' +
     '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools. Never use shell cat/head/grep.\n' +
+    '- SEMBLE IS MANDATORY: Use `mcp__semble__search` and `mcp__semble__find_related` for all codebase discovery with absolute repo path.\n' +
+    '- RTK IS MANDATORY FOR COMMANDS: Always prefix shell executions with `rtk <command>`.\n' +
+    '- SOUL ARCHETYPE MANDATORY: Strictly embody your ninja soul archetype behavior directives, voice, calling, and tenets.\n' +
+    (dbAgentName === 'genin' ? '- GENIN READ-ONLY MANDATE: As @genin, you are strictly in read-only mode in the codebase. Never write, create, overwrite, modify, or delete any files.\n' : '') +
     '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and 0 findings.\n' +
     '- KAGE 98% CONFIDENCE GATE: Delivery is blocked if confidence < 98%.\n\n'
   );
@@ -485,12 +495,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     `You must now act as ${dbAgentName} and execute the task below.\n\n` +
     '## Execution Protocol\n\n' +
     `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind full references for all routed skills without dropping context.\n` +
-    '1. Tool Utilization: You are provisioned with the main agent MCP tool catalog. Use bounded file tools, Semble search, and RTK commands within your archetype boundaries.\n' +
-    '2. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n' +
-    '3. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
-    '4. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '5. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
-    '6. When complete, report results and validation evidence via `report_from_agent`.\n\n'
+    '1. Semble & RTK Mandates: Code search MUST be executed via Semble (`mcp__semble__search`, `mcp__semble__find_related`). Shell executions MUST be prefixed with `rtk <command>`.\n' +
+    `2. Soul Discipline: Strictly embody the ⚑ ${dbAgentName} soul archetype (calling, voice, and tenets). Avoid all generic AI slop, conversational filler, and ungrounded claims.\n` +
+    (dbAgentName === 'genin' ? '3. Genin Read-Only Mode: Strictly explore, inspect, and analyze only. Do NOT modify any files in the codebase.\n' : '3. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n') +
+    '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
+    '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
+    '6. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
+    '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
   );
 
   const taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
