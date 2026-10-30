@@ -19,6 +19,7 @@ const {
   routeByKeywordsWithPrompt,
   classifyExecutionTrack,
   detectParallelWorkstreams,
+  dispatchParallelSlices,
   computeFlowHash,
   runSannin
 } = require('./workflow_sannin');
@@ -62,6 +63,7 @@ module.exports = {
   loadWorkflowStatus,
   saveWorkflowStatus,
   routeByKeywordsWithPrompt,
+  dispatchParallelSlices,
   runSannin,
   computeFlowHash,
   compute_flow_hash: computeFlowHash,

@@ -417,10 +417,45 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   return res;
 }
 
+function dispatchParallelSlices(workstreams = [], sharedOptions = {}) {
+  const { runMcpAgent } = require('./memory_subagent_runner');
+  const {
+    taskId = 'root',
+    flowHash = null,
+    sessionId = null,
+    projectPath = null,
+    taskDir = null
+  } = sharedOptions;
+
+  if (!Array.isArray(workstreams) || workstreams.length === 0) {
+    return [];
+  }
+
+  return workstreams.map(ws => {
+    const agent = ws.agent || ws.name;
+    const task = ws.task || ws.prompt || ws.instructions || `Execute ${ws.domain || agent} slice.`;
+    const context = ws.context || sharedOptions.context || null;
+    const constraints = ws.constraints || sharedOptions.constraints || null;
+    const skills = Array.isArray(ws.skills) ? ws.skills : (ws.routed_skills || []);
+    const tasteDials = ws.taste_dials || ws.tasteDials || sharedOptions.tasteDials || null;
+
+    const resRaw = runMcpAgent(
+      agent, task, context, constraints, skills, tasteDials,
+      projectPath, taskDir, sessionId, flowHash, taskId
+    );
+    try {
+      return JSON.parse(resRaw);
+    } catch (_) {
+      return { status: 'ready', agent, output: resRaw };
+    }
+  });
+}
+
 module.exports = {
   routeByKeywordsWithPrompt,
   classifyExecutionTrack,
   detectParallelWorkstreams,
+  dispatchParallelSlices,
   computeFlowHash,
   runSannin
 };

@@ -226,6 +226,8 @@ module.exports = {
   query_project_memory: queryProjectMemory,
   run_mcp_workflow: workflowModule.runMcpWorkflow,
   run_sannin: workflowModule.runSannin,
+  dispatchParallelSlices: workflowModule.dispatchParallelSlices,
+  dispatch_parallel_slices: workflowModule.dispatchParallelSlices,
   runWebSearch,
   run_web_search: runWebSearch,
   queryStartpage,
