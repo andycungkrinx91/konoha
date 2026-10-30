@@ -88,13 +88,14 @@ async function run() {
       current_dispatch: {
         id: 'dispatch-review-1',
         phase: 'review',
-        agent: 'kage',
-        previous_result_hash: 'prev_hash_abc'
+        agent: 'kage'
       },
       completed_dispatches: [],
       dispatch_results: {}
     };
     fs.writeFileSync(path.join(tmpWorkflowDir, 'status.json'), JSON.stringify(initialStatus, null, 2), 'utf8');
+    // Structured completion: review dispatch completed via report channel, never result.md.
+    { const st0 = JSON.parse(fs.readFileSync(path.join(tmpWorkflowDir, 'status.json'), 'utf8')); const cd0 = st0.current_dispatch; if (cd0 && cd0.id) { st0.completed_dispatches = [cd0.id]; st0.dispatch_results = { [cd0.id]: 'Kage review submitted via report_from_agent' }; fs.writeFileSync(path.join(tmpWorkflowDir, 'status.json'), JSON.stringify(st0, null, 2), 'utf8'); } }
 
     // Simulate Kage review result with slop findings
     const kageReviewReport = {
@@ -109,7 +110,6 @@ async function run() {
       validation: ['npm test exit 0']
     };
     fs.writeFileSync(path.join(tmpWorkflowDir, 'kage_review.json'), JSON.stringify(kageReviewReport, null, 2), 'utf8');
-    fs.writeFileSync(path.join(tmpWorkflowDir, 'result.md'), 'Kage Review Complete: Slop detected', 'utf8');
 
     // Run workflow in review phase with slop failure
     const step1Res = JSON.parse(await runMcpWorkflow(tmpWorkflowDir));
@@ -151,13 +151,14 @@ async function run() {
         current_dispatch: {
           id: 'dispatch-review-jonin-1',
           phase: 'review',
-          agent: 'kage',
-          previous_result_hash: 'prev_hash_jonin'
+          agent: 'kage'
         },
         completed_dispatches: [],
         dispatch_results: {}
       };
       fs.writeFileSync(path.join(tmpJoninDir, 'status.json'), JSON.stringify(joninStatus, null, 2), 'utf8');
+    // Structured completion: review dispatch completed via report channel, never result.md.
+    { const st0 = JSON.parse(fs.readFileSync(path.join(tmpJoninDir, 'status.json'), 'utf8')); const cd0 = st0.current_dispatch; if (cd0 && cd0.id) { st0.completed_dispatches = [cd0.id]; st0.dispatch_results = { [cd0.id]: 'Kage review submitted via report_from_agent' }; fs.writeFileSync(path.join(tmpJoninDir, 'status.json'), JSON.stringify(st0, null, 2), 'utf8'); } }
 
       const kageReviewJonin = {
         status: 'rejected',
@@ -171,7 +172,6 @@ async function run() {
         validation: ['pnpm run build exit 0']
       };
       fs.writeFileSync(path.join(tmpJoninDir, 'kage_review.json'), JSON.stringify(kageReviewJonin, null, 2), 'utf8');
-      fs.writeFileSync(path.join(tmpJoninDir, 'result.md'), 'Kage Review Complete: UI slop detected', 'utf8');
 
       const joninStepRes = JSON.parse(await runMcpWorkflow(tmpJoninDir));
       assert.strictEqual(joninStepRes.status, 'remediation');
@@ -196,12 +196,11 @@ async function run() {
     updatedStatus.current_dispatch = {
       id: 'dispatch-review-cb',
       phase: 'review',
-      agent: 'kage',
-      previous_result_hash: 'hash_before_cb'
+      agent: 'kage'
     };
+    updatedStatus.completed_dispatches = ['dispatch-review-cb'];
+    updatedStatus.dispatch_results = { 'dispatch-review-cb': 'Kage review submitted via report_from_agent' };
     fs.writeFileSync(path.join(tmpWorkflowDir, 'status.json'), JSON.stringify(updatedStatus, null, 2), 'utf8');
-    // Write new result.md to trigger completion
-    fs.writeFileSync(path.join(tmpWorkflowDir, 'result.md'), 'Kage Review Complete: Slop Still Present (Cycle 8)', 'utf8');
 
     const circuitBreakerRes = JSON.parse(await runMcpWorkflow(tmpWorkflowDir));
     assert.strictEqual(circuitBreakerRes.status, 'blocked');

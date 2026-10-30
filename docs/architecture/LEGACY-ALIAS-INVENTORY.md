@@ -16,7 +16,7 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 | `build_with_image_design` | **COMPLETED / PRUNED** | MCP tool alias | `build_from_source` | Filtered from live advertised schemas in v2.1.18 (46 canonical advertised tools / 48 manifest-backed tools) |
 | `delegate_to_<agent>` (7 tools) | **COMPLETED / REMOVED** | MCP tool aliases | Direct agent tools (`sannin`, `kage`, etc.) | Removed in Batch 4.6 (commit 576e50b) |
 | `tokubetsu_jonin` vs `tokubetsu-jonin` | **CANONICAL_MAPPING** | Identifier syntax | `tokubetsu-jonin` (agent) / `tokubetsu_jonin` (MCP tool) | Maintain strict 1:1 bidirectional normalizer |
-| `task_dir` / `delegate.md` / `result.md` | **ISOLATED_FALLBACK** | File-based fallback | Direct structured MCP argument passing | Keep isolated in `~/.konoha/tmp/` for non-MCP fallback |
+| `task_dir` | **ISOLATED_SCRATCH** | Task working directory | Direct structured MCP argument passing | Keep isolated in `~/.konoha/tmp/`; never a fallback IPC channel |
 | `skills.db` | **MIGRATE_THEN_REMOVE** | Storage filename | `konoha.db` | Auto-migrate legacy DB file on startup |
 | 27 Top-Level CLI Aliases | **COMPLETED / REMOVED** | CLI command aliases | Canonical CLI subcommands | Removed in v2.1.18; strict rejection with exit code 1 |
 | `openai-oauth` | **FALSE_POSITIVE** | Auth provider | `openai` (API key) / `sidecar` | Already eradicated in v2.0.0 |
@@ -102,16 +102,16 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 
 ---
 
-### Item 5: Legacy Disk Delegation Fallback (`task_dir`, `delegate.md`, `result.md`)
+### Item 5: Legacy Disk Delegation Fallback (`task_dir`) — RETIRED
 
 * **Legacy Identifier:** Disk-based scratch task directories
-* **Type:** Execution Fallback
-* **Current Usage:** Primary orchestration protocol is direct structured MCP argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`). If a client cannot pass structured arguments, `konoha.get_resolved_task_dir` resolves an isolated temporary scratch folder under `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`.
-* **Canonical Replacement:** Direct structured MCP delegation.
+* **Type:** Execution Fallback — RETIRED
+* **Current Usage:** Primary orchestration protocol is direct structured MCP argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`). `konoha.get_resolved_task_dir` resolves an isolated temporary scratch folder under `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` for `status.json` and phase artifacts only. `delegate.md` / `result.md` are never written or read.
+* **Canonical Replacement:** Direct structured MCP delegation + `report_from_agent` completion.
 * **Internal Consumers:** `src/mcp/memory_reporting.js`, `src/mcp/tool_dispatch.js`.
-* **External Consumers:** Non-standard MCP host clients.
-* **Resolution:** Retain strictly as an isolated fail-safe fallback outside the project workspace, ensuring it never touches the user's project repository.
-* **Status:** Preserved as isolated fallback per architecture invariants.
+* **External Consumers:** None.
+* **Resolution:** File-based IPC retired; scratch directories hold structured status only, never touch the user's project repository.
+* **Status:** RETIRED — structured args canonical.
 
 ---
 
@@ -242,14 +242,14 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 
 ---
 
-### Item 13: File-Based IPC Fallback (`prompt.md`, `delegate.md`, `result.md`)
+### Item 13: File-Based IPC (`prompt.md`, `delegate.md`, `result.md`) — RETIRED
 
-* **Legacy Identifiers:** File-based IPC scratch files in workspace
-* **Type:** Process Communication Pattern
-* **Current Usage:** Replaced by structured JSON-RPC MCP tool calls. Isolated scratch directories strictly confined to `~/.konoha/tmp/`.
-* **Canonical Replacement:** Structured MCP tool parameters (`task`, `context`, `constraints`, `skills`).
-* **Internal Consumers:** `src/mcp/memory_reporting.js`, `src/mcp/tool_dispatch.js`.
+* **Legacy Identifiers:** File-based IPC scratch files
+* **Type:** Process Communication Pattern — RETIRED
+* **Current Usage:** Never written, never read. Replaced by structured JSON-RPC MCP tool calls and `report_from_agent` completion records. Dispatchers and runners reject `prompt.md` / `delegate.md` task references with `retired_file_ipc`.
+* **Canonical Replacement:** Structured MCP tool parameters (`task`, `context`, `constraints`, `skills`) + `report_from_agent`.
+* **Internal Consumers:** None (test fixtures converted to structured args).
 * **External Consumers:** None.
-* **Status:** ISOLATED & DEPRECATED in workspace; MCP JSON-RPC canonical.
+* **Status:** RETIRED — MCP JSON-RPC canonical; file IPC rejected.
 
 

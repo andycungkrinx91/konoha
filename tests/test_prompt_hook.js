@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * tests/test_prompt_hook.js — Regression tests for the session prompt hook.
+ * tests/test_prompt_hook.js — Regression tests: file-based IPC is retired.
  *
- * Covers the "original task replaced by follow-up" bug: prompt.md must be
- * append-only. A follow-up (e.g. a pasted new error) must NEVER overwrite the
- * original task section.
+ * The session prompt hook must NEVER write prompt.md / delegate.md.
+ * User input already lives in the transcript; routing uses structured MCP args
+ * and completion is reported via report_from_agent (status.json, not result.md).
  */
 const fs = require('fs');
 const os = require('os');
@@ -44,69 +44,42 @@ function check(name, cond, detail) {
   }
 }
 
-// --- Test 1: first input becomes the Original Task ---
+// --- Test 1: first input creates NO prompt.md / delegate.md ---
 {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-hook-1-'));
   const artifactDir = path.join(dir, 'artifact');
   const transcript = makeTranscript(dir, ['Fix the RxDB DB9 reload bug']);
   runHook({ transcriptPath: transcript, artifactDirectoryPath: artifactDir });
-  const content = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  check('first input creates Original Task section', content.includes('## Original Task') && content.includes('Fix the RxDB DB9 reload bug'));
-  check('header explains original-task authority', content.includes('ORIGINAL TASK'));
+  check('hook writes no prompt.md on first input', !fs.existsSync(path.join(artifactDir, 'prompt.md')));
+  check('hook writes no delegate.md on first input', !fs.existsSync(path.join(artifactDir, 'delegate.md')));
 }
 
-// --- Test 2: follow-up error report must NOT overwrite the original task ---
+// --- Test 2: follow-up input also writes nothing; legacy file left untouched ---
 {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-hook-2-'));
   const artifactDir = path.join(dir, 'artifact');
-  const t1 = makeTranscript(dir, ['Fix the RxDB DB9 reload bug']);
-  runHook({ transcriptPath: t1, artifactDirectoryPath: artifactDir });
+  fs.mkdirSync(artifactDir, { recursive: true });
+  const legacy = '## Original Task\n\nFix the RxDB DB9 reload bug\n';
+  fs.writeFileSync(path.join(artifactDir, 'prompt.md'), legacy, 'utf-8');
   const t2 = makeTranscript(dir, ['Fix the RxDB DB9 reload bug', 'tetep error RxError (DB9) di console']);
   runHook({ transcriptPath: t2, artifactDirectoryPath: artifactDir });
-  const content = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  check('original task survives follow-up', content.includes('Fix the RxDB DB9 reload bug'));
-  check('follow-up appended, not replacing', content.includes('## Follow-up 1') && content.includes('tetep error RxError (DB9) di console'));
-  const originalIdx = content.indexOf('## Original Task');
-  const followUpIdx = content.indexOf('## Follow-up 1');
-  check('original task comes first', originalIdx !== -1 && followUpIdx !== -1 && originalIdx < followUpIdx);
+  const after = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
+  check('hook never appends follow-ups to legacy prompt.md', after === legacy);
+  check('hook writes no delegate.md on follow-up', !fs.existsSync(path.join(artifactDir, 'delegate.md')));
 }
 
-// --- Test 3: continue-style inputs are ignored ---
+// --- Test 3: hook exits cleanly without artifactDirectoryPath ---
 {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-hook-3-'));
-  const artifactDir = path.join(dir, 'artifact');
-  const t1 = makeTranscript(dir, ['Fix the RxDB DB9 reload bug']);
-  runHook({ transcriptPath: t1, artifactDirectoryPath: artifactDir });
-  const before = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  const t2 = makeTranscript(dir, ['Fix the RxDB DB9 reload bug', 'continue']);
-  runHook({ transcriptPath: t2, artifactDirectoryPath: artifactDir });
-  const after = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  check('continue input does not modify prompt.md', before === after);
+  const transcript = makeTranscript(dir, ['Fix the RxDB DB9 reload bug']);
+  runHook({ transcriptPath: transcript });
+  check('hook runs without artifact directory', true);
 }
 
-// --- Test 4: duplicate inputs are not appended twice ---
+// --- Test 4: hook exits cleanly with empty context ---
 {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-hook-4-'));
-  const artifactDir = path.join(dir, 'artifact');
-  const t1 = makeTranscript(dir, ['Fix the RxDB DB9 reload bug']);
-  runHook({ transcriptPath: t1, artifactDirectoryPath: artifactDir });
-  runHook({ transcriptPath: t1, artifactDirectoryPath: artifactDir });
-  const content = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  check('duplicate input not appended twice', (content.match(/Fix the RxDB DB9 reload bug/g) || []).length === 1);
-}
-
-// --- Test 5: multiple follow-ups increment numbering (sequential firings) ---
-{
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-hook-5-'));
-  const artifactDir = path.join(dir, 'artifact');
-  // Simulate the hook firing once per submitted prompt.
-  runHook({ transcriptPath: makeTranscript(dir, ['Original sync task']), artifactDirectoryPath: artifactDir });
-  runHook({ transcriptPath: makeTranscript(dir, ['Original sync task', 'first follow-up error']), artifactDirectoryPath: artifactDir });
-  runHook({ transcriptPath: makeTranscript(dir, ['Original sync task', 'first follow-up error', 'second follow-up error']), artifactDirectoryPath: artifactDir });
-  const content = fs.readFileSync(path.join(artifactDir, 'prompt.md'), 'utf-8');
-  check('follow-ups numbered incrementally', content.includes('## Follow-up 1') && content.includes('## Follow-up 2'));
-  check('all follow-ups retained', content.includes('first follow-up error') && content.includes('second follow-up error'));
-  check('original task still first', content.indexOf('## Original Task') < content.indexOf('## Follow-up 1'));
+  runHook({});
+  check('hook runs with empty context', true);
 }
 
 console.log(`\nprompt_hook tests: ${passed} passed, ${failed} failed`);

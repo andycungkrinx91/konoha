@@ -110,7 +110,6 @@ async function run() {
     const td2 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt2 = 'Build a responsive SvelteKit dashboard page with Tailwind CSS';
-      fs.writeFileSync(path.join(td2, 'prompt.md'), prompt2);
       const [resp] = await client.callTool('sannin', { prompt: prompt2, task_dir: td2 });
       assert.strictEqual(resp.selected_agent, 'jonin');
     } finally {
@@ -121,7 +120,6 @@ async function run() {
     const td3 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt3 = 'Debug the API endpoint middleware error handling';
-      fs.writeFileSync(path.join(td3, 'prompt.md'), prompt3);
       const [resp] = await client.callTool('sannin', { prompt: prompt3, task_dir: td3 });
       assert.strictEqual(resp.selected_agent, 'anbu');
     } finally {
@@ -132,7 +130,6 @@ async function run() {
     const td4 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt4 = 'Research the latest web search best practices for evidence synthesis';
-      fs.writeFileSync(path.join(td4, 'prompt.md'), prompt4);
       const [resp] = await client.callTool('sannin', { prompt: prompt4, task_dir: td4 });
       assert.strictEqual(resp.selected_agent, 'chunin');
     } finally {
@@ -143,7 +140,6 @@ async function run() {
     const td5 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt5 = 'Architecture trade-offs and scalability risk assessment of the system';
-      fs.writeFileSync(path.join(td5, 'prompt.md'), prompt5);
       const [resp] = await client.callTool('sannin', { prompt: prompt5, task_dir: td5 });
       assert.strictEqual(resp.selected_agent, 'kage');
     } finally {
@@ -154,7 +150,6 @@ async function run() {
     const td5b = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt5b = 'Security audit, vulnerability scan, and penetration test of the auth system';
-      fs.writeFileSync(path.join(td5b, 'prompt.md'), prompt5b);
       const [resp] = await client.callTool('sannin', { prompt: prompt5b, task_dir: td5b });
       assert.strictEqual(resp.selected_agent, 'akatsuki');
     } finally {
@@ -165,7 +160,6 @@ async function run() {
     const td6 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt6 = 'do something complicated with no keywords';
-      fs.writeFileSync(path.join(td6, 'prompt.md'), prompt6);
       const [resp] = await client.callTool('sannin', { prompt: prompt6, task_dir: td6 });
       assert.strictEqual(resp.selected_agent, 'kage');
     } finally {
@@ -176,7 +170,6 @@ async function run() {
     const td7 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt7 = 'Write a PRD and technical documentation for the new feature';
-      fs.writeFileSync(path.join(td7, 'prompt.md'), prompt7);
       const [resp] = await client.callTool('sannin', { prompt: prompt7, task_dir: td7 });
       assert.strictEqual(resp.selected_agent, 'tokubetsu_jonin');
     } finally {
@@ -187,7 +180,6 @@ async function run() {
     const td8 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt8 = 'explore the codebase trace the auth flow find call graph';
-      fs.writeFileSync(path.join(td8, 'prompt.md'), prompt8);
       const [resp] = await client.callTool('sannin', { prompt: prompt8, task_dir: td8 });
       assert.strictEqual(resp.selected_agent, 'genin');
     } finally {

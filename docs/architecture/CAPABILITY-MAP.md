@@ -73,7 +73,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Tests:** `tests/test_structured_delegation.js`, `tests/test_agent_delegation.js`, `tests/test_cross_client_contract.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `GEMINI.md`.
 * **Dependencies:** `js-yaml`, `node:sqlite`.
-* **Known Legacy Paths:** Legacy disk fallback `task_dir`, `delegate.md`, `result.md` (`delegate_to_*` aliases removed in Batch 4.6; `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes under G-18, requiring direct specialist names; compact prompts preserve `Constraints:` within the strict 1,400-byte cap under G-03).
+* **Known Legacy Paths:** None — file-based IPC (`delegate.md`, `result.md`) is retired; `task_dir` is an isolated scratch directory only (`delegate_to_*` aliases removed in Batch 4.6; `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes under G-18, requiring direct specialist names; compact prompts preserve `Constraints:` within the strict 1,400-byte cap under G-03).
 * **Known Duplication:** None (`delegate_to_*` tool wrappers removed in Batch 4.6).
 
 ---
@@ -214,7 +214,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Tests:** `tests/test_token_hygiene_and_platform.js`.
 * **Documentation:** `docs/BENCHMARK.md`.
 * **Dependencies:** `node:sqlite`.
-* **Workflow Artifact Optimization (ADR-0004):** In addition to bounded file tool telemetry (83%–98% savings on repo reads), the 8-phase workflow enforces path-referenced summaries in `final_report.md` and bounded planning findings in `delegate.md`, reducing end-to-end task artifact tokens from 759.3 to 630.7 tokens/task (-16.9% artifact footprint reduction verified in `docs/architecture/TOKEN-BASELINE.md`).
+* **Workflow Artifact Optimization (ADR-0004, historical):** In addition to bounded file tool telemetry (83%–98% savings on repo reads), the 8-phase workflow enforced path-referenced summaries in `final_report.md` and bounded planning findings passed as structured dispatch arguments, reducing end-to-end task artifact tokens from 759.3 to 630.7 tokens/task (-16.9% artifact footprint reduction verified in `docs/architecture/TOKEN-BASELINE.md`). File-based `delegate.md` dispatch is retired; measurements are preserved as historical evidence.
 * **Known Legacy Paths:** None (stable finalized telemetry invariant).
 * **Known Duplication:** None.
 

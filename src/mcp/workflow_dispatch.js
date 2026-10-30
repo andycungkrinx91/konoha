@@ -9,7 +9,6 @@ const {
   MINIMUM_CONFIDENCE,
   AISLOP_GATE_TIMEOUT_MS,
   readFileSafe,
-  workflowHash,
   isPentestTask,
   isCleanValidation
 } = require('./workflow_common');
@@ -72,13 +71,14 @@ function runAislopGate(projectPath, status) {
   return passGate;
 }
 
-function workflowDispatch(taskDir, status, phase, agent, ...rest) {
+function workflowDispatch(_taskDir, status, phase, agent, ...rest) {
   const [taskId = null, task = null] = rest;
   const current = status.current_dispatch || {};
   if (current.phase === phase && current.agent === agent && current.task_id === taskId) {
     return current;
   }
-  const resultPath = path.join(taskDir, 'result.md');
+  // File-based IPC is retired: completion arrives via report_from_agent writing
+  // status.completed_dispatches / dispatch_results — never via result.md polling.
   const dispatch = {
     id: crypto.createHash('sha256').update(`${phase}:${agent}:${taskId}:${Date.now()}`).digest('hex').substring(0, 16),
     phase,
@@ -86,24 +86,19 @@ function workflowDispatch(taskDir, status, phase, agent, ...rest) {
     task_id: taskId,
     task: task || '',
     started_at: new Date().toISOString(),
-    started_at_ns: Date.now() * 1e6,
-    previous_result_hash: workflowHash(resultPath)
+    started_at_ns: Date.now() * 1e6
   };
   status.current_dispatch = dispatch;
   return dispatch;
 }
 
-function workflowDispatchCompleted(taskDir, status) {
+function workflowDispatchCompleted(_taskDir, status) {
   const dispatch = status.current_dispatch || {};
   if (!dispatch || !dispatch.id) return null;
   if ((status.completed_dispatches || []).includes(dispatch.id)) {
     return { dispatch, result: (status.dispatch_results || {})[dispatch.id] || '' };
   }
-  const resultPath = path.join(taskDir, 'result.md');
-  const currentHash = workflowHash(resultPath);
-  if (!currentHash || currentHash === dispatch.previous_result_hash) return null;
-  const result = readFileSafe(resultPath) || '';
-  return { dispatch, result };
+  return null;
 }
 
 function _ensureStatusTasks(status) {

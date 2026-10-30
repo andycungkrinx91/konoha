@@ -91,6 +91,8 @@ function mcpFindSkillNoAgent(keyword, convId = null) {
 }
 
 function setupBrain(brainRoot, promptText, plannerLine, mtimeOffset = 3600) {
+  // NOTE: this writes Antigravity's OWN IDE brain file (external telemetry the
+  // IDE owns), never Konoha file-IPC. Konoha dispatches use structured MCP args.
   const convId = `konoha-test-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const convDir = path.join(brainRoot, convId);
   const logs = path.join(convDir, '.system_generated', 'logs');

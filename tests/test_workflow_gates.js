@@ -29,7 +29,7 @@ function advanceToPlan(root) {
   const first = JSON.parse(server.runMcpWorkflow(root));
   assert.strictEqual(first.phase, 'explore');
   write(root, 'findings.md', 'The backend fix is isolated.');
-  write(root, 'result.md', 'Genin completed exploration.');
+  { const st = JSON.parse(server.runMcpWorkflow(root)); server.reportFromAgent('genin', 'Exploration complete', 'completed', null, null, null, null, root, st.dispatch_id, ['explore traced 3 files, exit 0']); }
   const second = JSON.parse(server.runMcpWorkflow(root));
   assert.strictEqual(second.phase, 'plan');
   return second;
@@ -64,7 +64,7 @@ async function run() {
   try {
     advanceToPlan(root2);
     write(root2, 'plan.md', '- [anbu]: Fix the API\n- [anbu]: Add the regression test\n');
-    write(root2, 'result.md', 'Kage approved two separate tasks.');
+    { const st = JSON.parse(server.runMcpWorkflow(root2)); server.reportFromAgent('kage', 'Plan approved', 'completed', null, null, null, null, root2, st.dispatch_id, ['plan reviewed, exit 0']); }
     const planGate = JSON.parse(server.runMcpWorkflow(root2));
     assert.strictEqual(planGate.phase, 'plan_approval');
     const execute = JSON.parse(server.runMcpWorkflow(root2, { choice: '1. Compact and approve' }));
@@ -84,17 +84,17 @@ async function run() {
   try {
     advanceToPlan(root3);
     write(root3, 'plan.md', '- [anbu]: Fix the API\n');
-    write(root3, 'result.md', 'Kage approved the implementation plan.');
+    { const st = JSON.parse(server.runMcpWorkflow(root3)); server.reportFromAgent('kage', 'Plan approved', 'completed', null, null, null, null, root3, st.dispatch_id, ['plan reviewed, exit 0']); }
     server.runMcpWorkflow(root3);
     const execute = JSON.parse(server.runMcpWorkflow(root3, { choice: '1. Compact and approve' }));
     assert.strictEqual(execute.agent, 'anbu');
-    write(root3, 'result.md', 'API fixed.');
+    { const stx = JSON.parse(fs.readFileSync(require('path').join(root3, 'status.json'), 'utf8')); server.reportFromAgent('anbu', 'API fixed', 'completed', null, null, null, null, root3, stx.current_dispatch.id, ['npm run build exited 0']); }
     const document = JSON.parse(server.runMcpWorkflow(root3));
     assert.strictEqual(document.phase, 'document');
-    write(root3, 'result.md', 'Documentation complete.');
+    { const stx = JSON.parse(fs.readFileSync(require('path').join(root3, 'status.json'), 'utf8')); server.reportFromAgent('tokubetsu-jonin', 'Docs complete', 'completed', null, null, null, null, root3, stx.current_dispatch.id, ['docs written, exit 0']); }
     const review = JSON.parse(server.runMcpWorkflow(root3));
     assert.strictEqual(review.phase, 'review');
-    write(root3, 'result.md', 'Review rejected because validation is missing.');
+    { const stx = JSON.parse(fs.readFileSync(require('path').join(root3, 'status.json'), 'utf8')); server.reportFromAgent('kage', 'Review done', 'completed', null, null, null, null, root3, stx.current_dispatch.id, ['review executed, exit 0']); }
     const blocked = JSON.parse(server.runMcpWorkflow(root3));
     assert.strictEqual(blocked.status, 'blocked');
     write(root3, 'kage_review.json', JSON.stringify({
@@ -128,7 +128,7 @@ async function run() {
   try {
     advanceToPlan(root4);
     write(root4, 'plan.md', '- [anbu]: Fix the API\n');
-    write(root4, 'result.md', 'Kage approved the implementation plan.');
+    { const st = JSON.parse(server.runMcpWorkflow(root4)); server.reportFromAgent('kage', 'Plan approved', 'completed', null, null, null, null, root4, st.dispatch_id, ['plan reviewed, exit 0']); }
     server.runMcpWorkflow(root4);
     const execute = JSON.parse(server.runMcpWorkflow(root4, { choice: '1. Compact and approve' }));
     const repStr = server.reportFromAgent('anbu', 'API fixed', 'completed', null, null, null, null, root4, execute.dispatch_id, ['npm run build exited 0']);
@@ -152,7 +152,7 @@ async function run() {
   try {
     advanceToPlan(root5);
     write(root5, 'plan.md', '- [anbu]: Fix the API\n');
-    write(root5, 'result.md', 'Kage approved the implementation plan.');
+    { const st = JSON.parse(server.runMcpWorkflow(root5)); server.reportFromAgent('kage', 'Plan approved', 'completed', null, null, null, null, root5, st.dispatch_id, ['plan reviewed, exit 0']); }
     server.runMcpWorkflow(root5);
     const execute = JSON.parse(server.runMcpWorkflow(root5, { choice: '1. Compact and approve' }));
     const repStr = server.reportFromAgent('anbu', 'API fixed (claimed)', 'completed', null, null, null, null, root5, execute.dispatch_id, ['pass']);
@@ -178,7 +178,7 @@ async function run() {
   try {
     advanceToPlan(root6);
     write(root6, 'plan.md', '- [anbu]: Perform penetration testing on local dev authentication endpoint (http://127.0.0.1:3000/auth)\n');
-    write(root6, 'result.md', 'Kage approved the security assessment plan.');
+    { const st = JSON.parse(server.runMcpWorkflow(root6)); server.reportFromAgent('kage', 'Plan approved', 'completed', null, null, null, null, root6, st.dispatch_id, ['plan reviewed, exit 0']); }
     server.runMcpWorkflow(root6);
     const execute = JSON.parse(server.runMcpWorkflow(root6, { choice: '1. Compact and approve' }));
     assert.strictEqual(execute.agent, 'anbu');
@@ -204,7 +204,7 @@ async function run() {
 
     const document = JSON.parse(server.runMcpWorkflow(root6));
     assert.strictEqual(document.phase, 'document');
-    write(root6, 'result.md', 'Documented local pentest report and remediation recommendations.');
+    { const stx = JSON.parse(fs.readFileSync(require('path').join(root6, 'status.json'), 'utf8')); server.reportFromAgent('tokubetsu-jonin', 'Docs complete', 'completed', null, null, null, null, root6, stx.current_dispatch.id, ['docs written, exit 0']); }
 
     const review = JSON.parse(server.runMcpWorkflow(root6));
     assert.strictEqual(review.phase, 'review');
@@ -253,29 +253,29 @@ async function run() {
     assert.strictEqual(s1.phase, 'explore');
     observedPhases.push('route', s1.phase);
 
-    // Phase 2: explore -> plan
+    // Phase 2: explore -> plan (genin reports via structured channel)
     write(root7, 'findings.md', 'Initial exploration findings.');
-    write(root7, 'result.md', 'Genin exploration complete.');
+    server.reportFromAgent('genin', 'Genin exploration complete', 'completed', null, null, null, null, root7, s1.dispatch_id, ['explore traced 3 files, exit 0']);
     const s2 = JSON.parse(server.runMcpWorkflow(root7));
     assert.strictEqual(s2.phase, 'plan');
     observedPhases.push(s2.phase);
 
-    // Phase 3: plan -> research (needs_research: true)
+    // Phase 3: plan -> research (needs_research: true, kage reports via structured channel)
     write(root7, 'plan.md', 'needs_research: true\nInvestigate third-party API specification.');
-    write(root7, 'result.md', 'Kage marked plan as needing research.');
+    server.reportFromAgent('kage', 'Kage marked plan as needing research', 'completed', null, null, null, null, root7, s2.dispatch_id, ['plan reviewed, exit 0']);
     const s3 = JSON.parse(server.runMcpWorkflow(root7));
     assert.strictEqual(s3.phase, 'research');
     observedPhases.push(s3.phase);
 
-    // Phase 4: research -> plan (research completed)
+    // Phase 4: research -> plan (chunin reports via structured channel)
     write(root7, 'findings.md', 'Chunin researched API documentation.');
-    write(root7, 'result.md', 'Research completed with citations.');
+    server.reportFromAgent('chunin', 'Research completed with citations', 'completed', null, null, null, null, root7, s3.dispatch_id, ['research done, exit 0']);
     const s4 = JSON.parse(server.runMcpWorkflow(root7));
     assert.strictEqual(s4.phase, 'plan');
 
-    // Phase 5: plan -> execute
+    // Phase 5: plan -> execute (kage reports finalized plan via structured channel)
     write(root7, 'plan.md', '- [jonin]: Build frontend component\n');
-    write(root7, 'result.md', 'Kage finalized implementation plan.');
+    server.reportFromAgent('kage', 'Kage finalized implementation plan', 'completed', null, null, null, null, root7, s4.dispatch_id, ['plan reviewed, exit 0']);
     server.runMcpWorkflow(root7);
     const s5 = JSON.parse(server.runMcpWorkflow(root7, { choice: '1. Compact and approve' }));
     assert.strictEqual(s5.phase, 'execute');
@@ -288,8 +288,8 @@ async function run() {
     assert.strictEqual(s6.phase, 'document');
     observedPhases.push(s6.phase);
 
-    // Phase 7: document -> review
-    write(root7, 'result.md', 'Documentation written by Tokubetsu Jonin.');
+    // Phase 7: document -> review (tokubetsu-jonin reports via structured channel)
+    { const stx = JSON.parse(fs.readFileSync(path.join(root7, 'status.json'), 'utf8')); server.reportFromAgent('tokubetsu-jonin', 'Documentation written by Tokubetsu Jonin', 'completed', null, null, null, null, root7, stx.current_dispatch.id, ['docs written, exit 0']); }
     const s7 = JSON.parse(server.runMcpWorkflow(root7));
     assert.strictEqual(s7.phase, 'review');
     observedPhases.push(s7.phase);
@@ -306,7 +306,7 @@ async function run() {
       confidence: 100,
       findings: []
     }));
-    write(root7, 'result.md', 'Kage review approved delivery.');
+    { const stx = JSON.parse(fs.readFileSync(path.join(root7, 'status.json'), 'utf8')); server.reportFromAgent('kage', 'Kage review approved delivery', 'completed', null, null, null, null, root7, stx.current_dispatch.id, ['review approved, exit 0']); }
     server.runMcpWorkflow(root7);
     const s8 = JSON.parse(server.runMcpWorkflow(root7, { choice: '1. Compact and approve' }));
     assert.strictEqual(s8.status, 'completed');
@@ -372,12 +372,12 @@ async function run() {
     assert.strictEqual(r1.phase, 'explore');
 
     write(root8, 'findings.md', 'Exploration findings.');
-    write(root8, 'result.md', 'Genin done.');
+    server.reportFromAgent('genin', 'Genin done', 'completed', null, null, null, null, root8, r1.dispatch_id, ['explore done, exit 0']);
     const r2 = JSON.parse(server.runMcpWorkflow(root8));
     assert.strictEqual(r2.phase, 'plan');
 
     write(root8, 'plan.md', '- [anbu]: Core backend task\n');
-    write(root8, 'result.md', 'Kage planning done.');
+    server.reportFromAgent('kage', 'Kage planning done', 'completed', null, null, null, null, root8, r2.dispatch_id, ['plan reviewed, exit 0']);
     // Under hitl_mode = 'enabled', finishing plan triggers Gate 1
     const rPlanApproval = JSON.parse(server.runMcpWorkflow(root8));
     assert.strictEqual(rPlanApproval.status, 'pending_plan_approval');

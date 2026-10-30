@@ -27,6 +27,7 @@ process.env.KONOHA_DB_PATH = path.join('/tmp', 'konoha-qa', 'skills.db');
 
 const agentManager = require('../src/agent_manager');
 const { runMcpAgent } = require('../src/mcp/memory_subagent_runner');
+const { reportFromAgent } = require('../src/mcp/memory_project_context');
 const { runMcpWorkflow } = require('../src/mcp/workflow_runner');
 const { saveWorkflowStatus, loadWorkflowStatus } = require('../src/mcp/workflow_common');
 
@@ -126,8 +127,8 @@ for (const client of CLIENTS) {
   console.log(`  ✓ Genin invoked for exploration phase in ${sanninRes.task_dir}`);
 
   // D. Workflow reaches configured gate (Gate 1 Plan Approval in HITL mode)
-  // Simulate Genin completion with findings
-  fs.writeFileSync(path.join(sanninRes.task_dir, 'result.md'), 'Exploration findings: found auth controller and security gaps.', 'utf8');
+  // Genin completes via structured report_from_agent (never result.md)
+  reportFromAgent('genin', 'Exploration findings: found auth controller and security gaps', 'completed', null, null, null, null, sanninRes.task_dir, exploreRes.dispatch_id, ['explore traced 3 files, exit 0']);
   fs.writeFileSync(path.join(sanninRes.task_dir, 'findings.md'), 'Findings: auth endpoints need audit log middleware.', 'utf8');
   const planRaw = agentManager.dispatchWorkflow(sanninRes.task_dir);
   const planRes = JSON.parse(planRaw);
@@ -136,7 +137,8 @@ for (const client of CLIENTS) {
 
   // Simulate Kage writing plan.md
   fs.writeFileSync(path.join(sanninRes.task_dir, 'plan.md'), '## Action Plan\n\n1. [anbu] Refactor auth controller.\n2. [anbu] Add audit log service.\n', 'utf8');
-  fs.writeFileSync(path.join(sanninRes.task_dir, 'result.md'), 'Compiled action plan in plan.md', 'utf8');
+  // Kage completes the plan phase via structured report_from_agent (never result.md)
+  reportFromAgent('kage', 'Compiled action plan in plan.md', 'completed', null, null, null, null, sanninRes.task_dir, planRes.dispatch_id, ['plan reviewed, exit 0']);
 
   // Next dispatch evaluates plan and reaches Gate 1 (Plan Approval)
   const gateRaw = agentManager.dispatchWorkflow(sanninRes.task_dir);

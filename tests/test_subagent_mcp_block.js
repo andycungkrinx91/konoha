@@ -17,11 +17,11 @@ const SUBAGENTS = ['genin', 'chunin', 'kage', 'jonin', 'anbu', 'tokubetsu-jonin'
 async function run() {
   console.log('Running test_subagent_mcp_block tests...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'subagent_mcp_block_'));
-  fs.writeFileSync(path.join(tmpDir, 'delegate.md'), 'Analyze this codebase and improve it.');
 
   function invoke(agentName) {
     if (server.SESSION_TURNS) server.SESSION_TURNS.clear();
-    const res = JSON.parse(server.runMcpAgent(agentName, tmpDir));
+    // Structured task text only — never a delegate.md fixture.
+    const res = JSON.parse(server.runMcpAgent(agentName, 'Analyze this codebase and improve it.', null, null, null, null, null, tmpDir));
     return res.instructions || '';
   }
 

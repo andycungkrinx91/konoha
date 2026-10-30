@@ -25,9 +25,12 @@ function setupTask(taskRoot, name, promptText = null) {
   return d;
 }
 
-function writeResult(task, agentName, summary) {
-  fs.writeFileSync(path.join(task, 'result.md'), `## ${agentName} Output\n\n${summary}\n`, 'utf8');
-  fs.writeFileSync(path.join(task, `result_${agentName}.md`), `## ${agentName} Detail\n\n${summary}\n`, 'utf8');
+function completePhase(task, agentName, summary) {
+  const st = JSON.parse(fs.readFileSync(path.join(task, 'status.json'), 'utf8'));
+  const did = st.current_dispatch && st.current_dispatch.id;
+  if (!did) throw new Error('No active dispatch for ' + agentName);
+  const rep = JSON.parse(server.reportFromAgent(agentName, summary, 'completed', null, null, null, null, task, did, [summary + ', exit 0']));
+  if (rep.status !== 'recorded') throw new Error('Report failed for ' + agentName + ': ' + rep.message);
 }
 
 function writeFindings(task, content) {
@@ -82,7 +85,7 @@ async function run() {
     const r1T04 = JSON.parse(server.runMcpWorkflow(taskT04));
     assert.strictEqual(r1T04.phase, 'explore');
     writeFindings(taskT04, '# Findings\n\nPayment uses Stripe API, handled in payments/service.py\n');
-    writeResult(taskT04, 'genin', 'Mapped payment module successfully.');
+    completePhase(taskT04, 'genin', 'Mapped payment module successfully.');
     const r2T04 = JSON.parse(server.runMcpWorkflow(taskT04));
     assert.strictEqual(r2T04.status, 'ready');
     assert.strictEqual(r2T04.phase, 'plan');
@@ -94,12 +97,12 @@ async function run() {
     const taskT05 = setupTask(taskRoot, 'plan_research', 'Implement OAuth2 flow');
     server.runMcpWorkflow(taskT05);
     writeFindings(taskT05, '# Findings\n\nNo OAuth2 support currently.\n');
-    writeResult(taskT05, 'genin', 'Mapped codebase.');
+    completePhase(taskT05, 'genin', 'Mapped codebase.');
     const r2T05 = JSON.parse(server.runMcpWorkflow(taskT05));
     assert.strictEqual(r2T05.phase, 'plan');
     assert.strictEqual(r2T05.agent, 'kage');
     writePlan(taskT05, 'needs_research: true\nresearch_query: OAuth2 PKCE best practices\n');
-    writeResult(taskT05, 'kage', 'Requires OAuth2 research.');
+    completePhase(taskT05, 'kage', 'Requires OAuth2 research.');
     const r3T05 = JSON.parse(server.runMcpWorkflow(taskT05));
     assert.strictEqual(r3T05.status, 'ready');
     assert.strictEqual(r3T05.phase, 'research');
@@ -110,17 +113,17 @@ async function run() {
     const taskT06 = setupTask(taskRoot, 'research_plan2', 'Implement OAuth2');
     server.runMcpWorkflow(taskT06);
     writeFindings(taskT06, '# Findings\n\nNo OAuth2.\n');
-    writeResult(taskT06, 'genin', 'Mapped.');
+    completePhase(taskT06, 'genin', 'Mapped.');
     server.runMcpWorkflow(taskT06);
     writePlan(taskT06, 'needs_research: true\nresearch_query: OAuth2 PKCE\n');
-    writeResult(taskT06, 'kage', 'Requires research.');
+    completePhase(taskT06, 'kage', 'Requires research.');
     const r3T06 = JSON.parse(server.runMcpWorkflow(taskT06));
     assert.strictEqual(r3T06.status, 'ready');
     assert.strictEqual(r3T06.phase, 'research');
     assert.strictEqual(r3T06.agent, 'chunin');
     assert.ok((r3T06.query || '').includes('OAuth2 PKCE'));
     writeResearch(taskT06, '{"findings": ["PKCE recommended"], "synthesis": "Use auth code+PKCE"}');
-    writeResult(taskT06, 'chunin', 'Research complete.');
+    completePhase(taskT06, 'chunin', 'Research complete.');
     const r4T06 = JSON.parse(server.runMcpWorkflow(taskT06));
     assert.strictEqual(r4T06.status, 'ready');
     assert.strictEqual(r4T06.phase, 'plan');
@@ -131,10 +134,10 @@ async function run() {
     const taskT07 = setupTask(taskRoot, 'plan_execute', 'Fix a CSS bug');
     server.runMcpWorkflow(taskT07);
     writeFindings(taskT07, '# Findings\n\nCSS in styles/app.css line 42.\n');
-    writeResult(taskT07, 'genin', 'Found CSS location.');
+    completePhase(taskT07, 'genin', 'Found CSS location.');
     server.runMcpWorkflow(taskT07);
     writePlan(taskT07, '## Plan\n\nFix the CSS bug at line 42.\n');
-    writeResult(taskT07, 'kage', 'Plan ready.');
+    completePhase(taskT07, 'kage', 'Plan ready.');
     server.runMcpWorkflow(taskT07);
     const r3T07 = JSON.parse(server.runMcpWorkflow(taskT07, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T07.status, 'ready');
@@ -146,10 +149,10 @@ async function run() {
     const taskT08 = setupTask(taskRoot, 'execute_anbu', 'Fix API bug');
     server.runMcpWorkflow(taskT08);
     writeFindings(taskT08, '# Findings\n\nBug in api/handler.py\n');
-    writeResult(taskT08, 'genin', 'Mapped.');
+    completePhase(taskT08, 'genin', 'Mapped.');
     server.runMcpWorkflow(taskT08);
     writePlan(taskT08, '## Plan\n\n- [anbu]: Fix authentication middleware in api/handler.py\n- [jonin]: Update the login form styling\n');
-    writeResult(taskT08, 'kage', 'Plan ready.');
+    completePhase(taskT08, 'kage', 'Plan ready.');
     server.runMcpWorkflow(taskT08);
     const r3T08 = JSON.parse(server.runMcpWorkflow(taskT08, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T08.status, 'ready');
@@ -162,15 +165,15 @@ async function run() {
     const taskT09 = setupTask(taskRoot, 'execute_multi', 'Fix bug and update UI');
     server.runMcpWorkflow(taskT09);
     writeFindings(taskT09, '# Findings\n\nBackend and frontend affected.\n');
-    writeResult(taskT09, 'genin', 'Mapped.');
+    completePhase(taskT09, 'genin', 'Mapped.');
     server.runMcpWorkflow(taskT09);
     writePlan(taskT09, '## Plan\n\n- [anbu]: Fix the API bug\n- [jonin]: Update the login form\n');
-    writeResult(taskT09, 'kage', 'Plan ready.');
+    completePhase(taskT09, 'kage', 'Plan ready.');
     server.runMcpWorkflow(taskT09);
     const r3T09 = JSON.parse(server.runMcpWorkflow(taskT09, { choice: '1. Compact and approve' }));
     assert.strictEqual(r3T09.phase, 'execute');
     assert.strictEqual(r3T09.agent, 'anbu');
-    writeResult(taskT09, 'anbu', 'API bug fixed.');
+    completePhase(taskT09, 'anbu', 'API bug fixed.');
     const r4T09 = JSON.parse(server.runMcpWorkflow(taskT09));
     assert.strictEqual(r4T09.status, 'ready');
     assert.strictEqual(r4T09.phase, 'execute');
@@ -181,15 +184,15 @@ async function run() {
     const taskT10 = setupTask(taskRoot, 'document_phase', 'Complete feature');
     server.runMcpWorkflow(taskT10);
     writeFindings(taskT10, '# Findings\n\nMapped.\n');
-    writeResult(taskT10, 'genin', 'Mapped.');
+    completePhase(taskT10, 'genin', 'Mapped.');
     server.runMcpWorkflow(taskT10);
     writePlan(taskT10, '## Plan\n\n- [anbu]: Build the API\n- [jonin]: Build the UI\n');
-    writeResult(taskT10, 'kage', 'Plan ready.');
+    completePhase(taskT10, 'kage', 'Plan ready.');
     server.runMcpWorkflow(taskT10);
     server.runMcpWorkflow(taskT10, { choice: '1. Compact and approve' });
-    writeResult(taskT10, 'anbu', 'API built.');
+    completePhase(taskT10, 'anbu', 'API built.');
     server.runMcpWorkflow(taskT10);
-    writeResult(taskT10, 'jonin', 'UI built.');
+    completePhase(taskT10, 'jonin', 'UI built.');
     const r5T10 = JSON.parse(server.runMcpWorkflow(taskT10));
     assert.strictEqual(r5T10.status, 'ready');
     assert.strictEqual(r5T10.phase, 'document');
@@ -255,7 +258,7 @@ async function run() {
     assert.strictEqual(status1T13.phase, 'explore');
     assert.ok(status1T13.created_at);
     writeFindings(taskT13, '# Findings\n\nMapped.\n');
-    writeResult(taskT13, 'genin', 'Done.');
+    completePhase(taskT13, 'genin', 'Done.');
     const r2T13 = JSON.parse(server.runMcpWorkflow(taskT13));
     assert.strictEqual(r2T13.phase, 'plan');
     const status2T13 = JSON.parse(fs.readFileSync(path.join(taskT13, 'status.json'), 'utf8'));

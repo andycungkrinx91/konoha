@@ -46,52 +46,9 @@ async function getLastUserInput(transcriptPath) {
   });
 }
 
-const CONTINUE_PATTERN = /^(continue|go|proceed|next|ok|yes|y)$/i;
-
-const PROMPT_HEADER = [
-  '# Session Prompts',
-  '',
-  '> The FIRST section below is the ORIGINAL TASK. Sections marked "Follow-up"',
-  '> refine it but NEVER replace it. When executing, always preserve the',
-  '> original goal: fix the reported bug itself; do not abandon prior work',
-  '> when a new error appears — resolve both, original task first.',
-  ''
-].join('\n');
-
-async function writePromptFile(lastInput, artifactDirectoryPath) {
-  if (!lastInput || !artifactDirectoryPath) return;
-  try {
-    if (!fs.existsSync(artifactDirectoryPath)) {
-      fs.mkdirSync(artifactDirectoryPath, { recursive: true });
-    }
-    const promptFilePath = path.join(artifactDirectoryPath, 'prompt.md');
-    const trimmed = lastInput.trim();
-    if (!trimmed) return;
-
-    if (!fs.existsSync(promptFilePath)) {
-      fs.writeFileSync(promptFilePath, `${PROMPT_HEADER}\n## Original Task\n\n${trimmed}\n`, 'utf-8');
-      return;
-    }
-
-    // Continue-style inputs carry no new task content — leave the file as-is.
-    if (CONTINUE_PATTERN.test(trimmed)) return;
-
-    const existing = fs.readFileSync(promptFilePath, 'utf-8');
-    // Skip exact duplicates (hook may fire twice for the same input).
-    if (existing.includes(trimmed)) return;
-
-    // Append as a follow-up so the original task is never overwritten or lost.
-    const followUpCount = (existing.match(/^## Follow-up /gm) || []).length;
-    const stamp = new Date().toISOString();
-    fs.appendFileSync(
-      promptFilePath,
-      `\n\n## Follow-up ${followUpCount + 1} (${stamp})\n\n${trimmed}\n`,
-      'utf-8'
-    );
-  } catch {
-    // ignore write errors
-  }
-}
+// File-based IPC is retired: this hook NEVER writes prompt.md / delegate.md.
+// User input already lives in the transcript; routing uses structured MCP args.
+// Inbox notification below peeks SQLite only (no claim, no file append).
 
 const SELF_NUDGE = {
   injectSteps: [
@@ -172,40 +129,17 @@ async function main() {
     // Auto-scaffold workspace rules (GEMINI.md, AGENTS.md) in new project workspaces
     ensureWorkspaceRules(targetDir);
 
-    const { transcriptPath, artifactDirectoryPath } = context;
+    const { transcriptPath } = context;
     if (!transcriptPath) process.exit(0);
 
-async function appendPendingInboxPrompts(artifactDirectoryPath) {
-  if (!artifactDirectoryPath) return null;
-  try {
-    const inbox = require('./queue/inbox');
-    const sessionId = path.basename(artifactDirectoryPath);
-    const pending = inbox.claimNextPendingPrompt({ client: 'antigravity', session_id: sessionId });
-    if (!pending) return null;
-    const promptFilePath = path.join(artifactDirectoryPath, 'prompt.md');
-    if (!fs.existsSync(promptFilePath)) return null;
-    const existing = fs.readFileSync(promptFilePath, 'utf-8');
-    if (existing.includes(pending.id)) return null;
-    const followUpCount = (existing.match(/^## Follow-up /gm) || []).length;
-    const stamp = new Date().toISOString();
-    const content = `\n\n## Follow-up ${followUpCount + 1} (${stamp}) [Inbound Queue: ${pending.id} from ${pending.source}]\n\n<USER_REQUEST>\n${pending.prompt}\n</USER_REQUEST>\n`;
-    fs.appendFileSync(promptFilePath, content, 'utf-8');
-    return pending;
-  } catch (_) {
-    /* intentional fallback: queue file append error must not crash prompt hook */
-    return null;
-  }
-}
+    const { isNewInput } = await getLastUserInput(transcriptPath);
 
-    const { lastInput, isNewInput } = await getLastUserInput(transcriptPath);
-    await writePromptFile(lastInput, artifactDirectoryPath);
-    const queuedTask = await appendPendingInboxPrompts(artifactDirectoryPath);
-
-    // Inject pending inbox/telegram prompt notification if queued
+    // Inbox notification peeks SQLite only — never claims, never writes prompt.md.
+    // Claiming happens via structured queue tools when the agent actually dispatches.
     let pendingInboxMsg = null;
     try {
       const inbox = require('./queue/inbox');
-      const pending = queuedTask || inbox.getNextPendingPrompt();
+      const pending = inbox.getNextPendingPrompt();
       if (pending) {
         pendingInboxMsg = `[INBOUND PROMPT QUEUE] Task #${pending.id} waiting from ${pending.source}: "${pending.prompt}". Execute via Konoha subagents.`;
       }

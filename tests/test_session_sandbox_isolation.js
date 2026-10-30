@@ -69,11 +69,10 @@ async function run() {
     assert.ok(taskDirA.startsWith(tmpA), `taskDirA must be inside tmpA`);
     assert.ok(taskDirB.startsWith(tmpB), `taskDirB must be inside tmpB`);
 
-    // Simulate Sannin creating a task in session A
+    // Simulate Sannin creating a task in session A (structured marker only — never prompt.md / delegate.md).
     const specificTaskA = path.join(tmpA, 'scratch', 'tasks', 'task_alpha_001');
     fs.mkdirSync(specificTaskA, { recursive: true });
-    fs.writeFileSync(path.join(specificTaskA, 'prompt.md'), 'Task for Alpha in agy', 'utf8');
-    fs.writeFileSync(path.join(specificTaskA, 'delegate.md'), '# Delegation for Alpha', 'utf8');
+    fs.writeFileSync(path.join(specificTaskA, 'status.json'), JSON.stringify({ phase: 'route', task_id: 'task_alpha_001' }), 'utf8');
 
     // Now check what session B resolves when taskDir is null
     const resolvedInB = getResolvedTaskDir(null, projB, sessB);
@@ -219,7 +218,7 @@ async function run() {
     console.log('7. Verifying foreign task directory confinement...');
     const foreignTaskDir = path.join(tmpA, 'scratch', 'tasks', 'task_alpha_foreign_999');
     fs.mkdirSync(foreignTaskDir, { recursive: true });
-    fs.writeFileSync(path.join(foreignTaskDir, 'delegate.md'), '# Foreign Alpha task', 'utf8');
+    fs.writeFileSync(path.join(foreignTaskDir, 'status.json'), JSON.stringify({ phase: 'route', task_id: 'task_alpha_foreign_999' }), 'utf8');
 
     // When session B resolves its latest task with taskDir=null, it must NOT pick up session A's task
     const resolvedB = getResolvedTaskDir(null, projB, sessB);

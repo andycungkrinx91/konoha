@@ -72,13 +72,8 @@ function run() {
       }
     };
 
-    const completion = {
-      task_id: 'task-1',
-      result: 'Kage review complete with advisor rejection'
-    };
-
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Kage review finished');
     saveWorkflowStatus(tmpDir, workflowStatus);
+    { const { reportFromAgent } = require('../src/mcp/memory_project_context'); reportFromAgent('kage', 'Kage review finished', 'completed', null, null, null, null, tmpDir, 'dispatch-review-1', ['review executed, exit 0']); }
     const routeResultRaw = runMcpWorkflow(tmpDir);
     const routeResult = JSON.parse(routeResultRaw);
 
@@ -121,7 +116,8 @@ function run() {
     };
 
     saveWorkflowStatus(tmpDir, uiWorkflowStatus);
-    const uiRouteResultRaw = runMcpWorkflow(tmpDir, 'dispatch-review-2', completion);
+    { const { reportFromAgent } = require('../src/mcp/memory_project_context'); reportFromAgent('kage', 'Kage review finished', 'completed', null, null, null, null, tmpDir, 'dispatch-review-2', ['review executed, exit 0']); }
+    const uiRouteResultRaw = runMcpWorkflow(tmpDir);
     const uiRouteResult = JSON.parse(uiRouteResultRaw);
 
     assert.strictEqual(uiRouteResult.status, 'remediation');
@@ -174,7 +170,8 @@ function run() {
     };
 
     saveWorkflowStatus(tmpDir, excessiveCyclesStatus);
-    const overflowResult = JSON.parse(runMcpWorkflow(tmpDir, 'dispatch-review-overflow', completion));
+    { const { reportFromAgent } = require('../src/mcp/memory_project_context'); reportFromAgent('kage', 'Kage review finished', 'completed', null, null, null, null, tmpDir, 'dispatch-review-overflow', ['review executed, exit 0']); }
+    const overflowResult = JSON.parse(runMcpWorkflow(tmpDir));
     assert.strictEqual(overflowResult.status, 'blocked', 'Circuit breaker must block when advisor_cycles > 7');
     assert.strictEqual(overflowResult.advisor_cycles, 8);
     console.log('✓ Circuit breaker trips and blocks after 7 advisor cycles');

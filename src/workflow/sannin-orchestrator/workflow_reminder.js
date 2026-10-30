@@ -83,7 +83,7 @@ try { ensureWorkspaceRules(process.cwd()); } catch (_) { /* intentional best-eff
 const REMINDER = [
   '[konoha] Workflow active — applies to ALL sessions (new, resumed, compacted):',
   'FIRST ACTION on any new task: call konoha.find_skill with keywords from the user prompt BEFORE any code changes.',
-  'Route tasks via konoha MCP `sannin` (delegate.md phases); skills via konoha.find_skill/get_skill;',
+  'Route tasks via konoha MCP `sannin` (structured task args, never file IPC); skills via konoha.find_skill/get_skill;',
   'code search via semble search/find_related; bounded file tools konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
   'artifacts live in konoha.get_resolved_task_dir; completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100);',
   '@advisor approval review before final delivery sign-off;',

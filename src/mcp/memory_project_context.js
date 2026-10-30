@@ -84,23 +84,30 @@ function _updateWorkflowStatus(taskDir, dispatchId, agentName, finalStatus, upda
     return { error: 'agent_name does not match the active workflow dispatch', workflowStatus };
   }
 
-  if ((finalStatus === 'completed' || finalStatus === 'unverified') && dispatch?.task_id) {
-    const task = (workflowStatus.tasks || []).find(t => t.id === dispatch.task_id);
-    if (task) {
-      task.status = finalStatus;
-      task.result = updateData.summary;
-      task.validation = updateData.validation || [];
-      task.verified = updateData.verified;
-      task.files_created = updateData.filesCreated || [];
-      task.files_modified = updateData.filesModified || [];
+  // Completion arrives ONLY via report_from_agent — never result.md polling.
+  // Phase-level dispatches (explore/research/plan/document/review, no task_id)
+  // also complete here so the workflow engine can advance without any file IPC.
+  if (finalStatus === 'completed' || finalStatus === 'unverified') {
+    if (dispatch?.task_id) {
+      const task = (workflowStatus.tasks || []).find(t => t.id === dispatch.task_id);
+      if (task) {
+        task.status = finalStatus;
+        task.result = updateData.summary;
+        task.validation = updateData.validation || [];
+        task.verified = updateData.verified;
+        task.files_created = updateData.filesCreated || [];
+        task.files_modified = updateData.filesModified || [];
+      }
     }
-    workflowStatus.completed_dispatches = workflowStatus.completed_dispatches || [];
-    if (!workflowStatus.completed_dispatches.includes(dispatch.id)) {
-      workflowStatus.completed_dispatches.push(dispatch.id);
+    if (dispatch?.id) {
+      workflowStatus.completed_dispatches = workflowStatus.completed_dispatches || [];
+      if (!workflowStatus.completed_dispatches.includes(dispatch.id)) {
+        workflowStatus.completed_dispatches.push(dispatch.id);
+      }
+      workflowStatus.dispatch_results = workflowStatus.dispatch_results || {};
+      workflowStatus.dispatch_results[dispatch.id] = updateData.summary;
+      saveWorkflowStatus(taskDir, workflowStatus);
     }
-    workflowStatus.dispatch_results = workflowStatus.dispatch_results || {};
-    workflowStatus.dispatch_results[dispatch.id] = updateData.summary;
-    saveWorkflowStatus(taskDir, workflowStatus);
   }
   return { error: null, workflowStatus };
 }

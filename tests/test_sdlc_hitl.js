@@ -112,7 +112,7 @@ try {
 
   // Simulate Kage compiling refined plan and re-pausing at Gate 1
   fs.writeFileSync(path.join(taskDirGate1, 'plan.md'), '# Refined Plan\n- [anbu]: Build auth API with rate limiting\n', 'utf8');
-  fs.writeFileSync(path.join(taskDirGate1, 'result.md'), 'Refined action plan written.', 'utf8');
+  { const stx = JSON.parse(fs.readFileSync(path.join(taskDirGate1, 'status.json'), 'utf8')); const { reportFromAgent } = require('../src/mcp/memory_project_context'); reportFromAgent('kage', 'Refined action plan written', 'completed', null, null, null, null, taskDirGate1, stx.current_dispatch.id, ['plan refined, exit 0']); }
   const gate1RePrompt = JSON.parse(runMcpWorkflow(taskDirGate1));
   assert.strictEqual(gate1RePrompt.status, 'pending_plan_approval');
 
@@ -230,7 +230,7 @@ try {
 
   // Simulate Kage compiling updated plan
   fs.writeFileSync(path.join(taskDirAuto1, 'plan.md'), '# Refined Auto Plan\n- [anbu]: Build backend with validation\n', 'utf8');
-  fs.writeFileSync(path.join(taskDirAuto1, 'result.md'), 'Refined action plan written.', 'utf8');
+  { const stx = JSON.parse(fs.readFileSync(path.join(taskDirAuto1, 'status.json'), 'utf8')); const { reportFromAgent } = require('../src/mcp/memory_project_context'); reportFromAgent('kage', 'Refined action plan written', 'completed', null, null, null, null, taskDirAuto1, stx.current_dispatch.id, ['plan refined, exit 0']); }
   const auto1RePrompt = JSON.parse(runMcpWorkflow(taskDirAuto1));
   assert.strictEqual(auto1RePrompt.status, 'pending_plan_approval', 'Must re-pause at Gate 1 after plan regeneration');
 

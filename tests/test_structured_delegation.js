@@ -128,7 +128,7 @@ async function testStructuredDelegation() {
 
     const taskDir = path.join(tmpDir, 'legacy_task');
     fs.mkdirSync(taskDir, { recursive: true });
-    fs.writeFileSync(path.join(taskDir, 'delegate.md'), 'Task: Legacy task fallback test\nSkills: jonin-skill\nConstraints: None');
+    // No delegate.md fixture: file-based IPC is retired; a bare call must be rejected.
     const legacyResStr = server.runMcpAgent('jonin', null, null, null, null, null, projectDir, taskDir);
     const legacyRes = JSON.parse(legacyResStr);
     assert.strictEqual(legacyRes.status, 'error');

@@ -15,15 +15,11 @@ const server = require('../src/server');
 
 const DB_PATH = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
 
-function setupTask(taskRoot, name, promptText = null, delegateText = null) {
+function setupTask(taskRoot, name) {
   const d = path.join(taskRoot, name);
   fs.mkdirSync(d, { recursive: true });
-  if (promptText !== null) {
-    fs.writeFileSync(path.join(d, 'prompt.md'), promptText, 'utf8');
-  }
-  if (delegateText !== null) {
-    fs.writeFileSync(path.join(d, 'delegate.md'), delegateText, 'utf8');
-  }
+  // File-based IPC is retired: tasks are created empty; prompts travel
+  // as structured MCP arguments (runSannin prompt, runMcpAgent task).
   return d;
 }
 
@@ -118,7 +114,7 @@ async function run() {
     assert.ok(resJoninSkill.instructions.includes('jonin-skill'));
 
     // File-based IPC rejection verification
-    const taskRetired = setupTask(taskRoot, 'retired_ipc', null, 'legacy delegate');
+    const taskRetired = setupTask(taskRoot, 'retired_ipc');
     const resRetired = JSON.parse(server.runMcpAgent('anbu', null, null, null, null, null, null, taskRetired));
     assert.strictEqual(resRetired.status, 'error');
     assert.strictEqual(resRetired.reason, 'retired_file_ipc');

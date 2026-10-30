@@ -40,7 +40,7 @@ async function run() {
       }
     };
     server.saveWorkflowStatus(tmpDir, status1);
-    server.runMcpWorkflow(tmpDir);
+    { const rd = JSON.parse(server.runMcpWorkflow(tmpDir)); if (rd.dispatch_id) { const stx = JSON.parse(fs.readFileSync(require('path').join(tmpDir, 'status.json'), 'utf8')); stx.completed_dispatches = [rd.dispatch_id]; stx.dispatch_results = { [rd.dispatch_id]: 'Kage review submitted via report_from_agent' }; server.saveWorkflowStatus(tmpDir, stx); } }
 
     const reviewArtifact1 = {
       approved: true,
@@ -54,7 +54,7 @@ async function run() {
       findings: []
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact1));
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review flagged AI-slop violations.');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res1 = JSON.parse(server.runMcpWorkflow(tmpDir));
     // Default-on remediation loop (PLAN_NATIVE_SDLC §2.4): actual findings must
@@ -76,7 +76,7 @@ async function run() {
       }
     };
     server.saveWorkflowStatus(tmpDir, status2);
-    server.runMcpWorkflow(tmpDir);
+    { const rd = JSON.parse(server.runMcpWorkflow(tmpDir)); if (rd.dispatch_id) { const stx = JSON.parse(fs.readFileSync(require('path').join(tmpDir, 'status.json'), 'utf8')); stx.completed_dispatches = [rd.dispatch_id]; stx.dispatch_results = { [rd.dispatch_id]: 'Kage review submitted via report_from_agent' }; server.saveWorkflowStatus(tmpDir, stx); } }
 
     const reviewArtifact2 = {
       approved: true,
@@ -87,7 +87,7 @@ async function run() {
       validation: ['all tests passed successfully']
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact2));
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Legacy review completed.');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res2 = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res2.status, 'blocked', 'Missing ai_slop fields must block approval.');
@@ -107,7 +107,7 @@ async function run() {
       }
     };
     server.saveWorkflowStatus(tmpDir, status3);
-    server.runMcpWorkflow(tmpDir);
+    { const rd = JSON.parse(server.runMcpWorkflow(tmpDir)); if (rd.dispatch_id) { const stx = JSON.parse(fs.readFileSync(require('path').join(tmpDir, 'status.json'), 'utf8')); stx.completed_dispatches = [rd.dispatch_id]; stx.dispatch_results = { [rd.dispatch_id]: 'Kage review submitted via report_from_agent' }; server.saveWorkflowStatus(tmpDir, stx); } }
 
     const reviewArtifact3 = {
       approved: true,
@@ -121,7 +121,7 @@ async function run() {
       findings: []
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3));
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Kage verified 0 AI-slop issues.');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res3Gate = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res3Gate.status, 'pending_human_signoff', 'Gate 2 delivery sign-off is authoritative');
@@ -142,10 +142,9 @@ async function run() {
     // --- D.2 Tool-boundary tests ---
 
     // 5. Genin and Kage cannot reach aislop_fix
-    fs.writeFileSync(path.join(tmpDir, 'delegate.md'), 'Analyze and plan.');
     for (const role of ['genin', 'kage']) {
       server.SESSION_TURNS && server.SESSION_TURNS.clear();
-      const res = JSON.parse(server.runMcpAgent(role, tmpDir));
+      const res = JSON.parse(server.runMcpAgent(role, 'Analyze and plan.', null, null, null, null, null, tmpDir));
       const instructions = res.instructions || '';
       const toolsSection = instructions.slice(
         instructions.indexOf('## MCP Tools Available To You'),
@@ -159,10 +158,9 @@ async function run() {
     console.log('✓ Genin and Kage tool boundaries passed');
 
     // 6. Anbu and Jonin can reach aislop_fix
-    fs.writeFileSync(path.join(tmpDir, 'delegate.md'), 'Build and fix.');
     for (const role of ['jonin', 'anbu']) {
       server.SESSION_TURNS && server.SESSION_TURNS.clear();
-      const res = JSON.parse(server.runMcpAgent(role, tmpDir));
+      const res = JSON.parse(server.runMcpAgent(role, 'Build and fix.', null, null, null, null, null, tmpDir));
       const instructions = res.instructions || '';
       const toolsSection = instructions.slice(
         instructions.indexOf('## MCP Tools Available To You'),
@@ -195,10 +193,8 @@ async function run() {
 
     // --- D.4 Dispatch-instruction consistency test ---
 
-    // Clean up any review artifacts from previous steps
+    // Clean up any review artifacts from previous steps (no file-IPC artifacts exist anymore)
     if (fs.existsSync(path.join(tmpDir, 'kage_review.json'))) fs.unlinkSync(path.join(tmpDir, 'kage_review.json'));
-    if (fs.existsSync(path.join(tmpDir, 'delegate.md'))) fs.unlinkSync(path.join(tmpDir, 'delegate.md'));
-    if (fs.existsSync(path.join(tmpDir, 'result.md'))) fs.unlinkSync(path.join(tmpDir, 'result.md'));
 
     // 8. Kage dispatch prompt mentions AI slop fields
     let status4 = {

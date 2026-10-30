@@ -247,7 +247,7 @@ flowchart TB
 | **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Prompt Queue**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
 | **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens and bot tokens in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & credentials. |
 | **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu Black Ops**: Integrated MITRE ATT&CK techniques, penetration testing, exploit analysis, container hardening, and enterprise defense capabilities in dev/local environments. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
-| **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (`delegate.md`/`result.md`), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
+| **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (retired file-based IPC), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
 | **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, `.omp`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 8 premier AI coding environments. |
 
 > [!TIP]
@@ -264,7 +264,7 @@ For a detailed breakdown of Konoha's internal mechanics, including system layers
 <br>
 
 Konoha subagents execute inline via direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`) using direct specialist tools (`jonin`, `anbu`, `kage`, `genin`, etc.):
-- **Eliminates Scratch Loops**: Replaces multi-step disk file reading (`delegate.md` and `result.md`) with direct in-memory structured context passing.
+- **Eliminates Scratch Loops**: Replaces multi-step disk file reading with direct in-memory structured context passing.
 - **Auto-Checkpointing (`report_from_agent`)**: Automatically distills key architectural learnings and records them into persistent project memory upon task completion.
 
 </details>
@@ -349,7 +349,7 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 | **Execution Model** | Spawns separate LLM child processes (`invoke_subagent`). | One MCP Server calls another downstream MCP Server via backend RPC. | Subagents run as **MCP Tools** (`anbu`, `kage`); Orchestrator adopts persona dynamically. |
 | **Token Efficiency** | ❌ **Poor**: High token bloat from duplicating system prompts & context (3x–10x token cost). | ⚠️ **Moderate**: Depends on RPC serialization payload size. | ✅ **Extreme (83–98% Savings)**: In-flight execution using bounded MCP context. |
 | **Startup Latency** | ❌ **High**: 3–10 seconds of cold-start delay per child process launch. | ⚠️ **Moderate**: Network/IPC serialization hops between cascading servers. | ✅ **Near-Zero Latency**: Instant inline tool invocations and persona handoffs. |
-| **Task Auditability** | ⚠️ Complex transcript aggregation across detached process trees. | ❌ Hidden backend execution; opaque to the client UI/user. | ✅ **Fully Transparent**: Human-readable task contracts (`delegate.md` & `result.md`). |
+| **Task Auditability** | ⚠️ Complex transcript aggregation across detached process trees. | ❌ Hidden backend execution; opaque to the client UI/user. | ✅ **Fully Transparent**: Human-readable structured task contracts (`status.json` & `report_from_agent` records). |
 
 ### Why Konoha Uses the MCP Tools Orchestrator Model
 
@@ -357,16 +357,11 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 2. 💡 **Direct Structured Context**: Passes tasks, constraints, skills, and taste dials in-memory via MCP tool arguments without filesystem disk-thrashing loops.
 3. 🛡️ **Seamless Conversation Resumption**: Re-evaluates state and enforces subagent delegation workflow on every resume or multi-turn request.
 
-### 🔄 Structured Delegation and Legacy Task Fallback
+### 🔄 Structured Delegation (File-Based IPC Retired)
 
-Konoha passes `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` directly to subagent MCP tools. Hosts that cannot send structured arguments may use isolated legacy artifacts:
+Konoha passes `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` directly to subagent MCP tools. File-based IPC (`prompt.md` / `delegate.md` / `result.md`) is retired: nothing writes or reads these files, and dispatchers reject task references to them with `retired_file_ipc`.
 
-| Path | Purpose |
-|------|---------|
-| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/delegate.md` | Legacy task instructions only |
-| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/result.md` | Legacy result exchange only |
-
-Structured reports use `report_from_agent` to return summaries, changed files, and project-scoped learnings. Legacy task directories remain outside the project workspace and are cleaned after use.
+Structured reports use `report_from_agent` to return summaries, changed files, and project-scoped learnings. Task directories remain outside the project workspace and are cleaned after use.
 
 ### Skill Resolution
 
@@ -380,7 +375,7 @@ The mismatch is reported on stderr (`fuzzy-resolved skill 'x' -> 'y'`) so the or
 
 ### Workspace Hygiene
 
-Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/mcp/runtime_state.js` and covered by `tests/test_scratch_path.js`.
+Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `final_report.md`, etc.) is written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. Retired file-IPC names (`prompt.md`, `delegate.md`, `result.md`) are never created. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/mcp/runtime_state.js` and covered by `tests/test_scratch_path.js`.
 
 
 ---

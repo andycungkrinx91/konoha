@@ -341,22 +341,22 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: Konoha seeds packaged skills into the global `~/.agents/skills/` and auto-migrates them into project `.agents/skills/` directories. Pi loads both and reports the duplicate names.
 - **Behavior**: Pi automatically prefers the **project-local** copy (`✓ auto (project)`) and skips the global one — the effective skill set is correct and complete.
 - **Action**: None. The warnings are informational; do not delete either copy (the global set serves the other 6 clients, the project set serves per-project customization).
-- **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --force --yes` to deploy it). The mandate instructs Pi to route through `sannin`/delegate.md phases and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
+- **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --force --yes` to deploy it). The mandate instructs Pi to route through `sannin` with structured task arguments and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
 
 ---
 
 ### 🚫 Resumed sessions stop using the Konoha workflow (`fixed in v2.0.0-beta.7`)
 
 - **Cause**: Contracts/rules are injected at session **start**; on `--resume`/`--continue` the existing conversation history dominated and nothing re-engaged the Konoha workflow mechanically.
-- **Fix**: Claude Code now runs the Konoha **workflow reminder** on `UserPromptSubmit` (every prompt, all sessions) and on `SessionStart` with matcher `resume|compact|clear`. Pi/Codex re-read the deployed `AGENTS.md` (contract + Workflow Mandate) on every startup; Cursor's `konoha.mdc` uses `alwaysApply: true`; Antigravity's per-prompt `prompt_hook` maintains append-only session history.
+- **Fix**: Claude Code now runs the Konoha **workflow reminder** on `UserPromptSubmit` (every prompt, all sessions) and on `SessionStart` with matcher `resume|compact|clear`. Pi/Codex re-read the deployed `AGENTS.md` (contract + Workflow Mandate) on every startup; Cursor's `konoha.mdc` uses `alwaysApply: true`; Antigravity's per-prompt `prompt_hook` emits structured workflow reminders without writing any session files.
 - **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and confirm `~/.claude/settings.json` contains a `UserPromptSubmit` entry with `workflow_reminder.js`.
 
 ---
 
-### 🚫 `File not found: <workspace>/prompt.md` (or `plan.md`, `result.md`, ...) (`improved in v2.0.0-beta.7`)
+### 🚫 `File not found: <workspace>/prompt.md` (or `plan.md`, ...) (`retired: file-based IPC removed`)
 
-- **Cause**: Workflow artifacts (`prompt.md`, `plan.md`, `result.md`, `delegate.md`, `findings.md`, `final_report.md`, `kage_review.json`) live in the **task directory** (`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`), never in the workspace root. Agents that guess the workspace path get a plain not-found error.
-- **Fix**: `file_info` / `read_file_*` errors for these filenames now include an actionable `hint` with the resolved task directory path. Use `get_resolved_task_dir` to locate it, then read the artifact there.
+- **Cause**: Legacy workflow artifacts (`prompt.md`, `delegate.md`, `result.md`) are retired and never written. Live workflow state travels as structured MCP arguments and `status.json` in the **task directory** (`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`), never in the workspace root. Agents guessing the workspace path get a plain not-found error.
+- **Fix**: never create or read `prompt.md` / `delegate.md` / `result.md`. Pass task instructions via direct structured MCP tool arguments and report completion via `report_from_agent`. Use `get_resolved_task_dir` to locate the task directory, then read live artifacts (`status.json`, `findings.md`, `plan.md`, `final_report.md`, `kage_review.json`) there.
 
 ---
 
@@ -408,10 +408,10 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: After running `konoha upgrade` or `konoha init --force`, the version displayed remains on an older pre-release (e.g. `2.0.0-beta.3`).
   - **Reason**: Global package managers (`pnpm`, `npm`) cache git checkouts in their global store links (e.g. `pnpm/store/v11/links/@/Konoha/`), or reuse dirty temporary git repositories.
   - **Fix**: As of `v2.0.0-beta.4`, Konoha automatically runs `purgePackageCaches` during `init --force` and Stage 1 of `upgrade`. It runs `pnpm store prune`, cleans npm/yarn caches, severs stale global store hardlinks with unlinking, and enforces `--prefer-online --no-cache`.
-* **Excessive Token Consumption / Prompt Loop in IDE**:
-  - **Symptom**: The AI assistant re-reads `prompt.md` repeatedly on every tool call, consuming thousands of tokens.
-  - **Reason**: The session prompt hook unconditionally injected ephemeral reminder messages on every single tool execution step.
-  - **Fix**: Resolved in `v2.0.0-beta.4` by adding response state tracking in `prompt_hook.js`. Ephemeral notifications are now only emitted once for fresh user inputs awaiting an initial response, and preview limits in `find_skill` were reduced to 500 characters.
+* **Excessive Token Consumption / Prompt Loop in IDE (`retired: file-based IPC removed`)**:
+  - **Symptom**: Legacy agents re-read `prompt.md` repeatedly on every tool call, consuming thousands of tokens.
+  - **Reason**: Retired file-based IPC pattern; session context now arrives as structured MCP arguments.
+  - **Fix**: Never write or read `prompt.md` / `delegate.md` / `result.md`. The session prompt hook emits no files; ephemeral notifications fire once for fresh user inputs awaiting an initial response, and preview limits in `find_skill` were reduced to 500 characters.
 * **`Token Efficient Grep: FAILED - Path outside workspace` or Timeout on Windows (`v2.0.0-beta.5`)**:
   - **Symptom**: On Windows systems, running `konoha test` displays `✗ Token Efficient Grep: FAILED - [gateway] Proxy Gateway running on http://127.0.0.1:20002` or `Path outside workspace: D:\...`.
   - **Reason**: On Windows NTFS drives, Node `realpathSync` produces extended prefix paths (`\\?\D:\...`). Python's `os.path.commonpath` threw `ValueError: Paths don't have the same drive` comparing `d:` and `\\?\d:`. Furthermore, Windows command-line argument quoting rules under `py.exe` corrupted backslashes in JSON payloads, and scanning 4,700+ reference files in `src/templates/skills` caused 60-second timeouts.
@@ -459,7 +459,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Reason**: The CLI resolved `apps/web` relative to the installed runtime location (`~/.konoha/bin/cli.js`), pointing to a non-existent `$HOME/apps/web`.
   - **Fix**: Resolved in `v2.0.0-beta.7` by pre-building the Web UI production distribution (`apps/web/build`), copying it into `~/.konoha/apps/web/build` during `init`, and introducing `resolveWebUiDir()` in `src/deploy_utils.js`.
 * **Pi (pi.dev) free-running multi-step work without sannin router (`v2.0.0-beta.7`)**:
-  - **Symptom**: The Pi coding agent does not route tasks through `sannin` or `delegate.md`.
+  - **Symptom**: The Pi coding agent does not route tasks through the `sannin` structured workflow.
   - **Reason**: Pi lacked the Konoha runtime contract and workflow mandate in its global context file.
   - **Fix**: Resolved in `v2.0.0-beta.7` by deploying the full Konoha runtime contract + Pi Workflow Mandate in `~/.pi/agent/AGENTS.md`.
 * **Workflow Abandoned on Session Resume across coding clients (`v2.0.0-beta.7`)**:

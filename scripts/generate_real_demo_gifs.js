@@ -55,7 +55,6 @@ const BADGE_FONT_SIZE = 11;
 const COMMAND_CACHE = new Map();
 const OUTPUT_FILTERS = [
   'A user prompt or conversation resume action has been received',
-  'Please read prompt.md using konoha MCP',
 ];
 
 // ---------------------------------------------------------------------------

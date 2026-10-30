@@ -111,7 +111,7 @@ All subagents run on `Claude Sonnet 4.6 (Thinking)`. Cursor Free users are unaff
 When MCP tools omit the `agent` parameter, `detect_active_agent()` resolves identity from:
 
 - **Cursor**: `~/.cursor/projects/*/agent-transcripts/*/*.jsonl` — `Task` `subagent_type`, subagent `[Agent] active` text logs, or `[Konoha] orchestrator active`.
-- **Antigravity**: `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` — delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts. If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
+- **Antigravity**: `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` — recent `PLANNER_RESPONSE` transcripts (session `prompt.md` is the IDE's own file, never Konoha IPC). If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
 
 Recent Cursor sessions are preferred over stale Antigravity brain folders so counters stay accurate in multi-client setups.
 
@@ -167,7 +167,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 ### Dual-platform / multi-client (Antigravity + Cursor + others)
 
-Konoha supports all configured stacks simultaneously. Agent detection uses transcript activity time — not Antigravity `prompt.md` touch time — so active Cursor sessions are not masked by Antigravity orchestrator prompt updates.
+Konoha supports all configured stacks simultaneously. Agent detection uses transcript activity time — never session-file touch time — so active Cursor sessions are not masked by Antigravity orchestrator updates.
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for shared issues (database, FTS5, MCP).
 

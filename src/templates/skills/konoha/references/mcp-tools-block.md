@@ -25,7 +25,7 @@ Every official Konoha subagent must follow this contract on every new, resumed, 
 | `mcp__konoha__get_file_structure` | Inspect file signatures |
 | `mcp__konoha__find_files_clean` | Find files while skipping build/VCS noise |
 | `mcp__konoha__get_resolved_task_dir` | Resolve an isolated task directory |
-| `mcp__konoha__sannin` | Return control to the orchestrator after writing result.md |
+| `mcp__konoha__sannin` | Return control to the orchestrator via structured task args |
 
 ### Strict Tool Boundaries
 

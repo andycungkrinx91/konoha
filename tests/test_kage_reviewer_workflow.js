@@ -42,7 +42,7 @@ async function run() {
       ]
     };
     server.saveWorkflowStatus(tmpDir, status2);
-    server.runMcpWorkflow(tmpDir);
+    const __dstatus2 = JSON.parse(server.runMcpWorkflow(tmpDir));
 
     const reviewArtifact2 = {
       approved: false,
@@ -52,7 +52,7 @@ async function run() {
       validation: ['FAIL: CVE vulnerability in dependency']
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact2), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with failures.', 'utf8');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res2 = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res2.status, 'blocked');
@@ -68,7 +68,7 @@ async function run() {
       ]
     };
     server.saveWorkflowStatus(tmpDir, status3);
-    server.runMcpWorkflow(tmpDir);
+    const __dstatus3 = JSON.parse(server.runMcpWorkflow(tmpDir));
 
     const reviewArtifact3 = {
       approved: true,
@@ -79,7 +79,7 @@ async function run() {
       validation: ['all tests passed']
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with 85% confidence.', 'utf8');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res3 = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res3.status, 'blocked');
@@ -90,7 +90,7 @@ async function run() {
     reviewArtifact3.confidence = 97;
     delete reviewArtifact3.categories;
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with 97% confidence.', 'utf8');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
     const res3b = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res3b.status, 'blocked');
     assert.strictEqual(res3b.phase, 'review');
@@ -100,7 +100,7 @@ async function run() {
     reviewArtifact3.confidence = 99;
     reviewArtifact3.categories = { 'Security Review': 97 };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with category failure.', 'utf8');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
     const res3c = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res3c.status, 'blocked');
     assert.strictEqual(res3c.phase, 'review');
@@ -133,7 +133,7 @@ async function run() {
       validation: ['all 10 tests passed successfully']
     };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact4), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Kage review verified all tasks and security requirements.', 'utf8');
+    { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res4 = JSON.parse(server.runMcpWorkflow(tmpDir));
     if (res4.status === 'pending_human_signoff') {

@@ -201,10 +201,10 @@
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Architecture &amp; Agents</h3>
         <p class="text-sm leading-relaxed mb-5" style="color: var(--color-text-muted);">
           The main agent is an orchestrator only — it never implements directly. Work is delegated through MCP subagent
-          tools, with workflow artifacts (<code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">prompt.md</code>,
+          tools with structured task arguments, with workflow artifacts (<code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">status.json</code>,
           <code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">plan.md</code>,
-          <code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">result.md</code>)
-          kept in an isolated task directory under <code class="text-xs font-mono">~/.konoha/tmp/</code> — never inside the project workspace.
+          <code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">final_report.md</code>)
+          kept in an isolated task directory under <code class="text-xs font-mono">~/.konoha/tmp/</code> — never inside the project workspace. File-based IPC (<code class="text-xs font-mono">prompt.md</code> / <code class="text-xs font-mono">delegate.md</code> / <code class="text-xs font-mono">result.md</code>) is retired and never written.
         </p>
         <div class="space-y-3">
           {#each AGENTS as a}
