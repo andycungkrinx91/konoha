@@ -18,7 +18,7 @@ Every concept across the Konoha ecosystem must have exactly one canonical identi
 
 ### 2.1 Agent Identifiers & Roster
 
-The Konoha agent hierarchy defines strictly seven ninja specialists and one router. Hyphenated kebab-case is canonical for agent identifiers; snake_case is reserved strictly where MCP tool schemas prohibit hyphens.
+The Konoha agent hierarchy defines strictly eight official ninja agents: one router, five specialists, one scribe, and one security gate. Hyphenated kebab-case is canonical for agent identifiers; snake_case is reserved strictly where MCP tool schemas prohibit hyphens.
 
 | Agent Name | Canonical Role | Canonical Skill | Canonical MCP Tool |
 |---|---|---|---|
@@ -29,6 +29,7 @@ The Konoha agent hierarchy defines strictly seven ninja specialists and one rout
 | `jonin` | Elite Frontend & 3D Builder | `jonin-skill` | `jonin` |
 | `anbu` | Backend & DevOps Specialist | `anbu-skill` | `anbu` |
 | `tokubetsu-jonin` | Technical Scribe & Documenter | `tokubetsu-jonin-skill` | `tokubetsu_jonin` |
+| `akatsuki` | Red-Team & Blue-Team Security Gate | `akatsuki-skill` | `akatsuki` |
 
 * **Invariant:** Never introduce shadow agents or alternative agent aliases (`deep-code-explorer`, `code-architect`, etc.).
 

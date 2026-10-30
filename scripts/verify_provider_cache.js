@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const path = require('path');
 const server = require('../src/server');
 
-const NINJA_AGENTS = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+const NINJA_AGENTS = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki'];
 const TEST_CLIENTS = ['antigravity', 'claudecode', 'cursor', 'commandcode', 'opencode'];
 const REPO_ROOT = path.resolve(__dirname, '..');
 

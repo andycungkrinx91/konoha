@@ -125,7 +125,7 @@ node tests/test_claude_attribution.js   # Claude Code one-by-one attribution
 
 ## Protected Default Subagents
 
-The seven official ninja agents in `src/templates/agents.yaml` **cannot be deleted**:
+The eight official ninja agents in `src/templates/agents.yaml` **cannot be deleted**:
 
 ```bash
 konoha agent delete genin

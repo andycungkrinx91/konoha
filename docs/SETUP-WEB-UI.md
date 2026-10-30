@@ -145,7 +145,7 @@ konoha web
 
 ### 5. 🧠 Persona Memory Screen (`Persona.svelte`)
 - Visual management of episodic persona memories (`/persona`):
-  - Filter and search memories across all 7 ninja agents.
+  - Filter and search memories across all 8 ninja agents.
   - Add new episodic memories with importance ratings (1–10).
   - Edit or delete memories with real-time SQLite persistence.
   - 100% parity with `konoha data memory` CLI.

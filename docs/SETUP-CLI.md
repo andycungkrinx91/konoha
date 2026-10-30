@@ -262,7 +262,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```bash
   konoha agent delete <agent-name>
   ```
-  Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
+  Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The eight official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`) are **protected** and cannot be deleted.
 
 ### Database Maintenance & Telemetry Pruning (`konoha data`)
 

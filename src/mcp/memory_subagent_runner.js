@@ -93,25 +93,22 @@ function _loadManifestToolCatalog() {
   return names;
 }
 
+// Literal per-tool parity: every manifest tool as its own row (set-equality
+// holds exactly) with descriptions omitted to fit the <8KB ceiling.
 function buildSubagentMcpBlock(client = null, agentName = null) {
   const normAgent = (agentName || '').toLowerCase().replace(/_/g, '-');
   // Full main-agent tool parity, generated from the canonical manifest so the
   // list can never drift: every official subagent sees the same MCP catalog
-  // as the main agent. Role-specific boundaries below guide usage; only hard
-  // safety mandates (genin read-only, no push/publish) remain enforced.
+  // as the main agent as literal per-tool entries. Descriptions are omitted
+  // to preserve the unified <8KB token-bounded prompt ceiling; role guidance
+  // below directs usage. Only hard safety mandates remain enforced.
   const catalog = _loadManifestToolCatalog();
-  const AGENT_TOOLS = { sannin: 'Sannin router agent', kage: 'Village Leader & Architect', jonin: 'UI & Frontend Specialist', anbu: 'Backend & DevOps Specialist', chunin: 'Intel Ninja', genin: 'Scout', 'tokubetsu-jonin': 'Scribe', 'tokubetsu_jonin': 'Scribe', akatsuki: 'Red-Team & Blue-Team Security Specialist' };
-  const tools = catalog.map(name => {
-    const key = name.toLowerCase().replace(/_/g, '-');
-    const alt = name.toLowerCase();
-    const role = AGENT_TOOLS[key] || AGENT_TOOLS[alt] || 'konoha MCP tool';
-    return `- \`mcp__konoha__${name}\` — ${role}`;
-  });
-  tools.push('- `mcp__semble__search` — Search project codebase');
-  tools.push('- `mcp__semble__find_related` — Find related code symbols');
-  tools.push('- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan');
-  tools.push('- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning');
-  tools.push('- `mcp__aislop__aislop_fix` — Auto-fix AI slop issues (not for genin/kage read-only)');
+  const tools = catalog.map((name) => `- \`mcp__konoha__${name}\``);
+  tools.push('- `mcp__semble__search`');
+  tools.push('- `mcp__semble__find_related`');
+  tools.push('- `mcp__aislop__aislop_scan`');
+  tools.push('- `mcp__aislop__aislop_why`');
+  tools.push('- `mcp__aislop__aislop_fix`');
 
   let boundaries = (
     '### Tool Usage Guidance\n' +

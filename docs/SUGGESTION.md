@@ -22,7 +22,7 @@ Konoha (`konoha-mcp` v2.2.3) is a token-efficient Model Context Protocol (MCP) o
 ### Core Architectural Pillars
 
 - **SQLite FTS5 Full-Text Search & ONNX Dense Retrieval**: Manages 1,027 indexed entries (15 canonical ninja and core skills, 1,012 reference files) with on-demand retrieval, keeping baseline context consumption bounded.
-- **Seven Specialized Subagents (Naruto Ninja Ranks)**:
+- **Eight Specialized Subagents (Naruto Ninja Ranks)**:
   - `sannin`: Task triage, router deliberation, workflow orchestration.
   - `genin`: Read-only codebase exploration, AST symbol mapping, code review.
   - `kage`: Architecture decisions, security audits, two-step zero-AI-slop gate.
@@ -30,6 +30,7 @@ Konoha (`konoha-mcp` v2.2.3) is a token-efficient Model Context Protocol (MCP) o
   - `jonin`: UI/UX engineering, multi-archetype website builder, 3D web experiences.
   - `anbu`: Backend engineering, DevOps, infrastructure hardening, QA automation.
   - `tokubetsu-jonin`: Technical writing, human-authentic documentation generation (DOCX, PDF, XLSX, PPTX, SVG, Animated WebP).
+  - `akatsuki`: Red-team/blue-team security audits, penetration testing, final security gate.
 - **Semble Code Search & Aislop Quality Gate Integration**: Native integration with `semble` for semantic repository search and `aislop` for zero-AI-slop pre-delivery verification.
 - **High-Performance SvelteKit 2 Web UI**: Local administrative dashboard (`http://127.0.0.1:1404`) featuring real-time telemetry, 10 gradient themes, and responsive layout.
 

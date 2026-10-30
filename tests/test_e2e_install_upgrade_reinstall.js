@@ -288,7 +288,7 @@ async function testWorkflowTokenBurnPrevention() {
   console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
 
   // 4. Subagents Unified Token-Bounded Prompts
-  const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin'];
+  const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin', 'akatsuki'];
   for (const agent of agents) {
     server.SESSION_TURNS.clear();
     const t1 = JSON.parse(runMcpAgent(agent, 'Perform architecture exploration and security validation for the system'));
@@ -300,7 +300,7 @@ async function testWorkflowTokenBurnPrevention() {
     assert.strictEqual(t1.instructions, t2.instructions, `${agent} prompts must be deterministic across turns`);
     assert.ok(t1.instructions.includes('[Konoha Token Preservation: Active'), `${agent} must include Token Preservation header`);
   }
-  console.log('  ✓ All 7 official agents (sannin router + 6 specialist agents) enforce payload ceilings (< 8KB) with deterministic prefix caching');
+  console.log('  ✓ All 8 official agents (sannin router + 7 executors) enforce payload ceilings (< 8KB) with deterministic prefix caching');
 
   // 5. Changed-files AI slop scoping
   const dummyStatus = { changed_files: ['src/mcp/build_spec.js'] };

@@ -106,7 +106,7 @@ konoha doctor --yes
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
 - `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`, `mcp__aislop__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
 - `~/.claude/CLAUDE.md` → Global orchestrator instructions.
-- `~/.claude/agents/` → Seven official ninja subagents; the host client controls model selection.
+- `~/.claude/agents/` → Eight official ninja subagents; the host client controls model selection.
 - `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
 
 **Verify:** `/mcp` in Claude Code session — should show `konoha`, `semble`, and `aislop`.

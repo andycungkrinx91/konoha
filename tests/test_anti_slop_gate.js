@@ -153,8 +153,9 @@ async function run() {
       const toolsSection = toolsStart >= 0 && toolsEnd > toolsStart
         ? instructions.slice(toolsStart, toolsEnd)
         : (toolsStart >= 0 ? instructions.slice(toolsStart) : instructions);
-      // Catalog rows are the `- `mcp__...`` lines; guidance prose names forbidden
-      // tools separately and must NOT be substring-matched for absence.
+      // Catalog rows are literal `- `mcp__...`` lines (no descriptions, to
+      // preserve the <8KB ceiling); guidance prose names forbidden tools
+      // separately and must NOT be substring-matched for absence.
       const catalogNames = (toolsSection.match(/^-\s+`mcp__[^`]+`/gm) || []).join('\n');
       assert.ok(catalogNames.includes('mcp__konoha__report_from_agent'), `${role} catalog must include full manifest parity`);
       assert.ok(catalogNames.includes('mcp__konoha__qa_codify'), `${role} catalog must include QA tools under parity`);

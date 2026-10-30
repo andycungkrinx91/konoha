@@ -743,14 +743,14 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
 ~/.cursor/
 ├── mcp.json               ← konoha + semble + aislop MCP (Cursor)
-├── agents/                ← Official seven ninja subagents; host selects models
+├── agents/                ← Official eight ninja subagents; host selects models
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
 
 ~/.claude/
 ├── settings.json          ← MCP permissions (all projects)
 ├── CLAUDE.md              ← Global orchestrator instructions (Claude Code)
-├── agents/                ← Official seven ninja subagents
+├── agents/                ← Official eight ninja subagents
 └── rules/
     └── rtk.md             ← RTK rule (if rtk binary detected)
 

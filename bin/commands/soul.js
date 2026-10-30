@@ -40,7 +40,7 @@ async function cmdSoul(args = []) {
       log(`  ${C.bold}ADHD Standard:${C.reset}      ${C.magenta}${arch.adhd_shaping}${C.reset}`);
     }
     log(`  ${C.bold}Source Path:${C.reset}        ${C.dim}${soul.path || soul.source_path}${C.reset}\n`);
-    log(`  ${C.dim}Tip: Run ${C.cyan}konoha soul${C.dim} to view all 7 archetype souls and village tenets.${C.reset}`);
+    log(`  ${C.dim}Tip: Run ${C.cyan}konoha soul${C.dim} to view all 8 archetype souls and village tenets.${C.reset}`);
     return;
   }
 
@@ -54,7 +54,7 @@ async function cmdSoul(args = []) {
   });
   log('');
 
-  log(`  ${C.bold}Ninja Archetype Spirits (7 Specialists):${C.reset}`);
+  log(`  ${C.bold}Ninja Archetype Spirits (8 Official):${C.reset}`);
   const archetypes = soul.archetypes || {};
   Object.keys(archetypes).forEach((key) => {
     const a = archetypes[key];
