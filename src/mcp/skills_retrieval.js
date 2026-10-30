@@ -83,7 +83,8 @@ function resolveContractRow(normName) {
       tags: 'contract,runtime,orchestration', content: contractContent,
       byte_size: Buffer.byteLength(contractContent, 'utf8'),
       line_count: (contractContent.match(/\n/g) || []).length + 1,
-      file_path: path.resolve(__dirname, '../agent_contract.js')
+      file_path: path.resolve(__dirname, '../agent_contract.js'),
+      source_provenance: 'runtime_contract'
     };
   } catch (_) {
     return null;
@@ -99,7 +100,8 @@ function loadSkillFromMirrorFallback(normName) {
     return {
       name: normName, skill_name: normName.split('/')[0], type: mirrorHit.type, tags: '',
       content: mirrorContent, byte_size: Buffer.byteLength(mirrorContent, 'utf8'),
-      line_count: (mirrorContent.match(/\n/g) || []).length + 1, file_path: mirrorHit.filePath
+      line_count: (mirrorContent.match(/\n/g) || []).length + 1, file_path: mirrorHit.filePath,
+      source_provenance: 'mirror_fallback'
     };
   } catch (readErr) {
     process.stderr.write(`  [Warning] Failed to read mirror skill '${normName}': ${readErr.message}\n`);
@@ -116,7 +118,10 @@ function resolveSkillRow(conn, normName) {
       let row = conn.prepare('SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name = ?').get(normName) ||
                 conn.prepare('SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name LIKE ? LIMIT 1').get(`%/${normName}`);
 
-      if (row && isPathVisible(row.file_path)) return row;
+      if (row && isPathVisible(row.file_path)) {
+        row.source_provenance = 'sqlite_fts5';
+        return row;
+      }
     } catch (_) {
       // Database query failed (e.g. table not ready) -> fall through to mirror fallback
     }
@@ -183,7 +188,8 @@ function getSkill(name, agentName = null, options = {}) {
       name: row.name, type: row.type, content: finalContent,
       byte_size: Buffer.byteLength(finalContent, 'utf8'),
       line_count: (finalContent.match(/\n/g) || []).length + 1,
-      truncated, hash
+      truncated, hash,
+      source: row.source_provenance || 'unknown'
     };
     if (effFlowHash) payload.flow_hash = effFlowHash;
     if (remainingSections.length > 0) payload.remaining_sections = remainingSections;
@@ -234,7 +240,7 @@ function _loadSingleSkill(conn, normName, agentName, allWarnings) {
   const row = _findSkillInDb(conn, normName);
   if (row?.content) {
     process.stderr.write(`  → [use_skills] Retrieved '${normName}' from database (${row.byte_size || row.content.length} bytes)\n`);
-    return { content: row.content, skillType: row.type || 'skill', source: 'database', warning: null };
+    return { content: row.content, skillType: row.type || 'skill', source: 'sqlite_fts5', warning: null };
   }
 
   const warnMsg = `Skill '${normName}' not found in database. Falling back to mirror skills.`;

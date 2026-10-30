@@ -136,6 +136,25 @@ function resolveWebBuildSource() {
   return webBuildSrc;
 }
 
+function _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion) {
+  try {
+    fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
+  } catch (rmErr) {
+    if (process.platform === 'win32') {
+      warn(`Web UI destination cleanup note (${rmErr.message}); proceeding with in-place synchronization.`);
+    }
+  }
+  ensureDir(webBuildDest);
+  try {
+    fs.cpSync(builtOutput, webBuildDest, { recursive: true, force: true });
+  } catch (cpErr) {
+    warn(`Web UI assets sync note: ${cpErr.message}`);
+  }
+  fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
+  fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
+  info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
+}
+
 function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
   const sourceDir = deployUtils.resolveWebUiDir({ preferSources: true });
   if (!sourceDir || !fileExists(path.join(sourceDir, 'src', 'routes'))) return;
@@ -149,22 +168,7 @@ function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
     }
     const builtOutput = path.join(sourceDir, 'build');
     if (fileExists(path.join(builtOutput, 'handler.js')) && path.resolve(builtOutput) !== path.resolve(webBuildDest)) {
-      try {
-        fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
-      } catch (rmErr) {
-        if (process.platform === 'win32') {
-          warn(`Web UI destination cleanup note (${rmErr.message}); proceeding with in-place synchronization.`);
-        }
-      }
-      ensureDir(webBuildDest);
-      try {
-        fs.cpSync(builtOutput, webBuildDest, { recursive: true, force: true });
-      } catch (cpErr) {
-        warn(`Web UI assets sync note: ${cpErr.message}`);
-      }
-      fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
-      fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
-      info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
+      _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion);
     }
   } catch (buildErr) {
     warn(`Could not build Web UI automatically: ${buildErr.message}`);
@@ -194,22 +198,7 @@ function installWebUiRuntime(copyTree) {
 
   if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
     if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest) || isUiOutdated) {
-      try {
-        fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
-      } catch (rmErr) {
-        if (process.platform === 'win32') {
-          warn(`Web UI destination cleanup note (${rmErr.message}); proceeding with in-place synchronization.`);
-        }
-      }
-      ensureDir(webBuildDest);
-      try {
-        fs.cpSync(webBuildSrc, webBuildDest, { recursive: true, force: true });
-      } catch (cpErr) {
-        warn(`Web UI assets sync note: ${cpErr.message}`);
-      }
-      fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
-      fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
-      info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
+      _syncWebBuildOutput(webBuildSrc, webBuildDest, destWebPkg, currentVersion);
     }
   } else if (!fileExists(path.join(webBuildDest, 'handler.js')) || isUiOutdated) {
     buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion);

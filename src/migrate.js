@@ -92,14 +92,18 @@ function seedAgents(conn) {
   return seedAgentsHelper(conn, log);
 }
 
+const { seedSoulArchetypes, SOUL_ARCHETYPE_SEED } = require('./soul_seeds');
+
 function setupDb(dbPath = null) {
   if (dbPath && typeof dbPath === 'object' && typeof dbPath.prepare === 'function') {
     db.setupSchema(dbPath);
+    seedSoulArchetypes(dbPath);
     return dbPath;
   }
   const targetPath = dbPath !== null ? dbPath : DB_PATH;
   const conn = db.getConnection(targetPath, false);
   db.setupSchema(conn);
+  seedSoulArchetypes(conn);
   return conn;
 }
 
@@ -616,6 +620,8 @@ async function runMigration(options = {}) {
   const conn = setupDb(DB_PATH);
   conn.pragma('foreign_keys = OFF');
   seedAgents(conn);
+  const soulCount = seedSoulArchetypes(conn);
+  log(`  ✓ Seeded ${soulCount} soul archetypes into soul_archetypes (SQLite-first).`);
 
   _purgeExistingSkills(conn, options);
 
@@ -707,5 +713,7 @@ module.exports = {
   normalizeLegacySkillNames,
   normalize_legacy_skill_names: normalizeLegacySkillNames,
   verifyRequiredSkills,
-  verify_required_skills: verifyRequiredSkills
+  verify_required_skills: verifyRequiredSkills,
+  seedSoulArchetypes,
+  SOUL_ARCHETYPE_SEED
 };

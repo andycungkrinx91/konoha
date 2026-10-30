@@ -795,4 +795,8 @@ kill $WEB_PID
 | **6. Dependency Audit Posture** | `rtk pnpm audit` | 0 high, 0 critical (1 pre-existing low `deepmerge` in dev-tooling); zero new production dependencies | `PASS` (verified) |
 | **7. Multi-Client Contract Parity** | `rtk node tests/test_version_consistency.js` | 20/20 managed targets synchronized to v2.2.15 | `PASS` (verified) |
 | **8. Default Password** | `src/auth.js` & tests | `konohagakure` preserved (seed `a29ub2hhZ2FrdXJl`) | `PASS` (verified) |
+| **9. ADHD Skill Wiring (6 agents)** | `rtk node tests/test_i_have_adhd_skill.js` | 6/6 agents (genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki); byte-identical refs in template + mirror trees; sannin/kage excluded | `PASS` (verified 2026-10-30) |
+| **10. SQLite Soul Provenance** | `rtk node tests/test_soul_skill_provenance.js` | 8/8 ninja souls `source=sqlite` on fresh DB with zero setup; Akatsuki security-verdict directive from SQLite | `PASS` (verified 2026-10-30) |
+| **11. SQLite Skill Provenance** | `get_skill` / `use_skills` payloads | DB rows report `sqlite_fts5`, mirror fallback explicit, contract row `runtime_contract`; both paths preserved | `PASS` (verified 2026-10-30) |
+| **12. Full-Repo Aislop Gate** | `rtk npx aislop . -d` | 100/100 Healthy · 0 errors · 0 warnings · 7.5s; only Knip `info` (optional unused-code check, no config adopted) | `PASS` (verified 2026-10-30) |
 

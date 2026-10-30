@@ -85,6 +85,45 @@ function resolveSoulPath(projectPath = null) {
   return null;
 }
 
+function _ensureSoulTableSeeded(conn) {
+  try { require('./db').setupSchema(conn); } catch (_) { /* table may already exist */ }
+  try {
+    const countRow = conn.prepare('SELECT COUNT(*) AS c FROM soul_archetypes').get();
+    if (!countRow || !countRow.c) {
+      require('./migrate').seedSoulArchetypes(conn);
+    }
+  } catch (_) { /* seeding best-effort; query below decides fallback */ }
+}
+
+function _parseSoulRow(row) {
+  if (!row) return null;
+  let antislop = [];
+  try { antislop = JSON.parse(row.antislop_skills || '[]'); } catch (_) { antislop = []; }
+  return {
+    name: row.name, role: row.role, voice: row.voice, calling: row.calling,
+    antislop_skills: Array.isArray(antislop) ? antislop : [],
+    adhd_shaping: row.adhd_shaping || '',
+    source: 'sqlite'
+  };
+}
+
+function _resolveArchetypeFromDb(agentName) {
+  // SQLite-first soul resolution: ensure schema + seed exist so a fresh
+  // database still serves souls from SQLite without caller setup.
+  try {
+    const conn = require('./db').getDb();
+    try {
+      _ensureSoulTableSeeded(conn);
+      const row = conn.prepare('SELECT name, role, voice, calling, antislop_skills, adhd_shaping FROM soul_archetypes WHERE agent_name = ?').get(agentName);
+      return _parseSoulRow(row);
+    } finally {
+      try { conn.close(); } catch (_) { /* best-effort */ }
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
 function parseSoulMarkdown(rawMarkdown) {
   return {
     title: "The Soul of Konoha: Ninja's Soul",
@@ -183,6 +222,32 @@ function getSoul(options = {}) {
   const projectPath = options.projectPath || options.project_path || null;
   const agentName = (options.agentName || options.agent_name || '').toLowerCase().trim();
   const rawOnly = Boolean(options.raw || options.raw_markdown);
+  const normAgent = agentName ? agentName.replace(/_/g, '-') : '';
+
+  // SQLite-first: every ninja soul served from the soul_archetypes table.
+  // Markdown is read only for tenets/title fallback or explicit raw requests,
+  // never as the archetype source.
+  if (agentName && !rawOnly) {
+    const dbArch = _resolveArchetypeFromDb(agentName) || _resolveArchetypeFromDb(normAgent);
+    if (dbArch) {
+      return {
+        title: "The Soul of Konoha: Ninja's Soul",
+        will_of_fire: "Where tree leaves dance, one shall find flames. The fire's shadow will illuminate the village, and once again, tree leaves shall bud anew.",
+        tenets: [
+          { name: 'Factual Rigor & Absolute Truth', summary: 'Never lie. Claim success only with verified terminal evidence.' },
+          { name: 'Silent Depth & Mandatory ADHD Shaping', summary: 'Zero monologue leaks. Enforce i-have-adhd across all turn responses: lead with action, numbered steps, cap lists to 5, zero filler.' },
+          { name: 'Sanctity of Existing Architecture', summary: 'Protect working code. Never modify unrequested logic.' },
+          { name: 'Anti-Slop as a Moral Duty', summary: 'Reject generic AI boilerplate, robotic pleasantries, and visual clichés.' },
+          { name: 'Tactical Token Hygiene', summary: 'Zero wasted movement. Bounded file reading and symbol search.' }
+        ],
+        archetype: dbArch,
+        behavior_directive: formatSoulBehavior(dbArch, 'i-have-adhd (Lead with next action, numbered tasks, end with one concrete step, cap visible lists to 5, matter-of-fact errors, zero filler)'),
+        path: null,
+        source_path: null,
+        source: 'sqlite'
+      };
+    }
+  }
 
   const soulPath = resolveSoulPath(projectPath);
   let raw = '';
@@ -200,18 +265,21 @@ function getSoul(options = {}) {
   parsed.path = soulPath;
   parsed.source_path = soulPath;
 
-  const normAgent = agentName ? agentName.replace(/_/g, '-') : '';
-  if (agentName && (parsed.archetypes[agentName] || parsed.archetypes[normAgent])) {
-    const arch = parsed.archetypes[agentName] || parsed.archetypes[normAgent];
-    return {
-      title: parsed.title,
-      will_of_fire: parsed.will_of_fire,
-      tenets: parsed.tenets,
-      archetype: arch,
-      behavior_directive: formatSoulBehavior(arch, parsed.universal_adhd_standard),
-      path: soulPath,
-      source_path: soulPath
-    };
+  if (agentName) {
+    if (parsed.archetypes[agentName] || parsed.archetypes[normAgent]) {
+      const arch = parsed.archetypes[agentName] || parsed.archetypes[normAgent];
+      process.stderr.write(`  ⚠️ [soul] '${agentName}' not found in soul_archetypes table. Retrieved from Markdown fallback: ${soulPath}\n`);
+      return {
+        title: parsed.title,
+        will_of_fire: parsed.will_of_fire,
+        tenets: parsed.tenets,
+        archetype: { ...arch, source: 'markdown_fallback' },
+        behavior_directive: formatSoulBehavior(arch, parsed.universal_adhd_standard),
+        path: soulPath,
+        source_path: soulPath,
+        source: 'markdown_fallback'
+      };
+    }
   }
 
   return parsed;

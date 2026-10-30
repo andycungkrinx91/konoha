@@ -1,6 +1,6 @@
 ---
 name: i-have-adhd
-description: ADHD-friendly output shaping for subagent responses. Lead with the next action, number multi-step tasks, end with one concrete next step, suppress tangents, restate state across turns, give specific time estimates, make wins visible, matter-of-fact errors, cap visible lists to 5, no preamble or closers. Loaded by genin, jonin, anbu, tokubetsu-jonin, and chunin when shaping final responses.
+description: ADHD-friendly output shaping for subagent responses. Lead with the next action, number multi-step tasks, end with one concrete next step, suppress tangents, restate state across turns, give specific time estimates, make wins visible, matter-of-fact errors, cap visible lists to 5, no preamble or closers. Loaded by genin, jonin, anbu, tokubetsu-jonin, chunin, and akatsuki when shaping final responses.
 tags:
   - adhd
   - output-style
@@ -8,6 +8,7 @@ tags:
   - formatting
   - cross-agent
 ---
+Upstream Pin: Commit `1ecea19` | License `MIT` (© 2026 Ayoub Ghriss) | https://github.com/ayghri/i-have-adhd
 
 # i-have-adhd: ADHD-Friendly Output Shaping
 
@@ -17,7 +18,7 @@ Adapted from i-have-adhd by ayghri (MIT): https://github.com/ayghri/i-have-adhd
 
 ## Konoha Agent Scoping
 
-This skill is loaded by **genin**, **jonin**, **anbu**, **tokubetsu-jonin**, and **chunin** when shaping final responses and result artifacts. Sannin (router) and kage (reviewer) are out of scope: their output formats are governed by their own skills and the delivery-gate contract.
+This skill is loaded by **genin**, **jonin**, **anbu**, **tokubetsu-jonin**, **chunin**, and **akatsuki** when shaping final responses and result artifacts. Sannin (router) and kage (reviewer) are out of scope: their output formats are governed by their own skills and the delivery-gate contract.
 
 ## Persistence
 
@@ -129,8 +130,8 @@ Override the defaults when:
 2. Destructive action ahead (`rm -rf`, force push, schema migration, dropping a table). Confirm before acting. Safety wins over brevity.
 3. Debug spiral. If the last three turns have been "still broken," stop iterating on code. Name the assumption that might be wrong. Ask one diagnostic question.
 4. Real ambiguity in the request. One short clarifying question beats guessing and rewriting.
-5. A rule fights the task. When a rule would delete the answer itself, the task wins; the shape stays. "What are my options" gets 2 to 4 ranked options with one-line trade-offs, recommendation first, not one path.
-6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to," point time estimates at whoever executes the steps. The constraint wins; the shape stays.
+5. A rule fights the task. When a rule would delete the answer itself, the task wins; the shape stays. Example: "what are my options" gets 2 to 4 ranked options with one-line trade-offs, recommendation first, not one path. The options are the answer.
+6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to," point time estimates at whoever executes the steps. Same principle as 5: the constraint wins, the shape stays.
 7. A delivery gate requires evidence. Kage review contracts and validation-evidence mandates (exact test counts, command output) outrank brevity; keep the evidence, keep the shape.
 
 ## Pre-Send Check

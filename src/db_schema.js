@@ -229,6 +229,20 @@ function setupSchema(conn, backupDatabaseFn = null) {
         FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
     );
 
+    -- Soul-bound archetype directives: every ninja soul served from SQLite,
+    -- never from raw Markdown reads at dispatch time.
+    CREATE TABLE IF NOT EXISTS soul_archetypes (
+        agent_name TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        voice TEXT NOT NULL,
+        calling TEXT NOT NULL,
+        antislop_skills TEXT NOT NULL DEFAULT '[]',
+        adhd_shaping TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'sqlite',
+        updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS telegram_config (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         enabled INTEGER DEFAULT 0,

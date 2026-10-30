@@ -299,6 +299,24 @@ function killPidFromPidFile(pidFile) {
   } catch (_) { /* non-fatal */ }
 }
 
+function _killPidFromNetstatLine(line, stopPort) {
+  if (!line.includes(`:${stopPort} `) || !line.includes('LISTENING')) return;
+  const parts = line.trim().split(/\s+/);
+  const pid = parts[parts.length - 1];
+  if (!pid || !/^\d+$/.test(pid) || pid === '0') return;
+  try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (_) { /* taskkill best-effort; listener may already be gone */ }
+}
+
+function _killWindowsPortListeners(stopPort) {
+  try {
+    execSync(`powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"`, { stdio: 'ignore', windowsHide: true });
+  } catch (_) { /* non-fatal */ }
+  try {
+    const netstat = execSync('netstat -ano -p tcp', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    for (const line of netstat.split('\n')) _killPidFromNetstatLine(line, stopPort);
+  } catch (_) { /* non-fatal */ }
+}
+
 async function terminatePortListeners(stopPort) {
   for (let attempt = 0; attempt < 10 && await checkPortActive(stopPort); attempt++) {
     await new Promise((r) => setTimeout(r, 500));
@@ -307,24 +325,9 @@ async function terminatePortListeners(stopPort) {
 
   if (process.platform !== 'win32') {
     try { execSync(`fuser -k ${stopPort}/tcp`, { stdio: 'ignore' }); } catch (_) { /* non-fatal */ }
-  } else {
-    try {
-      execSync(`powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"`, { stdio: 'ignore', windowsHide: true });
-    } catch (_) { /* non-fatal */ }
-    try {
-      const netstat = execSync('netstat -ano -p tcp', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
-      const lines = netstat.split('\n');
-      for (const line of lines) {
-        if (line.includes(`:${stopPort} `) && line.includes('LISTENING')) {
-          const parts = line.trim().split(/\s+/);
-          const pid = parts[parts.length - 1];
-          if (pid && /^\d+$/.test(pid) && pid !== '0') {
-            try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (_) {}
-          }
-        }
-      }
-    } catch (_) { /* non-fatal */ }
+    return;
   }
+  _killWindowsPortListeners(stopPort);
 }
 
 function stopSystemdIfActive(stopPort) {

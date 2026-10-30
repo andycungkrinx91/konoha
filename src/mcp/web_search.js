@@ -17,6 +17,14 @@ const instancesCachePath = path.join(searxngDir, 'instances_cache.json');
 const bestInstancePath = path.join(searxngDir, 'best_instance.json');
 const searchLogPath = path.join(searxngDir, 'search.log');
 
+const PUBLIC_SEARCH_ENDPOINTS = Object.freeze({
+  instancesFeed: process.env.KONOHA_SEARXNG_INSTANCES_URL || 'https://searx.space/data/instances.json',
+  mockSearx: 'https://searx.local/',
+  wikipediaArticle: (q) => `https://en.wikipedia.org/wiki/${encodeURIComponent(q)}`,
+  duckduckgoQuery: (q) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+  searxQuery: (q) => `https://searx.local/search?q=${encodeURIComponent(q)}`
+});
+
 const _initialNativeFetch = globalThis.fetch;
 
 function _isDeterministicMockEligible() {
@@ -30,7 +38,7 @@ function _getDeterministicMockResults(q, engine = 'all', num = 5) {
   if (eng === 'all' || eng === 'searxng') {
     results.push({
       title: `${q} - Official Overview`,
-      url: `https://searx.local/search?q=${encodeURIComponent(q)}`,
+      url: PUBLIC_SEARCH_ENDPOINTS.searxQuery(q),
       snippet: `SearXNG intelligence and reference knowledge for ${q}.`,
       source: 'SearXNG'
     });
@@ -38,7 +46,7 @@ function _getDeterministicMockResults(q, engine = 'all', num = 5) {
   if (eng === 'all' || eng === 'wikipedia') {
     results.push({
       title: `${q}`,
-      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(q)}`,
+      url: PUBLIC_SEARCH_ENDPOINTS.wikipediaArticle(q),
       snippet: `Wikipedia article covering ${q} architecture and overview.`,
       source: 'Wikipedia'
     });
@@ -46,7 +54,7 @@ function _getDeterministicMockResults(q, engine = 'all', num = 5) {
   if (eng === 'all' || eng === 'duckduckgo') {
     results.push({
       title: `${q} - Community Search & Documentation`,
-      url: `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+      url: PUBLIC_SEARCH_ENDPOINTS.duckduckgoQuery(q),
       snippet: `DuckDuckGo web results and ecosystem documentation for ${q}.`,
       source: 'DuckDuckGo'
     });
@@ -77,7 +85,7 @@ function logSearchActivity(source, q, count) {
 
 async function getCandidateInstances() {
   if (_isDeterministicMockEligible()) {
-    return [{ url: 'https://searx.local/', uptime: 100, latency: 10 }];
+    return [{ url: PUBLIC_SEARCH_ENDPOINTS.mockSearx, uptime: 100, latency: 10 }];
   }
 
   if (fs.existsSync(instancesCachePath)) {
@@ -91,7 +99,7 @@ async function getCandidateInstances() {
 
   process.stderr.write('[mcp konoha] Refreshing SearXNG public instances list...\n');
   try {
-    const resp = await fetchWithTimeout('https://searx.space/data/instances.json', {
+    const resp = await fetchWithTimeout(PUBLIC_SEARCH_ENDPOINTS.instancesFeed, {
       headers: { 'User-Agent': 'Mozilla/5.0' }
     }, 8000);
     const data = await resp.json();
@@ -131,7 +139,7 @@ async function getCandidateInstances() {
 
 async function resolveBestInstance(candidates) {
   if (_isDeterministicMockEligible()) {
-    return 'https://searx.local/';
+    return PUBLIC_SEARCH_ENDPOINTS.mockSearx;
   }
   const customSearx = process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL;
   if (customSearx && customSearx.trim()) {

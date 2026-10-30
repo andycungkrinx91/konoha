@@ -204,7 +204,10 @@ function _upgradeSingleAgent(a, defAgent, isAlreadyUpgraded) {
   let changed = false;
   if (!defAgent) return changed;
 
-  if (defAgent.skills && !isAlreadyUpgraded && Array.isArray(a.skills)) {
+  // Always propagate newly declared default skills (e.g. i-have-adhd added to
+  // akatsuki after the .upgraded_v1.1.1 marker was sealed): merge-only, never
+  // remove — user-added skills are preserved untouched.
+  if (defAgent.skills && Array.isArray(a.skills)) {
     defAgent.skills.forEach((skill, idx) => {
       if (!a.skills.includes(skill)) {
         if (idx === 0) a.skills.unshift(skill);

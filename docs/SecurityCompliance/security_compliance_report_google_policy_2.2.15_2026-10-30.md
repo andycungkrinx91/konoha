@@ -81,3 +81,17 @@ All checks pass with zero errors, zero unmaintained packages introduced, full ma
 - **CLI Command Sweep**: isolated sweep passed across all 111 commands and subcommands
 - **Web UI Playwright Automation**: all executed suites green + 17-route browser pass
 - **Status**: **CERTIFIED & AUDITED FOR RELEASE v2.2.15**
+
+---
+
+## 5. Addendum 2026-10-30 — ADHD Wiring, SQLite Provenance, Full-Repo Aislop
+
+- **ADHD Skill Wiring (6 agents)**: `rtk node tests/test_i_have_adhd_skill.js` PASS — genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki carry `i-have-adhd`; byte-identical refs in template + mirror trees; sannin/kage excluded. Upstream `ayghri/i-have-adhd@1ecea19` (MIT 2026 Ayoub Ghriss) confirmed live via Chunin research.
+- **Stale-Roster Merge Fix**: `_upgradeSingleAgent` now always merges new default skills (additive-only, user skills preserved); verified via isolated-HOME `loadAgents` — stale Akatsuki gains `i-have-adhd`, keeps `my-custom-skill`.
+- **SQLite Soul Provenance**: `rtk node tests/test_soul_skill_provenance.js` PASS — 8/8 souls `source=sqlite` on fresh DB with zero setup; Akatsuki security-verdict directive from SQLite.
+- **SQLite Skill Provenance**: `get_skill`/`use_skills` payloads carry unified `source` (`sqlite_fts5` / `mirror_fallback` / `runtime_contract`); no consumers depended on the old `'database'` string.
+- **Upstream Re-verification (Chunin live research)**: `taste-skill@12af471` v2.1.5 MIT, `anti-slop@3005235` v3.2.24 MIT, Socket CLI v1.8.4 maintained, Playwright + agent-browser procedures confirmed.
+- **Full-Repo Aislop Gate**: `rtk npx aislop . -d` → `100/100 Healthy`, 0 errors, 0 warnings, 460 files. Fixed: 1 empty catch, 5 deep-nesting extractions, 4 public-URL centralizations. Remaining `info`: Knip unused-code check skipped (no Knip config adopted — optional, documented as intentionally unresolved).
+- **Dependency Posture**: `rtk pnpm audit --prod` → No known vulnerabilities; Socket package scores 83–97 overall. Socket cloud `scan create` blocked by 403 insufficient-permissions on this token (not a code finding); recorded as an unverified boundary.
+- **Web Verification (this session)**: `pnpm --dir apps/web run lint` and `run check` → 0 errors, 0 warnings (42 files); production `run build` clean after dependency install. Full Playwright + agent-browser E2E and the background `run_all.js` suite remain unobserved in this transcript and are NOT claimed here.
+- **Default Password**: `konohagakure` preserved; PLAN/`.omp/plans` excluded from git and package.

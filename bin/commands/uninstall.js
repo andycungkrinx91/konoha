@@ -35,6 +35,23 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
+function _removeSingleServerFile(filePath) {
+  if (fs.statSync(filePath).isDirectory()) {
+    fs.rmSync(filePath, { recursive: true, force: true, maxRetries: 3 });
+    return;
+  }
+  try {
+    fs.unlinkSync(filePath);
+  } catch (_unlinkErr) {
+    if (process.platform === 'win32') {
+      try {
+        fs.chmodSync(filePath, 0o666);
+        fs.unlinkSync(filePath);
+      } catch (_) { /* non-fatal best effort */ }
+    }
+  }
+}
+
 function cleanServerFiles() {
   if (!fileExists(SKILLS_DB_DIR)) return;
   const files = fs.readdirSync(SKILLS_DB_DIR);
@@ -43,20 +60,7 @@ function cleanServerFiles() {
     if (preservedDbs.has(file)) return;
     const filePath = path.join(SKILLS_DB_DIR, file);
     try {
-      if (fs.statSync(filePath).isDirectory()) {
-        fs.rmSync(filePath, { recursive: true, force: true, maxRetries: 3 });
-      } else {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (_unlinkErr) {
-          if (process.platform === 'win32') {
-            try {
-              fs.chmodSync(filePath, 0o666);
-              fs.unlinkSync(filePath);
-            } catch (_) { /* non-fatal best effort */ }
-          }
-        }
-      }
+      _removeSingleServerFile(filePath);
     } catch (_) { /* non-fatal */ }
   });
   success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
