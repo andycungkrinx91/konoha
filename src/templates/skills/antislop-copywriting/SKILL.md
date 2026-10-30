@@ -12,6 +12,7 @@ tags:
 # antislop-copywriting
 
 > Anti Slop: Rules for AI Coding Agents. Copy & Text skill
+> Upstream Pin: Version `3.2.24` | Commit `3005235` | License `MIT` | https://github.com/miqdadbadjuber/anti-slop
 
 > Part of the antislop system. Read together with `antislop.md` (the core). This skill deep-dives the copy and text concern: headlines, CTAs, tone, value propositions, and the patterns that make AI-written prose easy to spot. It references core rules by number and never duplicates or renumbers them. Load it when the task writes or edits marketing copy, product copy, landing-page text, or any prose meant for people to read.
 

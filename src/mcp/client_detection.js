@@ -160,10 +160,10 @@ function _parsePromptContentForAgent(promptContent) {
   if (match) {
     const parts = match[1].trim().split(/\s+/);
     const name = parts[parts.length - 1].toLowerCase();
-    if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) return name;
+    if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin', 'akatsuki'].includes(name)) return name;
     if (['antigravity', 'orchestrator'].includes(name)) return 'orchestrator';
   }
-  for (const candidate of ['anbu', 'genin', 'chunin', 'tokubetsu-jonin', 'jonin', 'kage']) {
+  for (const candidate of ['anbu', 'genin', 'chunin', 'tokubetsu-jonin', 'jonin', 'kage', 'akatsuki']) {
     if (new RegExp(`\\b${candidate}\\b`, 'i').test(promptContent)) {
       if (new RegExp(`you\\s+are\\s+(?:the|a)\\s+${candidate}\\s+(?:agent|subagent|scout|builder|intel|scribe|leader)`, 'i').test(promptContent)) {
         return candidate;
@@ -216,7 +216,7 @@ function _parseTranscriptLine(line) {
     if (match) {
       const parts = match[1].trim().split(/\s+/);
       const name = parts[parts.length - 1].toLowerCase().replace(/_/g, '-');
-      if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin'].includes(name)) return name;
+      if (['anbu', 'genin', 'chunin', 'jonin', 'kage', 'tokubetsu-jonin', 'akatsuki'].includes(name)) return name;
       if (['antigravity', 'orchestrator'].includes(name)) return 'orchestrator';
     }
   } catch (_) { /* ignore */ }

@@ -1,3 +1,5 @@
+## [2.2.15] - 2026-10-30
+
 ## [2.2.14] - 2026-10-30
 
 ### Queue SSH Guardrail, Hook Tampering Removal & Full QA Pass

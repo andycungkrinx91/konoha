@@ -102,9 +102,10 @@ function runSelfTest() {
   let failures = 0;
   for (const row of rows) {
     const [colorA, colorB] = parsePairing(row.pairing);
-    const computed = Math.round(contrastRatio(colorA, colorB) * 100) / 100;
-    const expectedNormal = computed >= 4.5 ? 'Pass' : 'Fail';
-    const expectedLarge = computed >= 3.0 ? 'Pass' : 'Fail';
+    const raw = contrastRatio(colorA, colorB);
+    const computed = Math.round(raw * 100) / 100;
+    const expectedNormal = raw >= 4.5 ? 'Pass' : 'Fail';
+    const expectedLarge = raw >= 3.0 ? 'Pass' : 'Fail';
 
     if (computed.toFixed(2) !== row.ratio.toFixed(2)) {
       failures++;

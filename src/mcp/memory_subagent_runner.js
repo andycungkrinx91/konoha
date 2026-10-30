@@ -83,63 +83,49 @@ function autoloadSkillsFromPrompt(prompt, conn, maxMatches = 3) {
   return scored.slice(0, maxMatches).map(x => x.name);
 }
 
+function _loadManifestToolCatalog() {
+  const manifest = require('../mcp_tool_manifest.json');
+  const arr = Array.isArray(manifest.tools) ? manifest.tools : [];
+  const names = arr.map(t => t && t.name).filter(Boolean);
+  if (names.length === 0) {
+    throw new Error('buildSubagentMcpBlock: empty tool catalog from mcp_tool_manifest.json — refusing to emit a parity claim without the manifest.');
+  }
+  return names;
+}
+
 function buildSubagentMcpBlock(client = null, agentName = null) {
   const normAgent = (agentName || '').toLowerCase().replace(/_/g, '-');
-  const tools = [
-    '- `mcp__konoha__sannin` — Sannin router agent',
-    '- `mcp__konoha__kage` — Village Leader & Architect',
-    '- `mcp__konoha__jonin` — UI & Frontend Specialist',
-    '- `mcp__konoha__anbu` — Backend & DevOps Specialist',
-    '- `mcp__konoha__chunin` — Intel Ninja',
-    '- `mcp__konoha__tokubetsu_jonin` — Scribe',
-    '- `mcp__konoha__genin` — Scout',
-    '- `mcp__konoha__find_skill` — Find skills',
-    '- `mcp__konoha__use_skills` — Load and activate specific skill(s) by name',
-    '- `mcp__konoha__get_skill` — Get skill content',
-    '- `mcp__konoha__list_skills` — List all skills',
-    '- `mcp__konoha__read_file_head` — Read head of file',
-    '- `mcp__konoha__read_file_range` — Read range of lines in file',
-    '- `mcp__konoha__file_info` — Get file info',
-    '- `mcp__konoha__token_efficient_grep` — Token-efficient grep',
-    '- `mcp__konoha__get_file_structure` — Get file tree',
-    '- `mcp__konoha__find_files_clean` — Find files cleanly',
-    '- `mcp__semble__search` — Search project codebase',
-    '- `mcp__semble__find_related` — Find related code symbols'
-  ];
-
-  if (['genin', 'kage'].includes(normAgent)) {
-    tools.push('- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan');
-    tools.push('- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning');
-  } else if (['jonin', 'anbu'].includes(normAgent)) {
-    tools.push('- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan');
-    tools.push('- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning');
-    tools.push('- `mcp__aislop__aislop_fix` — Auto-fix AI slop issues');
-  }
-
-  if (normAgent === 'anbu') {
-    tools.push('- `mcp__konoha__qa_codify` — Deterministically codify flow file to Playwright test');
-    tools.push('- `mcp__konoha__qa_e2e_run` — Run Playwright regression test suite with compact summary');
-  }
+  // Full main-agent tool parity, generated from the canonical manifest so the
+  // list can never drift: every official subagent sees the same MCP catalog
+  // as the main agent. Role-specific boundaries below guide usage; only hard
+  // safety mandates (genin read-only, no push/publish) remain enforced.
+  const catalog = _loadManifestToolCatalog();
+  const AGENT_TOOLS = { sannin: 'Sannin router agent', kage: 'Village Leader & Architect', jonin: 'UI & Frontend Specialist', anbu: 'Backend & DevOps Specialist', chunin: 'Intel Ninja', genin: 'Scout', 'tokubetsu-jonin': 'Scribe', 'tokubetsu_jonin': 'Scribe', akatsuki: 'Red-Team & Blue-Team Security Specialist' };
+  const tools = catalog.map(name => {
+    const key = name.toLowerCase().replace(/_/g, '-');
+    const alt = name.toLowerCase();
+    const role = AGENT_TOOLS[key] || AGENT_TOOLS[alt] || 'konoha MCP tool';
+    return `- \`mcp__konoha__${name}\` — ${role}`;
+  });
+  tools.push('- `mcp__semble__search` — Search project codebase');
+  tools.push('- `mcp__semble__find_related` — Find related code symbols');
+  tools.push('- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan');
+  tools.push('- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning');
+  tools.push('- `mcp__aislop__aislop_fix` — Auto-fix AI slop issues (not for genin/kage read-only)');
 
   let boundaries = (
-    '### Strict Tool Boundaries\n' +
-    'Use konoha MCP for skill lookup and bounded file reads/grep. Use semble MCP for project code search.\n'
+    '### Tool Usage Guidance\n' +
+    'You have the same MCP tool catalog as the main agent. Prefer your archetype specialty: ' +
+    'genin read-only exploration, chunin web research with citations, jonin UI builds and taste-skill craftsmanship, ' +
+    'anbu backend/DevOps plus QA automation, tokubetsu-jonin documents and diagrams, akatsuki security audits and lab verification, ' +
+    'kage architecture review and delivery gates, sannin routing and delegation.\n' +
+    'Hard mandates still apply: genin never writes (read-only); never git push, npm publish, or create remote tags; ' +
+    'use konoha MCP bounded file tools, never raw shell reads; run `rtk aislop scan --changes` before delivery.\n'
   );
   if (['genin', 'kage'].includes(normAgent)) {
     boundaries += (
-      'For aislop MCP: You are permitted to use `aislop_scan` and `aislop_why`. ' +
+      'For aislop MCP: you may call `aislop_scan` and `aislop_why`. ' +
       'You are strictly forbidden from calling `aislop_fix` or `aislop_baseline` (read-only mandate).\n'
-    );
-  } else if (['jonin', 'anbu'].includes(normAgent)) {
-    boundaries += (
-      'For aislop MCP: You are permitted to use `aislop_scan`, `aislop_fix`, and `aislop_why` ' +
-      'to detect and remediate slop issues before Kage delivery review.\n'
-    );
-  }
-  if (normAgent === 'anbu') {
-    boundaries += (
-      'For QA automation: Anbu is granted `qa_codify` and `qa_e2e_run`. ' +
-      'Other agents (Jonin, Kage, Genin) do not call QA tools.\n'
     );
   }
 

@@ -139,21 +139,33 @@ async function run() {
     );
     console.log('✓ AI Slop row in final report passed');
 
-    // --- D.2 Tool-boundary tests ---
+    // --- D.2 Tool-boundary tests (2.2.15 full main-agent parity) ---
+    // All official subagents see the full manifest tool catalog. Read-only
+    // enforcement for genin/kage lives in guidance text, not tool omission.
 
-    // 5. Genin and Kage cannot reach aislop_fix
+    // 5. Genin and Kage see full catalog but carry read-only guidance
     for (const role of ['genin', 'kage']) {
       server.SESSION_TURNS && server.SESSION_TURNS.clear();
       const res = JSON.parse(server.runMcpAgent(role, 'Analyze and plan.', null, null, null, null, null, tmpDir));
       const instructions = res.instructions || '';
-      const toolsSection = instructions.slice(
-        instructions.indexOf('## MCP Tools Available To You'),
-        instructions.indexOf('### Strict Tool Boundaries')
+      const toolsStart = instructions.indexOf('## MCP Tools Available To You');
+      const toolsEnd = instructions.indexOf('### Tool Usage Guidance');
+      const toolsSection = toolsStart >= 0 && toolsEnd > toolsStart
+        ? instructions.slice(toolsStart, toolsEnd)
+        : (toolsStart >= 0 ? instructions.slice(toolsStart) : instructions);
+      // Catalog rows are the `- `mcp__...`` lines; guidance prose names forbidden
+      // tools separately and must NOT be substring-matched for absence.
+      const catalogNames = (toolsSection.match(/^-\s+`mcp__[^`]+`/gm) || []).join('\n');
+      assert.ok(catalogNames.includes('mcp__konoha__report_from_agent'), `${role} catalog must include full manifest parity`);
+      assert.ok(catalogNames.includes('mcp__konoha__qa_codify'), `${role} catalog must include QA tools under parity`);
+      assert.ok(catalogNames.includes('aislop_scan'), `${role} must have aislop_scan`);
+      assert.ok(catalogNames.includes('aislop_why'), `${role} must have aislop_why`);
+      assert.ok(catalogNames.includes('aislop_fix'), `${role} sees aislop_fix in full-parity catalog`);
+      assert.ok(!catalogNames.includes('aislop_baseline'), `${role} catalog must NOT list aislop_baseline`);
+      assert.ok(
+        /strictly forbidden.*aislop_fix/i.test(instructions),
+        `${role} must carry explicit forbidden guidance for aislop_fix`
       );
-      assert.ok(toolsSection.includes('aislop_scan'), `${role} must have aislop_scan`);
-      assert.ok(toolsSection.includes('aislop_why'), `${role} must have aislop_why`);
-      assert.ok(!toolsSection.includes('aislop_fix'), `${role} must NOT have aislop_fix`);
-      assert.ok(!toolsSection.includes('aislop_baseline'), `${role} must NOT have aislop_baseline`);
     }
     console.log('✓ Genin and Kage tool boundaries passed');
 

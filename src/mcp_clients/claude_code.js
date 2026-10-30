@@ -222,6 +222,7 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/(?:skills-db|konoha)\.chunin/g, 'mcp__konoha__chunin')
     .replace(/(?:skills-db|konoha)\.tokubetsu_jonin/g, 'mcp__konoha__tokubetsu_jonin')
     .replace(/(?:skills-db|konoha)\.genin/g, 'mcp__konoha__genin')
+    .replace(/(?:skills-db|konoha)\.akatsuki/g, 'mcp__konoha__akatsuki')
     .replace(/semble\.search/g, 'mcp__semble__search')
     .replace(/semble\.find_related/g, 'mcp__semble__find_related')
     .replace(/(?<!mcp__konoha__)\boptimize_report\b/g, 'mcp__konoha__optimize_report')
@@ -230,6 +231,7 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/(?<!mcp__konoha__)\banbu\b(?!-)/g, 'mcp__konoha__anbu')
     .replace(/(?<!mcp__konoha__)\bchunin\b(?!-)/g, 'mcp__konoha__chunin')
     .replace(/(?<!mcp__konoha__)\bgenin\b(?!-)/g, 'mcp__konoha__genin')
+    .replace(/(?<!mcp__konoha__)\bakatsuki\b(?!-)/g, 'mcp__konoha__akatsuki')
     .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b(?!-)/g, 'mcp__konoha__tokubetsu_jonin')
     .replace(/(?<!mcp__konoha__)\bsannin\b(?!-)/g, 'mcp__konoha__sannin')
     .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
@@ -252,7 +254,8 @@ function generateClaudeCodeSubagent(agent) {
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
+    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate'
   };
   const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
   const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;

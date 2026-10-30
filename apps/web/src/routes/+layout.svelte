@@ -18,7 +18,7 @@
 
   let { children } = $props();
 
-  let health = $state({ status: 'checking', port: 1404, version: '2.2.14' });
+  let health = $state({ status: 'checking', port: 1404, version: '2.2.15' });
 
   let yoloMode = $state(false);
   let yoloLoading = $state(false);

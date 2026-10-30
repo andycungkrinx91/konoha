@@ -22,7 +22,7 @@ const CURSOR_RTK_RULE = path.join(CURSOR_DIR, 'rules', 'rtk.mdc');
 const CONTRACT_MARKER = 'KONOHA-CONTRACT-START';
 const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
 const agentContract = fileExists(contractPath) ? require(contractPath) : null;
-const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.14';
+const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.15';
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -108,7 +108,7 @@ function registerMcp() {
     'website_ai_detector', 'docs_ai_detector', 'get_resolved_task_dir',
     'find_skill', 'list_skills', 'get_skill', 'optimize_report',
     'build_from_source', 'build_from_text',
-    'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin',
+    'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki',
     'report_from_agent', 'get_project_context', 'save_project_context',
     'query_project_memory', 'web_search', 'migrate_skills',
     'save_persona_memory', 'query_persona_memory', 'list_persona_memories',

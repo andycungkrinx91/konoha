@@ -122,7 +122,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.14), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `kali_tools`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.15), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `kali_tools`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -487,5 +487,255 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
    - **Lightweight On-Demand Contract Architecture (`src/agent_contract.js`, `src/agent_manager.js`, `src/cursor_manager.js`)**: Replaced 45 KB monolithic on-disk markdown instruction files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, etc.) and bundled templates with lightweight pointer contracts strictly < 1.2 KB (1,097–1,211 bytes, saving > 97% file I/O tokens per cold start). Full multi-agent specifications, framework invariants, and operational guidelines are retrieved dynamically on-demand via `konoha.get_skill('konoha/contract')` and `getClientContract(client)`.
    - **Alphabetized CLI Architecture (`bin/commands/help.js`, `bin/cli.js`)**: Reorganized all 30 CLI commands alphabetically (A–Z) with `agent` 1st. Exposed SDLC Governance and `hitl_mode` (`enabled` vs `disabled`) in `konoha project context` output and provided configuration via `konoha mode yolo/hitl (alias: konoha project set hitl-mode) <enabled|disabled>`.
    - **7-Ninja Team Parity**: Shipped default templates (`src/templates/agents.yaml`, `src/templates/AGENTS.md`, `src/templates/GEMINI.md`) and contract generators uniformly enforce the complete 7-ninja team roster (`@sannin`, `@genin`, `@kage`, `@chunin`, `@jonin`, `@anbu`, `@tokubetsu-jonin`) with canonical distributed skills and zero unbundled host references.
+
+---
+
+## 🔬 LangGraph.js Sequential Research & Architectural Plan (Research-Only Specification)
+
+> **Architectural Boundary Notice (Release 2.2.15)**:
+> This section is a **research and design document only**. **Zero runtime changes, zero workflow modifications, and zero LangGraph dependencies are introduced in release 2.2.15**. The canonical orchestration engine remains strictly powered by `src/mcp/workflow_runner.js` and `src/mcp/workflow.js`. No shared cross-session, cross-project, or cross-client checkpoints or memory exist. Any prototype or implementation is strictly deferred to a future decision gate.
+
+---
+
+### 1. Phase 1: Inventory of Current Routing & Runtime Invariants
+
+Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8-phase finite state machine with two authoritative Human-in-the-Loop (HITL) gates:
+
+1. **State Transitions & Agent Routing**:
+   - `route` (`sannin`): Definition-of-Readiness check (`checkReadiness`), execution classification (`fast_track` direct execution vs `full_sdlc` 8-phase DAG), root task registration in SQLite `sdlc_tasks`, isolated scratch workspace creation (`scratch/tasks/<task_id>/`).
+   - `explore` (`genin`): Read-only codebase reconnaissance, AST/symbol exploration via `semble.search` and `konoha.read_file_range`, dependency boundary mapping; produces `findings.md`. Zero code modifications.
+   - `plan` (`kage`): Decomposition of `findings.md` into decoupled `- [agent]: task` items, determination of `needs_research` flag, subtask persistence in `sdlc_tasks`.
+   - `pending_plan_approval` (Gate 1): Authoritative HITL gate pausing execution; choice 1 approves execution, choice 2 requests plan refinement/regeneration.
+   - `research` (`chunin`): Executed conditionally when `needs_research == true`; real-time documentation retrieval and factual evidence gathering; produces `research_evidence.md`.
+   - `execute` (`jonin` for UI / `anbu` for Backend, DevOps & QA): Sequential iteration over pending items in `status.tasks`. Executes code edits, QA automation (`qa_codify`, `qa_e2e_run`), framework verification commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit and zero-warning verification markers.
+   - `document` (`tokubetsu-jonin`): Technical runbook, API documentation, and changelog generation in `final_docs.md`. Strictly enforces white/pearl canvas, font pairings, and AI fingerprint risk < 3.0%.
+   - `review` (`kage`, `akatsuki`, `@advisor`): Pre-delivery verification gate consisting of:
+     - Akatsuki Blue-Team Security Gate (`akatsuki_review.json`, 0 Critical/High CVEs).
+     - Two-Step Zero-AI-Slop Pre-Gate (Step 1 `aislop_scan --changes` score 100/100, Step 2 `anti_slop` MCP tool verification).
+     - Socket.dev supply chain audit and host-native `@advisor` signoff.
+     - Calculated confidence score $\ge 98.0\%$.
+     - Autonomous Remediation Loop to Anbu/Jonin if security or slop findings emerge (bounded by circuit breaker `slop_cycles <= 7`).
+   - `pending_human_signoff` (Gate 2): Authoritative pre-delivery human signoff; choice 1 finalizes delivery, choice 2 loops back for remediation.
+   - `synthesize` (`sannin`): Generates `final_report.md`, updates root container to `completed` in `sdlc_tasks`, purges transient scratch files.
+
+2. **Core Operational Invariants**:
+   - **Root vs Subtask Container Separation**: The root task container remains `in_progress` throughout all 8 phases and is exempt from self-completion checks, guaranteeing deadlock immunity during persistent multi-turn client sessions.
+   - **Structured MCP Communication**: Strict elimination of disk-based IPC (`prompt.md`, `delegate.md`, `result.md`). Communication passes through structured tool arguments and `konoha.report_from_agent`.
+   - **Session Sandbox Isolation (Decision A)**: Episodic memories are strictly scoped to the active session (`session_id`). Cross-session visibility requires explicit opt-in (`allSessions: true`).
+   - **Deterministic Token Budget**: Single unified prompt format (< 8 KB, ~1,800 tokens) with prefix determinism ($T_1 == T_2 == T_3$) for KV cache optimization.
+   - **RTK Boundary Guardrails**: Prohibits raw file cat/grep commands, enforcing `konoha.read_file_range` and `semble.search`.
+
+---
+
+### 2. Phase 2: One-to-One Stage-to-Graph-Node Mapping
+
+A sequential LangGraph.js implementation models the 8 phases as an explicit `StateGraph` where each node preserves identical inputs, outputs, branching conditions, and gates without changing lifecycle semantics:
+
+```mermaid
+---
+title: Sequential LangGraph.js Architecture Mapping (Research Model)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    Start([__start__]) --> NodeRoute["Node: route<br/><i>(sannin)</i>"]
+    NodeRoute --> BranchRoute{"fast_track?"}
+    BranchRoute -->|Yes| NodeFastTrack["Node: fast_track_execute<br/><i>(specialist)</i>"]
+    BranchRoute -->|No| NodeExplore["Node: explore<br/><i>(genin)</i>"]
+    
+    NodeExplore --> NodePlan["Node: plan<br/><i>(kage)</i>"]
+    NodePlan --> Gate1Interrupt{"Gate 1: interrupt()<br/><i>(pending_plan_approval)</i>"}
+    
+    Gate1Interrupt -->|Reject / Choice 2| NodePlan
+    Gate1Interrupt -->|Approve / Choice 1| BranchResearch{"needs_research?"}
+    
+    BranchResearch -->|Yes| NodeResearch["Node: research<br/><i>(chunin)</i>"]
+    BranchResearch -->|No| NodeExecute["Node: execute<br/><i>(jonin / anbu)</i>"]
+    NodeResearch --> NodeExecute
+    
+    NodeExecute --> BranchTasks{"has_pending_tasks?"}
+    BranchTasks -->|Yes| NodeExecute
+    BranchTasks -->|No (slop_cycles > 0)| NodeReview["Node: review<br/><i>(kage / akatsuki / @advisor)</i>"]
+    BranchTasks -->|No (slop_cycles == 0)| NodeDocument["Node: document<br/><i>(tokubetsu-jonin)</i>"]
+    
+    NodeDocument --> NodeReview
+    NodeReview --> BranchReview{"Review Passed?<br/>(Akatsuki + Slop 100/100 + Conf >= 98%)"}
+    
+    BranchReview -->|Failed & slop_cycles < 7| NodeRemediation["Node: remediation<br/><i>(anbu / jonin)</i>"]
+    NodeRemediation --> NodeReview
+    BranchReview -->|Failed & slop_cycles >= 7| NodeFailClosed["Node: fail_closed<br/><i>(circuit_breaker)</i>"]
+    BranchReview -->|Passed| Gate2Interrupt{"Gate 2: interrupt()<br/><i>(pending_human_signoff)</i>"}
+    
+    Gate2Interrupt -->|Remediation / Choice 2| NodeExecute
+    Gate2Interrupt -->|Sign Off / Choice 1| NodeSynthesize["Node: synthesize<br/><i>(sannin)</i>"]
+    
+    NodeFastTrack --> NodeReview
+    NodeSynthesize --> End([__end__])
+    NodeFailClosed --> End
+    
+    classDef graphNode fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
+    classDef terminal fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
+    class NodeRoute,NodeExplore,NodePlan,NodeResearch,NodeExecute,NodeDocument,NodeReview,NodeRemediation,NodeSynthesize,NodeFastTrack,NodeFailClosed graphNode;
+    BranchRoute,Gate1Interrupt,BranchResearch,BranchTasks,BranchReview,Gate2Interrupt decision;
+    Start,End terminal;
+```
+
+#### Graph State Schema (`KonohaSDLCState`)
+The state channels must strictly reflect existing properties:
+```typescript
+interface KonohaSDLCState {
+  task_id: string;
+  project_path: string;
+  session_id: string;
+  client: string;
+  prompt: string;
+  phase: 'route' | 'explore' | 'plan' | 'research' | 'execute' | 'document' | 'review' | 'synthesize' | 'done';
+  tasks: Array<{ id: string; agent: string; task: string; status: 'pending' | 'in_progress' | 'completed' | 'failed' }>;
+  findings: string;
+  plan: string;
+  needs_research: boolean;
+  research_evidence: string;
+  validation_evidence: Array<{ command: string; exit_code: number; errors: number; warnings: number; timestamp: string }>;
+  final_docs: string;
+  review: { approved: boolean; ai_slop_clean: boolean; ai_slop_findings: number; akatsuki_reviewed: boolean; confidence: number };
+  hitl_gate: 'pending_plan_approval' | 'pending_human_signoff' | null;
+  slop_cycles: number;
+  report: string;
+  error?: string;
+}
+```
+
+#### Node Specification & Mapping Matrix
+
+| Existing Stage (`workflow_runner.js`) | LangGraph Node Name | Agent Owner | State Inputs | State Outputs / Mutations | Transition Edge / Condition |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `route` | `node_route` | `sannin` | `prompt`, `project_path`, `session_id`, `client` | `task_id`, `phase: 'explore'` | Conditional edge: if fast-track target -> `node_fast_track`; else -> `node_explore`. |
+| `explore` | `node_explore` | `genin` | `prompt`, `project_path` | `findings`, `phase: 'plan'` | Direct edge -> `node_plan`. |
+| `plan` | `node_plan` | `kage` | `findings`, `prompt`, `project_path` | `plan`, `tasks`, `needs_research`, `hitl_gate: 'pending_plan_approval'` | Direct edge -> `gate_plan_approval`. |
+| `plan_approval` (Gate 1) | `gate_plan_approval` | HITL (User) | `plan`, `tasks`, human input `{ choice, refinement }` | `plan_approved: true`, `hitl_gate: null` | `interrupt()` boundary. Choice 1 & `needs_research` -> `node_research`; Choice 1 & `!needs_research` -> `node_execute`; Choice 2 -> `node_plan`. |
+| `research` | `node_research` | `chunin` | `plan`, `research_query` | `research_evidence`, `phase: 'execute'` | Direct edge -> `node_execute`. |
+| `execute` | `node_execute` | `jonin` / `anbu` | `tasks`, `project_path` | `tasks` (item updated), `validation_evidence` | Loop back to `node_execute` while pending tasks remain; upon completion -> `node_document` (or `node_review` if `slop_cycles > 0`). |
+| `document` | `node_document` | `tokubetsu-jonin` | `plan`, `validation_evidence` | `final_docs`, `document_gate` | If AI risk >= 3.0% and attempts < 3 -> `node_document` (regen); else -> `node_review`. |
+| `review` | `node_review` | `kage`, `akatsuki`, `@advisor` | `validation_evidence`, `changed_files` | `review`, `aislop_gate`, `confidence` | If clean (`approved && ai_slop_clean && akatsuki_reviewed && confidence >= 98.0`) -> `gate_delivery_signoff`; if failed and `slop_cycles < 7` -> `node_remediation`; if `slop_cycles >= 7` -> fail closed. |
+| `remediation` | `node_remediation` | `anbu` / `jonin` | `review.findings` | `slop_cycles: slop_cycles + 1`, `tasks` | Direct edge back to `node_review`. |
+| `delivery_signoff` (Gate 2) | `gate_delivery_signoff` | HITL (User) | `report`, `review`, human input `{ choice, refinement }` | `human_signed_off: true`, `hitl_gate: null` | `interrupt()` boundary. Choice 1 -> `node_synthesize`; Choice 2 -> `node_execute`. |
+| `synthesize` | `node_synthesize` | `sannin` | Full state, artifacts | `report`, `phase: 'done'`, `status: 'completed'` | Direct edge -> `__end__`. |
+
+---
+
+### 3. Phase 3: Adapter & Parallel-Branch Evaluation (Without Activation)
+
+LangGraph.js provides native parallel branch execution through the `Send` API and fan-out/fan-in conditional edges over state channels with reducer functions.
+
+1. **Theoretical Opportunities**:
+   - **Independent Execution Slices**: Subtasks with statically disjoint file sets (e.g., Jonin modifying `apps/web/src/components/Navbar.svelte` and Anbu modifying `src/db.js`) could execute concurrently via `return [new Send("node_execute", taskA), new Send("node_execute", taskB)]`.
+   - **Dual Reconnaissance**: Genin local symbol exploration and Chunin external documentation search could execute concurrently during the exploration phase.
+2. **Evaluated Architectural Hazards**:
+   - **Filesystem Race Conditions**: Without distributed filesystem locking or transactional file buffers, parallel subagents writing to shared paths risk patch clobbering, race conditions in Git working trees, and broken diff matching.
+   - **Token Spike & Rate Limit Exhaustion**: Simultaneous invocations of high-tier LLM models across multiple agents saturate provider concurrency pools and trigger HTTP 429 rate limit backoffs.
+   - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
+3. **Architectural Evaluation Conclusion**:
+   - **STATUS: EVALUATED ONLY — PERMANENTLY INACTIVE IN 2.2.15**.
+   - Parallel fan-out is explicitly disallowed for code-modifying phases. All node transitions remain strictly sequential to preserve deterministic working tree states and zero race conditions.
+
+---
+
+### 4. Phase 4: Isolated Execution/Thread Identity & Checkpointer Namespaces
+
+A fatal failure mode in multi-tenant agent systems is state leakage across disparate workspaces, client sessions, or user prompts. Under LangGraph.js, state isolation is strictly maintained through namespaced thread identities:
+
+1. **Deterministic Thread Identity Specification**:
+   Every graph execution invocation must explicitly provide a composite thread configuration:
+   ```typescript
+   const config = {
+     configurable: {
+       thread_id: `${client}:${project_hash}:${session_id}:${task_id}`,
+       checkpoint_ns: `${client}/${project_hash}`
+     }
+   };
+   ```
+   - `client`: One of the 8 canonical clients (`cursor`, `claude_code`, `antigravity`, `opencode`, `commandcode`, `codex`, `pi`, `omp`).
+   - `project_hash`: SHA-256 substring of the absolute canonical workspace path (`getWorkspaceRoot()`).
+   - `session_id`: Client-supplied session identifier or persistent daemon session token (`getActiveSessionId()`).
+   - `task_id`: Deterministic SDLC root task UUID (`status.task_id`).
+
+2. **Absolute Checkpoint Isolation Rules**:
+   - **Zero Cross-Client Sharing**: Checkpoints generated in Cursor can never be read, resumed, or stepped by Claude Code or Antigravity sessions.
+   - **Zero Cross-Project Sharing**: Checkpoints are strictly partitioned by `project_hash`. Workflows running in Project A cannot access checkpoints from Project B.
+   - **Zero Cross-Session Sharing**: Each independent user session maintains a disjoint checkpoint history. Parallel or sequential sessions never contaminate each other's state graphs.
+   - **Storage Partitioning**: When backed by a persistent SQLite checkpointer (`SqliteSaver`), state tables enforce composite primary keys `(client, project_hash, session_id, task_id, checkpoint_id)` and foreign key cascade on project purge. In-memory checkpoints (`MemorySaver`) are bound strictly to process lifetime and wiped upon session termination.
+
+---
+
+### 5. Phase 5: Compatibility, Parity & Rollback Gates
+
+Before any graph-based engine can be introduced beyond research, it must clear non-negotiable compatibility and verification gates:
+
+1. **Behavioral & Contract Parity Gate**:
+   - **Zero Schema Drift**: State outputs must remain 100% binary- and schema-compatible with existing SQLite `sdlc_tasks`, `status.json`, `kage_review.json`, and `report_from_agent` payload formats.
+   - **Gate Verification Parity**: HITL Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) must present identical text prompts and parse identical user choices (`1` for Approve, `2` for Reject/Remediate) with zero bypass capability.
+   - **Test Suite Baseline**: The candidate graph adapter must pass 100% of existing regression and unit test suites (`rtk node tests/run_all.js`, 100% pass across all JavaScript test suites).
+
+2. **Instant Zero-Downtime Rollback Mechanism**:
+   - A runtime configuration switch (`KONOHA_ORCHESTRATOR_ENGINE=procedural`) must exist. If set to `procedural` or unset, the engine executes through the canonical `src/mcp/workflow_runner.js`.
+   - Graph engine activation must require dual explicit opt-in (`KONOHA_ORCHESTRATOR_ENGINE=langgraph` AND `KONOHA_EXPERIMENTAL_GRAPH=1`). Any graph exception, timeout, or schema mismatch must fail closed and fall back immediately to procedural execution.
+
+3. **Lifecycle & Resource Cleanup**:
+   - Graph executions must enforce the 30-minute session idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`).
+   - Transient graph checkpoints and scratch subgraphs must be automatically purged upon Phase 8 synthesis via `cleanupTransientScratchFiles()`.
+
+---
+
+### 6. Phase 6: Opt-In Isolated Prototype (Deferred Future Gate)
+
+1. **Deferred Decision**:
+   - **No code, adapter, or prototype implementation is permitted in release 2.2.15**.
+   - Prototyping remains a future exploratory proposal. Prototyping will only commence after explicit human approval and dedicated architectural signoff.
+2. **Prototype Isolation Sandbox**:
+   - When authorized in a future release, prototype code must reside exclusively in an isolated experimental directory (`src/experimental/langgraph/`), without altering `src/mcp/workflow.js` or `src/mcp/workflow_runner.js`.
+   - It must never be bundled into production npm distribution packages without passing full security compliance audits.
+
+---
+
+### 📚 Official LangGraph.js Documentation Citations
+
+All research and architectural mappings in this specification are grounded in official LangGraph.js / LangChain documentation and specifications:
+
+1. **StateGraph, Graphs & Low-Level Concepts**:
+   - LangGraph.js Core GitHub Repository: [langchain-ai/langgraphjs](https://github.com/langchain-ai/langgraphjs)
+   - LangGraph.js StateGraph Class Reference: [StateGraph API Documentation](https://langchain-ai.github.io/langgraphjs/reference/classes/langgraph.StateGraph.html)
+   - Low-Level Graph Concepts (State, Nodes, Edges): [LangGraph.js Concepts: Low-Level](https://langchain-ai.github.io/langgraphjs/concepts/low_level/)
+2. **Multi-Agent Architectures & Subgraphs**:
+   - Hierarchical Subgraphs Guide: [LangGraph.js How-To: Subgraphs](https://langchain-ai.github.io/langgraphjs/how-tos/subgraph/)
+   - Multi-Agent Orchestration Patterns: [LangGraph.js Concepts: Multi-Agent Systems](https://langchain-ai.github.io/langgraphjs/concepts/multi_agent/)
+3. **Parallel Fan-Out & Conditional Branching**:
+   - Branching & Dynamic Routing: [LangGraph.js How-To: Branching](https://langchain-ai.github.io/langgraphjs/how-tos/branching/)
+   - Parallel Execution & Send API: [LangGraph.js Concepts: Parallel Execution & Fan-Out](https://langchain-ai.github.io/langgraphjs/concepts/low_level/#parallel-branches)
+4. **Persistence, Checkpointing & Thread-Scoped State**:
+   - Persistence Architecture & Checkpointers: [LangGraph.js Concepts: Persistence](https://langchain-ai.github.io/langgraphjs/concepts/persistence/)
+   - Checkpoint Saver Implementations: [LangGraph.js How-To: Persistence](https://langchain-ai.github.io/langgraphjs/how-tos/persistence/)
+   - Threads, Configuration & State Isolation (`thread_id`, `checkpoint_ns`): [LangGraph.js Concepts: Threads](https://langchain-ai.github.io/langgraphjs/concepts/persistence/#threads)
+5. **Human-in-the-Loop & Breakpoint Interrupts**:
+   - Human-in-the-Loop Design Patterns: [LangGraph.js Concepts: Human-in-the-Loop](https://langchain-ai.github.io/langgraphjs/concepts/human_in_the_loop/)
+   - Dynamic Breakpoints & `interrupt()`: [LangGraph.js How-To: Breakpoints](https://langchain-ai.github.io/langgraphjs/how-tos/breakpoints/)
+
 
 

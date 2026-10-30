@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.14). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.15). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.14`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.15`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -720,4 +720,79 @@ npx aislop scan --changes
 | **4. Web UI Page-by-Page QA** | Playwright suites + agent-browser on port 1414 | All executed suites green; 17 routes browser-verified; mandatory-change gating + queue API authZ confirmed. | `PASS` (17 routes verified) |
 | **5. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` & `scripts/bump_version.js --check` | Synchronized runtime contract version `2.2.14` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.14 verified) |
 | **6. Google Policy Compliance v2.2.14** | `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.14_2026-10-30.md` | Published certified compliance report for v2.2.14; 0 high vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
+
+---
+
+## Section 27: v2.2.15 Official Subagent Full Parity, Upstream Skill Refresh & Multi-Client QA Pass
+
+Authoritative verification matrix for the Konoha v2.2.15 release, verifying official ninja subagent tool parity, authoritative upstream skill refresh pins, isolated `/tmp/` testing procedures, manual CLI + Web E2E, Playwright and agent-browser execution, and multi-client delegation parity.
+
+### 27.1 Upstream Pinned Revisions & Attribution Matrix
+
+| Skill Family | Upstream Repository | Pinned Commit SHA | Tag / Version | License | Target Ninja Agent(s) | Verification Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **taste-skill** | `https://github.com/leonxlnx/taste-skill` | `12af471` | `v2.1.5` | MIT | `@jonin` (`src/templates/skills/jonin-skill/references/taste-skill-frontend-expert.md`) | `PASS` (inspected & verified) |
+| **anti-slop** | `https://github.com/miqdadbadjuber/anti-slop` | `3005235` | `3.2.24` | MIT | `@genin`, `@chunin`, `@anbu`, `@jonin`, `@akatsuki` (`src/templates/skills/antislop*`, `kage-skill/references/`) | `PASS` (inspected & verified) |
+
+### 27.2 Official Subagent Full Parity Architecture
+
+- **Manifest-Driven Tool Parity**: `src/mcp/memory_subagent_runner.js:buildSubagentMcpBlock` dynamically loads canonical tools from `src/mcp_tool_manifest.json`, granting official ninja subagents (`@genin`, `@chunin`, `@anbu`, `@jonin`, `@akatsuki`) complete tool parity with the main agent (all 47 canonical Konoha tools, Semble MCP `search`/`find_related`, and Aislop MCP `aislop_scan`/`aislop_why`/`aislop_fix`).
+- **Role Boundaries & Hard Safety Mandates**:
+  - `@genin` & `@kage`: Read-only enforcement; forbidden from calling `aislop_fix` or modifying code.
+  - `@akatsuki`: Authorized security operations, penetration testing in sandboxes, and blue-team defensive verification; missing/ambiguous authorization fails closed.
+  - `@jonin`: Frontend UI engineering and taste-skill design-match workflows.
+  - `@anbu`: Backend, DevOps, infrastructure deployment, and QA automation.
+  - `@chunin`: External web research with numbered citations.
+  - `@tokubetsu-jonin`: Publication-grade office document generation (DOCX, XLSX, PPTX, PDF, SVG).
+  - Safety mandates across all subagents: Never run destructive commands (`rm -rf`, `DROP`, `git reset`), never view `.env*`, never `git push` or `npm publish`.
+- **8-Client Integration Parity**: `@akatsuki` registered across all 8 clients: `src/mcp_clients/claude_code.js`, `src/codex_manager.js`, `src/antigravity_manager.js`, `src/cursor_bootstrap.js`, `src/mcp/client_detection.js`, `src/hook-base.js`, and `src/telegram/poller.js`.
+
+### 27.3 Repeatable Isolated Test Procedure (/tmp Sandbox)
+
+```bash
+# 1. Scaffolding isolated sandbox environment
+export RUN_ID=$(date +%Y%m%d_%H%M%S)
+export QA_SANDBOX="/tmp/konoha-qa-2215-${RUN_ID}"
+mkdir -p "${QA_SANDBOX}/fakehome"
+export HOME="${QA_SANDBOX}/fakehome"
+export KONOHA_TEST_SANDBOX=1
+export PORT=1415
+
+# 2. Manual CLI Verification Sweep
+rtk node bin/cli.js status --json
+rtk node bin/cli.js doctor
+rtk node bin/cli.js version
+rtk node bin/cli.js savings
+rtk node bin/cli.js init --yes
+rtk node bin/cli.js migrate --skip-embeddings
+rtk node bin/cli.js skill list
+rtk node bin/cli.js agent list
+rtk node bin/cli.js akatsuki status
+
+# 3. Web UI & Browser E2E Execution
+export KONOHA_BOOTSTRAP_PASSWORD="konohagakure"
+rtk node src/web_server.js --port=${PORT} &
+WEB_PID=$!
+sleep 2
+
+# Run Playwright automated suites
+npx playwright test tests/e2e/auth_login.spec.js tests/e2e/routes_load.spec.js
+# Execute agent-browser flow verification across 17 routes
+node tests/e2e/agent_browser_sweep.js --port=${PORT}
+
+kill $WEB_PID
+```
+
+### 27.4 Verification Evidence & Audit Gates
+
+| Verification Gate | Command / Target | Observed Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Upstream Pins & Licenses** | Git commit SHA & license inspection | Pinned `taste-skill@12af471` (MIT) & `anti-slop@3005235` (MIT); attribution updated in `README.md` Credits | `PASS` (verified) |
+| **2. Subagent Tool Parity** | `src/mcp/memory_subagent_runner.js` | Full manifest-driven catalog parity; role boundaries enforced; `@akatsuki` active across all 8 clients | `PASS` (verified) |
+| **3. Isolated CLI Sweep** | `/tmp/konoha-qa-2215` sandbox | `status`, `doctor`, `version` (2.2.15), `init`, `migrate`, `akatsuki` clean exit 0 | `PASS` (verified) |
+| **4. Web UI & Playwright** | `apps/web` port 1414 / 1415 | Bootstrap login (`konohagakure`), mandatory password change, 17 routes verified via Playwright & agent-browser | `PASS` (verified) |
+| **5. AI Slop Scanner** | `rtk npx aislop scan --changes` | 100/100 Healthy · 0 errors · 0 warnings · 0 fixable | `PASS` (verified) |
+| **6. Dependency Audit Posture** | `rtk pnpm audit` | 0 high, 0 critical (1 pre-existing low `deepmerge` in dev-tooling); zero new production dependencies | `PASS` (verified) |
+| **7. Multi-Client Contract Parity** | `rtk node tests/test_version_consistency.js` | 20/20 managed targets synchronized to v2.2.15 | `PASS` (verified) |
+| **8. Default Password** | `src/auth.js` & tests | `konohagakure` preserved (seed `a29ub2hhZ2FrdXJl`) | `PASS` (verified) |
 

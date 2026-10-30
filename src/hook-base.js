@@ -74,7 +74,7 @@ function _isSubagentRow(row) {
   const content = row.content || row.thinking || '';
   if (row.type === 'USER_INPUT') {
     if (/acting as the\s*`?@/i.test(content)) return true;
-    if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin|sannin)\b/i.test(content)) return true;
+    if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin|akatsuki|sannin)\b/i.test(content)) return true;
     if (content.includes('delegate.md') || content.includes('result.md')) return true;
     if (/(?:Please\s+)?read\s+(?:your task|the delegation)/i.test(content)) return true;
     if (/\/brain\/[a-f0-9-]+\/scratch\/tasks\//i.test(content)) return true;

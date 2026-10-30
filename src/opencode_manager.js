@@ -190,7 +190,8 @@ function _registerNinjaAgents(config) {
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
+    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate'
   };
 
   try {

@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Minimal MCP stdio server that exposes the antislop contrast checker as a tool.
+"""Minimal MCP stdio server exposing the antislop contrast checker as a tool.
 
-Speaks the Model Context Protocol over stdio. All logging must go to stderr;
-stdout is reserved for newline-delimited JSON-RPC responses.
+All logging goes to stderr; stdout is reserved for JSON-RPC responses.
 """
-
 import json
 import sys
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antislop-contrast"
-SERVER_VERSION = "3.2.6"
+SERVER_VERSION = "3.2.24"
 
 TOOLS = [
     {
@@ -19,14 +17,8 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "foreground": {
-                    "type": "string",
-                    "description": "Hex color of the text, for example #777777",
-                },
-                "background": {
-                    "type": "string",
-                    "description": "Hex color of the background, for example #FFFFFF",
-                },
+                "foreground": {"type": "string", "description": "Hex color of the text, for example #777777"},
+                "background": {"type": "string", "description": "Hex color of the background, for example #FFFFFF"},
             },
             "required": ["foreground", "background"],
         },
@@ -48,17 +40,20 @@ def relative_luminance(hex_color):
 
 
 def contrast_ratio(fg, bg):
+    """The unrounded WCAG ratio. Callers decide what to print, never what to compare."""
     l1, l2 = relative_luminance(fg), relative_luminance(bg)
     lighter, darker = max(l1, l2), min(l1, l2)
-    return round((lighter + 0.05) / (darker + 0.05), 2)
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 def check_contrast(fg, bg):
+    # The threshold is read from the raw ratio: 4.498:1 fails 4.5:1 even though it
+    # displays as 4.50 once rounded, and a rounded verdict would report the opposite.
     ratio = contrast_ratio(fg, bg)
     return {
         "foreground": fg,
         "background": bg,
-        "ratio": ratio,
+        "ratio": round(ratio, 2),
         "normal_text": {"threshold": 4.5, "pass": ratio >= 4.5},
         "large_text": {"threshold": 3.0, "pass": ratio >= 3.0},
     }
@@ -95,14 +90,11 @@ def main():
         method = msg.get("method")
 
         if method == "initialize":
-            _reply(
-                msg_id,
-                {
-                    "protocolVersion": PROTOCOL_VERSION,
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                },
-            )
+            _reply(msg_id, {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+            })
         elif method == "notifications/initialized":
             pass
         elif method == "ping":

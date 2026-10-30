@@ -165,7 +165,7 @@ function _filterExistingCodexToml(existingToml) {
   const MANAGED_SECTION_PATTERNS = [
     /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
     /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
-    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)(\..*)?\]/i
+    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|akatsuki)(\..*)?\]/i
   ];
 
   const TOP_LEVEL_MANAGED_KEYS = [
@@ -292,7 +292,8 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
+    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate'
   };
 
   const emittedAgentNames = new Set();
