@@ -463,9 +463,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- Strictly NO conversational filler or hesitation markers (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Wait - but", "let me").\n' +
     '- Lead with direct action and direct evidence. Start immediately with the action taken or factual result.\n' +
     '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code blocks.\n' +
-    '- Zero hallucination and strictly NO lies: never pretend a test ran or passed without verified output evidence.\n' +
+    '- Zero hallucination, zero errors, zero warnings, and zero AI slop: target accuracy 95%-100%, cost efficiency 83%-98%.\n' +
     '- Minimum 98% confidence gate: mechanically verified against real execution exit codes and 0 slop findings.\n' +
-    '- MANDATORY SKILL RETRIEVAL: Always discover skills via konoha.find_skill and load with konoha.use_skills or konoha.get_skill.\n\n'
+    '- MANDATORY TOOL & SKILL PARITY: Utilize the main agent toolset within archetype boundaries. Always discover skills via konoha.find_skill and activate them with konoha.use_skills or konoha.get_skill.\n\n'
   );
   const dualBoundaryAnchor = (
     '## 🛡️ Critical Invariants & Non-Negotiables (Dual-Boundary Anchor)\n\n' +
@@ -480,10 +480,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const executionProtocol = (
     `You must now act as ${dbAgentName} and execute the task below.\n\n` +
     '## Execution Protocol\n\n' +
-    '1. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
-    '2. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
-    '4. When complete, report results and validation evidence via `report_from_agent`.\n\n'
+    '1. Tool Utilization: You are provisioned with the main agent MCP tool catalog. Use bounded file tools, Semble search, and RTK commands within your archetype boundaries.\n' +
+    '2. Mandatory Skills Activation: For any skills informed or routed in this delegation (see `Active Flow Skills` or `Available Skills`), you MUST load and activate their domain rules via `konoha.use_skills(skills=[...])`.\n' +
+    '3. Context Preservation: You MUST preserve and retain all intermediate context, architectural boundaries, and constraints passed in this delegation. Never omit or discard context in the middle of execution.\n' +
+    '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
+    '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
+    '6. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
+    '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
   );
 
   const taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;

@@ -261,7 +261,8 @@ function _buildInstructionText(ctx) {
     parallelGuidance = (
       '\n\n### ⚡ Parallel Execution Opportunity (Time-Saving)\n' +
       `- Multi-domain workstreams detected: ${ctx.parallelWorkstreams.map(w => `\`${w.agent}\` (${w.domain})`).join(', ')}.\n` +
-      '- For maximum execution time savings, once architectural interfaces are locked in `plan.md`, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.'
+      '- For maximum execution time savings, once architectural interfaces are locked in `plan.md`, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.\n' +
+      '- In OMP / Cursor: Dispatch real concurrent subagents via task batching (`task(context=..., tasks=[...])`). Each subagent must load its informed skills using `konoha.use_skills` and preserve intermediate context throughout execution.'
     );
   }
 
@@ -284,7 +285,7 @@ function _buildInstructionText(ctx) {
     `SDLC Task ID: \`${ctx.taskId}\`\n\n` +
     '## Delegation Steps\n\n' +
     `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
-    `2. Subagent executes task and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
+    `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
     `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.\n\n` +
     `## Original Prompt\n\n${ctx.effPrompt}` +
     advisoryText + trackGuidance + buildGuidance + parallelGuidance
