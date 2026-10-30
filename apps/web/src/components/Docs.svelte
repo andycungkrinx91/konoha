@@ -3,11 +3,18 @@
   import { api } from '../lib/api.js';
   import PageHero from './PageHero.svelte';
 
-  let health = $state(null);
+    let health = $state(null);
+  let liveAgents = $state([]);
+  let liveDocs = $state([]);
+  let selectedDoc = $state(null);
+  let docQuery = $state('');
+  let isSearching = $state(false);
+  let liveSkillsCount = $state(null);
   let activeSection = $state('overview');
 
   const SECTIONS = [
     { id: 'overview', label: 'Overview' },
+    { id: 'fts-docs', label: 'SQLite FTS5 Docs' },
     { id: 'architecture', label: 'Architecture & Agents' },
     { id: 'mcp', label: 'MCP Servers & Tools' },
     { id: 'sdlc', label: 'SDLC Lifecycle' },
@@ -20,52 +27,75 @@
     { id: 'cli', label: 'CLI Commands' }
   ];
 
-  const AGENTS = [
-    { name: 'Sannin', role: 'Task triage & orchestration router', detail: 'Entry point for non-trivial work. Resolves the task directory, routes the request through the village pipeline, and delivers the final report.' },
-    { name: 'Genin', role: 'Read-only exploration', detail: 'Codebase exploration, symbol search, dependency mapping, and evidence-based findings. Never mutates files.' },
-    { name: 'Kage', role: 'Architecture, security & review', detail: 'Deep code analysis, risk assessment, and the blocking Kage Reviewer Confidence Gate (≥98%) with the two-step Zero-AI-Slop scan.' },
-    { name: 'Jonin', role: 'Premium UI development', detail: 'Frontend builds with the Taste-Skill Design Engine — typography dials, motion intensity, and strict design invariants.' },
-    { name: 'Anbu', role: 'Backend & remediation', detail: 'Backend development, bug fixes, DevOps, and the slop-fix remediation specialist when the Delivery Gate reports findings.' },
-    { name: 'Chunin', role: 'Research & evidence', detail: 'Web research, documentation lookup, and evidence synthesis with citations.' },
-    { name: 'Tokubetsu-Jonin', role: 'Technical writing', detail: 'README creation, API specifications, runbooks, and final delivery documentation.' }
+  const CANONICAL_AGENTS = [
+    { name: 'Sannin', role: 'Task triage & router', detail: 'Entry point for non-trivial work. Resolves task directory and orchestrates village pipeline.' },
+    { name: 'Genin', role: 'Read-only exploration', detail: 'Codebase exploration, symbol search, dependency mapping, and evidence-backed findings. Never mutates files.' },
+    { name: 'Kage', role: 'Architecture & review gate', detail: 'Deep architecture analysis, risk assessment, and blocking Kage Confidence Gate (≥98%) with two-step slop scan.' },
+    { name: 'Jonin', role: 'Premium UI development', detail: 'Frontend builds with Taste-Skill Design Engine, typography dials, motion intensity, and layout invariants.' },
+    { name: 'Anbu', role: 'Backend & remediation', detail: 'Backend services, bug fixes, DevOps, and slop-fix remediation when Delivery Gate reports findings.' },
+    { name: 'Chunin', role: 'Research & evidence', detail: 'Web research, ecosystem documentation lookup, and factual evidence synthesis with citations.' },
+    { name: 'Tokubetsu-Jonin', role: 'Technical writing & scribe', detail: 'Publication-grade documentation, API specifications, runbooks, and final handover reports.' },
+    { name: 'Akatsuki', role: 'Red-team & blue-team', detail: 'Offensive penetration testing in sandboxes, defensive security auditing, and vulnerability review gates.' }
   ];
 
   const MCP_SERVERS = [
-    { name: 'konoha', tools: 'find_skill, get_skill, list_skills, read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean, website_ai_detector, docs_ai_detector, build_from_text, build_from_source, sannin, kage, jonin, anbu, chunin, genin, tokubetsu_jonin', detail: 'Skill discovery, bounded file I/O, subagent dispatch, and website & document AI-fingerprint detectors for every client.' },
-    { name: 'semble', tools: 'search, find_related', detail: 'Semantic codebase search. Always called with the absolute repository path — replaces grep/glob for code discovery.' },
-    { name: 'aislop', tools: 'aislop_scan, aislop_fix, aislop_why, aislop_baseline', detail: 'Zero-AI-Slop scanning and remediation. Read-only agents get scan + why; write agents additionally get fix.' }
+    {
+      name: 'konoha',
+      tools: 'read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean, website_ai_detector, docs_ai_detector, get_resolved_task_dir, find_skill, find_skills, list_skills, get_skill, use_skills, optimize_report, build_with_image_design, build_from_source, build_from_text, sannin, kage, jonin, anbu, akatsuki, akatsuki_init, chunin, tokubetsu_jonin, genin, report_from_agent, get_project_context, save_project_context, query_project_memory, web_search, migrate_skills, save_persona_memory, query_persona_memory, list_persona_memories, delete_persona_memory, check_readiness, get_task_evidence, get_slop_findings, anti_slop, qa_codify, qa_e2e_run, get_soul, document_create, spreadsheet_create, presentation_create, diagram_create, animation_export',
+      detail: 'Canonical skill discovery, bounded file I/O, 8-ninja subagent dispatch, AI-fingerprint detectors, and native document engines across all 8 clients.'
+    },
+    {
+      name: 'semble',
+      tools: 'search, find_related',
+      detail: 'Semantic codebase search. Always called with the absolute repository path — replaces raw grep/glob for code discovery.'
+    },
+    {
+      name: 'aislop',
+      tools: 'aislop_scan, aislop_fix, aislop_why, aislop_baseline',
+      detail: 'Zero-AI-Slop code hygiene scanning and remediation. Read-only roles (genin, kage) receive scan + why; write roles (jonin, anbu) receive fix.'
+    }
   ];
 
   const API_ENDPOINTS = [
-    { method: 'GET', path: '/api/v1/health', desc: 'Server health, version, skills/agents counts' },
+    { method: 'POST', path: '/api/v1/auth/login', desc: 'Authenticate administrative session and receive secure HTTP-only cookie' },
+    { method: 'GET', path: '/api/v1/auth/status', desc: 'Authentication status and bootstrap credentials state' },
+    { method: 'POST', path: '/api/v1/auth/change-password', desc: 'Update administrative password (Argon2id hashing)' },
+    { method: 'POST', path: '/api/v1/auth/logout', desc: 'Revoke active administrative session' },
+    { method: 'GET', path: '/api/v1/csrf', desc: 'Session CSRF token (mutating requests require X-Konoha-Web-Token)' },
+    { method: 'GET', path: '/api/v1/health', desc: 'Server health, version, database metrics, skills and agents counts' },
     { method: 'GET', path: '/api/v1/system/metrics', desc: 'System CPU/memory telemetry + Konoha feature metrics' },
     { method: 'GET', path: '/api/v1/detect-ai?target=', desc: 'Website AI-fingerprint detector (directory path or URL) — 0–100 score, 0–20 = Human-Built' },
     { method: 'GET', path: '/api/v1/detect-docs?file_path=', desc: 'Document AI-fingerprint detector (.docx, .pdf, .pptx, .xlsx, .md, .txt) — 0–3% ZeroGPT target' },
     { method: 'POST', path: '/api/v1/detect-docs/text', desc: 'Analyze pasted text for AI fingerprints (body: { text: string })' },
-    { method: 'GET', path: '/api/v1/csrf', desc: 'Session CSRF token (mutating requests require X-Konoha-Web-Token)' },
-    { method: 'GET', path: '/api/v1/bridges', desc: 'List configured bridges' },
-    { method: 'GET', path: '/api/v1/bridges/status', desc: 'Runtime status of bridges & gateway' },
-    { method: 'GET', path: '/api/v1/agents', desc: 'Agent roster & model assignments' },
-    { method: 'GET', path: '/api/v1/skills', desc: 'Skill search (FTS5 / semantic vector mode)' },
-    { method: 'POST', path: '/api/v1/skills/install', desc: 'Install a skill from the registry' },
+    { method: 'GET', path: '/api/v1/bridges', desc: 'List configured LLM provider bridges' },
+    { method: 'GET', path: '/api/v1/bridges/status', desc: 'Runtime status of bridges & OpenAI proxy gateway (port 19999)' },
+    { method: 'GET', path: '/api/v1/agents', desc: 'Agent roster & model assignments (queried live from SQLite database)' },
+    { method: 'GET', path: '/api/v1/skills', desc: 'Skill search (FTS5 / semantic vector mode, queried live from SQLite database)' },
+    { method: 'POST', path: '/api/v1/skills/install', desc: 'Install a skill from the registry or local path' },
+    { method: 'POST', path: '/api/v1/skills/reindex', desc: 'Re-index skills into SQLite FTS5 database' },
+    { method: 'POST', path: '/api/v1/skills/reembed', desc: 'Rebuild neural embeddings (IBM Granite)' },
+    { method: 'GET', path: '/api/v1/vectors/stats', desc: 'Vector index statistics and dimension telemetry' },
     { method: 'GET', path: '/api/v1/sdlc/tasks', desc: 'List SDLC tasks (filter by status/project)' },
     { method: 'POST', path: '/api/v1/sdlc/check-readiness', desc: 'Definition-of-Readiness check for task text' },
+    { method: 'POST', path: '/api/v1/sdlc/tasks/reconcile', desc: 'Reconcile tasks against active filesystem and Git state' },
     { method: 'GET', path: '/api/v1/sdlc/config', desc: 'Project SDLC config (dor_mode, review_mode)' },
     { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha + Semble combined)' },
     { method: 'GET', path: '/api/v1/telegram/config', desc: 'Telegram bot settings (AES-256 encrypted at rest, masked)' },
     { method: 'POST', path: '/api/v1/telegram/config', desc: 'Update Telegram bot token, chat ID, mode & secret' },
     { method: 'POST', path: '/api/v1/telegram/test', desc: 'Send test notification message to configured Telegram chat' },
-    { method: 'POST', path: '/api/v1/telegram/stop', desc: 'Stop active Telegram long-polling bot instance' },
-    { method: 'GET', path: '/api/v1/queue/status', desc: 'Prompt queue status (pending/processing/completed counts)' },
-    { method: 'GET', path: '/api/v1/queue/items', desc: 'List prompt queue jobs with agent assignments & state' },
-    { method: 'POST', path: '/api/v1/queue/enqueue', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
-    { method: 'POST', path: '/api/v1/queue/retry', desc: 'Retry a failed prompt queue job' },
+    { method: 'POST', path: '/api/v1/telegram/enable', desc: 'Start active Telegram long-polling bot daemon' },
+    { method: 'POST', path: '/api/v1/telegram/disable', desc: 'Stop active Telegram long-polling bot daemon' },
+    { method: 'GET', path: '/api/v1/queue/prompts', desc: 'List prompt queue jobs with agent assignments & state' },
+    { method: 'POST', path: '/api/v1/queue/prompts', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
+    { method: 'GET', path: '/api/v1/webhooks', desc: 'List registered outbound notification webhooks' },
+    { method: 'POST', path: '/api/v1/webhooks', desc: 'Create a new outbound webhook notification target' },
     { method: 'GET', path: '/api/v1/semble', desc: 'Semble MCP status' },
     { method: 'POST', path: '/api/v1/semble/search', desc: 'Semantic code search proxy' },
     { method: 'GET', path: '/api/v1/search/status', desc: 'SearXNG search engine status' },
     { method: 'POST', path: '/api/v1/search', desc: 'Zero-API-key web search' },
     { method: 'GET', path: '/api/v1/doctor', desc: 'Environment health diagnostics' },
     { method: 'POST', path: '/api/v1/doctor/repair', desc: 'Auto-repair detected issues' },
+    { method: 'GET', path: '/api/v1/soul', desc: 'Agent soul archetype and behavioral memory' },
     { method: 'GET', path: '/api/v1/persona', desc: 'Persona memories (project-scoped)' },
     { method: 'GET', path: '/api/v1/projects', desc: 'Known projects & current workspace' },
     { method: 'GET', path: '/api/v1/clients', desc: 'Cross-client MCP configuration status' },
@@ -85,13 +115,62 @@
     { name: 'OMP Agent', config: '~/.omp/agent/mcp.json' }
   ];
 
-  const PHASES = ['Route', 'Research', 'Explore', 'Plan', 'Execute', 'Review', 'Document', 'Synthesize'];
+  const PHASES = ['Route', 'Research', 'Explore', 'Plan', 'Execute', 'Review', 'Document', 'Handover'];
 
   onMount(async () => {
     try {
       health = await api.get('/api/v1/health');
-    } catch (_) { /* Documentation is static; health badge is best-effort */ }
+      if (health && typeof health.skills_count === 'number') {
+        liveSkillsCount = health.skills_count;
+      }
+    } catch (_) {}
+
+    try {
+      const agentsRes = await api.get('/api/v1/agents');
+      if (Array.isArray(agentsRes) && agentsRes.length > 0) {
+        liveAgents = agentsRes;
+      }
+    } catch (_) {}
+
+    try {
+      const allSkills = await api.get('/api/v1/skills?limit=250');
+      if (Array.isArray(allSkills)) {
+        liveDocs = allSkills.filter(s => s.type === 'documentation' || s.name.startsWith('doc:'));
+      }
+    } catch (_) {}
   });
+
+  async function searchDocs(q) {
+    docQuery = q;
+    if (!q.trim()) {
+      try {
+        const all = await api.get('/api/v1/skills?limit=250');
+        if (Array.isArray(all)) {
+          liveDocs = all.filter(s => s.type === 'documentation' || s.name.startsWith('doc:'));
+        }
+      } catch (_) {}
+      return;
+    }
+    isSearching = true;
+    try {
+      const res = await api.get(`/api/v1/skills?q=${encodeURIComponent(q)}&limit=50`);
+      if (Array.isArray(res)) {
+        liveDocs = res.filter(s => s.type === 'documentation' || s.name.startsWith('doc:') || (s.tags && s.tags.includes('documentation')));
+      }
+    } catch (_) {
+    } finally {
+      isSearching = false;
+    }
+  }
+
+  async function viewDoc(doc) {
+    try {
+      const full = await api.get(`/api/v1/skills/${encodeURIComponent(doc.name)}`);
+      selectedDoc = full;
+    } catch (_) {
+      selectedDoc = doc;
+    }
+  }
 </script>
 
 <div class="space-y-4 lg:h-[calc(100vh-7.5rem)] lg:flex lg:flex-col">
@@ -101,72 +180,64 @@
     </svg>
   {/snippet}
 
-  {#snippet heroActions()}
-    {#if health}
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-mono px-3 py-1.5 rounded-[5px] border" style="color: var(--color-text-muted); border-color: var(--color-border);">v{health.version}</span>
-        <span class="text-xs font-mono px-3 py-1.5 rounded-[5px] border" style="color: var(--color-text-muted); border-color: var(--color-border);">{health.node}</span>
-      </div>
-    {/if}
-  {/snippet}
+  <PageHero
+    title="Documentation"
+    subtitle="Full architectural reference, MCP tools specification, SDLC lifecycle, and REST API contract."
+    badgeText="v{health?.version || '2.2.15'}"
+    badgeIcon={heroBadgeIcon}
+    showGauges={false}
+  />
 
-  <!-- Header (Shrink-0) using PageHero -->
-  <div class="shrink-0">
-    <PageHero
-      title="Documentation"
-      badgeText="Runtime Architecture & Operations"
-      badgeIcon={heroBadgeIcon}
-      description="Konoha runtime manual — architecture, gates, APIs & operations"
-      actions={heroActions}
-    />
-  </div>
-
-  <!-- Mobile Responsive Sticky Section Bar (Pill Navigation) -->
-  <nav
-    class="lg:hidden sticky top-0 z-20 -mx-1 px-2 py-2 backdrop-blur-md border rounded-2xl flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs shrink-0"
-    style="background: color-mix(in srgb, var(--color-bg) 88%, transparent); border-color: var(--color-border);"
-    aria-label="Mobile document sections"
-  >
+  <!-- Mobile quick-jump pills -->
+  <div class="lg:hidden flex gap-2 overflow-x-auto pb-1 no-scrollbar">
     {#each SECTIONS as s}
       <a
         href="#{s.id}"
-        class="doc-pill-link shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all focus:outline-none {activeSection === s.id ? 'active' : ''}"
+        class="doc-pill-link text-xs font-semibold px-3 py-1.5 rounded-full shrink-0 transition-all {activeSection === s.id ? 'active' : ''}"
         onclick={() => (activeSection = s.id)}
-        aria-current={activeSection === s.id ? 'true' : undefined}
       >
         {s.label}
       </a>
     {/each}
-  </nav>
+  </div>
 
-  <!-- Two-Column Layout (Desktop Fixed Aside Menu + Scrolling Document Content Area) -->
-  <div class="flex-1 lg:flex lg:flex-row lg:gap-6 lg:overflow-hidden min-h-0">
-    <!-- Desktop Fixed TOC Navigation Menu -->
-    <aside class="hidden lg:block w-64 shrink-0 h-full">
-      <nav
-        class="glass-card-3d p-4 rounded-2xl border h-full overflow-y-auto space-y-1 shadow-md"
-        style="border-color: var(--color-border);"
-        aria-label="Document table of contents"
-      >
-        <div class="flex items-center justify-between px-3 pb-2 border-b mb-2" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border));">
-          <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Contents</p>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full" style="background: var(--color-primary-glow); color: var(--color-primary);">{SECTIONS.length} Sections</span>
-        </div>
+  <!-- Content layout -->
+  <div class="lg:flex lg:gap-6 lg:flex-1 lg:min-h-0">
+    <!-- Sticky sidebar (desktop) -->
+    <aside class="hidden lg:flex lg:flex-col lg:w-56 shrink-0 lg:overflow-y-auto pr-2">
+      <nav class="space-y-1">
         {#each SECTIONS as s}
           <a
             href="#{s.id}"
-            class="doc-nav-link block px-3 py-2 rounded-xl text-xs font-semibold {activeSection === s.id ? 'active' : ''}"
+            class="doc-nav-link flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl transition-all {activeSection === s.id ? 'active' : ''}"
             onclick={() => (activeSection = s.id)}
-            aria-current={activeSection === s.id ? 'true' : undefined}
           >
-            {s.label}
+            <span>{s.label}</span>
+            <span class="w-1.5 h-1.5 rounded-full transition-opacity {activeSection === s.id ? 'opacity-100 bg-white' : 'opacity-0'}"></span>
           </a>
         {/each}
       </nav>
+
+      <div class="mt-auto pt-6 border-t" style="border-color: var(--color-border);">
+        <div class="rounded-2xl p-3 border" style="border-color: var(--color-border); background: var(--color-surface);">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full {health?.status === 'healthy' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+            <span class="text-[11px] font-mono font-bold" style="color: var(--color-text);">Konoha Engine</span>
+          </div>
+          <p class="text-[10px]" style="color: var(--color-text-muted);">
+            v{health?.version || '2.2.15'} · Node {health?.node || process?.version || 'v22'}
+          </p>
+          {#if health?.db_size}
+            <p class="text-[10px] mt-0.5" style="color: var(--color-text-muted);">
+              DB: {(health.db_size / 1024 / 1024).toFixed(1)} MB · {liveSkillsCount ?? health?.skills_count ?? '...'} skills
+            </p>
+          {/if}
+        </div>
+      </div>
     </aside>
 
-    <!-- Document Content Area (Owns Vertical Scrolling) -->
-    <div class="flex-1 lg:h-full lg:overflow-y-auto space-y-6 pr-1 lg:pr-3 scroll-smooth">
+    <!-- Scrollable main documentation canvas -->
+    <div class="lg:flex-1 lg:overflow-y-auto space-y-6 pb-12 pr-1">
       <!-- Overview -->
       <section id="overview" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Overview</h3>
@@ -178,10 +249,10 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
             <p class="text-2xl font-black" style="color: var(--color-primary);">8 Phases</p>
-            <p class="text-xs mt-1" style="color: var(--color-text-muted);">Route → Research → Explore → Plan → Execute → Review → Document → Synthesize</p>
+            <p class="text-xs mt-1" style="color: var(--color-text-muted);">Route → Research → Explore → Plan → Execute → Review → Document → Handover</p>
           </div>
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
-            <p class="text-2xl font-black" style="color: var(--color-primary);">7 Agents</p>
+            <p class="text-2xl font-black" style="color: var(--color-primary);">{liveAgents.length || 8} Agents</p>
             <p class="text-xs mt-1" style="color: var(--color-text-muted);">Specialized subagents with strict tool boundaries and skill SOPs</p>
           </div>
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
@@ -196,26 +267,123 @@
         </div>
       </section>
 
+      <!-- SQLite FTS5 Documentation Browser -->
+      <section id="fts-docs" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-xl font-black tracking-tight" style="color: var(--color-text);">SQLite FTS5 Documentation</h3>
+            <p class="text-xs mt-0.5" style="color: var(--color-text-muted);">
+              Authoritative repository documentation seeded into SQLite FTS5 index and neural vector embeddings.
+            </p>
+          </div>
+          <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border font-bold" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">
+            {liveDocs.length} Documents Indexed
+          </span>
+        </div>
+
+        <div class="mb-4">
+          <input
+            type="text"
+            class="w-full text-xs px-4 py-2.5 rounded-xl border font-mono transition-all"
+            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            placeholder="Search documentation via SQLite FTS5 + Neural Vector RAG (e.g. architecture, security, mcp)..."
+            value={docQuery}
+            oninput={(e) => searchDocs(e.target.value)}
+          />
+        </div>
+
+        {#if selectedDoc}
+          <div class="rounded-2xl border p-4 mb-4 transition-all" style="background: var(--color-surface); border-color: var(--color-primary);">
+            <div class="flex items-center justify-between mb-2 pb-2 border-b" style="border-color: var(--color-border);">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold" style="color: var(--color-primary);">{selectedDoc.name}</span>
+                <span class="text-[10px] font-mono opacity-75">({(selectedDoc.byte_size || 0).toLocaleString()} bytes · {selectedDoc.line_count || 0} lines)</span>
+              </div>
+              <button
+                type="button"
+                class="text-xs font-bold px-2 py-0.5 rounded border hover:opacity-80"
+                style="border-color: var(--color-border); color: var(--color-text-muted);"
+                onclick={() => (selectedDoc = null)}
+              >
+                Close
+              </button>
+            </div>
+            <pre class="text-[11px] font-mono whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed p-3 rounded-xl" style="background: var(--color-bg); color: var(--color-text);">{selectedDoc.content || 'Loading content...'}</pre>
+          </div>
+        {/if}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+          {#if liveDocs.length === 0}
+            <div class="col-span-full text-center py-6 text-xs" style="color: var(--color-text-muted);">
+              {isSearching ? 'Searching SQLite FTS5...' : 'No documentation matches found.'}
+            </div>
+          {:else}
+            {#each liveDocs as doc}
+              <div class="rounded-2xl border p-3 flex flex-col justify-between hover:border-[var(--color-primary)] transition-all" style="border-color: var(--color-border);">
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold font-mono truncate" style="color: var(--color-text);">{doc.skill_name || doc.name.replace(/^doc:/, '')}</span>
+                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">FTS5 + Vector</span>
+                  </div>
+                  <p class="text-[10px] line-clamp-1 mb-2 font-mono" style="color: var(--color-text-muted);">{doc.tags || 'documentation'}</p>
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t text-[10px]" style="border-color: var(--color-border); color: var(--color-text-muted);">
+                  <span>{((doc.byte_size || 0) / 1024).toFixed(1)} KB</span>
+                  <button
+                    type="button"
+                    class="font-mono font-bold px-2 py-1 rounded text-[10px] border transition-all"
+                    style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);"
+                    onclick={() => viewDoc(doc)}
+                  >
+                    View Document →
+                  </button>
+                </div>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </section>
+
       <!-- Architecture -->
       <section id="architecture" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
-        <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Architecture &amp; Agents</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xl font-black tracking-tight" style="color: var(--color-text);">Architecture &amp; Agents</h3>
+          {#if liveAgents.length > 0}
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">Live from SQLite DB</span>
+          {/if}
+        </div>
         <p class="text-sm leading-relaxed mb-5" style="color: var(--color-text-muted);">
           The main agent is an orchestrator only — it never implements directly. Work is delegated through MCP subagent
           tools with structured task arguments, with workflow artifacts (<code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">status.json</code>,
           <code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">plan.md</code>,
           <code class="text-xs font-mono px-1.5 py-0.5 rounded" style="background: var(--color-primary-glow); color: var(--color-primary);">final_report.md</code>)
-          kept in an isolated task directory under <code class="text-xs font-mono">~/.konoha/tmp/</code> — never inside the project workspace. File-based IPC (<code class="text-xs font-mono">prompt.md</code> / <code class="text-xs font-mono">delegate.md</code> / <code class="text-xs font-mono">result.md</code>) is retired and never written.
+          kept in an isolated task directory under <code class="text-xs font-mono">~/.konoha/tmp/</code> — never inside the project workspace. Communication across subagents is handled via structured tool arguments (<code class="text-xs font-mono">task</code>, <code class="text-xs font-mono">context</code>, <code class="text-xs font-mono">constraints</code>, <code class="text-xs font-mono">skills</code>).
         </p>
         <div class="space-y-3">
-          {#each AGENTS as a}
-            <div class="rounded-2xl border p-4 transition-all" style="border-color: var(--color-border);">
-              <div class="flex flex-wrap items-center gap-2 mb-1">
-                <span class="text-sm font-black" style="color: var(--color-text);">{a.name}</span>
-                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">{a.role}</span>
+          {#if liveAgents.length > 0}
+            {#each liveAgents as a}
+              <div class="rounded-2xl border p-4 transition-all" style="border-color: var(--color-border);">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="text-sm font-black capitalize" style="color: var(--color-text);">{a.name}</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">{a.role || 'Specialist'}</span>
+                  {#if a.model}
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border opacity-75" style="border-color: var(--color-border);">{a.model}</span>
+                  {/if}
+                </div>
+                <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">{a.description || a.detail || 'Specialized ninja agent.'}</p>
               </div>
-              <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">{a.detail}</p>
-            </div>
-          {/each}
+            {/each}
+          {:else}
+            {#each CANONICAL_AGENTS as a}
+              <div class="rounded-2xl border p-4 transition-all" style="border-color: var(--color-border);">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="text-sm font-black" style="color: var(--color-text);">{a.name}</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">{a.role}</span>
+                </div>
+                <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">{a.detail}</p>
+              </div>
+            {/each}
+          {/if}
         </div>
       </section>
 
@@ -352,7 +520,7 @@
       <section id="redteam" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Cybersecurity &amp; Red Teaming</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Konoha equips the <strong>Anbu</strong> Black Ops subagent with full offensive security, penetration testing, and MITRE ATT&amp;CK red-teaming tradecraft.
+          Konoha equips the <strong>Akatsuki</strong> security specialist subagent with full offensive security, penetration testing, and MITRE ATT&amp;CK red-teaming tradecraft.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
@@ -431,58 +599,19 @@
       <section id="cli" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">CLI Commands</h3>
         <div class="space-y-2 font-mono text-xs">
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha init</span>
-            <span style="color: var(--color-text-muted);"> — full setup: MCP servers, migrate local skills, configure supported clients</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha embed</span>
-            <span style="color: var(--color-text-muted);"> — rebuild neural vector embeddings for all skills (IBM Granite + MS MARCO Reranker)</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha migrate [--clean|--rebuild-embeddings|--skills-dir]</span>
-            <span style="color: var(--color-text-muted);"> — re-index custom skills into SQLite FTS5 database</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha test</span>
-            <span style="color: var(--color-text-muted);"> — perform verification tests on the MCP server & tools</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha status</span>
-            <span style="color: var(--color-text-muted);"> — check installation health, database size, and loaded skills</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha web / konoha ui &lt;start|stop|restart|status&gt;</span>
-            <span style="color: var(--color-text-muted);"> — start/manage the local Web Configuration UI (port 1404)</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha task &lt;list|show|slop&gt;</span>
-            <span style="color: var(--color-text-muted);"> — inspect SDLC tasks and persisted slop results</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha skill &lt;list|search|add|remove&gt;</span>
-            <span style="color: var(--color-text-muted);"> — manage skills from the public registry (skills.sh)</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha doctor [--repair]</span>
-            <span style="color: var(--color-text-muted);"> — environment diagnostics and auto-repair</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha telegram &lt;status|start|stop|test|config&gt;</span>
-            <span style="color: var(--color-text-muted);"> — manage Telegram bot integration, polling, and alert delivery</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha queue &lt;status|list|clear|retry&gt;</span>
-            <span style="color: var(--color-text-muted);"> — manage remote inbound prompt queue and offline worker jobs</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha agent &lt;list|check&gt;</span>
-            <span style="color: var(--color-text-muted);"> — list active ninja subagents and verify model provider bindings</span>
-          </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha data &lt;backup|rebuild-fts|prune&gt;</span>
-            <span style="color: var(--color-text-muted);"> — manage SQLite online backups, rebuild search indexes, and prune telemetry</span>
-          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha init</span> <span style="color: var(--color-text-muted);"> — full setup: MCP servers, migrate local skills, configure supported clients</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha embed</span> <span style="color: var(--color-text-muted);"> — rebuild neural vector embeddings for all skills (IBM Granite + MS MARCO Reranker)</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha migrate [--clean|--rebuild-embeddings|--skills-dir]</span> <span style="color: var(--color-text-muted);"> — re-index custom skills into SQLite FTS5 database</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha test</span> <span style="color: var(--color-text-muted);"> — perform verification tests on the MCP server & tools</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha status</span> <span style="color: var(--color-text-muted);"> — check installation health, database size, and loaded skills</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha web / konoha ui &lt;start|stop|restart|status&gt;</span> <span style="color: var(--color-text-muted);"> — start/manage the local Web Configuration UI (port 1404)</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha task &lt;list|show|slop&gt;</span> <span style="color: var(--color-text-muted);"> — inspect SDLC tasks and persisted slop results</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha skill &lt;list|search|add|remove&gt;</span> <span style="color: var(--color-text-muted);"> — manage skills from the public registry (skills.sh)</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha doctor [--repair]</span> <span style="color: var(--color-text-muted);"> — environment diagnostics and auto-repair</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha telegram &lt;status|start|stop|test|config&gt;</span> <span style="color: var(--color-text-muted);"> — manage Telegram bot integration, polling, and alert delivery</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha queue &lt;status|list|clear|retry&gt;</span> <span style="color: var(--color-text-muted);"> — manage remote inbound prompt queue and offline worker jobs</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha agent &lt;list|check&gt;</span> <span style="color: var(--color-text-muted);"> — list active ninja subagents and verify model provider bindings</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha data &lt;backup|rebuild-fts|prune&gt;</span> <span style="color: var(--color-text-muted);"> — manage SQLite online backups, rebuild search indexes, and prune telemetry</span> </div>
         </div>
       </section>
     </div>

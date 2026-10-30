@@ -16,52 +16,13 @@ const {
   shieldPromptInjection,
   optimizeContent,
   printSummary: printSummaryHelper,
-  hasSkillFiles,
   autoDetectSkills,
-  parseCliArgs
+  parseCliArgs,
+  normalizeLegacySkillNames,
+  verifyRequiredSkills,
+  resolveCandidateSkillRoots,
+  parseCyberSkillFrontmatter
 } = require('./migrate_helpers');
-
-function normalizeLegacySkillNames(conn) {
-  const rows = conn.prepare(
-    "SELECT name, skill_name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
-  ).all();
-
-  let migrated = 0;
-  let removed = 0;
-
-  for (const r of rows) {
-    const name = r.name;
-    const skillName = r.skill_name;
-    const newName = name.replace('deep-code-explorer', 'genin-skill');
-    const newSkillName = skillName === 'deep-code-explorer' ? 'genin-skill' : skillName;
-    const existing = conn.prepare('SELECT 1 FROM skills WHERE name = ?').get(newName);
-    if (existing) {
-      conn.prepare('DELETE FROM skills WHERE name = ?').run(name);
-      removed += 1;
-    } else {
-      conn.prepare('UPDATE skills SET name = ?, skill_name = ? WHERE name = ?').run(newName, newSkillName, name);
-      migrated += 1;
-    }
-  }
-
-  return {
-    migrated,
-    removed,
-    [Symbol.iterator]: function* () {
-      yield migrated;
-      yield removed;
-    }
-  };
-}
-
-function verifyRequiredSkills(conn, requiredSkills = []) {
-  const required = Array.from(new Set((requiredSkills || []).filter(Boolean))).sort();
-  const missing = required.filter(s => !conn.prepare('SELECT 1 FROM skills WHERE name = ?').get(s));
-  const legacyRows = conn.prepare(
-    "SELECT name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
-  ).all();
-  return { missing, remainingLegacy: legacyRows.map(r => r.name) };
-}
 
 const { isEmbeddedReference, isCanonicalSkill } = require('./canonical_skills');
 
@@ -159,28 +120,6 @@ function _migrateSkillMd(conn, skillDir, skillName) {
   return 1;
 }
 
-function _parseCyberSkillFrontmatter(rawContent) {
-  const extraTags = [];
-  if (!rawContent.startsWith('---')) return extraTags;
-  const endIdx = rawContent.indexOf('---', 3);
-  if (endIdx <= 3) return extraTags;
-
-  const fm = rawContent.slice(3, endIdx);
-  const tagMatches = fm.match(/tags:\s*([\s\S]*?)(?=\n[a-z_]+:|$)/i);
-  if (tagMatches) {
-    extraTags.push(...tagMatches[1].split('\n').map(l => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean));
-  }
-  const mitreMatches = fm.match(/mitre_attack:\s*([\s\S]*?)(?=\n[a-z_]+:|$)/i);
-  if (mitreMatches) {
-    extraTags.push(...mitreMatches[1].split('\n').map(l => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean));
-  }
-  const domainMatch = fm.match(/domain:\s*["']?(.*?)["']?\s*$/m);
-  if (domainMatch && domainMatch[1]) extraTags.push(domainMatch[1]);
-  const subDomainMatch = fm.match(/subdomain:\s*["']?(.*?)["']?\s*$/m);
-  if (subDomainMatch && subDomainMatch[1]) extraTags.push(subDomainMatch[1]);
-  return extraTags;
-}
-
 function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly) {
   const cyberSkillsDir = path.join(refsDir, "anthropic-cybersecurity-skills-assets", "skills");
   if (skillsOnly || !fs.existsSync(cyberSkillsDir) || !fs.statSync(cyberSkillsDir).isDirectory()) {
@@ -201,7 +140,7 @@ function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly) {
 
       const rawContent = fs.readFileSync(subSkillMd, 'utf8');
       const refKey = `${skillName}/${sub}`;
-      const extraTags = _parseCyberSkillFrontmatter(rawContent);
+      const extraTags = parseCyberSkillFrontmatter(rawContent);
       const baseTags = [skillName, 'cybersecurity', 'pentest', 'red-team', sub.replace(/-/g, ' ')];
       const allTags = Array.from(new Set([...baseTags, ...extraTags])).join(',');
 
@@ -306,6 +245,61 @@ function _migrateRootReferences(conn, skillDir, skillName, skillsOnly) {
   return count;
 }
 
+function _collectDocFiles(dirPath, prefix = '') {
+  if (!fs.existsSync(dirPath)) return [];
+  try {
+    return fs.readdirSync(dirPath, { withFileTypes: true })
+      .filter(ent => ent.isFile() && ent.name.endsWith('.md'))
+      .map(ent => ({
+        path: path.join(dirPath, ent.name),
+        name: `${prefix}${ent.name.replace(/\.md$/, '').toLowerCase()}`
+      }));
+  } catch (_) {
+    return []; /* ignore unreadable directory */
+  }
+}
+
+function _migrateDocumentation(conn, skillsOnly) {
+  if (skillsOnly) return 0;
+  const candidates = [
+    path.resolve(process.cwd(), 'docs'),
+    path.resolve(__dirname, '..', 'docs'),
+    path.resolve(__dirname, 'docs'),
+    path.normalize(path.join(os.homedir(), '.konoha', 'docs'))
+  ];
+  const docsDir = candidates.find(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
+  if (!docsDir) return 0;
+
+  const docFiles = [
+    ..._collectDocFiles(docsDir, ''),
+    ..._collectDocFiles(path.join(docsDir, 'architecture'), 'arch-')
+  ];
+
+  let count = 0;
+  const stmt = conn.prepare(
+    "INSERT OR REPLACE INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, 'documentation', ?, ?, ?, ?, ?)"
+  );
+
+  for (const doc of docFiles) {
+    try {
+      const rawContent = fs.readFileSync(doc.path, 'utf8');
+      const content = optimizeContent(rawContent);
+      const byteSize = Buffer.byteLength(content, 'utf8');
+      const lineCount = (content.match(/\n/g) || []).length + 1;
+      const docKey = `doc:${doc.name}`;
+      const tags = `documentation, ${doc.name.replace(/-/g, ' ')}`;
+      stmt.run(docKey, doc.name, tags, content, doc.path, byteSize, lineCount);
+      count++;
+    } catch (_) {
+      /* ignore unreadable doc */
+    }
+  }
+  if (count > 0) {
+    log(`  ✓ Seeded ${count} documentation files into SQLite FTS5 database.`);
+  }
+  return count;
+}
+
 function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DIR) {
   if (isEmbeddedReference(skillName) && !isCanonicalSkill(skillName)) {
     log(`  ⏭ Skill '${skillName}' is already an embedded reference in a ninja skill (skipped standalone indexing)`);
@@ -388,40 +382,6 @@ function printSummary(conn) {
   return printSummaryHelper(conn, { dbPath: DB_PATH, logFn: log });
 }
 
-function _resolveCandidateSkillRoots(globalSkillsDir) {
-  const candidateRoots = [
-    globalSkillsDir,
-    path.resolve(process.cwd(), ".agents", "skills"),
-    path.resolve(process.cwd(), ".cursor", "skills"),
-    path.resolve(process.cwd(), ".gemini", "skills"),
-    path.resolve(process.cwd(), ".commandcode", "skills"),
-    path.resolve(process.cwd(), ".claude", "skills"),
-    path.resolve(process.cwd(), ".omp", "skills"),
-    path.resolve(process.cwd(), ".config", "opencode", "skills"),
-    path.resolve(process.cwd(), ".opencode", "skills"),
-    path.resolve(process.cwd(), "skills"),
-    path.resolve(process.cwd(), ".skills"),
-    path.resolve(process.cwd(), "docs", "skills"),
-    path.normalize(path.join(os.homedir(), ".gemini", "antigravity-cli", "skills")),
-    path.normalize(path.join(os.homedir(), ".cursor", "skills")),
-    path.normalize(path.join(os.homedir(), ".commandcode", "skills")),
-    path.normalize(path.join(os.homedir(), ".claude", "skills")),
-    path.normalize(path.join(os.homedir(), ".gemini", "skills")),
-    path.normalize(path.join(os.homedir(), ".config", "opencode", "skills")),
-    path.normalize(path.join(os.homedir(), ".opencode", "skills")),
-    path.normalize(path.join(os.homedir(), ".codex", "skills")),
-    path.normalize(path.join(os.homedir(), ".omp", "agent", "skills"))
-  ];
-  const detected = [];
-  for (const cand of candidateRoots) {
-    if (hasSkillFiles(cand) && !detected.includes(cand)) {
-      detected.push(cand);
-    }
-  }
-  if (detected.length === 0) detected.push(globalSkillsDir);
-  return detected;
-}
-
 function _resolveDetectedSkillsDirs(options, globalSkillsDir) {
   const detectedSkillsDirs = [];
   if (options.skillsDirs && options.skillsDirs.length) {
@@ -438,7 +398,7 @@ function _resolveDetectedSkillsDirs(options, globalSkillsDir) {
     }
   }
   if (detectedSkillsDirs.length === 0) {
-    detectedSkillsDirs.push(..._resolveCandidateSkillRoots(globalSkillsDir));
+    detectedSkillsDirs.push(...resolveCandidateSkillRoots(globalSkillsDir));
   }
   return detectedSkillsDirs;
 }
@@ -626,6 +586,7 @@ async function runMigration(options = {}) {
   _purgeExistingSkills(conn, options);
 
   let total = 0;
+  total += _migrateDocumentation(conn, options.skillsOnly);
   for (const item of skillsToMigrate) {
     if (!requiredSet.has(item.name) && timeBudget > 0 && ((Date.now() - startTime) / 1000) > timeBudget) {
       deferredSkills += 1;

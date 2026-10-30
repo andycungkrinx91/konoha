@@ -178,15 +178,6 @@ function getDocumentationFiles(version) {
       }
     },
     {
-      path: 'docs/architecture/LEGACY-ALIAS-INVENTORY.md',
-      check: (c) => c.includes(`**Document Version:** ${version}`),
-      bump: (oldV, newV) => {
-        let n = replaceInFile('docs/architecture/LEGACY-ALIAS-INVENTORY.md', new RegExp(`\\*\\*Document Version:\\*\\* ${oldV}`, 'g'), `**Document Version:** ${newV}`);
-        n += replaceInFile('docs/architecture/LEGACY-ALIAS-INVENTORY.md', new RegExp(`v${oldV} Complete`, 'g'), `v${newV} Complete`);
-        return n;
-      }
-    },
-    {
       path: 'scripts/lib/data.json',
       check: (c) => c.includes(`v${version}`),
       bump: (oldV, newV) => replaceInFile('scripts/lib/data.json', new RegExp(oldV, 'g'), newV)
