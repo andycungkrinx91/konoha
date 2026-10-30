@@ -363,4 +363,16 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`.
 * **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md`, `CHANGELOG.md`.
 
+---
+
+### 2.19 LangGraph.js Sequential Research Architecture (Research Specification)
+
+* **Purpose:** Design-only formal mapping of Konoha's canonical 8-phase finite state machine into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, and opt-in prototype criteria.
+* **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Sequential Research & Architectural Plan*).
+* **Runtime Status:** **Research and design document only**. Zero runtime changes, zero workflow alterations, and zero LangGraph.js dependencies in release 2.2.15. The production engine remains strictly powered by `src/mcp/workflow_runner.js` and `src/mcp/workflow.js`.
+* **Mapping Invariants:**
+  - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
+  - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.
+  - Verification gates: bit-for-bit behavioral parity, 0 regression in confidence or AI slop scores, fail-closed circuit breaker loop <= 7 cycles.
+* **Documentation:** `docs/ARCHITECTURE.md`, `local://konoha-2-2-15-parallel-ninja-release-plan.md`.
 

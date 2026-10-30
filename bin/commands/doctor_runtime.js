@@ -7,8 +7,6 @@ const { copyFile } = require('../lib/prompt');
 const {
   SRC_DIR,
   SKILLS_DB_DIR,
-  SERVER_PATH,
-  MIGRATE_PATH,
   FILE_TOOLS_MCP_PATH,
   FILE_TOOLS_ROUTER_PATH,
   FILE_TOOLS_LAUNCHER_PATH,
@@ -70,19 +68,17 @@ function checkAndRepairFile(srcName, destPath, label, context) {
 }
 
 function repairCoreModules(context) {
-  checkAndRepairFile('db.js', path.join(SKILLS_DB_DIR, 'db.js'), 'DB Module (db.js)', context);
-  checkAndRepairFile('vector_search.js', path.join(SKILLS_DB_DIR, 'vector_search.js'), 'Vector Search Module (vector_search.js)', context);
-  checkAndRepairFile('server.js', SERVER_PATH, 'Server File (server.js)', context);
-  checkAndRepairFile('migrate.js', MIGRATE_PATH, 'Migration Script (migrate.js)', context);
-  checkAndRepairFile('canonical_skills.js', path.join(SKILLS_DB_DIR, 'canonical_skills.js'), 'Canonical Skills (canonical_skills.js)', context);
-  checkAndRepairFile('db_stats.js', path.join(SKILLS_DB_DIR, 'db_stats.js'), 'Stats Helper Script (db_stats.js)', context);
-  checkAndRepairFile('db_savings.js', path.join(SKILLS_DB_DIR, 'db_savings.js'), 'Savings Helper Script (db_savings.js)', context);
-  checkAndRepairFile('agent_stats.js', path.join(SKILLS_DB_DIR, 'agent_stats.js'), 'Agent Stats Helper Script (agent_stats.js)', context);
-  checkAndRepairFile('prompt_hook.js', path.join(SKILLS_DB_DIR, 'prompt_hook.js'), 'Prompt Hook Script (prompt_hook.js)', context);
-  checkAndRepairFile('antigravity_subagent_hook.js', path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js'), 'Subagent Hook Script (antigravity_subagent_hook.js)', context);
-  checkAndRepairFile('antigravity_manager.js', path.join(SKILLS_DB_DIR, 'antigravity_manager.js'), 'Antigravity Manager Script (antigravity_manager.js)', context);
-  checkAndRepairFile('antigravity_tool_sanitize_hook.js', path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js'), 'Tool Sanitize Hook (antigravity_tool_sanitize_hook.js)', context);
-  checkAndRepairFile('guardrails.js', path.join(SKILLS_DB_DIR, 'guardrails.js'), 'Shared Guardrails (guardrails.js)', context);
+  try {
+    const entries = fs.readdirSync(SRC_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && (entry.name.endsWith('.js') || entry.name === 'mcp_tool_manifest.json')) {
+        checkAndRepairFile(entry.name, path.join(SKILLS_DB_DIR, entry.name), `Runtime Module (${entry.name})`, context);
+      }
+    }
+  } catch (e) {
+    context.record('Runtime Modules', 'FAILED', e.message);
+    context.markError();
+  }
 }
 
 function syncSubdirectoryFiles(subName, destDir, labelPrefix, context) {
@@ -109,6 +105,7 @@ function repairFileToolsSubsystem(context) {
   checkAndRepairFile('platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)', context);
   checkAndRepairFile('tools_savings_logger.js', path.join(SKILLS_DB_DIR, 'tools_savings_logger.js'), 'Tools Savings Logger (tools_savings_logger.js)', context);
   checkAndRepairFile('file_tools_launcher.sh', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.sh)', context);
+  checkAndRepairFile('mcp_tool_manifest.json', path.join(SKILLS_DB_DIR, 'mcp_tool_manifest.json'), 'MCP Tool Manifest (mcp_tool_manifest.json)', context);
 
   if (fileExists(FILE_TOOLS_LAUNCHER_PATH) && process.platform !== 'win32') {
     try { fs.chmodSync(FILE_TOOLS_LAUNCHER_PATH, 0o755); } catch { /* intentional fallback */ }
@@ -119,6 +116,9 @@ function repairFileToolsSubsystem(context) {
 
   syncSubdirectoryFiles('file_tools', FILE_TOOLS_PY_DIR, 'File Tools JS', context);
   syncSubdirectoryFiles('mcp', path.join(SKILLS_DB_DIR, 'mcp'), 'MCP Subsystem', context);
+  syncSubdirectoryFiles('tools', path.join(SKILLS_DB_DIR, 'tools'), 'Tools Subsystem', context);
+  syncSubdirectoryFiles('workflow', path.join(SKILLS_DB_DIR, 'workflow'), 'Workflow Subsystem', context);
+  syncSubdirectoryFiles('bridge', path.join(SKILLS_DB_DIR, 'bridge'), 'Bridge Subsystem', context);
 }
 
 function installMissingFileTools(context) {

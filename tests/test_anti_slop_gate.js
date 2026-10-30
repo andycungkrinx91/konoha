@@ -149,7 +149,7 @@ async function run() {
       const res = JSON.parse(server.runMcpAgent(role, 'Analyze and plan.', null, null, null, null, null, tmpDir));
       const instructions = res.instructions || '';
       const toolsStart = instructions.indexOf('## MCP Tools Available To You');
-      const toolsEnd = instructions.indexOf('### Tool Usage Guidance');
+      const toolsEnd = instructions.indexOf('### Strict Tool Boundaries');
       const toolsSection = toolsStart >= 0 && toolsEnd > toolsStart
         ? instructions.slice(toolsStart, toolsEnd)
         : (toolsStart >= 0 ? instructions.slice(toolsStart) : instructions);
@@ -161,7 +161,7 @@ async function run() {
       assert.ok(catalogNames.includes('mcp__konoha__qa_codify'), `${role} catalog must include QA tools under parity`);
       assert.ok(catalogNames.includes('aislop_scan'), `${role} must have aislop_scan`);
       assert.ok(catalogNames.includes('aislop_why'), `${role} must have aislop_why`);
-      assert.ok(catalogNames.includes('aislop_fix'), `${role} sees aislop_fix in full-parity catalog`);
+      assert.ok(!catalogNames.includes('aislop_fix'), `${role} must NOT have aislop_fix in catalog`);
       assert.ok(!catalogNames.includes('aislop_baseline'), `${role} catalog must NOT list aislop_baseline`);
       assert.ok(
         /strictly forbidden.*aislop_fix/i.test(instructions),

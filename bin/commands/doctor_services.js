@@ -15,7 +15,7 @@ const {
   FILE_TOOLS_MCP_PATH,
   MIGRATION_TIMEOUT_MS
 } = require('../lib/paths');
-const { updateGeminiMd, detectSkillsDirs, detectCustomSkills } = require('../lib/runtime_lifecycle');
+const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
 const { confirmPrompt } = require('../lib/prompt');
@@ -62,7 +62,11 @@ function checkDatabaseAndMigrations(context) {
     return;
   }
 
-  const skillsDirs = detectSkillsDirs();
+  let skillsDirs = detectSkillsDirs();
+  if (skillsDirs.length === 0) {
+    syncTemplateSkills();
+    skillsDirs = detectSkillsDirs();
+  }
   const migrationSuccess = executeMigrationRun(skillsDirs);
 
   if (migrationSuccess && fileExists(DB_PATH)) {

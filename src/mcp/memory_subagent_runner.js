@@ -108,10 +108,12 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
   tools.push('- `mcp__semble__find_related`');
   tools.push('- `mcp__aislop__aislop_scan`');
   tools.push('- `mcp__aislop__aislop_why`');
-  tools.push('- `mcp__aislop__aislop_fix`');
+  if (['jonin', 'anbu'].includes(normAgent)) {
+    tools.push('- `mcp__aislop__aislop_fix`');
+  }
 
   let boundaries = (
-    '### Tool Usage Guidance\n' +
+    '### Strict Tool Boundaries\n' +
     'You have the same MCP tool catalog as the main agent. Prefer your archetype specialty: ' +
     'genin read-only exploration, chunin web research with citations, jonin UI builds and taste-skill craftsmanship, ' +
     'anbu backend/DevOps plus QA automation, tokubetsu-jonin documents and diagrams, akatsuki security audits and lab verification, ' +

@@ -70,6 +70,7 @@
     "test:workflow": "node tests/test_workflow_gates.js && node tests/test_workflow_loop.js",
     "test:jonin": "node tests/test_build_workflows.js && node tests/test_taste_skill_jonin.js",
     "test:docs": "node tests/test_docs_currency.js && node tests/test_documentation_diagrams.js",
+    "check": "pnpm --dir apps/web run check",
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",
     "web": "node bin/cli.js web"

@@ -228,19 +228,14 @@ function checkAutoSetupNeeded(force, statePath, cliVer, agentsYamlPath) {
 
 function copyRuntimeConfigFiles() {
   ensureCoreDirectories();
-  const filesToCopy = [
-    'server.js', 'vector_search.js', 'db.js', 'migrate.js', 'canonical_skills.js',
-    'file_tools_router.js', 'file_tools_launcher.js', 'tools_savings_logger.js',
-    'persona_memory.js', 'circuit_breaker.js', 'search_policy.js',
-    'platform_utils.js', 'deploy_utils.js', 'mcp_tool_manifest.json',
-    'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js',
-    'hook-base.js', 'guardrails.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'
-  ];
-  filesToCopy.forEach(f => {
-    const src = path.join(SRC_DIR, f);
-    const dest = path.join(SKILLS_DB_DIR, f);
-    if (fileExists(src)) copyIfDifferent(src, dest);
-  });
+  try {
+    const entries = fs.readdirSync(SRC_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && (entry.name.endsWith('.js') || entry.name === 'mcp_tool_manifest.json')) {
+        copyIfDifferent(path.join(SRC_DIR, entry.name), path.join(SKILLS_DB_DIR, entry.name));
+      }
+    }
+  } catch (_) { /* best-effort */ }
 
   const legacyPyFiles = ['server.py', 'vector_search.py', 'db.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'persona_memory.py', 'circuit_breaker.py'];
   legacyPyFiles.forEach(f => {
