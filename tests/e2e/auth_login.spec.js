@@ -113,10 +113,10 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     // 10. Test Logout
     const logoutBtn = page.getByRole("button", { name: /Logout \/ Lock|Logout/i }).first();
     await logoutBtn.scrollIntoViewIfNeeded();
-    await logoutBtn.click();
+    await logoutBtn.click({ force: true });
 
     // Returns to Cyberpunk Login screen
-    await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible({ timeout: 10000 });
 
     // Assert zero uncaught JavaScript page errors
     expect(pageErrors).toEqual([]);

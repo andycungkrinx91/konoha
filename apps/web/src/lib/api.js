@@ -253,13 +253,20 @@ export async function resetPassword(currentPassword) {
 }
 
 export async function logout() {
-  memoryToken = '';
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 3000) : null;
   try {
     const headers = await csrfHeaders();
-    await fetch('/api/v1/auth/logout', { method: 'POST', headers });
+    await fetch('/api/v1/auth/logout', {
+      method: 'POST',
+      headers,
+      signal: controller ? controller.signal : undefined
+    });
   } catch (_) {
     // Network or CSRF-bootstrap failure must still return the UI to the login surface.
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    memoryToken = '';
   }
-  memoryToken = '';
   return { ok: true };
 }

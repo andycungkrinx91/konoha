@@ -63,7 +63,7 @@ function initRtkHook(silent = true) {
       encoding: 'utf-8',
       timeout: 10000,
       stdio: silent ? 'ignore' : 'inherit',
-      shell: process.platform === 'win32'
+      windowsHide: true
     });
     if (res.status === 0) {
       if (!silent) process.stderr.write('  ✓ RTK hook initialized globally for Claude Code\n');
@@ -78,8 +78,8 @@ function initRtkHook(silent = true) {
 function resolveAislopMcpConfig() {
   const isWin = process.platform === 'win32';
   try {
-    const whichCmd = isWin ? 'where' : 'which';
-    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+    const whichCmd = isWin ? 'where.exe' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', timeout: 3000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     if (whichRes.status === 0 && whichRes.stdout.trim()) {
       const binPath = whichRes.stdout.trim().split('\n')[0].trim();
       if (binPath && fileExists(binPath)) {

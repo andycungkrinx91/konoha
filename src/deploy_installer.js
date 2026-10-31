@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const {
   HOME,
   SRC_DIR,
@@ -147,7 +147,11 @@ function installRuntimePackageDependencies(destDir, silent) {
   const { env: childEnv } = resolveCompatibleNodeEnv(process.env);
   for (const pm of pmCandidates) {
     try {
-      execFileSync(pm.cmd, pm.args, { cwd: destDir, stdio: 'ignore', shell: isWin, timeout: 300000, env: childEnv });
+      if (isWin) {
+        execSync(`"${pm.cmd}" ${pm.args.join(' ')}`, { cwd: destDir, stdio: 'ignore', timeout: 300000, env: childEnv, windowsHide: true });
+      } else {
+        execFileSync(pm.cmd, pm.args, { cwd: destDir, stdio: 'ignore', timeout: 300000, env: childEnv });
+      }
       return;
     } catch (_) { /* fallback to npm */ }
   }

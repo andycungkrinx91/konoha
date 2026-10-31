@@ -104,12 +104,10 @@ function capSummaryPayload(result, displayedFailures) {
 function executePlaywright(resolvedProject, options) {
   const { pwArgs, reportPath } = options;
   const testEnv = { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath };
-  return spawnSync('pnpm', pwArgs, {
-    cwd: resolvedProject,
-    env: testEnv,
-    encoding: 'utf-8',
-    shell: process.platform === 'win32'
-  });
+  const isWin = process.platform === 'win32';
+  return isWin
+    ? spawnSync(`pnpm.cmd ${pwArgs.join(' ')}`, { cwd: resolvedProject, env: testEnv, encoding: 'utf-8', shell: true, windowsHide: true })
+    : spawnSync('pnpm', pwArgs, { cwd: resolvedProject, env: testEnv, encoding: 'utf-8' });
 }
 
 function extractJsonFromStdout(stdout, reportPath) {
@@ -146,9 +144,10 @@ function resolveTargetProjectDir(projectPath) {
 }
 
 function runPlaywrightSuite(resolvedProject, projectOutput, reportPath, args) {
-  const checkRes = spawnSync('pnpm', ['exec', 'playwright', '--version'], {
-    cwd: resolvedProject, encoding: 'utf-8', shell: process.platform === 'win32'
-  });
+  const isWin = process.platform === 'win32';
+  const checkRes = isWin
+    ? spawnSync('pnpm.cmd exec playwright --version', { cwd: resolvedProject, encoding: 'utf-8', shell: true, windowsHide: true })
+    : spawnSync('pnpm', ['exec', 'playwright', '--version'], { cwd: resolvedProject, encoding: 'utf-8' });
   if (checkRes.status !== 0) {
     return { ok: false, error: 'Playwright not found or not installed in project.', fix: 'pnpm exec playwright install chromium' };
   }

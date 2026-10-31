@@ -19,7 +19,9 @@ function getAgentBrowserCmd() {
   const isWin = process.platform === 'win32';
   const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
   try {
-    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin });
+    const res = isWin
+      ? spawnSync(`"${abCmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(abCmd, ['--version'], { encoding: 'utf-8' });
     if (res.status === 0) return abCmd;
   } catch (_) { /* best effort */ }
 
@@ -38,7 +40,9 @@ function getAgentBrowserCmd() {
   for (const c of candidates) {
     if (!c || !fs.existsSync(c)) continue;
     try {
-      const res = spawnSync(c, ['--version'], { encoding: 'utf-8', shell: isWin });
+      const res = isWin
+        ? spawnSync(`"${c}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+        : spawnSync(c, ['--version'], { encoding: 'utf-8' });
       if (res.status === 0) return c;
     } catch (_) { /* best effort */ }
   }
@@ -46,16 +50,15 @@ function getAgentBrowserCmd() {
 }
 
 function verifyFlowExecution(rawFlow, flowHash) {
+  const isWin = process.platform === 'win32';
   const abCmd = getAgentBrowserCmd();
   if (!abCmd) {
     return { ok: true, verified: false };
   }
   try {
-    const verifyRes = spawnSync(abCmd, ['batch', '--bail', '--json'], {
-      input: rawFlow,
-      encoding: 'utf-8',
-      shell: process.platform === 'win32'
-    });
+    const verifyRes = isWin
+      ? spawnSync(`"${abCmd}" batch --bail --json`, { input: rawFlow, encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(abCmd, ['batch', '--bail', '--json'], { input: rawFlow, encoding: 'utf-8' });
     if (verifyRes.status !== 0) {
       const errMsg = verifyRes.stderr || verifyRes.stdout || 'agent-browser batch exited with non-zero status';
       return {

@@ -47,9 +47,9 @@ function probeNpmGlobalRoot() {
   if (cachedNpmGlobalRoot !== null) return cachedNpmGlobalRoot;
   const isWin = process.platform === 'win32';
   try {
-    const res = spawnSync(isWin ? 'npm.cmd' : 'npm', ['root', '-g'], {
-      encoding: 'utf-8', timeout: 8000, shell: isWin, windowsHide: true
-    });
+    const res = isWin
+      ? spawnSync('npm.cmd root -g', { encoding: 'utf-8', timeout: 8000, shell: true, windowsHide: true })
+      : spawnSync('npm', ['root', '-g'], { encoding: 'utf-8', timeout: 8000 });
     cachedNpmGlobalRoot = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop() || '';
   } catch (_) {
     cachedNpmGlobalRoot = '';

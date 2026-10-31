@@ -39,11 +39,20 @@ function getRequiredEngine(platform = process.platform) {
  * Default safe command runner using child_process.spawnSync.
  */
 function defaultCommandRunner(cmd, args = [], execOptions = {}) {
+  const isWin = (execOptions.platform || process.platform) === 'win32';
+  const timeout = execOptions.timeout !== undefined ? execOptions.timeout : 3600000;
+  if (isWin && /\.cmd$/i.test(cmd)) {
+    return spawnSync(`"${cmd}" ${args.join(' ')}`, {
+      encoding: 'utf8',
+      timeout,
+      windowsHide: true,
+      shell: true
+    });
+  }
   return spawnSync(cmd, args, {
     encoding: 'utf8',
-    timeout: execOptions.timeout !== undefined ? execOptions.timeout : 3600000,
-    windowsHide: true,
-    shell: (execOptions.platform || process.platform) === 'win32'
+    timeout,
+    windowsHide: true
   });
 }
 

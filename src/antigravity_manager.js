@@ -19,9 +19,9 @@ function detectAntigravityIde(options = {}) {
   const home = options.home || HOME;
   const exists = options.fileExists || fs.existsSync;
   const commandAvailable = options.commandAvailable || ((command) => {
-    const probe = process.platform === 'win32' ? 'where' : 'which';
+    const probe = process.platform === 'win32' ? 'where.exe' : 'which';
     try {
-      return spawnSync(probe, [command], { encoding: 'utf8', shell: process.platform === 'win32', windowsHide: true }).status === 0;
+      return spawnSync(probe, [command], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).status === 0;
     } catch {
       return false;
     }

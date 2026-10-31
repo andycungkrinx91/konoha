@@ -168,7 +168,9 @@ function getAgentBrowserCommand() {
   const isWin = process.platform === 'win32';
   const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
   try {
-    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+    const res = isWin
+      ? spawnSync(`"${abCmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(abCmd, ['--version'], { encoding: 'utf-8' });
     if (res.status === 0) return abCmd;
   } catch { /* best-effort */ }
 
@@ -176,7 +178,9 @@ function getAgentBrowserCommand() {
   for (const p of candidates) {
     if (!p || !fileExists(p)) continue;
     try {
-      const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+      const res = isWin
+        ? spawnSync(`"${p}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+        : spawnSync(p, ['--version'], { encoding: 'utf-8' });
       if (res.status === 0) return p;
     } catch { /* best-effort */ }
   }
@@ -185,9 +189,13 @@ function getAgentBrowserCommand() {
 
 function tryInstallWithPm(pm, isWin, stdioOpt) {
   try {
-    const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
+    const check = isWin
+      ? spawnSync(`"${pm.cmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8' });
     if (check.status !== 0) return false;
-    const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin, windowsHide: true });
+    const installRes = isWin
+      ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, { stdio: stdioOpt, shell: true, windowsHide: true })
+      : spawnSync(pm.cmd, pm.args, { stdio: stdioOpt });
     return installRes.status === 0;
   } catch {
     return false;

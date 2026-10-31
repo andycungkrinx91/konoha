@@ -18,7 +18,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 ## Prerequisites
 
 - **Cursor IDE** or **Cursor CLI** installed
-- **Node.js** ≥ 22.16.0 (via nvm, Homebrew, or system package; uses built-in `node:sqlite` with FTS5, zero external native compilation)
+- **Node.js** ≥ 24.0.0 (via nvm, Homebrew, or system package; uses built-in `node:sqlite` with FTS5, zero external native compilation)
 - Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha indexes these in SQLite; Cursor uses Konoha MCP and does not receive a Konoha filesystem mirror
 
 ### Cross-Platform Notes

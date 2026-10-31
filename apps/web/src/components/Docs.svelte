@@ -185,7 +185,7 @@
   />
 
   <!-- Mobile quick-jump pills -->
-  <div class="lg:hidden flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+  <nav aria-label="Mobile document sections" class="lg:hidden flex gap-2 overflow-x-auto pb-1 no-scrollbar">
     {#each SECTIONS as s}
       <a
         href="#{s.id}"
@@ -195,7 +195,7 @@
         {s.label}
       </a>
     {/each}
-  </div>
+  </nav>
 
   <!-- Content layout -->
   <div class="lg:flex lg:gap-6 lg:flex-1 lg:min-h-0">
@@ -221,7 +221,7 @@
             <span class="text-[11px] font-mono font-bold" style="color: var(--color-text);">Konoha Engine</span>
           </div>
           <p class="text-[10px]" style="color: var(--color-text-muted);">
-            v{health?.version || '2.2.15'} · Node {health?.node || process?.version || 'v22'}
+            v{health?.version || '2.2.15'} · Node {health?.node || 'v24'}
           </p>
           {#if health?.db_size}
             <p class="text-[10px] mt-0.5" style="color: var(--color-text-muted);">

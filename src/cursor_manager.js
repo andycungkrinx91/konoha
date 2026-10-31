@@ -41,7 +41,7 @@ function deployCursorRtkRule(silent = true, options = {}) {
   if (!rtkCmd) return { ok: false, reason: 'rtk-not-installed' };
   try {
     spawnSync(rtkCmd, ['init', '-g', '--agent', 'cursor', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', shell: process.platform === 'win32', windowsHide: true
+      encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', windowsHide: true
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (!fileExists(CURSOR_RTK_RULE_SRC)) return { ok: false, reason: 'rtk-rule-template-missing' };
@@ -148,7 +148,7 @@ NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view sec
 
 function _resolveUvxAvailable(uvxCmd) {
   try {
-    return spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true }).status === 0;
+    return spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true, stdio: 'ignore' }).status === 0;
   } catch { return false; }
 }
 
@@ -156,7 +156,7 @@ function _resolveAislopMcpConfig(npxCmd) {
   const isWin = process.platform === 'win32';
   let cmd = npxCmd, args = ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
-    const whichRes = spawnSync(isWin ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000, windowsHide: true });
+    const whichRes = spawnSync(isWin ? 'where.exe' : 'which', ['aislop-mcp'], { encoding: 'utf-8', timeout: 3000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     if (whichRes.status === 0 && whichRes.stdout.trim()) {
       const binPath = whichRes.stdout.trim().split('\n')[0].trim();
       if (binPath && fileExists(binPath)) { cmd = binPath; args = []; }

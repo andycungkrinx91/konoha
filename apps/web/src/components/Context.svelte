@@ -162,7 +162,7 @@
     }
 
     try {
-      const projPath = currentProject?.project_path || process?.cwd?.() || ".";
+      const projPath = currentProject?.project_path || (typeof process !== "undefined" ? process.cwd?.() : null) || ".";
       await api.post("/api/v1/persona", {
         agentName: newLearning.agentName || "global",
         content: newLearning.content.trim(),

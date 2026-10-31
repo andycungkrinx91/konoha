@@ -9,7 +9,14 @@ const skillGuardian = require('./workflow/kage-reviewer/skill_guardian');
 
 function runAsyncSpawn(cmd, args, opts) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, opts);
+    let finalCmd = cmd;
+    let finalArgs = args;
+    const finalOpts = Object.assign({ windowsHide: true }, opts);
+    if (process.platform === 'win32' && finalOpts.shell && Array.isArray(args) && args.length > 0) {
+      finalCmd = `"${cmd}" ${args.map(a => /\s|[&|<>]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a).join(' ')}`;
+      finalArgs = [];
+    }
+    const child = spawn(finalCmd, finalArgs, finalOpts);
     let stdout = '';
     let stderr = '';
     if (child.stdout) child.stdout.on('data', d => { stdout += d.toString(); });
@@ -341,7 +348,6 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
   const migrate = await runAsyncSpawn(resolvedNode, [cliPath, 'migrate', '--skills-dir', path.dirname(verifiedPath)], {
     cwd: execCwd,
-    shell: isWin,
     env: childEnv
   });
   if (migrate.status !== 0) {
@@ -408,7 +414,7 @@ Standard Operating Procedures and guidelines for ${skillName}.
     process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
     const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
     const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
-    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32', env: childEnv });
+    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', env: childEnv, windowsHide: true });
     if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
     return targetDir;
   } else {
@@ -491,7 +497,7 @@ function autoMigrateProjectSkills(projectRoot) {
   let totalMigrated = 0;
   for (const dir of foundDirs) {
     try {
-      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32', env: childEnv });
+      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', env: childEnv, windowsHide: true });
       if (run.status === 0) {
         totalMigrated++;
       }

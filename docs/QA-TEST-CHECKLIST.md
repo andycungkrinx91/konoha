@@ -27,7 +27,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
 | `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
 | `konoha detect-ai` | `<path>`, `--json` | Scans target codebase or single file against 32 AI fingerprint heuristics, returning Human-Built Index (0–100) and confidence verdict. | `PASS` (verified) |
-| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 22.16, uv, python, agent-browser, cargo, rtk), SQLite integrity, client configs, and auto-repairs discrepancies. | `PASS` (verified) |
+| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, agent-browser, cargo, rtk), SQLite integrity, client configs, and auto-repairs discrepancies. | `PASS` (verified) |
 | `konoha clean` | (maintenance) | Deletes transient test databases, debug logs, dangling scratch workspaces, and temporary test artifacts from `/tmp/` and `~/.konoha/tmp/`. | `PASS` (verified) |
 | `konoha skill list` | - | Lists all custom and canonical skills across active agent directories with path and description. | `PASS` (verified) |
 | `konoha skill search` | `<query>` | Queries public skill registry (skills.sh) for matching extensions. | `PASS` (verified) |
@@ -559,4 +559,8 @@ kill $WEB_PID
 | **14. Single Boundary Header Invariant** | `src/mcp/memory_subagent_runner.js` | Single `### Strict Tool Boundaries` header (zero duplicates); role-conditional `aislop_fix` (jonin/anbu only, genin/kage read-only) verified | `PASS` (verified 2026-10-31) |
 | **15. Mandatory Framework Scripts** | `rtk pnpm run check`, `lint`, `build` | 451 JS files linted (0 errors, 0 warnings); 42 SvelteKit files checked (0 errors, 0 warnings); production build clean | `PASS` (verified 2026-10-31) |
 | **16. Isolated /tmp Sandbox Sweep** | `/tmp/konoha-qa-2215-*` isolated HOME | Full CLI suite: `version` (2.2.15), `status`, `doctor`, `init`, `migrate` (16 skills, 1032 entries), `akatsuki status` clean exit 0 | `PASS` (verified 2026-10-31) |
+| **17. Windows 11 Child Process & DEP0190** | `src/platform_utils.js`, `bin/commands/savings.js` | Direct PE executable execution (`shell: false`); safe stringified `.cmd` dispatch; zero `DEP0190` warnings; zero `cmd.exe ETIMEDOUT` on fresh installs | `PASS` (verified 2026-10-31) |
+| **20. Code File Budget & Zero Slop** | All modified `.js`, `.ts`, `.svelte` files | Strictly `<= 700` lines per source file (`Context.svelte` 700 lines, `Docs.svelte` 664 lines; `README.md` exempt); 0 numbered slop comments | `PASS` (verified 2026-10-31) |
+| **18. Node.js >=24.0.0 Minimum Engine** | `package.json`, `init.js`, `doctor.js` | Minimum Node.js >=24.0.0 enforced across root and `apps/web`; Socket CLI vulnerability score 100/100, 0 production CVEs | `PASS` (verified 2026-10-31) |
+| **19. Web UI Playwright & agent-browser** | `tests/e2e/web_ui_e2e.spec.js` | Playwright E2E suite passed; agent-browser 0.27.0 automated navigation, title, and snapshot passed; 26 SQLite FTS5 docs verified | `PASS` (verified 2026-10-31) |
 

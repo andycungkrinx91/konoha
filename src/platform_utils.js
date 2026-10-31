@@ -264,16 +264,16 @@ function getUvxCommand(uvCmd) {
       return companion;
     }
   }
-  return 'uvx';
+  return IS_WIN ? 'uvx.exe' : 'uvx';
 }
 
 function isCommandAvailable(cmd) {
-  const probe = IS_WIN ? 'where' : 'which';
+  const probe = IS_WIN ? 'where.exe' : 'which';
   try {
     const run = spawnSync(probe, [cmd], {
       encoding: 'utf-8',
-      shell: IS_WIN,
-      windowsHide: true
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     return run.status === 0 && Boolean((run.stdout || '').trim());
   } catch {

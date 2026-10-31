@@ -222,9 +222,13 @@ function ensureRuntimeDependencies() {
   ];
   for (const pm of pmCandidates) {
     try {
-      const res = spawnSync(pm.cmd, pm.args, {
-        cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', shell: isWin, env: childEnv
-      });
+      const res = isWin
+        ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, {
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', shell: true, windowsHide: true, env: childEnv
+          })
+        : spawnSync(pm.cmd, pm.args, {
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', env: childEnv
+          });
       if (res.status === 0 && fileExists(depMarker)) break;
     } catch (_) { /* best-effort */ }
   }
@@ -269,7 +273,9 @@ function getCandidateShimDirs(isWin, homeDir) {
   const candidateDirs = new Set();
   try {
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
-    const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin, windowsHide: true });
+    const res = isWin
+      ? spawnSync('npm.cmd config get prefix', { encoding: 'utf-8', timeout: 8000, shell: true, windowsHide: true })
+      : spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000 });
     const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
     if (prefix && fs.existsSync(prefix)) {
       candidateDirs.add(isWin ? prefix : path.join(prefix, 'bin'));

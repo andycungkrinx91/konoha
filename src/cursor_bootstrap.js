@@ -45,19 +45,19 @@ function checkPython() {
 function getUvx() {
   const isWin = process.platform === 'win32';
   try {
-    spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000, shell: isWin, windowsHide: true });
-    return 'uvx';
+    spawnSync(isWin ? 'uvx.exe' : 'uvx', ['--version'], { stdio: 'ignore', timeout: 5000, windowsHide: true });
+    return isWin ? 'uvx.exe' : 'uvx';
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   // Windows installs put uvx.exe in %USERPROFILE%\.local\bin
   const localName = isWin ? 'uvx.exe' : 'uvx';
   const local = path.join(HOME, '.local', 'bin', localName);
-  return fileExists(local) ? local : 'uvx';
+  return fileExists(local) ? local : (isWin ? 'uvx.exe' : 'uvx');
 }
 
 function isUvxUsable() {
   try {
     const uvx = getUvx();
-    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
+    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, windowsHide: true });
     return r.status === 0;
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return false;

@@ -67,7 +67,7 @@ function _isHostAllowed(hostWithoutPort) {
 
 function _verifyApiAuthentication(req, pathname, method, sessionToken) {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
-    if (pathname !== '/api/v1/auth/login') {
+    if (pathname !== '/api/v1/auth/login' && pathname !== '/api/v1/auth/logout') {
       const tokenHeader = req.headers['x-konoha-web-token'];
       if (!tokenHeader || tokenHeader !== sessionToken) {
         return { ok: false, status: 403, error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' };

@@ -133,7 +133,9 @@ function cleanGlobalShims() {
     const shimDirs = new Set();
     try {
       const npmCmd = isWin ? 'npm.cmd' : 'npm';
-      const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin });
+      const res = isWin
+        ? spawnSync('npm.cmd config get prefix', { encoding: 'utf-8', timeout: 8000, shell: true, windowsHide: true })
+        : spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000 });
       const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
       if (prefix && fs.existsSync(prefix)) shimDirs.add(isWin ? prefix : path.join(prefix, 'bin'));
     } catch (_) { /* non-fatal */ }

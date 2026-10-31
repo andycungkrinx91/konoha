@@ -24,7 +24,7 @@ const {
 
 const { fileExists } = require("../lib/prompt");
 const { getUvxCommand } = require("../lib/extension");
-const { SEMBLE_PACKAGE } = require("../../src/semble_manager");
+
 
 
 function cmdSavingsHelp() {
@@ -198,25 +198,35 @@ function fetchSembleSavings() {
   };
 
   try {
-    let runSemble = null;
-    let sembleCmd = 'semble';
+    const isWin = process.platform === 'win32';
     const uvxCmd = getUvxCommand();
-    if (uvxCmd !== 'uvx') {
-      const companionSemble = path.join(path.dirname(uvxCmd), 'semble');
+    let sembleCmd = isWin ? 'semble.exe' : 'semble';
+    if (uvxCmd && uvxCmd !== 'uvx' && uvxCmd !== 'uvx.exe') {
+      const companionSemble = path.join(path.dirname(uvxCmd), isWin ? 'semble.exe' : 'semble');
       if (fileExists(companionSemble)) sembleCmd = companionSemble;
     }
+
+    const spawnOpts = {
+      encoding: 'utf-8',
+      timeout: 3000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    };
+
+    let runSemble = null;
     try {
-      runSemble = spawnSync(sembleCmd, ['savings'], { encoding: 'utf-8', timeout: 4000, shell: process.platform === 'win32' });
+      runSemble = spawnSync(sembleCmd, ['savings'], spawnOpts);
     } catch { /* non-fatal */ }
 
     if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      runSemble = spawnSync(uvxCmd, ['semble', 'savings'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      try {
+        runSemble = spawnSync(uvxCmd, ['semble', 'savings'], spawnOpts);
+      } catch { /* non-fatal */ }
     }
-    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      runSemble = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', 'savings'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
-    }
-    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      throw runSemble.error || new Error(runSemble.stderr || 'Semble savings query failed');
+
+    if (!runSemble || runSemble.status !== 0 || !runSemble.stdout || !runSemble.stdout.includes('Semble Token Savings')) {
+      log(`     ${C.dim}Semble CLI not available or no telemetry recorded yet.${C.reset}\n`);
+      return state;
     }
 
     const sembleOutput = runSemble.stdout;

@@ -204,8 +204,8 @@ function getDiagnostics(autoRepair = false) {
 
   const nodeVersion = process.version;
   const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
-  if (majorVersion < 18) {
-    record('Node.js Environment', 'FAILED', `Node.js >= 18 is required, found ${nodeVersion}`);
+  if (majorVersion < 24) {
+    record('Node.js Environment', 'FAILED', `Node.js >= 24 is required, found ${nodeVersion}`);
   } else {
     record('Node.js Environment', 'ACTIVE', `${nodeVersion} (${process.execPath})`);
   }

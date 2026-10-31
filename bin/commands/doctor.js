@@ -50,9 +50,9 @@ function cmdDoctorHelp() {
 function checkNodeEnvironment(context) {
   const nodeVersion = process.version;
   const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
-  if (majorVersion < 18) {
+  if (majorVersion < 24) {
     context.markError();
-    context.record('Node.js Environment', 'FAILED', `Node.js >= 18 is required, found ${nodeVersion}`);
+    context.record('Node.js Environment', 'FAILED', `Node.js >= 24 is required, found ${nodeVersion}`);
   } else {
     context.record('Node.js Environment', 'ACTIVE', `${nodeVersion} (${process.execPath})`);
   }

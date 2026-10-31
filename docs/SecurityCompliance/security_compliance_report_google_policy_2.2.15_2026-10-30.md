@@ -95,3 +95,26 @@ All checks pass with zero errors, zero unmaintained packages introduced, full ma
 - **Dependency Posture**: `rtk pnpm audit --prod` → No known vulnerabilities; Socket package scores 83–97 overall. Socket cloud `scan create` blocked by 403 insufficient-permissions on this token (not a code finding); recorded as an unverified boundary.
 - **Web Verification (this session)**: `pnpm --dir apps/web run lint` and `run check` → 0 errors, 0 warnings (42 files); production `run build` clean after dependency install. Full Playwright + agent-browser E2E and the background `run_all.js` suite remain unobserved in this transcript and are NOT claimed here.
 - **Default Password**: `konohagakure` preserved; PLAN/`.omp/plans` excluded from git and package.
+
+
+---
+
+## 6. Addendum 2026-10-31 — Windows 11 Cross-Platform Hardening & Node.js 24 Upgrade
+
+- **Windows 11 Child Process Execution & DEP0190 Elimination**:
+  - Investigated root cause of `spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT` and `[DEP0190] DeprecationWarning: Passing args to a child process with shell option true`.
+  - Root cause: Spawning native Windows PE executables (`.exe` including `uv.exe`, `uvx.exe`, `where.exe`, `rtk.exe`, `node.exe`, `git.exe`) with `shell: true` and an `args` array triggered Node 22/24 DEP0190 and spawned `cmd.exe /d /s /c`. On fresh Windows 11 installs, running `uvx --from semble[mcp]@latest semble savings` over the network with a 5000ms timeout through `cmd.exe` resulted in `ETIMEDOUT`.
+  - Remediated across `src/platform_utils.js`, `src/semble_manager.js`, `bin/commands/savings.js`, and all subsystem managers: removed `shell: true` when executing PE binaries, set `windowsHide: true` and `stdio: ['ignore', 'pipe', 'pipe']`, normalized Windows `.cmd` batch execution without args array, and eliminated unprompted network downloads in quick telemetry display.
+- **Node.js >=24.0.0 Minimum Support Enforcement**:
+  - Set `"engines": { "node": ">=24.0.0" }` in root `package.json` and `apps/web/package.json`.
+  - Updated runtime environment guards in `bin/commands/init.js`, `bin/commands/doctor.js`, and `src/doctor.js` from `< 18` to `< 24`.
+  - Verified package health with Socket CLI: all core dependencies score 100/100 on Vulnerability; `pnpm audit` and `npm audit` pass with 0 production vulnerabilities.
+- **Web UI & Browser Automation QA Evidence**:
+  - Verified Playwright test suite `tests/e2e/web_ui_e2e.spec.js` running on Node 24: Health check (`status: healthy`), CSRF token generation, bootstrap credential authentication (`konohagakure`), and query of all 26 authoritative documentation files via `/api/v1/skills?type=documentation`.
+  - Verified `agent-browser` 0.27.0 automated browser navigation, title verification (`Konoha Web UI`), and DOM snapshot against live server on port 14042.
+- **Isolated Sandbox Verification**:
+  - Full sandbox lifecycle test executed under `/tmp/konoha_sandbox_test_*`: `init --yes` (exit 0), `doctor` (0 failures), `savings` (0 timeouts, 0 DEP0190 warnings), and verified 26 documentation files in SQLite FTS5 database (`konoha.db`).
+- **Code Hygiene Invariants**:
+  - Code file budget: All modified source code files (`.js`, `.ts`, `.svelte`) strictly bounded `<= 700` lines (e.g. `Context.svelte` at 700 lines, `Docs.svelte` at 664 lines, `cursor_manager.js` at 697 lines; comprehensive repository `README.md` exempt as documentation).
+  - Zero numbered slop comments in git diff.
+  - `npx aislop scan --changes` passes with 100/100 Healthy score across 461 files.

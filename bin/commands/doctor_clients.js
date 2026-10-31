@@ -174,7 +174,10 @@ function checkPiClient(context) {
 
 function inspectBrowserDoctor(agentBrowserCmd) {
   try {
-    const docRes = spawnSync(agentBrowserCmd, ['doctor', '--offline', '--quick'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+    const isWin = process.platform === 'win32';
+    const docRes = isWin
+      ? spawnSync(`"${agentBrowserCmd}" doctor --offline --quick`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(agentBrowserCmd, ['doctor', '--offline', '--quick'], { encoding: 'utf-8' });
     if (docRes.status === 0 && (docRes.stdout.includes('Google Chrome') || docRes.stdout.includes('Chromium'))) {
       return ' (Chrome ready)';
     }
@@ -204,7 +207,10 @@ function checkAgentBrowserClient(context) {
 
   let agentBrowserVersion = '';
   try {
-    const abVerRes = spawnSync(agentBrowserCmd, ['--version'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+    const isWin = process.platform === 'win32';
+    const abVerRes = isWin
+      ? spawnSync(`"${agentBrowserCmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(agentBrowserCmd, ['--version'], { encoding: 'utf-8' });
     if (abVerRes.status === 0) agentBrowserVersion = abVerRes.stdout.trim();
   } catch { /* intentional fallback */ }
 

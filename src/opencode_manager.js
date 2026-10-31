@@ -145,8 +145,8 @@ function _configureAislopMcpServer(config) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
-    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
-    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', timeout: 3000 });
+    const whichCmd = process.platform === 'win32' ? 'where.exe' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', timeout: 3000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     if (whichRes.status === 0 && whichRes.stdout.trim()) {
       const binPath = whichRes.stdout.trim().split('\n')[0].trim();
       if (binPath && fileExists(binPath)) {
@@ -365,7 +365,7 @@ function deployOpenCodeRtkRule(silent = true) {
       encoding: 'utf-8',
       timeout: 10000,
       stdio: silent ? 'ignore' : 'inherit',
-      shell: process.platform === 'win32'
+      windowsHide: true
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const { resolveRtkRuleTemplate } = require('./mcp_clients/common');

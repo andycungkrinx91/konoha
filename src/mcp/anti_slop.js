@@ -132,10 +132,11 @@ function parseScannerJsonOutput(raw, defaultErrorMsg) {
 
 function resolveScanCommand(isWin) {
   try {
-    const whichCmd = isWin ? 'where' : 'which';
-    const aislopWhich = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+    const whichCmd = isWin ? 'where.exe' : 'which';
+    const whichOpts = { encoding: 'utf-8', timeout: 2000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] };
+    const aislopWhich = spawnSync(whichCmd, ['aislop'], whichOpts);
     const hasAislop = aislopWhich.status === 0 && Boolean(aislopWhich.stdout.trim());
-    const rtkWhich = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+    const rtkWhich = spawnSync(whichCmd, ['rtk'], whichOpts);
     const hasRtk = rtkWhich.status === 0 && Boolean(rtkWhich.stdout.trim());
 
     if (hasRtk && hasAislop) {
@@ -177,13 +178,23 @@ function executeAislopScan(projectPath, options = {}) {
   }
 
   try {
-    const res = spawnSync(scanCmd, scanArgs, {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      timeout: options.timeoutMs || 30000,
-      maxBuffer: 10 * 1024 * 1024,
-      shell: isWin
-    });
+    const isCmd = isWin && /\.cmd$/i.test(scanCmd);
+    const res = isCmd
+      ? spawnSync(`"${scanCmd}" ${scanArgs.join(' ')}`, {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: options.timeoutMs || 30000,
+          maxBuffer: 10 * 1024 * 1024,
+          shell: true,
+          windowsHide: true
+        })
+      : spawnSync(scanCmd, scanArgs, {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: options.timeoutMs || 30000,
+          maxBuffer: 10 * 1024 * 1024,
+          windowsHide: true
+        });
 
     if (res.error) {
       return {

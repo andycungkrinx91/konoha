@@ -12,7 +12,12 @@ function getUvxCommand() {
   const isWin = process.platform === 'win32';
   const uvCmd = isWin ? 'uv.exe' : 'uv';
   try {
-    const res = spawnSync(uvCmd, ['--version'], { encoding: 'utf-8', timeout: 2000, shell: isWin });
+    const res = spawnSync(uvCmd, ['--version'], {
+      encoding: 'utf-8',
+      timeout: 2000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
     if (res.status === 0) {
       return isWin ? 'uvx.exe' : 'uvx';
     }
@@ -25,7 +30,8 @@ function isUvxUsable(uvxCmd) {
     const res = spawnSync(uvxCmd, ['--version'], {
       encoding: 'utf-8',
       timeout: 3000,
-      shell: process.platform === 'win32'
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     return res.status === 0;
   } catch (_) {
@@ -69,18 +75,23 @@ let lastSembleSavingsFetch = 0;
 const SEMBLE_SAVINGS_TTL_MS = 60000;
 
 function _fetchSembleSavingsStdout(uvxCmd) {
+  const isWin = process.platform === 'win32';
   const candidates = [
-    { cmd: 'semble', args: ['savings'], timeout: 1500 },
-    { cmd: uvxCmd, args: ['semble', 'savings'], timeout: 2000 },
-    { cmd: uvxCmd, args: ['--from', SEMBLE_PACKAGE, 'semble', 'savings'], timeout: 3000 }
+    { cmd: isWin ? 'semble.exe' : 'semble', args: ['savings'], timeout: 2000 },
+    { cmd: uvxCmd, args: ['semble', 'savings'], timeout: 2500 }
   ];
+  if (uvxCmd && path.isAbsolute(uvxCmd)) {
+    const companion = path.join(path.dirname(uvxCmd), isWin ? 'semble.exe' : 'semble');
+    candidates.unshift({ cmd: companion, args: ['savings'], timeout: 2000 });
+  }
 
   for (const c of candidates) {
     try {
       const res = spawnSync(c.cmd, c.args, {
         encoding: 'utf-8',
         timeout: c.timeout,
-        shell: process.platform === 'win32'
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
       });
       if (res.status === 0 && res.stdout && res.stdout.includes('Semble Token Savings')) {
         return res.stdout;
@@ -197,8 +208,9 @@ function searchSemble(query, searchPath = process.cwd(), topK = 5) {
   try {
     const res = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {
       encoding: 'utf-8',
-      timeout: 8000,
-      shell: process.platform === 'win32'
+      timeout: 10000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     if (res.status === 0 && res.stdout) {
       return {

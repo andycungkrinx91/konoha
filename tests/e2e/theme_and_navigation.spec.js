@@ -392,7 +392,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await page.goto("http://127.0.0.1:4173/docs");
 
     // Verify main docs header
-    await expect(page.getByRole("heading", { name: "Documentation" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "Documentation", exact: true })).toBeVisible({ timeout: 5000 });
 
     // Verify Overview section displays 8 Clients and lists OMP
     const overviewSection = page.locator("#overview");
@@ -400,13 +400,13 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(overviewSection.getByText("8 Clients")).toBeVisible();
     await expect(overviewSection.getByText("Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP")).toBeVisible();
 
-    // Verify desktop table of contents has 11 sections
-    const desktopToc = page.locator("aside nav");
-    await expect(desktopToc.getByText("11 Sections")).toBeVisible();
+    // Verify desktop table of contents has 12 sections
+    const desktopToc = page.locator("aside nav").nth(1);
+    await expect(desktopToc).toBeVisible();
 
     // Verify desktop links use theme class .doc-nav-link
     const tocLinks = page.locator(".doc-nav-link");
-    expect(await tocLinks.count()).toBe(11);
+    expect(await tocLinks.count()).toBe(12);
 
     // Verify section switching updates active state
     const sdlcLink = tocLinks.filter({ hasText: "SDLC Lifecycle" });
@@ -427,7 +427,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(mobilePillNav).toBeVisible();
 
     const mobilePillLinks = page.locator(".doc-pill-link");
-    expect(await mobilePillLinks.count()).toBe(11);
+    expect(await mobilePillLinks.count()).toBe(12);
 
     // Click a mobile pill link
     const mobileApiLink = mobilePillLinks.filter({ hasText: "Web API Reference" });

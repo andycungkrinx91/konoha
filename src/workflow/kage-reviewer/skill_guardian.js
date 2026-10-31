@@ -97,7 +97,14 @@ const DANGEROUS_PATTERNS = [
 
 function runAsyncSpawn(cmd, args, opts) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, opts);
+    let finalCmd = cmd;
+    let finalArgs = args;
+    const finalOpts = Object.assign({ windowsHide: true }, opts);
+    if (process.platform === 'win32' && finalOpts.shell && Array.isArray(args) && args.length > 0) {
+      finalCmd = `"${cmd}" ${args.map(a => /\s|[&|<>]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a).join(' ')}`;
+      finalArgs = [];
+    }
+    const child = spawn(finalCmd, finalArgs, finalOpts);
     let stdout = '';
     let stderr = '';
     if (child.stdout) child.stdout.on('data', d => { stdout += d.toString(); });

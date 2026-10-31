@@ -224,8 +224,8 @@ function _resolveAislopCommand(npxExecutable) {
   let cmd = npxExecutable;
   let args = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
-    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
-    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
+    const whichCmd = process.platform === 'win32' ? 'where.exe' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     if (whichRes.status === 0 && whichRes.stdout.trim()) {
       cmd = whichRes.stdout.trim().split('\n')[0].trim();
       args = [];
@@ -343,8 +343,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 function _resolveUvxPath(uvxCmd) {
   let resolvedUvx = uvxCmd || 'uvx';
   try {
-    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
-    const whichUvx = spawnSync(whichCmd, [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
+    const whichCmd = process.platform === 'win32' ? 'where.exe' : 'which';
+    const whichUvx = spawnSync(whichCmd, [resolvedUvx], { encoding: 'utf-8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
       return whichUvx.stdout.trim().split('\n')[0].trim();
     }

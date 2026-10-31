@@ -211,7 +211,7 @@ function deployPiRtkRule(silent = true) {
     const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--auto-patch'], {
       encoding: 'utf-8',
       timeout: 30000,
-      shell: process.platform === 'win32'
+      windowsHide: true
     });
     if (res.status !== 0) {
       const detail = ((res.stderr || '') + (res.stdout || '')).trim().split('\n').pop();
@@ -254,7 +254,7 @@ function _uninstallPiRtkExtension() {
     const rtkCmd = getRtkCommandSafe();
     if (rtkCmd) {
       const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--uninstall'], {
-        encoding: 'utf-8', timeout: 30000, shell: process.platform === 'win32'
+        encoding: 'utf-8', timeout: 30000, windowsHide: true
       });
       return res.status === 0;
     }
@@ -444,8 +444,9 @@ function fileExists(p) {
 function isPiInstalled() {
   if (fileExists(path.join(HOME, '.pi', 'agent'))) return true;
   try {
-    const cmd = process.platform === 'win32' ? 'pi.cmd' : 'pi';
-    const res = spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 8000, shell: process.platform === 'win32' });
+    const res = process.platform === 'win32'
+      ? spawnSync('pi.cmd --version', { encoding: 'utf-8', timeout: 8000, shell: true, windowsHide: true })
+      : spawnSync('pi', ['--version'], { encoding: 'utf-8', timeout: 8000 });
     return res.status === 0;
   } catch (_) {
     return false;

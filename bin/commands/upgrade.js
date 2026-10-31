@@ -168,7 +168,9 @@ function buildPackageManagerCandidates(pkgTarget, isWin) {
 
   const checkCmd = (c) => {
     try {
-      const res = spawnSync(c, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
+      const res = isWin
+        ? spawnSync(`"${c}" --version`, { encoding: 'utf-8', shell: true, timeout: 5000, windowsHide: true })
+        : spawnSync(c, ['--version'], { encoding: 'utf-8', timeout: 5000 });
       return res.status === 0;
     } catch { return false; }
   };
@@ -209,9 +211,11 @@ function buildPackageManagerCandidates(pkgTarget, isWin) {
   return pmCandidates;
 }
 
-function tryInstallCandidate(pm, args, spawnOptions) {
+function tryInstallCandidate(pm, args, spawnOptions, isWin = false) {
   try {
-    const res = spawnSync(pm.cmd, args, spawnOptions);
+    const res = isWin
+      ? spawnSync(`"${pm.cmd}" ${args.join(' ')}`, { stdio: spawnOptions.stdio, timeout: spawnOptions.timeout, shell: true, windowsHide: true })
+      : spawnSync(pm.cmd, args, spawnOptions);
     if (res.status === 0) return { success: true };
     const errOut = (res.stderr || res.stdout || '').toString().trim();
     return { success: false, error: errOut ? errOut.split('\n').pop() : `exit status ${res.status}` };
@@ -221,11 +225,11 @@ function tryInstallCandidate(pm, args, spawnOptions) {
 }
 
 function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) {
-  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000, shell: isWin };
+  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000, windowsHide: true };
   let lastError = null;
 
   for (const pm of pmCandidates) {
-    const result = tryInstallCandidate(pm, pm.args, spawnOptions);
+    const result = tryInstallCandidate(pm, pm.args, spawnOptions, isWin);
     if (result.success) {
       pbar.stopPulse();
       pbar.logStep(`Konoha installed from npm registry via ${pm.name}`);

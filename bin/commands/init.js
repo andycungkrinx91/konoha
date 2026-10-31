@@ -92,8 +92,8 @@ function checkNodeAndToolchains(options, args) {
   const spinner1 = startSpinner('Checking Node.js environment...');
   const nodeVersion = process.version;
   const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
-  if (majorVersion < 18) {
-    spinner1.error(`Node.js >= 18 is required, found ${nodeVersion}`);
+  if (majorVersion < 24) {
+    spinner1.error(`Node.js >= 24 is required, found ${nodeVersion}`);
     log('  Install from: https://nodejs.org/');
     process.exit(1);
   }

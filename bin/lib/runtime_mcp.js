@@ -365,7 +365,7 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     const entry = deployUtils.buildKonohaFilesMcpEntry('execPath');
     if (entry) {
       run = spawnSync(entry.command, entry.args, {
-        input, encoding: 'utf-8', timeout: 15000, env: cleanEnv, shell: process.platform === 'win32'
+        input, encoding: 'utf-8', timeout: 15000, env: cleanEnv, windowsHide: true
       });
     }
   }
