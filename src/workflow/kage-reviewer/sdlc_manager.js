@@ -288,9 +288,7 @@ function updateTask(id, updates = {}, dbPath = null, scope = null) {
       }, dbPath);
     }
 
-    if (scope && !_matchesScope(existing, scope)) {
-      return { status: 'error', reason: 'scope_mismatch' };
-    }
+    if (scope && !_matchesScope(existing, scope)) return null;
 
     const fields = [];
     const values = [];
@@ -312,8 +310,12 @@ function updateTask(id, updates = {}, dbPath = null, scope = null) {
       values.push(updates.review_mode);
     }
     if (updates.evidence !== undefined) {
+      const existingEvidence = safeJsonParse(existing.evidence, {});
+      const mergedEvidence = (typeof updates.evidence === 'object' && updates.evidence !== null)
+        ? { ...existingEvidence, ...updates.evidence }
+        : updates.evidence;
       fields.push('evidence = ?');
-      values.push(typeof updates.evidence === 'object' ? JSON.stringify(updates.evidence) : updates.evidence);
+      values.push(typeof mergedEvidence === 'object' ? JSON.stringify(mergedEvidence) : mergedEvidence);
     }
     if (updates.slop_result !== undefined) {
       fields.push('slop_result = ?');

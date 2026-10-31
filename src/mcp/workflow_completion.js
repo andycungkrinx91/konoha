@@ -633,11 +633,14 @@ function handleDeliverySignoffOrFinish(options) {
   };
 }
 
-function handleWorkflowSynthesis(opts, dirArg, configArg, managerArg, promptArg) {
-  const isOpts = opts && typeof opts === 'object' && opts.status;
-  const status = isOpts ? opts.status : opts, resolvedTaskDir = isOpts ? opts.resolvedTaskDir : dirArg;
-  const sdlcConfig = isOpts ? opts.sdlcConfig : configArg, sdlcManager = isOpts ? opts.sdlcManager : managerArg;
-  const prompt = isOpts ? opts.prompt : promptArg, akatsukiGateData = isOpts ? opts.akatsukiGateData : arguments[5];
+function handleWorkflowSynthesis(options, dirArg, configArg, managerArg, promptArg) {
+  const isPos = dirArg !== undefined;
+  const status = isPos ? options : (options && options.status);
+  const resolvedTaskDir = isPos ? dirArg : (options && options.resolvedTaskDir);
+  const sdlcConfig = isPos ? configArg : (options && options.sdlcConfig);
+  const sdlcManager = isPos ? managerArg : (options && options.sdlcManager);
+  const prompt = isPos ? promptArg : (options && options.prompt);
+  const akatsukiGateData = isPos ? arguments[5] : (options && options.akatsukiGateData);
   let tasks = status.tasks || [];
   if (tasks.length === 0 && status.executed) {
     tasks = Object.entries(status.executed).map(([k, v]) => ({

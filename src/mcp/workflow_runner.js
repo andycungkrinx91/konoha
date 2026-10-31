@@ -386,7 +386,9 @@ function runMcpWorkflow(taskDir = null, options = {}) {
 
   if (phase === 'synthesize') {
     const akatsukiGateData = options.akatsuki_gate || (status.review && status.review.akatsuki_gate) || null;
-    const synthOutcome = handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManager, effPrompt, akatsukiGateData);
+    const synthOutcome = handleWorkflowSynthesis({
+      status, resolvedTaskDir, sdlcConfig, sdlcManager, prompt: effPrompt, akatsukiGateData
+    });
     if (synthOutcome.response) return synthOutcome.response;
   }
 

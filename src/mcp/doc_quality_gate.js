@@ -187,6 +187,45 @@ function discoverDeliverables(taskDir, specificFiles = null) {
   return Array.from(candidates);
 }
 
+function _evaluateContractedSummary(docSummary, taskDir, currentAttempts, maxAttempts, workflowStatus) {
+  const tmpPath = path.join(taskDir, '.contracted_summary.md');
+  try {
+    fs.writeFileSync(tmpPath, docSummary, 'utf8');
+    const summaryEval = evaluateDeliverable(tmpPath);
+    if (!summaryEval.passed) return null;
+    const result = {
+      passed: true,
+      status: 'approved',
+      gate_status: 'approved',
+      attempts: currentAttempts,
+      max_attempts: maxAttempts,
+      evaluated_files: [{
+        file_path: 'dispatch_result',
+        target: 'report_from_agent:summary',
+        format: 'text',
+        score: summaryEval.score,
+        label: summaryEval.label || 'HUMAN_WRITTEN',
+        verdict: 'PASS (Contracted Evidence)',
+        findings: summaryEval.findings || [],
+        remediation_hints: [],
+        stats: { char_count: docSummary.length }
+      }],
+      failed_files: [],
+      error: null,
+      feedback: 'Documentation delivered and verified via detectDocsAi on contracted summary.'
+    };
+    workflowStatus.document_gate = result;
+    return result;
+  } catch (err) {
+    workflowStatus.document_gate_error = err.message;
+    return null;
+  } finally {
+    if (fs.existsSync(tmpPath)) {
+      try { fs.unlinkSync(tmpPath); } catch (_) { /* intentional best-effort cleanup */ }
+    }
+  }
+}
+
 /**
  * Runs the complete Quality Gate evaluation for Tokubetsu-Jonin deliverables.
  *
@@ -210,28 +249,8 @@ function evaluateDeliverablesGate(taskDir, workflowStatus = {}, filesList = null
       ? docResult
       : (workflowStatus.dispatch_results && Object.values(workflowStatus.dispatch_results).find(r => typeof r === 'string' && r.length > 50));
     if (docSummary) {
-      const result = {
-        passed: true,
-        status: 'approved',
-        gate_status: 'approved',
-        attempts: currentAttempts,
-        max_attempts: maxAttempts,
-        evaluated_files: [{
-          file_path: 'dispatch_result',
-          target: 'report_from_agent:summary',
-          format: 'text',
-          label: 'HUMAN_WRITTEN',
-          verdict: 'PASS (Contracted Evidence)',
-          findings: [],
-          remediation_hints: [],
-          stats: { char_count: docSummary.length }
-        }],
-        failed_files: [],
-        error: null,
-        feedback: 'Documentation delivered and accepted via contracted report_from_agent summary.'
-      };
-      workflowStatus.document_gate = result;
-      return result;
+      const summaryResult = _evaluateContractedSummary(docSummary, taskDir, currentAttempts, maxAttempts, workflowStatus);
+      if (summaryResult) return summaryResult;
     }
 
     return {
