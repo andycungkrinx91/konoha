@@ -29,7 +29,13 @@ function completePhase(task, agentName, summary) {
   const st = JSON.parse(fs.readFileSync(path.join(task, 'status.json'), 'utf8'));
   const did = st.current_dispatch && st.current_dispatch.id;
   if (!did) throw new Error('No active dispatch for ' + agentName);
-  const rep = JSON.parse(server.reportFromAgent(agentName, summary, 'completed', null, null, null, null, task, did, [summary + ', exit 0']));
+  let effectiveSummary = summary;
+  if (agentName === 'genin' && fs.existsSync(path.join(task, 'findings.md'))) {
+    effectiveSummary = fs.readFileSync(path.join(task, 'findings.md'), 'utf8');
+  } else if (agentName === 'kage' && fs.existsSync(path.join(task, 'plan.md'))) {
+    effectiveSummary = fs.readFileSync(path.join(task, 'plan.md'), 'utf8');
+  }
+  const rep = JSON.parse(server.reportFromAgent(agentName, effectiveSummary, 'completed', null, null, null, null, task, did, [summary + ', exit 0']));
   if (rep.status !== 'recorded') throw new Error('Report failed for ' + agentName + ': ' + rep.message);
 }
 

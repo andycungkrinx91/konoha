@@ -135,11 +135,18 @@ function workflowParseTasks(planContent) {
     const match = line.match(/^- \[([A-Za-z0-9_-]+)\]:\s*(.+)$/);
     if (match) {
       const agent = match[1].replace(/_/g, '-');
-      const task = match[2].trim();
+      let rawTask = match[2].trim();
+      let parallelGroup = null;
+      const pgMatch = rawTask.match(/\s+parallel_group:([A-Za-z0-9_-]+)$/i);
+      if (pgMatch) {
+        parallelGroup = pgMatch[1];
+        rawTask = rawTask.slice(0, pgMatch.index).trim();
+      }
       tasks.push({
         id: `task-${tasks.length + 1}`,
         agent,
-        task,
+        task: rawTask,
+        parallel_group: parallelGroup,
         line: idx + 1,
         status: 'pending',
         result: '',

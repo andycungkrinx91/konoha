@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
 
@@ -216,17 +215,6 @@ function applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
     const feedbackNotes = choiceObj.refinement || '';
     if (feedbackNotes) {
       status.plan_refinement = feedbackNotes;
-      const feedbackPath = path.join(resolvedTaskDir, 'plan_feedback.md');
-      try {
-        fs.writeFileSync(feedbackPath, `# Plan Refinement Instructions\n\n${feedbackNotes}\n`, 'utf8');
-      } catch (_) { /* ignore */ }
-
-      const findingsPath = path.join(resolvedTaskDir, 'findings.md');
-      try {
-        const existingFindings = fs.existsSync(findingsPath) ? fs.readFileSync(findingsPath, 'utf8') : '';
-        const appendText = `\n\n### 🔄 Plan Refinement Feedback (Iteration ${status.plan_rejected_count})\n${feedbackNotes}\n`;
-        fs.writeFileSync(findingsPath, existingFindings + appendText, 'utf8');
-      } catch (_) { /* ignore */ }
     }
 
     try {

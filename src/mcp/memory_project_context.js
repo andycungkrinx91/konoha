@@ -76,7 +76,11 @@ function _updateWorkflowStatus(taskDir, dispatchId, agentName, finalStatus, upda
     return { error: null, workflowStatus: null };
   }
   const workflowStatus = loadWorkflowStatus(taskDir);
-  const dispatch = workflowStatus.current_dispatch || {};
+  let dispatch = workflowStatus.current_dispatch || {};
+  if (Array.isArray(workflowStatus.active_dispatches) && workflowStatus.active_dispatches.length > 0) {
+    const found = workflowStatus.active_dispatches.find(d => d.id === dispatchId);
+    if (found) dispatch = found;
+  }
   if (dispatchId && dispatch.id !== dispatchId) {
     return { error: 'dispatch_id does not match the active workflow dispatch', workflowStatus };
   }
@@ -220,10 +224,13 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   try {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const cd = require('./client_detection');
-    actClient = cd.getActiveClient() || cd.detectActiveClient() || '';
+    actClient = (typeof cd.getActiveClient === 'function' ? cd.getActiveClient() : null) || cd.detectActiveClient() || process.env.KONOHA_CLIENT || '';
+    const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
     const evidenceData = {
       verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
-      status: finalStatus, summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
+      status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : finalStatus) : finalStatus,
+      summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
+      is_phase_dispatch: isPhaseDispatch,
       recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
     };
     sdlcManager.recordEvidence(effTaskId, evidenceData);

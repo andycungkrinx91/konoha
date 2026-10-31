@@ -219,11 +219,14 @@ function _cleanStaleTaskArtifactsIfChanged(prompt, resolvedTaskDir, status) {
   }
   const norm = (s) => (s || '').replace(/\r\n/g, '\n').trim();
   if (prompt && status.prompt && norm(prompt) !== norm(status.prompt)) {
-    const stale = ['status.json', 'plan.md', 'findings.md', 'kage_review.json', 'final_docs.md'];
-    for (const f of stale) {
-      try { fs.rmSync(path.join(resolvedTaskDir, f), { force: true }); } catch (_) { /* best-effort cleanup */ }
-    }
-    return loadWorkflowStatus(resolvedTaskDir);
+    status.plan = null;
+    status.findings = null;
+    status.exploration_evidence = null;
+    status.tasks = [];
+    status.current_dispatch = null;
+    status.plan_approved = false;
+    saveWorkflowStatus(resolvedTaskDir, status);
+    return status;
   }
   return status;
 }
@@ -261,7 +264,7 @@ function _buildInstructionText(ctx) {
     parallelGuidance = (
       '\n\n### ⚡ Parallel Execution Opportunity (Time-Saving)\n' +
       `- Multi-domain workstreams detected: ${ctx.parallelWorkstreams.map(w => `\`${w.agent}\` (${w.domain})`).join(', ')}.\n` +
-      '- For maximum execution time savings, once architectural interfaces are locked in `plan.md`, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.\n' +
+      '- For maximum execution time savings, once architectural interfaces are locked in the approved Gate 1 plan evidence, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.\n' +
       '- In OMP / Cursor: Dispatch real concurrent subagents via task batching (`task(context=..., tasks=[...])`). Each subagent must load its informed skills using `konoha.use_skills` and preserve intermediate context throughout execution.'
     );
   }

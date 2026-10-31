@@ -29,28 +29,8 @@ const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
 
 const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
 
-const WORKFLOW_FILENAMES = new Set([
-  'plan.md', 'findings.md', 'final_report.md', 'final_docs.md',
-  'kage_review.json', 'status.json'
-]);
-
 function annotateWorkflowFileHint(text) {
-  try {
-    if (typeof text !== 'string' || !text.includes('"error"')) return text;
-    const parsed = JSON.parse(text);
-    const rawPath = parsed && typeof parsed.error === 'string'
-      ? (parsed.error.match(/File not found: (.+?)(?:$|")/) || [])[1]
-      : null;
-    if (!rawPath) return text;
-    const base = path.basename(rawPath).toLowerCase();
-    if (!WORKFLOW_FILENAMES.has(base)) return text;
-    const taskDir = getResolvedTaskDir(null);
-    parsed.hint = `'${base}' is a workflow artifact and lives in the task directory, not the workspace root. ` +
-      `Current task dir: ${taskDir}. Use get_resolved_task_dir to resolve it, then read files there.`;
-    return JSON.stringify(parsed);
-  } catch (_) {
-    return text;
-  }
+  return text;
 }
 
 function boundPersonaMemories(mems) {

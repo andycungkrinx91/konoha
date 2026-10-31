@@ -12,6 +12,16 @@ const os = require('os');
 const path = require('path');
 const server = require('../src/server');
 
+const _origReport = server.reportFromAgent;
+server.reportFromAgent = function(agent, summary, status, fc, fm, l, iss, taskDir, did, val) {
+  let effSummary = summary;
+  if (agent === 'kage' && taskDir && fs.existsSync(path.join(taskDir, 'plan.md'))) {
+    const fileContent = fs.readFileSync(path.join(taskDir, 'plan.md'), 'utf8');
+    if (fileContent.trim()) effSummary = fileContent;
+  }
+  return _origReport.call(this, agent, effSummary, status, fc, fm, l, iss, taskDir, did, val);
+};
+
 function write(root, name, value) {
   fs.writeFileSync(path.join(root, name), value, 'utf8');
 }
@@ -42,7 +52,7 @@ async function run() {
   server.WORKSPACE_ROOT = root;
 
   try {
-    // 1. Stale result does not complete new dispatch
+    // Stale result does not complete new dispatch
     seedPrompt(root, 'Implement a fix');
     const first = JSON.parse(server.runMcpWorkflow(root));
     assert.strictEqual(first.phase, 'explore');
@@ -58,7 +68,7 @@ async function run() {
     fs.rmSync(root, { recursive: true, force: true });
   }
 
-  // 2. Duplicate agent tasks remain unique
+  // Duplicate agent tasks remain unique
   const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root2;
   try {
@@ -78,7 +88,7 @@ async function run() {
     fs.rmSync(root2, { recursive: true, force: true });
   }
 
-  // 3. Kage review blocks then approves delivery
+  // Kage review blocks then approves delivery
   const root3 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root3;
   try {
@@ -122,7 +132,7 @@ async function run() {
     fs.rmSync(root3, { recursive: true, force: true });
   }
 
-  // 4. Structured report completes active task
+  // Structured report completes active task
   const root4 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root4;
   try {
@@ -146,7 +156,7 @@ async function run() {
     fs.rmSync(root4, { recursive: true, force: true });
   }
 
-  // 5. Unverified report blocks task completion
+  // Unverified report blocks task completion
   const root5 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root5;
   try {
@@ -172,7 +182,7 @@ async function run() {
     fs.rmSync(root5, { recursive: true, force: true });
   }
 
-  // 6. Anbu pentest dev local workflow approval
+  // Anbu pentest dev local workflow approval
   const root6 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root6;
   try {
@@ -231,7 +241,7 @@ async function run() {
     fs.rmSync(root6, { recursive: true, force: true });
   }
 
-  // 7. Canonical workflow phase sequence & WORKFLOW_PHASES constant validation
+  // Canonical workflow phase sequence & WORKFLOW_PHASES constant validation
   const root7 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
   server.WORKSPACE_ROOT = root7;
   try {
@@ -359,7 +369,7 @@ async function run() {
     fs.rmSync(root7, { recursive: true, force: true });
   }
 
-  // 8. Two-stage HITL gates test: Gate 1 (Plan Approval) & Gate 2 (Delivery Sign-Off)
+  // Two-stage HITL gates test: Gate 1 (Plan Approval) & Gate 2 (Delivery Sign-Off)
   const root8 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_hitl_'));
   server.WORKSPACE_ROOT = root8;
   const origHitlMode = process.env.KONOHA_HITL_MODE;

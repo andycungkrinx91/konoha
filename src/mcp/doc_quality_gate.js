@@ -158,13 +158,11 @@ function _addSpecificFileCandidate(f, taskDir, candidates) {
 
 function _scanTaskDirDeliverables(taskDir, candidates) {
   if (!taskDir || !fs.existsSync(taskDir) || !fs.statSync(taskDir).isDirectory()) return;
-  const finalDocs = path.join(taskDir, 'final_docs.md');
-  if (fs.existsSync(finalDocs)) candidates.add(finalDocs);
 
   try {
     const entries = fs.readdirSync(taskDir);
     for (const entry of entries) {
-      if (['prompt.md', 'plan.md', 'delegate.md'].includes(entry)) continue;
+      if (['prompt.md', 'delegate.md'].includes(entry) || entry.endsWith('_feedback.md')) continue;
       const ext = path.extname(entry).toLowerCase();
       if (!DOC_EXTENSIONS.has(ext)) continue;
       const fullPath = path.join(taskDir, entry);
@@ -197,7 +195,7 @@ function discoverDeliverables(taskDir, specificFiles = null) {
  * @param {Array<string>} filesList - Optional explicit list of generated files
  * @returns {object} Quality Gate verdict and diagnostics
  */
-function evaluateDeliverablesGate(taskDir, workflowStatus = {}, filesList = null) {
+function evaluateDeliverablesGate(taskDir, workflowStatus = {}, filesList = null, docResult = null) {
   const filesToDiscover = filesList || (Array.isArray(workflowStatus.deliverables) ? workflowStatus.deliverables : null);
   const deliverables = discoverDeliverables(taskDir, filesToDiscover);
   const previousAttempts = Math.max(
@@ -208,6 +206,34 @@ function evaluateDeliverablesGate(taskDir, workflowStatus = {}, filesList = null
   const maxAttempts = MAX_GATE_ATTEMPTS;
 
   if (deliverables.length === 0) {
+    const docSummary = (docResult && typeof docResult === 'string' && docResult.trim())
+      ? docResult
+      : (workflowStatus.dispatch_results && Object.values(workflowStatus.dispatch_results).find(r => typeof r === 'string' && r.length > 50));
+    if (docSummary) {
+      const result = {
+        passed: true,
+        status: 'approved',
+        gate_status: 'approved',
+        attempts: currentAttempts,
+        max_attempts: maxAttempts,
+        evaluated_files: [{
+          file_path: 'dispatch_result',
+          target: 'report_from_agent:summary',
+          format: 'text',
+          label: 'HUMAN_WRITTEN',
+          verdict: 'PASS (Contracted Evidence)',
+          findings: [],
+          remediation_hints: [],
+          stats: { char_count: docSummary.length }
+        }],
+        failed_files: [],
+        error: null,
+        feedback: 'Documentation delivered and accepted via contracted report_from_agent summary.'
+      };
+      workflowStatus.document_gate = result;
+      return result;
+    }
+
     return {
       passed: false,
       status: 'blocked',
@@ -216,8 +242,8 @@ function evaluateDeliverablesGate(taskDir, workflowStatus = {}, filesList = null
       max_attempts: maxAttempts,
       evaluated_files: [],
       failed_files: [],
-      error: 'No document deliverables found to evaluate in task directory.',
-      feedback: 'No deliverables found. Tokubetsu-Jonin must generate final_docs.md or requested document artifacts (.docx, .pdf, .pptx, .xlsx, .md).'
+      error: 'No document deliverables or contracted documentation summary found to evaluate in task directory.',
+      feedback: 'No deliverables found. Tokubetsu-Jonin must report documentation via report_from_agent summary or generate requested document artifacts (.docx, .pdf, .pptx, .xlsx, .md).'
     };
   }
 

@@ -77,10 +77,12 @@ function workflowDispatch(_taskDir, status, phase, agent, ...rest) {
   if (current.phase === phase && current.agent === agent && current.task_id === taskId) {
     return current;
   }
-  // File-based IPC is retired: completion arrives via report_from_agent writing
-  // status.completed_dispatches / dispatch_results — never via result.md polling.
+  if (Array.isArray(status.active_dispatches)) {
+    const existing = status.active_dispatches.find(d => d.phase === phase && d.agent === agent && d.task_id === taskId);
+    if (existing) return existing;
+  }
   const dispatch = {
-    id: crypto.createHash('sha256').update(`${phase}:${agent}:${taskId}:${Date.now()}`).digest('hex').substring(0, 16),
+    id: crypto.createHash('sha256').update(`${phase}:${agent}:${taskId}:${Date.now()}:${Math.random()}`).digest('hex').substring(0, 16),
     phase,
     agent,
     task_id: taskId,
@@ -93,6 +95,15 @@ function workflowDispatch(_taskDir, status, phase, agent, ...rest) {
 }
 
 function workflowDispatchCompleted(_taskDir, status) {
+  if (Array.isArray(status.active_dispatches) && status.active_dispatches.length > 0) {
+    for (let i = 0; i < status.active_dispatches.length; i++) {
+      const d = status.active_dispatches[i];
+      if ((status.completed_dispatches || []).includes(d.id)) {
+        status.active_dispatches.splice(i, 1);
+        return { dispatch: d, result: (status.dispatch_results || {})[d.id] || '' };
+      }
+    }
+  }
   const dispatch = status.current_dispatch || {};
   if (!dispatch || !dispatch.id) return null;
   if ((status.completed_dispatches || []).includes(dispatch.id)) {

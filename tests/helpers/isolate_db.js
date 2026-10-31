@@ -29,6 +29,35 @@ try {
   const db = require('../../src/db');
   const conn = db.getConnection(null, false);
   db.setupSchema(conn);
+
+  // Assert 100% schema parity against live production DB if present
+  const prodPath = path.normalize(path.join(os.homedir(), '.konoha', 'konoha.db'));
+  if (fs.existsSync(prodPath)) {
+    const Database = require('../../src/sqlite_driver');
+    const prodConn = new Database(prodPath, { readonly: true });
+    try {
+      const prodTables = prodConn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' AND name NOT LIKE '_sqliteai%' AND name NOT LIKE 'vector0_%' ORDER BY name").all().map(r => r.name);
+      const testTables = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' AND name NOT LIKE '_sqliteai%' AND name NOT LIKE 'vector0_%' ORDER BY name").all().map(r => r.name);
+      for (const t of prodTables) {
+        if (!testTables.includes(t)) {
+          throw new Error(`[isolate_db] Schema parity error: table '${t}' missing from isolated DB`);
+        }
+        const prodCols = prodConn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`);
+        const testCols = conn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`);
+        if (prodCols.join(',') !== testCols.join(',')) {
+          throw new Error(`[isolate_db] Schema parity error: column mismatch for table '${t}'`);
+        }
+        const prodFks = prodConn.prepare(`PRAGMA foreign_key_list(${t})`).all();
+        const testFks = conn.prepare(`PRAGMA foreign_key_list(${t})`).all();
+        if (prodFks.length !== testFks.length) {
+          throw new Error(`[isolate_db] Schema parity error: FK count mismatch for table '${t}'`);
+        }
+      }
+    } finally {
+      try { prodConn.close(); } catch (_) {}
+    }
+  }
+
   conn.close();
   dbPath = db.DB_PATH;
 } catch (e) {

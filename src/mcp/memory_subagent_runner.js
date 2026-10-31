@@ -418,14 +418,6 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   let dbAgentName = agentName.startsWith('mcp_') ? agentName.substring(4) : agentName;
   dbAgentName = dbAgentName.replace(/_/g, '-');
 
-  if (opts.taskId) {
-    try {
-      sdlcManager.updateTask(opts.taskId, {
-        status: 'in_progress',
-        evidence: { active_agent: dbAgentName, phase: 'execution', project_path: resolvedProjPath }
-      });
-    } catch (_) { /* ignore */ }
-  }
 
   const meta = _resolveAgentDbMetadata(dbAgentName);
   let skillsList = Array.isArray(opts.skills) && opts.skills.length > 0 ? [...opts.skills] : meta.skillsList;
@@ -449,6 +441,23 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
 
   if (dbAgentName === 'jonin') {
     skillsList = _resolveJoninSkills(resolvedProjPath, instructions, opts.context, skillsList);
+  }
+
+  if (opts.taskId) {
+    try {
+      const existingTask = sdlcManager.getTask(opts.taskId);
+      const existingEvidence = (existingTask && typeof existingTask.evidence === 'object' && existingTask.evidence !== null) ? existingTask.evidence : {};
+      sdlcManager.updateTask(opts.taskId, {
+        status: 'in_progress',
+        evidence: {
+          ...existingEvidence,
+          active_agent: dbAgentName,
+          phase: 'execution',
+          project_path: resolvedProjPath,
+          skills_bound: skillsList
+        }
+      });
+    } catch (_) { /* ignore */ }
   }
 
   let soulBehaviorBlock = '';

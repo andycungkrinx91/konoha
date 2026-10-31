@@ -1,10 +1,8 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const {
   getResolvedTaskDir,
-  readFileSafe,
   loadWorkflowStatus,
   saveWorkflowStatus,
   cleanupTransientScratchFiles
@@ -13,7 +11,6 @@ const {
   workflowDispatch,
   workflowDispatchCompleted,
   workflowReviewApproved,
-  runAislopGate
 } = require('./workflow_dispatch');
 const {
   handleWorkflowCompletion,
@@ -33,14 +30,14 @@ const SKILL_RETRIEVAL_DIRECTIVE = 'Retrieve skills via SQLite FTS5/RAG: Call kon
 function _initWorkflowStatus(status) {
   status.schema_version = status.schema_version || 2;
   status.created_at = status.created_at || new Date().toISOString();
-  status.tasks = status.tasks || [];
+  status.updated_at = new Date().toISOString();
+  status.history = status.history || [];
   status.completed_dispatches = status.completed_dispatches || [];
   status.dispatch_results = status.dispatch_results || {};
-  status.review = status.review || {};
-  status.history = status.history || [];
+  status.tasks = status.tasks || [];
   status.pending_executors = status.pending_executors || [];
   status.completed_executors = status.completed_executors || [];
-  status.executed = status.executed || {};
+
   const cd = require('./client_detection');
   status.session_id = status.session_id || cd.getActiveSessionId();
   status.client = status.client || cd.detectActiveClient() || '';
@@ -89,29 +86,115 @@ function _checkDeliverySignoff(status, resolvedTaskDir, _sdlcConfig, sdlcManager
 
 function _dispatchPlanPhase(status, resolvedTaskDir) {
   const dispatch = workflowDispatch(resolvedTaskDir, status, 'plan', 'kage');
-  const findingsRaw = readFileSafe(path.join(resolvedTaskDir, 'findings.md')) || 'No findings available.';
+  let findingsRaw = status.findings || status.exploration_evidence || 'No findings available.';
+  if (status.plan_refinement) {
+    findingsRaw += `\n\n### Plan Refinement Feedback\n${status.plan_refinement}`;
+  }
   const findingsSummary = findingsRaw.length > 500
-    ? findingsRaw.slice(0, 500).trim() + `...\n\n*(Full findings: \`${path.join(resolvedTaskDir, 'findings.md')}\`)*`
+    ? findingsRaw.slice(0, 500).trim() + '...'
     : findingsRaw;
   status.assigned_agent = 'kage';
   saveWorkflowStatus(resolvedTaskDir, status);
   return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
 }
 
+function _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir) {
+  status.active_dispatches = status.active_dispatches || [];
+  const dispatches = [];
+  for (const t of groupTasks) {
+    const d = workflowDispatch(resolvedTaskDir, status, 'execute', t.agent, t.id, t.task);
+    t.dispatch_id = d.id;
+    if (!status.active_dispatches.some(ad => ad.id === d.id)) {
+      status.active_dispatches.push(d);
+    }
+    dispatches.push({
+      status: 'ready',
+      phase: 'execute',
+      agent: t.agent,
+      task_id: t.id,
+      task: t.task,
+      parallel_group: groupName,
+      dispatch_id: d.id,
+      task_dir: resolvedTaskDir,
+      skill_directive: SKILL_RETRIEVAL_DIRECTIVE
+    });
+  }
+  status.active_parallel_group = groupName;
+  status.pending_executors = groupTasks.map(t => t.id);
+  status.assigned_agent = groupTasks[0].agent;
+  saveWorkflowStatus(resolvedTaskDir, status);
+  return JSON.stringify(dispatches);
+}
+
 function _dispatchExecutePhase(status, resolvedTaskDir) {
-  const nextTask = (status.tasks || []).find(t => t.status !== 'completed');
+  const tasks = status.tasks || [];
+  const nextTask = tasks.find(t => t.status !== 'completed');
   if (!nextTask) {
     status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
     status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
     status.current_dispatch = null;
+    status.active_dispatches = [];
     saveWorkflowStatus(resolvedTaskDir, status);
     return null;
   }
 
-  const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', nextTask.agent, nextTask.id, nextTask.task);
-  status.assigned_agent = nextTask.agent;
+  if (status.active_parallel_group) {
+    const groupTasks = tasks.filter(t => t.parallel_group === status.active_parallel_group);
+    const allDone = groupTasks.every(t =>
+      t.status === 'completed' &&
+      t.dispatch_id && (status.completed_dispatches || []).includes(t.dispatch_id)
+    );
+    if (!allDone) {
+      const pendingMembers = groupTasks.filter(t => t.status !== 'completed').map(t => t.id);
+      return JSON.stringify({
+        status: 'in_progress',
+        phase: 'execute',
+        parallel_group: status.active_parallel_group,
+        pending_executors: pendingMembers,
+        message: `Waiting for parallel group "${status.active_parallel_group}" barrier (${pendingMembers.length} remaining).`
+      });
+    }
+    status.active_parallel_group = null;
+  }
+
+  const nextIdx = tasks.findIndex(t => t.status !== 'completed');
+  if (nextIdx === -1) {
+    status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
+    status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
+    status.current_dispatch = null;
+    status.active_dispatches = [];
+    saveWorkflowStatus(resolvedTaskDir, status);
+    return null;
+  }
+
+  const firstTask = tasks[nextIdx];
+  if (firstTask.parallel_group) {
+    const groupName = firstTask.parallel_group;
+    const groupTasks = [];
+    for (let i = nextIdx; i < tasks.length && groupTasks.length < 8; i++) {
+      const t = tasks[i];
+      if (t.parallel_group !== groupName || t.status === 'completed') break;
+      groupTasks.push(t);
+    }
+    if (groupTasks.length >= 2) {
+      return _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir);
+    }
+  }
+  const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', firstTask.agent, firstTask.id, firstTask.task);
+  firstTask.dispatch_id = dispatch.id;
+  status.assigned_agent = firstTask.agent;
+  status.pending_executors = [firstTask.id];
   saveWorkflowStatus(resolvedTaskDir, status);
-  return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, task: nextTask.task, dispatch_id: dispatch.id, task_dir: resolvedTaskDir, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
+  return JSON.stringify({
+    status: 'ready',
+    phase: 'execute',
+    agent: firstTask.agent,
+    task_id: firstTask.id,
+    task: firstTask.task,
+    dispatch_id: dispatch.id,
+    task_dir: resolvedTaskDir,
+    skill_directive: SKILL_RETRIEVAL_DIRECTIVE
+  });
 }
 
 function _dispatchDocumentPhase(status, resolvedTaskDir) {
@@ -119,7 +202,7 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
   const attempt = (status.document_attempts || 0) + 1;
   const taskTitle = isRegen
     ? `## TASK: REGENERATE DELIVERABLE (< 3.0% AI DETECTION QUALITY GATE FAILED)\n\nPrevious attempt failed the strict < 3.0% threshold.\n\n${status.document_gate.feedback}\n\n`
-    : '## TASK\n\nDocument the completed work and validation evidence in final_docs.md.\n';
+    : '## TASK\n\nDocument the completed work and validation evidence and return it via report_from_agent summary with files_created/files_modified/validation fields.\n';
 
   const fontDirectives = (
     '\n### 🖋️ Mandatory Tokubetsu-Jonin Document Engineering Directives:\n' +
@@ -144,44 +227,43 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
     status: isRegen ? 'regenerate' : 'ready',
     phase: 'document',
     agent: 'tokubetsu-jonin',
+    attempt,
     dispatch_id: dispatch.id,
     task_dir: resolvedTaskDir,
     task: taskTitle + fontDirectives,
-    attempts: attempt,
-    feedback: isRegen ? status.document_gate.feedback : null
+    skill_directive: SKILL_RETRIEVAL_DIRECTIVE
   });
 }
 
 function _dispatchReviewPhase(status, resolvedTaskDir) {
-  const { getWorkspaceRoot: _gwr } = require('./runtime_state');
-  const gateProject = _gwr() || process.cwd();
-  const gate = runAislopGate(gateProject, status);
-  if (!status.aislop_gate) status.aislop_gate = gate;
-  saveWorkflowStatus(resolvedTaskDir, status);
-  const gateTarget = gate.enforced
-    ? 'The mechanical gate requires a 100/100 aislop scan (zero findings of any severity) before synthesis.'
-    : 'Run the two-step review (Step 1 aislop_scan, Step 2 anti-slop rules) and verify 0 findings.';
+  const isSlopRegen = status.slop_cycles && status.slop_cycles > 0;
   const dispatch = workflowDispatch(resolvedTaskDir, status, 'review', 'kage');
   status.assigned_agent = 'kage';
   saveWorkflowStatus(resolvedTaskDir, status);
   return JSON.stringify({
-    status: 'ready',
+    status: isSlopRegen ? 're-review' : 'ready',
     phase: 'review',
     agent: 'kage',
+    cycle: status.slop_cycles || 0,
     dispatch_id: dispatch.id,
     task_dir: resolvedTaskDir,
-    task: `Verify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Verify Akatsuki Security Final Gate pass (akatsuki_reviewed: true in kage_review.json or akatsuki_review.json with 0 critical/high findings). Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, akatsuki_reviewed, rollback_plan, ai_slop_findings, ai_slop_clean, and findings.`,
-    aislop_gate: gate
+    task: 'Verify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Verify Akatsuki Security Final Gate pass (akatsuki_reviewed: true in kage_review.json or akatsuki_review.json with 0 critical/high findings). Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity and ai_slop_clean: true.',
+    skill_directive: SKILL_RETRIEVAL_DIRECTIVE
   });
 }
 
 function _processCompletion(resolvedTaskDir, status, phase, sdlcConfig, sdlcManager) {
-  const completion = workflowDispatchCompleted(resolvedTaskDir, status);
-  if (!completion?.dispatch || completion.dispatch.phase !== phase) return { phase };
-  const outcome = handleWorkflowCompletion(completion, phase, status, resolvedTaskDir, sdlcConfig, sdlcManager);
-  if (outcome.response) return { response: outcome.response };
+  let latestResponse = null;
+  let comp = workflowDispatchCompleted(resolvedTaskDir, status);
+  while (comp && comp.dispatch && comp.dispatch.phase === phase) {
+    const outcome = handleWorkflowCompletion(comp, phase, status, resolvedTaskDir, sdlcConfig, sdlcManager);
+    if (outcome.response) latestResponse = outcome.response;
+    phase = outcome.nextPhase || phase;
+    comp = workflowDispatchCompleted(resolvedTaskDir, status);
+  }
+  if (latestResponse) return { response: latestResponse };
   saveWorkflowStatus(resolvedTaskDir, status);
-  return { phase: outcome.nextPhase || phase };
+  return { phase };
 }
 
 function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager) {
@@ -201,7 +283,7 @@ function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager
     const g2Outcome = applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
     if (g2Outcome.ok) {
       if (g2Outcome.nextPhase === 'done') {
-        const finalRep = status.report || (fs.existsSync(path.join(resolvedTaskDir, 'final_report.md')) ? path.join(resolvedTaskDir, 'final_report.md') : '');
+        const finalRep = status.report || '';
         return {
           response: JSON.stringify({ status: 'completed', phase: 'done', final_report_path: finalRep, task_dir: resolvedTaskDir })
         };
@@ -213,15 +295,25 @@ function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager
 }
 
 function runMcpWorkflow(taskDir = null, options = {}) {
-  const resolvedTaskDir = getResolvedTaskDir(taskDir);
+  const cd = require('./client_detection');
+  const { getWorkspaceRoot } = require('./runtime_state');
+  const projPath = options.project_path || getWorkspaceRoot() || process.cwd();
+  const sessionId = options.session_id || cd.getActiveSessionId(projPath);
+  const resolvedTaskDir = getResolvedTaskDir(taskDir, projPath, sessionId);
+  const fs = require('fs');
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
   const status = loadWorkflowStatus(resolvedTaskDir);
   _initWorkflowStatus(status);
 
   const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-  const { getWorkspaceRoot } = require('./runtime_state');
-  const resolvedProjPath = status.project_path || getWorkspaceRoot() || process.cwd();
+  const resolvedProjPath = status.project_path || projPath;
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
+  const prompt = options.prompt || options.task;
+  if (prompt && !status.prompt) {
+    status.prompt = prompt;
+    status.task_id = path.basename(resolvedTaskDir);
+    saveWorkflowStatus(resolvedTaskDir, status);
+  }
   const effPrompt = status.prompt || '';
 
   let phase = status.phase || 'route';
@@ -232,8 +324,8 @@ function runMcpWorkflow(taskDir = null, options = {}) {
   phase = gateResult.phase;
 
   if (phase === 'plan_approval' || (phase === 'plan' && (status.hitl_gate === 'plan_approval' || status.hitl_gate === 'Gate 1 (Plan Approval)') && !status.plan_approved)) {
-    const planGateRes = _checkPlanApproval(status, resolvedTaskDir, sdlcConfig, sdlcManager);
-    if (planGateRes) return planGateRes;
+    const approvalPrompt = _checkPlanApproval(status, resolvedTaskDir, sdlcConfig, sdlcManager);
+    if (approvalPrompt) return approvalPrompt;
     phase = status.phase;
   }
 
@@ -252,7 +344,6 @@ function runMcpWorkflow(taskDir = null, options = {}) {
     saveWorkflowStatus(resolvedTaskDir, status);
     phase = 'explore';
   }
-
   const compRes = _processCompletion(resolvedTaskDir, status, phase, sdlcConfig, sdlcManager);
   if (compRes.response) return compRes.response;
   phase = compRes.phase;
@@ -268,7 +359,7 @@ function runMcpWorkflow(taskDir = null, options = {}) {
 
   if (phase === 'research') {
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'research', 'chunin');
-    const planContext = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || '';
+    const planContext = status.plan || '';
     const qLine = planContext.split(/\r?\n/).find(l => l.startsWith('research_query:'));
     status.assigned_agent = 'chunin';
     saveWorkflowStatus(resolvedTaskDir, status);
@@ -294,12 +385,36 @@ function runMcpWorkflow(taskDir = null, options = {}) {
   if (phase === 'review') return _dispatchReviewPhase(status, resolvedTaskDir);
 
   if (phase === 'synthesize') {
-    return handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManager);
+    const akatsukiGateData = options.akatsuki_gate || (status.review && status.review.akatsuki_gate) || null;
+    const synthOutcome = handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManager, effPrompt, akatsukiGateData);
+    if (synthOutcome.response) return synthOutcome.response;
   }
 
-  return JSON.stringify({ status: 'error', message: `Unknown or stuck workflow phase: ${phase}`, phase });
+  if (phase === 'delivery_signoff' || status.hitl_gate === 'delivery_signoff' || (phase === 'done' && !status.human_signed_off)) {
+    return _checkDeliverySignoff(status, resolvedTaskDir, sdlcConfig, sdlcManager);
+  }
+
+  if (phase === 'done') {
+    cleanupTransientScratchFiles(resolvedTaskDir);
+    const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
+    const finalReport = status.report || '';
+    const res = JSON.stringify({ status: 'completed', phase: 'done', task_id: rootId, task_dir: resolvedTaskDir, final_report_path: finalReport });
+    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+    return res;
+  }
+
+  return JSON.stringify({ status: 'in_progress', phase, task_dir: resolvedTaskDir, current_dispatch: status.current_dispatch });
 }
 
 module.exports = {
-  runMcpWorkflow
+  runMcpWorkflow,
+  _initWorkflowStatus,
+  _checkPlanApproval,
+  _checkDeliverySignoff,
+  _dispatchPlanPhase,
+  _dispatchExecutePhase,
+  _dispatchDocumentPhase,
+  _dispatchReviewPhase,
+  _processCompletion,
+  _handleGateOptions
 };

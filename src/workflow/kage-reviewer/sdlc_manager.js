@@ -135,15 +135,23 @@ function createTask(data = {}, dbPath = null) {
   }
 }
 
+function _matchesScope(row, scope) {
+  if (!scope || typeof scope !== 'object' || !row) return true;
+  if (scope.sessionId && row.session_id && row.session_id !== scope.sessionId) return false;
+  if (scope.client && row.client && row.client !== scope.client) return false;
+  if (scope.projectPath && row.project_path && row.project_path !== scope.projectPath && !row.project_path.includes(scope.projectPath)) return false;
+  return true;
+}
+
 /**
  * Retrieves a single task by ID.
  */
-function getTask(id, dbPath = null) {
+function getTask(id, dbPath = null, scope = null) {
   if (!id) return null;
   const conn = getDbConn(dbPath);
   try {
     const row = conn.prepare('SELECT * FROM sdlc_tasks WHERE id = ?').get(id);
-    if (!row) return null;
+    if (!row || (scope && !_matchesScope(row, scope))) return null;
     return {
       ...row,
       dor_result: safeJsonParse(row.dor_result, {}),
@@ -259,7 +267,7 @@ function listTasks({ projectPath = null, sessionId = null, client = null, status
 /**
  * Updates an existing SDLC task.
  */
-function updateTask(id, updates = {}, dbPath = null) {
+function updateTask(id, updates = {}, dbPath = null, scope = null) {
   if (!id) return null;
   const conn = getDbConn(dbPath);
   try {
@@ -274,8 +282,14 @@ function updateTask(id, updates = {}, dbPath = null) {
         evidence: updates.evidence || null,
         slop_result: updates.slop_result || null,
         slop_cycles: updates.slop_cycles || 0,
-        project_path: updates.project_path || ''
+        project_path: updates.project_path || '',
+        session_id: updates.session_id || _resolveSessionId(updates.project_path),
+        client: updates.client || _resolveClient()
       }, dbPath);
+    }
+
+    if (scope && !_matchesScope(existing, scope)) {
+      return { status: 'error', reason: 'scope_mismatch' };
     }
 
     const fields = [];
@@ -341,10 +355,14 @@ function updateTask(id, updates = {}, dbPath = null) {
  * @param {string} [dbPath] - Optional custom DB path
  * @returns {boolean} True if a task was deleted, false otherwise
  */
-function deleteTask(id, dbPath = null) {
+function deleteTask(id, dbPath = null, scope = null) {
   if (!id) return false;
   const conn = getDbConn(dbPath);
   try {
+    if (scope) {
+      const existing = conn.prepare('SELECT * FROM sdlc_tasks WHERE id = ?').get(id);
+      if (!existing || !_matchesScope(existing, scope)) return false;
+    }
     const info = conn.prepare('DELETE FROM sdlc_tasks WHERE id = ?').run(id);
     return info.changes > 0;
   } finally {
@@ -409,9 +427,9 @@ function clearTasks(dbPath = null) {
 /**
  * Records validation and attestation evidence into sdlc_tasks.
  */
-function recordEvidence(id, evidenceData, dbPath = null) {
+function recordEvidence(id, evidenceData, dbPath = null, scope = null) {
   if (!id) return null;
-  const existing = getTask(id, dbPath);
+  const existing = getTask(id, dbPath, scope);
   if (!existing) {
     return createTask({
       id,
@@ -424,13 +442,16 @@ function recordEvidence(id, evidenceData, dbPath = null) {
     }, dbPath);
   }
 
+  const existingEv = (typeof existing.evidence === 'object' && existing.evidence !== null) ? existing.evidence : {};
+  const mergedEv = { ...existingEv, ...evidenceData };
+
   return updateTask(id, {
-    evidence: evidenceData,
-    status: evidenceData.verified ? 'completed' : (existing.status === 'completed' ? 'completed' : 'unverified'),
+    evidence: mergedEv,
+    status: evidenceData.is_phase_dispatch ? (existing.status || 'in_progress') : (evidenceData.verified ? 'completed' : (existing.status === 'completed' ? 'completed' : 'unverified')),
     project_path: existing.project_path || evidenceData.project_path || '',
     session_id: existing.session_id || evidenceData.session_id || '',
     client: existing.client || evidenceData.client || ''
-  }, dbPath);
+  }, dbPath, scope);
 }
 
 /**
