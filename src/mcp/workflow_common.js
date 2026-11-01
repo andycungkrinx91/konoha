@@ -121,6 +121,7 @@ function isCleanValidation(validationList, isPentest = false, allowEmpty = true)
         .replace(/\b0\s+warnings?/g, '')
         .replace(/\b0\s+(?:critical\s+)?vulnerabilities\b/g, '')
         .replace(/\b0\s+unhandled\s+exploits\b/g, '')
+        .replace(/\b0\s+fail(?:ed|ures?)?\b/g, '')
         .replace(/exit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*0\b/g, '');
       return ['error', 'warning', 'fail'].some(w => s.includes(w));
     });
