@@ -490,11 +490,10 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
 
 ---
 
-## 🔬 LangGraph.js Sequential Research & Architectural Plan (Research-Only Specification)
+## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.16 Production Architecture)
 
-> **Architectural Boundary Notice (Release 2.2.15)**:
-> This section is a **research and design document only**. **Zero runtime changes, zero workflow modifications, and zero LangGraph dependencies are introduced in release 2.2.15**. The canonical orchestration engine remains strictly powered by `src/mcp/workflow_runner.js` and `src/mcp/workflow.js`. No shared cross-session, cross-project, or cross-client checkpoints or memory exist. Any prototype or implementation is strictly deferred to a future decision gate.
-
+> **Architectural Specification & Runtime Architecture (Release 2.2.16)**:
+> In release 2.2.16, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
 ---
 
 ### 1. Phase 1: Inventory of Current Routing & Runtime Invariants
@@ -652,9 +651,9 @@ LangGraph.js provides native parallel branch execution through the `Send` API an
    - **Filesystem Race Conditions**: Without distributed filesystem locking or transactional file buffers, parallel subagents writing to shared paths risk patch clobbering, race conditions in Git working trees, and broken diff matching.
    - **Token Spike & Rate Limit Exhaustion**: Simultaneous invocations of high-tier LLM models across multiple agents saturate provider concurrency pools and trigger HTTP 429 rate limit backoffs.
    - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
-3. **Architectural Evaluation Conclusion**:
-   - **STATUS: EVALUATED ONLY — PERMANENTLY INACTIVE IN 2.2.15**.
-   - Parallel fan-out is explicitly disallowed for code-modifying phases. All node transitions remain strictly sequential to preserve deterministic working tree states and zero race conditions.
+3. **Architectural Implementation (v2.2.16)**:
+   - **STATUS: ACTIVE IN v2.2.16 (`src/mcp/langgraph/`)**.
+   - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
 
 ---
 
@@ -704,15 +703,13 @@ Before any graph-based engine can be introduced beyond research, it must clear n
 
 ---
 
-### 6. Phase 6: Opt-In Isolated Prototype (Deferred Future Gate)
+### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.16)
 
-1. **Deferred Decision**:
-   - **No code, adapter, or prototype implementation is permitted in release 2.2.15**.
-   - Prototyping remains a future exploratory proposal. Prototyping will only commence after explicit human approval and dedicated architectural signoff.
-2. **Prototype Isolation Sandbox**:
-   - When authorized in a future release, prototype code must reside exclusively in an isolated experimental directory (`src/experimental/langgraph/`), without altering `src/mcp/workflow.js` or `src/mcp/workflow_runner.js`.
-   - It must never be bundled into production npm distribution packages without passing full security compliance audits.
-
+1. **Release v2.2.16 Activation**:
+   - Integrated as the production state-machine orchestrator in `src/mcp/langgraph/`.
+   - Backward compatibility preserved via `src/mcp/workflow.js` facade functions (`sanninWorkflowInit`, `sanninWorkflowNext`, `sanninWorkflowStatus`, `sanninWorkflowReset`, `runMcpWorkflow`, `runSannin`).
+2. **Zero-Native Pure Node Checkpointer**:
+   - `KonohaCheckpointSaver` implements `BaseCheckpointSaver` on `node:sqlite`, eliminating native C++ dependencies while providing WAL mode, atomic commits, and thread-level state isolation across `lg_checkpoints` and `lg_writes`.
 ---
 
 ### 📚 Official LangGraph.js Documentation Citations

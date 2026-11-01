@@ -365,11 +365,11 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ---
 
-### 2.19 LangGraph.js Sequential Research Architecture (Research Specification)
+### 2.19 LangGraph.js Workflow Orchestration Engine (v2.2.16 Production Architecture)
 
-* **Purpose:** Design-only formal mapping of Konoha's canonical 8-phase finite state machine into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, and opt-in prototype criteria.
-* **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Sequential Research & Architectural Plan*).
-* **Runtime Status:** **Research and design document only**. Zero runtime changes, zero workflow alterations, and zero LangGraph.js dependencies in release 2.2.15. The production engine remains strictly powered by `src/mcp/workflow_runner.js` and `src/mcp/workflow.js`.
+* **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
+* **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.16** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.
