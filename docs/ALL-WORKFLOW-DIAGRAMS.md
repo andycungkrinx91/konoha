@@ -21,6 +21,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 13. [Workflow 12: Unified Prompt Inbox Queue & Governed Agent Dispatch Pipeline](#13-workflow-12-unified-prompt-inbox-queue--governed-agent-dispatch-pipeline)
 14. [Workflow 13: Native Document Engineering & Animated WebP Export Pipeline](#14-workflow-13-native-document-engineering--animated-webp-export-pipeline)
 15. [Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle](#15-workflow-14-akatsuki-security-controls--dual-mode-lab-lifecycle)
+16. [Workflow 15: LangGraph.js Production State Graph & Error Edge Circuit Breaker](#16-workflow-15-langgraphjs-production-state-graph--error-edge-circuit-breaker)
 
 ---
 
@@ -52,7 +53,7 @@ config:
 ---
 flowchart TB
     UserPrompt["End User / Client Prompt"] --> Clients["8 Supported Coding Environments<br/>Antigravity CLI/IDE · Cursor · Claude Code<br/>OpenCode · Command Code · Codex · Pi · OMP"]
-    Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
+    Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js Production StateGraph Router)"]
 
     subgraph CoreMCP ["Konoha MCP & Storage Foundation"]
         SanninRouter["✧ Sannin MCP Router<br/>(Prompt Triage &amp; Delegation)"]
@@ -132,7 +133,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Structured MCP arguments<br/>• Initialize status.json &amp; SQLite WAL<br/>• Assess task readiness"]
+    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin &amp; LangGraph StateGraph)<br/>• LangGraph.js Production Orchestrator<br/>• Per-Turn Budget Governor (8k default)<br/>• Node Guard &amp; Circuit Breaker"]
     Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Structured report_from_agent payload"]
     Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate contracted task checklist<br/>• Register tasks in sdlc_tasks"]
 
@@ -144,13 +145,13 @@ flowchart TD
     CheckResearch -- "Approved to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Planner-marked parallel fan-out (parallel_group, cap 8)<br/>• Barrier synchronization on completed dispatches<br/>• Jonin: UI · Anbu: Backend/DevOps/QA<br/>• Framework build &amp; validation commands"]
 
     Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Return documentation deliverables<br/>• AI detection threshold &lt; 3.0%"]
-    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage, 🛡️ Akatsuki &amp; @advisor)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Two-Step Zero-AI-Slop Pre-Gate (100/100)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
+    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage review_node, 🛡️ Akatsuki &amp; @advisor)<br/>• LangGraph review_node &amp; runAislopGate (100/100)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
 
     Phase5 --> CheckReview{"Security, Slop &amp; Confidence<br/>Review Approved?"}
     CheckReview -- "Approved (≥ 98% Conf, Security Cleared &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence<br/>• GATE 2: Delivery Sign-Off (pending_human_signoff)"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
-    CheckReview -- "Security Flaw / Slop / Advisor Reject" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
+    CheckReview -- "Security Flaw / Slop / Advisor Reject" --> Remediation["LangGraph remediate_node Remediation Loop<br/>• Convert findings &amp; feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Error edge routing to node_error on cap exceed<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
     Remediation --> Phase3
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -1059,4 +1060,83 @@ flowchart TB
     class DockerSetup,LXCSetup,SandboxReady,EvidenceCollection sandNode;
     class GateHandoff passNode;
     class AuthDenied,PersonaDenied failNode;
+```
+
+
+---
+
+## 16. Workflow 15: LangGraph.js Production State Graph & Error Edge Circuit Breaker
+
+```mermaid
+---
+title: LangGraph.js Production State Graph, Per-Turn Budget Governor & Circuit Breaker Error Edge (v2.2.17)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    StartGraph([__start__]) --> ClassifyNode[classify_intent]
+    
+    ClassifyNode -- "Fast-Track Intent" --> CompleteNode[complete_node]
+    ClassifyNode -- "Standard Workflow" --> PlanNode[plan_node]
+    
+    PlanNode --> BriefNode[brief_node]
+    BriefNode --> TodoNode[todo_node]
+    TodoNode --> DispatchNode[dispatch_node]
+    
+    DispatchNode --> ExecuteNode[execute_node]
+    
+    ExecuteNode -- "Has More Tasks" --> DispatchNode
+    ExecuteNode -- "Document Phase" --> ReviewNode[review_node]
+    
+    ReviewNode -- "Gate Passed (Conf >= 98% & Slop Clean)" --> CompleteNode
+    ReviewNode -- "Remediation Needed (Cycles <= 7)" --> RemediateNode[remediate_node]
+    ReviewNode -- "Remediation Cap Exceeded (Cycles > 7)" --> ErrorNode[node_error]
+    
+    RemediateNode --> ExecuteNode
+    
+    ClassifyNode -. "Turn Budget Exceeded" .-> BudgetNode[budget_exceeded]
+    PlanNode -. "Turn Budget Exceeded" .-> BudgetNode
+    DispatchNode -. "Turn Budget Exceeded" .-> BudgetNode
+    ExecuteNode -. "Turn Budget Exceeded" .-> BudgetNode
+    ReviewNode -. "Turn Budget Exceeded" .-> BudgetNode
+    
+    ClassifyNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    PlanNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    ExecuteNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    ReviewNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    
+    CompleteNode --> EndGraph([__end__])
+    BudgetNode --> EndGraph
+    ErrorNode --> EndGraph
+    
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef coreNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef warnNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef successNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    
+    class StartGraph,EndGraph startEnd;
+    class ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode coreNode;
+    class BudgetNode,ReviewNode warnNode;
+    class ErrorNode,RemediateNode errNode;
+    class CompleteNode successNode;
 ```

@@ -30,7 +30,7 @@ config:
 ---
 flowchart TB
     User["End User Prompt"] --> Clients["8 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex · Pi (pi.dev) · OMP"]
-    Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
+    Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js Production StateGraph · Sannin Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
         KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
@@ -122,7 +122,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.16), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `kali_tools`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.17), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `kali_tools`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -490,10 +490,10 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
 
 ---
 
-## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.16 Production Architecture)
+## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.17 Production Architecture)
 
-> **Architectural Specification & Runtime Architecture (Release 2.2.16)**:
-> In release 2.2.16, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
+> **Architectural Specification & Runtime Architecture (Release 2.2.17)**:
+> In release 2.2.17, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
 ---
 
 ### 1. Phase 1: Inventory of Current Routing & Runtime Invariants
@@ -528,11 +528,11 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
 
 ### 2. Phase 2: One-to-One Stage-to-Graph-Node Mapping
 
-A sequential LangGraph.js implementation models the 8 phases as an explicit `StateGraph` where each node preserves identical inputs, outputs, branching conditions, and gates without changing lifecycle semantics:
+The production LangGraph.js implementation in `src/mcp/langgraph/` models the orchestration lifecycle as a compiled cyclic `StateGraph` with per-turn token budget governor, error-edge circuit breaker, and two-stage HITL gates:
 
 ```mermaid
 ---
-title: Sequential LangGraph.js Architecture Mapping (Research Model)
+title: LangGraph.js Production StateGraph Architecture (Active in v2.2.17)
 config:
   theme: base
   themeVariables:
@@ -579,7 +579,7 @@ flowchart TD
     
     BranchReview -->|Failed & slop_cycles < 7| NodeRemediation["Node: remediation<br/><i>(anbu / jonin)</i>"]
     NodeRemediation --> NodeReview
-    BranchReview -->|Failed & slop_cycles >= 7| NodeFailClosed["Node: fail_closed<br/><i>(circuit_breaker)</i>"]
+    BranchReview -->|Failed & slop_cycles >= 7| NodeFailClosed["Node: node_error<br/><i>(circuit_breaker error edge)</i>"]
     BranchReview -->|Passed| Gate2Interrupt{"Gate 2: interrupt()<br/><i>(pending_human_signoff)</i>"}
     
     Gate2Interrupt -->|Remediation / Choice 2| NodeExecute
@@ -651,8 +651,8 @@ LangGraph.js provides native parallel branch execution through the `Send` API an
    - **Filesystem Race Conditions**: Without distributed filesystem locking or transactional file buffers, parallel subagents writing to shared paths risk patch clobbering, race conditions in Git working trees, and broken diff matching.
    - **Token Spike & Rate Limit Exhaustion**: Simultaneous invocations of high-tier LLM models across multiple agents saturate provider concurrency pools and trigger HTTP 429 rate limit backoffs.
    - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
-3. **Architectural Implementation (v2.2.16)**:
-   - **STATUS: ACTIVE IN v2.2.16 (`src/mcp/langgraph/`)**.
+3. **Architectural Implementation (v2.2.17)**:
+   - **STATUS: ACTIVE IN v2.2.17 (`src/mcp/langgraph/`)**.
    - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
 
 ---
@@ -703,9 +703,9 @@ Before any graph-based engine can be introduced beyond research, it must clear n
 
 ---
 
-### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.16)
+### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.17)
 
-1. **Release v2.2.16 Activation**:
+1. **Release v2.2.17 Activation**:
    - Integrated as the production state-machine orchestrator in `src/mcp/langgraph/`.
    - Backward compatibility preserved via `src/mcp/workflow.js` facade functions (`sanninWorkflowInit`, `sanninWorkflowNext`, `sanninWorkflowStatus`, `sanninWorkflowReset`, `runMcpWorkflow`, `runSannin`).
 2. **Zero-Native Pure Node Checkpointer**:

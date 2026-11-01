@@ -7,9 +7,9 @@ const ROOT_DIR = path.resolve(__dirname, '..', '..');
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.14';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.17';
   } catch (_) {
-    return '2.2.14';
+    return '2.2.17';
   }
 })();
 
@@ -180,21 +180,21 @@ function generateOrchestrationHtml() {
   const W = 1200;
   const H = 675;
 
-  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `Two-Stage HITL Gates (Gate 1 & Gate 2) & Single-Thread Persona Adoption · v${PKG_VERSION}`, { text: '83–98% TOKEN SAVINGS', col: C.azure });
-  const footer = renderFooter(W, H, '47 canonical MCP tools · 8 coding clients · Gate 1 (pending_plan_approval) · Gate 2 (pending_human_signoff)');
+  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `LangGraph.js StateGraph Engine · Per-Turn Token Budget Governor & Circuit Breaker · v${PKG_VERSION}`, { text: '83–98% TOKEN SAVINGS', col: C.azure });
+  const footer = renderFooter(W, H, '47 canonical MCP tools · LangGraph.js Cyclic StateGraph · Turn Budget Governor · Error Edge Breaker · Gate 1 & Gate 2');
 
   const cards = [
     renderCard([40, 95, 180, 56], C.azure, 'USER PROMPT', 'user · resume prompt'),
-    renderCard([260, 88, 240, 70], C.violet, 'PRIMARY ORCHESTRATOR', 'main agent · 8 coding clients'),
+    renderCard([260, 88, 245, 70], C.violet, 'PRIMARY ORCHESTRATOR', 'LangGraph.js StateGraph · 8 clients'),
     renderCard([40, 195, 270, 56], C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
     renderCard([340, 195, 280, 56], C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · aislop_scan'),
     renderCard([650, 190, 270, 66], C.amber, 'GATE 1: PLAN APPROVAL', 'pending_plan_approval · IDE / Telegram'),
-    renderCard([320, 295, 340, 58], C.violet, '3. STRUCTURED MCP DELEGATION', 'task, context, constraints, skills'),
+    renderCard([320, 295, 345, 58], C.violet, '3. LANGGRAPH STATE DISPATCH', 'PLAN → BRIEF → TODO · Turn Budget (8k)'),
     renderCard([230, 390, 700, 76], C.violet, '4. SPECIALIST NINJA AGENTS', { detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu', 'akatsuki'] }),
     renderCard([15, 510, 140, 64], C.teal, '5. TASK REPORT', 'report_from_agent'),
     renderCard([170, 510, 210, 64], C.crimson, '6. AKATSUKI BLUE GATE', 'SAST · 0 CVEs · secret scan'),
-    renderCard([395, 510, 200, 64], C.amber, '7. KAGE REVIEW GATE', 'zero-AI-slop · ≥98% conf'),
-    renderCard([610, 510, 220, 64], C.amber, 'GATE 2: SIGN-OFF', 'pending_human_signoff · HITL'),
+    renderCard([395, 510, 200, 64], C.amber, '7. KAGE REVIEW GATE', 'LangGraph review_node · 0 slop'),
+    renderCard([610, 510, 220, 64], C.amber, 'GATE 2: SIGN-OFF', 'pending_human_signoff · auto_signoff'),
     renderCard([845, 515, 160, 54], C.violet, '8. SYNTHESIZE', 'sannin final report'),
     renderCard([1020, 515, 145, 54], C.azure, 'RESPONSE', 'deliver to user')
   ].join('\n');
@@ -235,8 +235,8 @@ function generateJoninHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'JONIN TASTE-SKILL PREMIUM UI BUILD PIPELINE', `Zero-AI-Slop & Akatsuki Security-Gated Frontend Engineering across All Modern Frameworks · v${PKG_VERSION}`, { text: 'TASTE-SKILL ENFORCED', col: C.violet });
-  const footer = renderFooter(W, H, 'Mandatory layout invariants · pure light mode · 100% exact mockup fidelity · 0 errors 0 warnings');
+  const header = renderHeader(W, 'JONIN TASTE-SKILL PREMIUM UI BUILD PIPELINE', `LangGraph execute_node · Zero-AI-Slop & Akatsuki Security-Gated Frontend Engineering · v${PKG_VERSION}`, { text: 'TASTE-SKILL ENFORCED', col: C.violet });
+  const footer = renderFooter(W, H, 'LangGraph execute_node · Mandatory layout invariants · pure light mode · 100% exact mockup fidelity · 0 errors 0 warnings');
 
   const containerInvariants = `
     <g transform="translate(50, 195)">
@@ -318,7 +318,7 @@ function generateKageHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'KAGE REVIEWER 98% CONFIDENCE & DELIVERY GATE PIPELINE', `Two-Step Zero-AI-Slop Pre-Gate, Socket Supply Chain & Autonomous Remediation Loop · v${PKG_VERSION}`, { text: '98% MINIMUM CONFIDENCE', col: C.emerald });
+  const header = renderHeader(W, 'KAGE REVIEWER 98% CONFIDENCE & DELIVERY GATE PIPELINE', `LangGraph.js review_node & remediate_node · Circuit Breaker Cap ≤ 7 · v${PKG_VERSION}`, { text: '98% MINIMUM CONFIDENCE', col: C.emerald });
   const footer = renderFooter(W, H, 'Step 1: aislop_scan (100/100) · Step 2: antislop (0 findings) · Akatsuki Blue Gate cleared · Gate 2 (pending_human_signoff)');
 
   const cards = [
@@ -327,11 +327,11 @@ function generateKageHtml() {
     renderCard([515, 130, 215, 68], C.amber, '3. TWO-STEP ZERO-SLOP', '100/100 score · 0 slop rules'),
     renderCard([760, 130, 205, 68], C.violet, '4. SUPPLY CHAIN GATE', 'Socket 0 alerts · license audit'),
     renderCard([995, 130, 165, 68], C.emerald, '5. CONFIDENCE EVAL', 'weighted 5 categories'),
-    renderCard([890, 290, 270, 64], C.violet, 'AUTONOMOUS KAGE TRIAGE', 'src/sdlc_manager.js · circuit breaker'),
+    renderCard([890, 290, 270, 64], C.violet, 'AUTONOMOUS REMEDIATION', 'LangGraph remediate_node · circuit breaker'),
     renderCard([540, 310, 290, 64], C.crimson, 'BACKEND / CVE FIX (♠ ANBU)', 'remediates code, CVEs, or logic'),
     renderCard([540, 410, 290, 64], C.azure, 'UI / CRAFT FIX (♦ JONIN)', 'cleans styling, contrast, or slop'),
     renderCard([60, 560, 320, 72], C.teal, '6. CONFIDENCE APPROVED', { detail: '≥98.0% score · 0 findings · advisor OK', chips: ['≥98.0%', 'PASS'] }),
-    renderCard([420, 560, 340, 72], C.amber, '7. GATE 2: SIGN-OFF', { detail: 'pending_human_signoff · HITL verdict', chips: ['HITL GATE', 'APPROVED'] }),
+    renderCard([420, 560, 340, 72], C.amber, '7. GATE 2: SIGN-OFF', { detail: 'pending_human_signoff · auto_signoff', chips: ['HITL GATE', 'APPROVED'] }),
     renderCard([800, 560, 340, 72], C.emerald, '8. SANNIN SYNTHESIS & RELEASE', { detail: 'final_report.md · release to host', chips: ['RELEASE', 'VERIFIED'] })
   ].join('\n');
 
@@ -367,8 +367,8 @@ function generateQaHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'TOKEN-PRESERVING QA AUTOMATION WORKFLOW', `Deterministic Codification & Headless E2E Verification (♠ Anbu Owner) · v${PKG_VERSION}`, { text: 'TOKEN PRESERVATION', col: C.azure });
-  const footer = renderFooter(W, H, 'Zero LLM tokens during test runs · <2,000 chars capped evidence · autonomous fix loops');
+  const header = renderHeader(W, 'TOKEN-PRESERVING QA AUTOMATION WORKFLOW', `LangGraph execute_node · Deterministic Codification & Headless E2E Verification · v${PKG_VERSION}`, { text: 'TOKEN PRESERVATION', col: C.azure });
+  const footer = renderFooter(W, H, 'LangGraph execute_node · Zero LLM tokens during test runs · <2,000 chars capped evidence · autonomous fix loops');
 
   const cards = [
     renderCard([50, 130, 190, 68], C.azure, '1. EXPLORE', 'agent-browser scoped'),
@@ -381,7 +381,7 @@ function generateQaHtml() {
     renderCard([540, 410, 280, 64], C.azure, 'UI BUG FIX (♦ JONIN)', 'Tailwind CSS / responsive fix'),
     renderCard([50, 560, 330, 72], C.teal, '6. EVIDENCE PERSISTENCE', 'Save run_id to SQLite sdlc_tasks & report'),
     renderCard([420, 560, 340, 72], C.crimson, '7. AKATSUKI BLUE GATE', '🛡️ SAST scan, dependency CVEs & secrets audit'),
-    renderCard([800, 560, 350, 72], C.emerald, '8. KAGE GATE 2 & DELIVERY', 'pending_human_signoff · Kage ≥98% confidence')
+    renderCard([800, 560, 350, 72], C.emerald, '8. LANGGRAPH REVIEW & RELEASE', 'pending_human_signoff · Kage ≥98% confidence')
   ].join('\n');
 
   const paths = `
@@ -417,8 +417,8 @@ function generateTelegramHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & TWO-STAGE HITL GATES', `Interactive Gate 1 & Gate 2 Inline Keyboards, Encrypted HTTPS & Zero-Port Ingress · v${PKG_VERSION}`, { text: 'HITL GATES ENABLED', col: C.azure });
-  const footer = renderFooter(W, H, 'Interactive [Approve] / [Reject] callbacks · /approval list · /doctor diagnostics · /session switcher');
+  const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & TWO-STAGE HITL GATES', `LangGraph StateGraph Ingress · Interactive Gate 1 & Gate 2 Inline Keyboards · v${PKG_VERSION}`, { text: 'HITL GATES ENABLED', col: C.azure });
+  const footer = renderFooter(W, H, 'LangGraph Two-Stage HITL Gates · Interactive [Approve] / [Reject] callbacks · /approval list · /doctor');
 
   const topTrackContainer = `
     <g transform="translate(50, 120)">
@@ -450,8 +450,8 @@ function generateTelegramHtml() {
     renderCard([910, 180, 210, 68], C.emerald, 'AUTHORIZED USER', 'one-tap [Approve] / [Reject] buttons'),
     renderCard([80, 480, 220, 72], C.azure, 'USER COMMANDS & ACTIONS', '/approval, /doctor, /session, /sh, /run'),
     renderCard([350, 480, 230, 72], C.violet, 'WHITELISTED POLLER', 'long polling timeout=30 · callbacks'),
-    renderCard([630, 480, 230, 72], C.amber, 'TWO-STAGE HITL RESOLUTION', 'pending_plan_approval & sign-off'),
-    renderCard([910, 480, 210, 72], C.emerald, 'AUTONOMOUS WORKER', 'resumes SDLC execution DAG')
+    renderCard([630, 480, 230, 72], C.amber, 'LANGGRAPH HITL RESOLUTION', 'pending_plan_approval & sign-off'),
+    renderCard([910, 480, 210, 72], C.emerald, 'LANGGRAPH WORKER DAG', 'resumes StateGraph execution DAG')
   ].join('\n');
 
   const paths = `
@@ -476,8 +476,8 @@ function generateAkatsukiHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'AKATSUKI SECURITY CONTROLS & DUAL-MODE LAB LIFECYCLE', `Dual-Mode Isolation (Blue SAST vs Red Pentest) · Container Sandboxing · Fail-Closed Invariants · v${PKG_VERSION}`, { text: 'SECURITY GUARDIAN', col: C.crimson });
-  const footer = renderFooter(W, H, 'mode: blue (defensive host default) · mode: red (automated isolated lab setup) · env: docker (default) | lxc · RoE gating');
+  const header = renderHeader(W, 'AKATSUKI SECURITY CONTROLS & DUAL-MODE LAB LIFECYCLE', `LangGraph review_node Pre-Condition · Dual-Mode Isolation · Container Sandboxing · v${PKG_VERSION}`, { text: 'SECURITY GUARDIAN', col: C.crimson });
+  const footer = renderFooter(W, H, 'LangGraph review_node Pre-Condition · mode: blue (defensive host default) · mode: red (isolated lab) · RoE gating');
 
   const topTrackContainer = `
     <g transform="translate(40, 85)">
@@ -529,7 +529,7 @@ function generateAkatsukiHtml() {
     renderCard([440, 480, 280, 66], C.azure, '14. TOKUBETSU-JONIN PDF REPORT', 'publication-grade 8-section report'),
     renderCard([820, 378, 320, 66], C.teal, 'STRICT PERSONA BOUNDARY', 'offensive skills restricted to @akatsuki'),
     renderCard([820, 480, 320, 66], C.crimson, 'REMEDIATION LOOP (♠ ANBU)', 'synthesizes patches for findings'),
-    renderCard([820, 580, 320, 78], C.emerald, '15. KAGE DELIVERY GATE', { detail: 'confidence ≥98% · 0 unhandled CVEs', chips: ['0 CRIT/HIGH', 'FAIL-CLOSED'] })
+    renderCard([820, 580, 320, 78], C.emerald, '15. LANGGRAPH REVIEW GATE', { detail: 'confidence ≥98% · 0 unhandled CVEs', chips: ['0 CRIT/HIGH', 'FAIL-CLOSED'] })
   ].join('\n');
 
   const paths = `

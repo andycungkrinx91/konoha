@@ -437,7 +437,7 @@ function getCliVersion() {
       if (pkg.version) return pkg.version;
     }
   } catch (_) { /* intentional fallback */ }
-  return '2.2.14';
+  return '2.2.17';
 }
 
 function drawLogo() {

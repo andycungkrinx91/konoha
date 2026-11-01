@@ -24,7 +24,8 @@ async function planNode(state) {
     }
 
     const delta = estimateTokens(choiceObj);
-    const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
     return {
       status,
       plan: status.plan,
@@ -32,6 +33,7 @@ async function planNode(state) {
       hitlPending: false,
       hitlStage: null,
       tokensUsed: delta,
+      turnTokensUsed: delta,
       budgetExceeded: budgetCheck.budgetExceeded,
     };
   }
@@ -47,7 +49,8 @@ async function planNode(state) {
 
     const planData = status.plan || 'Plan approved.';
     const delta = estimateTokens(planData);
-    const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
     return {
       status,
       plan: planData,
@@ -55,6 +58,7 @@ async function planNode(state) {
       hitlPending: false,
       hitlStage: null,
       tokensUsed: delta,
+      turnTokensUsed: delta,
       budgetExceeded: budgetCheck.budgetExceeded,
     };
   }
@@ -65,7 +69,8 @@ async function planNode(state) {
 
   const prompt = buildGate1Prompt(status, taskDir, rootTaskId, status.plan);
   const delta = estimateTokens(prompt);
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     status,
@@ -75,6 +80,7 @@ async function planNode(state) {
     hitlStage: 'gate1',
     result: prompt,
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

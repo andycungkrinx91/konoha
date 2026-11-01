@@ -32,13 +32,15 @@ async function briefNode(state) {
   }
 
   const delta = estimateTokens(brief);
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     status,
     brief,
     phase: 'todo',
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

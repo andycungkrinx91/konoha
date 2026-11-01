@@ -22,11 +22,13 @@ async function classifyNode(state, config) {
   };
 
   const delta = estimateTokens(payload);
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     ...payload,
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

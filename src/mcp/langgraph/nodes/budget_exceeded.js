@@ -19,8 +19,9 @@ async function budgetExceededNode(state) {
     status: 'paused_budget_exceeded',
     phase: state.phase,
     tokens_used: state.tokensUsed,
+    turn_tokens_used: state.turnTokensUsed || state.tokensUsed,
     token_budget: state.tokenBudget,
-    message: `Workflow halted: token budget exceeded (${state.tokensUsed} >= ${state.tokenBudget}). State persisted for resumption with higher ceiling.`,
+    message: `Workflow halted: token budget exceeded (${state.turnTokensUsed || state.tokensUsed} >= ${state.tokenBudget}). State persisted for resumption with higher ceiling.`,
     task_dir: taskDir,
   };
 
@@ -28,7 +29,7 @@ async function budgetExceededNode(state) {
     status,
     budgetExceeded: true,
     result: payload,
-    error: payload.message,
+    error: null,
   };
 }
 

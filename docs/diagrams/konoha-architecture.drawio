@@ -25,10 +25,10 @@
                 <mxCell id="p1-l2" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f3ff;strokeColor=#a78bfa;fontColor=#4c1d95;fontStyle=1;" value="Orchestration and specialist agents" vertex="1">
                     <mxGeometry height="220" width="1520" x="40" y="280" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-router" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontStyle=1;" value="Primary Orchestrator" vertex="1">
+                <mxCell id="p1-router" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontStyle=1;" value="Primary Orchestrator&#10;(LangGraph.js StateGraph Engine)" vertex="1">
                     <mxGeometry height="60" width="220" x="50" y="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="sannin Router&#10;Route and close delegated work" vertex="1">
+                <mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="sannin &amp; LangGraph Engine&#10;Per-Turn Governor &amp; Circuit Breaker" vertex="1">
                     <mxGeometry height="75" width="260" x="350" y="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-agents" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin | akatsuki" vertex="1">
@@ -722,13 +722,13 @@
             <root>
                 <mxCell id="0" />
                 <mxCell id="1" parent="0" />
-                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="MCP Tools Orchestrator Task Artifact Flow" vertex="1">
+                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.17)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-input" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="User Prompt / Resume" vertex="1">
                     <mxGeometry height="70" width="220" x="50" y="370" as="geometry" />
                 </mxCell>
-                <mxCell id="p8-orch" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;;overflow=visible;" value="Main Orchestrator Thread" vertex="1">
+                <mxCell id="p8-orch" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;;overflow=visible;" value="Main Orchestrator Thread&#10;(LangGraph.js StateGraph Engine)" vertex="1">
                     <mxGeometry height="85" width="280" x="380" y="350" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-read" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;" value="1. Read prompt spec&#10;Konoha bounded file tools" vertex="1">
@@ -737,7 +737,7 @@
                 <mxCell id="p8-discover" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;" value="2. Discover skill + code&#10;Konoha MCP + Semble MCP" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="270" as="geometry" />
                 </mxCell>
-                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. Structured Tool Call&#10;task, context, constraints" vertex="1">
+                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. LangGraph Dispatch Node&#10;Lazy contract, turn budget &amp; todo" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="410" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" value="4. Invoke selected agent tool&#10;persona + instructions" vertex="1">
@@ -899,31 +899,31 @@
             <root>
                 <mxCell id="0" />
                 <mxCell id="1" parent="0" />
-                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha WORKFLOW_PHASES Orchestration Pipeline &amp; Two-Stage HITL Gates" vertex="1">
+                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha LangGraph.js Production StateGraph Pipeline, Per-Turn Budget &amp; Two-Stage HITL Gates" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="1. Route Phase&#10;(Prompt Analysis &amp; DoR Gate)" vertex="1">
+                <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="1. Route Phase&#10;(LangGraph classify_intent &amp; DoR Gate)" vertex="1">
                     <mxGeometry height="70" width="150" x="50" y="180" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-explore" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" value="2. Explore Phase&#10;(Genin: Read-only Scout)" vertex="1">
                     <mxGeometry height="70" width="160" x="240" y="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-plan" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" value="3. Plan Phase&#10;(Kage Architect &amp; PRD)" vertex="1">
+                <mxCell id="p11-plan" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" value="3. Plan Phase&#10;(LangGraph: plan → brief → todo)" vertex="1">
                     <mxGeometry height="70" width="160" x="440" y="180" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-gate1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="GATE 1: PLAN APPROVAL&#10;(pending_plan_approval&#10;IDE / Telegram Bot)" vertex="1">
                     <mxGeometry height="70" width="190" x="640" y="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="4. Execute Phase&#10;(Anbu: Backend/QA · Jonin: UI)" vertex="1">
+                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="4. Execute Phase&#10;(LangGraph dispatch_node &amp; execute_node&#10;Turn Budget Governor: 8k/16k/32k/64k)" vertex="1">
                     <mxGeometry height="70" width="190" x="870" y="180" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-doc" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" vertex="1">
                     <mxGeometry height="70" width="180" x="1100" y="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-review" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; @advisor Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• @advisor Final Review Evaluation&#10;• Kage/Advisor → Anbu/Jonin Remediation Loop&#10;• Cross-Provider Review Independence&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
+                <mxCell id="p11-review" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; LangGraph review_node:&#10;• Zero-AI-Slop Pre-Gate (runAislopGate: 100/100)&#10;• @advisor Final Review Evaluation&#10;• LangGraph remediate_node Remediation Loop&#10;• Circuit Breaker Error Edge (node_error: cap ≤ 7)&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
                     <mxGeometry height="190" width="430" x="850" y="320" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-gate2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="GATE 2: DELIVERY SIGN-OFF&#10;(pending_human_signoff&#10;Verdict Sign-Off)" vertex="1">
+                <mxCell id="p11-gate2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="GATE 2: DELIVERY SIGN-OFF&#10;(pending_human_signoff&#10;Optional auto_signoff)" vertex="1">
                     <mxGeometry height="70" width="190" x="620" y="440" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-synth" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="7. Synthesize Phase&#10;(Sannin Final Report)" vertex="1">

@@ -57,26 +57,35 @@ const {
 
 async function sanninWorkflowInit(taskDir, options = {}) {
   const prompt = options.prompt || '';
-  const tokenBudget = options.tokenBudget || 8192;
-  const threadId = options.threadId || options.taskId || path.basename(taskDir);
+  const tokenBudget = options.tokenBudget || options.token_budget || 8192;
+  const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
+  const autoSignoff = options.autoSignoff !== undefined ? options.autoSignoff : false;
   return runKonohaGraph({
     prompt,
     taskDir,
     tokenBudget,
     threadId,
+    autoSignoff,
   }, { threadId, tokenBudget });
 }
 
 async function sanninWorkflowNext(taskDir, options = {}) {
-  const threadId = options.threadId || options.taskId || path.basename(taskDir);
+  const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
   const hitlChoice = options.choice || options.gate_choice || options.action;
   const hitlRefinement = options.refinement || options.feedback || options.notes;
-  return runKonohaGraph({
+  const tokenBudget = options.tokenBudget || options.token_budget || options.budget;
+  const input = {
     taskDir,
     threadId,
     hitlChoice,
     hitlRefinement,
-  }, { threadId });
+    ...(options.autoSignoff !== undefined ? { autoSignoff: options.autoSignoff } : {}),
+  };
+  if (tokenBudget) {
+    input.tokenBudget = tokenBudget;
+    input.budgetExceeded = false;
+  }
+  return runKonohaGraph(input, { threadId, ...(tokenBudget ? { tokenBudget } : {}) });
 }
 
 const sanninWorkflowStatus = loadWorkflowStatus;
@@ -93,6 +102,7 @@ function sanninWorkflowReset(taskDir) {
   }
   return status;
 }
+
 module.exports = {
   WORKFLOW_PHASES,
   HITL_GATES,

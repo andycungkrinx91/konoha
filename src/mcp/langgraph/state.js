@@ -47,6 +47,15 @@ const KonohaWorkflowState = Annotation.Root({
     reducer: (curr, update) => (curr || 0) + (typeof update === 'number' ? update : 0),
     default: () => 0,
   }),
+  turnTokensUsed: Annotation({
+    reducer: (curr, update) => {
+      if (typeof update === 'number') {
+        return update === 0 ? 0 : (curr || 0) + update;
+      }
+      return curr || 0;
+    },
+    default: () => 0,
+  }),
   budgetExceeded: Annotation({ default: () => false }),
 
   remediationCount: Annotation({
@@ -68,6 +77,7 @@ const KonohaWorkflowState = Annotation.Root({
   hitlStage: Annotation({ default: () => null }),
   hitlChoice: Annotation({ default: () => null }),
   hitlRefinement: Annotation({ default: () => null }),
+  autoSignoff: Annotation({ default: () => false }),
 
   result: Annotation({ default: () => null }),
   error: Annotation({ default: () => null }),

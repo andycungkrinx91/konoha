@@ -1,3 +1,16 @@
+## [2.2.17] - 2026-11-01
+
+### LangGraph.js Production Activation, Per-Turn Token Governor & Error Circuit Breaker
+
+- **LangGraph.js Production Activation (`src/mcp/tool_dispatch.js`)**: Activated LangGraph.js cyclic state-machine orchestrator across all asynchronous MCP workflow dispatch routes (`sannin`, `workflow_gate_choice`, `workflow_gate_response`) via `_dispatchWorkflowGraphAsync()` with transparent fail-closed fallback to legacy execution on graph failure.
+- **Node-Level Fault Isolation & Error Edge Routing (`src/mcp/langgraph/node_guard.js`, `nodes/error.js`)**: Wrapped every graph node with `wrapGuardedNode()`, ensuring unhandled exceptions trip the `workflow` circuit breaker and route conditionally via `node_error` directly to `__end__` with structured error diagnostics instead of unhandled promise rejections.
+- **Per-Turn Token Budget Governor (`src/mcp/langgraph/token_guard.js`)**: Shifted budget governor to strict per-turn execution semantics (`turnTokensUsed` reset on each agent turn). Enforced allowed ceilings `{8192, 16384, 32768, 65536}` with upward clamping, exposed via `token_budget` tool manifest argument and `KONOHA_TURN_BUDGET` environment variable.
+- **Document Phase Restoration & Dispatch (`src/mcp/langgraph/nodes/dispatch.js`, `nodes/execute.js`, `edges/router.js`)**: Restored the missing `document` phase in the workflow graph, dispatching `@tokubetsu-jonin` for technical runbook generation and cover directives before progressing to Kage review.
+- **Kage Reviewer Gate Binding & Optional Gate 2 Auto-Signoff (`src/mcp/langgraph/nodes/review.js`)**: Bound active Kage review directly in `reviewNode` via `runAislopGate()` and SQLite task evidence. Introduced `auto_signoff` boolean option to permit automated signoff when confidence score >= 98.0% and zero AI-slop findings are proven.
+- **Lazy Dispatch Contract Payload Enrichment (`src/mcp/langgraph/nodes/dispatch.js`)**: Enriched agent dispatch payloads with full contract blocks: `skills` (from SQLite FTS5 RAG), `skill_directive`, `tool_block` (from `buildSubagentMcpBlock()`), `turn_budget`, and `todo`.
+- **Parallel Workstream & Pentest Security Routing**: Fixed parallel domain detection in `todoNode` (`detectParallelWorkstreams()`) and wired security/pentest intent tasks directly to `@akatsuki` in isolated lab environments.
+- **Default Password & Commit Invariants Preserved**: Default credential remains `konohagakure` (`src/auth.js` base64 seed `a29ub2hhZ2FrdXJl`). Local commit author `andycungkrinx91 <andy.silva270114@gmail.com>`; no npm publish or release tag.
+
 ## [2.2.16] - 2026-11-01
 
 ### LangGraph.js Workflow Orchestration Engine, Circuit Breaker & Hard Token Budget

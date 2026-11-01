@@ -29,20 +29,23 @@ async function completeNode(state) {
     phase: 'done',
     task_id: rootId,
     task_dir: taskDir,
-    tokens_used: state.tokensUsed,
+    tokens_used: (state.tokensUsed || 0),
+    turn_tokens_used: (state.turnTokensUsed || 0),
     remediation_cycles: state.remediationCount,
     circuit_state: state.circuitState,
     report: status.report || 'Workflow successfully executed and validated.',
   };
 
   const delta = estimateTokens(finalOutput);
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     status,
     phase: 'done',
     result: finalOutput,
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

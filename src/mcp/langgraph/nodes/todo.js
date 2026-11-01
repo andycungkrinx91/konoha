@@ -16,17 +16,22 @@ async function todoNode(state) {
 
   if (!tasks.length) {
     const parallelAnalysis = detectParallelWorkstreams(state.prompt || status.prompt || '');
-    if (parallelAnalysis.is_parallel && parallelAnalysis.slices?.length) {
-      tasks = parallelAnalysis.slices.map((slice, i) => ({
+    const workstreams = Array.isArray(parallelAnalysis)
+      ? parallelAnalysis
+      : (parallelAnalysis?.slices || []);
+
+    if (workstreams.length > 1) {
+      tasks = workstreams.map((ws, i) => ({
         id: `task_${i + 1}`,
-        task: slice.task,
-        agent: slice.agent || 'anbu',
+        task: ws.task || `Implement ${ws.domain || ws.agent} requirements`,
+        agent: ws.agent || 'anbu',
         status: 'pending',
-        parallel_group: slice.parallel_group || 'group_1',
+        parallel_group: ws.parallel_group || 'parallel_group_1',
       }));
     } else {
+      const assignedAgent = (state.intent === 'pentest') ? 'akatsuki' : (status.assigned_agent || 'anbu');
       tasks = [
-        { id: 'task_1', task: state.prompt || 'Execute core task', agent: 'anbu', status: 'pending' },
+        { id: 'task_1', task: state.prompt || 'Execute core task', agent: assignedAgent, status: 'pending' },
       ];
     }
   }
@@ -38,7 +43,8 @@ async function todoNode(state) {
   }
 
   const delta = estimateTokens(tasks);
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     status,
@@ -46,6 +52,7 @@ async function todoNode(state) {
     slices: tasks.filter(t => t.parallel_group),
     phase: 'execute',
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

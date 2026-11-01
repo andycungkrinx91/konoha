@@ -179,7 +179,7 @@
   <PageHero
     title="Documentation"
     subtitle="Full architectural reference, MCP tools specification, SDLC lifecycle, and REST API contract."
-    badgeText="v{health?.version || '2.2.15'}"
+    badgeText="v{health?.version || '2.2.17'}"
     badgeIcon={heroBadgeIcon}
     showGauges={false}
   />
@@ -221,7 +221,7 @@
             <span class="text-[11px] font-mono font-bold" style="color: var(--color-text);">Konoha Engine</span>
           </div>
           <p class="text-[10px]" style="color: var(--color-text-muted);">
-            v{health?.version || '2.2.15'} · Node {health?.node || 'v24'}
+            v{health?.version || '2.2.17'} · Node {health?.node || 'v24'}
           </p>
           {#if health?.db_size}
             <p class="text-[10px] mt-0.5" style="color: var(--color-text-muted);">

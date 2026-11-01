@@ -25,7 +25,8 @@ async function remediateNode(state) {
     if (taskDir) saveWorkflowStatus(taskDir, status);
 
     const delta = estimateTokens({ circuitTripped, currentCycles });
-    const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
     return {
       status,
       phase: 'done',
@@ -34,6 +35,7 @@ async function remediateNode(state) {
       remediationCount: currentCycles,
       error: `Circuit breaker tripped: remediation cycle limit (7) or failure threshold reached (cycles=${currentCycles}, state=${breakerStatus.state}).`,
       tokensUsed: delta,
+      turnTokensUsed: delta,
       budgetExceeded: budgetCheck.budgetExceeded,
     };
   }
@@ -50,7 +52,8 @@ async function remediateNode(state) {
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
   const delta = estimateTokens({ remediationCycle: currentCycles });
-  const budgetCheck = checkBudget(state.tokensUsed, delta, state.tokenBudget);
+  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
+  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
 
   return {
     status,
@@ -58,6 +61,7 @@ async function remediateNode(state) {
     circuitOpen: false,
     remediationCount: currentCycles,
     tokensUsed: delta,
+    turnTokensUsed: delta,
     budgetExceeded: budgetCheck.budgetExceeded,
   };
 }

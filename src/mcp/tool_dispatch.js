@@ -10,7 +10,7 @@ const { spawnSync } = require('child_process');
 const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { detectActiveAgent, getActiveSessionId } = require('./client_detection');
-const { findSkill, listSkills, getSkill, useSkills, optimizeReport } = require('./skills');
+const { findSkill, listSkills, getSkill, useSkills, optimizeReport, logToolCall } = require('./skills');
 const { runAntiSlopAudit } = require('./anti_slop');
 const { buildFromSource, buildFromText } = require('./build_spec');
 const { getResolvedTaskDir, runSannin } = require('./workflow');
@@ -204,6 +204,72 @@ function _dispatchWorkflowCore(toolName, args, agent) {
     const projPath = args.project_path || getWorkspaceRoot();
     return JSON.stringify(sdlcManager.checkReadiness(taskInput, projPath));
   }
+  return null;
+}
+
+async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
+  if (toolName === 'sannin') {
+    const prompt = args.prompt || args.task || args.instructions;
+    const projPath = args.project_path || getWorkspaceRoot();
+    const sessId = args.session_id || args.sessionId;
+
+    const sanninRes = runSannin(prompt, args.task_dir, projPath, sessId, args);
+    let parsedSannin = null;
+    try {
+      parsedSannin = JSON.parse(sanninRes);
+    } catch (_) { /* ignore JSON parse error */ }
+
+    if (parsedSannin && (parsedSannin.status === 'blocked' || parsedSannin.status === 'completed' || parsedSannin.status === 'error')) {
+      return sanninRes;
+    }
+    if (parsedSannin && parsedSannin.parallel_eligible) {
+      return sanninRes;
+    }
+
+    const resolvedTaskDir = (parsedSannin && parsedSannin.task_dir) || getResolvedTaskDir(args.task_dir, projPath, sessId);
+    const threadId = args.thread_id || args.threadId || (parsedSannin && parsedSannin.task_id) || (resolvedTaskDir ? path.basename(resolvedTaskDir) : 'default-thread');
+    const tokenBudget = args.token_budget || args.tokenBudget;
+    const autoSignoff = Boolean(args.auto_signoff);
+
+    try {
+      const { sanninWorkflowInit } = require('./workflow');
+      return await sanninWorkflowInit(resolvedTaskDir, {
+        prompt: prompt || (parsedSannin && parsedSannin.prompt),
+        tokenBudget,
+        threadId,
+        autoSignoff,
+      });
+    } catch (graphErr) {
+      if (typeof logToolCall === 'function') {
+        logToolCall('sannin', `task_dir=${resolvedTaskDir} fallback=runSannin error=${graphErr.message}`, sanninRes, 'sannin');
+      }
+      return sanninRes;
+    }
+  }
+
+  if (toolName === 'workflow_gate_choice' || toolName === 'workflow_gate_response') {
+    const choice = args.choice ?? args.gate_choice ?? args.action ?? args.gate_action;
+    const refinement = args.refinement ?? args.feedback ?? args.notes;
+    const taskDir = args.task_dir || args.taskDir;
+    const tokenBudget = args.token_budget || args.tokenBudget;
+    const threadId = args.thread_id || args.threadId || (taskDir ? path.basename(taskDir) : 'default-thread');
+    try {
+      const { sanninWorkflowNext } = require('./workflow');
+      return await sanninWorkflowNext(taskDir, {
+        choice,
+        refinement,
+        tokenBudget,
+        threadId,
+      });
+    } catch (graphErr) {
+      const { runMcpWorkflow } = require('./workflow');
+      if (typeof logToolCall === 'function') {
+        logToolCall('workflow_gate_choice', `task_dir=${taskDir} fallback=runMcpWorkflow error=${graphErr.message}`, '', 'sannin');
+      }
+      return runMcpWorkflow(taskDir, { choice, refinement });
+    }
+  }
+
   return null;
 }
 
@@ -441,7 +507,16 @@ async function executeTool(toolName, args = {}) {
   const heavyRes = await _executeHeavyToolAsync(toolName, args, agent);
   if (heavyRes !== null) return heavyRes;
 
-  return _executeToolInternal(toolName, args, agent);
+  const graphRes = await _dispatchWorkflowGraphAsync(toolName, args, agent);
+  if (graphRes !== null) {
+    return typeof graphRes === 'object' ? JSON.stringify(graphRes) : graphRes;
+  }
+
+  const res = _executeToolInternal(toolName, args, agent);
+  if (typeof res === 'object' && res !== null) {
+    return JSON.stringify(res);
+  }
+  return res;
 }
 
 function validateManifestArguments(toolName, args) {

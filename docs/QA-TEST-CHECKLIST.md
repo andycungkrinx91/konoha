@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.16). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.17). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.15`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.17`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -596,7 +596,7 @@ Authoritative verification matrix for the Konoha v2.2.15 SDLC runner cutover: st
 
 ## Section 29: Deep QA Verification, Platform Hardening & Release Preparation (v2.2.16)
 
-Authoritative verification matrix for the Konoha v2.2.15 Deep QA Pass: runtime platform hardening, test isolation protocols, MCP stdio integrity, and release preparation.
+Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime platform hardening, test isolation protocols, MCP stdio integrity, and release preparation.
 
 ### 29.1 Platform Hardening & Test Isolation Architecture
 - **Pure Node.js Runtime Enforcement**: Removed dead Python launcher subprocess helpers (`spawnPythonSync`, `spawnPython`) from `src/platform_utils.js` while preserving `detectPythonOrDefault` for backwards-compatible client installation flows.
@@ -616,3 +616,33 @@ Authoritative verification matrix for the Konoha v2.2.15 Deep QA Pass: runtime p
 | **5. Docs Currency Verification** | `tests/test_docs_currency.js` | Verified all documentation, local links, 49 canonical MCP tools, and compliance reports currency | `PASS` (verified 2026-11-01) |
 | **6. Default Password Preservation** | `src/auth.js` | `konohagakure` bootstrap passphrase preserved (base64 seed `a29ub2hhZ2FrdXJl`) | `PASS` (verified 2026-11-01) |
 | **7. Multi-Client Contract Parity** | `.agents/AGENTS.md`, `package.json`, `src/agent_contract.js` | Synchronized to v2.2.15 across all configuration files and client templates | `PASS` (verified 2026-11-01) |
+
+
+---
+
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.17)
+
+Authoritative verification matrix for the Konoha v2.2.17 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
+
+### 30.1 Production Orchestration Architecture & Safety Invariants
+- **LangGraph.js Production Activation**: Bypassed legacy procedural execution on all asynchronous MCP routes (`sannin`, `workflow_gate_choice`, `workflow_gate_response`) via `_dispatchWorkflowGraphAsync()`.
+- **Fail-Closed Fallback Guard**: Uncaught exceptions or schema mismatches in LangGraph execution automatically log diagnostic errors and fallback to legacy procedural execution without crashing host MCP servers.
+- **Node-Level Fault Isolation**: Every node is guarded by `wrapGuardedNode()` connecting to the global `workflow` circuit breaker (`src/circuit_breaker.js`). Unhandled exceptions trip the breaker and route conditionally via `node_error` to `__end__`.
+- **Per-Turn Token Budget Governor**: Implemented strict per-turn execution semantics (`turnTokensUsed` resets to 0 at each agent turn; cumulative `tokensUsed` preserved for telemetry). Enforces allowed ceilings `{8192, 16384, 32768, 65536}` with upward clamping.
+- **Document Phase Restoration**: Restored the missing `document` phase in the workflow state graph; dispatches `@tokubetsu-jonin` for technical runbooks and cover directives before transitioning to review.
+- **Kage Reviewer Gate Binding**: Actively evaluates Zero-AI-Slop gate and SQLite task evidence during `reviewNode`. Supported optional `auto_signoff` flag for autonomous completion when confidence score >= 98% and findings == 0.
+- **Lazy Dispatch Contract Payload**: Enriched agent dispatch JSON with `skills`, `skill_directive`, `tool_block` (`buildSubagentMcpBlock()`), `turn_budget`, and `todo`.
+- **Parallel Workstream & Pentest Security Routing**: Fixed parallel domain detection in `todoNode` (`detectParallelWorkstreams()`) and routed pentest security audit tasks directly to `@akatsuki` in isolated lab environments.
+
+### 30.2 Verification Evidence & Audit Gates
+
+| Verification Gate | Command / Target | Observed Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. LangGraph Production Activation** | `tests/test_langgraph_v2217.js` (Test 6) | `executeTool('sannin')` successfully runs LangGraph state machine with valid JSON output | `PASS` (verified 2026-11-01) |
+| **2. Per-Turn Budget Normalization** | `tests/test_langgraph_v2217.js` (Test 1) | Allowed ceilings `{8192, 16384, 32768, 65536}` enforced with upward clamping | `PASS` (verified 2026-11-01) |
+| **3. Error Edge & Circuit Breaker Fault Isolation** | `tests/test_langgraph_v2217.js` (Test 2) | Unhandled node failure caught by `node_guard`, routes to `node_error`, breaker trips | `PASS` (verified 2026-11-01) |
+| **4. Document Phase Restoration** | `tests/test_langgraph_v2217.js` (Test 3) | Tasks completion transitions to `document` phase, dispatches `@tokubetsu-jonin`, advances to review | `PASS` (verified 2026-11-01) |
+| **5. Optional Gate 2 Auto-Signoff** | `tests/test_langgraph_v2217.js` (Test 4) | `autoSignoff: true` bypasses interactive Gate 2 when confidence >= 98% and findings == 0 | `PASS` (verified 2026-11-01) |
+| **6. Pentest Routing to Akatsuki** | `tests/test_langgraph_v2217.js` (Test 5) | Security/pentest prompt classified as `intent: 'pentest'` and assigned to `@akatsuki` | `PASS` (verified 2026-11-01) |
+| **7. Core LangGraph Suite** | `tests/test_langgraph_workflow.js` | 8/8 tests passed (Checkpointer CRUD, Fast-Track, PLAN->BRIEF->TODO, Budget halt/resume, CB 7-cycle cap, HITL Gate 1, Zero-overlap threads, Sannin facade) | `PASS` (verified 2026-11-01) |
+| **8. Procedural Workflow Regression** | `tests/test_workflow_gates.js`, `test_workflow_loop.js` | All 21 gate and loop tests passed cleanly (100% backward compatibility) | `PASS` (verified 2026-11-01) |

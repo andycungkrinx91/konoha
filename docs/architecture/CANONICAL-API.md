@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
-**Document Version:** 2.2.16  
+**Document Version:** 2.2.17  
 **Date:** 2026-10-29  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.16 Complete)  
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.17 Complete)  
 
 ---
 
@@ -28,8 +28,8 @@ All tools (47 active) are served through the `konoha` MCP server over stdio JSON
 | `optimize_report` | `keyword?: string, agent?: string` | Analyze skill token footprint. | Formatted skill token analysis |
 | `build_from_source` | `name: string, source_dir: string, framework: string, taste_dials?: object` | Return a source-fidelity build specification. | Structured JSON specification |
 | `build_from_text` | `name: string, description: string, framework: string, taste_dials?: object` | Return a text-driven build specification. | Structured JSON specification |
-| `sannin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, task_id?: string, session_id?: string, flow_hash?: string` | Route and orchestrate a task. | Structured task result JSON |
-| `kage` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate architecture or review work to Kage. | Confidence report & verdict JSON |
+| `sannin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, task_id?: string, session_id?: string, flow_hash?: string, token_budget?: number, auto_signoff?: boolean` | Route and orchestrate a task. | Structured task result JSON |
+| `kage` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, token_budget?: number` | Delegate architecture or review work to Kage. | Confidence report & verdict JSON |
 | `jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate frontend work to Jonin. | UI implementation results JSON |
 | `anbu` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate backend or DevOps work to Anbu. | Backend implementation results JSON |
 | `akatsuki` | `task?: string, context?: string, constraints?: string, skills?: array, workflow_type?: string, scope?: string, authorization?: string, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, tools?: array, target?: string, custom_tools?: array, allow_controlled_exploit_verification?: boolean, allow_external_scope?: boolean, engine?: string, lab_name?: string, report?: object, authorized?: boolean` | Delegate authorized red-team, blue-team, or security audit work to Akatsuki. | Security review & penetration testing report JSON |

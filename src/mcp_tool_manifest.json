@@ -687,6 +687,18 @@
           },
           "flow_hash": {
             "type": "string"
+          },
+          "token_budget": {
+            "type": "number",
+            "enum": [
+              8192,
+              16384,
+              32768,
+              65536
+            ]
+          },
+          "auto_signoff": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -736,6 +748,15 @@
           },
           "flow_hash": {
             "type": "string"
+          },
+          "token_budget": {
+            "type": "number",
+            "enum": [
+              8192,
+              16384,
+              32768,
+              65536
+            ]
           }
         },
         "additionalProperties": false

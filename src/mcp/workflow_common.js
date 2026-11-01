@@ -101,8 +101,8 @@ function workflowHash(filePath) {
 }
 
 function isPentestTask(taskObj) {
-  if (!taskObj || typeof taskObj !== 'object') return false;
-  const text = `${taskObj.task || ''} ${taskObj.agent || ''}`.toLowerCase();
+  if (!taskObj) return false;
+  const text = (typeof taskObj === 'string' ? taskObj : `${taskObj.task || ''} ${taskObj.agent || ''}`).toLowerCase();
   return ['pentest', 'penetration test', 'penetration testing', 'vulnerability scan', 'security audit', 'security test', 'vuln scan', 'devsecops'].some(k => text.includes(k));
 }
 
