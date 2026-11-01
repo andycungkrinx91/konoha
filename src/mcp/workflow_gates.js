@@ -124,7 +124,7 @@ function parseGateChoice(rawInput, rawRefinement) {
   }
 
   const str = String(rawInput).trim();
-  const lower = str.toLowerCase();
+  const lower = str.toLowerCase().replace(/_/g, ' ');
 
   const isApprove = str === '1' ||
     lower.startsWith('1.') ||

@@ -304,6 +304,30 @@ function setupSchema(conn, backupDatabaseFn = null) {
         description TEXT,
         url TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS lg_checkpoints (
+        thread_id TEXT NOT NULL,
+        checkpoint_ns TEXT NOT NULL DEFAULT '',
+        checkpoint_id TEXT NOT NULL,
+        parent_checkpoint_id TEXT,
+        type TEXT,
+        checkpoint BLOB,
+        metadata BLOB,
+        PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS lg_writes (
+        thread_id TEXT NOT NULL,
+        checkpoint_ns TEXT NOT NULL DEFAULT '',
+        checkpoint_id TEXT NOT NULL,
+        task_id TEXT NOT NULL,
+        task_path TEXT NOT NULL DEFAULT '',
+        idx INTEGER NOT NULL,
+        channel TEXT NOT NULL,
+        type TEXT,
+        value BLOB,
+        PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
+    );
   `);
 
   _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn);

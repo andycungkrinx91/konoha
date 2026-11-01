@@ -46,6 +46,53 @@ const {
   applyGate2Choice
 } = require('./workflow_gates');
 
+const path = require('path');
+const {
+  buildKonohaGraph,
+  getWorkflowGraph,
+  runKonohaGraph,
+  KonohaWorkflowState,
+  KonohaCheckpointSaver,
+} = require('./langgraph');
+
+async function sanninWorkflowInit(taskDir, options = {}) {
+  const prompt = options.prompt || '';
+  const tokenBudget = options.tokenBudget || 8192;
+  const threadId = options.threadId || options.taskId || path.basename(taskDir);
+  return runKonohaGraph({
+    prompt,
+    taskDir,
+    tokenBudget,
+    threadId,
+  }, { threadId, tokenBudget });
+}
+
+async function sanninWorkflowNext(taskDir, options = {}) {
+  const threadId = options.threadId || options.taskId || path.basename(taskDir);
+  const hitlChoice = options.choice || options.gate_choice || options.action;
+  const hitlRefinement = options.refinement || options.feedback || options.notes;
+  return runKonohaGraph({
+    taskDir,
+    threadId,
+    hitlChoice,
+    hitlRefinement,
+  }, { threadId });
+}
+
+const sanninWorkflowStatus = loadWorkflowStatus;
+
+function sanninWorkflowReset(taskDir) {
+  const status = loadWorkflowStatus(taskDir);
+  if (status) {
+    status.phase = 'route';
+    status.plan_approved = false;
+    status.human_signed_off = false;
+    status.hitl_gate = null;
+    status.budget_exceeded = false;
+    saveWorkflowStatus(taskDir, status);
+  }
+  return status;
+}
 module.exports = {
   WORKFLOW_PHASES,
   HITL_GATES,
@@ -78,5 +125,14 @@ module.exports = {
   cleanupTransientScratchFiles,
   classifyExecutionTrack,
   detectParallelWorkstreams,
-  runMcpWorkflow
+  runMcpWorkflow,
+  buildKonohaGraph,
+  getWorkflowGraph,
+  runKonohaGraph,
+  KonohaWorkflowState,
+  KonohaCheckpointSaver,
+  sanninWorkflowInit,
+  sanninWorkflowNext,
+  sanninWorkflowStatus,
+  sanninWorkflowReset,
 };

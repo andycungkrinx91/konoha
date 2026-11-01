@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.15). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.16). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -594,7 +594,7 @@ Authoritative verification matrix for the Konoha v2.2.15 SDLC runner cutover: st
 
 ---
 
-## Section 29: Deep QA Verification, Platform Hardening & Release Preparation (v2.2.15)
+## Section 29: Deep QA Verification, Platform Hardening & Release Preparation (v2.2.16)
 
 Authoritative verification matrix for the Konoha v2.2.15 Deep QA Pass: runtime platform hardening, test isolation protocols, MCP stdio integrity, and release preparation.
 

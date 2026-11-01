@@ -1,3 +1,17 @@
+## [2.2.16] - 2026-11-01
+
+### LangGraph.js Workflow Orchestration Engine, Circuit Breaker & Hard Token Budget
+
+- **LangGraph.js Orchestration Engine (`src/mcp/langgraph/`)**: Integrated `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7` as the definitive state-machine orchestration backbone for all Konoha MCP workflows. Pure CommonJS architecture with zero native binary addon requirements.
+- **Pure Node.js SQLite Checkpointer (`KonohaCheckpointSaver`)**: Implemented custom `BaseCheckpointSaver` backed by Node's built-in `node:sqlite` via `src/sqlite_driver.js`, completely bypassing external native `better-sqlite3` bindings while maintaining WAL journal mode, atomic transaction commits, and thread-level state isolation.
+- **Mandatory PLAN → BRIEF → TODO First 2 Steps**: Workflow graphs strictly enforce architectural planning before execution: Step 1 (PLAN) generates/approves execution design with Gate 1 validation; Step 2 (BRIEF) synthesizes architectural constraints, zero-slop standards, and verification metrics before slicing into atomic TODO items.
+- **Hard Token Budget Governor (`src/mcp/langgraph/token_guard.js`)**: Implemented turn-by-turn token budget enforcement defaulting to 8,192 tokens per cycle, configurable to 16k, 32k, or 64k ceilings. Every node pass estimates token delta via `countTiktoken()`, automatically halting runaway tasks at `paused_budget_exceeded` with safe state checkpointing.
+- **Circuit Breaker & Remediation Loop Cap (`src/mcp/langgraph/nodes/remediate.js`)**: Integrated `globalCircuitRegistry` circuit breaker across remediation cycles. Kage-to-Anbu defect remediations are strictly capped at max 7 cycles; repeated validation failures trip breaker to `OPEN`, preventing infinite retry loops and halting cleanly with descriptive diagnostic errors.
+- **Lazy Dynamic Subagent Invocation (`src/mcp/langgraph/nodes/dispatch.js`)**: Subagents (`@anbu`, `@jonin`, `@genin`, `@chunin`, `@tokubetsu-jonin`) are never spawned at workflow start; they are invoked dynamically on demand per active task slice with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
+- **Two-Stage HITL Gates Preserved**: Seamlessly integrated Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) with pause/resume support across both interactive prompts and programmatic MCP tool calls (`workflow_gate_choice`).
+- **Zero-Overlap Thread & Workspace Guarantees**: Independent concurrent workflows execute with isolated thread IDs (`thread_id`), dedicated task directories, and conflict-free SQLite checkpoint namespaces.
+- **Sannin Facade Preservation (`src/mcp/workflow.js`)**: Maintained 100% backward compatibility for all existing MCP tool dispatchers and external callers via `runMcpWorkflow()`, `runSannin()`, and new async LangGraph helpers (`sanninWorkflowInit()`, `sanninWorkflowNext()`, `sanninWorkflowStatus()`, `sanninWorkflowReset()`).
+
 ## [2.2.15] - 2026-10-30
 
 ### Official Subagent Tool Parity, Akatsuki 8-Client Integration & Upstream Skill Refresh
