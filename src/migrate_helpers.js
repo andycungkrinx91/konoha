@@ -16,7 +16,7 @@ try {
 }
 const { parseYaml } = yamlUtils;
 
-function seedAgents(conn, logFn = console.log) {
+function seedAgents(conn, logFn = console.error) {
   let templatePath = path.join(__dirname, 'templates', 'agents.yaml');
   if (!fs.existsSync(templatePath)) {
     templatePath = path.resolve(process.cwd(), 'src', 'templates', 'agents.yaml');
@@ -158,7 +158,7 @@ function _logSummaryGroup(row, currentSkill, logFn) {
 
 function printSummary(conn, options = {}) {
   const dbPath = options.dbPath || '';
-  const logFn = options.logFn || console.log;
+  const logFn = options.logFn || console.error;
   const rows = conn.prepare(`
     SELECT skill_name, type, COUNT(*) as cnt, SUM(byte_size) as total_bytes
     FROM skills

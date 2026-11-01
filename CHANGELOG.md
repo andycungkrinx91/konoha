@@ -1,5 +1,16 @@
 ## [2.2.15] - 2026-10-30
 
+### Official Subagent Tool Parity, Akatsuki 8-Client Integration & Upstream Skill Refresh
+
+- **Official Subagent Tool Parity (`src/mcp/memory_subagent_runner.js`)**: Enforced manifest-driven dynamic tool blocks across official ninja subagents (`@genin`, `@chunin`, `@anbu`, `@jonin`, `@akatsuki`) via `buildSubagentMcpBlock()` querying `src/mcp_tool_manifest.json`. Role boundaries strictly enforced: `@genin` and `@kage` remain read-only; `@akatsuki` fails closed without explicit written scope authorization.
+- **Akatsuki 8-Client Centralization**: Integrated `@akatsuki` red-team/blue-team security specialist subagent across all 8 supported coding clients (Claude Code, Codex, Antigravity, Cursor, OpenCode, Command Code, Pi, OMP).
+- **Upstream Skill Refresh Pins**: Pinned `taste-skill@12af471` (v2.1.5, MIT) for Jonin high-end frontend craftsmanship and `anti-slop@3005235` (v3.2.24, MIT) across all subagent guidelines; full licenses and upstream repository links documented.
+- **LangGraph.js Architecture Roadmap (Research-Only)**: Published sequential research/design evaluation in `docs/ARCHITECTURE.md` without runtime dependency additions.
+- **Dependency & Supply-Chain Posture**: Verified zero `.ps1` files in working tree; `patches/playwright-core@1.64.1.patch` maintained; `pnpm audit` 0 high/critical vulnerabilities; no unmaintained packages.
+- **Default Password Preserved**: Bootstrap credential remains `konohagakure` (`src/auth.js` base64 seed `a29ub2hhZ2FrdXJl`, Playwright config default, login UI hint). Commit author `andycungkrinx91 <andy.silva270114@gmail.com>`; local commit only, no publish.
+- **Cross-Client Runtime Contract & Manifest Synchronization**: Bumped runtime contract version to `2.2.15` across `package.json`, `package-lock.json`, `apps/web/package.json`, `src/agent_contract.js`, `Dockerfile`, `+layout.svelte`, and all client contracts and templates.
+- **Google Policy Compliance Audit (`v2.2.15`)**: Published certified compliance report (`docs/SecurityCompliance/security_compliance_report_google_policy_2.2.15_2026-10-30.md`) certifying zero production vulnerabilities, 100/100 `aislop` health, 100% passing CLI sweep, and 100% passing Web UI automation.
+
 ## [2.2.14] - 2026-10-30
 
 ### Queue SSH Guardrail, Hook Tampering Removal & Full QA Pass

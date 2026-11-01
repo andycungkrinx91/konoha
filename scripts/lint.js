@@ -43,7 +43,7 @@ function lintFile(filePath) {
   const relativePath = path.relative(ROOT_DIR, filePath);
   const errors = [];
 
-  // 1. Native Node.js syntax compiler check (--check)
+  // Native Node.js syntax compiler check (--check)
   const res = spawnSync(process.execPath, ['--check', filePath], {
     encoding: 'utf8',
     timeout: 5000
@@ -53,7 +53,7 @@ function lintFile(filePath) {
     errors.push(`Syntax error: ${(res.stderr || res.stdout || '').trim()}`);
   }
 
-  // 2. Source hygiene checks
+  // Source hygiene checks
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     if (CONFLICT_MARKER_REGEX.test(content)) {

@@ -591,3 +591,28 @@ Authoritative verification matrix for the Konoha v2.2.15 SDLC runner cutover: st
 | **6. Zero-AI-Slop & Linter Gate** | `rtk npx aislop scan --changes` & `rtk node scripts/lint.js` | 100/100 Healthy · 0 errors · 0 warnings · 0 fixable; 452 files linted cleanly | `PASS` (verified 2026-11-01) |
 | **7. Architecture Diagram & Asset Sync** | `tests/test_diagram_sync.js`, `tests/test_documentation_diagrams.js`, `tests/test_all_assets_webp.js` | All 16 Draw.io pages, Mermaid companions, and 18 Animated WebP assets verified with 0 collisions | `PASS` (verified 2026-11-01) |
 | **8. Code File Budget & Zero Slop** | All modified source files | Strictly <= 700 lines per source file; zero numbered slop comments (`// 1.`, `## 1.`) | `PASS` (verified 2026-11-01) |
+
+---
+
+## Section 29: Deep QA Verification, Platform Hardening & Release Preparation (v2.2.15)
+
+Authoritative verification matrix for the Konoha v2.2.15 Deep QA Pass: runtime platform hardening, test isolation protocols, MCP stdio integrity, and release preparation.
+
+### 29.1 Platform Hardening & Test Isolation Architecture
+- **Pure Node.js Runtime Enforcement**: Removed dead Python launcher subprocess helpers (`spawnPythonSync`, `spawnPython`) from `src/platform_utils.js` while preserving `detectPythonOrDefault` for backwards-compatible client installation flows.
+- **Playwright Port Conflict Resolution**: Configured `apps/web/playwright.config.js` with `reuseExistingServer: !process.env.CI` to eliminate port 4173 collisions when preview daemons are running locally while maintaining strict test isolation in CI.
+- **Database Test Isolation Standard**: All test runs mandate isolated SQLite databases via `KONOHA_DB_PATH=/tmp/konoha_qa_test.db` and isolated home directories via `HOME=/tmp/konoha-qa-isolated` to prevent state bleed into user environments.
+- **MCP Stdio Stream Integrity**: Cleaned up stray `console.log` emissions in `src/skill_manager.js` and `src/migrate_helpers.js` to guarantee uninterrupted JSON-RPC framing over stdout, while strictly preserving protocol contracts in `src/mcp/protocol.js` and CLI tool execution.
+- **Code Hygiene & Comment Standards**: Removed numbered slop comments (`// 1.`, `// 2.`) across UI components and utility scripts in adherence to Rule 18.
+
+### 29.2 Verification Evidence & Audit Gates
+
+| Verification Gate | Command / Target | Observed Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Dead Subprocess Removal** | `src/platform_utils.js` | `spawnPythonSync` and `spawnPython` removed; `detectPythonOrDefault` preserved; file loads cleanly with 0 errors | `PASS` (verified 2026-11-01) |
+| **2. Playwright Port Handling** | `apps/web/playwright.config.js` | `reuseExistingServer: !process.env.CI` configured; prevents port 4173 collisions on local preview | `PASS` (verified 2026-11-01) |
+| **3. Stdout MCP Stream Protection** | `src/skill_manager.js`, `src/migrate_helpers.js` | Stray `console.log` redirected to stderr; JSON-RPC stdout stream protected from non-protocol pollution | `PASS` (verified 2026-11-01) |
+| **4. Numbered Slop Comments** | `ThemeSwitcher.svelte`, `lint.js`, `verify_provider_cache.js` | Numbered step comments cleaned; descriptive functional headers applied | `PASS` (verified 2026-11-01) |
+| **5. Docs Currency Verification** | `tests/test_docs_currency.js` | Verified all documentation, local links, 49 canonical MCP tools, and compliance reports currency | `PASS` (verified 2026-11-01) |
+| **6. Default Password Preservation** | `src/auth.js` | `konohagakure` bootstrap passphrase preserved (base64 seed `a29ub2hhZ2FrdXJl`) | `PASS` (verified 2026-11-01) |
+| **7. Multi-Client Contract Parity** | `.agents/AGENTS.md`, `package.json`, `src/agent_contract.js` | Synchronized to v2.2.15 across all configuration files and client templates | `PASS` (verified 2026-11-01) |

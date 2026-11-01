@@ -83,14 +83,14 @@
   function selectTheme(id) {
     closeModal();
 
-    // 1. Read NEWLY SELECTED theme's 4-gradient tokens immediately
+    // Read selected theme gradient tokens
     const mode = themeState.currentMode;
     const targetPalette = getRasenganTokens(id, mode);
 
-    // 2. Trigger the 1s Big Bang animation using the SAME 3D Rasenshuriken
+    // Trigger supernova animation
     backgroundScene.triggerThemeSupernova(targetPalette, mode);
 
-    // 3. Apply new theme immediately so the underlying page is ready
+    // Apply new theme tokens to page
     themeState.applyTheme(id, mode);
     announce(`Theme changed to ${themeState.themes.find(t => t.id === id)?.name || id}`);
   }

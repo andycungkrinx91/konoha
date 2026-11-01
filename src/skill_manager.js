@@ -233,7 +233,7 @@ function runInteractiveSearch(query) {
       
       const limitedResults = results.slice(0, 15); // Show top 15
       limitedResults.forEach((item, index) => {
-        console.log(`[${index + 1}] ${item.skillId || item.name} (${item.installs || 0} installs)`);
+        process.stderr.write(`[${index + 1}] ${item.skillId || item.name} (${item.installs || 0} installs)\n`);
         process.stderr.write(`    Source: github.com/${item.source}\n`);
       });
       process.stderr.write('────────────────────────────────────────────────────────────\n');

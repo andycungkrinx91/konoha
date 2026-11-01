@@ -208,18 +208,6 @@ function normalizeCommand(command) {
   return { executable: trimmed, prefixArgs: [] };
 }
 
-function spawnPythonSync(pythonCmd, args = [], options = {}) {
-  const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
-  const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
-  return spawnSync(norm.executable, finalArgs, Object.assign({ windowsHide: true }, options));
-}
-
-function spawnPython(pythonCmd, args = [], options = {}) {
-  const { spawn } = require('child_process');
-  const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
-  const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
-  return spawn(norm.executable, finalArgs, Object.assign({ windowsHide: true }, options));
-}
 
 
 function getUvCommand() {
@@ -494,7 +482,5 @@ module.exports = {
   ensureUserBinInPath,
   isCommandAvailable,
   detectPythonOrDefault,
-  normalizeCommand,
-  spawnPythonSync,
-  spawnPython
+  normalizeCommand
 };

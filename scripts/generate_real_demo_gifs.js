@@ -333,7 +333,7 @@ function main() {
   console.log('=========================================================================');
   console.log('Executing real commands against live SQLite FTS5 database and runtime...\n');
 
-  // 0. Prepare per-client scratch directories.
+  // Prepare per-client scratch directories.
   for (const td of G.test_dirs) fs.mkdirSync(td, { recursive: true });
 
   const pkgVersion = (() => {
@@ -374,7 +374,7 @@ function main() {
     return frames;
   };
 
-  // 1. FLAGSHIP DEMO GIF: assets/demo.gif — ALL COMMANDS FROM THE HELP MENU.
+  // Flagship demo GIF: assets/demo.gif — commands from help menu.
   console.log('▶ Generating Flagship Demo GIF: assets/demo.gif (ALL 18 HELP COMMANDS) ...');
   const allDemoFrames = generateFramesForScenes(
     G.demo_scenes,
@@ -385,7 +385,7 @@ function main() {
   );
   saveOptimizedGif(allDemoFrames, path.join(ASSETS_DIR, 'demo.gif'));
 
-  // 2. DEDICATED TESTING COVERAGE GIF: assets/testing.gif.
+  // Dedicated testing coverage GIF: assets/testing.gif.
   console.log('\n▶ Generating Dedicated Testing Coverage GIF: assets/testing.gif ...');
   const testingFrames = generateFramesForScenes(
     G.test_scenes,
@@ -396,13 +396,13 @@ function main() {
   );
   saveOptimizedGif(testingFrames, path.join(ASSETS_DIR, 'testing.gif'));
 
-  // 3. INDIVIDUAL REAL CODING AGENT CLIENT DEMO GIFS.
+  // Individual real coding agent client demo GIFs.
   //    Real prompting and delegating process using konoha MCP
   //    (ZERO `konoha` commands in client GIFs).
   console.log('\n▶ Generating Individual Client Real Delegation Prompting GIFs ...');
 
   const clients = [
-    // 3a. Antigravity Demo (agy) in /tmp/test-agy.
+    // Antigravity Demo (agy) in /tmp/test-agy.
     ['agy "Audit codebase and verify tests using konoha MCP"', 'agy_steps', 'AGY • MCP DELEGATION', 'Antigravity CLI', '/tmp/test-agy', 'demo-agy.gif'],
     ['cmd "Run test suite and delegate security review to kage"', 'cmd_steps', 'COMMANDCODE • MCP DELEGATION', 'Command Code', '/tmp/test-cmd', 'demo-commandcode.gif'],
     ['codex exec "Delegate architecture review to kage via konoha MCP"', 'codex_steps', 'CODEX • MCP DELEGATION', 'OpenAI Codex CLI', '/tmp/test-codex', 'demo-codex.gif'],

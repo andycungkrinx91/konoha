@@ -60,21 +60,21 @@ function verifyProviderCacheDeterminism() {
 
       totalChecks += 4;
 
-      // 1. Ceiling check (< 8,000 bytes)
+      // Ceiling check (< 8,000 bytes)
       assert.ok(b1 < 8000, `${client} ${agent} Turn 1 size (${b1}B) must be < 8000 bytes`);
       assert.ok(b2 < 8000, `${client} ${agent} Turn 2 size (${b2}B) must be < 8000 bytes`);
       assert.ok(b3 < 8000, `${client} ${agent} Turn 3 size (${b3}B) must be < 8000 bytes`);
       passCount++;
 
-      // 2. Hash determinism check (T1 == T2)
+      // Hash determinism check (T1 == T2)
       assert.strictEqual(h1, h2, `${client} ${agent} Turn 1 and Turn 2 hashes must match (T1: ${h1.slice(0, 8)}, T2: ${h2.slice(0, 8)})`);
       passCount++;
 
-      // 3. Hash determinism check (T2 == T3)
+      // Hash determinism check (T2 == T3)
       assert.strictEqual(h2, h3, `${client} ${agent} Turn 2 and Turn 3 hashes must match (T2: ${h2.slice(0, 8)}, T3: ${h3.slice(0, 8)})`);
       passCount++;
 
-      // 4. Invariants check
+      // Invariants check
       assert.ok(p1.includes('Token Preservation'), `${client} ${agent} must include Token Preservation badge`);
       passCount++;
 
