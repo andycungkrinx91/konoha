@@ -136,7 +136,7 @@ flowchart TD
 | **Login Card** | `/` (unauthenticated) | Dynamic lowercase badge tag (`default passphrase (konohagakure)`), 3px line size, animated travelling neon border focus sweep (`neonBorderSweep`), password visibility toggle. | `auth_login.spec.js`, `login_rasengan_themes.spec.js` |
 | **Overview & Gauges** | `/dashboard` | System health cards, proportional gauge arcs across 10 themes × 2 modes, high-contrast breadcrumbs (≥ 4.5:1), 5s live metrics polling. | `dashboard_gauges_and_shared_bg.spec.js`, `routes_load.spec.js` |
 | **Skills & Hybrid Search** | `/skills` | Searchable skill database table, FTS5 + ONNX 384d vector hybrid RRF retrieval (`k=60`), skill detail modal with rendered Markdown preview, tags, and byte size. | `hybrid_search.spec.js`, `routes_load.spec.js` |
-| **Agents** | `/agents` | Naruto Ninja 7-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
+| **Agents** | `/agents` | Naruto Ninja 8-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
 | **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration (:19999), cross-provider second opinion routing table, latency monitor. | `routes_load.spec.js` |
 | **Remote Access & Prompts** | `/remote` | Authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
 | **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | `routes_load.spec.js` |
@@ -564,3 +564,30 @@ kill $WEB_PID
 | **18. Node.js >=24.0.0 Minimum Engine** | `package.json`, `init.js`, `doctor.js` | Minimum Node.js >=24.0.0 enforced across root and `apps/web`; Socket CLI vulnerability score 100/100, 0 production CVEs | `PASS` (verified 2026-10-31) |
 | **19. Web UI Playwright & agent-browser** | `tests/e2e/web_ui_e2e.spec.js` | Playwright E2E suite passed; agent-browser 0.27.0 automated navigation, title, and snapshot passed; 26 SQLite FTS5 docs verified | `PASS` (verified 2026-10-31) |
 
+
+---
+
+## Section 28: v2.2.15 SDLC Structured Delegation Cutover, Parallel Fan-Out & Full Test Audit
+
+Authoritative verification matrix for the Konoha v2.2.15 SDLC runner cutover: structured in-memory delegation payload contracts, planner-marked parallel multi-agent fan-out and barrier, bounded subagent prompt ceilings (< 8000 bytes), and comprehensive 184 test suite audit.
+
+### 28.1 SDLC Structured Delegation Architecture & Parallel Fan-Out
+- **Structured Payload Contract**: Cut over SDLC runner from disk scratch reading (`findings.md`, `plan.md`) to structured in-memory state (`status.plan`, `status.findings`, `status.exploration_evidence`), with bounded 500-char in-memory summary emission in planning and execution phases.
+- **Planner-Marked Parallel Fan-Out**: Sannin planning phase detects parallel task slices marked with trailing `parallel_group:<id>` tokens, dispatching concurrent slices up to a cap of 8 with barrier synchronization across `completed_dispatches`.
+- **Authoritative Two-Gate Verification**:
+  - Gate 1 (`pending_plan_approval`): Authoritative plan approval gate; cannot be bypassed; supports compact-approve or reject-and-regenerate.
+  - Gate 2 (`pending_human_signoff`): Authoritative delivery sign-off gate; requires 100/100 anti-slop score and zero findings; dispatches bounded remediation loop to Anbu (general) or Jonin (UI) on failure.
+- **Subagent Prompt Ceiling**: Bounded prompt assembly (< 8000 bytes) verified across `tests/test_auto_compaction.js` and `tests/test_flow_bounded_skills.js` with deterministic prefix caching and compact MCP blocks.
+
+### 28.2 Verification Evidence & Audit Gates
+
+| Verification Gate | Command / Target | Observed Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Structured SDLC Cutover** | `src/mcp/workflow_runner.js`, `workflow_completion.js`, `sdlc_manager.js` | In-memory `status.plan` & `status.findings` used; scratch disk reading eliminated; dispatch status `in_progress` prevents Gate 2 premature bypass | `PASS` (verified 2026-11-01) |
+| **2. Parallel Group Fan-Out & Barrier** | `tests/test_parallel_planning.js`, `tests/test_parallel_execution.js` | Trailing `parallel_group:<id>` tokens parsed; multi-agent fan-out and barrier on `completed_dispatches` verified | `PASS` (verified 2026-11-01) |
+| **3. Bounded Prompt Ceilings (<8000 bytes)** | `tests/test_auto_compaction.js`, `tests/test_flow_bounded_skills.js` | Turn 1 & Turn 2 prompts strictly < 8000 bytes; subagent prompt overhead trimmed while preserving prefix determinism | `PASS` (verified 2026-11-01) |
+| **4. Full 184 JS Test Suite Audit** | `tests/run_all.js` (all 184 test suites) | Executed full 184 test suites via 4-shard parallel runner with clean golden-seed isolation; 184 passed, 0 failed (Shard 1: 46/46, Shard 2: 46/46, Shard 3: 46/46, Shard 4: 46/46) | `PASS` (184/184 verified 2026-11-01) |
+| **5. Web UI Playwright E2E Suite** | `npx playwright test -c apps/web/playwright.config.js` | All E2E test specs passed (auth_login, routes_load, theme_picker_flow, akatsuki_tools_flow, alerts_and_dialogs, detector_flow, hybrid_search) | `PASS` (verified 2026-11-01) |
+| **6. Zero-AI-Slop & Linter Gate** | `rtk npx aislop scan --changes` & `rtk node scripts/lint.js` | 100/100 Healthy · 0 errors · 0 warnings · 0 fixable; 452 files linted cleanly | `PASS` (verified 2026-11-01) |
+| **7. Architecture Diagram & Asset Sync** | `tests/test_diagram_sync.js`, `tests/test_documentation_diagrams.js`, `tests/test_all_assets_webp.js` | All 16 Draw.io pages, Mermaid companions, and 18 Animated WebP assets verified with 0 collisions | `PASS` (verified 2026-11-01) |
+| **8. Code File Budget & Zero Slop** | All modified source files | Strictly <= 700 lines per source file; zero numbered slop comments (`// 1.`, `## 1.`) | `PASS` (verified 2026-11-01) |

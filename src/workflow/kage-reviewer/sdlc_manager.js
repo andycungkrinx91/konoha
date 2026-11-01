@@ -436,7 +436,7 @@ function recordEvidence(id, evidenceData, dbPath = null, scope = null) {
     return createTask({
       id,
       description: `Task ${id}`,
-      status: evidenceData.verified ? 'completed' : 'unverified',
+      status: evidenceData.is_phase_dispatch ? 'in_progress' : (evidenceData.verified ? 'completed' : 'unverified'),
       evidence: evidenceData,
       project_path: evidenceData.project_path || '',
       session_id: evidenceData.session_id || '',

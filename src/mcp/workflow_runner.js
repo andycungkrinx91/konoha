@@ -247,7 +247,7 @@ function _dispatchReviewPhase(status, resolvedTaskDir) {
     cycle: status.slop_cycles || 0,
     dispatch_id: dispatch.id,
     task_dir: resolvedTaskDir,
-    task: 'Verify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Verify Akatsuki Security Final Gate pass (akatsuki_reviewed: true in kage_review.json or akatsuki_review.json with 0 critical/high findings). Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity and ai_slop_clean: true.',
+    task: 'Verify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Verify Akatsuki Security Final Gate pass (akatsuki_reviewed: true in kage_review.json or akatsuki_review.json with 0 critical/high findings). Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity (ai_slop_findings: 0) and ai_slop_clean: true.',
     skill_directive: SKILL_RETRIEVAL_DIRECTIVE
   });
 }

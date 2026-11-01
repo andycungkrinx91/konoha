@@ -92,6 +92,13 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
       bestAgent = 'kage';
     }
   }
+  const systemsSignals = [
+    'buffer overflow', 'memory allocator', 'memory leak', 'allocator', 'segfault',
+    'core dump', 'valgrind', 'clang', 'c++'
+  ];
+  if (systemsSignals.some(sig => promptLower.includes(sig))) {
+    bestAgent = 'anbu';
+  }
   const writeSignals = ['prd', 'write a prd', 'technical doc', 'write the doc', 'draft the doc', 'write docs', 'author', 'write a spec'];
   if (writeSignals.some(sig => promptLower.includes(sig))) {
     bestAgent = 'tokubetsu_jonin';

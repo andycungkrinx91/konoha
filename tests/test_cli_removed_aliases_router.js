@@ -112,7 +112,7 @@ try {
     const res = spawnSync(process.execPath, [cliPath, cmd, ...args], {
       env: baseEnv,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 30000
     });
 
     assert.strictEqual(

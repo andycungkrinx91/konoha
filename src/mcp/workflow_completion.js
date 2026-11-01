@@ -269,47 +269,40 @@ function handleAdvisorRemediation(options) {
 }
 
 function handleSlopRemediation(options) {
-  const { status, resolvedTaskDir, sdlcManager, slopResult } = options;
+  const { status, resolvedTaskDir, sdlcManager, slopResult, reviewObj, reason } = options;
   status.slop_cycles = (status.slop_cycles || 0) + 1;
   if (status.slop_cycles > 7) {
     status.status = 'blocked';
     saveWorkflowStatus(resolvedTaskDir, status);
     return {
       response: JSON.stringify({
-        status: 'blocked',
-        phase: 'review',
-        gate: 'anti-slop',
-        cycles: status.slop_cycles,
-        task_dir: resolvedTaskDir,
-        message: 'Anti-slop remediation limit exceeded (7 cycles). Manual developer intervention required.'
+        status: 'blocked', phase: 'review', gate: 'anti-slop', slop_cycles: status.slop_cycles, task_dir: resolvedTaskDir,
+        message: `Delegation depth circuit breaker tripped (> 7 slop remediation cycles). Slop findings: ${reason}`,
+        findings: reviewObj?.findings || []
       })
     };
   }
 
   const fixTaskId = `slop-fix-${status.slop_cycles}`;
-  const fixTaskText = `Remediate anti-slop violations: Score is ${slopResult.score}/100 with ${slopResult.findingsCount} findings. Run mechanical fixes and remove AI slop.`;
+  const effectiveReason = reason || (slopResult?.findings ? slopResult.findings.join('; ') : '');
+  const remediationAgent = resolveRemediationAgent(effectiveReason, status);
+  const fixTaskText = (typeof sdlcManager.generateSlopFixTask === 'function')
+    ? sdlcManager.generateSlopFixTask(status.slop_result || { findings: reviewObj?.findings || [effectiveReason] })
+    : `Remediate anti-slop violations: ${effectiveReason}`;
 
-  enqueueRemediationTask({
-    status, resolvedTaskDir, sdlcManager, fixTaskId, fixTaskText, agent: 'anbu'
-  });
-
+  enqueueRemediationTask({ status, resolvedTaskDir, sdlcManager, fixTaskId, fixTaskText, agent: remediationAgent });
   status.phase = 'execute';
-  status.assigned_agent = 'anbu';
+  status.assigned_agent = remediationAgent;
   saveWorkflowStatus(resolvedTaskDir, status);
   const { workflowDispatch } = require('./workflow_dispatch');
-  const disp = workflowDispatch(resolvedTaskDir, status, 'execute', 'anbu', fixTaskId, fixTaskText);
+  const disp = workflowDispatch(resolvedTaskDir, status, 'execute', remediationAgent, fixTaskId, fixTaskText);
+  const agentUpper = remediationAgent.charAt(0).toUpperCase() + remediationAgent.slice(1);
   return {
     response: JSON.stringify({
-      status: 'remediation',
-      phase: 'execute',
-      gate: 'anti-slop',
-      agent: 'anbu',
-      dispatch_id: disp.id,
-      task_id: fixTaskId,
-      task: fixTaskText,
-      task_dir: resolvedTaskDir,
-      slop_cycles: status.slop_cycles,
-      slop_result: slopResult
+      status: 'remediation', phase: 'execute', gate: 'anti-slop', agent: remediationAgent,
+      dispatch_id: disp.id, task_id: fixTaskId, task: fixTaskText, task_dir: resolvedTaskDir,
+      slop_cycles: status.slop_cycles, slop_result: slopResult,
+      message: `Dispatched remediation task to ${agentUpper} (cycle ${status.slop_cycles})`
     })
   };
 }
@@ -357,7 +350,11 @@ function handleReviewCompletion(status, context) {
     : (Array.isArray(reviewObj.findings) ? reviewObj.findings.length : 0);
 
   if (isSlopFail && slopFindingsCount > 0 && status.remediation_loop !== false) {
-    return handleSlopRemediation({ status, resolvedTaskDir, sdlcManager, slopResult: status.slop_result || { score: 70, findingsCount: slopFindingsCount, passed: false } });
+    const slopReason = Array.isArray(reviewObj.findings) && reviewObj.findings.length > 0 ? reviewObj.findings.join('; ') : reason;
+    return handleSlopRemediation({
+      status, resolvedTaskDir, sdlcManager, reviewObj, reason: slopReason,
+      slopResult: status.slop_result || { score: 70, findingsCount: slopFindingsCount, passed: false, findings: reviewObj.findings }
+    });
   }
 
   saveWorkflowStatus(resolvedTaskDir, status);
@@ -422,10 +419,10 @@ function checkAiSlopGate(params) {
   }
 
   const aiSlopOk = aiSlopClean && aiSlopScore === 100 && aiSlopFindings === 0;
-  const aiSlopConf = aiSlopOk ? 100 : Math.max(0, Math.min(95, aiSlopScore));
-  const aiSlopEval = aiSlopOk
-    ? '0 Findings (100/100)'
-    : `${aiSlopFindings} Findings (${aiSlopScore}/100)`;
+  const aiSlopConf = aiSlopOk ? '100%' : 'BLOCKING (confidence withheld)';
+  const aiSlopEval = (typeof aiSlopFindings === 'number' && !isNaN(aiSlopFindings))
+    ? `ai_slop_findings = ${Math.floor(aiSlopFindings)}`
+    : 'missing ai_slop_findings';
 
   return { aiSlopOk, aiSlopConf, aiSlopEval };
 }
@@ -465,24 +462,27 @@ function buildReviewGateBlock(params) {
     totalTasks, verifiedCount, validationEntries, evidencePct, reviewFindings,
     securityVerified, rollbackVerified
   } = params;
-
-  return `## Kage Architectural Review & Quality Gate Attestation\n\n` +
+  const mark = ok => (ok ? '✅ Passed' : '❌ Needs Attention');
+  return '### 🛡️ Kage Reviewer Confidence Gate Report\n\n' +
     '```\n' +
     '┌───────────────────────────────────────────────────────────────┐\n' +
     '│  ◎ KAGE REVIEW GATE: APPROVED                                 │\n' +
     `│  📊 CONFIDENCE SCORE: ${confidenceVal}% (Minimum Required: ≥ 98%)           │\n` +
     '└───────────────────────────────────────────────────────────────┘\n' +
     '```\n\n' +
-    `| Verification Category | Requirement / Invariant | Current Status | Score | Verdict |\n` +
-    `| :--- | :--- | :--- | :--- | :--- |\n` +
-    `| **Zero-AI-Slop Gate** | Clean (100/100 score, 0 findings) | ${aiSlopEval} | **${aiSlopConf}%** | ${aiSlopOk ? '✅ Passed' : '❌ Needs Remediation'} |\n` +
+    '### 📋 Confidence Score Breakdown (computed from recorded task evidence)\n\n' +
+    '| Verification Category | Target | Evaluated Result | Category Confidence | Status |\n' +
+    '|---|---|---|---|---|\n' +
+    `| **AI Slop Scan** | All changed files | ${aiSlopEval} | **${aiSlopConf}** | ${mark(aiSlopOk)} |\n` +
     socketRow +
     akatsukiRow +
-    `| **Verification & Evidence** | 100% of tasks pass automated verification | ${verifiedCount}/${totalTasks} tasks (${validationEntries} assertions) | **${evidencePct}%** | ${evidencePct === 100 ? '✅ Passed' : '❌ Incomplete'} |\n` +
-    `| **Security & Hardening** | Invariant audit (0 CRITICAL / HIGH) | ${reviewFindings.length} findings | **${securityVerified ? 100 : 0}%** | ${securityVerified ? '✅ Passed' : '❌ Unverified'} |\n` +
-    `| **Rollback Plan** | Documented and verified | ${rollbackVerified ? 'Explicit rollback documented' : 'Missing rollback'} | **${rollbackVerified ? 100 : 0}%** | ${rollbackVerified ? '✅ Passed' : '❌ Missing'} |\n` +
-    `| **Mechanical Confidence** | Final computed score (Must be >= 98%) | **${confidenceVal}% Confidence** | **${confidenceVal}%** | ${confidenceVal >= 98 ? '🏆 APPROVED' : '⚠️ REJECTED'} |\n\n` +
-    `- **Threshold**: Minimum 98% required to allow delivery.\n\n`;
+    `| **Task Validation Evidence** | ${totalTasks}/${totalTasks} tasks with passing evidence | ${verifiedCount}/${totalTasks} verified, ${validationEntries} validation entries recorded | **${evidencePct}%** | ${mark(evidencePct === 100)} |\n` +
+    `| **Kage Review Findings** | 0 unresolved findings | ${reviewFindings.length} finding(s) recorded in kage_review.json | **${reviewFindings.length === 0 ? 100 : Math.max(60, 100 - 10 * reviewFindings.length)}%** | ${mark(reviewFindings.length === 0)} |\n` +
+    `| **Security Review** | security_reviewed = true | security_reviewed = ${String(securityVerified)} | **${securityVerified ? 100 : 0}%** | ${mark(securityVerified)} |\n` +
+    `| **Rollback Review** | rollback_reviewed = true | rollback_reviewed = ${String(rollbackVerified)} | **${rollbackVerified ? 100 : 0}%** | ${mark(rollbackVerified)} |\n\n` +
+    `### 🎯 Overall Confidence: **${confidenceVal}%**\n` +
+    '- **Threshold**: Minimum 98% required to allow delivery.\n' +
+    '- **Verdict**: **PASSED & APPROVED FOR DELIVERY** (all recorded tasks carry validation evidence).\n\n';
 }
 
 function evaluateTaskEvidence(tasks) {

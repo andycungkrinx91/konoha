@@ -110,14 +110,23 @@ const includePython = process.argv.includes('--include-python');
 const isParallel = process.argv.includes('--parallel') || process.env.KONOHA_TEST_PARALLEL === '1';
 const concurrencyArg = process.argv.find(a => a.startsWith('--concurrency='));
 const concurrency = concurrencyArg ? parseInt(concurrencyArg.split('=')[1], 10) : 4;
+const shardArg = process.argv.find(a => a.startsWith('--shard='));
 const filterArg = process.argv.slice(2).find(a => !a.startsWith('--'));
 
-const jsTests = files.filter(f =>
+let jsTests = files.filter(f =>
   (f.endsWith('.test.js') || f.startsWith('test_') || f.startsWith('verify_')) &&
   f.endsWith('.js') &&
   f !== 'run_all.js' &&
   (!filterArg || f.toLowerCase().includes(filterArg.toLowerCase()))
 ).sort();
+
+if (shardArg) {
+  const [shardNum, totalShards] = shardArg.split('=')[1].split('/').map(Number);
+  if (shardNum && totalShards && shardNum <= totalShards) {
+    const chunkSize = Math.ceil(jsTests.length / totalShards);
+    jsTests = jsTests.slice((shardNum - 1) * chunkSize, shardNum * chunkSize);
+  }
+}
 
 const pyTests = includePython ? files.filter(f =>
   f.startsWith('test_') && f.endsWith('.py') &&

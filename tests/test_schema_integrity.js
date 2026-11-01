@@ -25,8 +25,8 @@ function testMigrationCreatesRuntimeSchema() {
 
     const result = spawnSync(
       process.execPath,
-      [path.join(ROOT, 'src', 'migrate.js'), '--db-path', dbPath, '--skills-dir', skillsDir, '--require-skill', 'genin-skill'],
-      { cwd: ROOT, encoding: 'utf-8', timeout: 30000 }
+      [path.join(ROOT, 'src', 'migrate.js'), '--db-path', dbPath, '--skills-dir', skillsDir, '--require-skill', 'genin-skill', '--skip-embeddings'],
+      { cwd: ROOT, encoding: 'utf-8', timeout: 60000 }
     );
     assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 

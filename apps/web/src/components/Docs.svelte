@@ -209,7 +209,7 @@
             onclick={() => (activeSection = s.id)}
           >
             <span>{s.label}</span>
-            <span class="w-1.5 h-1.5 rounded-full transition-opacity {activeSection === s.id ? 'opacity-100 bg-white' : 'opacity-0'}"></span>
+            <span class="w-1.5 h-1.5 rounded-full transition-opacity {activeSection === s.id ? 'opacity-100 bg-current' : 'opacity-0'}"></span>
           </a>
         {/each}
       </nav>
@@ -217,7 +217,7 @@
       <div class="mt-auto pt-6 border-t" style="border-color: var(--color-border);">
         <div class="rounded-2xl p-3 border" style="border-color: var(--color-border); background: var(--color-surface);">
           <div class="flex items-center gap-2 mb-1">
-            <span class="w-2 h-2 rounded-full {health?.status === 'healthy' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+            <span class="w-2 h-2 rounded-full {health?.status === 'healthy' ? 'bg-status-success animate-pulse' : 'bg-status-warning'}"></span>
             <span class="text-[11px] font-mono font-bold" style="color: var(--color-text);">Konoha Engine</span>
           </div>
           <p class="text-[10px]" style="color: var(--color-text-muted);">

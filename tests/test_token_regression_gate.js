@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./helpers/isolate_db');
+
 /**
  * tests/test_token_regression_gate.js — Enforces token budgets and regression thresholds
  * across tool schemas, memory payloads, and task artifacts.

@@ -76,8 +76,8 @@ async function run() {
     const instr2 = res2.instructions || '';
     const len2 = instr2.length;
 
-    assert.ok(len1 < 8000, `Turn 1 length (${len1}) must be < 8KB`);
-    assert.ok(len2 < 8000, `Turn 2 length (${len2}) must be < 8KB`);
+    assert.ok(len1 < 8000, `Turn 1 length (${len1}) must be token-bounded (< 8KB)`);
+    assert.ok(len2 < 8000, `Turn 2 length (${len2}) must be token-bounded (< 8KB)`);
     assert.strictEqual(instr1, instr2, 'Same task across Turn 1 and Turn 2 must be 100% deterministic');
     assert.ok(instr1.includes('[Konoha Token Preservation: Active'));
     assert.ok(instr1.includes('ecommerce-app'));

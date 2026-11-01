@@ -133,20 +133,21 @@ config:
 ---
 flowchart TD
     Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Structured MCP arguments<br/>• Initialize status.json &amp; SQLite WAL<br/>• Assess task readiness"]
-    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Output findings.md &amp; result.md"]
-    Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate plan.md checklist<br/>• Register tasks in sdlc_tasks"]
+    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Structured report_from_agent payload"]
+    Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate contracted task checklist<br/>• Register tasks in sdlc_tasks"]
 
-    Phase2 --> CheckResearch{"External Intel<br/>Required?"}
-    CheckResearch -- "needs_research: true" --> Phase2b["Phase 2b: RESEARCH (▫ Chunin)<br/>• Web search &amp; official doc extraction<br/>• Synthesize citations into findings.md"]
+    Phase2 --> Gate1["GATE 1: PLAN APPROVAL<br/>• Authoritative pending_plan_approval<br/>• Compact &amp; approve / Reject &amp; Refine"]
+    Gate1 --> CheckResearch{"External Intel<br/>Required?"}
+    CheckResearch -- "needs_research: true" --> Phase2b["Phase 2b: RESEARCH (▫ Chunin)<br/>• Web search &amp; official doc extraction<br/>• Return citations via structured report"]
     Phase2b --> Phase2
     CheckResearch -- "needs_replan: true" --> Phase2
-    CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB &amp; DevOps<br/>• Runs build &amp; validation commands"]
+    CheckResearch -- "Approved to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Planner-marked parallel fan-out (parallel_group, cap 8)<br/>• Barrier synchronization on completed dispatches<br/>• Jonin: UI · Anbu: Backend/DevOps/QA<br/>• Framework build &amp; validation commands"]
 
-    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md &amp; API specs<br/>• Synchronize CHANGELOG.md"]
+    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Return documentation deliverables<br/>• AI detection threshold &lt; 3.0%"]
     Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage, 🛡️ Akatsuki &amp; @advisor)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Two-Step Zero-AI-Slop Pre-Gate (100/100)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
 
     Phase5 --> CheckReview{"Security, Slop &amp; Confidence<br/>Review Approved?"}
-    CheckReview -- "Approved (≥ 98% Conf, Security Cleared &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
+    CheckReview -- "Approved (≥ 98% Conf, Security Cleared &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence<br/>• GATE 2: Delivery Sign-Off (pending_human_signoff)"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
     CheckReview -- "Security Flaw / Slop / Advisor Reject" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]

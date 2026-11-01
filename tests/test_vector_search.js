@@ -86,14 +86,22 @@ async function testSkillChunksSchemaAndColumns() {
 }
 
 async function testMultilingualIndonesianQueriesTop5() {
-  const realDb = path.join(os.homedir(), '.konoha', 'konoha.db');
-  if (!fs.existsSync(realDb)) {
-    console.log('Skipping testMultilingualIndonesianQueriesTop5: ~/.konoha/konoha.db not found');
+  const targetDb = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
+  if (!fs.existsSync(targetDb)) {
+    console.log(`Skipping testMultilingualIndonesianQueriesTop5: ${targetDb} not found`);
     return;
   }
 
-  const conn = db.getConnection(realDb);
+  const conn = db.getConnection(targetDb);
   try {
+    let chunkCount = 0;
+    try {
+      chunkCount = conn.prepare("SELECT COUNT(*) as c FROM skill_chunks WHERE embedding IS NOT NULL").get().c;
+    } catch (_) {}
+    if (chunkCount === 0) {
+      console.log('Skipping testMultilingualIndonesianQueriesTop5: 0 skill_chunks found');
+      return;
+    }
     const testCases = [
       ['Bagaimana cara membuat styling antarmuka frontend yang modern dan rapi', 'jonin-skill'],
       ['Deployment infrastruktur cloud dan perbaikan bug backend', 'anbu-skill'],
@@ -115,10 +123,10 @@ async function testMultilingualIndonesianQueriesTop5() {
 }
 
 async function testClangCanonicalSearchRanking() {
-  const realDb = path.join(os.homedir(), '.konoha', 'konoha.db');
-  if (!fs.existsSync(realDb)) return;
+  const targetDb = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
+  if (!fs.existsSync(targetDb)) return;
 
-  const conn = db.getConnection(realDb);
+  const conn = db.getConnection(targetDb);
   try {
     const existing = conn.prepare("SELECT 1 FROM skills WHERE name = 'clang'").get();
     if (!existing) {

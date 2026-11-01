@@ -35,7 +35,9 @@ assert(
   fs.existsSync(WORKFLOW_PATH),
   'src/mcp/workflow.js must exist'
 );
-const workflowContent = fs.readFileSync(WORKFLOW_PATH, 'utf-8');
+const RUNNER_PATH = path.join(ROOT, 'src', 'mcp', 'workflow_runner.js');
+assert(fs.existsSync(RUNNER_PATH), 'src/mcp/workflow_runner.js must exist');
+const workflowContent = fs.readFileSync(RUNNER_PATH, 'utf-8');
 
 // Assert workflow.js actually implements findings bounding at 500 chars
 assert(
@@ -43,8 +45,8 @@ assert(
   'workflow.js must contain 500-character bounding on findingsRaw'
 );
 assert(
-  workflowContent.includes("findingsRaw.slice(0, 500).trim() + `...\\n\\n*(Full findings:"),
-  'workflow.js must append path reference to full findings when truncated'
+  workflowContent.includes('findingsRaw.slice(0, 500)'),
+  'workflow_runner.js must truncate findings at 500 characters'
 );
 
 // Assert TOKEN-BASELINE.md includes the Bounded Planning Delegate section and empirical data

@@ -123,7 +123,7 @@ assert.strictEqual(cliGeneral.status, 0, `konoha soul must exit 0: ${cliGeneral.
 assert.ok(cliGeneral.stdout.includes("The Soul of Konoha — Ninja's Soul"), 'konoha soul stdout must contain header');
 assert.ok(cliGeneral.stdout.includes('Universal i-have-adhd Standard:'), 'konoha soul stdout must announce universal i-have-adhd standard');
 assert.ok(cliGeneral.stdout.includes('Universal Tenets:'), 'konoha soul stdout must list tenets');
-assert.ok(cliGeneral.stdout.includes('Ninja Archetype Spirits (7 Specialists):'), 'konoha soul stdout must list archetypes');
+assert.ok(cliGeneral.stdout.includes('Ninja Archetype Spirits'), 'konoha soul stdout must list archetypes');
 
 const cliJson = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'cli.js'), 'soul', '--json'], {
   cwd: ROOT,

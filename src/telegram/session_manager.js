@@ -249,6 +249,7 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
  * Automatically touch and register current active environment session into active_sessions.
  */
 function touchCurrentSession(conn) {
+  if (process.env.KONOHA_TEST_SANDBOX === '1' || process.env.KONOHA_DISABLE_SESSION_TOUCH === '1') return;
   try {
     const cwd = path.normalize(process.cwd());
     if (!isRealWorkspace(cwd)) return;
