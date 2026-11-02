@@ -222,8 +222,10 @@ async function runTests() {
     fs.mkdirSync(dirA, { recursive: true });
     fs.mkdirSync(dirB, { recursive: true });
 
-    fs.writeFileSync(path.join(dirA, 'status.json'), JSON.stringify({ plan: 'Plan A', plan_approved: true, human_signed_off: true }), 'utf8');
-    fs.writeFileSync(path.join(dirB, 'status.json'), JSON.stringify({ plan: 'Plan B', plan_approved: true, human_signed_off: true }), 'utf8');
+    const statusA = { plan: 'Plan A', plan_approved: true, human_signed_off: true, confidence: 100, ai_slop_clean: true, ai_slop_findings: 0 };
+    const statusB = { plan: 'Plan B', plan_approved: true, human_signed_off: true, confidence: 100, ai_slop_clean: true, ai_slop_findings: 0 };
+    fs.writeFileSync(path.join(dirA, 'status.json'), JSON.stringify(statusA), 'utf8');
+    fs.writeFileSync(path.join(dirB, 'status.json'), JSON.stringify(statusB), 'utf8');
 
     const [resA, resB] = await Promise.all([
       graph.invoke({ prompt: 'Build service architecture A', taskDir: dirA, tokenBudget: 8192 }, { configurable: { thread_id: 'thread-iso-A' } }),

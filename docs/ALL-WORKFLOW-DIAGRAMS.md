@@ -22,6 +22,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 14. [Workflow 13: Native Document Engineering & Animated WebP Export Pipeline](#14-workflow-13-native-document-engineering--animated-webp-export-pipeline)
 15. [Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle](#15-workflow-14-akatsuki-security-controls--dual-mode-lab-lifecycle)
 16. [Workflow 15: LangGraph.js Production State Graph & Error Edge Circuit Breaker](#16-workflow-15-langgraphjs-production-state-graph--error-edge-circuit-breaker)
+17. [Workflow 16: Turn-Scoped Budget Execution & Resume Loop Protocol](#17-workflow-16-turn-scoped-budget-execution--resume-loop-protocol)
 
 ---
 
@@ -1140,3 +1141,88 @@ flowchart TD
     class ErrorNode,RemediateNode errNode;
     class CompleteNode successNode;
 ```
+
+
+---
+
+## 17. Workflow 16: Turn-Scoped Budget Execution & Resume Loop Protocol
+
+```mermaid
+---
+title: LangGraph.js Turn-Scoped Budget Execution & Resume Loop Protocol (v2.2.17)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    StartTurn(["__start__"]) --> EntryRouter{"entryRouter<br/>(inspects state.resumeNode)"}
+    
+    EntryRouter -- "resumeNode empty / unset" --> ClassifyNode["node_classify"]
+    EntryRouter -- "resumeNode = node_plan" --> PlanNode["node_plan (Gate 1 HITL)"]
+    EntryRouter -- "resumeNode = node_brief" --> BriefNode["node_brief"]
+    EntryRouter -- "resumeNode = node_todo" --> TodoNode["node_todo"]
+    EntryRouter -- "resumeNode = node_dispatch" --> DispatchNode["node_dispatch"]
+    EntryRouter -- "resumeNode = node_execute" --> ExecuteNode["node_execute"]
+    EntryRouter -- "resumeNode = node_review" --> ReviewNode["node_review (Gate 2 Sign-off)"]
+    EntryRouter -- "resumeNode = node_remediate" --> RemediateNode["node_remediate"]
+    EntryRouter -- "resumeNode = node_complete" --> CompleteNode["node_complete"]
+
+    ClassifyNode --> PlanNode
+    PlanNode --> BriefNode
+    BriefNode --> TodoNode
+    TodoNode --> DispatchNode
+    DispatchNode --> ExecuteNode
+    ExecuteNode --> ReviewNode
+    ReviewNode --> CompleteNode
+    ReviewNode -- "Defect (<98% / slop)" --> RemediateNode
+    RemediateNode --> DispatchNode
+
+    ClassifyNode -. "Turn Budget Exceeded" .-> BudgetHalt["node_budget_exceeded<br/>(status: paused_budget_exceeded<br/>persists resumeNode: successor<br/>workflow_complete: false)"]
+    ExecuteNode -. "Turn Budget Exceeded" .-> BudgetHalt
+    ReviewNode -. "Turn Budget Exceeded" .-> BudgetHalt
+
+    ExecuteNode -. "Node Exception / Breaker Open" .-> ErrorHalt["node_error<br/>(status: error<br/>persists resumeNode: failed node<br/>retryable: true)"]
+
+    BudgetHalt --> EndTurn(["__end__ (Turn Pauses)"])
+    ErrorHalt --> EndTurn
+    CompleteNode --> EndTurn
+
+    EndTurn -. "Subsequent Turn Invocation<br/>turnTokensUsed: 0 · budgetExceeded: false<br/>persisted ceiling preserved" .-> StartTurn
+
+    classDef startNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef routerNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef activeNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef haltNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef errorNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class StartTurn,EndTurn startNode;
+    class EntryRouter routerNode;
+    class ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode,ReviewNode,RemediateNode,CompleteNode activeNode;
+    class BudgetHalt haltNode;
+    class ErrorHalt errorNode;
+```
+
+### Architectural Guarantees & Operational Lifecycle
+
+1. **Turn vs Workflow Scoping**: Reaching a per-turn token ceiling (8k, 16k, 32k, or 64k) suspends the **current turn** rather than terminating the workflow. The node cursor is cleanly persisted in SQLite checkpoint storage via `resumeNode`.
+2. **Deterministic Resumption Routing**: When the caller resumes via `sannin` or `workflow_gate_choice`, `entryRouter` evaluates `state.resumeNode` against the allowlist `RESUMABLE_NODES` and dispatches directly to the resume point. Earlier nodes are skipped, preserving monotonic progress.
+3. **No Caller Overhead**: Resuming turns do not require re-supplying `token_budget` or prior-turn arguments; persisted ceilings survive across turn boundaries automatically.
+4. **Single-Owner Token Metering**: Every node update passes through `finalizeNodeResult` in `src/mcp/langgraph/budget.js`, ensuring unified token estimation and absolute turn accounting.
+5. **Per-Thread Circuit Breaker**: State-machine error edges are guarded by thread-scoped breakers (`workflow:${threadId}`) that trip after 3 consecutive failures, preventing cascade retries while isolating concurrent execution threads.

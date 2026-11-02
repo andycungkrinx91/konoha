@@ -66,6 +66,8 @@ async function sanninWorkflowInit(taskDir, options = {}) {
     tokenBudget,
     threadId,
     autoSignoff,
+    budgetExceeded: false,
+    error: null,
   }, { threadId, tokenBudget });
 }
 
@@ -79,11 +81,12 @@ async function sanninWorkflowNext(taskDir, options = {}) {
     threadId,
     hitlChoice,
     hitlRefinement,
+    budgetExceeded: false,
+    error: null,
     ...(options.autoSignoff !== undefined ? { autoSignoff: options.autoSignoff } : {}),
   };
   if (tokenBudget) {
     input.tokenBudget = tokenBudget;
-    input.budgetExceeded = false;
   }
   return runKonohaGraph(input, { threadId, ...(tokenBudget ? { tokenBudget } : {}) });
 }
@@ -98,6 +101,7 @@ function sanninWorkflowReset(taskDir) {
     status.human_signed_off = false;
     status.hitl_gate = null;
     status.budget_exceeded = false;
+    status.error = null;
     saveWorkflowStatus(taskDir, status);
   }
   return status;

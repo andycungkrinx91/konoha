@@ -400,7 +400,9 @@
           "keyword"
         ],
         "additionalProperties": false
-      }
+      },
+      "deprecated": true,
+      "replacedBy": "find_skill"
     },
     {
       "name": "list_skills",
@@ -560,7 +562,9 @@
           "framework"
         ],
         "additionalProperties": false
-      }
+      },
+      "deprecated": true,
+      "replacedBy": "build_from_source"
     },
     {
       "name": "build_from_source",

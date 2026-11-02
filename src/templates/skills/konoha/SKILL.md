@@ -15,7 +15,15 @@ tags:
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
-Konoha serves ALL 47 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 47 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`.
+Konoha serves ALL 47 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 47 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 8 specialists:
+- Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
+- Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
+- Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
+- MCP Router & Orchestrator (@sannin): Request classification, triage, and multi-agent coordination.
+- UI & Frontend (@jonin): Component architecture, design match, and taste-skill frontend builds.
+- Backend & DevOps (@anbu): Backend services, bug fixing, DevOps, and infrastructure deployment.
+- Technical Writing & Scribe (@tokubetsu-jonin): Publication-grade documentation, diagrams, and reports.
+- Security Specialist (@akatsuki): Red-team penetration testing in sandboxes and blue-team defensive hardening.
 
 ---
 
@@ -40,13 +48,17 @@ To prevent token burn and provide surgically accurate guidance, maintenance inst
    - Repository code search: ALWAYS use Semble MCP (`semble.search`, `semble.find_related`).
    - Skill lookup: ALWAYS use Konoha MCP (`konoha.find_skill`, `konoha.get_skill`).
    - Bounded file I/O: ALWAYS use Konoha bounded tools (`read_file_range`, `read_file_head`, `token_efficient_grep`).
-   - Shell commands: ALWAYS prefix with `rtk <command>`.
+   - Shell commands: ALWAYS prefix with RTK (`rtk <command>`).
+   - Filesystem Mirrors Invariant: Konoha does not maintain filesystem mirrors across client folders. All skills reside centrally in SQLite FTS5 database.
+   - Extension Isolation: The obsolete `andycungkrinx91.konoha-bridge-master-universal` extension directory is eliminated; all IDEs use direct MCP configuration.
 2. **Quality & Security Delivery Gate**:
    - Shipped code must pass `rtk npx aislop scan --changes` with score **100/100 Healthy**, 0 errors, and 0 warnings.
    - Final Kage review requires `confidence >= 98%`, `ai_slop_clean: true`, and zero security findings.
 3. **Source File Line Limit**: Keep all JavaScript source files strictly under 700 lines.
 4. **Draw.io Zero Collision Rule**: Never introduce overlapping cells or bounding-box collisions in Draw.io diagram pages (`tests/test_diagram_sync.js`).
 5. **Single-Source Version Synchronization**: Keep all 19 managed repository targets strictly synchronized via `scripts/bump_version.js`.
+6. **Release Governance**: When maintaining or updating Konoha on branch `master`, ensure all discovered tests pass before release commits.
+7. **Token Savings Flow Logic Preservation Invariant**: Never modify or disrupt the token savings telemetry flow logic. In `src/tools_savings_logger.js`, baseline bytes for `find_skill` / `find_skills` are dynamically computed from the actual `SUM(byte_size)` of retrieved skill candidates in SQLite FTS5 matching, authentically reflecting 83%–98% context savings.
 
 ---
 

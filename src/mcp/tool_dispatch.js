@@ -66,7 +66,21 @@ function _dispatchSkillsTool(toolName, args, agent) {
     const compact = Boolean(args.compact);
     const taskId = args.task_id || args.taskId || null;
     const flowHash = args.flow_hash || args.flowHash || null;
-    return findSkill(keyword, limit, agent, compact, taskId, flowHash);
+    const raw = findSkill(keyword, limit, agent, compact, taskId, flowHash);
+    if (toolName === 'find_skills') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return JSON.stringify({
+            _warning: 'find_skills is deprecated and will be removed in a future release. Please use find_skill instead.',
+            deprecated: true,
+            replaced_by: 'find_skill',
+            ...parsed,
+          });
+        }
+      } catch (_) {}
+    }
+    return raw;
   }
   if (toolName === 'list_skills') {
     return listSkills(agent, args.fields);
@@ -171,7 +185,21 @@ function _dispatchWorkflowCore(toolName, args, agent) {
     if (!name || !source_dir || !framework) {
       return JSON.stringify({ error: 'Missing required arguments: name, source_dir, and framework are all required.' });
     }
-    return buildFromSource(name, source_dir, framework, agent, args.taste_dials);
+    const raw = buildFromSource(name, source_dir, framework, agent, args.taste_dials);
+    if (toolName === 'build_with_image_design') {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (typeof parsed === 'object' && parsed !== null) {
+          return JSON.stringify({
+            _warning: 'build_with_image_design is deprecated and will be removed in a future release. Please use build_from_source instead.',
+            deprecated: true,
+            replaced_by: 'build_from_source',
+            ...parsed,
+          });
+        }
+      } catch (_) {}
+    }
+    return raw;
   }
   if (toolName === 'build_from_text') {
     const { name, description, framework } = args;
@@ -233,12 +261,20 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
 
     try {
       const { sanninWorkflowInit } = require('./workflow');
-      return await sanninWorkflowInit(resolvedTaskDir, {
+      const graphInitRes = await sanninWorkflowInit(resolvedTaskDir, {
         prompt: prompt || (parsedSannin && parsedSannin.prompt),
         tokenBudget,
         threadId,
         autoSignoff,
       });
+      if (parsedSannin && typeof graphInitRes === 'object' && graphInitRes !== null) {
+        return {
+          ...parsedSannin,
+          ...graphInitRes,
+          selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
+        };
+      }
+      return graphInitRes;
     } catch (graphErr) {
       if (typeof logToolCall === 'function') {
         logToolCall('sannin', `task_dir=${resolvedTaskDir} fallback=runSannin error=${graphErr.message}`, sanninRes, 'sannin');

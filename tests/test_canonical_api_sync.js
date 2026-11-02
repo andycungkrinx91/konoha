@@ -22,6 +22,15 @@ const schemas = listToolSchemas();
 assert.strictEqual(schemas.length, 47, `Expected exactly 47 canonical MCP tools, found ${schemas.length}`);
 console.log('  ✓ Canonical tool count is locked at 47.');
 
+// Deprecated alias integrity (47 canonical + 2 deprecated = 49 manifest tools)
+const manifestTools = require('../src/mcp_tool_manifest.json').tools;
+const deprecatedTools = manifestTools.filter(t => t.deprecated);
+assert.strictEqual(manifestTools.length, 49, `Expected 49 tools in manifest (47 canonical + 2 deprecated), found ${manifestTools.length}`);
+assert.strictEqual(deprecatedTools.length, 2, `Expected 2 deprecated tools in manifest, found ${deprecatedTools.length}`);
+assert.ok(deprecatedTools.find(t => t.name === 'find_skills' && t.replacedBy === 'find_skill'), 'find_skills must be deprecated with replacedBy find_skill');
+assert.ok(deprecatedTools.find(t => t.name === 'build_with_image_design' && t.replacedBy === 'build_from_source'), 'build_with_image_design must be deprecated with replacedBy build_from_source');
+console.log('  ✓ 47 canonical + 2 deprecated aliases = 49 manifest tools verified.');
+
 // 2. Specific schema parameter integrity checks
 const findSkill = schemas.find(t => t.name === 'find_skill');
 assert.ok(findSkill, 'find_skill must exist in canonical tool schemas');

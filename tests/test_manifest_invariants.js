@@ -33,6 +33,7 @@ const allowedRootDeps = [
   '@langchain/langgraph',
   '@langchain/langgraph-checkpoint',
   'zod',
+  'gpt-tokenizer',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {

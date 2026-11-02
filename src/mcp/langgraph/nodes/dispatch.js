@@ -3,7 +3,7 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { _dispatchExecutePhase, _dispatchDocumentPhase } = require('../../workflow_runner');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 const { getActiveClient } = require('../../runtime_state');
 
 async function dispatchNode(state) {
@@ -23,16 +23,11 @@ async function dispatchNode(state) {
   if (!dispatchResult) {
     const nextPhase = status.phase || 'review';
     saveWorkflowStatus(taskDir, status);
-    const delta = estimateTokens({ phase: nextPhase });
-    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-    return {
+    const payload = {
       status,
       phase: nextPhase,
-      tokensUsed: delta,
-      turnTokensUsed: delta,
-      budgetExceeded: budgetCheck.budgetExceeded,
     };
+    return finalizeNodeResult(state, payload, 'node_execute', { source: { phase: nextPhase } });
   }
 
   let parsed = null;
@@ -62,18 +57,12 @@ async function dispatchNode(state) {
     }
   }
 
-  const delta = estimateTokens(parsed);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
-    phase: parsed.phase || targetPhase,
+    phase: parsed ? (parsed.phase || targetPhase) : (status.phase || 'review'),
     result: parsed,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_execute', { source: parsed });
 }
 
 module.exports = { dispatchNode };

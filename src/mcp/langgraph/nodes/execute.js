@@ -3,14 +3,15 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
-async function executeNode(state) {
+async function executeNode(state, config) {
   const taskDir = state.taskDir || '';
   const status = loadWorkflowStatus(taskDir) || state.status || {};
-  const breaker = globalCircuitRegistry.getOrCreate('workflow');
+  const threadId = state.threadId || config?.configurable?.thread_id || '';
+  const breakerKey = threadId ? `workflow:${threadId}` : 'workflow';
+  const breaker = globalCircuitRegistry.getOrCreate(breakerKey);
 
-  let executionSuccess = true;
   let executionError = null;
 
   try {
@@ -51,14 +52,7 @@ async function executeNode(state) {
       saveWorkflowStatus(taskDir, status);
     }
   } catch (err) {
-    executionSuccess = false;
     executionError = err.message;
-  }
-
-  if (executionSuccess) {
-    breaker.recordSuccess();
-  } else {
-    breaker.recordFailure();
   }
 
   const breakerStatus = breaker.getStatus();
@@ -73,16 +67,8 @@ async function executeNode(state) {
     error: executionError,
   };
 
-  const delta = estimateTokens(outputPayload);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
-    ...outputPayload,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
-  };
+  const nextNode = outputPayload.phase === 'document' ? 'node_dispatch' : 'node_review';
+  return finalizeNodeResult(state, outputPayload, nextNode);
 }
 
 module.exports = { executeNode };

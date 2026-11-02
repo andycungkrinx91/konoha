@@ -1,7 +1,7 @@
 {
   "name": "konoha-mcp",
   "version": "2.2.17",
-  "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
+  "description": "Autonomous multi-agent MCP orchestration platform powered by LangGraph state machines, 8 specialist ninja agents, SQLite FTS5 skill indexing, and per-turn token governors saving 83–98% context across 8 AI coding clients",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
   "repository": {
@@ -10,15 +10,24 @@
   },
   "type": "commonjs",
   "keywords": [
-    "antigravity",
+    "mcp",
+    "model-context-protocol",
+    "orchestrator",
+    "multi-agent",
+    "langgraph",
+    "ai-agent",
+    "token-optimization",
+    "sqlite-fts5",
     "cursor",
     "claude-code",
-    "mcp",
-    "skills",
-    "sqlite",
-    "fts5",
-    "ai-agent",
-    "token-optimization"
+    "antigravity",
+    "codex",
+    "opencode",
+    "commandcode",
+    "pi-dev",
+    "omp",
+    "developer-tools",
+    "sdlc"
   ],
   "author": "Andy Setiyawan | The shadow ninja with coffee (https://www.linkedin.com/in/andy-setiyawan-452396170/)",
   "license": "MIT",
@@ -54,7 +63,7 @@
     "!**/Thumbs.db"
   ],
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.13.0"
   },
   "publishConfig": {
     "access": "public"
@@ -86,6 +95,7 @@
     "@langchain/langgraph": "1.6.0",
     "@langchain/langgraph-checkpoint": "1.2.2",
     "docx": "^9.14.0",
+    "gpt-tokenizer": "4.1.0",
     "hash-wasm": "^4.12.0",
     "playwright": "^1.64.1",
     "pptxgenjs": "^4.0.1",

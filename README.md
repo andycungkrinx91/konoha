@@ -2,6 +2,13 @@
   <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
+<h1 align="center">🍃 KONOHA</h1>
+
+<p align="center">
+  <b>Autonomous Multi-Agent MCP Orchestration Platform for Elite AI Coding</b><br>
+  <sub>Powered by LangGraph.js State Machines · 8 Specialist Ninja Agents · Per-Turn Token Governors · 83–98% Context Reduction</sub>
+</p>
+
 [![Release](https://img.shields.io/badge/Release-v2.2.17-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
@@ -12,7 +19,7 @@
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
 [![OMP](https://img.shields.io/badge/OMP-CLI-0284c7?logo=linux&logoColor=white)](README.md)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.13.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20Tools-47%20Canonical-10b981)](README.md)
 [![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white)](docs/BENCHMARK.md)
@@ -23,7 +30,7 @@
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
 [![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.17-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.17_2026-11-01.md)
-[![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
+[![Tests](https://img.shields.io/badge/Tests-189%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
@@ -463,7 +470,7 @@ konoha status
 
 ## 📋 Requirements
 
-- **Node.js** ≥ 24.0.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency)
+- **Node.js** ≥ 22.13.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency)
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
 - **Cross-platform**: Linux, macOS, Windows (native and WSL)
 <details>

@@ -6,7 +6,7 @@ const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_commo
 const { runAislopGate } = require('../../workflow_dispatch');
 const { applyGate2Choice, buildGate2Prompt, parseGateChoice } = require('../../workflow_gates');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 function createPassResult(status, taskDir, state, payload) {
   status.human_signed_off = true;
@@ -15,19 +15,14 @@ function createPassResult(status, taskDir, state, payload) {
   status.gateVerdict = 'pass';
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
-  const delta = estimateTokens(payload);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-  return {
+  const resPayload = {
     status,
     phase: 'done',
     gateVerdict: 'pass',
     hitlPending: false,
     hitlStage: null,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, resPayload, 'node_complete', { source: payload });
 }
 
 async function reviewNode(state) {
@@ -64,18 +59,15 @@ async function reviewNode(state) {
     status.gateVerdict = 'remediate';
     if (taskDir) saveWorkflowStatus(taskDir, status);
 
-    const delta = estimateTokens({ verdict: 'remediate', confidence, slopFindings });
-    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-    return {
+    const payload = {
       status,
       phase: 'remediate',
       confidence,
       gateVerdict: 'remediate',
-      tokensUsed: delta,
-      turnTokensUsed: delta,
-      budgetExceeded: budgetCheck.budgetExceeded,
     };
+    return finalizeNodeResult(state, payload, 'node_remediate', {
+      source: { verdict: 'remediate', confidence, slopFindings },
+    });
   }
 
   if (state.hitlChoice && (state.hitlStage === 'gate2' || !status.human_signed_off)) {
@@ -98,21 +90,19 @@ async function reviewNode(state) {
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
   const prompt = buildGate2Prompt(status, taskDir, rootId, confidence, status.report);
-  const delta = estimateTokens(prompt);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     phase: 'review',
     hitlPending: true,
     hitlStage: 'gate2',
     gateVerdict: 'pending_signoff',
     result: prompt,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_complete', {
+    selfResume: true,
+    selfNode: 'node_review',
+    source: prompt,
+  });
 }
 
 module.exports = { reviewNode };

@@ -236,7 +236,7 @@ function generateJoninHtml() {
   const H = 760;
 
   const header = renderHeader(W, 'JONIN TASTE-SKILL PREMIUM UI BUILD PIPELINE', `LangGraph execute_node · Zero-AI-Slop & Akatsuki Security-Gated Frontend Engineering · v${PKG_VERSION}`, { text: 'TASTE-SKILL ENFORCED', col: C.violet });
-  const footer = renderFooter(W, H, 'LangGraph execute_node · Mandatory layout invariants · pure light mode · 100% exact mockup fidelity · 0 errors 0 warnings');
+  const footer = renderFooter(W, H, 'LangGraph execute_node · per-turn budget exhausted -> next turn resumes at node_execute · Mandatory layout invariants · pure light mode · 100% exact mockup fidelity · 0 errors 0 warnings');
 
   const containerInvariants = `
     <g transform="translate(50, 195)">
@@ -368,7 +368,7 @@ function generateQaHtml() {
   const H = 760;
 
   const header = renderHeader(W, 'TOKEN-PRESERVING QA AUTOMATION WORKFLOW', `LangGraph execute_node · Deterministic Codification & Headless E2E Verification · v${PKG_VERSION}`, { text: 'TOKEN PRESERVATION', col: C.azure });
-  const footer = renderFooter(W, H, 'LangGraph execute_node · Zero LLM tokens during test runs · <2,000 chars capped evidence · autonomous fix loops');
+  const footer = renderFooter(W, H, 'LangGraph execute_node · per-turn budget exhausted -> next turn resumes at node_execute · Zero LLM tokens during test runs · <2,000 chars capped evidence · autonomous fix loops');
 
   const cards = [
     renderCard([50, 130, 190, 68], C.azure, '1. EXPLORE', 'agent-browser scoped'),
@@ -418,7 +418,7 @@ function generateTelegramHtml() {
   const H = 760;
 
   const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & TWO-STAGE HITL GATES', `LangGraph StateGraph Ingress · Interactive Gate 1 & Gate 2 Inline Keyboards · v${PKG_VERSION}`, { text: 'HITL GATES ENABLED', col: C.azure });
-  const footer = renderFooter(W, H, 'LangGraph Two-Stage HITL Gates · Interactive [Approve] / [Reject] callbacks · /approval list · /doctor');
+  const footer = renderFooter(W, H, 'LangGraph Two-Stage HITL Gates · per-turn budget exhausted -> next turn resumes at node_plan/node_review · Interactive [Approve] / [Reject] callbacks · /approval list · /doctor');
 
   const topTrackContainer = `
     <g transform="translate(50, 120)">
@@ -477,7 +477,7 @@ function generateAkatsukiHtml() {
   const H = 760;
 
   const header = renderHeader(W, 'AKATSUKI SECURITY CONTROLS & DUAL-MODE LAB LIFECYCLE', `LangGraph review_node Pre-Condition · Dual-Mode Isolation · Container Sandboxing · v${PKG_VERSION}`, { text: 'SECURITY GUARDIAN', col: C.crimson });
-  const footer = renderFooter(W, H, 'LangGraph review_node Pre-Condition · mode: blue (defensive host default) · mode: red (isolated lab) · RoE gating');
+  const footer = renderFooter(W, H, 'LangGraph review_node Pre-Condition · per-turn budget exhausted -> next turn resumes at node_review · mode: blue (defensive host default) · mode: red (isolated lab) · RoE gating');
 
   const topTrackContainer = `
     <g transform="translate(40, 85)">

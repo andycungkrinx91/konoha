@@ -646,3 +646,39 @@ Authoritative verification matrix for the Konoha v2.2.17 LangGraph.js production
 | **6. Pentest Routing to Akatsuki** | `tests/test_langgraph_v2217.js` (Test 5) | Security/pentest prompt classified as `intent: 'pentest'` and assigned to `@akatsuki` | `PASS` (verified 2026-11-01) |
 | **7. Core LangGraph Suite** | `tests/test_langgraph_workflow.js` | 8/8 tests passed (Checkpointer CRUD, Fast-Track, PLAN->BRIEF->TODO, Budget halt/resume, CB 7-cycle cap, HITL Gate 1, Zero-overlap threads, Sannin facade) | `PASS` (verified 2026-11-01) |
 | **8. Procedural Workflow Regression** | `tests/test_workflow_gates.js`, `test_workflow_loop.js` | All 21 gate and loop tests passed cleanly (100% backward compatibility) | `PASS` (verified 2026-11-01) |
+
+
+---
+
+## Section 31: LangGraph.js Turn-Budget Resumption & Orchestration Correctness Amendment (v2.2.17 Amendment)
+
+Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budget governor, non-wedging resumption protocol, single-owner token metering, fail-closed routing, and deterministic pure-JS tokenizer.
+
+### 31.1 Turn-Scoped Invariants & Architecture Guarantees
+- **Turn-Scoped Budget Execution**: Per-turn token ceiling halts the active agent turn at `node_budget_exceeded`, recording `resume_node` in SQLite checkpoint state rather than terminating the workflow.
+- **Monotonic Progression**: Resuming turn dispatches directly via allowlisted `entryRouter` to `resumeNode`, provably bypassing already completed node prefixes.
+- **Caller Overhead Elimination**: Continuation turns require zero prior-turn argument re-supply; persisted ceilings (e.g. 16k, 32k, 64k) survive across turns.
+- **Fail-Closed Router Defenses**: Tripped circuit breakers route conditionally to `node_error` (never `node_complete`); unknown or unhandled review verdicts route to remediation/error.
+- **Single-Owner Token Metering**: Unified in `finalizeNodeResult()` (`src/mcp/langgraph/budget.js`), eliminating divergent token estimation and ambiguous zero-delta resets.
+- **Deterministic Pure-JS Tokenizer**: Replaced child-process Python tiktoken forks with pure-JS `gpt-tokenizer` (`cl100k_base`), guaranteeing 0.00% divergence against golden corpus.
+- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=22.13.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 47 tools with 2 deprecated aliases.
+
+### 31.2 Verification Evidence & Acceptance Matrix
+
+| Acceptance Criterion | Verification Target | Observed Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Budget Halts Turn Not Workflow** | `tests/test_langgraph_budget_resume.js` (S1) | Returns `status: 'paused_budget_exceeded'`, `workflow_complete: false`, valid `resume_node` | `PASS` (verified 2026-11-02) |
+| **2. Exact-Node Resumption** | `tests/test_langgraph_budget_resume.js` (S2) | Turn 2 begins at `resume_node`; Turn 1 prefix (`node_classify`) is not re-executed | `PASS` (verified 2026-11-02) |
+| **3. No Caller Resupply Required** | `tests/test_langgraph_budget_resume.js` (S3) | Turn 2 invoked with only `{taskDir, threadId}` resumes and advances without `token_budget` | `PASS` (verified 2026-11-02) |
+| **4. Persisted Ceiling Preservation** | `tests/test_langgraph_budget_resume.js` (S4) | Workflow started at 32,768 retains 32,768 ceiling on continuation (does not revert to 8,192) | `PASS` (verified 2026-11-02) |
+| **5. Monotonic Multi-Turn Termination** | `tests/test_langgraph_budget_resume.js` (S5) | Multi-turn loop with tiny budget advances monotonically and terminates cleanly (never wedges) | `PASS` (verified 2026-11-02) |
+| **6. HITL Gate Node Resumption** | `tests/test_langgraph_budget_resume.js` (S6) | Gate 1 pause resumes at `node_plan`, applies choice, and completes workflow | `PASS` (verified 2026-11-02) |
+| **7. Error Node Retry** | `tests/test_langgraph_budget_resume.js` (S7) | Injected node error ends at `node_error` with `resume_node` set to failed node for retry | `PASS` (verified 2026-11-02) |
+| **8. Circuit Breaker Fails Closed** | `tests/test_langgraph_budget_resume.js` (S8) | 3 consecutive failures trip breaker to `OPEN`; routes to error, never `node_complete` | `PASS` (verified 2026-11-02) |
+| **9. Breaker Thread Isolation** | `tests/test_langgraph_budget_resume.js` (S9) | Failures in thread A do not open circuit breaker for thread B (`workflow:${threadId}`) | `PASS` (verified 2026-11-02) |
+| **10. Unknown Verdict Fails Closed** | `tests/test_langgraph_budget_resume.js` (S10) | Unhandled review verdict routes to remediation/error; never falsely reports complete | `PASS` (verified 2026-11-02) |
+| **11. Deterministic Token Metering** | `tests/test_token_sampler.js` | Exact 0.00% parity vs golden corpus; 0 child processes spawned; ~0.04 ms/call | `PASS` (verified 2026-11-02) |
+| **12. Non-Empty Node Updates** | `tests/test_langgraph_budget_resume.js` (S12) | Every node returns a valid dictionary; `graph.invoke` never resolves to `undefined` | `PASS` (verified 2026-11-02) |
+| **13. Forward-Only Execution Trace** | `tests/test_langgraph_budget_resume.js` (S13) | Concatenated trace proves zero duplicate completed nodes and strict forward progression | `PASS` (verified 2026-11-02) |
+| **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes | `PASS` (verified 2026-11-02) |
+| **15. Deprecated Manifest Aliases** | `tests/test_canonical_api_sync.js` | 47 canonical + 2 deprecated = 49 manifest tools verified with structured deprecation notices | `PASS` (verified 2026-11-02) |

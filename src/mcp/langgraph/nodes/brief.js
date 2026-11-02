@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 async function briefNode(state) {
   const taskDir = state.taskDir || '';
@@ -31,18 +31,12 @@ async function briefNode(state) {
     saveWorkflowStatus(taskDir, status);
   }
 
-  const delta = estimateTokens(brief);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     brief,
     phase: 'todo',
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_todo', { source: brief });
 }
 
 module.exports = { briefNode };

@@ -8,26 +8,41 @@ async function budgetExceededNode(state) {
   if (taskDir) fs.mkdirSync(taskDir, { recursive: true });
   const status = loadWorkflowStatus(taskDir) || state.status || {};
 
+  const resumeNode = state.resumeNode || 'node_classify';
+  const turnIndex = state.turnIndex || 1;
+  const turnTokensUsed = state.turnTokensUsed || state.tokensUsed || 0;
+  const tokenBudget = state.tokenBudget || 8192;
+
   status.budget_exceeded = true;
-  status.tokens_used = state.tokensUsed;
-  status.token_budget = state.tokenBudget;
+  status.tokens_used = state.tokensUsed || 0;
+  status.token_budget = tokenBudget;
+  status.resume_node = resumeNode;
+  status.turn_index = turnIndex;
+  status.turn_tokens_used = turnTokensUsed;
+
   if (taskDir) {
     saveWorkflowStatus(taskDir, status);
   }
 
   const payload = {
     status: 'paused_budget_exceeded',
+    resume_node: resumeNode,
+    turn_index: turnIndex,
+    turn_tokens_used: turnTokensUsed,
+    token_budget: tokenBudget,
+    tokens_used: state.tokensUsed || 0,
+    workflow_complete: false,
     phase: state.phase,
-    tokens_used: state.tokensUsed,
-    turn_tokens_used: state.turnTokensUsed || state.tokensUsed,
-    token_budget: state.tokenBudget,
-    message: `Workflow halted: token budget exceeded (${state.turnTokensUsed || state.tokensUsed} >= ${state.tokenBudget}). State persisted for resumption with higher ceiling.`,
     task_dir: taskDir,
+    thread_id: state.threadId || null,
+    message: `Workflow turn halted: per-turn token budget reached (${turnTokensUsed} >= ${tokenBudget}). State persisted for continuation at ${resumeNode}.`,
+    next_action: `Continue with another turn: the next sannin/workflow_gate_choice call resumes at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`,
   };
 
   return {
     status,
     budgetExceeded: true,
+    resumeNode,
     result: payload,
     error: null,
   };

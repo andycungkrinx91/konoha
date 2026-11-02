@@ -21,6 +21,7 @@ const { budgetExceededNode } = require('./nodes/budget_exceeded');
 const { errorNode } = require('./nodes/error');
 
 const {
+  entryRouter,
   classifyRouter,
   planRouter,
   briefRouter,
@@ -45,7 +46,17 @@ function createGraphBuilder() {
     .addNode('node_budget_exceeded', budgetExceededNode)
     .addNode('node_error', errorNode)
 
-    .addEdge('__start__', 'node_classify')
+    .addConditionalEdges('__start__', entryRouter, {
+      node_classify: 'node_classify',
+      node_plan: 'node_plan',
+      node_brief: 'node_brief',
+      node_todo: 'node_todo',
+      node_dispatch: 'node_dispatch',
+      node_execute: 'node_execute',
+      node_review: 'node_review',
+      node_remediate: 'node_remediate',
+      node_complete: 'node_complete',
+    })
 
     .addConditionalEdges('node_classify', classifyRouter, {
       node_error: 'node_error',
@@ -134,7 +145,26 @@ function buildKonohaGraph(options = {}) {
     compileOptions.checkpointer = checkpointer;
   }
 
-  return builder.compile(compileOptions);
+  const compiled = builder.compile(compileOptions);
+  const defaultRecursionLimit = options.recursionLimit || 60;
+  const origInvoke = compiled.invoke.bind(compiled);
+  const origStream = compiled.stream.bind(compiled);
+
+  compiled.invoke = (input, config = {}) => {
+    return origInvoke(input, {
+      recursionLimit: config.recursionLimit || defaultRecursionLimit,
+      ...config,
+    });
+  };
+
+  compiled.stream = (input, config = {}) => {
+    return origStream(input, {
+      recursionLimit: config.recursionLimit || defaultRecursionLimit,
+      ...config,
+    });
+  };
+
+  return compiled;
 }
 
 let compiledGraphInstance = null;
@@ -146,32 +176,96 @@ function getWorkflowGraph(options = {}) {
   return compiledGraphInstance;
 }
 
+const inMemoryTurnCounters = new Map();
+
+async function resolveTurnIndex(graph, config, threadId) {
+  let prevTurnIndex = 0;
+  try {
+    const snapshot = await graph.getState(config);
+    if (snapshot && snapshot.values && typeof snapshot.values.turnIndex === 'number') {
+      prevTurnIndex = snapshot.values.turnIndex;
+    }
+  } catch (_) {}
+
+  if (!prevTurnIndex && inMemoryTurnCounters.has(threadId)) {
+    prevTurnIndex = inMemoryTurnCounters.get(threadId);
+  }
+
+  const nextTurnIndex = prevTurnIndex + 1;
+  inMemoryTurnCounters.set(threadId, nextTurnIndex);
+  return nextTurnIndex;
+}
+
+function formatGraphOutput(graphRes) {
+  if (!graphRes || typeof graphRes !== 'object') return graphRes;
+
+  const resultPayload = (graphRes.result && typeof graphRes.result === 'object')
+    ? graphRes.result
+    : {};
+
+  const isComplete = graphRes.phase === 'done' || resultPayload.status === 'completed';
+  const isPaused = Boolean(graphRes.budgetExceeded || resultPayload.status === 'paused_budget_exceeded');
+  const isError = Boolean(graphRes.error || resultPayload.status === 'error');
+
+  const resumeNode = graphRes.resumeNode || resultPayload.resume_node || (graphRes.phase ? `node_${graphRes.phase}` : 'node_classify');
+  const nextAction = resultPayload.next_action || (
+    isPaused
+      ? `Continue with another turn: the next sannin/workflow_gate_choice call resumes at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`
+      : (isError
+        ? `Turn halted on error. Next call will retry at ${resumeNode}.`
+        : (isComplete ? 'Workflow complete.' : (graphRes.hitlPending ? 'Awaiting human in the loop input.' : `In progress at ${resumeNode}.`)))
+  );
+
+  const status = resultPayload.status || (isPaused ? 'paused_budget_exceeded' : (isError ? 'error' : (isComplete ? 'completed' : (graphRes.status?.phase || graphRes.phase || 'in_progress'))));
+
+  return {
+    ...graphRes,
+    status,
+    resume_node: resumeNode,
+    next_action: nextAction,
+    workflow_complete: isComplete,
+  };
+}
+
 async function runKonohaGraph(input, options = {}) {
   const graph = getWorkflowGraph(options);
   const taskDir = options.taskDir || input.taskDir || '';
   const taskDirBasename = taskDir ? path.basename(taskDir) : '';
   const threadId = options.threadId || input.threadId || input.flowHash || taskDirBasename || 'default-thread';
-  const tokenBudget = normalizeTokenBudget(
-    options.tokenBudget || input.tokenBudget || options.turnBudget || 8192
-  );
 
   const config = {
+    recursionLimit: options.recursionLimit || 60,
     configurable: {
       thread_id: threadId,
-      tokenBudget,
       ...options.configurable,
     },
   };
 
+  const hasExplicitBudget = options.tokenBudget != null || input.tokenBudget != null || options.turnBudget != null;
+  const explicitBudget = hasExplicitBudget
+    ? normalizeTokenBudget(options.tokenBudget || input.tokenBudget || options.turnBudget)
+    : undefined;
+
+  const turnIndex = await resolveTurnIndex(graph, config, threadId);
+
+  const { resumeNode: _stripResume, ...restInput } = input || {};
+
   const invokeInput = {
-    ...input,
-    taskDir: taskDir || input.taskDir || '',
+    ...restInput,
+    taskDir: taskDir || restInput.taskDir || '',
     threadId,
-    tokenBudget,
     turnTokensUsed: 0,
+    budgetExceeded: false,
+    error: null,
+    turnIndex,
   };
 
-  return graph.invoke(invokeInput, config);
+  if (explicitBudget !== undefined) {
+    invokeInput.tokenBudget = explicitBudget;
+  }
+
+  const rawResult = await graph.invoke(invokeInput, config);
+  return formatGraphOutput(rawResult);
 }
 
 module.exports = {
@@ -179,6 +273,7 @@ module.exports = {
   buildKonohaGraph,
   getWorkflowGraph,
   runKonohaGraph,
+  formatGraphOutput,
   KonohaWorkflowState,
   KonohaCheckpointSaver,
 };

@@ -5,7 +5,7 @@ const path = require('path');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { applyGate1Choice, buildGate1Prompt, parseGateChoice } = require('../../workflow_gates');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 async function planNode(state) {
   const taskDir = state.taskDir || '';
@@ -23,19 +23,14 @@ async function planNode(state) {
       saveWorkflowStatus(taskDir, status);
     }
 
-    const delta = estimateTokens(choiceObj);
-    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-    return {
+    const payload = {
       status,
       plan: status.plan,
       phase: 'brief',
       hitlPending: false,
       hitlStage: null,
-      tokensUsed: delta,
-      turnTokensUsed: delta,
-      budgetExceeded: budgetCheck.budgetExceeded,
     };
+    return finalizeNodeResult(state, payload, 'node_brief', { source: choiceObj });
   }
 
   const rootRecord = sdlcManager.getTask(rootTaskId);
@@ -48,19 +43,14 @@ async function planNode(state) {
     saveWorkflowStatus(taskDir, status);
 
     const planData = status.plan || 'Plan approved.';
-    const delta = estimateTokens(planData);
-    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-    return {
+    const payload = {
       status,
       plan: planData,
       phase: 'brief',
       hitlPending: false,
       hitlStage: null,
-      tokensUsed: delta,
-      turnTokensUsed: delta,
-      budgetExceeded: budgetCheck.budgetExceeded,
     };
+    return finalizeNodeResult(state, payload, 'node_brief', { source: planData });
   }
 
   status.phase = 'plan';
@@ -68,21 +58,19 @@ async function planNode(state) {
   saveWorkflowStatus(taskDir, status);
 
   const prompt = buildGate1Prompt(status, taskDir, rootTaskId, status.plan);
-  const delta = estimateTokens(prompt);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     plan: status.plan,
     phase: 'plan',
     hitlPending: true,
     hitlStage: 'gate1',
     result: prompt,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_brief', {
+    selfResume: true,
+    selfNode: 'node_plan',
+    source: prompt,
+  });
 }
 
 module.exports = { planNode };

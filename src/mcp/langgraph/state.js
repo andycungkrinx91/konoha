@@ -48,13 +48,18 @@ const KonohaWorkflowState = Annotation.Root({
     default: () => 0,
   }),
   turnTokensUsed: Annotation({
-    reducer: (curr, update) => {
-      if (typeof update === 'number') {
-        return update === 0 ? 0 : (curr || 0) + update;
-      }
-      return curr || 0;
-    },
+    reducer: (curr, update) => (typeof update === 'number' ? update : (curr || 0)),
     default: () => 0,
+  }),
+  turnIndex: Annotation({ default: () => 1 }),
+  resumeNode: Annotation({ default: () => '' }),
+  trace: Annotation({
+    reducer: (curr, update) => {
+      if (Array.isArray(update)) return [...(curr || []), ...update];
+      if (update != null && update !== '') return [...(curr || []), update];
+      return curr || [];
+    },
+    default: () => [],
   }),
   budgetExceeded: Annotation({ default: () => false }),
 

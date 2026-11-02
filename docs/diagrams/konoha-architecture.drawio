@@ -737,7 +737,7 @@
                 <mxCell id="p8-discover" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;" value="2. Discover skill + code&#10;Konoha MCP + Semble MCP" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="270" as="geometry" />
                 </mxCell>
-                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. LangGraph Dispatch Node&#10;Lazy contract, turn budget &amp; todo" vertex="1">
+                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. LangGraph Dispatch Node&#10;Turn budget governor &amp; resume protocol" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="410" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" value="4. Invoke selected agent tool&#10;persona + instructions" vertex="1">

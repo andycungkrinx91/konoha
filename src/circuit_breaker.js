@@ -64,8 +64,6 @@ class CircuitBreaker {
         this.failureCount = 0;
         this.lastStateChange = Date.now() / 1000;
       }
-    } else if (this.state === CircuitState.CLOSED) {
-      this.failureCount = 0;
     }
   }
 

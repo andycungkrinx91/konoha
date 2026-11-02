@@ -3,41 +3,40 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
-async function remediateNode(state) {
+async function remediateNode(state, config) {
   const taskDir = state.taskDir || '';
   if (taskDir) fs.mkdirSync(taskDir, { recursive: true });
   const status = loadWorkflowStatus(taskDir) || state.status || {};
-  const breaker = globalCircuitRegistry.getOrCreate('workflow');
+  const threadId = state.threadId || config?.configurable?.thread_id || '';
+  const breakerKey = threadId ? `workflow:${threadId}` : 'workflow';
+  const breaker = globalCircuitRegistry.getOrCreate(breakerKey);
 
   const currentCycles = (status.slop_cycles || 0) + 1;
   status.slop_cycles = currentCycles;
 
   const breakerStatus = breaker.getStatus();
-  const maxCyclesExceeded = currentCycles > 7;
+  const maxCyclesExceeded = currentCycles >= 7;
   const circuitTripped = breakerStatus.state === 'OPEN' || maxCyclesExceeded;
 
   if (circuitTripped) {
     status.circuit_broken = true;
-    status.phase = 'done';
+    status.phase = 'error';
     status.gateVerdict = 'circuit_open';
     if (taskDir) saveWorkflowStatus(taskDir, status);
 
-    const delta = estimateTokens({ circuitTripped, currentCycles });
-    const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-    const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-    return {
+    const payload = {
       status,
-      phase: 'done',
+      phase: 'error',
       circuitOpen: true,
       circuitState: 'OPEN',
       remediationCount: currentCycles,
       error: `Circuit breaker tripped: remediation cycle limit (7) or failure threshold reached (cycles=${currentCycles}, state=${breakerStatus.state}).`,
-      tokensUsed: delta,
-      turnTokensUsed: delta,
-      budgetExceeded: budgetCheck.budgetExceeded,
     };
+    return finalizeNodeResult(state, payload, 'node_error', {
+      source: { circuitTripped, currentCycles },
+    });
   }
 
   status.phase = 'execute';
@@ -51,19 +50,15 @@ async function remediateNode(state) {
   }
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
-  const delta = estimateTokens({ remediationCycle: currentCycles });
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     phase: 'execute',
     circuitOpen: false,
     remediationCount: currentCycles,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_dispatch', {
+    source: { remediationCycle: currentCycles },
+  });
 }
 
 module.exports = { remediateNode };

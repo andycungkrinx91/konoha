@@ -1,7 +1,7 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.2.0 (Konoha v2.2.17)  
-**Date:** 2026-10-18  
+**Document Version:** 1.3.0 (Konoha v2.2.17)  
+**Date:** 2026-11-02  
 **Status:** Authoritative CLI Command Reference  
 
 ---
@@ -15,7 +15,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha agent` | `<subcommand> [args]` | Configure Ninja subagents (list, create, toggle skills, models config, delete, status) |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
-| `konoha config` | `<subcommand> [options]` | Manage global Konoha system configuration |
+| `konoha config` | `<list|get|set|unset> [key] [val] [--json]` | Manage global Konoha system configuration in `~/.konoha/config.json` |
 | `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
 | `konoha detect-ai` | `<target> [--json]` | Scan website URL or project files for AI fingerprints (Human-Built Index) |
 | `konoha detect-docs` | `<target> [--json]` | Scan prose documents or text for AI generation markers (ZeroGPT defense) |

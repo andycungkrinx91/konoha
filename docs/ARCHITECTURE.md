@@ -712,6 +712,81 @@ Before any graph-based engine can be introduced beyond research, it must clear n
    - `KonohaCheckpointSaver` implements `BaseCheckpointSaver` on `node:sqlite`, eliminating native C++ dependencies while providing WAL mode, atomic commits, and thread-level state isolation across `lg_checkpoints` and `lg_writes`.
 ---
 
+### 7. Turn-Scoped Token Budget & Resumption Protocol (v2.2.17 Amendment)
+
+In v2.2.17, the execution boundary of the token budget governor was re-architected from workflow-scoped termination to strict **turn-scoped progression**. Previously, reaching the token budget ceiling set `budgetExceeded: true` permanently into SQLite checkpoint state, wedging subsequent turns at `node_budget_exceeded`.
+
+#### Architectural Invariants & Guarantees
+1. **Turn-Scoped Budget Reset**: Every new invocation turn resets `turnTokensUsed: 0`, `budgetExceeded: false`, and `error: null` while advancing the monotonic `turnIndex`.
+2. **Preserved Budget Ceilings**: Resuming workflows preserve their persisted token ceiling (e.g. 16k, 32k, 64k); subsequent turns never silently degrade to the default 8,192 ceiling.
+3. **Allowlisted Entry Routing (`entryRouter`)**: `__start__` conditional edges route dynamically to `resumeNode` allowlisted across `RESUMABLE_NODES` (`node_classify`, `node_plan`, `node_brief`, `node_todo`, `node_dispatch`, `node_execute`, `node_review`, `node_remediate`, `node_complete`). Interrupted prefixes are never re-executed.
+4. **Resumption Points**:
+   - **Budget Exhaustion**: Resumes at the **successor node** (side effects of completed node already persisted).
+   - **HITL Gate Pause**: Resumes at the **gate node itself** (consumes human decision on resume).
+   - **Node Error / Exception**: Resumes at the **failed node** (retries with circuit breaker protection).
+5. **Single Metering Owner**: Standardized `finalizeNodeResult(state, payload, nextNode, opts)` in `src/mcp/langgraph/budget.js` eliminates divergent token counting across nodes.
+6. **Per-Thread Fault Isolation**: Circuit breakers are scoped per thread (`workflow:${threadId}`) with consecutive-failure accounting, preventing cascade failures across concurrent workflows.
+7. **Deterministic Pure-JS Tokenizer**: Pure-JS `gpt-tokenizer` (`cl100k_base`) replaces Python child-process forks with ~0 ms hot-path in-process tokenization and exact golden corpus parity.
+
+```mermaid
+---
+title: LangGraph.js Turn-Scoped Execution & Resumption Protocol (v2.2.17)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    START(["__start__"]) --> EntryRouter{"entryRouter<br/>(inspects state.resumeNode)"}
+    EntryRouter -->|resumeNode unset / empty| NodeClassify["node_classify"]
+    EntryRouter -->|resumeNode = node_plan| NodePlan["node_plan (Gate 1)"]
+    EntryRouter -->|resumeNode = node_brief| NodeBrief["node_brief"]
+    EntryRouter -->|resumeNode = node_todo| NodeTodo["node_todo"]
+    EntryRouter -->|resumeNode = node_dispatch| NodeDispatch["node_dispatch"]
+    EntryRouter -->|resumeNode = node_execute| NodeExecute["node_execute"]
+    EntryRouter -->|resumeNode = node_review| NodeReview["node_review (Gate 2)"]
+    EntryRouter -->|resumeNode = node_remediate| NodeRemediate["node_remediate"]
+    EntryRouter -->|resumeNode = node_complete| NodeComplete["node_complete"]
+
+    NodeClassify --> NodePlan
+    NodePlan --> NodeBrief
+    NodeBrief --> NodeTodo
+    NodeTodo --> NodeDispatch
+    NodeDispatch --> NodeExecute
+    NodeExecute --> NodeReview
+    NodeReview --> NodeComplete
+    NodeReview -->|Defect < 98%| NodeRemediate
+    NodeRemediate --> NodeDispatch
+
+    NodeClassify -.->|Budget Limit| BudgetHalt["node_budget_exceeded<br/>(status: paused_budget_exceeded<br/>resume_node: successor<br/>workflow_complete: false)"]
+    NodeExecute -.->|Budget Limit| BudgetHalt
+    NodeReview -.->|Budget Limit| BudgetHalt
+
+    NodeExecute -.->|Exception / Breaker Trip| ErrorHalt["node_error<br/>(status: error<br/>resume_node: failed node<br/>retryable: true)"]
+
+    BudgetHalt --> End(["__end__ (Turn Ends)"])
+    ErrorHalt --> End
+
+    End -.->|Next Turn Invocation<br/>turnTokensUsed: 0<br/>budgetExceeded: false<br/>retains tokenBudget| START
+```
+
+---
+
 ### 📚 Official LangGraph.js Documentation Citations
 
 All research and architectural mappings in this specification are grounded in official LangGraph.js / LangChain documentation and specifications:

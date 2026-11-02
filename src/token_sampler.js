@@ -2,46 +2,87 @@
 
 /**
  * src/token_sampler.js
- * Live tiktoken (cl100k_base) sampling and accuracy verification against the /4 heuristic.
- * Measures real byte-to-token ratios, detects heuristic drift, and flags divergence.
+ * Deterministic cl100k_base token counting using pure-JS gpt-tokenizer with
+ * explicit fallback chain (pure-JS -> python -> byte heuristic).
  */
 
-const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+let _pureJsTokenizer = null;
+let _lastEstimator = 'pure_js_cl100k';
 let _cachedDrift = null;
 let _lastSampleTime = 0;
-const CACHE_TTL_MS = 60 * 1000; // 1 minute cache
+const CACHE_TTL_MS = 60 * 1000;
+
+function _getPureJsTokenizer() {
+  if (_pureJsTokenizer === null) {
+    try {
+      _pureJsTokenizer = require('gpt-tokenizer/cjs/encoding/cl100k_base');
+    } catch (_) {
+      try {
+        _pureJsTokenizer = require('gpt-tokenizer');
+      } catch (err) {
+        _pureJsTokenizer = false;
+      }
+    }
+  }
+  return _pureJsTokenizer || null;
+}
+
+function getLastEstimatorUsed() {
+  return _lastEstimator;
+}
 
 /**
- * Counts exact cl100k_base tokens for a given string using python3 tiktoken.
+ * Counts exact cl100k_base tokens for a given string using pure-JS gpt-tokenizer,
+ * with explicit fallback chain to python and byte heuristic.
  * @param {string} text - Payload text to tokenize
- * @returns {number} Token count, or Math.floor(bytes/4) fallback if python3/tiktoken is unavailable
+ * @param {object} [options]
+ * @param {boolean} [options.pureJsOnly=false]
+ * @returns {number} Token count
  */
-function countTiktoken(text) {
+function countTiktoken(text, options = {}) {
   if (!text || typeof text !== 'string') return 0;
   const byteLen = Buffer.byteLength(text, 'utf8');
   if (byteLen === 0) return 0;
 
-  try {
-    const res = spawnSync('python3', [
-      '-c',
-      'import tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); print(len(enc.encode(sys.stdin.read())))'
-    ], {
-      input: text,
-      encoding: 'utf8',
-      timeout: 3000
-    });
-
-    if (res.status === 0 && res.stdout) {
-      const parsed = parseInt(res.stdout.trim(), 10);
-      if (!isNaN(parsed) && parsed >= 0) return parsed;
-    }
-  } catch (_) {
-    /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */
+  const tokenizer = _getPureJsTokenizer();
+  if (tokenizer && typeof tokenizer.countTokens === 'function') {
+    try {
+      const count = tokenizer.countTokens(text);
+      if (typeof count === 'number' && !isNaN(count) && count >= 0) {
+        _lastEstimator = 'pure_js_cl100k';
+        return count;
+      }
+    } catch (_) {}
   }
 
+  // Fallback 1: python3 tiktoken (only if not pureJsOnly)
+  if (!options.pureJsOnly) {
+    try {
+      const { spawnSync } = require('child_process');
+      const res = spawnSync('python3', [
+        '-c',
+        'import tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); print(len(enc.encode(sys.stdin.read())))'
+      ], {
+        input: text,
+        encoding: 'utf8',
+        timeout: 3000
+      });
+
+      if (res.status === 0 && res.stdout) {
+        const parsed = parseInt(res.stdout.trim(), 10);
+        if (!isNaN(parsed) && parsed >= 0) {
+          _lastEstimator = 'python_tiktoken';
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Fallback 2: deterministic byte heuristic Math.floor(bytes / 4)
+  _lastEstimator = 'byte_heuristic';
   return Math.floor(byteLen / 4);
 }
 
@@ -65,34 +106,6 @@ function _gatherSampleCorpus() {
   return samples;
 }
 
-function _batchTokenizeSamples(samples) {
-  if (samples.length === 0) return null;
-  try {
-    const res = spawnSync('python3', [
-      '-c',
-      'import json, tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); samples = json.loads(sys.stdin.read()); print(json.dumps([len(enc.encode(s)) for s in samples]))'
-    ], {
-      input: JSON.stringify(samples),
-      encoding: 'utf8',
-      timeout: 1000
-    });
-    if (res.status === 0 && res.stdout) {
-      const parsed = JSON.parse(res.stdout.trim());
-      if (Array.isArray(parsed) && parsed.length === samples.length) {
-        return parsed;
-      }
-    }
-  } catch (_) { /* intentional best-effort fallback */ }
-  return null;
-}
-
-/**
- * Evaluates live drift between the /4 heuristic and real cl100k_base tiktoken tokens
- * across representative payloads (e.g. from skills.db and recent tool payloads).
- * @param {object} [options]
- * @param {boolean} [options.force=false] - Bypass in-memory cache
- * @returns {object} Drift metrics object
- */
 function getDriftMetrics(options = {}) {
   const now = Date.now();
   if (!options.force && _cachedDrift && (now - _lastSampleTime < CACHE_TTL_MS)) {
@@ -105,12 +118,10 @@ function getDriftMetrics(options = {}) {
   let totalTiktoken = 0;
   let totalHeuristic = 0;
 
-  const tikCounts = _batchTokenizeSamples(samples);
-
   for (let i = 0; i < samples.length; i++) {
     const text = samples[i];
     const bytes = Buffer.byteLength(text, 'utf8');
-    const tik = (tikCounts && typeof tikCounts[i] === 'number') ? tikCounts[i] : countTiktoken(text);
+    const tik = countTiktoken(text);
     const heur = Math.floor(bytes / 4);
 
     totalBytes += bytes;
@@ -122,8 +133,7 @@ function getDriftMetrics(options = {}) {
   const empiricalBytesPerToken = Number((totalBytes / totalTiktoken).toFixed(3));
   const diffTokens = totalHeuristic - totalTiktoken;
   const divergencePct = Number(((Math.abs(diffTokens) / totalTiktoken) * 100).toFixed(2));
-  
-  // Threshold: ±5% is healthy; > 5% triggers drift alert
+
   const isHealthy = divergencePct <= 5.0;
   const status = isHealthy ? 'healthy' : 'drift_detected';
   const alertMessage = isHealthy
@@ -140,6 +150,7 @@ function getDriftMetrics(options = {}) {
     status,
     isHealthy,
     alertMessage,
+    estimatorUsed: _lastEstimator,
     timestamp: new Date().toISOString()
   };
   _lastSampleTime = now;
@@ -149,5 +160,6 @@ function getDriftMetrics(options = {}) {
 
 module.exports = {
   countTiktoken,
+  getLastEstimatorUsed,
   getDriftMetrics
 };

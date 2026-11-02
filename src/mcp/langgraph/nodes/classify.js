@@ -2,7 +2,7 @@
 
 const { classifyExecutionTrack, computeFlowHash } = require('../../workflow_sannin');
 const { isPentestTask } = require('../../workflow_common');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 async function classifyNode(state, config) {
   const prompt = state.prompt || '';
@@ -21,16 +21,8 @@ async function classifyNode(state, config) {
     flowHash,
   };
 
-  const delta = estimateTokens(payload);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
-    ...payload,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
-  };
+  const nextNode = isFastTrack ? 'node_complete' : 'node_plan';
+  return finalizeNodeResult(state, payload, nextNode);
 }
 
 module.exports = { classifyNode };

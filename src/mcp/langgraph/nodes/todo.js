@@ -3,7 +3,7 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus, workflowParseTasks } = require('../../workflow_common');
 const { detectParallelWorkstreams } = require('../../workflow_sannin');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 async function todoNode(state) {
   const taskDir = state.taskDir || '';
@@ -42,19 +42,13 @@ async function todoNode(state) {
     saveWorkflowStatus(taskDir, status);
   }
 
-  const delta = estimateTokens(tasks);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     todos: tasks,
     slices: tasks.filter(t => t.parallel_group),
     phase: 'execute',
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, 'node_dispatch', { source: tasks });
 }
 
 module.exports = { todoNode };

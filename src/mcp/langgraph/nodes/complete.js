@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadWorkflowStatus, saveWorkflowStatus, cleanupTransientScratchFiles } = require('../../workflow_common');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
-const { estimateTokens, checkBudget } = require('../token_guard');
+const { finalizeNodeResult } = require('../budget');
 
 async function completeNode(state) {
   const taskDir = state.taskDir || '';
@@ -36,18 +36,12 @@ async function completeNode(state) {
     report: status.report || 'Workflow successfully executed and validated.',
   };
 
-  const delta = estimateTokens(finalOutput);
-  const turnUsed = state.turnTokensUsed !== undefined ? state.turnTokensUsed : state.tokensUsed;
-  const budgetCheck = checkBudget(turnUsed, delta, state.tokenBudget);
-
-  return {
+  const payload = {
     status,
     phase: 'done',
     result: finalOutput,
-    tokensUsed: delta,
-    turnTokensUsed: delta,
-    budgetExceeded: budgetCheck.budgetExceeded,
   };
+  return finalizeNodeResult(state, payload, '__end__', { source: finalOutput });
 }
 
 module.exports = { completeNode };
