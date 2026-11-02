@@ -727,7 +727,7 @@ All generated Svelte code must conform to the following baseline visual standard
 2. **Theme Switcher**: Floating bottom-left selector at `bottom-20 left-4 md:bottom-6 md:left-6 z-[1000]`, persisted under `konoha-theme`.
 3. **Optional 3D Hero**: When selected by the build archetype, implement 1200px perspective, max 12deg tilt, 6000ms autoplay, split drapes, thumbnails, keyboard controls, touch fallback, and reduced-motion behavior.
 4. **Accessible Interaction**: Use SvelteKit-native routing, semantic controls, focus states, `aria-pressed` where applicable, and teardown for timers, listeners, observers, and animation frames.
-5. **Footer Watermark**: Add `Build by Konoha` when the selected build contract requires the Konoha shell.
+5. **Footer Watermark**: Add `Build by Konoha shadow ninja with coffee by Andy Setiyawan` when the selected build contract requires the Konoha shell.
 
 ## Development Guidelines
 

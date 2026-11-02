@@ -62,7 +62,7 @@ function humanBuiltFingerprintDirectives(mode = 'build_from_text') {
     isSource
       ? 'Human-Built Fingerprint Policy — Icons: for any NEW icons use Phosphor Icons or hand-exported inline SVG icon components; when replicating source icons, hand-export them as inline SVGs instead of adding an icon package — NEVER install lucide-react, lucide-svelte, lucide-vue-next, or lucide-angular (Lucide is a named AI-scaffold fingerprint).'
       : 'Human-Built Fingerprint Policy — Icons: use Phosphor Icons (@phosphor-icons/react for Next.js, @phosphor-icons/svelte for SvelteKit, @phosphor-icons/web for Nuxt/Angular) or hand-exported inline SVG icon components; NEVER install or import any Lucide package (lucide-react, lucide-svelte, lucide-vue-next, lucide-angular) — Lucide is a named AI-scaffold fingerprint.',
-    'Human-Built Fingerprint Policy — Attribution: add no platform attribution badges or "Deployed on X" links; keep the Build by Konoha footer credit exactly as-is.',
+    'Human-Built Fingerprint Policy — Attribution: add no platform attribution badges or "Deployed on X" links; only allowed watermark is Build by Konoha shadow ninja with coffee by Andy Setiyawan.',
     'Human-Built Fingerprint Policy — Hosting (advisory): when the user controls hosting, prefer a self-hosted Node server, Cloudflare Pages, or a VPS over Vercel/Netlify — Vercel/Netlify hosting is itself scored as an AI-app-deployment signal.'
   ];
 }

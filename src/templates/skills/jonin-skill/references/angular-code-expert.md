@@ -7,7 +7,7 @@ Comprehensive implementation standards for **Angular 20+** (Standalone Component
 - **Reactivity**: Angular Signals (`signal()`, `computed()`, `effect()`) for state management and reactive filters.
 - **Components**: Standalone components (`standalone: true` or default in Angular 19).
 - **Theme Engine**: Reactive CSS gradient variables driven by `ThemeSwitcherComponent`.
-- **Watermark**: `Build by Konoha` footer watermark required on all pages.
+- **Watermark**: `Build by Konoha shadow ninja with coffee by Andy Setiyawan` footer watermark required on all pages.
 
 ---
 
@@ -22,7 +22,7 @@ All generated Angular code must conform to the following baseline visual standar
 6. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
 7. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting using Angular `computed()`.
 8. **Zero-Emoji Policy in UI**: Clean vector icons strictly from `@phosphor-icons/web` CSS classes (or hand-exported inline SVGs). Emojis in buttons, navigation, and badges are strictly forbidden.
-9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha`.
+9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha shadow ninja with coffee by Andy Setiyawan`.
 
 ---
 
@@ -214,7 +214,7 @@ export class ThemeSwitcherComponent implements OnInit {
 - [ ] `HeroCarouselComponent` with full-width GPU tilt and spec badges.
 - [ ] 50 items dataset catalog with multi-criteria reactive filters using `computed()`.
 - [ ] All interactive icons rendered via `@phosphor-icons/web` CSS classes or inline SVGs (zero emojis in UI).
-- [ ] `Build by Konoha` watermark included in footer.
+- [ ] `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
 

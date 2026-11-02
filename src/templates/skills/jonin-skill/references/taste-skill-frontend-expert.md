@@ -59,7 +59,7 @@ Every build uses the Konoha Design System as its bedrock:
    - **Nuxt 3.15+/4.3**: Vue 3.5, Tailwind CSS v4.
    - **Angular 19+**: Standalone Components, Signals, Tailwind CSS v4.
 7. **Footer Watermark**:
-   - Clean, muted `Build by Konoha` watermark in the footer.
+   - Clean, muted `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark in the footer.
 
 ---
 

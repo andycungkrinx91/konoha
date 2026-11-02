@@ -7,7 +7,7 @@ Comprehensive implementation standards for **Nuxt 4.3** (Vue 3 Composition API +
 - **Reactivity & State**: Vue 3 `<script setup lang="ts">`, `ref()`, `computed()`, and Pinia stores.
 - **Routing**: Nuxt 4 file-based routing in `app/pages/` with layout inheritance in `app/layouts/`.
 - **Theme Engine**: Reactive CSS custom properties driven by `components/ThemeSwitcher.vue`.
-- **Watermark**: `Build by Konoha` footer watermark required on all pages.
+- **Watermark**: `Build by Konoha shadow ninja with coffee by Andy Setiyawan` footer watermark required on all pages.
 
 ---
 
@@ -22,7 +22,7 @@ All generated Nuxt 3 code must conform to the following baseline visual standard
 6. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
 7. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting.
 8. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `@phosphor-icons/vue` (Phosphor Icons) or hand-exported inline SVGs. Emojis in buttons, navigation, and badges are strictly forbidden.
-9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha`.
+9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha shadow ninja with coffee by Andy Setiyawan`.
 
 ---
 
@@ -352,7 +352,7 @@ function handleMouseLeave() {
 - [ ] `HeroCarousel.vue` with full-width GPU tilt and spec badges.
 - [ ] 50 items dataset catalog with multi-criteria reactive filters and search.
 - [ ] All interactive SVG icons strictly imported from `@phosphor-icons/vue` (zero emojis in UI).
-- [ ] `Build by Konoha` watermark included in footer.
+- [ ] `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
 

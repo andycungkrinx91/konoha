@@ -47,7 +47,7 @@ function getArchetypeDirectives(archetype) {
     commerce: [
       'Commerce features: implement a 50-item production catalog with reactive search, category filters, price range, sorting, pagination, product detail, cart, and checkout routes.',
       'Commerce hero: add the full-width interactive 4-slide 3D carousel with 1200px perspective, max 12deg tilt, 5000ms autoplay, split-drapes transition, thumbnails, and keyboard controls.',
-      'Commerce shell: add the ten-theme light-mode switcher popup, sticky header search, mobile dock, lazy images, security headers, custom error pages, and Build by Konoha footer watermark.'
+      'Commerce shell: add the ten-theme light-mode switcher popup, sticky header search, mobile dock, lazy images, security headers, custom error pages, and Build by Konoha shadow ninja with coffee by Andy Setiyawan footer watermark.'
     ],
     dashboard: [
       'Dashboard Shell Architecture: implement a fixed Left Sidebar (hidden lg:flex w-64 flex-col border-r border-[var(--theme-border)] bg-white/95 min-h-screen sticky top-0) with brand logo at top-left, navigation links with badges, and user profile badge.',

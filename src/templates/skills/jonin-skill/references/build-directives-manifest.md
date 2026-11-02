@@ -13,7 +13,7 @@ All web application builds execute in two complementary layers:
    - **Hero Carousel**: Full-width 3D `HeroCarousel` with 1200px perspective, tilt physics, thumbnails, play/pause, and spec badges.
    - **Catalog & Commerce**: 50-item production-grade catalog dataset with reactive filters, category search, sort, pagination, cart drawer, and checkout modals.
    - **Framework Standard**: Strictly **Next.js 16.3+ App Router (React 19, Tailwind v4)**, **SvelteKit 2 (Svelte 5 Runes)**, **Nuxt 3.15+/4.3**, or **Angular 19+**.
-   - **Footer Watermark**: `Build by Konoha` watermark.
+   - **Footer Watermark**: `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark.
 
 2. **Layer 2: Taste-Skill Enrichment (Polish, 3D & Anti-Slop)**:
    - **3D Animation & Sensory Dynamics**: Motion 12 spring physics, 3D card tilt (`perspective(1200px)`), dynamic hover sheen, `hover:-translate-y-1`, and tactile `active:scale-[0.98]`.
