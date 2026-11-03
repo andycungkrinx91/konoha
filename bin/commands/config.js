@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { KONOHA } = require('../lib/paths');
-const { C, log, error, success, info } = require('../lib/format');
+const { C, log, error, success } = require('../lib/format');
 
 const CONFIG_FILE = path.join(KONOHA, 'config.json');
 
@@ -26,6 +26,20 @@ const ALLOWED_KEYS = new Set([
   'default_agent',
   'theme',
 ]);
+
+function _validateKey(key, usageHint) {
+  if (!key) {
+    error(`Usage: ${usageHint}`);
+    process.exitCode = 1;
+    return false;
+  }
+  if (!ALLOWED_KEYS.has(key)) {
+    error(`Unknown configuration key "${key}". Allowed keys: ${Array.from(ALLOWED_KEYS).join(', ')}`);
+    process.exitCode = 1;
+    return false;
+  }
+  return true;
+}
 
 function readConfigFile() {
   try {
@@ -112,14 +126,7 @@ async function cmdConfig(cmdArgs = []) {
     }
 
     case 'get': {
-      if (!key) {
-        error('Usage: konoha config get <key>');
-        process.exitCode = 1;
-        return null;
-      }
-      if (!ALLOWED_KEYS.has(key)) {
-        error(`Unknown configuration key "${key}". Allowed keys: ${Array.from(ALLOWED_KEYS).join(', ')}`);
-        process.exitCode = 1;
+      if (!_validateKey(key, 'konoha config get <key>')) {
         return null;
       }
       const val = config[key];
@@ -156,14 +163,7 @@ async function cmdConfig(cmdArgs = []) {
     }
 
     case 'unset': {
-      if (!key) {
-        error('Usage: konoha config unset <key>');
-        process.exitCode = 1;
-        return null;
-      }
-      if (!ALLOWED_KEYS.has(key)) {
-        error(`Unknown configuration key "${key}". Allowed keys: ${Array.from(ALLOWED_KEYS).join(', ')}`);
-        process.exitCode = 1;
+      if (!_validateKey(key, 'konoha config unset <key>')) {
         return null;
       }
       delete config[key];

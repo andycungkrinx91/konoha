@@ -22,7 +22,7 @@ function _getPureJsTokenizer() {
     } catch (_) {
       try {
         _pureJsTokenizer = require('gpt-tokenizer');
-      } catch (err) {
+      } catch (_) {
         _pureJsTokenizer = false;
       }
     }
@@ -42,46 +42,57 @@ function getLastEstimatorUsed() {
  * @param {boolean} [options.pureJsOnly=false]
  * @returns {number} Token count
  */
+function _countPureJs(tokenizer, text) {
+  if (!tokenizer || typeof tokenizer.countTokens !== 'function') return null;
+  try {
+    const count = tokenizer.countTokens(text);
+    if (typeof count === 'number' && !isNaN(count) && count >= 0) return count;
+  } catch (_) {
+    /* fallback to python */
+  }
+  return null;
+}
+
+function _countPython(text) {
+  try {
+    const { spawnSync } = require('child_process');
+    const res = spawnSync('python3', [
+      '-c',
+      'import tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); print(len(enc.encode(sys.stdin.read())))'
+    ], {
+      input: text,
+      encoding: 'utf8',
+      timeout: 3000
+    });
+    if (res.status === 0 && res.stdout) {
+      const parsed = parseInt(res.stdout.trim(), 10);
+      if (!isNaN(parsed) && parsed >= 0) return parsed;
+    }
+  } catch (_) {
+    /* fallback to byte heuristic */
+  }
+  return null;
+}
+
 function countTiktoken(text, options = {}) {
   if (!text || typeof text !== 'string') return 0;
   const byteLen = Buffer.byteLength(text, 'utf8');
   if (byteLen === 0) return 0;
 
-  const tokenizer = _getPureJsTokenizer();
-  if (tokenizer && typeof tokenizer.countTokens === 'function') {
-    try {
-      const count = tokenizer.countTokens(text);
-      if (typeof count === 'number' && !isNaN(count) && count >= 0) {
-        _lastEstimator = 'pure_js_cl100k';
-        return count;
-      }
-    } catch (_) {}
+  const pureCount = _countPureJs(_getPureJsTokenizer(), text);
+  if (pureCount !== null) {
+    _lastEstimator = 'pure_js_cl100k';
+    return pureCount;
   }
 
-  // Fallback 1: python3 tiktoken (only if not pureJsOnly)
   if (!options.pureJsOnly) {
-    try {
-      const { spawnSync } = require('child_process');
-      const res = spawnSync('python3', [
-        '-c',
-        'import tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); print(len(enc.encode(sys.stdin.read())))'
-      ], {
-        input: text,
-        encoding: 'utf8',
-        timeout: 3000
-      });
-
-      if (res.status === 0 && res.stdout) {
-        const parsed = parseInt(res.stdout.trim(), 10);
-        if (!isNaN(parsed) && parsed >= 0) {
-          _lastEstimator = 'python_tiktoken';
-          return parsed;
-        }
-      }
-    } catch (_) {}
+    const pyCount = _countPython(text);
+    if (pyCount !== null) {
+      _lastEstimator = 'python_tiktoken';
+      return pyCount;
+    }
   }
 
-  // Fallback 2: deterministic byte heuristic Math.floor(bytes / 4)
   _lastEstimator = 'byte_heuristic';
   return Math.floor(byteLen / 4);
 }

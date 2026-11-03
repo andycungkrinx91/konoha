@@ -19,7 +19,7 @@ async function errorNode(state) {
     try {
       fs.mkdirSync(taskDir, { recursive: true });
       saveWorkflowStatus(taskDir, status);
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort status persistence */ }
   }
 
   const payload = {

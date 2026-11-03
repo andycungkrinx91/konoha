@@ -185,7 +185,7 @@ async function resolveTurnIndex(graph, config, threadId) {
     if (snapshot && snapshot.values && typeof snapshot.values.turnIndex === 'number') {
       prevTurnIndex = snapshot.values.turnIndex;
     }
-  } catch (_) {}
+  } catch (_) { /* intentional snapshot read fallback */ }
 
   if (!prevTurnIndex && inMemoryTurnCounters.has(threadId)) {
     prevTurnIndex = inMemoryTurnCounters.get(threadId);
