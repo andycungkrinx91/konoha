@@ -44,7 +44,7 @@ const EXPECTED_WEBP_ASSETS = [
   'testing.webp'
 ];
 
-console.log('1. Checking that all 18 Animated WebP assets exist and legacy GIFs are removed...');
+console.log('1. Checking that all 19 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -109,5 +109,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 18 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 19 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

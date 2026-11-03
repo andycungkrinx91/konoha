@@ -81,18 +81,10 @@ overrides:
   source-map-js@>=1.0.0 <1.2.2: '>=1.2.2'
 
 patchedDependencies:
-  cfb@1.2.2:
-    hash: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
-    path: patches/cfb@1.2.2.patch
-  docx@9.14.0:
-    hash: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
-    path: patches/docx@9.14.0.patch
-  playwright-core@1.64.1:
-    hash: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
-    path: patches/playwright-core@1.64.1.patch
-  pptxgenjs@4.0.1:
-    hash: cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783
-    path: patches/pptxgenjs@4.0.1.patch
+  cfb@1.2.2: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
+  docx@9.14.0: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
+  playwright-core@1.64.1: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
+  pptxgenjs@4.0.1: cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783
 
 importers:
 
@@ -131,6 +123,10 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.64.1
+        version: 1.64.1
 
   apps/web:
     devDependencies:
