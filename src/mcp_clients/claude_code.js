@@ -270,16 +270,15 @@ function generateClaudeCodeSubagent(agent) {
   }
 
   if (agent.skills && agent.skills.length > 0) {
-    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
-    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
-    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
+    const skillList = agent.skills.map(s => `"${s}"`).join(', ');
+    const loadingInstruction = `MANDATORY FIRST ACTION before writing code: Call mcp__konoha__use_skills({ skills: [${skillList}] }) or mcp__konoha__get_skill to load your assigned domain guidelines into context. NEVER skip loading your assigned skills.`;
     const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
     const logMatch = instructions.match(logPattern);
     if (logMatch) {
       const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
+      instructions = instructions.slice(0, insertIndex) + `${loadingInstruction} ` + instructions.slice(insertIndex);
     } else {
-      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
+      instructions = `${loadingInstruction} ` + instructions;
     }
   }
 

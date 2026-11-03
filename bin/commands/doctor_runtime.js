@@ -116,7 +116,6 @@ function repairFileToolsSubsystem(context) {
 
   syncSubdirectoryFiles('file_tools', FILE_TOOLS_PY_DIR, 'File Tools JS', context);
   syncSubdirectoryFiles('mcp', path.join(SKILLS_DB_DIR, 'mcp'), 'MCP Subsystem', context);
-  syncSubdirectoryFiles('tools', path.join(SKILLS_DB_DIR, 'tools'), 'Tools Subsystem', context);
   syncSubdirectoryFiles('workflow', path.join(SKILLS_DB_DIR, 'workflow'), 'Workflow Subsystem', context);
   syncSubdirectoryFiles('bridge', path.join(SKILLS_DB_DIR, 'bridge'), 'Bridge Subsystem', context);
 }

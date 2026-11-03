@@ -18,7 +18,7 @@ const { TOOL_HANDLERS } = require('../src/file_tools_router.js');
 async function runAkatsukiInitTests() {
   console.log('Running test_akatsuki_init test suite...');
 
-  // 1. Verify listKaliTools against SQLite database
+  // Verify listKaliTools against SQLite database
   const tmpDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'akatsuki_init_test_'));
   const testDbPath = path.join(tmpDbDir, 'test_konoha.db');
 
@@ -62,7 +62,7 @@ async function runAkatsukiInitTests() {
     conn.close();
     console.log('  ✓ Kali tools catalog in SQLite (360 tools, search, category, limit)');
 
-    // 2. Mock engine test for initLab
+    // Mock engine test for initLab
     const commandsRun = [];
     const mockRunner = (cmd, args) => {
       commandsRun.push({ cmd, args });
@@ -113,7 +113,7 @@ async function runAkatsukiInitTests() {
     assert.equal(resDockerWin.engines[0].engine, 'docker');
     console.log('  ✓ initLab with mode: auto on win32 selects docker');
 
-    // 3. Custom tools management
+    // Custom tools management
     const testCustomDir = path.join(tmpDbDir, 'custom_tools_env');
     const customConfigPath = path.join(testCustomDir, 'custom_tools.json');
     process.env.KONOHA_CUSTOM_TOOLS_PATH = customConfigPath;
@@ -155,7 +155,7 @@ async function runAkatsukiInitTests() {
     delete process.env.KONOHA_CUSTOM_TOOLS_PATH;
     console.log('  ✓ Custom tools lifecycle: add, list, remove');
 
-    // 4. installToolset validation
+    // installToolset validation
     const installRes = installToolset('docker', 'akatsuki-lab', 'standard', {
       runner: mockRunner,
       mockInstallResult: { ok: true, tools_installed: ['nmap', 'sqlmap', 'httpx'], profile: 'standard' }
@@ -164,7 +164,7 @@ async function runAkatsukiInitTests() {
     assert.equal(installRes.tools_installed.length, 3);
     console.log('  ✓ installToolset translates catalog and custom tools to container package installs');
 
-    // 5. MCP tool dispatch validation
+    // MCP tool dispatch validation
     const mcpCatalogRaw = _executeToolInternal('akatsuki_init', { action: 'list_tools', query: 'sqlmap' });
     const mcpCatalogRes = JSON.parse(mcpCatalogRaw);
     assert.equal(mcpCatalogRes.status, 'ok');

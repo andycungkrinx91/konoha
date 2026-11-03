@@ -37,20 +37,20 @@ async function run() {
       return { ok: true };
     };
 
-    // 1. /sh returns removal notice
+    // /sh returns removal notice
     capturedReplies = [];
     await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/sh ls -la' });
     assert.strictEqual(capturedReplies.length, 1);
     assert.ok(capturedReplies[0].text.includes('/sh removed in 2.2.1'));
     assert.ok(capturedReplies[0].text.includes('security hardening'));
 
-    // 2. /exec returns removal notice
+    // /exec returns removal notice
     capturedReplies = [];
     await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/exec uname -a' });
     assert.strictEqual(capturedReplies.length, 1);
     assert.ok(capturedReplies[0].text.includes('/sh removed in 2.2.1'));
 
-    // 3. /status escapes HTML in prompt text
+    // /status escapes HTML in prompt text
     capturedReplies = [];
     inboxModule.enqueuePrompt({
       id: 'task_xss_test',

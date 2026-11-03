@@ -58,7 +58,7 @@ async function run() {
   console.log('Running test_telegram_session_manager.js...');
 
   try {
-    // 1. Test getActiveSessions
+    // Test getActiveSessions
     const sessions = sessionManager.getActiveSessions();
     assert.strictEqual(sessions.length, 3, 'Must discover 3 seeded active sessions');
     assert.strictEqual(sessions[0].client, 'antigravity', 'Most recent session is antigravity');
@@ -66,11 +66,11 @@ async function run() {
     assert.strictEqual(sessions[1].workspace_root, projB, 'Second session workspace is projB');
     assert.strictEqual(sessions[2].client, 'claudecode', 'Third session client is claudecode');
 
-    // 2. Test getTargetSession defaults to most recent
+    // Test getTargetSession defaults to most recent
     const defaultTarget = sessionManager.getTargetSession('123456');
     assert.strictEqual(defaultTarget.workspace_root, projA, 'Default target is projA');
 
-    // 3. Test setTargetSession by 1-based index
+    // Test setTargetSession by 1-based index
     const res2 = sessionManager.setTargetSession('123456', '2');
     assert.strictEqual(res2.success, true, 'Switching to session 2 succeeds');
     assert.strictEqual(res2.session.workspace_root, projB, 'Selected projB');
@@ -78,16 +78,16 @@ async function run() {
     const updatedTarget = sessionManager.getTargetSession('123456');
     assert.strictEqual(updatedTarget.workspace_root, projB, 'Persisted target is projB');
 
-    // 4. Test strict number-only validation (reject text/client names)
+    // Test strict number-only validation (reject text/client names)
     const resClaude = sessionManager.setTargetSession('123456', 'claude');
     assert.strictEqual(resClaude.success, false, 'Non-number selector "claude" must fail');
     assert.ok(resClaude.error.includes('Choose a number between 1 and 3'), 'Error directs user to valid number range');
 
-    // 5. Test strict number-only validation (reject directory names)
+    // Test strict number-only validation (reject directory names)
     const resDir = sessionManager.setTargetSession('123456', 'projecta');
     assert.strictEqual(resDir.success, false, 'Path selector "projecta" must fail');
 
-    // 6. Test out of bounds index selection
+    // Test out of bounds index selection
     const resOutOfRange = sessionManager.setTargetSession('123456', '99');
     assert.strictEqual(resOutOfRange.success, false, 'Out-of-range session number 99 fails');
 
@@ -99,7 +99,7 @@ async function run() {
     assert.strictEqual(res3.success, true, 'Switching to session 3 succeeds');
     assert.strictEqual(res3.session.workspace_root, projC, 'Selected projC');
 
-    // 7. Test formatSessionList
+    // Test formatSessionList
     const listHtml = sessionManager.formatSessionList('123456');
     assert.ok(listHtml.includes('ACTIVE SESSIONS & WORKSPACES'), 'Must render header');
     assert.ok(listHtml.includes(projA), 'Must list projA');
@@ -132,7 +132,7 @@ async function run() {
     assert.strictEqual(sessionManager.isSessionAlive(liveSess), true, 'Recent session is alive');
     assert.strictEqual(sessionManager.isSessionAlive(staleSess), false, '3-hour old session is not alive');
 
-    // 8. Test Dynamic Agent Detection (fixes hardcoded Kage & Jonin bug)
+    // Test Dynamic Agent Detection (fixes hardcoded Kage & Jonin bug)
     assert.strictEqual(
       workerModule.detectExecutingAgent('/anbu fix docker networking', ''),
       'Black Ops Anbu',
@@ -172,7 +172,7 @@ async function run() {
       'Extracts Anbu from output marker'
     );
 
-    // 9. Test inboxModule.enqueuePrompt with workspace_root and client
+    // Test inboxModule.enqueuePrompt with workspace_root and client
     const queuedTask = inboxModule.enqueuePrompt({
       prompt: 'Check server status',
       source: 'telegram',
@@ -187,7 +187,7 @@ async function run() {
     assert.strictEqual(row.workspace_root, '/home/user/projectC', 'DB row persists workspace_root');
     assert.strictEqual(row.client, 'claudecode', 'DB row persists client');
 
-    // 10. Test sessionManager.createSession
+    // Test sessionManager.createSession
     const projCreate1 = path.join(testWorkspacesRoot, 'projectNewAgy');
     const projCreate2 = path.join(testWorkspacesRoot, 'projectNewClaude');
     const projCreate3 = path.join(testWorkspacesRoot, 'projectNewCodex');
@@ -257,7 +257,7 @@ async function run() {
     assert.ok(updatedList.includes('/session create &lt;client&gt; &lt;path&gt;'), 'List displays /session create');
     assert.ok(updatedList.includes('/session delete &lt;number&gt;'), 'List displays /session delete');
 
-    // 11. Test deleteSession
+    // Test deleteSession
     const beforeDelSessions = sessionManager.getActiveSessions();
     const countBefore = beforeDelSessions.length;
     const delRes = sessionManager.deleteSession('chat_999', '1');

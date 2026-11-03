@@ -26,7 +26,7 @@ fs.mkdirSync(testRoot, { recursive: true });
 
 try {
   // =========================================================================
-  // 1. Gitignore Injection Disabled Tests (Users handle gitignore manually)
+  // Gitignore Injection Disabled Tests (Users handle gitignore manually)
   // =========================================================================
   console.log('  Testing gitignore injection disabled...');
 
@@ -39,17 +39,17 @@ try {
   assert.strictEqual(fs.existsSync(path.join(gitProject, '.gitignore')), false);
 
   // =========================================================================
-  // 2. Output Redirection & Evidence Copying Tests
+  // Output Redirection & Evidence Copying Tests
   // =========================================================================
   console.log('  Testing output redirection & failure evidence copying...');
 
-  // 2.1 getProjectOutputDirs creates directory under ~/.konoha/tmp/qa/projects/<hash>/artifacts
+  // 1 getProjectOutputDirs creates directory under ~/.konoha/tmp/qa/projects/<hash>/artifacts
   const outDirs = getProjectOutputDirs(gitProject);
   assert.ok(fs.existsSync(outDirs.artifactsDir));
   assert.ok(outDirs.artifactsDir.includes('.konoha/tmp/qa/projects/'));
   assert.ok(outDirs.artifactsDir.endsWith('artifacts'));
 
-  // 2.2 Failure evidence copying
+  // 2 Failure evidence copying
   const runTmpDir = path.join(testRoot, 'qa-run-evidence');
   fs.mkdirSync(runTmpDir, { recursive: true });
   const sourceTrace = path.join(testRoot, 'source-trace.zip');
@@ -72,7 +72,7 @@ try {
   assert.strictEqual(fs.readFileSync(failures[0].trace, 'utf8'), 'fake-trace-content');
 
   // =========================================================================
-  // 3. Retention Tests
+  // Retention Tests
   // =========================================================================
   console.log('  Testing retention policy...');
 
@@ -99,7 +99,7 @@ try {
     fs.utimesSync(dir, mtime, mtime);
   }
 
-  // 3.1 Keep newest 5: should prune 5 oldest, keep newest 5
+  // 1 Keep newest 5: should prune 5 oldest, keep newest 5
   const currentRunId = runIds[runIds.length - 1]; // newest run
   const retRes1 = runQaRetention(currentRunId, {
     baseDir: mockQaBase,
@@ -117,7 +117,7 @@ try {
   // Verify current run was kept
   assert.ok(fs.existsSync(path.join(mockQaBase, currentRunId)));
 
-  // 3.2 Protected run on open task is NEVER pruned
+  // 2 Protected run on open task is NEVER pruned
   const oldestRemaining = runIds[5]; // currently the oldest of the 5 remaining
   assert.ok(fs.existsSync(path.join(mockQaBase, oldestRemaining)));
 
@@ -141,7 +141,7 @@ try {
   // Oldest remaining run was protected, so it MUST still exist
   assert.ok(fs.existsSync(path.join(mockQaBase, oldestRemaining)), 'Protected run must survive retention prune');
 
-  // 3.3 Evidence lookup unavailable fallback: delete nothing younger than 7 days
+  // 3 Evidence lookup unavailable fallback: delete nothing younger than 7 days
   const fallbackQaBase = path.join(testRoot, 'fallback-qa-base');
   fs.mkdirSync(fallbackQaBase, { recursive: true });
   
@@ -167,7 +167,7 @@ try {
   assert.ok(!fs.existsSync(path.join(fallbackQaBase, oldRun)));
 
   // =========================================================================
-  // 4. End-to-End qaE2eRun Housekeeping Integration Test
+  // End-to-End qaE2eRun Housekeeping Integration Test
   // =========================================================================
   console.log('  Testing end-to-end qaE2eRun housekeeping integration...');
 

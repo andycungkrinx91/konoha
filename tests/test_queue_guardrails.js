@@ -8,7 +8,7 @@ const worker = require('../src/queue/worker');
 const { checkCommandGuardrails } = require('../src/guardrails');
 
 function run() {
-  // 1. Verify DANGEROUS_PATTERNS includes new 2.2.1 patterns
+  // Verify DANGEROUS_PATTERNS includes new 2.2.1 patterns
   const patterns = worker.DANGEROUS_PATTERNS;
   assert.ok(Array.isArray(patterns), 'DANGEROUS_PATTERNS must be an array');
   assert.ok(patterns.includes('drop table'), 'must reject drop table');
@@ -18,7 +18,7 @@ function run() {
   assert.ok(patterns.includes('wget | sh'), 'must reject wget | sh');
   assert.ok(patterns.includes(':(){'), 'must reject forkbomb');
 
-  // 2. Verify extractCommand rejects dangerous SSH commands
+  // Verify extractCommand rejects dangerous SSH commands
   const dangerousCmd1 = 'use command `rm -rf / && echo pwned` on host remote.example.com ssh key ~/.ssh/id_rsa';
   const res1 = worker.extractCommand(dangerousCmd1);
   assert.strictEqual(res1, null, 'Must reject command with && operator');
@@ -31,18 +31,18 @@ function run() {
   const res3 = worker.extractCommand(dangerousCmd3);
   assert.strictEqual(res3, null, 'Must reject command with pipe operator');
 
-  // 3. Verify extractCommand builds clean single-quoted SSH command for safe input
+  // Verify extractCommand builds clean single-quoted SSH command for safe input
   const safeCmd = 'use command bin/magento cache:flush on host remote.example.com ssh key ~/.ssh/id_rsa';
   const safeRes = worker.extractCommand(safeCmd);
   assert.ok(safeRes.startsWith('ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=accept-new root@remote.example.com '), 'SSH preamble match with accept-new');
   assert.ok(safeRes.includes("'bin/magento cache:flush'"), 'Remote command must be single-quoted');
 
-  // 4. Verify extractCommand rejects invalid host names
+  // Verify extractCommand rejects invalid host names
   const invalidHostCmd = 'use command uptime on host not_a_valid_fqdn ssh key ~/.ssh/id_rsa';
   const resInvalidHost = worker.extractCommand(invalidHostCmd);
   assert.strictEqual(resInvalidHost, null, 'Must reject non-FQDN host');
 
-  // 5. Verify assembled SSH commands re-check the remote payload
+  // Verify assembled SSH commands re-check the remote payload
   const assembledSafe = worker.extractCommand(safeCmd);
   const safeInner = worker.extractSshInnerCommand(assembledSafe);
   assert.strictEqual(safeInner, 'bin/magento cache:flush', 'Extracts safe remote payload');

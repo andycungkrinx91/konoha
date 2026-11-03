@@ -68,20 +68,20 @@ function checkOpenCodeClient(clientOptions, context) {
   if (!opencodeManager.isOpenCodeInstalled()) return;
   const openCodeStatus = opencodeManager.getOpenCodeStatus();
   if (openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble && openCodeStatus.mcpAislop) {
-    context.record('OpenCode (~/.opencode/config.json)', 'HEALTHY', 'konoha, semble, and aislop active');
+    context.record('OpenCode (~/.config/opencode/opencode.json)', 'HEALTHY', 'konoha, semble, and aislop active');
     return;
   }
   try {
     opencodeManager.ensureOpenCodeSetup(clientOptions);
     const repaired = opencodeManager.getOpenCodeStatus();
     if (repaired.mcpKonoha && repaired.mcpSemble) {
-      context.record('OpenCode (~/.opencode/config.json)', 'REPAIRED', 'Registered MCP and session hook');
+      context.record('OpenCode (~/.config/opencode/opencode.json)', 'REPAIRED', 'Registered MCP and session hook');
       context.incrementRepairs();
     } else {
-      context.record('OpenCode (~/.opencode/config.json)', 'WARNING', 'Partial OpenCode setup — run konoha init');
+      context.record('OpenCode (~/.config/opencode/opencode.json)', 'WARNING', 'Partial OpenCode setup — run konoha init');
     }
   } catch (e) {
-    context.record('OpenCode (~/.opencode/config.json)', 'FAILED', `Error: ${e.message}`);
+    context.record('OpenCode (~/.config/opencode/opencode.json)', 'FAILED', `Error: ${e.message}`);
     context.markError();
   }
 }

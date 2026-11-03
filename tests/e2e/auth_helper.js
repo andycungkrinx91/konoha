@@ -6,7 +6,7 @@
 import { expect } from '@playwright/test';
 
 export async function loginAndUnlock(page) {
-  // 1. Query auth status to determine active credential mode without blind failure attempts
+  // Query auth status to determine active credential mode without blind failure attempts
   let isBootstrap = true;
   try {
     const statusRes = await page.request.get("http://127.0.0.1:4173/api/v1/auth/status");
@@ -51,7 +51,7 @@ export async function loginAndUnlock(page) {
     }
   }
 
-  // 3. Navigate to dashboard and assert ready
+  // Navigate to dashboard and assert ready
   await page.goto("http://127.0.0.1:4173/dashboard");
   const dashboardHeading = page.getByText("Mission Control Dashboard");
   const isDashboardVisible = await dashboardHeading.isVisible().catch(() => false);

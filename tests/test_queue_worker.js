@@ -26,7 +26,7 @@ async function run() {
   console.log('Running test_queue_worker.js...');
 
   try {
-    // 1. Test Command Classification & Extraction
+    // Test Command Classification & Extraction
     assert.strictEqual(workerModule.isOperationalCommand('/sh echo 1'), true, '/sh is operational');
     assert.strictEqual(workerModule.isOperationalCommand('/exec uptime'), true, '/exec is operational');
     assert.strictEqual(workerModule.isOperationalCommand('ssh mage2user@host "ls"'), true, 'ssh is operational');
@@ -42,14 +42,14 @@ async function run() {
     assert.strictEqual(workerModule.formatDuration(3200), '3.2s', 'Formats short seconds');
     assert.strictEqual(workerModule.formatDuration(1250000), '20m 50s', 'Formats 20+ minutes duration');
 
-    // 2. Test Worker Lifecycle
+    // Test Worker Lifecycle
     assert.strictEqual(workerModule.isWorkerRunning(), false, 'Worker starts stopped');
     workerModule.startWorker({ intervalMs: 1000 });
     assert.strictEqual(workerModule.isWorkerRunning(), true, 'Worker is running');
     workerModule.stopWorker();
     assert.strictEqual(workerModule.isWorkerRunning(), false, 'Worker stopped cleanly');
 
-    // 3. Test Operational Command Execution
+    // Test Operational Command Execution
     let capturedNotifications = [];
     const origSend = notifierModule.sendTaskCompletedNotification;
     notifierModule.sendTaskCompletedNotification = async (data) => {
@@ -87,7 +87,7 @@ async function run() {
     assert.ok(reportWithSummary.includes('Task executed cleanly'), 'Must render summary content');
     assert.ok(reportWithSummary.includes('&lt;enter&gt;'), 'Must escape HTML tags in title');
 
-    // 4. Test Destructive Command Guardrail
+    // Test Destructive Command Guardrail
     capturedNotifications = [];
     const task2 = inboxModule.enqueuePrompt({
       prompt: 'rm -rf /',
@@ -103,7 +103,7 @@ async function run() {
     assert.strictEqual(capturedNotifications.length, 1, 'Failure notification sent');
     assert.strictEqual(capturedNotifications[0].status, 'FAILED', 'Notification reports FAILED');
 
-    // 5. Test extractTaskSummary & extractKageScore
+    // Test extractTaskSummary & extractKageScore
     const sampleOutput = `
       [agy] running turn...
       ### Summary of Completed Fixes
@@ -116,12 +116,12 @@ async function run() {
     const score = workerModule.extractKageScore(sampleOutput);
     assert.strictEqual(score, 100, 'Extracts 100% confidence score');
 
-    // 6. Test deduplication in notifierModule
+    // Test deduplication in notifierModule
     notifierModule.recordNotificationSent('test_task_dup');
     assert.strictEqual(notifierModule.isRecentlyNotified('test_task_dup'), true, 'Recently notified is true');
     assert.strictEqual(notifierModule.isRecentlyNotified('unseen_task'), false, 'Unseen task is false');
 
-    // 7. Test formatTaskReport header
+    // Test formatTaskReport header
     const formattedReport = notifierModule.formatTaskReport({
       title: 'Proactive Workflow Task',
       status: 'SUCCESS',

@@ -38,7 +38,7 @@ async function run() {
       chat_id: '999888'
     }, dbPath);
 
-    // 1. Create a task in pending_plan_approval
+    // Create a task in pending_plan_approval
     const task1 = sdlcManager.createTask({
       description: 'Build auth microservice',
       status: 'pending_plan_approval',
@@ -47,7 +47,7 @@ async function run() {
     }, dbPath);
     assert.strictEqual(task1.status, 'pending_plan_approval');
 
-    // 2. Create a task in pending_human_signoff
+    // Create a task in pending_human_signoff
     const task2 = sdlcManager.createTask({
       description: 'Finalize payment pipeline',
       status: 'pending_human_signoff',
@@ -69,7 +69,7 @@ async function run() {
     };
 
     try {
-      // 3. Test handleCallbackQuery for Gate 1 approval
+      // Test handleCallbackQuery for Gate 1 approval
       const cbApprove1 = {
         id: 'cb_1',
         data: `hitl:approve:${task1.id}`,
@@ -81,7 +81,7 @@ async function run() {
       assert.strictEqual(updated1.status, 'in_progress');
       console.log('  ✓ Callback query approves Gate 1 task to in_progress.');
 
-      // 4. Test handleCallbackQuery for Gate 2 approval
+      // Test handleCallbackQuery for Gate 2 approval
       const cbApprove2 = {
         id: 'cb_2',
         data: `hitl:approve:${task2.id}`,
@@ -93,7 +93,7 @@ async function run() {
       assert.strictEqual(updated2.status, 'completed');
       console.log('  ✓ Callback query approves Gate 2 task to completed.');
 
-      // 5. Test handleCallbackQuery for rejection
+      // Test handleCallbackQuery for rejection
       const task3 = sdlcManager.createTask({
         description: 'Refactor search engine',
         status: 'pending_human_signoff',
@@ -110,7 +110,7 @@ async function run() {
       assert.strictEqual(updated3.status, 'remediating');
       console.log('  ✓ Callback query rejects Gate 2 task to remediating.');
 
-      // 6. Test sendInteractiveApproval helper
+      // Test sendInteractiveApproval helper
       sentPayloads.length = 0;
       await notifierModule.sendInteractiveApproval({
         taskId: 'task_demo_123',
@@ -127,7 +127,7 @@ async function run() {
       assert.strictEqual(payload.reply_markup.inline_keyboard[0][1].text, '❌ 2. Reject / Regenerate');
       console.log('  ✓ sendInteractiveApproval formats inline keyboard buttons.');
 
-      // 7. Test /approval list command
+      // Test /approval list command
       sentPayloads.length = 0;
       await pollerModule.handleMessage({
         text: '/approval list',

@@ -86,7 +86,7 @@ test('Batch 2: setupSchema safely migrates legacy persona_memories table without
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-mig-test-'));
   const testDbPath = path.join(tmpDir, 'test_mig.db');
   try {
-    // 1. Manually create legacy unconstrained table
+    // Manually create legacy unconstrained table
     const rawConn = new Database(testDbPath);
     rawConn.exec(`
       CREATE TABLE projects (
@@ -127,7 +127,7 @@ test('Batch 2: setupSchema safely migrates legacy persona_memories table without
     `);
     rawConn.close();
 
-    // 2. Run setupSchema to trigger migration
+    // Run setupSchema to trigger migration
     const conn = db.getConnection(testDbPath);
     db.setupSchema(conn);
 

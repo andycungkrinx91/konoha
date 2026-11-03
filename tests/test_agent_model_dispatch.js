@@ -45,7 +45,7 @@ async function testAgentModelDispatch() {
 
     conn.close();
 
-    // 1. Dispatch anbu — must return assigned model 'claude-3-7-sonnet'
+    // Dispatch anbu — must return assigned model 'claude-3-7-sonnet'
     const resAnbuStr = server.runMcpAgent('anbu', 'Verify backend security and endpoints', null, null, null, null, tmpDir);
     const resAnbu = JSON.parse(resAnbuStr);
     assert.strictEqual(resAnbu.status, 'ready');
@@ -56,7 +56,7 @@ async function testAgentModelDispatch() {
       `Expected assigned model "claude-3-7-sonnet", got "${resAnbu.model}" at dispatch time`
     );
 
-    // 2. Dispatch kage — unassigned agent must return 'inherit'
+    // Dispatch kage — unassigned agent must return 'inherit'
     const resKageStr = server.runMcpAgent('kage', 'Perform architecture review', null, null, null, null, tmpDir);
     const resKage = JSON.parse(resKageStr);
     assert.strictEqual(resKage.status, 'ready');
@@ -67,7 +67,7 @@ async function testAgentModelDispatch() {
       `Expected unassigned agent to return "inherit", got "${resKage.model}" at dispatch time`
     );
 
-    // 3. Client configuration serialization check (Hop 2)
+    // Client configuration serialization check (Hop 2)
     // 3a. Cursor subagent generator must preserve assigned model in frontmatter
     const cursorManager = require('../src/cursor_manager');
     const cursorMd = cursorManager.generateCursorSubagent({
@@ -100,7 +100,7 @@ async function testAgentModelDispatch() {
       'Antigravity agent.json must serialize assigned model'
     );
 
-    // 4. Outgoing Gateway HTTP request body check (Hop 3)
+    // Outgoing Gateway HTTP request body check (Hop 3)
     // Intercept/mock HTTP POST /v1/chat/completions and assert body.model
     const http = require('http');
     let capturedRequestBody = null;
@@ -179,7 +179,7 @@ async function testAgentModelDispatch() {
       await new Promise(resolve => mockGatewayServer.close(resolve));
     }
 
-    // 5. Transcript record verification (Hop 4 - matching B0 diagnosis method)
+    // Transcript record verification (Hop 4 - matching B0 diagnosis method)
     // Create an actual transcript.jsonl log with the completion event
     const transcriptPath = path.join(tmpDir, 'transcript.jsonl');
     const transcriptRecord = {
@@ -206,7 +206,7 @@ async function testAgentModelDispatch() {
       `Expected transcript.jsonl model "claude-3-7-sonnet", got "${parsedTranscript.model}"`
     );
 
-    // 6. Induced-failure checks: verify guards catch model mismatches across all hops
+    // Induced-failure checks: verify guards catch model mismatches across all hops
     let inducedFailureCaught = false;
     try {
       assert.strictEqual(resAnbu.model, 'wrong-model-to-induce-failure');

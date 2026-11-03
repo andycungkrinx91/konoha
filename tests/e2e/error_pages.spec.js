@@ -11,22 +11,22 @@ test.describe('Animated Error Experience & Routing', () => {
     await page.goto(`${BASE_URL}/this-route-does-not-exist`);
     await page.waitForTimeout(500);
 
-    // 1. Header and sidebar stay present (rendered inside app layout)
+    // Header and sidebar stay present (rendered inside app layout)
     await expect(page.locator('#konoha-app-root')).toBeVisible();
 
-    // 2. Breadcrumb displays "Not Found", NEVER raw route segment
+    // Breadcrumb displays "Not Found", NEVER raw route segment
     const breadcrumb = page.locator('header .font-extrabold');
     await expect(breadcrumb).toContainText('Not Found');
 
-    // 3. Status 404 tag and title
+    // Status 404 tag and title
     await expect(page.locator('text=STATUS 404')).toBeVisible();
     await expect(page.locator('h2', { hasText: 'Page Not Found' })).toBeVisible();
 
-    // 4. Animated SVG radar
+    // Animated SVG radar
     const radar = page.locator('.radar-sweep');
     await expect(radar).toBeVisible();
 
-    // 5. Action buttons
+    // Action buttons
     const dashboardBtn = page.locator('button, a', { hasText: 'Go to Dashboard' });
     await expect(dashboardBtn).toBeVisible();
   });

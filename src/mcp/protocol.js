@@ -130,6 +130,8 @@ function resolveClientFromInfo(clientInfo) {
   if (clientName.includes('claude')) return 'claudecode';
   if (clientName.includes('opencode')) return 'opencode';
   if (clientName.includes('commandcode')) return 'commandcode';
+  if (clientName.includes('codex')) return 'codex';
+  if (clientName.includes('pi')) return 'pi';
   if (clientName.includes('omp')) return 'omp';
   if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'agy';
   if (clientName.includes('antigravity') || clientName.includes('ide')) {

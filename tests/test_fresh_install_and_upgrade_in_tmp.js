@@ -54,7 +54,7 @@ async function run() {
   let srv = null;
 
   try {
-    // 1. Fresh Install Simulation via ensureAutoSetup
+    // Fresh Install Simulation via ensureAutoSetup
     const { ensureAutoSetup } = require('../bin/lib/runtime');
     console.log('1. Executing ensureAutoSetup for fresh install...');
     ensureAutoSetup(true);
@@ -62,13 +62,13 @@ async function run() {
     const dbPath = path.join(tempHome, '.konoha', 'konoha.db');
     assert.ok(fs.existsSync(dbPath), 'konoha.db must be created automatically on fresh install');
 
-    // 2. Start web server in fresh isolated environment
+    // Start web server in fresh isolated environment
     const webServerMod = require('../src/web_server');
     const port = 1488;
     console.log(`2. Starting web server on port ${port}...`);
     srv = await webServerMod.startWebServer({ port, host: '127.0.0.1' });
 
-    // 3. Test unauthenticated /api/v1/health returns HTTP 200 with version
+    // Test unauthenticated /api/v1/health returns HTTP 200 with version
     const healthRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -80,7 +80,7 @@ async function run() {
     assert.ok(healthRes.data.version, 'Health check must include version');
     console.log('✓ Unauthenticated health check returned status 200 and version');
 
-    // 4. Test login with default bootstrap passphrase 'konohagakure'
+    // Test login with default bootstrap passphrase 'konohagakure'
     const loginRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -97,7 +97,7 @@ async function run() {
     assert.ok(sessionCookie, 'Login must set konoha_session cookie');
     console.log('✓ Fresh install login with konohagakure succeeded');
 
-    // 5. Test mandatory password change
+    // Test mandatory password change
     const changeRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -116,7 +116,7 @@ async function run() {
     assert.strictEqual(changeRes.data.ok, true);
     console.log('✓ Mandatory password change completed successfully');
 
-    // 6. Test login with new password succeeds and is_bootstrap is false
+    // Test login with new password succeeds and is_bootstrap is false
     const newLoginRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -129,7 +129,7 @@ async function run() {
     assert.strictEqual(newLoginRes.data.requires_password_change, false);
     console.log('✓ Login with new password succeeded (normal dashboard access unlocked)');
 
-    // 7. Upgrade Simulation: run ensureAutoSetup again, verify zero crashes and files updated
+    // Upgrade Simulation: run ensureAutoSetup again, verify zero crashes and files updated
     console.log('7. Simulating upgrade via ensureAutoSetup...');
     assert.doesNotThrow(() => {
       ensureAutoSetup(true);

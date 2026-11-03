@@ -206,7 +206,7 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
 
   const fontDirectives = (
     '\n### 🖋️ Mandatory Tokubetsu-Jonin Document Engineering Directives:\n' +
-    '- Official Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/tools/document_engine.js.\n' +
+    '- Official Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/workflow/tokubetsu-scribe/document_engine.js.\n' +
     '- Skill Retrieval via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"). Never read raw markdown files directly.\n' +
     '- Cover / Main Titles: Inter Display / Inter Bold (32pt, high impact, -0.02em letter spacing)\n' +
     '- Headings (H1–H3, Table Headers): Inter SemiBold / Bold\n' +

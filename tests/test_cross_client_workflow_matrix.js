@@ -21,9 +21,9 @@ const path = require('path');
 const os = require('os');
 
 // Force test isolation
-const QA_ROOT = path.join('/tmp', `konoha-qa-matrix-${Date.now()}`);
+const QA_ROOT = path.join(os.tmpdir(), `konoha-qa-matrix-${Date.now()}`);
 fs.mkdirSync(QA_ROOT, { recursive: true });
-process.env.KONOHA_DB_PATH = path.join('/tmp', 'konoha-qa', 'skills.db');
+process.env.KONOHA_DB_PATH = path.join(os.tmpdir(), 'konoha-qa', 'skills.db');
 
 const agentManager = require('../src/agent_manager');
 const { runMcpAgent } = require('../src/mcp/memory_subagent_runner');
@@ -48,7 +48,7 @@ const CLIENTS = [
 // Verify supported clients list
 assert.deepStrictEqual(agentManager.SUPPORTED_CLIENTS.slice().sort(), CLIENTS.slice().sort());
 
-// 1. Verify invalid client rejection
+// Verify invalid client rejection
 assert.throws(() => {
   agentManager.ensureClientSetup('unsupported_editor');
 }, /Unknown or unsupported client: unsupported_editor/);
@@ -60,7 +60,7 @@ assert.strictEqual(invalidDispatch.ok, false);
 assert.strictEqual(invalidDispatch.reason, 'retired_file_ipc');
 assert.match(invalidDispatch.error, /retired and rejected/);
 
-// 2. Test Matrix for all 8 supported clients
+// Test Matrix for all 8 supported clients
 for (const client of CLIENTS) {
   console.log(`\n--- Testing Client: ${client.toUpperCase()} ---`);
 
@@ -169,7 +169,7 @@ for (const client of CLIENTS) {
   console.log('  ✓ Reached Gate 1 (Plan Approval) checkpoint and approved interactively');
 
   // E. Direct MCP argument enforcement & bypass rejection
-  // 1. Direct MCP call succeeds
+  // Direct MCP call succeeds
   const directMcpRaw = runMcpAgent('anbu', {
     task: 'Add audit log interceptor to auth controller',
     context: 'src/auth/controller.js',
@@ -183,7 +183,7 @@ for (const client of CLIENTS) {
   assert.strictEqual(directMcpRes.agent, 'anbu');
   assert.strictEqual(directMcpRes.phase, 'execution');
 
-  // 2. Retired file IPC rejection
+  // Retired file IPC rejection
   const bypassEmptyRaw = runMcpAgent('anbu', {});
   const bypassEmpty = JSON.parse(bypassEmptyRaw);
   assert.strictEqual(bypassEmpty.status, 'error');

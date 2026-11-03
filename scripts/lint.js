@@ -59,6 +59,15 @@ function lintFile(filePath) {
     if (CONFLICT_MARKER_REGEX.test(content)) {
       errors.push('Found unresolved git merge conflict marker (<<<<<<<, =======, or >>>>>>>)');
     }
+    const lines = content.split('\n');
+    if (lines.length > 700) {
+      errors.push(`File exceeds 700 lines (${lines.length} lines)`);
+    }
+    lines.forEach((line, idx) => {
+      if (/^\s*\/\/\s*\d+\.\s+/.test(line)) {
+        errors.push(`Numbered comment found on line ${idx + 1}: ${line.trim()}`);
+      }
+    });
   } catch (err) {
     errors.push(`Read error: ${err.message}`);
   }

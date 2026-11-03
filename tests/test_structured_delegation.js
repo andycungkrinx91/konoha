@@ -46,7 +46,7 @@ async function testStructuredDelegation() {
 
     conn.close();
 
-    // 1. Direct structured delegation jonin
+    // Direct structured delegation jonin
     const projectDir1 = path.join(tmpDir, 'test_project_1');
     fs.mkdirSync(projectDir1, { recursive: true });
     fs.writeFileSync(path.join(projectDir1, 'package.json'), JSON.stringify({
@@ -64,7 +64,7 @@ async function testStructuredDelegation() {
     assert.ok(resJonin.instructions.includes('Taste-Skill Design Engine Directives'));
     assert.ok(resJonin.instructions.includes('DESIGN_VARIANCE=9/10'));
 
-    // 2. Direct structured delegation anbu
+    // Direct structured delegation anbu
     const projectDir2 = path.join(tmpDir, 'test_project_2');
     fs.mkdirSync(projectDir2, { recursive: true });
     fs.writeFileSync(path.join(projectDir2, 'package.json'), JSON.stringify({
@@ -79,7 +79,7 @@ async function testStructuredDelegation() {
     assert.ok(resAnbu.instructions.includes('SQLite connection pool'));
     assert.ok(resAnbu.instructions.includes('Persistent Project Context'));
 
-    // 3. Report from agent & auto-checkpointing
+    // Report from agent & auto-checkpointing
     const projectDir = path.join(tmpDir, 'test_project_3');
     fs.mkdirSync(projectDir, { recursive: true });
     fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify({
@@ -111,7 +111,7 @@ async function testStructuredDelegation() {
     const memsAfter = personaMemory.listMemories({ project_path: projectDir, db_path: dbPath, allSessions: true });
     assert.strictEqual(memsAfter.length, 2);
 
-    // 4. Unverified report defers learnings
+    // Unverified report defers learnings
     const repUnvJson = server.reportFromAgent('jonin', 'Claimed completion without evidence', 'completed', null, null, ['DB9 is caused by the collections Map mismatch'], projectDir);
     const repUnv = JSON.parse(repUnvJson);
     assert.strictEqual(repUnv.status, 'recorded');
@@ -120,7 +120,7 @@ async function testStructuredDelegation() {
     assert.ok(repUnv.remediation);
     assert.strictEqual(repUnv.learnings_saved_count, 0);
 
-    // 5. Direct structured task execution & retired file IPC rejection
+    // Direct structured task execution & retired file IPC rejection
     const directResStr = server.runMcpAgent('jonin', 'Direct structured task test', 'None', 'None', ['jonin-skill'], null, projectDir);
     const directRes = JSON.parse(directResStr);
     assert.strictEqual(directRes.status, 'ready');

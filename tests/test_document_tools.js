@@ -60,7 +60,7 @@ async function runTests() {
     }
   }
 
-  // 1. document_create (DOCX)
+  // document_create (DOCX)
   testSync('document_create creates valid DOCX file', () => {
     const docxPath = path.join(TMP_DIR, 'test_doc.docx');
     const raw = executeToolSync('document_create', {
@@ -83,7 +83,7 @@ async function runTests() {
     assert.ok(fs.statSync(docxPath).size > 1000, 'DOCX file must have non-zero size');
   });
 
-  // 2. document_create (PDF)
+  // document_create (PDF)
   await testAsync('document_create creates valid PDF file via Playwright HTML/CSS', async () => {
     const pdfPath = path.join(TMP_DIR, 'test_doc.pdf');
     const raw = await executeTool('document_create', {
@@ -106,7 +106,7 @@ async function runTests() {
     assert.ok(fs.statSync(pdfPath).size > 5000, 'PDF file must have non-zero size');
   });
 
-  // 3. spreadsheet_create (XLSX)
+  // spreadsheet_create (XLSX)
   testSync('spreadsheet_create creates multi-sheet XLSX with uppercase formulas', () => {
     const xlsxPath = path.join(TMP_DIR, 'test_sheet.xlsx');
     const raw = executeToolSync('spreadsheet_create', {
@@ -139,7 +139,7 @@ async function runTests() {
     assert.ok(fs.statSync(xlsxPath).size > 2000, 'XLSX file must have non-zero size');
   });
 
-  // 4. presentation_create (PPTX)
+  // presentation_create (PPTX)
   testSync('presentation_create creates valid PPTX with light executive slides', () => {
     const pptxPath = path.join(TMP_DIR, 'test_deck.pptx');
     const raw = executeToolSync('presentation_create', {
@@ -169,7 +169,7 @@ async function runTests() {
     assert.ok(fs.statSync(pptxPath).size > 5000, 'PPTX file must have non-zero size');
   });
 
-  // 5. diagram_create (SVG)
+  // diagram_create (SVG)
   testSync('diagram_create generates high-fidelity SVG diagram with nodes and edges', () => {
     const svgPath = path.join(TMP_DIR, 'test_diagram.svg');
     const raw = executeToolSync('diagram_create', {
@@ -198,7 +198,7 @@ async function runTests() {
     assert.ok(svgContent.includes('GitOps Pipeline Topology'), 'Content must contain title');
   });
 
-  // 6. animation_export (Canonical Animated WebP)
+  // animation_export (Canonical Animated WebP)
   await testAsync('animation_export converts SVG into canonical animated WebP via Playwright + FFmpeg', async () => {
     const svgPath = path.join(TMP_DIR, 'test_diagram.svg');
     const webpPath = path.join(TMP_DIR, 'test_animation.webp');
@@ -220,7 +220,7 @@ async function runTests() {
     assert.ok(val.frameCount > 0, 'Frame count must be > 0');
   });
 
-  // 8. Dynamic recursive path resolution
+  // Dynamic recursive path resolution
   testSync('document_create dynamically creates nested parent directories', () => {
     const nestedDocx = path.join(TMP_DIR, 'nested', 'dynamic', 'deep', 'doc.docx');
     const raw = executeToolSync('document_create', {
@@ -234,7 +234,7 @@ async function runTests() {
     assert.ok(fs.existsSync(nestedDocx), 'Nested file must exist on disk');
   });
 
-  // 9. spreadsheet_create with autoFilter, kpi_cards, and column formatters
+  // spreadsheet_create with autoFilter, kpi_cards, and column formatters
   testSync('spreadsheet_create generates autoFilter, KPI cards, and column formatters', () => {
     const advancedXlsx = path.join(TMP_DIR, 'advanced_sheet.xlsx');
     const raw = executeToolSync('spreadsheet_create', {
@@ -266,7 +266,7 @@ async function runTests() {
     assert.ok(fs.existsSync(advancedXlsx), 'Advanced XLSX must exist');
   });
 
-  // 10. presentation_create with cards, columns, and checklist layouts
+  // presentation_create with cards, columns, and checklist layouts
   testSync('presentation_create supports cards, columns, and checklist layouts within budget', () => {
     const deckPath = path.join(TMP_DIR, 'advanced_deck.pptx');
     const raw = executeToolSync('presentation_create', {

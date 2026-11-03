@@ -12,7 +12,7 @@ async function run() {
   console.log('Running test_orchestration_pipeline tests...');
   const rootDir = path.resolve(__dirname, '..');
 
-  // 1. Verify Sannin skill enforces canonical 8-phase pipeline
+  // Verify Sannin skill enforces canonical 8-phase pipeline
   const projectSannin = path.join(rootDir, '.agents', 'skills', 'sannin-skill', 'SKILL.md');
   const templateSannin = path.join(rootDir, 'src', 'templates', 'skills', 'sannin-skill', 'SKILL.md');
   const globalSannin = path.join(require('os').homedir(), '.agents', 'skills', 'sannin-skill', 'SKILL.md');
@@ -32,7 +32,7 @@ async function run() {
   assert.ok(sanninContent.includes('Phase 8: Synthesis & Delivery Sign-Off'));
   console.log('✓ Sannin canonical 8-phase pipeline verification passed');
 
-  // 2. Verify orchestrator code and templates
+  // Verify orchestrator code and templates
   const serverJsPath = path.join(rootDir, 'src', 'server.js');
   const konohaSkillPath = path.join(rootDir, 'src', 'templates', 'skills', 'konoha', 'SKILL.md');
 

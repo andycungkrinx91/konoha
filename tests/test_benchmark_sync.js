@@ -18,18 +18,18 @@ const BENCHMARK_PATH = path.join(ROOT, 'docs', 'BENCHMARK.md');
 
 console.log('Running test_benchmark_sync.js...');
 
-// 1. Ensure file exists and is populated
+// Ensure file exists and is populated
 assert.ok(fs.existsSync(BENCHMARK_PATH), 'docs/BENCHMARK.md must exist');
 const originalContent = fs.readFileSync(BENCHMARK_PATH, 'utf8');
 assert.ok(originalContent.length > 500, 'docs/BENCHMARK.md must not be empty');
 
-// 2. Programmatic check passes
+// Programmatic check passes
 assert.doesNotThrow(() => {
   syncBenchmark(true);
 }, 'docs/BENCHMARK.md must pass structural and telemetry check');
 console.log('  ✓ Programmatic sync check passed.');
 
-// 3. CLI execution check
+// CLI execution check
 const cliRes = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'generate_benchmark.js'), '--check'], {
   cwd: ROOT,
   encoding: 'utf8'
@@ -37,7 +37,7 @@ const cliRes = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'generate
 assert.strictEqual(cliRes.status, 0, `CLI sync check failed: ${cliRes.stderr || cliRes.stdout}`);
 console.log('  ✓ scripts/generate_benchmark.js --check exits with code 0.');
 
-// 4. Content assertions
+// Content assertions
 assert.ok(originalContent.includes('Combined Optimization Impact'), 'Must contain Combined Optimization Impact section');
 assert.ok(originalContent.includes('Wire-Level Verification & Tiktoken Tokenization Accuracy'), 'Must contain Wire-Level and Tiktoken section');
 assert.ok(originalContent.includes('RTK (Rust Token Killer) Empirical Savings'), 'Must contain RTK Empirical Savings section');
@@ -50,7 +50,7 @@ assert.ok(originalContent.includes('get_skill'), 'Must list get_skill in call-ty
 assert.ok(originalContent.includes('cl100k_base'), 'Must mention cl100k_base');
 console.log('  ✓ Core content and call-type anchors verified.');
 
-// 5. Induced-failure test: corrupting benchmark file must cause check to fail
+// Induced-failure test: corrupting benchmark file must cause check to fail
 try {
   const corruptedContent = originalContent.replace('## 🏆 Combined Optimization Impact', '## Corrupted Section');
   fs.writeFileSync(BENCHMARK_PATH, corruptedContent, 'utf8');
@@ -75,7 +75,7 @@ try {
   fs.writeFileSync(BENCHMARK_PATH, originalContent, 'utf8');
 }
 
-// 6. Verify restoration
+// Verify restoration
 assert.doesNotThrow(() => {
   syncBenchmark(true);
 }, 'Restored file must pass verification');

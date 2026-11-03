@@ -31,7 +31,7 @@ const deployUtils = require('../src/deploy_utils');
 function runTest() {
   console.log('Running test_canonical_skills_and_embedded_refs.js...');
 
-  // 1. Verify canonical skill names set
+  // Verify canonical skill names set
   assert.strictEqual(CANONICAL_SKILL_NAMES.size, 16, 'Must have exactly 16 canonical skills');
   assert.ok(isCanonicalSkill('akatsuki-skill'), 'akatsuki-skill must be canonical');
   assert.ok(isCanonicalSkill('anbu-skill'), 'anbu-skill must be canonical');
@@ -44,7 +44,7 @@ function runTest() {
   assert.ok(isCanonicalSkill('konoha'), 'konoha must be canonical');
   console.log('✓ 15 canonical skills verified');
 
-  // 2. Verify embedded reference classification
+  // Verify embedded reference classification
   assert.ok(getEmbeddedReferenceSkills().has('helm-chart-scaffolding'), 'getEmbeddedReferenceSkills must include helm-chart-scaffolding');
   assert.ok(isEmbeddedReference('react-patterns'), 'react-patterns must be an embedded reference');
   assert.ok(!isCanonicalSkill('react-patterns'), 'react-patterns must NOT be a canonical skill');
@@ -55,7 +55,7 @@ function runTest() {
   assert.ok(!isCanonicalSkill('helm-chart-scaffolding'), 'helm-chart-scaffolding must NOT be a canonical skill');
   console.log('✓ Embedded reference skills correctly classified');
 
-  // 3. Verify autoDetectSkills filters out embedded reference directories
+  // Verify autoDetectSkills filters out embedded reference directories
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-detect-test-'));
   try {
     fs.mkdirSync(path.join(tmpDir, 'jonin-skill'), { recursive: true });
@@ -76,7 +76,7 @@ function runTest() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  // 4. Verify SQLite database contains all canonical skills of type = 'skill'
+  // Verify SQLite database contains all canonical skills of type = 'skill'
   const conn = db.getDb();
   try {
     const skillRows = conn.prepare("SELECT name, type FROM skills WHERE type = 'skill'").all();
@@ -96,7 +96,7 @@ function runTest() {
     conn.close();
   }
 
-  // 5. Verify copySkillsDirFast never deletes pre-existing user or global skills
+  // Verify copySkillsDirFast never deletes pre-existing user or global skills
   const preserveTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-global-preserve-'));
   try {
     const srcDir = path.join(preserveTmp, 'src');
@@ -114,7 +114,7 @@ function runTest() {
     fs.rmSync(preserveTmp, { recursive: true, force: true });
   }
 
-  // 6. Verify standalone helm-chart-scaffolding is completely absent from all maintained skill trees
+  // Verify standalone helm-chart-scaffolding is completely absent from all maintained skill trees
   // and only retained as an embedded reference under anbu-skill/references/
   const ROOT = path.resolve(__dirname, '..');
   const maintainedTrees = [

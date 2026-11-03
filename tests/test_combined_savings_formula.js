@@ -19,7 +19,7 @@ console.log('Running test_combined_savings_formula.js...');
 const conn = db.getConnection();
 sanitizeLegacyRecords(conn);
 
-// 1. Independently compute byte-weighted percentages directly from SQL
+// Independently compute byte-weighted percentages directly from SQL
 const todayRow = conn.prepare(`
   SELECT
     COALESCE(SUM(bytes_saved), 0) as saved,
@@ -43,7 +43,7 @@ const expectedAllTimePct = allTimeRow.total > 0
   ? Math.round((Number(allTimeRow.saved) / Number(allTimeRow.total)) * 100)
   : 0;
 
-// 2. Fetch live report via db_savings.getSavingsReport()
+// Fetch live report via db_savings.getSavingsReport()
 const report = getSavingsReport();
 
 assert.strictEqual(
@@ -60,7 +60,7 @@ assert.strictEqual(
 
 console.log(`  ✓ Live Konoha MCP savings locked to byte-weighted formula: Today=${report.today.pct}%, AllTime=${report.alltime.pct}%.`);
 
-// 3. Mathematical proof: verify that byte-weighting resists skew from high-volume small-payload tools
+// Mathematical proof: verify that byte-weighting resists skew from high-volume small-payload tools
 function computeByteWeightedPct(tools) {
   const sumSaved = tools.reduce((acc, t) => acc + t.saved, 0);
   const sumTotal = tools.reduce((acc, t) => acc + t.total, 0);
@@ -94,7 +94,7 @@ assert.notStrictEqual(
 );
 console.log('  ✓ Verified byte-weighting prevents operational router skew.');
 
-// 4. Induced failure guard: verify that a wrong formula is caught
+// Induced failure guard: verify that a wrong formula is caught
 let inducedFailureCaught = false;
 try {
   assert.strictEqual(report.alltime.pct, naiveResult);

@@ -51,7 +51,7 @@ const canonicalHelpCommands = [
   ['detect-docs', '--help']
 ];
 
-// 1. Static AST / Source Router Inspection
+// Static AST / Source Router Inspection
 const cliSrc = fs.readFileSync(cliPath, 'utf8');
 for (const label of removedLabels) {
   assert.ok(
@@ -60,7 +60,7 @@ for (const label of removedLabels) {
   );
 }
 
-// 2. Isolated Environment Setup (Following Sections 25.10 & 26.7)
+// Isolated Environment Setup (Following Sections 25.10 & 26.7)
 const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-cli-test-home-'));
 const dotKonoha = path.join(tmpHome, '.konoha');
 fs.mkdirSync(dotKonoha, { recursive: true });
@@ -86,7 +86,7 @@ const baseEnv = {
 };
 
 try {
-  // 3. Dynamic Child Process Execution: Assert exit code 1 and "Unknown command"
+  // Dynamic Child Process Execution: Assert exit code 1 and "Unknown command"
   for (const label of removedLabels) {
     const res = spawnSync(process.execPath, [cliPath, label], {
       env: baseEnv,
@@ -107,7 +107,7 @@ try {
     );
   }
 
-  // 4. Assert Harmless Canonical Commands Still Route
+  // Assert Harmless Canonical Commands Still Route
   for (const [cmd, ...args] of canonicalHelpCommands) {
     const res = spawnSync(process.execPath, [cliPath, cmd, ...args], {
       env: baseEnv,
@@ -122,11 +122,11 @@ try {
     );
   }
 
-  // 5. Assert No Daemon Started
+  // Assert No Daemon Started
   const pidFile = path.join(dotKonoha, 'ui.pid');
   assert.strictEqual(fs.existsSync(pidFile), false, 'Daemon pid file should not exist');
 
-  // 6. Assert cmdHelp lists canonical names and queue, and lists none of the 11 removed labels
+  // Assert cmdHelp lists canonical names and queue, and lists none of the 11 removed labels
   const helpSrc = fs.readFileSync(path.join(repoDir, 'bin', 'commands', 'help.js'), 'utf8');
   const coreStart = helpSrc.indexOf('${C.bold}CORE COMMANDS${C.reset}');
   const coreEnd = helpSrc.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');

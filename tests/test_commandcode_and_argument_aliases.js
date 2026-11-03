@@ -23,7 +23,7 @@ const CLI_PATH = path.join(REPO_ROOT, 'bin', 'cli.js');
 async function run() {
   console.log('Running test_commandcode_and_argument_aliases tests...');
 
-  // 1. Argument alias normalization in server
+  // Argument alias normalization in server
   const args = {
     FilePath: '/path/to/file.txt',
     StartLine: 5,
@@ -35,7 +35,7 @@ async function run() {
   assert.strictEqual(args.end_line, 20);
   console.log('✓ Argument alias normalization passed');
 
-  // 2. Project stack dependency filtering
+  // Project stack dependency filtering
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cmdcode_dep_'));
   try {
     const mockPkg = {
@@ -61,7 +61,7 @@ async function run() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  // 3. Format project context compactness
+  // Format project context compactness
   const profile = {
     project_name: 'ecommerce-frontend',
     project_path: '/home/user/workspace/ecommerce',
@@ -84,7 +84,7 @@ async function run() {
   assert.ok(formattedCompact.length < 350, `Compact block length should be < 350, got ${formattedCompact.length}`);
   console.log('✓ Format project context compactness passed');
 
-  // 4. CLI help flags
+  // CLI help flags
   const commandsToTest = [
     ['init', '--help'],
     ['migrate', '--help'],

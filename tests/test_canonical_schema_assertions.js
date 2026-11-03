@@ -16,8 +16,9 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const QA_ROOT = path.join('/tmp', `konoha-qa-schema-${Date.now()}`);
+const QA_ROOT = path.join(os.tmpdir(), `konoha-qa-schema-${Date.now()}`);
 fs.mkdirSync(QA_ROOT, { recursive: true });
 
 const testDbPath = path.join(QA_ROOT, 'canonical_test.db');

@@ -27,7 +27,7 @@ const DELEGATE_TOOLS = [
   'delegate_to_genin'
 ];
 
-// 1. Manifest & Router Schema Verification
+// Manifest & Router Schema Verification
 console.log('Testing 1: Manifest and listToolSchemas contract...');
 const manifestPath = path.resolve(__dirname, '../src/mcp_tool_manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -52,7 +52,7 @@ for (const tool of DELEGATE_TOOLS) {
   );
 }
 
-// 2. Dispatch Error Verification (Unknown Tool via both paths)
+// Dispatch Error Verification (Unknown Tool via both paths)
 console.log('Testing 2: Unknown tool dispatch error via both paths...');
 const toolDispatch = require('../src/mcp/tool_dispatch');
 
@@ -76,7 +76,7 @@ for (const tool of ['delegate_to_kage', 'delegate_to_anbu', 'delegated_to_jonin'
   );
 }
 
-// 3. Antigravity Permissions Pruning Fixture Test
+// Antigravity Permissions Pruning Fixture Test
 console.log('Testing 3: ensureAntigravityPermissions pruning fixture test...');
 const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_ag_test_'));
 
@@ -149,7 +149,7 @@ try {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 }
 
-// 4. Normalization Checks (Kept vs Removed Behavior)
+// Normalization Checks (Kept vs Removed Behavior)
 console.log('Testing 4: Agent normalization in sdlc_manager and memory_reporting...');
 const sdlcManager = require('../src/workflow/kage-reviewer/sdlc_manager');
 const memoryReporting = require('../src/mcp/memory_reporting');
@@ -189,7 +189,7 @@ try {
   fs.rmSync(normTmpDir, { recursive: true, force: true });
 }
 
-// 5. ensureAntigravitySetup (POST /api/v1/clients/antigravity/setup) Pruning Verification
+// ensureAntigravitySetup (POST /api/v1/clients/antigravity/setup) Pruning Verification
 console.log('Testing 5: ensureAntigravitySetup endpoint pruning verification...');
 const setupTmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_setup_ep_'));
 try {

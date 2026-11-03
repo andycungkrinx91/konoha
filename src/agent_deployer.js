@@ -407,7 +407,7 @@ function deployProjectClientConfigs(targetPath, deployedFiles) {
           auto_approve: true
         },
         semble: {
-          command: isWin ? 'uvx.cmd' : 'uvx',
+          command: isWin ? 'uvx.exe' : 'uvx',
           args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
           type: 'stdio',
           autoApprove: ['search', 'find_related'],

@@ -162,7 +162,7 @@ Revision 2 resolves the turn-continuation invariant without altering product ver
 | **Thread-Scoped Fault Isolation** | Circuit breaker registries isolate state per thread (`workflow:${threadId}`) preventing cross-workflow error leakage. | ENFORCED |
 | **Single-Owner Token Metering** | `finalizeNodeResult()` in `src/mcp/langgraph/budget.js` unifies metering across all 8 graph nodes; eliminates divergent token accounting. | VERIFIED |
 | **Pure-JS Tokenizer Parity** | Integrated `gpt-tokenizer` (`cl100k_base`); 0 child processes spawned in hot path; 0.00% divergence against golden Python corpus. | CERTIFIED |
-| **Verified Node Runtime Floor** | Aligned `engines.node` to `>=22.13.0` across `package.json`, `apps/web/package.json`, Dockerfile (`node:22-slim`), and README. | ALIGNED |
+| **Verified Node Runtime Floor** | Aligned `engines.node` to `>=24.0.0` across `package.json`, `apps/web/package.json`, Dockerfile (`node:22-slim`), and README. | ALIGNED |
 | **Canonical CLI Truthfulness** | Implemented `konoha config` (`list`, `get`, `set`, `unset`) with key allowlists and atomic file writes in `~/.konoha/config.json`. | VERIFIED |
 | **Manifest Tool Deprecation** | Formally marked legacy aliases (`find_skills`, `build_with_image_design`) with structured warnings; locked canonical surface at 47 tools. | ENFORCED |
 

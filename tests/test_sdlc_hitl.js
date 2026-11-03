@@ -27,24 +27,24 @@ const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 console.log('Running test_sdlc_hitl tests...');
 
 try {
-  // 1. Default hitl_mode is enabled
+  // Default hitl_mode is enabled
   const config1 = sdlc.getProjectSdlcConfig(tmpDir, dbPath);
   assert.strictEqual(config1.hitl_mode, 'enabled', 'Default hitl_mode must be "enabled"');
   console.log('  ✓ Default hitl_mode verified as "enabled".');
 
-  // 2. Set hitl_mode to disabled (autonomous)
+  // Set hitl_mode to disabled (autonomous)
   const updated1 = sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' }, dbPath);
   assert.strictEqual(updated1.hitl_mode, 'disabled', 'hitl_mode should be updated to "disabled"');
   const readBack1 = sdlc.getProjectSdlcConfig(tmpDir, dbPath);
   assert.strictEqual(readBack1.hitl_mode, 'disabled');
   console.log('  ✓ setProjectSdlcConfig successfully set hitl_mode to "disabled".');
 
-  // 3. Set hitl_mode back to enabled
+  // Set hitl_mode back to enabled
   const updated2 = sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
   assert.strictEqual(updated2.hitl_mode, 'enabled');
   console.log('  ✓ setProjectSdlcConfig successfully restored hitl_mode to "enabled".');
 
-  // 4. CLI command: konoha project set hitl-mode disabled
+  // CLI command: konoha project set hitl-mode disabled
   const cliRes = spawnSync(process.execPath, [
     path.join(__dirname, '..', 'bin', 'cli.js'),
     'project', 'set', 'hitl-mode', 'disabled', tmpDir
@@ -61,7 +61,7 @@ try {
   sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
   const { runMcpWorkflow, saveWorkflowStatus } = require('../src/mcp/workflow');
 
-  // 5. Workflow Gate 1 (Plan Approval) blocking in enabled mode
+  // Workflow Gate 1 (Plan Approval) blocking in enabled mode
   console.log('  Testing Workflow Gate 1 (Plan Approval)...');
   const taskDirGate1 = path.join(tmpDir, 'task_gate1');
   fs.mkdirSync(taskDirGate1, { recursive: true });
@@ -123,7 +123,7 @@ try {
   assert.strictEqual(gate1ApprovedRes.agent, 'anbu');
   console.log('  ✓ Workflow Gate 1 (Plan Approval) interactive choices (approve, regenerate/refine) verified successfully.');
 
-  // 6. Workflow Gate 2 (Delivery Sign-Off) blocking in enabled mode
+  // Workflow Gate 2 (Delivery Sign-Off) blocking in enabled mode
   console.log('  Testing Workflow Gate 2 (Delivery Sign-Off)...');
   const taskDirGate2 = path.join(tmpDir, 'task_gate2');
   fs.mkdirSync(taskDirGate2, { recursive: true });
@@ -193,7 +193,7 @@ try {
   assert.strictEqual(gate2SignedRes.phase, 'done');
   console.log('  ✓ Workflow Gate 2 (Delivery Sign-Off) interactive choices verified successfully.');
 
-  // 7. Authoritative Gate Enforcement under Autonomous / YOLO Mode (hitl_mode: disabled)
+  // Authoritative Gate Enforcement under Autonomous / YOLO Mode (hitl_mode: disabled)
   console.log('  Testing Authoritative Gate Enforcement under Autonomous / YOLO Mode (hitl_mode: disabled)...');
   sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' }, dbPath);
 
@@ -316,7 +316,7 @@ try {
   assert.strictEqual(auto2SignedRes.phase, 'done');
   console.log('  ✓ Autonomous/YOLO mode strictly paused at Gate 2; remediation looped and sign-off completed cleanly.');
 
-  // 8. Regression: Prompts with keywords ('continue', 'confirm', 'proceed', 'done', 'deliver', 'sign-off')
+  // Regression: Prompts with keywords ('continue', 'confirm', 'proceed', 'done', 'deliver', 'sign-off')
   // must NEVER self-bypass Gate 1 or Gate 2 when hitl_mode is enabled.
   console.log('  Testing Regression: Keyword-bearing prompts do not self-bypass gates...');
   sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
@@ -396,7 +396,7 @@ try {
   assert.strictEqual(kwGate2PauseRes.status, 'pending_human_signoff');
   console.log('  ✓ Gate 2 with "done/deliver/sign-off/approve" keywords strictly paused awaiting sign-off.');
 
-  // 9. Fast-Track Direct Request (Point 1.3: Dual-Track Execution Engine)
+  // Fast-Track Direct Request (Point 1.3: Dual-Track Execution Engine)
   console.log('  Testing Dual-Track Execution Engine (Fast-Track vs Full SDLC)...');
   const { classifyExecutionTrack, routeByKeywordsWithPrompt } = require('../src/mcp/workflow');
 
@@ -456,7 +456,7 @@ try {
   assert.strictEqual(fastTrackApproved.phase, 'execute');
   console.log('  ✓ Fast-Track tasks strictly pause at Gate 1 and advance only upon explicit approval.');
 
-  // 10. Unavailable Approval Transport Fails Closed
+  // Unavailable Approval Transport Fails Closed
   console.log('  Testing Unavailable Approval Transport Fails Closed...');
 
   // 10a. Gate 1 fails closed when transport is unavailable / fails

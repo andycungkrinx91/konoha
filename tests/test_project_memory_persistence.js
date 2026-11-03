@@ -48,7 +48,7 @@ async function run() {
   }));
 
   try {
-    // 1. Stack detection
+    // Stack detection
     const stackA = personaMemory.detectProjectStack(projectA);
     assert.strictEqual(stackA.project_name, 'frontend-app-a');
     assert.ok(stackA.framework.includes('Next.js'));
@@ -61,7 +61,7 @@ async function run() {
     assert.strictEqual(stackB.styling, 'UnoCSS');
     console.log('✓ Project stack detection passed');
 
-    // 2. Project-scoped memory isolation
+    // Project-scoped memory isolation
     const memA = personaMemory.saveMemory({
       agentName: 'jonin',
       title: 'Project A Design Decision',
@@ -104,7 +104,7 @@ async function run() {
     assert.ok(resultsB[0].content.includes('Ruby Red'));
     console.log('✓ Project-scoped memory isolation passed');
 
-    // 3. Project context formatting
+    // Project context formatting
     personaMemory.saveOrUpdateProject(projectA, null, 'High performance e-commerce showroom', testDbPath);
     const profile = personaMemory.getProjectProfile(projectA, testDbPath);
     assert.ok(profile);
@@ -126,7 +126,7 @@ async function run() {
     assert.ok(promptBlock.includes('server actions'));
     console.log('✓ Project context formatting passed');
 
-    // 4. All agents receive project context memory
+    // All agents receive project context memory
     const allAgents = ['sannin', 'genin', 'kage', 'chunin', 'anbu', 'jonin', 'tokubetsu-jonin'];
     personaMemory.saveOrUpdateProject(projectA, null, '', testDbPath);
     const profileAll = personaMemory.getProjectProfile(projectA, testDbPath);

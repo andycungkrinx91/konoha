@@ -11,7 +11,7 @@ const { validateContractText } = require('../src/agent_contract');
 
 console.log('Running test_omp_manager.js...');
 
-// 1. Module Exports Verification
+// Module Exports Verification
 const requiredFunctions = [
   'isOmpInstalled',
   'getOmpConfigPath',
@@ -33,7 +33,7 @@ for (const fn of requiredFunctions) {
 }
 console.log('  ✓ omp_manager exports verified.');
 
-// 2. Workflow Addendum Content Verification
+// Workflow Addendum Content Verification
 const addendum = ompManager.buildOmpWorkflowAddendum();
 assert.match(addendum, /## Konoha Workflow Mandate \(OMP\) — MANDATORY/, 'Addendum must include header');
 assert.match(addendum, /Route through the village, never free-run/, 'Must enforce sannin triage');
@@ -46,7 +46,7 @@ assert.match(addendum, /Floating Bottom-Left Theme Switcher Popup/, 'Must enforc
 assert.match(addendum, /Zero Errors & Zero Warnings/, 'Must enforce zero warnings/errors');
 console.log('  ✓ Workflow addendum invariants verified.');
 
-// 3. Managed Contract Construction & Validation
+// Managed Contract Construction & Validation
 const managedContract = ompManager.buildOmpManagedContract();
 const validation = validateContractText(managedContract);
 assert.ok(validation.ok, `Managed contract validation failed: ${JSON.stringify(validation)}`);
@@ -54,7 +54,7 @@ assert.match(managedContract, /<!-- KONOHA-CONTRACT-START -->/, 'Must have contr
 assert.match(managedContract, /<!-- KONOHA-CONTRACT-END -->/, 'Must have contract end marker');
 console.log('  ✓ Managed contract syntax and markers verified.');
 
-// 4. MCP Servers Configuration Verification
+// MCP Servers Configuration Verification
 const servers = ompManager.buildOmpMcpServers({
   nodeCmd: 'node',
   launcherPath: '/path/to/launcher.js',
@@ -71,7 +71,7 @@ assert.strictEqual(servers.konoha.env.KONOHA_CLIENT, 'omp', 'Konoha server must 
 assert.deepStrictEqual(servers.semble.args.slice(-2), ['--content', 'all'], 'Semble must use --content all');
 console.log('  ✓ MCP server specifications verified.');
 
-// 5. Atomic File Registration & Removal Lifecycle (Isolated Temp Directory)
+// Atomic File Registration & Removal Lifecycle (Isolated Temp Directory)
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omp-test-'));
 try {
   const testConfigPath = path.join(tmpDir, 'agent', 'mcp.json');

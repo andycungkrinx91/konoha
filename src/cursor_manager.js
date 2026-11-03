@@ -1,11 +1,12 @@
+const {
+  generateCursorSubagent,
+  generateCursorRule,
+  resolveCursorModel
+} = require('./cursor_rules');
 const fs = require('fs');
 const path = require('path');
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
-const {
-  buildSembleSearchPolicyCompact,
-  buildFileToolsPolicyCompact
-} = require('./search_policy');
 const deployUtils = require('./deploy_utils');
 
 const {
@@ -23,11 +24,6 @@ const CURSOR_RULES_GLOBAL = path.join(CURSOR_DIR, 'rules');
 const CURSOR_RTK_RULE_SRC = path.join(__dirname, 'templates', 'rules', 'rtk.mdc');
 
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
-const {
-  buildSubagentContract,
-  buildLightweightContract,
-  buildManagedContract
-} = require('./agent_contract');
 
 // isRtkInstalled is imported from platform_utils
 
@@ -59,91 +55,6 @@ function deployCursorRtkRule(silent = true, options = {}) {
 
 function isCursorInstalled() {
   return isCommandAvailable('cursor') || isCommandAvailable('agent') || fileExistsCached(CURSOR_DIR) || fileExistsCached(CURSOR_MCP_GLOBAL) || fileExistsCached(CURSOR_MCP_LEGACY);
-}
-
-function adaptInstructionsForCursor(instructions) {
-  if (!instructions) return '';
-  return instructions
-    .replace(/Always set RequestFeedback:\s*false\s+and\s+UserFacing:\s*false\s+in\s+ArtifactMetadata\s+when\s+writing\s+files\.?\s*/gi, '')
-    .replace(/view_file/g, 'Read')
-    .replace(/write_to_file|replace_file_content/g, 'Write/StrReplace')
-    .replace(/run_command/g, 'Shell')
-    .trim();
-}
-
-function resolveCursorModel(agent = {}) {
-  return agent.cursor_fallback_model || agent.cursorFallbackModel || CURSOR_FALLBACK_MODEL;
-}
-
-function generateCursorSubagent(agent) {
-  const readonly = agent.name === 'genin';
-  const description = `${agent.description} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-  
-  let instructions = agent.instructions || '';
-  // Strip any existing Before work: find_skill(...) checklist calls
-  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-
-  if (agent.skills && agent.skills.length > 0) {
-    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
-    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
-    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
-    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
-    const logMatch = instructions.match(logPattern);
-    if (logMatch) {
-      const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
-    } else {
-      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
-    }
-  }
-
-  instructions = `${instructions}\n\n${buildSubagentContract('cursor')}`;
-  const body = adaptInstructionsForCursor(instructions);
-  const sembleLine = buildSembleSearchPolicyCompact();
-  const fileToolsLine = buildFileToolsPolicyCompact();
-
-  const frontmatter = [
-    '---',
-    `name: ${agent.name}`,
-    `description: ${description.replace(/\n/g, ' ')}`,
-  ];
-  if (agent.model) {
-    frontmatter.push(`model: ${agent.model}`);
-  }
-  if (readonly) {
-    frontmatter.push('readonly: true');
-  }
-  frontmatter.push('---', '');
-
-  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
-}
-
-function generateCursorRule(agents, ruleContent = null) {
-  if (ruleContent) {
-    const managed = buildManagedContract(ruleContent, buildLightweightContract({ client: 'cursor' }));
-    return `---\ndescription: Konoha rules\nalwaysApply: true\n---\n\n` + managed;
-  }
-  const roster = (agents || []).map(a => {
-    const title = a.name === 'anbu' ? 'Backend, DevOps & Security' : (a.title || 'Specialist');
-    return `- **@${a.name}**: ${title}`;
-  }).join('\n');
-
-  const contractText = buildLightweightContract({ client: 'cursor' });
-
-  const body = `---
-description: Konoha rules
-alwaysApply: true
----
-
-# Cursor — Agent Rules
-
-## Team Roster
-${roster}
-
-## Safety Guardrails
-NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view secrets (\`.env*\`).\n\n`;
-
-  return buildManagedContract(body, contractText);
 }
 
 function _resolveUvxAvailable(uvxCmd) {

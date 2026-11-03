@@ -38,7 +38,7 @@ try {
   const result = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
   assert.strictEqual(result.ok, true, 'registerCodexMcp must return ok');
 
-  // 1. Verify that .bak backup was created byte-for-byte before rewriting
+  // Verify that .bak backup was created byte-for-byte before rewriting
   assert.strictEqual(
     fs.existsSync(bakPath),
     true,
@@ -51,7 +51,7 @@ try {
     '.bak backup must match original config.toml content byte-for-byte'
   );
 
-  // 2. Verify that user-owned table was preserved byte-for-byte in new config
+  // Verify that user-owned table was preserved byte-for-byte in new config
   const updatedContent = fs.readFileSync(configPath, 'utf-8');
 
   const expectedUserSection = [
@@ -71,7 +71,7 @@ try {
     'User top-level settings must be preserved'
   );
 
-  // 3. Ensure custom agent is not duplicated
+  // Ensure custom agent is not duplicated
   const customAgentMatches = updatedContent.match(/\[agents\.my_custom_agent\]/g) || [];
   assert.strictEqual(
     customAgentMatches.length,
@@ -79,7 +79,7 @@ try {
     'User-owned agent table must not be duplicated'
   );
 
-  // 5. Test D3: Second rewrite keeps the FIRST backup
+  // Test D3: Second rewrite keeps the FIRST backup
   // Make a modification to config.toml before 2nd rewrite
   fs.appendFileSync(configPath, '\nsecond_edit = true\n', 'utf-8');
   const result2 = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
@@ -92,7 +92,7 @@ try {
     'Second rewrite must keep the FIRST pristine backup byte-for-byte, not overwrite it'
   );
 
-  // 6. Test D3: Custom agents from agents.yaml are written without duplicate tables
+  // Test D3: Custom agents from agents.yaml are written without duplicate tables
   const yamlDir = path.join(tmpHome, '.agents');
   fs.mkdirSync(yamlDir, { recursive: true });
   fs.writeFileSync(

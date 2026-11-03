@@ -340,7 +340,7 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
   // TEST 5: Shared Rasengan Background Across Login and Dashboard
   // ---------------------------------------------------------------------------
   test("Shared Rasengan Background: persists across route changes, renders on login and dashboard with performance budget", async ({ page }) => {
-    // 1. Visit Login page (unauthenticated state)
+    // Visit Login page (unauthenticated state)
     await page.goto("http://127.0.0.1:4173/");
 
     // Check shared background root element
@@ -350,14 +350,14 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
     // Capture login screenshot
     await page.screenshot({ path: 'tests/e2e/screenshots/shared-bg-login-page.png' });
 
-    // 2. Log in and verify shared background persists on dashboard
+    // Log in and verify shared background persists on dashboard
     await loginAndUnlock(page);
     await page.goto("http://127.0.0.1:4173/dashboard");
 
     await expect(sharedBg).toBeVisible();
     await page.screenshot({ path: 'tests/e2e/screenshots/shared-bg-dashboard-page.png' });
 
-    // 3. Navigate to /agents, /clients, /skills — verify background is unchanged and single instance
+    // Navigate to /agents, /clients, /skills — verify background is unchanged and single instance
     await page.goto("http://127.0.0.1:4173/agents");
     await expect(sharedBg).toHaveCount(1);
 

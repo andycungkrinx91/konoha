@@ -32,7 +32,7 @@ function run() {
     const workspaceDir = path.join(tempRoot, 'my-project');
     fs.mkdirSync(workspaceDir, { recursive: true });
 
-    // 1. Verify SOUL.md synchronization across ~/.agents and all 8 client trees
+    // Verify SOUL.md synchronization across ~/.agents and all 8 client trees
     console.log('1. Testing syncSoulAcrossClients for ~/.agents and all clients...');
     const updatedCount = deployUtils.syncSoulAcrossClients({ projectRoot: workspaceDir, silent: true });
     assert.ok(updatedCount > 0, 'syncSoulAcrossClients must copy files to targets');
@@ -60,7 +60,7 @@ function run() {
     assert.ok(!fs.existsSync(path.join(workspaceDir, '.agents', 'skills')), 'Workspace must not have .agents/skills');
     console.log('  ✓ SOUL.md successfully synchronized to ~/.agents and all 8 client trees');
 
-    // 2. Verify all client configurations, hooks, settings, and rules on fresh setup
+    // Verify all client configurations, hooks, settings, and rules on fresh setup
     console.log('2. Testing client configs, hooks, settings, rules, semble, and aislop across all 8 clients...');
 
     // Mock launcher/server
@@ -202,7 +202,7 @@ function run() {
 
     console.log('  ✓ Client configs, hooks, settings, rules, semble, and aislop verified across all 8 clients');
 
-    // 3. Verify cross-platform Windows homedir and mirror fallback resolution
+    // Verify cross-platform Windows homedir and mirror fallback resolution
     console.log('3. Testing Windows homedir & mirror fallback resolution (global and client mirrors only)...');
 
     // Simulate Windows USERPROFILE without process.env.HOME

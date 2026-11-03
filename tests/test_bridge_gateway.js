@@ -18,7 +18,7 @@ async function run() {
 
   const conn = db.getDb(dbPath);
   try {
-    // 1. Bridges schema
+    // Bridges schema
     const cols = conn.prepare('PRAGMA table_info(bridges);').all();
     const colMap = {};
     for (const c of cols) {
@@ -30,7 +30,7 @@ async function run() {
     }
     console.log('✓ Bridges schema verified');
 
-    // 2. Bridge creation and retrieval
+    // Bridge creation and retrieval
     conn.prepare(`
       INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
       VALUES ('test_bridge', 12345, 'openai', 1, 'http://localhost:12345', 'dummy_key')

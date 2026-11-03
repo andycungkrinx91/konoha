@@ -28,14 +28,14 @@ const skillsModule = require('../src/mcp/skills');
 async function runTests() {
   console.log('Running test_anthropic_cybersecurity_skills.js...');
 
-  // 1. Run migration for akatsuki-skill and anbu-skill
+  // Run migration for akatsuki-skill and anbu-skill
   const count = migrate.migrateSingleSkill('akatsuki-skill', 'src/templates/skills');
   assert.ok(count >= 820, `Must migrate akatsuki-skill and its cyber assets (got ${count})`);
 
   const anbuCount = migrate.migrateSingleSkill('anbu-skill', 'src/templates/skills');
   assert.ok(anbuCount > 0, `Must migrate anbu-skill (got ${anbuCount})`);
 
-  // 2. Verify total cyber skill rows in database
+  // Verify total cyber skill rows in database
   const cyberRows = conn.prepare(`
     SELECT COUNT(*) as cnt
     FROM skills
@@ -50,32 +50,32 @@ async function runTests() {
   `).get();
   assert.strictEqual(anbuCyberRows.cnt, 0, 'Anbu must contain 0 offensive cybersecurity assets');
 
-  // 3. Test find_skill by technique name (DPAPI)
+  // Test find_skill by technique name (DPAPI)
   const findDpapi = JSON.parse(skillsModule.findSkill('dpapi', 5, 'akatsuki'));
   assert.ok(findDpapi.found > 0, 'Must find dpapi skills');
   const dpapiSkill = findDpapi.results.find(r => r.name.includes('dpapi'));
   assert.ok(dpapiSkill, 'Results must contain a dpapi skill');
   assert.strictEqual(dpapiSkill.name, 'akatsuki-skill/abusing-dpapi-for-credential-access', 'Must match exact dpapi skill ID under akatsuki-skill');
 
-  // 4. Test find_skill by MITRE ATT&CK ID (T1555)
+  // Test find_skill by MITRE ATT&CK ID (T1555)
   const findMitre = JSON.parse(skillsModule.findSkill('T1555', 5, 'akatsuki'));
   assert.ok(findMitre.found > 0, 'Must find skills matching MITRE ATT&CK technique T1555');
 
-  // 5. Test find_skill by domain / red team topic
+  // Test find_skill by domain / red team topic
   const findAD = JSON.parse(skillsModule.findSkill('active directory', 5, 'akatsuki'));
   assert.ok(findAD.found > 0, 'Must find Active Directory attack/defense skills');
 
   const findPrivesc = JSON.parse(skillsModule.findSkill('privilege escalation', 5, 'akatsuki'));
   assert.ok(findPrivesc.found > 0, 'Must find privilege escalation skills');
 
-  // 6. Test get_skill with full canonical name
+  // Test get_skill with full canonical name
   const fullSkillRes = skillsModule.getSkill('akatsuki-skill/abusing-dpapi-for-credential-access', 'akatsuki');
   assert.ok(!fullSkillRes.includes('"error"'), 'Full canonical lookup must succeed');
   assert.ok(fullSkillRes.includes('Abusing DPAPI for Credential Access'), 'Must contain skill title');
   assert.ok(fullSkillRes.includes('T1555.004'), 'Must contain MITRE ATT&CK mapping');
   assert.ok(fullSkillRes.includes('SharpDPAPI'), 'Must contain tool procedures');
 
-  // 7. Test get_skill with short unprefixed name
+  // Test get_skill with short unprefixed name
   const shortSkillRes = skillsModule.getSkill('abusing-dpapi-for-credential-access', 'akatsuki');
   assert.ok(!shortSkillRes.includes('"error"'), 'Short unprefixed lookup must succeed');
   assert.ok(shortSkillRes.includes('Abusing DPAPI for Credential Access'), 'Short lookup must return exact skill content');
@@ -87,7 +87,7 @@ async function runTests() {
   const traversalSkillRes = skillsModule.getSkill('../../etc/passwd');
   assert.ok(traversalSkillRes.includes('"error"') || traversalSkillRes.includes('not found'), 'Must not resolve traversed file');
 
-  // 8. Clean up
+  // Clean up
   try {
     conn.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });

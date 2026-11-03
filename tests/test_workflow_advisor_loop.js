@@ -19,7 +19,7 @@ function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_advisor_test_'));
 
   try {
-    // 1. Verify workflowReviewApproved blocks when advisor_approved is false
+    // Verify workflowReviewApproved blocks when advisor_approved is false
     const passingTasks = [
       { id: 'task-1', agent: 'anbu', task: 'Implement backend service', status: 'completed', validation: ['test_pass'] }
     ];
@@ -43,7 +43,7 @@ function run() {
     );
     console.log('✓ workflowReviewApproved blocks on advisor rejection');
 
-    // 2. Verify routeWorkflow triggers remediation loop on advisor rejection
+    // Verify routeWorkflow triggers remediation loop on advisor rejection
     const workflowStatus = {
       schema_version: 2,
       created_at: new Date().toISOString(),
@@ -86,7 +86,7 @@ function run() {
     assert.ok(routeResult.task.includes('Missing integration smoke test'), 'Task text must include advisor feedback');
     console.log('✓ runMcpWorkflow dispatches advisor remediation fix task to anbu');
 
-    // 3. Verify Jonin is selected when advisor feedback is UI-related
+    // Verify Jonin is selected when advisor feedback is UI-related
     const uiWorkflowStatus = {
       schema_version: 2,
       created_at: new Date().toISOString(),
@@ -124,7 +124,7 @@ function run() {
     assert.strictEqual(uiRouteResult.agent, 'jonin', 'Remediation agent must be jonin for UI contrast feedback');
     console.log('✓ runMcpWorkflow dispatches UI advisor remediation to jonin');
 
-    // 4. Verify approval after advisor remediation completes
+    // Verify approval after advisor remediation completes
     const resolvedStatus = {
       tasks: [
         { id: 'task-1', agent: 'anbu', task: 'Implement backend service', status: 'completed', validation: ['test_pass'] },
@@ -148,7 +148,7 @@ function run() {
     );
     console.log('✓ workflowReviewApproved passes when advisor approves');
 
-    // 5. Verify circuit breaker blocks after 7 cycles
+    // Verify circuit breaker blocks after 7 cycles
     const excessiveCyclesStatus = {
       schema_version: 2,
       created_at: new Date().toISOString(),

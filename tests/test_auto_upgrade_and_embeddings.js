@@ -14,7 +14,7 @@ const { ensureAutoSetup } = require('../bin/lib/runtime');
 async function run() {
   console.log('Running test_auto_upgrade_and_embeddings...');
 
-  // 1. Verify auth password hashing and verification works cleanly when cwd is /tmp
+  // Verify auth password hashing and verification works cleanly when cwd is /tmp
   const originalCwd = process.cwd();
   try {
     const testHash = auth.hashPassword('konohagakure');
@@ -52,13 +52,13 @@ async function run() {
     process.chdir(originalCwd);
   }
 
-  // 2. Verify deployUtils.resolveWebUiDir() priority and automated build sync
+  // Verify deployUtils.resolveWebUiDir() priority and automated build sync
   const resolvedUi = deployUtils.resolveWebUiDir();
   assert.ok(resolvedUi, 'resolveWebUiDir must find a valid Web UI directory');
   assert.ok(fs.existsSync(path.join(resolvedUi, 'build', 'handler.js')), 'resolved UI must have build/handler.js');
   console.log('✓ Feedback 2: Web UI directory resolution and packaging verified');
 
-  // 3. Verify ensureAutoSetup() runs without crashing on bridge functions
+  // Verify ensureAutoSetup() runs without crashing on bridge functions
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_setup_test_'));
   const origHome = process.env.HOME;
   try {
@@ -77,7 +77,7 @@ async function run() {
     try { fs.rmSync(tempHome, { recursive: true, force: true }); } catch (_) {}
   }
 
-  // 4. Verify bin/commands/upgrade.js does not force --skip-embeddings
+  // Verify bin/commands/upgrade.js does not force --skip-embeddings
   const upgradeSrc = fs.readFileSync(path.join(__dirname, '..', 'bin', 'commands', 'upgrade.js'), 'utf8');
   assert.strictEqual(
     upgradeSrc.includes("'--skip-embeddings'"),

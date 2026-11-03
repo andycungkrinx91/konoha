@@ -7,7 +7,10 @@ const KonohaWorkflowState = Annotation.Root({
   taskDir: Annotation({ default: () => '' }),
   projectPath: Annotation({ default: () => '' }),
   prompt: Annotation({ default: () => '' }),
-  intent: Annotation({ default: () => 'full_sdlc' }),
+  intent: Annotation({ default: () => '' }),
+  sessionId: Annotation({ default: () => '' }),
+  client: Annotation({ default: () => '' }),
+  flowHash: Annotation({ default: () => '' }),
   isFastTrack: Annotation({ default: () => false }),
   phase: Annotation({ default: () => 'init' }),
 

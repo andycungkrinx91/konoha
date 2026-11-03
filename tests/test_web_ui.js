@@ -33,7 +33,7 @@ async function run() {
   console.log('✓ Web server started on port ' + port);
 
   try {
-    // 1. Health endpoint
+    // Health endpoint
     const health = await request({
       hostname: '127.0.0.1',
       port,
@@ -48,7 +48,7 @@ async function run() {
     assert.strictEqual(health.data.agents_count, 8);
     console.log('✓ GET /api/v1/health passed');
 
-    // 2. CSRF rejection without token
+    // CSRF rejection without token
     const unauth = await request({
       hostname: '127.0.0.1',
       port,
@@ -59,7 +59,7 @@ async function run() {
     assert.strictEqual(unauth.status, 403, 'Must reject state-changing request without CSRF token');
     console.log('✓ CSRF 403 rejection without token passed');
 
-    // 3. Bridge CRUD with CSRF token
+    // Bridge CRUD with CSRF token
     const testBridgeName = 'test-web-ui-bridge';
     const create = await request({
       hostname: '127.0.0.1',
@@ -125,7 +125,7 @@ async function run() {
     assert.ok(Array.isArray(bridgeModels.data.models));
     console.log('✓ GET /api/v1/bridges/models passed');
 
-    // 4. Agents endpoint
+    // Agents endpoint
     const agents = await request({ hostname: '127.0.0.1', port, path: '/api/v1/agents', method: 'GET' });
     assert.strictEqual(agents.status, 200);
     assert.strictEqual(agents.data.length, 8);
@@ -136,7 +136,7 @@ async function run() {
     assert.ok(names.includes('akatsuki'));
     console.log('✓ GET /api/v1/agents passed');
 
-    // 5. Skills endpoint
+    // Skills endpoint
     const skills = await request({ hostname: '127.0.0.1', port, path: '/api/v1/skills?limit=5', method: 'GET' });
     assert.strictEqual(skills.status, 200);
     assert.ok(skills.data.length > 0);
@@ -224,7 +224,7 @@ async function run() {
     assert.strictEqual(deleteSkill.status, 200);
     console.log('✓ DELETE /api/v1/skills/:name passed');
 
-    // 6. Savings endpoint
+    // Savings endpoint
     const savings = await request({ hostname: '127.0.0.1', port, path: '/api/v1/savings', method: 'GET' });
     assert.strictEqual(savings.status, 200);
     assert.ok(savings.data.today);
@@ -267,13 +267,13 @@ async function run() {
     assert.ok(Array.isArray(searchLogs.data.logs));
     console.log('✓ GET /api/v1/search/logs passed');
 
-    // 7. Doctor endpoint
+    // Doctor endpoint
     const doc = await request({ hostname: '127.0.0.1', port, path: '/api/v1/doctor', method: 'GET' });
     assert.strictEqual(doc.status, 200);
     assert.ok(doc.data.results.length > 0);
     console.log('✓ GET /api/v1/doctor passed');
 
-    // 8. Clients endpoint
+    // Clients endpoint
     const clients = await request({ hostname: '127.0.0.1', port, path: '/api/v1/clients', method: 'GET' });
     assert.strictEqual(clients.status, 200);
     assert.strictEqual(clients.data.length, 8);
@@ -328,7 +328,7 @@ async function run() {
     assert.strictEqual(setupCc.data.client, 'commandcode');
     console.log('✓ POST /api/v1/clients/:id/setup passed for antigravity and commandcode');
 
-    // 9. Static UI HTML — CSRF token must NOT be rendered into the page source
+    // Static UI HTML — CSRF token must NOT be rendered into the page source
     //    (HttpOnly cookie + GET /api/v1/csrf are the only delivery channels).
     //    The root route 307-redirects to /dashboard; the served page must stay clean.
     const rootRes = await request({ hostname: '127.0.0.1', port, path: '/', method: 'GET' });
@@ -345,7 +345,7 @@ async function run() {
     console.log('✓ Server stopped');
   }
 
-  // 10. Test CLI daemon commands
+  // Test CLI daemon commands
   const { execSync } = require('child_process');
   const cliPath = require('path').join(__dirname, '..', 'bin', 'cli.js');
   
@@ -358,7 +358,7 @@ async function run() {
   assert.ok(stoppedOut.includes('STOPPED'), 'UI status must report stopped');
   console.log('✓ CLI ui start/status/stop commands passed');
 
-  // 11. Test CLI build command
+  // Test CLI build command
   execSync(`node "${cliPath}" ui build`, { stdio: 'pipe' });
   assert.ok(require('fs').existsSync(require('path').join(__dirname, '..', 'apps', 'web', 'build', 'index.js')), 'Production build artifact must exist');
   console.log('✓ CLI ui build command passed');

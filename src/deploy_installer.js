@@ -1,5 +1,17 @@
 'use strict';
 
+function _tryReuseRootNodeModules(rootDir, nodeModulesPath) {
+  const rootNodeModules = path.join(rootDir, 'node_modules');
+  if (!fileExists(rootNodeModules) || !fileExists(path.join(rootNodeModules, '@langchain', 'langgraph')) || fileExists(nodeModulesPath)) {
+    return;
+  }
+  try {
+    fs.symlinkSync(rootNodeModules, nodeModulesPath, 'junction');
+  } catch (_) {
+    copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
+  }
+}
+
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, execSync } = require('child_process');
@@ -65,17 +77,42 @@ function copyRecursiveIfDifferent(src, dest) {
   return copied;
 }
 
-const KONOHA_CANONICAL_TOOLS = [
-  'read_file_head', 'read_file_range', 'file_info',
-  ['token', 'efficient', 'grep'].join('_'),
-  'get_file_structure', 'find_files_clean', 'website_ai_detector', 'docs_ai_detector',
-  'get_resolved_task_dir', 'find_skill', 'list_skills', 'get_skill', 'optimize_report',
-  'build_from_source', 'build_from_text', 'sannin', 'kage', 'jonin', 'anbu', 'chunin',
-  'tokubetsu_jonin', 'genin', 'akatsuki', 'report_from_agent', 'get_project_context',
-  'save_project_context', 'query_project_memory', 'web_search', 'migrate_skills',
-  'save_persona_memory', 'query_persona_memory', 'list_persona_memories', 'delete_persona_memory',
-  'check_readiness', 'get_task_evidence', 'get_slop_findings', 'qa_codify', 'qa_e2e_run'
-];
+function _readToolsFromCandidate(p) {
+  if (!fileExists(p)) return null;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return Array.isArray(manifest.tools) ? manifest.tools.filter(t => !t.deprecated).map(t => t.name) : null;
+  } catch (_) { return null; }
+}
+
+function loadCanonicalToolsFromManifest() {
+  const candidatePaths = [
+    path.join(SRC_DIR, 'mcp_tool_manifest.json'),
+    path.join(__dirname, 'mcp_tool_manifest.json'),
+    path.join(SKILLS_DB_DIR, 'mcp_tool_manifest.json')
+  ];
+  for (const p of candidatePaths) {
+    const tools = _readToolsFromCandidate(p);
+    if (tools) return tools;
+  }
+  return [
+    'read_file_head', 'read_file_range', 'file_info',
+    ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean',
+    'website_ai_detector', 'docs_ai_detector', 'get_resolved_task_dir',
+    'find_skill', 'list_skills', 'get_skill', 'use_skills', 'optimize_report',
+    'build_from_source', 'build_from_text',
+    'sannin', 'kage', 'jonin', 'anbu', 'akatsuki', 'akatsuki_init', 'chunin',
+    'tokubetsu_jonin', 'genin', 'report_from_agent', 'get_project_context',
+    'save_project_context', 'query_project_memory', 'web_search', 'migrate_skills',
+    'save_persona_memory', 'query_persona_memory', 'list_persona_memories',
+    'delete_persona_memory', 'check_readiness', 'get_task_evidence',
+    'get_slop_findings', 'anti_slop', 'qa_codify', 'qa_e2e_run', 'get_soul',
+    'document_create', 'spreadsheet_create', 'presentation_create',
+    'diagram_create', 'animation_export'
+  ];
+}
+
+const KONOHA_CANONICAL_TOOLS = loadCanonicalToolsFromManifest();
 
 function buildKonohaFilesMcpEntry(mode = "execPath") {
   const repoFileTools = path.join(SRC_DIR, 'file_tools_mcp.js');
@@ -111,10 +148,14 @@ function syncRuntimeJsFiles(srcDir, destDir) {
 }
 
 function syncRuntimeSubdirectories(srcDir, destDir) {
+  const rootDir = path.resolve(srcDir, '..');
+  const patchesSrc = path.join(rootDir, 'patches');
+  if (fileExists(patchesSrc)) {
+    copyRecursiveIfDifferent(patchesSrc, path.join(destDir, 'patches'));
+  }
   const subdirs = [
     { src: 'file_tools', dest: FILE_TOOLS_PY_DIR },
     { src: 'mcp', dest: path.join(destDir, 'mcp') },
-    { src: 'tools', dest: path.join(destDir, 'tools') },
     { src: 'workflow', dest: path.join(destDir, 'workflow') },
     { src: 'bridge', dest: path.join(destDir, 'bridge') }
   ];
@@ -129,15 +170,53 @@ function syncRuntimeSubdirectories(srcDir, destDir) {
 function installRuntimePackageDependencies(destDir, silent) {
   const pkgPath = path.join(destDir, 'package.json');
   const nodeModulesPath = path.join(destDir, 'node_modules');
-  if (!fileExists(pkgPath)) {
+  const rootDir = path.resolve(__dirname, '..');
+  const rootPkg = path.join(rootDir, 'package.json');
+  const rootPatches = path.join(rootDir, 'patches');
+  const destPatches = path.join(destDir, 'patches');
+
+  if (fileExists(rootPkg)) {
+    copyIfDifferent(rootPkg, pkgPath);
+  } else if (!fileExists(pkgPath)) {
     fs.writeFileSync(
       pkgPath,
-      JSON.stringify({ name: 'konoha-runtime', version: '1.0.0', private: true, dependencies: { '@bufbuild/protobuf': '^2.11.0', '@huggingface/transformers': '^4.2.0' } }, null, 2) + '\n'
+      JSON.stringify({
+        name: 'konoha-runtime',
+        version: '1.0.0',
+        private: true,
+        dependencies: {
+          '@bufbuild/protobuf': '2.16.0',
+          '@langchain/core': '1.3.2',
+          '@langchain/langgraph': '1.6.0',
+          '@langchain/langgraph-checkpoint': '1.2.2',
+          'docx': '^9.14.0',
+          'gpt-tokenizer': '4.1.0',
+          'hash-wasm': '^4.12.0',
+          'playwright': '^1.64.1',
+          'pptxgenjs': '^4.0.1',
+          'xlsx-populate': '^1.21.0',
+          'zod': '4.6.7',
+          'yaml': '^2.7.0'
+        }
+      }, null, 2) + '\n'
     );
   }
-  if (fileExists(nodeModulesPath) && fileExists(path.join(nodeModulesPath, '@bufbuild', 'protobuf'))) {
+
+  if (fileExists(rootPatches)) {
+    copyRecursiveIfDifferent(rootPatches, destPatches);
+  }
+
+  const criticalDeps = [
+    path.join(nodeModulesPath, '@bufbuild', 'protobuf'),
+    path.join(nodeModulesPath, '@langchain', 'langgraph'),
+    path.join(nodeModulesPath, 'zod')
+  ];
+  if (criticalDeps.every(d => fileExists(d))) {
     return;
   }
+
+  _tryReuseRootNodeModules(rootDir, nodeModulesPath);
+  if (criticalDeps.every(d => fileExists(d))) return;
 
   const isWin = process.platform === 'win32';
   const pmCandidates = [
@@ -152,7 +231,7 @@ function installRuntimePackageDependencies(destDir, silent) {
       } else {
         execFileSync(pm.cmd, pm.args, { cwd: destDir, stdio: 'ignore', timeout: 300000, env: childEnv });
       }
-      return;
+      if (criticalDeps.every(d => fileExists(d))) return;
     } catch (_) { /* fallback to npm */ }
   }
   if (!silent) {
@@ -303,7 +382,7 @@ function cleanKonohaRuntimeDir(options = {}) {
 
   cleanTmpScratchEntries(path.join(target, 'tmp'), result);
 
-  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'file_tools', 'mcp', 'src', '.agents', 'tmp']);
+  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'file_tools', 'mcp', 'src', '.agents', 'tmp', 'workflow', 'patches', 'docs']);
   const preserveFiles = new Set(['konoha.db', 'konoha.db-wal', 'konoha.db-shm', 'package.json', 'pnpm-lock.yaml', 'web_token', 'bridges.json', 'konoha-bridge.json', '.python_cmd', '.node_exec_path', '.deploy-fingerprint', '.gitignore']);
 
   let entries = [];

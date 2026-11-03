@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const {
   getWorkflowGraph,
   runKonohaGraph,
@@ -55,7 +56,7 @@ async function runTests() {
     const graph = buildKonohaGraph({ checkpointer });
     assert.ok(graph, 'Graph must compile cleanly');
 
-    const taskDir = path.join('/tmp', `lg_fast_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_fast_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     const res = await graph.invoke({
@@ -75,7 +76,7 @@ async function runTests() {
     const saver = new KonohaCheckpointSaver(db);
     const graph = buildKonohaGraph({ checkpointer: saver });
 
-    const taskDir = path.join('/tmp', `lg_mandatory_steps_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_mandatory_steps_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     const initialStatus = {
@@ -108,7 +109,7 @@ async function runTests() {
     const saver = new KonohaCheckpointSaver(db);
     const graph = buildKonohaGraph({ checkpointer: saver });
 
-    const taskDir = path.join('/tmp', `lg_budget_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_budget_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     const config = { configurable: { thread_id: 'thread-budget-enforcement' } };
@@ -141,7 +142,7 @@ async function runTests() {
     const saver = new KonohaCheckpointSaver(db);
     const graph = buildKonohaGraph({ checkpointer: saver });
 
-    const taskDir = path.join('/tmp', `lg_cb_remediate_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_cb_remediate_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     // Seed a status with 7 remediation cycles already exhausted and low confidence
@@ -173,7 +174,7 @@ async function runTests() {
     const saver = new KonohaCheckpointSaver(db);
     const graph = buildKonohaGraph({ checkpointer: saver });
 
-    const taskDir = path.join('/tmp', `lg_hitl_gates_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_hitl_gates_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     const initialStatus = {
@@ -199,16 +200,37 @@ async function runTests() {
     assert.strictEqual(stage1.hitlPending, true, 'Gate 1 must pause workflow');
     assert.strictEqual(stage1.hitlStage, 'gate1');
 
-    // Stage 2: Resume with Gate 1 approval -> completes to delivery
+    // Stage 1b: Verify Gate 1 rejection keeps plan_approved = false and stays at Gate 1
+    const rejDir = path.join(os.tmpdir(), `lg_hitl_rej_${Date.now()}`);
+    fs.mkdirSync(rejDir, { recursive: true });
+    fs.writeFileSync(path.join(rejDir, 'status.json'), JSON.stringify(initialStatus), 'utf8');
+    const rejGraph = buildKonohaGraph({ checkpointer: new KonohaCheckpointSaver(new Database(':memory:')) });
+    const rejConf = { configurable: { thread_id: 'thread-hitl-rej' } };
+    await rejGraph.invoke({ prompt: 'Build service', taskDir: rejDir, tokenBudget: 32768 }, rejConf);
+    const rejRes = await rejGraph.invoke({ hitlChoice: '2. Reject and Regenerate PLAN', taskDir: rejDir }, rejConf);
+    assert.strictEqual(rejRes.hitlPending, true, 'Gate 1 rejection must remain paused');
+    assert.strictEqual(rejRes.hitlStage, 'gate1', 'Gate 1 rejection must stay in gate1');
+    assert.strictEqual(rejRes.status.plan_approved, false, 'Plan must remain unapproved on rejection');
+
+    // Stage 2: Resume with Gate 1 approval -> executes through to Gate 2 (human signoff)
     const stage2 = await graph.invoke({
       hitlChoice: 'compact_and_approve',
       taskDir,
     }, config);
 
-    assert.strictEqual(stage2.hitlStage, null);
-    assert.strictEqual(stage2.phase, 'done');
-    assert.strictEqual(stage2.gateVerdict, 'pass');
-    console.log('✓ Test 6: Two-stage HITL Gate 1 pause and resume verified');
+    assert.strictEqual(stage2.hitlPending, true, 'Gate 2 must pause workflow for human signoff');
+    assert.strictEqual(stage2.hitlStage, 'gate2', 'Workflow must pause at Gate 2');
+
+    // Stage 3: Resume with Gate 2 approval -> completes to delivery
+    const stage3 = await graph.invoke({
+      hitlChoice: 'compact_and_approve',
+      taskDir,
+    }, config);
+
+    assert.strictEqual(stage3.hitlStage, null);
+    assert.strictEqual(stage3.phase, 'done');
+    assert.strictEqual(stage3.gateVerdict, 'pass');
+    console.log('✓ Test 6: Two-stage HITL Gate 1 pause, Gate 2 pause, and Gate 2 signoff verified');
   }
 
   // Test 7: Zero-overlap between concurrent threads
@@ -217,8 +239,8 @@ async function runTests() {
     const saver = new KonohaCheckpointSaver(db);
     const graph = buildKonohaGraph({ checkpointer: saver });
 
-    const dirA = path.join('/tmp', `lg_overlap_a_${Date.now()}`);
-    const dirB = path.join('/tmp', `lg_overlap_b_${Date.now()}`);
+    const dirA = path.join(os.tmpdir(), `lg_overlap_a_${Date.now()}`);
+    const dirB = path.join(os.tmpdir(), `lg_overlap_b_${Date.now()}`);
     fs.mkdirSync(dirA, { recursive: true });
     fs.mkdirSync(dirB, { recursive: true });
 
@@ -246,7 +268,7 @@ async function runTests() {
 
   // Test 8: Sannin workflow facade helpers
   {
-    const taskDir = path.join('/tmp', `lg_facade_${Date.now()}`);
+    const taskDir = path.join(os.tmpdir(), `lg_facade_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
     const initialStatus = {

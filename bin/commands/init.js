@@ -63,7 +63,7 @@ function cmdInitHelp() {
   Usage: konoha init [options]
 
   Initializes the Konoha environment:
-  1. Checks requirements (Node.js >= 18, uv for Python tools).
+  1. Checks requirements (Node.js >= 24, uv for Python tools).
   2. Creates ~/.konoha directory structure.
   3. Copies runtime and migration files.
   4. Discovers skills directories (~/.agents/skills).
@@ -301,7 +301,8 @@ async function cmdInit(args, options = {}) {
   header('🌱 Seeding Canonical Subagent Skills');
   const spinnerMigrate = startSpinner('Seeding canonical skills into ~/.konoha/konoha.db...');
   const skillsDirs = detectSkillsDirs();
-  const skills = ['genin-skill', 'kage-skill', 'chunin-skill', 'jonin-skill', 'anbu-skill', 'tokubetsu-jonin-skill', 'akatsuki-skill'];
+  const { CANONICAL_SKILL_NAMES } = require('../../src/canonical_skills');
+  const skills = Array.from(CANONICAL_SKILL_NAMES);
   const migrationArgs = ['--skills-dir', pkgSkillsDir, '--skills', ...skills, '--skip-embeddings'];
 
   executeInitMigration({

@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const QA_ROOT = path.join('/tmp', `konoha-qa-skills-precedence-${Date.now()}`);
+const QA_ROOT = path.join(os.tmpdir(), `konoha-qa-skills-precedence-${Date.now()}`);
 fs.mkdirSync(QA_ROOT, { recursive: true });
 
 const testDbPath = path.join(QA_ROOT, 'test_skills.db');

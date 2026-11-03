@@ -28,7 +28,7 @@ const CLIENT_DIRS = [
 async function testClientSkillsSync() {
   console.log('Running test_client_skills_sync...');
 
-  // 1. Verify canonical src/templates/skills has all core ninja skills
+  // Verify canonical src/templates/skills has all core ninja skills
   assert.ok(fs.existsSync(TEMPLATES_DIR), 'src/templates/skills must exist');
   for (const skill of CORE_NINJA_SKILLS) {
     const skillMd = path.join(TEMPLATES_DIR, skill, 'SKILL.md');
@@ -36,13 +36,13 @@ async function testClientSkillsSync() {
   }
   console.log('✓ Canonical src/templates/skills verified with all core ninja skills');
 
-  // 2. Verify scripts/sync_skills.js runs cleanly and enforces complete parity
+  // Verify scripts/sync_skills.js runs cleanly and enforces complete parity
   const { syncSkills } = require('../scripts/sync_skills');
   assert.strictEqual(typeof syncSkills, 'function', 'syncSkills must be a function');
   syncSkills();
   console.log('✓ scripts/sync_skills.js executed cleanly');
 
-  // 3. Verify templates tree has all canonical skills and zero stray files, and client mirror trees do NOT exist
+  // Verify templates tree has all canonical skills and zero stray files, and client mirror trees do NOT exist
   for (const cDir of CLIENT_DIRS) {
     assert.ok(fs.existsSync(cDir), `Templates directory ${cDir} must exist`);
     const entries = fs.readdirSync(cDir, { withFileTypes: true });
@@ -65,7 +65,7 @@ async function testClientSkillsSync() {
     console.log(`✓ Directory ${path.relative(ROOT, cDir)} verified in parity`);
   }
 
-  // 4. Verify global mirror has all core skills
+  // Verify global mirror has all core skills
   if (fs.existsSync(GLOBAL_AGENTS_DIR)) {
     for (const skill of CORE_NINJA_SKILLS) {
       const skillMd = path.join(GLOBAL_AGENTS_DIR, skill, 'SKILL.md');
@@ -81,7 +81,7 @@ async function testClientSkillsSync() {
   }
   console.log('✓ Client mirror directories confirmed absent from workspace');
 
-  // 4. Verify skill_manager.syncAllClientSkills synchronizes ONLY to ~/.agents/skills (never injecting into project)
+  // Verify skill_manager.syncAllClientSkills synchronizes ONLY to ~/.agents/skills (never injecting into project)
   const skillManager = require('../src/skill_manager');
   const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-sync-test-'));
   try {
@@ -97,7 +97,7 @@ async function testClientSkillsSync() {
   }
   console.log('✓ skillManager.syncAllClientSkills single-source synchronization verified');
 
-  // 5. Verify database FTS5 and vector chunks referential integrity
+  // Verify database FTS5 and vector chunks referential integrity
   const db = require('../src/db');
   const conn = db.getDb();
   const ftsRow = conn.prepare('SELECT COUNT(*) as c FROM skills_fts').get();

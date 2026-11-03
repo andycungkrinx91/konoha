@@ -36,7 +36,7 @@ async function runAkatsukiTests() {
   console.log('Running test_akatsuki_security_centralization.js...\n');
 
   // =========================================================================
-  // 1. Roster Presence & Manifest Parity
+  // Roster Presence & Manifest Parity
   // =========================================================================
   console.log('1. Verifying official roster and tool manifest presence...');
 
@@ -87,7 +87,7 @@ async function runAkatsukiTests() {
   console.log('✓ Official roster and client configuration verified across all client trees.');
 
   // =========================================================================
-  // 2. Skill Ownership & Isolation from General Agents
+  // Skill Ownership & Isolation from General Agents
   // =========================================================================
   console.log('\n2. Verifying security skill ownership and isolation...');
 
@@ -122,7 +122,7 @@ async function runAkatsukiTests() {
   console.log('✓ Security skills centralized in Akatsuki and cleanly pruned from general agents.');
 
   // =========================================================================
-  // 3. Red-Team Authorization & Scope Boundary (Fail-Closed)
+  // Red-Team Authorization & Scope Boundary (Fail-Closed)
   // =========================================================================
   console.log('\n3. Testing Red-Team fail-closed authorization and scoping...');
 
@@ -164,7 +164,7 @@ async function runAkatsukiTests() {
   console.log('✓ Red-Team fail-closed authorization, scoping, and cleanup verified.');
 
   // =========================================================================
-  // 4. Blue-Team Defensive Auditing & Scanner Fail-Closed
+  // Blue-Team Defensive Auditing & Scanner Fail-Closed
   // =========================================================================
   console.log('\n4. Testing Blue-Team defensive audit and scanner fail-closed...');
 
@@ -202,7 +202,7 @@ async function runAkatsukiTests() {
   console.log('✓ Blue-Team defensive checks and scanner fail-closed verified.');
 
   // =========================================================================
-  // 5. Akatsuki Security Final Gate
+  // Akatsuki Security Final Gate
   // =========================================================================
   console.log('\n5. Testing Akatsuki Security Final Gate...');
 
@@ -241,7 +241,7 @@ async function runAkatsukiTests() {
   console.log('✓ Akatsuki Security Final Gate behavioral contract verified.');
 
   // =========================================================================
-  // 6. Workflow Integration & Delivery Gate Non-Bypassability
+  // Workflow Integration & Delivery Gate Non-Bypassability
   // =========================================================================
   console.log('\n6. Testing workflowReviewApproved gate integration...');
 

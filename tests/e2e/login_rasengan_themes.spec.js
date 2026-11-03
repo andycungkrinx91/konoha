@@ -85,7 +85,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
         const currentDataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
         expect(currentDataMode).toBe(mode);
 
-        // 1. Verify Light Mode clean white background
+        // Verify Light Mode clean white background
         if (mode === 'light') {
           const bgEvaluation = await page.evaluate(() => {
             const container = document.querySelector('#shared-rasengan-bg-root') || document.querySelector('div.relative.min-h-screen');
@@ -102,7 +102,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
           expect(bgEvaluation.bgLoginToken).toBe('#ffffff');
         }
 
-        // 2. Verify dynamic rasengan tokens exist and are populated
+        // Verify dynamic rasengan tokens exist and are populated
         const rasenganTokens = await page.evaluate(() => {
           const docStyle = window.getComputedStyle(document.documentElement);
           return [
@@ -117,7 +117,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
         expect(rasenganTokens[2].length).toBeGreaterThan(0);
         expect(rasenganTokens[3].length).toBeGreaterThan(0);
 
-        // 3. Verify card elements contrast
+        // Verify card elements contrast
         const contrastResults = await page.evaluate(() => {
           function parseRgb(str) {
             const match = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
@@ -164,7 +164,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
         expect(labelContrast).toBeGreaterThanOrEqual(4.5);
         expect(inputContrast).toBeGreaterThanOrEqual(4.5);
 
-        // 4. Capture screenshot
+        // Capture screenshot
         const screenshotPath = path.join(screenshotDir, `login-${themeId}-${mode}.png`);
         await page.screenshot({ path: screenshotPath });
         expect(fs.existsSync(screenshotPath)).toBe(true);

@@ -25,9 +25,11 @@ ${C.bold}USAGE${C.reset}
 
 ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}agent${C.reset}             👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
+  ${C.cyan}akatsuki${C.reset}          ⚔️  Manage Red-Team/Blue-Team security lab operations, sandboxes, and tooling.
   ${C.cyan}auth${C.reset}              🔐 Manage web console authentication credentials and password reset.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
   ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
+  ${C.cyan}config${C.reset}            ⚙️  View and manage CLI configurations (list, get, set, unset).
   ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
   ${C.cyan}detect-ai${C.reset}         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
   ${C.cyan}detect-docs${C.reset}       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
@@ -49,6 +51,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}task${C.reset}              📋 Native SDLC governance tasks, readiness gates, and audits.
   ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
   ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
+  ${C.cyan}tui${C.reset}               🥷 Launch interactive Terminal User Interface (TUI) for subagents and skills.
   ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
   ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
@@ -73,8 +76,10 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}4. Search for a custom skill on the registry and install it:${C.reset}
      konoha skill search golang
 
-  ${C.dim}5. Interactively configure subagent skills:${C.reset}
-     konoha agent skill genin
+  ${C.dim}5. Interactively configure subagent skills or explore TUI:${C.reset}
+     konoha tui                  # (or: konoha agent list --tui)
+     konoha agent skill genin   # (interactive skill assignment)
+     konoha agent models        # (interactive model selection)
 
   ${C.dim}6. View byte-weighted token savings metrics:${C.reset}
      konoha savings

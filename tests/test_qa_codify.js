@@ -18,7 +18,7 @@ const tmpDir = path.join(os.tmpdir(), `konoha-qa-codify-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
 
 try {
-  // 1. Comprehensive Golden Mapping Test
+  // Comprehensive Golden Mapping Test
   const goldenFlow = [
     ["open", "http://localhost:4173/detector"],
     ["find", "role", "button", "click", "--name", "Scan"],
@@ -80,7 +80,7 @@ try {
   assert.ok(!emittedCode.includes('snapshot'), 'snapshot command must be stripped');
   assert.ok(!emittedCode.includes('screenshot'), 'screenshot command must be stripped');
 
-  // 2. Reject @e transient references
+  // Reject @e transient references
   const refFlow = [
     ["open", "http://localhost:4173/"],
     ["click", "@e1"]
@@ -97,7 +97,7 @@ try {
     });
   }, /not stable/i, 'Must reject transient @e element references');
 
-  // 3. Verification failure prevents generation
+  // Verification failure prevents generation
   const badFlow = [
     ["open", "http://invalid-non-existent-domain-xyz-12345.local/"]
   ];

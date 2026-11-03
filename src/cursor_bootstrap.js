@@ -1,4 +1,24 @@
 #!/usr/bin/env node
+function _loadManifestTools(p) {
+  if (!fileExists(p)) return null;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return Array.isArray(manifest.tools) ? manifest.tools.filter(t => !t.deprecated).map(t => t.name) : null;
+  } catch (_) { return null; }
+}
+
+function _resolveCanonicalTools() {
+  const candidatePaths = [
+    path.join(KONOHA_DIR, 'mcp_tool_manifest.json'),
+    path.join(__dirname, 'mcp_tool_manifest.json'),
+    path.join(__dirname, '..', 'src', 'mcp_tool_manifest.json')
+  ];
+  for (const p of candidatePaths) {
+    const tools = _loadManifestTools(p);
+    if (tools) return tools;
+  }
+  return null;
+}
 /**
  * Cursor sessionStart hook — silently ensures Konoha MCP is registered and skills are synchronized.
  * Self-contained (no package-relative requires) so it works from ~/.konoha/.
@@ -102,19 +122,24 @@ function registerMcp() {
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const uvxUsable = isUvxUsable();
-  const canonicalKonohaTools = [
-    'read_file_head', 'read_file_range', 'file_info',
-    ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean',
-    'website_ai_detector', 'docs_ai_detector', 'get_resolved_task_dir',
-    'find_skill', 'list_skills', 'get_skill', 'optimize_report',
-    'build_from_source', 'build_from_text',
-    'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki',
-    'report_from_agent', 'get_project_context', 'save_project_context',
-    'query_project_memory', 'web_search', 'migrate_skills',
-    'save_persona_memory', 'query_persona_memory', 'list_persona_memories',
-    'delete_persona_memory', 'check_readiness', 'get_task_evidence',
-    'get_slop_findings', 'qa_codify', 'qa_e2e_run'
-  ];
+  let canonicalKonohaTools = _resolveCanonicalTools();
+  if (!canonicalKonohaTools || !canonicalKonohaTools.length) {
+    canonicalKonohaTools = [
+      'read_file_head', 'read_file_range', 'file_info',
+      ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean',
+      'website_ai_detector', 'docs_ai_detector', 'get_resolved_task_dir',
+      'find_skill', 'list_skills', 'get_skill', 'use_skills', 'optimize_report',
+      'build_from_source', 'build_from_text',
+      'sannin', 'kage', 'jonin', 'anbu', 'akatsuki', 'akatsuki_init', 'chunin',
+      'tokubetsu_jonin', 'genin', 'report_from_agent', 'get_project_context',
+      'save_project_context', 'query_project_memory', 'web_search', 'migrate_skills',
+      'save_persona_memory', 'query_persona_memory', 'list_persona_memories',
+      'delete_persona_memory', 'check_readiness', 'get_task_evidence',
+      'get_slop_findings', 'anti_slop', 'qa_codify', 'qa_e2e_run', 'get_soul',
+      'document_create', 'spreadsheet_create', 'presentation_create',
+      'diagram_create', 'animation_export'
+    ];
+  }
   const servers = {
     ...(uvxUsable ? {
       semble: {

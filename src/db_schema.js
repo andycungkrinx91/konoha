@@ -514,10 +514,7 @@ function setupSchema(conn, backupDatabaseFn = null) {
 
   if (ftsSupported) {
     try {
-      conn.prepare("DELETE FROM skills_fts WHERE rowid NOT IN (SELECT rowid FROM skills)").run();
-    } catch (_) { /* intentional best-effort fallback */ }
-    try {
-      conn.prepare("DELETE FROM persona_memories_fts WHERE rowid NOT IN (SELECT rowid FROM persona_memories)").run();
+      conn.exec("INSERT INTO skills_fts(skills_fts) VALUES('rebuild')");
     } catch (_) { /* intentional best-effort fallback */ }
     try {
       conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");

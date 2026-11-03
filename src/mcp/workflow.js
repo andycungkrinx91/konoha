@@ -60,12 +60,25 @@ async function sanninWorkflowInit(taskDir, options = {}) {
   const tokenBudget = options.tokenBudget || options.token_budget || 8192;
   const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
   const autoSignoff = options.autoSignoff !== undefined ? options.autoSignoff : false;
+  const hitlChoice = options.choice || options.gate_choice || options.gateChoice || options.hitlChoice || options.action || null;
+  const hitlRefinement = options.refinement || options.hitlRefinement || options.feedback || options.notes || null;
+  const intent = options.intent || '';
+  const isFastTrack = options.isFastTrack !== undefined ? options.isFastTrack : (options.fast_track !== undefined ? options.fast_track : false);
+  const client = options.client || '';
+  const sessionId = options.sessionId || options.session_id || '';
+
   return runKonohaGraph({
     prompt,
     taskDir,
     tokenBudget,
     threadId,
     autoSignoff,
+    hitlChoice,
+    hitlRefinement,
+    intent,
+    isFastTrack,
+    client,
+    sessionId,
     budgetExceeded: false,
     error: null,
   }, { threadId, tokenBudget });
@@ -73,14 +86,18 @@ async function sanninWorkflowInit(taskDir, options = {}) {
 
 async function sanninWorkflowNext(taskDir, options = {}) {
   const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
-  const hitlChoice = options.choice || options.gate_choice || options.action;
-  const hitlRefinement = options.refinement || options.feedback || options.notes;
+  const hitlChoice = options.choice || options.gate_choice || options.gateChoice || options.hitlChoice || options.action || null;
+  const hitlRefinement = options.refinement || options.hitlRefinement || options.feedback || options.notes || null;
   const tokenBudget = options.tokenBudget || options.token_budget || options.budget;
+  const client = options.client || '';
+  const sessionId = options.sessionId || options.session_id || '';
   const input = {
     taskDir,
     threadId,
     hitlChoice,
     hitlRefinement,
+    ...(client ? { client } : {}),
+    ...(sessionId ? { sessionId } : {}),
     budgetExceeded: false,
     error: null,
     ...(options.autoSignoff !== undefined ? { autoSignoff: options.autoSignoff } : {}),

@@ -8,12 +8,12 @@ const { spawnSync } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-// 1. Assert filesystem absence
+// Assert filesystem absence
 assert.ok(!fs.existsSync(path.join(ROOT_DIR, 'src', 'tunnel')), 'src/tunnel directory must not exist');
 assert.ok(!fs.existsSync(path.join(ROOT_DIR, 'bin', 'commands', 'tunnel.js')), 'bin/commands/tunnel.js must not exist');
 assert.ok(!fs.existsSync(path.join(ROOT_DIR, 'docs', 'CLOUDFLARE_TUNNEL_GUIDE.md')), 'docs/CLOUDFLARE_TUNNEL_GUIDE.md must not exist');
 
-// 2. Assert database schema absence
+// Assert database schema absence
 const tmpDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_no_tunnel_test_'));
 const dbPath = path.join(tmpDbDir, 'test.db');
 process.env.KONOHA_DB_PATH = dbPath;
@@ -35,14 +35,14 @@ try {
   try { fs.rmSync(tmpDbDir, { recursive: true, force: true }); } catch (_) {}
 }
 
-// 3. Assert CLI command rejection
+// Assert CLI command rejection
 const cliRes = spawnSync(process.execPath, [path.join(ROOT_DIR, 'bin', 'cli.js'), 'tunnel'], {
   encoding: 'utf8'
 });
 assert.strictEqual(cliRes.status, 1, 'konoha tunnel must exit with code 1');
 assert.ok(cliRes.stderr.includes('Unknown command: tunnel') || cliRes.stdout.includes('Unknown command: tunnel'), 'Must report unknown command');
 
-// 4. Assert absence in production controllers
+// Assert absence in production controllers
 const webServerCode = fs.readFileSync(path.join(ROOT_DIR, 'src', 'web_server.js'), 'utf8');
 assert.ok(!webServerCode.includes('tunnel'), 'src/web_server.js must not contain tunnel references');
 assert.ok(!webServerCode.includes('cf-access'), 'src/web_server.js must not contain cf-access references');

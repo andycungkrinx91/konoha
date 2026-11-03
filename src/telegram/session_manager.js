@@ -70,7 +70,8 @@ function isRealWorkspace(ws) {
   if (!ws || typeof ws !== 'string') return false;
   const norm = path.normalize(ws.trim());
   if (IGNORED_PATHS.includes(norm)) return false;
-  if (norm.startsWith('/tmp') || norm.includes('/.konoha')) return false;
+  const tmpDir = path.normalize(os.tmpdir());
+  if (norm.startsWith('/tmp') || norm.startsWith(tmpDir) || norm.includes('/.konoha') || norm.includes('\\.konoha')) return false;
   if (!fs.existsSync(norm)) return false;
   try {
     const stat = fs.statSync(norm);

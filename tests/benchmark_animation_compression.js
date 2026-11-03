@@ -78,7 +78,7 @@ async function runBenchmark() {
       edges: f.edges
     });
 
-    // 1. Export GIF
+    // Export GIF
     const gifPath = path.join(tmpDir, `fixture_${i}.gif`);
     const t0Gif = Date.now();
     await animationExport({
@@ -91,7 +91,7 @@ async function runBenchmark() {
     const gifTimeMs = Date.now() - t0Gif;
     const gifSize = fs.existsSync(gifPath) ? fs.statSync(gifPath).size : 0;
 
-    // 2. Export WebP
+    // Export WebP
     const webpPath = path.join(tmpDir, `fixture_${i}.webp`);
     const t0Webp = Date.now();
     const webpRes = await animationExport({

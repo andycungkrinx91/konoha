@@ -109,7 +109,7 @@ function buildStdioMcpServers(options = {}) {
   } = options;
 
   const isWin = process.platform === 'win32';
-  const resolvedUvx = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
+  const resolvedUvx = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
 
   const servers = {
     semble: {

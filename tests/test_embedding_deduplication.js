@@ -24,7 +24,7 @@ async function run() {
   db.setupSchema(conn);
 
   try {
-    // 1. Chunk document deduplication
+    // Chunk document deduplication
     const markdown = `# Section 1
 This is repeated content.
 
@@ -41,7 +41,7 @@ This is repeated content.
     assert.ok(texts.some(t => t.includes('Section 2')));
     console.log('✓ Chunk document deduplication passed');
 
-    // 2. Embed cache deduplication
+    // Embed cache deduplication
     const t1 = 'Deterministic embedding test for caching.';
     const t2 = '  Deterministic   embedding test for caching.  ';
 
@@ -65,7 +65,7 @@ This is repeated content.
     }
     console.log('✓ Embed cache deduplication passed');
 
-    // 3. DB-level embedding blob reuse
+    // DB-level embedding blob reuse
     conn.prepare("INSERT INTO skills (name, skill_name, type, content) VALUES ('skill-base', 'skill-base', 'skill', 'base content')").run();
     conn.prepare("INSERT INTO skills (name, skill_name, type, content) VALUES ('skill-derived', 'skill-derived', 'skill', 'derived content')").run();
 
@@ -89,7 +89,7 @@ This is repeated content.
     assert.ok(Buffer.from(row.embedding).equals(mockBlob), 'Pre-existing embedding blob must be reused');
     console.log('✓ DB-level embedding blob reuse passed');
 
-    // 4. Persona memory deduplication
+    // Persona memory deduplication
     const agent = 'anbu';
     const content = 'Always enforce database migrations before starting service.';
 
@@ -117,7 +117,7 @@ This is repeated content.
     assert.strictEqual(mems[0].importance, 5, 'Importance must be updated to 5');
     console.log('✓ Persona memory deduplication passed');
 
-    // 5. Prompt context token efficiency and anti-hallucination
+    // Prompt context token efficiency and anti-hallucination
     const profile = {
       project_name: 'ecommerce-frontend',
       project_path: '/var/app/ecommerce',

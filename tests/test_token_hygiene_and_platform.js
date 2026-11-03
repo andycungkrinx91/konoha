@@ -15,21 +15,21 @@ const common = require('../src/file_tools/common');
 const router = require('../src/file_tools_router');
 const contract = require('../src/agent_contract');
 
-// 1. Verify findFilesClean bounds results and respects limit
+// Verify findFilesClean bounds results and respects limit
 const repoDir = path.resolve(__dirname, '..');
 const boundedRes = findFilesClean({ dir: repoDir, pattern: '*.js', limit: 5 });
 assert.strictEqual(boundedRes.files.length, 5, 'findFilesClean should return exactly 5 files when limit=5');
 assert.strictEqual(boundedRes.truncated, true, 'findFilesClean should mark truncated: true when limit reached');
 assert.strictEqual(boundedRes.limit, 5, 'findFilesClean should return limit: 5');
 
-// 2. Verify findFilesClean through router with aliases
+// Verify findFilesClean through router with aliases
 const routerFind = router.dispatchTool('find_files_clean', { root_dir: repoDir, pattern: '*.js', max_results: 3 });
 assert.ok(!routerFind.isError, 'router find_files_clean should not error');
 const parsedFind = JSON.parse(routerFind.text);
 assert.strictEqual(parsedFind.files.length, 3, 'router should normalize max_results and root_dir');
 assert.strictEqual(parsedFind.truncated, true, 'should be truncated');
 
-// 3. Verify read_file_head and read_file_range truncate excessively long lines to prevent token blowups
+// Verify read_file_head and read_file_range truncate excessively long lines to prevent token blowups
 const tmpDir = path.join(os.tmpdir(), 'konoha-token-test-' + Date.now());
 fs.mkdirSync(tmpDir, { recursive: true });
 const longLineFile = path.join(tmpDir, 'longline.txt');
@@ -57,7 +57,7 @@ try {
     readFileHead({ path: longLineFile, max_lines: 200, workspace: tmpDir });
   }, /exceeds cap 150/, 'readFileHead must enforce MAX_LINES = 150');
 
-  // 4. Verify .pi is in allowed paths in common.js
+  // Verify .pi is in allowed paths in common.js
   const piFile = path.join(os.homedir(), '.pi', 'agent', 'test.txt');
   let allowed = false;
   try {
@@ -68,13 +68,13 @@ try {
   }
   assert.strictEqual(allowed, true, '~/.pi paths must be allowed in common.assertWithinAllowed');
 
-  // 5. Verify full contract includes token hygiene rule across all clients
+  // Verify full contract includes token hygiene rule across all clients
   for (const client of ['antigravity', 'cursor', 'claude', 'opencode', 'commandcode', 'codex', 'pi']) {
     const text = contract.getClientContract(client);
     assert.ok(text.includes('Review token hygiene & strict changed-files scoping'), `Client ${client} contract must include token hygiene`);
   }
 
-  // 6. Verify Rule 56 (Token Savings Flow Logic Preservation Invariant) in contract & skills
+  // Verify Rule 56 (Token Savings Flow Logic Preservation Invariant) in contract & skills
   const fullContract = contract.getClientContract('generic');
   assert.ok(/token savings flow logic/i.test(fullContract), 'agent contract must contain Token Savings Flow Logic invariant');
   const agentManagerSrc = fs.readFileSync(path.join(repoDir, 'src', 'agent_manager.js'), 'utf8') +
@@ -94,7 +94,7 @@ try {
   const templateSkillSrc = fs.readFileSync(path.join(repoDir, 'src', 'templates', 'skills', 'konoha', 'SKILL.md'), 'utf8');
   assert.ok(templateSkillSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'src/templates konoha SKILL.md must define Rule 56');
 
-  // 7. Verify CLI fresh install, reinstall & upgrade guarantees
+  // Verify CLI fresh install, reinstall & upgrade guarantees
   const cliSrc = fs.readFileSync(path.join(repoDir, 'bin', 'cli.js'), 'utf8') +
     fs.readFileSync(path.join(repoDir, 'bin', 'lib', 'runtime.js'), 'utf8') +
     fs.readFileSync(path.join(repoDir, 'bin', 'lib', 'runtime_lifecycle.js'), 'utf8') +

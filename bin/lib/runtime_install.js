@@ -1,5 +1,17 @@
 'use strict';
 
+function _tryLinkRootModules(nodeModulesPath) {
+  const rootNodeModules = path.resolve(__dirname, '..', '..', 'node_modules');
+  if (!fileExists(rootNodeModules) || !fileExists(path.join(rootNodeModules, '@langchain', 'langgraph')) || fileExists(nodeModulesPath)) {
+    return;
+  }
+  try {
+    fs.symlinkSync(rootNodeModules, nodeModulesPath, 'junction');
+  } catch (_) {
+    copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
+  }
+}
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -72,6 +84,11 @@ function copyRuntimeFiles(copyTree) {
 
   const pkgSrc = path.resolve(__dirname, '..', '..', 'package.json');
   if (fileExists(pkgSrc)) copyFile(pkgSrc, path.join(SKILLS_DB_DIR, 'package.json'));
+
+  const patchesSrc = path.resolve(__dirname, '..', '..', 'patches');
+  if (fileExists(patchesSrc)) {
+    copyTree(patchesSrc, path.join(SKILLS_DB_DIR, 'patches'));
+  }
 
   const libSrc = path.resolve(__dirname);
   if (fileExists(libSrc)) {
@@ -212,12 +229,21 @@ function installWebUiRuntime(copyTree) {
 }
 
 function ensureRuntimeDependencies() {
-  const depMarker = path.join(SKILLS_DB_DIR, 'node_modules', '@bufbuild', 'protobuf');
-  if (fileExists(depMarker)) return;
+  const nodeModulesPath = path.join(SKILLS_DB_DIR, 'node_modules');
+  const criticalDeps = [
+    path.join(nodeModulesPath, '@bufbuild', 'protobuf'),
+    path.join(nodeModulesPath, '@langchain', 'langgraph'),
+    path.join(nodeModulesPath, 'zod')
+  ];
+  if (criticalDeps.every(d => fileExists(d))) return;
+
+  _tryLinkRootModules(nodeModulesPath);
+  if (criticalDeps.every(d => fileExists(d))) return;
+
   const isWin = process.platform === 'win32';
   const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
   const pmCandidates = [
-    { cmd: isWin ? 'pnpm.cmd' : 'pnpm', args: ['install', '--prod'] },
+    { cmd: isWin ? 'pnpm.cmd' : 'pnpm', args: ['install', '--prod', '--no-frozen-lockfile'] },
     { cmd: isWin ? 'npm.cmd' : 'npm', args: ['install', '--omit=dev', '--no-audit', '--no-fund'] }
   ];
   for (const pm of pmCandidates) {
@@ -229,7 +255,7 @@ function ensureRuntimeDependencies() {
         : spawnSync(pm.cmd, pm.args, {
             cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', env: childEnv
           });
-      if (res.status === 0 && fileExists(depMarker)) break;
+      if (res.status === 0 && criticalDeps.every(d => fileExists(d))) break;
     } catch (_) { /* best-effort */ }
   }
 }

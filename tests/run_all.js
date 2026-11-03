@@ -12,7 +12,7 @@ let goldenSeedInfo = null;
 
 function getGoldenSeed() {
   if (goldenSeedInfo) return goldenSeedInfo;
-  const existingSeed = '/tmp/konoha_golden_seed';
+  const existingSeed = path.join(os.tmpdir(), 'konoha_golden_seed');
   if (fs.existsSync(path.join(existingSeed, '.konoha', 'konoha.db')) &&
       fs.existsSync(path.join(existingSeed, '.konoha', 'server.js'))) {
     try {
@@ -48,14 +48,16 @@ function getGoldenSeed() {
 function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
-  try {
-    spawnSync('cp', ['-a', '--reflink=auto', `${seed.dir}/.`, `${suiteHome}/`], {
+  const res1 = spawnSync('cp', ['-a', '--reflink=auto', `${seed.dir}/.`, `${suiteHome}/`], {
+    encoding: 'utf-8'
+  });
+  if (res1.status !== 0 || res1.error) {
+    const res2 = spawnSync('cp', ['-a', `${seed.dir}/.`, `${suiteHome}/`], {
       encoding: 'utf-8'
     });
-  } catch (_) {
-    spawnSync('cp', ['-a', `${seed.dir}/.`, `${suiteHome}/`], {
-      encoding: 'utf-8'
-    });
+    if (res2.status !== 0 || res2.error) {
+      fs.cpSync(seed.dir, suiteHome, { recursive: true });
+    }
   }
 
   const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');

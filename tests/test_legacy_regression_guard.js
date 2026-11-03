@@ -18,7 +18,7 @@ const BIN_DIR = path.join(ROOT_DIR, 'bin');
 
 console.log('Running test_legacy_regression_guard...');
 
-// 1. Verify schema pruning: listToolSchemas must filter out all deprecated tool names
+// Verify schema pruning: listToolSchemas must filter out all deprecated tool names
 const fileToolsRouter = require('../src/file_tools_router');
 const activeSchemas = fileToolsRouter.listToolSchemas();
 const activeToolNames = new Set(activeSchemas.map((t) => t.name));
@@ -64,7 +64,7 @@ for (const tool of DELEGATE_ALIASES) {
   );
 }
 
-// 2. Canonical tools must be present in active schemas
+// Canonical tools must be present in active schemas
 const CANONICAL_REQUIRED_TOOLS = [
   'find_skill',
   'list_skills',
@@ -94,14 +94,14 @@ for (const tool of CANONICAL_REQUIRED_TOOLS) {
   );
 }
 
-// 3. Verify that obsolete aliases do not exist anywhere in bin/cli.js or src/
+// Verify that obsolete aliases do not exist anywhere in bin/cli.js or src/
 const cliContent = fs.readFileSync(path.join(BIN_DIR, 'cli.js'), 'utf8');
 
 // The banned command "skilladd" must never be implemented
 assert.ok(!cliContent.includes("cmd === 'skilladd'"), 'Banned command "skilladd" must not exist in cli.js');
 assert.ok(!cliContent.includes("case 'skilladd':"), 'Banned case "skilladd" must not exist in cli.js');
 
-// 4. Verify deep-code-explorer is never used as an active agent name in src/ (except legacy normalizer)
+// Verify deep-code-explorer is never used as an active agent name in src/ (except legacy normalizer)
 function scanForPattern(dir, pattern, allowlist = []) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {

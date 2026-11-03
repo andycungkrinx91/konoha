@@ -14,7 +14,7 @@ function run() {
   const testFile = path.join(tmpDir, `konoha_large_file_test_${Date.now()}.txt`);
 
   try {
-    // 1. Create a 1,500-line test file
+    // Create a 1,500-line test file
     const lineCount = 1500;
     const contentLines = [];
     for (let i = 1; i <= lineCount; i++) {
@@ -22,7 +22,7 @@ function run() {
     }
     fs.writeFileSync(testFile, contentLines.join('\n') + '\n', 'utf8');
 
-    // 2. Test auto-clamping when span > MAX_SPAN (1500 lines requested) with auto_paginate
+    // Test auto-clamping when span > MAX_SPAN (1500 lines requested) with auto_paginate
     const clampedResult = readFileRange({
       path: testFile,
       start_line: 1,
@@ -55,7 +55,7 @@ function run() {
       });
     }, /requested span is 300 lines \(max 250\)/);
 
-    // 3. Test pagination looping through all chunks to the end
+    // Test pagination looping through all chunks to the end
     let currentStart = 1;
     let chunksRead = 0;
     let totalLinesRead = 0;
@@ -79,7 +79,7 @@ function run() {
     assert.strictEqual(totalLinesRead, lineCount, 'All 1,500 lines must be read cleanly via pagination');
     assert.strictEqual(chunksRead, 8, '1,500 lines in 200-line chunks must take 8 chunks');
 
-    // 4. Test reading beyond line 1000 directly (e.g. lines 1201 to 1350)
+    // Test reading beyond line 1000 directly (e.g. lines 1201 to 1350)
     const upperRange = readFileRange({
       path: testFile,
       start_line: 1201,

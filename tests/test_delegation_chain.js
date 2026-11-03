@@ -97,7 +97,7 @@ async function run() {
   try {
     console.log('Running test_delegation_chain tests...');
 
-    // 1. Sannin no prompt returns error
+    // Sannin no prompt returns error
     const td1 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('sannin', { task_dir: td1 });
@@ -106,7 +106,7 @@ async function run() {
       fs.rmSync(td1, { recursive: true, force: true });
     }
 
-    // 2. Route jonin frontend
+    // Route jonin frontend
     const td2 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt2 = 'Build a responsive SvelteKit dashboard page with Tailwind CSS';
@@ -116,7 +116,7 @@ async function run() {
       fs.rmSync(td2, { recursive: true, force: true });
     }
 
-    // 3. Route anbu backend
+    // Route anbu backend
     const td3 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt3 = 'Debug the API endpoint middleware error handling';
@@ -126,7 +126,7 @@ async function run() {
       fs.rmSync(td3, { recursive: true, force: true });
     }
 
-    // 4. Route chunin research
+    // Route chunin research
     const td4 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt4 = 'Research the latest web search best practices for evidence synthesis';
@@ -136,7 +136,7 @@ async function run() {
       fs.rmSync(td4, { recursive: true, force: true });
     }
 
-    // 5. Route kage architecture
+    // Route kage architecture
     const td5 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt5 = 'Architecture trade-offs and scalability risk assessment of the system';
@@ -156,7 +156,7 @@ async function run() {
       fs.rmSync(td5b, { recursive: true, force: true });
     }
 
-    // 6. Route default kage no keywords
+    // Route default kage no keywords
     const td6 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt6 = 'do something complicated with no keywords';
@@ -166,7 +166,7 @@ async function run() {
       fs.rmSync(td6, { recursive: true, force: true });
     }
 
-    // 7. Route tokubetsu_jonin docs
+    // Route tokubetsu_jonin docs
     const td7 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt7 = 'Write a PRD and technical documentation for the new feature';
@@ -176,7 +176,7 @@ async function run() {
       fs.rmSync(td7, { recursive: true, force: true });
     }
 
-    // 8. Route genin explore
+    // Route genin explore
     const td8 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const prompt8 = 'explore the codebase trace the auth flow find call graph';
@@ -186,7 +186,7 @@ async function run() {
       fs.rmSync(td8, { recursive: true, force: true });
     }
 
-    // 9. Agent requires task / rejects missing task
+    // Agent requires task / rejects missing task
     const td9 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('kage', { task_dir: td9 });
@@ -195,7 +195,7 @@ async function run() {
       fs.rmSync(td9, { recursive: true, force: true });
     }
 
-    // 10. Agent loads persona from db with direct task
+    // Agent loads persona from db with direct task
     const td10 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('kage', { task: 'Analyze database migration.', task_dir: td10 });
@@ -211,7 +211,7 @@ async function run() {
       fs.rmSync(td10, { recursive: true, force: true });
     }
 
-    // 11. Anbu loads skills from sqlite with direct task
+    // Anbu loads skills from sqlite with direct task
     const td11 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('anbu', { task: 'Implement database migration.', task_dir: td11 });
@@ -225,7 +225,7 @@ async function run() {
       fs.rmSync(td11, { recursive: true, force: true });
     }
 
-    // 12. Agent returns long enriched instructions
+    // Agent returns long enriched instructions
     const td12 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp] = await client.callTool('anbu', { task: 'Fix the login endpoint bug.', task_dir: td12 });
@@ -234,7 +234,7 @@ async function run() {
       fs.rmSync(td12, { recursive: true, force: true });
     }
 
-    // 13. Genin reads from skills db
+    // Genin reads from skills db
     const td13 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       const [resp, err] = await client.callTool('genin', { task: 'Explore the auth flow codebase.', task_dir: td13 });
@@ -246,7 +246,7 @@ async function run() {
       fs.rmSync(td13, { recursive: true, force: true });
     }
 
-    // 14. Sannin result phase
+    // Sannin result phase
     const td14 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
       fs.writeFileSync(path.join(td14, 'status.json'), JSON.stringify({ status: 'completed', phase: 'done', result: 'Task completed successfully' }), 'utf8');

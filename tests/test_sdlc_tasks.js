@@ -30,7 +30,7 @@ async function run() {
   const testDbPath = process.env.KONOHA_DB_PATH;
 
   try {
-    // 1. Task Creation & Retrieval
+    // Task Creation & Retrieval
     const task1 = sdlc.createTask({
       id: 'task_sdlc_crud_1',
       description: 'Implement secure JWT authentication endpoints',
@@ -49,7 +49,7 @@ async function run() {
     assert.strictEqual(fetched1.description, 'Implement secure JWT authentication endpoints');
     console.log('✓ Task creation and retrieval passed');
 
-    // 2. Task Listing & Filtering
+    // Task Listing & Filtering
     sdlc.createTask({
       id: 'task_sdlc_crud_2',
       description: 'Create Kubernetes Helm chart deployment',
@@ -65,7 +65,7 @@ async function run() {
     assert.strictEqual(completedTasks[0].id, 'task_sdlc_crud_2');
     console.log('✓ Task listing and filtering passed');
 
-    // 3. Evidence Persistence
+    // Evidence Persistence
     const evidenceData = {
       verified: true,
       verification_reason: 'validation evidence contains a passing command/exit-code marker',
@@ -81,7 +81,7 @@ async function run() {
     assert.strictEqual(withEvidence.evidence.validation.length, 2);
     console.log('✓ Evidence persistence passed');
 
-    // 4. Slop Result Recording
+    // Slop Result Recording
     const slopData = {
       pass: true,
       findings: [],
@@ -94,7 +94,7 @@ async function run() {
     assert.strictEqual(withSlop.slop_cycles, 2);
     console.log('✓ Slop result recording passed');
 
-    // 5. MCP Tool: get_task_evidence
+    // MCP Tool: get_task_evidence
     sdlc.createTask({
       id: 'task_sdlc_crud_1',
       description: 'Implement secure JWT authentication endpoints',
@@ -109,33 +109,33 @@ async function run() {
     assert.ok(evidenceToolRes.evidence);
     console.log('✓ get_task_evidence tool passed');
 
-    // 6. MCP Tool: get_slop_findings
+    // MCP Tool: get_slop_findings
     const slopToolRes = JSON.parse(await executeTool('get_slop_findings', { task_id: 'task_sdlc_crud_1' }));
     assert.strictEqual(slopToolRes.task_id, 'task_sdlc_crud_1');
     assert.ok(slopToolRes.slop_result);
     assert.strictEqual(slopToolRes.slop_cycles, 2);
     console.log('✓ get_slop_findings tool passed');
 
-    // 7. CLI: konoha task list
+    // CLI: konoha task list
     const listOut = execSync('node bin/cli.js task list', { encoding: 'utf8' });
     const cleanListOut = listOut.replace(/\x1b\[[0-9;]*m/g, '');
     assert.ok(cleanListOut.includes('SDLC Governance Tasks'));
     console.log('✓ CLI konoha task list passed');
 
-    // 8. CLI: konoha task show
+    // CLI: konoha task show
     const showOut = execSync('node bin/cli.js task show task_sdlc_crud_1', { encoding: 'utf8' });
     const cleanShowOut = showOut.replace(/\x1b\[[0-9;]*m/g, '');
     assert.ok(cleanShowOut.includes('task_sdlc_crud_1'));
     assert.ok(cleanShowOut.includes('Validation Evidence') || cleanShowOut.includes('Status'));
     console.log('✓ CLI konoha task show passed');
 
-    // 9. CLI: konoha task slop
+    // CLI: konoha task slop
     const slopOut = execSync('node bin/cli.js task slop task_sdlc_crud_1', { encoding: 'utf8' });
     const cleanSlopOut = slopOut.replace(/\x1b\[[0-9;]*m/g, '');
     assert.ok(cleanSlopOut.includes('Anti-Slop Audit for Task: task_sdlc_crud_1'));
     console.log('✓ CLI konoha task slop passed');
 
-    // 10. Unit: deleteTask
+    // Unit: deleteTask
     const deleted1 = sdlc.deleteTask('task_sdlc_crud_1', testDbPath);
     assert.strictEqual(deleted1, true, 'deleteTask must return true when task existed');
     const fetchedDeleted = sdlc.getTask('task_sdlc_crud_1', testDbPath);
@@ -144,7 +144,7 @@ async function run() {
     assert.strictEqual(deleteNonExistent, false, 'deleteTask must return false for non-existent task');
     console.log('✓ deleteTask unit test passed');
 
-    // 11. Unit: deleteTasks with filters & clearTasks
+    // Unit: deleteTasks with filters & clearTasks
     sdlc.createTask({ id: 'task_del_filter_1', description: 'Filter test 1', status: 'draft' }, testDbPath);
     sdlc.createTask({ id: 'task_del_filter_2', description: 'Filter test 2', status: 'draft' }, testDbPath);
     sdlc.createTask({ id: 'task_del_filter_3', description: 'Filter test 3', status: 'completed' }, testDbPath);
@@ -158,14 +158,14 @@ async function run() {
     assert.strictEqual(remainingTasks.length, 0, 'All tasks must be cleared');
     console.log('✓ deleteTasks and clearTasks unit tests passed');
 
-    // 12. CLI: konoha task delete <id>
+    // CLI: konoha task delete <id>
     sdlc.createTask({ id: 'task_cli_del_1', description: 'CLI delete test', status: 'draft' }, testDbPath);
     const cliDelOut = execSync('node bin/cli.js task delete task_cli_del_1', { encoding: 'utf8' });
     assert.ok(cliDelOut.includes("deleted successfully"), 'CLI task delete output must confirm deletion');
     assert.strictEqual(sdlc.getTask('task_cli_del_1', testDbPath), null, 'CLI deleted task must not exist');
     console.log('✓ CLI konoha task delete passed');
 
-    // 13. CLI: konoha task clear
+    // CLI: konoha task clear
     sdlc.createTask({ id: 'task_cli_clear_1', description: 'CLI clear test 1' }, testDbPath);
     sdlc.createTask({ id: 'task_cli_clear_2', description: 'CLI clear test 2' }, testDbPath);
     const cliClearOut = execSync('node bin/cli.js task clear', { encoding: 'utf8' });

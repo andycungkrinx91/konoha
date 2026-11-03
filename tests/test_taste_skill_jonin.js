@@ -79,7 +79,7 @@ async function run() {
       }
     }, null, 2));
 
-    // 1. Directives presence
+    // Directives presence
     const res1 = JSON.parse(server.runMcpAgent('jonin', 'Scaffold a high-converting hero section', null, null, null, null, projectDir));
     const instr1 = res1.instructions;
     assert.ok(instr1.includes('Taste-Skill Design Engine Directives'));
@@ -91,7 +91,7 @@ async function run() {
     assert.ok(instr1.toLowerCase().includes('zero emojis'));
     console.log('✓ Directives presence passed');
 
-    // 2. Custom taste dials
+    // Custom taste dials
     server.SESSION_TURNS.clear();
     const res2 = JSON.parse(server.runMcpAgent('jonin', 'Build custom editorial portfolio grid', null, null, null, { design_variance: 10, motion_intensity: 9, visual_density: 4 }, projectDir));
     const instr2 = res2.instructions;
@@ -100,7 +100,7 @@ async function run() {
     assert.ok(instr2.includes('VISUAL_DENSITY=4/10'));
     console.log('✓ Custom taste dials passed');
 
-    // 3. build_from_text all frameworks
+    // build_from_text all frameworks
     const frameworks = ['nextjs', 'sveltekit', 'nuxt', 'angular'];
     for (const fw of frameworks) {
       const res = JSON.parse(server.buildFromText(`luxury-showcase-${fw}`, `A luxury showcase in ${fw}`, fw));
@@ -118,7 +118,7 @@ async function run() {
     }
     console.log('✓ build_from_text all frameworks passed');
 
-    // 4. build_from_source all frameworks
+    // build_from_source all frameworks
     const sourceDir = path.join(tmpDir, 'mockups');
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.writeFileSync(path.join(sourceDir, 'design.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"></svg>');
@@ -130,7 +130,7 @@ async function run() {
     }
     console.log('✓ build_from_source all frameworks passed');
 
-    // 5. Invalid dials rejected
+    // Invalid dials rejected
     const resInvalid = JSON.parse(server.buildFromText('invalid-dials', 'Test invalid dials', 'nextjs', null, { design_variance: 99 }));
     assert.ok(resInvalid.error);
     console.log('✓ Invalid dials rejected passed');

@@ -110,7 +110,7 @@ async function run() {
   }));
 
   try {
-    // 1. project context
+    // project context
     const resCtx = runCli(['project', 'context', projectDir]);
     assert.strictEqual(resCtx.status, 0, `Error: ${resCtx.stderr}`);
     const cleanCtx = stripAnsi(resCtx.stdout);
@@ -119,7 +119,7 @@ async function run() {
     assert.ok(cleanCtx.includes('pnpm'));
     console.log('✓ Project context command passed');
 
-    // 2. project add and list
+    // project add and list
     const resAdd = runCli(['project', 'add', projectDir, 'Always enforce strict typing and dark mode theme variables']);
     assert.strictEqual(resAdd.status, 0, `Error: ${resAdd.stderr}`);
     assert.ok(stripAnsi(resAdd.stdout).includes('Saved architectural invariants'));
@@ -181,7 +181,7 @@ async function run() {
     assert.ok(stripAnsi(resList.stdout).includes('my-ecommerce-project'));
     console.log('✓ Project add, list, and ignore-injection commands passed');
 
-    // 3. project memory, memory delete, and project prune
+    // project memory, memory delete, and project prune
     const memId = personaMemory.saveMemory({
       agentName: 'jonin',
       content: 'CLI Test Project Learning',
@@ -212,7 +212,7 @@ async function run() {
     assert.ok(stripAnsi(resPrune.stdout).includes('Pruned'));
     assert.ok(stripAnsi(resPrune.stdout).includes('Architectural invariants cleared'));
 
-    // 4. project delete and prune-all
+    // project delete and prune-all
     const resDel = runCli(['project', 'delete', projectDir]);
     assert.strictEqual(resDel.status, 0, `Error: ${resDel.stderr}`);
     assert.ok(stripAnsi(resDel.stdout).includes('Deleted project profile'));

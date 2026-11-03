@@ -36,7 +36,7 @@ async function run() {
   const srv = await startWebServer({ port, host: '127.0.0.1' });
 
   try {
-    // 1. Oversized body with Content-Length header (2 MiB)
+    // Oversized body with Content-Length header (2 MiB)
     const twoMb = 2 * 1024 * 1024;
     const resWithCl = await request({
       hostname: '127.0.0.1',
@@ -54,7 +54,7 @@ async function run() {
 
     assert.strictEqual(resWithCl.status, 413, 'Expected 413 for oversized Content-Length');
 
-    // 2. Chunked transfer with stream > 1 MiB without Content-Length
+    // Chunked transfer with stream > 1 MiB without Content-Length
     const chunk = Buffer.alloc(64 * 1024, 'x'); // 64KB chunk
     const resChunked = await request({
       hostname: '127.0.0.1',

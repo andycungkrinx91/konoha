@@ -16,7 +16,7 @@ async function runTests() {
   fs.mkdirSync(testDir, { recursive: true });
 
   try {
-    // 1. Validator error handling on missing & corrupt files
+    // Validator error handling on missing & corrupt files
     console.log('1. Testing validateAnimatedWebP error handling...');
     const nonExistent = validateAnimatedWebP(path.join(testDir, 'missing.webp'));
     assert.strictEqual(nonExistent.valid, false, 'Missing file must return valid: false');
@@ -26,7 +26,7 @@ async function runTests() {
     const corruptRes = validateAnimatedWebP(corruptPath);
     assert.strictEqual(corruptRes.valid, false, 'Corrupt header must return valid: false');
 
-    // 2. Generate sample SVG diagram with nodes and edges
+    // Generate sample SVG diagram with nodes and edges
     console.log('2. Generating test SVG diagram...');
     const svgPath = path.join(testDir, 'test_flow.svg');
     const diagRes = await diagramCreate({
@@ -48,7 +48,7 @@ async function runTests() {
     assert.strictEqual(diagRes.success, true, 'diagramCreate must succeed');
     assert.ok(fs.existsSync(svgPath), 'test_flow.svg must exist');
 
-    // 3. Export to canonical Animated WebP
+    // Export to canonical Animated WebP
     console.log('3. Exporting to canonical Animated WebP...');
     const webpPath = path.join(testDir, 'test_animation.webp');
     const animRes = await animationExport({
@@ -62,7 +62,7 @@ async function runTests() {
     assert.strictEqual(animRes.format, 'webp', 'Default format must be webp');
     assert.ok(fs.existsSync(webpPath), 'test_animation.webp must exist');
 
-    // 4. Validate binary structure of generated WebP
+    // Validate binary structure of generated WebP
     console.log('4. Validating WebP binary structure...');
     const validation = validateAnimatedWebP(webpPath);
     assert.strictEqual(validation.valid, true, `validateAnimatedWebP must pass: ${validation.error || ''}`);
@@ -74,7 +74,7 @@ async function runTests() {
     assert.ok(validation.canvasHeight > 0, 'Canvas height must be positive');
     console.log(`✓ WebP Validated: ${validation.canvasWidth}x${validation.canvasHeight}, ${validation.frameCount} frames, ${validation.totalDurationMs}ms, loop: ${validation.loopCount}`);
 
-    // 5. Test backward compatibility GIF export
+    // Test backward compatibility GIF export
     console.log('5. Testing backward compatibility GIF export...');
     const gifPath = path.join(testDir, 'test_animation.gif');
     const gifRes = await animationExport({
@@ -89,7 +89,7 @@ async function runTests() {
     assert.ok(fs.existsSync(gifPath), 'test_animation.gif must exist');
     console.log('✓ GIF backward compatibility export verified');
 
-    // 6. Verify temp files cleanup
+    // Verify temp files cleanup
     console.log('6. Verifying temp frames cleanup...');
     const tmpDirs = fs.readdirSync(os.tmpdir()).filter(d => d.startsWith('konoha_anim_'));
     // Active temp frames directories created by this process should be 0

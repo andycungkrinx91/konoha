@@ -6,7 +6,7 @@ const BASE_URL = 'http://127.0.0.1:4173';
 test.describe('Alerting, Toast, Confirm & Form Dialog System', () => {
   test('Login Page: Feedback on empty, wrong passphrase, and enter submit', async ({ page }) => {
     await page.goto(BASE_URL);
-    // 1. Empty passphrase validation
+    // Empty passphrase validation
     const submitBtn = page.locator('button[type="submit"]');
     const input = page.locator('input[type="password"], input[type="text"]').first();
 
@@ -24,7 +24,7 @@ test.describe('Alerting, Toast, Confirm & Form Dialog System', () => {
     const toastBg = await toastCard.evaluate(el => window.getComputedStyle(el).backgroundColor);
     expect(toastBg).toBeDefined();
 
-    // 2. Wrong passphrase feedback (clear, generic, no secrets leaked)
+    // Wrong passphrase feedback (clear, generic, no secrets leaked)
     await input.fill('definitely-incorrect-ninja-passphrase');
     await submitBtn.click();
 
@@ -142,14 +142,14 @@ test.describe('Alerting, Toast, Confirm & Form Dialog System', () => {
     const dialog = page.locator('dialog[aria-labelledby="form-dialog-title"]');
     await expect(dialog).toBeVisible();
 
-    // 1. Submit empty -> inline validation errors
+    // Submit empty -> inline validation errors
     const submitBtn = dialog.locator('button[type="submit"]');
     await submitBtn.click();
 
     await expect(dialog.locator('#err-alias')).toBeVisible();
     await expect(dialog.locator('#err-alias')).toContainText('Key Alias is required');
 
-    // 2. XSS Test: inject HTML tag into alias
+    // XSS Test: inject HTML tag into alias
     const xssPayload = '<img src=x onerror=alert(1)>';
     const aliasInput = dialog.locator('input[name="alias"]');
     await aliasInput.fill(xssPayload);

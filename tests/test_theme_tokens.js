@@ -50,7 +50,7 @@ async function run() {
   const factory = new Function('$state', runnable + '\nreturn { THEMES };');
   const { THEMES } = factory((initial) => initial);
 
-  // 1. Ten canonical palettes, exact ids/stops/order.
+  // Ten canonical palettes, exact ids/stops/order.
   assert.strictEqual(THEMES.length, 10, 'Theme picker must expose exactly 10 palettes');
   for (const [id, stops] of Object.entries(CANONICAL_STOPS)) {
     const theme = THEMES.find(t => t.id === id);
@@ -59,7 +59,7 @@ async function run() {
     assert.ok(['Cyberpunk', 'Hacker', 'General UI'].includes(theme.category), `${id} has an unknown category`);
   }
 
-  // 2. Every palette defines both appearance modes with complete semantic tokens.
+  // Every palette defines both appearance modes with complete semantic tokens.
   for (const theme of THEMES) {
     for (const mode of ['light', 'dark']) {
       const tokens = theme[mode];
@@ -70,7 +70,7 @@ async function run() {
     }
   }
 
-  // 3. applyTheme writes the full semantic contract (incl. mode-aware surfaces/glow).
+  // applyTheme writes the full semantic contract (incl. mode-aware surfaces/glow).
   const contractVars = [
     '--theme-bg', '--theme-surface', '--theme-surface-raised', '--theme-surface-hover',
     '--theme-surface-active', '--theme-overlay', '--theme-text', '--theme-text-secondary',
@@ -86,7 +86,7 @@ async function run() {
     assert.ok(combinedThemeCode.includes(`'${name}'`), `themeState/themeTokens must set ${name}`);
   }
 
-  // 4. app.css mirrors the default Light/Dark token matrix.
+  // app.css mirrors the default Light/Dark token matrix.
   const modeDefault = (selector) => {
     let from = 0;
     const blocks = [];
@@ -109,7 +109,7 @@ async function run() {
   assert.ok(dark.includes('--theme-text-disabled: #94a3b8'), 'Dark disabled text must stay legible (#94a3b8)');
   assert.ok(dark.includes('--theme-success: #34d399'), 'Dark success accent must be lifted for contrast');
 
-  // 5. Palette-driven neutral and status utilities exist for both modes.
+  // Palette-driven neutral and status utilities exist for both modes.
   for (const util of [
     'theme-bg-surface', 'theme-text-muted', 'badge-status-danger', 'bg-status-info-soft',
     'text-status-success', 'text-status-warning', 'text-status-danger', 'text-status-info',
@@ -119,7 +119,7 @@ async function run() {
     assert.ok(appCss.includes(`.${util}`), `app.css is missing .${util}`);
   }
 
-  // 6. No component may reintroduce hardcoded light-only surfaces.
+  // No component may reintroduce hardcoded light-only surfaces.
   const offenders = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

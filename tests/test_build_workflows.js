@@ -15,7 +15,7 @@ async function run() {
   server.WORKSPACE_ROOT = tmp;
 
   try {
-    // 1. Text contract covers all frameworks
+    // Text contract covers all frameworks
     for (const framework of ['nextjs', 'nuxt', 'sveltekit', 'angular']) {
       const result = JSON.parse(server.buildFromText('demo-app', 'Premium dashboard', framework, null, { design_variance: 9, motion_intensity: 8, visual_density: 4 }));
       assert.strictEqual(result.status, 'success');
@@ -30,7 +30,7 @@ async function run() {
     }
     console.log('✓ Text contract covers all frameworks passed');
 
-    // 2. Text build only adds commerce features for commerce
+    // Text build only adds commerce features for commerce
     const landing = JSON.parse(server.buildFromText('landing', 'A one-page marketing landing page', 'nextjs'));
     assert.strictEqual(landing.archetype, 'landing');
     const landingDirectives = landing.directives.join(' ');
@@ -41,7 +41,7 @@ async function run() {
     assert.ok(commerce.directives.join(' ').includes('50-item production catalog'));
     console.log('✓ Text build archetype directives passed');
 
-    // 3. Source contract detects framework files without writing
+    // Source contract detects framework files without writing
     const source = path.join(tmp, 'source');
     fs.mkdirSync(source, { recursive: true });
     fs.writeFileSync(path.join(source, 'page.vue'), "<script setup>definePageMeta({ layout: 'default' })</script><template><main /></template>", 'utf8');
@@ -71,12 +71,12 @@ async function run() {
     assert.ok(result.directives.join('\n').includes('DESIGN_VARIANCE=7/10'));
     console.log('✓ Source contract detects framework files passed');
 
-    // 4. Invalid framework and dials are rejected
+    // Invalid framework and dials are rejected
     assert.ok(JSON.parse(server.buildFromText('demo', 'x', 'solid')).error.includes('framework must be one of'));
     assert.ok(JSON.parse(server.buildFromText('demo', 'x', 'next', null, { design_variance: 11 })).error.includes('design_variance'));
     console.log('✓ Invalid input validation passed');
 
-    // 5. Source path cannot escape workspace
+    // Source path cannot escape workspace
     const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_out_'));
     try {
       const res = JSON.parse(server.buildFromSource('demo', outside, 'next'));

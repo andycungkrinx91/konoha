@@ -8,13 +8,13 @@ const fs = require('fs');
 
 console.log('Running test_cross_client_config.js...');
 
-// 1. Test mcp_clients_manager.js exports and functions
+// Test mcp_clients_manager.js exports and functions
 const mcpClients = require('../src/mcp_clients_manager');
 assert.strictEqual(typeof mcpClients.isClaudeCodeInstalled, 'function', 'isClaudeCodeInstalled should be exported as a function');
 assert.strictEqual(typeof mcpClients.ensureClaudeCodeSetup, 'function', 'ensureClaudeCodeSetup should be exported');
 console.log('  ✓ mcp_clients_manager exports verified.');
 
-// 2. Test cursor_manager.js CURSOR_MODEL_ALIASES
+// Test cursor_manager.js CURSOR_MODEL_ALIASES
 const cursorMgr = require('../src/cursor_manager');
 assert.strictEqual(typeof cursorMgr.resolveCursorModel, 'function', 'resolveCursorModel should be exported');
 

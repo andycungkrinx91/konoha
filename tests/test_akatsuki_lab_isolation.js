@@ -57,7 +57,7 @@ function runTest(name, fn) {
 
 console.log('Running Akatsuki Lab Isolation & Workflows Test Suite...\n');
 
-// 1. Platform engine selection
+// Platform engine selection
 runTest('Linux platform strictly selects LXC engine', () => {
   const engine = getRequiredEngine('linux');
   assert.strictEqual(engine, 'lxc', 'Linux must require LXC engine');
@@ -78,7 +78,7 @@ runTest('Unsupported platform returns null without falling back', () => {
   assert.strictEqual(engine, null, 'Unsupported OS must return null');
 });
 
-// 2. Missing engine check and decline reason
+// Missing engine check and decline reason
 runTest('Missing engine returns exact decline message', () => {
   const mockRunner = () => ({ status: 1, stdout: '', stderr: 'not found' });
   const check = checkEngineInstalled('lxc', { runner: mockRunner, platform: 'linux' });
@@ -95,7 +95,7 @@ runTest('Missing engine returns exact decline message', () => {
   assert.strictEqual(labCheck.reason, 'Declined: LXC/Docker not installed on this machine.');
 });
 
-// 3. Direct host execution denial
+// Direct host execution denial
 runTest('Direct host execution request is strictly denied', () => {
   const hostTargets = ['host', 'localhost', '127.0.0.1'];
   for (const t of hostTargets) {
@@ -111,7 +111,7 @@ runTest('Direct host execution request is strictly denied', () => {
   assert.strictEqual(directHostFlag.reason, HOST_EXECUTION_DENIED_REASON);
 });
 
-// 4. Lab identity validation
+// Lab identity validation
 runTest('Lab identity defaults to akatsuki-lab and non-standard name is rejected', () => {
   assert.strictEqual(DEFAULT_LAB_NAME, 'akatsuki-lab');
   const res = validateLabPrerequisites({ authorized: true, target: '10.77.77.10', lab_name: 'custom-unverified-box' });
@@ -119,7 +119,7 @@ runTest('Lab identity defaults to akatsuki-lab and non-standard name is rejected
   assert.strictEqual(res.reason, INVALID_LAB_NAME_REASON);
 });
 
-// 5. LXC real network isolation verification (fails on ipv4.nat=true, passes on ipv4.nat=false)
+// LXC real network isolation verification (fails on ipv4.nat=true, passes on ipv4.nat=false)
 runTest('LXC network verification rejects bridge when ipv4.nat is true', () => {
   const mockRunner = (cmd, args) => {
     if (cmd === 'lxc' && args[0] === 'list') {
@@ -178,7 +178,7 @@ runTest('LXC network verification accepts bridge when ipv4.nat is false', () => 
   assert.match(status.details, /verified isolated/i);
 });
 
-// 6. Docker real network isolation verification
+// Docker real network isolation verification
 runTest('Docker network verification rejects container on default bridge network', () => {
   const mockRunner = (cmd, args) => {
     if (cmd === 'docker' && args[0] === 'inspect') {
@@ -242,7 +242,7 @@ runTest('Docker network verification accepts internal custom network', () => {
   assert.match(status.details, /verified internal/i);
 });
 
-// 7. Teardown execution verification
+// Teardown execution verification
 runTest('Teardown returns cleanup_confirmed: false if process termination command fails', () => {
   const mockFailRunner = (cmd) => {
     if (cmd === 'lxc') {
@@ -281,7 +281,7 @@ runTest('executeInLab executes safely inside container without host execution', 
   assert.strictEqual(res.stdout, 'in-sandbox-output\n');
 });
 
-// 8. Standalone Red-Team Isolation Workflow
+// Standalone Red-Team Isolation Workflow
 runTest('Red-Team workflow blocks and declines when engine is missing', () => {
   const mockRunner = () => ({ status: 1, stdout: '', stderr: 'not found' });
   const result = runRedTeamWorkflow(
@@ -385,7 +385,7 @@ runTest('Red-Team workflow executes in sandbox when authorized and isolated with
   assert.ok(result.checks_performed.includes('post_assessment_teardown_and_containment_proof'));
 });
 
-// 9. Standalone Blue-Team Direct Host Workflow
+// Standalone Blue-Team Direct Host Workflow
 runTest('Blue-Team workflow executes directly on host repository', () => {
   const result = runBlueTeamWorkflow({ project_path: path.resolve(__dirname, '..') });
   assert.strictEqual(result.workflow_type, 'blue_team');
@@ -397,7 +397,7 @@ runTest('Blue-Team workflow executes directly on host repository', () => {
   assert.ok(result.checks_performed.includes('sast_code_quality_and_owasp_hygiene'));
 });
 
-// 10. Security Final Gate Verification
+// Security Final Gate Verification
 runTest('Final Gate blocks red-team review missing sandbox isolation evidence', () => {
   const fakeReview = {
     workflow_type: 'red_team',
@@ -470,7 +470,7 @@ runTest('Final Gate passes clean red-team review with valid sandbox isolation ev
   assert.match(gateResult.reason, /verified clean with required sandbox isolation evidence/i);
 });
 
-// 11. Real host LXC status test against actual akatsuki-lab and labbr0 bridge
+// Real host LXC status test against actual akatsuki-lab and labbr0 bridge
 runTest('Real host LXC status against akatsuki-lab container on labbr0', () => {
   const engineCheck = checkEngineInstalled('lxc');
   if (!engineCheck.installed) {

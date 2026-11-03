@@ -56,7 +56,7 @@ const makeSheet = (name, title, subtitle, headers, cols, rows, opts = {}) => ({
   ...opts
 });
 
-// 1. Structured Document Content (8 Pages)
+// Structured Document Content (8 Pages)
 const SECTION_TABLES = {
   dora: {
     headers: ['DORA Metric', 'Elite Performers', 'Our Baseline (Q2)', 'Target (Q4)', 'Status'],
@@ -236,7 +236,7 @@ jobs:
   }
 ];
 
-// 2. Structured Spreadsheet Model (3 Organized Sheets)
+// Structured Spreadsheet Model (3 Organized Sheets)
 const SPREADSHEET_SHEETS = [
   makeSheet(
     'DORA_Metrics_Dashboard',
@@ -313,7 +313,7 @@ const SPREADSHEET_SHEETS = [
   )
 ];
 
-// 3. Structured Presentation Outline (8 Widescreen Slides)
+// Structured Presentation Outline (8 Widescreen Slides)
 const PRESENTATION_SLIDES = [
   {
     layout: 'title',
@@ -393,7 +393,7 @@ const PRESENTATION_SLIDES = [
   }
 ];
 
-// 4. Structured Architecture Diagram Specification
+// Structured Architecture Diagram Specification
 const DIAGRAM_NODES = [
   { id: 'git', label: 'Git Repository', sublabel: 'Trunk Branch + PRs', x: 80, y: 380, width: 220, height: 90, color: '#4F46E5' },
   { id: 'ci', label: 'Hermetic CI Engine', sublabel: 'Ephemeral Runners', x: 390, y: 380, width: 220, height: 90, color: '#0EA5E9' },
@@ -417,7 +417,7 @@ const VERTICAL_DIAGRAM_NODES = [
   { id: 'k8s', label: 'Production Fleet', sublabel: 'Canary ArgoCD Sync', color: '#6366F1' }
 ];
 
-// 5. Generator: Markdown & Plain Text
+// Generator: Markdown & Plain Text
 function generateMarkdownAndText(outputDir) {
   let mdContent = `# DevOps Engineering: Principles, Pipelines & Site Reliability\n\n`;
   mdContent += `**Author**: ${SUITE_AUTHOR}  \n`;
@@ -464,7 +464,7 @@ function generateMarkdownAndText(outputDir) {
   fs.writeFileSync(path.join(outputDir, 'sample.txt'), txtContent, 'utf8');
 }
 
-// 6. Main Orchestrator Execution Flow
+// Main Orchestrator Execution Flow
 async function main() {
   console.log(`\n🚀 Starting Generation of 8-Page DevOps Deliverables in: ${OUTPUT_DIR}\n`);
 
@@ -488,13 +488,13 @@ async function main() {
     console.log(`✓ Generated sample.${ext}`);
   };
 
-  // 1. PDF via documentCreate
+  // PDF via documentCreate
   await generateDoc('pdf', 'pdf', '1/6');
 
-  // 2. DOCX via documentCreate
+  // DOCX via documentCreate
   await generateDoc('docx', 'docx', '2/6');
 
-  // 3. XLSX via spreadsheetCreate
+  // XLSX via spreadsheetCreate
   console.log('3/6: Generating sample.xlsx via spreadsheetCreate...');
   await spreadsheetCreate({
     output_path: path.join(OUTPUT_DIR, 'sample.xlsx'),
@@ -504,7 +504,7 @@ async function main() {
   });
   console.log('✓ Generated sample.xlsx');
 
-  // 4. PPTX via presentationCreate
+  // PPTX via presentationCreate
   console.log('4/6: Generating sample.pptx via presentationCreate...');
   await presentationCreate({
     output_path: path.join(OUTPUT_DIR, 'sample.pptx'),

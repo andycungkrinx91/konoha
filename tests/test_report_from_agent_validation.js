@@ -13,7 +13,7 @@ const dbConn = db.getDb();
 const initialToolCalls = dbConn.prepare("SELECT COUNT(*) as count FROM tool_calls WHERE tool = 'report_from_agent'").get().count;
 const initialMemories = dbConn.prepare("SELECT COUNT(*) as count FROM persona_memories").get().count;
 
-// 1. Rejection of delegate_to_kage
+// Rejection of delegate_to_kage
 const res1Raw = reportFromAgent('delegate_to_kage', 'Implemented feature', 'completed', [], [], ['test learning'], process.cwd(), null, null, ['npm test exited 0']);
 const res1 = JSON.parse(res1Raw);
 assert.strictEqual(res1.status, 'error');
@@ -22,7 +22,7 @@ assert.ok(
   'Must reject delegate_to_kage'
 );
 
-// 2. Rejection of delegated_to_kage
+// Rejection of delegated_to_kage
 const res2Raw = reportFromAgent('delegated_to_kage', 'Implemented feature', 'completed', [], [], ['test learning'], process.cwd(), null, null, ['npm test exited 0']);
 const res2 = JSON.parse(res2Raw);
 assert.strictEqual(res2.status, 'error');
@@ -37,7 +37,7 @@ const afterMemories = dbConn.prepare("SELECT COUNT(*) as count FROM persona_memo
 assert.strictEqual(afterToolCalls, initialToolCalls, 'Must not insert tool_calls on rejection');
 assert.strictEqual(afterMemories, initialMemories, 'Must not insert persona_memories on rejection');
 
-// 3. Acceptance and normalization of valid agent names
+// Acceptance and normalization of valid agent names
 const resKageRaw = reportFromAgent('kage', 'Architecture review', 'completed', [], [], null, process.cwd(), null, null, ['npm test exited 0']);
 const resKage = JSON.parse(resKageRaw);
 assert.strictEqual(resKage.status, 'recorded');
@@ -53,7 +53,7 @@ const resTokubetsu = JSON.parse(resTokubetsuRaw);
 assert.strictEqual(resTokubetsu.status, 'recorded');
 assert.strictEqual(resTokubetsu.agent, 'tokubetsu-jonin');
 
-// 4. Review independence evaluates cross-provider
+// Review independence evaluates cross-provider
 const indSelf = detectReviewIndependence('kage', 'kage');
 assert.strictEqual(indSelf.isCrossProvider, false, 'Same agent must not be cross-provider');
 assert.strictEqual(indSelf.reviewMode, 'self', 'Same agent must be self-review mode');

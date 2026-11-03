@@ -16,11 +16,11 @@ const WORKFLOW_PATH = path.join(ROOT, 'src', 'mcp', 'workflow_runner.js');
 
 console.log('Running test_reconcile_presentation.js...');
 
-// 1. Confirm TOKEN-BASELINE.md exists and is readable
+// Confirm TOKEN-BASELINE.md exists and is readable
 assert(fs.existsSync(BASELINE_PATH), 'TOKEN-BASELINE.md must exist');
 const baselineContent = fs.readFileSync(BASELINE_PATH, 'utf-8');
 
-// 2. Problem 1 Check: Honest captioning of -60.9%
+// Problem 1 Check: Honest captioning of -60.9%
 assert(
   baselineContent.includes('7 of 8') || baselineContent.includes('7 (`prompt.md`'),
   'TOKEN-BASELINE.md must state plainly that 7 of 8 artifacts are unchanged'
@@ -30,7 +30,7 @@ assert(
   'TOKEN-BASELINE.md must scope the -60.9% saving to final_report.md path-reference substitution'
 );
 
-// 3. Problem 2 Check: Bounded Planning Delegate live code & empirical evidence
+// Problem 2 Check: Bounded Planning Delegate live code & empirical evidence
 assert(
   fs.existsSync(WORKFLOW_PATH),
   'src/mcp/workflow.js must exist'
@@ -59,7 +59,7 @@ assert(
   'TOKEN-BASELINE.md must include measurements across all 3 production tasks'
 );
 
-// 4. Problem 3 Check: Metric 4 Per-Task Breakdown Table
+// Problem 3 Check: Metric 4 Per-Task Breakdown Table
 assert(
   baselineContent.includes('Table 4D: Metric 4 Per-Task Breakdown'),
   'TOKEN-BASELINE.md must contain a per-task breakdown table for Metric 4'
@@ -69,7 +69,7 @@ assert(
   'Metric 4 must differentiate Tool Return Payload and Host Model Completions per task'
 );
 
-// 5. Problem 4 Check: No fabricated "33" tool count narrative
+// Problem 4 Check: No fabricated "33" tool count narrative
 assert(
   !baselineContent.includes('33 tools') && !baselineContent.includes('between 33 and 38'),
   'TOKEN-BASELINE.md must not contain unsupported "33" tool count references'

@@ -115,7 +115,7 @@ function checkClientsIntegration(record) {
 
   try {
     const opencodeMgr = require('./opencode_manager');
-    record('OpenCode (~/.opencode/config.json)', opencodeMgr.isOpenCodeInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OpenCode status');
+    record('OpenCode (~/.config/opencode/opencode.json)', opencodeMgr.isOpenCodeInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OpenCode status');
   } catch { /* best-effort */ }
 
   try {
@@ -126,6 +126,11 @@ function checkClientsIntegration(record) {
   try {
     const ompMgr = require('./omp_manager');
     record('OMP (~/.omp/agent/mcp.json)', ompMgr.isOmpInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OMP status');
+  } catch { /* best-effort */ }
+
+  try {
+    const piMgr = require('./pi_manager');
+    record('Pi (~/.pi/agent/mcp.json)', piMgr.isPiInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Pi status');
   } catch { /* best-effort */ }
 
   record('RTK (Token Killer)', isRtkInstalled() ? 'ACTIVE' : 'WARNING', isRtkInstalled() ? 'rtk binary available' : 'rtk not detected in PATH');

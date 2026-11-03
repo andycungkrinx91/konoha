@@ -33,7 +33,7 @@ const HIGH_RISK_EDGES = new Set([
 async function run() {
   console.log('Running test_documentation_diagrams tests...');
 
-  // 1. DrawIO pages have valid cells and edges
+  // DrawIO pages have valid cells and edges
   const drawioContent = fs.readFileSync(DIAGRAM, 'utf-8');
   const diagramRegex = /<diagram\s+[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/diagram>/g;
   const pages = [];
@@ -112,7 +112,7 @@ async function run() {
   }
   console.log('✓ DrawIO pages have valid cells and edges passed');
 
-  // 2. Markdown has professional Mermaid companions
+  // Markdown has professional Mermaid companions
   for (const item of MERMAID_OWNERS) {
     const content = fs.readFileSync(item.file, 'utf-8');
     const rel = path.relative(ROOT, item.file);
@@ -144,7 +144,7 @@ async function run() {
   }
   console.log('✓ Markdown Mermaid companions passed');
 
-  // 3. Documentation links point to canonical source
+  // Documentation links point to canonical source
   const owners = {
     [path.join(ROOT, 'README.md')]: 'docs/diagrams/konoha-architecture.drawio',
     [path.join(ROOT, 'docs', 'ARCHITECTURE.md')]: 'diagrams/konoha-architecture.drawio',
@@ -162,7 +162,7 @@ async function run() {
   assert.ok(manifest.includes('synchronized Mermaid companion'));
   console.log('✓ Documentation links point to canonical source passed');
 
-  // 4. Current bridge contract is documented
+  // Current bridge contract is documented
   const docs = [
     'README.md',
     'docs/LLM-BRIDGE-GATEWAY.md',

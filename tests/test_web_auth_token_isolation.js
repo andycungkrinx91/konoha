@@ -29,7 +29,7 @@ async function run() {
   const srv = await startWebServer({ port, host: '127.0.0.1' });
 
   try {
-    // 1. Verify GET /api/v1/auth/status does not leak session token
+    // Verify GET /api/v1/auth/status does not leak session token
     const statusRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -40,7 +40,7 @@ async function run() {
     assert.strictEqual(statusRes.data.token, undefined, 'auth/status must NOT return token');
     assert.strictEqual(typeof statusRes.data.authenticated, 'boolean');
 
-    // 2. Verify GET /api/v1/auth/session does not leak session token
+    // Verify GET /api/v1/auth/session does not leak session token
     const sessionRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -50,7 +50,7 @@ async function run() {
     assert.strictEqual(sessionRes.status, 200, 'auth/session must return 200');
     assert.strictEqual(sessionRes.data.token, undefined, 'auth/session must NOT return token');
 
-    // 3. Verify unauthenticated GET /api/v1/health returns only minimal metadata
+    // Verify unauthenticated GET /api/v1/health returns only minimal metadata
     const unauthHealth = await request({
       hostname: '127.0.0.1',
       port,
@@ -64,7 +64,7 @@ async function run() {
     assert.strictEqual(unauthHealth.data.port, undefined, 'unauth health must not include port');
     assert.strictEqual(unauthHealth.data.skills_count, undefined, 'unauth health must not include skills_count');
 
-    // 4. Verify authenticated GET /api/v1/health includes full diagnostic metadata
+    // Verify authenticated GET /api/v1/health includes full diagnostic metadata
     const authHealth = await request({
       hostname: '127.0.0.1',
       port,

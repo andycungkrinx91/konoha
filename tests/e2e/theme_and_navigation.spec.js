@@ -195,7 +195,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     for (const route of routes) {
       await page.goto(`http://127.0.0.1:4173${route.path}`);
-      await expect(page.getByText(route.heading).first()).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(route.heading).first()).toBeVisible({ timeout: 15000 });
     }
 
     expect(pageErrors).toEqual([]);

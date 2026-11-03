@@ -15,7 +15,7 @@ const vectorSearch = require('../src/vector_search');
 async function run() {
   console.log('Running test_cross_platform tests...');
 
-  // 1. Matrix testing for platform tags and release asset names
+  // Matrix testing for platform tags and release asset names
   const testCases = [
     // [sys, mach, expected_tag, expected_asset, expected_lib]
     ['Linux', 'x86_64', 'linux-x64', 'vector-linux-x86_64-1.1.0.tar.gz', 'vector.so'],
@@ -37,7 +37,7 @@ async function run() {
   }
   console.log('✓ Platform tag and asset resolution matrix passed');
 
-  // 2. Windows ARM64 graceful handling
+  // Windows ARM64 graceful handling
   const tagWinArm = vectorSearch.getPlatformTag('Windows', 'ARM64');
   const [assetWinArm, libWinArm] = vectorSearch.getPlatformAssetInfo('Windows', 'ARM64');
   assert.strictEqual(tagWinArm, 'windows-arm64');
@@ -45,7 +45,7 @@ async function run() {
   assert.strictEqual(libWinArm, null);
   console.log('✓ Windows ARM64 graceful handling passed');
 
-  // 3. Path normalization cross platform
+  // Path normalization cross platform
   const winPath = 'C:\\Users\\test\\.konoha\\konoha.db';
   const normWin = path.normalize(winPath);
   assert.ok(normWin.includes('.konoha'));
@@ -57,7 +57,7 @@ async function run() {
   assert.strictEqual(db.DB_PATH, path.normalize(db.DB_PATH));
   console.log('✓ Path normalization cross platform passed');
 
-  // 4. In-memory exact scan parity
+  // In-memory exact scan parity
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cross_plat_'));
   const testDb = path.join(tmpDir, 'test.db');
   try {
@@ -98,7 +98,7 @@ async function run() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  // 5. Extension unauthorized simulation
+  // Extension unauthorized simulation
   const mockConn = {
     loadExtension: () => { throw new Error('not authorized'); }
   };
@@ -106,7 +106,7 @@ async function run() {
   assert.strictEqual(safe, false);
   console.log('✓ Extension unauthorized simulation passed');
 
-  // 6. Agent-browser resolution
+  // Agent-browser resolution
   const cmdWin = true ? 'agent-browser.cmd' : 'agent-browser';
   assert.ok(cmdWin.includes('agent-browser'));
   const cmdUnix = false ? 'agent-browser.cmd' : 'agent-browser';

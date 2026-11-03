@@ -6,7 +6,7 @@ const { spawnSync } = require('child_process');
 const CLI_PATH = path.resolve(__dirname, '../bin/cli.js');
 
 test('CLI rejects removed subcommand synonyms and errors naming canonical forms', () => {
-  // 1. task rm -> task delete
+  // task rm -> task delete
   const taskRes = spawnSync(process.execPath, [CLI_PATH, 'task', 'rm'], {
     encoding: 'utf8',
     timeout: 120000
@@ -18,7 +18,7 @@ test('CLI rejects removed subcommand synonyms and errors naming canonical forms'
     `task rm must name canonical form 'konoha task delete', got: ${taskOut}`
   );
 
-  // 2. project show -> project context
+  // project show -> project context
   const projRes = spawnSync(process.execPath, [CLI_PATH, 'project', 'show'], {
     encoding: 'utf8',
     timeout: 120000
@@ -30,7 +30,7 @@ test('CLI rejects removed subcommand synonyms and errors naming canonical forms'
     `project show must name canonical form 'konoha project context', got: ${projOut}`
   );
 
-  // 3. telegram edit -> telegram config
+  // telegram edit -> telegram config
   const tgRes = spawnSync(process.execPath, [CLI_PATH, 'telegram', 'edit'], {
     encoding: 'utf8',
     timeout: 120000
@@ -42,7 +42,7 @@ test('CLI rejects removed subcommand synonyms and errors naming canonical forms'
     `telegram edit must name canonical form 'konoha telegram config', got: ${tgOut}`
   );
 
-  // 4. data rm -> data delete
+  // data rm -> data delete
   const dataRes = spawnSync(process.execPath, [CLI_PATH, 'data', 'rm'], {
     encoding: 'utf8',
     timeout: 120000

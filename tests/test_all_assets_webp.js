@@ -5,7 +5,7 @@
  * tests/test_all_assets_webp.js
  *
  * Verifies that:
- * 1. All 17 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format.
+ * 1. All 19 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format.
  * 2. Zero legacy .gif files remain in `assets/`.
  * 3. Every .webp file passes `validateAnimatedWebP` binary structural verification.
  * 4. Active Markdown files (README.md, docs) contain ZERO broken .gif image embeds.
@@ -21,7 +21,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// 1. Expected 18 canonical animation assets
+// Expected 19 canonical animation assets
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -40,6 +40,7 @@ const EXPECTED_WEBP_ASSETS = [
   'konoha-orchestration-flow.webp',
   'konoha-qa-flow.webp',
   'konoha-telegram-flow.webp',
+  'demo-omp.webp',
   'testing.webp'
 ];
 
@@ -54,7 +55,7 @@ for (const webpName of EXPECTED_WEBP_ASSETS) {
 }
 console.log(`  ✓ All ${EXPECTED_WEBP_ASSETS.length} expected .webp assets exist in assets/`);
 
-// 2. Binary structural verification of every WebP asset
+// Binary structural verification of every WebP asset
 console.log('\n2. Verifying pure Node.js binary structure via validateAnimatedWebP...');
 for (const webpName of EXPECTED_WEBP_ASSETS) {
   const filePath = path.join(ASSETS_DIR, webpName);
@@ -68,7 +69,7 @@ for (const webpName of EXPECTED_WEBP_ASSETS) {
   console.log(`  ✓ assets/${webpName} (${val.canvasWidth}x${val.canvasHeight}, ${val.frameCount} frames, ${val.totalDurationMs}ms, loop: ${val.loopCount})`);
 }
 
-// 3. Scan active Markdown files for broken .gif embeds
+// Scan active Markdown files for broken .gif embeds
 console.log('\n3. Scanning active Markdown files for broken .gif image embeds...');
 
 function walkMarkdown(dir) {

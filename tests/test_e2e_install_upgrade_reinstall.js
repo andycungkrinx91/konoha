@@ -265,7 +265,7 @@ async function testCrossPlatformMatrix() {
 async function testWorkflowTokenBurnPrevention() {
   console.log('\n--- 5. Testing Workflow Token-Burn Prevention & Bounded Payloads ---');
 
-  // 1. build_from_text payload size & deduplication
+  // build_from_text payload size & deduplication
   const textSpec = JSON.parse(buildFromText('token-test-site', 'Modern portfolio showcase with dark header and responsive layout', 'nextjs'));
   assert.strictEqual(textSpec.status, 'success');
   assert.ok(JSON.stringify(textSpec).length < 25000, `build_from_text payload must be < 25KB, got ${JSON.stringify(textSpec).length}`);
@@ -274,20 +274,20 @@ async function testWorkflowTokenBurnPrevention() {
   assert.ok(textSpec.scaffold_command.includes('rtk'), 'scaffold_command must be wrapped in rtk');
   console.log(`  ✓ build_from_text payload is compact (${JSON.stringify(textSpec).length} bytes, < 25KB) with non-interactive rtk command`);
 
-  // 2. build_from_source payload size (< 25KB, resolved from 117KB)
+  // build_from_source payload size (< 25KB, resolved from 117KB)
   const sourceSpec = JSON.parse(buildFromSource('token-source-site', path.join(__dirname, '..', 'src'), 'nextjs'));
   assert.strictEqual(sourceSpec.status, 'success');
   const sourcePayloadLen = JSON.stringify(sourceSpec).length;
   assert.ok(sourcePayloadLen < 25000, `build_from_source payload must be < 25KB, got ${sourcePayloadLen}`);
   console.log(`  ✓ build_from_source payload is compact (${sourcePayloadLen} bytes, < 25KB, verified 80% reduction)`);
 
-  // 3. runSannin triage payload size (< 2KB)
+  // runSannin triage payload size (< 2KB)
   const sanninRes = JSON.parse(runSannin('Build modern reactive ecommerce shop with products catalog'));
   assert.ok(['jonin', 'anbu', 'sannin'].includes(sanninRes.selected_agent));
   assert.ok(JSON.stringify(sanninRes).length < 3000, `runSannin payload must be < 3KB, got ${JSON.stringify(sanninRes).length}`);
   console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
 
-  // 4. Subagents Unified Token-Bounded Prompts
+  // Subagents Unified Token-Bounded Prompts
   const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin', 'akatsuki'];
   for (const agent of agents) {
     server.SESSION_TURNS.clear();
@@ -302,7 +302,7 @@ async function testWorkflowTokenBurnPrevention() {
   }
   console.log('  ✓ All 8 official agents (sannin router + 7 executors) enforce payload ceilings (< 8KB) with deterministic prefix caching');
 
-  // 5. Changed-files AI slop scoping
+  // Changed-files AI slop scoping
   const dummyStatus = { changed_files: ['src/mcp/build_spec.js'] };
   const gateResult = runAislopGate(path.resolve(__dirname, '..'), dummyStatus);
   assert.strictEqual(gateResult.enforced, false, 'Hermetic test isolation disables gate execution');

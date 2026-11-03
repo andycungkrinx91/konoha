@@ -29,7 +29,7 @@ async function run() {
   try {
     // --- D.1 Gate-blocking tests ---
 
-    // 1. Blocked when ai_slop_findings > 0
+    // Blocked when ai_slop_findings > 0
     let status1 = {
       phase: 'review',
       tasks: [
@@ -65,7 +65,7 @@ async function run() {
     assert.ok(res1.dispatch_id, 'Remediation dispatch must have a dispatch id');
     console.log('✓ Remediation dispatched (default-on) when ai_slop_findings > 0 passed');
 
-    // 2. Blocked when ai_slop fields missing
+    // Blocked when ai_slop fields missing
     let status2 = {
       phase: 'review',
       tasks: [
@@ -94,7 +94,7 @@ async function run() {
     assert.strictEqual(res2.phase, 'review');
     console.log('✓ Blocked when ai_slop fields missing passed');
 
-    // 3. Approved when ai_slop clean
+    // Approved when ai_slop clean
     sdlcManager.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' });
     let status3 = {
       phase: 'review',
@@ -131,7 +131,7 @@ async function run() {
     assert.ok(fs.existsSync(path.join(tmpDir, 'final_report.md')));
     console.log('✓ Approved when ai_slop clean passed');
 
-    // 4. Report includes AI Slop row
+    // Report includes AI Slop row
     const reportContent = fs.readFileSync(path.join(tmpDir, 'final_report.md'), 'utf-8');
     assert.ok(
       reportContent.includes('| **AI Slop Scan** | All changed files | ai_slop_findings = 0 | **100%** | ✅ Passed |'),
@@ -143,7 +143,7 @@ async function run() {
     // All official subagents see the full manifest tool catalog. Read-only
     // enforcement for genin/kage lives in guidance text, not tool omission.
 
-    // 5. Genin and Kage see full catalog but carry read-only guidance
+    // Genin and Kage see full catalog but carry read-only guidance
     for (const role of ['genin', 'kage']) {
       server.SESSION_TURNS && server.SESSION_TURNS.clear();
       const res = JSON.parse(server.runMcpAgent(role, 'Analyze and plan.', null, null, null, null, null, tmpDir));
@@ -170,7 +170,7 @@ async function run() {
     }
     console.log('✓ Genin and Kage tool boundaries passed');
 
-    // 6. Anbu and Jonin can reach aislop_fix
+    // Anbu and Jonin can reach aislop_fix
     for (const role of ['jonin', 'anbu']) {
       server.SESSION_TURNS && server.SESSION_TURNS.clear();
       const res = JSON.parse(server.runMcpAgent(role, 'Build and fix.', null, null, null, null, null, tmpDir));
@@ -188,7 +188,7 @@ async function run() {
 
     // --- D.3 Config wiring smoke test ---
 
-    // 7. Config wiring smoke test
+    // Config wiring smoke test
     const rootDir = path.resolve(__dirname, '..');
     const { updateCodexTomlMcp } = require('../src/codex_manager');
     const outCodex = updateCodexTomlMcp('', 'node', '/path/to/server.js', 'uvx');
@@ -209,7 +209,7 @@ async function run() {
     // Clean up any review artifacts from previous steps (no file-IPC artifacts exist anymore)
     if (fs.existsSync(path.join(tmpDir, 'kage_review.json'))) fs.unlinkSync(path.join(tmpDir, 'kage_review.json'));
 
-    // 8. Kage dispatch prompt mentions AI slop fields
+    // Kage dispatch prompt mentions AI slop fields
     let status4 = {
       phase: 'review',
       tasks: [

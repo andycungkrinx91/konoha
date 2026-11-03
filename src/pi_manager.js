@@ -1,3 +1,4 @@
+const { buildPiBlockerExtensionSource } = require('./pi_blocker_template');
 /**
  * src/pi_manager.js — Pi (pi.dev) coding agent client integration.
  *
@@ -18,7 +19,6 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
-const { buildGuardrailCheckerSource } = require('./guardrails');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const PI_AGENT_DIR = path.join(HOME, '.pi', 'agent');
@@ -286,117 +286,6 @@ function removePiRtkRule(silent = true) {
  * Style mirrors rtk.ts (type-only imports + local type guard) so the
  * extension stays cheap to load.
  */
-function buildPiBlockerExtensionSource() {
-  // Guardrail checker source is embedded as a JSON string literal (double
-  // escaping is handled by JSON.stringify) and evaluated with new Function,
-  // so regex escapes like \b survive verbatim and the extension needs no
-  // runtime dependency on ~/.konoha/guardrails.js.
-  const guardrailSource = JSON.stringify(buildGuardrailCheckerSource());
-  return [
-    '// Konoha native-tool blocker for Pi (auto-managed by konoha pi_manager).',
-    '// Blocks the native read tool (bounded file tools / semble instead) and',
-    '// enforces the konoha command guardrails on bash tool calls.',
-    '// Removal: run konoha uninstall for Pi, or delete this file.',
-    'import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";',
-    'import { DefaultResourceLoader } from "@earendil-works/pi-coding-agent";',
-    '',
-    '// Silence duplicate/collision skill diagnostics between global and project skill mirrors',
-    'try {',
-    '  if (typeof DefaultResourceLoader !== "undefined" && DefaultResourceLoader && DefaultResourceLoader.prototype) {',
-    '    const proto = DefaultResourceLoader.prototype as any;',
-    '    const origGetSkills = proto.getSkills;',
-    '    if (typeof origGetSkills === "function") {',
-    '      proto.getSkills = function () {',
-    '        const res = origGetSkills.apply(this, arguments);',
-    '        if (res && Array.isArray(res.diagnostics)) {',
-    '          res.diagnostics = res.diagnostics.filter((d: any) => d && d.type !== "collision");',
-    '        }',
-    '        return res;',
-    '      };',
-    '    }',
-    '    const origUpdateSkills = proto.updateSkillsFromPaths;',
-    '    if (typeof origUpdateSkills === "function") {',
-    '      proto.updateSkillsFromPaths = function () {',
-    '        const res = origUpdateSkills.apply(this, arguments);',
-    '        if (Array.isArray(this.skillDiagnostics)) {',
-    '          this.skillDiagnostics = this.skillDiagnostics.filter((d: any) => d && d.type !== "collision");',
-    '        }',
-    '        return res;',
-    '      };',
-    '    }',
-    '  }',
-    '} catch (_) { /* best-effort monkeypatch: failure here must never crash the extension */ }',
-    '',
-    'const REASON =',
-    '  "MANDATORY RULE VIOLATION: Using the built-in/native read tool is STRICTLY FORBIDDEN! " +',
-    '  "You MUST use the konoha MCP bounded file tools " +',
-    '  "(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) " +',
-    '  "or the semble MCP (search / find_related) for codebase reading and search instead.";',
-    '',
-    'const GUARDRAIL_CHECKER_SOURCE = ' + guardrailSource + ';',
-    'const checkCommandGuardrails: (command: string) => { category: string; reason: string } | null =',
-    '  new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();',
-    '',
-    'function isReadToolCallEvent(event: ToolCallEvent): boolean {',
-    '  return event.toolName === "read";',
-    '}',
-    '',
-    'function isInternalVirtualUri(targetPath: unknown): boolean {',
-    '  if (typeof targetPath !== "string") return false;',
-    '  return /^(local|skill|agent|history|artifact|proc|cfg|mcp|ssh|security|omp):\\/\\//.test(targetPath);',
-    '}',
-    '',
-    'function extractReadPath(event: ToolCallEvent): string | null {',
-    '  const input = event.input as Record<string, unknown> | undefined;',
-    '  if (!input) return null;',
-    '  if (typeof input.path === "string") return input.path;',
-    '  if (typeof input.file_path === "string") return input.file_path;',
-    '  if (typeof input.target === "string") return input.target;',
-    '  return null;',
-    '}',
-    '',
-    'function isBashToolCallEvent(event: ToolCallEvent): boolean {',
-    '  return event.toolName === "bash" || event.toolName === "bash_command";',
-    '}',
-    '',
-    'function extractBashCommand(event: ToolCallEvent): string | null {',
-    '  const input = event.input as Record<string, unknown> | undefined;',
-    '  if (!input) return null;',
-    '  if (typeof input.command === "string") return input.command;',
-    '  if (typeof input.cmd === "string") return input.cmd;',
-    '  return null;',
-    '}',
-    '',
-    'export default function konohaBlocker(pi: ExtensionAPI) {',
-    '  pi.on("tool_call", (event) => {',
-    '    if (isReadToolCallEvent(event)) {',
-    '      const readPath = extractReadPath(event);',
-    '      if (readPath && isInternalVirtualUri(readPath)) {',
-    '        return undefined;',
-    '      }',
-    '      return { block: true, reason: REASON };',
-    '    }',
-    '    if (isBashToolCallEvent(event)) {',
-    '      const command = extractBashCommand(event);',
-    '      const violation = command ? checkCommandGuardrails(command) : null;',
-    '      if (violation) {',
-    '        return { block: true, reason: violation.reason };',
-    '      }',
-    '    }',
-    '    return undefined;',
-    '  });',
-    '}',
-    ''
-  ].join('\n');
-}
-
-/**
- * Deploys the konoha-blocker.ts extension into ~/.pi/agent/extensions/.
- * Pi auto-loads every file in that directory at startup (same mechanism as
- * rtk.ts), so no settings registration is needed. Idempotent: rewrites only
- * when the on-disk source differs. Note: pi loads extensions at startup
- * only — a running pi session must be restarted to pick this up.
- */
 function deployPiBlockerExtension(silent = true, options = {}) {
   const opts = typeof silent === "object" && silent !== null ? silent : options;
   const isSilent = typeof silent === "boolean" ? silent : (opts.silent !== false);
@@ -514,7 +403,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silentOrOptions = true) {
     if (!config.mcpServers || typeof config.mcpServers !== 'object') config.mcpServers = {};
 
     const isWin = process.platform === 'win32';
-    const resolvedUvx = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
+    const resolvedUvx = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
 
     // Match the other clients: the konoha entry serves all 47 canonical tools through
     // the file-tools launcher (which bootstraps node + workspace jail)

@@ -20,7 +20,7 @@ const currentVersion = pkg.version;
 assert.ok(currentVersion, 'package.json must declare version');
 assert.match(currentVersion, /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$/, 'Version must be semver');
 
-// 1. Verify managed file manifest passes check
+// Verify managed file manifest passes check
 const manifest = getManagedFileList(currentVersion);
 for (const item of manifest) {
   const full = path.join(ROOT_DIR, item.path);
@@ -33,7 +33,7 @@ for (const item of manifest) {
   console.log(`  ✓ ${item.path} verified at v${currentVersion}`);
 }
 
-// 2. Verify scripts/lib/data.json does not contain older versions in release badges
+// Verify scripts/lib/data.json does not contain older versions in release badges
 const dataJsonPath = path.join(ROOT_DIR, 'scripts', 'lib', 'data.json');
 if (fs.existsSync(dataJsonPath)) {
   const dataContent = fs.readFileSync(dataJsonPath, 'utf8');
@@ -47,7 +47,7 @@ if (fs.existsSync(dataJsonPath)) {
   );
 }
 
-// 3. Verify CONTRACT_VERSION in src/agent_contract.js matches package.json
+// Verify CONTRACT_VERSION in src/agent_contract.js matches package.json
 const agentContract = require('../src/agent_contract');
 assert.strictEqual(
   agentContract.CONTRACT_VERSION,

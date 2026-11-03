@@ -25,7 +25,7 @@ const ARCH_PATH = path.join(DOCS_DIR, 'ARCHITECTURE.md');
 const README_PATH = path.join(ROOT_DIR, 'README.md');
 const QA_DOC_PATH = path.join(DOCS_DIR, 'QA-AUTOMATION.md');
 
-// 1. Live Tool Count vs Documentation
+// Live Tool Count vs Documentation
 const liveSchemas = listToolSchemas();
 const toolCount = liveSchemas.length;
 assert.strictEqual(toolCount, 47, `Expected 47 registered tools, found ${toolCount}`);
@@ -70,7 +70,7 @@ assert.strictEqual(
   `Sum of category tool counts in ARCHITECTURE.md must equal 47, got ${sumCategories}`
 );
 
-// 2. Every registered tool name appears in the docs/ARCHITECTURE.md matrix
+// Every registered tool name appears in the docs/ARCHITECTURE.md matrix
 for (const schema of liveSchemas) {
   assert.ok(
     archContent.includes(`\`${schema.name}\``),
@@ -79,7 +79,7 @@ for (const schema of liveSchemas) {
 }
 console.log('  ✓ Tool counts and matrix coverage verified across README and ARCHITECTURE.md');
 
-// 3. XML & Structure checks on konoha-architecture.drawio
+// XML & Structure checks on konoha-architecture.drawio
 assert.ok(fs.existsSync(DRAWIO_PATH), 'konoha-architecture.drawio must exist');
 const drawioContent = fs.readFileSync(DRAWIO_PATH, 'utf-8');
 
@@ -125,7 +125,7 @@ for (const page of pageMatches) {
 }
 console.log('  ✓ All 16 drawio pages have valid tags and strictly unique mxCell IDs.');
 
-// 4. Manifest checks in docs/diagrams/README.md
+// Manifest checks in docs/diagrams/README.md
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 assert.ok(
   manifestContent.includes('sixteen pages'),
@@ -141,7 +141,7 @@ for (const page of pageMatches) {
 }
 console.log('  ✓ Manifest in docs/diagrams/README.md matches all drawio page names.');
 
-// 5. Check labels on drawio page 13 and Mermaid block in docs/QA-AUTOMATION.md
+// Check labels on drawio page 13 and Mermaid block in docs/QA-AUTOMATION.md
 const qaDocContent = fs.readFileSync(QA_DOC_PATH, 'utf-8');
 const page13 = pageMatches.find(p => p.id === 'qa-automation-workflow');
 assert.ok(page13, 'Drawio page 13 with id "qa-automation-workflow" must exist');
@@ -159,7 +159,7 @@ for (const label of requiredLabels) {
 }
 console.log('  ✓ QA automation labels verified on drawio page 13 and Mermaid block.');
 
-// 6. Check relative diagram links in README.md and ARCHITECTURE.md
+// Check relative diagram links in README.md and ARCHITECTURE.md
 const relativeLinkRegex = /\[[^\]]+\]\(((?:docs\/)?diagrams\/[^)]+)\)/g;
 for (const [docName, docDir, content] of [
   ['README.md', ROOT_DIR, readmeContent],
@@ -177,7 +177,7 @@ for (const [docName, docDir, content] of [
 }
 console.log('  ✓ Relative diagram links resolve to existing files.');
 
-// 7. Verify zero geometric collisions across all 13 pages (0 penetrations, 0 crossings, 0 overlaps)
+// Verify zero geometric collisions across all 13 pages (0 penetrations, 0 crossings, 0 overlaps)
 function parsePageGeometry(xml) {
   const cells = new Map();
   const cellRegex = /<mxCell\s+([^>]*?)(\/>|>([\s\S]*?)<\/mxCell>)/g;
@@ -332,7 +332,7 @@ for (const page of pageMatches) {
 }
 console.log('  ✓ Zero geometric collisions verified across all 13 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
 
-// 8. Verify Enterprise Architecture Diagram (konoha-enterprise-architecture.drawio)
+// Verify Enterprise Architecture Diagram (konoha-enterprise-architecture.drawio)
 const ENTERPRISE_DRAWIO_PATH = path.join(DIAGRAMS_DIR, 'konoha-enterprise-architecture.drawio');
 assert.ok(fs.existsSync(ENTERPRISE_DRAWIO_PATH), 'konoha-enterprise-architecture.drawio must exist');
 const entContent = fs.readFileSync(ENTERPRISE_DRAWIO_PATH, 'utf-8');

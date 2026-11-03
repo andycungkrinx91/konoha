@@ -26,7 +26,7 @@ async function run() {
   }
 
   try {
-    // 1. Block appears before task instructions
+    // Block appears before task instructions
     const textKage = invoke('kage');
     const blockIdx = textKage.indexOf('MCP Tools Available To You');
     const taskIdx = textKage.indexOf('## TASK INSTRUCTIONS');
@@ -35,7 +35,7 @@ async function run() {
     assert.ok(blockIdx < taskIdx, 'MCP block must appear before TASK INSTRUCTIONS');
     console.log('✓ Block appears before task instructions passed');
 
-    // 2. Core MCP tools shared across subagents
+    // Core MCP tools shared across subagents
     for (const a of SUBAGENTS) {
       const text = invoke(a);
       assert.ok(text.includes('mcp__konoha__sannin'), `${a} missing mcp__konoha__sannin`);
@@ -46,13 +46,13 @@ async function run() {
     }
     console.log('✓ Core MCP tools shared across subagents passed');
 
-    // 3. Routing rules present
+    // Routing rules present
     const textRouting = invoke('kage');
     assert.ok(textRouting.includes('mcp__konoha__sannin'));
     assert.ok(textRouting.includes('mcp__konoha__find_skill'));
     console.log('✓ Routing rules present passed');
 
-    // 4. Genin and Kage cannot reach aislop_fix
+    // Genin and Kage cannot reach aislop_fix
     for (const role of ['genin', 'kage']) {
       const text = invoke(role);
       const toolsSection = text.slice(
@@ -66,7 +66,7 @@ async function run() {
     }
     console.log('✓ Genin and Kage tool boundaries passed');
 
-    // 5. Anbu and Jonin can reach aislop_fix
+    // Anbu and Jonin can reach aislop_fix
     for (const role of ['jonin', 'anbu']) {
       const text = invoke(role);
       const toolsSection = text.slice(

@@ -25,7 +25,7 @@ const { runMcpWorkflow } = require('../src/mcp/workflow');
 async function run() {
   console.log('Running test_sdlc_remediation_loop tests...');
 
-  // 1. evaluateAntiSlopDeliveryGate - Clean Pass
+  // evaluateAntiSlopDeliveryGate - Clean Pass
   const cleanArtifact = {
     ai_slop_clean: true,
     ai_slop_findings: 0,
@@ -38,7 +38,7 @@ async function run() {
   assert.ok(cleanGate.scanned_at);
   console.log('✓ Clean anti-slop delivery gate pass verified');
 
-  // 2. evaluateAntiSlopDeliveryGate - Fail with findings
+  // evaluateAntiSlopDeliveryGate - Fail with findings
   const dirtyArtifact = {
     ai_slop_clean: false,
     ai_slop_findings: 2,
@@ -56,13 +56,13 @@ async function run() {
   assert.strictEqual(dirtyGate.findings[1].rule, 'R-SLOP-2');
   console.log('✓ Dirty anti-slop delivery gate failure & normalization verified');
 
-  // 3. evaluateAntiSlopDeliveryGate - Null / Invalid Input
+  // evaluateAntiSlopDeliveryGate - Null / Invalid Input
   const nullGate = sdlc.evaluateAntiSlopDeliveryGate(null);
   assert.strictEqual(nullGate.pass, false);
   assert.strictEqual(nullGate.findings[0].rule, 'R-00');
   console.log('✓ Invalid artifact fallback verified');
 
-  // 4. generateSlopFixTask
+  // generateSlopFixTask
   const fixPrompt = sdlc.generateSlopFixTask(dirtyGate);
   assert.ok(fixPrompt.includes('Remediate the following anti-slop Delivery Gate findings:'));
   assert.ok(fixPrompt.includes('[R-SLOP-1]'));
@@ -70,7 +70,7 @@ async function run() {
   assert.ok(fixPrompt.includes('Ensure 0 AI slop findings'));
   console.log('✓ Slop fix task generation verified');
 
-  // 5. Workflow Remediation Loop: Phase 8 Kage -> Anbu Auto-Remediation
+  // Workflow Remediation Loop: Phase 8 Kage -> Anbu Auto-Remediation
   const tmpWorkflowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc_remediation_test_'));
   try {
     const initialStatus = {
@@ -187,7 +187,7 @@ async function run() {
       fs.rmSync(tmpJoninDir, { recursive: true, force: true });
     }
 
-    // 6. Workflow Remediation Loop: Circuit Breaker (> 7 cycles)
+    // Workflow Remediation Loop: Circuit Breaker (> 7 cycles)
     // Fast-forward slop_cycles to 7
     updatedStatus.slop_cycles = 7;
     updatedStatus.phase = 'review';

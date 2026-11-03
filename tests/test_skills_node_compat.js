@@ -10,24 +10,26 @@ const deployUtils = require('../src/deploy_utils');
 async function testSkillsNodeCompat() {
   console.log('Running test_skills_node_compat...');
 
-  // 1. Test parseNodeVersion
+  // Test parseNodeVersion
   assert.deepStrictEqual(deployUtils.parseNodeVersion('v16.20.2'), { major: 16, minor: 20, patch: 2 });
   assert.deepStrictEqual(deployUtils.parseNodeVersion('18.12.0'), { major: 18, minor: 12, patch: 0 });
   assert.deepStrictEqual(deployUtils.parseNodeVersion('v26.5.1'), { major: 26, minor: 5, patch: 1 });
   assert.strictEqual(deployUtils.parseNodeVersion('invalid'), null);
   console.log('✓ parseNodeVersion verified');
 
-  // 2. Test isNodeVersionCompatible
+  // Test isNodeVersionCompatible
   assert.strictEqual(deployUtils.isNodeVersionCompatible('16.20.2'), false);
   assert.strictEqual(deployUtils.isNodeVersionCompatible('v14.21.3'), false);
   assert.strictEqual(deployUtils.isNodeVersionCompatible('18.11.0'), false);
-  assert.strictEqual(deployUtils.isNodeVersionCompatible('18.12.0'), true);
-  assert.strictEqual(deployUtils.isNodeVersionCompatible('v18.19.1'), true);
-  assert.strictEqual(deployUtils.isNodeVersionCompatible('20.11.1'), true);
+  assert.strictEqual(deployUtils.isNodeVersionCompatible('18.12.0'), false);
+  assert.strictEqual(deployUtils.isNodeVersionCompatible('20.11.1'), false);
+  assert.strictEqual(deployUtils.isNodeVersionCompatible('22.13.0'), false);
+  assert.strictEqual(deployUtils.isNodeVersionCompatible('24.0.0'), true);
+  assert.strictEqual(deployUtils.isNodeVersionCompatible('v24.11.0'), true);
   assert.strictEqual(deployUtils.isNodeVersionCompatible('v26.5.1'), true);
   console.log('✓ isNodeVersionCompatible verified');
 
-  // 3. Test resolveCompatibleNode
+  // Test resolveCompatibleNode
   const resolvedNode = deployUtils.resolveCompatibleNode();
   assert.ok(resolvedNode, 'resolveCompatibleNode must return a path');
   assert.ok(fs.existsSync(resolvedNode), `Resolved node path must exist on disk: ${resolvedNode}`);
@@ -37,11 +39,11 @@ async function testSkillsNodeCompat() {
   const version = check.stdout.trim();
   assert.ok(
     deployUtils.isNodeVersionCompatible(version),
-    `Resolved node version ${version} must be >= 18.12.0`
+    `Resolved node version ${version} must be >= 24.0.0`
   );
   console.log(`✓ resolveCompatibleNode verified: ${resolvedNode} (${version})`);
 
-  // 4. Test resolveCompatibleNodeEnv with simulated legacy Node in PATH (ZERO hardcoded paths)
+  // Test resolveCompatibleNodeEnv with simulated legacy Node in PATH (ZERO hardcoded paths)
   const nvmDir = process.env.NVM_DIR || path.join(require('os').homedir(), '.nvm');
   const nvmNodeVersions = path.join(nvmDir, 'versions', 'node');
   let simulatedOldNodeDir = null;
@@ -87,7 +89,7 @@ async function testSkillsNodeCompat() {
     const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
     const pnpmRes = spawnSync(pnpmCmd, ['-v'], { env: childEnv, encoding: 'utf8', shell: isWin });
     if (pnpmRes.status === 0) {
-      assert.ok(!pnpmRes.stderr.includes('requires at least Node.js v18.12'));
+      assert.ok(!pnpmRes.stderr.includes('requires at least Node.js v24'));
       console.log(`✓ pnpm -v executed cleanly under sanitized environment: ${pnpmRes.stdout.trim()}`);
     }
 

@@ -19,13 +19,13 @@ function runCli(args = []) {
 function testConfigCli() {
   console.log('Testing konoha config CLI...');
 
-  // 1. Help
+  // Help
   const helpRes = runCli(['--help']);
   assert.strictEqual(helpRes.status, 0);
   assert.ok(helpRes.stdout.includes('konoha config'));
   console.log('✓ Test 1: konoha config --help verified');
 
-  // 2. Set key with string and number
+  // Set key with string and number
   const setRes = runCli(['set', 'turn_budget', '16384', '--json']);
   assert.strictEqual(setRes.status, 0);
   const setJson = JSON.parse(setRes.stdout.trim());
@@ -34,7 +34,7 @@ function testConfigCli() {
   assert.strictEqual(setJson.value, 16384);
   console.log('✓ Test 2: konoha config set verified');
 
-  // 3. Get key
+  // Get key
   const getRes = runCli(['get', 'turn_budget', '--json']);
   assert.strictEqual(getRes.status, 0);
   const getJson = JSON.parse(getRes.stdout.trim());
@@ -42,19 +42,19 @@ function testConfigCli() {
   assert.strictEqual(getJson.value, 16384);
   console.log('✓ Test 3: konoha config get verified');
 
-  // 4. List keys
+  // List keys
   const listRes = runCli(['list', '--json']);
   assert.strictEqual(listRes.status, 0);
   const listJson = JSON.parse(listRes.stdout.trim());
   assert.strictEqual(listJson.config.turn_budget, 16384);
   console.log('✓ Test 4: konoha config list verified');
 
-  // 5. Disallowed key rejection
+  // Disallowed key rejection
   const badKeyRes = runCli(['set', 'non_existent_key_123', 'foo']);
   assert.strictEqual(badKeyRes.status, 1);
   console.log('✓ Test 5: Disallowed key rejected with exit code 1');
 
-  // 6. Unset key
+  // Unset key
   const unsetRes = runCli(['unset', 'turn_budget', '--json']);
   assert.strictEqual(unsetRes.status, 0);
   const unsetJson = JSON.parse(unsetRes.stdout.trim());

@@ -21,7 +21,7 @@ const TEST_SESSION = 'test-session-' + Date.now();
 
 console.log('Testing Flow-Bounded Skills & Dynamic Turn-by-Turn Contract:');
 
-// 1. Flow Hash Determinism and Distinctness
+// Flow Hash Determinism and Distinctness
 const hash1 = computeFlowHash(TEST_SESSION, 'task-001', 'Fix buffer overflow in backend');
 const hash2 = computeFlowHash(TEST_SESSION, 'task-002', 'Build marketing landing page');
 const hash1_again = computeFlowHash(TEST_SESSION, 'task-001', 'Fix buffer overflow in backend');
@@ -32,7 +32,7 @@ assert.strictEqual(hash1, hash1_again, 'flow_hash must be deterministic');
 assert.notStrictEqual(hash1, hash2, 'Task 1 and Task 2 must have distinct flow hashes in the same session');
 console.log('  ✓ Flow hash generation is deterministic and unique per task flow.');
 
-// 2. Sannin Routes Flow Hash and Domain Skills
+// Sannin Routes Flow Hash and Domain Skills
 const sanninResStr = runSannin(
   'Fix buffer overflow in memory allocator using clang and static-analysis',
   null,
@@ -52,7 +52,7 @@ const flowSkills = personaMemory.getFlowSkills(sanninRes.flow_hash);
 assert.ok(Array.isArray(flowSkills), 'getFlowSkills must return an array');
 console.log(`  ✓ Sannin routes skills [${sanninRes.skills.join(', ')}] and persists flow_hash: ${sanninRes.flow_hash}`);
 
-// 3. runMcpAgent Turn 1 Injects Active Flow Skills and Soul Behavior
+// runMcpAgent Turn 1 Injects Active Flow Skills and Soul Behavior
 const agentResStr1 = runMcpAgent(
   sanninRes.selected_agent,
   'Investigate buffer overflow issue',
@@ -75,7 +75,7 @@ assert.ok(agentRes1.instructions.includes('Anti-Slop Discipline (Soul-Bound)'), 
 assert.ok(Buffer.byteLength(agentRes1.instructions, 'utf8') < 8000, `Prompt must be < 8000 bytes (got ${Buffer.byteLength(agentRes1.instructions, 'utf8')})`);
 console.log('  ✓ Turn 1 prompt binds active flow skills and soul behaviors under 8,000 bytes.');
 
-// 4. Turn-by-Turn Dynamic Skill Loading with use_skills
+// Turn-by-Turn Dynamic Skill Loading with use_skills
 const useResStr = useSkills(
   ['rust-programming-expert'],
   'anbu',
@@ -89,7 +89,7 @@ assert.strictEqual(useRes.flow_hash, sanninRes.flow_hash, 'useSkills must return
 const updatedFlowSkills = personaMemory.getFlowSkills(sanninRes.flow_hash);
 assert.ok(updatedFlowSkills.includes('rust-programming-expert'), 'Newly loaded skill must be bound to flow in SQLite');
 
-// 5. runMcpAgent Turn 2 Retains Loaded Skill Without Amnesia
+// runMcpAgent Turn 2 Retains Loaded Skill Without Amnesia
 const agentResStr2 = runMcpAgent(
   sanninRes.selected_agent,
   'Apply compiler patch for allocator',
@@ -107,7 +107,7 @@ assert.ok(agentRes2.instructions.includes('rust-programming-expert'), 'Turn 2 mu
 assert.ok(Buffer.byteLength(agentRes2.instructions, 'utf8') < 8000, 'Turn 2 prompt must be < 8000 bytes');
 console.log('  ✓ Turn 2 retains dynamically loaded skills across turns without amnesia.');
 
-// 6. Cross-Task Isolation in Same Session (Task 1 vs Task 2)
+// Cross-Task Isolation in Same Session (Task 1 vs Task 2)
 const task2Prompt = 'Build landing page in Next.js with hero carousel and 10-theme switcher';
 const sanninRes2 = JSON.parse(runSannin(task2Prompt, null, ROOT, TEST_SESSION));
 assert.notStrictEqual(sanninRes2.flow_hash, sanninRes.flow_hash, 'Task 2 must have different flow_hash than Task 1');
@@ -132,7 +132,7 @@ const agentResTask2 = JSON.parse(agentResStrTask2);
 assert.strictEqual(agentResTask2.instructions.includes('rust-programming-expert'), false, 'Task 2 prompt must not contain Task 1 skills');
 console.log('  ✓ Cross-task isolation verified: Task 2 is completely isolated from Task 1 in the same session.');
 
-// 7. Direct tool_dispatch invocation with flow_hash forwards cleanly without task_id
+// Direct tool_dispatch invocation with flow_hash forwards cleanly without task_id
 const customFlow = 'flow_test_88';
 const dispatchUseRes = JSON.parse(executeToolSync('use_skills', {
   skills: ['go-programming-expert'],

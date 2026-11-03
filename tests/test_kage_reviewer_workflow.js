@@ -15,7 +15,7 @@ async function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kage_rev_'));
 
   try {
-    // 1. Kage review dispatch when in review phase
+    // Kage review dispatch when in review phase
     const status1 = {
       phase: 'review',
       tasks: [
@@ -34,7 +34,7 @@ async function run() {
     assert.ok(res1.task.includes('Verify every task'));
     console.log('✓ Kage review dispatch passed');
 
-    // 2. Kage review rejection on validation errors
+    // Kage review rejection on validation errors
     const status2 = {
       phase: 'review',
       tasks: [
@@ -60,7 +60,7 @@ async function run() {
     assert.ok(res2.message.includes('Kage review'));
     console.log('✓ Kage review rejection on validation errors passed');
 
-    // 3. Kage review rejection on low confidence
+    // Kage review rejection on low confidence
     const status3 = {
       phase: 'review',
       tasks: [
@@ -106,7 +106,7 @@ async function run() {
     assert.strictEqual(res3c.phase, 'review');
     console.log('✓ Kage review rejection on low confidence passed');
 
-    // 4. Kage review approval advances to synthesize
+    // Kage review approval advances to synthesize
     const status4 = {
       phase: 'review',
       tasks: [

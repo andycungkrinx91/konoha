@@ -14,7 +14,7 @@ const { detectStack } = require('../src/mcp/stack_detector');
 
 console.log('Running test_stack_detector.js tests...');
 
-// 1. Current Node.js Repository
+// Current Node.js Repository
 const nodeStack = detectStack(path.resolve(__dirname, '..'));
 assert.strictEqual(nodeStack.ecosystem, 'node');
 assert.strictEqual(nodeStack.manifest, 'package.json');
@@ -26,7 +26,7 @@ console.log('  ✓ Node.js / TypeScript stack detected successfully.');
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_stack_test_'));
 
 try {
-  // 2. Python (uv)
+  // Python (uv)
   const pyDir = path.join(tmpRoot, 'python_project');
   fs.mkdirSync(pyDir);
   fs.writeFileSync(path.join(pyDir, 'pyproject.toml'), '[project]\nname = "demo"\n');
@@ -38,7 +38,7 @@ try {
   assert.strictEqual(pyStack.lint_command, 'rtk uv run ruff check');
   console.log('  ✓ Python (uv) stack detected successfully.');
 
-  // 3. Go
+  // Go
   const goDir = path.join(tmpRoot, 'go_project');
   fs.mkdirSync(goDir);
   fs.writeFileSync(path.join(goDir, 'go.mod'), 'module example.com/demo\n');
@@ -49,7 +49,7 @@ try {
   assert.strictEqual(goStack.lint_command, 'rtk golangci-lint run');
   console.log('  ✓ Go stack detected successfully.');
 
-  // 4. Rust
+  // Rust
   const rustDir = path.join(tmpRoot, 'rust_project');
   fs.mkdirSync(rustDir);
   fs.writeFileSync(path.join(rustDir, 'Cargo.toml'), '[package]\nname = "demo"\n');
@@ -61,7 +61,7 @@ try {
   assert.strictEqual(rustStack.lint_command, 'rtk cargo clippy -- -D warnings');
   console.log('  ✓ Rust stack detected successfully.');
 
-  // 5. PHP
+  // PHP
   const phpDir = path.join(tmpRoot, 'php_project');
   fs.mkdirSync(phpDir);
   fs.writeFileSync(path.join(phpDir, 'composer.json'), '{"name": "demo/app"}\n');
@@ -71,7 +71,7 @@ try {
   assert.strictEqual(phpStack.build_command, 'rtk composer install');
   console.log('  ✓ PHP stack detected successfully.');
 
-  // 6. Java (Gradle)
+  // Java (Gradle)
   const javaDir = path.join(tmpRoot, 'java_project');
   fs.mkdirSync(javaDir);
   fs.writeFileSync(path.join(javaDir, 'build.gradle'), '// gradle build\n');
@@ -81,7 +81,7 @@ try {
   assert.ok(javaStack.test_command.includes('gradle test'));
   console.log('  ✓ Java stack detected successfully.');
 
-  // 7. Unknown
+  // Unknown
   const emptyDir = path.join(tmpRoot, 'empty_project');
   fs.mkdirSync(emptyDir);
   const unknownStack = detectStack(emptyDir);

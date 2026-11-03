@@ -1,5 +1,5 @@
 # Konoha MCP Orchestrator — Production Docker Container (v2.2.17)
-FROM node:22-slim AS base
+FROM node:24-slim AS base
 
 ENV NODE_ENV=production \
     PORT=1404 \
@@ -13,6 +13,7 @@ RUN corepack enable && corepack prepare pnpm@10.8.0 --activate
 
 # Copy dependency manifests and install scripts
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 COPY bin ./bin
 
 # Install production dependencies only
@@ -27,11 +28,14 @@ COPY README.md LICENSE ./
 # Pre-seed runtime layout in /home/node/.konoha
 RUN mkdir -p /home/node/.konoha/apps/web && \
     cp -r /app/bin /home/node/.konoha/bin && \
+    cp -r /app/src/. /home/node/.konoha/ && \
     cp -r /app/src /home/node/.konoha/src && \
+    cp -r /app/patches /home/node/.konoha/patches && \
     cp -r /app/assets /home/node/.konoha/assets && \
     cp -r /app/.agents /home/node/.konoha/.agents && \
     cp -r /app/apps/web/build /home/node/.konoha/apps/web/build && \
     cp /app/apps/web/package.json /home/node/.konoha/apps/web/package.json && \
+    cp /app/package.json /home/node/.konoha/package.json && \
     ln -s /app/node_modules /home/node/.konoha/node_modules && \
     chown -R node:node /home/node
 

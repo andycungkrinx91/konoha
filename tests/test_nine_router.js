@@ -7,12 +7,12 @@ const nineRouter = require('../src/nine_router');
 console.log('Running test_nine_router.js...');
 
 async function runTests() {
-  // 1. is9RouterInstalled
+  // is9RouterInstalled
   const installed = nineRouter.is9RouterInstalled();
   assert.strictEqual(typeof installed, 'boolean', 'is9RouterInstalled must return a boolean');
   console.log(`  ✓ is9RouterInstalled: ${installed}`);
 
-  // 2. get9RouterStatus
+  // get9RouterStatus
   const status = await nineRouter.get9RouterStatus();
   assert.ok(status, 'get9RouterStatus must return an object');
   assert.strictEqual(typeof status.installed, 'boolean');
@@ -22,7 +22,7 @@ async function runTests() {
   assert.strictEqual(typeof status.model_count, 'number');
   console.log(`  ✓ get9RouterStatus: running=${status.running}, port=${status.port}, model_count=${status.model_count}`);
 
-  // 3. discover9RouterModels
+  // discover9RouterModels
   const models = await nineRouter.discover9RouterModels();
   assert.ok(Array.isArray(models), 'discover9RouterModels must return an array');
   if (status.running && models.length > 0) {
@@ -35,7 +35,7 @@ async function runTests() {
     console.log('  ✓ discover9RouterModels cleanly returned empty array or offline state.');
   }
 
-  // 4. Resilience to Unreachable / Closed Port (No hang, no crash, clean empty response)
+  // Resilience to Unreachable / Closed Port (No hang, no crash, clean empty response)
   const deadProbe = await nineRouter.probe9RouterEndpoint(59999);
   assert.strictEqual(deadProbe.ok, false);
   assert.deepStrictEqual(deadProbe.data, []);

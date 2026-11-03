@@ -16,21 +16,46 @@ async function planNode(state) {
   if (state.hitlChoice && (state.hitlStage === 'gate1' || !status.plan_approved)) {
     const choiceObj = parseGateChoice(state.hitlChoice, state.hitlRefinement);
     if (choiceObj) {
-      applyGate1Choice(choiceObj, status, taskDir, sdlcManager);
-      status.plan_approved = true;
-      status.hitl_gate = null;
-      status.phase = 'brief';
-      saveWorkflowStatus(taskDir, status);
-    }
+      const choiceResult = applyGate1Choice(choiceObj, status, taskDir, sdlcManager);
+      if (choiceResult && choiceResult.approved) {
+        status.plan_approved = true;
+        status.hitl_gate = null;
+        status.phase = 'brief';
+        saveWorkflowStatus(taskDir, status);
 
-    const payload = {
-      status,
-      plan: status.plan,
-      phase: 'brief',
-      hitlPending: false,
-      hitlStage: null,
-    };
-    return finalizeNodeResult(state, payload, 'node_brief', { source: choiceObj });
+        const payload = {
+          status,
+          plan: status.plan,
+          phase: 'brief',
+          hitlPending: false,
+          hitlStage: null,
+          hitlChoice: null,
+          hitlRefinement: null,
+        };
+        return finalizeNodeResult(state, payload, 'node_brief', { source: choiceObj });
+      }
+
+      status.plan_approved = false;
+      status.hitl_gate = 'pending_plan_approval';
+      saveWorkflowStatus(taskDir, status);
+
+      const prompt = buildGate1Prompt(status, taskDir, rootTaskId, status.plan);
+      const payload = {
+        status,
+        plan: status.plan,
+        phase: 'plan',
+        hitlPending: true,
+        hitlStage: 'gate1',
+        hitlChoice: null,
+        hitlRefinement: null,
+        result: prompt,
+      };
+      return finalizeNodeResult(state, payload, 'node_brief', {
+        selfResume: true,
+        selfNode: 'node_plan',
+        source: prompt,
+      });
+    }
   }
 
   const rootRecord = sdlcManager.getTask(rootTaskId);

@@ -12,7 +12,7 @@ console.log('Running test_client_disconnect_and_bridge_scope.js...');
 const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-scope-test-'));
 
 try {
-  // 1. Test antigravity_manager removeAntigravityConfig and ensureAntigravitySetup
+  // Test antigravity_manager removeAntigravityConfig and ensureAntigravitySetup
   const agManager = require('../src/antigravity_manager');
   assert.strictEqual(typeof agManager.removeAntigravityConfig, 'function', 'removeAntigravityConfig should be exported');
   assert.strictEqual(typeof agManager.ensureAntigravitySetup, 'function', 'ensureAntigravitySetup should be exported');
@@ -46,7 +46,7 @@ try {
   assert.ok(parsedAfterRemove.mcpServers.other_custom_server, 'other custom servers must be preserved');
   console.log('  ✓ antigravity_manager removeAntigravityConfig verified.');
 
-  // 2. Test mcp_clients_manager removeCommandCodeConfig
+  // Test mcp_clients_manager removeCommandCodeConfig
   const mcpClients = require('../src/mcp_clients_manager');
   assert.strictEqual(typeof mcpClients.removeCommandCodeConfig, 'function', 'removeCommandCodeConfig should be exported');
 
@@ -69,7 +69,7 @@ try {
   assert.ok(parsedCcAfter.mcpServers.user_tool, 'user_tool must be preserved in commandcode');
   console.log('  ✓ mcp_clients_manager removeCommandCodeConfig verified.');
 
-  // 3. Test cursor_manager removeCursorConfig cleans up accidental konoha-bridge
+  // Test cursor_manager removeCursorConfig cleans up accidental konoha-bridge
   const cursorMgr = require('../src/cursor_manager');
   const cursorExtDir = path.join(tempHome, '.cursor', 'extensions');
   fs.mkdirSync(cursorExtDir, { recursive: true });
@@ -81,13 +81,13 @@ try {
   assert.strictEqual(fs.existsSync(dummyBridgeExt), false, 'konoha-bridge extension should be purged from ~/.cursor/extensions');
   console.log('  ✓ cursor_manager removeCursorConfig purges konoha-bridge extension from Cursor.');
 
-  // 4. Test bin/cli.js invariants: konoha-bridge VSIX auto-installer is removed in 2.2.1
+  // Test bin/cli.js invariants: konoha-bridge VSIX auto-installer is removed in 2.2.1
   const extensionLib = require('../bin/lib/extension');
   assert.strictEqual(extensionLib.installExtensionViaCli, undefined, 'installExtensionViaCli must be removed in 2.2.1');
   assert.strictEqual(extensionLib.autoInstallKonohaBridgeExtension, undefined, 'autoInstallKonohaBridgeExtension must be removed in 2.2.1');
   console.log('  ✓ bin/lib/extension.js VSIX installer removal verified.');
 
-  // 5. Test agent_contract.js invariants
+  // Test agent_contract.js invariants
   const contractSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'agent_contract.js'), 'utf8');
   assert.match(contractSource, /Konoha-Bridge extension scoping invariant/, 'agent contract must include Konoha-Bridge extension scoping invariant');
   assert.match(contractSource, /is exclusively for Antigravity IDE/, 'agent contract must state extension is exclusively for Antigravity IDE');

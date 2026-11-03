@@ -22,7 +22,7 @@ async function run() {
     const conn = db.getConnection(testDb);
     db.setupSchema(conn);
 
-    // 1. Test Stale Task Reconciliation
+    // Test Stale Task Reconciliation
     const now = Date.now();
     const staleTime = new Date(now - 3600 * 1000).toISOString(); // 1 hour ago
     const freshTime = new Date(now - 60 * 1000).toISOString();   // 1 minute ago
@@ -48,7 +48,7 @@ async function run() {
     assert.strictEqual(freshTask.status, 'in_progress', 'Live task status must remain in_progress');
     console.log('✓ Stale task reconciliation logic passed');
 
-    // 2. Test Active Workspaces Aggregation Across OMP, Claude, and Antigravity
+    // Test Active Workspaces Aggregation Across OMP, Claude, and Antigravity
     const wsOmp = path.join(tmpDir, 'workspace-omp');
     const wsClaude = path.join(tmpDir, 'workspace-claude');
     const wsAgy = path.join(tmpDir, 'workspace-agy');

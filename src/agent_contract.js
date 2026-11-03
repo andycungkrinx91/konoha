@@ -157,7 +157,8 @@ function generateGenericSubagentMd(agent, client = 'generic') {
   }
 
   if (agent.skills && agent.skills.length > 0) {
-    const loadingInstruction = `Before work: call konoha.find_skill with keywords from the task prompt to load relevant domain references. After discovery, load full skill content with konoha.get_skill.`;
+    const skillList = agent.skills.map(s => `"${s}"`).join(', ');
+    const loadingInstruction = `MANDATORY FIRST ACTION before writing code: Call konoha.use_skills({ skills: [${skillList}] }) or konoha.get_skill to load your assigned domain guidelines into context. NEVER skip loading your assigned skills.`;
     const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
     const logMatch = instructions.match(logPattern);
     if (logMatch) {

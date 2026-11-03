@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, '..');
 async function run() {
   console.log('Running test_genin_skill_contract tests...');
 
-  // 1. Shipped skill metadata is canonical
+  // Shipped skill metadata is canonical
   const globalGeninDir = path.join(os.homedir(), '.agents', 'skills', 'genin-skill');
   const projectGeninDir = path.join(ROOT, '.agents', 'skills', 'genin-skill');
   const templateGeninDir = path.join(ROOT, 'src', 'templates', 'skills', 'genin-skill');
@@ -59,7 +59,7 @@ async function run() {
   }
   console.log('✓ Shipped skill metadata is canonical passed');
 
-  // 2. Legacy rows canonicalize with canonical precedence
+  // Legacy rows canonicalize with canonical precedence
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genin_contract_'));
   const testDbPath = path.join(tmpDir, 'skills.db');
 
@@ -86,7 +86,7 @@ async function run() {
     conn.close();
     console.log('✓ Legacy rows canonicalize with canonical precedence passed');
 
-    // 3. Clean migration requires genin-skill
+    // Clean migration requires genin-skill
     const skillsDir = path.join(tmpDir, 'skills');
     const geninDir = path.join(skillsDir, 'genin-skill');
     fs.mkdirSync(geninDir, { recursive: true });

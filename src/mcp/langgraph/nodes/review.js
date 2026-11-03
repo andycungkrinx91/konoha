@@ -21,6 +21,8 @@ function createPassResult(status, taskDir, state, payload) {
     gateVerdict: 'pass',
     hitlPending: false,
     hitlStage: null,
+    hitlChoice: null,
+    hitlRefinement: null,
   };
   return finalizeNodeResult(state, resPayload, 'node_complete', { source: payload });
 }
@@ -73,8 +75,27 @@ async function reviewNode(state) {
   if (state.hitlChoice && (state.hitlStage === 'gate2' || !status.human_signed_off)) {
     const choiceObj = parseGateChoice(state.hitlChoice, state.hitlRefinement);
     const g2Res = applyGate2Choice(choiceObj, status, taskDir, sdlcManager);
-    if (g2Res.signed_off) {
+    if (g2Res && g2Res.signed_off) {
       return createPassResult(status, taskDir, state, g2Res);
+    }
+    if (g2Res && (g2Res.remediation || choiceObj?.action === 'remediate')) {
+      status.phase = 'remediate';
+      status.gateVerdict = 'remediate';
+      status.hitl_gate = null;
+      if (taskDir) saveWorkflowStatus(taskDir, status);
+
+      const payload = {
+        status,
+        phase: 'remediate',
+        gateVerdict: 'remediate',
+        hitlPending: false,
+        hitlStage: null,
+        hitlChoice: null,
+        hitlRefinement: null,
+      };
+      return finalizeNodeResult(state, payload, 'node_remediate', {
+        source: { verdict: 'remediate', choiceObj, g2Res },
+      });
     }
   }
 

@@ -127,7 +127,7 @@ function _configureKonohaMcpServer(config, pythonCmd, serverPath) {
 
 function _configureSembleMcpServer(config, uvxCmd) {
   const isWin = process.platform === 'win32';
-  const resolvedCmd = uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
+  const resolvedCmd = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
 
   config.mcp['semble'] = {
     type: 'local',

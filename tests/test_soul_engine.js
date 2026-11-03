@@ -23,7 +23,7 @@ const { syncSoul } = require('../scripts/sync_skills');
 
 console.log('Running test_soul_engine.js...');
 
-// 1. Template and .agents SOUL.md existence
+// Template and .agents SOUL.md existence
 const templatePath = path.join(ROOT, 'src', 'templates', 'SOUL.md');
 const homeAgents = path.join(require('os').homedir(), '.agents');
 const homeSoulPath = path.join(homeAgents, 'SOUL.md');
@@ -38,7 +38,7 @@ const agentsContent = fs.readFileSync(agentsSoulPath, 'utf8');
 assert.strictEqual(templateContent, agentsContent, 'src/templates/SOUL.md and .agents/SOUL.md must be identical');
 console.log('  ✓ Authoritative SOUL.md files exist and are synchronized.');
 
-// 2. Client mirror tree synchronization
+// Client mirror tree synchronization
 const syncResult = syncSoul();
 assert.ok(typeof syncResult === 'number', 'syncSoul() must return number of updated files');
 
@@ -53,7 +53,7 @@ for (const mirror of clientMirrors) {
 }
 console.log('  ✓ SOUL.md synchronized to canonical target (~/.agents/SOUL.md).');
 
-// 3. personaMemory.getSoul() general query
+// personaMemory.getSoul() general query
 const soul = personaMemory.getSoul({ projectPath: ROOT });
 assert.ok(soul, 'getSoul must return a valid object');
 assert.ok(soul.title.includes('Soul of Konoha'), 'title must contain Soul of Konoha');
@@ -75,7 +75,7 @@ assert.ok(soul.universal_adhd_standard.includes('i-have-adhd'), 'universal_adhd_
 assert.ok(soul.tenets[1].summary.includes('i-have-adhd'), 'tenet 2 must mandate i-have-adhd');
 console.log('  ✓ personaMemory.getSoul() returns valid doctrine, 5 tenets, and i-have-adhd standard on all 7 spirits.');
 
-// 4. personaMemory.getSoul() with archetype filtering
+// personaMemory.getSoul() with archetype filtering
 const joninSoul = personaMemory.getSoul({ agentName: 'jonin', projectPath: ROOT });
 assert.ok(joninSoul.archetype, 'jonin query must return archetype object');
 assert.strictEqual(joninSoul.archetype.name, '♦ Jonin', 'jonin name must be ♦ Jonin');
@@ -92,13 +92,13 @@ assert.strictEqual(sanninSoul.archetype.antislop_skills.length, 1, 'sannin must 
 assert.strictEqual(sanninSoul.archetype.antislop_skills.includes('antislop-code'), false, 'sannin must exclude antislop-code');
 console.log('  ✓ personaMemory.getSoul() archetype filtering and normalization work correctly.');
 
-// 5. personaMemory.getSoul() with raw mode
+// personaMemory.getSoul() with raw mode
 const rawSoul = personaMemory.getSoul({ raw: true, projectPath: ROOT });
 assert.ok(rawSoul.raw_markdown, 'raw mode must return raw_markdown');
 assert.ok(rawSoul.raw_markdown.includes('The Soul of Konoha'), 'raw_markdown must contain Soul of Konoha header');
 console.log('  ✓ personaMemory.getSoul({ raw: true }) returns raw markdown document.');
 
-// 6. MCP tool dispatch via dispatchTool('get_soul', ...)
+// MCP tool dispatch via dispatchTool('get_soul', ...)
 const mcpGeneral = dispatchTool('get_soul', {}, ROOT);
 assert.strictEqual(mcpGeneral.isError, false, 'get_soul MCP tool must succeed');
 const mcpParsed = JSON.parse(mcpGeneral.text);
@@ -114,7 +114,7 @@ assert.strictEqual(mcpRaw.isError, false, 'get_soul MCP tool with raw mode must 
 assert.ok(mcpRaw.text.includes('The Soul of Konoha'), 'MCP raw output must contain document title');
 console.log('  ✓ dispatchTool("get_soul", ...) handles general, filtered, and raw invocations.');
 
-// 7. CLI execution via bin/cli.js soul
+// CLI execution via bin/cli.js soul
 const cliGeneral = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'cli.js'), 'soul'], {
   cwd: ROOT,
   encoding: 'utf8'

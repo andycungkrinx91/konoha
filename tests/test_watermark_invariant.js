@@ -20,7 +20,7 @@ console.log('Running test_watermark_invariant: verifying branding and watermark 
 const ROOT = path.resolve(__dirname, '..');
 const EXPECTED_WATERMARK = 'Build by Konoha shadow ninja with coffee by Andy Setiyawan';
 
-// 1. Verify build_spec.js and build_spec_common.js define the exact expected watermark
+// Verify build_spec.js and build_spec_common.js define the exact expected watermark
 const buildSpec = fs.readFileSync(path.join(ROOT, 'src', 'mcp', 'build_spec.js'), 'utf8');
 assert.ok(
   buildSpec.includes(EXPECTED_WATERMARK),
@@ -34,7 +34,7 @@ assert.ok(
 );
 console.log('✓ Build spec directives enforce official watermark');
 
-// 2. Verify jonin-skill references enforce the official watermark
+// Verify jonin-skill references enforce the official watermark
 const joninRefsDir = path.join(ROOT, 'src', 'templates', 'skills', 'jonin-skill', 'references');
 const joninFiles = [
   'taste-skill-frontend-expert.md',
@@ -54,7 +54,7 @@ for (const file of joninFiles) {
 }
 console.log('✓ All Jonin frontend skill references enforce official watermark');
 
-// 3. Verify zero occurrences of bare "Build by Konoha" outside node_modules
+// Verify zero occurrences of bare "Build by Konoha" outside node_modules
 const checkDirs = ['src', 'bin', 'apps'];
 for (const dir of checkDirs) {
   const fullPath = path.join(ROOT, dir);
@@ -82,7 +82,7 @@ for (const dir of checkDirs) {
 }
 console.log('✓ Zero bare "Build by Konoha" watermarks in src/, bin/, or apps/');
 
-// 4. Verify first-party image binary assets contain zero AI model watermarks
+// Verify first-party image binary assets contain zero AI model watermarks
 const assetFiles = fs.readdirSync(path.join(ROOT, 'assets')).filter(f => /\.(webp|png|jpg|jpeg)$/.test(f));
 for (const file of assetFiles) {
   const filePath = path.join(ROOT, 'assets', file);

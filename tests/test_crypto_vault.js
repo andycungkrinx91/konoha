@@ -25,7 +25,7 @@ const tgConfig = require('../src/telegram/config');
 async function runTests() {
   console.log('Running test_crypto_vault.js...');
 
-  // 1. Encryption format and roundtrip
+  // Encryption format and roundtrip
   const testPlain = '123456789:AAExampleSecretTokenForTestingOnly_999';
   const cipher1 = vault.encryptSecret(testPlain);
   assert.ok(vault.isEncrypted(cipher1), 'Ciphertext must be recognized as encrypted');
@@ -40,38 +40,38 @@ async function runTests() {
   const decrypted1 = vault.decryptSecret(cipher1);
   assert.strictEqual(decrypted1, testPlain, 'Decrypted secret must match original plaintext');
 
-  // 2. Semantic security (different IV on each encryption)
+  // Semantic security (different IV on each encryption)
   const cipher2 = vault.encryptSecret(testPlain);
   assert.notStrictEqual(cipher1, cipher2, 'Subsequent encryptions of same text must have unique random IVs');
   assert.strictEqual(vault.decryptSecret(cipher2), testPlain, 'Both ciphertexts must decrypt to same plaintext');
 
-  // 3. Idempotency (prevent double encryption)
+  // Idempotency (prevent double encryption)
   const doubleEnc = vault.encryptSecret(cipher1);
   assert.strictEqual(doubleEnc, cipher1, 'Encrypting an already encrypted payload must return it as-is');
 
-  // 4. Backward compatibility with plaintext
+  // Backward compatibility with plaintext
   const legacyPlain = 'legacy_plaintext_api_token';
   assert.strictEqual(vault.decryptSecret(legacyPlain), legacyPlain, 'Plaintext without enc:v1: must pass through');
 
-  // 5. Tamper resistance (GMAC authentication check)
+  // Tamper resistance (GMAC authentication check)
   const tamperedParts = [...parts];
   tamperedParts[4] = '00' + tamperedParts[4].slice(2); // alter 1 byte of ciphertext
   const tampered = tamperedParts.join(':');
   const tamperedResult = vault.decryptSecret(tampered);
   assert.strictEqual(tamperedResult, '', 'Tampered ciphertext must fail authentication and return empty string');
 
-  // 6. Null and empty handling
+  // Null and empty handling
   assert.strictEqual(vault.encryptSecret(''), '', 'Empty string encryption must be empty string');
   assert.strictEqual(vault.encryptSecret(null), '', 'Null encryption must be empty string');
   assert.strictEqual(vault.decryptSecret(''), '', 'Empty string decryption must be empty string');
   assert.strictEqual(vault.decryptSecret(null), '', 'Null decryption must be empty string');
 
-  // 7. Masking helper
+  // Masking helper
   const masked = vault.maskSecret(cipher1, 10);
   assert.strictEqual(masked, '123456789:...', 'Secret must be unmasked then truncated for display');
   assert.strictEqual(vault.maskSecret(''), '', 'Empty secret masking must return empty');
 
-  // 8. Telegram Bot Token At-Rest SQLite Encryption
+  // Telegram Bot Token At-Rest SQLite Encryption
   const rawBotToken = '987654321:AAFakeBotFatherGeneratedToken_XYZ';
   const rawSecret = 'webhook_auth_secret_token_123';
   tgConfig.saveTelegramConfig({

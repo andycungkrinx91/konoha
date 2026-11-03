@@ -2,7 +2,7 @@
 
 /**
  * Synchronous SQLite driver for Konoha built on Node's bundled `node:sqlite`
- * (Node >= 22.16 ships SQLite with FTS5 enabled). Exposes the small
+ * (Node >= 24.0.0 ships SQLite with FTS5 enabled). Exposes the small
  * better-sqlite3-style surface the codebase relies on — prepare, exec,
  * pragma, transaction, loadExtension, close — so the runtime has zero native
  * dependencies and nothing to compile at install time.
@@ -15,7 +15,7 @@ const NAMED_PARAMETER = /[:@$]([A-Za-z_][A-Za-z0-9_]*)/g;
 const DEFAULT_BUSY_TIMEOUT_MS = 5000;
 
 // node:sqlite prints an ExperimentalWarning to stderr when first loaded on
-// Node 22/24. Filter only that warning, only while the module loads, so MCP
+// Node 24/26. Filter only that warning, only while the module loads, so MCP
 // stdio sessions and CLI output stay clean.
 function loadNodeSqlite() {
   const originalEmitWarning = process.emitWarning;
@@ -27,7 +27,7 @@ function loadNodeSqlite() {
   try {
     return require('node:sqlite');
   } catch (err) {
-    throw new Error(`Konoha requires Node.js >= 22.16 with the built-in node:sqlite module (${err.message})`);
+    throw new Error(`Konoha requires Node.js >= 24.0.0 with the built-in node:sqlite module (${err.message})`);
   } finally {
     process.emitWarning = originalEmitWarning;
   }

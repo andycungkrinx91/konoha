@@ -58,7 +58,7 @@ async function run() {
       );
     `);
 
-    // 1. Cross-Provider Independence Detection with different models
+    // Cross-Provider Independence Detection with different models
     conn.prepare(`
       INSERT INTO agents (name, model, skills) VALUES
         ('kage', 'anthropic/claude-3-7-sonnet', 'kage-skill, anti-slop'),
@@ -76,27 +76,27 @@ async function run() {
     assert.strictEqual(crossRes1.implementingModel, 'openai/gpt-4o');
     console.log('✓ Cross-provider detection with different models passed');
 
-    // 2. Same Provider / Model fallback to 'self'
+    // Same Provider / Model fallback to 'self'
     // implementing=genin (claude), reviewer=kage (claude) => self
     const sameRes = sdlc.detectReviewIndependence('genin', 'kage', testDbPath);
     assert.strictEqual(sameRes.isCrossProvider, false);
     assert.strictEqual(sameRes.reviewMode, 'self');
     console.log('✓ Same-provider fallback to self passed');
 
-    // 3. Prefix handling (mcp_anbu, tokubetsu_jonin)
+    // Prefix handling (mcp_anbu, tokubetsu_jonin)
     const prefixRes1 = sdlc.detectReviewIndependence('mcp_anbu', 'kage', testDbPath);
     assert.strictEqual(prefixRes1.isCrossProvider, true);
     const prefixRes2 = sdlc.detectReviewIndependence('tokubetsu_jonin', 'kage', testDbPath);
     assert.strictEqual(prefixRes2.isCrossProvider, true);
     console.log('✓ Agent prefix normalization passed');
 
-    // 4. Missing agent / default model fallback
+    // Missing agent / default model fallback
     const missingRes = sdlc.detectReviewIndependence('unknown_ninja', 'kage', testDbPath);
     assert.strictEqual(missingRes.isCrossProvider, false);
     assert.strictEqual(missingRes.reviewMode, 'self');
     console.log('✓ Missing agent fallback passed');
 
-    // 5. Project Config review_mode persistence
+    // Project Config review_mode persistence
     const projPath = '/path/to/my/project';
     const initialConfig = sdlc.getProjectSdlcConfig(projPath, testDbPath);
     assert.strictEqual(initialConfig.review_mode, 'self');
@@ -106,7 +106,7 @@ async function run() {
     assert.strictEqual(updatedConfig.review_mode, 'cross-provider');
     console.log('✓ Project SDLC review_mode persistence passed');
 
-    // 6. CLI: konoha project set review-mode
+    // CLI: konoha project set review-mode
     const cliRes = execSync('node bin/cli.js project set review-mode cross-provider', { encoding: 'utf8' });
     const cleanCliRes = cliRes.replace(/\x1b\[[0-9;]*m/g, '');
     assert.ok(cleanCliRes.includes('Set review-mode') || cleanCliRes.includes('cross-provider'));
@@ -116,7 +116,7 @@ async function run() {
     assert.ok(cleanCliReset.includes('Set review-mode') || cleanCliReset.includes('self'));
     console.log('✓ CLI konoha project set review-mode passed');
 
-    // 7. Doctor SDLC Checks
+    // Doctor SDLC Checks
     conn.close();
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

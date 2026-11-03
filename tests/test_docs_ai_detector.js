@@ -30,7 +30,7 @@ function check(name, cond, detail) {
 
 console.log('\n📄 Testing Document AI Detector (src/docs_ai_detector.js)...');
 
-// 1. Production DOCX deliverable audit
+// Production DOCX deliverable audit
 const docxPath = path.resolve(__dirname, '..', 'docs', 'KONOHA-OVERVIEW.docx');
 if (fs.existsSync(docxPath)) {
   const resDocx = detectDocsAi(docxPath);
@@ -40,7 +40,7 @@ if (fs.existsSync(docxPath)) {
   check('DOCX deliverable has 0 findings', resDocx.findings.length === 0, JSON.stringify(resDocx.findings));
 }
 
-// 2. Production PDF deliverable audit
+// Production PDF deliverable audit
 const pdfPath = path.resolve(__dirname, '..', 'docs', 'KONOHA-OVERVIEW.pdf');
 if (fs.existsSync(pdfPath)) {
   const resPdf = detectDocsAi(pdfPath);
@@ -50,7 +50,7 @@ if (fs.existsSync(pdfPath)) {
   check('PDF deliverable has 0 findings', resPdf.findings.length === 0, JSON.stringify(resPdf.findings));
 }
 
-// 3. Cliché & Buzzword Detection
+// Cliché & Buzzword Detection
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-docs-test-'));
 const slopTextFile = path.join(tmpDir, 'ai_slop_sample.txt');
 fs.writeFileSync(
@@ -61,7 +61,7 @@ fs.writeFileSync(
 const resSlop = detectDocsAi(slopTextFile);
 check('Detects AI clichés in text document', resSlop.score > 0 && resSlop.findings.some((f) => f.rule === 'CLICHE-01'));
 
-// 4. Clean human text document
+// Clean human text document
 const humanTextFile = path.join(tmpDir, 'human_sample.md');
 fs.writeFileSync(
   humanTextFile,
@@ -72,18 +72,18 @@ const resHuman = detectDocsAi(humanTextFile);
 check('Clean human text scores 0', resHuman.score === 0);
 check('Clean human text label is HUMAN_WRITTEN', resHuman.label === 'HUMAN_WRITTEN');
 
-// 5. MCP Tool Wrapper Tests
+// MCP Tool Wrapper Tests
 const targetDoc = fs.existsSync(docxPath) ? docxPath : humanTextFile;
 const mcpResStr = runDocsAiDetectorSync(targetDoc);
 const mcpRes = JSON.parse(mcpResStr);
 check('runDocsAiDetectorSync returns valid JSON with score 0', mcpRes.score === 0);
 
-// 6. Tool Dispatch Router Integration
+// Tool Dispatch Router Integration
 const dispatchResStr = executeToolSync('docs_ai_detector', { file_path: targetDoc });
 const dispatchRes = JSON.parse(dispatchResStr);
 check('executeToolSync(docs_ai_detector) returns score 0', dispatchRes.score === 0);
 
-// 7. Error Handling for missing/invalid file
+// Error Handling for missing/invalid file
 const errRes = detectDocsAi('/path/to/nonexistent/file.docx');
 check('Handles nonexistent file gracefully', errRes.error && errRes.error.includes('File not found'));
 

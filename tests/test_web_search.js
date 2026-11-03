@@ -18,7 +18,7 @@ async function run() {
   const originalSearxUrl = process.env.SEARXNG_URL;
 
   try {
-    // 1. Query simplification
+    // Query simplification
     const query = 'how to implement sveltekit 3d threlte framework in production';
     const terms = query.split(/\s+/);
     assert.ok(terms.length > 5);
@@ -33,7 +33,7 @@ async function run() {
     assert.strictEqual(shortened[1], 'how to implement sveltekit 3d threlte framework in');
     console.log('✓ Query simplification passed');
 
-    // 2. SearXNG parser and null safety
+    // SearXNG parser and null safety
     const bestCache = path.join(os.homedir(), '.konoha', 'searxng', 'best_instance.json');
     const instCache = path.join(os.homedir(), '.konoha', 'searxng', 'instances_cache.json');
     for (const c of [bestCache, instCache]) {
@@ -90,7 +90,7 @@ async function run() {
     assert.strictEqual(data1.results[0].snippet, 'Svelte component framework');
     console.log('✓ SearXNG parser and null safety passed');
 
-    // 3. SearXNG env override
+    // SearXNG env override
     process.env.SEARXNG_URL = 'https://custom-searx.internal';
     global.fetch = async (url, opts) => {
       const urlStr = String(url);
@@ -114,7 +114,7 @@ async function run() {
     assert.ok(data2.results[0].source.includes('custom-searx.internal'));
     console.log('✓ SearXNG env override passed');
 
-    // 4. Wikipedia fallback
+    // Wikipedia fallback
     delete process.env.SEARXNG_URL;
     for (const c of [bestCache, instCache]) {
       try { if (fs.existsSync(c)) fs.unlinkSync(c); } catch (_) {}
@@ -145,7 +145,7 @@ async function run() {
     }
     console.log('✓ Wikipedia fallback passed');
 
-    // 5. Startpage scraper fixture unit test
+    // Startpage scraper fixture unit test
     global.fetch = async (url, opts) => {
       const urlStr = String(url);
       if (urlStr.includes('startpage.com')) {

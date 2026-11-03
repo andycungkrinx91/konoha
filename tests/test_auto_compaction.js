@@ -55,7 +55,7 @@ async function run() {
   }));
 
   try {
-    // 1. Turn 1 vs Turn 2 unified token-bounded prompt and prefix determinism
+    // Turn 1 vs Turn 2 unified token-bounded prompt and prefix determinism
     server.SESSION_TURNS.clear();
     process.env.ANTIGRAVITY_CONVERSATION_ID = 'conv-test-123';
     server.ACTIVE_CLIENT = 'agy';
@@ -85,7 +85,7 @@ async function run() {
     assert.ok(instr1.includes('pnpm'));
     console.log('✓ Turn 1 vs Turn 2 unified token-bounded prompt passed');
 
-    // 2. Multi-client support
+    // Multi-client support
     const clients = ['claudecode', 'commandcode', 'opencode', 'agy', 'cursor'];
     for (const client of clients) {
       server.ACTIVE_CLIENT = client;
@@ -101,7 +101,7 @@ async function run() {
     }
     console.log('✓ Multi-client support passed');
 
-    // 3. Compact turn retains skill SOP and task authority
+    // Compact turn retains skill SOP and task authority
     const conn2 = db.getDb(testDbPath);
     conn2.prepare(`
       CREATE TABLE IF NOT EXISTS skills (
@@ -141,7 +141,7 @@ async function run() {
     }
     console.log('✓ Compact turn retains skill SOP and task authority passed');
 
-    // 4. Session turn resets after idle
+    // Session turn resets after idle
     delete process.env.ANTIGRAVITY_CONVERSATION_ID;
     delete process.env.CLAUDE_CONVERSATION_ID;
     delete process.env.OPENCODE_SESSION_ID;
@@ -167,7 +167,7 @@ async function run() {
     assert.strictEqual(t3, 1, 'Turn counter must reset to 1 after 30 min idle');
     console.log('✓ Session turn resets after idle passed');
 
-    // 5. Cross-session and Cross-project turn isolation
+    // Cross-session and Cross-project turn isolation
     const projectDirA = path.join(tmpDir, 'project-a');
     const projectDirB = path.join(tmpDir, 'project-b');
     fs.mkdirSync(projectDirA, { recursive: true });

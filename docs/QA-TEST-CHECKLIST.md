@@ -661,7 +661,7 @@ Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budge
 - **Fail-Closed Router Defenses**: Tripped circuit breakers route conditionally to `node_error` (never `node_complete`); unknown or unhandled review verdicts route to remediation/error.
 - **Single-Owner Token Metering**: Unified in `finalizeNodeResult()` (`src/mcp/langgraph/budget.js`), eliminating divergent token estimation and ambiguous zero-delta resets.
 - **Deterministic Pure-JS Tokenizer**: Replaced child-process Python tiktoken forks with pure-JS `gpt-tokenizer` (`cl100k_base`), guaranteeing 0.00% divergence against golden corpus.
-- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=22.13.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 47 tools with 2 deprecated aliases.
+- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=24.0.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 47 tools with 2 deprecated aliases.
 
 ### 31.2 Verification Evidence & Acceptance Matrix
 

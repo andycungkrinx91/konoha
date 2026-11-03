@@ -21,7 +21,7 @@ function evaluateSandboxGuard(env = process.env, realHome = null, marker = 'KONO
 
   const currentHome = env ? env.HOME : undefined;
 
-  // 1. Refuse whenever HOME matches real user home, regardless of marker
+  // Refuse whenever HOME matches real user home, regardless of marker
   if (realHome && currentHome === realHome) {
     return {
       allowed: false,
@@ -29,7 +29,7 @@ function evaluateSandboxGuard(env = process.env, realHome = null, marker = 'KONO
     };
   }
 
-  // 2. Refuse if HOME is missing
+  // Refuse if HOME is missing
   if (!currentHome) {
     return {
       allowed: false,
@@ -37,7 +37,7 @@ function evaluateSandboxGuard(env = process.env, realHome = null, marker = 'KONO
     };
   }
 
-  // 3. Allow when HOME is isolated / different from realHome
+  // Allow when HOME is isolated / different from realHome
   if (realHome && currentHome !== realHome) {
     return { allowed: true };
   }

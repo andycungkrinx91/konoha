@@ -228,7 +228,7 @@ async function run() {
   console.log('✓ Web server started for auth tests on port ' + port);
 
   try {
-    // 1. Initial auth status check (unauthenticated)
+    // Initial auth status check (unauthenticated)
     const status1 = await request({
       hostname: '127.0.0.1',
       port,
@@ -240,7 +240,7 @@ async function run() {
     assert.strictEqual(status1.data.is_bootstrap, true);
     console.log('✓ Initial unauthenticated status check passed');
 
-    // 2. Browser access to protected endpoint without auth must return 401
+    // Browser access to protected endpoint without auth must return 401
     const browserUnauth = await request({
       hostname: '127.0.0.1',
       port,
@@ -255,7 +255,7 @@ async function run() {
     assert.strictEqual(browserUnauth.data.requires_login, true);
     console.log('✓ Unauthenticated browser access rejected with 401');
 
-    // 3. Login with wrong password returns 401
+    // Login with wrong password returns 401
     const badLogin = await request({
       hostname: '127.0.0.1',
       port,
@@ -267,7 +267,7 @@ async function run() {
     assert.strictEqual(badLogin.data.error, 'Invalid password');
     console.log('✓ Invalid password login rejected with 401');
 
-    // 4. Login with default bootstrap password 'konohagakure'
+    // Login with default bootstrap password 'konohagakure'
     const loginRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -285,7 +285,7 @@ async function run() {
     assert.ok(sessionCookie, 'Must set konoha_session cookie');
     console.log('✓ Login with bootstrap credential succeeded, session created');
 
-    // 5. Protected endpoint access while in bootstrap mode must return 403 (Mandatory password change)
+    // Protected endpoint access while in bootstrap mode must return 403 (Mandatory password change)
     const bootstrapBlocked = await request({
       hostname: '127.0.0.1',
       port,
@@ -300,7 +300,7 @@ async function run() {
     assert.strictEqual(bootstrapBlocked.data.requires_password_change, true);
     console.log('✓ Protected route blocked with 403 while bootstrap password active');
 
-    // 6. Change password to secure custom password
+    // Change password to secure custom password
     const changeRes = await request({
       hostname: '127.0.0.1',
       port,
@@ -319,7 +319,7 @@ async function run() {
     assert.strictEqual(changeRes.data.ok, true);
     console.log('✓ Mandatory password change completed successfully');
 
-    // 7. Old session is invalidated; status shows authenticated: false, is_bootstrap: false
+    // Old session is invalidated; status shows authenticated: false, is_bootstrap: false
     const status2 = await request({
       hostname: '127.0.0.1',
       port,
@@ -335,7 +335,7 @@ async function run() {
     assert.strictEqual(status2.data.requires_password_change, false);
     console.log('✓ Old session invalidated: re-authentication required');
 
-    // 8. Protected endpoint rejects old invalidated session
+    // Protected endpoint rejects old invalidated session
     const afterChangeAccess = await request({
       hostname: '127.0.0.1',
       port,
@@ -349,7 +349,7 @@ async function run() {
     assert.strictEqual(afterChangeAccess.status, 401);
     console.log('✓ Protected route rejects old invalidated session');
 
-    // 9. Old bootstrap password rejected on subsequent login attempt
+    // Old bootstrap password rejected on subsequent login attempt
     const oldLogin = await request({
       hostname: '127.0.0.1',
       port,
@@ -360,7 +360,7 @@ async function run() {
     assert.strictEqual(oldLogin.status, 401);
     console.log('✓ Old bootstrap password rejected on subsequent login');
 
-    // 10. Login with new password succeeds
+    // Login with new password succeeds
     const newLogin = await request({
       hostname: '127.0.0.1',
       port,
@@ -389,7 +389,7 @@ async function run() {
     assert.strictEqual(newSessionAccess.status, 200);
     console.log('✓ Protected route fully accessible after logging in with new password');
 
-    // 11. Reusing the current password is rejected without clearing any state
+    // Reusing the current password is rejected without clearing any state
     const reuseCurrent = await request({
       hostname: '127.0.0.1',
       port,
@@ -408,7 +408,7 @@ async function run() {
     assert.strictEqual(reuseCurrent.data.error, 'New password must differ from the current password');
     console.log('✓ Reusing the current password rejected with 400');
 
-    // 12. Wrong current password is rejected
+    // Wrong current password is rejected
     const wrongCurrent = await request({
       hostname: '127.0.0.1',
       port,
@@ -427,7 +427,7 @@ async function run() {
     assert.strictEqual(wrongCurrent.data.error, 'Current password is incorrect');
     console.log('✓ Wrong current password rejected with 400');
 
-    // 13. Empty body is handled without crashing
+    // Empty body is handled without crashing
     const emptyBody = await request({
       hostname: '127.0.0.1',
       port,
@@ -442,7 +442,7 @@ async function run() {
     assert.strictEqual(emptyBody.status, 400);
     console.log('✓ Empty change-password payload rejected with 400');
 
-    // 14. Logout destroys session
+    // Logout destroys session
     const logoutRes = await request({
       hostname: '127.0.0.1',
       port,

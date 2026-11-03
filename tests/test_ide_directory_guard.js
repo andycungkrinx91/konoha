@@ -10,7 +10,7 @@ const router = require(routerPath);
 
 console.log('Testing IDE Directory Guard & Windows Workspace Isolation...');
 
-// 1. Test isIdeInstallationDirectory
+// Test isIdeInstallationDirectory
 const testCases = [
   { path: 'C:\\Users\\User\\AppData\\Local\\Programs\\Antigravity IDE', expected: true },
   { path: 'C:/Users/User/AppData/Local/Programs/Antigravity IDE', expected: true },
@@ -35,7 +35,7 @@ for (const tc of testCases) {
 }
 console.log('  ✓ IDE installation directories are strictly forbidden in assertWithinAllowed');
 
-// 2. Test getWorkspaceRoot never returns IDE directory
+// Test getWorkspaceRoot never returns IDE directory
 router.setWorkspaceRoot('C:\\Users\\User\\AppData\\Local\\Programs\\Antigravity IDE');
 const ws = router.getWorkspaceRoot();
 assert.notStrictEqual(
@@ -45,7 +45,7 @@ assert.notStrictEqual(
 );
 console.log('  ✓ getWorkspaceRoot never returns an IDE installation directory');
 
-// 3. Test router.isIdeInstallationDirectory directly
+// Test router.isIdeInstallationDirectory directly
 assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Antigravity IDE"), true);
 assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Program Files\\\\Antigravity IDE"), true);
 assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Users\\\\User\\\\myproject"), false);

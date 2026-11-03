@@ -123,7 +123,7 @@ function buildOmpMcpServers(options = {}) {
   const isWin = process.platform === 'win32';
   const launcherPath = options.launcherPath || (fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH);
   const npxCmd = isWin ? 'npx.cmd' : 'npx';
-  const uvxCmd = options.uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
+  const uvxCmd = options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
 
   return {
     konoha: {

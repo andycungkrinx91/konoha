@@ -38,7 +38,7 @@ async function run() {
   });
 
   try {
-    // 1. Success scenario: valid HTTP request over TCP socket
+    // Success scenario: valid HTTP request over TCP socket
     await new Promise((resolve, reject) => {
       const sock = new net.Socket();
       sock.connect(serverPort, '127.0.0.1', () => {
@@ -55,7 +55,7 @@ async function run() {
     });
     console.log('✓ Scenario 1: Socket HTTP success verified');
 
-    // 2. Invalid input scenario: malformed request over TCP socket
+    // Invalid input scenario: malformed request over TCP socket
     await new Promise((resolve, reject) => {
       const sock = new net.Socket();
       sock.connect(serverPort, '127.0.0.1', () => {
@@ -74,7 +74,7 @@ async function run() {
     });
     console.log('✓ Scenario 2: Socket invalid input handled cleanly');
 
-    // 3. Connection failure scenario: connecting to unopened port
+    // Connection failure scenario: connecting to unopened port
     await new Promise((resolve) => {
       const unusedPort = 39182;
       const sock = new net.Socket();
@@ -91,7 +91,7 @@ async function run() {
     });
     console.log('✓ Scenario 3: Socket connection failure (ECONNREFUSED) handled cleanly');
 
-    // 4. Timeout scenario: server does not respond within socket timeout window
+    // Timeout scenario: server does not respond within socket timeout window
     await new Promise((resolve, reject) => {
       const sock = new net.Socket();
       sock.setTimeout(150); // 150ms timeout
@@ -109,7 +109,7 @@ async function run() {
     });
     console.log('✓ Scenario 4: Socket timeout event triggered and destroyed cleanly');
 
-    // 5. Clean shutdown scenario: graceful half-close and full close
+    // Clean shutdown scenario: graceful half-close and full close
     await new Promise((resolve, reject) => {
       const sock = new net.Socket();
       sock.connect(serverPort, '127.0.0.1', () => {
@@ -126,7 +126,7 @@ async function run() {
     });
     console.log('✓ Scenario 5: Socket clean shutdown and socket closure verified');
 
-    // 6. Repeated sequential invocations: resource reclamation
+    // Repeated sequential invocations: resource reclamation
     for (let i = 0; i < 5; i++) {
       await new Promise((resolve, reject) => {
         const sock = new net.Socket();

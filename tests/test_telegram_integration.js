@@ -25,13 +25,13 @@ console.log('Running test_telegram_integration.js...');
 
 async function run() {
   try {
-    // 1. Initial default configuration test
+    // Initial default configuration test
     const initial = tgConfig.getTelegramConfig();
     assert.strictEqual(initial.id, 1, 'Config ID must be 1');
     assert.strictEqual(initial.enabled, 0, 'Default enabled state must be 0');
     assert.strictEqual(initial.mode, 'one_way', 'Default mode must be one_way');
 
-    // 2. Save configuration test
+    // Save configuration test
     const saved = tgConfig.saveTelegramConfig({
       bot_token: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
       chat_id: '123456789',
@@ -43,13 +43,13 @@ async function run() {
     assert.strictEqual(saved.chat_id, '123456789', 'Chat ID must match');
     assert.strictEqual(saved.bot_token, '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ', 'Token must match');
 
-    // 3. Toggle enable / disable
+    // Toggle enable / disable
     tgConfig.setTelegramEnabled(false);
     assert.strictEqual(tgConfig.getTelegramConfig().enabled, 0, 'Enabled should toggle to 0');
     tgConfig.setTelegramEnabled(true);
     assert.strictEqual(tgConfig.getTelegramConfig().enabled, 1, 'Enabled should toggle back to 1');
 
-    // 4. Formatter test (Zero Emojis Invariant)
+    // Formatter test (Zero Emojis Invariant)
     const report = tgNotifier.formatTaskReport({
       title: 'Refactor Authentication JWT',
       status: 'SUCCESS',
@@ -73,7 +73,7 @@ async function run() {
     const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
     assert.strictEqual(emojiRegex.test(report), false, 'Report must contain zero emojis');
 
-    // 5. Message handler and whitelist authorization test
+    // Message handler and whitelist authorization test
     let capturedReplies = [];
     const origSend = tgNotifier.sendTelegramMessage;
     tgNotifier.sendTelegramMessage = async (text, opts) => {

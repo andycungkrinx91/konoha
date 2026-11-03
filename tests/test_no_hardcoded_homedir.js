@@ -27,7 +27,7 @@ function walkFiles(dir, exts = ['.js', '.json', '.sh', '.py']) {
 function run() {
   console.log('Running test_no_hardcoded_homedir...');
 
-  // 1. Verify no hardcoded user paths in bin/ and src/
+  // Verify no hardcoded user paths in bin/ and src/
   const targetDirs = [
     path.join(ROOT, 'bin'),
     path.join(ROOT, 'src'),
@@ -75,7 +75,7 @@ function run() {
   );
   console.log('✓ Zero hardcoded user homedirs in bin/, src/, or apps/web/src');
 
-  // 2. Verify bin/lib/paths.js uses os.homedir() dynamically
+  // Verify bin/lib/paths.js uses os.homedir() dynamically
   const paths = require('../bin/lib/paths');
   assert.strictEqual(typeof paths.HOME, 'string');
   assert.ok(paths.HOME.length > 0);
@@ -84,7 +84,7 @@ function run() {
   console.log(`✓ paths.HOME dynamically resolves to: ${paths.HOME}`);
   console.log(`✓ paths.KONOHA dynamically resolves to: ${paths.KONOHA}`);
 
-  // 3. Verify cross-platform path behavior
+  // Verify cross-platform path behavior
   // On Linux/Mac: /home/<user>/.konoha or /Users/<user>/.konoha
   // On Windows: C:\Users\<user>\.konoha
   if (process.platform === 'win32') {

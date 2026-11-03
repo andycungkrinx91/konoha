@@ -23,7 +23,7 @@ async function run() {
   const legacyDbPath = path.join(tmpDir, 'legacy.db');
 
   try {
-    // 1. Fresh Database Schema & Version
+    // Fresh Database Schema & Version
     const freshDb = new Database(freshDbPath);
     setupSchema(freshDb);
 
@@ -37,7 +37,7 @@ async function run() {
     assert.ok(indexes.includes('idx_persona_memories_agent_proj'), 'Composite index idx_persona_memories_agent_proj must exist');
     freshDb.close();
 
-    // 2. Legacy Database Migration from v0 to v5
+    // Legacy Database Migration from v0 to v5
     const legacyDb = new Database(legacyDbPath);
     // Create pre-2.2.7 schema without user_version
     legacyDb.exec(`
@@ -65,7 +65,7 @@ async function run() {
     assert.strictEqual(verifyIntegrity(legacyDb), true, 'Migrated DB must pass PRAGMA integrity_check');
     legacyDb.close();
 
-    // 3. Task Lifecycle & Stale in_progress Reconciliation
+    // Task Lifecycle & Stale in_progress Reconciliation
     const taskDbPath = path.join(tmpDir, 'tasks.db');
     const db = new Database(taskDbPath);
     setupSchema(db);
@@ -123,7 +123,7 @@ async function run() {
     const completedTask = sdlcManager.getTask('task-completed-1', taskDbPath);
     assert.strictEqual(completedTask.status, 'completed', 'Completed task must NOT be altered');
 
-    // 4. Test restartTask
+    // Test restartTask
     const restarted = sdlcManager.restartTask('task-stale-1', { status: 'in_progress' }, taskDbPath);
     assert.strictEqual(restarted.status, 'in_progress', 'Restarted task status must be in_progress');
     assert.strictEqual(restarted.evidence.restarts, 1, 'Restart counter must increment');

@@ -9,13 +9,13 @@ function findPiResourceLoaderChunk() {
 
   const candidateDirs = [];
 
-  // 1. Try global npm root
+  // Try global npm root
   try {
     const globalRoot = execSync('npm root -g', { encoding: 'utf8' }).trim();
     if (globalRoot) candidateDirs.push(path.join(globalRoot, '@earendil-works', 'pi-coding-agent'));
   } catch (_) {}
 
-  // 2. Try locating pi binary via which / where
+  // Try locating pi binary via which / where
   try {
     const whichCmd = process.platform === 'win32' ? 'where.exe pi' : 'which pi';
     const piBin = execSync(whichCmd, { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
@@ -37,7 +37,7 @@ function findPiResourceLoaderChunk() {
     }
   } catch (_) {}
 
-  // 3. Fallback to common global locations across node managers
+  // Fallback to common global locations across node managers
   const home = os.homedir();
   const nvmVersionsDir = path.join(home, '.nvm', 'versions', 'node');
   if (fs.existsSync(nvmVersionsDir)) {

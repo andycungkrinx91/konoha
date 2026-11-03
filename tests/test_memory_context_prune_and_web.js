@@ -60,11 +60,11 @@ async function run() {
     const mockProjectPath = path.join(tmpDir, 'mock_app');
     fs.mkdirSync(mockProjectPath, { recursive: true });
 
-    // 1. Save project profile
+    // Save project profile
     const projHash = personaMemory.saveOrUpdateProject(mockProjectPath, 'Always use Tailwind v4 and pnpm', null, testDbPath);
     assert.ok(projHash, 'Project hash should be generated');
 
-    // 2. Add multiple project memory items
+    // Add multiple project memory items
     const id1 = personaMemory.saveMemory({
       agentName: 'jonin',
       content: 'Learning 1: Use CSS variables for theme switching',
@@ -100,7 +100,7 @@ async function run() {
     let mems = personaMemory.listMemories({ projectPath: mockProjectPath, dbPath: testDbPath });
     assert.strictEqual(mems.length, 3, 'Should have 3 memories for project');
 
-    // 3. Test deleting memory context 1 by 1
+    // Test deleting memory context 1 by 1
     const deletedSingle = personaMemory.deleteMemory(String(id1), testDbPath);
     assert.strictEqual(deletedSingle, true, 'deleteMemory should return true for existing ID');
 
@@ -108,7 +108,7 @@ async function run() {
     assert.strictEqual(mems.length, 2, 'Should have 2 memories remaining after deleting 1');
     assert.ok(!mems.some(m => m.id === id1), 'Deleted memory should not be present');
 
-    // 4. Test pruning project memories with filters
+    // Test pruning project memories with filters
     // Add another item with importance 2
     personaMemory.saveMemory({
       agentName: 'genin',
@@ -141,7 +141,7 @@ async function run() {
     assert.ok(profile, 'Project profile should still exist');
     assert.strictEqual(profile.context_summary, 'Always use Tailwind v4 and pnpm');
 
-    // 5. Test Web Server API Endpoints
+    // Test Web Server API Endpoints
     const port = 14199;
     srv = await startWebServer({ port, host: '127.0.0.1' });
     const token = srv.token;

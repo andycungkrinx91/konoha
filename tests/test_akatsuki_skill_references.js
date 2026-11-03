@@ -25,7 +25,7 @@ assert.ok(fs.existsSync(CANONICAL_SKILL_MD), 'Canonical akatsuki-skill/SKILL.md 
 assert.ok(fs.existsSync(TOOLS_DIR), 'akatsuki-skill/references/tools must exist');
 assert.ok(fs.existsSync(BLUE_DIR), 'akatsuki-skill/references/blue-team must exist');
 
-// 1. Verify 1:1 tool registry mapping
+// Verify 1:1 tool registry mapping
 const registryToolIds = new Set(Object.keys(CURATED_TOOL_REGISTRY));
 const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.md'));
 const toolReferenceIds = new Set(toolFiles.map(f => f.replace(/\.md$/, '')));
@@ -45,7 +45,7 @@ for (const refId of toolReferenceIds) {
 }
 console.log(`  ✓ 1:1 Tool registry parity verified (${registryToolIds.size} tools in registry and references)`);
 
-// 2. Verify all 6 blue-team capability references
+// Verify all 6 blue-team capability references
 const EXPECTED_BLUE_TEAM = [
   'sast-static-analysis.md',
   'secret-leakage-audit.md',
@@ -61,7 +61,7 @@ for (const blueFile of EXPECTED_BLUE_TEAM) {
 }
 console.log(`  ✓ All ${EXPECTED_BLUE_TEAM.length} blue-team capability references present`);
 
-// 3. Verify Domain Routing table in canonical SKILL.md
+// Verify Domain Routing table in canonical SKILL.md
 const skillMdContent = fs.readFileSync(CANONICAL_SKILL_MD, 'utf8');
 
 for (const toolId of registryToolIds) {
@@ -82,7 +82,7 @@ for (const blueFile of EXPECTED_BLUE_TEAM) {
 }
 console.log('  ✓ Domain routing table contains all tools and blue-team capability routes');
 
-// 4. Verify byte-identical synchronization across all client mirror trees
+// Verify byte-identical synchronization across all client mirror trees
 const MIRROR_TREES = [
   path.join(os.homedir(), '.agents', 'skills', 'akatsuki-skill'),
   path.join(os.homedir(), '.cursor', 'skills', 'akatsuki-skill'),

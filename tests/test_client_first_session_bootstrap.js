@@ -9,7 +9,7 @@ const os = require('os');
 const agentManager = require('../src/agent_manager');
 const agentContract = require('../src/agent_contract');
 
-const testRoot = path.join('/tmp', `konoha-test-bootstrap-${Date.now()}`);
+const testRoot = path.join(os.tmpdir(), `konoha-test-bootstrap-${Date.now()}`);
 fs.mkdirSync(testRoot, { recursive: true });
 
 console.log(`Testing client bootstrap in isolated fixture: ${testRoot}`);

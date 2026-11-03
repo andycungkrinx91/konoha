@@ -27,7 +27,7 @@ test.describe('Hybrid FTS5 & Neural Vector Skill Search', () => {
     const searchInput = page.locator('input[placeholder*="Hybrid search by keyword"]');
     await expect(searchInput).toBeVisible();
 
-    // 1. Keyword search test
+    // Keyword search test
     await searchInput.fill('helm');
     await page.waitForTimeout(800);
 
@@ -38,7 +38,7 @@ test.describe('Hybrid FTS5 & Neural Vector Skill Search', () => {
     const badge = skillsList.first().locator('.rounded-\\[5px\\], .gradient-badge').first();
     await expect(badge).toBeVisible();
 
-    // 2. Semantic query test (plain-language description without exact name overlap)
+    // Semantic query test (plain-language description without exact name overlap)
     await searchInput.fill('container orchestration deployment cloud');
     await page.waitForTimeout(800);
 

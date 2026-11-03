@@ -27,7 +27,7 @@ function runTests() {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-preserve-test-'));
 
   try {
-    // 1. Test copySkillsDirFast never deletes pre-existing user skills from destRoot
+    // Test copySkillsDirFast never deletes pre-existing user skills from destRoot
     console.log('\n1. Testing copySkillsDirFast directory non-destructive synchronization...');
     const srcDir = path.join(sandbox, 'src-skills');
     const destDir = path.join(sandbox, 'dest-skills');
@@ -51,7 +51,7 @@ function runTests() {
     assert.ok(fs.existsSync(path.join(destDir, 'notes.txt')), 'User extra files in skills directory must NOT be pruned');
     console.log('  ✓ copySkillsDirFast strictly preserved pre-existing user skills and files');
 
-    // 2. Test SQLite migration preserves pre-existing user skills in database
+    // Test SQLite migration preserves pre-existing user skills in database
     console.log('\n2. Testing SQLite skills table preservation across migrations...');
     const testDbPath = path.join(sandbox, 'test-konoha.db');
     const conn = db.getConnection(testDbPath, false);
@@ -77,7 +77,7 @@ function runTests() {
     runConn.close();
     console.log('  ✓ Pre-existing skills in SQLite database strictly preserved');
 
-    // 3. Test injectManagedConfig preserves pre-existing user markdown config
+    // Test injectManagedConfig preserves pre-existing user markdown config
     console.log('\n3. Testing injectManagedConfig preservation for GEMINI.md & AGENTS.md...');
     const userGeminiPath = path.join(sandbox, 'GEMINI.md');
     const initialUserConfig = `# User Pre-Existing Instructions
@@ -120,7 +120,7 @@ function runTests() {
     assert.ok(injectedThird.includes('# V3 Instructions'), 'V3 managed block updated');
     console.log('  ✓ injectManagedConfig strictly preserves all surrounding user configurations');
 
-    // 4. Test agents.yaml custom user agents preservation when defaults are merged
+    // Test agents.yaml custom user agents preservation when defaults are merged
     console.log('\n4. Testing agents.yaml preservation for pre-existing custom agents...');
     const userAgentsYamlPath = path.join(sandbox, 'agents.yaml');
     const userCustomAgent = [

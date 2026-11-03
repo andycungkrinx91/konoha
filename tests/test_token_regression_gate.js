@@ -20,13 +20,13 @@ const BASELINE_DOC = path.join(ROOT, 'docs', 'architecture', 'TOKEN-BASELINE.md'
 
 console.log('Running test_token_regression_gate.js...');
 
-// 1. Verify TOKEN-BASELINE.md exists and contains canonical thresholds
+// Verify TOKEN-BASELINE.md exists and contains canonical thresholds
 assert(fs.existsSync(BASELINE_DOC), 'TOKEN-BASELINE.md must exist');
 const baselineText = fs.readFileSync(BASELINE_DOC, 'utf-8');
 assert(baselineText.includes('Semble MCP'), 'TOKEN-BASELINE.md must document Semble MCP');
 assert(baselineText.includes('Aislop MCP'), 'TOKEN-BASELINE.md must document Aislop MCP');
 
-// 2. Run tiktoken threshold check via python3
+// Run tiktoken threshold check via python3
 const pyScript = `
 import json, os, glob, subprocess, tiktoken
 enc = tiktoken.get_encoding("cl100k_base")

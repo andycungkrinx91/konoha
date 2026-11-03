@@ -68,7 +68,7 @@ async function run() {
   const sourceFiles = getFiles(SOURCE);
   const deployedFiles = getFiles(DEPLOYED);
 
-  // 1. Check difference sets
+  // Check difference sets
   const lockedRoots = lockedSkillRoots();
   const extraDeployed = new Set([...deployedFiles].filter(x => !sourceFiles.has(x) && !IGNORED_DEPLOYED.has(x) && !IGNORED_DEPLOYED.has(x.split('/')[0])));
   const unexpectedDeployed = [...extraDeployed].filter(
@@ -79,7 +79,7 @@ async function run() {
   const missingDeployed = new Set([...sourceFiles].filter(x => !deployedFiles.has(x)));
   assert.deepStrictEqual([...missingDeployed], []);
 
-  // 2. Check byte contents match exactly
+  // Check byte contents match exactly
   for (const rel of sourceFiles) {
     const srcBuf = fs.readFileSync(path.join(SOURCE, rel));
     const depBuf = fs.readFileSync(path.join(DEPLOYED, rel));
@@ -87,14 +87,14 @@ async function run() {
   }
   console.log('✓ Template and agents deployment text files match');
 
-  // 3. Compatibility files
+  // Compatibility files
   for (const rel of ALLOWED_DEPLOYED_ONLY) {
     assert.ok(fs.existsSync(path.join(DEPLOYED, rel)), `${rel} must exist in deployed`);
     assert.ok(!fs.existsSync(path.join(SOURCE, rel)), `${rel} must not exist in source`);
   }
   console.log('✓ Compatibility files check passed');
 
-  // 4. Cursor runtime mirror is not required
+  // Cursor runtime mirror is not required
   const cursorSkills = path.join(ROOT, '.cursor', 'skills');
   let isSymlink = false;
   try {

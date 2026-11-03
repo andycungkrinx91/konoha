@@ -15,12 +15,12 @@ const runtimeStatePath = path.join(ROOT, "src", "mcp", "runtime_state.js");
 async function run() {
   console.log("Running test_runtime_state tests...");
 
-  // 1. Assert file exists
+  // Assert file exists
   assert.ok(fs.existsSync(runtimeStatePath), "src/mcp/runtime_state.js must exist");
 
   const runtimeState = require(runtimeStatePath);
 
-  // 2. Assert WORKSPACE_ROOT and ACTIVE_CLIENT are NOT exported by value
+  // Assert WORKSPACE_ROOT and ACTIVE_CLIENT are NOT exported by value
   assert.strictEqual(
     runtimeState.WORKSPACE_ROOT,
     undefined,
@@ -32,7 +32,7 @@ async function run() {
     "CRITICAL: ACTIVE_CLIENT must NEVER be exported by value from runtime_state.js"
   );
 
-  // 3. Verify getters and setters function correctly and dynamically
+  // Verify getters and setters function correctly and dynamically
   const origRoot = runtimeState.getWorkspaceRoot();
   const origClient = runtimeState.getActiveClient();
 
@@ -53,7 +53,7 @@ async function run() {
     runtimeState.setActiveClient(origClient);
   }
 
-  // 4. Section 2.3 Grep Gate: Scan src/mcp/ for forbidden destructuring of WORKSPACE_ROOT or ACTIVE_CLIENT
+  // Section 2.3 Grep Gate: Scan src/mcp/ for forbidden destructuring of WORKSPACE_ROOT or ACTIVE_CLIENT
   const mcpDir = path.join(ROOT, "src", "mcp");
   if (fs.existsSync(mcpDir)) {
     const files = fs.readdirSync(mcpDir).filter(f => f.endsWith(".js"));

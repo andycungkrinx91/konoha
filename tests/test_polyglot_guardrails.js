@@ -13,7 +13,7 @@ const { checkCommandGuardrails, buildGuardrailCheckerSource } = require('../src/
 function run() {
   console.log('Running test_polyglot_guardrails tests...');
 
-  // 1. Interpreter Inline Evasion Blocked (All Programming Languages)
+  // Interpreter Inline Evasion Blocked (All Programming Languages)
   const interpreterEvasionCases = [
     // Python ecosystem
     'python -c "import os; os.system(\'ls\')"',
@@ -78,7 +78,7 @@ function run() {
   }
   console.log(`✓ All ${interpreterEvasionCases.length} inline interpreter evasion vectors blocked cleanly across all languages`);
 
-  // 2. Config & Hook Self-Tampering Blocked
+  // Config & Hook Self-Tampering Blocked
   const configTamperingCases = [
     'rm -rf .git/hooks',
     'rm .claude/settings.json',
@@ -100,7 +100,7 @@ function run() {
   }
   console.log(`✓ All ${configTamperingCases.length} config/linter/hook self-tampering attempts blocked cleanly`);
 
-  // 3. Destructive Cloud Infrastructure, DevOps & Container Blocked
+  // Destructive Cloud Infrastructure, DevOps & Container Blocked
   const cloudInfraCases = [
     'terraform destroy',
     'tofu destroy',
@@ -128,7 +128,7 @@ function run() {
   }
   console.log(`✓ All ${cloudInfraCases.length} destructive cloud infra / DevOps commands blocked cleanly`);
 
-  // 4. Destructive Database Stacks Blocked (SQL, Redis, Mongo, Cassandra, Elasticsearch, Neo4j)
+  // Destructive Database Stacks Blocked (SQL, Redis, Mongo, Cassandra, Elasticsearch, Neo4j)
   const databaseCases = [
     'mysql -e "DROP DATABASE production;"',
     'psql -c "DROP SCHEMA public CASCADE;"',
@@ -152,7 +152,7 @@ function run() {
   }
   console.log(`✓ All ${databaseCases.length} destructive database operations blocked cleanly across all stacks`);
 
-  // 5. Destructive System, SRE & Network Engineering Blocked
+  // Destructive System, SRE & Network Engineering Blocked
   const sysNetworkCases = [
     // SRE / System shutdown & disk wipe
     'shutdown -h now',
@@ -187,7 +187,7 @@ function run() {
   }
   console.log(`✓ All ${sysNetworkCases.length} destructive system, SRE, and network commands blocked cleanly`);
 
-  // 6. Legitimate Development Commands ALLOWED (Zero False Positives)
+  // Legitimate Development Commands ALLOWED (Zero False Positives)
   const legitimateCases = [
     'python tests/run.py',
     'python3 scripts/sync.py',
@@ -223,7 +223,7 @@ function run() {
   }
   console.log(`✓ All ${legitimateCases.length} legitimate development/ops commands allowed without false positives`);
 
-  // 7. Verify buildGuardrailCheckerSource exports self-contained function
+  // Verify buildGuardrailCheckerSource exports self-contained function
   const source = buildGuardrailCheckerSource();
   assert.ok(source.startsWith('function checkCommandGuardrails(command) {'));
   const recreatedFn = new Function(source + '\nreturn checkCommandGuardrails;')();

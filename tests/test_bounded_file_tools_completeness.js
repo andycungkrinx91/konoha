@@ -12,7 +12,7 @@ test("Bounded file tools completeness: metadata, 15,000-line fixture reading wit
   const tmpDir = path.join(os.tmpdir(), "konoha-file-tools-test-" + Date.now());
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  // 1. Create a 15,000-line fixture
+  // Create a 15,000-line fixture
   const fixturePath = path.join(tmpDir, "giant_fixture.js");
   const lines = [];
   for (let i = 1; i <= 15000; i++) {
@@ -24,7 +24,7 @@ test("Bounded file tools completeness: metadata, 15,000-line fixture reading wit
   }
   fs.writeFileSync(fixturePath, lines.join("\n"), "utf8");
 
-  // 2. Test reading the entire 15,000-line fixture by following next_range
+  // Test reading the entire 15,000-line fixture by following next_range
   let currentStart = 1;
   let currentEnd = 250;
   let collectedLineCount = 0;
@@ -73,7 +73,7 @@ test("Bounded file tools completeness: metadata, 15,000-line fixture reading wit
   assert.strictEqual(collectedLineCount, 15000, "must collect exactly 15,000 lines with zero gap or overlap");
   assert.strictEqual(calls, 60, "must take exactly 60 calls of 250 lines to read 15,000 lines");
 
-  // 3. Test readFileHead metadata
+  // Test readFileHead metadata
   const headRes = readFileHead({ path: fixturePath, max_lines: 50, workspace: tmpDir });
   assert.strictEqual(headRes.total_lines, 15000);
   assert.deepStrictEqual(headRes.returned_range, [1, 50]);
@@ -81,7 +81,7 @@ test("Bounded file tools completeness: metadata, 15,000-line fixture reading wit
   assert.strictEqual(headRes.remaining_lines, 14950);
   assert.deepStrictEqual(headRes.next_range, [51, 100]);
 
-  // 4. Test getFileStructure pagination & truncation notice
+  // Test getFileStructure pagination & truncation notice
   const structPage1 = getFileStructure({ path: fixturePath, page: 1, limit: 100, workspace: tmpDir });
   assert.ok(structPage1.total_symbols >= 500, "fixture has 500 functions");
   assert.strictEqual(structPage1.page, 1);
@@ -89,7 +89,7 @@ test("Bounded file tools completeness: metadata, 15,000-line fixture reading wit
   assert.ok(structPage1.truncation_notice, "must include explicit truncation notice");
   assert.match(structPage1.truncation_notice, /truncation notice/i);
 
-  // 5. Check manifest descriptions
+  // Check manifest descriptions
   const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../src/mcp_tool_manifest.json"), "utf8"));
   const toolNames = ["read_file_range", "get_file_structure", "read_file_head"];
   for (const name of toolNames) {

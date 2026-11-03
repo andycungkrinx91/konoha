@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 console.log('Running test_lightweight_contracts.js...');
 
-// 1. Verify on-disk file sizes (< 2KB)
+// Verify on-disk file sizes (< 2KB)
 const filesToCheck = [
   'AGENTS.md',
   'GEMINI.md',
@@ -50,7 +50,7 @@ for (const relPath of filesToCheck) {
   console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1.6KB) and contract validated`);
 }
 
-// 2. Verify on-demand full contract retrieval via get_skill
+// Verify on-demand full contract retrieval via get_skill
 const contractSkillJson = getSkill('konoha/contract');
 assert.ok(contractSkillJson, 'get_skill("konoha/contract") must return result');
 const contractSkill = JSON.parse(contractSkillJson);

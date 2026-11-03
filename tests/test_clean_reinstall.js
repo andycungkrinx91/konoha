@@ -32,7 +32,7 @@ function runTest() {
   fs.mkdirSync(mockKonoha, { recursive: true });
 
   try {
-    // 1. Populate preserved files and directories
+    // Populate preserved files and directories
     const preservedDirs = [
       path.join(mockKonoha, 'transformers_cache', 'models--xenova'),
       path.join(mockKonoha, 'node_modules', '@bufbuild', 'protobuf'),
@@ -65,7 +65,7 @@ function runTest() {
     db.exec("INSERT INTO test_data (note) VALUES ('active-user-agent-data');");
     db.close();
 
-    // 2. Populate stale items that MUST be purged
+    // Populate stale items that MUST be purged
     const staleFiles = [
       path.join(mockKonoha, 'konoha.db.bak-piaudit-20260910'),
       path.join(mockKonoha, 'konoha.db.bak-savings-fix-20260911'),
@@ -95,7 +95,7 @@ function runTest() {
     fs.mkdirSync(pycacheDir, { recursive: true });
     fs.writeFileSync(path.join(pycacheDir, 'dead.pyc'), 'binary cache', 'utf8');
 
-    // 3. Execute cleanKonohaRuntimeDir
+    // Execute cleanKonohaRuntimeDir
     const cleanResult = cleanKonohaRuntimeDir({
       targetDir: mockKonoha,
       srcDir: SRC_DIR,
@@ -109,13 +109,13 @@ function runTest() {
     assert.ok(cleanResult.purgedFiles >= staleFiles.length, `Expected at least ${staleFiles.length} purged files, got ${cleanResult.purgedFiles}`);
     assert.ok(cleanResult.reclaimedBytes > 0, 'Reclaimed bytes must be greater than 0');
 
-    // 4. Verify stale files are gone
+    // Verify stale files are gone
     for (const file of staleFiles) {
       assert.strictEqual(fs.existsSync(file), false, `Stale file must be purged: ${file}`);
     }
     assert.strictEqual(fs.existsSync(pycacheDir), false, '__pycache__ must be purged');
 
-    // 5. Verify preserved items remain intact
+    // Verify preserved items remain intact
     for (const file of preservedFiles) {
       assert.strictEqual(fs.existsSync(file), true, `Preserved file must exist: ${file}`);
     }
@@ -128,7 +128,7 @@ function runTest() {
     checkDb.close();
     assert.strictEqual(row && row.note, 'active-user-agent-data', 'Database contents must be preserved without data loss');
 
-    // 6. Verify idempotency: running a second time should purge 0 items
+    // Verify idempotency: running a second time should purge 0 items
     const secondPass = cleanKonohaRuntimeDir({
       targetDir: mockKonoha,
       srcDir: SRC_DIR,
@@ -137,7 +137,7 @@ function runTest() {
     });
     assert.strictEqual(secondPass.purgedFiles, 0, 'Second cleaning pass must report 0 purged items');
 
-    // 7. Verify safety guards
+    // Verify safety guards
     assert.throws(
       () => cleanKonohaRuntimeDir({ targetDir: '/' }),
       /Refusing to clean unsafe directory/,
@@ -169,7 +169,7 @@ function testPristineReinstallContract() {
   fs.mkdirSync(mockKonoha, { recursive: true });
 
   try {
-    // 1. Initial clean pass on runtime directory
+    // Initial clean pass on runtime directory
     cleanKonohaRuntimeDir({
       targetDir: mockKonoha,
       srcDir: SRC_DIR,
@@ -177,7 +177,7 @@ function testPristineReinstallContract() {
       vacuumDatabase: false,
     });
 
-    // 2. Simulate pristine installation / runtime deployment in sandbox
+    // Simulate pristine installation / runtime deployment in sandbox
     fs.writeFileSync(path.join(mockKonoha, 'server.js'), '// canonical server\n', 'utf8');
     fs.writeFileSync(path.join(mockKonoha, 'package.json'), '{"name":"konoha"}\n', 'utf8');
     fs.mkdirSync(path.join(mockKonoha, 'bin'), { recursive: true });
@@ -193,7 +193,7 @@ function testPristineReinstallContract() {
     });
     assert.strictEqual(syncRes, 0, 'syncCursorSkillsFromAgents must be a no-op returning 0');
 
-    // 3. Verify that pristine reinstallation strictly forbids legacy D2 artifacts
+    // Verify that pristine reinstallation strictly forbids legacy D2 artifacts
     const forbiddenLegacyArtifacts = [
       // Old separate agent and skill directories
       path.join(mockKonoha, 'agents'),
@@ -229,7 +229,7 @@ function testPristineReinstallContract() {
       );
     }
 
-    // 4. Verify that if any legacy artifact is reintroduced, cleanKonohaRuntimeDir purges it
+    // Verify that if any legacy artifact is reintroduced, cleanKonohaRuntimeDir purges it
     fs.mkdirSync(path.join(mockKonoha, '__pycache__'), { recursive: true });
     fs.writeFileSync(path.join(mockKonoha, 'skills.db'), 'stale db', 'utf8');
     fs.writeFileSync(path.join(mockKonoha, 'server.py'), '# stale python', 'utf8');

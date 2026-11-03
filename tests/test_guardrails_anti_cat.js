@@ -11,7 +11,7 @@ const { checkCommandGuardrails } = require('../src/guardrails');
 
 console.log('Running test_guardrails_anti_cat tests...');
 
-// 1. Plain cat/grep blocked
+// Plain cat/grep blocked
 const rawCat = checkCommandGuardrails('cat package.json');
 assert.ok(rawCat);
 assert.strictEqual(rawCat.category, 'read-bypass');
@@ -21,7 +21,7 @@ const rawGrep = checkCommandGuardrails('grep "pattern" src/file.js');
 assert.ok(rawGrep);
 assert.strictEqual(rawGrep.category, 'read-bypass');
 
-// 2. rtk-prefixed cat/grep also blocked (Anti-cat/anti-grep invariant)
+// rtk-prefixed cat/grep also blocked (Anti-cat/anti-grep invariant)
 const rtkCat = checkCommandGuardrails('rtk cat src/index.js');
 assert.ok(rtkCat, 'rtk cat must be blocked by guardrails');
 assert.strictEqual(rtkCat.category, 'read-bypass');
@@ -34,7 +34,7 @@ const rtkRg = checkCommandGuardrails('rtk rg "function" src/');
 assert.ok(rtkRg, 'rtk rg must be blocked by guardrails');
 assert.strictEqual(rtkRg.category, 'read-bypass');
 
-// 3. Legitimate build, test, and lint commands allowed
+// Legitimate build, test, and lint commands allowed
 assert.strictEqual(checkCommandGuardrails('rtk pnpm test'), null);
 assert.strictEqual(checkCommandGuardrails('rtk pnpm run build'), null);
 assert.strictEqual(checkCommandGuardrails('rtk pnpm run lint'), null);

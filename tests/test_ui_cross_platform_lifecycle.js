@@ -44,7 +44,7 @@ async function runTests() {
   const deployUtils = require('../src/deploy_utils');
   const webServerSource = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'web_server.js'), 'utf8');
 
-  // 1. openUrlInBrowser on Windows
+  // openUrlInBrowser on Windows
   ok(
     'openUrlInBrowser uses cmd.exe /c start "" on Windows',
     cliSource.includes("spawn('cmd.exe', ['/c', 'start', '\"\"', targetUrl]")
@@ -54,7 +54,7 @@ async function runTests() {
     cliSource.includes("windowsHide: true")
   );
 
-  // 2. cmdUiStart daemon spawn
+  // cmdUiStart daemon spawn
   ok(
     'cmdUiStart passes windowsHide: true in daemon spawn options',
     cliSource.includes("windowsHide: true\n  });") || cliSource.includes("windowsHide: true")
@@ -64,7 +64,7 @@ async function runTests() {
     cliSource.includes("const maxAttempts = process.platform === 'win32' ? 30 : 15;")
   );
 
-  // 3. cmdUiStop Windows logic
+  // cmdUiStop Windows logic
   ok(
     'pidBelongsToPort allows any valid PID on Windows (not hardcoded to 1404)',
     !cliSource.includes("if (process.platform === 'win32') return stopPort === 1404;") &&
@@ -80,14 +80,14 @@ async function runTests() {
     cliSource.includes("netstat -ano -p tcp")
   );
 
-  // 4. cmdUiRestart polling
+  // cmdUiRestart polling
   ok(
     'cmdUiRestart polls checkPortActive before starting new daemon',
     cliSource.includes("for (let i = 0; i < 20; i++) {") &&
     cliSource.includes("if (!await checkPortActive(restartPort)) break;")
   );
 
-  // 5. cmdUiBuild cross-platform safety
+  // cmdUiBuild cross-platform safety
   ok(
     'cmdUiBuild detects pnpm safely and sets shell: isWin',
     cliSource.includes("where pnpm") &&
@@ -98,7 +98,7 @@ async function runTests() {
     cliSource.includes("fs.cpSync(path.join(webDir, 'build'), installedBuild, { recursive: true, force: true });")
   );
 
-  // 6. resolveWebUiDir casing support
+  // resolveWebUiDir casing support
   ok(
     'resolveWebUiDir supports konoha, Konoha, and konohagakure candidates',
     typeof deployUtils.resolveWebUiDir === 'function'
@@ -110,7 +110,7 @@ async function runTests() {
     deployUtilsSource.includes('path.join(globalRoot, "konohagakure", "apps", "web")')
   );
 
-  // 7. web_server.js dynamic getDistDir
+  // web_server.js dynamic getDistDir
   ok(
     'web_server.js defines dynamic getDistDir helper',
     webServerSource.includes('function getDistDir()')
@@ -120,7 +120,7 @@ async function runTests() {
     webServerSource.includes('const distDir = getDistDir();')
   );
 
-  // 8. Windows SIGBREAK support in daemon and foreground modes
+  // Windows SIGBREAK support in daemon and foreground modes
   ok(
     'cli.js hooks SIGBREAK on Windows in cmdUiDaemon and cmdWebForeground',
     cliSource.includes("if (process.platform === 'win32') {\n    process.on('SIGBREAK', shutdown);") &&

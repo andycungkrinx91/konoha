@@ -21,7 +21,7 @@ async function run() {
   db.DB_PATH = testDbPath;
 
   try {
-    // 1. Save and query memory
+    // Save and query memory
     const memId = personaMemory.saveMemory({
       agentName: 'anbu',
       title: 'Postgres Connection Pooling',
@@ -43,7 +43,7 @@ async function run() {
     assert.ok(results[0].content.includes('PostgreSQL'));
     console.log('✓ Save and query memory passed');
 
-    // 2. List and count memories
+    // List and count memories
     personaMemory.saveMemory({ agentName: 'anbu', content: 'Rule 1', title: 'Rule 1', dbPath: testDbPath });
     personaMemory.saveMemory({ agentName: 'anbu', content: 'Rule 2', title: 'Rule 2', dbPath: testDbPath });
     personaMemory.saveMemory({ agentName: 'jonin', content: 'UI Rule 1', title: 'UI Rule 1', dbPath: testDbPath });
@@ -58,7 +58,7 @@ async function run() {
     assert.strictEqual(anbuList.length, 3);
     console.log('✓ List and count memories passed');
 
-    // 3. Delete memory
+    // Delete memory
     const kageMemId = personaMemory.saveMemory({ agentName: 'kage', content: 'Architectural Rule', title: 'Arch', dbPath: testDbPath });
     const countBefore = personaMemory.countMemories({ dbPath: testDbPath });
 
@@ -67,7 +67,7 @@ async function run() {
     assert.strictEqual(personaMemory.countMemories({ dbPath: testDbPath }), countBefore - 1);
     console.log('✓ Delete memory passed');
 
-    // 4. Format memories for prompt
+    // Format memories for prompt
     const mems = [
       { memory_type: 'rule', content: 'Use strict typing.' },
       { memory_type: 'preference', content: 'Light mode only.' }
@@ -78,7 +78,7 @@ async function run() {
     assert.ok(block.includes('- [PREFERENCE] Light mode only.'));
     console.log('✓ Format memories for prompt passed');
 
-    // 5. Backslashes and special characters
+    // Backslashes and special characters
     const crazyContent = "Special path: C:\\\\\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\temp AND quotes \"' ` and slashes ///";
     const crazyId = personaMemory.saveMemory({
       agentName: 'anbu',
@@ -98,7 +98,7 @@ async function run() {
     assert.ok(resCrazy.some(m => m.id === crazyId), 'Query must find the backslash memory');
     console.log('✓ Backslashes and special characters passed');
 
-    // 6. FTS5 boolean operators sanitization
+    // FTS5 boolean operators sanitization
     personaMemory.saveMemory({ agentName: 'kage', content: 'Rule about caching and invalidation', title: 'Caching', dbPath: testDbPath });
     for (const badQuery of ['AND', 'OR', 'NOT', 'AND OR NOT', 'caching AND', 'OR invalidation', 'AND AND AND']) {
       const res = personaMemory.queryMemories({
@@ -110,7 +110,7 @@ async function run() {
     }
     console.log('✓ FTS5 boolean operators sanitization passed');
 
-    // 7. DB schema integrity
+    // DB schema integrity
     const conn = personaMemory.getDb(testDbPath);
     personaMemory.initMemoryTables(conn);
 
@@ -126,7 +126,7 @@ async function run() {
     conn.close();
     console.log('✓ DB schema integrity passed');
 
-    // 8. Session isolation contract (Decision A)
+    // Session isolation contract (Decision A)
     const projPath = '/tmp/proj_iso_test_' + Date.now();
     const sess1 = 'sess-iso-alpha-001';
     const sess2 = 'sess-iso-beta-002';

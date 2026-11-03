@@ -30,7 +30,7 @@ const { normalizeModeArg, describeMode } = require('../bin/commands/mode');
 async function run() {
   console.log('Running test_mode_switch tests...');
 
-  // 1. Unified display map covers all required labels
+  // Unified display map covers all required labels
   const cases = [
     ['pending_plan_approval', 'Pending Gate 1'],
     ['pending_human_signoff', 'Pending Gate 2'],
@@ -47,7 +47,7 @@ async function run() {
   }
   console.log('✓ Unified gate display statuses verified');
 
-  // 2. Mode arg normalization
+  // Mode arg normalization
   assert.deepStrictEqual(normalizeModeArg('yolo'), { hitl_mode: 'disabled', display: 'YOLO' });
   assert.deepStrictEqual(normalizeModeArg('autonomous'), { hitl_mode: 'disabled', display: 'YOLO' });
   assert.deepStrictEqual(normalizeModeArg('hitl'), { hitl_mode: 'enabled', display: 'HITL' });
@@ -56,7 +56,7 @@ async function run() {
   assert.strictEqual(describeMode('enabled'), 'HITL');
   console.log('✓ Mode arg normalization verified');
 
-  // 3. CLI round-trip in isolated project dir
+  // CLI round-trip in isolated project dir
   const tmpDir = _modeDir;
   let cfg = sdlcManager.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' }, _modeDbPath);
   assert.strictEqual(cfg.hitl_mode, 'disabled');
@@ -66,7 +66,7 @@ async function run() {
   assert.strictEqual(cfg.hitl_mode, 'enabled');
   console.log('✓ Mode persistence round-trip verified');
 
-  // 4. YOLO invariant: disabled mode still pauses at Gate 1
+  // YOLO invariant: disabled mode still pauses at Gate 1
   const { buildGate1Prompt, buildGate2Prompt } = require('../src/mcp/workflow_gates');
   const fakeStatus = { task_id: 'task_yolo', tasks: [], plan_approved: false };
   const g1 = JSON.parse(buildGate1Prompt(fakeStatus, tmpDir, 'task_yolo', '# plan'));

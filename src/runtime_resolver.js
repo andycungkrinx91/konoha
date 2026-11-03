@@ -28,7 +28,7 @@ function parseNodeVersion(verStr) {
   };
 }
 
-function isNodeVersionCompatible(ver, minMajor = 18, minMinor = 12) {
+function isNodeVersionCompatible(ver, minMajor = 24, minMinor = 0) {
   const parsed = typeof ver === 'object' && ver !== null ? ver : parseNodeVersion(ver);
   if (!parsed) return false;
   if (parsed.major > minMajor) return true;
@@ -49,7 +49,7 @@ function queryNodeVersion(normalized) {
   }
 }
 
-function checkNodeCandidate(candidatePath, minMajor = 18, minMinor = 12) {
+function checkNodeCandidate(candidatePath, minMajor = 24, minMinor = 0) {
   if (!candidatePath || typeof candidatePath !== 'string') return null;
   const normalized = path.resolve(candidatePath.trim());
   if (!fileExists(normalized)) return null;
@@ -132,8 +132,8 @@ function readRecordedNodePath(minMajor, minMinor) {
 }
 
 function resolveCompatibleNode(options = {}) {
-  const minMajor = options.minMajor != null ? options.minMajor : 18;
-  const minMinor = options.minMinor != null ? options.minMinor : 12;
+  const minMajor = options.minMajor != null ? options.minMajor : 24;
+  const minMinor = options.minMinor != null ? options.minMinor : 0;
 
   if (process.env.KONOHA_NODE) {
     const checked = checkNodeCandidate(process.env.KONOHA_NODE, minMajor, minMinor);

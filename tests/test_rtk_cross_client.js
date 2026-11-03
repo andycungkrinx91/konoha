@@ -17,14 +17,14 @@ const HOME = os.homedir();
 async function run() {
   console.log('Running test_rtk_cross_client tests...');
 
-  // 1. RTK binary detection
+  // RTK binary detection
   const { getRtkCommand, isRtkInstalled } = require('../src/platform_utils');
   const rtkCmd = getRtkCommand();
   const installed = isRtkInstalled();
   assert.ok(installed && rtkCmd, 'RTK must be detected');
   console.log('✓ RTK binary detection passed:', rtkCmd);
 
-  // 2. Antigravity RTK deployment
+  // Antigravity RTK deployment
   const { deployAntigravityRtkRule } = require('../src/antigravity_manager');
   const resAgy = deployAntigravityRtkRule(true);
   assert.ok(resAgy && resAgy.ok, 'Antigravity RTK deployment failed');
@@ -32,7 +32,7 @@ async function run() {
   assert.ok(fs.existsSync(path.join(HOME, '.gemini', 'antigravity-ide', 'rules', 'rtk.md')));
   console.log('✓ Antigravity RTK deployment passed');
 
-  // 3. Claude Code RTK deployment
+  // Claude Code RTK deployment
   const { deployClaudeCodeRtkRule, initRtkHook } = require('../src/mcp_clients_manager');
   const r1 = deployClaudeCodeRtkRule(true);
   const r2 = initRtkHook(true);
@@ -41,14 +41,14 @@ async function run() {
   assert.ok(fs.existsSync(path.join(HOME, '.claude', 'rules', 'rtk.md')));
   console.log('✓ Claude Code RTK deployment passed');
 
-  // 4. Cursor RTK deployment
+  // Cursor RTK deployment
   const { deployCursorRtkRule } = require('../src/cursor_manager');
   const resCursor = deployCursorRtkRule(true);
   assert.ok(resCursor && resCursor.ok, 'Cursor RTK deployment failed');
   assert.ok(fs.existsSync(path.join(HOME, '.cursor', 'rules', 'rtk.mdc')));
   console.log('✓ Cursor RTK deployment passed');
 
-  // 5. OpenCode RTK deployment
+  // OpenCode RTK deployment
   const { deployOpenCodeRtkRule } = require('../src/opencode_manager');
   const resOpenCode = deployOpenCodeRtkRule(true);
   assert.ok(resOpenCode && resOpenCode.ok, 'OpenCode RTK deployment failed');
@@ -57,7 +57,7 @@ async function run() {
   assert.ok(fs.existsSync(opencodeRule1) || fs.existsSync(opencodeRule2));
   console.log('✓ OpenCode RTK deployment passed');
 
-  // 6. CommandCode RTK deployment
+  // CommandCode RTK deployment
   const { deployCommandCodeRtkRule, registerCommandCodePermissions } = require('../src/mcp_clients_manager');
   const resCc = deployCommandCodeRtkRule(true);
   registerCommandCodePermissions(true);
@@ -65,14 +65,14 @@ async function run() {
   assert.ok(fs.existsSync(path.join(HOME, '.commandcode', 'rules', 'rtk.md')));
   console.log('✓ CommandCode RTK deployment passed');
 
-  // 7. Codex RTK deployment
+  // Codex RTK deployment
   const { deployCodexRtkRule } = require('../src/codex_manager');
   const resCodex = deployCodexRtkRule(true);
   assert.ok(resCodex && resCodex.ok, 'Codex RTK deployment failed');
   assert.ok(fs.existsSync(path.join(HOME, '.codex', 'rules', 'rtk.md')));
   console.log('✓ Codex RTK deployment passed');
 
-  // 8. RTK contract in rules and prompts
+  // RTK contract in rules and prompts
   const geminiRule = fs.readFileSync(path.join(ROOT, 'GEMINI.md'), 'utf-8');
   assert.ok(geminiRule.includes('RTK is mandatory for commands'));
   assert.ok(geminiRule.includes('rtk <command>'));
