@@ -5,11 +5,11 @@
  * tests/test_yamanaka_langgraph_pipeline.js
  *
  * Verifies LangGraph.js Yamanaka 3D Workflow StateGraph:
- * 1. Proves StateGraph compiles and links with KonohaCheckpointSaver.
- * 2. Proves end-to-end execution of runYamanaka3DGraph().
- * 3. Proves generation_jobs, validation_results, and llm_requests_3d persistence in SQLite.
- * 4. Proves liveAgentSteps streaming and intermediate .glb hot-reload generation.
- * 5. Proves staging directory is cleaned upon promotion.
+ * Proves StateGraph compiles and links with KonohaCheckpointSaver
+ * Proves end-to-end execution of runYamanaka3DGraph()
+ * Proves generation_jobs, validation_results, and llm_requests_3d persistence in SQLite
+ * Proves liveAgentSteps streaming and intermediate .glb hot-reload generation
+ * Proves staging directory is cleaned upon promotion
  */
 
 const assert = require('assert');
@@ -39,14 +39,14 @@ const conn = getConnection(testDbPath);
 setupSchema(conn);
 
 async function runTests() {
-  // 1. Build and compile graph
+  // Build and compile graph
   console.log('\n--- 1. Testing LangGraph StateGraph Construction ---');
   const graph = buildYamanaka3DGraph();
   assert.ok(graph, 'StateGraph must compile successfully');
   assert.strictEqual(MAX_YAMANAKA_REPAIR_ATTEMPTS, 3);
   console.log('  ✓ StateGraph compiled and linked with KonohaCheckpointSaver.');
 
-  // 2. Run Text-to-3D through LangGraph pipeline
+  // Run Text-to-3D through LangGraph pipeline
   console.log('\n--- 2. Testing End-to-End runYamanaka3DGraph Execution ---');
   const jobId = `job_lg_${Date.now()}`;
   const streamedActions = [];
@@ -79,7 +79,7 @@ async function runTests() {
   assert.strictEqual(baseMeshReady.live_glb_ready, true);
   console.log(`  ✓ Workflow completed. Promoted asset: ${result.asset_id}`);
 
-  // 3. Verify SQLite DB Records
+  // Verify SQLite DB Records
   console.log('\n--- 3. Testing SQLite Database Records ---');
   const job = getJobById(conn, result.job_id || jobId);
   assert.ok(job);
@@ -95,7 +95,7 @@ async function runTests() {
   assert.ok(telem.total_tokens >= 0);
   console.log(`  ✓ generation_jobs, assets, asset_files, and tokens persisted accurately.`);
 
-  // 4. Test dispatchYamanakaWorkflow alias
+  // Test dispatchYamanakaWorkflow alias
   console.log('\n--- 4. Testing dispatchYamanakaWorkflow Delegate ---');
   const aliasResult = await dispatchYamanakaWorkflow({
     prompt: 'Modular tactical defense turret',

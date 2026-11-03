@@ -17,7 +17,7 @@
   // Generation Form State
   let prompt = $state('Cyberpunk quantum mainframe server terminal with glowing holographic rings');
   let negativePrompt = $state('low poly, distorted, non-manifold, roblox, flat shading');
-  let archetype = $state('saas');
+  let archetype = $state('auto');
   let profile = $state('enterprise_pbr');
   let qualityPreset = $state('standard');
   let requestedComputeMode = $state('auto');
@@ -34,6 +34,14 @@
   let activeTool = $state('');
   let activeNarrative = $state('');
   let eventSource = $state(null);
+  let livePngUrl = $state(null);
+  let blenderSteps = $state([]);
+  let llmProgress = $state(null);
+  let blenderRuntime = $state(null);
+  let turnaroundRequested = $state(false);
+  let generatorStatus = $state(null);
+
+  const TURNAROUND_PROMPT_PATTERN = /\b(turnaround|orthographic|front view|side view|back view|top view|reference sheet|model sheet)\b/i;
 
   // Geometry metrics
   let triangleCount = $state(0);
@@ -85,12 +93,31 @@
 
   const AGENTIC_STEPS = [
     { id: 1, name: 'Workspace Import & Hierarchy Analysis', tool: 'dcc.blender.import_glb' },
-    { id: 2, name: 'Weighted Normals & Micro-Chamfer Beveling', tool: 'dcc.blender.modify_mesh' },
+    { id: 2, name: 'Organic Subdivision / Micro-Chamfer Bevel', tool: 'dcc.blender.modify_mesh' },
     { id: 3, name: 'Smart UV Projection & Island Packing', tool: 'dcc.blender.uv_unwrap' },
-    { id: 4, name: 'Principled BSDF Physical Shader Synthesis', tool: 'dcc.blender.set_materials' },
-    { id: 5, name: 'Studio 3-Point Lighting & Camera Framing', tool: 'dcc.blender.setup_studio' },
-    { id: 6, name: 'Final GLB Production Export & Integrity Verification', tool: 'dcc.blender.export_glb' }
+    { id: 4, name: 'Principled BSDF & Procedural Fur Shader', tool: 'dcc.blender.set_materials' },
+    { id: 5, name: 'Studio Lighting, Compute Device & Camera Rig', tool: 'dcc.blender.setup_studio' },
+    { id: 6, name: 'Production GLB Export & Turnaround Render', tool: 'dcc.blender.export_glb' }
   ];
+
+  function stepTiming(stepNumber) {
+    return blenderSteps.find((st) => st.step_number === stepNumber) || null;
+  }
+
+  async function loadGeneratorStatus() {
+    try {
+      const data = await apiRequest('/api/v1/3d/setup/status');
+      const components = (data.toolchain && data.toolchain.components) || {};
+      blenderRuntime = {
+        blender: components.blender || null,
+        dcc: components.dcc_mcp_blender || null,
+        live_session: data.live_session || null
+      };
+      generatorStatus = data;
+    } catch (_) {
+      blenderRuntime = null;
+    }
+  }
 
   async function loadTelemetry(period) {
     telemetryPeriod = period;
@@ -120,7 +147,7 @@
 
   function syncCatalogDefaults() {
     if (!archetypes.some((a) => a.id === archetype)) {
-      archetype = archetypes.find((a) => a.id === 'saas')?.id || archetypes[0]?.id || '';
+      archetype = archetypes.find((a) => a.id === 'auto')?.id || archetypes[0]?.id || '';
     }
     if (!profiles.some((p) => p.id === profile)) {
       profile = profiles[0]?.id || '';
@@ -158,6 +185,10 @@
     currentStep = 0;
     activeTool = 'yamanaka.langgraph.init';
     activeNarrative = 'Initializing LangGraph 3D workflow and staging directory...';
+    blenderSteps = [];
+    llmProgress = null;
+    livePngUrl = null;
+    turnaroundRequested = TURNAROUND_PROMPT_PATTERN.test(prompt);
 
     if (eventSource) {
       eventSource.close();
@@ -180,6 +211,7 @@
 
       currentJobId = res.job_id;
       pendingLiveGlbUrl = res.live_glb_url;
+      livePngUrl = res.live_png_url || null;
       currentGlbUrl = null;
 
       connectJobStream(res.stream_url);
@@ -203,12 +235,25 @@
             currentGlbUrl = pendingLiveGlbUrl;
           }
           liveKey = Date.now();
+        } else if (payload.event === 'llm_synthesis_attempt') {
+          activeNarrative = `Synthesizing with ${payload.model} (attempt ${payload.attempt}/${payload.total_targets})...`;
+        } else if (payload.event === 'llm_synthesis_progress') {
+          llmProgress = payload;
+          activeNarrative = `LLM ${payload.model || ''} streaming scene specification (${payload.contentLength || 0} chars)...`;
+        } else if (payload.event === 'llm_synthesis_complete') {
+          llmProgress = { ...(llmProgress || {}), model: payload.model, nodes: payload.nodes, tokens: payload.tokens };
+          activeNarrative = `LLM synthesized ${payload.nodes || 0} scene nodes with ${payload.model || 'configured model'}.`;
         } else if (payload.event === 'blender_agent_action') {
           currentStep = payload.step_number;
           activeTool = payload.tool_used;
-          activeNarrative = payload.narrative;
+          activeNarrative = `${payload.step_name || payload.tool_used} finished in ${payload.elapsed_ms || 0} ms`;
+          blenderSteps = [...blenderSteps.filter((st) => st.step_number !== payload.step_number), payload]
+            .sort((a, b) => a.step_number - b.step_number);
           if (!currentGlbUrl && pendingLiveGlbUrl) {
             currentGlbUrl = pendingLiveGlbUrl;
+          }
+          if (livePngUrl) {
+            livePngUrl = `${livePngUrl.split('?')[0]}?_t=${Date.now()}`;
           }
           liveKey = Date.now();
         } else if (payload.event === 'job_completed') {
@@ -244,6 +289,7 @@
     loadTelemetry('today');
     loadModels();
     loadRecentAssets();
+    loadGeneratorStatus();
     return () => {
       if (eventSource) eventSource.close();
     };
@@ -422,6 +468,15 @@
               <div class="flex-1 min-w-0">
                 <p class="text-xs font-bold truncate" style="color: var(--color-text);">{s.name}</p>
                 <p class="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 truncate">{s.tool}</p>
+                {#if stepTiming(s.id)}
+                  {@const done = stepTiming(s.id)}
+                  <p class="text-[10px] text-slate-500 truncate">
+                    {done.elapsed_ms} ms ·
+                    {done.parameters?.vertices || 0} verts /
+                    {done.parameters?.triangles || 0} tris
+                    {#if done.parameters?.turnaround}· 16:9 turnaround{/if}
+                  </p>
+                {/if}
               </div>
             </div>
           {/each}
@@ -440,7 +495,46 @@
           triangleCount={triangleCount}
           vertexCount={vertexCount}
           isWatertight={isWatertight}
+          turnaroundMode={turnaroundRequested}
         />
+
+        <!-- Live Blender 5.x Agentic Render Stream -->
+        {#if livePngUrl || blenderRuntime}
+          <div class="mt-4 p-3 rounded-[5px] border" style="border-color: var(--color-border); background-color: var(--color-surface);">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 class="text-[11px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                Live Blender Agentic Render Stream
+              </h4>
+              <div class="flex items-center gap-2 text-[10px] font-mono text-slate-500">
+                {#if blenderRuntime?.blender}
+                  <span>Blender {blenderRuntime.blender.version || 'unknown'}</span>
+                {/if}
+                {#if blenderRuntime?.dcc}
+                  <span>· dcc-mcp-blender {blenderRuntime.dcc.version || 'not installed'}</span>
+                {/if}
+              </div>
+            </div>
+            {#if livePngUrl}
+              <a href={livePngUrl} target="_blank" rel="noreferrer" class="block">
+                <img
+                  src={livePngUrl}
+                  alt="Blender live render"
+                  class="w-full rounded-[4px] border object-contain bg-slate-200"
+                  style="border-color: var(--color-border); max-height: 360px;"
+                />
+              </a>
+              <p class="mt-1 text-[10px] text-slate-500">Rendered by Blender at each refinement step. Click to open the full-resolution frame.</p>
+            {:else}
+              <p class="text-[11px] text-slate-500">The live Blender render appears here the moment the first refinement step finishes.</p>
+            {/if}
+            {#if llmProgress}
+              <p class="mt-2 text-[10px] font-mono text-cyan-600 dark:text-cyan-400">
+                LLM {llmProgress.model || 'configured model'} · {llmProgress.nodes || llmProgress.contentLength || 0} {llmProgress.nodes ? 'nodes' : 'chars'}
+                {#if llmProgress.tokens}· {llmProgress.tokens.total_tokens} tokens{/if}
+              </p>
+            {/if}
+          </div>
+        {/if}
 
         <!-- Production Asset Downloads Bar -->
         {#if currentAssetId}

@@ -8,8 +8,9 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveChatTargets, sendChatMessage } = require('./model_router');
-const { createDefaultSceneSpec, inferArchetypeFromPrompt, customizeSpecFromPrompt } = require('./spec_schema');
+const { createDefaultSceneSpec, resolveEffectiveArchetype, customizeSpecFromPrompt, parseTurnaroundIntent } = require('./spec_schema');
 const { synthesizeSceneFromPrompt } = require('./prompt_synthesizer');
+const { parseTailCount } = require('./creature_synthesizer');
 const { parseKonohaDSL, specToDSL } = require('./dsl_parser');
 const { globalCircuitRegistry } = require('../../circuit_breaker');
 const { countTiktoken } = require('../../token_sampler');
@@ -56,7 +57,12 @@ ${skillText}
    - Aggregate dimensions must fit inside a 3.0 x 3.0 x 3.0 bounding extent.
    - Symmetrically balanced or dynamically centered around x=0.
 5. COMPONENT HIERARCHY:
-   - Include 6 to 36 meaningful, articulate subcomponents.`;
+   - Include 6 to 36 meaningful, articulate subcomponents.
+6. ORGANIC & CREATURE ANATOMY:
+   - For creatures/quadrupeds build full anatomy: ribcage, spine, pelvis, neck, skull, muzzle, jaw, eyes (with pupil), ears, and 4 articulated limbs whose paws touch y=0.
+   - Every separate tail plume must be its own named node (tail_1 ... tail_N) radially fanned so they never overlap in any orthographic view.
+7. MATERIAL EXTENSION: physical materials also accept sheen [0..1], sheenRoughness [0..1], sheenColor hex, and subsurface [0..1] for fur, velvet and skin.
+8. If the prompt asks for turnaround / orthographic reference views, include: "turnaround": { "enabled": true, "views": ["front","side","back","top"], "aspectRatio": "16:9", "background": "#d4d4d8", "flatStudioLighting": true, "noShadows": true }.`;
 
   return cachedDslSkillPrompt;
 }
@@ -72,9 +78,89 @@ function detectMimeType(filePath) {
   return 'application/octet-stream';
 }
 
+function degToRad(value) {
+  return typeof value === 'number' ? (value * Math.PI) / 180 : 0;
+}
+
+function normalizeRotation(rotation) {
+  if (!Array.isArray(rotation)) return [0, 0, 0];
+  return rotation.map((v) => (Math.abs(v) > Math.PI * 2 + 0.001 ? degToRad(v) : Number(v) || 0));
+}
+
+function resolveNodeMaterial(node, materialTable) {
+  const ref = node.material;
+  if (ref && typeof ref === 'object') return ref;
+  if (typeof ref === 'string' && materialTable[ref]) {
+    const entry = Object.assign({}, materialTable[ref]);
+    if (!entry.type) entry.type = 'physical';
+    return entry;
+  }
+  return { type: 'physical', color: '#94a3b8', roughness: 0.5, metalness: 0.2 };
+}
+
+function flattenNodeTree(rawNodes, materialTable, out = [], inherited = [0, 0, 0]) {
+  for (const raw of Array.isArray(rawNodes) ? rawNodes : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const localPos = Array.isArray(raw.position) ? raw.position.map(Number) : [0, 0, 0];
+    const worldPos = [inherited[0] + (localPos[0] || 0), inherited[1] + (localPos[1] || 0), inherited[2] + (localPos[2] || 0)];
+    const geom = raw.geometry && typeof raw.geometry === 'object' ? raw.geometry : null;
+    const nodeName = String(raw.id || raw.name || `node_${out.length}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (geom && geom.type) {
+      const params = Object.assign({}, geom.params || {});
+      for (const [k, v] of Object.entries(geom)) {
+        if (k !== 'type' && k !== 'params') params[k] = v;
+      }
+      out.push({
+        name: nodeName,
+        geometry: { type: geom.type, params },
+        material: resolveNodeMaterial(raw, materialTable),
+        transform: {
+          position: worldPos,
+          rotation: normalizeRotation(raw.rotation),
+          scale: Array.isArray(raw.scale) ? raw.scale.map(Number) : [1, 1, 1]
+        }
+      });
+    }
+    if (Array.isArray(raw.children)) flattenNodeTree(raw.children, materialTable, out, worldPos);
+  }
+  return out;
+}
+
+function structuralJsonToSpec(parsedJson) {
+  const asset = parsedJson.asset && typeof parsedJson.asset === 'object' ? parsedJson.asset : {};
+  const nodes = flattenNodeTree(parsedJson.nodes, parsedJson.materials || {});
+  if (nodes.length === 0) return null;
+  const spec = {
+    name: asset.name || parsedJson.name || 'SynthesizedAsset',
+    archetype: String(asset.archetype || parsedJson.archetype || asset.class || 'application').toLowerCase(),
+    target_polycount: parsedJson.target_polycount || 50000,
+    camera: parsedJson.camera,
+    lights: parsedJson.lights,
+    style: parsedJson.style,
+    turnaround: parsedJson.turnaround,
+    nodes
+  };
+  if (/quadruped|creature/i.test(String(asset.class || ''))) spec.archetype = 'game-creature';
+  return spec;
+}
+
 function parseDslOrJson(text) {
   if (!text || typeof text !== 'string') return null;
   const trimmed = text.trim();
+
+  try {
+    const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsedJson = JSON.parse(jsonMatch[0]);
+      if (parsedJson && Array.isArray(parsedJson.nodes) && parsedJson.nodes.length > 0) {
+        const structural = structuralJsonToSpec(parsedJson);
+        if (structural) return { spec: structural, dsl: null };
+      }
+      if (parsedJson && parsedJson.nodes) {
+        return { spec: parsedJson.spec || parsedJson, dsl: null };
+      }
+    }
+  } catch (_) {}
 
   try {
     const cleanDsl = trimmed.replace(/^```[a-zA-Z0-9_-]*\n?/m, '').replace(/\n?```$/m, '').trim();
@@ -82,16 +168,6 @@ function parseDslOrJson(text) {
     const spec = dslResult && (dslResult.spec || dslResult);
     if (spec && Array.isArray(spec.nodes) && spec.nodes.length > 0) {
       return { spec, dsl: cleanDsl };
-    }
-  } catch (_) {}
-
-  try {
-    const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsedJson = JSON.parse(jsonMatch[0]);
-      if (parsedJson && (parsedJson.nodes || parsedJson.spec)) {
-        return { spec: parsedJson.spec || parsedJson, dsl: null };
-      }
     }
   } catch (_) {}
 
@@ -197,22 +273,62 @@ async function generateSceneSpecFromImage(options = {}) {
   };
 }
 
+function countTailNodes(spec) {
+  if (!spec || !Array.isArray(spec.nodes)) return 0;
+  const ids = new Set();
+  for (const n of spec.nodes) {
+    const m = String(n.name || '').match(/tail[_-]?(\d+)/i);
+    if (m) ids.add(m[1]);
+  }
+  return ids.size;
+}
+
+async function enrichSynthesizedSpec(prompt, spec, name, targetPolycount, requestedArchetype) {
+  const tailCount = parseTailCount(prompt);
+  const nodeCount = spec && Array.isArray(spec.nodes) ? spec.nodes.length : 0;
+  const needsCreature = spec && spec.archetype === 'game-creature';
+  const sparse = nodeCount < 18 || (tailCount > 1 && countTailNodes(spec) < tailCount);
+  if (!needsCreature || !sparse) return spec;
+  const richer = synthesizeSceneFromPrompt(prompt, name, targetPolycount, requestedArchetype);
+  if (richer && richer.archetype === 'game-creature' && richer.nodes.length > nodeCount) {
+    return richer;
+  }
+  return spec;
+}
+
+function assembleSpec(prompt, name, targetPolycount, effectiveArch, requestedArchetype) {
+  const semanticSpec = synthesizeSceneFromPrompt(prompt, name, targetPolycount, requestedArchetype);
+  const fallbackSpec = semanticSpec || createDefaultSceneSpec(effectiveArch, name);
+  if (fallbackSpec && fallbackSpec.nodes && semanticSpec) {
+    fallbackSpec.archetype = semanticSpec.archetype || effectiveArch;
+  }
+  customizeSpecFromPrompt(fallbackSpec, prompt, targetPolycount);
+  if (fallbackSpec) {
+    fallbackSpec.__prompt = prompt;
+    fallbackSpec.turnaround = parseTurnaroundIntent(prompt, fallbackSpec.turnaround);
+  }
+  return fallbackSpec;
+}
+
 async function generateSceneSpecFromPrompt(prompt, options = {}) {
   const {
     name = 'HeroModel',
-    archetype = 'application',
+    archetype = 'auto',
     model: requestedModel = null,
-    target_polycount = 50000
+    target_polycount = 50000,
+    onAction = null
   } = options;
 
-  const inferredArch = inferArchetypeFromPrompt(prompt, archetype);
-  const effectiveArch = (archetype && archetype !== 'application') ? archetype : inferredArch;
+  const effectiveArch = resolveEffectiveArchetype(prompt, archetype);
+  const emit = (event, payload) => {
+    if (typeof onAction === 'function') {
+      try { onAction(event, payload); } catch (_) {}
+    }
+  };
 
   const circuit = globalCircuitRegistry.getOrCreate('yamanaka-llm-synthesis', 3, 60);
   if (!circuit.allowRequest()) {
-    const semanticSpec = synthesizeSceneFromPrompt(prompt, name, target_polycount, archetype);
-    const fallbackSpec = semanticSpec || createDefaultSceneSpec(effectiveArch, name);
-    customizeSpecFromPrompt(fallbackSpec, prompt, target_polycount);
+    const fallbackSpec = assembleSpec(prompt, name, target_polycount, effectiveArch, archetype);
     return {
       spec: fallbackSpec,
       source: 'circuit_breaker_fallback',
@@ -224,9 +340,7 @@ async function generateSceneSpecFromPrompt(prompt, options = {}) {
 
   const targets = resolveChatTargets(options);
   if (targets.length === 0) {
-    const semanticSpec = synthesizeSceneFromPrompt(prompt, name, target_polycount, archetype);
-    const fallbackSpec = semanticSpec || createDefaultSceneSpec(effectiveArch, name);
-    customizeSpecFromPrompt(fallbackSpec, prompt, target_polycount);
+    const fallbackSpec = assembleSpec(prompt, name, target_polycount, effectiveArch, archetype);
     return {
       spec: fallbackSpec,
       source: 'scaffolded_dsl',
@@ -237,45 +351,62 @@ async function generateSceneSpecFromPrompt(prompt, options = {}) {
     };
   }
 
+  const turnaroundIntent = parseTurnaroundIntent(prompt, null);
   const userText = `Prompt Concept: "${prompt}".
-Inferred Archetype: ${effectiveArch}
+Resolved Archetype: ${effectiveArch}
 Target Polycount: ${target_polycount}
 Asset Name: ${name}
+Turnaround Reference Requested: ${turnaroundIntent.enabled ? `yes, views ${turnaroundIntent.views.join(', ')} at ${turnaroundIntent.aspectRatio}` : 'no'}
 
-Task: Refine this concept into a complete, high-fidelity Konoha 3D DSL script.
+Task: Refine this concept into a complete, high-fidelity Konoha 3D DSL script (or raw JSON scene spec).
 Use realistic curved/chamfered primitives, MeshPhysicalMaterial PBR finishes, and ground min_y = 0.
 Output strictly raw Konoha 3D DSL script only.`;
 
-  for (const target of targets) {
+  for (const [targetIndex, target] of targets.entries()) {
+    emit('llm_synthesis_attempt', {
+      model: target.model,
+      attempt: targetIndex + 1,
+      total_targets: targets.length,
+      provider: target.kind
+    });
     try {
       const response = await sendChatMessage(target, {
         system: DSL_SYSTEM_PROMPT,
         userText,
-        model: requestedModel,
-        timeoutMs: 120000
+        model: target.model || requestedModel,
+        max_tokens: 8192,
+        timeoutMs: 120000,
+        onProgress: (progress) => emit('llm_synthesis_progress', {
+          model: progress.model,
+          contentLength: progress.contentLength,
+          reasoningLength: progress.reasoningLength,
+          usage: progress.usage
+        })
       });
 
       const parsed = parseDslOrJson(response.text);
       if (parsed) {
         circuit.recordSuccess();
+        const enriched = await enrichSynthesizedSpec(prompt, parsed.spec, name, target_polycount, effectiveArch);
         const telem = computeTokenTelemetry(userText, response.text, response.usage);
+        emit('llm_synthesis_complete', { model: response.model_used, tokens: telem, nodes: enriched.nodes.length });
         return {
-          spec: parsed.spec,
+          spec: enriched,
           dsl: parsed.dsl,
           source: 'prompt_synthesis',
           model_used: response.model_used,
           tokens: telem
         };
       }
+      emit('llm_synthesis_invalid', { model: target.model, reason: 'unparseable output' });
     } catch (err) {
       circuit.recordFailure();
+      emit('llm_synthesis_error', { model: target.model, reason: sanitizeError(err.message) });
       process.stderr.write(`[vision_spec] Prompt target attempt failed: ${sanitizeError(err.message)}\n`);
     }
   }
 
-  const semanticSpec = synthesizeSceneFromPrompt(prompt, name, target_polycount, archetype);
-  const fallbackSpec = semanticSpec || createDefaultSceneSpec(effectiveArch, name);
-  customizeSpecFromPrompt(fallbackSpec, prompt, target_polycount);
+  const fallbackSpec = assembleSpec(prompt, name, target_polycount, effectiveArch, archetype);
   return {
     spec: fallbackSpec,
     source: 'scaffolded_dsl',
@@ -351,6 +482,7 @@ module.exports = {
   DSL_SYSTEM_PROMPT,
   detectMimeType,
   parseDslOrJson,
+  structuralJsonToSpec,
   computeTokenTelemetry,
   generateSceneSpecFromImage,
   generateSceneSpecFromPrompt,

@@ -24,16 +24,22 @@ async function getThree() {
 async function getManifoldWasm() {
   if (manifoldInitAttempted) return cachedManifold;
   manifoldInitAttempted = true;
+  let mod;
   try {
-    const mod = await import('manifold-3d');
-    const init = mod.default || mod;
-    const wasm = await init();
-    if (typeof wasm.setup === 'function') wasm.setup();
-    cachedManifold = wasm;
-  } catch (err) {
-    process.stderr.write(`[scene_builder] manifold-3d WASM initialization notice: ${err.message}. CSG falling back to THREE.Group.\n`);
-    cachedManifold = null;
+    mod = await import('manifold-3d');
+  } catch (dynamicErr) {
+    try {
+      mod = require('manifold-3d');
+    } catch (staticErr) {
+      process.stderr.write('[scene_builder] manifold-3d module unavailable; CSG booleans degrade to grouped geometry\n');
+      cachedManifold = null;
+      return cachedManifold;
+    }
   }
+  const init = mod.default || mod;
+  const wasm = await init();
+  if (typeof wasm.setup === 'function') wasm.setup();
+  cachedManifold = wasm;
   return cachedManifold;
 }
 
@@ -65,29 +71,29 @@ function buildGeometry(THREE, specGeom, polyFactor = 1.0, style = null, RoundedB
     case 'sphere':
       return new THREE.SphereGeometry(
         p.radius || 1,
-        Math.max(8, Math.round((p.widthSegments || 16) * polyFactor)),
-        Math.max(6, Math.round((p.heightSegments || 12) * polyFactor))
+        Math.max(8, resolveSegments(p.widthSegments, 16, polyFactor)),
+        Math.max(6, resolveSegments(p.heightSegments, 12, polyFactor))
       );
     case 'cylinder':
       return new THREE.CylinderGeometry(
         p.radiusTop !== undefined ? p.radiusTop : 1,
         p.radiusBottom !== undefined ? p.radiusBottom : 1,
         p.height || 1,
-        Math.max(6, Math.round((p.radialSegments || 16) * polyFactor))
+        Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor))
       );
     case 'torus':
       return new THREE.TorusGeometry(
         p.radius || 1,
         p.tube || 0.4,
-        Math.max(6, Math.round((p.radialSegments || 16) * polyFactor)),
-        Math.max(8, Math.round((p.tubularSegments || 64) * polyFactor))
+        Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor)),
+        Math.max(8, resolveSegments(p.tubularSegments, 64, polyFactor))
       );
     case 'torusKnot':
       return new THREE.TorusKnotGeometry(
         p.radius || 1,
         p.tube || 0.4,
-        Math.max(8, Math.round((p.tubularSegments || 64) * polyFactor)),
-        Math.max(6, Math.round((p.radialSegments || 16) * polyFactor)),
+        Math.max(8, resolveSegments(p.tubularSegments, 64, polyFactor)),
+        Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor)),
         p.p || 2,
         p.q || 3
       );
@@ -95,7 +101,7 @@ function buildGeometry(THREE, specGeom, polyFactor = 1.0, style = null, RoundedB
       return new THREE.ConeGeometry(
         p.radius || 1,
         p.height || 1,
-        Math.max(6, Math.round((p.radialSegments || 16) * polyFactor))
+        Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor))
       );
     case 'plane': {
       const segs = Math.max(2, Math.round(8 * polyFactor));
@@ -124,21 +130,21 @@ function buildGeometry(THREE, specGeom, polyFactor = 1.0, style = null, RoundedB
       return new THREE.CapsuleGeometry(
         p.radius || 1,
         p.length || 1,
-        Math.max(4, Math.round((p.capSegments || 8) * polyFactor)),
-        Math.max(6, Math.round((p.radialSegments || 16) * polyFactor))
+        Math.max(4, resolveSegments(p.capSegments, 8, polyFactor)),
+        Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor))
       );
     case 'lathe': {
       const rawProfile = (p.profile && p.profile.length >= 2) ? p.profile : [[0, 0], [0.5, 0.5], [0, 1.0]];
       const profile = rawProfile.map(pt => new THREE.Vector2(pt[0], pt[1]));
-      const segs = Math.max(6, Math.round((p.radialSegments || 24) * polyFactor));
+      const segs = Math.max(6, resolveSegments(p.radialSegments, 24, polyFactor));
       return new THREE.LatheGeometry(profile, segs);
     }
     case 'tube': {
       const rawPoints = (p.points && p.points.length >= 2) ? p.points : [[0, 0, 0], [0, 1, 0]];
       const points = rawPoints.map(pt => new THREE.Vector3(pt[0], pt[1], pt[2]));
       const curve = new THREE.CatmullRomCurve3(points);
-      const tubSegs = Math.max(8, Math.round((p.tubularSegments || 32) * polyFactor));
-      const radSegs = Math.max(6, Math.round((p.radialSegments || 12) * polyFactor));
+      const tubSegs = Math.max(8, resolveSegments(p.tubularSegments, 32, polyFactor));
+      const radSegs = Math.max(6, resolveSegments(p.radialSegments, 12, polyFactor));
       return new THREE.TubeGeometry(curve, tubSegs, p.radius || 0.1, radSegs, false);
     }
     case 'box':
@@ -180,6 +186,14 @@ function buildMaterial(THREE, specMat) {
     if (typeof m.clearcoatRoughness === 'number') baseOpts.clearcoatRoughness = m.clearcoatRoughness;
     if (typeof m.transmission === 'number') baseOpts.transmission = m.transmission;
     if (typeof m.ior === 'number') baseOpts.ior = m.ior;
+    if (typeof m.sheen === 'number' && m.sheen > 0) {
+      baseOpts.sheen = m.sheen;
+      baseOpts.sheenRoughness = typeof m.sheenRoughness === 'number' ? m.sheenRoughness : 0.5;
+      baseOpts.sheenColor = new THREE.Color(m.sheenColor || '#ffffff');
+    }
+    if (typeof m.subsurface === 'number' && m.subsurface > 0) {
+      baseOpts.specularIntensity = Math.max(0.2, 1.0 - m.subsurface);
+    }
     if (typeof m.opacity === 'number') {
       baseOpts.opacity = m.opacity;
       baseOpts.transparent = m.transparent || m.opacity < 1.0;
@@ -368,10 +382,17 @@ async function buildGroupFallback(THREE, wasm, nodeSpec, polyFactor) {
   return { object: group, triangles: totalTriangles, meshCount };
 }
 
+function resolveSegments(explicit, fallback, polyFactor) {
+  const base = Number.isFinite(explicit) && explicit > 0 ? explicit : fallback;
+  const scaled = Math.round(base * polyFactor);
+  const ceiling = Math.max(base, 64);
+  return Math.max(6, Math.min(ceiling, scaled));
+}
+
 function computePolyFactor(targetPolycount) {
   const tc = Number(targetPolycount) || 8000;
   const factor = Math.sqrt(Math.max(800, tc) / 1000);
-  return Math.max(0.8, Math.min(6.5, factor));
+  return Math.max(0.8, Math.min(2.5, factor));
 }
 
 async function buildSceneFromSpec(sceneSpec) {
@@ -395,6 +416,12 @@ async function buildSceneFromSpec(sceneSpec) {
         totalMeshCount += csgRes.meshCount;
       }
       continue;
+    }
+
+    if (nodeSpec.geometry && nodeSpec.geometry.type === 'plane') {
+      const planeW = Number(nodeSpec.geometry.params && nodeSpec.geometry.params.width) || 1;
+      const planeH = Number(nodeSpec.geometry.params && nodeSpec.geometry.params.height) || 1;
+      if (Math.max(planeW, planeH) > 1.5) continue;
     }
 
     const geom = buildGeometry(THREE, nodeSpec.geometry, polyFactor, style, RoundedBoxClass);
@@ -467,5 +494,6 @@ async function buildSceneFromSpec(sceneSpec) {
 module.exports = {
   buildGeometry,
   buildMaterial,
-  buildSceneFromSpec
+  buildSceneFromSpec,
+  getManifoldWasm
 };

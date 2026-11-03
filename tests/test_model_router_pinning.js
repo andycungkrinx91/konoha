@@ -5,10 +5,10 @@
  * tests/test_model_router_pinning.js
  *
  * Unit tests for Unified Model Discovery across all 8+ Client Coding Agents + 9router:
- * 1. Proves discoverClientModels() reads from all 8+ Client Coding Agents.
- * 2. Proves discoverAll3DModels() aggregates client agents, 9router, and bridges without hardcoded model strings.
- * 3. Proves resolveInherited3DModel() dynamically follows the strict priority order.
- * 4. Proves zero hardcoding of model names or ports in production code.
+ * Proves discoverClientModels() reads from all 8+ Client Coding Agents
+ * Proves discoverAll3DModels() aggregates client agents, 9router, and bridges without hardcoded model strings
+ * Proves resolveInherited3DModel() dynamically follows the strict priority order
+ * Proves zero hardcoding of model names or ports in production code
  */
 
 const assert = require('assert');
@@ -36,13 +36,13 @@ const conn = getConnection(testDbPath);
 setupSchema(conn);
 
 try {
-  // 1. Client coding agents discovery
+  // Client coding agents discovery
   console.log('\n--- 1. Testing Client Coding Agent Discovery ---');
   const clientModels = discoverClientModels();
   assert.ok(Array.isArray(clientModels), 'discoverClientModels must return an array');
   console.log(`  Discovered ${clientModels.length} models across installed client coding agents.`);
 
-  // 2. Discover all 3D models (aggregated groups)
+  // Discover all 3D models (aggregated groups)
   console.log('\n--- 2. Testing Aggregated 3D Model Discovery ---');
   const allResult = discoverAll3DModels();
   Promise.resolve(allResult).then(async (res) => {
@@ -53,7 +53,7 @@ try {
     assert.ok(Array.isArray(res.models), 'Must have combined models array');
     console.log(`  ✓ Aggregated 3D model catalog: ${res.models.length} total models across groups.`);
 
-    // 3. Priority Order in resolveInherited3DModel
+    // Priority Order in resolveInherited3DModel
     console.log('\n--- 3. Testing Dynamic Model Inheritance Priority Order ---');
 
     // Priority 1: Option override
@@ -80,14 +80,14 @@ try {
     assert.ok(typeof bridgeFallback === 'string' && bridgeFallback.length > 0);
     console.log(`  ✓ Inherited model dynamically resolved to: ${bridgeFallback}`);
 
-    // 4. Resolve chat targets
+    // Resolve chat targets
     console.log('\n--- 4. Testing Chat Targets Resolution ---');
     const targets = resolveChatTargets({ endpoint_url: 'http://127.0.0.1:8080/v1', api_key: 'test-key' });
     assert.ok(Array.isArray(targets), 'resolveChatTargets must return array of targets');
     assert.ok(targets.some(t => t.kind === 'custom' && t.target_url === 'http://127.0.0.1:8080/v1'));
     console.log('  ✓ Chat targets resolved cleanly with custom endpoint.');
 
-    // 5. Zero hardcoded model names in model_router.js
+    // Zero hardcoded model names in model_router.js
     console.log('\n--- 5. Verifying Zero Hardcoded Model Names ---');
     const routerCode = fs.readFileSync(path.join(__dirname, '../src/mcp/three_asset/model_router.js'), 'utf8');
     assert.ok(!routerCode.includes('ag/gemini-3.8-flash-high'), 'Must not contain hardcoded ag/gemini-3.8-flash-high pin');

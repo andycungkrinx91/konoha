@@ -120,7 +120,8 @@ async function _handleGetModels(res) {
     const modelsCatalog = await discoverAll3DModels();
     return sendJson(res, 200, {
       success: true,
-      client_default_model: modelsCatalog.models[0]?.id || null,
+      client_default_model: modelsCatalog.client_default_model || modelsCatalog.models[0]?.id || null,
+      preferred_models: modelsCatalog.preferred_models || [],
       catalogs: {
         archetypes: [...ARCHETYPES],
         profiles: Object.keys(GENERATION_PROFILES || {}),
@@ -159,7 +160,8 @@ async function _handleGenerate(req, res) {
       status: 'synthesizing_spec',
       effective_compute_mode: compute.effectiveMode,
       stream_url: `/api/v1/3d/generate/${jobId}/stream`,
-      live_glb_url: `/api/v1/3d/staging/${jobId}/live.glb`
+      live_glb_url: `/api/v1/3d/staging/${jobId}/live.glb`,
+      live_png_url: `/api/v1/3d/staging/${jobId}/live.png`
     });
 
     // Run LangGraph execution asynchronously
@@ -406,6 +408,26 @@ async function _handleLiveStagingGlb(res, jobId) {
   }
 }
 
+async function _handleLiveStagingPng(res, jobId) {
+  try {
+    const conn = getConnection();
+    const resolved = resolveSafeAssetDownloadPath(jobId, 'live_staging_png', conn);
+    if (!resolved || !fs.existsSync(resolved.absPath)) {
+      return sendJson(res, 404, { success: false, error: `Live Blender render not ready for job '${jobId}'` });
+    }
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': fs.statSync(resolved.absPath).size,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    });
+    fs.createReadStream(resolved.absPath).pipe(res);
+    return true;
+  } catch (err) {
+    return sendJson(res, 500, { success: false, error: err.message });
+  }
+}
+
 function _handleGetTelemetry(res, parsedUrl) {
   try {
     const conn = getConnection();
@@ -459,6 +481,12 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
   if (pathname.startsWith('/api/v1/3d/staging/') && pathname.endsWith('/live.glb') && method === 'GET') {
     const jobId = pathname.slice('/api/v1/3d/staging/'.length, -'/live.glb'.length);
     return _handleLiveStagingGlb(res, jobId);
+  }
+
+  // Live Blender Render Stream (real EEVEE preview written by Blender each step)
+  if (pathname.startsWith('/api/v1/3d/staging/') && pathname.endsWith('/live.png') && method === 'GET') {
+    const jobId = pathname.slice('/api/v1/3d/staging/'.length, -'/live.png'.length);
+    return _handleLiveStagingPng(res, jobId);
   }
 
   // Jobs Query

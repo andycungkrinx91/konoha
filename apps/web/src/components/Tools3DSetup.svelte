@@ -85,7 +85,7 @@
   <!-- Console Page Hero -->
   <PageHero
     title="Yamanaka 3D Toolchain Setup"
-    badgeText="Blender 4.5.9 LTS"
+    badgeText={`Blender ${statusData?.toolchain?.components?.blender?.version || 'detected at runtime'}`}
     description="OS-aware auto-installer for Blender LTS, DCC-MCP Python bridge, hardware acceleration, and live agentic editing."
   >
     {#snippet actions()}
@@ -182,7 +182,7 @@
       </div>
     </div>
 
-    <!-- Component 2: Blender 4.5.9 LTS -->
+    <!-- Component 2: Blender (version detected at runtime) -->
     <div class="glass-card-3d p-6 rounded-[5px] border flex flex-col justify-between" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <div>
         <div class="flex items-center justify-between mb-3">
@@ -193,11 +193,11 @@
             <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Not Installed</span>
           {/if}
         </div>
-        <h3 class="text-base font-extrabold" style="color: var(--color-text);">Blender 4.5.9 LTS</h3>
-        <p class="text-xs mt-1" style="color: var(--color-text-muted);">Official Blender Foundation release with enterprise Principled BSDF & weighted bevels.</p>
+        <h3 class="text-base font-extrabold" style="color: var(--color-text);">Blender {statusData?.toolchain?.components?.blender?.version || 'Not detected'}</h3>
+        <p class="text-xs mt-1" style="color: var(--color-text-muted);">Detected local installation with Principled BSDF v2, weighted normals and EEVEE/Workbench render engines.</p>
       </div>
-      <div class="mt-6 pt-3 border-t text-[11px] font-mono truncate" style="border-color: var(--color-border); color: var(--color-text-muted);" title={statusData?.toolchain?.components?.blender?.binary_path || 'None'}>
-        Path: {statusData?.toolchain?.components?.blender?.binary_path ? 'Installed' : 'toolchains/blender'}
+      <div class="mt-6 pt-3 border-t text-[11px] font-mono truncate" style="border-color: var(--color-border); color: var(--color-text-muted);" title={statusData?.toolchain?.components?.blender?.path || 'None'}>
+        Path: {statusData?.toolchain?.components?.blender?.path || 'not resolved'}
       </div>
     </div>
 
@@ -213,10 +213,10 @@
           {/if}
         </div>
         <h3 class="text-base font-extrabold" style="color: var(--color-text);">DCC-MCP-Blender</h3>
-        <p class="text-xs mt-1" style="color: var(--color-text-muted);">v0.2.26 Python bridge enabling autonomous 6-step agentic refinement streaming.</p>
+        <p class="text-xs mt-1" style="color: var(--color-text-muted);">Python bridge verified inside Blender enabling autonomous 6-step agentic refinement streaming.</p>
       </div>
       <div class="mt-6 pt-3 border-t text-[11px] font-mono" style="border-color: var(--color-border); color: var(--color-text-muted);">
-        Package: dcc-mcp-blender@0.2.26
+        Package: dcc-mcp-blender@{statusData?.toolchain?.components?.dcc_mcp_blender?.version || 'not installed'}
       </div>
     </div>
   </div>

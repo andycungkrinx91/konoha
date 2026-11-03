@@ -102,7 +102,7 @@ async function runTests() {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
 
   try {
-    // 1. GET /api/v1/3d/setup/status
+    // GET /api/v1/3d/setup/status
     console.log('\n--- 1. Testing GET /api/v1/3d/setup/status ---');
     const statusRes = await request(server, 'GET', '/api/v1/3d/setup/status');
     assert.strictEqual(statusRes.statusCode, 200);
@@ -112,7 +112,7 @@ async function runTests() {
     assert.ok(statusRes.json.telemetry);
     console.log('  ✓ Setup status endpoint returned hardware and toolchain status.');
 
-    // 2. POST /api/v1/3d/setup/install
+    // POST /api/v1/3d/setup/install
     console.log('\n--- 2. Testing POST /api/v1/3d/setup/install ---');
     const installRes = await request(server, 'POST', '/api/v1/3d/setup/install', {});
     assert.strictEqual(installRes.statusCode, 200);
@@ -120,7 +120,7 @@ async function runTests() {
     assert.ok(Array.isArray(installRes.json.logs));
     console.log('  ✓ Toolchain install endpoint executed cleanly.');
 
-    // 3. GET /api/v1/3d/setup/models
+    // GET /api/v1/3d/setup/models
     console.log('\n--- 3. Testing GET /api/v1/3d/setup/models ---');
     const modelsRes = await request(server, 'GET', '/api/v1/3d/setup/models');
     assert.strictEqual(modelsRes.statusCode, 200);
@@ -129,7 +129,7 @@ async function runTests() {
     assert.ok(modelsRes.json.client_default_model);
     console.log(`  ✓ Models endpoint returned ${modelsRes.json.models.length} dynamically discovered models.`);
 
-    // 4. GET /api/v1/3d/telemetry
+    // GET /api/v1/3d/telemetry
     console.log('\n--- 4. Testing GET /api/v1/3d/telemetry ---');
     const telemRes = await request(server, 'GET', '/api/v1/3d/telemetry?period=today');
     assert.strictEqual(telemRes.statusCode, 200);
@@ -138,7 +138,7 @@ async function runTests() {
     assert.strictEqual(typeof telemRes.json.est_cost_usd, 'number');
     console.log('  ✓ Telemetry endpoint returned metrics for period "today".');
 
-    // 5. POST /api/v1/3d/generate
+    // POST /api/v1/3d/generate
     console.log('\n--- 5. Testing POST /api/v1/3d/generate ---');
     const genRes = await request(server, 'POST', '/api/v1/3d/generate', {
       prompt: 'Cyberpunk plasma generator reactor',
@@ -156,7 +156,7 @@ async function runTests() {
     // Wait 2.5 seconds for generation job to progress
     await new Promise((r) => setTimeout(r, 2500));
 
-    // 6. GET /api/v1/3d/jobs & GET /api/v1/3d/jobs/:jobId
+    // GET /api/v1/3d/jobs & GET /api/v1/3d/jobs/:jobId
     console.log('\n--- 6. Testing GET /api/v1/3d/jobs & single job query ---');
     const jobsListRes = await request(server, 'GET', '/api/v1/3d/jobs?limit=10');
     assert.strictEqual(jobsListRes.statusCode, 200);
@@ -169,7 +169,7 @@ async function runTests() {
     assert.strictEqual(singleJobRes.json.job.job_id, testJobId);
     console.log('  ✓ Jobs query endpoints verified.');
 
-    // 7. GET /api/v1/3d/assets
+    // GET /api/v1/3d/assets
     console.log('\n--- 7. Testing GET /api/v1/3d/assets ---');
     const assetsListRes = await request(server, 'GET', '/api/v1/3d/assets?limit=10');
     assert.strictEqual(assetsListRes.statusCode, 200);

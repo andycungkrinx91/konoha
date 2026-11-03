@@ -52,12 +52,13 @@ function validateNode(node, index, depth = 0) {
   }
 
   const validGeoms = [
-    'box', 'sphere', 'cylinder', 'cone', 'torus', 'knot', 'capsule',
+    'box', 'roundedBox', 'sphere', 'cylinder', 'cone', 'torus', 'knot', 'capsule',
     'plane', 'dodecahedron', 'icosahedron', 'octahedron', 'tetrahedron',
-    'lathe', 'tube'
+    'lathe', 'tube', 'extrude'
   ];
-  const rawType = (node.geometry && node.geometry.type) || 'box';
-  const geomType = validGeoms.includes(rawType) ? rawType : 'box';
+  const rawType = String((node.geometry && node.geometry.type) || 'box');
+  const normalizedType = rawType === 'rounded_box' || rawType === 'roundedbox' ? 'roundedBox' : rawType;
+  const geomType = validGeoms.includes(normalizedType) ? normalizedType : 'box';
   const rawParams = (node.geometry && node.geometry.params) || {};
 
   const cleanParams = {};
@@ -82,8 +83,15 @@ function validateNode(node, index, depth = 0) {
     clearcoatRoughness: clamp(rawMat.clearcoatRoughness, 0, 1, 0.1),
     transmission: clamp(rawMat.transmission, 0, 1, 0),
     ior: clamp(rawMat.ior, 1, 2.4, 1.5),
+    sheen: clamp(rawMat.sheen, 0, 1, 0),
+    sheenRoughness: clamp(rawMat.sheenRoughness, 0, 1, 0.5),
+    subsurface: clamp(rawMat.subsurface, 0, 1, 0),
     wireframe: Boolean(rawMat.wireframe)
   };
+
+  if (rawMat.sheenColor) {
+    cleanMat.sheenColor = normalizeColor(rawMat.sheenColor, '#ffffff');
+  }
 
   if (rawMat.emissive) {
     cleanMat.emissive = normalizeColor(rawMat.emissive, '#000000');
@@ -149,6 +157,7 @@ function validateSceneSpec(rawSpec) {
     camera,
     lights: rawLights,
     style,
+    turnaround: parseTurnaroundIntent(rawSpec.__prompt || '', rawSpec.turnaround),
     nodes
   };
 }
@@ -214,23 +223,70 @@ const ARCHETYPE_BUILDERS = {
   'application': createApplicationSpec
 };
 
+const CREATURE_PATTERN = /\b(creature|dragon|beast|monster|dinosaur|fox|kitsune|kurama|wolf|hound|dog|cat|tiger|lion|leopard|panther|horse|stag|deer|bear|quadruped|quadriped|nine[\s-]?tailed|multi[\s-]?tailed|tailed|animal|fauna|wildlife|mount|serpent|griffin|phoenix|unicorn|rabbit|hare|panther|jaguar|lynx|otter|badger|boar)\b/i;
+const CREATURE_STRONG_PATTERN = /\b(creature|dragon|beast|monster|dinosaur|fox|kitsune|kurama|quadruped|quadriped|nine[\s-]?tailed|multi[\s-]?tailed|griffin|phoenix|unicorn|serpent|wolf|tiger|lion|bear|horse|deer|stag)\b/i;
+const HUMANOID_PATTERN = /\b(character|warrior|robot|hero|avatar|soldier|humanoid|knight|ninja|shinobi|mech pilot|samurai|android|cyborg)\b/i;
+const TURNAROUND_PATTERN = /\b(turnaround|orthographic|front view|side view|back view|top view|blueprint|reference sheet|model sheet)\b/i;
+
+const ARCHETYPE_HINTS = [
+  ['game-weapon', /\b(sword|gun|weapon|blade|shield|axe|spear|bow|rifle|pistol|katana|dagger)\b/i],
+  ['game-vehicle', /\b(car|truck|vehicle|hauler|rover|spaceship|hoverbike|ship|plane|jet|tank|motorcycle)\b/i],
+  ['game-building', /\b(building|tower|house|citadel|temple|castle|church|skyscraper|temple)\b/i],
+  ['game-creature', CREATURE_PATTERN],
+  ['game-environment', /\b(environment|diorama|landscape|island|forest|valley|terrain scene|canyon)\b/i],
+  ['game-tileset', /\b(tileset|tile|terrain|floor|ground|brick|modular)\b/i],
+  ['game-prop', /\b(prop|chest|crate|barrel|box|container|potion|keyboard|pen|cup|vase|lantern)\b/i],
+  ['commerce', /\b(shop|product|pedestal|ecommerce|store|checkout)\b/i],
+  ['dashboard', /\b(dashboard|analytics|screen|monitor|chart|telemetry)\b/i],
+  ['saas', /\b(cloud|server|saas|network|infra|kubernetes|cluster)\b/i],
+  ['portfolio', /\b(portfolio|gallery|sculpture|showcase)\b/i],
+  ['landing', /\b(landing|monolith|beacon|hero section)\b/i],
+  ['logistics', /\b(logistics|cargo|warehouse|shipping|pallet)\b/i]
+];
+
 function inferArchetypeFromPrompt(prompt = '') {
-  const p = prompt.toLowerCase();
-  if (p.includes('character') || p.includes('warrior') || p.includes('robot') || p.includes('hero') || p.includes('avatar') || p.includes('soldier')) return 'game-character';
-  if (p.includes('sword') || p.includes('gun') || p.includes('weapon') || p.includes('blade') || p.includes('shield')) return 'game-weapon';
-  if (p.includes('car') || p.includes('truck') || p.includes('vehicle') || p.includes('hauler') || p.includes('rover') || p.includes('spaceship')) return 'game-vehicle';
-  if (p.includes('building') || p.includes('tower') || p.includes('house') || p.includes('citadel') || p.includes('temple')) return 'game-building';
-  if (p.includes('creature') || p.includes('dragon') || p.includes('beast') || p.includes('monster') || p.includes('dinosaur')) return 'game-creature';
-  if (p.includes('environment') || p.includes('diorama') || p.includes('landscape') || p.includes('island') || p.includes('forest')) return 'game-environment';
-  if (p.includes('tile') || p.includes('terrain') || p.includes('floor') || p.includes('ground') || p.includes('brick')) return 'game-tileset';
-  if (p.includes('prop') || p.includes('chest') || p.includes('crate') || p.includes('barrel') || p.includes('box') || p.includes('container')) return 'game-prop';
-  if (p.includes('shop') || p.includes('product') || p.includes('pedestal') || p.includes('ecommerce') || p.includes('store')) return 'commerce';
-  if (p.includes('dashboard') || p.includes('analytics') || p.includes('screen') || p.includes('monitor') || p.includes('chart')) return 'dashboard';
-  if (p.includes('cloud') || p.includes('server') || p.includes('saas') || p.includes('network') || p.includes('infra')) return 'saas';
-  if (p.includes('portfolio') || p.includes('art') || p.includes('gallery') || p.includes('sculpture')) return 'portfolio';
-  if (p.includes('landing') || p.includes('monolith') || p.includes('beacon') || p.includes('hero')) return 'landing';
-  if (p.includes('logistics') || p.includes('cargo') || p.includes('warehouse') || p.includes('shipping')) return 'logistics';
+  const p = String(prompt || '');
+  if (CREATURE_STRONG_PATTERN.test(p)) return 'game-creature';
+  if (HUMANOID_PATTERN.test(p) && !CREATURE_PATTERN.test(p)) return 'game-character';
+  for (const [archetype, pattern] of ARCHETYPE_HINTS) {
+    if (pattern.test(p)) return archetype;
+  }
   return 'application';
+}
+
+function resolveEffectiveArchetype(prompt = '', requestedArchetype = '') {
+  const requested = String(requestedArchetype || '').trim().toLowerCase();
+  const inferred = inferArchetypeFromPrompt(prompt);
+  if (!requested || requested === 'auto' || requested === 'application' || requested === 'detect') {
+    return inferred;
+  }
+  const hasExplicitSubject = CREATURE_STRONG_PATTERN.test(prompt) || ARCHETYPE_HINTS.some(([, pattern]) => pattern.test(prompt));
+  if (hasExplicitSubject && inferred !== 'application' && inferred !== requested) {
+    return inferred;
+  }
+  return requested;
+}
+
+function parseTurnaroundIntent(prompt = '', rawTurnaround = null) {
+  const raw = rawTurnaround && typeof rawTurnaround === 'object' ? rawTurnaround : {};
+  const text = String(prompt || '');
+  const requestedViews = Array.isArray(raw.views) ? raw.views.map(v => String(v).toLowerCase()) : [];
+  const promptViews = [];
+  if (/front\s*view/i.test(text)) promptViews.push('front');
+  if (/side\s*view|right\s*view|left\s*view|profile/i.test(text)) promptViews.push('side');
+  if (/back\s*view|rear\s*view/i.test(text)) promptViews.push('back');
+  if (/top\s*view|plan\s*view|above/i.test(text)) promptViews.push('top');
+  const views = requestedViews.length > 0 ? requestedViews : (promptViews.length > 0 ? promptViews : []);
+  const enabled = raw.enabled === true || views.length >= 2 || TURNAROUND_PATTERN.test(text);
+  const finalViews = views.length > 0 ? views : ['front', 'side', 'back', 'top'];
+  return {
+    enabled,
+    views: finalViews,
+    aspectRatio: String(raw.aspectRatio || '16:9'),
+    background: normalizeColor(raw.background, '#d4d4d8'),
+    flatStudioLighting: raw.flatStudioLighting !== undefined ? Boolean(raw.flatStudioLighting) : /flat neutral studio lighting|no shadows|flat lighting/i.test(text),
+    noShadows: raw.noShadows !== undefined ? Boolean(raw.noShadows) : /no shadows|shadowless/i.test(text)
+  };
 }
 
 function customizeSpecFromPrompt(baseSpec, prompt = '') {
@@ -278,7 +334,7 @@ function createDefaultSceneSpec(archetype = 'application', name = 'HeroModel') {
   return builder(name);
 }
 
-const ARCHETYPES = Object.freeze(Object.keys(ARCHETYPE_BUILDERS).sort());
+const ARCHETYPES = Object.freeze(['auto', ...Object.keys(ARCHETYPE_BUILDERS).sort()]);
 
 module.exports = {
   ARCHETYPES,
@@ -286,6 +342,8 @@ module.exports = {
   validateNode,
   createDefaultSceneSpec,
   inferArchetypeFromPrompt,
+  resolveEffectiveArchetype,
+  parseTurnaroundIntent,
   customizeSpecFromPrompt,
   clamp,
   normalizeVector3,

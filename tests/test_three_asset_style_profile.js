@@ -20,7 +20,7 @@ const { createDefaultSceneSpec } = require('../src/mcp/three_asset/spec_schema')
 
 console.log('Running test_three_asset_style_profile.js...');
 
-// 1. Verify GENERATION_PROFILES definitions (zero Roblox clamps)
+// Verify GENERATION_PROFILES definitions (zero Roblox clamps)
 console.log('\n--- 1. Testing Enterprise Profile Definitions ---');
 const ep = GENERATION_PROFILES.enterprise_pbr;
 assert.ok(ep, 'enterprise_pbr profile must exist');
@@ -33,7 +33,7 @@ assert.strictEqual(ep.transmissionMax, 1.0);
 assert.strictEqual(ep.maxExtent, 3.0);
 console.log('  ✓ enterprise_pbr profile supports full PBR metalness [0, 1] and roughness [0.02, 0.96].');
 
-// 2. Test clamping and material normalization on degenerate spec
+// Test clamping and material normalization on degenerate spec
 console.log('\n--- 2. Testing Boundary Normalizer ---');
 const rawSpec = {
   name: 'TestDegenerate',
@@ -70,7 +70,7 @@ for (const n of normalized.nodes) {
 assert.ok(minY >= -0.01, `Model must be grounded with min_y >= -0.01 (actual: ${minY})`);
 console.log('  ✓ Grounding and node padding verified cleanly.');
 
-// 3. Test 11-Row scoreSpec Quality Gate
+// Test 11-Row scoreSpec Quality Gate
 console.log('\n--- 3. Testing 11-Row scoreSpec Output ---');
 const scoreRes = scoreSpec(normalized, { profile: 'enterprise_pbr' });
 
@@ -101,7 +101,7 @@ for (let i = 0; i < 11; i++) {
 }
 console.log('  ✓ Exactly 11 structured ScoreSpecRow objects returned with correct rowIds and metricNames.');
 
-// 4. Test Backward-Compatibility Aliases
+// Test Backward-Compatibility Aliases
 console.log('\n--- 4. Testing Backward-Compatibility Aliases ---');
 const legacyNormalized = applyStylizedProfile(rawSpec);
 assert.ok(legacyNormalized.nodes.length >= 6);

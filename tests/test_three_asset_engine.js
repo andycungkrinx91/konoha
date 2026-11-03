@@ -189,8 +189,8 @@ async function runTests() {
     use_vision: false
   });
   assert.strictEqual(vehicleResult.success, true);
-  assert.ok(['procedural_default', 'procedural_fallback', 'prompt_dsl', 'scaffolded_dsl', 'prompt'].includes(vehicleResult.source));
-  assert.ok(['logistics', 'game-vehicle'].includes(vehicleResult.archetype), `Archetype ${vehicleResult.archetype} must be logistics or game-vehicle`);
+  assert.ok(['procedural_default', 'procedural_fallback', 'prompt_dsl', 'prompt_synthesis', 'scaffolded_dsl', 'prompt'].includes(vehicleResult.source), `Unexpected source ${vehicleResult.source}`);
+  assert.ok(['logistics', 'game-vehicle', 'vehicle'].includes(vehicleResult.archetype), `Archetype ${vehicleResult.archetype} must resolve to a vehicle domain`);
   assert.ok(vehicleResult.triangles > 200, 'Must generate rich multi-mesh vehicle compound');
   assert.ok(vehicleResult.mesh_count >= 11, 'Must have at least 11 vehicle mesh components');
   assert.ok(fs.existsSync(vehicleResult.glb_path));

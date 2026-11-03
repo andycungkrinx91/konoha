@@ -49,7 +49,7 @@ const Yamanaka3DStateAnnotation = Annotation.Root({
   requestedComputeMode: Annotation({ reducer: (x, y) => y ?? x, default: () => 'auto' }),
   effectiveComputeMode: Annotation({ reducer: (x, y) => y ?? x, default: () => 'cpu' }),
   computeFallbackReason: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
-  domainArchetype: Annotation({ reducer: (x, y) => y ?? x, default: () => 'game-prop' }),
+  domainArchetype: Annotation({ reducer: (x, y) => y ?? x, default: () => 'auto' }),
   modelUsed: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   dslPayload: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   spec: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
@@ -59,6 +59,9 @@ const Yamanaka3DStateAnnotation = Annotation.Root({
   baseGlbPath: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   liveGlbPath: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   refinedGlbPath: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
+  refinementBackend: Annotation({ reducer: (x, y) => y ?? x, default: () => 'deterministic_only' }),
+  blenderVersion: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
+  dccMcpVersion: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   previewPngPath: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   assetId: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   vertexCount: Annotation({ reducer: (x, y) => y ?? x, default: () => 0 }),
@@ -99,7 +102,7 @@ async function nodeInit(state) {
     compute_fallback_reason: compute.fallbackReason,
     dsl_version: '1.0.0',
     dsl_payload_json: '{}',
-    domain_archetype: state.domainArchetype || 'game-prop',
+    domain_archetype: state.domainArchetype || 'auto',
     staging_rel_dir: dirs.stagingRel,
     staging_cleaned: 0
   });
@@ -116,8 +119,19 @@ async function nodeInit(state) {
   };
 }
 
-async function nodeSynthesizeDsl(state) {
+async function nodeSynthesizeDsl(state, config = {}) {
   const conn = getConnection();
+  const onAction = config.configurable?.onAction || (() => {});
+  const onSynthesisEvent = (event, payload) => {
+    try {
+      onAction({
+        event,
+        job_id: state.jobId,
+        ...payload,
+        timestamp: new Date().toISOString()
+      });
+    } catch (_) {}
+  };
   let spec = null;
   let dsl = null;
   let modelUsed = state.modelUsed || 'inherited';
@@ -125,6 +139,7 @@ async function nodeSynthesizeDsl(state) {
   let outTok = 0;
   let totalTok = 0;
   let cost = 0.0;
+  let tokenSource = 'tokenizer_estimate';
 
   if (state.dslPayload) {
     const parsed = parseDslOrJson(state.dslPayload);
@@ -144,11 +159,14 @@ async function nodeSynthesizeDsl(state) {
       outTok = res.tokens.output_tokens || 0;
       totalTok = res.tokens.total_tokens || 0;
       cost = res.tokens.est_cost_usd || 0.0;
+      tokenSource = res.tokens.token_source || tokenSource;
     }
   } else {
     const res = await generateSceneSpecFromPrompt(state.prompt || 'Futuristic enterprise 3D model', {
       archetype: state.domainArchetype,
-      model: state.modelUsed
+      model: state.modelUsed,
+      target_polycount: state.targetPolycount || 50000,
+      onAction: onSynthesisEvent
     });
     spec = res.spec;
     dsl = res.dsl;
@@ -158,6 +176,7 @@ async function nodeSynthesizeDsl(state) {
       outTok = res.tokens.output_tokens || 0;
       totalTok = res.tokens.total_tokens || 0;
       cost = res.tokens.est_cost_usd || 0.0;
+      tokenSource = res.tokens.token_source || tokenSource;
     }
   }
 
@@ -171,13 +190,16 @@ async function nodeSynthesizeDsl(state) {
       input_tokens: inTok,
       output_tokens: outTok,
       total_tokens: totalTok,
-      token_source: 'tokenizer_estimate',
+      token_source: tokenSource,
       est_cost_usd: cost
     });
   }
 
+  const resolvedArchetype = (spec && spec.archetype) || state.domainArchetype;
+
   updateJobStage(conn, state.jobId, {
     status: 'parsing_dsl',
+    domain_archetype: resolvedArchetype,
     dsl_payload_json: JSON.stringify(spec || {}),
     model_used: modelUsed,
     input_tokens: inTok,
@@ -188,6 +210,7 @@ async function nodeSynthesizeDsl(state) {
 
   return {
     status: 'parsing_dsl',
+    domainArchetype: resolvedArchetype,
     spec,
     dslPayload: dsl || (spec ? specToDSL(spec) : ''),
     modelUsed,
@@ -279,19 +302,39 @@ async function nodeRefineBlender(state, config = {}) {
     jobId: state.jobId,
     spec: state.spec,
     profile: state.profile,
+    prompt: state.prompt,
     requestedComputeMode: state.effectiveComputeMode,
     onAction
   });
 
+  if (!sessionRes.success) {
+    updateJobStage(conn, state.jobId, {
+      status: 'failed',
+      refinement_backend: sessionRes.refinement_backend,
+      error_stage: 'refining_blender',
+      error_code: 'BLENDER_REFINEMENT_FAILED',
+      error_message: String(sessionRes.error || 'Blender refinement failed').slice(0, 500)
+    });
+    throw new Error(`Blender refinement failed: ${sessionRes.error || 'unknown error'}`);
+  }
+
   updateJobStage(conn, state.jobId, {
-    status: 'validating_final_asset'
+    status: 'validating_final_asset',
+    refinement_backend: sessionRes.refinement_backend,
+    blender_version: sessionRes.blender_version,
+    dcc_mcp_version: sessionRes.dcc_mcp_version
   });
 
   return {
     status: 'validating_final_asset',
+    refinementBackend: sessionRes.refinement_backend,
+    blenderVersion: sessionRes.blender_version,
+    dccMcpVersion: sessionRes.dcc_mcp_version,
     refinedGlbPath: sessionRes.final_glb_path,
     previewPngPath: sessionRes.preview_png_path,
-    liveGlbPath: sessionRes.final_glb_path,
+    liveGlbPath: sessionRes.live_glb_path || sessionRes.final_glb_path,
+    vertexCount: sessionRes.vertex_count || state.vertexCount,
+    triangleCount: sessionRes.triangle_count || state.triangleCount,
     liveAgentSteps: sessionRes.actions
   };
 }
@@ -339,7 +382,9 @@ async function nodePromoteAsset(state) {
       quality_preset: state.qualityPreset,
       domain_archetype: state.domainArchetype,
       dsl_version: '1.0.0',
-      refinement_backend: 'dcc_mcp_blender',
+      refinement_backend: state.refinementBackend || 'dcc_mcp_blender',
+      blender_version: state.blenderVersion || null,
+      dcc_mcp_version: state.dccMcpVersion || null,
       effective_compute_mode: state.effectiveComputeMode,
       model_used: state.modelUsed,
       vertex_count: state.vertexCount,
@@ -456,7 +501,7 @@ async function runYamanaka3DGraph(inputs = {}, config = {}) {
     profile: inputs.profile || 'enterprise_pbr',
     qualityPreset: inputs.quality_preset || inputs.qualityPreset || 'standard',
     requestedComputeMode: inputs.requested_compute_mode || inputs.requestedComputeMode || 'auto',
-    domainArchetype: inputs.archetype || inputs.domainArchetype || 'game-prop',
+    domainArchetype: inputs.archetype || inputs.domainArchetype || 'auto',
     modelUsed: inputs.model || inputs.modelUsed || null,
     dslPayload: inputs.dsl || inputs.dslPayload || null
   };

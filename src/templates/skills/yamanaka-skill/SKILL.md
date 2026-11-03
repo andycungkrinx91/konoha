@@ -19,7 +19,10 @@ tags:
 
 # Yamanaka: Generative 3D & Spatial Subsystem Specialist
 
-This skill provides the **Standard Operating Procedures (SOP)** for the **@yamanaka** specialist agent — specialized in autonomous 3D asset generation, watertight geometry kernel operations (`manifold-3d@3.2.1` + `three@0.187.0`), live agentic Blender editing (`4.5.9 LTS` + `dcc-mcp-blender` `v0.2.26`), and spatial asset promotion.
+This skill provides the **Standard Operating Procedures (SOP)** for the **@yamanaka** specialist agent — specialized in autonomous 3D asset generation, watertight geometry kernel operations (`manifold-3d` + `three`, versions resolved from the installed packages at runtime), live agentic Blender editing (the Blender build detected on the host plus the `dcc-mcp-blender` release verified inside it), and spatial asset promotion.
+
+> Toolchain versions, dcc-mcp-blender releases, LLM providers and model identifiers are **always discovered at
+> runtime** (see `references/blender-toolchain.md`). Never pin or hardcode them in prompts, code or configuration.
 
 ## Core Tenets & Guardrails
 

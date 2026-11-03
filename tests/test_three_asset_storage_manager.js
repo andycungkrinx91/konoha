@@ -33,13 +33,13 @@ const conn = getConnection(testDbPath);
 setupSchema(conn);
 
 try {
-  // 1. Output root resolution
+  // Output root resolution
   console.log('\n--- 1. Testing Output Root Resolution ---');
   const root = getOutputRoot();
   assert.strictEqual(root, path.resolve(testOutputDir));
   console.log('  ✓ getOutputRoot dynamically resolved environment path.');
 
-  // 2. Directory initialization
+  // Directory initialization
   console.log('\n--- 2. Testing Job Directories Initialization ---');
   const jobId = `job_stor_${Date.now()}`;
   const nonce = `nonce_stor_${Date.now()}`;
@@ -50,7 +50,7 @@ try {
   assert.strictEqual(fs.existsSync(jobDirs.intermediateDir), true);
   console.log('  ✓ initJobDirectories created input, logs, and staging intermediate dirs.');
 
-  // 3. Atomic state snapshot
+  // Atomic state snapshot
   console.log('\n--- 3. Testing Atomic State Snapshot ---');
   const snapPath = writeJobSnapshot(jobId, { status: 'building_base_mesh', step: 2 });
   assert.strictEqual(fs.existsSync(snapPath), true);
@@ -58,7 +58,7 @@ try {
   assert.strictEqual(snapContent.step, 2);
   console.log('  ✓ writeJobSnapshot atomically persisted job.json.');
 
-  // 4. File integrity verification
+  // File integrity verification
   console.log('\n--- 4. Testing File Integrity Verification ---');
   const testFile = path.join(jobDirs.inputDir, 'test.bin');
   fs.writeFileSync(testFile, Buffer.from('hello world 3d'));
@@ -67,7 +67,7 @@ try {
   assert.strictEqual(meta.sha256, crypto.createHash('sha256').update('hello world 3d').digest('hex'));
   console.log('  ✓ verifyFileIntegrity calculated size and sha256 accurately.');
 
-  // 5. Staging Promotion - Mandatory Cleanup Conditions
+  // Staging Promotion - Mandatory Cleanup Conditions
   console.log('\n--- 5. Testing Staging Promotion Cleanup Conditions ---');
   createJobRecord(conn, {
     job_id: jobId,
@@ -144,7 +144,7 @@ try {
   assert.strictEqual(fs.existsSync(jobDirs.stagingDir), false, 'Staging directory must be removed after successful promotion');
   console.log('  ✓ Staging files atomically promoted and staging directory cleaned.');
 
-  // 6. Safe download resolution and traversal guard
+  // Safe download resolution and traversal guard
   console.log('\n--- 6. Testing Safe Asset Download Path Resolution ---');
   const resolved = resolveSafeAssetDownloadPath(assetId, 'primary_glb', conn);
   assert.ok(resolved);

@@ -6,6 +6,8 @@
  * and semantic components to build high-fidelity production 3D scenes.
  */
 
+const { isQuadrupedCreaturePrompt, synthesizeQuadrupedCreatureSpec } = require('./creature_synthesizer');
+
 const COLOR_MAP = [
   { match: /\b(red|crimson|ruby|scarlet)\b/i, hex: '#dc2626', accent: '#fca5a5', emissive: '#ef4444' },
   { match: /\b(blue|azure|sapphire|cobalt|navy)\b/i, hex: '#2563eb', accent: '#93c5fd', emissive: '#3b82f6' },
@@ -351,6 +353,11 @@ function synthesizeSceneFromPrompt(prompt, name = 'HeroAsset', targetPolycount =
   const p = (prompt || '').toLowerCase();
   const palette = extractPalette(p);
   const safeName = String(name || 'HeroAsset').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  // Quadruped Creatures (foxes, wolves, nine-tailed beasts, packs, mounts)
+  if (isQuadrupedCreaturePrompt(p)) {
+    return synthesizeQuadrupedCreatureSpec(safeName, prompt, targetPolycount);
+  }
 
   // Computer Keyboards & Keypads (with RGB Rainbow backlighting)
   if (/\b(keyboard|keypad|numpad|keycaps|keeb)\b/.test(p)) {

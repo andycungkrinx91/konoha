@@ -71,6 +71,30 @@ function purgeLegacy3DTables(conn) {
   }
 }
 
+const ADDITIVE_COLUMNS = Object.freeze([
+  ['assets', 'dcc_mcp_version', 'TEXT']
+]);
+
+/**
+ * Adds columns introduced after a migration was first applied without mutating
+ * the recorded migration checksum. Additive-only and fully idempotent.
+ */
+function ensureAdditiveColumns(conn) {
+  if (!conn || typeof conn.prepare !== 'function') return [];
+  const added = [];
+  for (const [table, column, ddlType] of ADDITIVE_COLUMNS) {
+    const tableRow = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(table);
+    if (!tableRow) continue;
+    const columns = conn.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!columns.includes(column)) {
+      const statement = ['ALTER TABLE', table, 'ADD COLUMN', column, ddlType].join(' ');
+      conn.exec(statement);
+      added.push(`${table}.${column}`);
+    }
+  }
+  return added;
+}
+
 /**
  * Gate 2 & Gate 3: Check-Before-Apply Canonical Schema Migration
  */
@@ -118,6 +142,7 @@ function verifyAndApplyCanonicalSchema(conn, migrationId = MIGRATION_ID, canonic
       };
 
   applyTx();
+  ensureAdditiveColumns(conn);
 
   // Post-migration integrity verification
   const fkCheck = conn.prepare('PRAGMA foreign_key_check').all();
@@ -264,6 +289,14 @@ function get3DTokenTelemetry(conn, range = 'today') {
 /**
  * Transactional Repository Helper: Create initial generation job record
  */
+function readDependencyVersion(pkgName) {
+  try {
+    return require(`${pkgName}/package.json`).version || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function createJobRecord(conn, job) {
   const stmt = conn.prepare(`
     INSERT INTO generation_jobs (
@@ -291,8 +324,8 @@ function createJobRecord(conn, job) {
     job.job_id, job.nonce, job.source_mode, job.status || 'pending', job.prompt || null, job.negative_prompt || null,
     job.input_image_rel_path || null, job.input_image_sha256 || null, job.profile || 'enterprise_pbr', job.quality_preset || 'standard',
     job.requested_compute_mode || 'auto', job.effective_compute_mode || 'cpu', job.compute_fallback_reason || null,
-    job.dsl_version || '1.0.0', job.dsl_payload_json || '{}', job.domain_archetype || 'game-prop', job.manifold_kernel_version || '3.2.1',
-    job.threejs_version || '0.187.0', job.raw_base_glb_sha256 || null, job.refinement_backend || 'deterministic_only', job.blender_version || null,
+    job.dsl_version || '1.0.0', job.dsl_payload_json || '{}', job.domain_archetype || 'game-prop', job.manifold_kernel_version || readDependencyVersion('manifold-3d'),
+    job.threejs_version || readDependencyVersion('three'), job.raw_base_glb_sha256 || null, job.refinement_backend || 'deterministic_only', job.blender_version || null,
     job.dcc_mcp_version || null, job.model_used || null, job.client_source || null, job.input_tokens || 0, job.output_tokens || 0,
     job.total_tokens || 0, job.est_cost_usd || 0.0, job.staging_rel_dir, job.staging_cleaned ? 1 : 0, job.repair_attempts || 0,
     job.error_stage || null, job.error_code || null, job.error_message || null, job.created_at || new Date().toISOString(),
@@ -375,14 +408,14 @@ function _executePromotion(conn, { job, asset, files, validations }) {
     INSERT INTO assets (
       asset_id, job_id, nonce, display_name, source_mode, profile,
       quality_preset, domain_archetype, dsl_version, refinement_backend,
-      blender_version, effective_compute_mode, model_used, vertex_count,
+      blender_version, dcc_mcp_version, effective_compute_mode, model_used, vertex_count,
       triangle_count, is_watertight_manifold, pre_blender_score,
       post_blender_score, input_tokens, output_tokens, total_tokens,
       est_cost_usd, asset_status, created_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
-      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?
@@ -392,7 +425,7 @@ function _executePromotion(conn, { job, asset, files, validations }) {
   assetStmt.run(
     asset.asset_id, asset.job_id, asset.nonce, asset.display_name, asset.source_mode, asset.profile,
     asset.quality_preset, asset.domain_archetype, asset.dsl_version, asset.refinement_backend,
-    asset.blender_version || null, asset.effective_compute_mode || 'cpu', asset.model_used || null, asset.vertex_count,
+    asset.blender_version || null, asset.dcc_mcp_version || null, asset.effective_compute_mode || 'cpu', asset.model_used || null, asset.vertex_count,
     asset.triangle_count, asset.is_watertight_manifold ? 1 : 0, asset.pre_blender_score || 0.0,
     asset.post_blender_score || 0.0, asset.input_tokens || 0, asset.output_tokens || 0, asset.total_tokens || 0,
     asset.est_cost_usd || 0.0, asset.asset_status || 'ready', asset.created_at || new Date().toISOString()
@@ -488,6 +521,7 @@ module.exports = {
   FORBIDDEN_LEGACY_PATTERNS,
   runGate1PreCheckAudit,
   purgeLegacy3DTables,
+  ensureAdditiveColumns,
   verifyAndApplyCanonicalSchema,
   record3DLlmRequest,
   get3DTokenTelemetry,

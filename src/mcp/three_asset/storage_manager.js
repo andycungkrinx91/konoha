@@ -156,10 +156,11 @@ function promoteStagingToAsset({
     source_mode: metadata.source_mode || 'text_to_3d',
     profile: metadata.profile || 'enterprise_pbr',
     quality_preset: metadata.quality_preset || 'standard',
-    domain_archetype: metadata.domain_archetype || 'game-prop',
+    domain_archetype: metadata.domain_archetype || 'auto',
     dsl_version: metadata.dsl_version || '1.0.0',
     refinement_backend: metadata.refinement_backend || 'deterministic_only',
     blender_version: metadata.blender_version || null,
+    dcc_mcp_version: metadata.dcc_mcp_version || null,
     effective_compute_mode: metadata.effective_compute_mode || 'cpu',
     model_used: metadata.model_used || null,
     vertex_count: Math.max(1, metadata.vertex_count || 100),
@@ -269,7 +270,23 @@ function resolveStagingLiveGlb(root, jobId) {
   return null;
 }
 
-function resolvePromotedLiveGlb(conn, jobId, root) {
+function resolveStagingLivePng(root, jobId) {
+  const stagingParent = path.join(root, '.staging');
+  if (!fs.existsSync(stagingParent)) return null;
+  const match = fs.readdirSync(stagingParent).find((e) => e.startsWith(`${jobId}_`));
+  if (!match) return null;
+  const stagingDir = path.join(stagingParent, match);
+  const candidates = [
+    path.join(stagingDir, 'intermediate', 'live_preview.png'),
+    path.join(stagingDir, 'preview.png')
+  ];
+  for (const candidate of candidates) {
+    if (statNonEmpty(candidate)) return candidate;
+  }
+  return null;
+}
+
+function resolvePromotedLiveGlb(conn, jobId, root, fileRole = 'primary_glb') {
   if (!conn) return null;
   let row = null;
   try {
@@ -277,8 +294,8 @@ function resolvePromotedLiveGlb(conn, jobId, root) {
       SELECT af.rel_path, af.mime_type, af.byte_size, af.sha256
       FROM assets a
       JOIN asset_files af ON af.asset_id = a.asset_id
-      WHERE a.job_id = ? AND af.file_role = 'primary_glb'
-    `).get(jobId);
+      WHERE a.job_id = ? AND af.file_role = ?
+    `).get(jobId, fileRole);
   } catch {
     return null;
   }
@@ -316,6 +333,14 @@ function resolveSafeAssetDownloadPath(assetIdOrJobId, fileRole, conn, overrideRo
     return resolvePromotedLiveGlb(conn, assetIdOrJobId, root);
   }
 
+  if (fileRole === 'live_staging_png') {
+    const livePng = resolveStagingLivePng(root, assetIdOrJobId);
+    if (livePng) {
+      return { absPath: livePng, mimeType: 'image/png', isLiveStaging: true };
+    }
+    return resolvePromotedLiveGlb(conn, assetIdOrJobId, root, 'preview_png');
+  }
+
   if (!conn) {
     throw new Error('Database connection required to resolve promoted asset');
   }
@@ -351,6 +376,46 @@ function resolveSafeAssetDownloadPath(assetIdOrJobId, fileRole, conn, overrideRo
   };
 }
 
+const ORPHANED_JOB_STAGES = Object.freeze([
+  'pending', 'synthesizing_spec', 'parsing_dsl', 'building_base_mesh',
+  'validating_base_mesh', 'refining_blender', 'validating_final_asset',
+  'generating_previews', 'promoting_asset', 'recovering'
+]);
+
+/**
+ * Marks generation jobs abandoned by a previous daemon process as failed so the
+ * queue never reports a phantom in-flight job. Jobs still backed by a live
+ * child process are left untouched.
+ */
+function recoverOrphanedJobs(conn, options = {}) {
+  const staleAfterMs = options.staleAfterMs || 15 * 60 * 1000;
+  const now = Date.now();
+  if (!conn || typeof conn.prepare !== 'function') return [];
+  let active = [];
+  try {
+    const placeholders = ORPHANED_JOB_STAGES.map(() => '?').join(',');
+    active = conn.prepare(
+      `SELECT job_id, status, created_at FROM generation_jobs WHERE status IN (${placeholders})`
+    ).all(...ORPHANED_JOB_STAGES);
+  } catch {
+    return [];
+  }
+  const recovered = [];
+  for (const job of active) {
+    const startedMs = Date.parse(job.created_at || '') || 0;
+    if (now - startedMs < staleAfterMs) continue;
+    try {
+      conn.prepare(
+        `UPDATE generation_jobs SET status = 'failed', error_stage = ?, error_code = ?, error_message = ?, completed_at = ? WHERE job_id = ?`
+      ).run(job.status, 'ORPHANED_JOB_RECOVERED', `Job abandoned in stage '${job.status}' by a previous daemon process`, new Date().toISOString(), job.job_id);
+      recovered.push(job.job_id);
+    } catch {
+      continue;
+    }
+  }
+  return recovered;
+}
+
 module.exports = {
   getOutputRoot,
   initJobDirectories,
@@ -358,5 +423,8 @@ module.exports = {
   verifyFileIntegrity,
   promoteStagingToAsset,
   recoverJobFromStaging,
+  recoverOrphanedJobs,
+  resolveStagingLiveGlb,
+  resolveStagingLivePng,
   resolveSafeAssetDownloadPath
 };

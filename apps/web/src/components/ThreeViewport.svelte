@@ -12,7 +12,8 @@
     meshCount = 0,
     triangleCount = 0,
     vertexCount = 0,
-    isWatertight = true
+    isWatertight = true,
+    turnaroundMode = false
   } = $props();
 
   let containerRef = $state(null);
@@ -23,6 +24,15 @@
   let wireframe = $state(false);
   let autoRotate = $state(false);
   let lightingPreset = $state('studio'); // 'studio' | 'sunset' | 'cyberpunk'
+  let fourViewEnabled = $state(false);
+  let gridHelper = null;
+
+  const TURNAROUND_VIEWS = [
+    { key: 'front', label: 'FRONT', dir: [0, 0, 1] },
+    { key: 'side', label: 'SIDE', dir: [1, 0, 0] },
+    { key: 'back', label: 'BACK', dir: [0, 0, -1] },
+    { key: 'top', label: 'TOP', dir: [0, 1, 0] }
+  ];
 
   let scene, camera, renderer, controls, animationFrameId;
   let currentModel = null;
@@ -57,7 +67,7 @@
     controls.autoRotateSpeed = 2.0;
 
     // Grid Floor
-    const gridHelper = new THREE.GridHelper(10, 20, 0x0284c7, 0x1e293b);
+    gridHelper = new THREE.GridHelper(10, 20, 0x0284c7, 0x1e293b);
     gridHelper.position.y = -0.01;
     scene.add(gridHelper);
 
@@ -81,13 +91,58 @@
 
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
-      controls.autoRotate = autoRotate;
+      controls.autoRotate = autoRotate && !fourViewEnabled;
       controls.update();
-      renderer.render(scene, camera);
+      if (fourViewEnabled) {
+        renderTurnaround();
+      } else {
+        renderer.setScissorTest(false);
+        renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
+        renderer.render(scene, camera);
+      }
     }
     animate();
 
     window.addEventListener('resize', handleResize);
+  }
+
+  function twoViewSize() {
+    const w = containerRef.clientWidth || 600;
+    const h = parseInt(height, 10) || 500;
+    return { w, h };
+  }
+
+  function renderTurnaround() {
+    const { w, h } = twoViewSize();
+    const plotW = Math.floor(w / 4);
+    gridHelper.visible = false;
+    renderer.setScissorTest(true);
+    scene.background = new THREE.Color(0xd4d4d8);
+    TURNAROUND_VIEWS.forEach((view, index) => {
+      const left = index * plotW;
+      const width = index === TURNAROUND_VIEWS.length - 1 ? w - left : plotW;
+      camera.position.set(view.dir[0] * 4.2, view.dir[1] * 4.2 + (view.dir[1] === 0 ? 1.0 : 0), view.dir[2] * 4.2);
+      camera.lookAt(new THREE.Vector3(0, 0.7, 0));
+      camera.updateMatrixWorld();
+      renderer.setViewport(left, 0, width, h);
+      renderer.setScissor(left, 0, width, h);
+      renderer.render(scene, camera);
+    });
+    renderer.setScissorTest(false);
+    gridHelper.visible = true;
+    scene.background = new THREE.Color(0x0f172a);
+    applyLightingPreset(lightingPreset);
+    camera.position.set(0, 1.5, 3.5);
+    controls.update();
+  }
+
+  function toggleFourView() {
+    fourViewEnabled = !fourViewEnabled;
+    controls.enabled = !fourViewEnabled;
+    if (!fourViewEnabled) {
+      applyLightingPreset(lightingPreset);
+      resetCamera();
+    }
   }
 
   function handleResize() {
@@ -247,6 +302,14 @@
     applyLightingPreset(lightingPreset);
   });
 
+  $effect(() => {
+    const shouldEnable = Boolean(turnaroundMode);
+    if (shouldEnable !== fourViewEnabled) {
+      fourViewEnabled = shouldEnable;
+      if (controls) controls.enabled = !shouldEnable;
+    }
+  });
+
   onMount(() => {
     initThree();
   });
@@ -283,6 +346,16 @@
 
   <!-- Top-Right Controls Toolbar -->
   <div class="absolute top-3 right-3 flex items-center gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-[5px] border border-slate-700/60 z-10 shadow-lg">
+    <!-- 4-View Turnaround Toggle -->
+    <button
+      type="button"
+      onclick={toggleFourView}
+      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {fourViewEnabled ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white bg-slate-800'}"
+      title="Toggle 4-View Orthographic Turnaround (Front / Side / Back / Top)"
+    >
+      4-View
+    </button>
+
     <!-- Auto-Rotate Toggle -->
     <button
       type="button"
@@ -323,6 +396,15 @@
       Reset
     </button>
   </div>
+
+  <!-- Turnaround View Labels -->
+  {#if fourViewEnabled}
+    <div class="absolute top-3 left-3 right-44 flex gap-1 z-10 pointer-events-none">
+      {#each TURNAROUND_VIEWS as view}
+        <span class="flex-1 text-center text-[10px] font-bold tracking-widest text-slate-900/80 bg-white/60 backdrop-blur-xs py-0.5 rounded-[3px]">{view.label}</span>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Bottom-Left Geometry Badges -->
   <div class="absolute bottom-3 left-3 flex items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-[5px] border border-slate-700/60 z-10 text-[11px] font-mono text-slate-300">

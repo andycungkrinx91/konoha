@@ -406,8 +406,22 @@ function createWebServer(options = {}) {
   return instance;
 }
 
+function recoverAbandonedGenerationJobs() {
+  try {
+    const { getConnection } = require('./db');
+    const { recoverOrphanedJobs } = require('./mcp/three_asset/storage_manager');
+    const recovered = recoverOrphanedJobs(getConnection());
+    if (recovered.length > 0) {
+      process.stdout.write(`[konoha web] Recovered ${recovered.length} abandoned 3D generation job(s): ${recovered.join(', ')}\n`);
+    }
+  } catch (err) {
+    process.stderr.write(`[konoha web] 3D job recovery skipped: ${err.message}\n`);
+  }
+}
+
 function startWebServer(options = {}) {
   const instance = createWebServer(options);
+  recoverAbandonedGenerationJobs();
   return instance.start();
 }
 

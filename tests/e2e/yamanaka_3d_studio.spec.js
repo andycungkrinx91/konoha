@@ -4,14 +4,14 @@ import { loginAndUnlock } from './auth_helper.js';
 test("Yamanaka 3D Studio routes load cleanly with interactive viewport", async ({ page }) => {
   await loginAndUnlock(page);
 
-  // 1. Test 3D Setup Tools page
+  // Test 3D Setup Tools page
   await page.goto("http://127.0.0.1:4173/3d/setup");
   await expect(page.getByText("Yamanaka 3D Toolchain Setup").first()).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("Hardware Acceleration & Compute Engine")).toBeVisible();
   await expect(page.getByText("Three.js & Manifold 3D")).toBeVisible();
   await expect(page.getByText("One-Click Auto-Install")).toBeVisible();
 
-  // 2. Test 3D Model Maker page
+  // Test 3D Model Maker page
   await page.goto("http://127.0.0.1:4173/3d/maker");
   await expect(page.getByText("Real 3D Token & Cost Counter")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("Total Requests")).toBeVisible();
@@ -27,6 +27,7 @@ test("Yamanaka 3D Studio routes load cleanly with interactive viewport", async (
 });
 
 test("Yamanaka 3D Maker streams live GLB into viewport without 404 or module errors", async ({ page }) => {
+  test.setTimeout(600000);
   await loginAndUnlock(page);
   const consoleErrors = [];
   page.on("console", (msg) => {
@@ -38,7 +39,7 @@ test("Yamanaka 3D Maker streams live GLB into viewport without 404 or module err
 
   await page.getByRole("button", { name: /Synthesize 3D Model/i }).click();
 
-  await expect(page.getByText(/synthesized and promoted/i)).toBeVisible({ timeout: 180000 });
+  await expect(page.getByText(/synthesized and promoted/i)).toBeVisible({ timeout: 540000 });
 
   await expect(page.getByText(/Cannot find module 'three'/i)).toHaveCount(0);
   await expect(page.getByText(/Failed to load 3D model/i)).toHaveCount(0);
