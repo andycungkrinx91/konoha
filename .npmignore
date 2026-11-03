@@ -82,3 +82,11 @@ ehthumbs.db
 *.log
 *.db*
 *.tgz
+
+# Yamanaka 3D Subsystem local runtime and staging
+.staging/
+.staging/**
+3d-output/
+3d-output/**
+3d-assets/
+3d-assets/**

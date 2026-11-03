@@ -9,7 +9,7 @@
   <sub>Powered by LangGraph.js State Machines · 8 Specialist Ninja Agents · Per-Turn Token Governors · 83–98% Context Reduction</sub>
 </p>
 
-[![Release](https://img.shields.io/badge/Release-v2.2.17-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v2.2.18-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
@@ -66,7 +66,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
-* **Latest Release:** [v2.2.17](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
+* **Latest Release:** [v2.2.18](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.17 — Audited & Certified (2026-11-01)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.17_2026-11-01.md)
 
 ### ✧ Diagram Flow Konoha Orchestrator
@@ -497,7 +497,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.2.17) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.2.18) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -931,6 +931,7 @@ Konoha provisions an official, synchronized team of **8 specialized ninja agents
 | **@tokubetsu-jonin** | **Special Scribe**<br>Technical Writing | Documentation, API specs, runbooks, native office docs | Authors comprehensive docs, generates native DOCX, PDF, XLSX, and PPTX with <3% AI detection target. | `i-have-adhd` |
 | **@kage** | **Village Leader**<br>Architect & Governor | Systems architecture, risk assessment, delivery review | Authors action plans (`plan.md`), evaluates 98% confidence score, enforces Two-Step Zero-AI-Slop Pre-Gate before synthesis. | Delivery Contract |
 | **@akatsuki** | **Security Specialist**<br>Red/Blue Team | Vulnerability scanning, SAST, CVE audit, isolated pentest | Executes Blue-Team security gates (Socket CLI, secret scan, Skill Guardian) and authorized Red-Team ops in `akatsuki-lab`. | Security Protocol |
+| **@yamanaka** | **3D Specialist**<br>Generative 3D & Spatial | Generative 3D synthesis, Three.js/Manifold geometry, Blender LTS | Watertight manifold validation, enterprise PBR shaders, OS-aware Blender installer, live agentic 6-step refinement, GPU auto-detect with CPU fallback. | `yamanaka-skill` |
 
 ---
 

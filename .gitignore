@@ -162,3 +162,11 @@ PLAN_*.md
 **/PLAN_*.md
 **/*-plan.md
 **/*.plan.md
+
+# Yamanaka 3D Subsystem local runtime and staging
+.staging/
+.staging/**
+3d-output/
+3d-output/**
+3d-assets/
+3d-assets/**

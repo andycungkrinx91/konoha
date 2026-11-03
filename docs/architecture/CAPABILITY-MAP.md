@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.17  
+**Document Version:** 2.2.18  
 **Date:** 2026-10-29  
-**Status:** Canonical Reference (v2.2.17 Complete)  
+**Status:** Canonical Reference (v2.2.18 Complete)  
 
 ---
 

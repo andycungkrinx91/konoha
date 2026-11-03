@@ -19,6 +19,13 @@ const {
   discoverClientModels
 } = require('./common');
 
+function tokenValidator(ctx) {
+  return (candidate) => candidate === ctx.sessionToken
+    || (Boolean(ctx.previousSessionToken)
+      && candidate === ctx.previousSessionToken
+      && Date.now() < (ctx.previousTokenExpiresAt || 0));
+}
+
 function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
   if (method !== 'GET') return false;
   if (pathname === '/api/v1/csrf' || pathname === '/api/v1/token') {
@@ -35,19 +42,25 @@ function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
       return sendJson(res, 403, { error: 'Forbidden: CSRF token retrieval restricted to loopback host' });
     }
 
+    const rotatedAt = ctx.tokenRotatedAt || Date.now();
+    const ttlMs = ctx.tokenTtlMs || 12 * 60 * 60 * 1000;
+    res.setHeader('Set-Cookie', `konoha-web-token=${ctx.sessionToken}; Path=/; Max-Age=${Math.floor(ttlMs / 1000)}; SameSite=Strict`);
     return sendJson(res, 200, {
       token: ctx.sessionToken,
-      version: ctx.SERVER_VERSION,
+      rotated_at: new Date(rotatedAt).toISOString(),
+      expires_at: new Date(rotatedAt + ttlMs).toISOString(),
+      ttl_ms: ttlMs,
+      version: String(ctx.SERVER_VERSION || '2.2.18').replace(/^v+/, ''),
       port: ctx.PORT,
       uptime: Math.round(process.uptime())
     });
   }
   if (pathname === '/api/v1/health') {
-    const isAuth = isAuthorizedRequest(req, ctx.sessionToken);
+    const isAuth = isAuthorizedRequest(req, tokenValidator(ctx));
     if (!isAuth) {
       return sendJson(res, 200, {
         status: 'healthy',
-        version: ctx.SERVER_VERSION,
+        version: String(ctx.SERVER_VERSION || '2.2.18').replace(/^v+/, ''),
         uptime: Math.round(process.uptime()),
         node: process.version,
         platform: process.platform
@@ -63,7 +76,7 @@ function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
     } catch (_) { /* intentional best-effort fallback */ }
     return sendJson(res, 200, {
       status: 'healthy',
-      version: ctx.SERVER_VERSION,
+      version: String(ctx.SERVER_VERSION || '2.2.18').replace(/^v+/, ''),
       uptime: Math.round(process.uptime()),
       port: ctx.PORT,
       db_path: db.DB_PATH,
@@ -593,7 +606,8 @@ async function _handleAgents(req, res, pathname, method, broadcastEvent) {
 
 async function handleCoreRoutes(req, res, ctx, _parsedUrl, ...rest) {
   const [pathname, method] = rest;
-  const { sessionToken, broadcastEvent, systemMetrics } = ctx;
+  const { broadcastEvent, systemMetrics } = ctx;
+  const sessionToken = tokenValidator(ctx);
 
   const csrfOrHealth = _handleCsrfAndHealth(req, res, pathname, method, ctx);
   if (csrfOrHealth !== false) return csrfOrHealth;

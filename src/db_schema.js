@@ -538,6 +538,17 @@ function setupSchema(conn, backupDatabaseFn = null) {
     `);
   } catch (_) { /* intentional best-effort fallback */ }
 
+  // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
+  try {
+    const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema } = require('./mcp/three_asset/db_3d_schema');
+    purgeLegacy3DTables(conn);
+    verifyAndApplyCanonicalSchema(conn);
+  } catch (err) {
+    if (err.message && (err.message.includes('SCHEMA DRIFT') || err.message.includes('FORBIDDEN') || err.message.includes('INTEGRITY'))) {
+      throw err;
+    }
+  }
+
   setUserVersion(conn, CURRENT_SCHEMA_VERSION);
   verifyIntegrity(conn);
 
@@ -592,7 +603,7 @@ function validateCanonicalSchema(conn) {
     );
 
     // Assert absence of legacy tables
-    const forbiddenTables = ['tunnel_config', 'persona_memories_migrated', 'active_sessions_migrated', 'skills_legacy'];
+    const forbiddenTables = ['tunnel_config', 'persona_memories_migrated', 'active_sessions_migrated', 'skills_legacy', 'model_assets', 'model_asset_chunks', 'yamanaka_models_old', 'three_assets_v1', 'mesh_cache_alias', 'roblox_models'];
     for (const forbidden of forbiddenTables) {
       if (tables.has(forbidden)) {
         errors.push(`Legacy table '${forbidden}' must not exist`);
@@ -604,7 +615,8 @@ function validateCanonicalSchema(conn) {
       'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
-      'kali_tools'
+      'kali_tools', 'schema_migrations', 'generation_jobs', 'assets',
+      'asset_files', 'validation_results', 'llm_requests_3d'
     ];
     for (const req of requiredTables) {
       if (!tables.has(req)) {

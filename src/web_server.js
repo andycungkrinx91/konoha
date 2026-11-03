@@ -12,6 +12,7 @@ const coreController = require('./web/controllers/core_controller');
 const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
 const servicesController = require('./web/controllers/services_controller');
+const model3DController = require('./web/controllers/model_3d_controller');
 const {
   MAX_BODY_BYTES,
   sendJson,
@@ -65,11 +66,11 @@ function _isHostAllowed(hostWithoutPort) {
   return false;
 }
 
-function _verifyApiAuthentication(req, pathname, method, sessionToken) {
+function _verifyApiAuthentication(req, pathname, method, ctx) {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
     if (pathname !== '/api/v1/auth/login' && pathname !== '/api/v1/auth/logout') {
       const tokenHeader = req.headers['x-konoha-web-token'];
-      if (!tokenHeader || tokenHeader !== sessionToken) {
+      if (!tokenHeader || !isValidSessionToken(tokenHeader, ctx)) {
         return { ok: false, status: 403, error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' };
       }
     }
@@ -80,7 +81,7 @@ function _verifyApiAuthentication(req, pathname, method, sessionToken) {
 
   const sessionId = getClientSessionId(req);
   const session = sessionId ? webAuth.getSession(sessionId) : null;
-  const hasMasterToken = req.headers['x-konoha-web-token'] === sessionToken;
+  const hasMasterToken = isValidSessionToken(req.headers['x-konoha-web-token'], ctx);
   const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
   const isBrowser = isBrowserClient(req);
 
@@ -136,6 +137,7 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   if (await skillsController.handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+  if (await model3DController.handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
 
   const error_id = 'err_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   return sendJson(res, 404, {
@@ -174,7 +176,8 @@ async function handleWebServerRequest(req, res, ctx) {
   }
 
   if (pathname.startsWith('/api/')) {
-    const apiAuth = _verifyApiAuthentication(req, pathname, method, sessionToken);
+    resolveOrRotateTokenState(ctx);
+    const apiAuth = _verifyApiAuthentication(req, pathname, method, ctx);
     if (!apiAuth.ok) {
       const payload = { error: apiAuth.error };
       if (apiAuth.requires_login) payload.requires_login = true;
@@ -200,25 +203,89 @@ async function handleWebServerRequest(req, res, ctx) {
   _serveDistFile(res, pathname, port);
 }
 
-function _resolveSessionToken(customToken) {
-  if (customToken) return customToken;
-  const tokenFile = path.join(SKILLS_DB_DIR, 'web_token');
-  try {
-    if (fs.existsSync(tokenFile)) {
-      const stat = fs.statSync(tokenFile);
-      if (Date.now() - stat.mtimeMs < 24 * 60 * 60 * 1000) {
-        const cached = fs.readFileSync(tokenFile, 'utf8').trim();
-        if (cached && cached.length >= 16) return cached;
-      }
-    }
-  } catch (_) { /* ignore */ }
+const TOKEN_FILE_NAME = 'web_token';
+const TOKEN_ROTATION_TTL_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_TTL_MS || '', 10) || (12 * 60 * 60 * 1000);
+const TOKEN_GRACE_WINDOW_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_GRACE_MS || '', 10) || (5 * 60 * 1000);
 
-  const generated = crypto.randomBytes(16).toString('hex');
+function getTokenFilePath() {
+  return path.join(SKILLS_DB_DIR, TOKEN_FILE_NAME);
+}
+
+function generateSessionToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function persistSessionToken(token) {
+  const tokenFile = getTokenFilePath();
   try {
     if (!fs.existsSync(SKILLS_DB_DIR)) fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
-    fs.writeFileSync(tokenFile, generated, { encoding: 'utf8', mode: 0o600 });
-  } catch (_) { /* ignore */ }
-  return generated;
+    fs.writeFileSync(tokenFile, token, { encoding: 'utf8', mode: 0o600 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPersistedTokenAgeMs() {
+  try {
+    const tokenFile = getTokenFilePath();
+    if (!fs.existsSync(tokenFile)) return null;
+    const cached = fs.readFileSync(tokenFile, 'utf8').trim();
+    if (!cached || cached.length < 16) return null;
+    return { token: cached, ageMs: Date.now() - fs.statSync(tokenFile).mtimeMs };
+  } catch {
+    return null;
+  }
+}
+
+function resolveInitialTokenState(customToken, explicitToken) {
+  if (explicitToken) {
+    persistSessionToken(customToken);
+    return { sessionToken: customToken, tokenRotatedAt: Date.now(), previousSessionToken: null, previousTokenExpiresAt: 0 };
+  }
+  const persisted = readPersistedTokenAgeMs();
+  if (persisted && persisted.ageMs < TOKEN_ROTATION_TTL_MS) {
+    return { sessionToken: persisted.token, tokenRotatedAt: Date.now() - persisted.ageMs, previousSessionToken: null, previousTokenExpiresAt: 0 };
+  }
+  const generated = generateSessionToken();
+  persistSessionToken(generated);
+  return { sessionToken: generated, tokenRotatedAt: Date.now(), previousSessionToken: null, previousTokenExpiresAt: 0 };
+}
+
+function rotateSessionToken(state) {
+  const nextToken = generateSessionToken();
+  state.previousSessionToken = state.sessionToken;
+  state.previousTokenExpiresAt = Date.now() + TOKEN_GRACE_WINDOW_MS;
+  state.sessionToken = nextToken;
+  state.tokenRotatedAt = Date.now();
+  persistSessionToken(nextToken);
+  return nextToken;
+}
+
+function resolveOrRotateTokenState(state) {
+  if (!state || !state.sessionToken) return state;
+  if (Date.now() - state.tokenRotatedAt < TOKEN_ROTATION_TTL_MS) return state;
+  rotateSessionToken(state);
+  if (typeof state.onTokenRotated === 'function') {
+    try { state.onTokenRotated(state.sessionToken); } catch { /* broadcast is best-effort */ }
+  }
+  return state;
+}
+
+function isValidSessionToken(candidate, ctx) {
+  if (!candidate || typeof candidate !== 'string') return false;
+  const state = ctx || {};
+  if (candidate === state.sessionToken) return true;
+  return Boolean(state.previousSessionToken)
+    && candidate === state.previousSessionToken
+    && Date.now() < (state.previousTokenExpiresAt || 0);
+}
+
+function scheduleTokenRotation(ctx) {
+  const intervalMs = Math.min(TOKEN_ROTATION_TTL_MS, 30 * 60 * 1000);
+  const timer = setInterval(() => resolveOrRotateTokenState(ctx), intervalMs);
+  if (typeof timer.unref === 'function') timer.unref();
+  return timer;
 }
 
 async function _loadSvelteKitModule(handlerPath) {
@@ -272,7 +339,7 @@ function _startServer(server, port, host, sessionToken, instance) {
 function createWebServer(options = {}) {
   const port = options.port !== undefined ? options.port : 1404;
   const host = options.host || '127.0.0.1';
-  const sessionToken = _resolveSessionToken(options.token);
+  const tokenState = resolveInitialTokenState(options.token, Boolean(options.token));
   const sseClients = new Set();
   const systemMetrics = { _lastCpuTimes: null, _lastCpuUsage: null, _lastHrtime: process.hrtime.bigint() };
 
@@ -290,17 +357,36 @@ function createWebServer(options = {}) {
     return svelteKitHandler;
   }
 
+  let serverVersion = '2.2.18';
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    if (pkg && pkg.version) serverVersion = pkg.version;
+  } catch (_) { /* intentional fallback */ }
+  if (options.version) serverVersion = options.version;
+  serverVersion = String(serverVersion).replace(/^v+/, '');
+
   const ctx = {
     port,
     host,
-    sessionToken,
+    sessionToken: tokenState.sessionToken,
+    tokenRotatedAt: tokenState.tokenRotatedAt,
+    previousSessionToken: tokenState.previousSessionToken,
+    previousTokenExpiresAt: tokenState.previousTokenExpiresAt,
+    tokenTtlMs: TOKEN_ROTATION_TTL_MS,
+    onTokenRotated: (nextToken) => {
+      ctx.sessionToken = nextToken;
+      broadcastEvent('token_rotated', { token: nextToken, ttl_ms: TOKEN_ROTATION_TTL_MS, rotated_at: new Date().toISOString() });
+    },
     sseClients,
     systemMetrics,
     broadcastEvent,
-    SERVER_VERSION: options.version || 'v2.2.15',
+    SERVER_VERSION: serverVersion,
     PORT: port,
     getSvelteKitHandler
   };
+
+  resolveOrRotateTokenState(ctx);
+  scheduleTokenRotation(ctx);
 
   const server = http.createServer((req, res) => {
     handleWebServerRequest(req, res, ctx).catch(err => _onServerError(err, res));
@@ -310,9 +396,11 @@ function createWebServer(options = {}) {
     server,
     port,
     host,
-    token: sessionToken,
+    token: ctx.sessionToken,
+    getToken: () => ctx.sessionToken,
     broadcastEvent,
-    start: () => _startServer(server, port, host, sessionToken, instance),
+    ctx,
+    start: () => _startServer(server, port, host, ctx.sessionToken, instance),
     stop: () => new Promise(resolve => server.close(resolve))
   };
   return instance;

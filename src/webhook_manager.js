@@ -147,10 +147,13 @@ function deleteWebhook(id) {
   return res.changes > 0;
 }
 
+let _pkgVer = '2.2.18';
+try { _pkgVer = require('../package.json').version || '2.2.18'; } catch (_) {}
+
 function _buildWebhookHeaders(webhook) {
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'Konoha-Webhook-Engine/2.2.15'
+    'User-Agent': `Konoha-Webhook-Engine/${_pkgVer}`
   };
   if (!webhook.auth_token) return headers;
   if (webhook.auth_type === 'bearer' || webhook.auth_type === 'jwt') {

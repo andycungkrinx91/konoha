@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_VERSION = '2.2.17';
+const CONTRACT_VERSION = '2.2.18';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 
@@ -235,7 +235,8 @@ function getClientContract(client = 'generic', options = {}) {
         '- **@jonin**: Premium UI/frontend specialist across Next.js, SvelteKit, Nuxt, Angular',
         '- **@anbu**: Backend engineering, bug fixing, DevOps, and infrastructure',
         '- **@tokubetsu-jonin**: Technical writing, documentation, runbooks, and specs',
-        '- **@akatsuki**: Red-team and blue-team security specialist; authorized security execution only'
+        '- **@akatsuki**: Red-team and blue-team security specialist; authorized security execution only',
+        '- **@yamanaka**: Autonomous generative 3D model synthesis, Three.js/Manifold geometry, and live agentic Blender editing'
       ].join('\n');
 
   return `# Konoha Multi-Agent System & Full Runtime Specification\n\n` +

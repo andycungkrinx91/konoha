@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.17). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.18). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -620,7 +620,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ---
 
-## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.17)
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.18)
 
 Authoritative verification matrix for the Konoha v2.2.17 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
@@ -682,3 +682,32 @@ Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budge
 | **13. Forward-Only Execution Trace** | `tests/test_langgraph_budget_resume.js` (S13) | Concatenated trace proves zero duplicate completed nodes and strict forward progression | `PASS` (verified 2026-11-02) |
 | **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes | `PASS` (verified 2026-11-02) |
 | **15. Deprecated Manifest Aliases** | `tests/test_canonical_api_sync.js` | 47 canonical + 2 deprecated = 49 manifest tools verified with structured deprecation notices | `PASS` (verified 2026-11-02) |
+
+---
+
+## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.18)
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. Dynamic Runtime Dependency Linking** | `bin/lib/runtime_install.js` (`ensureRuntimeDependencies`) + `src/deploy_installer.js` (`installRuntimeDependencies`) | Every `package.json` dependency (including `three`, `manifold-3d`) is resolved by `readDeclaredDependencies`; missing packages are copied dereferenced from repo `node_modules` into an existing `~/.konoha/node_modules` before any package-manager fallback | `PASS` (verified 2026-11-03) |
+| **2. Deployed `scene_builder` Module Resolution** | `node -e "require('~/.konoha/src/mcp/three_asset/scene_builder')"` | `Cannot find module 'three'` eliminated; `buildSceneFromSpec` exports a function from the deployed runtime | `PASS` (verified 2026-11-03) |
+| **3. Resilient `dep_loader` Fallback** | `src/mcp/three_asset/dep_loader.js` wired into `scene_builder.js`, `exporter.js`, `image_relief.js`, `svg_extruder.js`, `index.js` | `three`, `three/addons/*`, and `manifold-3d` resolve across runtime, repo, and `apps/web` node_modules roots | `PASS` (verified 2026-11-03) |
+| **4. `base_mesh_ready` Live Event** | `tests/test_yamanaka_langgraph_pipeline.js` | `nodeBuildBaseMesh` atomically publishes `intermediate/live_step.glb` and emits `base_mesh_ready` with `live_glb_ready: true`; 6 `blender_agent_action` events still stream | `PASS` (verified 2026-11-03) |
+| **5. Immediate Staging GLB Request** | Live `POST /api/v1/3d/generate` then instant `GET /api/v1/3d/staging/<jobId>/live.glb` | `HTTP 200` with `glTF` magic bytes; previously `404 Not Found` | `PASS` (verified 2026-11-03) |
+| **6. Post-Promotion Staging Fallback** | Same `live.glb` URL fetched after `staging_cleaned = 1` | `HTTP 200` served from the promoted `asset_files.primary_glb` row; no `404` after staging cleanup | `PASS` (verified 2026-11-03) |
+| **7. Proxy/In-Flight Wait** | `_handleLiveStagingGlb` + `awaitLiveStagingGlb` | Requests arriving before `base.glb` exists poll active job stages (150 ms, 15 s cap) and return `200` instead of `404` | `PASS` (verified 2026-11-03) |
+| **8. SSE-Gated Viewport Loading** | `apps/web/src/components/Model3DDesign.svelte` | `currentGlbUrl` is assigned only on `base_mesh_ready`, `blender_agent_action`, or `job_completed`; never on `202 Accepted` | `PASS` (verified in `tests/e2e/yamanaka_3d_studio.spec.js`) |
+| **9. Authenticated ArrayBuffer GLB Load** | `apps/web/src/components/ThreeViewport.svelte` | `.glb` fetched with `X-Konoha-Web-Token` + `credentials: 'same-origin'`, parsed via `GLTFLoader.parse`; `$effect` tracks both `glbUrl` and `liveKey`; orbit camera preserved during hot-reload | `PASS` (verified in Playwright + `svelte-check` 0 errors) |
+| **10. GPU Force with CPU Fallback** | Live generation with `requested_compute_mode: 'gpu'` | Job completes with `effective_compute_mode: 'gpu'` and documented fallback reason when hardware is absent | `PASS` (verified 2026-11-03) |
+| **11. 12-Hour Token Rotation** | `src/web_server.js` (`resolveOrRotateTokenState`) + `src/auth.js` (`DEFAULT_SESSION_TTL_MS`) | Session token auto-rotates every `43,200,000` ms (env-overridable via `KONOHA_WEB_TOKEN_TTL_MS`); new token persisted to `~/.konoha/web_token` (`0o600`) | `PASS` (verified 2026-11-03) |
+| **12. Grace Window Validation** | Rotation harness + `tests/test_yamanaka_web_api.js` | Previous token remains valid only inside the 5-minute grace window (`KONOHA_WEB_TOKEN_GRACE_MS`); expired grace token rejected with `403` | `PASS` (verified 2026-11-03) |
+| **13. `/api/v1/csrf` Rotation Contract** | `GET /api/v1/csrf` | Returns `token`, `rotated_at`, `expires_at`, `ttl_ms: 43200000`, and sets `konoha-web-token` cookie with matching `Max-Age` | `PASS` (verified 2026-11-03) |
+| **14. Client Auto-Refresh** | `apps/web/src/lib/api.js` (`ensureValidToken`) | Refreshes 60 s before expiry; attaches `X-Konoha-Web-Token` to all requests; retries once on `401`/`403` | `PASS` (verified via `svelte-check` + build) |
+| **15. Dynamic UI Catalogs (Zero Hardcoding)** | `GET /api/v1/3d/setup/models` → `catalogs` | `archetypes` (16), `profiles` (5), `quality_presets` (4), `compute_modes` (3) are sourced from `spec_schema.js`, `style_profile.js`, `compute_selector.js`; no hardcoded lists remain in `Model3DDesign.svelte` | `PASS` (verified on live daemon `:1404`) |
+| **16. Zero-Slop Comment Cleanup** | `grep -rE '^\s*//\s*[0-9]+\.'` | No numbered step comments remain in `src/mcp/three_asset/`, `src/workflow/yamanaka/`, `src/web/controllers/`, or the 3D Svelte components | `PASS` (verified 2026-11-03) |
+| **17. `npx aislop` Gate** | `npx aislop scan src/mcp/three_asset`, `src/workflow/yamanaka`, `src/web` | 0 errors across all three trees | `PASS` (verified 2026-11-03) |
+| **18. Isolated Fresh Install** | `/tmp/konoha-iso` with isolated `HOME` + `konoha init --yes` | Six `STRICT` 3D tables created, `20261103_001_yamanaka_3d_canonical` applied, `three`/`manifold-3d` present, deployed `scene_builder` loads | `PASS` (verified 2026-11-03) |
+| **19. Upgrade Path Re-Linking** | Delete `three`/`manifold-3d` from an existing isolated `~/.konoha/node_modules`, re-run install | Missing dependencies are re-linked on the next runtime install without a full reinstall | `PASS` (verified 2026-11-03) |
+| **20. Playwright 3D Studio E2E** | `npx playwright test yamanaka_3d_studio` | Setup and Maker routes render, live generation promotes an asset, canvas visible, no `Cannot find module` or `404` console output | `PASS` (2/2, verified 2026-11-03) |
+| **21. Version Consistency** | `tests/test_version_consistency.js` + `tests/test_docs_currency.js` | 19/19 managed files at `2.2.18`; docs currency clean | `PASS` (verified 2026-11-03) |
+

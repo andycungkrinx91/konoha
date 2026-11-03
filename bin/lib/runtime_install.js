@@ -1,17 +1,5 @@
 'use strict';
 
-function _tryLinkRootModules(nodeModulesPath) {
-  const rootNodeModules = path.resolve(__dirname, '..', '..', 'node_modules');
-  if (!fileExists(rootNodeModules) || !fileExists(path.join(rootNodeModules, '@langchain', 'langgraph')) || fileExists(nodeModulesPath)) {
-    return;
-  }
-  try {
-    fs.symlinkSync(rootNodeModules, nodeModulesPath, 'junction');
-  } catch (_) {
-    copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
-  }
-}
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -25,6 +13,64 @@ const {
 const { fileExists, ensureDir, copyFile } = require('./prompt');
 const { info, warn, getCliVersion } = require('./format');
 const deployUtils = require('../../src/deploy_utils');
+
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+function readDeclaredDependencies(pkgJsonPath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+    return Object.keys(parsed.dependencies || {});
+  } catch {
+    return [];
+  }
+}
+
+function resolvePackageDir(nodeModulesPath, depName) {
+  return path.join(nodeModulesPath, ...depName.split('/'));
+}
+
+function listMissingDependencies(nodeModulesPath, deps) {
+  return deps.filter((depName) => !fileExists(resolvePackageDir(nodeModulesPath, depName)));
+}
+
+function copyDependencyFrom(sourceNodeModules, nodeModulesPath, depName) {
+  const srcPkg = resolvePackageDir(sourceNodeModules, depName);
+  if (!fileExists(srcPkg)) return false;
+  const destPkg = resolvePackageDir(nodeModulesPath, depName);
+  try {
+    const realPkg = fs.realpathSync(srcPkg);
+    ensureDir(path.dirname(destPkg));
+    if (fileExists(destPkg)) fs.rmSync(destPkg, { recursive: true, force: true });
+    fs.cpSync(realPkg, destPkg, { recursive: true, dereference: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function linkOrCopyModuleTree(nodeModulesPath) {
+  const rootNodeModules = path.join(REPO_ROOT, 'node_modules');
+  if (!fileExists(rootNodeModules)) return;
+  if (!fileExists(nodeModulesPath)) {
+    try {
+      fs.symlinkSync(rootNodeModules, nodeModulesPath, process.platform === 'win32' ? 'junction' : 'dir');
+      return;
+    } catch {
+      copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
+      return;
+    }
+  }
+  const deps = readDeclaredDependencies(path.join(REPO_ROOT, 'package.json'));
+  const webNodeModules = path.join(REPO_ROOT, 'apps', 'web', 'node_modules');
+  for (const depName of listMissingDependencies(nodeModulesPath, deps)) {
+    if (copyDependencyFrom(rootNodeModules, nodeModulesPath, depName)) continue;
+    copyDependencyFrom(webNodeModules, nodeModulesPath, depName);
+  }
+}
+
+function _tryLinkRootModules(nodeModulesPath) {
+  linkOrCopyModuleTree(nodeModulesPath);
+}
 
 function copyIfDifferent(src, dest) {
   if (!fileExists(dest)) {
@@ -88,6 +134,11 @@ function copyRuntimeFiles(copyTree) {
   const patchesSrc = path.resolve(__dirname, '..', '..', 'patches');
   if (fileExists(patchesSrc)) {
     copyTree(patchesSrc, path.join(SKILLS_DB_DIR, 'patches'));
+  }
+
+  const migrationsSrc = path.resolve(__dirname, '..', '..', 'migrations');
+  if (fileExists(migrationsSrc)) {
+    copyTree(migrationsSrc, path.join(SKILLS_DB_DIR, 'migrations'));
   }
 
   const libSrc = path.resolve(__dirname);
@@ -228,18 +279,7 @@ function installWebUiRuntime(copyTree) {
   }
 }
 
-function ensureRuntimeDependencies() {
-  const nodeModulesPath = path.join(SKILLS_DB_DIR, 'node_modules');
-  const criticalDeps = [
-    path.join(nodeModulesPath, '@bufbuild', 'protobuf'),
-    path.join(nodeModulesPath, '@langchain', 'langgraph'),
-    path.join(nodeModulesPath, 'zod')
-  ];
-  if (criticalDeps.every(d => fileExists(d))) return;
-
-  _tryLinkRootModules(nodeModulesPath);
-  if (criticalDeps.every(d => fileExists(d))) return;
-
+function installMissingDependencies(deps) {
   const isWin = process.platform === 'win32';
   const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
   const pmCandidates = [
@@ -255,9 +295,22 @@ function ensureRuntimeDependencies() {
         : spawnSync(pm.cmd, pm.args, {
             cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', env: childEnv
           });
-      if (res.status === 0 && criticalDeps.every(d => fileExists(d))) break;
-    } catch (_) { /* best-effort */ }
+      if (res.status === 0 && listMissingDependencies(path.join(SKILLS_DB_DIR, 'node_modules'), deps).length === 0) return true;
+    } catch { /* best-effort package manager fallback */ }
   }
+  return false;
+}
+
+function ensureRuntimeDependencies() {
+  const nodeModulesPath = path.join(SKILLS_DB_DIR, 'node_modules');
+  const deps = readDeclaredDependencies(path.join(REPO_ROOT, 'package.json'));
+  if (deps.length === 0 || listMissingDependencies(nodeModulesPath, deps).length === 0) return;
+
+  _tryLinkRootModules(nodeModulesPath);
+  const stillMissing = listMissingDependencies(nodeModulesPath, deps);
+  if (stillMissing.length === 0) return;
+
+  installMissingDependencies(deps);
 }
 
 function copyTreeEntry(entry, src, dest, copyTree) {

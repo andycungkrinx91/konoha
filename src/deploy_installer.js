@@ -1,17 +1,5 @@
 'use strict';
 
-function _tryReuseRootNodeModules(rootDir, nodeModulesPath) {
-  const rootNodeModules = path.join(rootDir, 'node_modules');
-  if (!fileExists(rootNodeModules) || !fileExists(path.join(rootNodeModules, '@langchain', 'langgraph')) || fileExists(nodeModulesPath)) {
-    return;
-  }
-  try {
-    fs.symlinkSync(rootNodeModules, nodeModulesPath, 'junction');
-  } catch (_) {
-    copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
-  }
-}
-
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, execSync } = require('child_process');
@@ -30,6 +18,65 @@ const {
   writeNodeExecPathRecord,
   writePythonCmdRecord
 } = require('./runtime_resolver');
+
+function readPackageVersion(pkgJsonPath) {
+  try {
+    return JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')).version || null;
+  } catch {
+    return null;
+  }
+}
+
+function resolvePackageDir(nodeModulesPath, depName) {
+  return path.join(nodeModulesPath, ...depName.split('/'));
+}
+
+function readDeclaredDependencies(pkgJsonPath) {
+  try {
+    return Object.keys(JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')).dependencies || {});
+  } catch {
+    return [];
+  }
+}
+
+function listMissingDependencies(nodeModulesPath, deps) {
+  return deps.filter((depName) => !fileExists(resolvePackageDir(nodeModulesPath, depName)));
+}
+
+function copyDependencyFrom(sourceNodeModules, nodeModulesPath, depName) {
+  const srcPkg = resolvePackageDir(sourceNodeModules, depName);
+  if (!fileExists(srcPkg)) return false;
+  const destPkg = resolvePackageDir(nodeModulesPath, depName);
+  try {
+    const realPkg = fs.realpathSync(srcPkg);
+    ensureDir(path.dirname(destPkg));
+    if (fileExists(destPkg)) fs.rmSync(destPkg, { recursive: true, force: true });
+    fs.cpSync(realPkg, destPkg, { recursive: true, dereference: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function _tryReuseRootNodeModules(rootDir, nodeModulesPath) {
+  const rootNodeModules = path.join(rootDir, 'node_modules');
+  if (!fileExists(rootNodeModules)) return;
+  if (!fileExists(nodeModulesPath)) {
+    try {
+      fs.symlinkSync(rootNodeModules, nodeModulesPath, process.platform === 'win32' ? 'junction' : 'dir');
+      return;
+    } catch {
+      copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
+      return;
+    }
+  }
+  const deps = readDeclaredDependencies(path.join(rootDir, 'package.json'));
+  const webNodeModules = path.join(rootDir, 'apps', 'web', 'node_modules');
+  for (const depName of listMissingDependencies(nodeModulesPath, deps)) {
+    if (copyDependencyFrom(rootNodeModules, nodeModulesPath, depName)) continue;
+    copyDependencyFrom(webNodeModules, nodeModulesPath, depName);
+  }
+}
 
 function fileExists(p) {
   try {
@@ -178,45 +225,26 @@ function installRuntimePackageDependencies(destDir, silent) {
   if (fileExists(rootPkg)) {
     copyIfDifferent(rootPkg, pkgPath);
   } else if (!fileExists(pkgPath)) {
-    fs.writeFileSync(
-      pkgPath,
-      JSON.stringify({
-        name: 'konoha-runtime',
-        version: '1.0.0',
-        private: true,
-        dependencies: {
-          '@bufbuild/protobuf': '2.16.0',
-          '@langchain/core': '1.3.2',
-          '@langchain/langgraph': '1.6.0',
-          '@langchain/langgraph-checkpoint': '1.2.2',
-          'docx': '^9.14.0',
-          'gpt-tokenizer': '4.1.0',
-          'hash-wasm': '^4.12.0',
-          'playwright': '^1.64.1',
-          'pptxgenjs': '^4.0.1',
-          'xlsx-populate': '^1.21.0',
-          'zod': '4.6.7',
-          'yaml': '^2.7.0'
-        }
-      }, null, 2) + '\n'
-    );
+    const fallbackManifest = {
+      name: 'konoha-runtime',
+      version: readPackageVersion(rootPkg) || '0.0.0',
+      private: true,
+      dependencies: {}
+    };
+    fs.writeFileSync(pkgPath, JSON.stringify(fallbackManifest, null, 2) + '\n');
   }
 
   if (fileExists(rootPatches)) {
     copyRecursiveIfDifferent(rootPatches, destPatches);
   }
 
-  const criticalDeps = [
-    path.join(nodeModulesPath, '@bufbuild', 'protobuf'),
-    path.join(nodeModulesPath, '@langchain', 'langgraph'),
-    path.join(nodeModulesPath, 'zod')
-  ];
-  if (criticalDeps.every(d => fileExists(d))) {
+  const declaredDeps = readDeclaredDependencies(pkgPath);
+  if (declaredDeps.length === 0 || listMissingDependencies(nodeModulesPath, declaredDeps).length === 0) {
     return;
   }
 
   _tryReuseRootNodeModules(rootDir, nodeModulesPath);
-  if (criticalDeps.every(d => fileExists(d))) return;
+  if (listMissingDependencies(nodeModulesPath, declaredDeps).length === 0) return;
 
   const isWin = process.platform === 'win32';
   const pmCandidates = [
@@ -231,7 +259,7 @@ function installRuntimePackageDependencies(destDir, silent) {
       } else {
         execFileSync(pm.cmd, pm.args, { cwd: destDir, stdio: 'ignore', timeout: 300000, env: childEnv });
       }
-      if (criticalDeps.every(d => fileExists(d))) return;
+      if (listMissingDependencies(nodeModulesPath, declaredDeps).length === 0) return;
     } catch (_) { /* fallback to npm */ }
   }
   if (!silent) {

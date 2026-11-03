@@ -18,7 +18,7 @@
 
   let { children } = $props();
 
-  let health = $state({ status: 'checking', port: 1404, version: '2.2.17' });
+  let health = $state({ status: 'checking', port: 1404, version: '2.2.18' });
 
   let yoloMode = $state(false);
   let yoloLoading = $state(false);
@@ -84,6 +84,13 @@
         { id: 'search', path: '/search', label: 'Web Search', iconSvg: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', badge: 'SearXNG' },
         { id: 'semble', path: '/semble', label: 'Semble MCP', iconSvg: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', badge: '98%' },
         { id: 'detector', path: '/detector', label: 'AI Detector', iconSvg: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c.5.633 1.2 1 2 1s1.5-.367 2-1m2-3a2 2 0 100-4 2 2 0 000 4z', badge: 'Web & Docs' }
+      ]
+    },
+    {
+      title: 'Yamanaka 3D Studio',
+      items: [
+        { id: '3d-setup', path: '/3d/setup', label: '3D Setup Tools', iconSvg: 'M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5', badge: 'Toolchain' },
+        { id: '3d-maker', path: '/3d/maker', label: '3D Model Maker', iconSvg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', badge: 'Studio' }
       ]
     },
     {
@@ -266,7 +273,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
-              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.2.17'}</span>
+              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{String(health.version || '2.2.18').replace(/^v+/, '')}</span>
             </h1>
             <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Konoha MCP Orchestrator</p>
           </div>

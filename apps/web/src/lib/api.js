@@ -1,7 +1,11 @@
 // Client API helper with CSRF token support and centralized error/notification mapping.
 import { toast } from '#lib/state/toast.svelte.ts';
 
+const DEFAULT_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const TOKEN_REFRESH_SKEW_MS = 60 * 1000;
+
 let memoryToken = '';
+let tokenExpiresAt = 0;
 let isOnlineListenerAttached = false;
 
 function attachOnlineRecoveryListener() {
@@ -24,12 +28,21 @@ export async function initToken() {
     const csrfData = await csrfRes.json();
     if (csrfData?.token) {
       memoryToken = csrfData.token;
+      const ttlMs = Number.parseInt(csrfData.ttl_ms, 10) || DEFAULT_TOKEN_TTL_MS;
+      tokenExpiresAt = Date.now() + ttlMs;
       return memoryToken;
     }
-  } catch (_) {
+  } catch {
     // CSRF fetch failed — leave token empty; request will fail with 403 and retry
   }
   return getToken();
+}
+
+export async function ensureValidToken() {
+  if (!memoryToken || Date.now() >= tokenExpiresAt - TOKEN_REFRESH_SKEW_MS) {
+    return initToken();
+  }
+  return memoryToken;
 }
 
 export class ApiError extends Error {
@@ -44,6 +57,7 @@ export class ApiError extends Error {
 
 async function retryWithFreshToken(endpoint, options) {
   memoryToken = '';
+  tokenExpiresAt = 0;
   const freshToken = await initToken();
   if (!freshToken) return null;
   const retryHeaders = {
@@ -102,13 +116,9 @@ async function parseResponseBody(res) {
 export async function apiRequest(endpoint, options = {}) {
   attachOnlineRecoveryListener();
 
-  let token = getToken();
   const method = (options.method || 'GET').toUpperCase();
   const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-
-  if (!token && isMutating) {
-    token = await initToken();
-  }
+  const token = await ensureValidToken();
 
   const headers = {
     'Content-Type': 'application/json',
@@ -128,8 +138,7 @@ export async function apiRequest(endpoint, options = {}) {
     throw new ApiError(safeMsg, 0, null, 'err_offline');
   }
 
-  // Automatic retry with fresh CSRF token if 403 Forbidden received
-  if (res.status === 403 && isMutating && !options._retried) {
+  if ((res.status === 401 || res.status === 403) && !options._retried) {
     const retriedRes = await retryWithFreshToken(endpoint, options);
     if (retriedRes) res = retriedRes;
   }
@@ -204,8 +213,7 @@ export async function getAuthStatus() {
 }
 
 async function csrfHeaders() {
-  let token = getToken();
-  if (!token) token = await initToken();
+  const token = await ensureValidToken();
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'X-Konoha-Web-Token': token } : {})

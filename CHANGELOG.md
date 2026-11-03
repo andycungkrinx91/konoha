@@ -1,3 +1,18 @@
+## [2.2.18] - 2026-11-03
+
+### Yamanaka Generative 3D Subsystem, OS-Aware Blender Toolchain & Real Token/Cost Counter
+
+- **Yamanaka Generative 3D Subsystem (`src/workflow/yamanaka/`, `src/mcp/three_asset/`)**: Full architectural rebuild of the autonomous generative 3D subsystem under `@yamanaka` specialist agent. Native geometry synthesis via `manifold-3d@3.2.1` and `three@0.187.0` with watertight manifold validation and zero Roblox blocky primitives.
+- **3-Gate Check-Before-Apply SQLite STRICT Database Unification (`migrations/20261103_001_yamanaka_3d_canonical.sql`)**: Unified 6 `STRICT` tables (`schema_migrations`, `generation_jobs`, `assets`, `asset_files`, `validation_results`, `llm_requests_3d`) with Gate 1 pre-check audits, legacy table and column purging, and schema drift checksum verification.
+- **OS-Aware Blender 4.5.9 LTS & DCC-MCP-Blender Auto-Installer (`src/mcp/three_asset/blender_installer.js`)**: Deterministic toolchain discovery and automated installation with official Blender Foundation SHA256 verification across `linux-x64`, `darwin-arm64`, `darwin-x64`, and `win32-x64` plus embedded Python `dcc-mcp-blender` (`v0.2.26`).
+- **Live Agentic 6-Step Blender Refinement & Hot-Reloading Viewport (`src/mcp/three_asset/blender_refiner.js`)**: Real-time 6-step agentic editing pipeline emitting `blender_agent_action` SSE events with intermediate `.glb` snapshots for instant WebGL viewport hot-reloading. System-wide singleton process management enforced via lockfile (`~/.konoha/blender.lock`).
+- **Hardware GPU Auto-Detection with Seamless CPU Fallback (`src/mcp/three_asset/compute_selector.js`)**: Auto-detects physical GPU acceleration (`CUDA`, `OPTIX`, `Metal`, `DirectX`, `Vulkan`, `OpenCL`) with support for `Auto | Force GPU | Force CPU`. Guarantees automatic seamless fallback to high-performance CPU engine when GPU is absent without failing.
+- **Unified Dynamic Model Router Across 8+ Coding Clients (`src/mcp/three_asset/model_router.js`)**: Zero hardcoded model names. Dynamically discovers models across all 8+ client coding agents and live `9router` (`/v1/models`) catalog with priority inheritance: user option -> environment variable -> `@yamanaka` model -> active client coding agent config -> SQLite bridge.
+- **Top-of-Page Real 3D Token & Cost Counter (`src/mcp/three_asset/db_3d_schema.js`, SvelteKit UI)**: Real-time telemetry computing `Total Requests`, `Total Input Tokens`, `Total Output Tokens`, and `EST. Cost` across 6 filter windows (`Today`, `24h`, `7d`, `30d`, `60d`, `All`).
+- **Dual Konoha Web UI Studio Pages (`apps/web/src/routes/3d/`)**: Built **3D Setup Tools** (`/3d/setup`) and **3D Model Maker** (`/3d/maker`) with `<PageHero />`, `.glass-card-3d`, `.btn-3d`, interactive Three.js WebGL viewport (`ThreeViewport.svelte`), and production asset downloads (`GLB`, `USDZ`, `OBJ`, `STL`, `PLY`).
+- **LangGraph.js StateGraph & 3-Layer Circuit Breakers (`src/workflow/yamanaka/graph.js`)**: Cyclic state-machine with `KonohaCheckpointSaver` persistence, bounded repair loops (`MAX_YAMANAKA_REPAIR_ATTEMPTS = 3`), and independent circuit breakers for LLM synthesis and DCC tools.
+- **Full-Repo Quality & Security Gate**: 100/100 aislop score across changed files, 0 prod CVEs (`pnpm audit`), 0 errors and 0 warnings on `svelte-check`, and 100% test pass rate across all 11 Yamanaka 3D test suites.
+
 ## [2.2.17] - 2026-11-01
 
 ### LangGraph.js Production Activation, Per-Turn Token Governor & Error Circuit Breaker

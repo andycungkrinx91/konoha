@@ -208,20 +208,38 @@ function validateBridgeTargetUrl(urlString) {
   return { ok: true, parsed };
 }
 
+function resolveTokenValidator(sessionToken) {
+  if (typeof sessionToken === 'function') return sessionToken;
+  return (candidate) => Boolean(candidate) && candidate === sessionToken;
+}
+
+function extractRequestTokens(req) {
+  const headerToken = req.headers['x-konoha-web-token'] ||
+    (typeof req.headers['authorization'] === 'string' ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
+  const cookieHeader = req.headers.cookie || '';
+  const cookieToken = cookieHeader.split(';')
+    .map((part) => part.trim())
+    .filter((part) => part.startsWith('konoha-web-token='))
+    .map((part) => part.slice('konoha-web-token='.length))[0] || null;
+  let queryToken = null;
+  if (typeof req.url === 'string' && req.url.includes('token=')) {
+    try {
+      queryToken = new URL(req.url, 'http://localhost').searchParams.get('token');
+    } catch {
+      queryToken = null;
+    }
+  }
+  return [headerToken, cookieToken, queryToken].filter(Boolean);
+}
+
 function isAuthorizedRequest(req, sessionToken) {
   if (!req) return false;
   const webAuth = require('../../auth');
   const sessionId = getClientSessionId(req);
   if (sessionId && webAuth.getSession(sessionId)) return true;
 
-  const headerToken = req.headers['x-konoha-web-token'] ||
-    (typeof req.headers['authorization'] === 'string' ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
-  if (headerToken && headerToken === sessionToken) return true;
-
-  const cookieHeader = req.headers.cookie || '';
-  if (sessionToken && cookieHeader.split(';').some(c => c.trim() === `konoha-web-token=${sessionToken}`)) return true;
-
-  return false;
+  const validator = resolveTokenValidator(sessionToken);
+  return extractRequestTokens(req).some((candidate) => validator(candidate));
 }
 
 function _addDiscoveredModel(discovered, seenIds, item) {
@@ -296,14 +314,156 @@ function _discoverOpenCodeModels(discovered, seenIds, HOME) {
   }
 }
 
+function _discoverCursorModels(discovered, seenIds, HOME) {
+  const cursorPaths = [
+    path.join(HOME, '.cursor', 'argv.json'),
+    path.join(HOME, '.cursor', 'mcp.json'),
+    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json')
+  ];
+  for (const p of cursorPaths) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      const models = [data['cursor.general.model'], data['cursor.chat.defaultModel'], data.model, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
+      for (const m of models) {
+        const id = typeof m === 'string' ? m : m?.id;
+        _addDiscoveredModel(discovered, seenIds, {
+          id,
+          model_name: typeof m === 'object' && m.name ? m.name : id,
+          bridge: 'cursor',
+          owned_by: 'cursor',
+          source: 'client:cursor'
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function _discoverAntigravityModels(discovered, seenIds, HOME) {
+  const agPaths = [
+    path.join(HOME, '.gemini', 'settings.json'),
+    path.join(HOME, '.gemini', 'antigravity', 'config.json'),
+    path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json')
+  ];
+  for (const p of agPaths) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      const models = [data.model, data.defaultModel, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
+      for (const m of models) {
+        const id = typeof m === 'string' ? m : m?.id;
+        _addDiscoveredModel(discovered, seenIds, {
+          id,
+          model_name: typeof m === 'object' && m.name ? m.name : id,
+          bridge: 'antigravity',
+          owned_by: 'antigravity',
+          source: 'client:antigravity'
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function _discoverCodexModels(discovered, seenIds, HOME) {
+  const tomlPath = path.join(HOME, '.codex', 'config.toml');
+  if (fs.existsSync(tomlPath)) {
+    try {
+      const text = fs.readFileSync(tomlPath, 'utf8');
+      const match = text.match(/model\s*=\s*["']([^"']+)["']/);
+      if (match && match[1]) {
+        _addDiscoveredModel(discovered, seenIds, {
+          id: match[1],
+          model_name: match[1],
+          bridge: 'codex',
+          owned_by: 'codex',
+          source: 'client:codex'
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function _discoverCommandCodeModels(discovered, seenIds, HOME) {
+  const ccPaths = [
+    path.join(HOME, '.commandcode', 'config.json'),
+    path.join(HOME, '.commandcode', 'settings.json')
+  ];
+  for (const p of ccPaths) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      const models = [data.model, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
+      for (const m of models) {
+        const id = typeof m === 'string' ? m : m?.id;
+        _addDiscoveredModel(discovered, seenIds, {
+          id,
+          model_name: typeof m === 'object' && m.name ? m.name : id,
+          bridge: 'commandcode',
+          owned_by: 'commandcode',
+          source: 'client:command-code'
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function _discoverPiModels(discovered, seenIds, HOME) {
+  const piPaths = [
+    path.join(HOME, '.pi', 'agent', 'settings.json'),
+    path.join(HOME, '.pi', 'agent', 'models.json')
+  ];
+  for (const p of piPaths) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      const models = [data.defaultModel, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
+      for (const m of models) {
+        const id = typeof m === 'string' ? m : m?.id;
+        _addDiscoveredModel(discovered, seenIds, {
+          id,
+          model_name: typeof m === 'object' && m.name ? m.name : id,
+          bridge: 'pi',
+          owned_by: 'pi',
+          source: 'client:pi'
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function _discoverKonohaAgentModels(discovered, seenIds) {
+  try {
+    const { getConnection } = require('../../db');
+    const conn = getConnection();
+    const rows = conn.prepare("SELECT DISTINCT model FROM agents WHERE model IS NOT NULL AND model != ''").all();
+    for (const r of rows) {
+      if (r.model) {
+        _addDiscoveredModel(discovered, seenIds, {
+          id: r.model,
+          model_name: r.model,
+          bridge: 'konoha-agent',
+          owned_by: 'konoha',
+          source: 'client:konoha-agents'
+        });
+      }
+    }
+  } catch (_) {}
+}
+
 function discoverClientModels() {
   const discovered = [];
   const seenIds = new Set();
   const HOME = os.homedir();
 
-  try { _discoverOmpModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
-  try { _discoverClaudeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
-  try { _discoverOpenCodeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal best effort */ }
+  try { _discoverOmpModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverClaudeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverCursorModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverAntigravityModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverCodexModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverOpenCodeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverCommandCodeModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverPiModels(discovered, seenIds, HOME); } catch (_) { /* non-fatal */ }
+  try { _discoverKonohaAgentModels(discovered, seenIds); } catch (_) { /* non-fatal */ }
 
   return discovered;
 }

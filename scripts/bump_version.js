@@ -40,6 +40,9 @@ function replaceInFile(relPath, pattern, replacement) {
     return typeof replacement === 'function' ? replacement(...args) : replacement;
   });
   if (count === 0) {
+    if (typeof replacement === 'string' && original.includes(replacement)) {
+      return 0;
+    }
     throw new Error(`Zero replacements in ${relPath} for pattern ${pattern}`);
   }
   fs.writeFileSync(full, updated, 'utf8');
