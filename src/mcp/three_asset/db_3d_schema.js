@@ -563,7 +563,7 @@ function _planQualityLadderRebuild(conn) {
     if (hits.length > 1) {
       throw new Error(`[SCHEMA DRIFT]: ${table} declares ${hits.length} quality_preset constraints, expected one`);
     }
-    if (/\(\'low\'/.test(hits[0])) continue;
+    if (/\('low'/.test(hits[0])) continue;
     const stage = `${table}__ladder_stage`;
     const createSql = row.sql
       .replace(QUALITY_PRESET_CHECK, QUALITY_PRESET_WIDE)

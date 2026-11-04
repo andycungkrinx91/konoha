@@ -187,7 +187,7 @@ function resolveInherited3DModel(options = {}) {
   const credentials = readClientProviderCredentials();
   const routerConfigured = Boolean(credentials.providers['9router'] && credentials.providers['9router'].baseUrl);
   if (credentials.preferredModels.length > 0) {
-    return routerConfigured ? routerModelId(credentials.preferredModels[0]) : credentials.preferredModels[0];
+    return routerConfigured ? normalizeModelId(credentials.preferredModels[0]) : credentials.preferredModels[0];
   }
 
   try {
@@ -208,9 +208,6 @@ function resolveInherited3DModel(options = {}) {
   return null;
 }
 
-function routerModelId(modelId) {
-  return normalizeModelId(modelId);
-}
 
 function rankModels(models, preferredModels) {
   const preferredNorm = preferredModels.map((m) => normalizeModelId(m));

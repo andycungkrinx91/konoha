@@ -246,28 +246,6 @@ function fmtPct(value) {
 }
 
 function printCombinedSavings(semble) {
-
-  const skillsDbTodaySavedBytes = global.skillsDbTodayBytes || 0;
-  const skillsDbTodayTotalBytes = global.skillsDbTodayTotalBytes || 0;
-  const sembleTodaySavedBytes = semble.todayTokens * 4;
-  const sembleTodayTotalBytes = (semble.todayPct > 0 && semble.todayTokens > 0)
-    ? Math.round(sembleTodaySavedBytes / (semble.todayPct / 100))
-    : (skillsDbTodayTotalBytes > 0 ? skillsDbTodayTotalBytes : 0);
-
-  const skillsDbLast7DaysSavedBytes = global.skillsDbLast7DaysBytes || 0;
-  const skillsDbLast7DaysTotalBytes = global.skillsDbLast7DaysTotalBytes || 0;
-  const sembleLast7DaysSavedBytes = semble.last7DaysTokens * 4;
-  const sembleLast7DaysTotalBytes = (semble.last7DaysPct > 0 && semble.last7DaysTokens > 0)
-    ? Math.round(sembleLast7DaysSavedBytes / (semble.last7DaysPct / 100))
-    : (skillsDbLast7DaysTotalBytes > 0 ? skillsDbLast7DaysTotalBytes : 0);
-
-  const skillsDbAllTimeSavedBytes = global.skillsDbAllTimeBytes || 0;
-  const skillsDbAllTimeTotalBytes = global.skillsDbAllTimeTotalBytes || 0;
-  const sembleAllTimeSavedBytes = semble.allTimeTokens * 4;
-  const sembleAllTimeTotalBytes = (semble.allTimePct > 0 && semble.allTimeTokens > 0)
-    ? Math.round(sembleAllTimeSavedBytes / (semble.allTimePct / 100))
-    : (skillsDbAllTimeTotalBytes > 0 ? skillsDbAllTimeTotalBytes : 0);
-
   header('🏆 Combined Total Savings');
   log('');
 

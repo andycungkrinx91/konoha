@@ -15,28 +15,40 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+function _findPackageVersion(startDir, pkgName) {
+  let cur = startDir;
+  for (let i = 0; i < 4; i++) {
+    const candidate = path.join(cur, 'package.json');
+    if (fs.existsSync(candidate)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+        if (pkg.name === pkgName && pkg.version) return pkg.version;
+      } catch (_) {
+        // Ignore unreadable package.json
+      }
+    }
+    cur = path.dirname(cur);
+  }
+  return null;
+}
+
 function resolvePackageVersion(pkgName) {
   try {
     const directPath = require.resolve(pkgName);
-    let cur = path.dirname(directPath);
-    for (let i = 0; i < 4; i++) {
-      const candidate = path.join(cur, 'package.json');
-      if (fs.existsSync(candidate)) {
-        try {
-          const pkg = JSON.parse(fs.readFileSync(candidate, 'utf8'));
-          if (pkg.name === pkgName && pkg.version) return pkg.version;
-        } catch (_) {}
-      }
-      cur = path.dirname(cur);
-    }
-  } catch (_) {}
+    const ver = _findPackageVersion(path.dirname(directPath), pkgName);
+    if (ver) return ver;
+  } catch (_) {
+    // Package not directly resolvable via require.resolve
+  }
 
   try {
     const rootPkg = require('../package.json');
     if (rootPkg.dependencies && rootPkg.dependencies[pkgName]) {
       return rootPkg.dependencies[pkgName].replace(/^[\^~]/, '');
     }
-  } catch (_) {}
+  } catch (_) {
+    // Root package.json unreadable or missing dependency
+  }
 
   return null;
 }
@@ -48,13 +60,17 @@ function get3DStatus() {
   try {
     const installer = require('./mcp/three_asset/blender_installer');
     blender = installer.getBlenderStatus ? installer.getBlenderStatus() : { installed: false };
-  } catch (_) {}
+  } catch (_) {
+    // blender_installer unavailable
+  }
 
   let dcc = { installed: false, version: null, ready_state: 'Unknown' };
   try {
     const installer = require('./mcp/three_asset/blender_installer');
     dcc = installer.getDccMcpStatus ? installer.getDccMcpStatus() : { installed: false };
-  } catch (_) {}
+  } catch (_) {
+    // dcc_mcp unavailable
+  }
 
   let outputRoot = path.join(os.homedir(), '.konoha', '3d-output');
   try {
@@ -63,7 +79,9 @@ function get3DStatus() {
       const root = storage.getOutputRoot();
       if (root) outputRoot = root;
     }
-  } catch (_) {}
+  } catch (_) {
+    // storage_manager unavailable
+  }
 
   return {
     blender: {
@@ -143,7 +161,9 @@ function check3DToolchain(record, autoRepair = false) {
     try {
       const installer = require('./mcp/three_asset/blender_installer');
       latestPyPi = installer.resolveLatestDccMcpVersion ? installer.resolveLatestDccMcpVersion() : null;
-    } catch (_) {}
+    } catch (_) {
+      // resolveLatestDccMcpVersion unavailable
+    }
     record('3D DCC-MCP Bridge', 'WARNING', `dcc-mcp-blender not installed${latestPyPi ? ` (latest PyPI: ${latestPyPi})` : ''}`);
   }
 

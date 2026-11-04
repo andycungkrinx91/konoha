@@ -444,8 +444,8 @@ function getSavingsReport(dbPath = null) {
   const conn = db.getConnection(targetPath, false);
   try {
     db.setupSchema(conn);
-    sanitizeLegacyRecords,
-  backfillFabricatedFloors(conn);
+    sanitizeLegacyRecords(conn);
+    backfillFabricatedFloors(conn);
 
     const allModelTokens = calculateAllModelTokens();
     const statsToday = queryStats(conn, "today", allModelTokens.today);
