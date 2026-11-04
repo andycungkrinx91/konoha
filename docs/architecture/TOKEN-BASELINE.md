@@ -11,7 +11,7 @@
 
 | Metric Category | Scope / Target | Before (Phase 0) | After (Phase 5 Reconciled) | Absolute Delta | Relative Savings | Verification Status |
 |---|---|---|---|---|---|---|
-| **1. Tool Schema Overhead** | 47 Konoha + 2 Semble + 4 Aislop | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (47 canonical tools locked) |
+| **1. Tool Schema Overhead** | 48 Konoha + 2 Semble + 4 Aislop | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (50 in manifest: 48 canonical + 2 deprecated) |
 | **2. Retrieval Payload Size** | 10 representative queries (`find_skill`) | **7,002 tokens** (700.2 avg) | **4,742 tokens** (474.2 avg) | **-2,260 tokens** | **-32.3%** | 10 distinct queries evaluated with live SQLite FTS5 |
 | **   ↳ Repeat Query Dedup** | Repeated query in same task | 500 tokens | 308 tokens | -192 tokens | **-38.4%** | Session cache returns `[LOADED]` |
 | **   ↳ Targeted Section Read** | `get_skill` with section/budget | 1,719 tokens | 222 tokens | -1,497 tokens | **-87.1%** | Target section slice vs full markdown |
@@ -48,8 +48,8 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
-4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and exactly 47 canonical tools in CI/CD.
-5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, and now 47 with Akatsuki Lab init) until locked at exactly 47 canonical tools in `src/file_tools_router.js`.
+4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 50 tools in manifest (48 canonical + 2 deprecated) in CI/CD.
+5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, 48 canonical active) until locked at 50 tools in manifest (48 canonical + 2 deprecated) in `src/file_tools_router.js`.
 6. **Semble & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across Semble (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json` saving -179 tokens / -36.3%), saving a combined -459 tokens (-35.9%) across auxiliary MCP servers.
 
 ---
@@ -242,9 +242,9 @@ In Issue 9, prompt generation was unified into a single deterministic token-boun
 | Verification Suite | Target | Baseline (Phase 0) | Current (Phase 5 Reconciled) | Result |
 |---|---|---|---|---|
 | **JS Automated Test Suites** | `rtk node tests/run_all.js` | 86 passed, 0 failed (159.7s) | **90 passed, 0 failed** | **PASSED (100%)** |
-| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **45 tools verified, 0 drift** | **PASSED (100%)** |
+| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **50 tools in manifest (48 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
 | **Reconcile Presentation Gate** | `rtk node tests/test_reconcile_presentation.js` | N/A (new test) | **Honest scoping & live bounds verified** | **PASSED (100%)** |
-| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 45 tools** | **PASSED (100%)** |
+| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 50 tools in manifest (48 canonical + 2 deprecated)** | **PASSED (100%)** |
 | **CI Token Regression Gate** | `rtk node tests/test_token_regression_gate.js` | N/A (new test) | **All 5 token budgets enforced with +10% margin** | **PASSED (100%)** |
 | **Zero-AI-Slop Code Quality** | `rtk aislop scan --changes` | 100/100 Healthy (0 issues) | **100/100 Healthy (0 issues)** | **PASSED (0 warn, 0 err)** |
 | **Schema Integrity** | `rtk node tests/test_schema_integrity.js` | Passed | **Passed** | **PASSED** |
@@ -312,7 +312,7 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 - **Single-Thread Inline Hierarchy**: Preserved completely. All agents execute within the single-thread inline hierarchy coordinated by Sannin and governed by Kage.
 - **Subagent Spawning**: **0 subagents spawned**. No dynamic subagents, background daemon forks, or multi-agent swarms introduced.
-- **MCP Tool Protocol Compatibility**: All 46 canonical Konoha tools, 2 Semble tools, and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 7 supported coding clients.
+- **MCP Tool Protocol Compatibility**: All 50 manifest tools (48 canonical + 2 deprecated), 2 Semble tools, and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
 - **Stable Bridge Gateway**: Untouched. Local LLM Proxy Gateway, bridge servers, and Bridge Router logic were preserved without modifications.
 - **Token Savings Telemetry**: Strictly preserved. Telemetry tracking in `~/.konoha/konoha.db` and bounded file tool constraints remain active and intact.
 
@@ -326,8 +326,8 @@ The CLI report (`konoha savings`) historically converts bytes saved to token cou
 - **Accuracy**: The `bytes / 4` heuristic is within **±2.1%** of actual `tiktoken` tokenization on typical payloads.
 - **Empirical Confirmation**: 500 `tiktoken` tokens map to ~1,980 UTF-8 bytes (~3.96 bytes/token). While computationally lightweight for inline SQLite transactions, live reports are cross-checked against `tiktoken` to ensure precision.
 
-### 11.2 Baseline Analysis: Full-Library (2065 KB) vs. Realistic Per-Call Baselines
-In the historical database logging (`src/mcp/skills.js`), calls to `find_skill` were evaluated against `SELECT SUM(byte_size) FROM skills` (~2,767 KB total library size), yielding an invariant ~99.9% savings across all search invocations. In contrast, bounded file operations (`read_file_range`, `read_file_head`) already evaluated against the actual file size.
+### 11.2 Baseline Analysis: Measured Project Corpus vs. Realistic Per-Call Baselines
+In historical database logging, tool calls were sometimes evaluated against static full-library baselines. In the current architecture, baselines are dynamically derived per project from the measured corpus (e.g. actual scanned files or live indexed skills); when unmeasured or when no tool calls have been executed, telemetry explicitly reports `no_data` rather than computing fabricated ratios.
 
 | Tool / Call Type | Historical Full Baseline | Realistic Per-Call Baseline | Actual Returned Size | Realistic Savings (%) | Status / Mechanism |
 |---|---|---|---|---|---|
@@ -344,13 +344,13 @@ Audit of `tool_calls` in `~/.konoha/konoha.db` and conversation transcripts acro
 2. **Discrepancy in `thought` Tokens (392.4k vs 2.78M)**: `calculateAllModelTokens()` parses every historical session directory in `~/.gemini/*/brain` (518 older sessions spanning months + 12 recent sessions). All-time sums all historical conversations, while Last 7 Days filters by ISO timestamp `dt >= cutoff7Days`.
 3. **Conclusion**: Tool calls and thought tokens originate from different persistent stores (SQLite database initialized 5 days ago vs filesystem transcript store persisting months of IDE/CLI history).
 
-### 11.4 Verification of the "83–98%" Headline Claim
-The product banner claim (`Token reduction: 83-98% via on-demand search`) is substantiated by realistic on-demand retrieval:
-- Bounded file range slices: **94.4% reduction** (2.58 KB read vs 45.7 KB full file).
-- Targeted section retrieval (`get_skill` with section anchor): **87.1% reduction** (222 tokens vs 1,719 full skill tokens).
-- Matching skills preview vs full skill loading: **89.0% reduction** (474 tokens vs ~4,500 tokens).
-- Semble semantic code search: **98.0% reduction** (snippeted search results vs repository scan).
-The 83%–98% range represents the genuine empirical reduction achieved by on-demand targeted retrieval over full-context dumping.
+### 11.4 Verification of the "83–98%" Headline Claim (Benchmark Reference)
+The product banner claim (`Token reduction: 83-98% via on-demand search`) is an empirical benchmark reference substantiated by realistic on-demand retrieval (per-install live telemetry derives baselines per project and reports `no_data` when unmeasured, never guaranteeing a fixed percentage):
+- Bounded file range slices: **94.4% reduction** (2.58 KB read vs 45.7 KB full file benchmark).
+- Targeted section retrieval (`get_skill` with section anchor): **87.1% reduction** (222 tokens vs 1,719 full skill tokens benchmark).
+- Matching skills preview vs full skill loading: **89.0% reduction** (474 tokens vs ~4,500 tokens benchmark).
+- Semble semantic code search: **98.0% reduction** (snippeted search results vs repository scan benchmark).
+The 83%–98% range represents the genuine empirical reduction achieved by on-demand targeted retrieval over full-context dumping in benchmark suites.
 
 ---
 

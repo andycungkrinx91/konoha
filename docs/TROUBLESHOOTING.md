@@ -42,16 +42,16 @@ nvm use stable
 
 ### ❌ "Node.js is required but not found or outdated"
 
-Konoha runs on a 100% pure Node.js runtime and requires Node.js 18.0.0+. Python is no longer required or used.
+Konoha runs on a 100% pure Node.js runtime and requires Node.js >=24.0.0. Python is no longer required or used.
 
 To install or update Node.js:
-* **Linux/macOS (via nvm)**: `nvm install 20 && nvm use 20`
-* **Windows (via nvm-windows)**: `nvm install 20` and `nvm use 20`
+* **Linux/macOS (via nvm)**: `nvm install 24 && nvm use 24`
+* **Windows (via nvm-windows)**: `nvm install 24` and `nvm use 24`
 * Or download the LTS installer from the [official Node.js downloads page](https://nodejs.org/).
 
 To verify your Node.js installation:
 ```bash
-node --version  # Must be >= 18.0.0
+node --version  # Must be >= 24.0.0
 ```
 
 ---
@@ -72,10 +72,10 @@ pnpm dlx github:andycungkrinx91/konoha init
 1. Check that the configuration file exists:
    ```bash
    # Linux/macOS
-   cat ~/.gemini/config/mcp_config.json
+   rtk cat ~/.gemini/config/mcp_config.json
 
    # Windows (PowerShell)
-   cat $env:USERPROFILE\.gemini\config\mcp_config.json
+   rtk cat $env:USERPROFILE\.gemini\config\mcp_config.json
    ```
 
 2. Verify the `konoha` entry matches:
@@ -111,7 +111,7 @@ pnpm dlx github:andycungkrinx91/konoha init
 
 1. Check that the configuration file exists:
    ```bash
-   cat ~/.cursor/mcp.json
+   rtk cat ~/.cursor/mcp.json
    ```
 
 2. Verify `konoha` and `semble` entries are present (installed by `konoha init` or `konoha doctor --yes`).
@@ -218,7 +218,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **47 canonical tools**.
+   Expected: JSON listing **48 canonical tools**.
 
 5. **Restart Cursor** after repair.
 
@@ -234,7 +234,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]`, `[mcp_servers.semble]`, and `[mcp_servers.aislop]`:
    ```bash
-   cat ~/.codex/config.toml
+   rtk cat ~/.codex/config.toml
    ```
 
 2. Run `konoha doctor --yes` or `konoha init --yes` to auto-repair the Codex TOML configuration and runtime contracts.
@@ -252,7 +252,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 2. **Missing `aislop` MCP Server**:
    - **Symptom**: Agent cannot call `aislop_scan` or `aislop_fix`, or `konoha doctor` reports `aislop` missing.
-   - **Fix**: Run `konoha doctor --yes` to auto-register `aislop` across all installed clients (`Antigravity`, `Cursor`, `Claude Code`, `OpenCode`, `Command Code`, `Codex`). Ensure Node.js and `npx` are installed and available on PATH.
+   - **Fix**: Run `konoha doctor --yes` to auto-register `aislop` across all installed clients (`Antigravity`, `Cursor`, `Claude Code`, `OpenCode`, `Command Code`, `Codex`, `Pi`, `OMP`). Ensure Node.js and `npx` are installed and available on PATH.
 
 3. **Role Boundary Violations**:
    - **Symptom**: `genin` or `kage` attempts to call `aislop_fix` or `aislop_baseline`.
@@ -261,7 +261,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 4. **`aislop` MCP Handshake Failure or npm 404 (`aislop-mcp`)**:
    - **Symptom**: `npm error 404 Not Found - GET https://registry.npmjs.org/aislop-mcp` or `handshaking with MCP server failed: connection closed: initialize response` during client startup.
    - **Reason**: Attempting to execute `npx aislop-mcp` prompts npm to search for a non-existent package named `aislop-mcp`. The binary `aislop-mcp` is packaged inside `aislop`.
-   - **Fix**: Update MCP client configuration arguments to `args: ["-y", "-p", "aislop@latest", "aislop-mcp"]`. In `~/.codex/config.toml`, ensure `command = "npx"` and `args = ["-y", "-p", "aislop@latest", "aislop-mcp"]`. Run `konoha upgrade --yes` or `konoha doctor --yes` to automatically repair all 6 client configurations.
+   - **Fix**: Update MCP client configuration arguments to `args: ["-y", "-p", "aislop@latest", "aislop-mcp"]`. In `~/.codex/config.toml`, ensure `command = "npx"` and `args = ["-y", "-p", "aislop@latest", "aislop-mcp"]`. Run `konoha upgrade --yes` or `konoha doctor --yes` to automatically repair all 8 client configurations.
 
 ---
 
@@ -331,7 +331,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 47 canonical tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 48 canonical tools.
 - **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
@@ -340,7 +340,7 @@ chmod 644 ~/.konoha/konoha.db
 
 - **Cause**: Konoha seeds packaged skills into the global `~/.agents/skills/` and auto-migrates them into project `.agents/skills/` directories. Pi loads both and reports the duplicate names.
 - **Behavior**: Pi automatically prefers the **project-local** copy (`✓ auto (project)`) and skips the global one — the effective skill set is correct and complete.
-- **Action**: None. The warnings are informational; do not delete either copy (the global set serves the other 6 clients, the project set serves per-project customization).
+- **Action**: None. The warnings are informational; do not delete either copy (the global set serves the other 7 clients, the project set serves per-project customization).
 - **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --force --yes` to deploy it). The mandate instructs Pi to route through `sannin` with structured task arguments and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
 
 ---
@@ -485,7 +485,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Fragmented Savings Telemetry in TUI & UI (`v2.0.0-beta.7`)**:
   - **Symptom**: Running `konoha savings` displayed cluttered per-client provider invocation tables that distracted from visual token reduction metrics.
   - **Reason**: Legacy provider breakdown tables duplicated client stats rather than aggregating into the core token optimization metric.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to full context index sizing (2065 KB actual baseline) and Unified live metric from Konoha MCP + Semble Semantic Engine.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to the measured skill-library baseline (baseline shown as unavailable when nothing is indexed) and Unified live metric from Konoha MCP + Semble Semantic Engine.
 * **Definition-of-Readiness (DoR) Gate Blocks Dispatch**:
   - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
   - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.
@@ -537,7 +537,7 @@ Get-NetTCPConnection -LocalPort 19999 -ErrorAction SilentlyContinue | ForEach-Ob
 ### Gateway Won't Start
 
 1. Ensure no other process is using port 19999
-2. Check that `node >= 18.0.0` is installed:
+2. Check that `node >= 24.0.0` is installed:
    ```bash
    node --version
    ```

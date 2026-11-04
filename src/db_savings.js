@@ -232,6 +232,17 @@ function queryInputSavingsCost(conn, timeFilter = null) {
   return totalSavedUsd;
 }
 
+/**
+ * Net savings for a period: input savings minus output spend.
+ * A loss is reported as a negative value; clamping at zero would disguise
+ * real losses as break-even.
+ */
+function computeNetSavings(savedUsd, outputCostUsd) {
+  const saved = Number(savedUsd) || 0;
+  const cost = Number(outputCostUsd) || 0;
+  return Number((saved - cost).toFixed(6));
+}
+
 function queryStats(conn, timeFilter = null, modelTokens = null) {
   let whereClause = "";
   if (timeFilter === null || timeFilter === "all") {
@@ -242,13 +253,14 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     whereClause = "WHERE date(timestamp, 'localtime') >= date('now', '-7 days', 'localtime')";
   }
 
-  let libraryBaselineBytes = 2065 * 1024;
+  // Measured baseline: total on-disk size of the skill library actually indexed.
+  // No hardcoded fallback — when the table is empty the baseline is 0 and callers
+  // must treat derived ratios as unavailable rather than inventing a figure.
+  let libraryBaselineBytes = 0;
   try {
     const baselineRow = conn.prepare("SELECT SUM(byte_size) as b FROM skills").get();
-    if (baselineRow && baselineRow.b) {
-      libraryBaselineBytes = 2065 * 1024;
-    }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    if (baselineRow && baselineRow.b) libraryBaselineBytes = baselineRow.b;
+  } catch (_) { /* skills table absent: baseline stays 0 (unknown, not fabricated) */ }
 
   const query = `
     SELECT
@@ -265,7 +277,7 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
 
   const savedUsd = queryInputSavingsCost(conn, timeFilter);
   const outStats = modelTokens || { content_tokens: 0, thought_tokens: 0, output_cost_usd: 0.0 };
-  const netSavedUsd = Math.max(0.0, savedUsd - outStats.output_cost_usd);
+  const netSavedUsd = computeNetSavings(savedUsd, outStats.output_cost_usd);
 
   const byClient = {
     antigravity: { calls: 0, bytes: 0, tokens: 0 },
@@ -309,11 +321,15 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
+  // An empty window has no measured data; report that explicitly instead of
+  // presenting a 0% ratio as if it were a real measurement.
+  const noData = !row.calls || row.calls === 0;
   return {
     calls: row.calls,
     bytes: row.bytes,
     tokens: row.tokens,
-    pct,
+    pct: noData ? null : pct,
+    no_data: noData,
     total_bytes: totalBytes,
     db_size_bytes: libraryBaselineBytes,
     saved_usd: savedUsd,
@@ -412,9 +428,7 @@ function sanitizeLegacyRecords(conn) {
 
     conn.prepare(`
       UPDATE tool_calls
-      SET total_library_bytes = MAX(returned_bytes, 35000),
-          bytes_saved = MAX(0, MAX(returned_bytes, 35000) - returned_bytes),
-          tokens_saved = CAST((MAX(0, MAX(returned_bytes, 35000) - returned_bytes) / 4) AS INTEGER)
+      SET total_library_bytes = returned_bytes, bytes_saved = 0, tokens_saved = 0
       WHERE tool IN ('list_skills', 'optimize_report') AND total_library_bytes >= 400000
     `).run();
     try { sanitizeLegacyGetSkillRows(conn); } catch (_) { /* ignore */ }
@@ -430,7 +444,8 @@ function getSavingsReport(dbPath = null) {
   const conn = db.getConnection(targetPath, false);
   try {
     db.setupSchema(conn);
-    sanitizeLegacyRecords(conn);
+    sanitizeLegacyRecords,
+  backfillFabricatedFloors(conn);
 
     const allModelTokens = calculateAllModelTokens();
     const statsToday = queryStats(conn, "today", allModelTokens.today);
@@ -491,10 +506,45 @@ if (require.main === module) {
   }
 }
 
+
+/**
+ * Legacy rows written under the removed hardcoded floors claim savings against
+ * baselines that were never measured (for example every find_files_clean call
+ * carrying exactly 250000). Reset them to a neutral, non-claiming state so
+ * aggregate percentages reflect only genuinely measured savings.
+ */
+const FABRICATED_FLOORS = [
+  { tool: 'find_files_clean', floor: 250000 },
+  { tool: 'token_efficient_grep', floor: 150000 },
+  { tool: 'list_skills', floor: 35000 },
+  { tool: 'optimize_report', floor: 35000 }
+];
+
+function backfillFabricatedFloors(conn) {
+  let reset = 0;
+  try {
+    const tx = conn.transaction(() => {
+      for (const { tool, floor } of FABRICATED_FLOORS) {
+        const res = conn.prepare(
+          'UPDATE tool_calls SET total_library_bytes = returned_bytes, bytes_saved = 0, tokens_saved = 0 ' +
+          'WHERE tool = ? AND total_library_bytes = ?'
+        ).run(tool, floor);
+        reset += res.changes || 0;
+      }
+    });
+    tx();
+  } catch (_) {
+    return { reset, error: true };
+  }
+  return { reset };
+}
+
 module.exports = {
+  computeNetSavings,
   getSavingsReport,
   calculateAllModelTokens,
   queryStats,
   queryInputSavingsCost,
-  sanitizeLegacyRecords
+  sanitizeLegacyRecords,
+  backfillFabricatedFloors
 };

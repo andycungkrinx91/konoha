@@ -33,6 +33,8 @@ function cmdAgentHelp() {
   - @jonin: Elite Builder for frontend, Taste-Skill design engine & UI components (Next.js, Svelte, Nuxt, Angular).
   - @anbu: Black Ops backend developer for bug fixes, API logic, and DevOps/CI-CD.
   - @tokubetsu-jonin: Scribe for writing READMEs, API specs, PDF reports, and runbooks.
+  - @akatsuki: Red-Team & Blue-Team security specialist and final security gate (authorized scope only).
+  - @yamanaka: Generative 3D specialist for Three.js/Manifold synthesis and live Blender editing.
   ========================================================================${C.reset}
 
 ${C.bold}USAGE${C.reset}

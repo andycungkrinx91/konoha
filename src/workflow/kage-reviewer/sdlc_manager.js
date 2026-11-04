@@ -95,8 +95,15 @@ function _resolveSessionId(data, projectPath) {
 function _resolveClient(data) {
   if (data.client) return data.client;
   try {
+    // getActiveClient lives in runtime_state; client_detection only exposes
+    // detectActiveClient. Reaching for the wrong module silently returned ''.
+    const runtimeState = require('../../mcp/runtime_state');
+    const detected = runtimeState.getActiveClient();
+    if (detected) return detected;
+  } catch (_) { /* fall through to detection */ }
+  try {
     const cd = require('../../mcp/client_detection');
-    return cd.getActiveClient() || cd.detectActiveClient() || '';
+    return typeof cd.detectActiveClient === 'function' ? (cd.detectActiveClient() || '') : '';
   } catch (_) {
     return '';
   }
@@ -183,17 +190,30 @@ function _applyReconcileUpdates(conn, staleRows, maxAgeMs) {
   return reconciledIds;
 }
 
+// Statuses that wait on a human decision are never auto-reconciled. A plan
+// or sign-off awaiting approval can sit for hours while someone reviews it;
+// timing it out would silently destroy human-in-the-loop work.
+const HUMAN_GATED_STATUSES = Object.freeze(['pending_plan_approval', 'pending_human_signoff']);
+const LEASE_STATUSES = Object.freeze(['in_progress', 'remediating']);
+
 function reconcileStaleTasks(options = {}, dbPath = null) {
   const maxAgeMs = typeof options === 'number' ? options : (options.maxAgeMs || 30 * 60 * 1000);
   const conn = getDbConn(dbPath);
   try {
     const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
-    const staleRows = conn.prepare(`
+    const candidateRows = conn.prepare(`
       SELECT id, status, evidence, updated_at FROM sdlc_tasks
-      WHERE status IN ('in_progress', 'remediating', 'pending_plan_approval') AND updated_at < ?
-    `).all(cutoff);
+      WHERE status IN (${LEASE_STATUSES.map(() => "?").join(", ")})
+    `).all(...LEASE_STATUSES);
 
-    const reconciledIds = staleRows.length > 0 ? _applyReconcileUpdates(conn, staleRows, maxAgeMs) : [];
+    const claimable = candidateRows.filter((row) => {
+      if (HUMAN_GATED_STATUSES.includes(row.status)) return false;
+      const ev = safeJsonParse(row.evidence, {});
+      const heartbeat = ev.last_heartbeat_at || row.updated_at;
+      return heartbeat < cutoff;
+    });
+
+    const reconciledIds = claimable.length > 0 ? _applyReconcileUpdates(conn, claimable, maxAgeMs) : [];
     return { reconciled_count: reconciledIds.length, reconciled_ids: reconciledIds };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }

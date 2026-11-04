@@ -15,7 +15,7 @@ tags:
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
-Konoha serves ALL 47 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 47 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 8 specialists:
+Konoha serves ALL 48 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 48 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 8 specialists:
 - Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
 - Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
 - Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
@@ -34,7 +34,7 @@ To prevent token burn and provide surgically accurate guidance, maintenance inst
 | Domain | Reference Path | On-Demand Loading Command | Core Coverage |
 |---|---|---|---|
 | **Workflow & StateGraph** | `references/workflow.md` | `konoha.get_skill("konoha/workflow")` | LangGraph.js cyclic StateGraph, node lifecycles, per-turn token budget governor (8k/16k/32k/64k), circuit breaker `node_error`, Gate 1 & Gate 2 HITL. |
-| **System Architecture** | `references/architecture.md` | `konoha.get_skill("konoha/architecture")` | 47 canonical MCP tools manifest, transports (stdio/SSE/WS 1404), runtime state & flow hash, website builder layout invariants (far-left logo, no mobile hamburger, 10-theme light mode FAB). |
+| **System Architecture** | `references/architecture.md` | `konoha.get_skill("konoha/architecture")` | 48 canonical MCP tools manifest, transports (stdio/SSE/WS 1404), runtime state & flow hash, website builder layout invariants (far-left logo, no mobile hamburger, 10-theme light mode FAB). |
 | **Subagents & Roles** | `references/peragent-usage.md` | `konoha.get_skill("konoha/peragent-usage")` | 8-ninja specialist subagents roster, persona contracts, strict tool access boundaries, ADHD cognitive output formatting, Akatsuki security profiles. |
 | **Testing & Verification** | `references/test.md` | `konoha.get_skill("konoha/test")` | QA runbooks, unit/integration suites (`tests/run_all.js`), Draw.io zero-collision checks, WebP asset tests, linter, `aislop` code hygiene gate. |
 | **Benchmark & Token Economy** | `references/benchmark.md` | `konoha.get_skill("konoha/benchmark")` | Context reduction (83%–98%), dynamic baseline byte calculation in `tools_savings_logger.js`, SQLite FTS5 search performance, KV-cache prefix optimization. |

@@ -31,6 +31,8 @@ In the Konoha ecosystem, Chunin handles external technical reconnaissance:
 > - Use **`konoha` MCP** server (`find_skill`, `get_skill`) for discovering internal skills and reference guides.
 > - Use **`konoha.web_search`** (or harness web search tools) for live external web queries.
 > - **NEVER** use `semble` for web research or skill lookups (`semble` is strictly a project code search engine).
+> - **Fetch every page through `rtk curl <url>`**, never bare `curl`, `wget`, or a raw HTTP fetch: RTK strips markup and boilerplate before the text reaches the provider.
+> - **Keep citations verbatim**: every claim keeps its source URL and citation id exactly as retrieved, so compressed output stays traceable.
 > - Never leak project secrets, API tokens, internal paths, or private hostnames into web search queries.
 
 ---

@@ -1,6 +1,8 @@
 'use strict';
 
 const fs = require('fs');
+const { buildDisciplineContract, COMPACT_REMINDER } = require('./discipline_contract');
+const { REMEDIATION_INVARIANT } = require('./remediation_contract');
 const path = require('path');
 const db = require('../db');
 const { getDb } = db;
@@ -83,6 +85,18 @@ function autoloadSkillsFromPrompt(prompt, conn, maxMatches = 3) {
   return scored.slice(0, maxMatches).map(x => x.name);
 }
 
+const RESEARCH_AGENTS = new Set(['chunin']);
+
+/**
+ * Web research must be retrieved through RTK so the provider receives compressed,
+ * citation-bearing text instead of raw markup. Non-research agents get no extra
+ * bytes: their template contract is unchanged.
+ */
+function buildResearchFetchRule(agentName) {
+  if (!RESEARCH_AGENTS.has(agentName)) return '';
+  return '- RESEARCH RETRIEVAL: Fetch every source through `rtk curl <url>`; never bare curl, wget, or raw fetch. Keep URLs and citation ids verbatim.' + '\n';
+}
+
 function _loadManifestToolCatalog() {
   const manifest = require('../mcp_tool_manifest.json');
   const arr = Array.isArray(manifest.tools) ? manifest.tools : [];
@@ -95,7 +109,10 @@ function _loadManifestToolCatalog() {
 
 // Literal per-tool parity: every manifest tool as its own row (set-equality
 // holds exactly) with descriptions omitted to fit the <8KB ceiling.
-function buildSubagentMcpBlock(client = null, agentName = null) {
+function buildSubagentMcpBlock(client = null, agentName = null, options = {}) {
+  const contract = require('./subagent_tool_contract');
+  const policy = contract.resolveSubagentToolPolicy({ client, ...options });
+  if (!policy.attached) return contract.buildNotAttachedNote(client);
   const normAgent = (agentName || '').toLowerCase().replace(/_/g, '-');
   // Full main-agent tool parity, generated from the canonical manifest so the
   // list can never drift: every official subagent sees the same MCP catalog
@@ -114,8 +131,7 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
 
   let boundaries = (
     '### Strict Tool Boundaries\n' +
-    'Full manifest parity: prefer archetype specialty (genin read-only, chunin research, jonin UI/taste-skill, anbu backend/QA, tokubetsu docs, akatsuki security, kage review, sannin triage). ' +
-    'Hard mandates: genin read-only; Semble mandatory for search; prefix commands with `rtk`; use bounded file tools; run `rtk aislop scan --changes`.\n'
+    'Full manifest parity: prefer archetype specialty (genin read-only, chunin research, jonin UI/taste-skill, anbu backend/QA, tokubetsu docs, akatsuki security, kage review, sannin triage).\n'
   );
   if (['genin', 'kage'].includes(normAgent)) {
     boundaries += (
@@ -130,6 +146,52 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
   }
 
   return `\n## MCP Tools Available To You\n${tools.join('\n')}\n\n${boundaries}`;
+}
+
+
+/** Whole-prompt token guardrail and the floor the system prompt may not shrink below. */
+const PROMPT_CEILING_BYTES = 8000;
+const SYSTEM_PROMPT_FLOOR_BYTES = 1500;
+/** Bytes of skill SOP kept before the budget may drop skill bodies entirely. */
+const MIN_SKILL_PREVIEW_BYTES = 600;
+
+const REMEDIATION_FALLBACK = `${REMEDIATION_INVARIANT} ${COMPACT_REMINDER}`;
+
+/**
+ * Pick the largest discipline block the remaining prompt budget can carry.
+ * The remediation loop is invariant, so every tier keeps it: the full
+ * contract (loop first), then loop plus compact reminder, then the loop line.
+ *
+ * @param {number} headroomBytes
+ * @returns {string}
+ */
+function resolveDisciplineBlock(headroomBytes) {
+  if (headroomBytes > COMPACT_REMINDER.length) {
+    const contract = buildDisciplineContract({ maxBytes: headroomBytes });
+    if (contract) return contract;
+  }
+  for (const candidate of [REMEDIATION_FALLBACK, REMEDIATION_INVARIANT]) {
+    if (Buffer.byteLength(candidate, 'utf8') + 1 <= headroomBytes) return candidate;
+  }
+  return '';
+}
+/**
+ * Hard byte ceiling for the assembled prompt. `truncateAtBoundary` works in
+ * characters, so a multi-byte body could still overshoot; this converges on the
+ * byte budget and is the last line of defence for the token guardrail.
+ *
+ * @param {string} text
+ * @param {number} maxBytes
+ * @returns {string}
+ */
+function clampToBytes(text, maxBytes) {
+  let out = text || '';
+  let over = Buffer.byteLength(out, 'utf8') - maxBytes;
+  while (over > 0) {
+    out = out.substring(0, Math.max(0, out.length - Math.ceil(over / 2) - 1));
+    over = Buffer.byteLength(out, 'utf8') - maxBytes;
+  }
+  return out;
 }
 
 function truncateAtBoundary(text, maxChars) {
@@ -324,6 +386,7 @@ function _assembleSystemPrompt(data) {
     'task first, then report the new finding — do not abandon or delete prior work.\n\n'
   );
   const MAX_PERSONA_BYTES = 1100;
+  const ceilingBytes = Number.isFinite(data.maxBytes) ? Math.floor(data.maxBytes) : PROMPT_CEILING_BYTES;
   const prefix = `${staticHeader}You are @${dbAgentName} (${title}).\nPurpose: ${purpose}\n`;
   const truncatedConstraints = truncateAtBoundary(agentConstraints, 600);
   const constraintsBlock = `Constraints: ${truncatedConstraints}\n\n`;
@@ -331,30 +394,65 @@ function _assembleSystemPrompt(data) {
   const instructionsPrefix = 'Instructions: ';
   const TRUNCATE_SUFFIX_LEN = 16;
   const baseOverhead = prefix.length + constraintsBlock.length + instructionsPrefix.length + 1;
-  const remainingBudget = MAX_PERSONA_BYTES - baseOverhead - TRUNCATE_SUFFIX_LEN;
+  const personaCap = Math.max(0, MAX_PERSONA_BYTES - baseOverhead - TRUNCATE_SUFFIX_LEN);
 
-  let instructionsLine = '';
-  if (remainingBudget > 0) {
-    const truncatedInstructions = truncateAtBoundary(personaInstructions, remainingBudget);
-    instructionsLine = `${instructionsPrefix}${truncatedInstructions}\n`;
-  }
-  let prompt = `${prefix}${instructionsLine}${constraintsBlock}`;
-  if (projectContextBlock) prompt += projectContextBlock + '\n';
-  if (soulBehaviorBlock) prompt += soulBehaviorBlock + '\n';
-  if (tasteSkillBlock) prompt += tasteSkillBlock + '\n';
-  if (docDesignBlock) prompt += docDesignBlock + '\n';
-  prompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
-
+  const DIFF_FOOTER = 'Conflict Diff Format:\nFILE: path/to/file\n<<<<<<< original\n[orig]\n=======\n[replacement]\n>>>>>>>\n';
   let flowSkillsHeader = '';
   if (effFlowHash && skillsList.length > 0) {
     flowSkillsHeader = `Active Flow Skills (Bound to Flow ${effFlowHash}): ${skillsList.join(', ')}\n\n`;
   }
+  let skillsSection = '';
   if (skillsContent.length > 0) {
-    prompt += (flowSkillsHeader || 'Available Skills:\n') + skillsContent.join('\n\n') + '\n\n';
+    skillsSection = (flowSkillsHeader || 'Available Skills:\n') + skillsContent.join('\n\n') + '\n\n';
   } else if (skillsList.length > 0) {
-    prompt += flowSkillsHeader || `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
+    skillsSection = flowSkillsHeader || `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
   }
-  return prompt + 'Conflict Diff Format:\nFILE: path/to/file\n<<<<<<< original\n[orig]\n=======\n[replacement]\n>>>>>>>\n';
+
+  const mcpBlock = buildSubagentMcpBlock(getActiveClient(), agentName);
+  const buildBody = ({ personaChars, taste, doc, compactContext = false }) => {
+    let body = prefix;
+    if (personaChars > 0) body += `${instructionsPrefix}${truncateAtBoundary(personaInstructions, personaChars)}\n`;
+    body += constraintsBlock;
+    if (projectContextBlock) {
+      body += (compactContext ? truncateAtBoundary(projectContextBlock, 150) : projectContextBlock) + '\n';
+    }
+    if (soulBehaviorBlock) body += soulBehaviorBlock + '\n';
+    if (taste && tasteSkillBlock) body += tasteSkillBlock + '\n';
+    if (doc && docDesignBlock) body += docDesignBlock + '\n';
+    return body + mcpBlock + '\n';
+  };
+  // Disciplines and a skill preview are non-negotiable, so the body uses the
+  // richest variant that still leaves room for both. Persona prose is trimmed
+  // first because the soul block already carries the archetype voice.
+  const reserve = Buffer.byteLength(buildDisciplineContract(), 'utf8')
+    + Buffer.byteLength(DIFF_FOOTER, 'utf8') + 2
+    + Math.min(Buffer.byteLength(skillsSection, 'utf8'), MIN_SKILL_PREVIEW_BYTES);
+  const bodyLadder = [
+    { personaChars: personaCap, taste: true, doc: true },
+    { personaChars: Math.min(personaCap, 600), taste: true, doc: true },
+    { personaChars: Math.min(personaCap, 600), taste: true, doc: false },
+    { personaChars: Math.min(personaCap, 400), taste: true, doc: false },
+    { personaChars: Math.min(personaCap, 200), taste: true, doc: false },
+    { personaChars: 0, taste: true, doc: false },
+    { personaChars: 0, taste: true, doc: false, compactContext: true },
+    { personaChars: 0, taste: dbAgentName === 'jonin', doc: false, compactContext: true }
+  ];
+  const fitsCeiling = candidate => ceilingBytes - Buffer.byteLength(candidate, 'utf8') >= reserve;
+  let prompt = bodyLadder.map(buildBody).find(fitsCeiling);
+  if (!prompt) prompt = buildBody(bodyLadder[bodyLadder.length - 1]);
+
+  const disciplineHeadroom = ceilingBytes - Buffer.byteLength(prompt, 'utf8')
+    - Buffer.byteLength(DIFF_FOOTER, 'utf8') - 1;
+  const disciplineBlock = resolveDisciplineBlock(disciplineHeadroom);
+  if (disciplineBlock) prompt += `${disciplineBlock}\n`;
+  const skillsBudget = ceilingBytes - Buffer.byteLength(prompt, 'utf8')
+    - Buffer.byteLength(DIFF_FOOTER, 'utf8');
+  if (Buffer.byteLength(skillsSection, 'utf8') > skillsBudget) {
+    skillsSection = skillsBudget > TRUNCATE_SUFFIX_LEN
+      ? `${truncateAtBoundary(skillsSection, skillsBudget - TRUNCATE_SUFFIX_LEN)}\n`
+      : '';
+  }
+  return clampToBytes(prompt + skillsSection + DIFF_FOOTER, ceilingBytes);
 }
 
 function _parseTaskOptions(task, context, constraints, rest) {
@@ -465,11 +563,6 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const tasteSkillBlock = dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '';
   const docDesignBlock = dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : '';
 
-  const systemPrompt = _assembleSystemPrompt({
-    dbAgentName, title: meta.title, purpose: meta.purpose, agentConstraints: meta.agentConstraints,
-    personaInstructions: meta.personaInstructions, projectContextBlock, soulBehaviorBlock,
-    tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash: opts.flowHash, agentName
-  });
 
   const basePersonalityBlock = (
     '## Base Personality: High Effort + Instruct Style\n\n' +
@@ -477,7 +570,6 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- Lead with direct action and verified evidence. Start immediately with action or factual result.\n' +
     '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code.\n' +
     '- Zero hallucination, errors, warnings, AI slop: target accuracy 95%-100%, cost efficiency 83%-98%.\n' +
-    '- Minimum 98% confidence gate: mechanically verified against real exit codes and 0 slop findings.\n' +
     '- MANDATORY TOOL & SKILL PARITY: Always discover skills via konoha.find_skill and activate with konoha.use_skills or konoha.get_skill.\n\n'
   );
   const dualBoundaryAnchor = (
@@ -488,8 +580,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- PRESERVE PROXY GATEWAY: Never modify or disable local OpenAI proxy gateway (port 19999).\n' +
     '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools. Never use shell cat/head/grep.\n' +
     '- SEMBLE IS MANDATORY: Use `mcp__semble__search` and `mcp__semble__find_related` with absolute repo path.\n' +
-    '- RTK IS MANDATORY FOR COMMANDS: Always prefix shell executions with `rtk <command>`.\n' +
+    '- RTK IS MANDATORY: Prefix shell and test runs with `rtk <command>`; fetch web pages with `rtk curl <url>`, never bare curl, wget, or raw fetch.\n' +
     '- SOUL ARCHETYPE MANDATORY: Strictly embody your ninja soul archetype behavior directives, voice, and tenets.\n' +
+    (RESEARCH_AGENTS.has(dbAgentName) ? buildResearchFetchRule(dbAgentName) : '') +
     (dbAgentName === 'genin' ? '- GENIN READ-ONLY MANDATE: As @genin, strictly read-only mode. Never write, create, overwrite, modify, or delete files.\n' : '') +
     '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and 0 findings.\n' +
     '- KAGE 98% CONFIDENCE GATE: Delivery blocked if confidence < 98%.\n\n'
@@ -498,17 +591,31 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     `You must now act as ${dbAgentName} and execute the task below.\n\n` +
     '## Execution Protocol\n\n' +
     `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind references.\n` +
-    '1. Semble & RTK: Search via Semble (`mcp__semble__search`, `mcp__semble__find_related`) with absolute repo path. Shell executions MUST be prefixed with `rtk <command>`.\n' +
-    `2. Soul Discipline: Embody ⚑ ${dbAgentName} soul archetype voice and tenets. Zero generic AI slop, conversational filler, or ungrounded claims.\n` +
+    '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
+    `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
     (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
     '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
     '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '6. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (`rtk aislop scan --changes`).\n' +
+    '6. Run `rtk aislop scan --changes`; zero findings required.\n' +
     '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
   );
 
-  const taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
-  const instruction = `${systemPrompt}\n\n${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}${taskBlock}`.trim();
+  let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
+  const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
+  const fixedTail = `${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}`;
+  if (Buffer.byteLength(fixedTail + taskBlock, 'utf8') > tailCeiling) {
+    const room = tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24;
+    instructions = truncateAtBoundary(instructions, Math.max(0, room));
+    taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
+  }
+  const tailBlocks = `${fixedTail}${taskBlock}`;
+  const systemPrompt = _assembleSystemPrompt({
+    dbAgentName, title: meta.title, purpose: meta.purpose, agentConstraints: meta.agentConstraints,
+    personaInstructions: meta.personaInstructions, projectContextBlock, soulBehaviorBlock,
+    tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash: opts.flowHash, agentName,
+    maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
+  });
+  const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
   const effTaskDir = opts.taskDir || getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const res = JSON.stringify({
     status: 'ready', phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
@@ -524,6 +631,7 @@ module.exports = {
   applyFileEdits,
   autoloadSkillsFromPrompt,
   buildSubagentMcpBlock,
+  buildResearchFetchRule,
   truncateAtBoundary,
   cleanRedundantPersonaText,
   runMcpAgent

@@ -450,6 +450,7 @@ const TOOL_HANDLERS = {
   anbu: (args) => runNodeSkillTool('anbu', args),
   akatsuki: (args) => runNodeSkillTool('akatsuki', args),
   akatsuki_init: (args) => runNodeSkillTool('akatsuki_init', args),
+  yamanaka: (args) => runNodeSkillTool('yamanaka', args),
   chunin: (args) => runNodeSkillTool('chunin', args),
   tokubetsu_jonin: (args) => runNodeSkillTool('tokubetsu_jonin', args),
   genin: (args) => runNodeSkillTool('genin', args),

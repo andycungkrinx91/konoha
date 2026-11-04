@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCanonicalAgentNames, normalizeAgentName } = require('../canonical_agents');
+
 function _wrapDeprecatedWarning(raw, oldName, newName) {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -167,7 +169,9 @@ function _dispatchAgentDelegation(toolName, args) {
     }
   }
 
-  if (!['kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki'].includes(toolName)) {
+  const delegatable = getCanonicalAgentNames().filter(n => n !== 'sannin');
+  const requested = normalizeAgentName(toolName);
+  if (!delegatable.includes(requested)) {
     return null;
   }
 

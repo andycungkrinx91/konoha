@@ -335,7 +335,7 @@ function _discoverCursorModels(discovered, seenIds, HOME) {
           source: 'client:cursor'
         });
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
   }
 }
 
@@ -360,7 +360,7 @@ function _discoverAntigravityModels(discovered, seenIds, HOME) {
           source: 'client:antigravity'
         });
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
   }
 }
 
@@ -379,7 +379,7 @@ function _discoverCodexModels(discovered, seenIds, HOME) {
           source: 'client:codex'
         });
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
   }
 }
 
@@ -403,7 +403,7 @@ function _discoverCommandCodeModels(discovered, seenIds, HOME) {
           source: 'client:command-code'
         });
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
   }
 }
 
@@ -427,7 +427,7 @@ function _discoverPiModels(discovered, seenIds, HOME) {
           source: 'client:pi'
         });
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
   }
 }
 
@@ -447,7 +447,7 @@ function _discoverKonohaAgentModels(discovered, seenIds) {
         });
       }
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
 }
 
 function discoverClientModels() {

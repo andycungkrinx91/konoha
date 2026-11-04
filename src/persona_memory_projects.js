@@ -137,6 +137,8 @@ function detectProjectStack(workspacePath) {
 
   _detectNodeStack(canonical, stackInfo);
   _detectPythonStack(canonical, stackInfo);
+  _mergeWorkspaceStack(canonical, stackInfo);
+  _detectInfraStack(canonical, stackInfo);
 
   return stackInfo;
 }
@@ -227,7 +229,10 @@ function getProjectProfile(projectPathOrHash, dbPath = null) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const row = conn.prepare("SELECT * FROM projects WHERE project_hash = ? OR project_path = ?").get(pHash, target);
+    let row = conn.prepare("SELECT * FROM projects WHERE project_hash = ? OR project_path = ?").get(pHash, target);
+    if (row && (row.framework === 'Unknown' || row.styling === 'Standard CSS')) {
+      row = _refreshSingleProjectRow(conn, row) || row;
+    }
     if (row) {
       const res = Object.assign({}, row);
       try {
@@ -316,6 +321,266 @@ function pruneAllProjects(options = {}, dbPath = null) {
   }
 }
 
+/**
+ * Resolve nested package locations for monorepos. Honours the package manager
+ * workspace globs when present; otherwise scans well-known container directories.
+ * Returns absolute paths of package.json files beneath the workspace root.
+ */
+function _resolveWorkspacePackages(canonical) {
+  const found = [];
+  const seen = new Set();
+  const push = (pkgPath) => {
+    if (seen.has(pkgPath)) return;
+    seen.add(pkgPath);
+    found.push(pkgPath);
+  };
+  const globs = _readWorkspaceGlobs(canonical);
+  for (const pattern of globs) {
+    for (const dir of _expandWorkspacePattern(canonical, pattern)) {
+      const pkgPath = path.join(dir, 'package.json');
+      if (fs.existsSync(pkgPath)) push(pkgPath);
+    }
+  }
+  if (found.length === 0) {
+    for (const container of ['apps', 'packages', 'libs', 'services']) {
+      const containerDir = path.join(canonical, container);
+      let entries = [];
+      try {
+        entries = fs.readdirSync(containerDir, { withFileTypes: true });
+      } catch (_) {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const pkgPath = path.join(containerDir, entry.name, 'package.json');
+        if (fs.existsSync(pkgPath)) push(pkgPath);
+      }
+    }
+  }
+  return found;
+}
+
+function _readWorkspaceGlobs(canonical) {
+  const globs = [];
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(canonical, 'package.json'), 'utf8'));
+    const ws = pkg.workspaces;
+    if (Array.isArray(ws)) globs.push(...ws);
+    else if (ws && Array.isArray(ws.packages)) globs.push(...ws.packages);
+  } catch (_) { /* no root manifest */ }
+  try {
+    const yaml = fs.readFileSync(path.join(canonical, 'pnpm-workspace.yaml'), 'utf8');
+    const block = yaml.match(/packages\s*:\s*\n((?:\s*-\s*.+\n?)+)/);
+    if (block) {
+      for (const line of block[1].split(/[\r\n]+/)) {
+        const item = line.replace(/^\s*-\s*/, '').replace(/['"]/g, '').trim();
+        if (item) globs.push(item);
+      }
+    }
+  } catch (_) { /* no workspace yaml */ }
+  return globs;
+}
+
+function _expandWorkspacePattern(canonical, pattern) {
+  const clean = String(pattern).replace(/^\.?\//, '').replace(/\/+$/, '');
+  if (!clean || clean.startsWith('!')) return [];
+  if (!clean.includes('*')) {
+    const dir = path.join(canonical, clean);
+    return fs.existsSync(dir) ? [dir] : [];
+  }
+  const segments = clean.split('/');
+  let bases = [canonical];
+  for (const seg of segments) {
+    const next = [];
+    for (const base of bases) {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(base, { withFileTypes: true });
+      } catch (_) {
+        continue;
+      }
+      if (seg === '*') {
+        for (const e of entries) {
+          if (e.isDirectory() && !e.name.startsWith('.')) next.push(path.join(base, e.name));
+        }
+      } else if (seg.includes('*')) {
+        const escaped = seg.replace(/[.+^$()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+        const re = new RegExp('^' + escaped + '$');
+        for (const e of entries) {
+          if (e.isDirectory() && re.test(e.name)) next.push(path.join(base, e.name));
+        }
+      } else {
+        next.push(path.join(base, seg));
+      }
+    }
+    bases = next;
+  }
+  return bases.filter((b) => {
+    try {
+      return fs.statSync(b).isDirectory();
+    } catch (_) {
+      return false;
+    }
+  });
+}
+
+/**
+ * Fall back to workspace packages when the root manifest carries no framework or
+ * styling signal, which is normal for monorepo roots that only orchestrate apps.
+ */
+function _mergeWorkspaceStack(canonical, stackInfo) {
+  if (stackInfo.framework !== 'Unknown' && stackInfo.styling !== 'Standard CSS') return;
+  const packages = _resolveWorkspacePackages(canonical);
+  if (packages.length === 0) return;
+  let framework = null;
+  let styling = null;
+  const deps = new Set(stackInfo.dependencies || []);
+  for (const pkgPath of packages) {
+    let pkg = null;
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    } catch (_) {
+      continue;
+    }
+    const allDeps = Object.assign({}, pkg.dependencies || {}, pkg.devDependencies || {});
+    if (!framework) {
+      const fw = _detectNodeFramework(allDeps);
+      if (fw !== 'Unknown') framework = fw;
+    }
+    if (!styling) {
+      const st = _detectNodeStyling(allDeps);
+      if (st !== 'Standard CSS') styling = st;
+    }
+    for (const d of _detectNodeDependencies(allDeps)) deps.add(d);
+    if (framework && styling) break;
+  }
+  if (framework) stackInfo.framework = framework;
+  if (styling) stackInfo.styling = styling;
+  stackInfo.dependencies = Array.from(deps);
+}
+
+
+/**
+ * Re-detect the tech stack for stored projects whose directory still exists.
+ * Stale rows (framework "Unknown" / styling "Standard CSS") are refreshed so the
+ * Context surface reports the real stack instead of a cached placeholder.
+ * Rows whose directory is gone are left untouched and reported as skipped.
+ */
+function refreshProjectStacks(options = {}, dbPath = null) {
+  const onlyStale = options.onlyStale !== false;
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    const rows = conn.prepare('SELECT project_hash, project_path, framework, styling FROM projects').all();
+    const now = new Date().toISOString();
+    const updated = [];
+    const skipped = [];
+    const tx = conn.transaction(() => {
+      const stmt = conn.prepare('UPDATE projects SET framework = ?, styling = ?, package_manager = ?, project_name = ?, updated_at = ? WHERE project_hash = ?');
+      for (const row of rows) {
+        const projectPath = row.project_path;
+        if (!projectPath || !fs.existsSync(projectPath)) {
+          skipped.push({ project_hash: row.project_hash, reason: 'path_missing' });
+          continue;
+        }
+        if (onlyStale && row.framework !== 'Unknown' && row.styling !== 'Standard CSS') {
+          skipped.push({ project_hash: row.project_hash, reason: 'already_detected' });
+          continue;
+        }
+        const detected = detectProjectStack(projectPath);
+        const framework = detected.framework === 'Unknown' ? row.framework : detected.framework;
+        const styling = detected.styling === 'Standard CSS' ? row.styling : detected.styling;
+        if (framework === row.framework && styling === row.styling) {
+          skipped.push({ project_hash: row.project_hash, reason: 'no_change' });
+          continue;
+        }
+        stmt.run(framework, styling, detected.package_manager, detected.project_name || null, now, row.project_hash);
+        updated.push({ project_hash: row.project_hash, framework, styling });
+      }
+    });
+    tx();
+    return { updated: updated.length, skipped: skipped.length, details: updated };
+  } finally {
+    conn.close();
+  }
+}
+
+/**
+ * Detect infrastructure-as-code stacks (Helm, Terraform, Kubernetes, Docker,
+ * build/CI pipelines). These workspaces legitimately have no package.json or
+ * Python manifest, so without this branch they report a misleading "Unknown".
+ */
+function _detectInfraStack(canonical, stackInfo) {
+  if (stackInfo.framework !== 'Unknown') return;
+  const has = (rel) => {
+    try {
+      return fs.existsSync(path.join(canonical, rel));
+    } catch (_) {
+      return false;
+    }
+  };
+  const hasDir = (rel) => {
+    try {
+      return fs.statSync(path.join(canonical, rel)).isDirectory();
+    } catch (_) {
+      return false;
+    }
+  };
+  let hasTf = false;
+  try {
+    hasTf = fs.readdirSync(canonical).some((f) => f.endsWith('.tf') || f.endsWith('.tfstate'));
+  } catch (_) { /* unreadable workspace */ }
+
+  const signals = [
+    hasDir('helmfile.d') || has('helmfile.yaml') || has('helmfile.yml'),
+    hasDir('chart') || has('Chart.yaml'),
+    hasTf,
+    hasDir('k8s') || hasDir('kubernetes') || hasDir('manifests'),
+    has('Dockerfile') || has('docker-compose.yml') || has('docker-compose.yaml'),
+    hasDir('.buildkite') || has('Jenkinsfile') || hasDir('jenkinsfile') || hasDir('.github'),
+    hasDir('rundeck-job') || hasDir('cloud-script')
+  ];
+  const score = signals.filter(Boolean).length;
+  if (score === 0) return;
+
+  if (hasDir('helmfile.d') || has('helmfile.yaml') || has('helmfile.yml') || has('Chart.yaml') || hasDir('chart')) {
+    stackInfo.framework = 'Helm / Kubernetes';
+    stackInfo.language = 'YAML / IaC';
+  } else if (hasTf) {
+    stackInfo.framework = 'Terraform';
+    stackInfo.language = 'HCL / IaC';
+  } else if (has('docker-compose.yml') || has('docker-compose.yaml')) {
+    stackInfo.framework = 'Docker Compose';
+    stackInfo.language = 'YAML / IaC';
+  } else if (has('Dockerfile')) {
+    stackInfo.framework = 'Docker';
+    stackInfo.language = 'YAML / IaC';
+  } else if (hasDir('.buildkite') || has('Jenkinsfile') || hasDir('jenkinsfile')) {
+    stackInfo.framework = 'CI Pipeline';
+    stackInfo.language = 'YAML / IaC';
+  }
+  if (stackInfo.styling === 'Standard CSS') stackInfo.styling = 'Not applicable';
+}
+
+
+function _refreshSingleProjectRow(conn, row) {
+  const projectPath = row.project_path;
+  if (!projectPath) return null;
+  try {
+    if (!fs.existsSync(projectPath)) return null;
+  } catch (_) {
+    return null;
+  }
+  const detected = detectProjectStack(projectPath);
+  const framework = detected.framework === 'Unknown' ? row.framework : detected.framework;
+  const styling = detected.styling === 'Standard CSS' ? row.styling : detected.styling;
+  if (framework === row.framework && styling === row.styling) return null;
+  const now = new Date().toISOString();
+  conn.prepare('UPDATE projects SET framework = ?, styling = ?, package_manager = ?, updated_at = ? WHERE project_hash = ?')
+    .run(framework, styling, detected.package_manager, now, row.project_hash);
+  return Object.assign({}, row, { framework, styling, package_manager: detected.package_manager, updated_at: now });
+}
+
 module.exports = {
   DB_PATH,
   getDefaultDbPath,
@@ -327,5 +592,6 @@ module.exports = {
   getProjectProfile,
   listProjects,
   deleteProject,
-  pruneAllProjects
+  pruneAllProjects,
+  refreshProjectStacks
 };

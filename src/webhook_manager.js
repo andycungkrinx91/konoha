@@ -148,7 +148,7 @@ function deleteWebhook(id) {
 }
 
 let _pkgVer = '2.2.18';
-try { _pkgVer = require('../package.json').version || '2.2.18'; } catch (_) {}
+try { _pkgVer = require('../package.json').version || '2.2.18'; } catch { /* intentional best-effort fallback: delivery is fire-and-forget */ }
 
 function _buildWebhookHeaders(webhook) {
   const headers = {

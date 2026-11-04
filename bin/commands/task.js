@@ -5,6 +5,7 @@
  */
 
 const { DB_PATH } = require("../lib/paths");
+const { removedSynonymMessage } = require("../lib/canonical_synonyms");
 const { toDisplayStatus } = require("../../src/mcp/gate_status");
 const {
   C,
@@ -247,7 +248,7 @@ async function cmdTask(args) {
   if (sub === 'list') return handleTaskList(sdlcManager, subArgs);
   if (sub === 'show') return handleTaskShow(sdlcManager, subArgs);
   if (sub === 'slop') return handleTaskSlop(sdlcManager, subArgs);
-  if (sub === 'rm') { error("Unknown subcommand 'rm' for 'konoha task'. Use canonical subcommand 'konoha task delete'."); process.exit(1); }
+  if (sub === 'rm') { error(removedSynonymMessage('task', sub)); process.exit(1); }
   if (sub === 'delete') return handleTaskDelete(sdlcManager, subArgs);
   if (sub === 'clear') return handleTaskClear(sdlcManager, subArgs);
 

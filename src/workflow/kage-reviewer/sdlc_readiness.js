@@ -11,7 +11,8 @@ const DOMAIN_KEYWORDS = [
   'doc', 'docs', 'documentation', 'guide', 'readme', 'architecture', 'rfc', 'design', 'review',
   'research', 'intel', 'citation', 'evidence', 'explore', 'investigate', 'analyze', 'trace',
   'orchestrate', 'plan', 'workflow', 'dispatch', 'routing', 'sannin', 'kage', 'jonin', 'anbu',
-  'chunin', 'genin', 'tokubetsu-jonin', 'akatsuki'
+  'chunin', 'genin', 'tokubetsu-jonin', 'akatsuki',
+  '3d', 'mesh', 'glb', 'gltf', 'blender', 'threejs', 'manifold', 'pbr', 'yamanaka'
 ];
 
 const PLACEHOLDER_REGEX = /\b(TODO|FIXME|TBD)\b|\?{3,}|<placeholder>|\[placeholder\]|\[insert\b|<insert\b/i;

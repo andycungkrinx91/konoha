@@ -590,8 +590,26 @@ function pruneSessionMemories(sessionId, dbPath = DB_PATH) {
   }
 }
 
+/**
+ * Resolve the agent to attribute a memory to. Explicit names win; otherwise the
+ * active agent is detected, and anything non-canonical falls back to the router.
+ */
+function resolveMemoryAgent(explicitAgent) {
+  const { normalizeAgentName, isCanonicalAgent } = require('./canonical_agents');
+  const explicit = normalizeAgentName(explicitAgent);
+  if (explicit && isCanonicalAgent(explicit)) return explicit;
+  try {
+    const { detectActiveAgent } = require('./mcp/client_detection');
+    const detected = normalizeAgentName(detectActiveAgent());
+    if (detected && isCanonicalAgent(detected)) return detected;
+  } catch (_) { /* detection unavailable: fall through to router */ }
+  return 'sannin';
+}
+
 function recordFlowSkill(flowHash, skillName, taskId = null, sessionId = null, ...rest) {
-  const [projectPath = null, dbPath = DB_PATH] = rest;
+  // Accepts optional (projectPath, dbPath, agentName). agentName defaults to the
+  // detected active agent so delegated subagents are attributed correctly.
+  const [projectPath = null, dbPath = DB_PATH, agentName = null] = rest;
   if (!flowHash || !skillName) return null;
   const cleanSkill = String(skillName).trim();
   const cleanFlow = String(flowHash).trim();
@@ -611,8 +629,8 @@ function recordFlowSkill(flowHash, skillName, taskId = null, sessionId = null, .
       const memId = crypto.randomUUID().substring(0, 8);
       conn.prepare(
         `INSERT INTO persona_memories (id, agent_name, project_hash, session_id, memory_type, title, content, tags, importance, created_at, updated_at)
-         VALUES (?, 'sannin', ?, ?, 'flow_skill', ?, ?, ?, 1, ?, ?)`
-      ).run(memId, pHash, sessionId || '', cleanSkill, content, cleanFlow, now, now);
+         VALUES (?, ?, ?, ?, 'flow_skill', ?, ?, ?, 1, ?, ?)`
+      ).run(memId, resolveMemoryAgent(agentName), pHash, sessionId || '', cleanSkill, content, cleanFlow, now, now);
       return memId;
     }
     return existing.id;

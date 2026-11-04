@@ -449,8 +449,13 @@ function syncAllClientSkills(options = {}) {
   if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
 
   const targetDirs = [
-    path.resolve(effectiveHome, '.agents', 'skills')
-  ];
+    path.resolve(effectiveHome, '.agents', 'skills'),
+    path.resolve(effectiveHome, '.cursor', 'skills'),
+    path.resolve(effectiveHome, '.gemini', 'skills'),
+    path.resolve(effectiveHome, '.commandcode', 'skills'),
+    path.resolve(effectiveHome, '.claude', 'skills'),
+    path.resolve(effectiveHome, '.omp', 'skills')
+  ].filter(dir => fs.existsSync(path.dirname(dir)));
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);
   const syncedTargets = [];

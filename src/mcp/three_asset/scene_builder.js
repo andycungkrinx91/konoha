@@ -6,6 +6,8 @@
  */
 
 const depLoader = require('./dep_loader');
+const geometryQuality = require('./geometry_quality');
+const SMOOTH_PRIMITIVES = new Set(['sphere', 'capsule', 'cylinder', 'torus', 'torusKnot', 'cone', 'lathe', 'tube', 'dodecahedron', 'icosahedron']);
 
 let cachedThree = null;
 let cachedManifold = null;
@@ -27,10 +29,10 @@ async function getManifoldWasm() {
   let mod;
   try {
     mod = await import('manifold-3d');
-  } catch (dynamicErr) {
+  } catch (_dynamicErr) {
     try {
       mod = require('manifold-3d');
-    } catch (staticErr) {
+    } catch (_staticErr) {
       process.stderr.write('[scene_builder] manifold-3d module unavailable; CSG booleans degrade to grouped geometry\n');
       cachedManifold = null;
       return cachedManifold;
@@ -104,7 +106,7 @@ function buildGeometry(THREE, specGeom, polyFactor = 1.0, style = null, RoundedB
         Math.max(6, resolveSegments(p.radialSegments, 16, polyFactor))
       );
     case 'plane': {
-      const segs = Math.max(2, Math.round(8 * polyFactor));
+      const segs = Math.max(2, Math.round(8 * Math.sqrt(Math.max(0.25, polyFactor))));
       return new THREE.PlaneGeometry(
         p.width || 1,
         p.height || 1,
@@ -152,13 +154,14 @@ function buildGeometry(THREE, specGeom, polyFactor = 1.0, style = null, RoundedB
       const w = p.width || 1;
       const h = p.height || 1;
       const d = p.depth || 1;
-      const segs = Math.max(1, Math.round(2 * polyFactor));
+      const segs = Math.max(1, Math.round(2 * Math.sqrt(Math.max(0.25, polyFactor))));
       const bevel = (style && typeof style.bevel === 'number') ? style.bevel : 0.06;
       if (bevel > 0 && RoundedBoxClass) {
         const radius = Math.min(w, h, d) * bevel;
+        const bevelSegments = Math.max(2, Math.min(6, Math.round(1 + polyFactor * 0.5)));
         try {
-          return new RoundedBoxClass(w, h, d, 2, radius);
-        } catch (_) {}
+          return new RoundedBoxClass(w, h, d, bevelSegments, radius);
+        } catch { /* intentional best-effort fallback: optional decoration omitted */ }
       }
       return new THREE.BoxGeometry(w, h, d, segs, segs, segs);
     }
@@ -276,6 +279,7 @@ function manifoldMeshToThreeGeometry(THREE, mMesh) {
     geom.setIndex(new THREE.BufferAttribute(new Uint32Array(mMesh.triVerts), 1));
   }
   geom.computeVertexNormals();
+  geometryQuality.ensureUv(geom);
   return geom;
 }
 
@@ -384,15 +388,16 @@ async function buildGroupFallback(THREE, wasm, nodeSpec, polyFactor) {
 
 function resolveSegments(explicit, fallback, polyFactor) {
   const base = Number.isFinite(explicit) && explicit > 0 ? explicit : fallback;
-  const scaled = Math.round(base * polyFactor);
-  const ceiling = Math.max(base, 64);
+  const density = Math.sqrt(Math.max(0.25, polyFactor));
+  const scaled = Math.round(base * density);
+  const ceiling = Math.max(base * 8, 64);
   return Math.max(6, Math.min(ceiling, scaled));
 }
 
 function computePolyFactor(targetPolycount) {
   const tc = Number(targetPolycount) || 8000;
   const factor = Math.sqrt(Math.max(800, tc) / 1000);
-  return Math.max(0.8, Math.min(2.5, factor));
+  return Math.max(0.8, Math.min(12, factor));
 }
 
 async function buildSceneFromSpec(sceneSpec) {
@@ -424,7 +429,12 @@ async function buildSceneFromSpec(sceneSpec) {
       if (Math.max(planeW, planeH) > 1.5) continue;
     }
 
-    const geom = buildGeometry(THREE, nodeSpec.geometry, polyFactor, style, RoundedBoxClass);
+    const rawGeom = buildGeometry(THREE, nodeSpec.geometry, polyFactor, style, RoundedBoxClass);
+    const geomType = (nodeSpec.geometry && nodeSpec.geometry.type) || 'box';
+    const geom = await geometryQuality.finalizeGeometry(THREE, rawGeom, {
+      smooth: SMOOTH_PRIMITIVES.has(geomType),
+      weld: rawGeom.index === null || rawGeom.index === undefined
+    });
     const mat = buildMaterial(THREE, nodeSpec.material);
     const mesh = new THREE.Mesh(geom, mat);
     mesh.name = nodeSpec.name || `mesh_${totalMeshCount}`;

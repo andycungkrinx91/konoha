@@ -110,3 +110,21 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 ### 10.3 Persona Boundary & Offensive Skill Gating
 - **Strict Persona Access**: Offensive security skills (`akatsuki-skill`, `patch-diff-exploit`, `pentest-osint-recon`, `php-cve-patch-collection-maintenance`) are strictly quarantined to `@akatsuki`. Invocations from other Ninja agents (`@genin`, `@anbu`, `@jonin`, `@kage`, `@chunin`) are denied fail-closed.
 - **Rules of Engagement (RoE) Authorization**: Offensive tasks must include written authorization defining target scope, emergency cutoff, and authorized operator consent. Ambiguous or out-of-scope targets are refused.
+
+---
+
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.18)
+
+### 11.1 Bridge Request Budget
+- **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.
+- **Reject Before Read**: `rejectOversizedByHeader()` runs before the request body is buffered, so an oversized `Content-Length` never allocates payload memory. In-stream payloads that exceed the transcript ceiling are cut off at the same boundary.
+- **Cache Capability Is Never Assumed**: `src/bridge/cache_capability.js` reports cached-token support only for recognised Anthropic, OpenAI, and Google hosts (with Anthropic's 1024-token minimum and 4-breakpoint limit). An unrecognised endpoint is reported as `unknown` instead of being treated as cache-capable.
+- **Prefix Stability**: `src/bridge/prefix_stability.js` refuses to emit provider cache hints when the prompt prefix contains volatile material (ISO timestamps, UUIDs, epoch milliseconds, job IDs), preventing cache-miss storms that silently multiply billed input tokens.
+
+### 11.2 3D Reference-Image Upload
+- **Decoded Size Cap**: `POST /api/v1/3d/upload-image` accepts at most 12 MiB of decoded image data; larger payloads are refused with `413`.
+- **Magic-Byte Sniffing**: The declared filename extension is ignored. Only PNG, JPEG, and WebP signatures are accepted; anything else is refused with `415`.
+- **Filename Sanitisation**: the reference stem is reduced to `[a-zA-Z0-9_-]` before it is used as a filesystem name, so upload names cannot traverse directories.
+- **Authenticated Only**: the route requires an authenticated Web session like every other mutating `/api/v1/*` endpoint.
+
+---

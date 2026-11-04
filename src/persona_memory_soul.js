@@ -26,8 +26,8 @@ function formatProjectContextForPrompt(projectProfile, memories = null, maxMemor
   if (projectProfile) {
     const name = projectProfile.project_name || "Project";
     const pPath = projectProfile.project_path || "";
-    const fw = projectProfile.framework || "Unknown";
-    const styling = projectProfile.styling || "Standard CSS";
+    const fw = projectProfile.framework && projectProfile.framework !== "Unknown" ? projectProfile.framework : "Not detected";
+    const styling = projectProfile.styling && projectProfile.styling !== "Standard CSS" ? projectProfile.styling : "Not detected";
     const pm = projectProfile.package_manager || "pnpm";
     const summary = (projectProfile.context_summary || "").trim();
 

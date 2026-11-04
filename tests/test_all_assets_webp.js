@@ -5,7 +5,8 @@
  * tests/test_all_assets_webp.js
  *
  * Verifies that:
- * 1. All 19 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format.
+ * 1. All 31 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
+ *    (19 of them are drawio-derived: one per drawio tab, see docs/diagrams/README.md).
  * 2. Zero legacy .gif files remain in `assets/`.
  * 3. Every .webp file passes `validateAnimatedWebP` binary structural verification.
  * 4. Active Markdown files (README.md, docs) contain ZERO broken .gif image embeds.
@@ -21,7 +22,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// Expected 19 canonical animation assets
+// Expected 31 canonical animation assets (12 demos + 19 drawio tabs)
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -37,14 +38,32 @@ const EXPECTED_WEBP_ASSETS = [
   'konoha-akatsuki-flow.webp',
   'konoha-jonin-flow.webp',
   'konoha-kage-gate.webp',
+  'konoha-langgraph-flow.webp',
   'konoha-orchestration-flow.webp',
   'konoha-qa-flow.webp',
   'konoha-telegram-flow.webp',
+  'konoha-web-ingress-flow.webp',
+  'konoha-yamanaka-3d-flow.webp',
+  'konoha-flow-01-system-architecture.webp',
+  'konoha-flow-02-runtime-query-lifecycle.webp',
+  'konoha-flow-03-mcp-tool-and-skill-routing.webp',
+  'konoha-flow-04-llm-bridge-gateway.webp',
+  'konoha-flow-05-search-fallback-chain.webp',
+  'konoha-flow-06-skill-registry-installation.webp',
+  'konoha-flow-07-token-footprint-comparison.webp',
+  'konoha-flow-10-persistent-project-context-auto-compaction.webp',
+  'konoha-flow-12-cli-upgrade-progress-engine.webp',
+  'konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp',
   'demo-omp.webp',
   'testing.webp'
 ];
 
-console.log('1. Checking that all 19 Animated WebP assets exist and legacy GIFs are removed...');
+// Every drawio tab renders on the same canvas: 1250x850 page at scale 0.96 -> 1200x816 CSS,
+// exported at deviceScaleFactor 2. A file that drifts from this size was not produced by
+// scripts/generate_drawio_flow_webp.js.
+const DRAWIO_CANVAS = { width: 2400, height: 1632 };
+
+console.log('1. Checking that all 31 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -66,6 +85,11 @@ for (const webpName of EXPECTED_WEBP_ASSETS) {
   assert.ok(val.frameCount > 0, `Asset ${webpName} must have at least 1 frame, found ${val.frameCount}`);
   assert.ok(val.canvasWidth > 0 && val.canvasHeight > 0, `Asset ${webpName} must have non-zero dimensions`);
   assert.strictEqual(val.loopCount, 0, `Asset ${webpName} must loop infinitely (loopCount 0)`);
+  if (webpName.startsWith('konoha-')) {
+    assert.strictEqual(val.canvasWidth, DRAWIO_CANVAS.width, `Asset ${webpName} must keep the drawio canvas width`);
+    assert.strictEqual(val.canvasHeight, DRAWIO_CANVAS.height, `Asset ${webpName} must keep the drawio canvas height`);
+    assert.ok(val.frameCount > 1, `Asset ${webpName} must animate (>1 frame), found ${val.frameCount}`);
+  }
   console.log(`  ✓ assets/${webpName} (${val.canvasWidth}x${val.canvasHeight}, ${val.frameCount} frames, ${val.totalDurationMs}ms, loop: ${val.loopCount})`);
 }
 
@@ -109,5 +133,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 19 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 31 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

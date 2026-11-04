@@ -7,7 +7,7 @@ Guidelines and requirements for authoring, updating, and synchronizing Konoha do
 ## 📁 Documentation Architecture & Directory Structure
 
 Konoha maintains a strictly organized, single-source documentation hierarchy:
-- `README.md`: Public entry point, ASCII splash, quick start, 47 canonical MCP tools table, LangGraph architecture, and compliance badges.
+- `README.md`: Public entry point, ASCII splash, quick start, 48 canonical MCP tools table, LangGraph architecture, and compliance badges.
 - `CHANGELOG.md`: Authoritative chronological release notes following Keep a Changelog format.
 - `docs/ARCHITECTURE.md`: Technical architecture specification, LangGraph StateGraph engine, MCP transports, and data flows.
 - `docs/ALL-WORKFLOW-DIAGRAMS.md`: Comprehensive Mermaid diagram catalog of all 16 system workflows.

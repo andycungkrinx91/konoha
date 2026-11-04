@@ -116,8 +116,6 @@ async function parseResponseBody(res) {
 export async function apiRequest(endpoint, options = {}) {
   attachOnlineRecoveryListener();
 
-  const method = (options.method || 'GET').toUpperCase();
-  const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
   const token = await ensureValidToken();
 
   const headers = {

@@ -1,3 +1,5 @@
+
+const { getCanonicalAgentNames } = require('./canonical_agents');
 const {
   generateCursorSubagent,
   generateCursorRule,
@@ -499,7 +501,7 @@ function _cleanCursorCliPermissions(silent) {
 }
 
 function _removeGlobalCursorAgents(agentsGlobal) {
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+  const official = getCanonicalAgentNames();
   for (const name of official) {
     const p = path.join(agentsGlobal, `${name}.md`);
     if (fileExists(p)) { try { fs.unlinkSync(p); } catch { /* best-effort */ } }

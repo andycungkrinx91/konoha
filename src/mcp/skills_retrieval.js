@@ -134,11 +134,11 @@ function _safeCloseDb(conn) {
   try { conn.close(); } catch (_) { /* best-effort */ }
 }
 
-function _recordSkillFlow(effFlowHash, skillName, taskId, sessionId) {
+function _recordSkillFlow(effFlowHash, skillName, taskId, sessionId, agentName = null) {
   if (!effFlowHash) return;
   try {
     const personaMemory = require('../persona_memory');
-    personaMemory.recordFlowSkill(effFlowHash, skillName, taskId, sessionId);
+    personaMemory.recordFlowSkill(effFlowHash, skillName, taskId, sessionId, null, undefined, agentName);
   } catch (_) { /* ignore */ }
 }
 
@@ -182,7 +182,7 @@ function getSkill(name, agentName = null, options = {}) {
     const { finalContent, truncated, remainingSections, hash } = _truncateSkillContent(row.content || '', normName, tokenBudget, requestedSection);
 
     const effFlowHash = resolveFlowHashFromTask(flowHash, taskId);
-    _recordSkillFlow(effFlowHash, normName, taskId, sessionId);
+    _recordSkillFlow(effFlowHash, normName, taskId, sessionId, agentName);
 
     const payload = {
       name: row.name, type: row.type, content: finalContent,
@@ -265,12 +265,12 @@ function _loadSingleSkill(conn, normName, agentName, allWarnings) {
   return { status: 'not_found', error: notFound, source: 'none' };
 }
 
-function _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkills) {
+function _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkills, agentName = null) {
   if (!effFlowHash) return;
   const personaMemory = require('../persona_memory');
   for (const ls of loadedSkills) {
     if (ls.status === 'loaded') {
-      try { personaMemory.recordFlowSkill(effFlowHash, ls.name, taskId, sessionId); } catch (_) { /* ignore */ }
+      try { personaMemory.recordFlowSkill(effFlowHash, ls.name, taskId, sessionId, null, undefined, agentName); } catch (_) { /* ignore */ }
     }
   }
   if (!taskId) return;
@@ -338,7 +338,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
   }
 
   const effFlowHash = resolveFlowHashFromTask(flowHash, taskId);
-  _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkills);
+  _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkills, agentName);
 
   const resPayload = (skillNames.length === 1 && loadedSkills.length === 1)
     ? { ...loadedSkills[0], skills: loadedSkills, warnings: allWarnings }

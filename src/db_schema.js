@@ -448,6 +448,9 @@ function setupSchema(conn, backupDatabaseFn = null) {
     "ALTER TABLE agents ADD COLUMN model TEXT;",
     "ALTER TABLE projects ADD COLUMN dor_mode TEXT DEFAULT 'advisory';",
     "ALTER TABLE projects ADD COLUMN review_mode TEXT DEFAULT 'self';",
+    "ALTER TABLE tool_calls ADD COLUMN cached_tokens INTEGER;",
+    "ALTER TABLE tool_calls ADD COLUMN input_tokens INTEGER;",
+    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;",
   ];
   for (const sql of colSqls) {
     try {
@@ -540,11 +543,12 @@ function setupSchema(conn, backupDatabaseFn = null) {
 
   // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
   try {
-    const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema } = require('./mcp/three_asset/db_3d_schema');
+    const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema, applyQualityLadderMigration } = require('./mcp/three_asset/db_3d_schema');
     purgeLegacy3DTables(conn);
     verifyAndApplyCanonicalSchema(conn);
+    applyQualityLadderMigration(conn);
   } catch (err) {
-    if (err.message && (err.message.includes('SCHEMA DRIFT') || err.message.includes('FORBIDDEN') || err.message.includes('INTEGRITY'))) {
+    if (err.message && (err.message.includes('SCHEMA DRIFT') || err.message.includes('FORBIDDEN') || err.message.includes('INTEGRITY') || err.message.includes('FOREIGN KEY VIOLATION'))) {
       throw err;
     }
   }

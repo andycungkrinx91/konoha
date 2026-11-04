@@ -150,7 +150,7 @@
             ~{formatTokens(combToday.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
           </div>
           <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
-            {combToday.calls} calls • {formatBytes(combToday.bytes)} equiv ({combToday.pct}%)
+            {combToday.calls} calls • {formatBytes(combToday.bytes)} equiv ({combToday.no_data ? "no data" : combToday.pct + "%"})
           </div>
         </div>
 
@@ -163,7 +163,7 @@
             ~{formatTokens(combLast7.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
           </div>
           <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
-            {combLast7.calls} calls • {formatBytes(combLast7.bytes)} equiv ({combLast7.pct}%)
+            {combLast7.calls} calls • {formatBytes(combLast7.bytes)} equiv ({combLast7.no_data ? "no data" : combLast7.pct + "%"})
           </div>
         </div>
 
@@ -176,7 +176,7 @@
             ~{formatTokens(combAllTime.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
           </div>
           <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
-            {combAllTime.calls} calls • {formatBytes(combAllTime.bytes)} equiv ({combAllTime.pct}%)
+            {combAllTime.calls} calls • {formatBytes(combAllTime.bytes)} equiv ({combAllTime.no_data ? "no data" : combAllTime.pct + "%"})
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@
             <span>Konoha MCP Savings</span>
           </h3>
           <p class="text-xs font-semibold" style="color: var(--color-text-muted);">
-            Calculated relative to full context index sizing ({((today.db_size_bytes || (2065 * 1024)) / 1024).toFixed(0)} KB actual baseline)
+            Calculated relative to full context index sizing ({today.db_size_bytes ? `${(today.db_size_bytes / 1024).toFixed(0)} KB actual baseline` : 'baseline not yet measured'}).
           </p>
         </div>
       </div>
@@ -215,7 +215,7 @@
         <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
           <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
             <span>Today</span>
-            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{today.pct_saved ?? today.pct ?? 0}%</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{today.no_data ? "—" : (today.pct_saved ?? today.pct ?? 0) + "%"}</span>
           </div>
           <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{formatBytes(today.tokens_saved_bytes ?? today.bytes ?? 0)}</div>
           <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
@@ -223,7 +223,7 @@
             <span class="font-bold" style="color: var(--color-primary);">~{formatTokens(today.tokens_saved_approx ?? today.tokens ?? 0)} tokens</span>
           </div>
           <div class="w-full h-2 rounded-full mt-3 overflow-hidden progress-track-3d">
-            <div class="h-full rounded-full transition-all progress-fill-3d" style="width: {today.pct_saved ?? today.pct ?? 0}%;"></div>
+            <div class="h-full rounded-full transition-all progress-fill-3d" style="width: {today.no_data ? "—" : (today.pct_saved ?? today.pct ?? 0) + "%"};"></div>
           </div>
         </div>
 
@@ -283,7 +283,7 @@
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(today.pct_saved ?? today.pct ?? 0)}]</span>
-                    <span class="font-mono text-xs font-bold text-status-success">{today.pct_saved ?? today.pct ?? 0}%</span>
+                    <span class="font-mono text-xs font-bold text-status-success">{today.no_data ? "—" : (today.pct_saved ?? today.pct ?? 0) + "%"}</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(today.tokens || 0)}</td>

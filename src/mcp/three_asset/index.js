@@ -13,7 +13,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { getWorkspaceRoot } = require('../runtime_state');
 const { ensureHeadlessShim } = require('./headless_shim');
-const { validateSceneSpec, createDefaultSceneSpec, customizeSpecFromPrompt } = require('./spec_schema');
+const {
+  validateSceneSpec,
+  createDefaultSceneSpec,
+  customizeSpecFromPrompt,
+  resolveEffectiveArchetype
+} = require('./spec_schema');
 const { synthesizeSceneFromPrompt } = require('./prompt_synthesizer');
 const { parseKonohaDSL, specToDSL, normalizePolycount } = require('./dsl_parser');
 const { buildSceneFromSpec } = require('./scene_builder');
@@ -56,15 +61,31 @@ async function getThree() {
   return cachedThree;
 }
 
+const SYNTHESIS_WALL_CLOCK_MS = 300000;
+
+function withWallClock(promise, ms, label) {
+  let timer = null;
+  const guard = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} exceeded ${Math.round(ms / 1000)}s wall clock`)), ms);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+  return Promise.race([promise, guard]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 async function generate3DAsset(args = {}) {
   ensureHeadlessShim();
   const outDir = resolveOutputDirectory(args.out_dir);
 
-  const onProgress = typeof args.onProgress === 'function' ? args.onProgress : () => {};
+  const onProgress = typeof args.onProgress === 'function' ? args.onProgress : () => { /* progress reporting is optional */ };
   onProgress({ percent: 10, stage: 'Validation & Parameter Resolution', detail: 'Resolving scene parameters & target polycount...' });
 
   const safeName = String(args.name || 'HeroAsset').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64);
-  const archetype = String(args.archetype || 'application').toLowerCase();
+  const archetype = resolveEffectiveArchetype(
+    String(args.prompt || ''),
+    String(args.archetype || 'auto').toLowerCase()
+  );
   const targetPoly = normalizePolycount(args.target_polycount || args.polycount || 12000);
   const format = String(args.format || 'glb').toLowerCase();
   const profileName = args.profile || 'enterprise_pbr';
@@ -139,20 +160,20 @@ async function generate3DAsset(args = {}) {
     } else if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
       if (args.use_vision === true) {
         try {
-          const visionRes = await generateSceneSpecFromImage({
+          const visionRes = await withWallClock(generateSceneSpecFromImage({
             image_path: imagePath,
             name: safeName,
             archetype,
             target_polycount: targetPoly,
             model: args.model
-          });
+          }), SYNTHESIS_WALL_CLOCK_MS, 'Vision-to-DSL synthesis');
           if (visionRes && visionRes.spec) {
             sceneSpec = validateSceneSpec(visionRes.spec);
             sceneSource = visionRes.source || 'vision_to_dsl';
             modelUsed = visionRes.model_used || 'vision-dsl-synthesizer';
             if (visionRes.tokens) tokens = visionRes.tokens;
           }
-        } catch (_) {}
+        } catch { /* intentional best-effort fallback: optional asset is absent */ }
       }
 
       if (!scene && !sceneSpec) {
@@ -174,26 +195,49 @@ async function generate3DAsset(args = {}) {
       }
     }
   } else if (args.prompt && typeof args.prompt === 'string' && args.prompt.trim()) {
-    try {
-      const promptRes = await generateSceneSpecFromPrompt(args.prompt.trim(), {
-        name: safeName,
-        archetype,
-        target_polycount: targetPoly,
-        model: args.model
-      });
-      if (promptRes && promptRes.spec) {
-        sceneSpec = validateSceneSpec(promptRes.spec);
-        sceneSource = promptRes.source || 'prompt_synthesis';
-        modelUsed = promptRes.model_used || 'prompt-dsl-synthesizer';
-        if (promptRes.tokens) tokens = promptRes.tokens;
-      }
-    } catch (_) {
+    const isOffline = args.offline === true || args.use_llm === false;
+    if (isOffline) {
       const semSpec = synthesizeSceneFromPrompt(args.prompt, safeName, targetPoly, archetype);
-      sceneSpec = validateSceneSpec(semSpec || createDefaultSceneSpec(archetype, safeName));
+      sceneSpec = validateSceneSpec(semSpec || createDefaultSceneSpec(archetype, safeName, targetPoly));
       customizeSpecFromPrompt(sceneSpec, args.prompt);
+      sceneSource = semSpec ? 'procedural_fallback' : 'procedural_default';
+      modelUsed = semSpec ? 'prompt-synthesizer' : 'archetype-default';
+      tokens = { input_tokens: 0, output_tokens: 0, total_tokens: 0, est_cost_usd: 0.0 };
+    } else {
+      try {
+        const promptRes = await withWallClock(generateSceneSpecFromPrompt(args.prompt.trim(), {
+          name: safeName,
+          archetype,
+          target_polycount: targetPoly,
+          model: args.model,
+          offline: false,
+          use_llm: true
+        }), SYNTHESIS_WALL_CLOCK_MS, 'Prompt-to-DSL synthesis');
+        if (promptRes && promptRes.spec) {
+          sceneSpec = validateSceneSpec(promptRes.spec);
+          sceneSource = promptRes.source || 'prompt_synthesis';
+          modelUsed = promptRes.model_used || 'prompt-dsl-synthesizer';
+          if (promptRes.tokens) tokens = promptRes.tokens;
+        }
+      } catch (_) {
+        const semSpec = synthesizeSceneFromPrompt(args.prompt, safeName, targetPoly, archetype);
+        sceneSpec = validateSceneSpec(semSpec || createDefaultSceneSpec(archetype, safeName, targetPoly));
+        customizeSpecFromPrompt(sceneSpec, args.prompt);
+        sceneSource = semSpec ? 'procedural_fallback' : 'procedural_default';
+        modelUsed = semSpec ? 'prompt-synthesizer' : 'archetype-default';
+      }
     }
   } else {
-    sceneSpec = validateSceneSpec(createDefaultSceneSpec(archetype, safeName));
+    sceneSpec = validateSceneSpec(createDefaultSceneSpec(archetype, safeName, targetPoly));
+  }
+
+  // Last-resort guarantee: never hand an empty scene to the exporter.
+  if (!scene && !sceneSpec) {
+    const semantic = synthesizeSceneFromPrompt(String(args.prompt || ''), safeName, targetPoly, archetype);
+    sceneSpec = validateSceneSpec(semantic || createDefaultSceneSpec(archetype, safeName, targetPoly));
+    if (args.prompt) customizeSpecFromPrompt(sceneSpec, args.prompt);
+    sceneSource = semantic ? 'procedural_fallback' : 'procedural_default';
+    modelUsed = semantic ? 'prompt-synthesizer' : 'archetype-default';
   }
 
   // Material & Profile Normalization
@@ -228,21 +272,29 @@ async function generate3DAsset(args = {}) {
   const exportRes = await exportScene(scene, primaryGlbPath, { binary: true });
   validateGlbHeader(exportRes.buffer || fs.readFileSync(primaryGlbPath));
 
-  // Render preview PNG
+  // Render preview PNG from the exported GLB so the thumbnail matches the shipped asset
+  let previewRendered = false;
+  let previewError = null;
   try {
-    const prevRes = renderPreview(scene, { width: 512, height: 512 });
-    if (prevRes && prevRes.buffer) {
-      fs.writeFileSync(previewPngPath, prevRes.buffer);
+    const prevRes = await renderPreview(primaryGlbPath, assetDir, 'preview', { timeoutMs: 25000 });
+    if (prevRes && prevRes.previewPath && fs.existsSync(prevRes.previewPath)) {
+      fs.renameSync(prevRes.previewPath, previewPngPath);
+      previewRendered = true;
+    } else if (prevRes && prevRes.error) {
+      previewError = prevRes.error;
     }
-  } catch (_) {
-    // Generate fallback transparent PNG if headless WebGL canvas not available
+  } catch (err) {
+    previewError = err.message;
+  }
+  if (!previewRendered) {
+    // Transparent placeholder keeps the manifest shape stable when WebGL is unavailable.
     const fallbackPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
     fs.writeFileSync(previewPngPath, fallbackPng);
   }
 
   // Clean up any temp input files
   for (const tmp of tempFilesToClean) {
-    try { fs.unlinkSync(tmp); } catch (_) {}
+    try { fs.unlinkSync(tmp); } catch { /* intentional best-effort fallback: optional asset is absent */ }
   }
 
   onProgress({ percent: 100, stage: 'Completed', detail: '3D asset pipeline completed successfully.' });
@@ -258,6 +310,8 @@ async function generate3DAsset(args = {}) {
     primary_glb_path: primaryGlbPath,
     preview_path: previewPngPath,
     preview_png_path: previewPngPath,
+    preview_rendered: previewRendered,
+    preview_error: previewError,
     format,
     formats: { [format]: primaryGlbPath },
     bytes: fileBytes,

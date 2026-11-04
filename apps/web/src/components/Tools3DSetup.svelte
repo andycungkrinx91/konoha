@@ -137,11 +137,11 @@
         </div>
       </div>
       {#if statusData?.hardware?.hasGpu}
-        <span class="px-2.5 py-1 text-xs font-bold rounded-[5px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+        <span class="px-2.5 py-1 text-xs font-bold rounded-[5px] badge-status-success">
           GPU Acceleration Detected ({statusData.hardware.primaryBackend})
         </span>
       {:else}
-        <span class="px-2.5 py-1 text-xs font-bold rounded-[5px] bg-sky-500/10 text-sky-500 border border-sky-500/20">
+        <span class="px-2.5 py-1 text-xs font-bold rounded-[5px] badge-status-info">
           CPU Engine Active (High Performance)
         </span>
       {/if}
@@ -169,8 +169,8 @@
     <div class="glass-card-3d p-6 rounded-[5px] border flex flex-col justify-between" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">Core Runtime</span>
-          <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+          <span class="text-xs font-bold uppercase tracking-wider text-accent-themed">Core Runtime</span>
+          <span class="px-2 py-0.5 text-[10px] font-extrabold rounded badge-status-success">
             {statusData?.toolchain?.components?.three_manifold?.ready_state || 'Ready'}
           </span>
         </div>
@@ -186,11 +186,11 @@
     <div class="glass-card-3d p-6 rounded-[5px] border flex flex-col justify-between" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">DCC Suite</span>
+          <span class="text-xs font-bold uppercase tracking-wider text-accent-themed">DCC Suite</span>
           {#if statusData?.toolchain?.components?.blender?.ready_state === 'Ready'}
-            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ready</span>
+            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded badge-status-success">Ready</span>
           {:else}
-            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Not Installed</span>
+            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded badge-status-warning">Not Installed</span>
           {/if}
         </div>
         <h3 class="text-base font-extrabold" style="color: var(--color-text);">Blender {statusData?.toolchain?.components?.blender?.version || 'Not detected'}</h3>
@@ -205,11 +205,11 @@
     <div class="glass-card-3d p-6 rounded-[5px] border flex flex-col justify-between" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">Agentic Bridge</span>
+          <span class="text-xs font-bold uppercase tracking-wider text-accent-themed">Agentic Bridge</span>
           {#if statusData?.toolchain?.components?.dcc_mcp_blender?.ready_state === 'Ready'}
-            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ready</span>
+            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded badge-status-success">Ready</span>
           {:else}
-            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Not Installed</span>
+            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded badge-status-warning">Not Installed</span>
           {/if}
         </div>
         <h3 class="text-base font-extrabold" style="color: var(--color-text);">DCC-MCP-Blender</h3>
@@ -226,7 +226,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full {statusData?.live_session?.running ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}"></span>
+          <span class="w-2.5 h-2.5 rounded-full {statusData?.live_session?.running ? 'bg-status-success animate-pulse' : 'bg-slate-400'}"></span>
           <h3 class="text-sm font-bold" style="color: var(--color-text);">
             Live Agentic Blender Session: {statusData?.live_session?.running ? `Running (PID ${statusData.live_session.pid})` : 'Inactive'}
           </h3>
@@ -241,7 +241,7 @@
           <button
             type="button"
             onclick={terminateBlender}
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-all cursor-pointer"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold badge-status-danger hover:bg-red-500/20 transition-all cursor-pointer"
           >
             Terminate Session
           </button>
@@ -280,8 +280,8 @@
           <p class="leading-relaxed">{log}</p>
         {/each}
         {#if installing}
-          <div class="flex items-center gap-2 text-cyan-400 mt-2">
-            <div class="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+          <div class="flex items-center gap-2 text-accent-themed mt-2">
+            <div class="w-3 h-3 border-2 border-accent-themed border-t-transparent rounded-full animate-spin"></div>
             <span>Downloading and configuring toolchain packages...</span>
           </div>
         {/if}

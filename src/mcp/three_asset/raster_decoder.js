@@ -79,7 +79,7 @@ async function decodeRasterToPixels(filePath) {
     throw new Error(`Raster decode failed for ${ext}: ${err.message}`);
   } finally {
     if (browser) {
-      try { await browser.close(); } catch (_) {}
+      try { await browser.close(); } catch { /* intentional best-effort fallback: optional decoder path */ }
     }
   }
 }

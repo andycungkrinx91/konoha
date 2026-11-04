@@ -157,6 +157,26 @@ function _mergeDefaults(agents, defaults, loadedFromUser) {
   return agents;
 }
 
+function _collectAgentIdentitySkills(defaults) {
+  const map = new Map();
+  for (const def of defaults) {
+    if (!def?.name || !Array.isArray(def.skills) || def.skills.length === 0) continue;
+    map.set(def.name, def.skills[0]);
+  }
+  return map;
+}
+
+function _stripForeignIdentitySkills(agentName, skills, identityByAgent) {
+  if (!Array.isArray(skills) || skills.length === 0) return skills;
+  const own = identityByAgent.get(agentName);
+  const foreign = new Set();
+  for (const [name, identity] of identityByAgent) {
+    if (name !== agentName && identity) foreign.add(identity);
+  }
+  if (own) foreign.delete(own);
+  return skills.filter(s => !foreign.has(s));
+}
+
 function _normalizeSingleAgentSkills(a, defAgent, allDbSkills) {
   let configuredSkills = Array.isArray(a.skills)
     ? a.skills.map(normalizeLegacySkillName).filter(s => typeof s === 'string' && !s.includes('/'))
@@ -302,8 +322,12 @@ function loadAgents(reloadDefaults = false, silent = false) {
   const allDbSkills = _getDbSkills();
 
   if (agents.length > 0) {
+    const identityByAgent = _collectAgentIdentitySkills(defaults);
     agents = agents.map(a => {
       const defAgent = defaults.find(d => d.name === a?.name);
+      if (Array.isArray(a.skills)) {
+        a.skills = _stripForeignIdentitySkills(a.name, a.skills, identityByAgent);
+      }
       return _normalizeSingleAgentSkills(a, defAgent, allDbSkills);
     });
   }

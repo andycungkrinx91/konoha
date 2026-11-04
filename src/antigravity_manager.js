@@ -1,3 +1,5 @@
+
+const { getCanonicalAgentNames } = require('./canonical_agents');
 const {
   buildAgentJson,
   ensureAntigravityAgents,
@@ -16,6 +18,13 @@ const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
+// Every location the deployer writes to. Keeping one list prevents the status
+// probe from drifting away from where definitions actually land.
+const ANTIGRAVITY_AGENT_DIRS = Object.freeze([
+  path.join(HOME, '.gemini', 'config', 'agents'),
+  path.join(HOME, '.gemini', 'antigravity-cli', 'agents'),
+  path.join(HOME, '.gemini', 'antigravity-ide', 'agents')
+]);
 
 function detectAntigravityIde(options = {}) {
   const env = options.env || process.env;
@@ -244,13 +253,17 @@ function getAntigravityStatus() {
     } catch { /* ignore */ }
   }
 
+  // Scan every directory the deployer writes to, so the doctor cannot report
+  // zero agents just because it looked at a different target than the writer.
   let agentsCount = 0;
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
-  if (fs.existsSync(ANTIGRAVITY_AGENTS_GLOBAL)) {
+  const official = getCanonicalAgentNames();
+  for (const dir of ANTIGRAVITY_AGENT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
     try {
-      agentsCount = fs.readdirSync(ANTIGRAVITY_AGENTS_GLOBAL).filter(f =>
-        official.includes(f) && fs.existsSync(path.join(ANTIGRAVITY_AGENTS_GLOBAL, f, 'agent.json'))
+      const found = fs.readdirSync(dir).filter(
+        (f) => official.includes(f) && fs.existsSync(path.join(dir, f, 'agent.json'))
       ).length;
+      if (found > agentsCount) agentsCount = found;
     } catch { /* ignore */ }
   }
 
@@ -490,6 +503,9 @@ function ensureAntigravitySetup(options = {}) {
     fs.writeFileSync(geminiMd, generateGeminiMd(agents), "utf8");
     fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
     fs.writeFileSync(agentsMd, generateAgentsMd(agents), "utf8");
+    // A subagent can only be spawned if its definition file exists on disk.
+    // Deploy the loaded roster before returning.
+    ensureAntigravityAgents(agents, options);
   } catch (_) { /* best-effort */ }
 
   return { ok: true };

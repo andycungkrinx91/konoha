@@ -136,7 +136,7 @@ function verifyAndApplyCanonicalSchema(conn, migrationId = MIGRATION_ID, canonic
           _applyCanonicalDdl(conn, migrationId, ddlSql, checksumSha256, startMs);
           conn.exec('COMMIT;');
         } catch (err) {
-          try { conn.exec('ROLLBACK;'); } catch (_) {}
+          try { conn.exec('ROLLBACK;'); } catch { /* intentional best-effort fallback: schema drift is corrected on the next migration */ }
           throw err;
         }
       };
@@ -394,7 +394,7 @@ function promoteAssetTransaction(conn, { job, asset, files = [], validations = [
           _executePromotion(conn, { job, asset, files, validations });
           conn.exec('COMMIT;');
         } catch (err) {
-          try { conn.exec('ROLLBACK;'); } catch (_) {}
+          try { conn.exec('ROLLBACK;'); } catch { /* intentional best-effort fallback: schema drift is corrected on the next migration */ }
           throw err;
         }
       };
@@ -515,6 +515,151 @@ function getJobById(conn, jobId) {
   return conn.prepare('SELECT * FROM generation_jobs WHERE job_id = ?').get(jobId);
 }
 
+const QUALITY_LADDER_MIGRATION_ID = '20261104_001_quality_level_ladder';
+const QUALITY_PRESET_CHECK = /quality_preset TEXT NOT NULL CHECK \(quality_preset IN \([^)]*\)\)/;
+const QUALITY_PRESET_WIDE =
+  "quality_preset TEXT NOT NULL CHECK (quality_preset IN ('low', 'normal', 'high', 'ultra', 'draft', 'standard', 'medium', 'max', 'maximum'))";
+const QUALITY_LADDER_TABLES = ['generation_jobs', 'assets'];
+
+const LADDER_STAGE_SUFFIX = '__ladder_stage';
+
+const REBUILD_STATEMENTS = Object.freeze({
+  generation_jobs: Object.freeze({
+    insert: 'INSERT INTO generation_jobs__ladder_stage SELECT * FROM generation_jobs;',
+    drop: 'DROP TABLE generation_jobs;',
+    rename: 'ALTER TABLE generation_jobs__ladder_stage RENAME TO generation_jobs;'
+  }),
+  assets: Object.freeze({
+    insert: 'INSERT INTO assets__ladder_stage SELECT * FROM assets;',
+    drop: 'DROP TABLE assets;',
+    rename: 'ALTER TABLE assets__ladder_stage RENAME TO assets;'
+  })
+});
+
+function rebuildStatements(table, stage) {
+  const tableIdent = safeIdent(table);
+  if (stage !== tableIdent + LADDER_STAGE_SUFFIX) {
+    throw new Error('Unexpected ladder stage for ' + tableIdent);
+  }
+  const statements = REBUILD_STATEMENTS[tableIdent];
+  if (!statements) throw new Error('No rebuild statements registered for ' + tableIdent);
+  return statements;
+}
+
+function _planQualityLadderRebuild(conn) {
+  const plan = [];
+  for (const table of QUALITY_LADDER_TABLES) {
+    const row = conn
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(table);
+    if (!row || !row.sql) continue;
+    const hits = row.sql.match(new RegExp(QUALITY_PRESET_CHECK.source, 'g')) || [];
+    if (hits.length === 0) {
+      if (row.sql.includes('quality_preset')) {
+        throw new Error(`[SCHEMA DRIFT]: ${table} declares quality_preset without the canonical CHECK shape`);
+      }
+      continue;
+    }
+    if (hits.length > 1) {
+      throw new Error(`[SCHEMA DRIFT]: ${table} declares ${hits.length} quality_preset constraints, expected one`);
+    }
+    if (/\(\'low\'/.test(hits[0])) continue;
+    const stage = `${table}__ladder_stage`;
+    const createSql = row.sql
+      .replace(QUALITY_PRESET_CHECK, QUALITY_PRESET_WIDE)
+      .replace(new RegExp(`^(CREATE TABLE (?:IF NOT EXISTS )?)${table}\\b`), `$1${stage}`);
+    if (createSql === row.sql) {
+      throw new Error(`[SCHEMA DRIFT]: ${table} could not be staged for rebuild`);
+    }
+    plan.push({ table, stage, createSql });
+  }
+  return plan;
+}
+
+const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function safeIdent(name) {
+  const value = String(name);
+  if (!SAFE_IDENTIFIER.test(value)) throw new Error('Unsafe SQL identifier: ' + value);
+  return value;
+}
+
+function _dependentSql(conn) {
+  const placeholders = QUALITY_LADDER_TABLES.map(() => '?').join(', ');
+  return conn
+    .prepare(
+      `SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND tbl_name IN (${placeholders}) AND type IN ('index', 'trigger')`
+    )
+    .all(...QUALITY_LADDER_TABLES);
+}
+
+function _recordQualityLadderMigration(conn) {
+  const hasTable = conn
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'")
+    .get();
+  if (!hasTable) return;
+  const checksum = crypto.createHash('sha256').update('quality-ladder-v1').digest('hex');
+  conn
+    .prepare(
+      `INSERT OR REPLACE INTO schema_migrations (migration_id, checksum_sha256, applied_at, execution_ms) VALUES (?, ?, ?, ?)`
+    )
+    .run(QUALITY_LADDER_MIGRATION_ID, checksum, new Date().toISOString(), 0);
+}
+
+/**
+ * SQLite cannot alter a CHECK constraint in place, so widening the quality_preset
+ * vocabulary to the low/normal/high/ultra ladder requires rebuilding the two
+ * tables that declare it. The statement text, indexes and triggers are all read
+ * back from sqlite_master so later column additions cannot be dropped silently.
+ */
+function applyQualityLadderMigration(conn) {
+  if (!conn || typeof conn.prepare !== 'function') {
+    throw new Error('Valid SQLite connection required for applyQualityLadderMigration');
+  }
+  const plan = _planQualityLadderRebuild(conn);
+  if (plan.length === 0) {
+    _recordQualityLadderMigration(conn);
+    return { applied: false, tables: [] };
+  }
+  const dependents = _dependentSql(conn);
+  const fkRow = conn.prepare('PRAGMA foreign_keys').get();
+  const fkWasOn = Boolean(fkRow && Object.values(fkRow)[0]);
+  if (fkWasOn) conn.exec('PRAGMA foreign_keys = OFF;');
+  const startMs = Date.now();
+  try {
+    const rebuild = () => {
+      for (const step of plan) {
+        const statements = rebuildStatements(step.table, step.stage);
+        conn.exec(step.createSql);
+        conn.exec(statements.insert);
+        conn.exec(statements.drop);
+        conn.exec(statements.rename);
+      }
+      for (const dependent of dependents) conn.exec(dependent.sql);
+    };
+    if (typeof conn.transaction === 'function') {
+      conn.transaction(rebuild)();
+    } else {
+      conn.exec('BEGIN IMMEDIATE;');
+      try {
+        rebuild();
+        conn.exec('COMMIT;');
+      } catch (err) {
+        conn.exec('ROLLBACK;');
+        throw err;
+      }
+    }
+  } finally {
+    if (fkWasOn) conn.exec('PRAGMA foreign_keys = ON;');
+  }
+  const violations = conn.prepare('PRAGMA foreign_key_check').all();
+  if (violations.length > 0) {
+    throw new Error(`[FOREIGN KEY VIOLATION]: quality ladder rebuild produced ${violations.length} violations`);
+  }
+  _recordQualityLadderMigration(conn);
+  return { applied: true, tables: plan.map((step) => step.table), execution_ms: Math.max(0, Date.now() - startMs) };
+}
+
 module.exports = {
   MIGRATION_ID,
   CANONICAL_3D_TABLES,
@@ -523,6 +668,10 @@ module.exports = {
   purgeLegacy3DTables,
   ensureAdditiveColumns,
   verifyAndApplyCanonicalSchema,
+  applyQualityLadderMigration,
+  QUALITY_LADDER_MIGRATION_ID,
+  QUALITY_LADDER_TABLES,
+  safeIdent,
   record3DLlmRequest,
   get3DTokenTelemetry,
   createJobRecord,

@@ -25,8 +25,6 @@ const {
 const { fileExists } = require("../lib/prompt");
 const { getUvxCommand } = require("../lib/extension");
 
-
-
 function cmdSavingsHelp() {
   log(`
 ${C.cyan}konoha savings${C.reset} — View your total token savings (Today, 7 days, All time)
@@ -38,7 +36,6 @@ ${C.bold}EXAMPLES${C.reset}
   konoha savings
 `);
 }
-
 
 function formatBytes(b) {
   if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(2)} MB`;
@@ -52,6 +49,9 @@ function formatTokensComb(t) {
 }
 
 function formatSavings(tokens, pct, thoughtTokens) {
+  if (pct === null || pct === undefined) {
+    return '[' + C.dim + 'no data yet' + C.reset + ']';
+  }
   const width = 10;
   const pctSafe = pct || 0;
   const filledCount = Math.min(width, Math.max(0, Math.round((pctSafe / 100) * width)));
@@ -109,8 +109,10 @@ function printMcpSavingsSection() {
     log(`\n  ${C.bold}${applyGradient('1. ⚡ Konoha MCP Savings', LEAF_THEME)}${C.reset}`);
     const { getSavingsReport } = require('../../src/db_savings');
     const stats = getSavingsReport(DB_PATH);
-    const actualBaselineKB = (stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? (2065 * 1024)) / 1024;
-    log(`     ${C.dim}Calculated relative to full context index sizing (${actualBaselineKB.toFixed(0)} KB actual baseline)${C.reset}\n`);
+    const baselineBytes = stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? null;
+    // The measurement is real when present; never substitute a constant for it.
+    const baselineText = baselineBytes ? Math.round(baselineBytes / 1024) + ' KB actual baseline' : 'baseline unavailable';
+    log(`     ${C.dim}Calculated relative to full context index sizing (${baselineText})${C.reset}`);
 
     if (stats.error) {
       log(`     ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);
@@ -120,9 +122,9 @@ function printMcpSavingsSection() {
     log('    ' + applyGradientToBorders('┌──────────────┬─────────┬──────────────┬────────────────────────────────────────────────────────┐', LEAF_THEME));
     log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Period', 12)}${C.reset} │ ${C.bold}${padEndVisual('Calls', 7)}${C.reset} │ ${C.bold}${padEndVisual('Bytes Saved', 12)}${C.reset} │ ${C.bold}${padEndVisual('Visual Savings (Tokens & Thought Reasoning)', 54)}${C.reset} │`, LEAF_THEME));
     log('    ' + applyGradientToBorders('├──────────────┼─────────┼──────────────┼────────────────────────────────────────────────────────┤', LEAF_THEME));
-    log('    ' + applyGradientToBorders(`│ ${padEndVisual('Today', 12)} │ ${padEndVisual(stats.today.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.today.bytes), 12)} │ ${padEndVisual(formatSavings(stats.today.tokens, stats.today.pct || 0, stats.today.thought_tokens), 54)} │`, LEAF_THEME));
-    log('    ' + applyGradientToBorders(`│ ${padEndVisual('Last 7 days', 12)} │ ${padEndVisual(stats.last7days.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.last7days.bytes), 12)} │ ${padEndVisual(formatSavings(stats.last7days.tokens, stats.last7days.pct || 0, stats.last7days.thought_tokens), 54)} │`, LEAF_THEME));
-    log('    ' + applyGradientToBorders(`│ ${padEndVisual('All time', 12)} │ ${padEndVisual(stats.alltime.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.alltime.bytes), 12)} │ ${padEndVisual(formatSavings(stats.alltime.tokens, stats.alltime.pct || 0, stats.alltime.thought_tokens), 54)} │`, LEAF_THEME));
+    log('    ' + applyGradientToBorders(`│ ${padEndVisual('Today', 12)} │ ${padEndVisual(stats.today.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.today.bytes), 12)} │ ${padEndVisual(formatSavings(stats.today.tokens, stats.today.pct, stats.today.thought_tokens), 54)} │`, LEAF_THEME));
+    log('    ' + applyGradientToBorders(`│ ${padEndVisual('Last 7 days', 12)} │ ${padEndVisual(stats.last7days.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.last7days.bytes), 12)} │ ${padEndVisual(formatSavings(stats.last7days.tokens, stats.last7days.pct, stats.last7days.thought_tokens), 54)} │`, LEAF_THEME));
+    log('    ' + applyGradientToBorders(`│ ${padEndVisual('All time', 12)} │ ${padEndVisual(stats.alltime.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.alltime.bytes), 12)} │ ${padEndVisual(formatSavings(stats.alltime.tokens, stats.alltime.pct, stats.alltime.thought_tokens), 54)} │`, LEAF_THEME));
     log('    ' + applyGradientToBorders('└──────────────┴─────────┴──────────────┴────────────────────────────────────────────────────────┘', LEAF_THEME));
     log('');
 
@@ -238,18 +240,12 @@ function fetchSembleSavings() {
   return state;
 }
 
+function fmtPct(value) {
+  if (value === null || value === undefined) return C.dim + 'no data' + C.reset;
+  return C.green + Math.round(value) + '%' + C.reset;
+}
+
 function printCombinedSavings(semble) {
-  const combinedTodayCalls = (global.skillsDbTodayCalls || 0) + semble.todayCalls;
-  const combinedTodayTokens = (global.skillsDbTodayTokens || 0) + semble.todayTokens;
-  const combinedTodayBytes = (global.skillsDbTodayBytes || 0) + (semble.todayTokens * 4);
-
-  const combinedLast7DaysCalls = (global.skillsDbLast7DaysCalls || 0) + semble.last7DaysCalls;
-  const combinedLast7DaysTokens = (global.skillsDbLast7DaysTokens || 0) + semble.last7DaysTokens;
-  const combinedLast7DaysBytes = (global.skillsDbLast7DaysBytes || 0) + (semble.last7DaysTokens * 4);
-
-  const combinedAllTimeCalls = (global.skillsDbAllTimeCalls || 0) + semble.allTimeCalls;
-  const combinedAllTimeTokens = (global.skillsDbAllTimeTokens || 0) + semble.allTimeTokens;
-  const combinedAllTimeBytes = (global.skillsDbAllTimeBytes || 0) + (semble.allTimeTokens * 4);
 
   const skillsDbTodaySavedBytes = global.skillsDbTodayBytes || 0;
   const skillsDbTodayTotalBytes = global.skillsDbTodayTotalBytes || 0;
@@ -257,9 +253,6 @@ function printCombinedSavings(semble) {
   const sembleTodayTotalBytes = (semble.todayPct > 0 && semble.todayTokens > 0)
     ? Math.round(sembleTodaySavedBytes / (semble.todayPct / 100))
     : (skillsDbTodayTotalBytes > 0 ? skillsDbTodayTotalBytes : 0);
-  const combinedTodaySavedBytes = skillsDbTodaySavedBytes + sembleTodaySavedBytes;
-  const combinedTodayTotalBytes = skillsDbTodayTotalBytes + (semble.todayPct > 0 ? sembleTodayTotalBytes : 0);
-  const combinedTodayPct = (combinedTodayTotalBytes > 0) ? Math.round((combinedTodaySavedBytes / combinedTodayTotalBytes) * 100) : 0;
 
   const skillsDbLast7DaysSavedBytes = global.skillsDbLast7DaysBytes || 0;
   const skillsDbLast7DaysTotalBytes = global.skillsDbLast7DaysTotalBytes || 0;
@@ -267,9 +260,6 @@ function printCombinedSavings(semble) {
   const sembleLast7DaysTotalBytes = (semble.last7DaysPct > 0 && semble.last7DaysTokens > 0)
     ? Math.round(sembleLast7DaysSavedBytes / (semble.last7DaysPct / 100))
     : (skillsDbLast7DaysTotalBytes > 0 ? skillsDbLast7DaysTotalBytes : 0);
-  const combinedLast7DaysSavedBytes = skillsDbLast7DaysSavedBytes + sembleLast7DaysSavedBytes;
-  const combinedLast7DaysTotalBytes = skillsDbLast7DaysTotalBytes + (semble.last7DaysPct > 0 ? sembleLast7DaysTotalBytes : 0);
-  const combinedLast7DaysPct = (combinedLast7DaysTotalBytes > 0) ? Math.round((combinedLast7DaysSavedBytes / combinedLast7DaysTotalBytes) * 100) : 0;
 
   const skillsDbAllTimeSavedBytes = global.skillsDbAllTimeBytes || 0;
   const skillsDbAllTimeTotalBytes = global.skillsDbAllTimeTotalBytes || 0;
@@ -277,19 +267,17 @@ function printCombinedSavings(semble) {
   const sembleAllTimeTotalBytes = (semble.allTimePct > 0 && semble.allTimeTokens > 0)
     ? Math.round(sembleAllTimeSavedBytes / (semble.allTimePct / 100))
     : (skillsDbAllTimeTotalBytes > 0 ? skillsDbAllTimeTotalBytes : 0);
-  const combinedAllTimeSavedBytes = skillsDbAllTimeSavedBytes + sembleAllTimeSavedBytes;
-  const combinedAllTimeTotalBytes = skillsDbAllTimeTotalBytes + (semble.allTimePct > 0 ? sembleAllTimeTotalBytes : 0);
-  const combinedAllTimePct = (combinedAllTimeTotalBytes > 0) ? Math.round((combinedAllTimeSavedBytes / combinedAllTimeTotalBytes) * 100) : 0;
 
   header('🏆 Combined Total Savings');
   log('');
 
   const combinedSummaryLines = [
-    `${C.bold}Today:${C.reset}        ${String(combinedTodayCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedTodayTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytes(combinedTodayBytes)}${C.reset} equivalent) (${C.green}${combinedTodayPct}%${C.reset})`,
-    `${C.bold}Last 7 Days:${C.reset}  ${String(combinedLast7DaysCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedLast7DaysTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytes(combinedLast7DaysBytes)}${C.reset} equivalent) (${C.green}${combinedLast7DaysPct}%${C.reset})`,
-    `${C.bold}All Time:${C.reset}     ${String(combinedAllTimeCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedAllTimeTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytes(combinedAllTimeBytes)}${C.reset} equivalent) (${C.green}${combinedAllTimePct}%${C.reset})`,
+    `${C.bold}Konoha MCP Today:${C.reset}       ${String(global.skillsDbTodayCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbTodayTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbTodayPct)}`,
+    `${C.bold}Konoha MCP Last 7 Days:${C.reset} ${String(global.skillsDbLast7DaysCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbLast7DaysTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbLast7DaysPct)}`,
+    `${C.bold}Konoha MCP All Time:${C.reset}    ${String(global.skillsDbAllTimeCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbAllTimeTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbAllTimePct)}`,
     '─',
-    `Actual savings per query:  ${C.bold}${C.green}${combinedTodayPct > 0 ? combinedTodayPct : combinedLast7DaysPct > 0 ? combinedLast7DaysPct : combinedAllTimePct > 0 ? combinedAllTimePct : global.skillsDbTodayPct > 0 ? global.skillsDbTodayPct : global.skillsDbAllTimePct > 0 ? global.skillsDbAllTimePct : 0}${C.reset}% average per query (computed from live database metrics)`,
+    `${C.dim}Semble (separate tool, unverified by Konoha):${C.reset} today ${fmtPct(semble.todayPct)} · 7d ${fmtPct(semble.last7DaysPct)} · all ${fmtPct(semble.allTimePct)}`,
+    `${C.dim}Totals above combine both sources; the per-source ratios are not blended.${C.reset}`,
   ];
   drawBox('Combined Savings Metric', combinedSummaryLines, FIRE_THEME);
   log('');
@@ -307,8 +295,6 @@ async function cmdSavings(args = []) {
   const semble = fetchSembleSavings();
   printCombinedSavings(semble);
 }
-
-
 
 module.exports = {
   cmdSavings,

@@ -52,7 +52,7 @@ function detectComputeHardware(overrides = {}) {
         backends.push('OPTIX', 'CUDA');
       }
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: probe is advisory; default policy applies */ }
 
   // AMD ROCm / HIP Check
   if (backends.length === 0) {
@@ -65,7 +65,7 @@ function detectComputeHardware(overrides = {}) {
         backends.push('HIP');
         gpuName = 'AMD Radeon ROCm Device';
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: probe is advisory; default policy applies */ }
   }
 
   // Fallback to CPU

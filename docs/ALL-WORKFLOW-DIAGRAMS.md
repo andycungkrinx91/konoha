@@ -23,6 +23,8 @@ This document defines all active architectural workflows within **Konoha** (`kon
 15. [Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle](#15-workflow-14-akatsuki-security-controls--dual-mode-lab-lifecycle)
 16. [Workflow 15: LangGraph.js Production State Graph & Error Edge Circuit Breaker](#16-workflow-15-langgraphjs-production-state-graph--error-edge-circuit-breaker)
 17. [Workflow 16: Turn-Scoped Budget Execution & Resume Loop Protocol](#17-workflow-16-turn-scoped-budget-execution--resume-loop-protocol)
+18. [Workflow 17: Text-to-3D Generation Pipeline (Yamanaka Graph)](#18-workflow-17-text-to-3d-generation-pipeline-yamanaka-graph)
+19. [Workflow 18: Image-to-3D Upload, Relief Mesh & Blender Refinement Pipeline](#19-workflow-18-image-to-3d-upload-relief-mesh--blender-refinement-pipeline)
 
 ---
 
@@ -67,6 +69,7 @@ flowchart TB
     Orchestrator --> CoreMCP
 
     subgraph NinjaTeam ["Specialist Ninja Subagents"]
+        Sannin["✧ sannin<br/>(Village Router &amp; Planner)"]
         Genin["⚑ genin<br/>(Read-only Code Scout)"]
         Kage["◎ kage<br/>(Architecture &amp; Quality Gates)"]
         Chunin["▫ chunin<br/>(Web Intel &amp; Citations)"]
@@ -74,6 +77,7 @@ flowchart TB
         Anbu["♠ anbu<br/>(Backend, DevOps &amp; QA)"]
         Tokubetsu["⬡ tokubetsu-jonin<br/>(Documentation Scribe)"]
         Akatsuki["🛡️ akatsuki<br/>(Security Specialist · Blue SAST / Red Lab)"]
+        Yamanaka["❖ yamanaka<br/>(Generative 3D &amp; Spatial Subsystem)"]
     end
 
     CoreMCP --> NinjaTeam
@@ -101,7 +105,7 @@ flowchart TB
 
     class UserPrompt,Clients,Orchestrator,Delivery clientNode;
     class SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcpNode;
-    class Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu,Akatsuki agentNode;
+    class Sannin,Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu,Akatsuki,Yamanaka agentNode;
     class DoRGate,AkatsukiSecurityGate,SlopGate,SocketGate,ConfidenceGate gateNode;
 ```
 
@@ -1226,3 +1230,156 @@ flowchart TD
 3. **No Caller Overhead**: Resuming turns do not require re-supplying `token_budget` or prior-turn arguments; persisted ceilings survive across turn boundaries automatically.
 4. **Single-Owner Token Metering**: Every node update passes through `finalizeNodeResult` in `src/mcp/langgraph/budget.js`, ensuring unified token estimation and absolute turn accounting.
 5. **Per-Thread Circuit Breaker**: State-machine error edges are guarded by thread-scoped breakers (`workflow:${threadId}`) that trip after 3 consecutive failures, preventing cascade retries while isolating concurrent execution threads.
+
+---
+
+## 18. Workflow 17: Text-to-3D Generation Pipeline (Yamanaka Graph)
+
+```mermaid
+---
+title: Yamanaka Text-to-3D Generation Pipeline & Agentic Blender Refinement (v2.2.18)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#0f172a"
+    primaryBorderColor: "#8b5cf6"
+    lineColor: "#334155"
+    arrowheadColor: "#334155"
+    secondaryColor: "#f8fafc"
+    tertiaryColor: "#ffffff"
+    fontFamily: "Inter, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    PromptIn(["Text Prompt &amp; Style Directives<br/>(POST /api/v1/3d/generate)"]) --> InitNode["Stage 1: Prompt Intake<br/>• init (nodeInit)<br/>• Parameter normalization &amp; budget clamping"]
+    
+    InitNode --> SynthNode["DSL Synthesis<br/>• synthesize_dsl (nodeSynthesizeDsl)<br/>• LLM scene spec &amp; archetype selection"]
+    
+    SynthNode --> PreValNode{"Pre-Validation<br/>• validate_pre (nodeValidatePre)<br/>• Schema check &amp; primitive budget"}
+    
+    PreValNode -- "Schema Valid" --> BaseMeshNode["Stage 2: Manifold Geometry<br/>• build_base (nodeBuildBaseMesh)<br/>• Three.js + Manifold-3D watertight CSG mesh"]
+    
+    PreValNode -- "Schema Invalid" --> RepairPre["Repair Stage<br/>• repair (nodeRepair)<br/>• Autonomous spec healing"]
+    RepairPre --> BaseMeshNode
+    
+    BaseMeshNode --> PbrNode["Stage 3: PBR Shading<br/>• MeshPhysicalMaterial layer setup<br/>• Micro-chamfer bevels &amp; physical roughness/metalness"]
+    
+    PbrNode --> BlenderNode["Stage 4: Blender Refinement<br/>• refine_blender (nodeRefineBlender)<br/>• dcc-mcp-blender 6-step agentic refinement<br/>(Import GLB → Bevel/Normals → Smart UV → PBR BSDF → Studio Light → Export)"]
+    
+    BlenderNode --> PostValNode{"Stage 4 Gate: Post-Validation<br/>• validate_post (nodeValidatePost)<br/>• 11-row scoreSpec validation gate"}
+    
+    PostValNode -- "scoreSpec Passed (≥98% confidence)" --> PromoteNode["Stage 5: Asset Export<br/>• promote (nodePromoteAsset)<br/>• Watertight GLB export &amp; DB telemetry"]
+    
+    PostValNode -- "scoreSpec Defect" --> RepairPost["Repair Loop<br/>• repair (nodeRepair)<br/>• Topology &amp; material adjustment"]
+    RepairPost --> BaseMeshNode
+    
+    PromoteNode --> EndAsset(["Production 3D Asset<br/>(~/.konoha/3d-output/ &amp; SSE Stream Complete)"])
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef intakeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef geomNode fill:#ffffff,stroke:#0284c7,color:#0f172a,stroke-width:2px;
+    classDef refineNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class PromptIn,EndAsset startEnd;
+    class InitNode,SynthNode intakeNode;
+    class BaseMeshNode,PbrNode geomNode;
+    class BlenderNode refineNode;
+    class PreValNode,PostValNode,PromoteNode gateNode;
+    class RepairPre,RepairPost errNode;
+```
+
+### Architectural Guarantees & Operational Lifecycle
+
+1. **5-Stage Pipeline Sequencing**: Text-to-3D strictly executes through Prompt Intake (`init` → `synthesize_dsl`), Manifold Geometry (`build_base`), PBR Shading (`build_base`), Blender Refinement (`refine_blender`), and Asset Export (`promote`).
+2. **Watertight Manifold Invariant**: Geometry generated by Manifold-3D is mathematically guaranteed watertight (zero self-intersections, watertight non-manifold edge count = 0) prior to Blender hand-off.
+3. **Agentic 6-Step Blender Processing**: `dcc-mcp-blender` applies deterministic bevel modifiers, smart UV unwrapping, principled PBR BSDF material networks, studio three-point lighting, and export verification.
+4. **11-Row scoreSpec Validation Gate**: `validate_post` enforces enterprise geometric and shading tolerances before promoting staging assets to production (`~/.konoha/3d-output/`).
+5. **Real-Time Telemetry & Progress Streaming**: SSE endpoint `GET /api/v1/3d/generate/:jobId/stream` emits stage transitions, node timers, and GPU memory utilization to the Web UI in real time.
+
+---
+
+## 19. Workflow 18: Image-to-3D Upload, Relief Mesh & Blender Refinement Pipeline
+
+```mermaid
+---
+title: Yamanaka Image-to-3D Upload, Relief Mesh & Blender Refinement Pipeline (v2.2.18)
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#0f172a"
+    primaryBorderColor: "#8b5cf6"
+    lineColor: "#334155"
+    arrowheadColor: "#334155"
+    secondaryColor: "#f8fafc"
+    tertiaryColor: "#ffffff"
+    fontFamily: "Inter, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    ImgUpload(["Image Upload Ingress<br/>POST /api/v1/3d/upload-image<br/>(12 MB cap · magic-byte sniff: PNG/JPEG/WEBP)"]) --> UploadGate{"Image Ingress Validation<br/>Magic byte &amp; path traversal check"}
+    
+    UploadGate -- "Valid Image" --> StageInput["Stage 1: Image Intake<br/>• Store to ~/.konoha/3d-output/inputs/<br/>• POST /api/v1/3d/generate (source_mode: image_to_3d)<br/>• init (nodeInit) &amp; SSE stream initialization"]
+    
+    UploadGate -- "Invalid / >12 MB" --> UploadReject["HTTP 400 / 415 Rejection<br/>(unsupported_image_format)"]
+    
+    StageInput --> DslNode["Vision / Relief Synthesis<br/>• synthesize_dsl (nodeSynthesizeDsl)<br/>• Vision DSL synthesis or deterministic image-relief fallback"]
+    
+    DslNode --> BaseGeom["Stage 2: Manifold Geometry<br/>• build_base (nodeBuildBaseMesh)<br/>• buildImageReliefScene + Manifold-3D watertight relief"]
+    
+    BaseGeom --> PbrShade["Stage 3: PBR Shading<br/>• Diffuse texture mapping &amp; normal projection<br/>• MeshPhysicalMaterial dielectric / metallic tuning"]
+    
+    PbrShade --> BlenderRefine["Stage 4: Blender Refinement<br/>• refine_blender (nodeRefineBlender)<br/>• dcc-mcp-blender agentic processing<br/>(Smart UV unwrapping, normal smoothing, studio lighting)"]
+    
+    BlenderRefine --> PostGate{"Post-Validation Gate<br/>• validate_post (nodeValidatePost)<br/>• 11-row scoreSpec validation check"}
+    
+    PostGate -- "Passed (scoreSpec clean)" --> PromoteStage["Stage 5: GLB Export &amp; Promotion<br/>• promote (nodePromoteAsset)<br/>• GLB file write &amp; token telemetry recording"]
+    
+    PostGate -- "Defect Detected" --> RepairLoop["Autonomous Repair<br/>• repair (nodeRepair)<br/>• Mesh re-triangulation &amp; UV re-map"]
+    RepairLoop --> BaseGeom
+    
+    PromoteStage --> FinalOutput(["Delivery &amp; Client Telemetry<br/>• Preview PNG + Binary GLB download<br/>• SSE completed event &amp; Recent Assets gallery"])
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef intakeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef geomNode fill:#ffffff,stroke:#0284c7,color:#0f172a,stroke-width:2px;
+    classDef refineNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class ImgUpload,FinalOutput startEnd;
+    class StageInput,DslNode intakeNode;
+    class BaseGeom,PbrShade geomNode;
+    class BlenderRefine refineNode;
+    class UploadGate,PostGate,PromoteStage gateNode;
+    class UploadReject,RepairLoop errNode;
+```
+
+### Pipeline Stages & Operational Guarantees
+
+1. **Ingress Security & Sniffing**: `POST /api/v1/3d/upload-image` validates true file types via magic bytes (`PNG`, `JPEG`, `WEBP`) with strict 12 MB payload cap, returning HTTP 415 on unsupported formats and blocking path traversal attacks.
+2. **Deterministic Relief Fallback**: When external vision APIs are unconfigured or circuit-broken, `synthesize_dsl` seamlessly activates `buildImageReliefScene` to generate clean bas-relief geometry from heightmap luminosity without hallucinated rigs.
+3. **PBR Shading Parity**: Image textures map directly across generated geometry with physical dielectric roughness and metallic controls, adhering to the Zero-AI-Slop no-flat-shading rule.
+4. **Blender LTS Agentic Refinement**: The 6-step `dcc-mcp-blender` headless worker pipeline refines edge bevels, projects UV coordinates, and configures studio rendering environments.
+5. **Asset Registry & Downloader**: Exported `.glb` binaries and `.png` previews are indexed under `~/.konoha/3d-output/` with instant browser download endpoints (`/api/v1/3d/assets/:filename`).

@@ -19,6 +19,18 @@ const { parseYaml } = (() => {
 })();
 const { readStdinJson, brainDirFromTranscript } = require('./hook-base');
 
+// Canonical roster source. The hook stays self-contained: if the module cannot
+// be resolved (standalone hook install), fall back to a frozen literal list.
+const CANONICAL_NINJA_FALLBACK = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka'];
+function getCanonicalAgentNames() {
+  try {
+    const mod = require('./canonical_agents');
+    const names = mod.getCanonicalAgentNames();
+    if (Array.isArray(names) && names.length > 0) return names;
+  } catch (_) { /* standalone hook: fall back to literal roster */ }
+  return CANONICAL_NINJA_FALLBACK.slice();
+}
+
 const HOME = os.homedir();
 // Self-contained: derive agent paths from HOME rather than importing bin/lib/paths.
 const USER_AGENTS_YAML = path.join(HOME, '.agents', 'agents.yaml');
@@ -33,7 +45,7 @@ const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', '
  * `test-*` debug agents) is purged by `cleanStaleSessionAgents` so it cannot
  * shadow the real roster and break `Agent(name: ...)` invocations.
  */
-const OFFICIAL_NINJAS = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+const OFFICIAL_NINJAS = getCanonicalAgentNames();
 
 /**
  * Remove any directory under `base` whose name is NOT in the official ninja

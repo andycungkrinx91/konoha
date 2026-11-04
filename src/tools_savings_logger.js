@@ -154,16 +154,7 @@ function _resolveGetSkillBaseline(conn, query, returnedBytes) {
   return baseline;
 }
 
-function _calculateBaseline(conn, tool, query, returnedBytes, baselineBytes) {
-  if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
-    return Number(baselineBytes);
-  }
-  if (tool === TOOL_TOKEN_GREP) {
-    return Math.max(Number(returnedBytes) || 0, 150000);
-  }
-  if (tool === TOOL_FIND_CLEAN) {
-    return Math.max(Number(returnedBytes) || 0, 250000);
-  }
+function _calculateBaseline(conn, tool, query, returnedBytes) {
   if ([TOOL_READ_HEAD, TOOL_READ_RANGE, TOOL_FILE_INFO, TOOL_STRUCTURE].includes(tool)) {
     return _resolveFileToolBaseline(query, returnedBytes);
   }
@@ -173,19 +164,37 @@ function _calculateBaseline(conn, tool, query, returnedBytes, baselineBytes) {
   if (tool === 'get_skill') {
     return _resolveGetSkillBaseline(conn, query, returnedBytes);
   }
-  if (['list_skills', 'optimize_report'].includes(tool)) {
-    return Math.max(Number(returnedBytes) || 0, 35000);
+  if (tool === TOOL_TOKEN_GREP || tool === TOOL_FIND_CLEAN || ['list_skills', 'optimize_report'].includes(tool)) {
+    return _resolveCorpusBaseline(conn, tool, query, returnedBytes);
   }
   return Number(returnedBytes) || 0;
 }
 
-function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
+/**
+ * Corpus-sized baseline measured from what was actually indexed for this query.
+ * Returns 0 when nothing can be measured, which callers treat as "no claim"
+ * rather than inventing a savings figure.
+ */
+function _resolveCorpusBaseline(conn, tool, query, returnedBytes) {
+  const ret = Number(returnedBytes) || 0;
+  try {
+    if (tool === TOOL_TOKEN_GREP || tool === TOOL_FIND_CLEAN) {
+      return Math.max(ret, _resolveSkillSearchBaseline(conn, query, ret));
+    }
+    const row = conn.prepare('SELECT COALESCE(SUM(byte_size), 0) AS b FROM skills').get();
+    return Math.max(ret, row && row.b ? Number(row.b) : 0);
+  } catch (_) {
+    return ret;
+  }
+}
+
+function log(tool, query, returnedBytes, client = null, _baselineBytes = null) {
   if (!client) {
     client = detectActiveClient();
   }
   const conn = getDb();
   try {
-    const baseline = _calculateBaseline(conn, tool, query, returnedBytes, baselineBytes);
+    const baseline = _calculateBaseline(conn, tool, query, returnedBytes);
     const retBytes = Number(returnedBytes) || 0;
     const bytesSaved = Math.max(baseline - retBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);

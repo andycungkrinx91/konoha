@@ -95,7 +95,11 @@ konoha web
 
 ## 📱 Features & Screens
 
-### 1. 🌉 Bridges Screen (`Bridges.svelte`)
+### 1. 📊 System Dashboard Screen (`Dashboard.svelte`)
+- Real-time CPU, RAM, disk mount metrics, and active daemon statuses.
+- **Live GPU Telemetry Card**: Hardware probe via `src/gpu_telemetry.js` (10 s TTL) reporting GPU model name, utilization percentage, VRAM usage/capacity, and temperature across NVIDIA (`nvidia-smi`), AMD ROCm (`rocm-smi`), Apple Silicon (`system_profiler`), or Windows WMI; displays `CPU compute only` (`no_data`) when no GPU probe responds.
+
+### 2. 🌉 Bridges Screen (`Bridges.svelte`)
 - View all configured local LLM proxy bridges and gateway ports.
 - Live status indicator and telemetry for the Konoha Bridge Router (port `19999`) and Bridge Sidecar (port `1313`).
 - Daemon lifecycle controls: Start, Stop, and Restart the Bridge Gateway daemon directly from the UI.
@@ -103,9 +107,8 @@ konoha web
 - One-click toggle switch to enable/disable bridges without restarts.
 - Create new bridges with provider presets (`openai`, `openai-compatible`, `anthropic`, `gemini`).
 - Safe deletion with modal confirmation.
-
-### 2. 👤 Subagents Screen (`Agents.svelte`)
-- Manage the 8 official Naruto Ninja Ranks:
+### 3. 👤 Subagents Screen (`Agents.svelte`)
+- Manage the 9 official Naruto Ninja Ranks:
   - `✧ Sannin` (MCP Router & Orchestrator)
   - `⚑ Genin` (Codebase Exploration Scout)
   - `◎ Kage` (Village Leader & Architecture/Security Audits)
@@ -114,10 +117,11 @@ konoha web
   - `♠ Anbu` (Black Ops Backend & DevOps)
   - `⬡ Tokubetsu-jonin` (Technical Writing & Scribe)
   - `🛡️ Akatsuki` (Red-Team Pentest & Blue-Team Security Gate)
+  - `❖ Yamanaka` (Generative 3D & Spatial Subsystem)
 - Interactive embedded skill checkboxes: toggling instantly syncs `~/.agents/agents.yaml` and `konoha.db`. Primary dedicated skills (`kage-skill`, `jonin-skill`, etc.) are strictly preserved at priority index 0.
-- **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `akatsuki-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).
+- **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `akatsuki-skill`, `yamanaka-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).
 
-### 3. 📚 Skills Management Screen (`Skills.svelte`)
+### 4. 📚 Skills Management Screen (`Skills.svelte`)
 - **3-Mode Search Switcher**:
   - `🔤 Local FTS5`: Instant full-text search with BM25 ranking across all local skills and references.
   - `⚡ Neural Vector`: 384-dimensional cosine similarity semantic search powered by IBM Granite Multilingual ONNX embeddings.
@@ -134,35 +138,42 @@ konoha web
 - One-click database re-indexing (`/api/v1/skills/reindex`).
 - Click any skill to open an interactive modal with full markdown preview.
 
-### 4. 📊 Token Savings Screen (`Savings.svelte`)
-- **Unified Live Token Savings Metric**: Visual Savings (Tokens & Thought Reasoning), calculated relative to full context index sizing (2065 KB baseline) and Unified live metric from Konoha MCP + Semble Semantic Engine. Fragmented Client Provider Breakdown has been removed for a clean, unified counter across all 7 clients.
+### 5. 📊 Token Savings Screen (`Savings.svelte`)
+- **Unified Live Token Savings Metric**: Visual Savings (Tokens & Thought Reasoning) relative to the measured corpus baseline, plus the unified live metric from Konoha MCP + Semble Semantic Engine. Fragmented Client Provider Breakdown has been removed for a clean, unified counter across all 8 supported clients. Percentages are data-derived; when no measurement exists the UI shows `no_data` (`—`) instead of a floor.
 - Real-time token reduction telemetry:
   - Today Bytes Saved
   - Last 7 Days Bytes Saved
-  - All-Time Bytes & Quota Saved (~83-98% typical)
+  - All-Time Bytes & Quota Saved (relative to measured corpus baseline; 83–98% reference benchmark, or no-data when unrecorded)
 - Visual breakdown by MCP tool with interactive progress bars.
 - **Interactive Savings by Tool Operation Dropdown**: Expandable accordion detailing exact byte reductions and invocation counts per tool operation matching `konoha savings` TUI.
 
-### 5. 🧠 Persona Memory Screen (`Persona.svelte`)
+### 6. 🧠 Persona Memory Screen (`Persona.svelte`)
 - Visual management of episodic persona memories (`/persona`):
-  - Filter and search memories across all 8 ninja agents.
+  - Filter and search memories across all 9 ninja agents.
   - Add new episodic memories with importance ratings (1–10).
   - Edit or delete memories with real-time SQLite persistence.
   - 100% parity with `konoha data memory` CLI.
 
-### 6. 💾 Project Context Memory Screen (`Context.svelte`)
+### 7. 💾 Project Context Memory Screen (`Context.svelte`)
 - Per-project context memory explorer (`/context`):
-  - View persistent project tech stack (`framework`, `styling`, `package_manager`).
+  - View persistent project tech stack (`framework`, `styling`, `package_manager`) with monorepo-aware stack detection (eliminating `Unknown` and `Standard CSS` fallback defaults).
   - Inspect verified architectural invariants and episodic learnings.
   - Edit project notes directly in the browser matching `konoha project` CLI.
 
-### 7. 🔍 SearXNG Web Search Screen (`Search.svelte`)
+### 8. ❖ Yamanaka 3D Model Maker Screen (`Model3DDesign.svelte`)
+- Full-featured studio for spatial asset generation (`/3d/maker`):
+  - **Text-to-3D & Image-to-3D Modes**: Synthesize 3D models from text prompts or reference images.
+  - **Secure Image Upload**: Dedicated route `POST /api/v1/3d/upload-image` (12 MB cap, magic-byte MIME sniffing for PNG/JPEG/WebP, strict basename sanitization).
+  - **Interactive Blender Pipeline Graph**: Animated 6-stage SVG visualization (`Import GLB` → `Bevel & Normals` → `Smart UV` → `PBR BSDF` → `Studio Light` → `Export`) tracking real-time pipeline execution over Server-Sent Events (`GET /api/v1/3d/generate/:jobId/stream`).
+  - **Multi-Stage Toolchain**: Prompt/image intake → watertight Manifold geometry base → PBR shading → live Blender LTS refinement via `dcc-mcp-blender` → GLB/PNG asset export.
+  - **Output Knobs & Telemetry**: Configurable polycount budgets (5k/10k/30k/50k), texture resolutions (1k/2k/4k), PBR material toggles, recent 3D assets gallery, and live 3D token telemetry cards.
+### 9. 🔍 SearXNG Web Search Screen (`Search.svelte`)
 - Dedicated web search interface powered by local SearXNG instance (`/search`).
 - Zero API-key search across multiple upstream providers with privacy preservation.
 - Instant search results with title, URL, snippet, and category badges.
 - 100% parity with `konoha search` CLI.
 
-### 8. 🎨 10 Refined Presets & Explicit Light / Dark Mode System
+### 10. 🎨 10 Refined Presets & Explicit Light / Dark Mode System
 - **Default Appearance: Light Mode**: Default out-of-the-box appearance is strictly Light Mode, with Byakugan Deep Ocean as the active default preset.
 - **Explicit Appearance Mode Selector**: Independently toggle between Light Mode and Dark Mode inside the Theme Picker (`themeState.setMode('light' | 'dark')`) with persistent storage across sessions. Switching appearance mode preserves the active preset, and switching presets preserves the chosen mode.
 - **10 Visually Distinct Presets Across 3 Categories**:
@@ -184,12 +195,12 @@ konoha web
 - **Hardware-Accelerated 3D Motion**: Perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
 - **Accessible Typography & Modals**: Custom Svelte 5 runes modern animated ToastHost, ConfirmModal, and FormDialogModal dialogs with body scroll-lock and Escape/backdrop close.
 
-### 9. 🩺 Environment Doctor Screen (`Doctor.svelte`)
-- Comprehensive diagnostic checklist of 24+ components (Node.js, SQLite, MCP tools, client configs).
+### 11. 🩺 Environment Doctor Screen (`Doctor.svelte`)
+- Comprehensive diagnostic audit and self-repair for all 8 supported coding clients (`Antigravity`, `Cursor`, `Claude Code`, `OpenCode`, `Command Code`, `Codex`, `Pi`, `OMP`), the 3D toolchain (Blender LTS, dcc-mcp-blender, Three.js, Manifold-3D), Node.js, SQLite, and MCP integrations.
 - Status badges: `HEALTHY`, `REPAIRED`, `ACTIVE`, `WARNING`, `FAILED`.
 - "Run Auto-Repair" button at top to automatically resolve any missing or outdated integration templates.
 
-### 10. 🔌 Coding Clients Screen (`Clients.svelte`)
+### 12. 🔌 Coding Clients Screen (`Clients.svelte`)
 - Status indicators for all 8 supported coding clients:
   - Antigravity IDE / CLI (`~/.gemini/config/mcp_config.json`)
   - Cursor IDE / CLI (`~/.cursor/mcp.json`)
@@ -201,7 +212,7 @@ konoha web
   - OMP Agent (`~/.omp/agent/mcp.json`)
 - One-click Setup and Disconnect buttons.
 
-### 11. 📋 SDLC Tasks & Governance Screen (`Tasks.svelte`)
+### 13. 📋 SDLC Tasks & Governance Screen (`Tasks.svelte`)
 - Full visual dashboard for the Native SDLC Governance Layer (`/tasks`):
   - **Task Registry & Audit Trail**: Real-time listing of recorded tasks from the `sdlc_tasks` SQLite WAL table (`GET /api/v1/sdlc/tasks`), showing task status (`pending`, `in_progress`, `completed`, `blocked`), target files, implementing and reviewer subagents, and timestamps.
   - **Task Detail & Evidence Modal**: Inspect granular task evidence (`GET /api/v1/sdlc/tasks/:id`), including full Definition-of-Readiness (DoR) diagnostics, validation output, and anti-slop audit history.

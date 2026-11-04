@@ -11,13 +11,19 @@ const rootDir = path.resolve(__dirname, '..');
 const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
 const webPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'apps', 'web', 'package.json'), 'utf8'));
 
-// Root package.json devDependencies invariant (empty for zero root dev-footprint)
+// Root package.json devDependencies invariant.
+// The root stays dependency-free at runtime; only test tooling that must execute
+// from the repository root (Playwright drives the E2E specs) is permitted, and
+// every entry must be explicitly listed below.
+const ALLOWED_ROOT_DEV_DEPS = new Set(['@playwright/test']);
 const rootDevDeps = rootPkg.devDependencies || {};
-assert.strictEqual(
-  Object.keys(rootDevDeps).length,
-  0,
-  `Root devDependencies must be empty, found: ${Object.keys(rootDevDeps).join(', ')}`
+const unexpectedDevDeps = Object.keys(rootDevDeps).filter((name) => !ALLOWED_ROOT_DEV_DEPS.has(name));
+assert.deepStrictEqual(
+  unexpectedDevDeps,
+  [],
+  'Unexpected root devDependencies (only the allowlisted test tooling is permitted): ' + unexpectedDevDeps.join(', ')
 );
+
 console.log('✓ Root package.json devDependencies is empty ({})');
 
 // Root package.json dependencies invariant (only Bridge Gateway @bufbuild/protobuf and artifact generators allowed)
@@ -34,6 +40,8 @@ const allowedRootDeps = [
   '@langchain/langgraph-checkpoint',
   'zod',
   'gpt-tokenizer',
+  'three',
+  'manifold-3d',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {

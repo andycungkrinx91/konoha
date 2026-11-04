@@ -95,7 +95,7 @@ function buildPiWorkflowAddendum() {
 
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
-- **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
+- **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, secure with \`akatsuki\`, build 3D assets with \`yamanaka\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
   - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
   - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.
@@ -405,7 +405,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silentOrOptions = true) {
     const isWin = process.platform === 'win32';
     const resolvedUvx = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
 
-    // Match the other clients: the konoha entry serves all 47 canonical tools through
+    // Match the other clients: the konoha entry serves all 48 canonical tools through
     // the file-tools launcher (which bootstraps node + workspace jail)
     config.mcpServers['konoha'] = {
       command: process.execPath || 'node',

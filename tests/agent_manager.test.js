@@ -189,8 +189,8 @@ console.log('\n[Template Integrity]');
   );
   const template = parseYaml(fs.readFileSync(templatePath, 'utf-8'));
 
-  test('all 8 default agents present', function () {
-    assert.strictEqual(template.length, 8);
+  test('all 9 canonical agents present', function () {
+    assert.strictEqual(template.length, 9);
   });
 
   test('all agents have required fields', function () {

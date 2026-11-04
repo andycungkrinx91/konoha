@@ -52,6 +52,52 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     return statusColors[status] || 'theme-bg-subtle theme-text-secondary theme-border';
   }
 
+  const CLIENT_LABELS = {
+    antigravity: 'Antigravity',
+    cursor: 'Cursor',
+    claude: 'Claude Code',
+    claudecode: 'Claude Code',
+    omp: 'OMP',
+    codex: 'Codex',
+    opendevin: 'OpenDevin',
+    cline: 'Cline',
+    universal: 'Universal'
+  };
+  function clientLabel(c) {
+    if (!c) return 'Universal';
+    const key = String(c).toLowerCase().trim();
+    return CLIENT_LABELS[key] || (c.charAt(0).toUpperCase() + c.slice(1));
+  }
+
+  let approvingId = $state(null);
+
+  async function approveTask(task, e) {
+    if (e) e.stopPropagation();
+    if (approvingId) return;
+    const isSignoff = task.status === 'pending_human_signoff';
+    const actionLabel = isSignoff ? 'Sign Off' : 'Approve Plan';
+    const confirmed = await confirm({
+      title: `${actionLabel} for ${task.id}?`,
+      message: isSignoff
+        ? 'Complete Gate 2 sign-off to mark this task completed?'
+        : 'Approve Gate 1 plan and resume execution in progress?',
+      confirmText: actionLabel,
+      variant: 'primary'
+    });
+    if (!confirmed) return;
+
+    approvingId = task.id;
+    try {
+      await api.post(`/api/v1/sdlc/tasks/${encodeURIComponent(task.id)}/approve`, {});
+      toast.success(`${actionLabel} successful for ${task.id}`);
+      await loadTasks();
+    } catch (err) {
+      toast.error(`Approval failed: ${err.message}`);
+    } finally {
+      approvingId = null;
+    }
+  }
+
   async function loadConfig() {
     configLoading = true;
     try {
@@ -123,7 +169,9 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       // totals (which count globally). The config card's project path must NOT
       // silently hide tasks from other projects.
       if (projectFilter) params.set('project', projectFilter.trim());
-      params.set('limit', '50');
+      // Request the full server-side maximum (200) so older tasks from other
+      // clients are not silently truncated from the list.
+      params.set('limit', '200');
       const data = await api.get(`/api/v1/sdlc/tasks?${params.toString()}`);
       tasks = data.tasks || [];
     } catch (err) {
@@ -466,6 +514,11 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
                   <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border theme-bg-subtle theme-text-secondary theme-border-strong-b">
                     review: {task.review_mode || 'self'}
                   </span>
+                    {#if task.client}
+                      <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border badge-status badge-status-info">
+                        Client: {clientLabel(task.client)}
+                      </span>
+                    {/if}
                   {#if task.dor_result && task.dor_result.ready !== undefined}
                     <span class="px-2 py-0.5 rounded-[3px] text-xs font-bold border {task.dor_result.ready ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
                       DoR: {task.dor_result.ready ? 'ready' : 'not ready'}
@@ -486,6 +539,47 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
               </button>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="text-xs font-semibold theme-text-muted">{task.updated_at || ''}</span>
+                {#if task.status === 'pending_plan_approval'}
+                  <button
+                    type="button"
+                    class="btn-3d px-2.5 py-1 rounded-[3px] font-bold text-xs badge-status badge-status-success cursor-pointer hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+                    onclick={(e) => approveTask(task, e)}
+                    disabled={approvingId === task.id}
+                    title="Approve Gate 1 Plan"
+                  >
+                    {#if approvingId === task.id}
+                      <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                    {:else}
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    {/if}
+                    Approve Plan
+                  </button>
+                {:else if task.status === 'pending_human_signoff'}
+                  <button
+                    type="button"
+                    class="btn-3d px-2.5 py-1 rounded-[3px] font-bold text-xs badge-status badge-status-success cursor-pointer hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+                    onclick={(e) => approveTask(task, e)}
+                    disabled={approvingId === task.id}
+                    title="Gate 2 Human Sign Off"
+                  >
+                    {#if approvingId === task.id}
+                      <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                    {:else}
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    {/if}
+                    Sign Off
+                  </button>
+                {/if}
                 <button
                   type="button"
                   class="p-1.5 rounded-[3px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"

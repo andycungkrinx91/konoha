@@ -14,6 +14,12 @@ const {
   buildGate1Prompt,
   buildGate2Prompt
 } = require('./workflow_gates');
+const {
+  decideRoute,
+  formatRouteLine,
+  buildDirectGuidance,
+  buildDelegationEnvelope
+} = require('./sannin_router');
 
 function calculateSingleKeywordScore(promptLower, kw) {
   if (promptLower.includes(kw)) {
@@ -276,8 +282,15 @@ function _buildInstructionText(ctx) {
     );
   }
 
+  const routeLine = formatRouteLine(ctx.route);
+  const isDirect = Boolean(ctx.route && ctx.route.mode === 'direct');
+
+  if (isDirect) {
+    parallelGuidance = '';
+  }
+
   let trackGuidance = '';
-  if (ctx.executionTrack === 'fast_track') {
+  if (ctx.executionTrack === 'fast_track' && !isDirect) {
     trackGuidance = (
       '\n\n### ⚡ Fast-Track Direct Execution (Zero Pipeline Overhead)\n' +
       '- Direct, immediate execution by target agent without 8-phase DAG or Gate 1 plan pause.\n' +
@@ -285,32 +298,40 @@ function _buildInstructionText(ctx) {
     );
   }
 
+  const executionBlock = isDirect
+    ? buildDirectGuidance({ skills: ctx.routedSkills, projectPath: ctx.resolvedProjPath })
+    : (
+      '\n\n## Delegation Steps\n\n' +
+      `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
+      `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
+      `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.` +
+      (ctx.envelope ? `\n\n${ctx.envelope.text}` : '')
+    );
+
   return (
     `**Selected Agent**: \`${ctx.selectedAgent}\`\n` +
     `**Execution Track**: \`${ctx.executionTrack}\`\n` +
+    routeLine +
     `**Flow Hash**: \`${ctx.flowHash}\`\n` +
     `**Routed Skills**: ${ctx.routedSkills.length > 0 ? ctx.routedSkills.map(s => `\`${s}\``).join(', ') : 'None (soul-bound defaults)'}\n` +
     `**Reason**: ${ctx.description}\n\n` +
     `Task directory: \`${ctx.resolvedTaskDir}\`\n` +
-    `SDLC Task ID: \`${ctx.taskId}\`\n\n` +
-    '## Delegation Steps\n\n' +
-    `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
-    `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
-    `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.\n\n` +
-    `## Original Prompt\n\n${ctx.effPrompt}` +
+    `SDLC Task ID: \`${ctx.taskId}\`\n` +
+    executionBlock +
+    `\n\n## Original Prompt\n\n${ctx.effPrompt}` +
     advisoryText + trackGuidance + buildGuidance + parallelGuidance
   );
 }
 
 function _recordTaskStatusAndFlow(ctx) {
-  const { sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir } = ctx;
+  const { sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route } = ctx;
   try {
     sdlcManager.createTask({
       id: taskId,
       description: effPrompt,
       status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
       dor_result: dorResult,
-      evidence: { execution_track: executionTrack, flow_hash: flowHash, routed_skills: routedSkills, active_skills: routedSkills },
+      evidence: { execution_track: executionTrack, flow_hash: flowHash, routed_skills: routedSkills, active_skills: routedSkills, route_mode: route ? route.mode : undefined },
       project_path: resolvedProjPath, session_id: resolvedSessionId, client: actClient
     });
     const st = loadWorkflowStatus(resolvedTaskDir);
@@ -320,6 +341,7 @@ function _recordTaskStatusAndFlow(ctx) {
     st.session_id = resolvedSessionId;
     st.project_path = resolvedProjPath;
     st.client = actClient;
+    st.route_mode = route ? route.mode : undefined;
     st.flow_hash = flowHash;
     st.routed_skills = routedSkills;
     saveWorkflowStatus(resolvedTaskDir, st);
@@ -393,13 +415,15 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
   const executionTrack = classifyExecutionTrack(effPrompt);
+  const parallelWorkstreams = detectParallelWorkstreams(effPrompt);
+  const route = decideRoute({ prompt: effPrompt, executionTrack, workstreams: parallelWorkstreams });
   const flowHash = computeFlowHash(resolvedSessionId, taskId, effPrompt);
 
   const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
   const routedSkills = _resolveRoutedSkills(effPrompt, selectedAgent);
 
-  _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir });
+  _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route });
 
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
     const res = JSON.stringify({ status: 'blocked', phase: 'dor', message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.', missing: dorResult.missing, dor_result: dorResult, flow_hash: flowHash, task_dir: resolvedTaskDir });
@@ -409,18 +433,25 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   const agentDescriptions = _loadAgentDescriptions();
   const description = agentDescriptions[selectedAgent] || agentDescriptions[selectedAgent.replace(/_/g, '-')] || agentDescriptions[selectedAgent.replace(/-/g, '_')] || 'general-purpose delegation';
-  const parallelWorkstreams = detectParallelWorkstreams(effPrompt);
+
+  const envelope = route.mode === 'direct'
+    ? null
+    : buildDelegationEnvelope({ agentName: selectedAgent, projectPath: resolvedProjPath, prompt: effPrompt, routedSkills });
 
   const instruction = _buildInstructionText({
     selectedAgent, executionTrack, flowHash, routedSkills, description,
-    resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath
+    resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
+    route, envelope
   });
 
   const res = JSON.stringify({
     status: 'routed', task_id: taskId, flow_hash: flowHash, selected_agent: selectedAgent,
     skills: routedSkills, execution_track: executionTrack, parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
-    phase: 'delegation', instructions: instruction, task_dir: resolvedTaskDir,
+    route, delegation_envelope: envelope
+      ? { agent: envelope.agent, skills: envelope.skills, dropped_skills: envelope.dropped_skills, recall: envelope.recall }
+      : undefined,
+    phase: 'delegation', execution_mode: route.mode, instructions: instruction, task_dir: resolvedTaskDir,
     session_id: resolvedSessionId, client: actClient, dor_result: dorResult
   });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');

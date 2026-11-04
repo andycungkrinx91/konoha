@@ -32,6 +32,7 @@ const {
 } = require("../lib/format");
 
 const { fileExists } = require("../lib/prompt");
+const { removedSynonymMessage } = require("../lib/canonical_synonyms");
 
 
 function cmdDataHelp() {
@@ -117,17 +118,17 @@ async function cmdData(args) {
       break;
     case 'memories':
     case 'list':
-      error(`Unknown subcommand '${subcommand}' for 'konoha data'. Use canonical subcommand 'konoha data memory'.`);
+      error(removedSynonymMessage('data', subcommand));
       process.exit(1);
     case 'save':
-      error(`Unknown subcommand 'save' for 'konoha data'. Use canonical subcommand 'konoha data add'.`);
+      error(removedSynonymMessage('data', 'save'));
       process.exit(1);
     case 'find':
-      error(`Unknown subcommand 'find' for 'konoha data'. Use canonical subcommand 'konoha data search'.`);
+      error(removedSynonymMessage('data', 'find'));
       process.exit(1);
     case 'remove':
     case 'rm':
-      error(`Unknown subcommand '${subcommand}' for 'konoha data'. Use canonical subcommand 'konoha data delete'.`);
+      error(removedSynonymMessage('data', subcommand));
       process.exit(1);
     default:
       error(`Unknown data subcommand: ${subcommand}`);

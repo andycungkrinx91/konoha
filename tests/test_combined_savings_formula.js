@@ -10,6 +10,7 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
 const path = require('path');
 const db = require('../src/db');
 const { getSavingsReport, sanitizeLegacyRecords } = require('../src/db_savings');
@@ -37,11 +38,11 @@ const allTimeRow = conn.prepare(`
 
 const expectedTodayPct = todayRow.total > 0
   ? Math.round((Number(todayRow.saved) / Number(todayRow.total)) * 100)
-  : 0;
+  : null;
 
 const expectedAllTimePct = allTimeRow.total > 0
   ? Math.round((Number(allTimeRow.saved) / Number(allTimeRow.total)) * 100)
-  : 0;
+  : null;
 
 // Fetch live report via db_savings.getSavingsReport()
 const report = getSavingsReport();
@@ -49,6 +50,7 @@ const report = getSavingsReport();
 assert.strictEqual(
   report.today.pct,
   expectedTodayPct,
+  expectedTodayPct === null ? 'no data' : 'measured',
   `Today pct (${report.today.pct}%) must exactly match independent SQL byte-weighted calculation (${expectedTodayPct}%)`
 );
 
@@ -105,3 +107,50 @@ assert.strictEqual(inducedFailureCaught, true, 'Induced failure guard must catch
 console.log('  ✓ Induced failure test confirmed formula protection.');
 
 console.log('All tests in test_combined_savings_formula.js passed cleanly!');
+
+
+// A database with no measured tool traffic must report no_data with a null pct,
+// never a fabricated 0% (which would be indistinguishable from genuinely zero savings).
+{
+  const fs = require('fs');
+  const os = require('os');
+  const tmpDb = path.join(os.tmpdir(), `konoha-savings-empty-${Date.now()}.db`);
+  const isolated = db.getConnection(tmpDb, false);
+  db.setupSchema(isolated);
+
+  const emptyReport = getSavingsReport(tmpDb);
+  assert.strictEqual(emptyReport.today.calls, 0, 'empty database must have zero calls');
+  assert.strictEqual(emptyReport.today.pct, null, 'empty database must report pct null, not 0');
+  assert.strictEqual(emptyReport.today.no_data, true, 'empty database must flag no_data');
+  assert.strictEqual(emptyReport.alltime.pct, null, 'empty all-time must report pct null, not 0');
+
+  isolated.close();
+  for (const suffix of ['', '-wal', '-shm']) {
+    fs.rmSync(tmpDb + suffix, { force: true });
+  }
+  console.log('  ✓ Empty database reports no_data with null pct (no fabricated 0%)');
+}
+
+// Net savings must reflect reality: a loss (output spend above input savings)
+// is reported as a negative number, never clamped to zero, which would read as
+// break-even and misrepresent the result.
+{
+  const report = getSavingsReport();
+  const net = report.alltime.net_saved_usd;
+  const expectedNet = Number((report.alltime.saved_usd - report.alltime.output_cost_usd).toFixed(6));
+  assert.strictEqual(net, expectedNet, `all-time net must equal saved minus output cost (got ${net}, expected ${expectedNet})`);
+  assert.ok(!/Math\.max\(0(\.0)?,\s*savedUsd/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'db_savings.js'), 'utf8')),
+    'net savings must not clamp losses to zero');
+  console.log(`  ✓ Net all-time savings reported honestly (${net})`);
+}
+
+// The loss branch is exercised deterministically rather than depending on
+// whatever the local database happens to contain.
+{
+  const { computeNetSavings } = require('../src/db_savings');
+  assert.strictEqual(computeNetSavings(10, 25), -15, 'loss is reported as negative, not clamped to zero');
+  assert.strictEqual(computeNetSavings(30, 5), 25, 'profit is reported as a positive net');
+  assert.strictEqual(computeNetSavings(0, 0), 0, 'true break-even stays zero');
+  assert.strictEqual(computeNetSavings(undefined, 12), -12, 'missing savings cost against output spend');
+  console.log('  ✓ Net savings reports losses as negative (not clamped)');
+}

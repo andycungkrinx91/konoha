@@ -1,6 +1,6 @@
 # Konoha Bridge Gateway
 
-> **v2.2.17 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
+> **v2.2.18 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
 
 The **Konoha Bridge Gateway** provides a unified local API server on `127.0.0.1:19999` to route, multiplex, and stream LLM requests across multiple explicitly configured bridges from a single entry point. The embedded Konoha bridge remains available on machines without Antigravity IDE.
 
@@ -263,12 +263,50 @@ konoha bridge status   # Checks port 19999 socket binding and bridge health
 
 The Web UI `/bridges` and CLI use cross-platform port termination (`killProcessOnPort` in `src/platform_utils.js`). Linux/macOS resolves listening PIDs via `lsof`/`fuser` and escalates from `SIGTERM` to `SIGKILL` if still bound; Windows queries PIDs via `netstat` and executes `taskkill /F`. Socket status is verified via `checkPortActive(19999)` before returning state.
 
+## Token-Burn Guards
+
+A custom endpoint that silently ignores cache hints can bill the same prefix on every turn; that is how a single unattended session reaches a billion tokens. The gateway now resolves capability instead of assuming it, and refuses oversized turns before they reach the upstream.
+
+### Cache capability (`src/bridge/cache_capability.js`)
+
+- Capability is resolved from the concrete upstream host (`api.anthropic.com`, OpenAI/Azure OpenAI, `*.googleapis.com`). Anything else is treated as unknown rather than optimistically cached.
+- Anthropic constraints are enforced when building cache hints: a prefix needs at least 1,024 cacheable tokens and at most 4 breakpoints.
+- When caching is unavailable, billed telemetry records cached tokens as **unknown** instead of reporting a saving that never happened.
+
+### Prefix stability (`src/bridge/prefix_stability.js`)
+
+- Prefix caches key on an exact byte match of the leading messages. Volatile values — ISO timestamps, UUIDs, epoch-millisecond stamps, crypto job ids — invalidate that prefix and re-bill it in full.
+- The detector scans the leading messages for those patterns and stable-stringifies tool schemas (sorted keys) so identical requests stay byte-identical across turns.
+- A cache miss is reported with the value that changed, so it is diagnosable instead of invisible.
+
+### Request budget (`src/bridge/request_budget.js`)
+
+- Pre-flight limits: `MAX_BODY_BYTES` 32 MB, `MAX_INPUT_TOKENS` 200,000, `MAX_MESSAGES` 2,000, with tokens estimated at ~3.5 characters per token.
+- `rejectOversizedByHeader()` (in `src/bridge/gateway_adapters.js`) answers from the `Content-Length` header before the body is read, so a runaway request cannot allocate the payload at all.
+- Rejections carry the reason and the active limit instead of stalling the connection.
+
+### Tool-output hygiene (`src/bridge/tool_payload.js`)
+
+Tool definitions and tool results are re-billed on every turn of a conversation, so the adapter rewrites them before dispatch. Order is preserved because reordering tool definitions changes tool selection.
+
+- Duplicate tool definitions are dropped by name, keeping the caller's first occurrence.
+- HTML tool results are reduced to readable text (`src/bridge/web_content.js`) with citation URLs kept: measured 75,159 B to 16,259 B on a realistic page.
+- Pretty-printed JSON results are minified without changing a single value: measured 8,578 B to 4,824 B on twelve tool schemas (43.8 %) and 7,612 B to 5,811 B on sixty telemetry rows (23.7 %).
+- Only then does the 24,000-character cap apply; `KONOHA_BRIDGE_MAX_TOOL_OUTPUT_CHARS` raises or lowers it. Capped content always carries a marker naming how many characters were dropped.
+- Only `role: 'tool'` string content is rewritten. User and assistant messages pass through untouched, and a payload with nothing to reclaim is returned as the same array.
+
+### Usage accounting
+
+Streaming and non-streaming Anthropic responses both derive usage from `buildAnthropicUsage()` in `src/bridge/gateway_adapters.js`, which reads the upstream usage block rather than estimating from the outgoing prompt. Recorded rows keep `NULL` where a provider does not report a field; a missing number is never coerced to zero.
+
 ## Gateway Source Files
 
 | File | Role |
 |---|---|
 | `src/bridge/server.js` | HTTP server entrypoint, request routing |
 | `src/bridge/gateway.js` | Proxy gateway logic, model resolution, concurrent request guard |
+| `src/bridge/tool_payload.js` | Tool-definition dedupe, HTML/JSON compaction, output cap |
+| `src/bridge/web_content.js` | HTML-to-text reduction that keeps citations |
 | `src/bridge/handlers/openai.js` | OpenAI `/v1/chat/completions` handler |
 | `src/bridge/handlers/anthropic.js` | Anthropic `/v1/messages` handler |
 | `src/bridge/handlers/gemini.js` | Google Gemini API handler |
@@ -281,6 +319,9 @@ The Web UI `/bridges` and CLI use cross-platform port termination (`killProcessO
 | `src/bridge/context.js` | Bridge context management (per-bridge state) |
 | `src/bridge/models.js` | Model mapping utilities |
 | `src/bridge/utils.js` | Shared utilities (logging, streaming helpers, readBody) |
+| `src/bridge/cache_capability.js` | Upstream prompt-cache capability detection and cache-hint construction |
+| `src/bridge/prefix_stability.js` | Prompt-prefix volatility detection and deterministic serialization |
+| `src/bridge/request_budget.js` | Pre-flight body/token/message limits for runaway-spend protection |
 | `src/db_bridges.js` | SQLite bridge CRUD |
 
 ---

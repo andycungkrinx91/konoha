@@ -1,6 +1,7 @@
 'use strict';
 
 const sdlcManager = require('../../workflow/kage-reviewer/sdlc_manager');
+const { ingestClientTasks } = require('../../client_task_ingest');
 const {
   sendJson,
   parseBody,
@@ -9,6 +10,7 @@ const {
 
 function _handleListTasks(res, parsedUrl) {
   try {
+    try { ingestClientTasks(); } catch (_) { /* best-effort non-blocking ingest */ }
     const status = parsedUrl.searchParams.get('status') || null;
     const project = parsedUrl.searchParams.get('project') || null;
     const limitParam = parseInt(parsedUrl.searchParams.get('limit'), 10);
@@ -85,6 +87,43 @@ function _handleRestartTask(res, pathname, broadcastEvent) {
     const task = sdlcManager.restartTask(taskId);
     if (!task) return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
     broadcastEvent('sdlc_tasks_updated', { action: 'restart', taskId });
+    return sendJson(res, 200, { ok: true, task });
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+}
+
+async function _handleApproveTask(req, res, pathname, broadcastEvent) {
+  try {
+    const prefix = pathname.startsWith('/api/v1/sdlc/tasks/') ? '/api/v1/sdlc/tasks/' : '/api/v1/tasks/';
+    const taskId = decodeURIComponent(pathname.slice(prefix.length).replace(/\/approve$/, ''));
+    if (!taskId) return sendJson(res, 400, { error: 'SDLC task id is required.' });
+    const existing = sdlcManager.getTask(taskId);
+    if (!existing) return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
+
+    let targetStatus = 'in_progress';
+    if (existing.status === 'pending_plan_approval') {
+      targetStatus = 'in_progress';
+    } else if (existing.status === 'pending_human_signoff') {
+      targetStatus = 'completed';
+    } else if (existing.status === 'in_progress' || existing.status === 'remediating') {
+      targetStatus = 'completed';
+    }
+
+    const body = await parseBody(req).catch(() => ({}));
+    if (body.status) targetStatus = body.status;
+
+    const ev = (typeof existing.evidence === 'object' && existing.evidence !== null) ? { ...existing.evidence } : {};
+    ev.approved_at = new Date().toISOString();
+    ev.approval_action = existing.status === 'pending_human_signoff' ? 'sign_off' : 'approve_plan';
+    if (body.note) ev.approval_note = body.note;
+
+    const task = sdlcManager.updateTask(taskId, {
+      status: targetStatus,
+      evidence: ev
+    });
+
+    broadcastEvent('sdlc_tasks_updated', { action: 'approve', taskId, status: targetStatus });
     return sendJson(res, 200, { ok: true, task });
   } catch (err) {
     return sendJson(res, 500, { error: err.message });
@@ -200,6 +239,9 @@ async function handleSdlcRoutes(req, res, ctx, parsedUrl, ...rest) {
   }
   if (method === 'POST' && (pathname.startsWith('/api/v1/sdlc/tasks/') || pathname.startsWith('/api/v1/tasks/')) && pathname.endsWith('/restart')) {
     return _handleRestartTask(res, pathname, broadcastEvent);
+  }
+  if (method === 'POST' && (pathname.startsWith('/api/v1/sdlc/tasks/') || pathname.startsWith('/api/v1/tasks/')) && pathname.endsWith('/approve')) {
+    return await _handleApproveTask(req, res, pathname, broadcastEvent);
   }
   if (pathname === '/api/v1/sdlc/config') {
     return await _handleSdlcConfig(req, res, method, parsedUrl, broadcastEvent);

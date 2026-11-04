@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
+const { getCanonicalAgentNames } = require('./canonical_agents');
 
 const {
   HOME,
@@ -162,10 +163,13 @@ function _filterExistingCodexToml(existingToml) {
   let hasSeenSection = false;
   let inFeaturesTable = false;
 
+  const AGENT_NAME_ALTERNATION = getCanonicalAgentNames()
+    .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
   const MANAGED_SECTION_PATTERNS = [
     /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
     /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
-    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|akatsuki)(\..*)?\]/i
+    new RegExp(`^\\[agents\\.(?:${AGENT_NAME_ALTERNATION})(\\..*)?\\]`,"i")
   ];
 
   const TOP_LEVEL_MANAGED_KEYS = [
@@ -293,7 +297,8 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate'
+    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
+    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
   };
 
   const emittedAgentNames = new Set();

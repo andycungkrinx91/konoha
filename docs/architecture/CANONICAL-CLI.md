@@ -1,7 +1,7 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.3.0 (Konoha v2.2.17)  
-**Date:** 2026-11-02  
+**Document Version:** 1.4.0 (Konoha v2.2.18)  
+**Date:** 2026-11-04  
 **Status:** Authoritative CLI Command Reference  
 
 ---
@@ -12,7 +12,9 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 
 | Command | Arguments / Flags | Description |
 |---|---|---|
-| `konoha agent` | `<subcommand> [args]` | Configure Ninja subagents (list, create, toggle skills, models config, delete, status) |
+| `konoha agent` | `<subcommand> [args]` | Configure 9 official Ninja subagents (list, create, toggle skills, models config, delete, status) |
+| `konoha akatsuki` | `<subcommand> [options]` | Manage Akatsuki red-team security controls, lab sandbox, and tool isolation |
+| `konoha auth` | `reset` | Reset local Web console administrative password to default (`konohagakure`) |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
 | `konoha config` | `<list|get|set|unset> [key] [val] [--json]` | Manage global Konoha system configuration in `~/.konoha/config.json` |
@@ -24,6 +26,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha help` | `[-h] [--help]` | Show interactive educational help menu |
 | `konoha init` | `[--yes] [--force] [--python <path>] [--silent]` | Initialize MCP servers, database tables, and configure detected coding clients |
 | `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
+| `konoha mode` | `[hitl|safe|yolo|autonomous] [options]` | Switch HITL gate mode vs YOLO intent per project workspace |
 | `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants (including `hitl_mode`) |
 | `konoha queue` | `<subcommand> [args]` | Background task prompt queue and execution worker |
 | `konoha reinstall` | `[options]` | Shorthand for `konoha init --force` (clean reinstallation of MCP servers and configurations) |
@@ -36,11 +39,13 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha task` | `<subcommand> [options]` | Native SDLC governance tasks, readiness gates, and audits |
 | `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
 | `konoha test` | - | Run integration diagnostics against the MCP server |
+| `konoha tui` | - | Launch interactive terminal UI for subagent and system management (`konoha agent list --tui`) |
 | `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
 | `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
 | `konoha upgrade` | `[--yes] [--force]` | Upgrade local Konoha installation to latest release with progress bar |
 | `konoha version` | `[-v] [--version]` | Display installed CLI version and check npm registry for updates |
 | `konoha web` | `[options]` | Foreground shorthand alias for `konoha ui start --foreground` |
+| `konoha webhook` | `<subcommand> [options]` | Manage outbound SDLC event webhooks (list, add, test, enable, disable, delete) |
 
 ---
 
@@ -78,7 +83,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha task clear [--status <s>] [--project <p>]` — Clear tasks from database to prevent stale task hallucination.
 
 ### 2.4 Agent Management (`konoha agent`)
-- `konoha agent list [--tui]` — List all 8 official ninja subagents and their assigned skills.
+- `konoha agent list [--tui]` — List all 9 official ninja subagents and their assigned skills.
 - `konoha agent create <agent-name> [options]` — Create a custom subagent (`--title`, `--purpose`, `--instructions`, `--keywords`).
 - `konoha agent skill [agent-name]` — Interactively toggle (embed or remove) a skill for an agent.
 - `konoha agent models [config] [agent-name]` — Interactively configure a bridge-served model (or `--model <id>`).
@@ -136,3 +141,20 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha telegram test` — Send verification test message.
 - `konoha telegram enable` / `konoha telegram disable` — Toggle Telegram notifications.
 - `konoha telegram start-poller` / `konoha telegram stop-poller` — Manage two-way inbound polling listener.
+
+### 2.11 Akatsuki Security (`konoha akatsuki`)
+- `konoha akatsuki status` — Display Akatsuki security status, engine, and lab isolation.
+- `konoha akatsuki redteam <enable|disable>` — Toggle Red-Team offensive execution in isolated sandbox.
+
+### 2.12 Execution Mode (`konoha mode`)
+- `konoha mode [hitl|safe|yolo|autonomous] [--project <path>] [--json]` — Switch HITL gate mode vs YOLO intent per project workspace.
+
+### 2.13 Outbound Webhooks (`konoha webhook`)
+- `konoha webhook list` — List configured outbound webhooks.
+- `konoha webhook add <name> <url> [options]` — Add a new outbound webhook (`--auth`, `--token`, `--header`).
+- `konoha webhook test <id>` — Dispatch immediate test payload to webhook.
+- `konoha webhook delete <id>` — Remove a webhook integration.
+- `konoha webhook enable <id>` / `disable <id>` — Toggle webhook delivery.
+
+### 2.14 Web Console Authentication (`konoha auth`)
+- `konoha auth reset` — Reset Web console administrative password to default (`konohagakure`).

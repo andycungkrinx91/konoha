@@ -13,7 +13,7 @@
 <mxCell id="p1-l1" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_corporate_data_center;strokeColor=#545B64;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Presentation and client surfaces" vertex="1">
                     <mxGeometry height="130" width="1520" x="40" y="110" as="geometry" />
                 </mxCell>
-<mxCell id="p1-user" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="End User" vertex="1">
+<mxCell id="p1-user" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="End User" vertex="1">
                     <mxGeometry height="50" width="180" x="20" y="40" as="geometry" />
                 </mxCell>
 <mxCell id="p1-client" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex | Pi | OMP" vertex="1">
@@ -25,13 +25,13 @@
 <mxCell id="p1-l2" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C4FFF;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Orchestration and specialist agents" vertex="1">
                     <mxGeometry height="220" width="1520" x="40" y="280" as="geometry" />
                 </mxCell>
-<mxCell id="p1-router" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;" value="Primary Orchestrator&#10;(LangGraph.js StateGraph Engine)" vertex="1">
+<mxCell id="p1-router" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="Primary Orchestrator&#10;(LangGraph.js StateGraph Engine)" vertex="1">
                     <mxGeometry height="60" width="220" x="50" y="70" as="geometry" />
                 </mxCell>
-<mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="sannin &amp; LangGraph Engine&#10;Per-Turn Governor &amp; Circuit Breaker" vertex="1">
+<mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=sannin;" value="sannin &amp; LangGraph Engine&#10;Per-Turn Governor &amp; Circuit Breaker" vertex="1">
                     <mxGeometry height="75" width="260" x="350" y="70" as="geometry" />
                 </mxCell>
-<mxCell id="p1-agents" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin" vertex="1">
+<mxCell id="p1-agents" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin | yamanaka" vertex="1">
                     <mxGeometry height="100" width="430" x="710" y="61" as="geometry" />
                 </mxCell>
 <mxCell id="p1-task" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Task Artifacts&#10;Structured Tool Calls" vertex="1">
@@ -125,13 +125,13 @@
 <mxCell id="p2-note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Canonical flow: client prompt -&gt; Konoha skill retrieval -&gt; Semble code context -&gt; sannin delegation -&gt; synthesis" vertex="1">
                     <mxGeometry height="45" width="1100" x="40" y="60" as="geometry" />
                 </mxCell>
-<mxCell id="p2-user" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="End User" vertex="1">
+<mxCell id="p2-user" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="End User" vertex="1">
                     <mxGeometry height="70" width="190" x="41" y="170" as="geometry" />
                 </mxCell>
 <mxCell id="p2-client" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Supported Client&#10;User Prompt / Session State" vertex="1">
                     <mxGeometry height="75" width="260" x="303" y="170" as="geometry" />
                 </mxCell>
-<mxCell id="p2-orch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Primary Orchestrator&#10;classify and coordinate" vertex="1">
+<mxCell id="p2-orch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="Primary Orchestrator&#10;classify and coordinate" vertex="1">
                     <mxGeometry height="75" width="260" x="650" y="170" as="geometry" />
                 </mxCell>
 <mxCell id="p2-konoha" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Konoha MCP&#10;find_skill -&gt; get_skill" vertex="1">
@@ -146,10 +146,10 @@
 <mxCell id="p2-code" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Workspace Codebase" vertex="1">
                     <mxGeometry height="75" width="220" x="1369" y="250" as="geometry" />
                 </mxCell>
-<mxCell id="p2-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;" value="sannin Router" vertex="1">
+<mxCell id="p2-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="sannin Router" vertex="1">
                     <mxGeometry height="75" width="260" x="650" y="390" as="geometry" />
                 </mxCell>
-<mxCell id="p2-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin" vertex="1">
+<mxCell id="p2-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin / yamanaka" vertex="1">
                     <mxGeometry height="85" width="360" x="990" y="385" as="geometry" />
                 </mxCell>
 <mxCell id="p2-artifact" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Task Directory&#10;Structured Results" vertex="1">
@@ -235,37 +235,37 @@
 <mxCell id="p3-prompt" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Task Prompt&#10;user instruction or resume" vertex="1">
                     <mxGeometry height="75" width="200" x="20" y="378" as="geometry" />
                 </mxCell>
-<mxCell id="p3-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;" value="sannin Router&#10;Triages prompt, selects skill &amp; subagent" vertex="1">
+<mxCell id="p3-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="sannin Router&#10;Triages prompt, selects skill &amp; subagent" vertex="1">
                     <mxGeometry height="110" width="240" x="279" y="360" as="geometry" />
                 </mxCell>
-<mxCell id="p3-buildtext" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="build_from_text&#10;Scaffold site/UI from prompt" vertex="1">
+<mxCell id="p3-buildtext" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="build_from_text&#10;Scaffold site/UI from prompt" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="110" as="geometry" />
                 </mxCell>
-<mxCell id="p3-buildsource" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="build_from_source&#10;Scaffold site from reference design" vertex="1">
+<mxCell id="p3-buildsource" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="build_from_source&#10;Scaffold site from reference design" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="185" as="geometry" />
                 </mxCell>
-<mxCell id="p3-aidetect" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="website_ai_detector&#10;Audit generated HTML/UI for AI slop" vertex="1">
+<mxCell id="p3-aidetect" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=jonin;" value="website_ai_detector&#10;Audit generated HTML/UI for AI slop" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="260" as="geometry" />
                 </mxCell>
-<mxCell id="p3-genin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="genin&#10;genin-skill + i-have-adhd (Scout)" vertex="1">
+<mxCell id="p3-genin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=genin;" value="genin&#10;genin-skill + i-have-adhd (Scout)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="335" as="geometry" />
                 </mxCell>
-<mxCell id="p3-kage" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="kage&#10;kage-skill + antislop* (Village Leader)" vertex="1">
+<mxCell id="p3-kage" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=kage;" value="kage&#10;kage-skill + antislop* (Village Leader)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p3-jonin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="jonin&#10;jonin-skill + taste-skill (Elite Builder)" vertex="1">
+<mxCell id="p3-jonin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="jonin&#10;jonin-skill + taste-skill (Elite Builder)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="485" as="geometry" />
                 </mxCell>
-<mxCell id="p3-anbu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="anbu&#10;anbu-skill + qa-automation (Black Ops)" vertex="1">
+<mxCell id="p3-anbu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="anbu&#10;anbu-skill + qa-automation (Black Ops)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="560" as="geometry" />
                 </mxCell>
-<mxCell id="p3-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="chunin&#10;chunin-skill + i-have-adhd (Intel Ninja)" vertex="1">
+<mxCell id="p3-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=chunin;" value="chunin&#10;chunin-skill + i-have-adhd (Intel Ninja)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="635" as="geometry" />
                 </mxCell>
-<mxCell id="p3-toku" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
+<mxCell id="p3-toku" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="710" as="geometry" />
                 </mxCell>
-<mxCell id="p3-akatsuki" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
+<mxCell id="p3-akatsuki" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="785" as="geometry" />
                 </mxCell>
 <mxCell id="p3-mcp" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Konoha MCP&#10;find_skill / get_skill / direct specialist tools" vertex="1">
@@ -387,10 +387,10 @@
 <mxCell id="p4-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Model selection chooses one bridge per request; protocol retries remain inside sidecar paths" vertex="1">
                     <mxGeometry height="45" width="1100" x="40" y="60" as="geometry" />
                 </mxCell>
-<mxCell id="p4-client" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="MCP / API Client" vertex="1">
+<mxCell id="p4-client" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="MCP / API Client" vertex="1">
                     <mxGeometry height="60" width="190" x="60" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p4-gateway" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;" value="Konoha Bridge Router&#10;HTTP API :19999" vertex="1">
+<mxCell id="p4-gateway" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="Konoha Bridge Router&#10;HTTP API :19999" vertex="1">
                     <mxGeometry height="100" width="280" x="390" y="380" as="geometry" />
                 </mxCell>
 <mxCell id="p4-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;" value="SQLite bridges table&#10;enabled bridges + model cache" vertex="1">
@@ -414,7 +414,7 @@
 <mxCell id="p4-local" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Local LLM Endpoint" vertex="1">
                     <mxGeometry height="70" width="210" x="1270" y="305" as="geometry" />
                 </mxCell>
-<mxCell id="p4-sidecar" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Sidecar protocol cascade&#10;proto -&gt; raw -&gt; gRPC&#10;retries inside sidecar" vertex="1">
+<mxCell id="p4-sidecar" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Sidecar protocol cascade&#10;proto -&gt; raw -&gt; gRPC&#10;retries inside sidecar" vertex="1">
                     <mxGeometry height="95" width="280" x="1200" y="427.5" as="geometry" />
                 </mxCell>
 <mxCell id="p4-e1" edge="1" parent="1" source="p4-client" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" target="p4-gateway" value="HTTP / REST">
@@ -479,19 +479,19 @@
 <mxCell id="p5-query" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="Search Query" vertex="1">
                     <mxGeometry height="70" width="200" x="70" y="390" as="geometry" />
                 </mxCell>
-<mxCell id="p5-s1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="1. Public SearXNG&#10;dynamic HTTPS (CircuitBreaker)" vertex="1">
+<mxCell id="p5-s1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=none;" value="1. Public SearXNG&#10;dynamic HTTPS (CircuitBreaker)" vertex="1">
                     <mxGeometry height="85" width="340" x="350" y="150" as="geometry" />
                 </mxCell>
-<mxCell id="p5-s2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="2. DuckDuckGo HTML" vertex="1">
+<mxCell id="p5-s2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=none;" value="2. DuckDuckGo HTML" vertex="1">
                     <mxGeometry height="70" width="280" x="370" y="290" as="geometry" />
                 </mxCell>
-<mxCell id="p5-s3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="3. Startpage HTML" vertex="1">
+<mxCell id="p5-s3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=none;" value="3. Startpage HTML" vertex="1">
                     <mxGeometry height="70" width="280" x="370" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p5-s4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="4. Wikipedia OpenSearch" vertex="1">
+<mxCell id="p5-s4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=none;" value="4. Wikipedia OpenSearch" vertex="1">
                     <mxGeometry height="70" width="280" x="370" y="530" as="geometry" />
                 </mxCell>
-<mxCell id="p5-return" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Format citations&#10;title | URL | snippet | source" vertex="1">
+<mxCell id="p5-return" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=none;" value="Format citations&#10;title | URL | snippet | source" vertex="1">
                     <mxGeometry height="90" width="320" x="820" y="330" as="geometry" />
                 </mxCell>
 <mxCell id="p5-cache" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="SearXNG caches&#10;instances: 24h | best instance: 1h" vertex="1">
@@ -567,7 +567,7 @@
 <mxCell id="p6-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="Skill Registry Installation and On-Demand Retrieval" vertex="1">
                     <mxGeometry height="40" width="1000" x="40" y="20" as="geometry" />
                 </mxCell>
-<mxCell id="p6-developer" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Developer" vertex="1">
+<mxCell id="p6-developer" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="Developer" vertex="1">
                     <mxGeometry height="60" width="180" x="60" y="260" as="geometry" />
                 </mxCell>
 <mxCell id="p6-registry" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="skills.sh / Git repository" vertex="1">
@@ -579,16 +579,16 @@
 <mxCell id="p6-package" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Packaged source&#10;src/templates/skills/ -&gt; .agents/skills/" vertex="1">
                     <mxGeometry height="75" width="260" x="300" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p6-migrate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="konoha migrate&#10;FTS5 + Granite 97M Embeddings + MS MARCO Reranker" vertex="1">
+<mxCell id="p6-migrate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=anbu;" value="konoha migrate&#10;FTS5 + Granite 97M Embeddings + MS MARCO Reranker" vertex="1">
                     <mxGeometry height="80" width="310" x="640" y="260" as="geometry" />
                 </mxCell>
 <mxCell id="p6-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;" value="SQLite konoha.db (src/db.js)&#10;skills + skills_fts + skill_chunks" vertex="1">
                     <mxGeometry height="90" width="310" x="640" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p6-search" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="find_skill(keyword)&#10;ranked preview / lexical + vector search" vertex="1">
+<mxCell id="p6-search" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=none;" value="find_skill(keyword)&#10;ranked preview / lexical + vector search" vertex="1">
                     <mxGeometry height="65" width="250" x="1060" y="340" as="geometry" />
                 </mxCell>
-<mxCell id="p6-get" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="get_skill(canonical name)&#10;full content / SOP directives on demand" vertex="1">
+<mxCell id="p6-get" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=none;" value="get_skill(canonical name)&#10;full content / SOP directives on demand" vertex="1">
                     <mxGeometry height="65" width="250" x="1060" y="470" as="geometry" />
                 </mxCell>
 <mxCell id="p6-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Any Supported Client&#10;Konoha MCP runtime" vertex="1">
@@ -655,7 +655,7 @@
 <mxCell id="p7-index" parent="p7-after" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;" value="SQLite FTS5 index" vertex="1">
                     <mxGeometry height="70" width="280" x="190" y="74" as="geometry" />
                 </mxCell>
-<mxCell id="p7-query" parent="p7-after" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="find_skill(keyword)" vertex="1">
+<mxCell id="p7-query" parent="p7-after" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=none;" value="find_skill(keyword)" vertex="1">
                     <mxGeometry height="70" width="280" x="190" y="190" as="geometry" />
                 </mxCell>
 <mxCell id="p7-chunk" parent="p7-after" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Relevant preview or full reference&#10;bounded response" vertex="1">
@@ -687,31 +687,31 @@
       <root>
 <mxCell id="0" />
 <mxCell id="1" parent="0" />
-<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.17)" vertex="1">
+<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.18)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
 <mxCell id="p8-input" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="User Prompt / Resume" vertex="1">
                     <mxGeometry height="70" width="220" x="50" y="370" as="geometry" />
                 </mxCell>
-<mxCell id="p8-orch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Main Orchestrator Thread&#10;(LangGraph.js StateGraph Engine)" vertex="1">
+<mxCell id="p8-orch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="Main Orchestrator Thread&#10;(LangGraph.js StateGraph Engine)" vertex="1">
                     <mxGeometry height="85" width="280" x="380" y="350" as="geometry" />
                 </mxCell>
-<mxCell id="p8-read" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="1. Read prompt spec&#10;Konoha bounded file tools" vertex="1">
+<mxCell id="p8-read" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=sannin;" value="1. Read prompt spec&#10;Konoha bounded file tools" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="140" as="geometry" />
                 </mxCell>
-<mxCell id="p8-discover" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="2. Discover skill + code&#10;Konoha MCP + Semble MCP" vertex="1">
+<mxCell id="p8-discover" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=sannin;" value="2. Discover skill + code&#10;Konoha MCP + Semble MCP" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="270" as="geometry" />
                 </mxCell>
-<mxCell id="p8-delegate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="3. LangGraph Dispatch Node&#10;Lazy contract, turn budget &amp; todo" vertex="1">
+<mxCell id="p8-delegate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=sannin;" value="3. LangGraph Dispatch Node&#10;Lazy contract, turn budget &amp; todo" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="410" as="geometry" />
                 </mxCell>
-<mxCell id="p8-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="4. Invoke selected agent tool&#10;persona + instructions" vertex="1">
+<mxCell id="p8-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="4. Invoke selected agent tool&#10;persona + instructions" vertex="1">
                     <mxGeometry height="85" width="330" x="1120" y="270" as="geometry" />
                 </mxCell>
-<mxCell id="p8-result" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="5. Agent structured report&#10;evidence &amp; metrics" vertex="1">
+<mxCell id="p8-result" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="5. Agent structured report&#10;evidence &amp; metrics" vertex="1">
                     <mxGeometry height="70" width="300" x="1150" y="400" as="geometry" />
                 </mxCell>
-<mxCell id="p8-close" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="6. sannin closes loop&#10;orchestrator synthesizes" vertex="1">
+<mxCell id="p8-close" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="6. sannin closes loop&#10;orchestrator synthesizes" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="560" as="geometry" />
                 </mxCell>
 <mxCell id="p8-output" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Final Response" vertex="1">
@@ -782,7 +782,7 @@
 <mxCell id="p9-spec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Build Specification&#10;(build_from_source / build_from_text)" vertex="1">
                     <mxGeometry height="90" width="240" x="60" y="320" as="geometry" />
                 </mxCell>
-<mxCell id="p9-jonin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="♦ Jonin Frontend Builder&#10;(jonin-skill + taste-skill-frontend-expert)" vertex="1">
+<mxCell id="p9-jonin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="♦ Jonin Frontend Builder&#10;(jonin-skill + taste-skill-frontend-expert)" vertex="1">
                     <mxGeometry height="130" width="300" x="380" y="300" as="geometry" />
                 </mxCell>
 <mxCell id="p9-dials" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Taste Dials (1–10 Tuning)&#10;DESIGN_VARIANCE: 8&#10;MOTION_INTENSITY: 7&#10;VISUAL_DENSITY: 6" vertex="1">
@@ -825,13 +825,13 @@
 <mxCell id="p10-workspace" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Project Workspace Directory&#10;(Deterministic 12-char project_hash)" vertex="1">
                     <mxGeometry height="90" width="260" x="60" y="260" as="geometry" />
                 </mxCell>
-<mxCell id="p10-profiler" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Project Context Profiler&#10;• Stack Detection (Framework, Styling, PkgMgr)&#10;• Invariants &amp; Episodic Learnings Storage" vertex="1">
+<mxCell id="p10-profiler" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=anbu;" value="Project Context Profiler&#10;• Stack Detection (Framework, Styling, PkgMgr)&#10;• Invariants &amp; Episodic Learnings Storage" vertex="1">
                     <mxGeometry height="130" width="320" x="400" y="240" as="geometry" />
                 </mxCell>
 <mxCell id="p10-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;" value="SQLite Database (~/.konoha/konoha.db)&#10;• projects table (path, hash, name, framework)&#10;• persona_memories table (per-session episodic memory rule)&#10;• Maintenance: data backup, rebuild-fts, prune" vertex="1">
                     <mxGeometry height="120" width="280" x="420" y="470" as="geometry" />
                 </mxCell>
-<mxCell id="p10-compactor" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Unified Token-Bounded Prompt Engine&#10;• Single bounded architecture across all turns (&lt; 8 KB)&#10;• 100% prefix determinism for provider KV caching&#10;• On-demand skills served via konoha.get_skill&#10;• Permanent memory continuity without hallucination" vertex="1">
+<mxCell id="p10-compactor" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=sannin;" value="Unified Token-Bounded Prompt Engine&#10;• Single bounded architecture across all turns (&lt; 8 KB)&#10;• 100% prefix determinism for provider KV caching&#10;• On-demand skills served via konoha.get_skill&#10;• Permanent memory continuity without hallucination" vertex="1">
                     <mxGeometry height="170" width="420" x="820" y="220" as="geometry" />
                 </mxCell>
 <mxCell id="p10-edge1" edge="1" parent="1" source="p10-workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" target="p10-profiler">
@@ -854,28 +854,28 @@
 <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="11 Konoha LangGraph.js Production StateGraph Pipeline, Per-Turn Budget &amp; Kage Reviewer Gate" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry" />
                 </mxCell>
-<mxCell id="p11-route" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="1. Route Phase&#10;(LangGraph classify_intent &amp; DoR Gate)" vertex="1">
+<mxCell id="p11-route" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=sannin;" value="1. Route Phase&#10;(LangGraph classify_intent &amp; DoR Gate)" vertex="1">
                     <mxGeometry height="70" width="150" x="50" y="180" as="geometry" />
                 </mxCell>
-<mxCell id="p11-explore" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="2. Explore Phase&#10;(Genin: Read-only Scout)" vertex="1">
+<mxCell id="p11-explore" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=genin;" value="2. Explore Phase&#10;(Genin: Read-only Scout)" vertex="1">
                     <mxGeometry height="70" width="180" x="240" y="180" as="geometry" />
                 </mxCell>
-<mxCell id="p11-plan" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="3. Plan Phase&#10;(LangGraph: plan → brief → todo)" vertex="1">
+<mxCell id="p11-plan" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=kage;" value="3. Plan Phase&#10;(LangGraph: plan → brief → todo)" vertex="1">
                     <mxGeometry height="70" width="180" x="460" y="180" as="geometry" />
                 </mxCell>
-<mxCell id="p11-exec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="4. Execute Phase&#10;(LangGraph dispatch_node &amp; execute_node&#10;Turn Budget Governor: 8k/16k/32k/64k)" vertex="1">
+<mxCell id="p11-exec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="4. Execute Phase&#10;(LangGraph dispatch_node &amp; execute_node&#10;Turn Budget Governor: 8k/16k/32k/64k)" vertex="1">
                     <mxGeometry height="70" width="200" x="680" y="180" as="geometry" />
                 </mxCell>
-<mxCell id="p11-doc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" vertex="1">
+<mxCell id="p11-doc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" vertex="1">
                     <mxGeometry height="70" width="190" x="920" y="180" as="geometry" />
                 </mxCell>
-<mxCell id="p11-review" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; LangGraph review_node:&#10;• Zero-AI-Slop Pre-Gate (runAislopGate: 100/100)&#10;• @advisor Final Review Evaluation&#10;• LangGraph remediate_node Remediation Loop&#10;• Circuit Breaker Error Edge (node_error: cap ≤ 7)&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
+<mxCell id="p11-review" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=kage;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; LangGraph review_node:&#10;• Zero-AI-Slop Pre-Gate (runAislopGate: 100/100)&#10;• @advisor Final Review Evaluation&#10;• LangGraph remediate_node Remediation Loop&#10;• Circuit Breaker Error Edge (node_error: cap ≤ 7)&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
                     <mxGeometry height="190" width="430" x="680" y="320" as="geometry" />
                 </mxCell>
-<mxCell id="p11-synth" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="7. Synthesize Phase&#10;(Sannin Final Report)" vertex="1">
+<mxCell id="p11-synth" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="7. Synthesize Phase&#10;(Sannin Final Report)" vertex="1">
                     <mxGeometry height="70" width="180" x="400" y="440" as="geometry" />
                 </mxCell>
-<mxCell id="p11-done" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="8. Done Phase&#10;(Delivered to User)" vertex="1">
+<mxCell id="p11-done" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=sannin;" value="8. Done Phase&#10;(Delivered to User)" vertex="1">
                     <mxGeometry height="70" width="160" x="150" y="440" as="geometry" />
                 </mxCell>
 <mxCell id="p11-e1" edge="1" parent="1" source="p11-route" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" target="p11-explore">
@@ -913,34 +913,34 @@
 <mxCell id="p12-desc" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Real-time terminal progress bar (KonohaProgressBar), animated braille spinner (startSpinner, 10 frames / 90ms, TTY-only), non-destructive user skill and config preservation, 7 stages, and atomic client synchronization" vertex="1">
                     <mxGeometry height="20" width="800" x="40" y="70" as="geometry" />
                 </mxCell>
-<mxCell id="p12-start" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="konoha upgrade&#10;(Interactive or --yes)" vertex="1">
+<mxCell id="p12-start" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=host;" value="konoha upgrade&#10;(Interactive or --yes)" vertex="1">
                     <mxGeometry height="60" width="220" x="60" y="130" as="geometry" />
                 </mxCell>
-<mxCell id="p12-pbar" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="KonohaProgressBar&#10;Elapsed Pulse Ticker · startSpinner 10f/90ms" vertex="1">
+<mxCell id="p12-pbar" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="KonohaProgressBar&#10;Elapsed Pulse Ticker · startSpinner 10f/90ms" vertex="1">
                     <mxGeometry height="60" width="280" x="360" y="130" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Stage 1: Detect PM&#10;pnpm / npm auto-detect" vertex="1">
+<mxCell id="p12-stg1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 1: Detect PM&#10;pnpm / npm auto-detect" vertex="1">
                     <mxGeometry height="60" width="220" x="60" y="240" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Stage 2: GitHub Release&#10;Spawn add/install &amp; pulse timer" vertex="1">
+<mxCell id="p12-stg2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 2: GitHub Release&#10;Spawn add/install &amp; pulse timer" vertex="1">
                     <mxGeometry height="60" width="250" x="360" y="240" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Stage 3: Dependencies&#10;Node.js, uv, agent-browser" vertex="1">
+<mxCell id="p12-stg3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 3: Dependencies&#10;Node.js, uv, agent-browser" vertex="1">
                     <mxGeometry height="60" width="240" x="680" y="240" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Stage 4: MCP Runtime&#10;Additive sync (zero pruning)" vertex="1">
+<mxCell id="p12-stg4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 4: MCP Runtime&#10;Additive sync (zero pruning)" vertex="1">
                     <mxGeometry height="60" width="240" x="680" y="350" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg5" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;" value="Stage 5: SQLite FTS5&#10;Additive upsert (no --clean)" vertex="1">
+<mxCell id="p12-stg5" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FAF5FF;strokeColor=#C925D1;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#581C87;fontStyle=1;shadow=0;agent=anbu;" value="Stage 5: SQLite FTS5&#10;Additive upsert (no --clean)" vertex="1">
                     <mxGeometry height="60" width="250" x="360" y="350" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg6" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Stage 6: 7 MCP Clients&#10;Managed injection &amp; union-merge" vertex="1">
+<mxCell id="p12-stg6" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=anbu;" value="Stage 6: 7 MCP Clients&#10;Managed injection &amp; union-merge" vertex="1">
                     <mxGeometry height="60" width="240" x="60" y="350" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg7" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Stage 7: Bridge Extension&#10;Fast-path VSIX &amp; tools" vertex="1">
+<mxCell id="p12-stg7" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 7: Bridge Extension&#10;Fast-path VSIX &amp; tools" vertex="1">
                     <mxGeometry height="60" width="240" x="60" y="460" as="geometry" />
                 </mxCell>
-<mxCell id="p12-done" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="100% Upgrade Finalized&#10;All MCP servers healthy" vertex="1">
+<mxCell id="p12-done" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="100% Upgrade Finalized&#10;All MCP servers healthy" vertex="1">
                     <mxGeometry height="60" width="250" x="360" y="460" as="geometry" />
                 </mxCell>
 <mxCell id="p12-e1" edge="1" parent="1" source="p12-start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284c7;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" target="p12-pbar">
@@ -989,67 +989,67 @@
 <mxCell id="p13-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Strict DoR Gate · Genin Read-Only Recon · Kage Spec-First Planning · Anbu Codify &amp; Headless Playwright · Jonin UI Fixes · Kage Quality Gate (≥98% Confidence, 0 AI Slop)" vertex="1">
                     <mxGeometry height="20" width="1000" x="40" y="50" as="geometry" />
                 </mxCell>
-<mxCell id="p13-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="1. Route: Sannin&#10;triage prompt &amp; DoR" vertex="1">
+<mxCell id="p13-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="1. Route: Sannin&#10;triage prompt &amp; DoR" vertex="1">
                     <mxGeometry height="55" width="190" x="60" y="100" as="geometry" />
                 </mxCell>
-<mxCell id="p13-genin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="2. Explore: Genin&#10;code paths &amp; symbols" vertex="1">
+<mxCell id="p13-genin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=genin;" value="2. Explore: Genin&#10;code paths &amp; symbols" vertex="1">
                     <mxGeometry height="55" width="180" x="280" y="100" as="geometry" />
                 </mxCell>
-<mxCell id="p13-kage-plan" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="3. Plan: Kage&#10;tasks &amp; test spec" vertex="1">
+<mxCell id="p13-kage-plan" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=kage;" value="3. Plan: Kage&#10;tasks &amp; test spec" vertex="1">
                     <mxGeometry height="55" width="180" x="490" y="100" as="geometry" />
                 </mxCell>
-<mxCell id="p13-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="Chunin: Intel&#10;web &amp; docs research" vertex="1">
+<mxCell id="p13-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=chunin;" value="Chunin: Intel&#10;web &amp; docs research" vertex="1">
                     <mxGeometry height="55" width="170" x="750" y="100" as="geometry" />
                 </mxCell>
-<mxCell id="p13-p5" parent="1" style="shape=mxgraph.aws4.groupCenter;grIcon=mxgraph.aws4.group_auto_scaling_group;strokeColor=#ED7100;fillColor=none;verticalAlign=top;align=center;fontColor=#ED7100;dashed=1;strokeWidth=1.5;spacingTop=25;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="5. Execute: QA Loop (Anbu: qa_codify + qa_e2e_run · Jonin: UI fixes · Managed Workspace Hygiene &amp; Retention)" vertex="1">
+<mxCell id="p13-p5" parent="1" style="shape=mxgraph.aws4.groupCenter;grIcon=mxgraph.aws4.group_auto_scaling_group;strokeColor=#ED7100;fillColor=none;verticalAlign=top;align=center;fontColor=#ED7100;dashed=1;strokeWidth=1.5;spacingTop=25;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;agent=anbu;" value="5. Execute: QA Loop (Anbu: qa_codify + qa_e2e_run · Jonin: UI fixes · Managed Workspace Hygiene &amp; Retention)" vertex="1">
                     <mxGeometry height="360" width="1120" x="60" y="190" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Anbu: qa_codify&#10;generate flow tests" vertex="1">
+<mxCell id="p13-q1" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: qa_codify&#10;generate flow tests" vertex="1">
                     <mxGeometry height="50" width="160" x="90" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Anbu: write flow file&#10;tests/e2e/*.spec.ts" vertex="1">
+<mxCell id="p13-q2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: write flow file&#10;tests/e2e/*.spec.ts" vertex="1">
                     <mxGeometry height="50" width="180" x="290" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-qv" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;" value="spec&#10;valid?" vertex="1">
+<mxCell id="p13-qv" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;agent=anbu;" value="spec&#10;valid?" vertex="1">
                     <mxGeometry height="50" width="90" x="510" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Anbu: qa_e2e_run&#10;headless Playwright run" vertex="1">
+<mxCell id="p13-q3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: qa_e2e_run&#10;headless Playwright run" vertex="1">
                     <mxGeometry height="50" width="180" x="640" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-qf" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;" value="failures?" vertex="1">
+<mxCell id="p13-qf" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;agent=anbu;" value="failures?" vertex="1">
                     <mxGeometry height="50" width="90" x="860" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-qfb" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Anbu: fix backend code&#10;(APIs, server routes, ops)" vertex="1">
+<mxCell id="p13-qfb" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: fix backend code&#10;(APIs, server routes, ops)" vertex="1">
                     <mxGeometry height="50" width="170" x="760" y="325" as="geometry" />
                 </mxCell>
-<mxCell id="p13-qfu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Jonin: fix UI code&#10;(Taste-Skill design tokens)" vertex="1">
+<mxCell id="p13-qfu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="Jonin: fix UI code&#10;(Taste-Skill design tokens)" vertex="1">
                     <mxGeometry height="50" width="170" x="960" y="325" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;" value="Re-run Playwright&#10;qa_e2e_run (sandboxed runner)" vertex="1">
+<mxCell id="p13-q4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=anbu;" value="Re-run Playwright&#10;qa_e2e_run (sandboxed runner)" vertex="1">
                     <mxGeometry height="55" width="180" x="760" y="420" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q5" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="rtk aislop scan --changes&#10;verify 0 AI slop defects" vertex="1">
+<mxCell id="p13-q5" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=kage;" value="rtk aislop scan --changes&#10;verify 0 AI slop defects" vertex="1">
                     <mxGeometry height="55" width="190" x="500" y="420" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q6" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Output Redirection &amp; Prune&#10;retain &lt;= 20 runs · clean git" vertex="1">
+<mxCell id="p13-q6" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Output Redirection &amp; Prune&#10;retain &lt;= 20 runs · clean git" vertex="1">
                     <mxGeometry height="55" width="190" x="240" y="420" as="geometry" />
                 </mxCell>
-<mxCell id="p13-doc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="6. Document: Tokubetsu-jonin&#10;specs, README, CHANGELOG" vertex="1">
+<mxCell id="p13-doc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="6. Document: Tokubetsu-jonin&#10;specs, README, CHANGELOG" vertex="1">
                     <mxGeometry height="55" width="180" x="60" y="580" as="geometry" />
                 </mxCell>
-<mxCell id="p13-kage-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="7. Review: Kage Gate&#10;≥98% confidence &amp; 0 slop" vertex="1">
+<mxCell id="p13-kage-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=kage;" value="7. Review: Kage Gate&#10;≥98% confidence &amp; 0 slop" vertex="1">
                     <mxGeometry height="55" width="190" x="270" y="580" as="geometry" />
                 </mxCell>
-<mxCell id="p13-gate" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;" value="Gate&#10;passes?" vertex="1">
+<mxCell id="p13-gate" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;agent=kage;" value="Gate&#10;passes?" vertex="1">
                     <mxGeometry height="55" width="100" x="490" y="580" as="geometry" />
                 </mxCell>
-<mxCell id="p13-synth" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="8. Synthesize: Sannin&#10;final report to user" vertex="1">
+<mxCell id="p13-synth" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=sannin;" value="8. Synthesize: Sannin&#10;final report to user" vertex="1">
                     <mxGeometry height="55" width="180" x="630" y="580" as="geometry" />
                 </mxCell>
-<mxCell id="p13-rd" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Workflow engine re-delegates&#10;slop to Anbu/Jonin · QA to fix owner&#10;(depth ≤ 7 or slop_cycles ≤ 7)" vertex="1">
+<mxCell id="p13-rd" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=sannin;" value="Workflow engine re-delegates&#10;slop to Anbu/Jonin · QA to fix owner&#10;(depth ≤ 7 or slop_cycles ≤ 7)" vertex="1">
                     <mxGeometry height="55" width="230" x="430" y="670" as="geometry" />
                 </mxCell>
-<mxCell id="p13-stop" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="STOP: ask user&#10;if depth &gt; 7" vertex="1">
+<mxCell id="p13-stop" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="STOP: ask user&#10;if depth &gt; 7" vertex="1">
                     <mxGeometry height="55" width="140" x="700" y="670" as="geometry" />
                 </mxCell>
 <mxCell id="p13-e1" edge="1" parent="1" source="p13-sannin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284c7;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" target="p13-genin">
@@ -1180,43 +1180,43 @@
                 <mxCell id="p14-task-event" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="SDLC Task Event&#10;AWS EventBridge / Completed" vertex="1">
                     <mxGeometry height="60" width="200" x="70" y="120" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-format" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=1;shadow=0;" value="AWS Lambda Formatter&#10;Zero-Emoji Structured Telemetry" vertex="1">
+                <mxCell id="p14-format" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="AWS Lambda Formatter&#10;Zero-Emoji Structured Telemetry" vertex="1">
                     <mxGeometry height="80" width="220" x="330" y="110" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-check" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="telegram_config&#10;enabled == 1?" vertex="1">
+                <mxCell id="p14-check" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="telegram_config&#10;enabled == 1?" vertex="1">
                     <mxGeometry height="80" width="140" x="620" y="110" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-post" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="Amazon SNS / Telegram Bot&#10;HTTPS POST /sendMessage&#10;Authorized Chat ID" vertex="1">
+                <mxCell id="p14-post" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=anbu;" value="Amazon SNS / Telegram Bot&#10;HTTPS POST /sendMessage&#10;Authorized Chat ID" vertex="1">
                     <mxGeometry height="70" width="200" x="800" y="115" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-webhook" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="AWS EventBridge Webhook&#10;Bearer / JWT / Signed Payload" vertex="1">
+                <mxCell id="p14-webhook" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=anbu;" value="AWS EventBridge Webhook&#10;Bearer / JWT / Signed Payload" vertex="1">
                     <mxGeometry height="70" width="170" x="1015" y="115" as="geometry" />
                 </mxCell>
                 <mxCell id="p14-sub2" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C4FFF;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Inbound Long Polling &amp;amp; Command Router (API Gateway / SQS)" vertex="1">
                     <mxGeometry height="460" width="1160" x="40" y="340" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-poll-loop" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="AWS Lambda Ingress Poller&#10;Long Polling /getUpdates" vertex="1">
+                <mxCell id="p14-poll-loop" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=anbu;" value="AWS Lambda Ingress Poller&#10;Long Polling /getUpdates" vertex="1">
                     <mxGeometry height="60" width="220" x="70" y="390" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-whitelist" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="AWS IAM / Whitelist&#10;chat_id == allowed?" vertex="1">
+                <mxCell id="p14-whitelist" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="AWS IAM / Whitelist&#10;chat_id == allowed?" vertex="1">
                     <mxGeometry height="80" width="140" x="350" y="380" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-router" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;" value="AWS API Gateway&#10;Route Dispatcher" vertex="1">
+                <mxCell id="p14-router" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="AWS API Gateway&#10;Route Dispatcher" vertex="1">
                     <mxGeometry height="80" width="120" x="560" y="380" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-cmd-session" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Amazon DynamoDB&#10;/session State Switcher" vertex="1">
+                <mxCell id="p14-cmd-session" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=anbu;" value="Amazon DynamoDB&#10;/session State Switcher" vertex="1">
                     <mxGeometry height="60" width="190" x="750" y="360" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-cmd-sh" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="AWS Systems Manager&#10;/sh Interactive Shell" vertex="1">
+                <mxCell id="p14-cmd-sh" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=anbu;" value="AWS Systems Manager&#10;/sh Interactive Shell" vertex="1">
                     <mxGeometry height="60" width="190" x="750" y="440" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-cmd-subagents" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Amazon SQS Queue&#10;/kage, /anbu, /jonin Dispatch" vertex="1">
+                <mxCell id="p14-cmd-subagents" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=sannin;" value="Amazon SQS Queue&#10;/kage, /anbu, /jonin Dispatch" vertex="1">
                     <mxGeometry height="60" width="190" x="750" y="520" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-cmd-queue" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Amazon SQS Queue&#10;/run Autonomous Tasks" vertex="1">
+                <mxCell id="p14-cmd-queue" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=sannin;" value="Amazon SQS Queue&#10;/run Autonomous Tasks" vertex="1">
                     <mxGeometry height="60" width="190" x="750" y="600" as="geometry" />
                 </mxCell>
-                <mxCell id="p14-worker" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="Amazon ECS Fargate Worker&#10;• Operational: bash (0 Tokens)&#10;• AI Coding: agy -p (Kage Gate)" vertex="1">
+                <mxCell id="p14-worker" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=anbu;" value="Amazon ECS Fargate Worker&#10;• Operational: bash (0 Tokens)&#10;• AI Coding: agy -p (Kage Gate)" vertex="1">
                     <mxGeometry height="80" width="180" x="990" y="530" as="geometry" />
                 </mxCell>
                 <mxCell id="p14-e1" parent="1" edge="1" source="p14-task-event" target="p14-format" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
@@ -1245,37 +1245,37 @@
                 <mxCell id="p15-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Loopback Argon2id Session Authentication · Telegram Poller Ingress · Atomic Prompt Queue · Local SQLite Storage · Autonomous Worker" vertex="1"><mxGeometry x="40" y="50" width="1000" height="20" as="geometry" /></mxCell><mxCell id="p15-sub1" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#ED7100;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#ED7100;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Local Authenticated Ingress Layer (Loopback Security)" vertex="1">
                     <mxGeometry height="240" width="1160" x="40" y="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-user" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Operator Browser / TUI&#10;Local Access (127.0.0.1)" vertex="1">
+                <mxCell id="p15-user" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="Operator Browser / TUI&#10;Local Access (127.0.0.1)" vertex="1">
                     <mxGeometry height="60" width="180" x="70" y="120" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-edge" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Loopback Gateway (Port 1404)&#10;Argon2id Passphrase Gate&#10;(default: konohagakure)" vertex="1">
+                <mxCell id="p15-edge" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=host;" value="Loopback Gateway (Port 1404)&#10;Argon2id Passphrase Gate&#10;(default: konohagakure)" vertex="1">
                     <mxGeometry height="70" width="210" x="300" y="115" as="geometry" />
                 </mxCell>
                 <mxCell id="p15-tgpoller" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=1;shadow=0;" value="Telegram Polling Daemon&#10;Zero Inbound Ports&#10;Encrypted HTTPS Long-Polling" vertex="1">
                     <mxGeometry height="70" width="220" x="560" y="115" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-webui" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="Local Web UI (Port 1404)&#10;Argon2id Session Storage&#10;10-Theme System &amp; Dashboard" vertex="1">
+                <mxCell id="p15-webui" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=anbu;" value="Local Web UI (Port 1404)&#10;Argon2id Session Storage&#10;10-Theme System &amp; Dashboard" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="115" as="geometry" />
                 </mxCell>
                 <mxCell id="p15-sub2" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C4FFF;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Amazon SQS &amp;amp; SQLite Storage Subsystem (Atomic Queue Mirror)" vertex="1">
                     <mxGeometry height="460" width="1160" x="40" y="340" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-inbox-sqlite" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Amazon DynamoDB / SQLite&#10;Atomic prompt_queue&#10;pending -&gt; completed" vertex="1">
+                <mxCell id="p15-inbox-sqlite" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=anbu;" value="Amazon DynamoDB / SQLite&#10;Atomic prompt_queue&#10;pending -&gt; completed" vertex="1">
                     <mxGeometry height="70" width="210" x="70" y="390" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-fs-mirror" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Amazon S3 / Filesystem Mirror&#10;~/.konoha/inbox/&lt;id&gt;.json&#10;Atomic Persistence" vertex="1">
+                <mxCell id="p15-fs-mirror" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=anbu;" value="Amazon S3 / Filesystem Mirror&#10;~/.konoha/inbox/&lt;id&gt;.json&#10;Atomic Persistence" vertex="1">
                     <mxGeometry height="70" width="200" x="330" y="390" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-worker-exec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="Amazon ECS Autonomous Worker&#10;Zero Token Idle Polling&#10;Single Concurrency Queue" vertex="1">
+                <mxCell id="p15-worker-exec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=anbu;" value="Amazon ECS Autonomous Worker&#10;Zero Token Idle Polling&#10;Single Concurrency Queue" vertex="1">
                     <mxGeometry height="70" width="200" x="580" y="390" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-branch-op" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="Branch A: Ops Command&#10;kubectl, helm, git, bash&#10;100% Token Reduction (0 LLM)" vertex="1">
+                <mxCell id="p15-branch-op" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=anbu;" value="Branch A: Ops Command&#10;kubectl, helm, git, bash&#10;100% Token Reduction (0 LLM)" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="360" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-branch-ai" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Branch B: Autonomous AI&#10;Headless agy -p &lt;prompt&gt;&#10;Kage Confidence Gate" vertex="1">
+                <mxCell id="p15-branch-ai" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="Branch B: Autonomous AI&#10;Headless agy -p &lt;prompt&gt;&#10;Kage Confidence Gate" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="460" as="geometry" />
                 </mxCell>
-                <mxCell id="p15-notify" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Amazon SNS Telegram Dispatch&#10;Outbound Push to chat_id&#10;Zero-Emoji Notification" vertex="1">
+                <mxCell id="p15-notify" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="Amazon SNS Telegram Dispatch&#10;Outbound Push to chat_id&#10;Zero-Emoji Notification" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="560" as="geometry" />
                 </mxCell>
                 <mxCell id="p15-e1" parent="1" edge="1" source="p15-user" target="p15-edge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
@@ -1302,61 +1302,61 @@
                 <mxCell id="p16-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="AWS Security Hub · Amazon GuardDuty · Amazon Inspector · Unprivileged ECS Fargate Sandbox · IAM Policy Firewall" vertex="1"><mxGeometry x="40" y="50" width="1000" height="20" as="geometry" /></mxCell><mxCell id="p16-sub1" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#2E73B8;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#2E73B8;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="AWS Systems Manager Parameter Store &amp;amp; Config (~/.konoha/akatsuki_config.json)" vertex="1">
                     <mxGeometry height="220" width="560" x="40" y="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-op" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Security Operator&#10;CLI Ingress / IAM Auth" vertex="1">
+                <mxCell id="p16-op" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="Security Operator&#10;CLI Ingress / IAM Auth" vertex="1">
                     <mxGeometry height="60" width="160" x="60" y="120" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-cmd" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="AWS API Gateway Dispatch&#10;konoha akatsuki [mode|env|status]" vertex="1">
+                <mxCell id="p16-cmd" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="AWS API Gateway Dispatch&#10;konoha akatsuki [mode|env|status]" vertex="1">
                     <mxGeometry height="60" width="220" x="250" y="120" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-status" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="AWS CloudWatch Diagnostics&#10;Mode, Env, Lab &amp; Tools Health" vertex="1">
+                <mxCell id="p16-status" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=akatsuki;" value="AWS CloudWatch Diagnostics&#10;Mode, Env, Lab &amp; Tools Health" vertex="1">
                     <mxGeometry height="50" width="220" x="250" y="210" as="geometry" />
                 </mxCell>
                 <mxCell id="p16-sub2" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#DD344C;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#DD344C;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="AWS IAM Policy &amp;amp; RoE Authorization Firewall (Written Consent Gate)" vertex="1">
                     <mxGeometry height="220" width="560" x="640" y="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-mode-branch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Active Mode Check&#10;Default: BLUE (Defensive)" vertex="1">
+                <mxCell id="p16-mode-branch" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="Active Mode Check&#10;Default: BLUE (Defensive)" vertex="1">
                     <mxGeometry height="60" width="180" x="660" y="115" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-blue-ops" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Blue-Team Defensive Ops&#10;Amazon Inspector CVE Scan&#10;Teardown akatsuki-lab (Fail-Closed)" vertex="1">
+                <mxCell id="p16-blue-ops" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=akatsuki;" value="Blue-Team Defensive Ops&#10;Amazon Inspector CVE Scan&#10;Teardown akatsuki-lab (Fail-Closed)" vertex="1">
                     <mxGeometry height="60" width="220" x="960" y="115" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-roe-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="AWS IAM RoE Check&#10;Scope, Cutoff, Consent" vertex="1">
+                <mxCell id="p16-roe-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="AWS IAM RoE Check&#10;Scope, Cutoff, Consent" vertex="1">
                     <mxGeometry height="60" width="220" x="660" y="210" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-auth-denied" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="AWS WAF / BLOCKED&#10;Missing RoE Authorization" vertex="1">
+                <mxCell id="p16-auth-denied" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="AWS WAF / BLOCKED&#10;Missing RoE Authorization" vertex="1">
                     <mxGeometry height="60" width="200" x="960" y="210" as="geometry" />
                 </mxCell>
                 <mxCell id="p16-sub3" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C4FFF;dashed=1;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="Amazon ECS Unprivileged Fargate Container Sandbox (akatsuki-lab)" vertex="1">
                     <mxGeometry height="350" width="560" x="40" y="320" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-auto-prov" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="AWS CloudFormation&#10;Automated Lab Provisioning" vertex="1">
+                <mxCell id="p16-auto-prov" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=akatsuki;" value="AWS CloudFormation&#10;Automated Lab Provisioning" vertex="1">
                     <mxGeometry height="60" width="220" x="60" y="360" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-docker" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Docker Sandbox Engine&#10;• internal=true (0 host net)&#10;• UID 1000 akatsuki, --cap-drop=ALL&#10;• 2GB RAM, 2 CPU limits" vertex="1">
+                <mxCell id="p16-docker" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=akatsuki;" value="Docker Sandbox Engine&#10;• internal=true (0 host net)&#10;• UID 1000 akatsuki, --cap-drop=ALL&#10;• 2GB RAM, 2 CPU limits" vertex="1">
                     <mxGeometry height="80" width="230" x="60" y="460" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-lxc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="LXC System Container&#10;• Isolated bridge labbr0&#10;• Egress ACL lab-egress Deny&#10;• Unprivileged Debian 12" vertex="1">
+                <mxCell id="p16-lxc" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=akatsuki;" value="LXC System Container&#10;• Isolated bridge labbr0&#10;• Egress ACL lab-egress Deny&#10;• Unprivileged Debian 12" vertex="1">
                     <mxGeometry height="80" width="230" x="320" y="460" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-sandbox-ready" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;" value="ECS Sandbox: akatsuki-lab&#10;Zero Host Network &amp; Zero FS Mounts" vertex="1">
+                <mxCell id="p16-sandbox-ready" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=akatsuki;" value="ECS Sandbox: akatsuki-lab&#10;Zero Host Network &amp; Zero FS Mounts" vertex="1">
                     <mxGeometry height="60" width="300" x="170" y="580" as="geometry" />
                 </mxCell>
                 <mxCell id="p16-sub4" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#059669;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#059669;dashed=0;strokeWidth=1.5;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;" value="AWS Security Hub &amp;amp; Kage Delivery Audit Gate (Zero Critical/High CVEs)" vertex="1">
                     <mxGeometry height="350" width="560" x="640" y="320" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-tools" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="Approved 10-Tool Execution&#10;nmap · tshark · metasploit · zap · nuclei&#10;ffuf · sqlmap · testssl · trivy · curl_probe" vertex="1">
+                <mxCell id="p16-tools" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=akatsuki;" value="Approved 10-Tool Execution&#10;nmap · tshark · metasploit · zap · nuclei&#10;ffuf · sqlmap · testssl · trivy · curl_probe" vertex="1">
                     <mxGeometry height="70" width="270" x="660" y="360" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-evidence" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Amazon S3 Evidence Vault&#10;Encrypted XML/JSON to /tmp/akatsuki_*&#10;Diagnostic Teardown After Run" vertex="1">
+                <mxCell id="p16-evidence" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=akatsuki;" value="Amazon S3 Evidence Vault&#10;Encrypted XML/JSON to /tmp/akatsuki_*&#10;Diagnostic Teardown After Run" vertex="1">
                     <mxGeometry height="60" width="270" x="660" y="470" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;" value="AWS Audit Manager / Kage Gate&#10;Zero Critical / High Findings&#10;98% Minimum Confidence Sign-Off" vertex="1">
+                <mxCell id="p16-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#065F46;fontStyle=1;shadow=0;agent=akatsuki;" value="AWS Audit Manager / Kage Gate&#10;Zero Critical / High Findings&#10;98% Minimum Confidence Sign-Off" vertex="1">
                     <mxGeometry height="60" width="270" x="660" y="580" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-persona-check" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F1F5F9;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;" value="Non-Akatsuki Agents&#10;@genin, @anbu, @jonin, @chunin" vertex="1">
+                <mxCell id="p16-persona-check" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F1F5F9;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;shadow=0;agent=akatsuki;" value="Non-Akatsuki Agents&#10;@genin, @anbu, @jonin, @chunin" vertex="1">
                     <mxGeometry height="60" width="210" x="960" y="360" as="geometry" />
                 </mxCell>
-                <mxCell id="p16-persona-denied" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="AWS IAM DENIED&#10;Offensive skills restricted to @akatsuki" vertex="1">
+                <mxCell id="p16-persona-denied" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="AWS IAM DENIED&#10;Offensive skills restricted to @akatsuki" vertex="1">
                     <mxGeometry height="60" width="210" x="960" y="470" as="geometry" />
                 </mxCell>
                 <mxCell id="p16-e1" parent="1" edge="1" source="p16-op" target="p16-cmd" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2E73B8;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
@@ -1374,6 +1374,252 @@
                 <mxCell id="p16-e13" parent="1" edge="1" source="p16-tools" target="p16-evidence" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#545B64;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
                 <mxCell id="p16-e14" parent="1" edge="1" source="p16-evidence" target="p16-gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
                 <mxCell id="p16-persona-e" parent="1" edge="1" source="p16-persona-check" target="p16-persona-denied" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DD344C;strokeWidth=1.5;endArrow=block;endFill=1;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;"><mxGeometry relative="1" as="geometry" /></mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+
+    <diagram id="yamanaka-3d-pipeline" name="17 Yamanaka Image-to-3D Asset Pipeline">
+        <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1600" pageHeight="1000" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p17-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="17 Yamanaka Image-to-3D Asset Pipeline" vertex="1">
+                    <mxGeometry height="30" width="800" x="40" y="20" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Blender 5.2.2 headless build · geometry_quality weld / UV / finalize · Three.js IBL preview · local artifact store, honest measured labels" vertex="1">
+                    <mxGeometry height="20" width="1300" x="40" y="50" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-request" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="build_from_source / build_from_text&#10;prompt + quality level" vertex="1">
+                    <mxGeometry height="110" width="220" x="60" y="280" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-router" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=yamanaka;" value="Prompt-Aware Archetype Routing&#10;ARCHETYPE_HINTS → resolveEffectiveArchetype" vertex="1">
+                    <mxGeometry height="110" width="240" x="380" y="280" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-spec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=yamanaka;" value="Spec Synthesis + Richness Floor&#10;enrichSynthesizedSpec" vertex="1">
+                    <mxGeometry height="110" width="240" x="700" y="280" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-blender" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFBEB;strokeColor=#D97706;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=yamanaka;" value="Blender 5.2.2 Headless Build&#10;geometry_quality: weld · UV · finalize" vertex="1">
+                    <mxGeometry height="110" width="240" x="1020" y="280" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-preview" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#064E3B;fontStyle=1;shadow=0;agent=yamanaka;" value="Preview Render&#10;Three.js + PMREM IBL" vertex="1">
+                    <mxGeometry height="110" width="200" x="1340" y="280" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-evidence" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F8FAFC;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=0;shadow=0;" value="Measured Output&#10;PNG→3D relief 4,196 B / 11 tris&#10;Vehicle 968,956 B / 34,660 tris" vertex="1">
+                    <mxGeometry height="90" width="220" x="60" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-quality" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F8FAFC;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=0;shadow=0;agent=yamanaka;" value="Poly Ladder per quality level&#10;low 3,000 · normal 12,000&#10;high 35,000 · ultra 85,000" vertex="1">
+                    <mxGeometry height="90" width="240" x="380" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-budget" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F8FAFC;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=0;shadow=0;agent=yamanaka;" value="Density Scale&#10;polyFactor = sqrt(target / 1000)&#10;clamped [0.8, 12]" vertex="1">
+                    <mxGeometry height="90" width="240" x="700" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-ibl" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F8FAFC;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=0;shadow=0;agent=yamanaka;" value="IBL Preview Fix&#10;RoomEnvironment + PMREMGenerator&#10;512×512 PNG per asset" vertex="1">
+                    <mxGeometry height="90" width="240" x="1020" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-export" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F8FAFC;strokeColor=#545B64;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#232F3E;fontStyle=0;shadow=0;" value="Artifacts&#10;GLB + preview.png" vertex="1">
+                    <mxGeometry height="90" width="200" x="1340" y="520" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-gpu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFEFF;strokeColor=#0891B2;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#164E63;fontStyle=1;shadow=0;agent=yamanaka;" value="gpu_telemetry.js&#10;device · VRAM · queue depth · render wall clock" vertex="1">
+                    <mxGeometry height="80" width="460" x="60" y="700" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-fallback" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFEFF;strokeColor=#0891B2;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#164E63;fontStyle=1;shadow=0;agent=yamanaka;" value="Local-Only Engine Test&#10;zero hosted model calls from build to GLB" vertex="1">
+                    <mxGeometry height="80" width="460" x="580" y="700" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-gate" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFEFF;strokeColor=#0891B2;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#164E63;fontStyle=1;shadow=0;agent=yamanaka;" value="Readiness Gate&#10;check_readiness → GLB parses, preview non-dark, budget met" vertex="1">
+                    <mxGeometry height="80" width="460" x="1100" y="700" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e1" edge="1" parent="1" source="p17-request" target="p17-router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e2" edge="1" parent="1" source="p17-router" target="p17-spec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e3" edge="1" parent="1" source="p17-spec" target="p17-blender" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e4" edge="1" parent="1" source="p17-blender" target="p17-preview" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e5" edge="1" parent="1" source="p17-request" target="p17-evidence" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e6" edge="1" parent="1" source="p17-router" target="p17-quality" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e7" edge="1" parent="1" source="p17-spec" target="p17-budget" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e8" edge="1" parent="1" source="p17-blender" target="p17-ibl" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p17-e9" edge="1" parent="1" source="p17-preview" target="p17-export" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="langgraph-runtime" name="18 LangGraph.js Orchestration Runtime">
+        <mxGraphModel dx="1460" dy="1041" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1250" pageHeight="850" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p18-title" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="18 LangGraph.js Orchestration Runtime" vertex="1" parent="1">
+                    <mxGeometry x="40" y="22" width="620" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-sub-lane1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Konoha orchestration graph · src/mcp/langgraph/index.js" vertex="1" parent="1">
+                    <mxGeometry x="120" y="78" width="520" height="22" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-sub-lane2" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Yamanaka asset graph · src/workflow/yamanaka/graph.js" vertex="1" parent="1">
+                    <mxGeometry x="640" y="78" width="520" height="22" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-entry" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="entry_router&#10;route by intent" vertex="1" parent="1">
+                    <mxGeometry x="120" y="110" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-classify" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="classify&#10;task class + budget" vertex="1" parent="1">
+                    <mxGeometry x="120" y="172" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-plan" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="plan&#10;step decomposition" vertex="1" parent="1">
+                    <mxGeometry x="120" y="234" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-brief" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="brief&#10;shared brief" vertex="1" parent="1">
+                    <mxGeometry x="120" y="296" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-todo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="todo&#10;task ledger" vertex="1" parent="1">
+                    <mxGeometry x="120" y="358" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-dispatch" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="dispatch&#10;agent selection" vertex="1" parent="1">
+                    <mxGeometry x="120" y="420" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-execute" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="execute&#10;tool call + guard" vertex="1" parent="1">
+                    <mxGeometry x="120" y="482" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-review" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=kage;" value="review&#10;quality gate" vertex="1" parent="1">
+                    <mxGeometry x="120" y="544" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-complete" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="complete&#10;final report" vertex="1" parent="1">
+                    <mxGeometry x="120" y="606" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-remediate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="remediate&#10;fix loop to execute" vertex="1" parent="1">
+                    <mxGeometry x="120" y="668" width="200" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-init" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="init&#10;job envelope" vertex="1" parent="1">
+                    <mxGeometry x="640" y="110" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-dsl" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="synthesize_dsl&#10;spec to DSL" vertex="1" parent="1">
+                    <mxGeometry x="640" y="172" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-vpre" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="validate_pre&#10;schema gate" vertex="1" parent="1">
+                    <mxGeometry x="640" y="234" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-base" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="build_base&#10;CSG primitives" vertex="1" parent="1">
+                    <mxGeometry x="640" y="296" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-refine" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="refine_blender&#10;Blender pass" vertex="1" parent="1">
+                    <mxGeometry x="640" y="358" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-vpost" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="validate_post&#10;geometry QA" vertex="1" parent="1">
+                    <mxGeometry x="640" y="420" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-promote" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="promote&#10;artifact + preview" vertex="1" parent="1">
+                    <mxGeometry x="640" y="482" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-repair" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="repair&#10;DSL patch, rebuild" vertex="1" parent="1">
+                    <mxGeometry x="640" y="544" width="220" height="48" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-sub-note1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="9 process nodes · 10 routers · each node wrapped by wrapGuardedNode (@langchain/langgraph 1.6.0)" vertex="1" parent="1">
+                    <mxGeometry x="120" y="750" width="500" height="34" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-sub-note2" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Sinks: budget_exceeded + node_error · checkpoints per thread (@langchain/langgraph-checkpoint 1.2.2, SQLite)" vertex="1" parent="1">
+                    <mxGeometry x="640" y="750" width="560" height="34" as="geometry" />
+                </mxCell>
+                <mxCell id="p18-e-entry-classify" edge="1" parent="1" source="p18-entry" target="p18-classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-classify-plan" edge="1" parent="1" source="p18-classify" target="p18-plan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-plan-brief" edge="1" parent="1" source="p18-plan" target="p18-brief" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-brief-todo" edge="1" parent="1" source="p18-brief" target="p18-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-todo-dispatch" edge="1" parent="1" source="p18-todo" target="p18-dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-dispatch-execute" edge="1" parent="1" source="p18-dispatch" target="p18-execute" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-execute-review" edge="1" parent="1" source="p18-execute" target="p18-review" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-review-complete" edge="1" parent="1" source="p18-review" target="p18-complete" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-review-remediate" edge="1" parent="1" source="p18-review" target="p18-remediate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=1.0;exitY=0.5;entryX=1.0;entryY=0.5;" value="fail">
+                    <mxGeometry relative="1" as="geometry">
+                    <Array as="points">
+                        <mxPoint x="360" y="568" />
+                        <mxPoint x="360" y="692" />
+                    </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-remediate-execute" edge="1" parent="1" source="p18-remediate" target="p18-execute" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=0.0;exitY=0.5;entryX=0.0;entryY=0.5;" value="retry">
+                    <mxGeometry relative="1" as="geometry">
+                    <Array as="points">
+                        <mxPoint x="60" y="692" />
+                        <mxPoint x="60" y="506" />
+                    </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-init-dsl" edge="1" parent="1" source="p18-init" target="p18-dsl" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-dsl-vpre" edge="1" parent="1" source="p18-dsl" target="p18-vpre" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-vpre-base" edge="1" parent="1" source="p18-vpre" target="p18-base" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-base-refine" edge="1" parent="1" source="p18-base" target="p18-refine" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-refine-vpost" edge="1" parent="1" source="p18-refine" target="p18-vpost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-vpost-promote" edge="1" parent="1" source="p18-vpost" target="p18-promote" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-vpost-repair" edge="1" parent="1" source="p18-vpost" target="p18-repair" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=1.0;exitY=0.5;entryX=1.0;entryY=0.5;" value="invalid">
+                    <mxGeometry relative="1" as="geometry">
+                    <Array as="points">
+                        <mxPoint x="1120" y="444" />
+                        <mxPoint x="1120" y="568" />
+                    </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="p18-e-repair-base" edge="1" parent="1" source="p18-repair" target="p18-base" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=0.0;exitY=0.5;entryX=0.0;entryY=0.5;" value="patch">
+                    <mxGeometry relative="1" as="geometry">
+                    <Array as="points">
+                        <mxPoint x="560" y="568" />
+                        <mxPoint x="560" y="320" />
+                    </Array>
+                    </mxGeometry>
+                </mxCell>
             </root>
         </mxGraphModel>
     </diagram>

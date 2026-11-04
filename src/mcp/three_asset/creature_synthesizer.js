@@ -3,7 +3,7 @@
 /**
  * Parametric Quadruped / Multi-Tailed Creature Synthesizer.
  * Builds anatomically proportioned, grounded creature assemblies (e.g. Kurama nine-tailed fox)
- * with radially fanned, strictly non-overlapping bushy tails derived from the prompt.
+ * with radially fanned, strictly non-overlapping bushy tails sized from the scene spec.
  */
 
 const WORD_NUMBERS = {

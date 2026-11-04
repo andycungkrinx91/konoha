@@ -1398,4 +1398,19 @@ html.theme-dark .telemetry-lamp-beacon,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* prefers-reduced-motion-safe-framing
+     Entrance animations use fill-mode: both, so collapsing their duration to
+     0.01ms freezes them on their first frame. For opacity/scale entrances that
+     frame is opacity: 0 — the element stays invisible yet still intercepts
+     pointer events, which makes dialogs unusable for these users. Pin the
+     end state instead of animating toward it. */
+  .animate-in,
+  .animate-in.fade-in,
+  .animate-in.zoom-in-95,
+  .animate-in.slide-up {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

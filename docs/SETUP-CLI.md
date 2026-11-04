@@ -28,7 +28,7 @@
 
 ### RTK (Rust Token Killer) — Token-Optimized Shell
 
-If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to `~/.gemini/antigravity-cli/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
+If `rtk` is installed (`cargo install --git https://github.com/rtk-ai/rtk`), Konoha auto-deploys RTK rules to `~/.gemini/antigravity-cli/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
 
 ## Step 1: Install Konoha (Zero-Configuration Auto-Setup)
 
@@ -262,7 +262,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```bash
   konoha agent delete <agent-name>
   ```
-  Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The eight official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`) are **protected** and cannot be deleted.
+  Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The nine official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`, `yamanaka`) are **protected** and cannot be deleted.
 
 ### Database Maintenance & Telemetry Pruning (`konoha data`)
 

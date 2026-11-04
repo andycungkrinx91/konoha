@@ -4,6 +4,10 @@
   import { toast } from '#lib/state/toast.svelte.ts';
   import PageHero from './PageHero.svelte';
   import ThreeViewport from './ThreeViewport.svelte';
+  import BlenderPipelineGraph from './BlenderPipelineGraph.svelte';
+  import TokenCostCard from './TokenCostCard.svelte';
+  import RecentAssetsCard from './RecentAssetsCard.svelte';
+  import GenerateParamsCard from './GenerateParamsCard.svelte';
 
   // Telemetry State
   let telemetryPeriod = $state('today'); // 'today' | '24h' | '7d' | '30d' | '60d' | 'all'
@@ -19,9 +23,16 @@
   let negativePrompt = $state('low poly, distorted, non-manifold, roblox, flat shading');
   let archetype = $state('auto');
   let profile = $state('enterprise_pbr');
-  let qualityPreset = $state('standard');
+  let qualityPreset = $state('normal');
   let requestedComputeMode = $state('auto');
   let imagePath = $state(null);
+  let sourceMode = $state('text_to_3d');
+  let imagePreviewUrl = $state(null);
+  let imageFileName = $state('');
+  let isUploadingImage = $state(false);
+  let targetPolycount = $state(12000);
+  let textureResolution = $state(2048);
+  let enablePbr = $state(true);
   let isGenerating = $state(false);
 
   // Live Job Progress State
@@ -55,6 +66,11 @@
   let archetypes = $state([]);
   let profiles = $state([]);
   let computeModes = $state([]);
+  let qualityLevels = $state([]);
+
+  const ASSET_PAGE_SIZE = 6;
+  let assetsPage = $state(1);
+  let assetsTotal = $state(0);
 
   const COMPUTE_MODE_LABELS = {
     auto: 'Auto (Detect GPU or Fallback to CPU)',
@@ -141,6 +157,7 @@
       archetypes = toOptions(catalogs.archetypes);
       profiles = toOptions(catalogs.profiles, PROFILE_LABELS);
       computeModes = toOptions(catalogs.compute_modes, COMPUTE_MODE_LABELS);
+      qualityLevels = Array.isArray(catalogs.quality_levels) ? catalogs.quality_levels : [];
       syncCatalogDefaults();
     } catch (_) {}
   }
@@ -155,14 +172,28 @@
     if (!computeModes.some((c) => c.id === requestedComputeMode)) {
       requestedComputeMode = computeModes.find((c) => c.id === 'auto')?.id || computeModes[0]?.id || 'auto';
     }
+    const level = qualityLevels.find((entry) => entry.id === qualityPreset) || qualityLevels[0];
+    if (level) {
+      qualityPreset = level.id;
+      targetPolycount = level.targetPolycount;
+    }
   }
 
-  async function loadRecentAssets() {
+  async function loadRecentAssets(page = assetsPage) {
     loadingAssets = true;
+    const target = Math.max(1, Number(page) || 1);
     try {
-      const data = await apiRequest('/api/v1/3d/assets?limit=8');
+      const data = await apiRequest(`/api/v1/3d/assets?limit=${ASSET_PAGE_SIZE}&offset=${(target - 1) * ASSET_PAGE_SIZE}`);
       recentAssets = data.assets || [];
-      if (!currentGlbUrl && recentAssets.length > 0) {
+      assetsTotal = Number(data.total) || recentAssets.length;
+      const lastPage = Math.max(1, Math.ceil(assetsTotal / ASSET_PAGE_SIZE));
+      if (target > lastPage) {
+        assetsPage = lastPage;
+        await loadRecentAssets(lastPage);
+        return;
+      }
+      assetsPage = target;
+      if (!currentGlbUrl && target === 1 && recentAssets.length > 0) {
         selectAsset(recentAssets[0]);
       }
     } catch (_) {} finally {
@@ -179,8 +210,60 @@
     liveKey = Date.now();
   }
 
+  async function handleImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      toast.error('Unsupported image type. Use PNG, JPEG, or WebP.');
+      event.target.value = '';
+      return;
+    }
+    isUploadingImage = true;
+    try {
+      const dataBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(new Error('Could not read the selected file'));
+        reader.readAsDataURL(file);
+      });
+      const res = await apiRequest('/api/v1/3d/upload-image', {
+        method: 'POST',
+        body: JSON.stringify({ data_base64: dataBase64, filename: file.name })
+      });
+      imagePath = res.image_path;
+      imagePreviewUrl = URL.createObjectURL(file);
+      imageFileName = file.name;
+      sourceMode = 'image_to_3d';
+      toast.success('Reference image uploaded');
+    } catch (err) {
+      toast.error('Upload failed: ' + (err.message || err));
+      imagePath = null;
+      imagePreviewUrl = null;
+      imageFileName = '';
+    } finally {
+      isUploadingImage = false;
+      event.target.value = '';
+    }
+  }
+
+  function clearImage() {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    imagePath = null;
+    imagePreviewUrl = null;
+    imageFileName = '';
+    if (sourceMode === 'image_to_3d') sourceMode = 'text_to_3d';
+  }
+
   async function startGeneration() {
-    if (isGenerating || !prompt.trim()) return;
+    if (isGenerating) return;
+    if (sourceMode === 'image_to_3d' && !imagePath) {
+      toast.error('Upload a reference image before generating from an image.');
+      return;
+    }
+    if (sourceMode === 'text_to_3d' && !prompt.trim()) {
+      toast.error('Describe the model you want to generate.');
+      return;
+    }
     isGenerating = true;
     currentStep = 0;
     activeTool = 'yamanaka.langgraph.init';
@@ -205,7 +288,11 @@
           profile,
           quality_preset: qualityPreset,
           requested_compute_mode: requestedComputeMode,
-          model: selectedModel || null
+          model: selectedModel || null,
+          target_polycount: Number(targetPolycount),
+          texture_resolution: Number(textureResolution),
+          enable_pbr: enablePbr,
+          image_path: sourceMode === 'image_to_3d' ? imagePath : undefined
         })
       });
 
@@ -297,327 +384,161 @@
 </script>
 
 <div class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-  <!-- Top-of-Page Real 3D Token & Cost Counter Bar (Mandatory Invariant) -->
-  <div class="glass-card-3d p-4 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b" style="border-color: var(--color-border);">
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <h2 class="text-xs font-extrabold uppercase tracking-widest text-cyan-600 dark:text-cyan-400">
-          Real 3D Token & Cost Counter
-        </h2>
-      </div>
+  <!-- 1. Top Real Token & Cost Telemetry (full width) -->
+  <TokenCostCard
+    telemetry={telemetry}
+    period={telemetryPeriod}
+    periods={TIME_PERIODS}
+    loading={loadingTelemetry}
+    onSelectPeriod={loadTelemetry}
+  />
 
-      <!-- 6 Filter Window Tabs -->
-      <div class="flex items-center gap-1 bg-slate-900/10 dark:bg-slate-900/60 p-1 rounded-[5px] border border-slate-700/20">
-        {#each TIME_PERIODS as tp}
-          <button
-            type="button"
-            onclick={() => loadTelemetry(tp.id)}
-            class="px-2.5 py-1 text-[11px] font-bold rounded-[3px] transition-all cursor-pointer {telemetryPeriod === tp.id ? 'bg-cyan-500 text-slate-950 font-extrabold shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-cyan-500'}"
-          >
-            {tp.label}
-          </button>
-        {/each}
-      </div>
-    </div>
+  <!-- 2. Agentic Blender Editing Pipeline Graph (full width, directly under Token Card) -->
+  <BlenderPipelineGraph
+    steps={AGENTIC_STEPS}
+    {currentStep}
+    {activeTool}
+    {activeNarrative}
+    timings={blenderSteps}
+    isRunning={isGenerating}
+  />
 
-    <!-- 4 Stats Tiles -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
-      <div class="p-3 rounded-[5px] border" style="background-color: var(--color-bg); border-color: var(--color-border);">
-        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Total Requests</span>
-        <p class="text-lg font-black mt-0.5" style="color: var(--color-text);">{(telemetry.total_requests || 0).toLocaleString()}</p>
-      </div>
-      <div class="p-3 rounded-[5px] border" style="background-color: var(--color-bg); border-color: var(--color-border);">
-        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Total Input Tokens</span>
-        <p class="text-lg font-black mt-0.5" style="color: var(--color-text);">{(telemetry.total_input_tokens || 0).toLocaleString()}</p>
-      </div>
-      <div class="p-3 rounded-[5px] border" style="background-color: var(--color-bg); border-color: var(--color-border);">
-        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Total Output Tokens</span>
-        <p class="text-lg font-black mt-0.5" style="color: var(--color-text);">{(telemetry.total_output_tokens || 0).toLocaleString()}</p>
-      </div>
-      <div class="p-3 rounded-[5px] border" style="background-color: var(--color-bg); border-color: var(--color-border);">
-        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">EST. Cost (USD)</span>
-        <p class="text-lg font-black mt-0.5 text-emerald-600 dark:text-emerald-400">
-          ${(telemetry.est_cost_usd || 0.0).toFixed(4)}
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Studio Main Split: Left Controls / Right Interactive Viewport -->
+  <!-- 3. Generative Parameters (left, lg:col-span-5) + Recent 3D Assets (right, lg:col-span-7) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- Left Column: Unified Model Selector & Generator Form (5 Cols) -->
-    <div class="lg:col-span-5 space-y-6">
-      <div class="glass-card-3d p-6 rounded-[5px] border space-y-4" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-        <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
-          <h2 class="text-sm font-extrabold" style="color: var(--color-text);">Generative Parameters</h2>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-            LangGraph.js Engine
-          </span>
-        </div>
-
-        <!-- Unified Model Selector Across 8+ Clients + 9router Catalog -->
-        <div class="space-y-1">
-          <label for="synthesizer-model-select" class="text-xs font-bold block" style="color: var(--color-text);">
-            Synthesizer Model Router (Inherited Priority)
-          </label>
-          <select
-            id="synthesizer-model-select"
-            bind:value={selectedModel}
-            class="w-full text-xs font-mono p-2.5 rounded-[5px] border focus:outline-hidden"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            {#each modelsCatalog as m}
-              <option value={m.id}>{m.id} ({m.model_name || m.bridge || 'Active'})</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Prompt Textarea -->
-        <div class="space-y-1">
-          <label for="prompt-desc-input" class="text-xs font-bold block" style="color: var(--color-text);">
-            Prompt Description
-          </label>
-          <textarea
-            id="prompt-desc-input"
-            bind:value={prompt}
-            rows="3"
-            placeholder="Describe the 3D asset in detail..."
-            class="w-full text-xs p-2.5 rounded-[5px] border focus:outline-hidden resize-none"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          ></textarea>
-        </div>
-
-        <!-- Archetype & Profile Row -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <label for="archetype-select" class="text-xs font-bold block" style="color: var(--color-text);">Domain Archetype</label>
-            <select
-              id="archetype-select"
-              bind:value={archetype}
-              class="w-full text-xs p-2 rounded-[5px] border focus:outline-hidden"
-              style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-            >
-              {#each archetypes as a}
-                <option value={a.id}>{a.label}</option>
-              {/each}
-            </select>
-          </div>
-
-          <div class="space-y-1">
-            <label for="profile-select" class="text-xs font-bold block" style="color: var(--color-text);">Style & Materials</label>
-            <select
-              id="profile-select"
-              bind:value={profile}
-              class="w-full text-xs p-2 rounded-[5px] border focus:outline-hidden"
-              style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-            >
-              {#each profiles as p}
-                <option value={p.id}>{p.label}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <!-- Compute Engine Selector (Auto | Force GPU with Auto CPU Fallback | Force CPU) -->
-        <div class="space-y-1">
-          <label for="compute-mode-select" class="text-xs font-bold block" style="color: var(--color-text);">Compute Mode</label>
-          <select
-            id="compute-mode-select"
-            bind:value={requestedComputeMode}
-            class="w-full text-xs p-2 rounded-[5px] border focus:outline-hidden"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            {#each computeModes as cm}
-              <option value={cm.id}>{cm.label}</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Synthesize Button -->
-        <button
-          type="button"
-          onclick={startGeneration}
-          disabled={isGenerating || !prompt.trim()}
-          class="btn-3d w-full py-3 rounded-[5px] text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all disabled:opacity-50"
-          style="background: var(--theme-gradient); color: #ffffff;"
-        >
-          {#if isGenerating}
-            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span>Synthesizing 3D Model...</span>
-          {:else}
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <span>Synthesize 3D Model</span>
-          {/if}
-        </button>
-      </div>
-
-      <!-- 6-Step Agentic Timeline Display -->
-      <div class="glass-card-3d p-6 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 mb-3">
-          Agentic Blender Editing Pipeline
-        </h3>
-        <div class="space-y-2">
-          {#each AGENTIC_STEPS as s}
-            <div class="flex items-center gap-3 p-2 rounded-[5px] transition-all {currentStep === s.id ? 'bg-cyan-500/10 border border-cyan-500/30' : (currentStep > s.id ? 'opacity-80' : 'opacity-40')}">
-              <div class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 {currentStep === s.id ? 'bg-cyan-500 text-slate-950 animate-pulse' : (currentStep > s.id ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-300')}">
-                {s.id}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-bold truncate" style="color: var(--color-text);">{s.name}</p>
-                <p class="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 truncate">{s.tool}</p>
-                {#if stepTiming(s.id)}
-                  {@const done = stepTiming(s.id)}
-                  <p class="text-[10px] text-slate-500 truncate">
-                    {done.elapsed_ms} ms ·
-                    {done.parameters?.vertices || 0} verts /
-                    {done.parameters?.triangles || 0} tris
-                    {#if done.parameters?.turnaround}· 16:9 turnaround{/if}
-                  </p>
-                {/if}
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
+    <div class="lg:col-span-5">
+      <GenerateParamsCard
+        {modelsCatalog}
+        bind:selectedModel
+        bind:prompt
+        bind:sourceMode
+        {imagePath}
+        {imagePreviewUrl}
+        {imageFileName}
+        {isUploadingImage}
+        bind:targetPolycount
+        bind:textureResolution
+        bind:enablePbr
+        bind:archetype
+        bind:profile
+        bind:qualityPreset
+        {qualityLevels}
+        {archetypes}
+        {profiles}
+        bind:requestedComputeMode
+        {computeModes}
+        {isGenerating}
+        onUploadImage={handleImageUpload}
+        onClearImage={clearImage}
+        onGenerate={startGeneration}
+      />
     </div>
-
-    <!-- Right Column: Interactive 3D WebGL Viewport & Production Downloads (7 Cols) -->
-    <div class="lg:col-span-7 space-y-6">
-      <!-- Three.js Viewport -->
-      <div class="glass-card-3d p-4 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-        <ThreeViewport
-          glbUrl={currentGlbUrl}
-          liveKey={liveKey}
-          height="520px"
-          triangleCount={triangleCount}
-          vertexCount={vertexCount}
-          isWatertight={isWatertight}
-          turnaroundMode={turnaroundRequested}
-        />
-
-        <!-- Live Blender 5.x Agentic Render Stream -->
-        {#if livePngUrl || blenderRuntime}
-          <div class="mt-4 p-3 rounded-[5px] border" style="border-color: var(--color-border); background-color: var(--color-surface);">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h4 class="text-[11px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                Live Blender Agentic Render Stream
-              </h4>
-              <div class="flex items-center gap-2 text-[10px] font-mono text-slate-500">
-                {#if blenderRuntime?.blender}
-                  <span>Blender {blenderRuntime.blender.version || 'unknown'}</span>
-                {/if}
-                {#if blenderRuntime?.dcc}
-                  <span>· dcc-mcp-blender {blenderRuntime.dcc.version || 'not installed'}</span>
-                {/if}
-              </div>
-            </div>
-            {#if livePngUrl}
-              <a href={livePngUrl} target="_blank" rel="noreferrer" class="block">
-                <img
-                  src={livePngUrl}
-                  alt="Blender live render"
-                  class="w-full rounded-[4px] border object-contain bg-slate-200"
-                  style="border-color: var(--color-border); max-height: 360px;"
-                />
-              </a>
-              <p class="mt-1 text-[10px] text-slate-500">Rendered by Blender at each refinement step. Click to open the full-resolution frame.</p>
-            {:else}
-              <p class="text-[11px] text-slate-500">The live Blender render appears here the moment the first refinement step finishes.</p>
-            {/if}
-            {#if llmProgress}
-              <p class="mt-2 text-[10px] font-mono text-cyan-600 dark:text-cyan-400">
-                LLM {llmProgress.model || 'configured model'} · {llmProgress.nodes || llmProgress.contentLength || 0} {llmProgress.nodes ? 'nodes' : 'chars'}
-                {#if llmProgress.tokens}· {llmProgress.tokens.total_tokens} tokens{/if}
-              </p>
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Production Asset Downloads Bar -->
-        {#if currentAssetId}
-          <div class="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-3" style="border-color: var(--color-border);">
-            <span class="text-xs font-bold" style="color: var(--color-text);">Export Formats:</span>
-            <div class="flex items-center gap-2">
-              <a
-                href="/api/v1/3d/assets/{currentAssetId}/download/glb"
-                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all"
-              >
-                Download GLB
-              </a>
-              <a
-                href="/api/v1/3d/assets/{currentAssetId}/download/usdz"
-                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-              >
-                USDZ
-              </a>
-              <a
-                href="/api/v1/3d/assets/{currentAssetId}/download/obj"
-                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-              >
-                OBJ
-              </a>
-              <a
-                href="/api/v1/3d/assets/{currentAssetId}/download/stl"
-                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-              >
-                STL
-              </a>
-              <a
-                href="/api/v1/3d/assets/{currentAssetId}/download/ply"
-                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-              >
-                PLY
-              </a>
-            </div>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Recent 3D Assets Gallery Grid -->
-      <div class="glass-card-3d p-6 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-        <div class="flex items-center justify-between pb-3 border-b mb-4" style="border-color: var(--color-border);">
-          <h3 class="text-sm font-bold" style="color: var(--color-text);">Recent 3D Assets</h3>
-          <span class="text-xs text-slate-500">{recentAssets.length} models ready</span>
-        </div>
-
-        {#if recentAssets.length === 0}
-          <p class="text-xs text-center py-6" style="color: var(--color-text-muted);">
-            No 3D assets generated yet. Enter a prompt above to create your first asset!
-          </p>
-        {:else}
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {#each recentAssets as ast}
-              <button
-                type="button"
-                onclick={() => selectAsset(ast)}
-                class="text-left p-3 rounded-[5px] border transition-all hover:scale-[1.02] cursor-pointer {currentAssetId === ast.asset_id ? 'border-cyan-500 bg-cyan-500/10' : ''}"
-                style="background-color: var(--color-bg); border-color: {currentAssetId === ast.asset_id ? 'var(--color-primary)' : 'var(--color-border)'};"
-              >
-                <div class="w-full aspect-square rounded-[3px] bg-slate-900 overflow-hidden mb-2 relative">
-                  <img
-                    src="/api/v1/3d/assets/{ast.asset_id}/download/preview"
-                    alt={ast.display_name}
-                    class="w-full h-full object-cover"
-                    onerror={(e) => e.target.style.display = 'none'}
-                  />
-                  <span class="absolute bottom-1 right-1 px-1 text-[9px] font-mono bg-black/70 text-white rounded">
-                    {(ast.triangle_count || 0).toLocaleString()} Δ
-                  </span>
-                </div>
-                <h4 class="text-xs font-bold truncate" style="color: var(--color-text);">{ast.display_name}</h4>
-                <p class="text-[10px] text-cyan-600 dark:text-cyan-400 capitalize">{ast.domain_archetype}</p>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
+    <div class="lg:col-span-7">
+      <RecentAssetsCard
+        assets={recentAssets}
+        total={assetsTotal}
+        page={assetsPage}
+        pageSize={ASSET_PAGE_SIZE}
+        loading={loadingAssets}
+        onPageChange={loadRecentAssets}
+        currentAssetId={currentAssetId}
+        onSelect={selectAsset}
+      />
     </div>
   </div>
+
+  <!-- Interactive Viewport + Downloads (full width, bottom, height 640px) -->
+  <!-- Three.js Viewport -->
+  <div class="glass-card-3d p-4 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
+    <ThreeViewport
+      glbUrl={currentGlbUrl}
+      liveKey={liveKey}
+      height="640px"
+      triangleCount={triangleCount}
+      vertexCount={vertexCount}
+      isWatertight={isWatertight}
+      turnaroundMode={turnaroundRequested}
+    />
+
+    <!-- Live Blender 5.x Agentic Render Stream -->
+    {#if livePngUrl || blenderRuntime}
+      <div class="mt-4 p-3 rounded-[5px] border" style="border-color: var(--color-border); background-color: var(--color-surface);">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h4 class="text-[11px] font-bold uppercase tracking-wider text-accent-themed">
+            Live Blender Agentic Render Stream
+          </h4>
+          <div class="flex items-center gap-2 text-[10px] font-mono text-muted-themed">
+            {#if blenderRuntime?.blender}
+              <span>Blender {blenderRuntime.blender.version || 'unknown'}</span>
+            {/if}
+            {#if blenderRuntime?.dcc}
+              <span>· dcc-mcp-blender {blenderRuntime.dcc.version || 'not installed'}</span>
+            {/if}
+          </div>
+        </div>
+        {#if livePngUrl}
+          <a href={livePngUrl} target="_blank" rel="noreferrer" class="block">
+            <img
+              src={livePngUrl}
+              alt="Blender live render"
+              class="w-full rounded-[4px] border object-contain bg-surface-muted"
+              style="border-color: var(--color-border); max-height: 360px;"
+            />
+          </a>
+          <p class="mt-1 text-[10px] text-muted-themed">Rendered by Blender at each refinement step. Click to open the full-resolution frame.</p>
+        {:else}
+          <p class="text-[11px] text-muted-themed">The live Blender render appears here the moment the first refinement step finishes.</p>
+        {/if}
+        {#if llmProgress}
+          <p class="mt-2 text-[10px] font-mono text-accent-themed">
+            LLM {llmProgress.model || 'configured model'} · {llmProgress.nodes || llmProgress.contentLength || 0} {llmProgress.nodes ? 'nodes' : 'chars'}
+            {#if llmProgress.tokens}· {llmProgress.tokens.total_tokens} tokens{/if}
+          </p>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Production Asset Downloads Bar -->
+    {#if currentAssetId}
+      <div class="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-3" style="border-color: var(--color-border);">
+        <span class="text-xs font-bold" style="color: var(--color-text);">Export Formats:</span>
+        <div class="flex items-center gap-2">
+          <a
+            href="/api/v1/3d/assets/{currentAssetId}/download/glb"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold btn-primary-themed transition-all"
+          >
+            Download GLB
+          </a>
+          <a
+            href="/api/v1/3d/assets/{currentAssetId}/download/usdz"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
+            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+          >
+            USDZ
+          </a>
+          <a
+            href="/api/v1/3d/assets/{currentAssetId}/download/obj"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
+            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+          >
+            OBJ
+          </a>
+          <a
+            href="/api/v1/3d/assets/{currentAssetId}/download/stl"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
+            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+          >
+            STL
+          </a>
+          <a
+            href="/api/v1/3d/assets/{currentAssetId}/download/ply"
+            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
+            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+          >
+            PLY
+          </a>
+        </div>
+      </div>
+    {/if}
+  </div>
+
 </div>

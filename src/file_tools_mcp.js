@@ -88,21 +88,57 @@ function detect_active_client_from_env() {
   }
 }
 
-const TOOL_DEFAULT_BASELINES = {
-  find_files_clean: 250000,
-  token_efficient_grep: 150000
-};
+/**
+ * Measure the bytes a naive full-corpus read would have produced for a search
+ * tool. Directories are walked to a bounded depth so the figure reflects real
+ * content; when nothing can be measured the result is 0 and callers record no
+ * savings claim instead of inventing a default.
+ */
+const BASELINE_MAX_ENTRIES = 5000;
+const BASELINE_MAX_DEPTH = 8;
+
+function _measureTreeBytes(rootPath) {
+  let total = 0;
+  let visited = 0;
+  const stack = [{ dir: rootPath, depth: 0 }];
+  while (stack.length > 0 && visited < BASELINE_MAX_ENTRIES) {
+    const { dir, depth } = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (visited >= BASELINE_MAX_ENTRIES) break;
+      const full = require('path').join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('.')) continue;
+        if (depth < BASELINE_MAX_DEPTH) stack.push({ dir: full, depth: depth + 1 });
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      visited += 1;
+      try {
+        total += fs.statSync(full).size;
+      } catch (_) { /* unreadable entry: skip */ }
+    }
+  }
+  return total;
+}
 
 function getBaselineBytesForTool(toolName, args) {
   try {
-    const filePath = args.path || args.file_path || args.filepath || args.dir || args.directory || args.target;
-    if (!filePath) return TOOL_DEFAULT_BASELINES[toolName] || 0;
-    const resolved = router.resolveInputPath(filePath);
-    if (!fs.existsSync(resolved)) return TOOL_DEFAULT_BASELINES[toolName] || 0;
+    const target = args.path || args.file_path || args.filepath || args.dir || args.directory || args.target;
+    if (!target) return 0;
+    const resolved = router.resolveInputPath(target);
+    if (!fs.existsSync(resolved)) return 0;
     const st = fs.statSync(resolved);
-    return st.isFile() ? st.size : (TOOL_DEFAULT_BASELINES[toolName] || 0);
+    if (st.isFile()) return st.size;
+    if (!st.isDirectory()) return 0;
+    return _measureTreeBytes(resolved);
   } catch (_) {
-    return TOOL_DEFAULT_BASELINES[toolName] || 0;
+    return 0;
   }
 }
 

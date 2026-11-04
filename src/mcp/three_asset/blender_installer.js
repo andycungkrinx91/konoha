@@ -164,7 +164,7 @@ function readNodePackageVersion(pkgName) {
         const parsed = JSON.parse(fs.readFileSync(manifest, 'utf8'));
         if (parsed && parsed.version) return parsed.version;
       }
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: binary may be locked or already gone */ }
   }
   return null;
 }
@@ -393,7 +393,7 @@ function pickArchiveForPlatform(release, env) {
 }
 
 async function installBlender(options = {}) {
-  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => { /* progress reporting is optional */ };
   const env = detectSystemEnvironment();
   onProgress({ percent: 10, stage: 'Detecting Environment', detail: `Detected ${env.osName} (${env.arch})` });
 
@@ -468,7 +468,7 @@ const USERMODULE_INSTALL_EXPR = [
 ].join('\n');
 
 async function installDccMcpBlender(options = {}) {
-  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => { /* progress reporting is optional */ };
   const blender = getBlenderStatus();
   if (!blender.installed || !blender.path) {
     return { success: false, error: 'Blender must be installed first', version: null };

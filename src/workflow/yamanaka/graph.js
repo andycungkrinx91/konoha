@@ -23,6 +23,7 @@ const {
   promoteStagingToAsset
 } = require('../../mcp/three_asset/storage_manager');
 const { resolveStageCompute } = require('../../mcp/three_asset/compute_selector');
+const { resolveQualityLevel } = require('../../mcp/three_asset/quality_levels');
 const {
   generateSceneSpecFromPrompt,
   generateSceneSpecFromImage,
@@ -46,6 +47,9 @@ const Yamanaka3DStateAnnotation = Annotation.Root({
   status: Annotation({ reducer: (x, y) => y ?? x, default: () => 'pending' }),
   profile: Annotation({ reducer: (x, y) => y ?? x, default: () => 'enterprise_pbr' }),
   qualityPreset: Annotation({ reducer: (x, y) => y ?? x, default: () => 'standard' }),
+  targetPolycount: Annotation({ reducer: (x, y) => y ?? x, default: () => 50000 }),
+  textureResolution: Annotation({ reducer: (x, y) => y ?? x, default: () => 2048 }),
+  enablePbr: Annotation({ reducer: (x, y) => y ?? x, default: () => true }),
   requestedComputeMode: Annotation({ reducer: (x, y) => y ?? x, default: () => 'auto' }),
   effectiveComputeMode: Annotation({ reducer: (x, y) => y ?? x, default: () => 'cpu' }),
   computeFallbackReason: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
@@ -130,7 +134,7 @@ async function nodeSynthesizeDsl(state, config = {}) {
         ...payload,
         timestamp: new Date().toISOString()
       });
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: optional 3D stage; base scene still produced */ }
   };
   let spec = null;
   let dsl = null;
@@ -435,6 +439,13 @@ function routePostValidation(state) {
   return 'promote';
 }
 
+function clampNumber(value, min, max, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
 function buildYamanaka3DGraph(customDb) {
   let checkpointer = null;
   try {
@@ -487,9 +498,11 @@ async function runYamanaka3DGraph(inputs = {}, config = {}) {
   const graphConfig = {
     configurable: {
       thread_id: threadId,
-      ...(config.configurable || {})
+      ...(config.configurable ?? {})
     }
   };
+
+  const resolvedLevel = resolveQualityLevel(inputs.quality_preset || inputs.qualityPreset);
 
   const initialPayload = {
     jobId: inputs.job_id || inputs.jobId,
@@ -499,7 +512,10 @@ async function runYamanaka3DGraph(inputs = {}, config = {}) {
     imagePath: inputs.image_path || inputs.imagePath || null,
     sourceMode: inputs.source_mode || inputs.sourceMode || 'text_to_3d',
     profile: inputs.profile || 'enterprise_pbr',
-    qualityPreset: inputs.quality_preset || inputs.qualityPreset || 'standard',
+    qualityPreset: resolvedLevel.id,
+    targetPolycount: clampNumber(inputs.target_polycount ?? inputs.targetPolycount, 500, 200000, resolvedLevel.level.targetPolycount),
+    textureResolution: clampNumber(inputs.texture_resolution ?? inputs.textureResolution, 256, 4096, 2048),
+    enablePbr: inputs.enable_pbr !== false && inputs.enablePbr !== false,
     requestedComputeMode: inputs.requested_compute_mode || inputs.requestedComputeMode || 'auto',
     domainArchetype: inputs.archetype || inputs.domainArchetype || 'auto',
     modelUsed: inputs.model || inputs.modelUsed || null,

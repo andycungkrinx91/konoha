@@ -280,7 +280,7 @@ function buildTelemetryAndAppendix(sys) {
     '|---|---|---|',
     '| Full Test Suite | `rtk node tests/run_all.js` | 100% test suites pass (91+ suites) |',
     '| Zero-AI-Slop Gate | `rtk aislop scan --changes` | 100/100 Healthy, 0 errors, 0 warnings |',
-    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 47 tools in sync) |',
+    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 48 tools in sync) |',
     '| Benchmark Sync | `rtk node scripts/generate_benchmark.js --check` | Exit 0 (structure & telemetry in sync) |',
     '',
     '---',

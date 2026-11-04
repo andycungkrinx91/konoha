@@ -330,8 +330,8 @@
   <!-- Loading Overlay -->
   {#if loading}
     <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs z-20">
-      <div class="w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
-      <span class="mt-3 text-xs font-bold text-cyan-300 uppercase tracking-widest">Hot-Reloading Viewport...</span>
+      <div class="w-10 h-10 border-4 border-accent-themed border-t-transparent rounded-full animate-spin"></div>
+      <span class="mt-3 text-xs font-bold text-accent-themed uppercase tracking-widest">Hot-Reloading Viewport...</span>
     </div>
   {/if}
 
@@ -339,7 +339,7 @@
   {#if errorMessage}
     <div class="absolute inset-0 flex items-center justify-center bg-red-950/70 p-6 z-20">
       <div class="text-center max-w-md">
-        <p class="text-xs font-bold text-red-400">{errorMessage}</p>
+        <p class="text-xs font-bold text-status-danger">{errorMessage}</p>
       </div>
     </div>
   {/if}
@@ -350,7 +350,7 @@
     <button
       type="button"
       onclick={toggleFourView}
-      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {fourViewEnabled ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white bg-slate-800'}"
+      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {fourViewEnabled ? 'bg-action-primary text-surface-contrast font-bold' : 'text-muted-themed hover:text-foreground-themed bg-surface-muted'}"
       title="Toggle 4-View Orthographic Turnaround (Front / Side / Back / Top)"
     >
       4-View
@@ -360,7 +360,7 @@
     <button
       type="button"
       onclick={() => autoRotate = !autoRotate}
-      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {autoRotate ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white bg-slate-800'}"
+      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {autoRotate ? 'bg-action-primary text-surface-contrast font-bold' : 'text-muted-themed hover:text-foreground-themed bg-surface-muted'}"
       title="Toggle Turntable Auto-Rotation"
     >
       Rotate
@@ -370,7 +370,7 @@
     <button
       type="button"
       onclick={toggleWireframe}
-      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {wireframe ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white bg-slate-800'}"
+      class="px-2 py-1 text-[11px] font-bold rounded transition-all cursor-pointer {wireframe ? 'bg-action-primary text-surface-contrast font-bold' : 'text-muted-themed hover:text-foreground-themed bg-surface-muted'}"
       title="Toggle Mesh Wireframe Mode"
     >
       Wireframe
@@ -401,7 +401,7 @@
   {#if fourViewEnabled}
     <div class="absolute top-3 left-3 right-44 flex gap-1 z-10 pointer-events-none">
       {#each TURNAROUND_VIEWS as view}
-        <span class="flex-1 text-center text-[10px] font-bold tracking-widest text-slate-900/80 bg-white/60 backdrop-blur-xs py-0.5 rounded-[3px]">{view.label}</span>
+        <span class="flex-1 text-center text-[10px] font-bold tracking-widest text-foreground-themed bg-surface-tint backdrop-blur-xs py-0.5 rounded-[3px]">{view.label}</span>
       {/each}
     </div>
   {/if}
@@ -409,12 +409,12 @@
   <!-- Bottom-Left Geometry Badges -->
   <div class="absolute bottom-3 left-3 flex items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-[5px] border border-slate-700/60 z-10 text-[11px] font-mono text-slate-300">
     <div class="flex items-center gap-1.5">
-      <span class="w-2 h-2 rounded-full {isWatertight ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+      <span class="w-2 h-2 rounded-full {isWatertight ? 'bg-status-success animate-pulse' : 'bg-status-warning'}"></span>
       <span class="font-bold">{isWatertight ? 'Watertight Manifold' : 'Mesh Warning'}</span>
     </div>
-    <span class="text-slate-600">|</span>
+    <span class="text-muted-themed">|</span>
     <span><strong>{(triangleCount || 0).toLocaleString()}</strong> Δ tris</span>
-    <span class="text-slate-600">|</span>
+    <span class="text-muted-themed">|</span>
     <span><strong>{(vertexCount || 0).toLocaleString()}</strong> vertices</span>
   </div>
 </div>

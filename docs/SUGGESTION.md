@@ -21,8 +21,8 @@ Konoha (`konoha-mcp` v2.2.3) is a token-efficient Model Context Protocol (MCP) o
 
 ### Core Architectural Pillars
 
-- **SQLite FTS5 Full-Text Search & ONNX Dense Retrieval**: Manages 1,027 indexed entries (15 canonical ninja and core skills, 1,012 reference files) with on-demand retrieval, keeping baseline context consumption bounded.
-- **Eight Specialized Subagents (Naruto Ninja Ranks)**:
+- **SQLite FTS5 Full-Text Search & ONNX Dense Retrieval**: Manages 1,072 indexed entries (19 skills, 26 documentation files and 1,027 reference files) with on-demand retrieval, keeping baseline context consumption bounded.
+- **Nine Specialized Subagents (Naruto Ninja Ranks)**:
   - `sannin`: Task triage, router deliberation, workflow orchestration.
   - `genin`: Read-only codebase exploration, AST symbol mapping, code review.
   - `kage`: Architecture decisions, security audits, two-step zero-AI-slop gate.
@@ -31,6 +31,7 @@ Konoha (`konoha-mcp` v2.2.3) is a token-efficient Model Context Protocol (MCP) o
   - `anbu`: Backend engineering, DevOps, infrastructure hardening, QA automation.
   - `tokubetsu-jonin`: Technical writing, human-authentic documentation generation (DOCX, PDF, XLSX, PPTX, SVG, Animated WebP).
   - `akatsuki`: Red-team/blue-team security audits, penetration testing, final security gate.
+  - `yamanaka`: Generative 3D and spatial subsystem specialist, asset synthesis and Blender pipeline control.
 - **Semble Code Search & Aislop Quality Gate Integration**: Native integration with `semble` for semantic repository search and `aislop` for zero-AI-slop pre-delivery verification.
 - **High-Performance SvelteKit 2 Web UI**: Local administrative dashboard (`http://127.0.0.1:1404`) featuring real-time telemetry, 10 gradient themes, and responsive layout.
 
@@ -115,7 +116,7 @@ A surface audit reveals a discrepancy between the 45 tools advertised in documen
 
 ### Diagram Source Files
 
-1. **`docs/diagrams/konoha-architecture.drawio`** (15 pages):
+1. **`docs/diagrams/konoha-architecture.drawio`** (18 pages):
    - Page 1: System Architecture
    - Page 2: Runtime Query Lifecycle
    - Page 3: MCP Tool and Skill Routing
@@ -130,8 +131,11 @@ A surface audit reveals a discrepancy between the 45 tools advertised in documen
    - Page 12: CLI Upgrade & Progress Engine
    - Page 13: QA Automation Workflow
    - Page 14: Remote Access & Telegram Inbound/Outbound
-   - Page 15: Cloudflare Zero Trust Ingress & Prompt Queue
-2. **`docs/diagrams/konoha-enterprise-architecture.drawio`**:
+   - Page 15: Inbound Prompt Queue & Worker Pipeline
+   - Page 16: Akatsuki Security Controls & Dual-Mode Lab Lifecycle
+   - Page 17: Yamanaka Image-to-3D Asset Pipeline (prompt → archetype routing → spec synthesis → Blender 5.2.2 headless build → IBL preview/export)
+   - Page 18: LangGraph.js Orchestration Runtime (`@langchain/langgraph` checkpointer graph, budget/resume, subagent fan-out)
+2. **`docs/diagrams/konoha-enterprise-architecture.drawio`** (18 pages, one per canonical page):
    - Enterprise deployment model with multi-client mesh, reverse proxy topologies, and systemd daemon management.
 
 ### Validation Results
@@ -139,45 +143,62 @@ A surface audit reveals a discrepancy between the 45 tools advertised in documen
 Both diagram files pass structural validation with `0 error(s)` using the bundled validation checker:
 
 ```bash
-python3 .agents/skills/kage-skill/references/drawio-skill-assets/scripts/validate.py docs/diagrams/konoha-architecture.drawio --score
+python3 src/templates/skills/kage-skill/references/drawio-skill-assets/scripts/validate.py docs/diagrams/konoha-architecture.drawio --score
 ```
 
-- **Validation Score**: 400 (Passing; zero crossing errors, 12 through-vertex edges within acceptable layout tolerances).
-- **Node & Label Parity**: All 15 pages correctly reflect canonical `genin-skill` nomenclature and active gateway port configurations (`19999`).
+- **Validation Score**: `konoha-architecture.drawio` scores **635** (0 errors), `konoha-enterprise-architecture.drawio` scores **605** (0 errors), both measured 2026-11-04 with the bundled checker. That checker also reports 19 / 18 through-vertex edge routes and 51 / 49 label-and-edge overlaps; the stricter geometric gate in `tests/test_diagram_sync.js` (which skips swimlanes, groups and sub-lanes) reports 0 penetrations, 0 crossings and 0 overlaps across all 18 pages of each file.
+- **Node & Label Parity**: All 18 pages correctly reflect canonical `genin-skill` nomenclature and active gateway port configurations (`19999`); the ninja roster labels on pages 01 and 02 enumerate all nine agents including `yamanaka` at v2.2.18.
 
 ---
 
 ## 7. Visual Assets & Animated WebP Media Audit
 
-### Media Inventory (17 Assets)
+### Media Inventory (32 Assets)
 
-All animation assets under `assets/` have been converted from legacy GIF to native Animated WebP:
+All animation assets under `assets/` are native Animated WebP — 13 CLI/IDE demo canvases plus the 19 Draw.io-derived architecture and workflow canvases:
 
 | Asset Name | Dimensions | Frame Count | Loop Behavior | Binary Integrity Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `demo.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-web.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-skills.webp` | 1100x680 | 15 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-skill-embed.webp` | 1100x680 | 15 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-pi.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-opencode.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-cursor.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-commandcode.webp` | 1100x680 | 5 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-codex.webp` | 1100x680 | 5 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-agy.webp` | 1100x680 | 6 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
 | `demo-claude.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `demo-agy.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-codex.webp` | 1100x680 | 5 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-commandcode.webp` | 1100x680 | 5 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-cursor.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-omp.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-opencode.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-pi.webp` | 1100x680 | 4 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-skill-embed.webp` | 1100x680 | 15 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-skills.webp` | 1100x680 | 15 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo-web.webp` | 1100x680 | 15 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `demo.webp` | 1100x680 | 69 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
 | `testing.webp` | 1100x680 | 12 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `konoha-telegram-flow.webp` | 2400x1520 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `konoha-qa-flow.webp` | 2400x1520 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `konoha-kage-gate.webp` | 2400x1350 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `konoha-jonin-flow.webp` | 2400x1520 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
-| `konoha-orchestration-flow.webp` | 2400x1350 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-01-system-architecture.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-02-runtime-query-lifecycle.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-03-mcp-tool-and-skill-routing.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-04-llm-bridge-gateway.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-05-search-fallback-chain.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-06-skill-registry-installation.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-07-token-footprint-comparison.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-orchestration-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-jonin-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-10-persistent-project-context-auto-compaction.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-kage-gate.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-12-cli-upgrade-progress-engine.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-qa-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-telegram-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-akatsuki-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-yamanaka-3d-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-langgraph-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+| `konoha-web-ingress-flow.webp` | 2400x1632 | 24 frames | Infinite (`loop: 0`) | `PASS` (`validateAnimatedWebP`) |
+
+**Provenance**: the seven originally hand-authored `konoha-*-flow` canvases and the twelve new per-tab canvases are all generated artefacts. `node scripts/generate_drawio_flow_webp.js` projects every Draw.io tab through `scripts/lib/drawio_flow_svg.js` (chromium `/usr/bin/google-chrome`, `deviceScaleFactor: 2`, 24 frames @ 12 fps, `ffmpeg -c:v libwebp_anim -q:v 90 -loop 0`), so the geometry, labels and `◈ agent` tags come from `docs/diagrams/*.drawio` rather than from hand-coded coordinates. Output is uniformly 2400x1632 (1200x816 CSS) with per-page `fitScale = min(1200/pageWidth, 816/pageHeight)` letterboxing; frame counts vary per tab because each page's timeline reveals its own cell count. `tests/test_flow_diagram_style_lock.js` re-proves `data-cell` coverage 19/19 so the simplification pass never alters the flow.
 
 ### Media Validation Findings
 
-1. **Size Optimization**: WebP migration reduced total asset payload from 11.55 MB to 2.48 MB (**78.5% bandwidth reduction**).
-2. **Binary Standards**: All 17 files conform to the VP8X extended WebP standard with valid ANIM headers and ANMF chunk sequencing.
-3. **Documentation References**: Zero broken legacy `.gif` image links exist in any active Markdown documentation file.
+1. **Size Optimization**: the Animated WebP payload totals 13,141,864 B (12.53 MiB) across 32 assets, measured chunk-by-chunk from the binaries (RIFF/VP8X/ANIM/ANMF), not estimated.
+2. **Binary Standards**: all 32 files conform to the VP8X extended WebP standard with animated flags, `loop: 0` ANIM headers and contiguous ANMF frame chunks; every file holds at least two frames.
+3. **Documentation References**: zero broken legacy `.gif` image links exist in any active Markdown documentation file — the format policy is animated WebP only.
 
 ---
 
@@ -220,11 +241,11 @@ All animation assets under `assets/` have been converted from legacy GIF to nati
 
 | Gate Category | Target | Evaluated Result | Verdict |
 | :--- | :--- | :--- | :--- |
-| **Backend Static Linter** | 0 errors, 0 warnings | 305 files verified, 0 errors, 0 warnings | `PASS` |
+| **Backend Static Linter** | 0 errors, 0 warnings | 557 files verified, 0 errors, 0 warnings | `PASS` |
 | **Documentation Currency** | 100% link & tool parity | All links & tool references resolved | `PASS` |
-| **Version Synchronization** | Locked at v2.2.3 | All metadata & configs locked at v2.2.3 | `PASS` |
-| **Diagram Validation** | 0 structural errors | 15 pages verified, 0 errors | `PASS` |
+| **Version Synchronization** | Metadata locked at one version | All metadata & configs locked at v2.2.18 | `PASS` |
+| **Diagram Validation** | 0 structural errors | 18 pages verified per drawio file, 0 errors, 0 collisions | `PASS` |
 | **Playwright E2E Suite** | 8/8 tests passing | 8 passed in 14.5s | `PASS` |
-| **Zero-AI-Slop Scanner** | 100/100 score on changes | Score: 100/100, 0 errors, 0 warnings | `PASS` |
+| **Zero-AI-Slop Scanner** | 0 errors, 0 warnings on changed files | Score: 99/100, 0 errors, 0 warnings | `PASS` |
 | **Website AI Detector** | 0/100 (Human-Built) | Score: 0/100, Human-Built band | `PASS` |
 | **Overall Gate Confidence** | >= 98% | **99.8%** | **APPROVED** |

@@ -3,6 +3,7 @@
 
 All logging goes to stderr; stdout is reserved for JSON-RPC responses.
 """
+
 import json
 import sys
 
@@ -17,8 +18,14 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "foreground": {"type": "string", "description": "Hex color of the text, for example #777777"},
-                "background": {"type": "string", "description": "Hex color of the background, for example #FFFFFF"},
+                "foreground": {
+                    "type": "string",
+                    "description": "Hex color of the text, for example #777777",
+                },
+                "background": {
+                    "type": "string",
+                    "description": "Hex color of the background, for example #FFFFFF",
+                },
             },
             "required": ["foreground", "background"],
         },
@@ -90,11 +97,14 @@ def main():
         method = msg.get("method")
 
         if method == "initialize":
-            _reply(msg_id, {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-            })
+            _reply(
+                msg_id,
+                {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                },
+            )
         elif method == "notifications/initialized":
             pass
         elif method == "ping":

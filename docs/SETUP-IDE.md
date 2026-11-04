@@ -17,7 +17,7 @@
 
 ### RTK (Rust Token Killer) — Token-Optimized Shell
 
-If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to both `~/.gemini/antigravity-cli/rules/rtk.md` and `~/.gemini/antigravity-ide/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
+If `rtk` is installed (`cargo install --git https://github.com/rtk-ai/rtk`), Konoha auto-deploys RTK rules to both `~/.gemini/antigravity-cli/rules/rtk.md` and `~/.gemini/antigravity-ide/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
 
 ### Windows Workspace Isolation & IDE Directory Guard
 
@@ -102,7 +102,7 @@ Concretely, the orchestrator:
 1. Acts as a coordinator, receiving the user's prompt directly in conversation context.
 2. Discovers skills via `konoha.find_skill` and loads them via `konoha.get_skill` if necessary.
 3. **Delegates** all tasks by calling the `sannin` MCP tool, passing structured arguments (`task`, `context`, `constraints`, `skills`).
-4. `sannin` routes the structured task to the appropriate MCP agent (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, or `genin`).
+4. `sannin` routes the structured task to the appropriate MCP agent (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `akatsuki`, `yamanaka`, or `genin`).
 5. The chosen MCP agent returns a structured result and can checkpoint learnings with `report_from_agent`.
 
 #### Task lifecycle & Conversation Resumption
@@ -124,12 +124,14 @@ Concretely, the orchestrator:
 
 | MCP Tool | Specialization |
 |----------|----------------|
-| `mcp_genin` | Read-only codebase exploration, tracing flows, mapping dependencies |
-| `mcp_kage` | Architecture decisions, security audits, complex refactoring |
-| `mcp_chunin` | Web research, documentation lookup, compliance, evidence synthesis |
-| `mcp_jonin` | UI design, frontend components across 4 frameworks (Next.js 16, SvelteKit, Nuxt 3, Angular v19+) using `pnpm` |
-| `mcp_anbu` | Backend logic, bug fixing, DevOps, infrastructure, CI/CD |
-| `mcp_tokubetsu_jonin` | Technical writing, README, API docs, runbooks, onboarding |
+| `genin` | Read-only codebase exploration, tracing flows, mapping dependencies |
+| `kage` | Architecture decisions, security audits, complex refactoring |
+| `chunin` | Web research, documentation lookup, compliance, evidence synthesis |
+| `jonin` | UI design, frontend components across 4 frameworks (Next.js 16, SvelteKit, Nuxt 3, Angular v19+) using `pnpm` |
+| `anbu` | Backend logic, bug fixing, DevOps, infrastructure, CI/CD |
+| `tokubetsu_jonin` | Technical writing, README, API docs, runbooks, onboarding |
+| `akatsuki` | Red-team penetration testing, blue-team auditing, and security review gates |
+| `yamanaka` | Generative 3D synthesis, Three.js, Manifold geometry, and live Blender asset pipelines |
 
 Full orchestrator rules and subagent protocol: `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md`.
 
@@ -148,7 +150,7 @@ To maintain stability and enforce security, the Antigravity system implements th
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
 > * **Hard Guardrail Enforcement (v2.0.2)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha/semble MCP tools.
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
-> * **Subagent Delegation Model**: Custom `TypeName` values and `invoke_subagent` calls have been fully replaced by the MCP-only delegation model. All subagent delegation goes through the `mcp_sannin` tool, which routes to backend tools like `mcp_jonin`, `mcp_kage`, etc.
+> * **Subagent Delegation Model**: Custom `TypeName` values and `invoke_subagent` calls have been fully replaced by the MCP-only delegation model. All subagent delegation goes through the `sannin` tool, which routes to backend tools like `jonin`, `kage`, etc.
 > * **No Auto-Creation of Subagents**: The AI agent is **NEVER** allowed to automatically define, create, or delete subagents.
 > * **No Git Execution**: AI agents must **NEVER** execute any `git` command whatsoever. Use **semble** MCP for code search (`rg` only if semble MCP is unavailable).
 > * **Recursive Loop Circuit Breaker**: The orchestrator tracks delegation/iteration depth to prevent infinite loops via repeated skill-loading + re-execution cycles. If depth exceeds 7 continuously, the circuit breaker halts and prompts the user for validation.

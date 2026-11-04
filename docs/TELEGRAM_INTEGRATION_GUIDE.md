@@ -92,6 +92,7 @@ Status: Forwarded to local terminal agent.
 | `/session` | View numbered list of active client workspaces & sessions | `/session` |
 | `/session <number>` | Switch target client session & workspace | `/session 2` |
 | `/session create <client> <path>` | Register and target a client session & directory | `/session create agy /home/user/projectA` |
+| `/session delete <number>` | Remove an inactive session from the list | `/session delete 3` |
 | `/kage <prompt>` | Direct dispatch to Village Leader (Architecture & security audit) | `/kage audit auth flow` |
 | `/anbu <prompt>` | Direct dispatch to Black Ops (Backend, DevOps, bug fixing) | `/anbu fix connection leak` |
 | `/jonin <prompt>` | Direct dispatch to Elite Builder (UI/UX, frontend components) | `/jonin build hero carousel` |
@@ -99,18 +100,24 @@ Status: Forwarded to local terminal agent.
 | `/chunin <prompt>` | Direct dispatch to Intel Ninja (Web research & docs lookup) | `/chunin research cloudflare api` |
 | `/tokubetsu_jonin <prompt>` | Direct dispatch to Scribe (Tech docs, API specs & reports) | `/tokubetsu_jonin update api docs` |
 | `/sannin <prompt>` | Direct dispatch to Master Orchestrator (Triage & planning) | `/sannin plan refactoring` |
+| `/akatsuki <prompt>` | Direct dispatch to Security Specialist (Red/Blue-team operations) | `/akatsuki audit auth surface` |
+| `/yamanaka <prompt>` | Direct dispatch to 3D Specialist (Generative 3D, Blender refinement) | `/yamanaka render a low-poly lantern` |
 | `/run <task>` | Explicitly dispatch an autonomous coding prompt | `/run optimize sqlite query index` |
 | `/status` | View recent workspace tasks and active status | `/status` |
 | `/savings` | Check today's token reduction metrics | `/savings` |
+| `/approval [list|<id>]` | List pending human-in-the-loop approvals or inspect one | `/approval list` |
+| `/approve <task_id>` | Approve the plan gate or the delivery gate | `/approve task-4821` |
+| `/reject <task_id>` | Reject the plan gate or the delivery gate | `/reject task-4821` |
+| `/doctor` | Run environment and 3D-toolchain diagnostics | `/doctor` |
 | `/cancel` | Cancel currently pending queued task | `/cancel` |
 | `/help` | View command cheatsheet | `/help` |
 
 > [!NOTE]
 > **Plain Text Prompts**: Any plain text message sent without a slash prefix is automatically treated as an autonomous task prompt and enqueued for execution.
 >
-> **Shell Alias Support (`/sh`)**: Commands execute in your user shell (`bash -i -c`), enabling full access to your custom `~/.bashrc` aliases (e.g. `kctenhw`, `kcishw`, `kubectl` context wrappers, etc.).
+> **Shell Access**: the `/sh` passthrough was removed in 2.2.1 as part of the security hardening. Sending `/sh` now returns the removal notice; agents run commands through their own bounded tool surface instead of a Telegram-issued interactive shell.
 >
-> **Security Guardrails**: Dangerous commands (`rm -rf /`, `mkfs`, `dd`, `drop database`, `truncate table`, etc.) are unconditionally blocked by the `isDangerousCommand` safety gate.
+> **Security Guardrails**: Every agent-issued command still passes the `isDangerousCommand` gate, which unconditionally refuses patterns such as `rm -rf /`, `mkfs`, `dd`, `drop database`, and `truncate table`.
 
 ---
 

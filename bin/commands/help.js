@@ -56,7 +56,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
   ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
   ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
-  ${C.cyan}webhook${C.reset}           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
+  ${C.cyan}webhook, webhooks${C.reset}           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
 
 ${C.bold}GLOBAL OPTIONS${C.reset}
   ${C.dim}--force${C.reset}            Force clean re-installation (used with init).

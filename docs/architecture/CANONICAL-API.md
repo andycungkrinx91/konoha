@@ -1,14 +1,14 @@
 # Konoha Canonical API Snapshot
 
 **Document Version:** 2.2.18  
-**Date:** 2026-10-29  
+**Date:** 2026-11-04  
 **Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.18 Complete)  
 
 ---
 
 ## 1. Canonical MCP Tools (Active Advertised Roster)
 
-All tools (47 active) are served through the `konoha` MCP server over stdio JSON-RPC.
+All tools (48 active) are served through the `konoha` MCP server over stdio JSON-RPC.
 
 | Tool Name | Parameters | Purpose | Return Schema |
 |---|---|---|---|
@@ -33,6 +33,7 @@ All tools (47 active) are served through the `konoha` MCP server over stdio JSON
 | `jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate frontend work to Jonin. | UI implementation results JSON |
 | `anbu` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate backend or DevOps work to Anbu. | Backend implementation results JSON |
 | `akatsuki` | `task?: string, context?: string, constraints?: string, skills?: array, workflow_type?: string, scope?: string, authorization?: string, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, tools?: array, target?: string, custom_tools?: array, allow_controlled_exploit_verification?: boolean, allow_external_scope?: boolean, engine?: string, lab_name?: string, report?: object, authorized?: boolean` | Delegate authorized red-team, blue-team, or security audit work to Akatsuki. | Security review & penetration testing report JSON |
+| `yamanaka` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, source_mode?: string, image_path?: string, target_polycount?: number, texture_resolution?: number, compute?: string` | Delegate generative 3D work to Yamanaka (Three.js/Manifold synthesis, live Blender refinement, PBR asset delivery). | JSON result object |
 | `akatsuki_init` | `action?: string, engines?: string, profile?: string, lab_name?: string, tool?: object, query?: string, category?: string` | Initialize Akatsuki Red-Team Lab containers (Docker, LXC, or both), manage offensive toolsets, and query Kali tool catalog. | JSON result object |
 | `chunin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate research work to Chunin. | Citation-backed report JSON |
 | `tokubetsu_jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate documentation work to Tokubetsu-Jonin. | Generated documentation JSON |
@@ -73,6 +74,7 @@ All tools (47 active) are served through the `konoha` MCP server over stdio JSON
 | `anbu` | `anbu` | `anbu-skill` | Backend dev, DevOps, infrastructure, testing |
 | `tokubetsu-jonin` | `tokubetsu_jonin` | `tokubetsu-jonin-skill` | Documentation, specs, runbooks, reports |
 | `akatsuki` | `akatsuki` | `akatsuki-skill` | Red-team penetration testing, blue-team defensive auditing & security review gates |
+| `yamanaka` | `yamanaka` | `yamanaka-skill` | Generative 3D synthesis, Three.js, Manifold geometry & Blender PBR refinement |
 
 ---
 
@@ -101,7 +103,7 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 
 * `konoha init [--force] [--yes] [--client <client>]`
 * `konoha migrate [--clean] [--rebuild-embeddings] [--skip-embeddings]`
-* `konoha embed [--force]`
+* `konoha embed` (alias for `konoha migrate --rebuild-embeddings`)
 * `konoha status`
 * `konoha version`
 * `konoha upgrade [--yes]`
@@ -116,7 +118,6 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 * `konoha skill {list|add}`
 * `konoha akatsuki {status|mode|env|redteam|blueteam}`
 * `konoha telegram {status|setup|start|stop|test}`
-* `konoha tunnel {status|start|stop}`
 * `konoha queue {status|list|run|clear}`
 * `konoha detect-ai <target>`
 * `konoha detect-docs <file>`

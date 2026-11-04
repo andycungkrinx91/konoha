@@ -5,6 +5,7 @@
  */
 
 const { info, error, success, header } = require("../lib/format");
+const { removedSynonymMessage } = require("../lib/canonical_synonyms");
 
 
 async function cmdTelegram(args) {
@@ -44,7 +45,7 @@ async function cmdTelegram(args) {
   }
 
   if (sub === 'edit') {
-    error("Unknown subcommand 'edit' for 'konoha telegram'. Use canonical subcommand 'konoha telegram config'.");
+    error(removedSynonymMessage('telegram', 'edit'));
     process.exit(1);
   }
 

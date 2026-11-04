@@ -11,6 +11,7 @@ const { resolveChatTargets, sendChatMessage } = require('./model_router');
 const { createDefaultSceneSpec, resolveEffectiveArchetype, customizeSpecFromPrompt, parseTurnaroundIntent } = require('./spec_schema');
 const { synthesizeSceneFromPrompt } = require('./prompt_synthesizer');
 const { parseTailCount } = require('./creature_synthesizer');
+const { detailParts } = require('./part_library');
 const { parseKonohaDSL, specToDSL } = require('./dsl_parser');
 const { globalCircuitRegistry } = require('../../circuit_breaker');
 const { countTiktoken } = require('../../token_sampler');
@@ -32,7 +33,7 @@ function getDslSkillPrompt() {
       skillText = fs.readFileSync(skillPath, 'utf8');
       skillText = skillText.replace(/^---[\s\S]*?---\n*/, '').trim();
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: spec generation degrades to the deterministic path */ }
 
   cachedDslSkillPrompt = `You are Yamanaka, the Konoha elite 3D architectural sculptor and generative shinobi.
 You construct complete, production-grade 3D assets strictly adhering to the Konoha 3D mini-DSL skill specification.
@@ -160,7 +161,7 @@ function parseDslOrJson(text) {
         return { spec: parsedJson.spec || parsedJson, dsl: null };
       }
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: spec generation degrades to the deterministic path */ }
 
   try {
     const cleanDsl = trimmed.replace(/^```[a-zA-Z0-9_-]*\n?/m, '').replace(/\n?```$/m, '').trim();
@@ -169,7 +170,7 @@ function parseDslOrJson(text) {
     if (spec && Array.isArray(spec.nodes) && spec.nodes.length > 0) {
       return { spec, dsl: cleanDsl };
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: spec generation degrades to the deterministic path */ }
 
   return null;
 }
@@ -288,10 +289,28 @@ async function enrichSynthesizedSpec(prompt, spec, name, targetPolycount, reques
   const nodeCount = spec && Array.isArray(spec.nodes) ? spec.nodes.length : 0;
   const needsCreature = spec && spec.archetype === 'game-creature';
   const sparse = nodeCount < 18 || (tailCount > 1 && countTailNodes(spec) < tailCount);
-  if (!needsCreature || !sparse) return spec;
-  const richer = synthesizeSceneFromPrompt(prompt, name, targetPolycount, requestedArchetype);
-  if (richer && richer.archetype === 'game-creature' && richer.nodes.length > nodeCount) {
-    return richer;
+  if (needsCreature && sparse) {
+    const richer = synthesizeSceneFromPrompt(prompt, name, targetPolycount, requestedArchetype);
+    if (richer && richer.archetype === 'game-creature' && richer.nodes.length > nodeCount) {
+      return richer;
+    }
+  }
+  if (needsCreature || !spec) return spec;
+
+  // Hard-surface floor: a synthesized spec must be at least as component-rich as the
+  // deterministic baseline for its archetype, and must carry the pipeline-resolved domain label.
+  const targetArch = String(requestedArchetype || spec.archetype || 'application').toLowerCase();
+  if (!spec.archetype || spec.archetype === 'application') {
+    if (targetArch !== 'application') spec.archetype = targetArch;
+  }
+  let baseline = null;
+  try {
+    baseline = createDefaultSceneSpec(targetArch, name, targetPolycount);
+  } catch { /* intentional best-effort fallback: an unknown archetype simply skips the floor */ }
+  const floor = baseline && Array.isArray(baseline.nodes) ? baseline.nodes.length : 0;
+  if (floor > spec.nodes.length) {
+    const needed = floor - spec.nodes.length;
+    spec.nodes.push(...detailParts(spec.nodes.length + needed, spec.nodes));
   }
   return spec;
 }
@@ -320,9 +339,20 @@ async function generateSceneSpecFromPrompt(prompt, options = {}) {
   } = options;
 
   const effectiveArch = resolveEffectiveArchetype(prompt, archetype);
+
+  if (options.offline === true || options.use_llm === false) {
+    const fallbackSpec = assembleSpec(prompt, name, target_polycount, effectiveArch, archetype);
+    return {
+      spec: fallbackSpec,
+      source: 'offline_procedural',
+      dsl: specToDSL(fallbackSpec),
+      model_used: 'offline-procedural-synthesizer',
+      tokens: { input_tokens: 0, output_tokens: 0, total_tokens: 0, est_cost_usd: 0.0 }
+    };
+  }
   const emit = (event, payload) => {
     if (typeof onAction === 'function') {
-      try { onAction(event, payload); } catch (_) {}
+      try { onAction(event, payload); } catch { /* intentional best-effort fallback: spec generation degrades to the deterministic path */ }
     }
   };
 
@@ -486,5 +516,6 @@ module.exports = {
   computeTokenTelemetry,
   generateSceneSpecFromImage,
   generateSceneSpecFromPrompt,
+  enrichSynthesizedSpec,
   critiqueAndRepairSpec
 };

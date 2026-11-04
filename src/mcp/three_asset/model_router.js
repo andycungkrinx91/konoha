@@ -182,7 +182,7 @@ function resolveInherited3DModel(options = {}) {
     if (row && row.model && row.model.trim() !== '') {
       return row.model.trim();
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: router falls back to the default model */ }
 
   const credentials = readClientProviderCredentials();
   const routerConfigured = Boolean(credentials.providers['9router'] && credentials.providers['9router'].baseUrl);
@@ -196,14 +196,14 @@ function resolveInherited3DModel(options = {}) {
     if (bridgeRow && bridgeRow.name) {
       return bridgeRow.name;
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: router falls back to the default model */ }
 
   try {
     const clientModels = discoverClientModels();
     if (clientModels && clientModels.length > 0) {
       return clientModels[0].id;
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: router falls back to the default model */ }
 
   return null;
 }
@@ -271,7 +271,7 @@ async function discoverAll3DModels(options = {}) {
       owned_by: r.provider || 'custom',
       source: 'bridge:sqlite'
     }));
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: router falls back to the default model */ }
 
   const seenIds = new Set();
   const allModels = [];
@@ -333,7 +333,7 @@ function resolveBridgeTargets(options, resolvedModel, addTarget) {
         model: resolvedModel
       });
     }
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: router falls back to the default model */ }
 }
 
 function resolveChatTargets(options = {}) {

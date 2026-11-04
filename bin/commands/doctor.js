@@ -114,9 +114,10 @@ async function cmdDoctor(args = []) {
     return;
   }
 
+  const clientCount = agentManager.SUPPORTED_CLIENTS ? agentManager.SUPPORTED_CLIENTS.length : 8;
   drawLogo();
   header('🩺 Konoha Doctor');
-  log(`${applyGradient('Diagnosing environment requirements and auto-repairing missing components...', CHIDORI_THEME, 0.75)}\n`);
+  log(`${applyGradient(`Automated integrity audit and self-repair for ${clientCount} coding clients, the 3D toolchain (Blender, dcc-mcp-blender, Three.js, Manifold-3D), RTK binaries, SQLite databases, and daemon processes.`, CHIDORI_THEME, 0.75)}\n`);
 
   const globalSpinner = startSpinner('Running environment diagnostics...');
   let repairsDone = 0;

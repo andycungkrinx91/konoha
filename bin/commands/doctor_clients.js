@@ -6,6 +6,8 @@ const mcpClientsManager = require('../../src/mcp_clients_manager');
 const opencodeManager = require('../../src/opencode_manager');
 const codexManager = require('../../src/codex_manager');
 const piManager = require('../../src/pi_manager');
+const ompManager = require('../../src/omp_manager');
+const antigravityManager = require('../../src/antigravity_manager');
 const agentManager = require('../../src/agent_manager');
 const { installAgentBrowser, getAgentBrowserCommand, getUvxCommand } = require('../lib/extension');
 const { checkPython } = require('../lib/runtime_lifecycle');
@@ -172,6 +174,56 @@ function checkPiClient(context) {
   }
 }
 
+function checkOmpClient(context) {
+  if (!ompManager.isOmpInstalled()) return;
+  try {
+    const status = ompManager.getOmpStatus();
+    if (status.mcpKonoha) {
+      context.record('OMP (~/.omp/agent/mcp.json)', 'HEALTHY', 'Konoha MCP server registered');
+      return;
+    }
+    context.record('OMP (~/.omp/agent/mcp.json)', 'WARNING', 'Partial OMP setup — run konoha init');
+  } catch (e) {
+    context.record('OMP (~/.omp/agent/mcp.json)', 'FAILED', `Error: ${e.message}`);
+    context.markError();
+  }
+}
+
+function checkAntigravityClient(context) {
+  try {
+    const status = antigravityManager.getAntigravityStatus();
+    if (!status.mcpConfigExists) {
+      context.record('Antigravity (~/.gemini/antigravity/)', 'NOT INSTALLED', 'Antigravity MCP config not found');
+      return;
+    }
+    const parts = [];
+    if (status.mcpSkillsDb) parts.push('konoha');
+    if (status.mcpSemble) parts.push('semble');
+    if (status.mcpAislop) parts.push('aislop');
+    const healthy = Boolean(parts.length) && status.schemasCount > 0;
+    context.record(
+      'Antigravity (~/.gemini/antigravity/)',
+      healthy ? 'HEALTHY' : 'WARNING',
+      healthy
+        ? `${parts.join(', ')} active; ${status.schemasCount} tool schemas`
+        : 'Partial Antigravity setup — run konoha init'
+    );
+  } catch (e) {
+    context.record('Antigravity (~/.gemini/antigravity/)', 'FAILED', `Error: ${e.message}`);
+    context.markError();
+  }
+}
+
+function check3DReadiness(context) {
+  try {
+    const doctor3d = require('../../src/doctor_3d');
+    doctor3d.record3DChecks((name, status, details) => context.record(name, status, details));
+  } catch (e) {
+    context.record('3D Pipeline', 'FAILED', `Error: ${e.message}`);
+    context.markError();
+  }
+}
+
 function inspectBrowserDoctor(agentBrowserCmd) {
   try {
     const isWin = process.platform === 'win32';
@@ -225,7 +277,10 @@ function checkAndRepairClientConfigs(clientOptions, context) {
   checkCommandCodeClient(context);
   checkCodexClient(context);
   checkPiClient(context);
+  checkOmpClient(context);
+  checkAntigravityClient(context);
   checkAgentBrowserClient(context);
+  check3DReadiness(context);
 }
 
 module.exports = {

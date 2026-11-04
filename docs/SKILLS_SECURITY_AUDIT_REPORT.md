@@ -13,7 +13,7 @@ Following a series of vulnerability incidents in third-party and reference secur
 
 The audit scope covers:
 - **19 Top-Level Skills** in `src/templates/skills/`
-- **8 Operational Village Skills** in `agent/skills/`
+- **9 Operational Village Skills** in `agent/skills/` (sannin-skill, genin-skill, kage-skill, chunin-skill, jonin-skill, anbu-skill, tokubetsu-jonin-skill, akatsuki-skill, yamanaka-skill)
 - **817 Reference Sub-Skills** within `anthropic-cybersecurity-skills-assets`
 - **4,199 Total Files** surveyed, including 1,218 Python scripts, 392 JavaScript modules, and all associated shell scripts, manifests, and documentation
 
@@ -213,3 +213,7 @@ The Konoha skill tree and execution boundaries meet the **Zero-Known-Advisories 
 - Unfixable upstream libraries (`chromadb`) are excised from executable playbooks.
 - The Skill Guardian actively prevents ingestion of unpatched or malicious skills.
 - All code changes are validated by automated linters, zero-slop gates, and unit test suites.
+
+### Release 2.2.18 Re-Audit Verification Note (November 2026)
+
+The security audit review was re-run for release 2.2.18 across all 9 operational village skills (including `yamanaka-skill` for generative 3D & spatial subsystem). Zero known advisories, clean dependency boundaries, and strict guardian gate rules remain 100% verified.

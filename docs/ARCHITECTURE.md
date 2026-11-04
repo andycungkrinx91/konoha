@@ -54,6 +54,7 @@ flowchart TB
         Chunin["▫ chunin (Research & Web Intel)"]
         Tokubetsu["⬡ tokubetsu-jonin / tokubetsu_jonin (Technical Documentation)"]
         Akatsuki["🛡️ akatsuki (Red/Blue Security Specialist · Lab Isolation)"]
+        Yamanaka["✎ yamanaka (Generative 3D · Text/Image-to-3D · Blender Refinement)"]
     end
 
     subgraph UniversalInvariants ["Universal Website Archetypes & Layout Engine"]
@@ -81,20 +82,20 @@ flowchart TB
 
     class User,Clients,Orchestrator clientNode;
     class KonohaMCP,SembleMCP,AislopMCP,SQLiteDB,VectorEngine mcpNode;
-    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki agentNode;
+    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki,Yamanaka agentNode;
     class Archetypes,Invariants,SSRSafety invNode;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (47 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)
 
-| Tool Category | Registered Tools (47 Total) | Description |
+| Tool Category | Registered Tools (48 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. |
 | **Autonomous Website Builders (2)** | `build_from_source`, `build_from_text` | Side-effect-free structured specifications for multi-archetype website generation. |
-| **Specialist Delegation & Security Sandbox (9)** | `sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `akatsuki_init`, `chunin`, `tokubetsu_jonin`, `genin` | In-line direct subagent delegation, lab container initialization, and specialist workflow execution. |
+| **Specialist Delegation & Security Sandbox (10)** | `sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `akatsuki_init`, `chunin`, `tokubetsu_jonin`, `genin`, `yamanaka` | In-line direct subagent delegation, lab container initialization, and specialist workflow execution. |
 | **AI Fingerprint Detection (2)** | `website_ai_detector`, `docs_ai_detector` | Website (0-20 Human-Built target) and Document AI detectors (.docx, .pdf, .pptx, text). |
 | **Project Context & Memory (4)** | `get_project_context`, `save_project_context`, `query_project_memory`, `report_from_agent` | Episodic architectural memory and context tracking across client workspaces. |
 | **Persona Memory & Soul (5)** | `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, `get_soul` | Agent & user persona traits, patterns, architectural rules, and Ninja's Soul doctrine in SQLite and markdown. |
@@ -105,9 +106,22 @@ flowchart TB
 | **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
 
 
+### 🧭 Canonical Roster & Runtime Surfaces (v2.2.18)
+
+Nine ninja agents ship as first-class MCP tools and as per-client agent definitions: `sannin` (router), `genin` (scout), `chunin` (research), `jonin` (frontend), `anbu` (backend/QA), `tokubetsu_jonin` (docs), `kage` (review/quality gate), `akatsuki` (security), and `yamanaka` (generative 3D). `src/canonical_agents.js` is the single roster source consumed by the tool manifest, contract generators, client bootstrappers, Telegram routing, and the Web UI, so a roster change cannot silently miss a surface.
+
+Eight coding clients are provisioned from that roster: Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP (`src/agent_manager.js`, `SUPPORTED_CLIENTS`).
+
+Runtime surfaces added for this release:
+
+- **Generative 3D** — `POST /api/v1/3d/upload-image` accepts a reference image (magic-byte sniff, 12 MB cap), `POST /api/v1/3d/generate` runs the Yamanaka graph (intake → manifold geometry → PBR shading → Blender refinement → GLB export), and `GET /api/v1/3d/generate/:jobId/stream` relays progress over SSE. `POST /api/v1/3d/generate` accepts `quality_preset` from the four-level ladder (`low` / `normal` / `high` / `ultra`, legacy `draft` / `standard` / `medium` / `max` / `maximum` still resolve); the value is validated before the `202` and flattened into `target_polycount`, the single knob `scene_builder.resolveSegments` genuinely reads, so an unknown level is rejected with `400` and `allowed_quality_levels` instead of silently defaulting.
+- **GPU telemetry** — `src/gpu_telemetry.js` probes the host GPU with a 10 s TTL and a 2.5 s timeout, exposing `system.gpu` on the status payload; the dashboard renders `no_data` rather than inferring a device.
+- **Docs drift** — `GET /api/v1/docs/drift` compares each documentation file mtime against the `package.json` release cut and classifies it `current`, `review_pending`, `historical`, or `unknown`. `GET /api/v1/tools` serves the live tool catalog so the docs page never hardcodes a roster.
+- **Savings accounting** — byte-weighted savings are computed from recorded call telemetry; projects without measurements report `no_data` and a null percentage instead of a floor value.
+
 ### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
 
-Agent-to-skill mapping is declared in `src/templates/agents.yaml` and surfaced through the `AGENTS.md` / `GEMINI.md` routing tables. The `i-have-adhd` skill (from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), MIT) is embedded into exactly five agents — **genin, jonin, anbu, tokubetsu-jonin, chunin** — and shapes their final responses (action first, numbered steps, one concrete next action, no preamble/closers). **Sannin (router) and Kage (reviewer) deliberately do not load it**; their output formats are governed by the routing SOP and the delivery-gate contract. Parity and scoping are enforced by `tests/test_i_have_adhd_skill.js`.
+Agent-to-skill mapping is declared in `src/templates/agents.yaml` and surfaced through the `AGENTS.md` / `GEMINI.md` routing tables. The `i-have-adhd` skill (from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), MIT) is embedded into exactly six agents — **genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki** — and shapes their final responses (action first, numbered steps, one concrete next action, no preamble/closers). **Sannin (router), Kage (reviewer), and Yamanaka (3D) deliberately do not load it**; their output formats are governed by the routing SOP, the delivery-gate contract, and graph progress reporting. Independently of that per-agent list, every dispatched subagent prompt also carries the inline anti-slop + ADHD discipline contract assembled by `src/mcp/discipline_contract.js`. Parity and scoping are enforced by `tests/test_i_have_adhd_skill.js`.
 
 ---
 
@@ -233,7 +247,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 8 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev, OMP), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (47 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (48 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).

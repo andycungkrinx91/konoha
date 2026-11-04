@@ -51,13 +51,13 @@ function writeLockFile(payload) {
   try {
     fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true });
     fs.writeFileSync(LOCK_FILE, JSON.stringify(payload), 'utf-8');
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
 }
 
 function clearLockFile() {
   try {
     if (fs.existsSync(LOCK_FILE)) fs.unlinkSync(LOCK_FILE);
-  } catch (_) {}
+  } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
 }
 
 function getLiveBlenderStatus() {
@@ -80,7 +80,7 @@ function getLiveBlenderStatus() {
 function closeLiveBlenderSession() {
   const pid = getStoredPid() || (activeBlenderProcess && activeBlenderProcess.pid);
   if (pid) {
-    try { process.kill(pid, 'SIGTERM'); } catch (_) {}
+    try { process.kill(pid, 'SIGTERM'); } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
   }
   activeBlenderProcess = null;
   clearLockFile();
@@ -140,7 +140,7 @@ function parseTelemetryLines(buffer, state, onLine) {
     if (!trimmed.startsWith('KONOHA_BLENDER_STEP ')) continue;
     try {
       onLine(JSON.parse(trimmed.slice('KONOHA_BLENDER_STEP '.length)));
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
   }
 }
 
@@ -214,11 +214,11 @@ async function dispatchToLiveSession(config, onLine, timeoutMs = 600000) {
       try {
         const payload = JSON.parse(fs.readFileSync(full, 'utf8'));
         if (payload.request_id === requestId) onLine(payload.payload);
-      } catch (_) {}
+      } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
     }
     if (fs.existsSync(resultPath)) {
       const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-      try { fs.rmSync(resultPath, { force: true }); } catch (_) {}
+      try { fs.rmSync(resultPath, { force: true }); } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
       return { code: result.success ? 0 : 1, error: result.success ? null : result.error };
     }
     if (Date.now() > deadline) return { code: -1, error: 'Live Blender session dispatch timed out' };
@@ -258,7 +258,7 @@ async function executeLiveAgenticBlenderSession(options) {
     profile = 'enterprise_pbr',
     prompt = '',
     requestedComputeMode = 'auto',
-    onAction = () => {}
+    onAction = () => { /* caller did not request action logging */ }
   } = options;
 
   const circuit = globalCircuitRegistry.getOrCreate('yamanaka-dcc-mcp-blender', 3, 60);
@@ -310,7 +310,7 @@ async function executeLiveAgenticBlenderSession(options) {
         if (payload.event !== 'step') return;
         const action = wrapAction(payload, context);
         actions.push(action);
-        try { onAction(action); } catch (_) {}
+        try { onAction(action); } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
       })
     : await streamBlenderWorker({
     blenderBin,
@@ -327,7 +327,7 @@ async function executeLiveAgenticBlenderSession(options) {
       if (payload.event !== 'step') return;
       const action = wrapAction(payload, context);
       actions.push(action);
-      try { onAction(action); } catch (_) {}
+      try { onAction(action); } catch { /* intentional best-effort fallback: Blender refinement is optional; the deterministic mesh remains valid */ }
     }
   });
 

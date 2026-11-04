@@ -223,7 +223,7 @@ function printRemainingClientsSection() {
 function printSubagentsTable() {
   sectionTitle('Subagents (Naruto Ninja Ranks):', NINJA_THEME);
   const agents = agentManager.loadAgents(false, true);
-  const iconMap = { 'genin': '🍃', 'chunin': '📜', 'jonin': '🛡️', 'anbu': '👥', 'tokubetsu-jonin': '🎯', 'kage': '🌀' };
+  const iconMap = { 'genin': '🍃', 'chunin': '📜', 'jonin': '🛡️', 'anbu': '👥', 'tokubetsu-jonin': '🎯', 'kage': '🌀', 'sannin': '✧', 'akatsuki': '☁', 'yamanaka': '❖' };
   const subHeaders = ['Rank / Name', 'Skills Configuration'];
   const subAligns = ['left', 'left'];
   const subRows = [];

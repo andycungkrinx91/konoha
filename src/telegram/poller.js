@@ -56,6 +56,8 @@ async function _handleHelpCommand(chatId) {
     '• <b>/chunin &lt;prompt&gt;</b>  - Intel Ninja (Web research & docs synthesis)',
     '• <b>/tokubetsu_jonin &lt;prompt&gt;</b> - Scribe (Tech docs, specs & reports)',
     '• <b>/sannin &lt;prompt&gt;</b>  - Master Orchestrator (Triage & planning)',
+    '• <b>/akatsuki &lt;prompt&gt;</b> - Security Specialist (Red/Blue team ops)',
+    '• <b>/yamanaka &lt;prompt&gt;</b> - 3D Specialist (Generative 3D, Blender refinement)',
     '',
     '<i>You can also send any plain message directly to queue it as a prompt.</i>',
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
@@ -309,8 +311,37 @@ const AGENT_SUBCOMMANDS = {
   genin: { name: 'Scout Genin', defaultPrompt: 'Execute Genin codebase exploration, symbol search, and dependency analysis', icon: '⚑' },
   chunin: { name: 'Intel Ninja Chunin', defaultPrompt: 'Execute Chunin web research, documentation lookup, and synthesis', icon: '▫️' },
   'tokubetsu-jonin': { name: 'Scribe Tokubetsu Jonin', defaultPrompt: 'Execute Tokubetsu Jonin technical documentation and report generation', icon: '⬡' },
-  sannin: { name: 'Master Orchestrator Sannin', defaultPrompt: 'Execute Sannin task triage and multi-agent workflow orchestration', icon: '✧' }
+  sannin: { name: 'Master Orchestrator Sannin', defaultPrompt: 'Execute Sannin task triage and multi-agent workflow orchestration', icon: '✧' },
+  akatsuki: { name: 'Security Specialist Akatsuki', defaultPrompt: 'Execute Akatsuki security audit and isolated red-team verification', icon: '☠️' },
+  yamanaka: { name: '3D Specialist Yamanaka', defaultPrompt: 'Execute Yamanaka generative 3D synthesis and Blender refinement', icon: '✎' }
 };
+
+function _buildDoctorText() {
+  let version = 'unavailable';
+  try {
+    version = require('../../package.json').version || 'unavailable';
+  } catch (_) {
+    version = 'unavailable';
+  }
+  let skills = 'unavailable';
+  try {
+    const conn = require('../db').getConnection();
+    const row = conn.prepare('SELECT COUNT(*) AS total FROM skills').get();
+    if (row && typeof row.total === 'number') skills = row.total.toLocaleString('en-US');
+  } catch (_) {
+    skills = 'unavailable';
+  }
+  const clients = require('../agent_manager').SUPPORTED_CLIENTS;
+  return [
+    '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    `<b>MCP Server:</b> Pure Node.js Single Runtime (v${version})`,
+    `<b>Skills indexed:</b> ${skills}`,
+    `<b>Clients configured:</b> ${clients.length} (${clients.join(', ')})`,
+    '<b>Full report:</b> run <code>konoha doctor</code> in the terminal',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+  ].join('\n');
+}
 
 async function _handleSubagentDispatch(agentMatch, chatId, msg) {
   const rawAgentKey = agentMatch[1].toLowerCase().replace('_', '-');
@@ -425,9 +456,7 @@ async function handleMessage(msg) {
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/doctor')) {
-    let ver = '2.2.18';
-    try { ver = require('../../package.json').version || '2.2.18'; } catch (_) {}
-    const text = `<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n<b>Status:</b> HEALTHY · 100% OPERATIONAL\n<b>MCP Server:</b> Pure Node.js Single Runtime (v${ver})\n<b>Skills FTS5:</b> 1,027 records indexed\n<b>Token Savings:</b> 83% - 98% active\n<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    const text = _buildDoctorText();
     return notifierModule.sendTelegramMessage(text, { force: true, chat_id: chatId, parse_mode: 'HTML' });
   }
   if (rawText.startsWith('/cancel')) {
@@ -445,7 +474,7 @@ async function handleMessage(msg) {
     return _handleApproveRejectCommand(rawText, chatId);
   }
 
-  const agentMatch = rawText.match(/^\/(kage|anbu|jonin|genin|chunin|tokubetsu[-_]jonin|sannin|akatsuki)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
+  const agentMatch = rawText.match(/^\/(kage|anbu|jonin|genin|chunin|tokubetsu[-_]jonin|sannin|akatsuki|yamanaka)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
   if (agentMatch) {
     return _handleSubagentDispatch(agentMatch, chatId, msg);
   }

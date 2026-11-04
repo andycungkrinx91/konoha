@@ -106,7 +106,7 @@ konoha doctor --yes
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
 - `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`, `mcp__aislop__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
 - `~/.claude/CLAUDE.md` → Global orchestrator instructions.
-- `~/.claude/agents/` → Eight official ninja subagents; the host client controls model selection.
+- `~/.claude/agents/` → Nine official ninja subagents; the host client controls model selection.
 - `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
 
 **Verify:** `/mcp` in Claude Code session — should show `konoha`, `semble`, and `aislop`.
@@ -263,7 +263,7 @@ approval_mode = "auto"
 
 **Notes:**
 - Configures valid OMP plugin schema (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`) and explicit stdio transport (`"type": "stdio"`) required by OMP's strict MCP validator.
-- OMP agents auto-enable and auto-use Konoha MCP tools (`konoha.find_skills`, `konoha.get_skill`, `semble.search`) at the start of every new session.
+- OMP agents auto-enable and auto-use Konoha MCP tools (`konoha.find_skill`, `konoha.get_skill`, `semble.search`) at the start of every new session.
 - Bounded file tools are enforced through `file_tools_launcher.js` with active client identification as `omp`.
 - Native OMP advisor review (`reviewMode: agent-end`) runs cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
 - `konoha uninstall` cleanly strips only the Konoha block from `~/.omp/agent/AGENTS.md` and removes Konoha server entries from `mcp.json`.

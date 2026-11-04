@@ -68,7 +68,7 @@
     title="Environment Doctor"
     badgeText="Runtime Health & Diagnostics"
     badgeIcon={heroBadgeIcon}
-    description="Automated integrity audit and self-repair for 7 coding IDEs, RTK binaries, SQLite databases, and daemon processes."
+    description="Automated integrity audit and self-repair for 8 coding clients, the 3D toolchain (Blender, dcc-mcp-blender, Three.js, Manifold-3D), RTK binaries, SQLite databases, and daemon processes."
     actions={heroActions}
   />
 
@@ -113,13 +113,16 @@
     </div>
 
     <!-- Diagnostic Results Grid -->
+    {@const generalResults = (doctor.results || []).filter(r => !r.component.startsWith('3D'))}
+    {@const threeResults = (doctor.results || []).filter(r => r.component.startsWith('3D'))}
+
     <div class="space-y-4">
       <h3 class="text-lg font-black theme-text">
         System Verification Checks
       </h3>
 
       <div class="scene-3d grid grid-cols-1 md:grid-cols-2 gap-4">
-        {#each doctor.results || [] as item}
+        {#each generalResults as item}
           <div class="glass-card-3d tilt-3d p-5 rounded-2xl border flex items-start justify-between gap-4">
             <div class="space-y-1 flex-1">
               <div class="flex items-center gap-2">
@@ -139,5 +142,35 @@
         {/each}
       </div>
     </div>
+
+    {#if threeResults.length > 0}
+      <div class="space-y-4 mt-6">
+        <h3 class="text-lg font-black theme-text flex items-center gap-2">
+          <span>3D Toolchain</span>
+          <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase badge-status badge-status-info">Blender + DCC-MCP + Three.js</span>
+        </h3>
+
+        <div class="scene-3d grid grid-cols-1 md:grid-cols-2 gap-4">
+          {#each threeResults as item}
+            <div class="glass-card-3d tilt-3d p-5 rounded-2xl border flex items-start justify-between gap-4">
+              <div class="space-y-1 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black theme-text">
+                    {item.component}
+                  </span>
+                </div>
+                <p class="text-xs font-semibold theme-text-secondary leading-relaxed">
+                  {item.details}
+                </p>
+              </div>
+
+              <span class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase border {item.status === 'HEALTHY' || item.status === 'ACTIVE' ? 'badge-status badge-status-success' : item.status === 'REPAIRED' ? 'badge-status badge-status-success' : item.status === 'INFO' ? 'badge-status badge-status-info' : item.status === 'WARNING' || item.status === 'INACTIVE' ? 'badge-status badge-status-warning' : 'badge-status badge-status-danger'}">
+                {item.status}
+              </span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   {/if}
 </div>

@@ -10,6 +10,7 @@
 - **@anbu**: Backend, DevOps & Bug Fixing
 - **@tokubetsu-jonin**: Technical Writing & Scribe
 - **@akatsuki**: Red-Team & Blue-Team Security
+- **@yamanaka**: Generative 3D & Spatial Subsystem Specialist
 
 ## Safety Guardrails
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).

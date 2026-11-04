@@ -170,3 +170,21 @@ PLAN_*.md
 3d-output/**
 3d-assets/
 3d-assets/**
+
+# Plan mode artifacts
+PLAN.md
+PLAN*.md
+/PLAN.md
+.omp/plans/
+.omp/plans/**
+
+# 3D staging and outputs
+.staging/
+.konoha/3d-output/
+3d-output/
+
+# Test/QA artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+.aislop-cache/

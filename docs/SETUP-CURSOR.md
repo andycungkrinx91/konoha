@@ -1,10 +1,10 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v2.2.18** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and eight ninja subagents work across all environments.
+Konoha **v2.2.18** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and nine ninja subagents work across all environments.
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 
-If you have [`rtk`](https://github.com/rtk-ai/rtk) installed on your system (`cargo install rtk`), Konoha will automatically deploy an RTK rule to `~/.cursor/rules/rtk.mdc` on `konoha init`. This rule instructs the agent to prefix all shell commands with `rtk` to minimize token consumption:
+If you have [`rtk`](https://github.com/rtk-ai/rtk) installed on your system (`cargo install --git https://github.com/rtk-ai/rtk`), Konoha will automatically deploy an RTK rule to `~/.cursor/rules/rtk.mdc` on `konoha init`. This rule instructs the agent to prefix all shell commands with `rtk` to minimize token consumption:
 
 ```bash
 rtk git status
@@ -125,7 +125,7 @@ node tests/test_claude_attribution.js   # Claude Code one-by-one attribution
 
 ## Protected Default Subagents
 
-The eight official ninja agents in `src/templates/agents.yaml` **cannot be deleted**:
+The nine official ninja agents in `src/templates/agents.yaml` **cannot be deleted**:
 
 ```bash
 konoha agent delete genin

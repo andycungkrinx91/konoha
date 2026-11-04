@@ -1,7 +1,7 @@
 # Konoha Architecture Canonical Naming Specification
 
-**Document Version:** 1.0.0 (Konoha v2.0.2)  
-**Date:** 2026-10-02  
+**Document Version:** 1.1.0 (Konoha v2.2.18)  
+**Date:** 2026-11-04  
 **Status:** Authoritative Standard  
 
 ---
@@ -18,7 +18,7 @@ Every concept across the Konoha ecosystem must have exactly one canonical identi
 
 ### 2.1 Agent Identifiers & Roster
 
-The Konoha agent hierarchy defines strictly eight official ninja agents: one router, five specialists, one scribe, and one security gate. Hyphenated kebab-case is canonical for agent identifiers; snake_case is reserved strictly where MCP tool schemas prohibit hyphens.
+The Konoha agent hierarchy defines strictly nine official ninja agents: one router, six specialists, one scribe, and one security gate. Hyphenated kebab-case is canonical for agent identifiers; snake_case is reserved strictly where MCP tool schemas prohibit hyphens.
 
 | Agent Name | Canonical Role | Canonical Skill | Canonical MCP Tool |
 |---|---|---|---|
@@ -30,6 +30,7 @@ The Konoha agent hierarchy defines strictly eight official ninja agents: one rou
 | `anbu` | Backend & DevOps Specialist | `anbu-skill` | `anbu` |
 | `tokubetsu-jonin` | Technical Scribe & Documenter | `tokubetsu-jonin-skill` | `tokubetsu_jonin` |
 | `akatsuki` | Red-Team & Blue-Team Security Gate | `akatsuki-skill` | `akatsuki` |
+| `yamanaka` | Generative 3D & Spatial Subsystem | `yamanaka-skill` | `yamanaka` |
 
 * **Invariant:** Never introduce shadow agents or alternative agent aliases (`deep-code-explorer`, `code-architect`, etc.).
 
@@ -66,6 +67,8 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 - `jonin(...)`
 - `anbu(...)`
 - `tokubetsu_jonin(...)`
+- `akatsuki(...)`
+- `yamanaka(...)`
 - `report_from_agent(task_id, learnings, artifacts?, status?)`
 - `get_resolved_task_dir(task_id)` (isolated fallback only)
 
@@ -182,8 +185,9 @@ The canonical client identifier keys used across configuration, contracts, and A
 |---|---|---|
 | `antigravity` | Antigravity IDE/CLI | `~/.gemini/antigravity-cli/`, `~/.gemini/antigravity-ide/` |
 | `cursor` | Cursor IDE/CLI | `~/.cursor/mcp.json`, `~/.cursor/rules/` |
-| `claude` | Claude Code | `~/.claude.json`, `~/.claude.yaml` |
+| `claude` | Claude Code | `~/.claude.json`, `~/.claude/settings.json` |
 | `opencode` | OpenCode | `~/.config/opencode/opencode.json` |
 | `commandcode` | Command Code | `~/.commandcode/mcp.json` |
-| `codex` | OpenAI Codex | `~/.codex/config.json` |
-| `pi` | Pi (pi.dev) | `~/.pi/agent/AGENTS.md` |
+| `codex` | OpenAI Codex | `~/.codex/config.toml`, `~/.codex/AGENTS.md` |
+| `pi` | Pi (pi.dev) | `~/.pi/agent/mcp.json`, `~/.pi/agent/AGENTS.md` |
+| `omp` | OMP | `~/.omp/agent/mcp.json`, `~/.omp/agent/AGENTS.md` |

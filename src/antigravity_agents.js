@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCanonicalAgentNames } = require('./canonical_agents');
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -73,6 +75,10 @@ function buildAgentJson(agent) {
       includeSections: SYSTEM_PROMPT_SECTIONS,
     },
   };
+  // Only the router may spawn subagents; without this flag a delegated spawn
+  // is rejected and the top-level agent silently does the work itself.
+  customAgent.enable_subagent_tools = agent.name === ROUTER_AGENT;
+
   if (agent.model) {
     customAgent.model = agent.model;
   }
@@ -156,6 +162,11 @@ function ensureAntigravityAgents(agents, options = {}) {
   return { global: globalResult, project: projectResult };
 }
 
+// Only the router may spawn subagents. Granting this to every agent caused the
+// top-level agent to work alone instead of delegating, because it could satisfy
+// the task without ever dispatching a specialist.
+const ROUTER_AGENT = 'sannin';
+
 function buildDefineSubagentArgs(agent) {
   const processedInstructions = processAgentInstructions(agent);
   return {
@@ -164,7 +175,7 @@ function buildDefineSubagentArgs(agent) {
     system_prompt: processedInstructions,
     enable_mcp_tools: true,
     enable_write_tools: agentAllowsWriteTools(agent),
-    enable_subagent_tools: false,
+    enable_subagent_tools: agent.name === ROUTER_AGENT,
   };
 }
 
@@ -179,7 +190,7 @@ function _removeSingleAgentDir(resolvedBase, name) {
 
 function removeAntigravityAgents(options = {}) {
   const home = options.home || process.env.HOME || os.homedir();
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+  const official = getCanonicalAgentNames();
   const dirs = [
     path.join(home, '.gemini', 'antigravity-cli', 'agents'),
     path.join(home, '.gemini', 'antigravity-ide', 'agents')

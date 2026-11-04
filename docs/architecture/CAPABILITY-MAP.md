@@ -1,7 +1,7 @@
 # Konoha Architecture Capability Map
 
 **Document Version:** 2.2.18  
-**Date:** 2026-10-29  
+**Date:** 2026-11-04  
 **Status:** Canonical Reference (v2.2.18 Complete)  
 
 ---
@@ -18,7 +18,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   Intelligence                     Orchestration                      Governance
         │                                │                                │
   • Skill Retrieval (FTS5 + ONNX)  • Sannin Router                   • Definition of Ready (DoR)
-  • Vector Search & Reranking      • 8 Subagents (Genin..Akatsuki)   • Anti-Slop Quality Gate
+  • Vector Search & Reranking      • 9 Subagents (Genin..Yamanaka)   • Anti-Slop Quality Gate
   • Project Memory & Learnings     • Structured MCP Delegation       • Dual-Provider Review
   • Workspace Context              • Token Auto-Compaction           • Evidence Tracking & Remediation
   • Persona Memory                 • Task Checkpointing              • AI Fingerprint Detection
@@ -48,7 +48,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Entry Points:**
   - MCP Tools: `find_skill(keyword, limit?)`, `list_skills(limit?)`, `get_skill(name)`, `optimize_report(query)`.
   - CLI: `konoha migrate`, `konoha embed`, `konoha skill list`.
-* **Consumers:** Sannin router, all 8 specialist subagents, external MCP clients.
+* **Consumers:** Sannin router, all 9 specialist subagents, external MCP clients.
 * **Storage:** SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`), ONNX embeddings in `assets/models/`.
 * **Configuration:** `~/.konoha/mcp_config.json`, embedding model config in `src/vector_search.js`.
 * **Tests:** `tests/test_skill_resolution.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
@@ -65,7 +65,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Route user intent, assign domain tasks to specialized subagents, and checkpoint structured findings without disk read loops.
 * **Canonical Implementation:** `src/mcp/tool_dispatch.js`, `src/agent_manager.js`, `src/agent_contract.js`.
 * **Entry Points:**
-  - MCP Tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `akatsuki`, `report_from_agent`.
+  - MCP Tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `akatsuki`, `yamanaka`, `report_from_agent`.
   - CLI: `konoha agent list`, `konoha agent status`.
 * **Consumers:** Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP.
 * **Storage:** Ephemeral process memory, task evidence in SQLite `sdlc_tasks`.
@@ -209,12 +209,12 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - CLI: `konoha savings`.
   - Web API: `GET /api/v1/savings`.
 * **Consumers:** CLI TUI, SvelteKit Web UI.
-* **Storage:** SQLite `savings` table.
-* **Configuration:** Baseline constant (2065 KB baseline sizing).
+* **Storage:** SQLite `tool_calls` telemetry (`bytes_saved`, `returned_bytes`, `total_library_bytes`) aggregated by `src/db_savings.js`.
+* **Configuration:** The baseline is the live sum of `skills.byte_size` for the indexed library; when nothing is indexed the report says so and the percentage is `null`. There is no constant fallback.
 * **Tests:** `tests/test_token_hygiene_and_platform.js`.
 * **Documentation:** `docs/BENCHMARK.md`.
 * **Dependencies:** `node:sqlite`.
-* **Workflow Artifact Optimization (ADR-0004, historical):** In addition to bounded file tool telemetry (83%–98% savings on repo reads), the 8-phase workflow enforced path-referenced summaries in `final_report.md` and bounded planning findings passed as structured dispatch arguments, reducing end-to-end task artifact tokens from 759.3 to 630.7 tokens/task (-16.9% artifact footprint reduction verified in `docs/architecture/TOKEN-BASELINE.md`). File-based `delegate.md` dispatch is retired; measurements are preserved as historical evidence.
+* **Workflow Artifact Optimization (ADR-0004, historical):** In addition to bounded file tool telemetry (83%–98% benchmark reference savings on repo reads; live telemetry records measured baselines or reports no_data when unmeasured), the 8-phase workflow enforced path-referenced summaries in `final_report.md` and bounded planning findings passed as structured dispatch arguments, reducing end-to-end task artifact tokens from 759.3 to 630.7 tokens/task (-16.9% artifact footprint reduction verified in `docs/architecture/TOKEN-BASELINE.md`). File-based `delegate.md` dispatch is retired; measurements are preserved as historical evidence.
 * **Known Legacy Paths:** None (stable finalized telemetry invariant).
 * **Known Duplication:** None.
 
@@ -376,3 +376,23 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Verification gates: bit-for-bit behavioral parity, 0 regression in confidence or AI slop scores, fail-closed circuit breaker loop <= 7 cycles.
 * **Documentation:** `docs/ARCHITECTURE.md`, `local://konoha-2-2-15-parallel-ninja-release-plan.md`.
 
+---
+
+### 2.20 Generative 3D & GPU Telemetry (`src/mcp/three_asset/`, `src/workflow/yamanaka/`)
+
+* **Purpose:** Text-to-3D and Image-to-3D asset synthesis — procedural Three.js/Manifold geometry with PBR materials, optionally refined inside a live Blender session, exported as glTF binary.
+* **Canonical Implementation:** `src/workflow/yamanaka/{graph,workflows}.js`, `src/mcp/three_asset/{spec_schema,style_profile,compute_selector,blender_installer,blender_refiner,storage_manager,db_3d_schema}.js`, `src/web/controllers/model_3d_controller.js`, `src/doctor_3d.js`, `src/gpu_telemetry.js`.
+* **Entry Points:**
+  - MCP Tool: `yamanaka` (`source_mode`, `image_path`, `target_polycount`, `texture_resolution`, `compute`).
+  - Web UI: `/3d/maker` (preview, generative parameters, recent assets, token & cost counter, Blender pipeline graph).
+  - HTTP: `POST /api/v1/3d/upload-image` (12 MB cap, magic-byte sniff), `POST /api/v1/3d/generate`, `GET /api/v1/3d/generate/:jobId/stream` (SSE), `GET /api/v1/3d/staging/:jobId/live.glb`, `GET /api/v1/3d/staging/:jobId/live.png`, `GET /api/v1/3d/{jobs,jobs/:id,assets,telemetry}` (all lists accept `limit` / `offset` and return `total`; the Recent 3D Assets card pages 6 at a time), `GET /api/v1/3d/setup/{status,models}` (its `catalogs` block publishes `quality_levels` alongside `archetypes`, `profiles`, `compute_modes`), `POST /api/v1/3d/setup/{install,blender/launch,blender/close}`.
+* **Consumers:** Web UI, CLI TUI, `yamanaka` MCP delegates.
+* **Storage:** `assets`, `model_assets_fts`, `generation_jobs`, `llm_requests_3d` tables; delivered glTF binaries land in `~/.konoha/3d-output/` (overridable via `KONOHA_3D_OUTPUT_DIR`).
+* **Pipeline:** prompt/image intake (Text-to-3D, Image-to-3D) → manifold watertight geometry synthesis (Three.js + Manifold-3D) → PBR shading → live Blender LTS refinement (`dcc-mcp-blender`) → 11-row `scoreSpec` evaluation gate → GLB export; `compute_selector` reports the effective compute mode (GPU when Blender is available, otherwise CPU).
+* **GPU Telemetry:** `src/gpu_telemetry.js` samples the host GPU with a 10 s TTL and 2500 ms timeout, and is surfaced as `system.gpu` on `GET /api/v1/system`; a host without a readable GPU reports `available: false` rather than a placeholder value.
+* **Diagnostics:** `src/doctor_3d.js` probes the Blender LTS install, `dcc-mcp-blender` host support, Three.js, and Manifold-3D, and is rendered on both `/doctor` surfaces.
+* **Tests:** `tests/test_three_asset_engine.js`, `tests/test_three_asset_single_image.js`, `tests/test_three_asset_enterprise_pbr.js`, `tests/test_three_asset_style_profile.js`, `tests/test_three_asset_storage_manager.js`, `tests/test_doctor_client_coverage.js`.
+* **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/ARCHITECTURE.md`, `.agents/skills/yamanaka-skill/SKILL.md`.
+* **Dependencies:** Blender LTS + `dcc-mcp-blender` (optional, for refinement), Three.js, Manifold-3D.
+
+---

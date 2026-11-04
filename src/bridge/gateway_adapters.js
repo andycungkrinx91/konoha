@@ -11,6 +11,9 @@ const {
   readBody,
   pipeWithModelRewrite
 } = require('./gateway_router');
+const { dedupeToolDefinitions, capToolOutputs } = require('./tool_payload');
+const { extractCachedTokens } = require('./cache_capability');
+const { validateRequestBudget, LIMITS } = require('./request_budget');
 
 function extractAnthropicSystemText(content) {
   if (typeof content === 'string') return content;
@@ -115,9 +118,11 @@ function writeAnthropicToolCallBlocks(res, toolCalls, hasText) {
   }
 }
 
-function streamEmptyAnthropicMessage(res, model, msgId) {
-  res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null } })}\n\n`);
-  res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop', delta: { stop_reason: 'stop' }, usage: { output_tokens: 0 } })}\n\n`);
+function streamEmptyAnthropicMessage(res, model, msgId, openAiResp) {
+  const startUsage = buildAnthropicUsage(openAiResp);
+  const startMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage: startUsage };
+  res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: startMessage })}\n\n`);
+  res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop', delta: { stop_reason: 'stop' }, usage: { output_tokens: buildAnthropicUsage(openAiResp).output_tokens } })}\n\n`);
   res.end();
 }
 
@@ -125,7 +130,7 @@ function streamOpenAIResponseToAnthropic(openAiResp, options) {
   const { model, msgId, res } = options;
   const choices = openAiResp.choices || [];
   if (choices.length === 0) {
-    streamEmptyAnthropicMessage(res, model, msgId);
+    streamEmptyAnthropicMessage(res, model, msgId, openAiResp);
     return;
   }
 
@@ -134,7 +139,9 @@ function streamOpenAIResponseToAnthropic(openAiResp, options) {
   const toolCalls = msg.tool_calls || [];
   const textContent = (msg.content || '').toString();
 
-  res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null } })}\n\n`);
+  const mainUsage = buildAnthropicUsage(openAiResp);
+  const mainMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage: mainUsage };
+  res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: mainMessage })}\n\n`);
 
   if (textContent) {
     res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
@@ -176,7 +183,7 @@ function nonStreamOpenAIResponseToAnthropic(openAiResp, options) {
     content: contentBlocks,
     stop_reason: toolCalls.length > 0 ? 'tool_use' : 'end_turn',
     stop_sequence: null,
-    usage: { input_tokens: 0, output_tokens: 0 }
+    usage: buildAnthropicUsage(openAiResp)
   });
 }
 
@@ -188,20 +195,43 @@ function openAIResponseToAnthropic(openAiResp, options) {
   nonStreamOpenAIResponseToAnthropic(openAiResp, options);
 }
 
+/**
+ * Translate upstream OpenAI-shaped usage into an Anthropic usage object.
+ * Token counts are passed through unchanged; cached_tokens is added only when
+ * the upstream actually reported it, so consumers can tell "no cache" apart
+ * from "provider gave no breakdown".
+ */
+function buildAnthropicUsage(openAiResp) {
+  const usage = openAiResp && openAiResp.usage ? openAiResp.usage : null;
+  const result = {
+    input_tokens: usage && Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : null,
+    output_tokens: usage && Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : null
+  };
+  const cached = extractCachedTokens(usage);
+  if (cached !== null) result.cache_read_input_tokens = cached;
+  return result;
+}
+
 function buildOpenAiPayloadFromAnthropic(body, targetModel) {
   const isStream = body.stream === true;
   const openAiPayload = {
     model: targetModel,
-    messages: anthropicMessagesToOpenAi(body.system, body.messages || []),
+    messages: capToolOutputs(anthropicMessagesToOpenAi(body.system, body.messages || [])),
     stream: isStream,
     temperature: body.temperature,
     max_tokens: body.max_tokens,
     top_p: body.top_p,
     stop: body.stop_sequences
   };
-  const tools = anthropicToolsToOpenAi(body.tools);
-  if (tools) openAiPayload.tools = tools;
+  // Tool order is taken verbatim from the caller. anthropicToolsToOpenAi maps
+  // over the input array, so order is already deterministic per request, and
+  // preserving the caller's order avoids perturbing tool-selection behaviour.
+  const tools = dedupeToolDefinitions(anthropicToolsToOpenAi(body.tools));
+  if (Array.isArray(tools) && tools.length > 0) openAiPayload.tools = tools;
 
+  if (body.compactContext === true) {
+    openAiPayload.compactContext = true;
+  }
   for (const k of Object.keys(openAiPayload)) {
     if (openAiPayload[k] === undefined || openAiPayload[k] === null) delete openAiPayload[k];
   }
@@ -248,11 +278,15 @@ function coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res) {
   let content = '';
   const toolCalls = [];
 
+  let streamUsage = null;
   for (const ln of lines) {
     const json = ln.replace(/^data:\s*/, '').trim();
     if (!json || json === '[DONE]') continue;
     try {
       const chunk = JSON.parse(json);
+      // OpenAI-compatible servers emit a final usage-bearing chunk when
+      // stream_options.include_usage is set; keep the last one seen.
+      if (chunk.usage && typeof chunk.usage === 'object') streamUsage = chunk.usage;
       const delta = chunk.choices?.[0]?.delta;
       if (!delta) continue;
       if (delta.content) content += delta.content;
@@ -267,6 +301,7 @@ function coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res) {
       finish_reason: toolCalls.length > 0 ? 'tool_calls' : 'stop'
     }]
   };
+  if (streamUsage) openAiResp.usage = streamUsage;
   openAIResponseToAnthropic(openAiResp, { model: targetModel, msgId, isStream: true, res });
 }
 
@@ -342,13 +377,37 @@ function setupStreamEvents(forwardReq, res, options) {
   });
 }
 
+/**
+ * Reject an oversized body from its Content-Length header before any bytes are
+ * buffered. Streaming/chunked requests without a length fall through to the
+ * post-parse guard, which remains the backstop.
+ */
+function rejectOversizedByHeader(req, res, maxBytes) {
+  const declared = Number(req.headers['content-length']);
+  if (!Number.isFinite(declared) || declared <= 0) return false;
+  if (declared <= maxBytes) return false;
+  sendJson(res, 413, {
+    error: {
+      type: 'error',
+      error: {
+        type: 'invalid_request_error',
+        message: `Request rejected: declared body of ${declared} bytes exceeds the ${maxBytes} byte limit`
+      }
+    }
+  });
+  return true;
+}
+
 async function handleAnthropicMessages(activeBridges, req, res) {
   let lastActivityTime = Date.now();
   const resetStreamTimeout = () => { lastActivityTime = Date.now(); };
 
   try {
-    const bodyStr = await readBody(req);
+    if (rejectOversizedByHeader(req, res, LIMITS.MAX_BODY_BYTES)) return false;
+    const bodyStr = await readBody(req, LIMITS.MAX_BODY_BYTES);
     const body = JSON.parse(bodyStr);
+    // Second gate: a caller may omit Content-Length, so the parsed payload is
+    // still checked before any upstream tokens are billed.
     const model = body.model;
     if (!model || typeof model !== 'string') {
       return sendJson(res, 400, { error: { type: 'error', error: { type: 'invalid_request_error', message: 'Missing model parameter' } } });
@@ -360,8 +419,17 @@ async function handleAnthropicMessages(activeBridges, req, res) {
     }
 
     const { active, bridgeName, targetModel } = resolved;
-    const isStream = body.stream === true;
-    const openAiPayload = buildOpenAiPayloadFromAnthropic(body, targetModel);
+    const isGemini = /gemini/i.test(model) || /gemini/i.test(targetModel || '') || /gemini/i.test(bridgeName || '');
+    const budget = validateRequestBudget(body, { is_gemini: isGemini, model: targetModel || model });
+    if (!budget.ok) {
+      return sendJson(res, 413, {
+        error: { type: 'error', error: { type: 'invalid_request_error', message: `Request rejected: ${budget.detail}` } },
+        konoha_budget: budget
+      });
+    }
+    const effectiveBody = budget.payload || body;
+    const isStream = effectiveBody.stream === true;
+    const openAiPayload = buildOpenAiPayloadFromAnthropic(effectiveBody, targetModel);
     const rewrittenBody = JSON.stringify(openAiPayload);
 
     const headers = sanitizeForwardHeaders(req.headers);
@@ -474,6 +542,7 @@ module.exports = {
   anthropicMessagesToOpenAi,
   extractAnthropicSystemText,
   anthropicToolsToOpenAi,
+  buildOpenAiPayloadFromAnthropic,
   openAIResponseToAnthropic,
   handleAnthropicMessages,
   handleGeminiRequest

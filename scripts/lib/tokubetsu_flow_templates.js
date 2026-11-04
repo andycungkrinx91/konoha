@@ -4,12 +4,13 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const { roundCorners } = require('./flow_path_geometry');
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.17';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.18';
   } catch (_) {
-    return '2.2.17';
+    return '2.2.18';
   }
 })();
 
@@ -131,30 +132,36 @@ function renderChips(pos, col, chips) {
   return chipHtml;
 }
 
-function renderCard(box, col, title, opt = '') {
+function renderCard(box, col, title, opt = '', agent = '') {
   const [x, y, w, h] = box;
   const detail = typeof opt === 'string' ? opt : (opt?.detail || '');
   const chips = Array.isArray(opt) ? opt : (opt?.chips || []);
-
-  let chipHtml = '';
-  if (chips.length > 0) {
-    const chipW = 60;
-    const gap = 8;
-    const totalW = chips.length * chipW + (chips.length - 1) * gap;
-    const startX = x + (w - totalW) / 2;
-    chipHtml = renderChips([startX, y, h], col, chips);
-  }
+  const compact = h < 70;
+  const chipW = 60;
+  const gap = 8;
+  const totalW = chips.length > 0 ? chips.length * chipW + (chips.length - 1) * gap : 0;
+  const startX = agent && chips.length > 0 ? x + w - 16 - totalW : x + (w - totalW) / 2;
+  const chipHtml = chips.length > 0 ? renderChips([startX, y, h], col, chips) : '';
+  const titleOffset = compact
+    ? (detail ? 24 : (agent ? h / 2 - 2 : h / 2 + 5))
+    : (chips.length > 0 ? 24 : (detail ? 26 : h / 2 + 5));
+  const detailOffset = compact ? 38 : (chips.length > 0 ? 40 : 44);
+  const agentHtml = agent
+    ? `<text class="card-agent" data-agent="${agent}" x="${x + 16}" y="${y + h - 9}" text-anchor="start" font-family="'JetBrains Mono', monospace" font-size="8.5" font-weight="700" letter-spacing="0.6" fill="${col}">\u25c8 ${agent}</text>`
+    : '';
 
   return `
     <g class="flow-card" transform="translate(0, 0)">
       <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#FFFFFF" stroke="${col}" stroke-width="2" filter="url(#cardShadow)" />
       <rect x="${x}" y="${y}" width="${w}" height="5" rx="2.5" fill="${col}" />
-      <text x="${x + w / 2}" y="${y + (chips.length > 0 ? 24 : detail ? 26 : h / 2 + 5)}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#0F172A">${title}</text>
-      ${detail ? `<text x="${x + w / 2}" y="${y + (chips.length > 0 ? 40 : 44)}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="500" fill="#475569">${detail}</text>` : ''}
+      <text x="${x + w / 2}" y="${y + titleOffset}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#0F172A">${title}</text>
+      ${detail ? `<text x="${x + w / 2}" y="${y + detailOffset}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="500" fill="#475569">${detail}</text>` : ''}
       ${chipHtml}
+      ${agentHtml}
     </g>
   `;
 }
+
 
 function renderHeader(width, title, subtitle, badge = {}) {
   const badgeText = badge.text || '83–98% TOKEN SAVINGS';
@@ -176,59 +183,204 @@ function renderFooter(width, height, text) {
   `;
 }
 
-function generateOrchestrationHtml() {
+// ── Jonin-standard visual grammar kit ────────────────────────────────────
+// Shared by every flow diagram: canvas, palette, type scale, card and panel
+// primitives, dashed connectors with per-hue arrow markers.
+//   1200x760 canvas, white background
+//   light container panels (#F8FAFC, 1.5px coloured stroke, rx 14) whose body is
+//   a stack of white 300x48 rows (12px/700 title + 10px/500 detail, slate text)
+//   white 340px cards with a 5px hue bar, 13px/700 title + 11px/500 detail
+//   dashed 2.5px connectors riding a 6px 15%-opacity track
+// STYLE IS FROZEN. Every canvas uses this one grammar — same canvas, card size,
+// type scale, connector treatment, verdict slot at y540, roster ribbon and footer.
+// Topology differs only by CONTENT and EDGE ROUTING (two-column snake, closed
+// loop, funnel-and-fork, dual lanes); never by restyling. Enforced by
+// tests/test_flow_diagram_style_lock.js.
+const STD_CARD_W = 340;
+const STD_ROW_H = 48;
+const STD_ROW_GAP = 6;
+
+const STD_MARKERS = {
+  [C.azure]: 'arrow-azure',
+  [C.violet]: 'arrow-violet',
+  [C.teal]: 'arrow-teal',
+  [C.amber]: 'arrow-amber',
+  [C.emerald]: 'arrow-emerald',
+  [C.crimson]: 'arrow-crimson'
+};
+
+function stdPanelHeight(rowCount) {
+  return 42 + rowCount * (STD_ROW_H + STD_ROW_GAP) + 8;
+}
+
+function stdPanel({ x, y, w = STD_CARD_W, h, title, col = C.violet, rows = [] }) {
+  const height = h || stdPanelHeight(rows.length);
+  const rowHtml = rows.map((row, i) => {
+    const ry = 42 + i * (STD_ROW_H + STD_ROW_GAP);
+    return `
+      <rect x="20" y="${ry}" width="${w - 40}" height="${STD_ROW_H}" rx="8" fill="#FFFFFF" stroke="${C.borderLight}" stroke-width="1" />
+      <text x="35" y="${ry + 22}" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">${row.title}</text>
+      <text x="35" y="${ry + 39}" font-family="'Inter', sans-serif" font-size="10" font-weight="500" fill="${C.slateMed}">${row.detail || ''}</text>`;
+  }).join('');
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${w}" height="${height}" rx="14" fill="${C.containerBg}" stroke="${col}" stroke-width="1.5" />
+      <text x="${w / 2}" y="26" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">${title}</text>${rowHtml}
+    </g>
+  `;
+}
+
+function stdLink(d, col) {
+  const marker = STD_MARKERS[col] || 'arrow-violet';
+  const g = roundCorners(d);
+  return `<path class="bg-track" d="${g}" stroke="${col}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="${g}" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 6" fill="none" marker-end="url(#${marker})" />`;
+}
+
+
+function stdNote(x, y, text, col = C.slateMuted, size = 9) {
+  return `<text x="${x}" y="${y}" font-family="'JetBrains Mono', monospace" font-size="${size}" font-weight="700" fill="${col}">${text}</text>`;
+}
+
+function stdDiamond({ cx, cy, r, col, label, sub }) {
+  const pts = [
+    `${cx},${cy - r}`,
+    `${cx + r},${cy}`,
+    `${cx},${cy + r}`,
+    `${cx - r},${cy}`
+  ].join(' ');
+  return `
+    <polygon points="${pts}" fill="#FFFFFF" stroke="${col}" stroke-width="2" stroke-linejoin="round" />
+    <text x="${cx}" y="${cy - 1}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="700" fill="${C.slateDark}">${label}</text>
+    <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="${col}">${sub}</text>`;
+}
+
+
+// The nine village specialists. Every diagram carries this roster bar so the
+// persona that owns the workflow is visible at a glance; the owning chip is
+// filled, the other eight stay outlined.
+const NINJA_AGENTS = ['genin', 'chunin', 'jonin', 'anbu', 'tokubetsu', 'kage', 'akatsuki', 'sannin', 'yamanaka'];
+
+function stdRoster(active, col = C.violet) {
+  const y = 712;
+  const h = 16;
+  const chipW = 74;
+  const gap = 6;
+  const chips = NINJA_AGENTS.map((name, i) => {
+    const x = 50 + i * (chipW + gap);
+    const on = name === active;
+    return `
+      <rect x="${x}" y="${y}" width="${chipW}" height="${h}" rx="8" fill="${on ? col : '#FFFFFF'}" stroke="${col}" stroke-width="${on ? 1.5 : 1}" stroke-opacity="${on ? 1 : 0.35}" />
+      <text x="${x + chipW / 2}" y="${y + 11}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="${on ? '#FFFFFF' : C.slateMed}">${name}</text>`;
+  }).join('');
+  const nextX = 50 + NINJA_AGENTS.length * (chipW + gap) + 8;
+  return `
+    <text x="50" y="${y - 8}" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="${C.slateMuted}">NINJA ROSTER · OWNER</text>${chips}
+    <text x="${nextX}" y="${y + 11}" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="${col}">${(active || 'n/a').toUpperCase()}</text>`;
+}
+
+function generateYamanakaHtml() {
   const W = 1200;
-  const H = 675;
+  const H = 760;
 
-  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `LangGraph.js StateGraph Engine · Per-Turn Token Budget Governor & Circuit Breaker · v${PKG_VERSION}`, { text: '83–98% TOKEN SAVINGS', col: C.azure });
-  const footer = renderFooter(W, H, '47 canonical MCP tools · LangGraph.js Cyclic StateGraph · Turn Budget Governor · Error Edge Breaker · Gate 1 & Gate 2');
+  const header = renderHeader(W, 'YAMANAKA 3D ASSET BUILD PIPELINE', `text · image · DSL ingress → spec synthesis → procedural manifold build → GLB → Blender LTS → preview · v${PKG_VERSION}`, { text: 'WATERTIGHT MANIFOLD', col: C.violet });
+  const roster = stdRoster('yamanaka', C.violet);
+  const footer = renderFooter(W, H, 'Density dials: low 3k / normal 12k / high 35k / ultra 85k polygons · honest source labels · measured geometry, no model-parity claims');
 
-  const cards = [
-    renderCard([40, 95, 180, 56], C.azure, 'USER PROMPT', 'user · resume prompt'),
-    renderCard([260, 88, 245, 70], C.violet, 'PRIMARY ORCHESTRATOR', 'LangGraph.js StateGraph · 8 clients'),
-    renderCard([40, 195, 270, 56], C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
-    renderCard([340, 195, 280, 56], C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · aislop_scan'),
-    renderCard([650, 190, 270, 66], C.amber, 'GATE 1: PLAN APPROVAL', 'pending_plan_approval · IDE / Telegram'),
-    renderCard([320, 295, 345, 58], C.violet, '3. LANGGRAPH STATE DISPATCH', 'PLAN → BRIEF → TODO · Turn Budget (8k)'),
-    renderCard([230, 390, 700, 76], C.violet, '4. SPECIALIST NINJA AGENTS', { detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu', 'akatsuki'] }),
-    renderCard([15, 510, 140, 64], C.teal, '5. TASK REPORT', 'report_from_agent'),
-    renderCard([170, 510, 210, 64], C.crimson, '6. AKATSUKI BLUE GATE', 'SAST · 0 CVEs · secret scan'),
-    renderCard([395, 510, 200, 64], C.amber, '7. KAGE REVIEW GATE', 'LangGraph review_node · 0 slop'),
-    renderCard([610, 510, 220, 64], C.amber, 'GATE 2: SIGN-OFF', 'pending_human_signoff · auto_signoff'),
-    renderCard([845, 515, 160, 54], C.violet, '8. SYNTHESIZE', 'sannin final report'),
-    renderCard([1020, 515, 145, 54], C.azure, 'RESPONSE', 'deliver to user')
+  // TOPOLOGY: three ingress modalities FAN IN to one synthesis node, then the
+  // four dial positions FAN IN again on the density ladder.
+  const ingress = [
+    renderCard([50, 150, 340, 76], C.azure, 'TEXT PROMPT', 'natural language asset request', 'host'),
+    renderCard([430, 150, 340, 76], C.teal, 'IMAGE / SCREENSHOT', 'reference plate · vision spec', 'host'),
+    renderCard([810, 150, 340, 76], C.violet, 'DSL SCENE SPEC', 'explicit primitives · materials', 'host')
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 220 123 L 260 123" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 220 123 L 260 123" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path class="bg-track" d="M 340 158 C 340 180, 175 175, 175 195" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 340 158 C 340 180, 175 175, 175 195" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 420 158 C 420 180, 480 175, 480 195" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 420 158 C 420 180, 480 175, 480 195" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path class="bg-track" d="M 620 223 L 650 223" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 620 223 L 650 223" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 785 256 C 785 285, 660 295, 660 324" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 785 256 C 785 285, 660 295, 660 324" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 230 428 C 120 428, 85 460, 85 510" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 230 428 C 120 428, 85 460, 85 510" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 155 542 L 170 542" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 155 542 L 170 542" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 380 542 L 395 542" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 380 542 L 395 542" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 595 542 L 610 542" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 595 542 L 610 542" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 830 542 L 845 542" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 830 542 L 845 542" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 1005 542 L 1020 542" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 1005 542 L 1020 542" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path d="M 275 510 C 230 450, 230 360, 320 324" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
-    <text x="175" y="420" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="${C.crimson}">REMEDIATION LOOP</text>
-  `;
+  const fanIn = [
+    stdLink('M 220 226 C 220 272, 495 272, 495 300', C.azure),
+    stdLink('M 600 226 L 600 300', C.teal),
+    stdLink('M 980 226 C 980 272, 705 272, 705 300', C.violet)
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${paths}\n${cards}\n${footer}`);
+  const synthesis = renderCard([430, 300, 340, 84], C.violet, 'SPEC SYNTHESIS', 'validateSceneSpec + richness floor', 'yamanaka');
+
+  const archetype = renderCard([810, 300, 340, 84], C.azure, 'ARCHETYPE ROUTING', 'prompt-aware · 16 domain builders', 'yamanaka');
+
+  const geometry = renderCard([430, 470, 340, 84], C.teal, 'GEOMETRY FINALIZE', 'weld · world-scale UV · smooth normals', 'yamanaka');
+
+  // Density ladder: four dial positions converging into one geometry node.
+  const ladder = [
+    renderCard([50, 470, 220, 48], C.emerald, 'LOW · 3,000', 'yamanaka'),
+    renderCard([50, 530, 220, 48], C.azure, 'NORMAL · 12,000', 'yamanaka'),
+    renderCard([50, 590, 220, 48], C.amber, 'HIGH · 35,000', 'yamanaka'),
+    renderCard([50, 650, 220, 48], C.crimson, 'ULTRA · 85,000', 'yamanaka')
+  ].join('\n');
+
+  const ladderIn = [
+    stdLink('M 270 494 C 348 494, 356 494, 430 494', C.emerald),
+    stdLink('M 270 554 C 348 554, 356 508, 430 508', C.azure),
+    stdLink('M 270 614 C 348 614, 356 522, 430 522', C.amber),
+    stdLink('M 270 674 C 348 674, 356 536, 430 536', C.crimson)
+  ].join('\n');
+
+  const ship = renderCard([810, 470, 340, 84], C.amber, 'GLB → BLENDER → PREVIEW', 'header check · watertight · PMREM rig', 'yamanaka');
+  const store = renderCard([810, 580, 340, 84], C.emerald, 'STORED ASSET', 'assets table · mesh_count · triangles', 'yamanaka');
+
+  const flow = [
+    stdLink('M 770 342 L 810 342', C.azure),
+    stdLink('M 600 384 L 600 470', C.teal),
+    stdLink('M 770 512 L 810 512', C.amber),
+    stdLink('M 980 554 L 980 580', C.emerald)
+  ].join('\n');
+
+  const notes = [
+    stdNote(50, 452, 'DENSITY = sqrt(polyFactor) · CLAMPED [0.8, 12]', C.slateMuted)
+  ].join('\n');
+
+  return buildHtmlPage(W, H, `${header}\n${ingress}\n${fanIn}\n${synthesis}\n${archetype}\n${geometry}\n${ladder}\n${ladderIn}\n${ship}\n${store}\n${flow}\n${notes}\n${roster}\n${footer}`);
+}
+
+function generateOrchestrationHtml() {
+  const W = 1200;
+  const H = 760;
+
+  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `sannin prelude → dispatch → execute → review → sign-off → synthesis · loop edge returns to the prelude · v${PKG_VERSION}`, { text: 'CLOSED LOOP', col: C.violet });
+  const roster = stdRoster('sannin', C.violet);
+  const footer = renderFooter(W, H, 'every lane emits evidence · the loop edge is the only way back to planning · nothing ships from a partial ring');
+
+  // TOPOLOGY: a CLOSED LOOP. Six numbered stations run down the left column and
+  // back up nothing — the sequence crosses to the right column, lands in one
+  // delivery card, and a single loop edge returns to station 1.
+  const lanes = [
+    stdNote(150, 152, 'PLAN & EXECUTE', C.slateMuted),
+    stdNote(710, 152, 'REVIEW & SYNTHESIS', C.slateMuted)
+  ].join('\n');
+
+  const left = [
+    renderCard([150, 160, 340, 84], C.azure, '1 · PLAN & ROUTE', 'sannin prelude · intent → task graph', 'sannin'),
+    renderCard([150, 280, 340, 84], C.teal, '2 · SPECIALIST DISPATCH', 'nine lanes · bounded tool grants', 'sannin'),
+    renderCard([150, 400, 340, 84], C.violet, '3 · EXECUTE & EVIDENCE', 'phase output · validation rows', 'anbu')
+  ].join('\n');
+
+  const right = [
+    renderCard([710, 160, 340, 84], C.amber, '4 · REVIEW & GATE', 'kage · diff + slop audit', 'kage'),
+    renderCard([710, 280, 340, 84], C.emerald, '5 · HUMAN SIGN-OFF', 'plan approval · release sign-off', 'host'),
+    renderCard([710, 400, 340, 84], C.azure, '6 · SANNIN SYNTHESIS', 'merge lanes · one answer', 'sannin')
+  ].join('\n');
+
+  const links = [
+    stdLink('M 320 244 L 320 280', C.azure),
+    stdLink('M 320 364 L 320 400', C.teal),
+    stdLink('M 490 442 C 600 442, 600 202, 710 202', C.violet),
+    stdLink('M 880 244 L 880 280', C.amber),
+    stdLink('M 880 364 L 880 400', C.emerald),
+    stdLink('M 880 484 L 880 512 L 700 512 L 700 540', C.azure),
+    stdLink('M 430 582 L 110 582 L 110 202 L 150 202', C.violet)
+  ].join('\n');
+
+  const delivery = renderCard([430, 540, 340, 84], C.violet, 'DELIVERY', 'all lanes green → ship · else re-dispatch', 'sannin');
+  const notes = stdNote(118, 600, 'LOOP', C.violet);
+
+  return buildHtmlPage(W, H, `${header}\n${lanes}\n${left}\n${right}\n${links}\n${delivery}\n${notes}\n${roster}\n${footer}`);
 }
 
 function generateJoninHtml() {
@@ -236,6 +388,7 @@ function generateJoninHtml() {
   const H = 760;
 
   const header = renderHeader(W, 'JONIN TASTE-SKILL PREMIUM UI BUILD PIPELINE', `LangGraph execute_node · Zero-AI-Slop & Akatsuki Security-Gated Frontend Engineering · v${PKG_VERSION}`, { text: 'TASTE-SKILL ENFORCED', col: C.violet });
+  const roster = stdRoster('jonin', C.teal);
   const footer = renderFooter(W, H, 'LangGraph execute_node · per-turn budget exhausted -> next turn resumes at node_execute · Mandatory layout invariants · pure light mode · 100% exact mockup fidelity · 0 errors 0 warnings');
 
   const containerInvariants = `
@@ -283,294 +436,216 @@ function generateJoninHtml() {
   `;
 
   const cards = [
-    renderCard([50, 95, 340, 68], C.azure, 'USER UI SPECIFICATION', 'build_from_source · build_from_text'),
-    renderCard([430, 220, 340, 84], C.violet, '♦ JONIN BUILDER ENGINE', { detail: 'Tailwind CSS v4 · Framer Motion · Pure Light', chips: ['Next.js', 'Nuxt', 'Svelte', 'Angular'] }),
-    renderCard([810, 140, 340, 68], C.teal, 'FRAMEWORK CLI GATES', 'pnpm build (0 errors) · pnpm lint (0 warnings)'),
-    renderCard([810, 240, 340, 68], C.crimson, 'AKATSUKI BLUE SECURITY GATE', '🛡️ CSP, XSS audit, zero-script injection, 0 CVEs'),
-    renderCard([810, 340, 340, 68], C.amber, 'TWO-STEP ZERO-AI-SLOP GATE', '100/100 mechanical scan · antislop verified'),
-    renderCard([810, 440, 340, 68], C.emerald, 'GATE 2 & PRODUCTION DELIVERY', 'pending_human_signoff · 100% exact fidelity'),
-    renderCard([810, 540, 340, 62], C.azure, 'DELIVERY REPORT TO HOST', 'clean release deliverable to orchestrator')
+    renderCard([50, 95, 340, 68], C.azure, 'USER UI SPECIFICATION', 'build_from_source · build_from_text', 'host'),
+    renderCard([430, 220, 340, 84], C.violet, '♦ JONIN BUILDER ENGINE', { detail: 'Tailwind CSS v4 · Framer Motion · Pure Light', chips: ['Next.js', 'Nuxt', 'Svelte', 'Angular'] }, 'jonin'),
+    renderCard([810, 140, 340, 68], C.teal, 'FRAMEWORK CLI GATES', 'pnpm build (0 errors) · pnpm lint (0 warnings)', 'anbu'),
+    renderCard([810, 240, 340, 68], C.crimson, 'AKATSUKI BLUE SECURITY GATE', '🛡️ CSP, XSS audit, zero-script injection, 0 CVEs', 'akatsuki'),
+    renderCard([810, 340, 340, 68], C.amber, 'TWO-STEP ZERO-AI-SLOP GATE', '100/100 mechanical scan · antislop verified', 'tokubetsu'),
+    renderCard([810, 440, 340, 68], C.emerald, 'GATE 2 & PRODUCTION DELIVERY', 'pending_human_signoff · 100% exact fidelity', 'kage'),
+    renderCard([810, 540, 340, 62], C.azure, 'DELIVERY REPORT TO HOST', 'clean release deliverable to orchestrator', 'jonin')
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 220 163 L 220 195" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 220 163 L 220 195" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 390 262 L 430 262" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 390 262 L 430 262" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 600 304 L 600 360" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 600 304 L 600 360" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 770 262 C 790 262, 790 174, 810 174" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 770 262 C 790 262, 790 174, 810 174" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 980 208 L 980 240" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 980 208 L 980 240" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 980 308 L 980 340" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 980 308 L 980 340" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 980 408 L 980 440" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 980 408 L 980 440" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 980 508 L 980 540" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 980 508 L 980 540" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-  `;
+  const paths = [
+    stdLink('M 220 163 L 220 195', C.teal),
+    stdLink('M 390 262 L 430 262', C.violet),
+    stdLink('M 600 304 L 600 360', C.violet),
+    stdLink('M 770 262 C 790 262, 790 174, 810 174', C.teal),
+    stdLink('M 980 208 L 980 240', C.crimson),
+    stdLink('M 980 308 L 980 340', C.amber),
+    stdLink('M 980 408 L 980 440', C.emerald),
+    stdLink('M 980 508 L 980 540', C.azure)
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${containerInvariants}\n${containerFrameworks}\n${paths}\n${cards}\n${footer}`);
+  return buildHtmlPage(W, H, `${header}\n${containerInvariants}\n${containerFrameworks}\n${paths}\n${cards}\n${roster}\n${footer}`);
 }
 
 function generateKageHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'KAGE REVIEWER 98% CONFIDENCE & DELIVERY GATE PIPELINE', `LangGraph.js review_node & remediate_node · Circuit Breaker Cap ≤ 7 · v${PKG_VERSION}`, { text: '98% MINIMUM CONFIDENCE', col: C.emerald });
-  const footer = renderFooter(W, H, 'Step 1: aislop_scan (100/100) · Step 2: antislop (0 findings) · Akatsuki Blue Gate cleared · Gate 2 (pending_human_signoff)');
+  const header = renderHeader(W, 'KAGE REVIEW GATE & REMEDIATION ROUTING', `four evaluation columns → one confidence number · ≥ 98% releases, below remediates · v${PKG_VERSION}`, { text: 'PASS · SIGN-OFF · RELEASE', col: C.emerald });
+  const roster = stdRoster('kage', C.emerald);
+  const footer = renderFooter(W, H, 'the gate scores four columns, not one · remediation returns to plan approval, never straight to release');
 
-  const cards = [
-    renderCard([40, 130, 200, 68], C.azure, '1. TASK ARTIFACTS', 'plan.md, status.json, git diff'),
-    renderCard([270, 130, 215, 68], C.crimson, '2. AKATSUKI BLUE GATE', '🛡️ SAST, secrets, 0 CVEs'),
-    renderCard([515, 130, 215, 68], C.amber, '3. TWO-STEP ZERO-SLOP', '100/100 score · 0 slop rules'),
-    renderCard([760, 130, 205, 68], C.violet, '4. SUPPLY CHAIN GATE', 'Socket 0 alerts · license audit'),
-    renderCard([995, 130, 165, 68], C.emerald, '5. CONFIDENCE EVAL', 'weighted 5 categories'),
-    renderCard([890, 290, 270, 64], C.violet, 'AUTONOMOUS REMEDIATION', 'LangGraph remediate_node · circuit breaker'),
-    renderCard([540, 310, 290, 64], C.crimson, 'BACKEND / CVE FIX (♠ ANBU)', 'remediates code, CVEs, or logic'),
-    renderCard([540, 410, 290, 64], C.azure, 'UI / CRAFT FIX (♦ JONIN)', 'cleans styling, contrast, or slop'),
-    renderCard([60, 560, 320, 72], C.teal, '6. CONFIDENCE APPROVED', { detail: '≥98.0% score · 0 findings · advisor OK', chips: ['≥98.0%', 'PASS'] }),
-    renderCard([420, 560, 340, 72], C.amber, '7. GATE 2: SIGN-OFF', { detail: 'pending_human_signoff · auto_signoff', chips: ['HITL GATE', 'APPROVED'] }),
-    renderCard([800, 560, 340, 72], C.emerald, '8. SANNIN SYNTHESIS & RELEASE', { detail: 'final_report.md · release to host', chips: ['RELEASE', 'VERIFIED'] })
+  // TOPOLOGY: a FUNNEL. Six review stations feed one scoring card, which forks
+  // into exactly two terminal cards — a release or a remediation round trip.
+  const lanes = [
+    stdNote(150, 152, 'EVALUATION COLUMNS', C.slateMuted),
+    stdNote(710, 152, 'DELIVERY ROUTE', C.slateMuted)
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 240 164 L 270 164" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 240 164 L 270 164" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 485 164 L 515 164" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 485 164 L 515 164" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 730 164 L 760 164" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 730 164 L 760 164" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 965 164 L 995 164" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 965 164 L 995 164" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 1075 198 L 1025 290" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 1075 198 L 1025 290" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 890 322 C 865 322, 855 342, 830 342" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 890 322 C 865 322, 855 342, 830 342" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 890 322 C 865 322, 855 442, 830 442" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 890 322 C 865 322, 855 442, 830 442" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path d="M 540 342 C 450 342, 450 250, 622 198" stroke="${C.teal}" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-teal)" opacity="0.8" />
-    <text x="440" y="270" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="${C.teal}">RE-EVALUATE</text>
-    <path class="bg-track" d="M 685 474 C 685 520, 220 520, 220 560" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 685 474 C 685 520, 220 520, 220 560" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 380 596 L 420 596" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 380 596 L 420 596" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 760 596 L 800 596" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 760 596 L 800 596" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-  `;
+  const left = [
+    renderCard([150, 160, 340, 84], C.azure, '1 · PLAN CONFIDENCE', 'plan approval · scope + risk rows', 'kage'),
+    renderCard([150, 280, 340, 84], C.teal, '2 · VALIDATION MATRIX', 'tests · diffs · evidence rows', 'anbu'),
+    renderCard([150, 400, 340, 84], C.violet, '3 · SECURITY & ROLLBACK', 'secret scan · rollback plan', 'akatsuki')
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${paths}\n${cards}\n${footer}`);
+  const right = [
+    renderCard([710, 160, 340, 84], C.amber, '4 · SLOP + DIFF AUDIT', 'changed files only · 0 errors', 'kage'),
+    renderCard([710, 280, 340, 84], C.teal, '5 · EVIDENCE PACKET', 'sign-off sheet · owner rows', 'tokubetsu'),
+    renderCard([710, 400, 340, 84], C.violet, '6 · GATE SCORING', 'four columns → one number', 'kage')
+  ].join('\n');
+
+  const links = [
+    stdLink('M 320 244 L 320 280', C.azure),
+    stdLink('M 320 364 L 320 400', C.teal),
+    stdLink('M 490 442 C 600 442, 600 202, 710 202', C.violet),
+    stdLink('M 880 244 L 880 280', C.amber),
+    stdLink('M 880 364 L 880 400', C.teal),
+    stdLink('M 880 484 L 880 500 L 400 500 L 400 540', C.emerald),
+    stdLink('M 880 484 L 880 516 L 800 516 L 800 540', C.crimson)
+  ].join('\n');
+
+  const pass = renderCard([230, 540, 340, 84], C.emerald, 'PASS ≥ 98% · SIGN-OFF', 'release cut approved', 'kage');
+  const fail = renderCard([630, 540, 340, 84], C.crimson, 'BELOW 98% · REMEDIATE', 're-dispatch · rerun the gate', 'sannin');
+  const notes = stdNote(230, 656, 'REMEDIATION LOOPS BACK TO PLAN APPROVAL, NEVER STRAIGHT TO RELEASE', C.slateMuted);
+
+  return buildHtmlPage(W, H, `${header}\n${lanes}\n${left}\n${right}\n${links}\n${pass}\n${fail}\n${notes}\n${roster}\n${footer}`);
 }
 
 function generateQaHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'TOKEN-PRESERVING QA AUTOMATION WORKFLOW', `LangGraph execute_node · Deterministic Codification & Headless E2E Verification · v${PKG_VERSION}`, { text: 'TOKEN PRESERVATION', col: C.azure });
-  const footer = renderFooter(W, H, 'LangGraph execute_node · per-turn budget exhausted -> next turn resumes at node_execute · Zero LLM tokens during test runs · <2,000 chars capped evidence · autonomous fix loops');
+  const header = renderHeader(W, 'QA DETERMINISTIC CHAIN & TRIAGE', `zod schema → unit → bounded e2e → a11y → perf → slop · red result routes to triage fix · v${PKG_VERSION}`, { text: 'DETERMINISTIC ONLY', col: C.teal });
+  const roster = stdRoster('anbu', C.amber);
+  const footer = renderFooter(W, H, 'Every stage emits an explicit exit code · green means all six stages passed · red returns to triage, never to the retest stage');
 
-  const cards = [
-    renderCard([50, 130, 190, 68], C.azure, '1. EXPLORE', 'agent-browser scoped'),
-    renderCard([280, 130, 190, 68], C.teal, '2. FLOW FILE', 'declarative command JSON'),
-    renderCard([510, 130, 190, 68], C.violet, '3. CODIFY', 'qa_codify (0 LLM tokens)'),
-    renderCard([740, 130, 200, 68], C.amber, '4. HEADLESS EXEC', 'qa_e2e_run (Playwright)'),
-    renderCard([980, 130, 170, 68], C.crimson, '5. RED / GREEN', 'verify test outcome'),
-    renderCard([890, 290, 260, 64], C.violet, 'AUTONOMOUS TRIAGE', 'src/sdlc_manager.js'),
-    renderCard([540, 310, 280, 64], C.violet, 'BACKEND BUG FIX (♠ ANBU)', 're-run qa_e2e_run = GREEN'),
-    renderCard([540, 410, 280, 64], C.azure, 'UI BUG FIX (♦ JONIN)', 'Tailwind CSS / responsive fix'),
-    renderCard([50, 560, 330, 72], C.teal, '6. EVIDENCE PERSISTENCE', 'Save run_id to SQLite sdlc_tasks & report'),
-    renderCard([420, 560, 340, 72], C.crimson, '7. AKATSUKI BLUE GATE', '🛡️ SAST scan, dependency CVEs & secrets audit'),
-    renderCard([800, 560, 350, 72], C.emerald, '8. LANGGRAPH REVIEW & RELEASE', 'pending_human_signoff · Kage ≥98% confidence')
+  // TOPOLOGY: a SNAKE. Steps 1-3 run down the left column, the sequence
+  // crosses over, and steps 4-6 run down the right column into one verdict.
+  const left = [
+    renderCard([150, 160, 340, 84], C.azure, '1 · SCHEMA & JSON LINT', 'zod parse · manifest shape', 'anbu'),
+    renderCard([150, 280, 340, 84], C.teal, '2 · UNIT + INTEGRATION', 'focused suites · isolated HOME', 'anbu'),
+    renderCard([150, 400, 340, 84], C.violet, '3 · BOUNDED E2E', 'playwright · real DOM assertions', 'anbu')
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 240 164 L 280 164" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 240 164 L 280 164" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 470 164 L 510 164" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 470 164 L 510 164" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 700 164 L 740 164" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 700 164 L 740 164" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 940 164 L 980 164" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 940 164 L 980 164" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 1065 198 L 1020 290" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 1065 198 L 1020 290" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 890 322 C 860 322, 850 342, 820 342" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 890 322 C 860 322, 850 342, 820 342" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 890 322 C 860 322, 850 442, 820 442" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 890 322 C 860 322, 850 442, 820 442" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path d="M 540 342 C 450 342, 450 250, 780 198" stroke="${C.teal}" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-teal)" opacity="0.8" />
-    <path class="bg-track" d="M 680 474 C 680 520, 215 520, 215 560" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 680 474 C 680 520, 215 520, 215 560" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 380 596 L 420 596" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 380 596 L 420 596" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 760 596 L 800 596" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 760 596 L 800 596" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path d="M 590 560 C 590 490, 700 480, 700 374" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
-    <text x="610" y="470" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="${C.crimson}">SECURITY LOOP</text>
-  `;
+  const right = [
+    renderCard([710, 160, 340, 84], C.amber, '4 · ACCESSIBILITY AUDIT', 'landmarks · labels · contrast', 'jonin'),
+    renderCard([710, 280, 340, 84], C.emerald, '5 · PERFORMANCE BUDGET', 'bundle · paint · query cost', 'jonin'),
+    renderCard([710, 400, 340, 84], C.crimson, '6 · SLOP SCAN', '0 errors · 0 warnings · 0 fixable', 'tokubetsu')
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${paths}\n${cards}\n${footer}`);
+  const snake = [
+    stdLink('M 320 244 L 320 280', C.azure),
+    stdLink('M 320 364 L 320 400', C.teal),
+    stdLink('M 490 442 C 600 442, 600 202, 710 202', C.violet),
+    stdLink('M 880 244 L 880 280', C.amber),
+    stdLink('M 880 364 L 880 400', C.emerald),
+    stdLink('M 880 484 L 880 512 L 700 512 L 700 540', C.crimson)
+  ].join('\n');
+
+  const verdict = renderCard([430, 540, 340, 84], C.emerald, 'QA VERDICT', 'all six green → release · else triage', 'anbu');
+
+  const notes = [
+    stdNote(430, 656, 'RED RESULT → TRIAGE FIX → RERUN, NEVER A BLIND RETEST', C.slateMuted)
+  ].join('\n');
+
+  return buildHtmlPage(W, H, `${header}\n${left}\n${right}\n${snake}\n${verdict}\n${notes}\n${roster}\n${footer}`);
 }
 
 function generateTelegramHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & TWO-STAGE HITL GATES', `LangGraph StateGraph Ingress · Interactive Gate 1 & Gate 2 Inline Keyboards · v${PKG_VERSION}`, { text: 'HITL GATES ENABLED', col: C.azure });
-  const footer = renderFooter(W, H, 'LangGraph Two-Stage HITL Gates · per-turn budget exhausted -> next turn resumes at node_plan/node_review · Interactive [Approve] / [Reject] callbacks · /approval list · /doctor');
+  const header = renderHeader(W, 'TELEGRAM BRIDGE · OUTBOUND & INBOUND', `task status reporter and long-polling intent daemon meeting at one two-stage HITL gate · v${PKG_VERSION}`, { text: 'TWO-STAGE HITL', col: C.azure });
+  const roster = stdRoster('kage', C.azure);
+  const footer = renderFooter(W, H, 'Outbound is proactive status push · inbound is long polling · both converge on the same HITL gate before any task mutation');
 
-  const topTrackContainer = `
-    <g transform="translate(50, 120)">
-      <rect width="1100" height="230" rx="14" fill="${C.containerBg}" stroke="${C.azure}" stroke-width="1.5" />
-      <text x="24" y="28" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">OUTBOUND TASK STATUS REPORTER (src/telegram/notifier.js)</text>
-    </g>
-  `;
-
-  const bottomTrackContainer = `
-    <g transform="translate(50, 420)">
-      <rect width="1100" height="270" rx="14" fill="${C.containerBg}" stroke="${C.violet}" stroke-width="1.5" />
-      <text x="24" y="28" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">INBOUND LONG POLLING DAEMON & LOCAL EVENT INGRESS (src/telegram/poller.js)</text>
-    </g>
-  `;
-
-  const securityBanner = `
-    <g transform="translate(50, 362)">
-      <rect width="1100" height="46" rx="8" fill="#FFFFFF" stroke="${C.emerald}" stroke-width="1.5" filter="url(#cardShadow)" />
-      <circle cx="24" cy="23" r="5" fill="${C.emerald}" />
-      <text x="38" y="28" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">SECURITY GUARDRAILS:</text>
-      <text x="195" y="28" font-family="'Inter', sans-serif" font-size="11" fill="${C.slateMed}">Zero Open Inbound Ports · Chat ID Whitelist · Two-Stage HITL Verification · Mode A SSO / Mode B PIN Auth (x-konoha-pin)</text>
-    </g>
-  `;
-
-  const cards = [
-    renderCard([80, 180, 220, 68], C.azure, 'SDLC TASK EVENT', 'task queued / running / sign-off'),
-    renderCard([350, 180, 230, 68], C.teal, 'TWO-STAGE HITL NOTIFIER', 'Gate 1 & Gate 2 inline buttons'),
-    renderCard([630, 180, 230, 68], C.violet, 'HTTPS TELEGRAM API', 'POST /sendMessage & callbacks'),
-    renderCard([910, 180, 210, 68], C.emerald, 'AUTHORIZED USER', 'one-tap [Approve] / [Reject] buttons'),
-    renderCard([80, 480, 220, 72], C.azure, 'USER COMMANDS & ACTIONS', '/approval, /doctor, /session, /sh, /run'),
-    renderCard([350, 480, 230, 72], C.violet, 'WHITELISTED POLLER', 'long polling timeout=30 · callbacks'),
-    renderCard([630, 480, 230, 72], C.amber, 'LANGGRAPH HITL RESOLUTION', 'pending_plan_approval & sign-off'),
-    renderCard([910, 480, 210, 72], C.emerald, 'LANGGRAPH WORKER DAG', 'resumes StateGraph execution DAG')
+  // TOPOLOGY: two PARALLEL RAILS travelling in opposite directions, joined by
+  // a single HITL gate in the middle of the canvas.
+  const outbound = [
+    renderCard([50, 170, 260, 76], C.azure, 'POLL TASK STATUS', 'status.json · route_mode', 'anbu'),
+    renderCard([330, 170, 260, 76], C.teal, 'FORMAT REPORT', 'chips · ≤ 4096 chars', 'tokubetsu'),
+    renderCard([610, 170, 260, 76], C.violet, 'SEND MESSAGE', 'bot api · retry budget', 'anbu'),
+    renderCard([890, 170, 260, 76], C.emerald, 'DELIVERED', 'message_id recorded', 'anbu')
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 300 214 L 350 214" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 300 214 L 350 214" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 580 214 L 630 214" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 580 214 L 630 214" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 860 214 L 910 214" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 860 214 L 910 214" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 300 516 L 350 516" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 300 516 L 350 516" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 580 516 L 630 516" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 580 516 L 630 516" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 860 516 L 910 516" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 860 516 L 910 516" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-  `;
+  const inbound = [
+    renderCard([50, 470, 260, 76], C.azure, 'LONG POLL', 'getUpdates · offset cursor', 'anbu'),
+    renderCard([330, 470, 260, 76], C.teal, 'PARSE UPDATE', 'text · command · reply', 'anbu'),
+    renderCard([610, 470, 260, 76], C.violet, 'ROUTE INTENT', 'classify → workflow', 'sannin'),
+    renderCard([890, 470, 260, 76], C.emerald, 'ACK REPLY', 'confirm to sender', 'anbu')
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${topTrackContainer}\n${bottomTrackContainer}\n${securityBanner}\n${paths}\n${cards}\n${footer}`);
+  const rails = [
+    stdLink('M 310 208 L 330 208', C.azure),
+    stdLink('M 590 208 L 610 208', C.teal),
+    stdLink('M 870 208 L 890 208', C.violet),
+    stdLink('M 310 508 L 330 508', C.azure),
+    stdLink('M 590 508 L 610 508', C.teal),
+    stdLink('M 870 508 L 890 508', C.violet)
+  ].join('\n');
+
+  const gate = renderCard([470, 300, 340, 84], C.emerald, 'TWO-STAGE HITL GATE', 'plan approval · destructive confirm', 'host');
+
+  const cross = [
+    stdLink('M 475 246 C 475 280, 540 280, 540 300', C.amber),
+    stdLink('M 660 384 C 660 430, 475 430, 475 470', C.crimson)
+  ].join('\n');
+
+  const labels = [
+    stdNote(50, 156, 'OUTBOUND · PROACTIVE STATUS PUSH', C.azure),
+    stdNote(50, 456, 'INBOUND · LONG POLLING DAEMON', C.teal)
+  ].join('\n');
+
+  const notes = stdNote(470, 660, 'NO TASK MUTATION WITHOUT GATE 2 CONFIRMATION', C.crimson);
+
+  return buildHtmlPage(W, H, `${header}\n${labels}\n${outbound}\n${inbound}\n${rails}\n${gate}\n${cross}\n${notes}\n${roster}\n${footer}`);
 }
 
 function generateAkatsukiHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'AKATSUKI SECURITY CONTROLS & DUAL-MODE LAB LIFECYCLE', `LangGraph review_node Pre-Condition · Dual-Mode Isolation · Container Sandboxing · v${PKG_VERSION}`, { text: 'SECURITY GUARDIAN', col: C.crimson });
-  const footer = renderFooter(W, H, 'LangGraph review_node Pre-Condition · per-turn budget exhausted -> next turn resumes at node_review · mode: blue (defensive host default) · mode: red (isolated lab) · RoE gating');
+  const header = renderHeader(W, 'AKATSUKI BLUE-TEAM TRACK & RED-MODE LAB', `blue-team defence left, red-mode lab right · sanitized evidence crosses once · v${PKG_VERSION}`, { text: 'LAB CONTAINED', col: C.crimson });
+  const roster = stdRoster('akatsuki', C.crimson);
+  const footer = renderFooter(W, H, 'red-mode runs only inside the lab · evidence is sanitized before it crosses · zero critical, zero secrets');
 
-  const topTrackContainer = `
-    <g transform="translate(40, 85)">
-      <rect width="1120" height="115" rx="12" fill="${C.containerBg}" stroke="${C.azure}" stroke-width="1.5" />
-      <text x="20" y="22" font-family="'Inter', sans-serif" font-size="11" font-weight="800" fill="${C.slateDark}" letter-spacing="0.5">BLUE-TEAM DEFENSIVE SECURITY TRACK (Default Mode: blue · Direct Host SAST &amp; Secrets Audit)</text>
-    </g>
-  `;
-
-  const middleRoeContainer = `
-    <g transform="translate(40, 215)">
-      <rect width="1120" height="110" rx="12" fill="${C.containerBg}" stroke="${C.amber}" stroke-width="1.5" />
-      <text x="20" y="22" font-family="'Inter', sans-serif" font-size="11" font-weight="800" fill="${C.slateDark}" letter-spacing="0.5">MODE: RED AUTHORIZATION FIREWALL &amp; RULES OF ENGAGEMENT (RoE GATING)</text>
-    </g>
-  `;
-
-  const sandboxContainer = `
-    <g transform="translate(40, 340)">
-      <rect width="740" height="375" rx="14" fill="${C.containerBg}" stroke="${C.crimson}" stroke-width="1.5" />
-      <text x="20" y="24" font-family="'Inter', sans-serif" font-size="12" font-weight="800" fill="${C.slateDark}" letter-spacing="0.5">ISOLATED CONTAINER SANDBOX (akatsuki-lab · Zero Host Network &amp; Zero Host Mounts)</text>
-      <g transform="translate(20, 318)">
-        <rect width="700" height="42" rx="8" fill="#FFFFFF" stroke="${C.crimson}" stroke-width="1.5" filter="url(#cardShadow)" />
-        <circle cx="20" cy="21" r="5" fill="${C.crimson}" />
-        <text x="36" y="25" font-family="'Inter', sans-serif" font-size="11" font-weight="700" fill="${C.slateDark}">CONTAINER SAFETY INVARIANT: <tspan fill="${C.crimson}">Direct host execution strictly prohibited</tspan> · Dropped Capabilities (--cap-drop=ALL)</text>
-      </g>
-    </g>
-  `;
-
-  const rightGatePanel = `
-    <g transform="translate(800, 340)">
-      <rect width="360" height="375" rx="14" fill="${C.containerBg}" stroke="${C.teal}" stroke-width="1.5" />
-      <text x="180" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="800" fill="${C.slateDark}" letter-spacing="0.5">PERSONA BOUNDARY &amp; KAGE GATE</text>
-    </g>
-  `;
-
-  const cards = [
-    renderCard([60, 118, 180, 66], C.azure, '1. CLI INGRESS', 'konoha akatsuki [mode|env]'),
-    renderCard([280, 118, 210, 66], C.violet, '2. BLUE DISPATCH', 'direct host static analysis'),
-    renderCard([530, 118, 200, 66], C.teal, '3. SAST & SECRETS', 'pnpm/pip audit, .env scan'),
-    renderCard([770, 118, 190, 66], C.violet, '4. SKILL GUARDIAN', 'fail-closed AST review'),
-    renderCard([1000, 118, 140, 66], C.emerald, '5. BLUE GATE', '0 CVEs · lab stopped'),
-    renderCard([60, 248, 220, 64], C.crimson, '6. MODE: RED INGRESS', 'konoha akatsuki mode red'),
-    renderCard([310, 248, 260, 64], C.emerald, '7. STANDING AUTHORIZATION', 'operator authorized · zero decline'),
-    renderCard([600, 248, 270, 64], C.amber, '8. AUTO-PROVISION (akatsuki_init)', 'docker | lxc auto-detect · dual setup'),
-    renderCard([900, 248, 240, 64], C.violet, '9. CHUNIN RECON', 'passive OSINT & ATT&CK intel'),
-    renderCard([60, 378, 210, 66], C.amber, '10. MULTI-ENGINE SANDBOX', 'akatsuki-lab on docker | lxc'),
-    renderCard([300, 378, 230, 66], C.crimson, '11. UNRESTRICTED TOOLS', '20 curated tools · 3600s cap'),
-    renderCard([560, 378, 200, 66], C.teal, '12. EVIDENCE HARVEST', 'non-destructive PoC probes'),
-    renderCard([120, 480, 290, 66], C.emerald, '13. DIAGNOSTIC CLEANUP', 'purge transient probes upon exit'),
-    renderCard([440, 480, 280, 66], C.azure, '14. TOKUBETSU-JONIN PDF REPORT', 'publication-grade 8-section report'),
-    renderCard([820, 378, 320, 66], C.teal, 'STRICT PERSONA BOUNDARY', 'offensive skills restricted to @akatsuki'),
-    renderCard([820, 480, 320, 66], C.crimson, 'REMEDIATION LOOP (♠ ANBU)', 'synthesizes patches for findings'),
-    renderCard([820, 580, 320, 78], C.emerald, '15. LANGGRAPH REVIEW GATE', { detail: 'confidence ≥98% · 0 unhandled CVEs', chips: ['0 CRIT/HIGH', 'FAIL-CLOSED'] })
+  // TOPOLOGY: TWO LANES. Defence runs top-down on the left; the lab runs top-down
+  // on the right; a single crimson crossing carries sanitized findings across.
+  const lanes = [
+    stdNote(150, 152, 'BLUE TEAM · DEFENCE', C.slateMuted),
+    stdNote(710, 152, 'RED MODE · LAB ONLY', C.crimson)
   ].join('\n');
 
-  const paths = `
-    <path class="bg-track" d="M 240 151 L 280 151" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 240 151 L 280 151" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 490 151 L 530 151" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 490 151 L 530 151" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 730 151 L 770 151" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 730 151 L 770 151" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 960 151 L 1000 151" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 960 151 L 1000 151" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 150 184 L 150 248" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 150 184 L 150 248" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 280 280 L 310 280" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 280 280 L 310 280" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 570 280 L 600 280" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 570 280 L 600 280" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 870 280 L 900 280" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 870 280 L 900 280" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
-    <path class="bg-track" d="M 1020 312 C 1020 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 1020 312 C 1020 350, 165 340, 165 378" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
-    <path class="bg-track" d="M 270 411 L 300 411" stroke="${C.crimson}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 270 411 L 300 411" stroke="${C.crimson}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-crimson)" />
-    <path class="bg-track" d="M 530 411 L 560 411" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 530 411 L 560 411" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
-    <path class="bg-track" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 660 444 C 660 465, 265 460, 265 480" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-    <path class="bg-track" d="M 410 513 L 440 513" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 410 513 L 440 513" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
-    <path d="M 265 546 C 265 570, 820 540, 820 513" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
-    <text x="540" y="565" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="${C.crimson}">REMEDIATION LOOP (♠ ANBU)</text>
-    <path class="bg-track" d="M 720 513 C 760 513, 760 619, 820 619" stroke="${C.emerald}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 720 513 C 760 513, 760 619, 820 619" stroke="${C.emerald}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-emerald)" />
-  `;
+  const left = [
+    renderCard([150, 160, 340, 84], C.azure, '1 · SCOPE & THREAT MODEL', 'attack surface · data flows', 'akatsuki'),
+    renderCard([150, 280, 340, 84], C.teal, '2 · CVE + SECRET SCAN', '0 critical · 0 leaked keys', 'akatsuki'),
+    renderCard([150, 400, 340, 84], C.violet, '3 · SANDBOX PROBE', 'isolated lab · no prod writes', 'akatsuki')
+  ].join('\n');
 
-  return buildHtmlPage(W, H, `${header}\n${topTrackContainer}\n${middleRoeContainer}\n${sandboxContainer}\n${rightGatePanel}\n${paths}\n${cards}\n${footer}`);
+  const right = [
+    renderCard([710, 160, 340, 84], C.crimson, '4 · RED-MODE EXPLOIT', 'lab only · authorized scope', 'akatsuki'),
+    renderCard([710, 280, 340, 84], C.amber, '5 · SANITIZED EVIDENCE', 'strip payloads · keep proof', 'akatsuki'),
+    renderCard([710, 400, 340, 84], C.emerald, '6 · HARDENING PATCH', 'fix → re-probe → close', 'anbu')
+  ].join('\n');
+
+  const links = [
+    stdLink('M 320 244 L 320 280', C.azure),
+    stdLink('M 320 364 L 320 400', C.teal),
+    stdLink('M 490 442 C 600 442, 600 202, 710 202', C.crimson),
+    stdLink('M 880 244 L 880 280', C.amber),
+    stdLink('M 880 364 L 880 400', C.emerald),
+    stdLink('M 880 484 L 880 512 L 700 512 L 700 540', C.emerald)
+  ].join('\n');
+
+  const verdict = renderCard([430, 540, 340, 84], C.emerald, 'ZERO CRITICAL · ZERO SECRETS', 'all findings closed or accepted', 'akatsuki');
+  const notes = stdNote(430, 656, 'ACCEPTED FINDINGS CARRY AN OWNER AND A DATE', C.slateMuted);
+
+  return buildHtmlPage(W, H, `${header}\n${lanes}\n${left}\n${right}\n${links}\n${verdict}\n${notes}\n${roster}\n${footer}`);
 }
 
 module.exports = {
   C,
   PKG_VERSION,
+  stdDiamond,
+  stdRoster,
+  NINJA_AGENTS,
+  STD_CARD_W,
+  stdPanel,
+  stdPanelHeight,
+  stdLink,
+  stdNote,
   buildHtmlPage,
   renderCard,
   renderHeader,
@@ -580,5 +655,6 @@ module.exports = {
   generateKageHtml,
   generateQaHtml,
   generateTelegramHtml,
-  generateAkatsukiHtml
+  generateAkatsukiHtml,
+  generateYamanakaHtml
 };

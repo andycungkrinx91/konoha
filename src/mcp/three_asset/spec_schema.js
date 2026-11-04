@@ -225,17 +225,17 @@ const ARCHETYPE_BUILDERS = {
 
 const CREATURE_PATTERN = /\b(creature|dragon|beast|monster|dinosaur|fox|kitsune|kurama|wolf|hound|dog|cat|tiger|lion|leopard|panther|horse|stag|deer|bear|quadruped|quadriped|nine[\s-]?tailed|multi[\s-]?tailed|tailed|animal|fauna|wildlife|mount|serpent|griffin|phoenix|unicorn|rabbit|hare|panther|jaguar|lynx|otter|badger|boar)\b/i;
 const CREATURE_STRONG_PATTERN = /\b(creature|dragon|beast|monster|dinosaur|fox|kitsune|kurama|quadruped|quadriped|nine[\s-]?tailed|multi[\s-]?tailed|griffin|phoenix|unicorn|serpent|wolf|tiger|lion|bear|horse|deer|stag)\b/i;
-const HUMANOID_PATTERN = /\b(character|warrior|robot|hero|avatar|soldier|humanoid|knight|ninja|shinobi|mech pilot|samurai|android|cyborg)\b/i;
+const HUMANOID_PATTERN = /\b(character|warrior|robot|hero(?!\s*(section|banner))|avatar|soldier|humanoid|knight|ninja|shinobi|mech pilot|samurai|android|cyborg)\b/i;
 const TURNAROUND_PATTERN = /\b(turnaround|orthographic|front view|side view|back view|top view|blueprint|reference sheet|model sheet)\b/i;
 
 const ARCHETYPE_HINTS = [
   ['game-weapon', /\b(sword|gun|weapon|blade|shield|axe|spear|bow|rifle|pistol|katana|dagger)\b/i],
-  ['game-vehicle', /\b(car|truck|vehicle|hauler|rover|spaceship|hoverbike|ship|plane|jet|tank|motorcycle)\b/i],
-  ['game-building', /\b(building|tower|house|citadel|temple|castle|church|skyscraper|temple)\b/i],
+  ['game-vehicle', /\b(car|truck|vehicle|hauler|rover|spaceship|spacecraft|satellite|orbiter|lander|probe|drone|shuttle|hoverbike|hovercraft|aircraft|fighter|ship|plane|jet|tank|motorcycle)\b/i],
+  ['game-building', /\b(building|tower|house|citadel|temple|castle|church|skyscraper|bunker|fortress|outpost|gatehouse|pagoda)\b/i],
   ['game-creature', CREATURE_PATTERN],
   ['game-environment', /\b(environment|diorama|landscape|island|forest|valley|terrain scene|canyon)\b/i],
-  ['game-tileset', /\b(tileset|tile|terrain|floor|ground|brick|modular)\b/i],
-  ['game-prop', /\b(prop|chest|crate|barrel|box|container|potion|keyboard|pen|cup|vase|lantern)\b/i],
+  ['game-tileset', /\b(tileset|tiles|brick)\b/i],
+  ['game-prop', /\b(prop|chest|crate|barrel|box|container|potion|keyboard|pen|cup|vase|lantern|mainframe|terminal|console|kiosk|workstation|generator|reactor|turbine|antenna|dish|helmet|visor|armou?r|gauntlet|appliance|machine|gadget|relay|beacon)\b/i],
   ['commerce', /\b(shop|product|pedestal|ecommerce|store|checkout)\b/i],
   ['dashboard', /\b(dashboard|analytics|screen|monitor|chart|telemetry)\b/i],
   ['saas', /\b(cloud|server|saas|network|infra|kubernetes|cluster)\b/i],
@@ -328,10 +328,13 @@ function customizeSpecFromPrompt(baseSpec, prompt = '') {
   return spec;
 }
 
-function createDefaultSceneSpec(archetype = 'application', name = 'HeroModel') {
+function createDefaultSceneSpec(archetype = 'application', name = 'HeroModel', targetPolycount = null) {
   const norm = (archetype || 'application').toLowerCase();
   const builder = ARCHETYPE_BUILDERS[norm] || createApplicationSpec;
-  return builder(name);
+  const spec = builder(name);
+  const budget = Number(targetPolycount);
+  if (Number.isFinite(budget) && budget > 0) spec.target_polycount = budget;
+  return spec;
 }
 
 const ARCHETYPES = Object.freeze(['auto', ...Object.keys(ARCHETYPE_BUILDERS).sort()]);

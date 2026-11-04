@@ -27,6 +27,12 @@ const {
 const { ARCHETYPES } = require('../../mcp/three_asset/spec_schema');
 const { GENERATION_PROFILES, QUALITY_PRESETS } = require('../../mcp/three_asset/style_profile');
 const {
+  LEVEL_ORDER,
+  listQualityLevels,
+  resolveQualityLevel,
+  expandLevelOptions
+} = require('../../mcp/three_asset/quality_levels');
+const {
   getToolchainStatus,
   installAllTools
 } = require('../../mcp/three_asset/blender_installer');
@@ -70,7 +76,7 @@ function _broadcastJobEvent(jobId, eventData) {
   for (const client of clients) {
     try {
       client.write(payload);
-    } catch (_) {}
+    } catch { /* intentional best-effort fallback: response already committed */ }
   }
 }
 
@@ -126,12 +132,97 @@ async function _handleGetModels(res) {
         archetypes: [...ARCHETYPES],
         profiles: Object.keys(GENERATION_PROFILES || {}),
         quality_presets: Object.keys(QUALITY_PRESETS || {}),
+        quality_levels: listQualityLevels(),
         compute_modes: [...COMPUTE_MODES]
       },
       ...modelsCatalog
     });
   } catch (err) {
     return sendJson(res, 500, { success: false, error: err.message });
+  }
+}
+
+const { getOutputRoot } = require('../../mcp/three_asset/storage_manager');
+const { parseBody: parseJsonBody, sendJson: sendJsonResponse } = require('./common');
+
+const IMAGE_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
+const IMAGE_MAGIC = [
+  { ext: 'png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { ext: 'jpg', bytes: [0xff, 0xd8, 0xff] },
+  { ext: 'webp', bytes: [0x52, 0x49, 0x46, 0x46], tail: [0x57, 0x45, 0x42, 0x50], tailOffset: 8 }
+];
+
+function _sniffImage(buf) {
+  for (const spec of IMAGE_MAGIC) {
+    if (!spec.bytes.every((b, i) => buf[i] === b)) continue;
+    if (spec.tail) {
+      const okTail = spec.tail.every((b, i) => buf[spec.tailOffset + i] === b);
+      if (!okTail) continue;
+    }
+    return spec.ext;
+  }
+  return null;
+}
+
+function _inputsDir() {
+  const dir = path.join(getOutputRoot(), 'inputs');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * Accept a reference image for image-to-3D generation. The payload is validated
+ * by magic bytes rather than the declared MIME type, stored under the 3D output
+ * inputs directory, and the returned path is what /generate expects.
+ */
+async function _handleUploadImage(req, res) {
+  try {
+    const body = await parseJsonBody(req, res);
+    if (!body) return false;
+    const { data_base64: dataBase64, filename } = body;
+    if (!dataBase64 || typeof dataBase64 !== 'string') {
+      return sendJsonResponse(res, 400, { success: false, error: 'data_base64 is required' });
+    }
+    const cleaned = dataBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+    let buf;
+    try {
+      buf = Buffer.from(cleaned, 'base64');
+    } catch (_) {
+      return sendJsonResponse(res, 400, { success: false, error: 'data_base64 is not valid base64' });
+    }
+    if (!buf || buf.length === 0) {
+      return sendJsonResponse(res, 400, { success: false, error: 'decoded image is empty' });
+    }
+    if (buf.length > IMAGE_UPLOAD_MAX_BYTES) {
+      return sendJsonResponse(res, 413, {
+        success: false,
+        error: `image exceeds ${Math.round(IMAGE_UPLOAD_MAX_BYTES / (1024 * 1024))} MB limit`,
+        size_bytes: buf.length
+      });
+    }
+    const ext = _sniffImage(buf);
+    if (!ext) {
+      return sendJsonResponse(res, 415, {
+        success: false,
+        error: 'unsupported image format: expected PNG, JPEG, or WebP'
+      });
+    }
+    const safeStem = String(filename || 'reference')
+      .replace(/\.[^.]*$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 48) || 'reference';
+    const storedName = `${safeStem}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}.${ext}`;
+    const destPath = path.join(_inputsDir(), storedName);
+    fs.writeFileSync(destPath, buf);
+    return sendJsonResponse(res, 200, {
+      success: true,
+      image_path: destPath,
+      format: ext,
+      size_bytes: buf.length,
+      filename: storedName
+    });
+  } catch (err) {
+    return sendJsonResponse(res, 500, { success: false, error: err.message });
   }
 }
 
@@ -148,9 +239,39 @@ async function _handleGenerate(req, res) {
       });
     }
 
+    if (body.image_path) {
+      const inputsRoot = path.resolve(_inputsDir());
+      const resolved = path.resolve(String(body.image_path));
+      const withinInputs = resolved === inputsRoot || resolved.startsWith(inputsRoot + path.sep);
+      if (!withinInputs) {
+        return sendJson(res, 400, {
+          success: false,
+          error: 'image_path must reference a file previously uploaded via /api/v1/3d/upload-image'
+        });
+      }
+      if (!fs.existsSync(resolved)) {
+        return sendJson(res, 400, {
+          success: false,
+          error: 'image_path does not exist on disk'
+        });
+      }
+    }
+
     const jobId = `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const nonce = crypto.randomBytes(8).toString('hex');
     const compute = resolveStageCompute(body.requested_compute_mode || 'auto');
+
+    const quality = resolveQualityLevel(body.quality_preset);
+    if (body.quality_preset !== undefined && body.quality_preset !== null && body.quality_preset !== '' && !quality.known) {
+      return sendJson(res, 400, {
+        success: false,
+        error: `Unknown quality_preset "${body.quality_preset}"`,
+        allowed_quality_levels: [...LEVEL_ORDER]
+      });
+    }
+    const levelOptions = expandLevelOptions(quality.id, {
+      target_polycount: body.target_polycount
+    });
 
     // Respond immediately with 202 Accepted and job ID
     sendJson(res, 202, {
@@ -183,8 +304,11 @@ async function _handleGenerate(req, res) {
             image_path: body.image_path,
             archetype: body.archetype || 'game-prop',
             profile: body.profile || 'enterprise_pbr',
-            quality_preset: body.quality_preset || 'standard',
+            quality_preset: levelOptions.quality_preset,
             requested_compute_mode: body.requested_compute_mode || 'auto',
+            target_polycount: levelOptions.target_polycount,
+            texture_resolution: body.texture_resolution,
+            enable_pbr: body.enable_pbr !== false,
             model: body.model || null,
             dsl: body.dsl || null
           },
@@ -469,6 +593,9 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
   }
 
   // Generation & Streaming
+  if (pathname === '/api/v1/3d/upload-image' && method === 'POST') {
+    return await _handleUploadImage(req, res);
+  }
   if (pathname === '/api/v1/3d/generate' && method === 'POST') {
     return _handleGenerate(req, res);
   }

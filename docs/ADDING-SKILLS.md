@@ -154,7 +154,7 @@ Your agent team is now ready to use the skill on-demand. When you prompt the age
 
 The built-in `i-have-adhd` skill (adapted from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), MIT) shows the full cross-agent pattern used by first-party skills:
 
-1. Content lives in `src/templates/skills/i-have-adhd/SKILL.md` and ships byte-identical across `src/templates/skills/`, `.agents/skills/`, `.cursor/skills/`, and `.gemini/skills/`.
-2. Agent mapping is declared once in `src/templates/agents.yaml` (`skills:` lists) and mirrored into the `src/templates/AGENTS.md` / `GEMINI.md` routing tables — it is embedded into exactly five agents (genin, jonin, anbu, tokubetsu-jonin, chunin) while sannin (router) and kage (reviewer) stay out of scope.
-3. Each of the five agent skills carries a Domain-Routing row pointing to `i-have-adhd`, so the agents load it via `konoha.get_skill("i-have-adhd")` when shaping final responses.
-4. The contract is enforced by `tests/test_i_have_adhd_skill.js` (4-tree byte parity, exact 5-agent mapping, all 10 output rules present).
+1. Content lives in `src/templates/skills/i-have-adhd/SKILL.md` and is copied verbatim into every participating agent skill as `references/i-have-adhd.md`. Two trees are verified byte-identical: the shipped template tree (`src/templates/skills/`) and the deployed tree that `src/skill_manager.js` writes to (`~/.agents/skills/`, or the project `./.agents/skills/` when one exists). Per-client skill directories are scanned, not mirrored.
+2. Agent mapping is declared once in `src/templates/agents.yaml` (`skills:` lists) and mirrored into the `src/templates/AGENTS.md` / `GEMINI.md` routing tables — it is embedded into exactly six agents (genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki) while sannin (router), kage (reviewer), and yamanaka (3D) stay out of scope.
+3. Each of the six agent skills carries a Domain-Routing row pointing to `i-have-adhd`, so those agents load it when shaping final responses. Independently of this per-agent mapping, dispatched subagent prompts also receive the inline anti-slop + ADHD discipline contract from `src/mcp/discipline_contract.js`.
+4. The contract is enforced by `tests/test_i_have_adhd_skill.js` (byte parity between the template and deployed trees, exact 6-agent mapping, all 10 output rules present).

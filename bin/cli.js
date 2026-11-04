@@ -63,6 +63,7 @@ const { cmdConfig } = require('./commands/config');
 const { cmdTelegram } = require('./commands/telegram');
 const { cmdQueue } = require('./commands/queue');
 const { cmdHelp } = require('./commands/help');
+const { removedSynonymMessage } = require('./lib/canonical_synonyms');
 
 const command = process.argv[2];
 const args = process.argv.slice(3);
@@ -213,6 +214,14 @@ async function dispatchAgentCommand(cmd, cmdArgs) {
 async function main() {
   if (command === undefined) {
     await runSplashScreen();
+  }
+
+  // Removed synonyms are rejected from argv alone, before any bootstrap, so the
+  // error is instant and identical regardless of install state.
+  const synonymError = removedSynonymMessage(command, args[0]);
+  if (synonymError) {
+    error(synonymError);
+    process.exit(1);
   }
 
   // Silent auto-setup on every command (except help/uninstall/version)

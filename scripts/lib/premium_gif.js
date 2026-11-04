@@ -93,10 +93,18 @@ function roundRect(ctx, x, y, ...rest) {
   ctx.closePath();
 }
 
+/**
+ * Render scale for published assets. The shipped WebP files use a 2x
+ * backing store so diagrams stay sharp on HiDPI displays; layout code keeps
+ * working in logical pixels.
+ */
+const RENDER_SCALE = Math.max(1, Number(process.env.KONOHA_ASSET_SCALE) || 2);
+
 /** Base background: ink gradient + faint dot grid + center brand wash. */
 function baseCanvas(W, H) {
-  const canvas = createCanvas(W, H);
+  const canvas = createCanvas(Math.round(W * RENDER_SCALE), Math.round(H * RENDER_SCALE));
   const ctx = canvas.getContext('2d');
+  ctx.scale(RENDER_SCALE, RENDER_SCALE);
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, THEME.inkTop);
   g.addColorStop(1, THEME.inkBottom);
@@ -531,6 +539,7 @@ function saveAsset(frames, name) {
 }
 
 module.exports = {
+  RENDER_SCALE,
   THEME,
   rgba,
   font,

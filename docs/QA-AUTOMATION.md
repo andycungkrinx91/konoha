@@ -213,7 +213,19 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 ## Test Suite Runner & Isolation Contract (G-01, G-17)
 
-Konoha's test runner (`tests/run_all.js`, executed via `npm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation:
+Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation.
+
+Every test and lint entry point in `package.json` is routed through `scripts/rtk_exec.js`, so suite output reaches the orchestrating model as a failure-focused summary instead of thousands of raw lines:
+
+- Mode follows the command: test runners use `rtk test` (failures only), the lint gate uses `rtk err` (errors and warnings only), anything else uses the plain RTK proxy. `KONOHA_RTK_MODE=test|err|plain` overrides the choice.
+- `scripts/rtk_exec.js` resolves RTK through `getRtkCommand()` (PATH, `~/.local/bin`, `~/.cargo/bin`, `/usr/bin`, `/opt/homebrew/bin`, `%LOCALAPPDATA%`), so Linux, macOS, and Windows take the same path.
+- When RTK is missing the wrapped command still runs unchanged, and the wrapper prints `[rtk_exec] RTK unavailable` to stderr: no CI image or user machine is blocked by the wrapper.
+- `KONOHA_RTK_DISABLE=1` bypasses wrapping for debugging; `KONOHA_RTK_CMD=/path/to/rtk` pins a specific binary.
+- Child exit codes are propagated verbatim, so the wrapper never hides a failing suite.
+
+Measured on a 400-line noisy suite fixture (`tests/fixtures/rtk_exec_noisy.js`): 29,513 B of raw stdout becomes 352 B through `rtk test`, and a fixture exiting 5 still exits 5. Note that the plain `rtk <cmd>` proxy does **not** shrink piped stdout — compression comes from the `test` and `err` subcommands, which is why the wrapper selects them explicitly instead of prefixing `rtk` blindly.
+
+Isolation contract:
 
 1. **Golden Seed & Snapshot Isolation (G-01)**:
    - The runner initializes or reuses a seeded template environment (`/tmp/konoha_golden_seed` containing pre-configured `konoha.db` and runtime files).

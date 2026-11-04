@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import PageHero from './PageHero.svelte';
+  import DocsDriftBanner from './DocsDriftBanner.svelte';
+  import Docs3DSection from './Docs3DSection.svelte';
+  import McpToolsList from './McpToolsList.svelte';
 
     let health = $state(null);
   let liveAgents = $state([]);
@@ -19,6 +22,7 @@
     { id: 'mcp', label: 'MCP Servers & Tools' },
     { id: 'sdlc', label: 'SDLC Lifecycle' },
     { id: 'slop-gate', label: 'Anti-Slop Delivery Gate' },
+    { id: '3d', label: 'Generative 3D' },
     { id: 'remote', label: 'Remote Access & Telegram' },
     { id: 'crypto', label: 'Crypto Vault & Security' },
     { id: 'redteam', label: 'Cybersecurity & Red Teaming' },
@@ -35,12 +39,14 @@
     { name: 'Anbu', role: 'Backend & remediation', detail: 'Backend services, bug fixes, DevOps, and slop-fix remediation when Delivery Gate reports findings.' },
     { name: 'Chunin', role: 'Research & evidence', detail: 'Web research, ecosystem documentation lookup, and factual evidence synthesis with citations.' },
     { name: 'Tokubetsu-Jonin', role: 'Technical writing & scribe', detail: 'Publication-grade documentation, API specifications, runbooks, and final handover reports.' },
-    { name: 'Akatsuki', role: 'Red-team & blue-team', detail: 'Offensive penetration testing in sandboxes, defensive security auditing, and vulnerability review gates.' }
+    { name: 'Akatsuki', role: 'Red-team & blue-team', detail: 'Offensive penetration testing in sandboxes, defensive security auditing, and vulnerability review gates.' },
+    { name: 'Yamanaka', role: 'Generative 3D & spatial', detail: 'Text-to-3D and image-to-3D synthesis, Three.js/Manifold geometry construction, agentic Blender refinement, and spatial asset delivery.' }
   ];
 
   const MCP_SERVERS = [
     {
       name: 'konoha',
+      live: true,
       tools: 'read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean, website_ai_detector, docs_ai_detector, get_resolved_task_dir, find_skill, find_skills, list_skills, get_skill, use_skills, optimize_report, build_with_image_design, build_from_source, build_from_text, sannin, kage, jonin, anbu, akatsuki, akatsuki_init, chunin, tokubetsu_jonin, genin, report_from_agent, get_project_context, save_project_context, query_project_memory, web_search, migrate_skills, save_persona_memory, query_persona_memory, list_persona_memories, delete_persona_memory, check_readiness, get_task_evidence, get_slop_findings, anti_slop, qa_codify, qa_e2e_run, get_soul, document_create, spreadsheet_create, presentation_create, diagram_create, animation_export',
       detail: 'Canonical skill discovery, bounded file I/O, 8-ninja subagent dispatch, AI-fingerprint detectors, and native document engines across all 8 clients.'
     },
@@ -63,7 +69,7 @@
     { method: 'POST', path: '/api/v1/auth/logout', desc: 'Revoke active administrative session' },
     { method: 'GET', path: '/api/v1/csrf', desc: 'Session CSRF token (mutating requests require X-Konoha-Web-Token)' },
     { method: 'GET', path: '/api/v1/health', desc: 'Server health, version, database metrics, skills and agents counts' },
-    { method: 'GET', path: '/api/v1/system/metrics', desc: 'System CPU/memory telemetry + Konoha feature metrics' },
+    { method: 'GET', path: '/api/v1/system/metrics', desc: 'System CPU/memory telemetry, GPU vendor/name/VRAM/utilization (or no_data when no probe answers), and Konoha feature metrics' },
     { method: 'GET', path: '/api/v1/detect-ai?target=', desc: 'Website AI-fingerprint detector (directory path or URL) — 0–100 score, 0–20 = Human-Built' },
     { method: 'GET', path: '/api/v1/detect-docs?file_path=', desc: 'Document AI-fingerprint detector (.docx, .pdf, .pptx, .xlsx, .md, .txt) — 0–3% ZeroGPT target' },
     { method: 'POST', path: '/api/v1/detect-docs/text', desc: 'Analyze pasted text for AI fingerprints (body: { text: string })' },
@@ -101,6 +107,13 @@
     { method: 'GET', path: '/api/v1/clients', desc: 'Cross-client MCP configuration status' },
     { method: 'POST', path: '/api/v1/clients/:id/setup', desc: 'Inject Konoha MCP configuration into target coding client' },
     { method: 'POST', path: '/api/v1/clients/:id/remove', desc: 'Remove Konoha MCP configuration from target coding client' },
+    { method: 'GET', path: '/api/v1/tools', desc: 'Canonical MCP tool catalog read from the tool router, with deprecated aliases still routed' },
+    { method: 'GET', path: '/api/v1/docs/drift', desc: 'Documentation drift report: per-file modification times compared to the release cut' },
+    { method: 'POST', path: '/api/v1/3d/generate', desc: 'Start a 3D generation job (prompt, or image_path from a prior upload, with optional Blender refinement)' },
+    { method: 'POST', path: '/api/v1/3d/upload-image', desc: 'Upload a reference image for image-to-3D (PNG/JPEG/WebP, 12 MB cap, magic-byte validated)' },
+    { method: 'GET', path: '/api/v1/3d/jobs', desc: '3D generation jobs with status, compute mode, and mesh statistics' },
+    { method: 'GET', path: '/api/v1/3d/assets', desc: 'Generated 3D assets with GLB and export downloads' },
+    { method: 'GET', path: '/api/v1/3d/telemetry', desc: '3D token and cost telemetry per job' },
     { method: 'GET', path: '/api/v1/events', desc: 'Server-sent events stream (live updates)' }
   ];
 
@@ -179,10 +192,12 @@
   <PageHero
     title="Documentation"
     subtitle="Full architectural reference, MCP tools specification, SDLC lifecycle, and REST API contract."
-    badgeText="v{health?.version ? String(health.version).replace(/^v+/, '') : '2.2.18'}"
+    badgeText={health?.version ? `v${String(health.version).replace(/^v+/, '')}` : 'version unavailable'}
     badgeIcon={heroBadgeIcon}
     showGauges={false}
   />
+
+  <DocsDriftBanner />
 
   <!-- Mobile quick-jump pills -->
   <nav aria-label="Mobile document sections" class="lg:hidden flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -221,7 +236,7 @@
             <span class="text-[11px] font-mono font-bold" style="color: var(--color-text);">Konoha Engine</span>
           </div>
           <p class="text-[10px]" style="color: var(--color-text-muted);">
-            v{health?.version ? String(health.version).replace(/^v+/, '') : '2.2.18'} · Node {health?.node || 'v24'}
+            v{health?.version ? String(health.version).replace(/^v+/, '') : 'unknown'} · Node {health?.node || 'unknown'}
           </p>
           {#if health?.db_size}
             <p class="text-[10px] mt-0.5" style="color: var(--color-text-muted);">
@@ -398,7 +413,11 @@
                 <span class="text-sm font-black font-mono" style="color: var(--color-text);">{m.name}</span>
               </div>
               <p class="text-xs leading-relaxed mb-2" style="color: var(--color-text-muted);">{m.detail}</p>
-              <p class="text-[11px] font-mono leading-relaxed px-3 py-2 rounded-xl" style="color: var(--color-primary); background: var(--color-primary-glow);">{m.tools}</p>
+              {#if m.live}
+                <McpToolsList />
+              {:else}
+                <p class="text-[11px] font-mono leading-relaxed px-3 py-2 rounded-xl" style="color: var(--color-primary); background: var(--color-primary-glow);">{m.tools}</p>
+              {/if}
             </div>
           {/each}
         </div>
@@ -457,6 +476,8 @@
           </p>
         </div>
       </section>
+
+      <Docs3DSection />
 
       <!-- Remote Access & Telegram -->
       <section id="remote" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">

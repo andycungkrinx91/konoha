@@ -14,7 +14,8 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const NINJAS = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki'];
+const { getCanonicalAgentNames } = require('../src/canonical_agents');
+const NINJAS = getCanonicalAgentNames();
 
 function freshDbPath(tag) {
   return path.join(os.tmpdir(), `konoha-prov-${tag}-${Date.now()}-${process.pid}.db`);
@@ -44,7 +45,7 @@ async function run() {
       `${agent} soul must carry DB-resolved ADHD shaping`
     );
   }
-  console.log('✓ All 8 ninja souls resolve from SQLite on a fresh DB with ADHD shaping');
+  console.log(`✓ All ${NINJAS.length} ninja souls resolve from SQLite on a fresh DB with ADHD shaping`);
 
   // Akatsuki directive stays security-flavored.
   const akatsukiSoul = getSoul({ agentName: 'akatsuki' });

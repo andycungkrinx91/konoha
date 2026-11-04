@@ -488,6 +488,14 @@ function drawBox(title, lines, theme = LEAF_THEME) {
 }
 
 async function chidoriTransition(command) {
+  // The carriage-return animation only reads correctly on an interactive
+  // terminal. When output is piped or captured, emit a single line instead of
+  // five overwriting frames so logs and tests stay clean.
+  const interactive = Boolean(process.stdout.isTTY) && process.env.NO_COLOR !== '1';
+  if (!interactive) {
+    process.stdout.write(`  ${C.cyan}⚡${C.reset} Switching to ${command}...\n`);
+    return;
+  }
   const frames = ['⚡', 'ϟ', '⚡', 'ϟ', '⚡'];
   for (const f of frames) {
     process.stdout.write(`\r  ${C.cyan}${f}${C.reset} Switching to ${command}...`);

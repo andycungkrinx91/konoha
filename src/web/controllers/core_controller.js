@@ -207,22 +207,42 @@ function _collectSdlcAndClientFeatures(features) {
   features.clients_total = clientDefs.length;
 }
 
+/**
+ * Preserve "no data" (null) instead of coercing it to a real-looking zero.
+ * A genuine 0 survives as 0; anything unmeasurable stays null.
+ */
+function toNullableNumber(value) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function _collectSavingsFeatures(features) {
   try {
     const report = dbSavings.getSavingsReport();
     features.savings_today_tokens = Number(report.today?.tokens) || 0;
     features.savings_today_calls = Number(report.today?.calls) || 0;
-    features.savings_today_pct = Number(report.today?.pct) || 0;
+    features.savings_today_pct = toNullableNumber(report.today?.pct);
     features.savings_7d_tokens = Number(report.last7days?.tokens) || 0;
     features.savings_7d_calls = Number(report.last7days?.calls) || 0;
-    features.savings_7d_pct = Number(report.last7days?.pct) || 0;
+    features.savings_7d_pct = toNullableNumber(report.last7days?.pct);
     features.savings_alltime_tokens = Number(report.alltime?.tokens) || 0;
     features.savings_alltime_calls = Number(report.alltime?.calls) || 0;
-    features.savings_alltime_pct = Number(report.alltime?.pct) || 0;
-    features.savings_alltime_usd = Number(report.alltime?.net_saved_usd) || 0;
+    features.savings_alltime_pct = toNullableNumber(report.alltime?.pct);
+    const netAllTime = report.alltime?.net_saved_usd;
+    features.savings_alltime_usd = typeof netAllTime === 'number' && Number.isFinite(netAllTime) ? netAllTime : null;
   } catch (_) { /* intentional best-effort fallback */ }
   const searxngDir = path.join(os.homedir(), '.konoha', 'searxng');
   features.search_engine_active = fs.existsSync(path.join(searxngDir, 'best_instance.json'));
+}
+
+function _collectGpuMetrics() {
+  try {
+    const { getGpuTelemetry } = require('../../gpu_telemetry');
+    return getGpuTelemetry();
+  } catch (err) {
+    return { available: false, reason: 'probe_failed', detail: err.message };
+  }
 }
 
 async function _handleSystemMetrics(req, res, sessionToken, systemMetrics) {
@@ -268,6 +288,7 @@ async function _handleSystemMetrics(req, res, sessionToken, systemMetrics) {
         process_external_bytes: mem.external
       },
       disk: { mounts: _collectDiskMounts(), db_size_bytes: dbSizeBytes },
+      gpu: _collectGpuMetrics(),
       uptime_seconds: Math.round(process.uptime()),
       os_uptime_seconds: Math.round(os.uptime()),
       platform: os.platform(),

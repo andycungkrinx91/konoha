@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCanonicalAgentNames } = require('../canonical_agents');
+
 const fs = require('fs');
 const path = require('path');
 const deployUtils = require('../deploy_utils');
@@ -519,7 +521,7 @@ function getClaudeCodeStatus() {
   }
 
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+  const official = getCanonicalAgentNames();
   for (const name of official) {
     if (fileExists(path.join(claudeAgentsDir, `${name}.md`))) {
       status.agentsCount++;
@@ -567,7 +569,7 @@ function _removeClaudeInstructions(silent) {
 function _restoreClaudeAgents(silent) {
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
   const backupDir = path.join(HOME, '.claude', 'agents_backup');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
+  const official = getCanonicalAgentNames();
   for (const name of official) {
     const p = path.join(claudeAgentsDir, `${name}.md`);
     if (fileExists(p)) {

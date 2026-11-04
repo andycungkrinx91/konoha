@@ -186,14 +186,21 @@ async function runTests() {
     out_dir: path.join(QA_DIR, 'vehicle_output'),
     format: 'glb',
     force_regenerate: true,
-    use_vision: false
+    use_vision: false,
+    offline: true,
+    use_llm: false
   });
   assert.strictEqual(vehicleResult.success, true);
-  assert.ok(['procedural_default', 'procedural_fallback', 'prompt_dsl', 'prompt_synthesis', 'scaffolded_dsl', 'prompt'].includes(vehicleResult.source), `Unexpected source ${vehicleResult.source}`);
+  assert.ok(['procedural_default', 'procedural_fallback', 'prompt_dsl', 'prompt_synthesis', 'scaffolded_dsl', 'prompt', 'offline_procedural'].includes(vehicleResult.source), `Unexpected source ${vehicleResult.source}`);
   assert.ok(['logistics', 'game-vehicle', 'vehicle'].includes(vehicleResult.archetype), `Archetype ${vehicleResult.archetype} must resolve to a vehicle domain`);
   assert.ok(vehicleResult.triangles > 200, 'Must generate rich multi-mesh vehicle compound');
   assert.ok(vehicleResult.mesh_count >= 11, 'Must have at least 11 vehicle mesh components');
   assert.ok(fs.existsSync(vehicleResult.glb_path));
+
+  // Assert provider calls and tokens remain zero for offline generation
+  assert.strictEqual(vehicleResult.tokens.input_tokens, 0, 'Offline vehicle generation must consume 0 input tokens');
+  assert.strictEqual(vehicleResult.tokens.output_tokens, 0, 'Offline vehicle generation must consume 0 output tokens');
+  assert.strictEqual(vehicleResult.tokens.total_tokens, 0, 'Offline vehicle generation must consume 0 total tokens');
 
   const vehicleGlbBuf = fs.readFileSync(vehicleResult.glb_path);
   const vehicleHeader = validateGlbHeader(vehicleGlbBuf);

@@ -128,6 +128,23 @@ async function runTests() {
     assert.ok(Array.isArray(modelsRes.json.models));
     assert.ok(modelsRes.json.client_default_model);
     console.log(`  ✓ Models endpoint returned ${modelsRes.json.models.length} dynamically discovered models.`);
+    // GET /api/v1/3d/setup/models -> catalogs.quality_levels
+    console.log('\n--- 3b. Testing quality level catalog ---');
+    const catalog = modelsRes.json.catalogs;
+    assert.ok(catalog, 'models response must carry a catalogs block');
+    assert.ok(Array.isArray(catalog.quality_levels), 'catalogs.quality_levels must be an array');
+    assert.deepStrictEqual(
+      catalog.quality_levels.map((level) => level.id),
+      ['low', 'normal', 'high', 'ultra']
+    );
+    const budgets = catalog.quality_levels.map((level) => level.targetPolycount);
+    for (let i = 1; i < budgets.length; i += 1) {
+      assert.ok(
+        budgets[i] > budgets[i - 1],
+        'level ' + catalog.quality_levels[i].id + ' must exceed the previous budget'
+      );
+    }
+    console.log('  ✓ ' + 'Quality catalog exposes 4 levels with budgets ' + budgets.join(' < ') + '.');
 
     // GET /api/v1/3d/telemetry
     console.log('\n--- 4. Testing GET /api/v1/3d/telemetry ---');
@@ -152,6 +169,18 @@ async function runTests() {
     assert.ok(genRes.json.stream_url);
     const testJobId = genRes.json.job_id;
     console.log(`  ✓ Generation job dispatched: ${testJobId}`);
+    // POST /api/v1/3d/generate with an unknown quality level must be rejected up front
+    console.log('\n--- 5b. Testing quality level rejection ---');
+    const badLevelRes = await request(server, 'POST', '/api/v1/3d/generate', {
+      prompt: 'Rejected unknown quality level',
+      archetype: 'game-prop',
+      quality_preset: 'cinematic-8k'
+    });
+    assert.strictEqual(badLevelRes.statusCode, 400);
+    assert.strictEqual(badLevelRes.json.success, false);
+    assert.deepStrictEqual(badLevelRes.json.allowed_quality_levels, ['low', 'normal', 'high', 'ultra']);
+    assert.ok(!badLevelRes.json.job_id, 'rejected request must not allocate a job id');
+    console.log('  ✓ Unknown quality_preset rejected with 400 before job allocation.');
 
     // Wait 2.5 seconds for generation job to progress
     await new Promise((r) => setTimeout(r, 2500));

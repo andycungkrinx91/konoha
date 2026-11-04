@@ -98,7 +98,7 @@ function checkMcpConfigJson(record, autoRepair) {
   }
 }
 
-function checkClientsIntegration(record) {
+function checkClientsIntegration(record, autoRepair = false) {
   record('GEMINI Instructions (GEMINI.md)', fileExists(GEMINI_MD_PATH) ? 'HEALTHY' : 'WARNING', fileExists(GEMINI_MD_PATH) ? 'Instructions are active' : 'Missing ~/.gemini/GEMINI.md');
   record('AGENTS Definition (agents.yaml)', fileExists(USER_AGENTS_YAML_PATH) ? 'HEALTHY' : 'WARNING', fileExists(USER_AGENTS_YAML_PATH) ? 'Ninja ranks are active' : 'Missing ~/.agents/agents.yaml');
 
@@ -125,13 +125,30 @@ function checkClientsIntegration(record) {
 
   try {
     const ompMgr = require('./omp_manager');
-    record('OMP (~/.omp/agent/mcp.json)', ompMgr.isOmpInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OMP status');
+    const omp = ompMgr.getOmpStatus ? ompMgr.getOmpStatus() : null;
+    const ompInstalled = omp ? omp.installed : ompMgr.isOmpInstalled();
+    record('OMP (~/.omp/agent/mcp.json)', ompInstalled ? 'HEALTHY' : 'NOT INSTALLED', ompInstalled ? (omp && omp.configured ? 'OMP MCP configured' : 'OMP installed') : 'OMP agent not installed');
+  } catch { /* best-effort */ }
+
+  try {
+    const agMgr = require('./antigravity_manager');
+    const ag = agMgr.getAntigravityStatus ? agMgr.getAntigravityStatus() : null;
+    const agInstalled = fileExists(path.join(HOME, '.gemini', 'config', 'mcp_config.json')) ||
+      fileExists(path.join(HOME, '.gemini', 'antigravity-cli')) ||
+      Boolean(ag && ag.mcpConfigExists);
+    record(
+      'Antigravity (~/.gemini/antigravity/)',
+      agInstalled ? 'HEALTHY' : 'NOT INSTALLED',
+      agInstalled ? `Antigravity MCP configured (${ag ? ag.schemasCount : 0} tool schemas)` : 'Antigravity MCP config not found'
+    );
   } catch { /* best-effort */ }
 
   try {
     const piMgr = require('./pi_manager');
     record('Pi (~/.pi/agent/mcp.json)', piMgr.isPiInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Pi status');
   } catch { /* best-effort */ }
+
+  require('./doctor_3d').check3DToolchain(record, autoRepair);
 
   record('RTK (Token Killer)', isRtkInstalled() ? 'ACTIVE' : 'WARNING', isRtkInstalled() ? 'rtk binary available' : 'rtk not detected in PATH');
 }
@@ -217,7 +234,7 @@ function getDiagnostics(autoRepair = false) {
 
   checkCoreFiles(record, autoRepair);
   checkMcpConfigJson(record, autoRepair);
-  checkClientsIntegration(record);
+  checkClientsIntegration(record, autoRepair);
   checkSdlcGovernance(record, autoRepair);
 
   return { results, repairsDone, hasErrors, healthy: !hasErrors };

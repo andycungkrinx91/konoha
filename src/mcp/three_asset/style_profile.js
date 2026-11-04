@@ -6,6 +6,7 @@
  */
 
 const { detailParts } = require('./part_library');
+const { QUALITY_LEVELS, LEGACY_ALIASES } = require('./quality_levels');
 
 const GENERATION_PROFILES = Object.freeze({
   enterprise_pbr: {
@@ -85,12 +86,23 @@ const GENERATION_PROFILES = Object.freeze({
   }
 });
 
-const QUALITY_PRESETS = Object.freeze({
-  draft: { targetPolycount: 3000, subdivisions: 1 },
-  standard: { targetPolycount: 12000, subdivisions: 2 },
-  high: { targetPolycount: 35000, subdivisions: 3 },
-  ultra: { targetPolycount: 85000, subdivisions: 4 }
-});
+/**
+ * Generation presets are derived from the canonical quality levels so the four
+ * user-facing names and the internal tessellation table can never drift apart.
+ * Legacy identifiers stay resolvable for jobs recorded before the rename.
+ */
+const QUALITY_PRESETS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(QUALITY_LEVELS)
+      .map(([id, level]) => [id, Object.freeze({ targetPolycount: level.targetPolycount })])
+      .concat(
+        Object.entries(LEGACY_ALIASES).map(([alias, id]) => [
+          alias,
+          Object.freeze({ targetPolycount: QUALITY_LEVELS[id].targetPolycount })
+        ])
+      )
+  )
+);
 
 const STYLIZED_PROFILE = GENERATION_PROFILES.enterprise_pbr;
 

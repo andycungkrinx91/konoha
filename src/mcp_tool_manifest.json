@@ -962,6 +962,89 @@
       }
     },
     {
+      "name": "yamanaka",
+      "description": "Delegate generative 3D work to Yamanaka (Three.js/Manifold synthesis, live Blender refinement, PBR asset delivery).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
+          },
+          "source_mode": {
+            "type": "string",
+            "enum": [
+              "text_to_3d",
+              "image_to_3d"
+            ],
+            "description": "Generate from a text prompt or from a reference image."
+          },
+          "image_path": {
+            "type": "string",
+            "description": "Absolute path to a reference image (required when source_mode is image_to_3d)."
+          },
+          "target_polycount": {
+            "type": "number",
+            "description": "Target triangle budget for the generated mesh."
+          },
+          "texture_resolution": {
+            "type": "number",
+            "enum": [
+              512,
+              1024,
+              2048,
+              4096
+            ],
+            "description": "PBR texture resolution for Blender refinement."
+          },
+          "compute": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "gpu",
+              "cpu"
+            ],
+            "description": "Compute device preference; falls back to CPU when no GPU is available."
+          }
+        }
+      }
+    },
+    {
       "name": "akatsuki_init",
       "description": "Initialize Akatsuki Red-Team Lab containers (Docker, LXC, or both), manage offensive toolsets, and query Kali tool catalog.",
       "inputSchema": {

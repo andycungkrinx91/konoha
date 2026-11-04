@@ -19,6 +19,7 @@ const {
 
 const { fileExists } = require("../lib/prompt");
 const { cmdDataMemory } = require("./data");
+const { removedSynonymMessage } = require("../lib/canonical_synonyms");
 
 
 function cmdProjectHelp() {
@@ -236,8 +237,8 @@ async function cmdProject(args) {
   const subArgs = args.slice(1);
 
   if (sub === 'help' || sub === '--help' || sub === '-h') return cmdProjectHelp();
-  if (sub === 'show') { error("Unknown subcommand 'show' for 'konoha project'. Use canonical subcommand 'konoha project context'."); process.exit(1); }
-  if (sub === 'rm') { error("Unknown subcommand 'rm' for 'konoha project'. Use canonical subcommand 'konoha project delete'."); process.exit(1); }
+  if (sub === 'show') { error(removedSynonymMessage('project', sub)); process.exit(1); }
+  if (sub === 'rm') { error(removedSynonymMessage('project', sub)); process.exit(1); }
   if (!fileExists(DB_PATH)) return error('SQLite database not found.');
 
   const personaMemory = require('../../src/persona_memory');

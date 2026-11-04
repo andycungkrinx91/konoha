@@ -385,7 +385,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("Docs page presents 11 sections, verified 8 clients, theme custom property styles, and responsive layout", async ({ page }) => {
+  test("Docs page presents 13 sections, verified 8 clients, theme custom property styles, and responsive layout", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -400,13 +400,13 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(overviewSection.getByText("8 Clients")).toBeVisible();
     await expect(overviewSection.getByText("Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP")).toBeVisible();
 
-    // Verify desktop table of contents has 12 sections
+    // Verify desktop table of contents has 13 sections
     const desktopToc = page.locator("aside nav").nth(1);
     await expect(desktopToc).toBeVisible();
 
     // Verify desktop links use theme class .doc-nav-link
     const tocLinks = page.locator(".doc-nav-link");
-    expect(await tocLinks.count()).toBe(12);
+    expect(await tocLinks.count()).toBe(13);
 
     // Verify section switching updates active state
     const sdlcLink = tocLinks.filter({ hasText: "SDLC Lifecycle" });
@@ -427,7 +427,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(mobilePillNav).toBeVisible();
 
     const mobilePillLinks = page.locator(".doc-pill-link");
-    expect(await mobilePillLinks.count()).toBe(12);
+    expect(await mobilePillLinks.count()).toBe(13);
 
     // Click a mobile pill link
     const mobileApiLink = mobilePillLinks.filter({ hasText: "Web API Reference" });

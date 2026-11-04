@@ -5,7 +5,7 @@
  * tests/test_delegation_alias_removal.js
  *
  * Verification suite for Batch 4.6 (Option A):
- * - Confirms total removal of delegate_to_* schemas from mcp_tool_manifest.json (49 -> 42 tools).
+ * - Confirms total removal of delegate_to_* schemas from mcp_tool_manifest.json (50 -> 43 tools).
  * - Confirms listToolSchemas() continues returning 40 canonical tools.
  * - Confirms tool_dispatch.js and file_tools_router.js return Unknown tool error for delegate_to_*.
  * - Confirms ensureAntigravityPermissions prunes stale grants across all four settings.json paths idempotently.
@@ -38,11 +38,11 @@ for (const tool of DELEGATE_TOOLS) {
     `Tool ${tool} must NOT exist in mcp_tool_manifest.json`
   );
 }
-assert.strictEqual(manifest.tools.length, 49, `Manifest tools length must be exactly 49, got ${manifest.tools.length}`);
+assert.strictEqual(manifest.tools.length, 50, `Manifest tools length must be exactly 50, got ${manifest.tools.length}`);
 
 const fileToolsRouter = require('../src/file_tools_router');
 const liveSchemas = fileToolsRouter.listToolSchemas();
-assert.strictEqual(liveSchemas.length, 47, `listToolSchemas() must return exactly 47 canonical schemas, got ${liveSchemas.length}`);
+assert.strictEqual(liveSchemas.length, 48, `listToolSchemas() must return exactly 48 canonical schemas, got ${liveSchemas.length}`);
 
 for (const tool of DELEGATE_TOOLS) {
   assert.strictEqual(

@@ -64,6 +64,30 @@ async function _handleAiDetect(req, res, pathname, method, parsedUrl) {
   return false;
 }
 
+function _handleToolsCatalog(res, pathname, method) {
+  if (method !== 'GET' || pathname !== '/api/v1/tools') return false;
+  try {
+    const router = require('../../file_tools_router');
+    const tools = router.listToolSchemas().map((tool) => tool.name);
+    const manifest = require('../../mcp_tool_manifest.json');
+    const manifestNames = (manifest.tools || []).map((tool) => tool.name || tool);
+    const deprecated = manifestNames.filter((name) => !tools.includes(name));
+    return sendJson(res, 200, { count: tools.length, tools, deprecated });
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+}
+
+function _handleDocsDrift(res, pathname, method) {
+  if (method !== 'GET' || pathname !== '/api/v1/docs/drift') return false;
+  try {
+    const { collectDocsDrift } = require('../../docs_freshness');
+    return sendJson(res, 200, collectDocsDrift());
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+}
+
 function _parseNumericTokens(val) {
   if (typeof val === 'number') return val;
   if (!val || typeof val !== 'string') return 0;
@@ -452,6 +476,12 @@ async function handleServicesRoutes(req, res, ctx, parsedUrl, ...rest) {
 
   const aiDetectRes = await _handleAiDetect(req, res, pathname, method, parsedUrl);
   if (aiDetectRes !== false) return aiDetectRes;
+
+  const toolsRes = _handleToolsCatalog(res, pathname, method);
+  if (toolsRes !== false) return toolsRes;
+
+  const docsDriftRes = _handleDocsDrift(res, pathname, method);
+  if (docsDriftRes !== false) return docsDriftRes;
 
   const savingsRes = _handleSavings(res, pathname, method);
   if (savingsRes !== false) return savingsRes;

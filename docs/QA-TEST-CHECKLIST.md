@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.17`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.18`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -27,14 +27,14 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
 | `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
 | `konoha detect-ai` | `<path>`, `--json` | Scans target codebase or single file against 32 AI fingerprint heuristics, returning Human-Built Index (0–100) and confidence verdict. | `PASS` (verified) |
-| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, agent-browser, cargo, rtk), SQLite integrity, client configs, and auto-repairs discrepancies. | `PASS` (verified) |
+| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, agent-browser, cargo, rtk), SQLite integrity, 8-client coverage (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP), 3D toolchain rows (Blender LTS, dcc-mcp-blender, Three.js, Manifold-3D), and auto-repairs discrepancies. | `PASS` (verified) |
 | `konoha clean` | (maintenance) | Deletes transient test databases, debug logs, dangling scratch workspaces, and temporary test artifacts from `/tmp/` and `~/.konoha/tmp/`. | `PASS` (verified) |
 | `konoha skill list` | - | Lists all custom and canonical skills across active agent directories with path and description. | `PASS` (verified) |
 | `konoha skill search` | `<query>` | Queries public skill registry (skills.sh) for matching extensions. | `PASS` (verified) |
 | `konoha skill add` | `<name|url> [alias]` | Installs skill from Git repo or registry into canonical skills tree. | `PASS` (verified) |
 | `konoha skill remove`| `<name>` | Safely prunes skill and updates SQLite FTS5 index. | `PASS` (verified) |
 | `konoha skill embed` | `<skill> <agent>` | Assigns installed skill to specified Ninja subagent roster. | `PASS` (verified) |
-| `konoha agent list` | - | Renders active 8 subagent roster (Sannin, Genin, Kage, Chunin, Jonin, Anbu, Tokubetsu-jonin, Akatsuki) with assigned skills and MCP tools. | `PASS` (verified) |
+| `konoha agent list` | - | Renders active 9 subagent roster (Sannin, Genin, Kage, Chunin, Jonin, Anbu, Tokubetsu-jonin, Akatsuki, Yamanaka) with assigned skills and MCP tools. | `PASS` (verified) |
 | `konoha agent status`| - | Displays call frequency metrics (Today, 7 Days, All Time) per subagent and direct tool calls. | `PASS` (verified) |
 | `konoha agent reset` | - | Re-synchronizes subagents and skill bindings back to canonical factory defaults. | `PASS` (verified) |
 | `konoha data view` | - | Displays SQLite database file size, vacuumable prunable space, indexed skill counts, active sessions, and usage records. | `PASS` (verified) |
@@ -134,13 +134,16 @@ flowchart TD
 | Tab / View | Route | Key Components & Invariants | Automated E2E Check |
 | :--- | :--- | :--- | :--- |
 | **Login Card** | `/` (unauthenticated) | Dynamic lowercase badge tag (`default passphrase (konohagakure)`), 3px line size, animated travelling neon border focus sweep (`neonBorderSweep`), password visibility toggle. | `auth_login.spec.js`, `login_rasengan_themes.spec.js` |
-| **Overview & Gauges** | `/dashboard` | System health cards, proportional gauge arcs across 10 themes × 2 modes, high-contrast breadcrumbs (≥ 4.5:1), 5s live metrics polling. | `dashboard_gauges_and_shared_bg.spec.js`, `routes_load.spec.js` |
+| **Overview & Gauges** | `/dashboard` | System health cards, dashboard GPU telemetry card (utilization, VRAM, temp, with `no_data` fallback when probe answers nothing), proportional gauge arcs across 10 themes × 2 modes, high-contrast breadcrumbs (≥ 4.5:1), 5s live metrics polling. | `dashboard_gauges_and_shared_bg.spec.js`, `routes_load.spec.js` |
 | **Skills & Hybrid Search** | `/skills` | Searchable skill database table, FTS5 + ONNX 384d vector hybrid RRF retrieval (`k=60`), skill detail modal with rendered Markdown preview, tags, and byte size. | `hybrid_search.spec.js`, `routes_load.spec.js` |
-| **Agents** | `/agents` | Naruto Ninja 8-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
+| **Agents** | `/agents` | Naruto Ninja 9-rank roster (including Yamanaka 3D specialist), active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
 | **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration (:19999), cross-provider second opinion routing table, latency monitor. | `routes_load.spec.js` |
 | **Remote Access & Prompts** | `/remote` | Authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
 | **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | `routes_load.spec.js` |
 | **AI Detectors** | `/detector` | Dual-target website and document AI fingerprint scanner (Human-Built Index 0-20, ZeroGPT defense). | `detector_flow.spec.js`, `routes_load.spec.js` |
+| **3D Studio & Maker** | `/3d/maker` | Text-to-3D and Image-to-3D generation, image upload dropzone (12 MB cap, magic-byte sniff validation for PNG/JPEG/WEBP), interactive 6-node Blender pipeline graph, real-time SSE progress, Three.js viewport, and GLB/PNG downloads. | `routes_load.spec.js` |
+| **Tasks & SDLC Governance** | `/tasks` | Multi-client task list with Client Badge column (omp, pi, codex, claude, cursor, etc.), interactive Gate 1 (Approve Plan) and Gate 2 (Delivery Sign-Off) controls, and live heartbeat safety. | `routes_load.spec.js`, `ui_consistency.spec.js` |
+| **Documentation & Drift** | `/docs` | Two-column Markdown documentation browser, SQLite skills documentation sync, and Docs Drift Banner comparing doc mtime against package.json cut date (`GET /api/v1/docs/drift` status: current, review_pending, historical). | `routes_load.spec.js` |
 | **Alerts & Dialogs** | (All pages) | Native Svelte 5 runes toasts with `--theme-surface-glass` and 4-gradient accent bars, `<dialog>` confirm modals, form dialogs. | `alerts_and_dialogs.spec.js` |
 | **Error Pages & Redirects** | `/nonexistent`, `/error` | Themed animated SVG error pages (404 radar, 401/403 lock, 429 hourglass, 5xx core), `/skill` -> `/skills` 307 redirect, JSON API 404s. | `error_pages.spec.js` |
 | **Navigation & Links** | (Global) | Zero broken links or navigation orphans across all routes, mobile menu drawer toggle (`lg:hidden`), footer author attribution. | `link_crawler.spec.js`, `theme_and_navigation.spec.js` |
@@ -395,7 +398,7 @@ npx aislop scan --changes
 | **5. SQLite-Backed Kali Tools Catalog (360+ Tools)** | `src/templates/akatsuki_lab/kali_tools.json` & `db_schema.js` | Full tool catalog with IDs seeded into SQLite table `kali_tools`; high-performance querying with zero disk I/O. | `PASS` (360 tools seeded & queried) |
 | **6. Least-Privilege Curated Tool Capabilities & Bounded Timeouts** | `src/workflow/akatsuki/tool_profiles.js` | Curated security profiles enforce strictly scoped allowed operations with explicit blocked operations (rejecting DoS, raw flooding, and credential exfiltration) and realistic execution timeouts (15s–60s) rather than blanket wildcards. | `PASS` (least-privilege operations verified) |
 | **7. Cross-Platform Hardening (Linux, macOS, Windows)** | `tests/test_akatsuki_init.js` & mock matrix | Container-side provisioning without host bash dependencies; Docker-only fallback on Windows/macOS; Linux LXC/Docker auto-detect. | `PASS` (cross-platform matrix green) |
-| **8. Version 2.2.13 & 47 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.13 contracts verified) |
+| **8. Version 2.2.13 & 48 Canonical Tools Parity** | `tests/test_docs_currency.js` | Version bumped across package.json, contracts, docs, and assets; 47 canonical MCP tools verified in sync. | `PASS` (2.2.13 contracts verified) |
 
 ---
 
@@ -412,7 +415,7 @@ npx aislop scan --changes
 | **7. Multi-Mirror Skill Synchronization** | `scripts/sync_skills.js` | Synchronized byte-identical skills across all 6 client mirrors (`.agents`, `.cursor`, `.gemini`, `.commandcode`, `.claude`, `.omp`). | `PASS` (4,239 files synced) |
 | **8. Container Template Toolchain Registration** | `src/templates/akatsuki_lab/docker` & `lxc` | All default red-team tools registered in Dockerfile and LXC provision scripts (including Burp Suite, msfvenom, feroxbuster, testssl.sh, zap, trivy). | `PASS` (templates registered) |
 | **9. Preserved Invariants & Clean Author** | `git config` & `package.json` | Release author strictly `andycungkrinx91 <andy.silva270114@gmail.com>`; default password `konohagakure`; version maintained at v2.2.13 per user mandate. | `PASS` (invariants maintained) |
-| **10. DrawIO 16-Tab Akatsuki Security Integration** | `docs/diagrams/konoha-architecture.drawio` | All 16 pages/tabs verified to include Akatsuki security integration cells, edges, and defense perimeters; validated via `test_documentation_diagrams.js`. | `PASS` (all 16 tabs updated & verified) |
+| **10. DrawIO 18-Tab Akatsuki, Yamanaka & LangGraph Integration** | `docs/diagrams/konoha-architecture.drawio` | All 18 pages/tabs verified to include Akatsuki security integration cells, edges, and defense perimeters, plus page 17 (`Yamanaka Image-to-3D Asset Pipeline`) and page 18 (`LangGraph.js Orchestration Runtime`); validated via `test_documentation_diagrams.js` and `tests/test_flow_diagram_style_lock.js` (19/19 animated WebP assets, `data-cell` coverage 19/19). | `PASS` (all 18 tabs updated & verified) |
 | **11. WebP Diagram Arrow Refinement** | `scripts/generate_tokubetsu_flow_webp.js` | Sleek architectural arrowheads with `markerUnits="userSpaceOnUse"`, dart geometry, and smoothed sweeping bezier curves regenerated across all animated WebP diagrams. | `PASS` (all diagrams regenerated cleanly) |
 | **12. Supply Chain & Socket CLI Audit** | `socket scan create .` & `pnpm audit --prod` | Socket CLI v1.8.4 executed; `pnpm audit --prod` confirmed 0 vulnerabilities across production dependencies. | `PASS` (0 vulnerabilities) |
 | **13. Deterministic QA Codify & Flow Verification** | `src/workflow/qa-automation/qa_tools.js` | Agent-browser flow `akatsuki_tools_flow.json` codified to Playwright spec via `qaCodify`; verified against live web interface. | `PASS` (deterministic codify verified) |
@@ -552,7 +555,7 @@ kill $WEB_PID
 | **7. Multi-Client Contract Parity** | `rtk node tests/test_version_consistency.js` | 20/20 managed targets synchronized to v2.2.15 | `PASS` (verified) |
 | **8. Default Password** | `src/auth.js` & tests | `konohagakure` preserved (seed `a29ub2hhZ2FrdXJl`) | `PASS` (verified) |
 | **9. ADHD Skill Wiring (6 agents)** | `rtk node tests/test_i_have_adhd_skill.js` | 6/6 agents (genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki); byte-identical refs in template + mirror trees; sannin/kage excluded | `PASS` (verified 2026-10-30) |
-| **10. SQLite Soul Provenance** | `rtk node tests/test_soul_skill_provenance.js` | 8/8 ninja souls `source=sqlite` on fresh DB with zero setup; Akatsuki security-verdict directive from SQLite | `PASS` (verified 2026-10-30) |
+| **10. SQLite Soul Provenance** | `rtk node tests/test_soul_skill_provenance.js` | 9/9 ninja souls (roster derived from `src/canonical_agents.js`) `source=sqlite` on fresh DB with zero setup; Akatsuki security-verdict directive from SQLite | `PASS` (verified 2026-11-04) |
 | **11. SQLite Skill Provenance** | `get_skill` / `use_skills` payloads | DB rows report `sqlite_fts5`, mirror fallback explicit, contract row `runtime_contract`; both paths preserved | `PASS` (verified 2026-10-30) |
 | **12. Full-Repo Aislop Gate** | `rtk npx aislop . -d` | 100/100 Healthy · 0 errors · 0 warnings · 7.5s; only Knip `info` (optional unused-code check, no config adopted) | `PASS` (verified 2026-10-30) |
 | **13. Socket CLI Security Scan** | `rtk socket scan create --read-only .` & `socket cdxgen` | 4 manifest files verified against Socket API, CycloneDX SBOM generated (`socket cdxgen`), 0 CVE alerts | `PASS` (verified 2026-10-31) |
@@ -622,7 +625,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.18)
 
-Authoritative verification matrix for the Konoha v2.2.17 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
+Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
 ### 30.1 Production Orchestration Architecture & Safety Invariants
 - **LangGraph.js Production Activation**: Bypassed legacy procedural execution on all asynchronous MCP routes (`sannin`, `workflow_gate_choice`, `workflow_gate_response`) via `_dispatchWorkflowGraphAsync()`.
@@ -650,9 +653,9 @@ Authoritative verification matrix for the Konoha v2.2.17 LangGraph.js production
 
 ---
 
-## Section 31: LangGraph.js Turn-Budget Resumption & Orchestration Correctness Amendment (v2.2.17 Amendment)
+## Section 31: LangGraph.js Turn-Budget Resumption & Orchestration Correctness Amendment (v2.2.18 Amendment)
 
-Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budget governor, non-wedging resumption protocol, single-owner token metering, fail-closed routing, and deterministic pure-JS tokenizer.
+Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budget governor, non-wedging resumption protocol, single-owner token metering, fail-closed routing, and deterministic pure-JS tokenizer.
 
 ### 31.1 Turn-Scoped Invariants & Architecture Guarantees
 - **Turn-Scoped Budget Execution**: Per-turn token ceiling halts the active agent turn at `node_budget_exceeded`, recording `resume_node` in SQLite checkpoint state rather than terminating the workflow.
@@ -661,7 +664,7 @@ Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budge
 - **Fail-Closed Router Defenses**: Tripped circuit breakers route conditionally to `node_error` (never `node_complete`); unknown or unhandled review verdicts route to remediation/error.
 - **Single-Owner Token Metering**: Unified in `finalizeNodeResult()` (`src/mcp/langgraph/budget.js`), eliminating divergent token estimation and ambiguous zero-delta resets.
 - **Deterministic Pure-JS Tokenizer**: Replaced child-process Python tiktoken forks with pure-JS `gpt-tokenizer` (`cl100k_base`), guaranteeing 0.00% divergence against golden corpus.
-- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=24.0.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 47 tools with 2 deprecated aliases.
+- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=24.0.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 48 tools with 2 deprecated aliases.
 
 ### 31.2 Verification Evidence & Acceptance Matrix
 
@@ -703,13 +706,18 @@ Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budge
 | **12. Grace Window Validation** | Rotation harness + `tests/test_yamanaka_web_api.js` | Previous token remains valid only inside the 5-minute grace window (`KONOHA_WEB_TOKEN_GRACE_MS`); expired grace token rejected with `403` | `PASS` (verified 2026-11-03) |
 | **13. `/api/v1/csrf` Rotation Contract** | `GET /api/v1/csrf` | Returns `token`, `rotated_at`, `expires_at`, `ttl_ms: 43200000`, and sets `konoha-web-token` cookie with matching `Max-Age` | `PASS` (verified 2026-11-03) |
 | **14. Client Auto-Refresh** | `apps/web/src/lib/api.js` (`ensureValidToken`) | Refreshes 60 s before expiry; attaches `X-Konoha-Web-Token` to all requests; retries once on `401`/`403` | `PASS` (verified via `svelte-check` + build) |
-| **15. Dynamic UI Catalogs (Zero Hardcoding)** | `GET /api/v1/3d/setup/models` → `catalogs` | `archetypes` (16), `profiles` (5), `quality_presets` (4), `compute_modes` (3) are sourced from `spec_schema.js`, `style_profile.js`, `compute_selector.js`; no hardcoded lists remain in `Model3DDesign.svelte` | `PASS` (verified on live daemon `:1404`) |
+| **15. Dynamic UI Catalogs (Zero Hardcoding)** | `GET /api/v1/3d/setup/models` → `catalogs` | `archetypes` (16), `profiles` (5), `quality_levels` (4) plus `quality_presets` (9 ids = 4 levels + 5 legacy aliases), `compute_modes` (3) are sourced from `spec_schema.js`, `style_profile.js`, `compute_selector.js`; no hardcoded lists remain in `Model3DDesign.svelte` | `PASS` (verified on live daemon `:1404`) |
 | **16. Zero-Slop Comment Cleanup** | `grep -rE '^\s*//\s*[0-9]+\.'` | No numbered step comments remain in `src/mcp/three_asset/`, `src/workflow/yamanaka/`, `src/web/controllers/`, or the 3D Svelte components | `PASS` (verified 2026-11-03) |
 | **17. `npx aislop` Gate** | `npx aislop scan src/mcp/three_asset`, `src/workflow/yamanaka`, `src/web` | 0 errors across all three trees | `PASS` (verified 2026-11-03) |
 | **18. Isolated Fresh Install** | `/tmp/konoha-iso` with isolated `HOME` + `konoha init --yes` | Six `STRICT` 3D tables created, `20261103_001_yamanaka_3d_canonical` applied, `three`/`manifold-3d` present, deployed `scene_builder` loads | `PASS` (verified 2026-11-03) |
 | **19. Upgrade Path Re-Linking** | Delete `three`/`manifold-3d` from an existing isolated `~/.konoha/node_modules`, re-run install | Missing dependencies are re-linked on the next runtime install without a full reinstall | `PASS` (verified 2026-11-03) |
 | **20. Playwright 3D Studio E2E** | `npx playwright test yamanaka_3d_studio` | Setup and Maker routes render, live generation promotes an asset, canvas visible, no `Cannot find module` or `404` console output | `PASS` (2/2, verified 2026-11-03) |
-| **21. Version Consistency** | `tests/test_version_consistency.js` + `tests/test_docs_currency.js` | 19/19 managed files at `2.2.18`; docs currency clean | `PASS` (verified 2026-11-03) |
+| **21. Version Consistency** | `tests/test_version_consistency.js` + `tests/test_docs_currency.js` | 19/19 managed files at `2.2.18`; docs currency clean | `PASS` (verified 2026-11-04) |
+| **22. Four-Level Quality Ladder** | `src/mcp/three_asset/quality_levels.js` + `tests/test_quality_levels.js` | `low` / `normal` / `high` / `ultra` (3,000 / 12,000 / 35,000 / 85,000 poly budgets) drive `scene_builder.resolveSegments` directly; deterministic fixture measures 7,448 → 29,150 → 85,690 → 155,904 triangles (20.9× low → ultra, strictly monotonic), and `generate3DAsset` exports 17,232 → 66,368 → 191,148 → 348,204 triangles (20.2× low → ultra) through the full GLB export path; legacy `draft` / `standard` / `medium` / `max` / `maximum` still resolve | `PASS` (16/16 assertions, verified 2026-11-04) |
+| **23. Quality Preset Validation** | `POST /api/v1/3d/generate` with `quality_preset` | A canonical level or legacy alias returns `202` with the resolved `quality_preset` + `target_polycount` forwarded into the Yamanaka graph; an unknown value returns `400` with `allowed_quality_levels` **before** any job id is issued | `PASS` (verified 2026-11-04) |
+| **24. Recent 3D Pagination & Lazy Load** | `GET /api/v1/3d/assets?limit=6&offset=…` + `apps/web/src/components/RecentAssetsCard.svelte` | Server-side `limit` / `offset` returns `{ assets, total, limit, offset }`; card renders at most 6 assets, exposes `Page n / N` computed from `total`, Prev/Next fetch a single page on demand, previews use `loading="lazy"`, and the card equalises height with the Generative Parameters card via `h-full` on both grid columns | `PASS` (build + unit verified 2026-11-04) |
+| **25. Quality Ladder Migration** | `src/mcp/three_asset/db_3d_schema.js` → `applyQualityLadderMigration` (id `20261104_001_quality_level_ladder`) | The shipped `20261103_001_yamanaka_3d_canonical` DDL stays untouched (checksum guard); a legacy DB staged from the narrow `quality_preset` CHECK upgrades in place — `generation_jobs` / `assets` accept `low` / `normal` / `high` / `ultra` plus every legacy alias, existing `draft` rows survive, custom indexes and autoindexes are identical before and after, `PRAGMA foreign_key_check` returns 0 violations, `PRAGMA integrity_check` returns `ok`, a second boot is a no-op, and no staging tables are left behind | `PASS` (upgrade probe, verified 2026-11-04) |
+
 
 
 ## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.18)
@@ -742,3 +750,44 @@ Authoritative verification matrix for the Konoha v2.2.17 turn-scoped token budge
 | **23. Orphaned Job Recovery** | `recoverOrphanedJobs()` invoked from `startWebServer()` | Jobs left in an active stage by a previous daemon are marked `failed` with `ORPHANED_JOB_RECOVERED` after 15 minutes; live jobs are untouched | `PASS` (verified 2026-11-03) |
 | **24. Repo Lint Gate** | `node scripts/lint.js` | 518 backend files verified with 0 errors and 0 warnings (no numbered comments) | `PASS` (verified 2026-11-03) |
 | **25. Isolated Fresh Install & Upgrade** | `/tmp/konoha-iso` with isolated `HOME` | Six STRICT tables + migration applied, `dcc_mcp_version` column present, `three`/`manifold-3d` linked, worker + creature synthesizer deployed, and removed packages re-linked on the next run | `PASS` (verified 2026-11-03) |
+
+## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.18)
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. Canonical roster repair** | `src/templates/agents.yaml` parse via `loadAgents()` | Nine agents: sannin, genin, kage, chunin, jonin, anbu, tokubetsu-jonin, akatsuki, yamanaka | PASS |
+| **2. Roster parity** | Template YAML vs `~/.agents/agents.yaml` vs DB `agents` vs DB `soul_archetypes` | All four report the identical nine names | PASS |
+| **3. Context stack detection** | `GET /api/v1/projects/current` | Reports `SvelteKit` / `Tailwind CSS v4 (@theme directives)` | PASS |
+| **4. Savings honesty** | `konoha savings` + `/api/v1/metrics` | Measured baseline (e.g. 10222 KB) or "baseline unavailable"; no constant floor anywhere in `src/`, `bin/`, `apps/web/src/` | PASS |
+| **5. GPU telemetry** | `GET /api/v1/system/metrics` | `system.gpu` present with name/vendor/VRAM from `nvidia-smi`, or `available:false` with a reason | PASS |
+| **6. Image-to-3D upload** | `POST /api/v1/3d/upload-image` | PNG accepted; text payload returns 415; missing token returns 403 | PASS |
+| **7. Text-to-3D (no Blender)** | `runYamanaka3DGraph({ prompt })` | Valid glTF 2.0 GLB plus preview PNG, e.g. 9 meshes / 14124 triangles | PASS |
+| **8. Image-to-3D** | `runYamanaka3DGraph({ image_path })` | Spec derived from the image; valid GLB written | PASS |
+| **9. Blender-refined generation** | `runYamanaka3DGraph({ enableBlender: true })` | `effective_compute_mode: gpu`, six agent steps, valid GLB | PASS |
+| **10. GLB structural validation** | Binary header + JSON chunk parse on all generated assets | `glTF` magic, version 2, declared length matches file size | PASS |
+| **11. Antigravity agent deployment** | `getAntigravityStatus().agentsCount` after `ensureAntigravitySetup()` | 9 agents in each of the three target directories (was 0) | PASS |
+| **12. Spawn capability scope** | Read `enable_subagent_tools` from every deployed `agent.json` | Only `sannin` is `true`; the other eight are `false` | PASS |
+| **13. Discipline contract at dispatch** | `buildDisciplineContract()` inside the real `anbu` prompt | Anti-slop mandate and i-have-adhd rules present inline | PASS |
+| **14. Task client attribution** | `createTask()` without an explicit client | Records the detected client (e.g. `pi`) instead of an empty string | PASS |
+| **15. Human-gated task safety** | `reconcileStaleTasks()` over aged rows | `pending_plan_approval` untouched; stale `in_progress`/`remediating` still reclaimed; idempotent | PASS |
+| **16. Doctor client coverage** | `konoha doctor` (TUI) and `/api/v1/doctor` (Web) | All eight clients plus the 3D rows appear on both surfaces | PASS |
+| **17. Help catalog currency** | `konoha help` vs `bin/cli.js` case list | Every accepted command is documented; no phantom entries | PASS |
+| **18. Line-length gate** | `tests/test_line_limits.js` | No file under `src/`, `bin/`, `apps/web/src/`, `scripts/`, `tests/` exceeds 700 lines | PASS |
+| **19. Component scope integrity** | Static scope checker plus live browser modal runs | No extracted component references parent-only identifiers | PASS |
+| **20. Modal interactions** | Playwright against an isolated HOME | Add Learning, Create Agent, Create Skill, memory and registry modals all open with zero runtime errors | PASS |
+| **21. Reduced-motion usability** | Headless Chromium (reports `prefers-reduced-motion: reduce`) | Entrance animations pin their end state; dialogs stay visible and clickable | PASS |
+| **22. aislop gate** | `npx aislop . -d` | 95/100, 0 errors, 0 fixable | PASS |
+| **23. Dependency audit** | `pnpm audit --prod` | No known vulnerabilities | PASS |
+| **24. Default credential** | Fresh isolated HOME, `authenticate('konohagakure')` | Succeeds and flags `isBootstrap` | PASS |
+| **25. Fresh install** | `HOME=/tmp/... konoha init --yes` | Nine agents, nine souls, `cached_tokens`/`input_tokens`/`output_tokens` columns present | PASS |
+| **26. Upgrade idempotency** | Re-run `konoha init` on the same HOME | Still nine agents, no duplicates, no soul growth | PASS |
+| **27. Backup and recovery** | `backupDatabase()` then reopen the copy | `PRAGMA integrity_check` returns `ok`; agents, skills and new columns intact | PASS |
+
+### Notes carried forward
+
+- The mandatory password-change dialog after bootstrap is intentional. Automated runs must
+  complete it before other controls are reachable, and must run against an isolated HOME
+  rather than a real `~/.konoha` that already has a user-set password.
+- Screenshot and screen-recording assets (`assets/*.webp`) capture the shipped UI shell and
+  were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
+  do not change what those clips depict structurally.

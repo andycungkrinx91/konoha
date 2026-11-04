@@ -28,36 +28,39 @@ const QA_DOC_PATH = path.join(DOCS_DIR, 'QA-AUTOMATION.md');
 // Live Tool Count vs Documentation
 const liveSchemas = listToolSchemas();
 const toolCount = liveSchemas.length;
-assert.strictEqual(toolCount, 47, `Expected 47 registered tools, found ${toolCount}`);
+// Documentation must track the live registry rather than a frozen literal, so
+// adding a tool cannot silently desynchronise the docs from the code.
+const EXPECTED_TOOL_COUNT = toolCount;
+assert.ok(toolCount > 0, 'tool registry must not be empty');
 
 const readmeContent = fs.readFileSync(README_PATH, 'utf-8');
 const archContent = fs.readFileSync(ARCH_PATH, 'utf-8');
 
 // Tool count in README badge and intro
 assert.ok(
-  readmeContent.includes(`MCP%20Tools-47%20Canonical`),
-  'README.md badge must state 47 Canonical MCP tools'
+  readmeContent.includes(`MCP%20Tools-${EXPECTED_TOOL_COUNT}%20Canonical`),
+  `README.md badge must state ${EXPECTED_TOOL_COUNT} Canonical MCP tools`
 );
 assert.ok(
-  readmeContent.includes(`exposes 47 canonical tools`),
-  'README.md intro must state 47 canonical tools'
+  readmeContent.includes(`exposes ${EXPECTED_TOOL_COUNT} canonical tools`),
+  `README.md intro must state ${EXPECTED_TOOL_COUNT} canonical tools`
 );
 
 // Tool count in docs/ARCHITECTURE.md
 assert.ok(
-  archContent.includes(`(47 Canonical Tools)`),
-  'docs/ARCHITECTURE.md title must state 47 Canonical Tools'
+  archContent.includes(`(${EXPECTED_TOOL_COUNT} Canonical Tools)`),
+  `docs/ARCHITECTURE.md title must state ${EXPECTED_TOOL_COUNT} Canonical Tools`
 );
 assert.ok(
-  archContent.includes(`Registered Tools (47 Total)`),
-  'docs/ARCHITECTURE.md matrix must state 47 Total'
+  archContent.includes(`Registered Tools (${EXPECTED_TOOL_COUNT} Total)`),
+  'docs/ARCHITECTURE.md matrix must state the live total'
 );
 assert.ok(
-  archContent.includes(`across \`konoha\` (47 tools)`),
-  'docs/ARCHITECTURE.md permissions section must state 47 tools'
+  archContent.includes(`across \`konoha\` (${EXPECTED_TOOL_COUNT} tools)`),
+  'docs/ARCHITECTURE.md permissions section must state the live tool count'
 );
 
-// Verify category sum in ARCHITECTURE.md matrix equals 47
+// Verify category sum in ARCHITECTURE.md matrix equals the live tool count
 const categoryRegex = /\*\*([A-Za-z0-9 &]+) \((\d+)\)\*\*/g;
 let catMatch;
 let sumCategories = 0;
@@ -66,8 +69,8 @@ while ((catMatch = categoryRegex.exec(archContent)) !== null) {
 }
 assert.strictEqual(
   sumCategories,
-  47,
-  `Sum of category tool counts in ARCHITECTURE.md must equal 47, got ${sumCategories}`
+  EXPECTED_TOOL_COUNT,
+  `Sum of category tool counts in ARCHITECTURE.md must equal ${EXPECTED_TOOL_COUNT}, got ${sumCategories}`
 );
 
 // Every registered tool name appears in the docs/ARCHITECTURE.md matrix
@@ -107,7 +110,7 @@ assert.strictEqual(
   closeDiagramCount,
   `Every <diagram> must have a closing </diagram> tag (${openDiagramCount} vs ${closeDiagramCount})`
 );
-assert.strictEqual(pageMatches.length, 16, `Expected exactly 16 pages in drawio, found ${pageMatches.length}`);
+assert.strictEqual(pageMatches.length, 18, `Expected exactly 18 pages in drawio, found ${pageMatches.length}`);
 
 // Check unique mxCell IDs within each page
 for (const page of pageMatches) {
@@ -123,13 +126,13 @@ for (const page of pageMatches) {
     seenIds.add(cellId);
   }
 }
-console.log('  ✓ All 16 drawio pages have valid tags and strictly unique mxCell IDs.');
+console.log('  ✓ All 18 drawio pages have valid tags and strictly unique mxCell IDs.');
 
 // Manifest checks in docs/diagrams/README.md
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 assert.ok(
-  manifestContent.includes('sixteen pages'),
-  'docs/diagrams/README.md must declare sixteen pages'
+  manifestContent.includes('eighteen pages'),
+  'docs/diagrams/README.md must declare eighteen pages'
 );
 
 for (const page of pageMatches) {
@@ -177,7 +180,7 @@ for (const [docName, docDir, content] of [
 }
 console.log('  ✓ Relative diagram links resolve to existing files.');
 
-// Verify zero geometric collisions across all 13 pages (0 penetrations, 0 crossings, 0 overlaps)
+// Verify zero geometric collisions across all 18 pages (0 penetrations, 0 crossings, 0 overlaps)
 function parsePageGeometry(xml) {
   const cells = new Map();
   const cellRegex = /<mxCell\s+([^>]*?)(\/>|>([\s\S]*?)<\/mxCell>)/g;
@@ -330,7 +333,7 @@ for (const page of pageMatches) {
     }
   }
 }
-console.log('  ✓ Zero geometric collisions verified across all 13 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
+console.log('  ✓ Zero geometric collisions verified across all 18 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
 
 // Verify Enterprise Architecture Diagram (konoha-enterprise-architecture.drawio)
 const ENTERPRISE_DRAWIO_PATH = path.join(DIAGRAMS_DIR, 'konoha-enterprise-architecture.drawio');
@@ -349,7 +352,7 @@ while ((entMatch = entDiagramRegex.exec(entContent)) !== null) {
     body: entMatch[3]
   });
 }
-assert.strictEqual(entPages.length, 16, `Expected exactly 16 pages in enterprise drawio, found ${entPages.length}`);
+assert.strictEqual(entPages.length, 18, `Expected exactly 18 pages in enterprise drawio, found ${entPages.length}`);
 
 // Check unique mxCell IDs
 for (const page of entPages) {
@@ -369,7 +372,7 @@ for (const stencil of requiredStencils) {
   assert.ok(entContent.includes(stencil), `Enterprise diagram must include cloud stencil: ${stencil}`);
 }
 
-// Verify zero collisions across all 15 enterprise pages
+// Verify zero collisions across all 18 enterprise pages
 for (const page of entPages) {
   const cells = parsePageGeometry(page.body);
   const vertices = Array.from(cells.values()).filter(c => c.vertex && c.absW > 0 && c.absH > 0);
@@ -426,6 +429,6 @@ for (const page of entPages) {
     }
   }
 }
-console.log('  ✓ Enterprise architecture diagram verified (15 pages, official AWS/GCP cloud styles, 0 collisions).');
+console.log('  ✓ Enterprise architecture diagram verified (18 pages, official AWS/GCP cloud styles, 0 collisions).');
 
 console.log('✓ All tests in test_diagram_sync.js passed cleanly!');

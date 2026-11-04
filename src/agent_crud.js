@@ -6,16 +6,9 @@ const { DEFAULT_AGENTS_YAML_PATH } = require('../bin/lib/paths');
 const { loadAgents, saveAgents } = require('./agent_storage');
 const { regenerateAndDeploy } = require('./agent_deployer');
 
-const CANONICAL_OFFICIAL_NINJAS = [
-  'sannin',
-  'genin',
-  'kage',
-  'chunin',
-  'jonin',
-  'anbu',
-  'tokubetsu-jonin',
-  'akatsuki'
-];
+const { getCanonicalAgentNames } = require('./canonical_agents');
+
+const CANONICAL_OFFICIAL_NINJAS = getCanonicalAgentNames();
 
 function _loadDefaultAgentNames() {
   if (!fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) return [];

@@ -123,9 +123,18 @@
 
   const rootDisk = $derived(metrics?.system?.disk?.mounts?.[0] ?? null);
 
+  function formatPct(pct) {
+    // No measurement is reported as such; only a real number renders as a percentage.
+    if (typeof pct !== 'number' || !Number.isFinite(pct)) return '—';
+    return pct + '%';
+  }
+
   function formatUsd(usd) {
-    if (typeof usd !== 'number' || isNaN(usd)) return '$0.00';
-    return usd >= 1000 ? '$' + (usd / 1000).toFixed(1) + 'k' : '$' + usd.toFixed(2);
+    // Unknown values are reported as such rather than displayed as a real figure.
+    if (typeof usd !== 'number' || !Number.isFinite(usd)) return '—';
+    const abs = Math.abs(usd);
+    const sign = usd < 0 ? '−' : '';
+    return abs >= 1000 ? sign + '$' + (abs / 1000).toFixed(1) + 'k' : sign + '$' + abs.toFixed(2);
   }
 </script>
 
@@ -261,6 +270,32 @@
           <path d={sparklinePath(memHistory)} fill="none" stroke="url(#dashboard-3d-stroke)" stroke-width="2" vector-effect="non-scaling-stroke" class="sparkline-3d-stroke" />
         </svg>
         <p class="text-[11px] font-mono mt-1" style="color: var(--color-text-muted);">{formatBytes(metrics.system.memory.used_bytes)} / {formatBytes(metrics.system.memory.total_bytes)}</p>
+      </div>
+
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">GPU Telemetry</p>
+          <span class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.system.gpu?.available ? (metrics.system.gpu.source ?? '') : ''}</span>
+        </div>
+        {#if metrics.system.gpu?.available}
+          <div class="flex items-end gap-1 mt-2">
+            <span class="text-4xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.gpu.utilization_pct ?? '—'}</span>
+            <span class="text-lg font-bold mb-0.5" style="color: var(--color-text-muted);">%</span>
+          </div>
+          <p class="text-[11px] font-mono mt-2 truncate" title={metrics.system.gpu.name} style="color: var(--color-text-muted);">{metrics.system.gpu.name}</p>
+          <p class="text-[11px] font-mono" style="color: var(--color-text-muted);">
+            {#if metrics.system.gpu.vram_used_bytes != null}
+              VRAM {formatBytes(metrics.system.gpu.vram_used_bytes)} / {formatBytes(metrics.system.gpu.vram_total_bytes)}
+            {:else}
+              VRAM {formatBytes(metrics.system.gpu.vram_total_bytes)}{metrics.system.gpu.unified_memory ? ' (unified)' : ''}
+            {/if}
+          </p>
+        {:else}
+          <div class="flex items-end gap-1 mt-2">
+            <span class="text-2xl font-black font-mono" style="color: var(--color-text-muted);">Not available</span>
+          </div>
+          <p class="text-[11px] font-mono mt-2" style="color: var(--color-text-muted);">{metrics.system.gpu?.detail ?? 'No GPU telemetry source responded.'}</p>
+        {/if}
       </div>
 
       <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-4) 28%, var(--color-border));">
@@ -476,12 +511,12 @@
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-3) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Tokens Saved Today</p>
           <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_today_tokens)}</p>
-          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_today_calls ?? 0} calls · {metrics.features.savings_today_pct ?? 0}% cut</p>
+          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_today_calls ?? 0} calls · {formatPct(metrics.features.savings_today_pct)} cut</p>
         </div>
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-4) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Tokens Saved All-Time</p>
           <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_alltime_tokens)}</p>
-          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_alltime_pct ?? 0}% reduction</p>
+          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{formatPct(metrics.features.savings_alltime_pct)} reduction</p>
         </div>
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-1) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Persona Memories</p>
@@ -565,20 +600,26 @@
             <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
               <p class="text-[9px] font-bold uppercase" style="color: var(--color-text-muted);">Today</p>
               <p class="text-base font-black tabular-nums" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_today_tokens)}</p>
-              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_today_calls ?? 0} calls · {metrics.features.savings_today_pct ?? 0}%</p>
+              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_today_calls ?? 0} calls · {formatPct(metrics.features.savings_today_pct)}</p>
             </div>
             <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
               <p class="text-[9px] font-bold uppercase" style="color: var(--color-text-muted);">7 Days</p>
               <p class="text-base font-black tabular-nums" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_7d_tokens)}</p>
-              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_7d_calls ?? 0} calls · {metrics.features.savings_7d_pct ?? 0}%</p>
+              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_7d_calls ?? 0} calls · {formatPct(metrics.features.savings_7d_pct)}</p>
             </div>
             <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
               <p class="text-[9px] font-bold uppercase" style="color: var(--color-text-muted);">All-Time</p>
               <p class="text-base font-black tabular-nums" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_alltime_tokens)}</p>
-              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_alltime_calls ?? 0} calls · {metrics.features.savings_alltime_pct ?? 0}%</p>
+              <p class="text-[9px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_alltime_calls ?? 0} calls · {formatPct(metrics.features.savings_alltime_pct)}</p>
             </div>
           </div>
-          <p class="text-[10px] font-mono mt-2.5 pt-2.5 border-t text-center" style="border-color: var(--color-border); color: var(--color-text-muted);">≈ {formatUsd(metrics.features.savings_alltime_usd)} net saved all-time</p>
+          <p class="text-[10px] font-mono mt-2.5 pt-2.5 border-t text-center" style="border-color: var(--color-border); color: var(--color-text-muted);">
+            {#if typeof metrics.features.savings_alltime_usd === 'number' && metrics.features.savings_alltime_usd < 0}
+              ≈ {formatUsd(metrics.features.savings_alltime_usd)} net cost all-time
+            {:else}
+              ≈ {formatUsd(metrics.features.savings_alltime_usd)} net saved all-time
+            {/if}
+          </p>
         </div>
 
         <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
