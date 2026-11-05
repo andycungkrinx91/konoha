@@ -341,7 +341,7 @@ function ensureAutoSetup(force = false) {
     : path.resolve(__dirname, '..', '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
   copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
-  skillManager.syncAllClientSkills({ projectRoot: currentCwd, silent: true });
+  skillManager.syncAllClientSkills({ silent: true });
 
   const python = checkPython() || 'python3';
   installUv(true);

@@ -21,20 +21,20 @@
   `importlib.metadata.version('dcc_mcp_blender')` probe inside Blender and reports the actual version (or
   `Not Ready`), cached for 30 seconds and invalidated after every install.
 
-## Six-Step Live Refinement Worker
-`src/mcp/three_asset/blender_live_worker.py` runs inside Blender and executes real `bpy` work:
-
-1. `dcc.blender.import_glb` — imports the produced base GLB, grounds the assembly and reports real mesh counts.
-2. `dcc.blender.modify_mesh` — Catmull-Clark subdivision for organic subjects, bevel + weighted normals otherwise.
-3. `dcc.blender.uv_unwrap` — Smart UV Project with island packing and per-object verification.
-4. `dcc.blender.set_materials` — Principled BSDF v2 graphs (base color, sheen, coat, subsurface, emission) plus a
-   procedural noise/bump fur micro-strand network when the prompt or spec describes fur.
-5. `dcc.blender.setup_studio` — studio or flat shadowless light rigs, compute device selection and camera framing.
-6. `dcc.blender.export_glb` — production GLB export plus an EEVEE/Workbench render; turnaround requests composite
-   four orthographic views (front, side, back, top) into a 16:9 reference sheet.
+## Modular Six-Step Live Refinement Worker (< 500 Lines/Module)
+The Blender refinement worker is split across three focused Python modules under `src/mcp/three_asset/`:
+- `blender_worker_compute.py` — `configure_compute`, `configure_render`, `scene_report`, `build_principled_material`, and `bake_normal_map`. Calls `configure_render` before Step 1 so `compute_mode: "gpu"` activates Cycles GPU (`OPTIX`, `CUDA`, `HIP`, `METAL`, `ONEAPI`) across all steps, falling back to CPU only when no physical GPU device is available.
+- `blender_worker_views.py` — `render_preview`, `export_glb`, `step_materials`, `step_studio`, `composite_turnaround`, `render_turnaround_sheet`, `render_inspection_grid`, and `step_export`.
+- `blender_live_worker.py` — CLI harness, `apply_spec_patches` (targeted repair-loop mesh/material mutations), and steps 1–3:
+  1. `dcc.blender.import_glb` — imports the produced base GLB, applies repair patches if present, grounds the assembly and reports real mesh counts.
+  2. `dcc.blender.modify_mesh` — Catmull-Clark subdivision for organic subjects, bevel + weighted normals otherwise.
+  3. `dcc.blender.uv_unwrap` — Smart UV Project with island packing and per-object verification.
+  4. `dcc.blender.set_materials` — Principled BSDF v2 graphs (base color, sheen, coat, subsurface, emission) plus procedural fur micro-strands when requested.
+  5. `dcc.blender.setup_studio` — studio or flat shadowless light rigs, compute device verification and camera framing.
+  6. `dcc.blender.export_glb` — production GLB export plus Cycles/EEVEE render; turnaround requests composite four orthographic views (front, side, back, top) into a 16:9 reference sheet.
 
 After every step the worker rewrites `intermediate/live_step.glb` and `intermediate/live_preview.png` and emits a
-`KONOHA_BLENDER_STEP {...}` telemetry line containing durations, mesh statistics and the real Blender version.
+`KONOHA_BLENDER_STEP {...}` telemetry line containing durations, mesh statistics, compute device, and the real Blender version.
 
 ## Execution Modes
 - **Headless (default)** — `blender -b --factory-startup -noaudio --python blender_live_worker.py -- --batch <config>`

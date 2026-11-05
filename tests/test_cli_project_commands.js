@@ -124,43 +124,13 @@ async function run() {
     assert.strictEqual(resAdd.status, 0, `Error: ${resAdd.stderr}`);
     assert.ok(stripAnsi(resAdd.stdout).includes('Saved architectural invariants'));
 
-    // Assert Konoha injects managed ignore block into consumer .gitignore and .dockerignore
-    const expectedIgnoreEntries = [
-      '.agents/plugins/',
-      '.aislop/',
-      '.aislopignore',
-      '.claude.json',
-      '.claude/',
-      '.codex/',
-      '.commandcode/',
-      '.cursor/',
-      '.cursorrules',
-      '.gemini/',
-      '.omp/',
-      'AGENTS.md',
-      'CLAUDE.md',
-      'GEMINI.md'
-    ];
+    // Assert Konoha does NOT pollute project workspace with ignore files or configs (global-only configuration)
     const gitignorePath = path.join(projectDir, '.gitignore');
     const dockerignorePath = path.join(projectDir, '.dockerignore');
-    assert.ok(fs.existsSync(gitignorePath), '.gitignore must exist in consumer project');
-    assert.ok(fs.existsSync(dockerignorePath), '.dockerignore must exist in consumer project');
-    const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
-    const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
-    assert.ok(gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must contain Start Konoha marker');
-    assert.ok(gitignoreText.includes('## End Konoha config+skill'), '.gitignore must contain End Konoha marker');
-    assert.ok(dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must contain Start Konoha marker');
-    assert.ok(dockerignoreText.includes('## End Konoha config+skill'), '.dockerignore must contain End Konoha marker');
-    for (const entry of expectedIgnoreEntries) {
-      assert.ok(gitignoreText.includes(entry), `.gitignore must contain ${entry}`);
-      assert.ok(dockerignoreText.includes(entry), `.dockerignore must contain ${entry}`);
-    }
+    assert.ok(!fs.existsSync(gitignorePath), '.gitignore must NOT be created in consumer project');
+    assert.ok(!fs.existsSync(dockerignorePath), '.dockerignore must NOT be created in consumer project');
 
-    // Assert core konoha root does NOT contain consumer ignore block
-    const konohaGitignoreText = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
-    assert.ok(!konohaGitignoreText.includes('## Start Konoha config+skill'), 'Konoha repo root must NOT contain consumer ignore block');
-
-    // Assert external konoha fixture repo (simulating global runner outside REPO_ROOT) is excluded
+    // Assert external konoha fixture repo deploy is skipped per global-only config
     const agentManager = require('../src/agent_manager');
     const konohaFixtureDir = path.join(tmpDir, 'konoha-fixture-repo');
     fs.mkdirSync(path.join(konohaFixtureDir, 'bin'), { recursive: true });
@@ -169,17 +139,14 @@ async function run() {
     fs.writeFileSync(path.join(konohaFixtureDir, 'bin', 'cli.js'), '#!/usr/bin/env node\n', 'utf8');
     fs.writeFileSync(path.join(konohaFixtureDir, 'scripts', 'lint.js'), 'console.log("ok");\n', 'utf8');
     const fixtureDeploy = agentManager.deployProjectWorkspace(konohaFixtureDir, { silent: true, home: testHome });
-    assert.ok(fixtureDeploy.ok !== false, 'deployProjectWorkspace should succeed for konoha fixture');
-    const fixtureGitignore = path.join(konohaFixtureDir, '.gitignore');
-    if (fs.existsSync(fixtureGitignore)) {
-      const text = fs.readFileSync(fixtureGitignore, 'utf8');
-      assert.ok(!text.includes('## Start Konoha config+skill'), 'External konoha repo fixture must NOT contain consumer ignore block');
-    }
+    assert.strictEqual(fixtureDeploy.ok, true, 'deployProjectWorkspace should succeed');
+    assert.strictEqual(fixtureDeploy.skipped, true, 'deployProjectWorkspace should be skipped');
+    assert.strictEqual(fixtureDeploy.reason, 'global_only_config', 'deployProjectWorkspace reason should be global_only_config');
 
     const resList = runCli(['project', 'list']);
     assert.strictEqual(resList.status, 0, `Error: ${resList.stderr}`);
     assert.ok(stripAnsi(resList.stdout).includes('my-ecommerce-project'));
-    console.log('✓ Project add, list, and ignore-injection commands passed');
+    console.log('✓ Project add, list, and global-only config passed');
 
     // project memory, memory delete, and project prune
     const memId = personaMemory.saveMemory({

@@ -17,7 +17,7 @@ const {
 const {
   decideRoute,
   formatRouteLine,
-  buildDirectGuidance,
+  buildSpawnDirective,
   buildDelegationEnvelope
 } = require('./sannin_router');
 
@@ -283,14 +283,9 @@ function _buildInstructionText(ctx) {
   }
 
   const routeLine = formatRouteLine(ctx.route);
-  const isDirect = Boolean(ctx.route && ctx.route.mode === 'direct');
-
-  if (isDirect) {
-    parallelGuidance = '';
-  }
 
   let trackGuidance = '';
-  if (ctx.executionTrack === 'fast_track' && !isDirect) {
+  if (ctx.executionTrack === 'fast_track') {
     trackGuidance = (
       '\n\n### ⚡ Fast-Track Direct Execution (Zero Pipeline Overhead)\n' +
       '- Direct, immediate execution by target agent without 8-phase DAG or Gate 1 plan pause.\n' +
@@ -298,15 +293,13 @@ function _buildInstructionText(ctx) {
     );
   }
 
-  const executionBlock = isDirect
-    ? buildDirectGuidance({ skills: ctx.routedSkills, projectPath: ctx.resolvedProjPath })
-    : (
-      '\n\n## Delegation Steps\n\n' +
-      `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
-      `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
-      `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.` +
-      (ctx.envelope ? `\n\n${ctx.envelope.text}` : '')
-    );
+  const executionBlock = (
+    '\n\n## Delegation Steps\n\n' +
+    `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
+    `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
+    `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.` +
+    (ctx.envelope ? `\n\n${ctx.envelope.text}` : '')
+  );
 
   return (
     `**Selected Agent**: \`${ctx.selectedAgent}\`\n` +
@@ -319,7 +312,8 @@ function _buildInstructionText(ctx) {
     `SDLC Task ID: \`${ctx.taskId}\`\n` +
     executionBlock +
     `\n\n## Original Prompt\n\n${ctx.effPrompt}` +
-    advisoryText + trackGuidance + buildGuidance + parallelGuidance
+    advisoryText + trackGuidance + buildGuidance + parallelGuidance +
+    (ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '')
   );
 }
 
@@ -434,14 +428,19 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const agentDescriptions = _loadAgentDescriptions();
   const description = agentDescriptions[selectedAgent] || agentDescriptions[selectedAgent.replace(/_/g, '-')] || agentDescriptions[selectedAgent.replace(/-/g, '_')] || 'general-purpose delegation';
 
-  const envelope = route.mode === 'direct'
-    ? null
-    : buildDelegationEnvelope({ agentName: selectedAgent, projectPath: resolvedProjPath, prompt: effPrompt, routedSkills });
+  const envelope = buildDelegationEnvelope({ agentName: selectedAgent, projectPath: resolvedProjPath, prompt: effPrompt, routedSkills });
+  const spawnDirective = buildSpawnDirective({
+    client: actClient,
+    agent: selectedAgent,
+    skills: routedSkills,
+    projectPath: resolvedProjPath,
+    prompt: effPrompt
+  });
 
   const instruction = _buildInstructionText({
     selectedAgent, executionTrack, flowHash, routedSkills, description,
     resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
-    route, envelope
+    route, envelope, spawnDirective
   });
 
   const res = JSON.stringify({

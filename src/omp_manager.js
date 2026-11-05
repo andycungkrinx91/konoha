@@ -4,8 +4,7 @@
  * src/omp_manager.js — OMP Agent client integration for Konoha.
  *
  * Configures Konoha MCP servers, workflow contracts, and RTK rules for OMP.
- * OMP agent configuration lives under ~/.omp/agent/ (mcp.json, AGENTS.md).
- * In projects, local skills live under .omp/skills/.
+ * OMP agent configuration lives globally under ~/.omp/agent/ (mcp.json, AGENTS.md).
  */
 
 const fs = require('fs');
@@ -166,21 +165,14 @@ function buildOmpMcpServers(options = {}) {
   };
 }
 
-function _mirrorOmpMcpToLocalDirs(payload) {
+function _mirrorOmpMcpToLocalDirs(payload, options = {}) {
   try {
-    const legacyPath = path.join(OMP_DIR, 'mcp.json');
+    const ompRoot = options.home ? path.join(options.home, '.omp') : OMP_DIR;
+    const legacyPath = path.join(ompRoot, 'mcp.json');
     if (fileExists(legacyPath)) {
       writeJsonAtomic(legacyPath, payload);
     }
-  } catch (_) { /* best-effort mirror */ }
-
-  try {
-    const projOmpDir = path.join(process.cwd(), '.omp');
-    if (fileExists(projOmpDir)) {
-      const projMcp = path.join(projOmpDir, 'mcp.json');
-      writeJsonAtomic(projMcp, payload);
-    }
-  } catch (_) { /* best-effort mirror */ }
+  } catch (_) { /* best-effort mirror to global ~/.omp/mcp.json only */ }
 }
 
 function registerOmpMcp(options = {}) {
@@ -203,7 +195,7 @@ function registerOmpMcp(options = {}) {
     writeJsonAtomic(configPath, payload);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);
 
-    _mirrorOmpMcpToLocalDirs(payload);
+    _mirrorOmpMcpToLocalDirs(payload, options);
 
     return { ok: true, configPath };
   } catch (err) {

@@ -104,22 +104,23 @@ for (const client of CLIENTS) {
   console.log(`  ✓ Client ${client.toUpperCase()} verified in isolated home.`);
 }
 
-// Test workspace auto-scaffolding
+// Test workspace deployment skipped (global-only configuration)
 const freshProj = path.join(testRoot, 'fresh-workspace');
 fs.mkdirSync(freshProj, { recursive: true });
 
 const { deployProjectWorkspace } = require('../src/agent_deployer');
 const deployRes = deployProjectWorkspace(freshProj, { silent: true, force: true });
-assert.ok(deployRes.ok, 'Workspace deployment must succeed');
+assert.strictEqual(deployRes.ok, true, 'Workspace deployment must succeed');
+assert.strictEqual(deployRes.skipped, true, 'Workspace deployment must be skipped');
+assert.strictEqual(deployRes.reason, 'global_only_config', 'Reason must be global_only_config');
 
-assert.ok(fs.existsSync(path.join(freshProj, 'GEMINI.md')), 'Workspace GEMINI.md must exist');
-assert.ok(fs.existsSync(path.join(freshProj, 'CLAUDE.md')), 'Workspace CLAUDE.md must exist');
-assert.ok(fs.existsSync(path.join(freshProj, 'AGENTS.md')), 'Workspace AGENTS.md must exist');
-assert.ok(fs.existsSync(path.join(freshProj, '.cursor', 'rules', 'konoha.mdc')), 'Workspace konoha.mdc must exist');
-assert.ok(fs.existsSync(path.join(freshProj, '.cursor', 'mcp.json')), 'Workspace Cursor mcp.json must exist');
-assert.ok(fs.existsSync(path.join(freshProj, '.opencode', 'opencode.json')), 'Workspace OpenCode opencode.json must exist');
-assert.ok(fs.existsSync(path.join(freshProj, '.codex', 'config.toml')), 'Workspace Codex config.toml must exist');
-assert.ok(fs.existsSync(path.join(freshProj, '.omp', 'agent', 'mcp.json')), 'Workspace OMP mcp.json must exist');
+assert.ok(!fs.existsSync(path.join(freshProj, 'GEMINI.md')), 'Workspace GEMINI.md must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, 'CLAUDE.md')), 'Workspace CLAUDE.md must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, 'AGENTS.md')), 'Workspace AGENTS.md must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, '.cursor')), 'Workspace .cursor must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, '.opencode')), 'Workspace .opencode must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, '.codex')), 'Workspace .codex must not be created');
+assert.ok(!fs.existsSync(path.join(freshProj, '.omp')), 'Workspace .omp must not be created');
 
 // Clean up test fixture
 fs.rmSync(testRoot, { recursive: true, force: true });

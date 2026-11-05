@@ -84,7 +84,8 @@ async function renderDoctorSummary(hasErrors, repairsDone) {
       `${applyGradient('Repairs successfully performed: ', CHIDORI_THEME, 0.85)}${applyGradient(String(repairsDone), FIRE_THEME)}`
     ];
     drawBox('🩺 Doctor Summary', summaryLines, [[239, 68, 68], [185, 28, 28]]);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const summaryLines = [
@@ -103,7 +104,7 @@ async function renderDoctorSummary(hasErrors, repairsDone) {
       await cmdTest();
     } catch (testErr) {
       error(`Self-test failed after repairs: ${testErr.message}`);
-      process.exit(1);
+      process.exitCode = 1;
     }
   }
 }

@@ -415,10 +415,8 @@ function ensureCursorSetup(options = {}) {
     uvxCmd = 'uvx',
     agents = [],
     projectRoot = null,
-    deployProject = true,
     silent = true,
-    allowHooks = true,
-    ruleContent = null
+    allowHooks = true
   } = options;
 
   copyCursorHelperScripts(options.home);
@@ -435,14 +433,7 @@ function ensureCursorSetup(options = {}) {
   const effectiveAgents = (agents && agents.length > 0) ? agents : require('./agent_manager').loadAgents();
   deployCursorGlobalRule(effectiveAgents, silent, options);
 
-  const root = projectRoot || process.cwd();
-  if (deployProject) {
-    try {
-      registerCursorProjectMcp(root, pythonCmd, serverPath, uvxCmd, silent);
-      deployProjectCursor(root, effectiveAgents, silent, ruleContent);
-    } catch { /* intentional best-effort fallback */ } }
-
-  deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject, silent });
+  deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject: false, silent });
 
   return { ok: true };
 }

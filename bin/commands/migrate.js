@@ -103,37 +103,10 @@ function runAutoDirsMigration(skillsDirs, cleanArgs, flags, timeoutMs) {
   }
 }
 
-function syncTrackedProject(p, cwd) {
-  if (!p?.project_path || p.project_path === cwd || !fileExists(p.project_path)) return false;
-  try {
-    const res = agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
-    return Boolean(res?.ok && !res.skipped);
-  } catch {
-    return false;
-  }
-}
-
 function syncPostMigrationWorkspaces() {
   try {
     agentManager.regenerateAndDeploy({ force: true, silent: true });
-    const cwd = process.cwd();
-    let syncedWorkspaces = 0;
-    const res = agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
-    if (res?.ok && !res.skipped) syncedWorkspaces++;
-
-    try {
-      const personaMemory = require('../../src/persona_memory');
-      const { DB_PATH } = require('../lib/paths');
-      const tracked = personaMemory.listProjects(50, DB_PATH) || [];
-      for (const p of tracked) {
-        if (syncTrackedProject(p, cwd)) syncedWorkspaces++;
-      }
-    } catch (_) { /* best-effort */ }
-
-    const msg = syncedWorkspaces > 0
-      ? `GEMINI.md, AGENTS.md, rules, and skills synchronized across ${syncedWorkspaces} project workspace(s) and all client environments.`
-      : 'GEMINI.md, AGENTS.md, rules, and skills synchronized across all client environments.';
-    success(msg);
+    success('Global rules, skills, and client configurations synchronized.');
   } catch (e) {
     warn(`Auto-synchronization skipped: ${e.message}`);
   }

@@ -156,6 +156,7 @@ async function refreshExistingInstallation(flags, options) {
   registerHooks(true, true);
   try {
     deployUtils.syncSoulAcrossClients({ silent: true });
+    deployUtils.ensureGlobalGitExcludes();
   } catch (_) { /* intentional fallback */ }
   const setupAgents = agentManager.loadAgents();
   const currentCwd = path.resolve(process.cwd());
@@ -167,9 +168,6 @@ async function refreshExistingInstallation(flags, options) {
     onProgress: options.onProgress
   });
 
-  try {
-    agentManager.deployProjectWorkspace(currentCwd, { silent: true, force: true });
-  } catch (_) { /* intentional fallback */ }
   success('Integrations refreshed.');
 
   await autoStartUiDaemonIfRequested(options);
@@ -322,6 +320,7 @@ async function cmdInit(args, options = {}) {
   deployRtkRules(args);
   try {
     deployUtils.syncSoulAcrossClients({ silent: true });
+    deployUtils.ensureGlobalGitExcludes();
   } catch (_) { /* intentional fallback */ }
 
   const setupAgents = agentManager.loadAgents();
@@ -332,10 +331,6 @@ async function cmdInit(args, options = {}) {
     currentCwd,
     onProgress: options.onProgress
   });
-
-  try {
-    agentManager.deployProjectWorkspace(currentCwd, { silent: true, force: true });
-  } catch (_) { /* intentional fallback */ }
 
   renderInitSummary(clientFlags);
   recordAutoSetupState();

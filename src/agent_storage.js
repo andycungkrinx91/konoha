@@ -207,8 +207,8 @@ function _upgradeAgentInstructions(a, defAgent, isAlreadyUpgraded) {
     const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
     const needsReferenceLoadingUpgrade = !a.instructions.includes('exact reference names') && defInst.includes('exact reference names');
 
-    if (needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade || needsReferenceLoadingUpgrade) {
-      a.instructions = defAgent.instructions;
+    if ((needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade || needsReferenceLoadingUpgrade) && a.instructions !== defInst) {
+      a.instructions = defInst;
       return true;
     }
   } else if (defAgent && typeof defAgent.instructions === 'string' && defAgent.instructions.length > 0) {
@@ -247,7 +247,7 @@ function _upgradeSingleAgent(a, defAgent, isAlreadyUpgraded) {
 
   if (_upgradeAgentInstructions(a, defAgent, isAlreadyUpgraded)) changed = true;
 
-  if (typeof a.description === 'string' && a.description.length > 200 && typeof defAgent.description === 'string') {
+  if (typeof a.description === 'string' && a.description.length > 200 && typeof defAgent.description === 'string' && a.description !== defAgent.description) {
     a.description = defAgent.description;
     changed = true;
   }
@@ -269,7 +269,7 @@ function _upgradeSingleAgent(a, defAgent, isAlreadyUpgraded) {
   return changed;
 }
 
-function _applyUpgradesAndSave(agents, defaults, loadedFromUser, silent) {
+function _applyUpgradesAndSave(agents, defaults, hadSlashSkillInRaw, silent) {
   const UPGRADED_MARKER_PATH = path.join(HOME, '.agents', '.upgraded_v1.1.1');
   let isAlreadyUpgraded = fs.existsSync(UPGRADED_MARKER_PATH);
   if (!isAlreadyUpgraded) {
@@ -289,11 +289,7 @@ function _applyUpgradesAndSave(agents, defaults, loadedFromUser, silent) {
     return a;
   });
 
-  if (loadedFromUser && fs.existsSync(USER_AGENTS_YAML_PATH)) {
-    try {
-      if (fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf8').includes('/')) upgraded = true;
-    } catch (_) { /* best-effort */ }
-  }
+  if (hadSlashSkillInRaw) upgraded = true;
 
   if (upgraded) {
     try { fs.writeFileSync(UPGRADED_MARKER_PATH, 'true', 'utf-8'); } catch (_) { /* best-effort */ }
@@ -315,6 +311,9 @@ function loadAgents(reloadDefaults = false, silent = false) {
   if (cached !== null) return cached;
 
   const { agents: rawAgents, loadedFromDb, loadedFromUser } = _loadRawAgents();
+  const hadSlashSkillInRaw = loadedFromUser && rawAgents.some(
+    a => Array.isArray(a?.skills) && a.skills.some(s => typeof s === 'string' && s.includes('/'))
+  );
   const defaults = _loadDefaults();
   let agents = _mergeDefaults(rawAgents, defaults, loadedFromUser);
 
@@ -333,7 +332,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
   }
 
   if (loadedFromDb || loadedFromUser) {
-    agents = _applyUpgradesAndSave(agents, defaults, loadedFromUser, silent);
+    agents = _applyUpgradesAndSave(agents, defaults, hadSlashSkillInRaw, silent);
   } else if (defaults.length > 0) {
     const agentsDir = path.dirname(USER_AGENTS_YAML_PATH);
     if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });

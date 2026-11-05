@@ -13,7 +13,8 @@ const { C, log, warn, error, header, getCliVersion } = require("../lib/format");
 const { fileExists, confirmPrompt, KonohaProgressBar } = require("../lib/prompt");
 const { reconcileGlobalCommand, purgePackageCaches } = require("../lib/runtime");
 const { installAgentBrowser } = require("../lib/extension");
-const { cmdUiRestart, ensureUiDaemonAutoStart } = require("../lib/ui_commands");
+const { cmdUiRestart, ensureUiDaemonAutoStart, waitForPortReady } = require("../lib/ui_commands");
+const { collectUpgradeChoices } = require("../lib/upgrade_prompts");
 const { cmdInit } = require("./init");
 const { checkPortActive } = require("./bridge");
 
@@ -121,10 +122,17 @@ async function collectCandidateTags() {
   return candidateTags;
 }
 
-async function getLatestVersion() {
+async function getLatestVersion(options = {}) {
+  const bypassCache = Boolean(options && options.bypassCache);
   const cachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
-  const cachedVersion = readCachedVersion(cachePath);
-  if (cachedVersion) return cachedVersion;
+  if (bypassCache) {
+    try {
+      if (fileExists(cachePath)) fs.unlinkSync(cachePath);
+    } catch { /* best-effort */ }
+  } else {
+    const cachedVersion = readCachedVersion(cachePath);
+    if (cachedVersion) return cachedVersion;
+  }
 
   const candidateTags = await collectCandidateTags();
   const sorted = Array.from(candidateTags)
@@ -254,52 +262,212 @@ function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) 
   return false;
 }
 
-async function runPostUpgradeInit(pbar, targetTag, uiWasRunning) {
-  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
+function readCandidateFromPkgDir(pkgDir) {
+  const pkgJson = path.join(pkgDir, 'package.json');
+  if (!fileExists(pkgJson)) return null;
   try {
-    await cmdInit(['--force', '--yes'], {
-      skipUiAutoStart: true,
-      onProgress: (stepNum, stepTitle, stepDetail) => {
-        const stageNum = Math.min(6, 2 + stepNum);
-        pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
-      },
-      onStepComplete: (stepTitle) => pbar.logStep(stepTitle)
+    const parsed = JSON.parse(fs.readFileSync(pkgJson, 'utf8'));
+    if (parsed && parsed.version && fileExists(path.join(pkgDir, 'bin', 'cli.js'))) {
+      return { dir: pkgDir, version: String(parsed.version).trim() };
+    }
+  } catch { /* ignore unreadable package.json */ }
+  return null;
+}
+
+function locateGlobalPackageRoot(isWin = process.platform === 'win32', targetVer = '') {
+  const roots = new Set();
+  const runRootCmd = (cmd) => {
+    try {
+      const res = isWin
+        ? spawnSync(`${cmd}.cmd root -g`, { encoding: 'utf-8', timeout: 6000, shell: true, windowsHide: true })
+        : spawnSync(cmd, ['root', '-g'], { encoding: 'utf-8', timeout: 6000 });
+      const out = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
+      if (out && fileExists(out)) roots.add(out);
+    } catch { /* best-effort */ }
+  };
+
+  runRootCmd('pnpm');
+  runRootCmd('npm');
+
+  if (!isWin) {
+    const execLib = path.resolve(process.execPath, '..', '..', 'lib', 'node_modules');
+    if (fileExists(execLib)) roots.add(execLib);
+  }
+
+  const candidates = [];
+  for (const rootDir of roots) {
+    for (const pkgName of ['konoha-mcp', 'konoha']) {
+      const candidate = readCandidateFromPkgDir(path.join(rootDir, pkgName));
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  const cleanTarget = String(targetVer || '').replace(/^v/, '');
+  const exact = cleanTarget && candidates.find(c => c.version === cleanTarget);
+  if (exact) return exact.dir;
+
+  candidates.sort((a, b) => semverCompare(b.version, a.version));
+  return candidates[0].dir;
+}
+
+function resolveInstalledCliPath(preferredRoot) {
+  if (preferredRoot && fileExists(path.join(preferredRoot, 'bin', 'cli.js'))) {
+    return path.join(preferredRoot, 'bin', 'cli.js');
+  }
+  try {
+    const shimReport = reconcileGlobalCommand();
+    if (shimReport && shimReport.sourceCli && fileExists(shimReport.sourceCli)) {
+      return shimReport.sourceCli;
+    }
+  } catch { /* fallback */ }
+  const dbCli = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
+  return fileExists(dbCli) ? dbCli : path.resolve(__dirname, '..', 'cli.js');
+}
+
+function readInstalledVersion(targetVer, preferredRoot = null) {
+  try {
+    const cliPath = resolveInstalledCliPath(preferredRoot);
+    const res = spawnSync(process.execPath, [cliPath, '--version'], {
+      encoding: 'utf8',
+      timeout: 10000,
+      windowsHide: true
     });
 
-    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
-    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
-    try { installAgentBrowser(true); } catch { /* best-effort */ }
-    pbar.stopPulse();
-    pbar.logStep(`Browser automation tools verified`);
-
-    try {
-      const shimReport = reconcileGlobalCommand();
-      const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
-      if (shimsTouched.length > 0) {
-        pbar.logStep(`Global command 'konoha' → ${shimReport.sourceCli} (${shimsTouched.length} shim(s) repaired)`);
+    if (res.status === 0 && res.stdout) {
+      const match = res.stdout.match(/\d+\.\d+\.\d+/);
+      if (match) {
+        return { version: match[0], source: 'installed' };
       }
-    } catch { /* best-effort */ }
+    }
+  } catch { /* best-effort */ }
 
+  const cleanTarget = String(targetVer || '').replace(/^v/, '');
+  return { version: cleanTarget, source: 'target' };
+}
+
+function syncRuntimeAndMigrate(globalPkgRoot) {
+  try {
+    const { installCliRuntime } = require('../lib/runtime');
+    installCliRuntime({ sourceRoot: globalPkgRoot });
+  } catch { /* best-effort */ }
+
+  try {
+    const migratePath = path.join(SKILLS_DB_DIR, 'migrate.js');
+    const fallbackMigrate = path.resolve(__dirname, '..', '..', 'src', 'migrate.js');
+    const effectiveMigrate = fileExists(migratePath) ? migratePath : fallbackMigrate;
+    if (fileExists(effectiveMigrate)) {
+      spawnSync(process.execPath, [effectiveMigrate, '--require-skill', 'genin-skill'], {
+        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 180000
+      });
+    }
+  } catch { /* best-effort */ }
+}
+
+function deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, mcpChoices) {
+  if (rtk) {
     try {
-      const { installCliRuntime } = require('../lib/runtime');
-      installCliRuntime();
+      const antigravityManager = require('../../src/antigravity_manager');
+      antigravityManager.ensureRtkInstalled(false);
+      antigravityManager.deployAntigravityRtkRule(true);
+      pbar.logStep('RTK rules deployed');
     } catch { /* best-effort */ }
+  }
 
-    if (uiWasRunning) {
-      pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
-      await cmdUiRestart(['--no-open']);
-    } else {
-      const uiAuto = await ensureUiDaemonAutoStart();
-      if (uiAuto?.started) pbar.logStep('Konoha Web UI daemon auto-started at http://127.0.0.1:1404/');
+  try {
+    const { checkPython } = require('../lib/prompt');
+    const { registerMcp } = require('../lib/runtime_mcp');
+    const python = checkPython() || 'python3';
+    registerMcp(python, true, mcpChoices);
+  } catch { /* best-effort */ }
+
+  pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
+  pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
+  try { installAgentBrowser(true); } catch { /* best-effort */ }
+  pbar.stopPulse();
+  pbar.logStep('Browser automation tools verified');
+
+  try {
+    const { installCliRuntime } = require('../lib/runtime');
+    installCliRuntime({ sourceRoot: globalPkgRoot });
+  } catch { /* best-effort */ }
+
+  try {
+    const shimReport = reconcileGlobalCommand();
+    const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
+    if (shimsTouched.length > 0) {
+      pbar.logStep(`Global command 'konoha' → ${shimReport.sourceCli} (${shimsTouched.length} shim(s) repaired)`);
+    }
+  } catch { /* best-effort */ }
+}
+
+function prepareUpgradeSourceRoot(globalPkgRoot) {
+  if (!globalPkgRoot) return;
+  process.env.KONOHA_UPGRADE_SOURCE_ROOT = globalPkgRoot;
+  try {
+    const { installCliRuntime } = require('../lib/runtime');
+    installCliRuntime({ sourceRoot: globalPkgRoot });
+  } catch { /* best-effort */ }
+}
+
+async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
+  if (!injectConfigs) {
+    pbar.logStep('Skipping client config injection per user choice');
+    syncRuntimeAndMigrate(globalPkgRoot);
+    return;
+  }
+  await cmdInit(['--force', '--yes'], {
+    skipUiAutoStart: true,
+    onProgress: (stepNum, stepTitle, stepDetail) => {
+      const stageNum = Math.min(6, 2 + stepNum);
+      pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
+    },
+    onStepComplete: (stepTitle) => pbar.logStep(stepTitle)
+  });
+}
+
+async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
+  if (uiWasRunning) {
+    pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
+    await cmdUiRestart(['--no-open']);
+    return;
+  }
+  const uiAuto = await ensureUiDaemonAutoStart();
+  if (uiAuto?.started) pbar.logStep('Konoha Web UI daemon auto-started at http://127.0.0.1:1404/');
+}
+
+async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, localVer = '') {
+  const { injectConfigs = true, rtk = true, aislop = true, semble = true } = choices;
+  const cleanTarget = String(targetTag || '').replace(/^v/, '');
+  const globalPkgRoot = locateGlobalPackageRoot(process.platform === 'win32', cleanTarget);
+  prepareUpgradeSourceRoot(globalPkgRoot);
+
+  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
+  try {
+    await runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot);
+    deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop, semble });
+    await restartOrAutoStartUiDaemon(pbar, uiWasRunning);
+
+    const portReady = await waitForPortReady(1404, { timeoutMs: 90000 });
+    if (!portReady) {
+      pbar.logStep('Web UI daemon is still warming up; it will answer on port 1404 shortly');
     }
 
-    pbar.finish(`Konoha has been successfully upgraded to ${targetTag}!`);
-    log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}${targetTag}${C.reset}`);
+    const installed = readInstalledVersion(cleanTarget, globalPkgRoot);
+    pbar.finish(`Konoha has been successfully upgraded to v${installed.version}!`);
+    log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}v${installed.version}${C.reset}`);
     log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
+
+    const old = String(localVer || '').replace(/^v/, '');
+    if ((installed.source === 'target' && installed.version === old) || (installed.version === old && cleanTarget !== old)) {
+      warn(`Reported version still v${old} — run "konoha --version" after the shell reloads`);
+    }
   } catch (err) {
     pbar.stopPulse();
     error(`Failed to refresh Konoha configuration: ${err.message}`);
     process.exit(1);
+  } finally {
+    delete process.env.KONOHA_UPGRADE_SOURCE_ROOT;
   }
 }
 
@@ -307,7 +475,7 @@ async function resolveTargetVersion(localVer) {
   let targetVer = localVer;
   let targetTag = `v${localVer}`;
   try {
-    const latest = await getLatestVersion();
+    const latest = await getLatestVersion({ bypassCache: true });
     if (latest) {
       const cleanLatest = latest.replace(/^v/, '');
       const cleanLocal = localVer.replace(/^v/, '');
@@ -336,6 +504,8 @@ async function cmdUpgrade(args = []) {
     return;
   }
 
+  const choices = await collectUpgradeChoices(args);
+
   log('');
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
   let uiWasRunning = false;
@@ -357,7 +527,7 @@ async function cmdUpgrade(args = []) {
   pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and installing Konoha package via ${pmCandidates[0].name}...`);
 
   executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
-  await runPostUpgradeInit(pbar, targetTag, uiWasRunning);
+  await runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices, localVer);
 }
 
 // cmdRender removed — visual comparison feature deprecated in favor of image/source-to-code (build_from_source)
@@ -367,6 +537,8 @@ async function cmdUpgrade(args = []) {
 module.exports = {
   cmdUpgrade,
   cmdUpgradeHelp,
+  locateGlobalPackageRoot,
+  readInstalledVersion,
   parseSemver,
   semverCompare,
   fetchJsonUrl,

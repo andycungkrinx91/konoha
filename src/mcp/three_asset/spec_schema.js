@@ -105,11 +105,58 @@ function validateNode(node, index, depth = 0) {
     scale: normalizeVector3(rawTrans.scale, [1, 1, 1])
   };
 
-  return {
+  const cleanNode = {
     name: String(node.name || `node_${index}`),
     geometry: { type: geomType, params: cleanParams },
     material: cleanMat,
     transform: cleanTrans
+  };
+
+  const part = normalizePart(node.part, geomType, cleanTrans, cleanParams);
+  if (part) {
+    cleanNode.part = part;
+    cleanNode.geometry.type = part.primitive;
+    cleanNode.geometry.params = { size: part.size.slice(), ...cleanParams };
+    cleanNode.transform.position = part.position.slice();
+    if (part.modifiers.bevel !== null && part.modifiers.bevel !== undefined) {
+      cleanNode.geometry.params.bevel = part.modifiers.bevel;
+    }
+  }
+  return cleanNode;
+}
+
+const PART_PRIMITIVES = ['box', 'roundedBox', 'sphere', 'capsule', 'cylinder', 'cone', 'torus', 'metaball'];
+const PART_MODIFIER_OPS = ['union', 'subtract', 'intersect'];
+
+function normalizePart(rawPart, fallbackPrimitive, transform, params) {
+  if (!rawPart || typeof rawPart !== 'object') return null;
+  const primitive = PART_PRIMITIVES.includes(String(rawPart.primitive || ''))
+    ? String(rawPart.primitive)
+    : 'box';
+  const rawSize = Array.isArray(rawPart.size) ? rawPart.size : params.size || [1, 1, 1];
+  const size = [
+    Math.max(0.001, Number(rawSize[0]) || 1),
+    Math.max(0.001, Number(rawSize[1]) || 1),
+    Math.max(0.001, Number(rawSize[2]) || 1)
+  ];
+  const position = Array.isArray(rawPart.position)
+    ? normalizeVector3(rawPart.position, transform.position)
+    : transform.position.slice();
+  const rawMods = rawPart.modifiers && typeof rawPart.modifiers === 'object' ? rawPart.modifiers : {};
+  const modifiers = {
+    subsurf: clamp(rawMods.subsurf, 0, 3, null),
+    bevel: clamp(rawMods.bevel, 0, 1, null),
+    mirror_x: Boolean(rawMods.mirror_x ?? rawPart.mirror),
+    boolean_op: PART_MODIFIER_OPS.includes(rawMods.boolean_op) ? rawMods.boolean_op : null,
+    boolean_target: rawMods.boolean_target ? String(rawMods.boolean_target) : null
+  };
+  return {
+    primitive: primitive || fallbackPrimitive,
+    size,
+    position,
+    parent: rawPart.parent ? String(rawPart.parent) : null,
+    mirror: Boolean(rawPart.mirror || modifiers.mirror_x),
+    modifiers
   };
 }
 
@@ -127,6 +174,11 @@ function validateSceneSpec(rawSpec) {
   }
 
   const nodes = rawSpec.nodes.map((n, i) => validateNode(n, i, 0));
+  const parts = flattenParts(nodes);
+  const nodeNames = new Set(nodes.map((n) => n.name));
+  for (const part of parts) {
+    if (part.parent && !nodeNames.has(part.parent)) part.parent = null;
+  }
 
   const rawCam = rawSpec.camera || {};
   const camera = {
@@ -158,8 +210,22 @@ function validateSceneSpec(rawSpec) {
     lights: rawLights,
     style,
     turnaround: parseTurnaroundIntent(rawSpec.__prompt || '', rawSpec.turnaround),
-    nodes
+    nodes,
+    parts: parts.map((p) => ({ ...p, parent: p.parent || null })),
+    labels: Array.isArray(rawSpec.labels) ? rawSpec.labels.map(String).slice(0, 12) : extractLabelText(rawSpec.__prompt || ''),
+    output_size: rawSpec.output_size && typeof rawSpec.output_size === 'object' ? rawSpec.output_size : undefined
   };
+}
+
+function flattenParts(nodes, out = []) {
+  for (const node of nodes) {
+    if (node.csg && Array.isArray(node.csg.operands)) {
+      flattenParts(node.csg.operands, out);
+      continue;
+    }
+    if (node.part) out.push({ ...node.part, name: node.name, modifiers: { ...node.part.modifiers } });
+  }
+  return out;
 }
 
 function createStudioLights(ambient = 0.85, dir = 2.2, point = 1.4, pointColor = '#38bdf8') {
@@ -228,6 +294,43 @@ const CREATURE_STRONG_PATTERN = /\b(creature|dragon|beast|monster|dinosaur|fox|k
 const HUMANOID_PATTERN = /\b(character|warrior|robot|hero(?!\s*(section|banner))|avatar|soldier|humanoid|knight|ninja|shinobi|mech pilot|samurai|android|cyborg)\b/i;
 const TURNAROUND_PATTERN = /\b(turnaround|orthographic|front view|side view|back view|top view|blueprint|reference sheet|model sheet)\b/i;
 
+const LABEL_KEYWORDS_SRC = 'brand|merk|merek|marque|marca|maker|label|logo|wordmark|nameplate|imprint|decal|text';
+const LABEL_KEYWORD_PATTERN = new RegExp(`\\b(${LABEL_KEYWORDS_SRC})\\b`, 'i');
+const QUOTED_TEXT_PATTERN = /"[^"\n]{1,48}"|\u201c[^\u201d\n]{1,48}\u201d|\u00ab[^\u00bb\n]{1,48}\u00bb|(?<=(?:^|[\s(,]))'[^'\n]{1,48}'(?=$|[\s,.;:)!])/g;
+const LABEL_CLAUSE_PATTERN = new RegExp(
+  '(?:\\b(?:with|by|from|under|bermerek|dengan)\\s+)?\\b(?:' + LABEL_KEYWORDS_SRC + ')\\b\\s*(?:is|:|=|called|says|reads|named|of|with|saying|that\\s+says|on)?\\s*'
+  + '(?:"([^"\\n]{1,48})"|\u201c([^\u201d\\n]{1,48})\u201d|\u00ab([^\u00bb\\n]{1,48})\u00bb|'
+  + '((?:[A-Z][\\w\'\\-]*)(?:\\s+(?:[A-Z][\\w\'\\-]*|[a-z][\\w\'\\-]{1,12}))*))',
+  'g'
+);
+
+/**
+ * Extract surface-text label strings (e.g. a brand like "Yong Ma"). These are
+ * texture/decal content only and must never influence shape or archetype routing.
+ */
+function extractLabelText(text = '') {
+  const src = String(text || '');
+  const found = new Set();
+  for (const match of src.matchAll(QUOTED_TEXT_PATTERN)) {
+    const value = String(match[0] || '').trim().replace(/^["'\u201c\u201d\u00ab\u00bb]|["'\u201c\u201d\u00ab\u00bb]$/g, '');
+    if (value && value.length <= 48) found.add(value);
+  }
+  for (const match of src.matchAll(LABEL_CLAUSE_PATTERN)) {
+    const value = String((match.slice(1).find((g) => g && g.trim())) || '').trim();
+    if (value && value.length <= 48) found.add(value);
+  }
+  return Array.from(found);
+}
+
+/** Remove label/brand text so it cannot affect archetype inference. */
+function stripLabelText(text = '') {
+  return String(text || '')
+    .replace(QUOTED_TEXT_PATTERN, ' ')
+    .replace(LABEL_CLAUSE_PATTERN, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const ARCHETYPE_HINTS = [
   ['game-weapon', /\b(sword|gun|weapon|blade|shield|axe|spear|bow|rifle|pistol|katana|dagger)\b/i],
   ['game-vehicle', /\b(car|truck|vehicle|hauler|rover|spaceship|spacecraft|satellite|orbiter|lander|probe|drone|shuttle|hoverbike|hovercraft|aircraft|fighter|ship|plane|jet|tank|motorcycle)\b/i],
@@ -235,7 +338,7 @@ const ARCHETYPE_HINTS = [
   ['game-creature', CREATURE_PATTERN],
   ['game-environment', /\b(environment|diorama|landscape|island|forest|valley|terrain scene|canyon)\b/i],
   ['game-tileset', /\b(tileset|tiles|brick)\b/i],
-  ['game-prop', /\b(prop|chest|crate|barrel|box|container|potion|keyboard|pen|cup|vase|lantern|mainframe|terminal|console|kiosk|workstation|generator|reactor|turbine|antenna|dish|helmet|visor|armou?r|gauntlet|appliance|machine|gadget|relay|beacon)\b/i],
+  ['game-prop', /\b(prop|chest|crate|barrel|box|container|potion|keyboard|pen|cup|mug|bottle|vase|lantern|mainframe|terminal|console|kiosk|workstation|generator|reactor|turbine|antenna|dish|helmet|visor|armou?r|gauntlet|appliance|machine|gadget|relay|beacon|rice\s*cooker|ricecooker|cooker|kettle|toaster|blender|mixer|microwave|oven|stove|fridge|refrigerator|washer|dryer|vacuum|iron|coffee\s*maker|espresso|air\s*fryer|fryer|pot|pan|skillet|teapot|thermos|chair|stool|table|desk|sofa|couch|lamp|fan|heater|cooler|speaker|radio|camera|phone|laptop|monitor|watch|clock|backpack|suitcase)\b/i],
   ['commerce', /\b(shop|product|pedestal|ecommerce|store|checkout)\b/i],
   ['dashboard', /\b(dashboard|analytics|screen|monitor|chart|telemetry)\b/i],
   ['saas', /\b(cloud|server|saas|network|infra|kubernetes|cluster)\b/i],
@@ -245,7 +348,7 @@ const ARCHETYPE_HINTS = [
 ];
 
 function inferArchetypeFromPrompt(prompt = '') {
-  const p = String(prompt || '');
+  const p = stripLabelText(prompt);
   if (CREATURE_STRONG_PATTERN.test(p)) return 'game-creature';
   if (HUMANOID_PATTERN.test(p) && !CREATURE_PATTERN.test(p)) return 'game-character';
   for (const [archetype, pattern] of ARCHETYPE_HINTS) {
@@ -256,11 +359,12 @@ function inferArchetypeFromPrompt(prompt = '') {
 
 function resolveEffectiveArchetype(prompt = '', requestedArchetype = '') {
   const requested = String(requestedArchetype || '').trim().toLowerCase();
-  const inferred = inferArchetypeFromPrompt(prompt);
+  const shapePrompt = stripLabelText(prompt);
+  const inferred = inferArchetypeFromPrompt(shapePrompt);
   if (!requested || requested === 'auto' || requested === 'application' || requested === 'detect') {
     return inferred;
   }
-  const hasExplicitSubject = CREATURE_STRONG_PATTERN.test(prompt) || ARCHETYPE_HINTS.some(([, pattern]) => pattern.test(prompt));
+  const hasExplicitSubject = CREATURE_STRONG_PATTERN.test(shapePrompt) || ARCHETYPE_HINTS.some(([, pattern]) => pattern.test(shapePrompt));
   if (hasExplicitSubject && inferred !== 'application' && inferred !== requested) {
     return inferred;
   }
@@ -277,7 +381,7 @@ function parseTurnaroundIntent(prompt = '', rawTurnaround = null) {
   if (/back\s*view|rear\s*view/i.test(text)) promptViews.push('back');
   if (/top\s*view|plan\s*view|above/i.test(text)) promptViews.push('top');
   const views = requestedViews.length > 0 ? requestedViews : (promptViews.length > 0 ? promptViews : []);
-  const enabled = raw.enabled === true || views.length >= 2 || TURNAROUND_PATTERN.test(text);
+  const enabled = raw.enabled === true || views.length >= 2 || TURNAROUND_PATTERN.test(stripLabelText(text));
   const finalViews = views.length > 0 ? views : ['front', 'side', 'back', 'top'];
   return {
     enabled,
@@ -341,11 +445,17 @@ const ARCHETYPES = Object.freeze(['auto', ...Object.keys(ARCHETYPE_BUILDERS).sor
 
 module.exports = {
   ARCHETYPES,
+  LABEL_KEYWORD_PATTERN,
   validateSceneSpec,
   validateNode,
   createDefaultSceneSpec,
   inferArchetypeFromPrompt,
   resolveEffectiveArchetype,
+  extractLabelText,
+  stripLabelText,
+  normalizePart,
+  flattenParts,
+  PART_PRIMITIVES,
   parseTurnaroundIntent,
   customizeSpecFromPrompt,
   clamp,

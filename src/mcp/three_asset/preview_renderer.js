@@ -2,35 +2,30 @@
 
 /**
  * Headless 3D Asset Preview Renderer using Playwright and Three.js r187.
- * Renders high-fidelity 512x512 preview PNG thumbnails of exported GLB models.
+ * Renders high-fidelity preview PNGs of exported GLB models at the requested
+ * output size (default 512x512, portrait/landscape supported).
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const GPU_CHROMIUM_ARGS = ['--enable-gpu', '--use-gl=egl', '--enable-webgl', '--ignore-gpu-blocklist', '--no-sandbox'];
+const SWIFTSHADER_CHROMIUM_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl', '--no-sandbox'];
+
 function validatePngHeader(buffer) {
   if (!buffer || buffer.length < 8) return false;
   return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
 }
 
-async function renderPreview(glbPath, outDir, name, options = {}) {
-  const timeoutMs = options.timeoutMs || 10000;
-  if (!glbPath || !fs.existsSync(glbPath)) {
-    return { previewPath: null, error: 'GLB file does not exist' };
-  }
+function resolvePreviewSize(options) {
+  const width = Math.max(64, Math.min(8192, Math.round(Number(options.width) || 512)));
+  const height = Math.max(64, Math.min(8192, Math.round(Number(options.height) || 512)));
+  return { width, height };
+}
 
-  let server = null;
-  let browser = null;
-
-  try {
-    const { chromium } = require('playwright');
-    const threeDir = path.dirname(path.dirname(require.resolve('three')));
-
-    server = http.createServer((req, res) => {
-      if (req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`<!DOCTYPE html>
+function buildPreviewHtml(outWidth, outHeight, aspect) {
+  return `<!DOCTYPE html>
 <html>
 <head>
 <style>body { margin:0; background:#eef2f7; overflow:hidden; }</style>
@@ -39,7 +34,7 @@ async function renderPreview(glbPath, outDir, name, options = {}) {
 </script>
 </head>
 <body>
-<canvas id="c" width="512" height="512" style="width:512px;height:512px;"></canvas>
+<canvas id="c" width="${outWidth}" height="${outHeight}" style="width:${outWidth}px;height:${outHeight}px;"></canvas>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -47,13 +42,13 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-renderer.setSize(512, 512);
+renderer.setSize(${outWidth}, ${outHeight});
 renderer.setClearColor(0xeef2f7, 1.0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(45, ${aspect}, 0.1, 100);
 camera.position.set(2.5, 2.0, 3.2);
 camera.lookAt(0, 0.5, 0);
 
@@ -97,76 +92,102 @@ loader.load('/model.glb', (gltf) => {
 });
 </script>
 </body>
-</html>`);
+</html>`;
+}
+
+function createPreviewServer(glbPath, threeDir, html) {
+  return http.createServer((req, res) => {
+    if (req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(html);
+      return;
+    }
+    if (req.url === '/model.glb') {
+      res.writeHead(200, { 'Content-Type': 'model/gltf-binary' });
+      res.end(fs.readFileSync(glbPath));
+      return;
+    }
+    if (req.url.startsWith('/three/')) {
+      const filePath = path.join(threeDir, req.url.slice('/three/'.length));
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.writeHead(200, { 'Content-Type': 'application/javascript' });
+        res.end(fs.readFileSync(filePath));
         return;
       }
-      if (req.url === '/model.glb') {
-        res.writeHead(200, { 'Content-Type': 'model/gltf-binary' });
-        res.end(fs.readFileSync(glbPath));
-        return;
-      }
-      if (req.url.startsWith('/three/')) {
-        const relPath = req.url.slice('/three/'.length);
-        const filePath = path.join(threeDir, relPath);
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-          res.writeHead(200, { 'Content-Type': 'application/javascript' });
-          res.end(fs.readFileSync(filePath));
-          return;
-        }
-      }
-      res.writeHead(404);
-      res.end();
-    });
+    }
+    res.writeHead(404);
+    res.end();
+  });
+}
 
-    await new Promise(r => server.listen(0, '127.0.0.1', r));
-    const port = server.address().port;
-
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl', '--no-sandbox']
-    });
-
-    const page = await browser.newPage({ viewport: { width: 512, height: 512 } });
+async function captureWithChromium(chromium, launchArgs, opts) {
+  const { port, outWidth, outHeight, timeoutMs } = opts;
+  const inst = await chromium.launch({ headless: true, args: launchArgs });
+  try {
+    const page = await inst.newPage({ viewport: { width: outWidth, height: outHeight } });
     await page.goto(`http://127.0.0.1:${port}/`);
     await page.waitForFunction(() => window.__READY__ || window.__ERROR__, { timeout: timeoutMs });
-
     const error = await page.evaluate(() => window.__ERROR__);
     if (error) {
       throw new Error(`WebGL GLTFLoader client error: ${error}`);
     }
+    return await page.locator('#c').screenshot();
+  } finally {
+    try { await inst.close(); } catch (_) { /* best-effort fallback: ignored by design */ }
+  }
+}
 
-    const pngBuf = await page.locator('#c').screenshot();
+async function capturePreviewPng(chromium, wantGpu, opts) {
+  if (!wantGpu) {
+    return captureWithChromium(chromium, SWIFTSHADER_CHROMIUM_ARGS, opts);
+  }
+  try {
+    return await captureWithChromium(chromium, GPU_CHROMIUM_ARGS, opts);
+  } catch (_) {
+    return captureWithChromium(chromium, SWIFTSHADER_CHROMIUM_ARGS, opts);
+  }
+}
+function closeServerSafe(server) {
+  if (!server) return;
+  try { server.close(); } catch (_) { /* best-effort fallback: ignored by design */ }
+}
+
+async function renderPreview(glbPath, outDir, name, options = {}) {
+  const timeoutMs = options.timeoutMs || 10000;
+  const { width: outWidth, height: outHeight } = resolvePreviewSize(options);
+  const aspect = outWidth / outHeight;
+  const wantGpu = String(options.computeMode || '').toLowerCase() === 'gpu';
+  if (!glbPath || !fs.existsSync(glbPath)) {
+    return { previewPath: null, error: 'GLB file does not exist' };
+  }
+
+  let server = null;
+  try {
+    const { chromium } = require('playwright');
+    const threeDir = path.dirname(path.dirname(require.resolve('three')));
+    server = createPreviewServer(glbPath, threeDir, buildPreviewHtml(outWidth, outHeight, aspect));
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const pngBuf = await capturePreviewPng(chromium, wantGpu, { port, outWidth, outHeight, timeoutMs });
     if (!validatePngHeader(pngBuf)) {
       throw new Error('Screenshot did not produce valid PNG magic bytes');
     }
-
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }
     const previewPath = path.join(outDir, `${name}.preview.png`);
     fs.writeFileSync(previewPath, pngBuf);
-
-    return {
-      previewPath,
-      bytes: pngBuf.length
-    };
+    return { previewPath, bytes: pngBuf.length, width: outWidth, height: outHeight };
   } catch (err) {
     process.stderr.write(`[preview_renderer] Preview generation notice: ${err.message}. Proceeding without thumbnail.\n`);
-    return {
-      previewPath: null,
-      error: err.message
-    };
+    return { previewPath: null, error: err.message };
   } finally {
-    if (browser) {
-      try { await browser.close(); } catch (_) { /* best-effort fallback: ignored by design */ }
-    }
-    if (server) {
-      try { server.close(); } catch (_) { /* best-effort fallback: ignored by design */ }
-    }
+    closeServerSafe(server);
   }
 }
 
 module.exports = {
   renderPreview,
+  resolvePreviewSize,
   validatePngHeader
 };

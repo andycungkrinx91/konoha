@@ -49,12 +49,17 @@ function queryNodeVersion(normalized) {
   }
 }
 
+function isNodeExecutableName(p) {
+  const base = path.basename(p || '').toLowerCase();
+  return base === 'node' || base === 'node.exe';
+}
+
 function checkNodeCandidate(candidatePath, minMajor = 24, minMinor = 0) {
   if (!candidatePath || typeof candidatePath !== 'string') return null;
   const normalized = path.resolve(candidatePath.trim());
-  if (!fileExists(normalized)) return null;
+  if (!isNodeExecutableName(normalized) || !fileExists(normalized)) return null;
 
-  if (normalized === process.execPath) {
+  if (normalized === process.execPath && !process.versions.bun) {
     return isNodeVersionCompatible(process.versions.node, minMajor, minMinor)
       ? { path: normalized, version: `v${process.versions.node}` }
       : null;
@@ -140,7 +145,7 @@ function resolveCompatibleNode(options = {}) {
     if (checked) return checked.path;
   }
 
-  if (process.execPath && isNodeVersionCompatible(process.versions.node, minMajor, minMinor)) {
+  if (process.execPath && isNodeExecutableName(process.execPath) && !process.versions.bun && isNodeVersionCompatible(process.versions.node, minMajor, minMinor)) {
     return process.execPath;
   }
 

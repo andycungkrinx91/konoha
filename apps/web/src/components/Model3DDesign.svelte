@@ -3,11 +3,10 @@
   import { apiRequest } from '#lib/api.js';
   import { toast } from '#lib/state/toast.svelte.ts';
   import PageHero from './PageHero.svelte';
-  import ThreeViewport from './ThreeViewport.svelte';
-  import BlenderPipelineGraph from './BlenderPipelineGraph.svelte';
   import TokenCostCard from './TokenCostCard.svelte';
-  import RecentAssetsCard from './RecentAssetsCard.svelte';
   import GenerateParamsCard from './GenerateParamsCard.svelte';
+  import RecentAssetsCard from './RecentAssetsCard.svelte';
+  import SynthesisModal from './SynthesisModal.svelte';
 
   // Telemetry State
   let telemetryPeriod = $state('today'); // 'today' | '24h' | '7d' | '30d' | '60d' | 'all'
@@ -35,7 +34,25 @@
   let enablePbr = $state(true);
   let isGenerating = $state(false);
 
-  // Live Job Progress State
+  // Output Size State (Preview & Inspection Render)
+  let outputSize = $state({
+    width: 1024,
+    height: 576,
+    aspect_ratio: '16:9',
+    orientation: 'landscape',
+    long_edge: 1024,
+    source: 'preset'
+  });
+  let outputSizeWarning = $state(null);
+  let resolvedArchetype = $state(null);
+  let archetypeMode = $state(null);
+
+  // Live Job & Modal State
+  let modalOpen = $state(false);
+  let synthesisProgress = $state(0);
+  let synthesisError = $state(null);
+  let progressInterval = null;
+
   let currentJobId = $state(null);
   let currentAssetId = $state(null);
   let currentGlbUrl = $state(null);
@@ -45,12 +62,7 @@
   let activeTool = $state('');
   let activeNarrative = $state('');
   let eventSource = $state(null);
-  let livePngUrl = $state(null);
-  let blenderSteps = $state([]);
-  let llmProgress = $state(null);
-  let blenderRuntime = $state(null);
   let turnaroundRequested = $state(false);
-  let generatorStatus = $state(null);
 
   const TURNAROUND_PROMPT_PATTERN = /\b(turnaround|orthographic|front view|side view|back view|top view|reference sheet|model sheet)\b/i;
 
@@ -59,18 +71,19 @@
   let vertexCount = $state(0);
   let isWatertight = $state(true);
 
-  // Recent Assets List
+  // Recent Assets List (Infinite Scroll)
   let recentAssets = $state([]);
   let loadingAssets = $state(false);
+  let assetsPage = $state(1);
+  let assetsTotal = $state(0);
+  const ASSET_PAGE_SIZE = 12;
+
+  let hasMoreAssets = $derived(recentAssets.length < assetsTotal);
 
   let archetypes = $state([]);
   let profiles = $state([]);
   let computeModes = $state([]);
   let qualityLevels = $state([]);
-
-  const ASSET_PAGE_SIZE = 6;
-  let assetsPage = $state(1);
-  let assetsTotal = $state(0);
 
   const COMPUTE_MODE_LABELS = {
     auto: 'Auto (Detect GPU or Fallback to CPU)',
@@ -84,6 +97,17 @@
     premium_stylized: 'Premium Stylized (Vibrant Clearcoat)',
     stylized: 'Stylized Surface Shading',
     draft: 'Rapid Engineering Draft'
+  };
+
+  const STAGE_WEIGHTS = {
+    job_started: 0,
+    stage_started: 5,
+    llm_synthesis_attempt: 10,
+    llm_synthesis_complete: 35,
+    base_mesh_ready: 40,
+    inspect: 95,
+    job_completed: 100,
+    job_failed: 100
   };
 
   function humanizeCatalogId(id) {
@@ -107,31 +131,19 @@
     { id: 'all', label: 'All' }
   ];
 
-  const AGENTIC_STEPS = [
-    { id: 1, name: 'Workspace Import & Hierarchy Analysis', tool: 'dcc.blender.import_glb' },
-    { id: 2, name: 'Organic Subdivision / Micro-Chamfer Bevel', tool: 'dcc.blender.modify_mesh' },
-    { id: 3, name: 'Smart UV Projection & Island Packing', tool: 'dcc.blender.uv_unwrap' },
-    { id: 4, name: 'Principled BSDF & Procedural Fur Shader', tool: 'dcc.blender.set_materials' },
-    { id: 5, name: 'Studio Lighting, Compute Device & Camera Rig', tool: 'dcc.blender.setup_studio' },
-    { id: 6, name: 'Production GLB Export & Turnaround Render', tool: 'dcc.blender.export_glb' }
-  ];
-
-  function stepTiming(stepNumber) {
-    return blenderSteps.find((st) => st.step_number === stepNumber) || null;
+  function startProgressCreep() {
+    stopProgressCreep();
+    progressInterval = setInterval(() => {
+      if (isGenerating && synthesisProgress < 95) {
+        synthesisProgress = Math.min(95, synthesisProgress + 1);
+      }
+    }, 1000);
   }
 
-  async function loadGeneratorStatus() {
-    try {
-      const data = await apiRequest('/api/v1/3d/setup/status');
-      const components = (data.toolchain && data.toolchain.components) || {};
-      blenderRuntime = {
-        blender: components.blender || null,
-        dcc: components.dcc_mcp_blender || null,
-        live_session: data.live_session || null
-      };
-      generatorStatus = data;
-    } catch (_) {
-      blenderRuntime = null;
+  function stopProgressCreep() {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
     }
   }
 
@@ -179,35 +191,41 @@
     }
   }
 
-  async function loadRecentAssets(page = assetsPage) {
+  async function loadRecentAssets(page = 1, append = false) {
     loadingAssets = true;
-    const target = Math.max(1, Number(page) || 1);
     try {
+      const target = Math.max(1, Number(page) || 1);
       const data = await apiRequest(`/api/v1/3d/assets?limit=${ASSET_PAGE_SIZE}&offset=${(target - 1) * ASSET_PAGE_SIZE}`);
-      recentAssets = data.assets || [];
-      assetsTotal = Number(data.total) || recentAssets.length;
-      const lastPage = Math.max(1, Math.ceil(assetsTotal / ASSET_PAGE_SIZE));
-      if (target > lastPage) {
-        assetsPage = lastPage;
-        await loadRecentAssets(lastPage);
-        return;
+      const fetched = data.assets || [];
+      assetsTotal = Number(data.total) || (append ? recentAssets.length + fetched.length : fetched.length);
+      if (append) {
+        recentAssets = [...recentAssets, ...fetched];
+      } else {
+        recentAssets = fetched;
       }
       assetsPage = target;
-      if (!currentGlbUrl && target === 1 && recentAssets.length > 0) {
-        selectAsset(recentAssets[0]);
-      }
     } catch (_) {} finally {
       loadingAssets = false;
     }
   }
 
+  function handleLoadMoreAssets() {
+    if (loadingAssets || !hasMoreAssets) return;
+    loadRecentAssets(assetsPage + 1, true);
+  }
+
   function selectAsset(asset) {
+    if (!asset || !asset.asset_id) return;
+    // Reset stale state so a previous failure cannot bleed into the new preview.
+    synthesisError = null;
     currentAssetId = asset.asset_id;
     currentGlbUrl = `/api/v1/3d/assets/${asset.asset_id}/download/glb`;
     triangleCount = asset.triangle_count || 0;
     vertexCount = asset.vertex_count || 0;
     isWatertight = Boolean(asset.is_watertight_manifold);
+    resolvedArchetype = asset.domain_archetype || null;
     liveKey = Date.now();
+    modalOpen = true;
   }
 
   async function handleImageUpload(event) {
@@ -228,7 +246,11 @@
       });
       const res = await apiRequest('/api/v1/3d/upload-image', {
         method: 'POST',
-        body: JSON.stringify({ data_base64: dataBase64, filename: file.name })
+        body: JSON.stringify({
+          data_base64: dataBase64,
+          filename: file.name,
+          output_size: outputSize
+        })
       });
       imagePath = res.image_path;
       imagePreviewUrl = URL.createObjectURL(file);
@@ -264,14 +286,17 @@
       toast.error('Describe the model you want to generate.');
       return;
     }
+
     isGenerating = true;
+    modalOpen = true;
+    synthesisProgress = 0;
+    synthesisError = null;
     currentStep = 0;
     activeTool = 'yamanaka.langgraph.init';
     activeNarrative = 'Initializing LangGraph 3D workflow and staging directory...';
-    blenderSteps = [];
-    llmProgress = null;
-    livePngUrl = null;
     turnaroundRequested = TURNAROUND_PROMPT_PATTERN.test(prompt);
+
+    startProgressCreep();
 
     if (eventSource) {
       eventSource.close();
@@ -291,19 +316,28 @@
           model: selectedModel || null,
           target_polycount: Number(targetPolycount),
           texture_resolution: Number(textureResolution),
+          output_size: outputSize,
           enable_pbr: enablePbr,
           image_path: sourceMode === 'image_to_3d' ? imagePath : undefined
         })
       });
 
+      if (res.output_size) {
+        outputSize = { ...outputSize, ...res.output_size };
+      }
+      if (res.output_size_warning !== undefined) {
+        outputSizeWarning = res.output_size_warning;
+      }
+
       currentJobId = res.job_id;
       pendingLiveGlbUrl = res.live_glb_url;
-      livePngUrl = res.live_png_url || null;
       currentGlbUrl = null;
 
       connectJobStream(res.stream_url);
     } catch (err) {
       isGenerating = false;
+      stopProgressCreep();
+      synthesisError = err.message || String(err);
       toast.error('Failed to start generation: ' + (err.message || err));
     }
   }
@@ -315,49 +349,63 @@
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
+        if (!payload || !payload.event) return;
+
+        if (payload.resolved_archetype || payload.archetype) {
+          resolvedArchetype = payload.resolved_archetype || payload.archetype;
+        }
+        if (payload.archetype_mode || payload.mode) {
+          archetypeMode = payload.archetype_mode || payload.mode;
+        }
+
         if (payload.event === 'base_mesh_ready') {
           currentStep = Math.max(1, currentStep);
-          activeNarrative = 'Base mesh exported — stream generated GLB into WebGL viewport...';
+          activeNarrative = 'Base mesh exported — staging generated GLB...';
+          synthesisProgress = Math.max(synthesisProgress, STAGE_WEIGHTS.base_mesh_ready);
           if (pendingLiveGlbUrl) {
             currentGlbUrl = pendingLiveGlbUrl;
           }
           liveKey = Date.now();
         } else if (payload.event === 'llm_synthesis_attempt') {
           activeNarrative = `Synthesizing with ${payload.model} (attempt ${payload.attempt}/${payload.total_targets})...`;
+          synthesisProgress = Math.max(synthesisProgress, STAGE_WEIGHTS.llm_synthesis_attempt);
         } else if (payload.event === 'llm_synthesis_progress') {
-          llmProgress = payload;
           activeNarrative = `LLM ${payload.model || ''} streaming scene specification (${payload.contentLength || 0} chars)...`;
         } else if (payload.event === 'llm_synthesis_complete') {
-          llmProgress = { ...(llmProgress || {}), model: payload.model, nodes: payload.nodes, tokens: payload.tokens };
           activeNarrative = `LLM synthesized ${payload.nodes || 0} scene nodes with ${payload.model || 'configured model'}.`;
+          synthesisProgress = Math.max(synthesisProgress, STAGE_WEIGHTS.llm_synthesis_complete);
         } else if (payload.event === 'blender_agent_action') {
-          currentStep = payload.step_number;
-          activeTool = payload.tool_used;
+          currentStep = payload.step_number || 1;
+          activeTool = payload.tool_used || '';
           activeNarrative = `${payload.step_name || payload.tool_used} finished in ${payload.elapsed_ms || 0} ms`;
-          blenderSteps = [...blenderSteps.filter((st) => st.step_number !== payload.step_number), payload]
-            .sort((a, b) => a.step_number - b.step_number);
+          const stepWeight = Math.min(94, 40 + 10 * currentStep);
+          synthesisProgress = Math.max(synthesisProgress, stepWeight);
           if (!currentGlbUrl && pendingLiveGlbUrl) {
             currentGlbUrl = pendingLiveGlbUrl;
           }
-          if (livePngUrl) {
-            livePngUrl = `${livePngUrl.split('?')[0]}?_t=${Date.now()}`;
-          }
           liveKey = Date.now();
+        } else if (payload.event === 'inspect') {
+          activeNarrative = 'Inspecting mesh geometry and silhouette coverage...';
+          synthesisProgress = Math.max(synthesisProgress, STAGE_WEIGHTS.inspect);
         } else if (payload.event === 'job_completed') {
+          stopProgressCreep();
+          synthesisProgress = 100;
+          isGenerating = false;
           currentAssetId = payload.asset_id;
           currentGlbUrl = `/api/v1/3d/assets/${payload.asset_id}/download/glb`;
           pendingLiveGlbUrl = null;
           liveKey = Date.now();
-          isGenerating = false;
           if (eventSource) {
             eventSource.close();
             eventSource = null;
           }
           toast.success('3D Model synthesized and promoted successfully!');
           loadTelemetry(telemetryPeriod);
-          loadRecentAssets();
+          loadRecentAssets(1, false);
         } else if (payload.event === 'job_failed') {
+          stopProgressCreep();
           isGenerating = false;
+          synthesisError = payload.error || 'Generation halted by workflow.';
           if (eventSource) {
             eventSource.close();
             eventSource = null;
@@ -368,16 +416,16 @@
     };
 
     eventSource.onerror = () => {
-      // Reconnect handled automatically by EventSource
+      // EventSource reconnects automatically
     };
   }
 
   onMount(() => {
     loadTelemetry('today');
     loadModels();
-    loadRecentAssets();
-    loadGeneratorStatus();
+    loadRecentAssets(1, false);
     return () => {
+      stopProgressCreep();
       if (eventSource) eventSource.close();
     };
   });
@@ -393,152 +441,94 @@
     onSelectPeriod={loadTelemetry}
   />
 
-  <!-- 2. Agentic Blender Editing Pipeline Graph (full width, directly under Token Card) -->
-  <BlenderPipelineGraph
-    steps={AGENTIC_STEPS}
-    {currentStep}
-    {activeTool}
-    {activeNarrative}
-    timings={blenderSteps}
-    isRunning={isGenerating}
+  <!-- 2. Generative Parameters (full width) -->
+  <GenerateParamsCard
+    {modelsCatalog}
+    bind:selectedModel
+    bind:prompt
+    bind:sourceMode
+    {imagePath}
+    {imagePreviewUrl}
+    {imageFileName}
+    {isUploadingImage}
+    bind:targetPolycount
+    bind:textureResolution
+    bind:outputSize
+    {outputSizeWarning}
+    {resolvedArchetype}
+    {archetypeMode}
+    bind:enablePbr
+    bind:archetype
+    bind:profile
+    bind:qualityPreset
+    {qualityLevels}
+    {archetypes}
+    {profiles}
+    bind:requestedComputeMode
+    {computeModes}
+    {isGenerating}
+    onUploadImage={handleImageUpload}
+    onClearImage={clearImage}
+    onGenerate={startGeneration}
   />
 
-  <!-- 3. Generative Parameters (left, lg:col-span-5) + Recent 3D Assets (right, lg:col-span-7) -->
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <div class="lg:col-span-5">
-      <GenerateParamsCard
-        {modelsCatalog}
-        bind:selectedModel
-        bind:prompt
-        bind:sourceMode
-        {imagePath}
-        {imagePreviewUrl}
-        {imageFileName}
-        {isUploadingImage}
-        bind:targetPolycount
-        bind:textureResolution
-        bind:enablePbr
-        bind:archetype
-        bind:profile
-        bind:qualityPreset
-        {qualityLevels}
-        {archetypes}
-        {profiles}
-        bind:requestedComputeMode
-        {computeModes}
-        {isGenerating}
-        onUploadImage={handleImageUpload}
-        onClearImage={clearImage}
-        onGenerate={startGeneration}
-      />
-    </div>
-    <div class="lg:col-span-7">
-      <RecentAssetsCard
-        assets={recentAssets}
-        total={assetsTotal}
-        page={assetsPage}
-        pageSize={ASSET_PAGE_SIZE}
-        loading={loadingAssets}
-        onPageChange={loadRecentAssets}
-        currentAssetId={currentAssetId}
-        onSelect={selectAsset}
-      />
-    </div>
-  </div>
-
-  <!-- Interactive Viewport + Downloads (full width, bottom, height 640px) -->
-  <!-- Three.js Viewport -->
-  <div class="glass-card-3d p-4 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);">
-    <ThreeViewport
-      glbUrl={currentGlbUrl}
-      liveKey={liveKey}
-      height="640px"
-      triangleCount={triangleCount}
-      vertexCount={vertexCount}
-      isWatertight={isWatertight}
-      turnaroundMode={turnaroundRequested}
-    />
-
-    <!-- Live Blender 5.x Agentic Render Stream -->
-    {#if livePngUrl || blenderRuntime}
-      <div class="mt-4 p-3 rounded-[5px] border" style="border-color: var(--color-border); background-color: var(--color-surface);">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <h4 class="text-[11px] font-bold uppercase tracking-wider text-accent-themed">
-            Live Blender Agentic Render Stream
-          </h4>
-          <div class="flex items-center gap-2 text-[10px] font-mono text-muted-themed">
-            {#if blenderRuntime?.blender}
-              <span>Blender {blenderRuntime.blender.version || 'unknown'}</span>
-            {/if}
-            {#if blenderRuntime?.dcc}
-              <span>· dcc-mcp-blender {blenderRuntime.dcc.version || 'not installed'}</span>
-            {/if}
-          </div>
-        </div>
-        {#if livePngUrl}
-          <a href={livePngUrl} target="_blank" rel="noreferrer" class="block">
-            <img
-              src={livePngUrl}
-              alt="Blender live render"
-              class="w-full rounded-[4px] border object-contain bg-surface-muted"
-              style="border-color: var(--color-border); max-height: 360px;"
-            />
-          </a>
-          <p class="mt-1 text-[10px] text-muted-themed">Rendered by Blender at each refinement step. Click to open the full-resolution frame.</p>
-        {:else}
-          <p class="text-[11px] text-muted-themed">The live Blender render appears here the moment the first refinement step finishes.</p>
-        {/if}
-        {#if llmProgress}
-          <p class="mt-2 text-[10px] font-mono text-accent-themed">
-            LLM {llmProgress.model || 'configured model'} · {llmProgress.nodes || llmProgress.contentLength || 0} {llmProgress.nodes ? 'nodes' : 'chars'}
-            {#if llmProgress.tokens}· {llmProgress.tokens.total_tokens} tokens{/if}
-          </p>
-        {/if}
-      </div>
-    {/if}
-
-    <!-- Production Asset Downloads Bar -->
-    {#if currentAssetId}
-      <div class="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-3" style="border-color: var(--color-border);">
-        <span class="text-xs font-bold" style="color: var(--color-text);">Export Formats:</span>
-        <div class="flex items-center gap-2">
-          <a
-            href="/api/v1/3d/assets/{currentAssetId}/download/glb"
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold btn-primary-themed transition-all"
-          >
-            Download GLB
-          </a>
-          <a
-            href="/api/v1/3d/assets/{currentAssetId}/download/usdz"
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            USDZ
-          </a>
-          <a
-            href="/api/v1/3d/assets/{currentAssetId}/download/obj"
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            OBJ
-          </a>
-          <a
-            href="/api/v1/3d/assets/{currentAssetId}/download/stl"
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            STL
-          </a>
-          <a
-            href="/api/v1/3d/assets/{currentAssetId}/download/ply"
-            class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
-            style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
-          >
-            PLY
-          </a>
+  <!-- Summary Strip: View 3D Model / Open Synthesis -->
+  {#if currentAssetId || isGenerating}
+    <div
+      class="glass-card-3d p-4 rounded-[5px] border flex flex-wrap items-center justify-between gap-3"
+      style="background-color: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+    >
+      <div class="flex items-center gap-3">
+        <div class="w-2.5 h-2.5 rounded-full {isGenerating ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}"></div>
+        <div>
+          <span class="text-xs font-bold block" style="color: var(--color-text);">
+            {isGenerating ? 'Synthesis in progress...' : 'Active 3D Asset'}
+          </span>
+          {#if currentAssetId && !isGenerating}
+            <span class="text-[10px] font-mono text-muted-themed">
+              ID: {currentAssetId}
+            </span>
+          {/if}
         </div>
       </div>
-    {/if}
-  </div>
+      <button
+        type="button"
+        onclick={() => { modalOpen = true; }}
+        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border"
+        style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+      >
+        <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <span>View 3D Model</span>
+      </button>
+    </div>
+  {/if}
 
+  <!-- 3. Recent 3D Assets (full width at the bottom, infinite scroll) -->
+  <RecentAssetsCard
+    assets={recentAssets}
+    total={assetsTotal}
+    loading={loadingAssets}
+    hasMore={hasMoreAssets}
+    onLoadMore={handleLoadMoreAssets}
+    currentAssetId={currentAssetId}
+    onSelect={selectAsset}
+  />
 </div>
+
+<!-- Click-to-Open Modal for 3D Synthesis Progress & Lazy Viewport -->
+<SynthesisModal
+  open={modalOpen}
+  {isGenerating}
+  progress={synthesisProgress}
+  statusText={activeNarrative}
+  assetId={currentAssetId}
+  glbUrl={currentGlbUrl}
+  glbKey={liveKey}
+  stats={{ triangleCount, vertexCount, isWatertight }}
+  error={synthesisError}
+  onClose={() => { modalOpen = false; }}
+  onRetry={startGeneration}
+/>

@@ -11,6 +11,7 @@ const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
 const { getSessionKey, getAndIncrementSessionTurn } = require('./client_detection');
 const { fuzzyResolveSkill, logToolCall } = require('./skills');
 const { getResolvedTaskDir } = require('./workflow');
+const { buildSpawnDirective } = require('./lazy_subagent');
 
 function getMainModel() {
   try {
@@ -377,7 +378,7 @@ function _formatProjectContext(dbAgentName, instructions, resolvedProjPath, reso
 }
 
 function _assembleSystemPrompt(data) {
-  const { dbAgentName, title, purpose, agentConstraints, personaInstructions, projectContextBlock, soulBehaviorBlock, tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash, agentName } = data;
+  const { dbAgentName, title, purpose, agentConstraints, personaInstructions, projectContextBlock, soulBehaviorBlock, tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash, agentName, client, resolvedProjPath, instructions } = data;
   const staticHeader = (
     '[Konoha Token Preservation: Active - High-Efficiency Context]\n\n' +
     'IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, ' +
@@ -408,10 +409,20 @@ function _assembleSystemPrompt(data) {
     skillsSection = flowSkillsHeader || `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
   }
 
-  const mcpBlock = buildSubagentMcpBlock(getActiveClient(), agentName);
+  const effectiveClient = client || getActiveClient();
+  const mcpBlock = buildSubagentMcpBlock(effectiveClient, agentName);
+  const spawnDirective = buildSpawnDirective({
+    client: effectiveClient,
+    agent: dbAgentName,
+    skills: skillsList,
+    projectPath: resolvedProjPath,
+    prompt: instructions
+  });
+  const spawnDirectiveBytes = spawnDirective ? Buffer.byteLength(spawnDirective, 'utf8') + 1 : 0;
   const buildBody = ({ personaChars, taste, doc, compactContext = false }) => {
     let body = prefix;
-    if (personaChars > 0) body += `${instructionsPrefix}${truncateAtBoundary(personaInstructions, personaChars)}\n`;
+    const personaBody = personaChars > 0 ? truncateAtBoundary(personaInstructions, personaChars) : '';
+    body += `${instructionsPrefix}${personaBody || '(see TASK INSTRUCTIONS)'}\n`;
     body += constraintsBlock;
     if (projectContextBlock) {
       body += (compactContext ? truncateAtBoundary(projectContextBlock, 150) : projectContextBlock) + '\n';
@@ -419,13 +430,16 @@ function _assembleSystemPrompt(data) {
     if (soulBehaviorBlock) body += soulBehaviorBlock + '\n';
     if (taste && tasteSkillBlock) body += tasteSkillBlock + '\n';
     if (doc && docDesignBlock) body += docDesignBlock + '\n';
-    return body + mcpBlock + '\n';
+    body += mcpBlock + '\n';
+    if (spawnDirective) body += spawnDirective + '\n';
+    return body;
   };
   // Disciplines and a skill preview are non-negotiable, so the body uses the
   // richest variant that still leaves room for both. Persona prose is trimmed
   // first because the soul block already carries the archetype voice.
   const reserve = Buffer.byteLength(buildDisciplineContract(), 'utf8')
     + Buffer.byteLength(DIFF_FOOTER, 'utf8') + 2
+    + spawnDirectiveBytes
     + Math.min(Buffer.byteLength(skillsSection, 'utf8'), MIN_SKILL_PREVIEW_BYTES);
   const bodyLadder = [
     { personaChars: personaCap, taste: true, doc: true },
@@ -456,7 +470,7 @@ function _assembleSystemPrompt(data) {
 }
 
 function _parseTaskOptions(task, context, constraints, rest) {
-  let [skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null, flowHash = null, taskId = null] = rest;
+  let [skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null, flowHash = null, taskId = null, client = null] = rest;
   if (typeof task === 'object' && task !== null) {
     const opts = task;
     return {
@@ -469,10 +483,11 @@ function _parseTaskOptions(task, context, constraints, rest) {
       taskDir: opts.taskDir || opts.task_dir || taskDir,
       sessionId: opts.sessionId || opts.session_id || sessionId,
       flowHash: opts.flowHash || opts.flow_hash || flowHash,
-      taskId: opts.taskId || opts.task_id || taskId
+      taskId: opts.taskId || opts.task_id || taskId,
+      client: opts.client || client
     };
   }
-  return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId };
+  return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId, client };
 }
 
 function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
@@ -588,13 +603,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- KAGE 98% CONFIDENCE GATE: Delivery blocked if confidence < 98%.\n\n'
   );
   const executionProtocol = (
-    `You must now act as ${dbAgentName} and execute the task below.\n\n` +
+    `You are ${dbAgentName}. The payload below is the subagent contract the caller must hand to the spawned \`${dbAgentName}\` subagent; the caller must not execute it.\n\n` +
     '## Execution Protocol\n\n' +
     `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind references.\n` +
     '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
     `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
     (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
-    '4. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
+    '4. Execute the task directly as described in TASK INSTRUCTIONS below, inside the spawned subagent.\n' +
     '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
     '6. Run `rtk aislop scan --changes`; zero findings required.\n' +
     '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
@@ -613,6 +628,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     dbAgentName, title: meta.title, purpose: meta.purpose, agentConstraints: meta.agentConstraints,
     personaInstructions: meta.personaInstructions, projectContextBlock, soulBehaviorBlock,
     tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash: opts.flowHash, agentName,
+    client: opts.client || activeClient, resolvedProjPath, instructions,
     maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);

@@ -35,10 +35,9 @@ async function installClient(clientName, options = {}) {
       uvxCmd,
       agents,
       projectRoot,
-      deployProject: true,
+      deployProject: false,
       silent
     });
-    cursorManager.registerCursorProjectMcp(projectRoot, python, serverPath, uvxCmd, silent);
   }
 
   if (norm === 'all' || norm === 'claude' || norm === 'claude-code' || norm === 'claudecode') {
@@ -50,7 +49,7 @@ async function installClient(clientName, options = {}) {
       silent,
       agents,
       projectRoot,
-      deployProject: true
+      deployProject: false
     });
   }
 

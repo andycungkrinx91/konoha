@@ -9,6 +9,7 @@ const piManager = require('../../src/pi_manager');
 const ompManager = require('../../src/omp_manager');
 const antigravityManager = require('../../src/antigravity_manager');
 const agentManager = require('../../src/agent_manager');
+const deployUtils = require('../../src/deploy_utils');
 const { installAgentBrowser, getAgentBrowserCommand, getUvxCommand } = require('../lib/extension');
 const { checkPython } = require('../lib/runtime_lifecycle');
 const { SERVER_PATH } = require('../lib/paths');
@@ -182,6 +183,13 @@ function checkOmpClient(context) {
       context.record('OMP (~/.omp/agent/mcp.json)', 'HEALTHY', 'Konoha MCP server registered');
       return;
     }
+    ompManager.ensureOmpSetup({ silent: true });
+    const repaired = ompManager.getOmpStatus();
+    if (repaired.mcpKonoha) {
+      context.record('OMP (~/.omp/agent/mcp.json)', 'REPAIRED', 'Registered Konoha MCP servers and global contract');
+      context.incrementRepairs();
+      return;
+    }
     context.record('OMP (~/.omp/agent/mcp.json)', 'WARNING', 'Partial OMP setup — run konoha init');
   } catch (e) {
     context.record('OMP (~/.omp/agent/mcp.json)', 'FAILED', `Error: ${e.message}`);
@@ -271,6 +279,9 @@ function checkAgentBrowserClient(context) {
 }
 
 function checkAndRepairClientConfigs(clientOptions, context) {
+  try {
+    deployUtils.ensureGlobalGitExcludes();
+  } catch (_) { /* best-effort global git excludes */ }
   checkCursorClient(clientOptions, context);
   checkClaudeCodeClient(context);
   checkOpenCodeClient(clientOptions, context);

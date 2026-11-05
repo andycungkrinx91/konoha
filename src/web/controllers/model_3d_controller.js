@@ -17,9 +17,6 @@ const {
   get3DTokenTelemetry
 } = require('../../mcp/three_asset/db_3d_schema');
 const {
-  resolveSafeAssetDownloadPath
-} = require('../../mcp/three_asset/storage_manager');
-const {
   COMPUTE_MODES,
   detectComputeHardware,
   resolveStageCompute
@@ -48,7 +45,6 @@ const {
   runYamanaka3DGraph
 } = require('../../workflow/yamanaka/graph');
 
-// In-memory active job SSE emitter registry
 const activeJobEmitters = new Map();
 
 function _registerJobClient(jobId, res) {
@@ -124,6 +120,7 @@ async function _handleInstallTools(req, res) {
 async function _handleGetModels(res) {
   try {
     const modelsCatalog = await discoverAll3DModels();
+    const gpuTelemetry = getGpuTelemetry();
     return sendJson(res, 200, {
       success: true,
       client_default_model: modelsCatalog.client_default_model || modelsCatalog.models[0]?.id || null,
@@ -135,6 +132,12 @@ async function _handleGetModels(res) {
         quality_levels: listQualityLevels(),
         compute_modes: [...COMPUTE_MODES]
       },
+      output_size_presets: {
+        orientations: [...ORIENTATIONS],
+        aspects: Object.keys(ASPECT_PRESETS),
+        long_edges: [...LONG_EDGE_PRESETS]
+      },
+      gpu_vram_total_bytes: gpuTelemetry?.vram_total_bytes || null,
       ...modelsCatalog
     });
   } catch (err) {
@@ -143,26 +146,26 @@ async function _handleGetModels(res) {
 }
 
 const { getOutputRoot } = require('../../mcp/three_asset/storage_manager');
+const { getGpuTelemetry } = require('../../gpu_telemetry');
+const {
+  ORIENTATIONS,
+  ASPECT_PRESETS,
+  LONG_EDGE_PRESETS,
+  resolveOutputSize,
+  clampOutputSizeForVram,
+  withWarningSuffix
+} = require('../../mcp/three_asset/output_size');
+const { parsePngPixels } = require('../../mcp/three_asset/image_relief');
+const { decodeRasterToPixels } = require('../../mcp/three_asset/raster_decoder');
 const { parseBody: parseJsonBody, sendJson: sendJsonResponse } = require('./common');
-
-const IMAGE_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
-const IMAGE_MAGIC = [
-  { ext: 'png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
-  { ext: 'jpg', bytes: [0xff, 0xd8, 0xff] },
-  { ext: 'webp', bytes: [0x52, 0x49, 0x46, 0x46], tail: [0x57, 0x45, 0x42, 0x50], tailOffset: 8 }
-];
-
-function _sniffImage(buf) {
-  for (const spec of IMAGE_MAGIC) {
-    if (!spec.bytes.every((b, i) => buf[i] === b)) continue;
-    if (spec.tail) {
-      const okTail = spec.tail.every((b, i) => buf[spec.tailOffset + i] === b);
-      if (!okTail) continue;
-    }
-    return spec.ext;
-  }
-  return null;
-}
+const {
+  IMAGE_UPLOAD_MAX_BYTES,
+  normalizeOutputSizeInput,
+  downsampleRgba,
+  encodeRgbaPng,
+  sniffImage
+} = require('./model3d_image_intake');
+const { handleDownloadAssetFile, handleLiveStagingGlb, handleLiveStagingPng } = require('./model3d_assets');
 
 function _inputsDir() {
   const dir = path.join(getOutputRoot(), 'inputs');
@@ -175,11 +178,45 @@ function _inputsDir() {
  * by magic bytes rather than the declared MIME type, stored under the 3D output
  * inputs directory, and the returned path is what /generate expects.
  */
+async function _resizeNonPngBuffer(buf, ext, maxTargetEdge) {
+  const tempPath = path.join(_inputsDir(), `temp_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`);
+  try {
+    fs.writeFileSync(tempPath, buf);
+    const decoded = await decodeRasterToPixels(tempPath);
+    if (decoded && (decoded.width > maxTargetEdge || decoded.height > maxTargetEdge)) {
+      const down = downsampleRgba(decoded.rgba, decoded.width, decoded.height, maxTargetEdge);
+      return { finalBuf: encodeRgbaPng(down.width, down.height, down.rgba), finalExt: 'png' };
+    }
+  } finally {
+    if (fs.existsSync(tempPath)) {
+      try { fs.unlinkSync(tempPath); } catch (_) { /* best-effort temp cleanup */ }
+    }
+  }
+  return { finalBuf: buf, finalExt: ext };
+}
+
+async function _resizeUploadedImageBuffer(buf, ext, maxTargetEdge) {
+  if (!maxTargetEdge || maxTargetEdge <= 0) return { finalBuf: buf, finalExt: ext };
+  try {
+    if (ext === 'png') {
+      const png = parsePngPixels(buf);
+      if (png && (png.width > maxTargetEdge || png.height > maxTargetEdge)) {
+        const down = downsampleRgba(png.data, png.width, png.height, maxTargetEdge);
+        return { finalBuf: encodeRgbaPng(down.width, down.height, down.rgba), finalExt: ext };
+      }
+      return { finalBuf: buf, finalExt: ext };
+    }
+    return await _resizeNonPngBuffer(buf, ext, maxTargetEdge);
+  } catch (_) {
+    return { finalBuf: buf, finalExt: ext };
+  }
+}
+
 async function _handleUploadImage(req, res) {
   try {
     const body = await parseJsonBody(req, res);
     if (!body) return false;
-    const { data_base64: dataBase64, filename } = body;
+    const { data_base64: dataBase64, filename, output_size: rawOutputSize } = body;
     if (!dataBase64 || typeof dataBase64 !== 'string') {
       return sendJsonResponse(res, 400, { success: false, error: 'data_base64 is required' });
     }
@@ -200,30 +237,106 @@ async function _handleUploadImage(req, res) {
         size_bytes: buf.length
       });
     }
-    const ext = _sniffImage(buf);
+    const ext = sniffImage(buf);
     if (!ext) {
       return sendJsonResponse(res, 415, {
         success: false,
         error: 'unsupported image format: expected PNG, JPEG, or WebP'
       });
     }
+
+    const resolvedSize = resolveOutputSize(normalizeOutputSizeInput(rawOutputSize));
+    const maxTargetEdge = Math.max(resolvedSize.width, resolvedSize.height);
+    const { finalBuf, finalExt } = await _resizeUploadedImageBuffer(buf, ext, maxTargetEdge);
+
     const safeStem = String(filename || 'reference')
       .replace(/\.[^.]*$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 48) || 'reference';
-    const storedName = `${safeStem}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}.${ext}`;
+    const storedName = `${safeStem}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}.${finalExt}`;
     const destPath = path.join(_inputsDir(), storedName);
-    fs.writeFileSync(destPath, buf);
+    fs.writeFileSync(destPath, finalBuf);
     return sendJsonResponse(res, 200, {
       success: true,
       image_path: destPath,
-      format: ext,
-      size_bytes: buf.length,
+      format: finalExt,
+      size_bytes: finalBuf.length,
       filename: storedName
     });
   } catch (err) {
     return sendJsonResponse(res, 500, { success: false, error: err.message });
   }
+}
+
+function _validateUploadedImagePath(imagePath) {
+  if (!imagePath) return null;
+  const inputsRoot = path.resolve(_inputsDir());
+  const resolved = path.resolve(String(imagePath));
+  const withinInputs = resolved === inputsRoot || resolved.startsWith(inputsRoot + path.sep);
+  if (!withinInputs) {
+    return 'image_path must reference a file previously uploaded via /api/v1/3d/upload-image';
+  }
+  if (!fs.existsSync(resolved)) {
+    return 'image_path does not exist on disk';
+  }
+  return null;
+}
+
+function _dispatchAsyncGenerationJob(jobId, ctx) {
+  const { nonce, prompt, body, levelOptions, clampedOutputSize, gpuVramTotalBytes } = ctx;
+  setImmediate(async () => {
+    try {
+      _broadcastJobEvent(jobId, {
+        event: 'stage_started',
+        job_id: jobId,
+        stage: 'synthesizing_spec',
+        timestamp: new Date().toISOString()
+      });
+
+      const graphResult = await runYamanaka3DGraph(
+        {
+          job_id: jobId,
+          nonce,
+          prompt,
+          negative_prompt: body.negative_prompt,
+          image_path: body.image_path,
+          archetype: body.archetype || 'game-prop',
+          profile: body.profile || 'enterprise_pbr',
+          quality_preset: levelOptions.quality_preset,
+          requested_compute_mode: body.requested_compute_mode || 'auto',
+          target_polycount: levelOptions.target_polycount,
+          texture_resolution: body.texture_resolution,
+          output_size: clampedOutputSize,
+          gpu_vram_total_bytes: gpuVramTotalBytes,
+          enable_pbr: body.enable_pbr !== false,
+          model: body.model || null,
+          dsl: body.dsl || null
+        },
+        {
+          configurable: {
+            onAction: (action) => _broadcastJobEvent(jobId, action)
+          }
+        }
+      );
+
+      _broadcastJobEvent(jobId, {
+        event: 'job_completed',
+        job_id: jobId,
+        asset_id: graphResult.asset_id,
+        status: graphResult.status,
+        output_path: graphResult.output_path,
+        tokens: graphResult.tokens,
+        timestamp: new Date().toISOString()
+      });
+    } catch (genErr) {
+      _broadcastJobEvent(jobId, {
+        event: 'job_failed',
+        job_id: jobId,
+        error: genErr.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
 }
 
 async function _handleGenerate(req, res) {
@@ -239,27 +352,23 @@ async function _handleGenerate(req, res) {
       });
     }
 
-    if (body.image_path) {
-      const inputsRoot = path.resolve(_inputsDir());
-      const resolved = path.resolve(String(body.image_path));
-      const withinInputs = resolved === inputsRoot || resolved.startsWith(inputsRoot + path.sep);
-      if (!withinInputs) {
-        return sendJson(res, 400, {
-          success: false,
-          error: 'image_path must reference a file previously uploaded via /api/v1/3d/upload-image'
-        });
-      }
-      if (!fs.existsSync(resolved)) {
-        return sendJson(res, 400, {
-          success: false,
-          error: 'image_path does not exist on disk'
-        });
-      }
+    const imagePathErr = _validateUploadedImagePath(body.image_path);
+    if (imagePathErr) {
+      return sendJson(res, 400, { success: false, error: imagePathErr });
     }
 
     const jobId = `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const nonce = crypto.randomBytes(8).toString('hex');
     const compute = resolveStageCompute(body.requested_compute_mode || 'auto');
+
+    const gpuTelemetry = getGpuTelemetry();
+    const gpuVramTotalBytes = gpuTelemetry?.vram_total_bytes || 0;
+    const rawOutputSize = resolveOutputSize(normalizeOutputSizeInput(body.output_size));
+    const clampedOutputSize = clampOutputSizeForVram(rawOutputSize, {
+      effectiveComputeMode: compute.effectiveMode,
+      vramTotalBytes: gpuVramTotalBytes
+    });
+    const outputSizeWarning = withWarningSuffix(clampedOutputSize);
 
     const quality = resolveQualityLevel(body.quality_preset);
     if (body.quality_preset !== undefined && body.quality_preset !== null && body.quality_preset !== '' && !quality.known) {
@@ -273,73 +382,27 @@ async function _handleGenerate(req, res) {
       target_polycount: body.target_polycount
     });
 
-    // Respond immediately with 202 Accepted and job ID
     sendJson(res, 202, {
       success: true,
       job_id: jobId,
       nonce,
       status: 'synthesizing_spec',
       effective_compute_mode: compute.effectiveMode,
+      output_size: clampedOutputSize,
+      output_size_warning: outputSizeWarning,
       stream_url: `/api/v1/3d/generate/${jobId}/stream`,
       live_glb_url: `/api/v1/3d/staging/${jobId}/live.glb`,
       live_png_url: `/api/v1/3d/staging/${jobId}/live.png`
     });
 
-    // Run LangGraph execution asynchronously
-    setImmediate(async () => {
-      try {
-        _broadcastJobEvent(jobId, {
-          event: 'stage_started',
-          job_id: jobId,
-          stage: 'synthesizing_spec',
-          timestamp: new Date().toISOString()
-        });
-
-        const graphResult = await runYamanaka3DGraph(
-          {
-            job_id: jobId,
-            nonce,
-            prompt,
-            negative_prompt: body.negative_prompt,
-            image_path: body.image_path,
-            archetype: body.archetype || 'game-prop',
-            profile: body.profile || 'enterprise_pbr',
-            quality_preset: levelOptions.quality_preset,
-            requested_compute_mode: body.requested_compute_mode || 'auto',
-            target_polycount: levelOptions.target_polycount,
-            texture_resolution: body.texture_resolution,
-            enable_pbr: body.enable_pbr !== false,
-            model: body.model || null,
-            dsl: body.dsl || null
-          },
-          {
-            configurable: {
-              onAction: (action) => {
-                _broadcastJobEvent(jobId, action);
-              }
-            }
-          }
-        );
-
-        _broadcastJobEvent(jobId, {
-          event: 'job_completed',
-          job_id: jobId,
-          asset_id: graphResult.asset_id,
-          status: graphResult.status,
-          output_path: graphResult.output_path,
-          tokens: graphResult.tokens,
-          timestamp: new Date().toISOString()
-        });
-      } catch (genErr) {
-        _broadcastJobEvent(jobId, {
-          event: 'job_failed',
-          job_id: jobId,
-          error: genErr.message,
-          timestamp: new Date().toISOString()
-        });
-      }
+    _dispatchAsyncGenerationJob(jobId, {
+      nonce,
+      prompt,
+      body,
+      levelOptions,
+      clampedOutputSize,
+      gpuVramTotalBytes
     });
-
     return true;
   } catch (err) {
     return sendJson(res, 500, { success: false, error: err.message });
@@ -409,7 +472,9 @@ function _handleListAssets(res, parsedUrl) {
       SELECT asset_id, job_id, display_name, source_mode, profile, quality_preset,
              domain_archetype, refinement_backend, effective_compute_mode,
              model_used, vertex_count, triangle_count, is_watertight_manifold,
-             pre_blender_score, input_tokens, output_tokens, total_tokens,
+             pre_blender_score, final_score, output_width, output_height,
+             output_aspect_ratio, output_orientation,
+             input_tokens, output_tokens, total_tokens,
              est_cost_usd, asset_status, created_at
       FROM assets
       ORDER BY created_at DESC
@@ -437,121 +502,6 @@ function _handleGetAsset(res, assetId) {
   }
 }
 
-function _handleDownloadAssetFile(res, assetId, format) {
-  try {
-    const conn = getConnection();
-    const roleMap = {
-      glb: 'primary_glb',
-      primary_glb: 'primary_glb',
-      preview: 'preview_png',
-      png: 'preview_png',
-      usdz: 'usdz',
-      obj: 'obj',
-      stl: 'stl',
-      ply: 'ply'
-    };
-
-    const targetRole = roleMap[format.toLowerCase()] || format;
-    const resolved = resolveSafeAssetDownloadPath(assetId, targetRole, conn);
-
-    if (!resolved || !fs.existsSync(resolved.absPath)) {
-      return sendJson(res, 404, { success: false, error: `File for format '${format}' not found on asset '${assetId}'` });
-    }
-
-    const filename = path.basename(resolved.absPath);
-    res.writeHead(200, {
-      'Content-Type': resolved.mimeType || 'application/octet-stream',
-      'Content-Length': resolved.byteSize || fs.statSync(resolved.absPath).size,
-      'Content-Disposition': `attachment; filename="${filename}"`
-    });
-
-    const stream = fs.createReadStream(resolved.absPath);
-    stream.pipe(res);
-    return true;
-  } catch (err) {
-    return sendJson(res, 500, { success: false, error: err.message });
-  }
-}
-
-const ACTIVE_JOB_STAGES = new Set([
-  'pending', 'synthesizing_spec', 'parsing_dsl', 'building_base_mesh',
-  'validating_base_mesh', 'refining_blender', 'validating_final_asset',
-  'generating_previews', 'promoting_asset', 'recovering'
-]);
-
-const LIVE_GLB_POLL_INTERVAL_MS = 150;
-const LIVE_GLB_POLL_TIMEOUT_MS = 15000;
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function awaitLiveStagingGlb(jobId, conn) {
-  const deadline = Date.now() + LIVE_GLB_POLL_TIMEOUT_MS;
-  for (;;) {
-    const resolved = resolveSafeAssetDownloadPath(jobId, 'live_staging_glb', conn);
-    if (resolved && fs.existsSync(resolved.absPath)) return resolved;
-    if (Date.now() >= deadline) return null;
-    let job = null;
-    try {
-      job = getJobById(conn, jobId);
-    } catch {
-      job = null;
-    }
-    if (!job) return null;
-    if (job.status === 'failed' || job.status === 'completed') {
-      const settled = resolveSafeAssetDownloadPath(jobId, 'live_staging_glb', conn);
-      return settled && fs.existsSync(settled.absPath) ? settled : null;
-    }
-    if (!ACTIVE_JOB_STAGES.has(job.status)) return null;
-    await delay(LIVE_GLB_POLL_INTERVAL_MS);
-  }
-}
-
-async function _handleLiveStagingGlb(res, jobId) {
-  try {
-    const conn = getConnection();
-    const resolved = await awaitLiveStagingGlb(jobId, conn);
-
-    if (!resolved) {
-      return sendJson(res, 404, { success: false, error: `Live staging GLB not ready for job '${jobId}'` });
-    }
-
-    res.writeHead(200, {
-      'Content-Type': 'model/gltf-binary',
-      'Content-Length': fs.statSync(resolved.absPath).size,
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache'
-    });
-
-    const stream = fs.createReadStream(resolved.absPath);
-    stream.pipe(res);
-    return true;
-  } catch (err) {
-    return sendJson(res, 500, { success: false, error: err.message });
-  }
-}
-
-async function _handleLiveStagingPng(res, jobId) {
-  try {
-    const conn = getConnection();
-    const resolved = resolveSafeAssetDownloadPath(jobId, 'live_staging_png', conn);
-    if (!resolved || !fs.existsSync(resolved.absPath)) {
-      return sendJson(res, 404, { success: false, error: `Live Blender render not ready for job '${jobId}'` });
-    }
-    res.writeHead(200, {
-      'Content-Type': 'image/png',
-      'Content-Length': fs.statSync(resolved.absPath).size,
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache'
-    });
-    fs.createReadStream(resolved.absPath).pipe(res);
-    return true;
-  } catch (err) {
-    return sendJson(res, 500, { success: false, error: err.message });
-  }
-}
-
 function _handleGetTelemetry(res, parsedUrl) {
   try {
     const conn = getConnection();
@@ -568,12 +518,12 @@ function _handleGetTelemetry(res, parsedUrl) {
   }
 }
 
-async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
+async function handleModel3DRoutes(req, res, _ctx, ...routeArgs) {
+  const [parsedUrl, pathname, method] = routeArgs;
   if (!pathname.startsWith('/api/v1/3d')) {
     return false;
   }
 
-  // Setup Status & Toolchain Installation
   if (pathname === '/api/v1/3d/setup/status' && method === 'GET') {
     return _handleGetSetupStatus(res);
   }
@@ -592,7 +542,6 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
     return sendJson(res, 200, { success: true, ...closeRes });
   }
 
-  // Generation & Streaming
   if (pathname === '/api/v1/3d/upload-image' && method === 'POST') {
     return await _handleUploadImage(req, res);
   }
@@ -604,19 +553,16 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
     return _handleJobStream(req, res, jobId);
   }
 
-  // Live Viewport Staging GLB Hot-Reload
   if (pathname.startsWith('/api/v1/3d/staging/') && pathname.endsWith('/live.glb') && method === 'GET') {
     const jobId = pathname.slice('/api/v1/3d/staging/'.length, -'/live.glb'.length);
-    return _handleLiveStagingGlb(res, jobId);
+    return handleLiveStagingGlb(res, jobId);
   }
 
-  // Live Blender Render Stream (real EEVEE preview written by Blender each step)
   if (pathname.startsWith('/api/v1/3d/staging/') && pathname.endsWith('/live.png') && method === 'GET') {
     const jobId = pathname.slice('/api/v1/3d/staging/'.length, -'/live.png'.length);
-    return _handleLiveStagingPng(res, jobId);
+    return handleLiveStagingPng(res, jobId);
   }
 
-  // Jobs Query
   if (pathname === '/api/v1/3d/jobs' && method === 'GET') {
     return _handleListJobs(res, parsedUrl);
   }
@@ -625,7 +571,6 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
     return _handleGetJob(res, jobId);
   }
 
-  // Assets Query & Downloads
   if (pathname === '/api/v1/3d/assets' && method === 'GET') {
     return _handleListAssets(res, parsedUrl);
   }
@@ -633,14 +578,13 @@ async function handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method) {
     const parts = pathname.slice('/api/v1/3d/assets/'.length).split('/download/');
     const assetId = decodeURIComponent(parts[0]);
     const format = decodeURIComponent(parts[1] || 'glb');
-    return _handleDownloadAssetFile(res, assetId, format);
+    return handleDownloadAssetFile(res, assetId, format);
   }
   if (pathname.startsWith('/api/v1/3d/assets/') && method === 'GET') {
     const assetId = decodeURIComponent(pathname.slice('/api/v1/3d/assets/'.length));
     return _handleGetAsset(res, assetId);
   }
 
-  // Token & Cost Telemetry
   if (pathname === '/api/v1/3d/telemetry' && method === 'GET') {
     return _handleGetTelemetry(res, parsedUrl);
   }

@@ -18,6 +18,7 @@ const VERSION_CACHE_TTL_MS = 5 * 60 * 1000;
 const DCC_STATUS_TTL_MS = 30 * 1000;
 
 const cache = {
+  blenderStatus: { at: 0, binPath: null, value: null },
   blenderVersion: { at: 0, value: null },
   dccStatus: { at: 0, value: null },
   dccLatest: { at: 0, value: null }
@@ -47,7 +48,7 @@ function isExecutableFile(p) {
     if (!stat.isFile()) return false;
     if (process.platform !== 'win32') fs.accessSync(p, fs.constants.X_OK);
     return true;
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -55,7 +56,7 @@ function isExecutableFile(p) {
 function listDirSafe(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true });
-  } catch (_) {
+  } catch {
     return [];
   }
 }
@@ -134,7 +135,7 @@ function readBlenderVersion(binPath) {
     const res = spawnSync(binPath, ['--version'], { encoding: 'utf8', timeout: 15000 });
     if (res.status !== 0) return null;
     return parseBlenderVersionBanner(res.stdout || res.stderr || '');
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -169,7 +170,7 @@ function readNodePackageVersion(pkgName) {
   return null;
 }
 
-function getBlenderStatus() {
+function getBlenderStatus(options = {}) {
   const binPath = findInstalledBlenderBinary();
   if (!binPath) {
     return {
@@ -180,6 +181,15 @@ function getBlenderStatus() {
       path: null,
       error: 'No Blender binary found (checked KONOHA_BLENDER_BIN, toolchains, system install paths and PATH)'
     };
+  }
+  const fresh = options.forceRefresh === true;
+  if (
+    !fresh
+    && cache.blenderStatus.value
+    && cache.blenderStatus.binPath === binPath
+    && Date.now() - cache.blenderStatus.at < DCC_STATUS_TTL_MS
+  ) {
+    return cache.blenderStatus.value;
   }
   const parsed = readBlenderVersion(binPath);
   if (!parsed) {
@@ -192,7 +202,7 @@ function getBlenderStatus() {
       error: 'Blender binary did not report a usable version banner'
     };
   }
-  return {
+  const status = {
     installed: true,
     ready_state: 'Ready',
     version: parsed.version,
@@ -200,6 +210,8 @@ function getBlenderStatus() {
     path: binPath,
     error: null
   };
+  cache.blenderStatus = { at: Date.now(), binPath, value: status };
+  return status;
 }
 
 const DCC_PROBE_EXPR = [
@@ -273,7 +285,7 @@ async function probeManifoldWasm() {
     const { getManifoldWasm } = require('./scene_builder');
     const wasm = await getManifoldWasm();
     return Boolean(wasm && typeof wasm.Manifold === 'function');
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -393,7 +405,7 @@ function pickArchiveForPlatform(release, env) {
 }
 
 async function installBlender(options = {}) {
-  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => { /* progress reporting is optional */ };
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => null;
   const env = detectSystemEnvironment();
   onProgress({ percent: 10, stage: 'Detecting Environment', detail: `Detected ${env.osName} (${env.arch})` });
 
@@ -436,7 +448,7 @@ async function installBlender(options = {}) {
   const tar = spawnSync('tar', [flag, archivePath, '-C', extractDir], { encoding: 'utf8', timeout: 600000 });
   if (tar.status !== 0) throw new Error(`Extraction failed: ${(tar.stderr || '').slice(0, 300)}`);
 
-  const installed = getBlenderStatus();
+  const installed = getBlenderStatus({ forceRefresh: true });
   onProgress({ percent: 100, stage: 'Ready', detail: `Blender ${installed.version || installVersion(release)} installed` });
   return { success: installed.installed, version: installed.version, path: installed.path, reused: false };
 }
@@ -468,10 +480,17 @@ const USERMODULE_INSTALL_EXPR = [
 ].join('\n');
 
 async function installDccMcpBlender(options = {}) {
-  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => { /* progress reporting is optional */ };
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => null;
   const blender = getBlenderStatus();
   if (!blender.installed || !blender.path) {
     return { success: false, error: 'Blender must be installed first', version: null };
+  }
+
+  const existing = getDccMcpStatus();
+  if (existing.installed && !options.forceReinstall) {
+    onProgress({ percent: 50, stage: 'Verifying Import', detail: `Existing dcc-mcp-blender ${existing.version} detected` });
+    onProgress({ percent: 100, stage: 'Ready', detail: `dcc-mcp-blender ${existing.version} verified` });
+    return { success: true, version: existing.version, reused: true, error: null };
   }
 
   onProgress({ percent: 15, stage: 'Resolving Version', detail: 'Reading latest release from PyPI' });

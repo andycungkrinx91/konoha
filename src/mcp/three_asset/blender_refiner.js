@@ -108,26 +108,54 @@ function collectMaterialSpecs(spec) {
   return out;
 }
 
+function buildInspectionConfig(options) {
+  const spec = options.spec || {};
+  const requested = options.inspection || {};
+  const outputSize = options.outputSize
+    || (spec && spec.output_size)
+    || { width: 1024, height: 576 };
+  const views = Array.isArray(requested.views) && requested.views.length
+    ? requested.views
+    : ['front', 'side', 'top', 'three_quarter'];
+  return {
+    enabled: requested.enabled !== false,
+    views,
+    only_views: Array.isArray(requested.only_views) ? requested.only_views : [],
+    output_size: { width: outputSize.width, height: outputSize.height }
+  };
+}
+
 function buildWorkerConfig(options) {
   const spec = options.spec || {};
   const prompt = options.prompt || '';
   const compute = resolveStageCompute(options.requestedComputeMode || 'auto');
   const turnaround = (spec && spec.turnaround) || {};
   const intermediateDir = options.intermediateDir;
+  const organic = isOrganicRequest(spec, prompt);
+  const inspection = buildInspectionConfig(options);
   return {
     base_glb_path: options.baseGlbPath,
     live_glb_path: path.join(intermediateDir, 'live_step.glb'),
     live_preview_path: path.join(intermediateDir, 'live_preview.png'),
     final_glb_path: path.join(options.stagingDir, 'model.glb'),
     preview_png_path: path.join(options.stagingDir, 'preview.png'),
-    organic: isOrganicRequest(spec, prompt),
+    inspection_grid_path: path.join(options.stagingDir, 'inspection_grid.png'),
+    organic,
     prompt,
     palette: (spec && spec.palette) || null,
     materials: collectMaterialSpecs(spec),
     turnaround,
     flat_studio_lighting: Boolean(turnaround.flatStudioLighting),
     gpu_backend: compute.backend,
-    compute_mode: compute.effectiveMode
+    compute_mode: compute.effectiveMode,
+    requested_compute_mode: compute.requestedMode,
+    output_size: inspection.output_size,
+    inspection,
+    patches: Array.isArray(options.patches) ? options.patches : [],
+    cycles_samples: options.cyclesSamples || 64,
+    mirror_x: Boolean(options.mirrorX ?? (spec && spec.symmetry && spec.symmetry.mirror_x)),
+    metaballs: organic && Boolean(options.metaballs ?? (spec && spec.organic && spec.organic.metaballs)),
+    enable_pbr: options.enablePbr !== false
   };
 }
 
@@ -184,7 +212,6 @@ async function ensureLiveBlenderSession(options = {}) {
 
   const queue = liveQueueDir();
   fs.mkdirSync(queue, { recursive: true });
-  const { spawn } = require('child_process');
   const proc = spawn(blenderBin, ['--python', WORKER_SCRIPT, '--', '--server', queue], {
     detached: true,
     stdio: 'ignore',
@@ -258,7 +285,7 @@ async function executeLiveAgenticBlenderSession(options) {
     profile = 'enterprise_pbr',
     prompt = '',
     requestedComputeMode = 'auto',
-    onAction = () => { /* caller did not request action logging */ }
+    onAction = () => null
   } = options;
 
   const circuit = globalCircuitRegistry.getOrCreate('yamanaka-dcc-mcp-blender', 3, 60);
@@ -281,7 +308,21 @@ async function executeLiveAgenticBlenderSession(options) {
   fs.mkdirSync(intermediateDir, { recursive: true });
   fs.mkdirSync(stagingDir, { recursive: true });
 
-  const config = buildWorkerConfig({ baseGlbPath, intermediateDir, stagingDir, spec, prompt, requestedComputeMode });
+  const config = buildWorkerConfig({
+    baseGlbPath,
+    intermediateDir,
+    stagingDir,
+    spec,
+    prompt,
+    requestedComputeMode,
+    patches: options.patches,
+    inspection: options.inspection,
+    outputSize: options.outputSize,
+    cyclesSamples: options.cyclesSamples,
+    metaballs: options.metaballs,
+    mirrorX: options.mirrorX,
+    enablePbr: options.enablePbr
+  });
   const configPath = path.join(intermediateDir, 'blender_job_config.json');
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
   if (!fs.existsSync(config.live_glb_path)) fs.copyFileSync(baseGlbPath, config.live_glb_path);
@@ -357,6 +398,11 @@ async function executeLiveAgenticBlenderSession(options) {
     preview_png_path: config.preview_png_path,
     live_glb_path: config.live_glb_path,
     live_png_path: config.live_preview_path,
+    inspection_grid_path: fs.existsSync(config.inspection_grid_path) ? config.inspection_grid_path : null,
+    scene_report: lastMetrics.scene_report || null,
+    compute_device: lastMetrics.device || compute.backend,
+    gpu_unavailable: Boolean(lastMetrics.gpu_unavailable),
+    output_size: config.output_size,
     vertex_count: lastMetrics.vertices || 0,
     triangle_count: lastMetrics.triangles || 0,
     mesh_count: lastMetrics.meshes || 0,
@@ -367,6 +413,7 @@ async function executeLiveAgenticBlenderSession(options) {
 }
 
 module.exports = {
+  buildInspectionConfig,
   getLiveBlenderStatus,
   closeLiveBlenderSession,
   ensureLiveBlenderSession,

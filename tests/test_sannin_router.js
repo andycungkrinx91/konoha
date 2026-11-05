@@ -57,8 +57,8 @@ function run() {
 
   section('Explicit prefix precedence');
   const prefixed = [
-    ['direct: build and refactor everything across the whole app', 'direct'],
-    ['[direct] migrate the database', 'direct'],
+    ['direct: build and refactor everything across the whole app', 'delegate'],
+    ['[direct] migrate the database', 'delegate'],
     ['delegate: read lines 1-20 of package.json', 'delegate'],
     ['[delegate] what is this', 'delegate'],
     ['pipeline: ship a new onboarding flow end to end', 'pipeline'],
@@ -74,15 +74,15 @@ function run() {
   }
 
   section('Route branches');
-  check('read-only lookup stays inline', () => {
+  check('read-only lookup routes to delegate', () => {
     const route = router.decideRoute({ prompt: DIRECT_PROMPT });
-    assert.strictEqual(route.mode, 'direct');
+    assert.strictEqual(route.mode, 'delegate');
     assert.ok(route.signals.readonlyVerbs >= 1);
   });
 
-  check('single bounded edit stays inline', () => {
+  check('single bounded edit routes to delegate', () => {
     const route = router.decideRoute({ prompt: 'fix the typo in README' });
-    assert.strictEqual(route.mode, 'direct');
+    assert.strictEqual(route.mode, 'delegate');
     assert.strictEqual(route.signals.heavyVerbs, 0);
   });
 
@@ -117,7 +117,7 @@ function run() {
   section('Route line');
   const routeLine = router.formatRouteLine(router.decideRoute({ prompt: DIRECT_PROMPT }));
   check('route line carries mode, confidence and reasons', () => {
-    assert.ok(routeLine.startsWith('**Route Decision**: `direct` (confidence '), routeLine);
+    assert.ok(routeLine.startsWith('**Route Decision**: `delegate` (confidence '), routeLine);
     assert.ok(routeLine.trimEnd().split(' — ')[1].length > 0, 'reasons present');
     assert.ok(routeLine.endsWith('\n'), 'single trailing newline');
   });
@@ -154,24 +154,12 @@ function run() {
     assert.ok(bare.text.includes('genin'));
   });
 
-  section('Direct guidance');
-  const guidance = router.buildDirectGuidance({ skills: ['konoha'], projectPath: '/tmp/project' });
-  check('names the real bounded file tools', () => {
-    for (const tool of ['konoha.token_efficient_grep', 'konoha.read_file_range', 'konoha.get_file_structure']) {
-      assert.ok(guidance.includes(tool), `${tool} missing from direct guidance`);
-    }
-  });
-
-  check('carries no delegation instruction', () => {
-    assert.ok(guidance.includes('Direct Execution'));
-    assert.ok(!guidance.includes('Delegation Steps'), 'direct guidance must not ask for a subagent');
-    assert.ok(!guidance.includes('task_id='), 'no task handoff in direct mode');
-  });
-
-  check('stays small and escapes on scope growth', () => {
-    const bytes = Buffer.byteLength(guidance);
-    assert.ok(bytes < 1200, `direct guidance ${bytes} bytes`);
-    assert.ok(guidance.includes('pipeline:'), 're-route hint present');
+  section('Spawn directive');
+  const spawnCodex = router.buildSpawnDirective({ client: 'codex', agent: 'anbu' });
+  const spawnOmp = router.buildSpawnDirective({ client: 'omp', agent: 'anbu' });
+  check('builds client-specific spawn directives', () => {
+    assert.ok(spawnCodex.includes('spawn_agent(agent="anbu"'));
+    assert.ok(spawnOmp.includes('tasks=[{name:"anbu"'));
   });
 
   section('Integration with runSannin');
@@ -184,20 +172,14 @@ function run() {
     return JSON.parse(server.runSannin(prompt, dir));
   }
 
-  const inlineRun = routePrompt(DIRECT_PROMPT, 'inline');
-  check('inline turn surfaces execution_mode and skips the envelope', () => {
-    assert.strictEqual(inlineRun.status, 'routed');
-    assert.strictEqual(inlineRun.execution_mode, 'direct');
-    assert.strictEqual(inlineRun.route.mode, 'direct');
-    assert.strictEqual(inlineRun.delegation_envelope, undefined);
-    assert.strictEqual(inlineRun.phase, 'delegation', 'phase stays the lifecycle contract');
-  });
-
-  check('inline instruction replaces the delegation steps', () => {
-    assert.ok(inlineRun.instructions.includes('**Route Decision**'));
-    assert.ok(inlineRun.instructions.includes('Direct Execution'));
-    assert.ok(!inlineRun.instructions.includes('## Delegation Steps'));
-    assert.ok(!inlineRun.instructions.includes('### ⚡ Parallel Execution Opportunity'));
+  const readRun = routePrompt(DIRECT_PROMPT, 'readonly');
+  check('lookup turn routes to delegate with envelope and spawn directive', () => {
+    assert.strictEqual(readRun.status, 'routed');
+    assert.strictEqual(readRun.execution_mode, 'delegate');
+    assert.strictEqual(readRun.route.mode, 'delegate');
+    assert.ok(readRun.instructions.includes('## Delegation Steps'));
+    assert.ok(readRun.instructions.includes('## Spawn (mandatory)'));
+    assert.strictEqual(readRun.phase, 'delegation', 'phase stays the lifecycle contract');
   });
 
   const delegatedRun = routePrompt(BUILD_PROMPT, 'delegated');

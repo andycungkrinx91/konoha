@@ -1146,6 +1146,7 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 * **[taste-skill](https://github.com/leonxlnx/taste-skill)** by Leon Lin — Modern high-end visual design system, spring physics, editorial typography, and anti-slop frontend craftsmanship enriching Jonin's UI generation and design-match workflows.
 * **[i-have-adhd](https://github.com/ayghri/i-have-adhd)** by Ayghri — Cognitive output-shaping and ADHD-friendly communication protocol (action-first, numbered multi-step directives, minimal preamble, zero conversational fluff) embedded across Genin, Chunin, Jonin, Anbu, and Tokubetsu-Jonin reference SOPs.
 * **[vibes-plug](https://github.com/roedyrustam/vibes-plug)** by Roedy Rustam — Comprehensive suite of developer, cloud, security, and architecture skills merged into Konoha's ninja agent skill trees and indexed with SQLite FTS5 and neural embeddings.
+* **[dcc-mcp-blender](https://github.com/dcc-mcp/dcc-mcp-blender)** — Blender MCP bridge that drives Konoha's Yamanaka 3D refinement pipeline (mesh modification, UV packing, PBR materials, studio rig, GLB export).
 
 ---
 

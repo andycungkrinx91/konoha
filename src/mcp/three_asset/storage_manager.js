@@ -175,6 +175,12 @@ function promoteStagingToAsset({
     asset_status: 'ready'
   };
 
+  for (const [k, v] of Object.entries(metadata || {})) {
+    if (v !== undefined && assetRecord[k] === undefined) {
+      assetRecord[k] = v;
+    }
+  }
+
   const fileRecords = [
     {
       file_role: 'primary_glb',

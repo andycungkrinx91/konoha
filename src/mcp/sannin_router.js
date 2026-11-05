@@ -1,6 +1,7 @@
 'use strict';
 
 const { getSoul } = require('../persona_memory_soul');
+const { buildSpawnDirective } = require('./lazy_subagent');
 
 /** Skills a delegated subagent receives; the rest stay discoverable on demand. */
 const MAX_ENVELOPE_SKILLS = 4;
@@ -11,8 +12,8 @@ const MAX_RECALL_ITEMS = 3;
 const RECALL_SNIPPET_CHARS = 160;
 
 const ROUTE_PREFIXES = [
-  { token: 'direct:', mode: 'direct' },
-  { token: '[direct]', mode: 'direct' },
+  { token: 'direct:', mode: 'delegate' },
+  { token: '[direct]', mode: 'delegate' },
   { token: 'delegate:', mode: 'delegate' },
   { token: '[delegate]', mode: 'delegate' },
   { token: 'pipeline:', mode: 'pipeline' },
@@ -127,7 +128,7 @@ function decideRoute({ prompt = '', executionTrack = 'fast_track', workstreams =
     && signals.ambiguity === 0
     && spread <= 3;
   if (isReadOnlyTurn) {
-    return result('direct', 0.78, ['lookup turn, no mutation asked', ...reasons], signals);
+    return result('delegate', 0.78, ['lookup turn, no mutation asked', ...reasons], signals);
   }
 
   const isSingleBoundedEdit = signals.mutationVerbs > 0
@@ -138,7 +139,7 @@ function decideRoute({ prompt = '', executionTrack = 'fast_track', workstreams =
     && signals.ambiguity === 0
     && signals.scopeHits <= 1;
   if (isSingleBoundedEdit) {
-    return result('direct', 0.72, ['single bounded edit, small blast radius', ...reasons], signals);
+    return result('delegate', 0.72, ['single bounded edit, small blast radius', ...reasons], signals);
   }
 
   const multiWorkstream = Array.isArray(workstreams) && workstreams.length > 1;
@@ -154,7 +155,7 @@ function decideRoute({ prompt = '', executionTrack = 'fast_track', workstreams =
   }
 
   if (signals.words <= 8 && signals.mutationVerbs === 0) {
-    return result('direct', 0.62, ['short turn, nothing to mutate', ...reasons], signals);
+    return result('delegate', 0.62, ['short turn, nothing to mutate', ...reasons], signals);
   }
   return result('delegate', 0.6, ['needs archetype judgement', ...reasons], signals);
 }
@@ -248,18 +249,6 @@ function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSk
   };
 }
 
-function buildDirectGuidance({ skills = [], projectPath = null } = {}) {
-  const bounded = Array.isArray(skills) ? skills.slice(0, MAX_ENVELOPE_SKILLS) : [];
-  return (
-    '\n\n### ⚡ Direct Execution (no subagent spawn)\n' +
-    '- This turn is small enough to finish inline. Do NOT spawn a subagent for it.\n' +
-    '- Read with `konoha.read_file_range` / `konoha.token_efficient_grep` / `konoha.get_file_structure` instead of whole-file reads.\n' +
-    '- Locate files with `konoha.find_files_clean`; never run a recursive shell grep over the repository.\n' +
-    (bounded.length > 0 ? `- Load only the skills this turn needs: ${bounded.map((s) => `\`${s}\``).join(', ')}.\n` : '') +
-    `- Project: \`${projectPath || process.cwd()}\`. Report the result with command evidence, not a summary of intent.\n` +
-    '- If the work turns out to touch more than two files, stop and re-route through `sannin` with `pipeline:` so the gates apply.'
-  );
-}
 
 module.exports = {
   MAX_ENVELOPE_SKILLS,
@@ -271,5 +260,5 @@ module.exports = {
   decideRoute,
   formatRouteLine,
   buildDelegationEnvelope,
-  buildDirectGuidance
+  buildSpawnDirective
 };

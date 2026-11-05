@@ -38,12 +38,11 @@ function configureCursor(context) {
     uvxCmd,
     agents: setupAgents,
     projectRoot: currentCwd,
-    deployProject: true,
+    deployProject: false,
     silent: true,
     allowHooks: true,
     ruleContent: null
   });
-  cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
   if (cursorSetup.ok) spinner.success('Cursor IDE/CLI configured.');
   else spinner.warn(`Cursor setup skipped: ${cursorSetup.reason || 'unknown error'}`);
 }
@@ -61,7 +60,7 @@ function configureClaudeCode(context) {
       silent: true,
       agents: setupAgents,
       projectRoot: currentCwd,
-      deployProject: true,
+      deployProject: false,
       force: true,
       skipDetection: true
     });

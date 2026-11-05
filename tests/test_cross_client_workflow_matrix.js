@@ -117,6 +117,8 @@ for (const client of CLIENTS) {
   assert.ok(sanninRes.flow_hash, `Flow hash must be computed for ${client}`);
   assert.ok(sanninRes.task_dir, `Task directory must be resolved for ${client}`);
   assert.strictEqual(sanninRes.selected_agent, 'anbu', 'Backend prompt must route to anbu');
+  assert.strictEqual(sanninRes.execution_mode, 'delegate', 'Execution mode must be delegate');
+  assert.ok(sanninRes.instructions.includes('## Spawn (mandatory)'), `Instructions must include spawn directive for ${client}`);
   console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}`);
 
   // C. Genin invoked for exploration

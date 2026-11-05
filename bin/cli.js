@@ -6,6 +6,7 @@ if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
   delete process.env.NO_COLOR;
 }
 
+
 /**
  * bin/cli.js — Konoha command-line interface.
  *
@@ -224,20 +225,13 @@ async function main() {
     process.exit(1);
   }
 
-  // Silent auto-setup on every command (except help/uninstall/version)
-  const skipAutoSetup = ['uninstall', 'help', '--help', '-h', '--version', '-v', 'version'].includes(command);
-  if (!skipAutoSetup) {
+  // Run background auto-setup exclusively during explicit doctor checks
+  if (command === 'doctor') {
     try {
       ensureAutoSetup();
     } catch (_) {
       // Never block CLI on auto-setup failures
     }
-  }
-
-  // Auto-start Web UI daemon silently in background so frontend is always available
-  const skipUiAuto = ['ui', 'web', 'service', 'uninstall', 'help', '--help', '-h', '--version', '-v', 'version'].includes(command);
-  if (!skipUiAuto) {
-    ensureUiDaemonAutoStart({ silent: true }).catch(() => {});
   }
 
   try {
@@ -255,15 +249,29 @@ async function main() {
   }
 }
 
+function flushStdStreamsAndExit(code) {
+  const flushStream = (stream) => new Promise((resolve) => {
+    if (!stream || typeof stream.write !== 'function') return resolve();
+    try {
+      stream.write('', () => resolve());
+    } catch (_) {
+      resolve();
+    }
+  });
+  Promise.all([flushStream(process.stdout), flushStream(process.stderr)])
+    .then(() => process.exit(code))
+    .catch(() => process.exit(code));
+}
+
 if (require.main === module) {
   main()
     .then(() => {
-      process.exit(process.exitCode !== undefined && process.exitCode !== 0 ? process.exitCode : 0);
+      flushStdStreamsAndExit(process.exitCode !== undefined && process.exitCode !== 0 ? process.exitCode : 0);
     })
     .catch(err => {
       closeReadline();
       error(`Execution error: ${err.message}`);
-      process.exit(1);
+      flushStdStreamsAndExit(1);
     });
 }
 

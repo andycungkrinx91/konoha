@@ -1,3 +1,5 @@
+
+
 <!-- KONOHA-START -->
 # Claude Code — Global Agent Instructions
 
@@ -27,4 +29,5 @@ main agent on Claude Code. Mandatory every turn.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
 - **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->
+
 <!-- KONOHA-END -->

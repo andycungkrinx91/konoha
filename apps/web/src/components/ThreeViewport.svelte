@@ -17,6 +17,7 @@
   } = $props();
 
   let containerRef = $state(null);
+  let containerResizeObserver = null;
   let loading = $state(false);
   let errorMessage = $state(null);
 
@@ -38,11 +39,20 @@
   let currentModel = null;
   let keyLight, fillLight, rimLight, ambientLight;
 
+  // The container has an explicit CSS height (px, vh, clamp, ...) so measure it
+  // instead of parsing the prop; falls back to the numeric prop value.
+  function measureHeight(fallback = 500) {
+    const measured = containerRef ? containerRef.clientHeight : 0;
+    if (measured > 0) return measured;
+    const parsed = parseInt(height, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
   function initThree() {
     if (!containerRef) return;
 
     const width = containerRef.clientWidth || 600;
-    const heightPx = parseInt(height, 10) || 500;
+    const heightPx = measureHeight();
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0f172a);
@@ -104,11 +114,16 @@
     animate();
 
     window.addEventListener('resize', handleResize);
+    // Container-driven resize (modal reflow, responsive height) — window resize alone misses it.
+    if (typeof ResizeObserver !== 'undefined' && containerRef) {
+      containerResizeObserver = new ResizeObserver(() => handleResize());
+      containerResizeObserver.observe(containerRef);
+    }
   }
 
   function twoViewSize() {
     const w = containerRef.clientWidth || 600;
-    const h = parseInt(height, 10) || 500;
+    const h = measureHeight();
     return { w, h };
   }
 
@@ -148,7 +163,7 @@
   function handleResize() {
     if (!containerRef || !renderer || !camera) return;
     const width = containerRef.clientWidth;
-    const heightPx = parseInt(height, 10) || 500;
+    const heightPx = measureHeight();
     camera.aspect = width / heightPx;
     camera.updateProjectionMatrix();
     renderer.setSize(width, heightPx);
@@ -318,6 +333,10 @@
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', handleResize);
+      if (containerResizeObserver) {
+        containerResizeObserver.disconnect();
+        containerResizeObserver = null;
+      }
     }
     if (renderer) renderer.dispose();
   });

@@ -122,10 +122,13 @@ function getNodeBounds(node) {
   let sx = 1, sy = 1, sz = 1;
   const type = g.type || 'box';
 
-  if (type === 'box') {
-    sx = (p.width || 1) * Math.abs(scl[0] || 1);
-    sy = (p.height || 1) * Math.abs(scl[1] || 1);
-    sz = (p.depth || 1) * Math.abs(scl[2] || 1);
+  if (type === 'box' || type === 'roundedBox') {
+    const rawW = p.width ?? (Array.isArray(p.size) ? p.size[0] : 1);
+    const rawH = p.height ?? (Array.isArray(p.size) ? p.size[1] : 1);
+    const rawD = p.depth ?? (Array.isArray(p.size) ? p.size[2] : 1);
+    sx = (rawW || 1) * Math.abs(scl[0] || 1);
+    sy = (rawH || 1) * Math.abs(scl[1] || 1);
+    sz = (rawD || 1) * Math.abs(scl[2] || 1);
   } else if (type === 'sphere') {
     const r = (p.radius || 1);
     sx = r * 2 * Math.abs(scl[0] || 1);
@@ -187,7 +190,11 @@ function applyEnterpriseProfile(rawSpec, profileName = 'enterprise_pbr') {
 
   // Clamp and normalize material attributes
   for (const node of spec.nodes) {
-    if (node.material) {
+    if (typeof node.material === 'string') {
+      const mapped = spec.materials && typeof spec.materials[node.material] === 'object' ? spec.materials[node.material] : null;
+      node.material = mapped ? { ...mapped } : { type: 'physical', color: node.material.startsWith('#') ? node.material : '#64748b', roughness: 0.35, metalness: 0.5 };
+    }
+    if (node.material && typeof node.material === 'object') {
       const mat = node.material;
       mat.metalness = Math.max(profile.metalness[0], Math.min(profile.metalness[1], mat.metalness ?? 0.5));
       mat.roughness = Math.max(profile.roughness[0], Math.min(profile.roughness[1], mat.roughness ?? 0.35));
@@ -248,7 +255,13 @@ function applyEnterpriseProfile(rawSpec, profileName = 'enterprise_pbr') {
     const paddingParts = detailParts(spec.nodes.length + needed, spec.nodes);
     spec.nodes.push(...paddingParts);
   }
-
+  const distinctColors = new Set(
+    spec.nodes.map((n) => n.material && n.material.color && String(n.material.color).toLowerCase()).filter(Boolean)
+  );
+  if (distinctColors.size < profile.minColors && spec.nodes.length >= 2) {
+    const lastMat = spec.nodes[spec.nodes.length - 1].material || (spec.nodes[spec.nodes.length - 1].material = { type: 'physical' });
+    lastMat.color = distinctColors.has('#38bdf8') ? '#f59e0b' : '#38bdf8';
+  }
   return spec;
 }
 
@@ -258,6 +271,94 @@ const applyStylizedProfile = applyEnterpriseProfile;
 /**
  * 11-Row scoreSpec Quality Gate
  */
+function appendMaterialRangeRows(nodes, profile, rows, issues) {
+  const partCount = nodes.length;
+  const partCountPassed = partCount >= profile.minParts && partCount <= profile.maxParts;
+  if (!partCountPassed) issues.push(`Part count ${partCount} out of bounds [${profile.minParts}, ${profile.maxParts}]`);
+  rows.push({ rowId: 1, metricName: 'part_count', measuredValue: partCount, threshold: `[${profile.minParts}, ${profile.maxParts}]`, passed: partCountPassed });
+
+  const invalidMetalness = nodes.filter(n => n.material && (n.material.metalness < profile.metalness[0] || n.material.metalness > profile.metalness[1])).length;
+  if (invalidMetalness > 0) issues.push(`${invalidMetalness} parts have metalness outside [${profile.metalness.join(', ')}]`);
+  rows.push({ rowId: 2, metricName: 'metalness_range', measuredValue: invalidMetalness, threshold: 0, passed: invalidMetalness === 0 });
+
+  const invalidRoughness = nodes.filter(n => n.material && (n.material.roughness < profile.roughness[0] || n.material.roughness > profile.roughness[1])).length;
+  if (invalidRoughness > 0) issues.push(`${invalidRoughness} parts have roughness outside [${profile.roughness.join(', ')}]`);
+  rows.push({ rowId: 3, metricName: 'roughness_range', measuredValue: invalidRoughness, threshold: 0, passed: invalidRoughness === 0 });
+
+  const invalidCoatTrans = nodes.filter(n => n.material && ((n.material.clearcoat || 0) > profile.clearcoatMax || (n.material.transmission || 0) > profile.transmissionMax)).length;
+  if (invalidCoatTrans > 0) issues.push(`${invalidCoatTrans} parts exceed clearcoat/transmission limits`);
+  rows.push({ rowId: 4, metricName: 'clearcoat_transmission', measuredValue: invalidCoatTrans, threshold: 0, passed: invalidCoatTrans === 0 });
+
+  const invalidEmissive = nodes.filter(n => n.material && (n.material.emissiveIntensity || 0) > profile.emissiveIntensityMax).length;
+  if (invalidEmissive > 0) issues.push(`${invalidEmissive} parts exceed max emissive intensity ${profile.emissiveIntensityMax}`);
+  rows.push({ rowId: 5, metricName: 'emissive_range', measuredValue: invalidEmissive, threshold: 0, passed: invalidEmissive === 0 });
+
+  const colors = new Set(nodes.map(n => n.material && n.material.color && String(n.material.color).toLowerCase()).filter(Boolean));
+  const colorCount = colors.size;
+  const colorPassed = colorCount >= profile.minColors && colorCount <= profile.maxColors;
+  if (!colorPassed) issues.push(`Color count ${colorCount} outside [${profile.minColors}, ${profile.maxColors}]`);
+  rows.push({ rowId: 6, metricName: 'color_palette_diversity', measuredValue: colorCount, threshold: `[${profile.minColors}, ${profile.maxColors}]`, passed: colorPassed });
+}
+
+function appendBoundsAndHierarchyRows(spec, nodes, profile, rows, issues) {
+  const bevelVal = (spec.style && typeof spec.style.bevel === 'number') ? spec.style.bevel : profile.bevel;
+  const bevelPassed = bevelVal >= profile.bevel * 0.5;
+  if (!bevelPassed) issues.push(`Style bevel ${bevelVal} below expected ${profile.bevel}`);
+  rows.push({ rowId: 7, metricName: 'micro_chamfer_bevel', measuredValue: bevelVal, threshold: profile.bevel * 0.5, passed: bevelPassed });
+
+  let maxExtent = 0;
+  let minY = Infinity;
+  let subThresholdDim = 0;
+  for (const n of nodes) {
+    if (n.csg) continue;
+    const b = getNodeBounds(n);
+    if (b.min[1] < minY) minY = b.min[1];
+    maxExtent = Math.max(maxExtent, Math.abs(b.max[0] - b.min[0]), Math.abs(b.max[1] - b.min[1]), Math.abs(b.max[2] - b.min[2]));
+    if (Math.min(...b.dim) < profile.minNodeDim) subThresholdDim++;
+  }
+
+  const extentPassed = maxExtent <= profile.maxExtent * 1.05;
+  if (!extentPassed) issues.push(`Max extent ${maxExtent.toFixed(2)} exceeds ${profile.maxExtent}`);
+  rows.push({ rowId: 8, metricName: 'bounding_extent', measuredValue: Number(maxExtent.toFixed(3)), threshold: profile.maxExtent, passed: extentPassed });
+
+  const minDimPassed = subThresholdDim === 0;
+  if (!minDimPassed) issues.push(`${subThresholdDim} nodes have sub-threshold dimension < ${profile.minNodeDim}`);
+  rows.push({ rowId: 9, metricName: 'min_node_dimension', measuredValue: subThresholdDim, threshold: 0, passed: minDimPassed });
+
+  const grounded = !Number.isFinite(minY) || minY >= -0.05;
+  if (!grounded) issues.push(`Grounding violated: minY is ${minY.toFixed(3)} (expected >= -0.05)`);
+  rows.push({ rowId: 10, metricName: 'grounding_min_y', measuredValue: Number.isFinite(minY) ? Number(minY.toFixed(3)) : 0, threshold: -0.05, passed: grounded });
+
+  const hierarchyPassed = nodes.length >= profile.minParts;
+  if (!hierarchyPassed) issues.push('Hierarchy lacks sufficient semantic subcomponents');
+  rows.push({ rowId: 11, metricName: 'structural_hierarchy', measuredValue: nodes.length, threshold: profile.minParts, passed: hierarchyPassed });
+}
+
+function appendObjectiveCheckRows(objective, rows, issues) {
+  const iouTarget = Number(objective.silhouetteTarget ?? 0.8);
+  const iou = objective.silhouetteIoU;
+  const iouPassed = iou === null || iou === undefined ? true : Number(iou) >= iouTarget;
+  if (!iouPassed) issues.push(`Silhouette overlap ${Number(iou).toFixed(3)} below target ${iouTarget.toFixed(2)}`);
+  rows.push({ rowId: 12, metricName: 'silhouette_overlap', measuredValue: iou === null || iou === undefined ? null : Number(Number(iou).toFixed(4)), threshold: iouTarget, passed: iouPassed });
+
+  const symTarget = Number(objective.symmetryMin ?? 0.85);
+  const sym = objective.symmetry;
+  const symPassed = sym === null || sym === undefined ? true : Number(sym) >= symTarget;
+  if (!symPassed) issues.push(`Symmetry ${Number(sym).toFixed(3)} below target ${symTarget.toFixed(2)}`);
+  rows.push({ rowId: 13, metricName: 'symmetry', measuredValue: sym === null || sym === undefined ? null : Number(Number(sym).toFixed(4)), threshold: symTarget, passed: symPassed });
+
+  if (objective.boxRatioOk === false) {
+    rows.push({
+      rowId: 14,
+      metricName: 'bbox_scale_ratio',
+      measuredValue: objective.boxRatio === null || objective.boxRatio === undefined ? null : Number(Number(objective.boxRatio).toFixed(4)),
+      threshold: Number(objective.boxRatioTolerance ?? 0.25),
+      passed: false
+    });
+    issues.push('Bounding-box height/width ratio drifted outside tolerance');
+  }
+}
+
 function scoreSpec(spec, options = {}) {
   const profile = resolveProfile(options.profile || (spec && spec.profile));
   const issues = [];
@@ -274,181 +375,12 @@ function scoreSpec(spec, options = {}) {
     };
   }
 
-  const nodes = spec.nodes;
-
-  // Row 1: Part Count
-  const partCount = nodes.length;
-  const partCountPassed = partCount >= profile.minParts && partCount <= profile.maxParts;
-  if (!partCountPassed) {
-    issues.push(`Part count ${partCount} out of bounds [${profile.minParts}, ${profile.maxParts}]`);
+  appendMaterialRangeRows(spec.nodes, profile, rows, issues);
+  appendBoundsAndHierarchyRows(spec, spec.nodes, profile, rows, issues);
+  const objective = options.checks && typeof options.checks === 'object' ? options.checks : null;
+  if (objective) {
+    appendObjectiveCheckRows(objective, rows, issues);
   }
-  rows.push({
-    rowId: 1,
-    metricName: 'part_count',
-    measuredValue: partCount,
-    threshold: `[${profile.minParts}, ${profile.maxParts}]`,
-    passed: partCountPassed
-  });
-
-  // Row 2: Metalness Range
-  let invalidMetalness = 0;
-  for (const n of nodes) {
-    if (n.material && (n.material.metalness < profile.metalness[0] || n.material.metalness > profile.metalness[1])) {
-      invalidMetalness++;
-    }
-  }
-  const metalnessPassed = invalidMetalness === 0;
-  if (!metalnessPassed) issues.push(`${invalidMetalness} parts have metalness outside [${profile.metalness.join(', ')}]`);
-  rows.push({
-    rowId: 2,
-    metricName: 'metalness_range',
-    measuredValue: invalidMetalness,
-    threshold: 0,
-    passed: metalnessPassed
-  });
-
-  // Row 3: Roughness Range
-  let invalidRoughness = 0;
-  for (const n of nodes) {
-    if (n.material && (n.material.roughness < profile.roughness[0] || n.material.roughness > profile.roughness[1])) {
-      invalidRoughness++;
-    }
-  }
-  const roughnessPassed = invalidRoughness === 0;
-  if (!roughnessPassed) issues.push(`${invalidRoughness} parts have roughness outside [${profile.roughness.join(', ')}]`);
-  rows.push({
-    rowId: 3,
-    metricName: 'roughness_range',
-    measuredValue: invalidRoughness,
-    threshold: 0,
-    passed: roughnessPassed
-  });
-
-  // Row 4: Clearcoat & Transmission
-  let invalidCoatTrans = 0;
-  for (const n of nodes) {
-    if (n.material) {
-      if ((n.material.clearcoat || 0) > profile.clearcoatMax || (n.material.transmission || 0) > profile.transmissionMax) {
-        invalidCoatTrans++;
-      }
-    }
-  }
-  const coatTransPassed = invalidCoatTrans === 0;
-  if (!coatTransPassed) issues.push(`${invalidCoatTrans} parts exceed clearcoat/transmission limits`);
-  rows.push({
-    rowId: 4,
-    metricName: 'clearcoat_transmission',
-    measuredValue: invalidCoatTrans,
-    threshold: 0,
-    passed: coatTransPassed
-  });
-
-  // Row 5: Emissive Range
-  let invalidEmissive = 0;
-  for (const n of nodes) {
-    if (n.material && (n.material.emissiveIntensity || 0) > profile.emissiveIntensityMax) {
-      invalidEmissive++;
-    }
-  }
-  const emissivePassed = invalidEmissive === 0;
-  if (!emissivePassed) issues.push(`${invalidEmissive} parts exceed max emissive intensity ${profile.emissiveIntensityMax}`);
-  rows.push({
-    rowId: 5,
-    metricName: 'emissive_range',
-    measuredValue: invalidEmissive,
-    threshold: 0,
-    passed: emissivePassed
-  });
-
-  // Row 6: Color Palette Diversity
-  const colors = new Set();
-  for (const n of nodes) {
-    if (n.material && n.material.color) colors.add(String(n.material.color).toLowerCase());
-  }
-  const colorCount = colors.size;
-  const colorPassed = colorCount >= profile.minColors && colorCount <= profile.maxColors;
-  if (!colorPassed) issues.push(`Color count ${colorCount} outside [${profile.minColors}, ${profile.maxColors}]`);
-  rows.push({
-    rowId: 6,
-    metricName: 'color_palette_diversity',
-    measuredValue: colorCount,
-    threshold: `[${profile.minColors}, ${profile.maxColors}]`,
-    passed: colorPassed
-  });
-
-  // Row 7: Micro Chamfer Bevel
-  const bevelVal = (spec.style && typeof spec.style.bevel === 'number') ? spec.style.bevel : profile.bevel;
-  const bevelPassed = bevelVal >= profile.bevel * 0.5;
-  if (!bevelPassed) issues.push(`Style bevel ${bevelVal} below expected ${profile.bevel}`);
-  rows.push({
-    rowId: 7,
-    metricName: 'micro_chamfer_bevel',
-    measuredValue: bevelVal,
-    threshold: profile.bevel * 0.5,
-    passed: bevelPassed
-  });
-
-  // Row 8: Bounding Extent
-  let maxExtent = 0;
-  let minY = Infinity;
-  let subThresholdDim = 0;
-
-  for (const n of nodes) {
-    if (n.csg) continue;
-    const b = getNodeBounds(n);
-    if (b.min[1] < minY) minY = b.min[1];
-    const spanX = Math.abs(b.max[0] - b.min[0]);
-    const spanY = Math.abs(b.max[1] - b.min[1]);
-    const spanZ = Math.abs(b.max[2] - b.min[2]);
-    maxExtent = Math.max(maxExtent, spanX, spanY, spanZ);
-
-    if (Math.min(...b.dim) < profile.minNodeDim) {
-      subThresholdDim++;
-    }
-  }
-
-  const extentPassed = maxExtent <= profile.maxExtent * 1.05;
-  if (!extentPassed) issues.push(`Max extent ${maxExtent.toFixed(2)} exceeds ${profile.maxExtent}`);
-  rows.push({
-    rowId: 8,
-    metricName: 'bounding_extent',
-    measuredValue: Number(maxExtent.toFixed(3)),
-    threshold: profile.maxExtent,
-    passed: extentPassed
-  });
-
-  // Row 9: Min Node Dimension
-  const minDimPassed = subThresholdDim === 0;
-  if (!minDimPassed) issues.push(`${subThresholdDim} nodes have sub-threshold dimension < ${profile.minNodeDim}`);
-  rows.push({
-    rowId: 9,
-    metricName: 'min_node_dimension',
-    measuredValue: subThresholdDim,
-    threshold: 0,
-    passed: minDimPassed
-  });
-
-  // Row 10: Grounding Min Y
-  const grounded = !Number.isFinite(minY) || minY >= -0.05;
-  if (!grounded) issues.push(`Grounding violated: minY is ${minY.toFixed(3)} (expected >= -0.05)`);
-  rows.push({
-    rowId: 10,
-    metricName: 'grounding_min_y',
-    measuredValue: Number.isFinite(minY) ? Number(minY.toFixed(3)) : 0,
-    threshold: -0.05,
-    passed: grounded
-  });
-
-  // Row 11: Structural Hierarchy
-  const hierarchyPassed = nodes.length >= profile.minParts;
-  if (!hierarchyPassed) issues.push(`Hierarchy lacks sufficient semantic subcomponents`);
-  rows.push({
-    rowId: 11,
-    metricName: 'structural_hierarchy',
-    measuredValue: nodes.length,
-    threshold: profile.minParts,
-    passed: hierarchyPassed
-  });
 
   const passedRows = rows.filter(r => r.passed).length;
   const score = Math.round((passedRows / rows.length) * 100);

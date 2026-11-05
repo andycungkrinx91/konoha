@@ -399,13 +399,18 @@ function buildChatMessages(chatArgs) {
   if (chatArgs.system) messages.push({ role: 'system', content: chatArgs.system });
   if (chatArgs.imageBuffer) {
     const mime = chatArgs.mimeType || 'image/png';
-    messages.push({
-      role: 'user',
-      content: [
-        { type: 'text', text: chatArgs.userText || '' },
-        { type: 'image_url', image_url: { url: `data:${mime};base64,${chatArgs.imageBuffer.toString('base64')}` } }
-      ]
-    });
+    const content = [
+      { type: 'text', text: chatArgs.userText || '' },
+      { type: 'image_url', image_url: { url: `data:${mime};base64,${chatArgs.imageBuffer.toString('base64')}` } }
+    ];
+    for (const extra of chatArgs.extraImages || []) {
+      if (!extra || !extra.buffer) continue;
+      content.push({
+        type: 'image_url',
+        image_url: { url: `data:${extra.mimeType || 'image/png'};base64,${extra.buffer.toString('base64')}` }
+      });
+    }
+    messages.push({ role: 'user', content });
   } else if (chatArgs.userText) {
     messages.push({ role: 'user', content: chatArgs.userText });
   }
@@ -498,7 +503,10 @@ async function sendChatMessage(target, chatArgs = {}) {
       messages,
       temperature: chatArgs.temperature !== undefined ? chatArgs.temperature : 0.2,
       max_tokens: chatArgs.max_tokens || 8192,
-      stream: false
+      stream: false,
+      // Providers that support prompt caching (9router/Anthropic-style) reuse the
+      // byte-stable system prompt + spec schema across iterations.
+      ...(chatArgs.cacheKey ? { cache_key: chatArgs.cacheKey, prompt_cache_key: chatArgs.cacheKey } : {})
     }),
     signal: AbortSignal.timeout(timeoutMs)
   });
@@ -522,7 +530,25 @@ async function sendChatMessage(target, chatArgs = {}) {
   };
 }
 
+const STRONG_MODEL_PATTERN = /(opus|gpt-5|gpt5|sonnet-4|o3|gemini-2\.5-pro|claude-4|grok-4|deepseek-r1)/i;
+
+/**
+ * Stage model split: routing/brief work stays on the already-selected (cheap)
+ * model, while visual critique prefers the strongest available catalog entry.
+ */
+function resolveStageModels(options = {}) {
+  const routingModel = options.routing || options.model || resolveInherited3DModel(options) || null;
+  let critiqueModel = options.critique || null;
+  if (!critiqueModel) {
+    const catalog = Array.isArray(options.catalogModels) ? options.catalogModels : [];
+    const strong = catalog.find((id) => STRONG_MODEL_PATTERN.test(String(id)));
+    critiqueModel = strong || routingModel;
+  }
+  return { routing_model: routingModel, critique_model: critiqueModel };
+}
+
 module.exports = {
+  resolveStageModels,
   resolve9RouterBaseUrl,
   readClientProviderCredentials,
   normalizeModelId,

@@ -791,3 +791,17 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 - Screenshot and screen-recording assets (`assets/*.webp`) capture the shipped UI shell and
   were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
   do not change what those clips depict structurally.
+
+## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.18)
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. Modular Blender Worker (<500 lines/file)** | `node scripts/lint.js` (`SUPPORTED_EXTS = .js, .py, .svelte`) | `blender_live_worker.py` (472 lines), `blender_worker_compute.py` (443 lines), `blender_worker_views.py` (412 lines); all repo `.js`, `.py`, `.svelte` files < 700 lines | `PASS` (verified 2026-11-04) |
+| **2. Force GPU Cycles Activation Before Step 1** | `run_steps()` -> `configure_render("gpu")` in `blender_live_worker.py` & `blender_worker_compute.py` | `scene.render.engine == "CYCLES"`, `scene.cycles.device == "GPU"`, `cprefs.get_devices()` wrapped safely for Blender 4.x/5.x, non-CPU devices activated on `OPTIX`/`CUDA`/`HIP`/`METAL`/`ONEAPI` | `PASS` (verified 2026-11-04) |
+| **3. WebGL GPU Hardware Acceleration** | `preview_renderer.js` (`GPU_CHROMIUM_ARGS`) | Uses `--use-gl=egl --enable-gpu-rasterization --ignore-gpu-blocklist` when `computeMode === "gpu"` with automatic SwiftShader fallback | `PASS` (verified 2026-11-04) |
+| **4. Multilingual Brand/Label Stripping** | `extractBrandLabel` in `spec_schema.js` | Strips `merk`, `merek`, `brand`, `marque`, `marca`, `maker` clauses (`"create 3d model rice cooker with merk cosmos"`) from geometry prompt while preserving `brand_label.text = "cosmos"` | `PASS` (verified 2026-11-04) |
+| **5. Appliance Archetype & Rice Cooker Synthesis** | `inferArchetypeFromPrompt` + `buildApplianceSpec` (`prompt_synthesizer.js`) | Routes `rice cooker` to `game-prop` and generates 8 grounded cylindrical/lathe/torus/control-panel parts (`H/W ≈ 1.05`) without boxy fallback | `PASS` (verified 2026-11-04) |
+| **6. Closed-Loop Inspect/Fix Graph** | `graph.js` + `inspect_stage.js` + `silhouette.js` | `nodeObjectBrief` computes `referenceAnalysis` before brief extraction; `inspect` evaluates spec/scene `H/W` ratio; `fix -> build_base -> refine_blender -> inspect` applies targeted mesh/material patches | `PASS` (verified 2026-11-04) |
+| **7. Image Upload & PNG Download Route** | `model_3d_controller.js` + `SynthesisModal.svelte` | `IMAGE_UPLOAD_MAX_BYTES`, `parsePngPixels`, `decodeRasterToPixels` imported; `/api/v1/3d/assets/:id/download/png` exposed in `SynthesisModal.svelte` | `PASS` (verified 2026-11-04) |
+| **8. Global-Only Client Configs & Doctor-Only Auto-Setup** | `bin/cli.js`, `src/omp_manager.js`, `src/deploy_utils.js`, `skill_guardian.js` | `ensureAutoSetup()` runs only on `konoha doctor`; zero `.omp`, `.codex`, `.agents`, or `.gitignore` writes in project workspaces; `ensureGlobalGitExcludes` updates `~/.config/git/ignore` | `PASS` (verified 2026-11-04) |
+| **9. Upgrade Cache Bypass & Runtime Sync** | `bin/commands/upgrade.js` + `bin/lib/runtime_install.js` | `getLatestVersion({ bypassCache: true })` unlinks `.version_cache.json`; `locateGlobalPackageRoot` syncs newly installed global package into `~/.konoha` without downgrading | `PASS` (verified 2026-11-04) |

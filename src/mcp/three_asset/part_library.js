@@ -33,7 +33,8 @@ const ENTERPRISE_MATERIALS = {
   led_cyan_emissive: { type: 'physical', color: '#0891b2', metalness: 0.1, roughness: 0.2, emissive: '#06b6d4', emissiveIntensity: 3.5 }
 };
 
-function boxNode(name, w, h, d, x, y, z, color, rot = [0, 0, 0], metal = 0.5, rough = 0.35, clearcoat = 0.2) {
+function boxNode(name, w, h, d, ...rest) {
+  const [x, y, z, color, rot = [0, 0, 0], metal = 0.5, rough = 0.35, clearcoat = 0.2] = rest;
   return {
     name,
     geometry: { type: 'box', params: { width: w, height: h, depth: d } },
@@ -42,7 +43,8 @@ function boxNode(name, w, h, d, x, y, z, color, rot = [0, 0, 0], metal = 0.5, ro
   };
 }
 
-function cylinderNode(name, rTop, rBot, h, x, y, z, color, rot = [0, 0, 0], metal = 0.6, rough = 0.3, radialSegments = 48) {
+function cylinderNode(name, rTop, rBot, h, ...rest) {
+  const [x, y, z, color, rot = [0, 0, 0], metal = 0.6, rough = 0.3, radialSegments = 48] = rest;
   return {
     name,
     geometry: { type: 'cylinder', params: { radiusTop: rTop, radiusBottom: rBot, height: h, radialSegments } },
@@ -51,7 +53,8 @@ function cylinderNode(name, rTop, rBot, h, x, y, z, color, rot = [0, 0, 0], meta
   };
 }
 
-function capsuleNode(name, radius, length, x, y, z, color, rot = [0, 0, 0], metal = 0.7, rough = 0.25) {
+function capsuleNode(name, radius, length, ...rest) {
+  const [x, y, z, color, rot = [0, 0, 0], metal = 0.7, rough = 0.25] = rest;
   return {
     name,
     geometry: { type: 'capsule', params: { radius, length, capSegments: 16, radialSegments: 32 } },
@@ -60,7 +63,8 @@ function capsuleNode(name, radius, length, x, y, z, color, rot = [0, 0, 0], meta
   };
 }
 
-function sphereNode(name, radius, x, y, z, color, rot = [0, 0, 0], metal = 0.8, rough = 0.15) {
+function sphereNode(name, radius, x, y, ...rest) {
+  const [z, color, rot = [0, 0, 0], metal = 0.8, rough = 0.15] = rest;
   return {
     name,
     geometry: { type: 'sphere', params: { radius, widthSegments: 48, heightSegments: 32 } },
@@ -69,7 +73,8 @@ function sphereNode(name, radius, x, y, z, color, rot = [0, 0, 0], metal = 0.8, 
   };
 }
 
-function torusNode(name, radius, tube, x, y, z, color, rot = [0, 0, 0], metal = 0.85, rough = 0.2) {
+function torusNode(name, radius, tube, ...rest) {
+  const [x, y, z, color, rot = [0, 0, 0], metal = 0.85, rough = 0.2] = rest;
   return {
     name,
     geometry: { type: 'torus', params: { radius, tube, radialSegments: 24, tubularSegments: 48 } },
@@ -78,7 +83,8 @@ function torusNode(name, radius, tube, x, y, z, color, rot = [0, 0, 0], metal = 
   };
 }
 
-function coneNode(name, radius, h, x, y, z, color, rot = [0, 0, 0], metal = 0.5, rough = 0.4) {
+function coneNode(name, radius, h, ...rest) {
+  const [x, y, z, color, rot = [0, 0, 0], metal = 0.5, rough = 0.4] = rest;
   return {
     name,
     geometry: { type: 'cone', params: { radius, height: h, radialSegments: 36 } },
@@ -287,14 +293,16 @@ function detailParts(targetCount, baseNodes = [], palette = PALETTE) {
   const colors = [palette.P1, palette.P2, palette.P3, palette.P4, palette.N1, palette.N2, palette.N3];
 
   for (let i = 0; i < needed; i++) {
-    const angle = (i / needed) * Math.PI * 2;
-    const r = 0.45 + (i % 3) * 0.15;
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    const y = 0.25 + (i % 4) * 0.2;
-    const color = colors[i % colors.length];
+    const pairIdx = Math.floor(i / 2);
+    const isOddLast = (i === needed - 1) && (needed % 2 === 1);
+    const r = 0.28 + (pairIdx % 3) * 0.12;
+    const sign = i % 2 === 0 ? -1 : 1;
+    const x = isOddLast ? 0 : Number((sign * r).toFixed(4));
+    const z = Number((0.18 + (pairIdx % 2) * 0.12).toFixed(4));
+    const y = Number((0.25 + (pairIdx % 4) * 0.18).toFixed(4));
+    const color = colors[pairIdx % colors.length];
 
-    if (i % 2 === 0) {
+    if (pairIdx % 2 === 0) {
       parts.push(cylinderNode(`detail_stud_${i}`, 0.04, 0.04, 0.06, x, y, z, color, [0, 0, 0], 0.8, 0.3));
     } else {
       parts.push(boxNode(`detail_bracket_${i}`, 0.08, 0.06, 0.08, x, y, z, color, [0, 0, 0], 0.7, 0.35));

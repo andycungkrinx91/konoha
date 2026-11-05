@@ -118,66 +118,6 @@ function deploySessionAgents(agents, brainDir) {
   }
 }
 
-function ensureWorkspaceRules(targetCwd) {
-  try {
-    const cwd = targetCwd || process.cwd();
-    if (!cwd || cwd === HOME || !fs.existsSync(cwd)) return;
-    const contractPath = path.join(HOME, '.konoha', 'agent_contract.js');
-    const agentContract = fs.existsSync(contractPath) ? require(contractPath) : null;
-
-    const geminiMdPath = path.join(cwd, 'GEMINI.md');
-    if (!fs.existsSync(geminiMdPath)) {
-      const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
-      const globalGeminiMd = path.join(HOME, '.gemini', 'GEMINI.md');
-      const src = fs.existsSync(templatePath) ? templatePath : (fs.existsSync(globalGeminiMd) ? globalGeminiMd : null);
-      if (src) fs.copyFileSync(src, geminiMdPath);
-      else if (agentContract) fs.writeFileSync(geminiMdPath, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
-    }
-
-    const claudeMdPath = path.join(cwd, 'CLAUDE.md');
-    if (!fs.existsSync(claudeMdPath)) {
-      const templateClaude = path.join(__dirname, 'templates', 'CLAUDE.md');
-      const globalClaudeMd = path.join(HOME, '.claude', 'CLAUDE.md');
-      const src = fs.existsSync(templateClaude) ? templateClaude : (fs.existsSync(globalClaudeMd) ? globalClaudeMd : null);
-      if (src) fs.copyFileSync(src, claudeMdPath);
-      else if (agentContract) fs.writeFileSync(claudeMdPath, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('claude')), 'utf8');
-    }
-
-    const agentsDir = path.join(cwd, '.agents');
-    const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
-    const rootAgentsMdPath = path.join(cwd, 'AGENTS.md');
-    const templateAgents = path.join(__dirname, 'templates', 'AGENTS.md');
-    const globalAgentsMd = path.join(HOME, '.agents', 'AGENTS.md');
-    const srcAgents = fs.existsSync(templateAgents) ? templateAgents : (fs.existsSync(globalAgentsMd) ? globalAgentsMd : null);
-
-    if (!fs.existsSync(agentsMdPath)) {
-      if (srcAgents) {
-        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
-        fs.copyFileSync(srcAgents, agentsMdPath);
-      } else if (agentContract) {
-        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
-        fs.writeFileSync(agentsMdPath, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
-      }
-    }
-    if (!fs.existsSync(rootAgentsMdPath)) {
-      if (srcAgents) fs.copyFileSync(srcAgents, rootAgentsMdPath);
-      else if (agentContract) fs.writeFileSync(rootAgentsMdPath, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
-    }
-
-    const cursorRuleDir = path.join(cwd, '.cursor', 'rules');
-    const cursorRulePath = path.join(cursorRuleDir, 'konoha.mdc');
-    if (!fs.existsSync(cursorRulePath)) {
-      const globalCursorRule = path.join(HOME, '.cursor', 'rules', 'konoha.mdc');
-      if (fs.existsSync(globalCursorRule)) {
-        if (!fs.existsSync(cursorRuleDir)) fs.mkdirSync(cursorRuleDir, { recursive: true });
-        fs.copyFileSync(globalCursorRule, cursorRulePath);
-      } else if (agentContract) {
-        if (!fs.existsSync(cursorRuleDir)) fs.mkdirSync(cursorRuleDir, { recursive: true });
-        fs.writeFileSync(cursorRulePath, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('cursor')), 'utf8');
-      }
-    }
-  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
-}
 
 function isFirstInvocation(invocationNum) {
   return invocationNum === 0 || invocationNum === 1;
@@ -193,8 +133,6 @@ async function main() {
 
     const { conversationId, invocationNum, transcriptPath } = context;
 
-    // Auto-scaffold workspace rules (GEMINI.md, AGENTS.md) in new project workspaces
-    ensureWorkspaceRules();
 
     // ALWAYS deploy agent.json at first invocation.
     // Harmless for subagent sessions (files just sit unused) but essential

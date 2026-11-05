@@ -53,13 +53,27 @@ function uiPidFileForPort(port) {
 }
 
 function checkPortActive(port) {
+  const targetPort = parseInt(port, 10);
+  if (isNaN(targetPort) || targetPort < 1 || targetPort > 65535) {
+    return Promise.resolve(false);
+  }
+  const net = require('net');
   return new Promise((resolve) => {
-    const s = http.get(`http://127.0.0.1:${port}/`, { timeout: 1000 }, (res) => {
-      res.resume();
+    const socket = new net.Socket();
+    socket.setTimeout(400);
+    socket.once('connect', () => {
+      socket.destroy();
       resolve(true);
     });
-    s.on('error', () => resolve(false));
-    s.on('timeout', () => { s.destroy(); resolve(false); });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(targetPort, '127.0.0.1');
   });
 }
 
@@ -150,20 +164,20 @@ async function ensureUiDaemonAutoStart(options = {}) {
   const silent = Boolean(options.silent);
   const optOut = String(process.env.KONOHA_UI_AUTOSTART || '').trim().toLowerCase();
   if (['0', 'false', 'off', 'no'].includes(optOut)) {
-    return { started: false, reason: 'disabled' };
+    return { started: false, ready: false, reason: 'disabled' };
   }
   try {
-    if (await checkPortActive(port)) return { started: false, reason: 'already-active' };
+    if (await checkPortActive(port)) return { started: false, ready: true, reason: 'already-active' };
   } catch { /* non-fatal */ }
 
   if (!options.force && (!fileExists(path.join(SKILLS_DB_DIR, 'server.js')) || !fileExists(path.join(SKILLS_DB_DIR, 'konoha.db')))) {
-    return { started: false, reason: 'not-initialized' };
+    return { started: false, ready: false, reason: 'not-initialized' };
   }
 
   const startArgs = ['--no-open', `--port=${port}`, `--host=${host}`];
   if (silent) startArgs.push('--silent');
-  await cmdUiStart(startArgs);
-  return { started: true };
+  const res = await cmdUiStart(startArgs);
+  return { started: res ? Boolean(res.started) : false, ready: Boolean(res?.ready) };
 }
 
 function removeStalePid(pid, pidFile) {
@@ -222,11 +236,11 @@ function spawnBackgroundDaemon(port, host, token, silent) {
   return child;
 }
 
-async function waitForPortReady(port) {
-  const maxAttempts = process.platform === 'win32' ? 30 : 15;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await new Promise((r) => setTimeout(r, 200));
-    if (await checkPortActive(port)) return true;
+async function waitForPortReady(port, { timeoutMs = 90000, probe = checkPortActive } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await probe(port)) return true;
+    await new Promise((r) => setTimeout(r, 250));
   }
   return false;
 }
@@ -243,25 +257,38 @@ async function cmdUiStart(args = []) {
   if (await checkPortActive(port)) {
     if (!silent) info(`Konoha Web UI is already active on http://${host}:${port}/`);
     if (openBrowser) openUrlInBrowser(`http://${host}:${port}/`);
-    return;
+    return { started: false, ready: true };
   }
 
   const pidFile = uiPidFileForPort(port);
   cleanStalePidFile(pidFile);
-  await ensureBuildHandlerPresent(silent);
+
+  if (process.env.KONOHA_UI_FOREGROUND_BUILD === '1') {
+    await ensureBuildHandlerPresent(silent);
+  } else {
+    const webDir = deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', '..', 'apps', 'web');
+    const distDir = path.join(webDir, 'dist');
+    if (!fs.existsSync(distDir)) {
+      if (!silent) info('Building the web UI once; this runs in the background…');
+    }
+  }
 
   const child = spawnBackgroundDaemon(port, host, token, silent);
-  const started = await waitForPortReady(port);
+  const ready = await waitForPortReady(port);
 
-  if (started) {
+  if (ready) {
     if (!silent) {
       success('Konoha Web UI started successfully in background!');
       info(`URL: http://${host}:${port}/  (PID: ${child.pid || 'unknown'})`);
       info('To stop: konoha ui stop | To restart: konoha ui restart');
     }
     if (openBrowser) openUrlInBrowser(`http://${host}:${port}/`);
-  } else if (!silent) {
-    warn(`Background process spawned (PID: ${child.pid}), but port ${port} is not yet responding. Run "konoha ui status" to verify.`);
+    return { started: true, ready: true };
+  } else {
+    if (!silent) {
+      warn(`Konoha Web UI is still starting (PID: ${child.pid || 'unknown'}). It will answer on http://${host}:${port}/ shortly; check with "konoha ui status".`);
+    }
+    return { started: false, ready: false };
   }
 }
 
@@ -548,6 +575,7 @@ module.exports = {
   cmdWebForeground,
   ensureUiDaemonAutoStart,
   checkPortActive,
+  waitForPortReady,
   getServiceStatus,
   cmdUiService,
   cmdUiBuild,

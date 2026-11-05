@@ -75,6 +75,13 @@ function purgePackageCaches({ _ = false } = {}) {
   if (isWin) spawnOpts.shell = true;
 
   try {
+    const versionCachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
+    if (fileExists(versionCachePath)) {
+      fs.unlinkSync(versionCachePath);
+    }
+  } catch { /* best-effort */ }
+
+  try {
     const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
     spawnSync(pnpmCmd, ['store', 'prune'], spawnOpts);
   } catch { /* best-effort */ }
@@ -99,7 +106,62 @@ function purgePackageCaches({ _ = false } = {}) {
   } catch { /* best-effort */ }
 }
 
-function registerMcp(_python, silent = false, allowAutoApprove = true) {
+function resolveUvxCommand(silent) {
+  let uvCmd = getUvCommand();
+  if (!uvCmd) {
+    uvCmd = installUv(silent) ? (getUvCommand() || 'uv') : 'uv';
+  }
+  if (uvCmd === 'uv') return 'uvx';
+  const companionUvx = path.join(path.dirname(uvCmd), process.platform === 'win32' ? 'uvx.exe' : 'uvx');
+  return fileExists(companionUvx) ? companionUvx : 'uvx';
+}
+
+function pruneDisabledCursorMcpServers(enableAislop, enableSemble) {
+  const cursorMcp = path.join(HOME, '.cursor', 'mcp.json');
+  if (!fileExists(cursorMcp)) return;
+  try {
+    const curConfig = JSON.parse(fs.readFileSync(cursorMcp, 'utf8'));
+    if (!curConfig || !curConfig.mcpServers) return;
+    let changed = false;
+    if (!enableAislop && curConfig.mcpServers.aislop) {
+      delete curConfig.mcpServers.aislop;
+      changed = true;
+    }
+    if (!enableSemble && curConfig.mcpServers.semble) {
+      delete curConfig.mcpServers.semble;
+      changed = true;
+    }
+    if (changed) {
+      fs.writeFileSync(cursorMcp, JSON.stringify(curConfig, null, 2) + '\n');
+    }
+  } catch (_) { /* best-effort */ }
+}
+
+function loadExistingMcpConfig(silent) {
+  if (!fileExists(MCP_CONFIG_PATH)) {
+    if (!silent) info('Creating new MCP config...');
+    return { mcpServers: {} };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
+    if (!parsed.mcpServers) parsed.mcpServers = {};
+    return parsed;
+  } catch {
+    if (!silent) warn(`Invalid JSON in ${MCP_CONFIG_PATH}, starting fresh.`);
+    return { mcpServers: {} };
+  }
+}
+
+function registerMcp(_python, silent = false, allowAutoApprove = true, options = {}) {
+  let opts = options;
+  let autoApprove = allowAutoApprove;
+  if (typeof allowAutoApprove === 'object' && allowAutoApprove !== null) {
+    opts = allowAutoApprove;
+    autoApprove = opts.allowAutoApprove !== undefined ? opts.allowAutoApprove : true;
+  }
+  const enableSemble = opts.semble !== false;
+  const enableAislop = opts.aislop !== false;
+
   ensureDir(path.dirname(MCP_CONFIG_PATH));
 
   const backupPath = MCP_CONFIG_PATH + '.back';
@@ -108,41 +170,14 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
     if (!silent) info(`Backed up existing config → ${path.basename(backupPath)}`);
   }
 
-  let config = { mcpServers: {} };
-  if (fileExists(MCP_CONFIG_PATH)) {
-    try {
-      config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (!config.mcpServers) config.mcpServers = {};
-    } catch {
-      if (!silent) warn(`Invalid JSON in ${MCP_CONFIG_PATH}, starting fresh.`);
-      config = { mcpServers: {} };
-    }
-  } else {
-    if (!silent) info('Creating new MCP config...');
-  }
-
-  let uvCmd = getUvCommand();
-  if (!uvCmd) {
-    if (installUv(silent)) {
-      uvCmd = getUvCommand() || 'uv';
-    } else {
-      uvCmd = 'uv';
-    }
-  }
-
-  let uvxCmd = 'uvx';
-  if (uvCmd !== 'uv') {
-    const companionUvx = path.join(path.dirname(uvCmd), process.platform === 'win32' ? 'uvx.exe' : 'uvx');
-    if (fileExists(companionUvx)) {
-      uvxCmd = companionUvx;
-    }
-  }
+  const config = loadExistingMcpConfig(silent);
+  const uvxCmd = resolveUvxCommand(silent);
 
   const sembleConfig = {
     command: uvxCmd,
     args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all']
   };
-  if (allowAutoApprove) {
+  if (autoApprove) {
     sembleConfig.autoApprove = ['search', 'find_related'];
   }
 
@@ -151,25 +186,35 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
     command: npxCmd,
     args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp']
   };
-  if (allowAutoApprove) {
+  if (autoApprove) {
     aislopConfig.autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
   }
 
   const konohaConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
-  if (konohaConfig && allowAutoApprove) {
+  if (konohaConfig && autoApprove) {
     konohaConfig.autoApprove = deployUtils.KONOHA_CANONICAL_TOOLS
       ? [...deployUtils.KONOHA_CANONICAL_TOOLS]
       : [];
   }
 
-  config.mcpServers['semble'] = sembleConfig;
-  config.mcpServers['aislop'] = aislopConfig;
+  if (enableSemble) config.mcpServers['semble'] = sembleConfig;
+  else delete config.mcpServers['semble'];
+
+  if (enableAislop) config.mcpServers['aislop'] = aislopConfig;
+  else delete config.mcpServers['aislop'];
+
   if (konohaConfig) config.mcpServers['konoha'] = konohaConfig;
   delete config.mcpServers['skills-db'];
   delete config.mcpServers['konoha-files'];
 
+  pruneDisabledCursorMcpServers(enableAislop, enableSemble);
+
   if (!silent) {
-    success(`Registered 'semble', 'konoha', and 'aislop' MCP servers.`);
+    const registered = [];
+    if (enableSemble) registered.push("'semble'");
+    registered.push("'konoha'");
+    if (enableAislop) registered.push("'aislop'");
+    success(`Registered ${registered.join(', ')} MCP servers.`);
   }
 
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
@@ -177,7 +222,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
     success(`Merged Konoha servers into: ${MCP_CONFIG_PATH}`);
   }
 
-  if (allowAutoApprove) {
+  if (autoApprove) {
     registerPermissions(silent);
   }
 }

@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { listReadyAssets, getAssetById, getAssetFileByRole, getJobById } = require('./db_3d_queries');
+
 const MIGRATION_ID = '20261103_001_yamanaka_3d_canonical';
 
 const CANONICAL_3D_TABLES = Object.freeze([
@@ -72,7 +74,22 @@ function purgeLegacy3DTables(conn) {
 }
 
 const ADDITIVE_COLUMNS = Object.freeze([
-  ['assets', 'dcc_mcp_version', 'TEXT']
+  ['assets', 'dcc_mcp_version', 'TEXT'],
+  ['assets', 'output_width', 'INTEGER'],
+  ['assets', 'output_height', 'INTEGER'],
+  ['assets', 'output_aspect_ratio', 'TEXT'],
+  ['assets', 'output_orientation', 'TEXT'],
+  ['assets', 'object_brief_json', 'TEXT'],
+  ['assets', 'reference_analysis_json', 'TEXT'],
+  ['assets', 'iteration_history_json', 'TEXT'],
+  ['assets', 'final_score', 'REAL'],
+  ['generation_jobs', 'output_width', 'INTEGER'],
+  ['generation_jobs', 'output_height', 'INTEGER'],
+  ['generation_jobs', 'output_aspect_ratio', 'TEXT'],
+  ['generation_jobs', 'output_orientation', 'TEXT'],
+  ['generation_jobs', 'object_brief_json', 'TEXT'],
+  ['generation_jobs', 'reference_analysis_json', 'TEXT'],
+  ['generation_jobs', 'iteration_history_json', 'TEXT']
 ]);
 
 /**
@@ -201,10 +218,16 @@ function record3DLlmRequest(conn, reqRecord) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+  let requestKind = reqRecord.request_kind || 'dsl_synthesis';
+  if (requestKind === 'visual_critique') requestKind = 'image_vision';
+  if (!['dsl_synthesis', 'image_vision', 'blender_agent_step', 'procedural_synthesis'].includes(requestKind)) {
+    requestKind = 'image_vision';
+  }
+
   stmt.run(
     requestId,
     reqRecord.job_id,
-    reqRecord.request_kind || 'dsl_synthesis',
+    requestKind,
     reqRecord.provider || 'default',
     reqRecord.model || 'inherited',
     reqRecord.client_source || 'yamanaka',
@@ -331,6 +354,14 @@ function createJobRecord(conn, job) {
     job.error_stage || null, job.error_code || null, job.error_message || null, job.created_at || new Date().toISOString(),
     job.started_at || null, job.completed_at || null
   );
+  const extraJobFields = {};
+  for (const k of ['output_width', 'output_height', 'output_aspect_ratio', 'output_orientation', 'object_brief_json', 'reference_analysis_json', 'iteration_history_json']) {
+    if (job[k] !== undefined) extraJobFields[k] = job[k];
+  }
+  if (Object.keys(extraJobFields).length > 0) {
+    ensureAdditiveColumns(conn);
+    updateJobStage(conn, job.job_id, extraJobFields);
+  }
 }
 
 /**
@@ -340,7 +371,20 @@ function updateJobStage(conn, jobId, stageData = {}) {
   const fields = [];
   const params = [];
 
-  for (const [key, val] of Object.entries(stageData)) {
+  const ALLOWED_JOB_STATUSES = new Set([
+    'pending', 'synthesizing_spec', 'parsing_dsl', 'building_base_mesh',
+    'validating_base_mesh', 'refining_blender', 'validating_final_asset',
+    'generating_previews', 'promoting_asset', 'completed', 'failed', 'recovering'
+  ]);
+  const STATUS_MAP = {
+    inspecting: 'validating_final_asset',
+    fixing: 'refining_blender'
+  };
+
+  for (let [key, val] of Object.entries(stageData)) {
+    if (key === 'status' && !ALLOWED_JOB_STATUSES.has(val)) {
+      val = STATUS_MAP[val] || 'validating_final_asset';
+    }
     fields.push(`${key} = ?`);
     params.push(val);
   }
@@ -385,134 +429,24 @@ function recordValidationResult(conn, val) {
 /**
  * Atomic Promotion Transaction: Commits asset, asset_files, validation_results, and generation_jobs
  */
+function _runImmediateTransaction(conn, fn) {
+  conn.exec('BEGIN IMMEDIATE;');
+  try {
+    fn();
+    conn.exec('COMMIT;');
+  } catch (err) {
+    try { conn.exec('ROLLBACK;'); } catch { /* intentional best-effort fallback: schema drift is corrected on the next migration */ }
+    throw err;
+  }
+}
+
 function promoteAssetTransaction(conn, { job, asset, files = [], validations = [] }) {
-  const tx = typeof conn.transaction === 'function'
-    ? conn.transaction(() => _executePromotion(conn, { job, asset, files, validations }))
-    : () => {
-        conn.exec('BEGIN IMMEDIATE;');
-        try {
-          _executePromotion(conn, { job, asset, files, validations });
-          conn.exec('COMMIT;');
-        } catch (err) {
-          try { conn.exec('ROLLBACK;'); } catch { /* intentional best-effort fallback: schema drift is corrected on the next migration */ }
-          throw err;
-        }
-      };
-
-  return tx();
-}
-
-function _executePromotion(conn, { job, asset, files, validations }) {
-  // Insert into assets
-  const assetStmt = conn.prepare(`
-    INSERT INTO assets (
-      asset_id, job_id, nonce, display_name, source_mode, profile,
-      quality_preset, domain_archetype, dsl_version, refinement_backend,
-      blender_version, dcc_mcp_version, effective_compute_mode, model_used, vertex_count,
-      triangle_count, is_watertight_manifold, pre_blender_score,
-      post_blender_score, input_tokens, output_tokens, total_tokens,
-      est_cost_usd, asset_status, created_at
-    ) VALUES (
-      ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?, ?, ?,
-      ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?
-    )
-  `);
-
-  assetStmt.run(
-    asset.asset_id, asset.job_id, asset.nonce, asset.display_name, asset.source_mode, asset.profile,
-    asset.quality_preset, asset.domain_archetype, asset.dsl_version, asset.refinement_backend,
-    asset.blender_version || null, asset.dcc_mcp_version || null, asset.effective_compute_mode || 'cpu', asset.model_used || null, asset.vertex_count,
-    asset.triangle_count, asset.is_watertight_manifold ? 1 : 0, asset.pre_blender_score || 0.0,
-    asset.post_blender_score || 0.0, asset.input_tokens || 0, asset.output_tokens || 0, asset.total_tokens || 0,
-    asset.est_cost_usd || 0.0, asset.asset_status || 'ready', asset.created_at || new Date().toISOString()
-  );
-
-  // Insert into asset_files
-  const fileStmt = conn.prepare(`
-    INSERT INTO asset_files (
-      file_id, asset_id, file_role, rel_path, mime_type, byte_size,
-      sha256, width_px, height_px, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const f of files) {
-    fileStmt.run(
-      f.file_id || `file_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-      asset.asset_id,
-      f.file_role,
-      f.rel_path,
-      f.mime_type,
-      f.byte_size,
-      f.sha256,
-      f.width_px || null,
-      f.height_px || null,
-      f.created_at || new Date().toISOString()
-    );
+  const { executePromotion } = require('./db_3d_promotion');
+  const runPromotion = () => executePromotion(conn, { job, asset, files, validations });
+  if (typeof conn.transaction === 'function') {
+    return conn.transaction(runPromotion)();
   }
-
-  // Link any validation results to asset_id
-  if (Array.isArray(validations)) {
-    for (const v of validations) {
-      recordValidationResult(conn, { ...v, asset_id: asset.asset_id });
-    }
-  }
-
-  // Update generation_jobs
-  if (job && job.job_id) {
-    conn.prepare(`
-      UPDATE generation_jobs
-      SET status = 'completed', completed_at = ?, input_tokens = ?, output_tokens = ?, total_tokens = ?, est_cost_usd = ?
-      WHERE job_id = ?
-    `).run(
-      new Date().toISOString(),
-      asset.input_tokens || 0,
-      asset.output_tokens || 0,
-      asset.total_tokens || 0,
-      asset.est_cost_usd || 0.0,
-      job.job_id
-    );
-  }
-}
-
-/**
- * List assets in 'ready' status
- */
-function listReadyAssets(conn, options = {}) {
-  const limit = Math.max(1, Math.min(100, options.limit || 20));
-  const offset = Math.max(0, options.offset || 0);
-
-  const rows = conn.prepare(`
-    SELECT a.*,
-      (SELECT rel_path FROM asset_files WHERE asset_id = a.asset_id AND file_role = 'primary_glb') as primary_glb_path,
-      (SELECT rel_path FROM asset_files WHERE asset_id = a.asset_id AND file_role = 'preview_png') as preview_png_path,
-      (SELECT rel_path FROM asset_files WHERE asset_id = a.asset_id AND file_role = 'thumbnail_webp') as thumbnail_webp_path
-    FROM assets a
-    WHERE a.asset_status = 'ready'
-    ORDER BY a.created_at DESC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset);
-
-  return rows;
-}
-
-function getAssetById(conn, assetId) {
-  const asset = conn.prepare('SELECT * FROM assets WHERE asset_id = ?').get(assetId);
-  if (!asset) return null;
-  const files = conn.prepare('SELECT * FROM asset_files WHERE asset_id = ?').all(assetId);
-  const validations = conn.prepare('SELECT * FROM validation_results WHERE asset_id = ?').all(assetId);
-  return { ...asset, files, validations };
-}
-
-function getAssetFileByRole(conn, assetId, fileRole) {
-  return conn.prepare('SELECT * FROM asset_files WHERE asset_id = ? AND file_role = ?').get(assetId, fileRole);
-}
-
-function getJobById(conn, jobId) {
-  return conn.prepare('SELECT * FROM generation_jobs WHERE job_id = ?').get(jobId);
+  return _runImmediateTransaction(conn, runPromotion);
 }
 
 const QUALITY_LADDER_MIGRATION_ID = '20261104_001_quality_level_ladder';

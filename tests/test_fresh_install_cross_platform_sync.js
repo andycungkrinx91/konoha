@@ -96,10 +96,11 @@ function run() {
       home: tempRoot,
       configPath: claudeConfigPath,
       projectRoot: workspaceDir,
-      deployProject: true
+      deployProject: false
     });
     assert.ok(fs.existsSync(claudeConfigPath), 'Must have Claude settings.json');
     assert.ok(fs.existsSync(path.join(tempRoot, '.claude', 'rules', 'rtk.md')), 'Must have ~/.claude/rules/rtk.md');
+    assert.ok(!fs.existsSync(path.join(workspaceDir, 'CLAUDE.md')), 'Project workspace must not receive CLAUDE.md');
     const claudeCfg = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf8'));
     assert.ok(claudeCfg.mcpServers.semble, 'Claude Code must configure semble');
     assert.ok(claudeCfg.mcpServers.aislop, 'Claude Code must configure aislop');
@@ -231,6 +232,31 @@ function run() {
     assert.ok(foundSkill.filePath.includes('test-client-skill'), 'filePath must resolve to test-client-skill');
 
     console.log('  ✓ Windows homedir and mirror fallback resolution verified cleanly');
+
+    console.log('4. Testing hooks and client setup create zero project-level files (including subdirectories)...');
+    const chartSubdir = path.join(workspaceDir, 'chart');
+    fs.mkdirSync(chartSubdir, { recursive: true });
+    const { spawnSync } = require('child_process');
+    const hookEnv = { ...process.env, HOME: tempRoot, USERPROFILE: tempRoot };
+    spawnSync(process.execPath, [path.join(__dirname, '..', 'src', 'workflow', 'sannin-orchestrator', 'workflow_reminder.js')], { cwd: workspaceDir, env: hookEnv });
+    spawnSync(process.execPath, [path.join(__dirname, '..', 'src', 'workflow', 'sannin-orchestrator', 'workflow_reminder.js')], { cwd: chartSubdir, env: hookEnv });
+    spawnSync(process.execPath, [path.join(__dirname, '..', 'src', 'prompt_hook.js')], {
+      cwd: workspaceDir,
+      env: hookEnv,
+      input: JSON.stringify({ workspaceDirectory: workspaceDir })
+    });
+    spawnSync(process.execPath, [path.join(__dirname, '..', 'src', 'prompt_hook.js')], {
+      cwd: chartSubdir,
+      env: hookEnv,
+      input: JSON.stringify({ workspaceDirectory: chartSubdir })
+    });
+    const forbiddenNames = ['.claude.json', '.claude', '.codex', '.commandcode', '.cursor', '.cursorrules', '.gemini', '.omp', '.agents', 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md'];
+    for (const dir of [workspaceDir, chartSubdir]) {
+      for (const name of forbiddenNames) {
+        assert.ok(!fs.existsSync(path.join(dir, name)), `Must not inject ${name} into ${dir}`);
+      }
+    }
+    console.log('  ✓ Zero project-level files created in workspace root or subdirectories');
 
   } finally {
     process.env.HOME = origHome;

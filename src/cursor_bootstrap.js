@@ -194,42 +194,6 @@ function _maintainGlobalCursorRule(agentContract) {
   }
 }
 
-function _scaffoldProjectCursorRule(cwd, agentContract) {
-  if (!cwd || cwd === HOME || !fileExists(cwd) || cwd.startsWith(path.join(HOME, '.konoha'))) return;
-  const projectRulesDir = path.join(cwd, '.cursor', 'rules');
-  const projectRule = path.join(projectRulesDir, 'konoha.mdc');
-  if (!fileExists(projectRule)) {
-    ensureDir(projectRulesDir);
-    if (agentContract) {
-      const content = agentContract.buildManagedContract('', agentContract.buildMainAgentContract('cursor'));
-      fs.writeFileSync(projectRule, content, 'utf8');
-    } else if (fileExists(CURSOR_RULE)) {
-      fs.copyFileSync(CURSOR_RULE, projectRule);
-    }
-    return;
-  }
-  const projectContent = fs.readFileSync(projectRule, 'utf8');
-  if ((!projectContent.includes(CONTRACT_MARKER) || !projectContent.includes(CONTRACT_VERSION)) && agentContract) {
-    const repaired = agentContract.buildManagedContract(projectContent, agentContract.buildMainAgentContract('cursor'));
-    fs.writeFileSync(projectRule, repaired, 'utf8');
-  }
-
-  // Ensure companion workspace rules exist
-  if (agentContract) {
-    const geminiMd = path.join(cwd, 'GEMINI.md');
-    if (!fileExists(geminiMd)) {
-      fs.writeFileSync(geminiMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
-    }
-    const claudeMd = path.join(cwd, 'CLAUDE.md');
-    if (!fileExists(claudeMd)) {
-      fs.writeFileSync(claudeMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('claude')), 'utf8');
-    }
-    const agentsMd = path.join(cwd, 'AGENTS.md');
-    if (!fileExists(agentsMd)) {
-      fs.writeFileSync(agentsMd, agentContract.buildManagedContract('', agentContract.buildMainAgentContract('antigravity')), 'utf8');
-    }
-  }
-}
 
 async function main() {
   try {
@@ -247,12 +211,10 @@ async function main() {
     const python = checkPython();
     registerMcp(python);
     ensureDir(path.dirname(CURSOR_RULE));
-    const cwd = process.cwd();
     const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
     const agentContract = fileExists(contractPath) ? require(contractPath) : null;
 
     _maintainGlobalCursorRule(agentContract);
-    _scaffoldProjectCursorRule(cwd, agentContract);
 
     const packagedRtk = path.join(KONOHA_DIR, 'rtk.mdc');
     if (fileExists(packagedRtk)) {

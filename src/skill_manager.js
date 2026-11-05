@@ -409,7 +409,7 @@ Standard Operating Procedures and guidelines for ${skillName}.
     fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content, 'utf8');
     process.stderr.write(`\n✓ Skill "${skillName}" created successfully at ${targetDir}\n`);
     const execCwd = (options && options.projectRoot) || currentCwd;
-    deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: execCwd, silent: false });
+    deployUtils.syncCursorSkillsFromAgents({ deployProject: false, projectRoot: execCwd, silent: false });
 
     process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
     const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
@@ -449,12 +449,7 @@ function syncAllClientSkills(options = {}) {
   if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
 
   const targetDirs = [
-    path.resolve(effectiveHome, '.agents', 'skills'),
-    path.resolve(effectiveHome, '.cursor', 'skills'),
-    path.resolve(effectiveHome, '.gemini', 'skills'),
-    path.resolve(effectiveHome, '.commandcode', 'skills'),
-    path.resolve(effectiveHome, '.claude', 'skills'),
-    path.resolve(effectiveHome, '.omp', 'skills')
+    path.resolve(effectiveHome, '.agents', 'skills')
   ].filter(dir => fs.existsSync(path.dirname(dir)));
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);

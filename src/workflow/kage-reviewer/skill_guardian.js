@@ -506,28 +506,20 @@ function _handleScanResultVerdict(scanResult, skillName) {
   );
 }
 
-function _deploySkillTargets(stagedPath, skillName, options) {
+function _deploySkillTargets(stagedPath, skillName, _options) {
   const { AGENTS } = require('../../../bin/lib/paths');
   const deployUtils = require('../../deploy_utils');
-  const execCwd = (options && options.projectRoot) || process.cwd();
-  const liveTargetDir = path.join(execCwd, '.agents', 'skills', skillName);
-
-  fs.mkdirSync(path.dirname(liveTargetDir), { recursive: true });
-  deployUtils.copySkillsDirFast(stagedPath, liveTargetDir);
-
   const globalTargetDir = path.join(AGENTS, 'skills', skillName);
-  if (!fs.existsSync(globalTargetDir)) {
-    try {
-      deployUtils.copySkillsDirFast(stagedPath, globalTargetDir);
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
+
+  fs.mkdirSync(path.dirname(globalTargetDir), { recursive: true });
+  deployUtils.copySkillsDirFast(stagedPath, globalTargetDir);
 
   const skillManager = require('../../skill_manager');
   if (typeof skillManager.syncAllClientSkills === 'function') {
-    skillManager.syncAllClientSkills({ projectRoot: execCwd, silent: false });
+    skillManager.syncAllClientSkills({ silent: false });
   }
 
-  return liveTargetDir;
+  return globalTargetDir;
 }
 
 async function installSkillWithGuardian(repoUrl, skillName, options = {}) {

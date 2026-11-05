@@ -3,7 +3,7 @@
 
 /**
  * Konoha backend static analysis and syntax validation harness.
- * Checks all JavaScript source files in bin/, src/, tests/, and scripts/
+ * Checks source files in bin/, src/, tests/, scripts/, and apps/web/src/
  * using Node's native syntax compiler and source hygiene invariants.
  */
 
@@ -12,11 +12,19 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
-const TARGET_DIRS = ['bin', 'src', 'tests', 'scripts'];
+const TARGET_DIRS = ['bin', 'src', 'tests', 'scripts', 'apps/web/src'];
+const SUPPORTED_EXTS = new Set(['.js', '.py', '.svelte']);
+const VENDORED_SKILLS_PREFIX = path.join(ROOT_DIR, 'src', 'templates', 'skills') + path.sep;
 const CONFLICT_MARKER_REGEX = /^(<{7}|={7}|>{7})(?:\s.*)?$/m;
 
-function shouldSkipDir(name) {
-  return name === 'node_modules' || name === '.git' || name.startsWith('.');
+function shouldSkipDir(name, fullPath) {
+  if (name === 'node_modules' || name === '.git' || name === '__pycache__' || name.startsWith('.')) {
+    return true;
+  }
+  if (fullPath && fullPath.startsWith(VENDORED_SKILLS_PREFIX)) {
+    return true;
+  }
+  return false;
 }
 
 function walkJsFiles(current, results) {
@@ -24,8 +32,8 @@ function walkJsFiles(current, results) {
   for (const entry of entries) {
     const entryPath = path.join(current, entry.name);
     if (entry.isDirectory()) {
-      if (!shouldSkipDir(entry.name)) walkJsFiles(entryPath, results);
-    } else if (entry.isFile() && entry.name.endsWith('.js')) {
+      if (!shouldSkipDir(entry.name, entryPath)) walkJsFiles(entryPath, results);
+    } else if (entry.isFile() && SUPPORTED_EXTS.has(path.extname(entry.name))) {
       results.push(entryPath);
     }
   }
@@ -39,21 +47,30 @@ function collectJsFiles(dir) {
   return results;
 }
 
+function checkJsNumberedComments(lines, errors) {
+  lines.forEach((line, idx) => {
+    if (/^\s*\/\/\s*\d+\.\s+/.test(line)) {
+      errors.push(`Numbered comment found on line ${idx + 1}: ${line.trim()}`);
+    }
+  });
+}
+
 function lintFile(filePath) {
   const relativePath = path.relative(ROOT_DIR, filePath);
   const errors = [];
+  const ext = path.extname(filePath);
 
-  // Native Node.js syntax compiler check (--check)
-  const res = spawnSync(process.execPath, ['--check', filePath], {
-    encoding: 'utf8',
-    timeout: 5000
-  });
+  if (ext === '.js') {
+    const res = spawnSync(process.execPath, ['--check', filePath], {
+      encoding: 'utf8',
+      timeout: 5000
+    });
 
-  if (res.status !== 0) {
-    errors.push(`Syntax error: ${(res.stderr || res.stdout || '').trim()}`);
+    if (res.status !== 0) {
+      errors.push(`Syntax error: ${(res.stderr || res.stdout || '').trim()}`);
+    }
   }
 
-  // Source hygiene checks
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     if (CONFLICT_MARKER_REGEX.test(content)) {
@@ -63,11 +80,9 @@ function lintFile(filePath) {
     if (lines.length > 700) {
       errors.push(`File exceeds 700 lines (${lines.length} lines)`);
     }
-    lines.forEach((line, idx) => {
-      if (/^\s*\/\/\s*\d+\.\s+/.test(line)) {
-        errors.push(`Numbered comment found on line ${idx + 1}: ${line.trim()}`);
-      }
-    });
+    if (ext === '.js') {
+      checkJsNumberedComments(lines, errors);
+    }
   } catch (err) {
     errors.push(`Read error: ${err.message}`);
   }
@@ -81,7 +96,7 @@ function runLint() {
   console.log('====================================================');
 
   const files = TARGET_DIRS.flatMap(collectJsFiles).sort();
-  console.log(`Discovered ${files.length} JavaScript files across ${TARGET_DIRS.join(', ')}.\n`);
+  console.log(`Discovered ${files.length} source files across ${TARGET_DIRS.join(', ')}.\n`);
 
   let errorCount = 0;
   const failedFiles = [];

@@ -15,7 +15,7 @@ tags:
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
-Konoha serves ALL 48 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 48 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 8 specialists:
+Konoha serves ALL 50 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 9 specialists:
 - Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
 - Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
 - Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
@@ -24,6 +24,7 @@ Konoha serves ALL 48 canonical tools through standard MCP protocols across 8 sup
 - Backend & DevOps (@anbu): Backend services, bug fixing, DevOps, and infrastructure deployment.
 - Technical Writing & Scribe (@tokubetsu-jonin): Publication-grade documentation, diagrams, and reports.
 - Security Specialist (@akatsuki): Red-team penetration testing in sandboxes and blue-team defensive hardening.
+- Generative 3D Specialist (@yamanaka): Autonomous 3D asset synthesis, Manifold-3D geometry validation, and live Blender refinement.
 
 ---
 
@@ -34,8 +35,8 @@ To prevent token burn and provide surgically accurate guidance, maintenance inst
 | Domain | Reference Path | On-Demand Loading Command | Core Coverage |
 |---|---|---|---|
 | **Workflow & StateGraph** | `references/workflow.md` | `konoha.get_skill("konoha/workflow")` | LangGraph.js cyclic StateGraph, node lifecycles, per-turn token budget governor (8k/16k/32k/64k), circuit breaker `node_error`, Gate 1 & Gate 2 HITL. |
-| **System Architecture** | `references/architecture.md` | `konoha.get_skill("konoha/architecture")` | 48 canonical MCP tools manifest, transports (stdio/SSE/WS 1404), runtime state & flow hash, website builder layout invariants (far-left logo, no mobile hamburger, 10-theme light mode FAB). |
-| **Subagents & Roles** | `references/peragent-usage.md` | `konoha.get_skill("konoha/peragent-usage")` | 8-ninja specialist subagents roster, persona contracts, strict tool access boundaries, ADHD cognitive output formatting, Akatsuki security profiles. |
+| **System Architecture** | `references/architecture.md` | `konoha.get_skill("konoha/architecture")` | Canonical MCP tools manifest, transports (stdio/SSE/WS 1404), runtime state & flow hash, website builder layout invariants (far-left logo, no mobile hamburger, 10-theme light mode FAB). |
+| **Subagents & Roles** | `references/peragent-usage.md` | `konoha.get_skill("konoha/peragent-usage")` | 9-ninja specialist subagents roster, persona contracts, strict tool access boundaries, ADHD cognitive output formatting, Akatsuki security profiles. |
 | **Testing & Verification** | `references/test.md` | `konoha.get_skill("konoha/test")` | QA runbooks, unit/integration suites (`tests/run_all.js`), Draw.io zero-collision checks, WebP asset tests, linter, `aislop` code hygiene gate. |
 | **Benchmark & Token Economy** | `references/benchmark.md` | `konoha.get_skill("konoha/benchmark")` | Context reduction (83%–98%), dynamic baseline byte calculation in `tools_savings_logger.js`, SQLite FTS5 search performance, KV-cache prefix optimization. |
 | **Documentation Standards** | `references/docs.md` | `konoha.get_skill("konoha/docs")` | Reader-first zero-AI standards, security compliance report forward-porting, README & CHANGELOG sync, visual WebP generation. |
@@ -44,17 +45,17 @@ To prevent token burn and provide surgically accurate guidance, maintenance inst
 
 ## 🔒 Cardinal Maintenance Invariants
 
-1. **Tool Boundaries**:
+1. **Tool Boundaries & Global-Only Configs**:
    - Repository code search: ALWAYS use Semble MCP (`semble.search`, `semble.find_related`).
    - Skill lookup: ALWAYS use Konoha MCP (`konoha.find_skill`, `konoha.get_skill`).
    - Bounded file I/O: ALWAYS use Konoha bounded tools (`read_file_range`, `read_file_head`, `token_efficient_grep`).
    - Shell commands: ALWAYS prefix with RTK (`rtk <command>`).
-   - Filesystem Mirrors Invariant: Konoha does not maintain filesystem mirrors across client folders. All skills reside centrally in SQLite FTS5 database.
+   - Global-Only Client Configs: Never write `.omp`, `.codex`, `.cursor`, `.claude`, `.agents`, or `.gitignore` rules into user project directories; all client configs live under user home (`~/.omp`, `~/.codex`, `~/.cursor`, `~/.config/git/ignore`, etc.) and auto-regenerate only on `konoha doctor` or explicit `konoha init`.
    - Extension Isolation: The obsolete `andycungkrinx91.konoha-bridge-master-universal` extension directory is eliminated; all IDEs use direct MCP configuration.
 2. **Quality & Security Delivery Gate**:
    - Shipped code must pass `rtk npx aislop scan --changes` with score **100/100 Healthy**, 0 errors, and 0 warnings.
    - Final Kage review requires `confidence >= 98%`, `ai_slop_clean: true`, and zero security findings.
-3. **Source File Line Limit**: Keep all JavaScript source files strictly under 700 lines.
+3. **Source File Line Limit**: Keep all `.js`, `.py`, and `.svelte` source files strictly under 700 lines (`scripts/lint.js`).
 4. **Draw.io Zero Collision Rule**: Never introduce overlapping cells or bounding-box collisions in Draw.io diagram pages (`tests/test_diagram_sync.js`).
 5. **Single-Source Version Synchronization**: Keep all 19 managed repository targets strictly synchronized via `scripts/bump_version.js`.
 6. **Release Governance**: When maintaining or updating Konoha on branch `master`, ensure all discovered tests pass before release commits.

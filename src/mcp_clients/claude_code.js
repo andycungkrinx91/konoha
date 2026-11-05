@@ -433,8 +433,8 @@ function ensureClaudeCodeSetup(options = {}) {
     ruleContent = null,
     silent = true,
     agents = [],
-    projectRoot = null,
-    deployProject = false,
+    projectRoot: _projectRoot = null,
+    deployProject: _deployProject = false,
     force = false,
     skipDetection = false
   } = options;
@@ -462,12 +462,6 @@ function ensureClaudeCodeSetup(options = {}) {
   deployClaudeCodeRules(effectiveRuleContent, silent, options);
 
   _deployClaudeCodeAgents(effectiveAgents, options);
-
-  if (deployProject && projectRoot) {
-    try {
-      deployProjectClaudeMd(projectRoot, effectiveAgents, silent, effectiveRuleContent);
-    } catch { /* ignore */ }
-  }
 
   return { ok: true };
 }

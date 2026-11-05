@@ -337,6 +337,63 @@ function syncSoulAcrossClients(options = {}) {
   return updated;
 }
 
+const GLOBAL_GIT_EXCLUDE_PATTERNS = [
+  '.omp/',
+  '.codex/',
+  '.cursor/',
+  '.claude/',
+  '.gemini/',
+  '.opencode/',
+  '.commandcode/',
+  '.pi/',
+  '.agents/',
+  'CLAUDE.md'
+];
+
+function resolveGlobalGitExcludesPath(homeDir) {
+  const effectiveHome = homeDir || process.env.HOME || process.env.USERPROFILE || HOME || os.homedir();
+  if (!homeDir) {
+    try {
+      const res = spawnSync('git', ['config', '--global', '--get', 'core.excludesFile'], {
+        encoding: 'utf-8',
+        timeout: 4000,
+        windowsHide: true
+      });
+      const configured = ((res.stdout || '') + '').trim();
+      if (configured) {
+        return configured.startsWith('~/')
+          ? path.join(effectiveHome, configured.slice(2))
+          : path.resolve(effectiveHome, configured);
+      }
+    } catch (_) { /* intentional fallback */ }
+  }
+  return path.join(effectiveHome, '.config', 'git', 'ignore');
+}
+
+function ensureGlobalGitExcludes(homeDir) {
+  try {
+    const excludesPath = resolveGlobalGitExcludesPath(homeDir);
+    ensureDir(path.dirname(excludesPath));
+    const existing = fileExists(excludesPath) ? fs.readFileSync(excludesPath, 'utf-8') : '';
+    const existingLines = new Set(
+      existing
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+    );
+    const missing = GLOBAL_GIT_EXCLUDE_PATTERNS.filter(pattern => !existingLines.has(pattern));
+    if (missing.length === 0) {
+      return { ok: true, path: excludesPath, added: 0 };
+    }
+    const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
+    const block = `${prefix}${missing.join('\n')}\n`;
+    fs.writeFileSync(excludesPath, existing + block, 'utf-8');
+    return { ok: true, path: excludesPath, added: missing.length };
+  } catch (err) {
+    return { ok: false, error: err.message, added: 0 };
+  }
+}
+
 const OFFICIAL_SKILL_NAMES = new Set([
   'akatsuki-skill', 'anbu-skill', 'chunin-skill', 'genin-skill',
   'jonin-skill', 'kage-skill', 'konoha', 'sannin-skill',
@@ -461,6 +518,7 @@ module.exports = {
   syncCursorSkillsFromAgents,
   resolveSoulSource,
   syncSoulAcrossClients,
+  ensureGlobalGitExcludes,
   pruneWorkspacePollution,
   writeNodeExecPathRecord,
   writePythonCmdRecord,

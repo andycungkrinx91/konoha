@@ -16,6 +16,34 @@ const deployUtils = require('../../src/deploy_utils');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
+function resolveEffectiveSourceRoot(options = {}) {
+  const candidate = (options && options.sourceRoot) || process.env.KONOHA_UPGRADE_SOURCE_ROOT || '';
+  if (candidate && fileExists(path.join(candidate, 'package.json'))) {
+    return path.resolve(candidate);
+  }
+  return REPO_ROOT;
+}
+
+function readPackageVersionSafe(pkgJsonPath) {
+  try {
+    if (!fileExists(pkgJsonPath)) return null;
+    const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+    return parsed && parsed.version ? String(parsed.version).trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSimpleSemverNewer(vA, vB) {
+  if (!vA || !vB) return false;
+  const parse = (v) => String(v).replace(/^v/, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
+  const [a0 = 0, a1 = 0, a2 = 0] = parse(vA);
+  const [b0 = 0, b1 = 0, b2 = 0] = parse(vB);
+  if (a0 !== b0) return a0 > b0;
+  if (a1 !== b1) return a1 > b1;
+  return a2 > b2;
+}
+
 function readDeclaredDependencies(pkgJsonPath) {
   try {
     const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
@@ -48,8 +76,8 @@ function copyDependencyFrom(sourceNodeModules, nodeModulesPath, depName) {
   }
 }
 
-function linkOrCopyModuleTree(nodeModulesPath) {
-  const rootNodeModules = path.join(REPO_ROOT, 'node_modules');
+function linkOrCopyModuleTree(nodeModulesPath, sourceRoot = REPO_ROOT) {
+  const rootNodeModules = path.join(sourceRoot, 'node_modules');
   if (!fileExists(rootNodeModules)) return;
   if (!fileExists(nodeModulesPath)) {
     try {
@@ -60,19 +88,20 @@ function linkOrCopyModuleTree(nodeModulesPath) {
       return;
     }
   }
-  const deps = readDeclaredDependencies(path.join(REPO_ROOT, 'package.json'));
-  const webNodeModules = path.join(REPO_ROOT, 'apps', 'web', 'node_modules');
+  const deps = readDeclaredDependencies(path.join(sourceRoot, 'package.json'));
+  const webNodeModules = path.join(sourceRoot, 'apps', 'web', 'node_modules');
   for (const depName of listMissingDependencies(nodeModulesPath, deps)) {
     if (copyDependencyFrom(rootNodeModules, nodeModulesPath, depName)) continue;
     copyDependencyFrom(webNodeModules, nodeModulesPath, depName);
   }
 }
 
-function _tryLinkRootModules(nodeModulesPath) {
-  linkOrCopyModuleTree(nodeModulesPath);
+function _tryLinkRootModules(nodeModulesPath, sourceRoot = REPO_ROOT) {
+  linkOrCopyModuleTree(nodeModulesPath, sourceRoot);
 }
 
 function copyIfDifferent(src, dest) {
+  if (path.resolve(src) === path.resolve(dest)) return false;
   if (!fileExists(dest)) {
     copyFile(src, dest);
     return true;
@@ -121,86 +150,99 @@ function copyRecursiveIfDifferent(src, dest) {
   }
 }
 
-function copyRuntimeFiles(copyTree) {
+function copyDirectoryFiles(srcDir, destDir) {
+  if (!fileExists(srcDir) || path.resolve(srcDir) === path.resolve(destDir)) return;
+  ensureDir(destDir);
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    if (entry.isFile()) {
+      copyIfDifferent(path.join(srcDir, entry.name), path.join(destDir, entry.name));
+    }
+  }
+}
+
+function copyRuntimeAssets(assetsSrc, copyTree) {
+  if (!fileExists(assetsSrc)) return;
+  for (const entry of fs.readdirSync(assetsSrc, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.vsix')) {
+      const destFile = path.join(SKILLS_DB_DIR, 'assets', entry.name);
+      if (path.resolve(path.join(assetsSrc, entry.name)) !== path.resolve(destFile)) {
+        ensureDir(path.join(SKILLS_DB_DIR, 'assets'));
+        copyFile(path.join(assetsSrc, entry.name), destFile);
+      }
+    } else if (entry.isDirectory() && entry.name === 'models') {
+      const modelsSrc = path.join(assetsSrc, 'models');
+      const modelsDest = path.join(SKILLS_DB_DIR, 'assets', 'models');
+      if (path.resolve(modelsSrc) !== path.resolve(modelsDest)) copyTree(modelsSrc, modelsDest);
+    }
+  }
+}
+
+function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
   const cliDest = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
   ensureDir(path.join(SKILLS_DB_DIR, 'bin'));
 
-  const sourceCliPath = path.resolve(__dirname, '..', 'cli.js');
-  if (fileExists(sourceCliPath)) copyFile(sourceCliPath, cliDest);
-
-  const pkgSrc = path.resolve(__dirname, '..', '..', 'package.json');
-  if (fileExists(pkgSrc)) copyFile(pkgSrc, path.join(SKILLS_DB_DIR, 'package.json'));
-
-  const patchesSrc = path.resolve(__dirname, '..', '..', 'patches');
-  if (fileExists(patchesSrc)) {
-    copyTree(patchesSrc, path.join(SKILLS_DB_DIR, 'patches'));
+  const destPkgPath = path.join(SKILLS_DB_DIR, 'package.json');
+  const pkgSrc = path.join(sourceRoot, 'package.json');
+  const destVer = readPackageVersionSafe(destPkgPath);
+  const srcVer = readPackageVersionSafe(pkgSrc);
+  if (destVer && srcVer && isSimpleSemverNewer(destVer, srcVer)) {
+    return cliDest;
   }
 
-  const migrationsSrc = path.resolve(__dirname, '..', '..', 'migrations');
-  if (fileExists(migrationsSrc)) {
-    copyTree(migrationsSrc, path.join(SKILLS_DB_DIR, 'migrations'));
+  const sourceCliPath = path.join(sourceRoot, 'bin', 'cli.js');
+  if (fileExists(sourceCliPath) && path.resolve(sourceCliPath) !== path.resolve(cliDest)) {
+    copyFile(sourceCliPath, cliDest);
   }
 
-  const libSrc = path.resolve(__dirname);
-  if (fileExists(libSrc)) {
-    for (const entry of fs.readdirSync(libSrc, { withFileTypes: true })) {
-      if (entry.isFile()) {
-        ensureDir(path.join(SKILLS_DB_DIR, 'bin', 'lib'));
-        copyFile(path.join(libSrc, entry.name), path.join(SKILLS_DB_DIR, 'bin', 'lib', entry.name));
-      }
-    }
+  if (fileExists(pkgSrc) && path.resolve(pkgSrc) !== path.resolve(destPkgPath)) {
+    copyFile(pkgSrc, destPkgPath);
   }
 
-  const commandsSrc = path.resolve(__dirname, '..', 'commands');
-  if (fileExists(commandsSrc)) {
-    for (const entry of fs.readdirSync(commandsSrc, { withFileTypes: true })) {
-      if (entry.isFile()) {
-        ensureDir(path.join(SKILLS_DB_DIR, 'bin', 'commands'));
-        copyFile(path.join(commandsSrc, entry.name), path.join(SKILLS_DB_DIR, 'bin', 'commands', entry.name));
-      }
-    }
+  const patchesSrc = path.join(sourceRoot, 'patches');
+  const patchesDest = path.join(SKILLS_DB_DIR, 'patches');
+  if (fileExists(patchesSrc) && path.resolve(patchesSrc) !== path.resolve(patchesDest)) {
+    copyTree(patchesSrc, patchesDest);
   }
 
-  if (fileExists(SRC_DIR)) {
+  const migrationsSrc = path.join(sourceRoot, 'migrations');
+  const migrationsDest = path.join(SKILLS_DB_DIR, 'migrations');
+  if (fileExists(migrationsSrc) && path.resolve(migrationsSrc) !== path.resolve(migrationsDest)) {
+    copyTree(migrationsSrc, migrationsDest);
+  }
+
+  copyDirectoryFiles(path.join(sourceRoot, 'bin', 'lib'), path.join(SKILLS_DB_DIR, 'bin', 'lib'));
+  copyDirectoryFiles(path.join(sourceRoot, 'bin', 'commands'), path.join(SKILLS_DB_DIR, 'bin', 'commands'));
+
+  const effectiveSrcDir = fileExists(path.join(sourceRoot, 'src')) ? path.join(sourceRoot, 'src') : SRC_DIR;
+  if (fileExists(effectiveSrcDir)) {
     const destSrc = path.join(SKILLS_DB_DIR, 'src');
-    if (path.resolve(SRC_DIR) !== path.resolve(destSrc)) copyTree(SRC_DIR, destSrc);
+    if (path.resolve(effectiveSrcDir) !== path.resolve(destSrc)) copyTree(effectiveSrcDir, destSrc);
   }
 
-  const templateSkills = path.resolve(__dirname, '..', '..', 'src', 'templates', 'skills');
+  const templateSkills = path.join(sourceRoot, 'src', 'templates', 'skills');
   const skillsSrc = fileExists(templateSkills)
     ? templateSkills
-    : path.resolve(__dirname, '..', '..', '.agents', 'skills');
+    : path.join(sourceRoot, '.agents', 'skills');
   const skillsDest = path.join(SKILLS_DB_DIR, '.agents', 'skills');
   if (fileExists(skillsSrc) && path.resolve(skillsSrc) !== path.resolve(skillsDest)) {
     copyTree(skillsSrc, skillsDest);
   }
 
-  const docsSrc = path.resolve(__dirname, '..', '..', 'docs');
+  const docsSrc = path.join(sourceRoot, 'docs');
   const docsDest = path.join(SKILLS_DB_DIR, 'docs');
   if (fileExists(docsSrc) && path.resolve(docsSrc) !== path.resolve(docsDest)) {
     copyTree(docsSrc, docsDest);
   }
 
-  const assetsSrc = path.resolve(__dirname, '..', '..', 'assets');
-  if (fileExists(assetsSrc)) {
-    for (const entry of fs.readdirSync(assetsSrc, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name.endsWith('.vsix')) {
-        ensureDir(path.join(SKILLS_DB_DIR, 'assets'));
-        copyFile(path.join(assetsSrc, entry.name), path.join(SKILLS_DB_DIR, 'assets', entry.name));
-      } else if (entry.isDirectory() && entry.name === 'models') {
-        const modelsSrc = path.join(assetsSrc, 'models');
-        const modelsDest = path.join(SKILLS_DB_DIR, 'assets', 'models');
-        if (path.resolve(modelsSrc) !== path.resolve(modelsDest)) copyTree(modelsSrc, modelsDest);
-      }
-    }
-  }
+  copyRuntimeAssets(path.join(sourceRoot, 'assets'), copyTree);
   return cliDest;
 }
 
-function resolveWebBuildSource() {
-  let webBuildSrc = path.resolve(__dirname, '..', '..', 'apps', 'web', 'build');
+function resolveWebBuildSource(sourceRoot = REPO_ROOT) {
+  const webBuildSrc = path.join(sourceRoot, 'apps', 'web', 'build');
   if (fileExists(path.join(webBuildSrc, 'handler.js'))) return webBuildSrc;
   const candidates = [
+    path.resolve(__dirname, '..', '..', 'apps', 'web', 'build'),
     path.join(process.cwd(), 'apps', 'web', 'build'),
     path.join(process.cwd(), 'build')
   ];
@@ -249,8 +291,8 @@ function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
   }
 }
 
-function installWebUiRuntime(copyTree) {
-  let webSrcDir = path.resolve(__dirname, '..', '..', 'apps', 'web');
+function installWebUiRuntime(copyTree, sourceRoot = REPO_ROOT) {
+  let webSrcDir = path.join(sourceRoot, 'apps', 'web');
   if (!fileExists(path.join(webSrcDir, 'package.json')) && fileExists(path.join(process.cwd(), 'apps', 'web', 'package.json'))) {
     webSrcDir = path.join(process.cwd(), 'apps', 'web');
   }
@@ -260,8 +302,8 @@ function installWebUiRuntime(copyTree) {
     info(`Web UI application installed to ${webDestDir}`);
   }
 
-  const currentVersion = getCliVersion();
-  const webBuildSrc = resolveWebBuildSource();
+  const currentVersion = readPackageVersionSafe(path.join(sourceRoot, 'package.json')) || getCliVersion();
+  const webBuildSrc = resolveWebBuildSource(sourceRoot);
   const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
   const destWebPkg = path.join(webDestDir, 'package.json');
   let destVersion = null;
@@ -301,12 +343,12 @@ function installMissingDependencies(deps) {
   return false;
 }
 
-function ensureRuntimeDependencies() {
+function ensureRuntimeDependencies(sourceRoot = REPO_ROOT) {
   const nodeModulesPath = path.join(SKILLS_DB_DIR, 'node_modules');
-  const deps = readDeclaredDependencies(path.join(REPO_ROOT, 'package.json'));
+  const deps = readDeclaredDependencies(path.join(sourceRoot, 'package.json'));
   if (deps.length === 0 || listMissingDependencies(nodeModulesPath, deps).length === 0) return;
 
-  _tryLinkRootModules(nodeModulesPath);
+  _tryLinkRootModules(nodeModulesPath, sourceRoot);
   const stillMissing = listMissingDependencies(nodeModulesPath, deps);
   if (stillMissing.length === 0) return;
 
@@ -329,9 +371,11 @@ function copyTreeEntry(entry, src, dest, copyTree) {
   if (entry.isFile()) copyFile(s, d);
 }
 
-function installCliRuntime() {
+function installCliRuntime(options = {}) {
+  const sourceRoot = resolveEffectiveSourceRoot(options);
   const skipNames = new Set(['.ruff_cache', '__pycache__', '.pytest_cache', '.DS_Store', 'node_modules', '.svelte-kit', 'build', 'dist']);
   const copyTree = (src, dest) => {
+    if (path.resolve(src) === path.resolve(dest)) return;
     ensureDir(dest);
     for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
       if (skipNames.has(entry.name)) continue;
@@ -339,9 +383,9 @@ function installCliRuntime() {
     }
   };
   try {
-    const cliDest = copyRuntimeFiles(copyTree);
-    installWebUiRuntime(copyTree);
-    ensureRuntimeDependencies();
+    const cliDest = copyRuntimeFiles(copyTree, sourceRoot);
+    installWebUiRuntime(copyTree, sourceRoot);
+    ensureRuntimeDependencies(sourceRoot);
     return cliDest;
   } catch (_) {
     return path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
@@ -384,7 +428,7 @@ function buildShimContents(sourceCli, packageCli, nodeCmd) {
   const shPackageCli = packageCli.replace(/\\/g, '/');
   const shNodeCmd = nodeCmd.replace(/\\/g, '/');
   return {
-    'konoha': `#!/bin/sh\nif [ -f "${shSourceCli}" ]; then\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nelif [ -f "${shPackageCli}" ]; then\n  exec "${shNodeCmd}" "${shPackageCli}" "$@"\nelse\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nfi\n`,
+    'konoha': `#!/bin/sh\nif [ -f "${shSourceCli}" ]; then\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nelif [ -f "${shPackageCli}" ]; then\n  exec "${shNodeCmd}" "${packageCli}" "$@"\nelse\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nfi\n`,
     'konoha.cmd': `@echo off\r\nif exist "${sourceCli}" (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n) else if exist "${packageCli}" (\r\n  "${nodeCmd}" "${packageCli}" %*\r\n) else (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n)\r\n`,
     'konoha.ps1': `if (Test-Path "${sourceCli}") {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n} elseif (Test-Path "${packageCli}") {\r\n  & "${nodeCmd}" "${packageCli}" @args\r\n} else {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n}\r\n`
   };
@@ -444,7 +488,8 @@ function reconcileGlobalCommand() {
   }
 
   const candidateDirs = getCandidateShimDirs(isWin, homeDir);
-  const contents = buildShimContents(sourceCli, packageCli, process.execPath);
+  const resolvedNode = deployUtils.resolveCompatibleNode() || process.execPath;
+  const contents = buildShimContents(sourceCli, packageCli, resolvedNode);
   const shimCtx = { mode: isWin ? undefined : 0o755, isWin, sourceCli };
 
   for (const dir of candidateDirs) {
