@@ -1,4 +1,4 @@
-# 🍃 Konoha Documentation Maintenance Standard (v2.2.17)
+# 🍃 Konoha Documentation Maintenance Standard (v2.2.18)
 
 Guidelines and requirements for authoring, updating, and synchronizing Konoha documentation, compliance records, and visual assets.
 
@@ -31,7 +31,7 @@ All documentation authored or updated by Konoha subagents (especially `@tokubets
 
 ## 🛡️ Security Compliance Reports Forward-Porting Rule
 
-When creating a new compliance report for a version bump (e.g. `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.17_2026-11-01.md`), **NEVER drop cumulative compliance guarantees** from prior releases:
+When creating a new compliance report for a version bump (e.g. `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md`), **NEVER drop cumulative compliance guarantees** from prior releases:
 - **Subagent Parity & Role Boundaries (§2.1)**: Manifest-driven official subagent tool parity via `src/mcp/memory_subagent_runner.js`. Role isolation prevents read-only agents from mutating files.
 - **Upstream Skill Pins (§2.2)**: Strict Git commit SHA pinning for vendored skills (`taste-skill@12af471`, `anti-slop@3005235`).
 - **PowerShell Script Eradication (§2.5)**: Strictly zero `.ps1` files exist anywhere in the working tree. Remote MSI downloaders are eliminated.

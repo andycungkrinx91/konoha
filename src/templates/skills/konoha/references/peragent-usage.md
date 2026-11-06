@@ -1,10 +1,10 @@
-# 🍃 Konoha 8-Ninja Specialist Subagent Roster & Operational Boundaries (v2.2.17)
+# 🍃 Konoha 9-Ninja Specialist Subagent Roster & Operational Boundaries (v2.2.18)
 
 Technical reference on subagent roles, strict tool permission matrices, persona contracts, ADHD output shaping, and Akatsuki dual-mode security execution.
 
 ---
 
-## 👥 Official 8-Ninja Specialist Roster
+## 👥 Official 9-Ninja Specialist Roster
 
 Every subagent operates with specialized persona prompts, isolated tool permissions, and strictly scoped responsibilities:
 
@@ -18,6 +18,7 @@ Every subagent operates with specialized persona prompts, isolated tool permissi
 | **@anbu** | Backend, DevOps & Bug Fixing | Server architecture, database/API hardening, DevOps, bug repairs, minimal safe changes. | **Active Mutating** (Full write, edit, `aislop_fix`) |
 | **@tokubetsu-jonin** | Technical Writing & Scribe | Publication-grade documentation, DOCX, PDF, XLSX, PPTX, SVG diagrams, animated WebP (< 3.0% AI detection). | **Document Engines Only** (`document_create`, etc.) |
 | **@akatsuki** | Security Specialist | Red-team penetration testing in Docker/LXC, blue-team security auditing, Skill Guardian verification. | **Sandboxed Offensive & Defensive** |
+| **@yamanaka** | Generative 3D Specialist | Autonomous 3D generative synthesis, procedural Three.js/Manifold construction, live agentic Blender editing, production spatial asset pipelines. | **Active Mutating** (Full 3D engines, CSG solids, GLB/PNG export) |
 
 ---
 

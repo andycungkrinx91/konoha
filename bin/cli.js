@@ -109,6 +109,11 @@ async function dispatchCoreCommand(cmd, cmdArgs) {
     case 'upgrade':
       await cmdUpgrade(cmdArgs);
       return true;
+    case 'db': {
+      const { cmdDb } = require('./commands/db');
+      await cmdDb(cmdArgs);
+      return true;
+    }
     case 'tui': {
       const { cmdAgent } = require('./commands/agent');
       await cmdAgent(['list', '--tui']);

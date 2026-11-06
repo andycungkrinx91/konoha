@@ -586,7 +586,7 @@ const CANONICAL_NAMES = {
   '14 Remote Access & Telegram Inbound/Outbound': 'konoha-telegram-flow.webp',
   '16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle': 'konoha-akatsuki-flow.webp',
   '17 Yamanaka Image-to-3D Asset Pipeline': 'konoha-yamanaka-3d-flow.webp',
-  '15 Authenticated Local Web UI & Ingress Queue': 'konoha-web-ingress-flow.webp',
+  '19 Authenticated Local Web UI & Ingress Queue': 'konoha-web-ingress-flow.webp',
   '18 LangGraph.js Orchestration Runtime': 'konoha-langgraph-flow.webp'
 };
 

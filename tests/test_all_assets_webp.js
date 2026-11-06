@@ -5,7 +5,7 @@
  * tests/test_all_assets_webp.js
  *
  * Verifies that:
- * 1. All 31 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
+ * 1. All 32 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
  *    (19 of them are drawio-derived: one per drawio tab, see docs/diagrams/README.md).
  * 2. Zero legacy .gif files remain in `assets/`.
  * 3. Every .webp file passes `validateAnimatedWebP` binary structural verification.
@@ -22,7 +22,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// Expected 31 canonical animation assets (12 demos + 19 drawio tabs)
+// Expected 32 canonical animation assets (13 demos + 19 drawio tabs)
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -63,7 +63,7 @@ const EXPECTED_WEBP_ASSETS = [
 // scripts/generate_drawio_flow_webp.js.
 const DRAWIO_CANVAS = { width: 2400, height: 1632 };
 
-console.log('1. Checking that all 31 Animated WebP assets exist and legacy GIFs are removed...');
+console.log('1. Checking that all 32 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -133,5 +133,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 31 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 32 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

@@ -504,10 +504,10 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
 
 ---
 
-## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.17 Production Architecture)
+## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.18 Production Architecture)
 
-> **Architectural Specification & Runtime Architecture (Release 2.2.17)**:
-> In release 2.2.17, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
+> **Architectural Specification & Runtime Architecture (Release 2.2.18)**:
+> In release 2.2.18, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
 ---
 
 ### 1. Phase 1: Inventory of Current Routing & Runtime Invariants
@@ -546,7 +546,7 @@ The production LangGraph.js implementation in `src/mcp/langgraph/` models the or
 
 ```mermaid
 ---
-title: LangGraph.js Production StateGraph Architecture (Active in v2.2.17)
+title: LangGraph.js Production StateGraph Architecture (Active in v2.2.18)
 config:
   theme: base
   themeVariables:
@@ -665,8 +665,8 @@ LangGraph.js provides native parallel branch execution through the `Send` API an
    - **Filesystem Race Conditions**: Without distributed filesystem locking or transactional file buffers, parallel subagents writing to shared paths risk patch clobbering, race conditions in Git working trees, and broken diff matching.
    - **Token Spike & Rate Limit Exhaustion**: Simultaneous invocations of high-tier LLM models across multiple agents saturate provider concurrency pools and trigger HTTP 429 rate limit backoffs.
    - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
-3. **Architectural Implementation (v2.2.17)**:
-   - **STATUS: ACTIVE IN v2.2.17 (`src/mcp/langgraph/`)**.
+3. **Architectural Implementation (v2.2.18)**:
+   - **STATUS: ACTIVE IN v2.2.18 (`src/mcp/langgraph/`)**.
    - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
 
 ---
@@ -717,18 +717,18 @@ Before any graph-based engine can be introduced beyond research, it must clear n
 
 ---
 
-### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.17)
+### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.18)
 
-1. **Release v2.2.17 Activation**:
+1. **Release v2.2.18 Activation**:
    - Integrated as the production state-machine orchestrator in `src/mcp/langgraph/`.
    - Backward compatibility preserved via `src/mcp/workflow.js` facade functions (`sanninWorkflowInit`, `sanninWorkflowNext`, `sanninWorkflowStatus`, `sanninWorkflowReset`, `runMcpWorkflow`, `runSannin`).
 2. **Zero-Native Pure Node Checkpointer**:
    - `KonohaCheckpointSaver` implements `BaseCheckpointSaver` on `node:sqlite`, eliminating native C++ dependencies while providing WAL mode, atomic commits, and thread-level state isolation across `lg_checkpoints` and `lg_writes`.
 ---
 
-### 7. Turn-Scoped Token Budget & Resumption Protocol (v2.2.17 Amendment)
+### 7. Turn-Scoped Token Budget & Resumption Protocol (v2.2.18 Amendment)
 
-In v2.2.17, the execution boundary of the token budget governor was re-architected from workflow-scoped termination to strict **turn-scoped progression**. Previously, reaching the token budget ceiling set `budgetExceeded: true` permanently into SQLite checkpoint state, wedging subsequent turns at `node_budget_exceeded`.
+In v2.2.18, the execution boundary of the token budget governor was re-architected from workflow-scoped termination to strict **turn-scoped progression**. Previously, reaching the token budget ceiling set `budgetExceeded: true` permanently into SQLite checkpoint state, wedging subsequent turns at `node_budget_exceeded`.
 
 #### Architectural Invariants & Guarantees
 1. **Turn-Scoped Budget Reset**: Every new invocation turn resets `turnTokensUsed: 0`, `budgetExceeded: false`, and `error: null` while advancing the monotonic `turnIndex`.
@@ -744,7 +744,7 @@ In v2.2.17, the execution boundary of the token budget governor was re-architect
 
 ```mermaid
 ---
-title: LangGraph.js Turn-Scoped Execution & Resumption Protocol (v2.2.17)
+title: LangGraph.js Turn-Scoped Execution & Resumption Protocol (v2.2.18)
 config:
   theme: base
   themeVariables:

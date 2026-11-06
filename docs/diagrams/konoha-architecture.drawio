@@ -1484,7 +1484,7 @@
                 <mxCell id="p17-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="17 Yamanaka Image-to-3D Asset Pipeline" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p17-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;fontStyle=0;align=left;" value="Blender 5.2.2 headless build · geometry_quality weld / UV / finalize · Three.js IBL preview · measured bytes and triangles, never template numbers" vertex="1">
+                <mxCell id="p17-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;fontStyle=0;align=left;" value="Blender 5.2.2 headless build · geometry_quality weld / UV / finalize · Three.js IBL preview · measured bytes and triangles (Runtime state graph: see Page 18 LangGraph.js Orchestration Runtime)" vertex="1">
                     <mxGeometry height="24" width="1300" x="40" y="64" as="geometry" />
                 </mxCell>
                 <mxCell id="p17-request" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;agent=host;" value="build_from_source / build_from_text&#10;prompt + quality level" vertex="1">

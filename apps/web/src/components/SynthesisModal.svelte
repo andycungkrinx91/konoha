@@ -1,7 +1,6 @@
 <script>
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
-  import { onDestroy } from "svelte";
-  import RefinePanel from './RefinePanel.svelte';
+    import RefinePanel from './RefinePanel.svelte';
 
   let {
     open = false,
@@ -14,7 +13,8 @@
     stats = { triangleCount: 0, vertexCount: 0, isWatertight: true },
     error = null,
     onClose = () => {},
-    onRetry = () => {}
+    onRetry = () => {},
+    onRefined = () => {}
   } = $props();
 
   const radius = 52;
@@ -30,7 +30,6 @@
 
   useScrollLock(() => open);
 
-  let portalHost = $state(null);
   let viewMode = $state('3d');
 
   $effect(() => {
@@ -39,50 +38,16 @@
     }
   });
 
-  $effect(() => {
-    if (typeof document === 'undefined') return;
-    const host = document.createElement('div');
-    host.setAttribute('data-konoha-modal-host', 'synthesis');
-    document.body.appendChild(host);
-    portalHost = host;
-    return () => {
-      portalHost = null;
-      host.remove();
-    };
-  });
-
-  onDestroy(() => {
-    if (portalHost) portalHost.remove();
-  });
-
   function handleKeyDown(event) {
     if (event.key === 'Escape' && !isGenerating && open) {
       onClose();
     }
   }
-
-  function portalTo(node) {
-    const parent = node.parentNode;
-    const anchor = typeof document !== 'undefined' ? document.createComment('synthesis-modal-anchor') : null;
-    if (anchor) parent.insertBefore(anchor, node);
-    (async () => {
-      const { tick } = await import('svelte');
-      await tick();
-      if (portalHost && node.parentNode !== portalHost) portalHost.appendChild(node);
-    })();
-    return {
-      destroy() {
-        if (node.parentNode && node.parentNode !== parent) parent.insertBefore(node, anchor);
-        if (anchor) anchor.remove();
-      }
-    };
-  }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
 
-{#if open && portalHost}
-  <div use:portalTo={portalHost} style="display: contents">
+{#if open}
   <div
     class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto overscroll-contain"
     onclick={handleBackdropClick}
@@ -332,6 +297,5 @@
         </div>
       {/if}
     </div>
-  </div>
   </div>
 {/if}

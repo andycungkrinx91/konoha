@@ -45,6 +45,7 @@ export default defineConfig({
       KONOHA_DISABLE_RATE_LIMIT: '1',
       KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json',
       KONOHA_DISABLE_TELEGRAM_POLLER: '1',
+      KONOHA_CYCLES_SAMPLES: '4',
       KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || TEST_BOOTSTRAP_PASSWORD || 'konohagakure'
     },
     timeout: 30000,

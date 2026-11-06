@@ -10,7 +10,7 @@
  * reveal plus a travelling pulse along each already-rounded path.
  *
  * Union of tabs across both drawio files = 19 diagrams (the enterprise file re-states
- * the same 18 pages with one extra security box and swaps page 15 for the local Web UI
+ * the same 18 pages with one extra security box and adds page 19 for the local Web UI
  * ingress topology, so only that page is rendered additionally).
  *
  * Usage:
@@ -33,7 +33,7 @@ const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 const VERSION = require('../package.json').version;
 const FRAMES = 24;
 const FPS = 12;
-const WEB_INGRESS_PAGE = '15 Authenticated Local Web UI & Ingress Queue';
+const WEB_INGRESS_PAGE = '19 Authenticated Local Web UI & Ingress Queue';
 
 fs.mkdirSync(ASSETS_DIR, { recursive: true });
 

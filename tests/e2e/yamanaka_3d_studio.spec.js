@@ -63,6 +63,7 @@ test("Yamanaka 3D Maker streams live GLB into viewport without 404 or module err
 
   await expect(page.getByText(/Cannot find module 'three'/i)).toHaveCount(0);
   await expect(page.getByText(/Failed to load 3D model/i)).toHaveCount(0);
+  await expect(modal.getByRole("button", { name: /3D Model Viewport/i })).toBeVisible({ timeout: 30000 });
   await expect(modal.locator("canvas").first()).toBeVisible({ timeout: 30000 });
 
   const fatal = consoleErrors.filter((line) => /Cannot find module|responded with 404/i.test(line));

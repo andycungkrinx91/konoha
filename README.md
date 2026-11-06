@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
+  <img src="assets/konoha_logo_kyubi.webp" alt="Konoha Logo" width="320">
 </p>
 
 <h1 align="center">🍃 KONOHA</h1>
@@ -69,7 +69,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 * **Latest Release:** [v2.2.18](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
 
-* **Reading the diagrams:** every animated canvas below is a **projection of a Draw.io page**, not a hand-drawn picture — `docs/diagrams/konoha-architecture.drawio` (18 tabs) plus the enterprise `15 Authenticated Local Web UI & Ingress Queue` tab are the single source of truth, and `scripts/generate_drawio_flow_webp.js` renders each tab to a 2400×1632 animated WebP (24 frames at 12 fps, `loop: 0`) with `scripts/lib/drawio_flow_svg.js`. Geometry is parsed from the `.drawio` XML, so cards, lanes, decision diamonds and connector waypoints are exactly the ones edited in Draw.io; only the **label text is condensed** (parentheticals and duplicated agent prefixes dropped, one sentence capped at 118 characters per line) so the same graph stays readable at canvas size. Every page is fitted with a 4% canvas margin, so no box or label touches the border. Shapes are **static** — cards, lanes, diamonds and text hold still for the whole loop and only the connectors move (a travelling pulse phased by flow order plus a slow dash march) — drawn in the Konoha kit grammar: white rounded cards with a hued top bar and soft shadow, dashed connectors over a tinted track, dotted paper and a brand wash. Every process card carries an explicit `◈ agent` tag (`agent=<slug>;` in the cell style), links keep their drawio waypoints with quadratic-rounded corners, and `tests/test_flow_diagram_style_lock.js` proves the projection still contains **every** drawio cell (`data-cell` coverage 19/19) — simplified text, identical flow.
+* **Reading the diagrams:** every animated canvas below is a **projection of a Draw.io page**, not a hand-drawn picture — `docs/diagrams/konoha-architecture.drawio` (18 tabs) plus the enterprise `19 Authenticated Local Web UI & Ingress Queue` tab are the single source of truth, and `scripts/generate_drawio_flow_webp.js` renders each tab to a 2400×1632 animated WebP (24 frames at 12 fps, `loop: 0`) with `scripts/lib/drawio_flow_svg.js`. Geometry is parsed from the `.drawio` XML, so cards, lanes, decision diamonds and connector waypoints are exactly the ones edited in Draw.io; only the **label text is condensed** (parentheticals and duplicated agent prefixes dropped, one sentence capped at 118 characters per line) so the same graph stays readable at canvas size. Every page is fitted with a 4% canvas margin, so no box or label touches the border. Shapes are **static** — cards, lanes, diamonds and text hold still for the whole loop and only the connectors move (a travelling pulse phased by flow order plus a slow dash march) — drawn in the Konoha kit grammar: white rounded cards with a hued top bar and soft shadow, dashed connectors over a tinted track, dotted paper and a brand wash. Every process card carries an explicit `◈ agent` tag (`agent=<slug>;` in the cell style), links keep their drawio waypoints with quadratic-rounded corners, and `tests/test_flow_diagram_style_lock.js` proves the projection still contains **every** drawio cell (`data-cell` coverage 19/19) — simplified text, identical flow.
 
 ### ✧ Diagram Flow Konoha Orchestrator
 
@@ -141,7 +141,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | 16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle | [`konoha-akatsuki-flow.webp`](assets/konoha-akatsuki-flow.webp) | 22 / 15 | akatsuki, host |
 | 17 Yamanaka Image-to-3D Asset Pipeline | [`konoha-yamanaka-3d-flow.webp`](assets/konoha-yamanaka-3d-flow.webp) | 15 / 9 | host, yamanaka |
 | 18 LangGraph.js Orchestration Runtime | [`konoha-langgraph-flow.webp`](assets/konoha-langgraph-flow.webp) | 23 / 18 | sannin, kage, anbu, yamanaka |
-| 15 Authenticated Local Web UI & Ingress Queue | [`konoha-web-ingress-flow.webp`](assets/konoha-web-ingress-flow.webp) | 14 / 9 | host, anbu, sannin, tokubetsu-jonin |
+| 19 Authenticated Local Web UI & Ingress Queue | [`konoha-web-ingress-flow.webp`](assets/konoha-web-ingress-flow.webp) | 14 / 9 | host, anbu, sannin, tokubetsu-jonin |
 
 *Every row is rendered from the `.drawio` source, so the table can never disagree with the diagrams: the counts are read from the same XML the renderer projects.*
 

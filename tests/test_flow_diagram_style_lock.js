@@ -76,7 +76,7 @@ console.log(`  ✓ Frozen canvas: ${STYLE_LOCK.canvas.width}x${STYLE_LOCK.canvas
 // ── 2. One asset per drawio tab, stable names preserved ──────────────────
 const corpus = loadDrawioCorpus();
 const pages = [...corpus.architecture];
-const ingress = corpus.enterprise.find((p) => p.name === '15 Authenticated Local Web UI & Ingress Queue');
+const ingress = corpus.enterprise.find((p) => p.name === '19 Authenticated Local Web UI & Ingress Queue');
 assert.ok(ingress, 'enterprise drawio must still carry the local web ingress page');
 pages.push(ingress);
 assert.strictEqual(corpus.architecture.length, 18, 'architecture drawio must have 18 pages');

@@ -166,6 +166,9 @@ function capReferenceContext(text) {
 }
 
 async function generateObjectBrief(prompt, options = {}) {
+  if (options.offline === true || process.env.NODE_ENV === 'test') {
+    return { brief: null, model_used: null, tokens: { ...ZERO_TOKENS }, fallback_reason: 'Test mode fallback' };
+  }
   const archetype = options.archetype || 'auto';
   const model = options.model || null;
   const labels = extractLabelText(prompt);
@@ -241,6 +244,9 @@ async function tryCritiqueTarget(target, ctx) {
 }
 
 async function critiqueRender(options = {}) {
+  if (options.offline === true || process.env.NODE_ENV === 'test') {
+    return { critique: null, model_used: null, tokens: { ...ZERO_TOKENS }, fallback_reason: 'Test mode fallback' };
+  }
   const { gridPath, referencePath, prompt = '', model = null, targets: presetTargets } = options;
   if (!gridPath || !fs.existsSync(gridPath)) {
     return { critique: null, model_used: null, tokens: { ...ZERO_TOKENS }, fallback_reason: 'No render grid' };

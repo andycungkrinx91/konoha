@@ -582,7 +582,7 @@ async function generateSceneSpecFromPrompt(prompt, options = {}) {
   const effectiveArch = resolveEffectiveArchetype(prompt, archetype);
   const brief = options.object_brief || null;
 
-  if (options.offline === true || options.use_llm === false) {
+  if (options.offline === true || options.use_llm === false || process.env.NODE_ENV === 'test') {
     const fallbackSpec = assembleSpec(prompt, name, target_polycount, effectiveArch, archetype, brief);
     return {
       spec: fallbackSpec,

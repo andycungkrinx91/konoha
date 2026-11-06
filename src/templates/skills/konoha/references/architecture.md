@@ -1,12 +1,12 @@
-# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.17)
+# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.18)
 
-Technical specification of the Konoha MCP Server architecture, 48 canonical tools, transport mechanisms, runtime state, and universal website builder invariants.
+Technical specification of the Konoha MCP Server architecture, 50 canonical tools, transport mechanisms, runtime state, and universal website builder invariants.
 
 ---
 
 ## 🏛️ System Architecture Overview
 
-Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 48 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
+Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 50 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`)

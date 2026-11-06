@@ -1,4 +1,4 @@
-# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.17)
+# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.18)
 
 Technical specification and operational guide for the LangGraph.js cyclic StateGraph orchestration engine, per-turn token budget governor, and circuit breaker error edges.
 
@@ -6,7 +6,7 @@ Technical specification and operational guide for the LangGraph.js cyclic StateG
 
 ## 🏗️ StateGraph Architecture Overview
 
-In Konoha v2.2.17, all multi-step engineering tasks run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`. The legacy procedural engine (`runMcpWorkflow`) serves as a fail-closed fallback.
+In Konoha v2.2.18, all multi-step engineering tasks run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`. The legacy procedural engine (`runMcpWorkflow`) serves as a fail-closed fallback.
 
 ### Dual-Track Execution Model
 1. **Branch B (Fast-Track / Website Builds)**: Direct request intent (UI builds, `build_from_text`, `build_from_source`, slash shortcuts `/jonin`) bypasses multi-stage state transitions and dispatches directly to `@jonin` with Taste-Skill directives.
@@ -79,7 +79,7 @@ In Konoha v2.2.17, all multi-step engineering tasks run on a compiled, cyclic La
 
 ## ⚡ Per-Turn Token Budget Governor
 
-Konoha v2.2.17 replaces cumulative thread limits with a **strict per-turn token budget governor**:
+Konoha v2.2.18 replaces cumulative thread limits with a **strict per-turn token budget governor**:
 - **Turn Scope**: Budget evaluates tokens consumed *within the current execution turn only*. `tokensUsed` remains cumulative for thread reporting, while `turnTokensUsed` resets at the beginning of each invoke.
 - **Default Budget**: `8,192` tokens per turn.
 - **Allowed Ceilings**: `{8192, 16384, 32768, 65536}`.

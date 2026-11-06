@@ -1,4 +1,4 @@
-# 🍃 Konoha Token Economy & Benchmark Standards (v2.2.17)
+# 🍃 Konoha Token Economy & Benchmark Standards (v2.2.18)
 
 Technical reference on Konoha's token economy, dynamic baseline savings calculations, SQLite FTS5 benchmark metrics, and KV-cache prefix optimization.
 

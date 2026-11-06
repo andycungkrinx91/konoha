@@ -266,30 +266,27 @@ function _buildInstructionText(ctx) {
   let advisoryText = '';
   if (!ctx.dorResult.ready && ctx.dorResult.missing && ctx.dorResult.missing.length > 0) {
     advisoryText = (
-      '\n\n### ⚠️ Definition-of-Readiness (DoR) Advisory Hints\n' +
-      ctx.dorResult.missing.map(m => `- ${m}`).join('\n') +
-      '\n*Note: Advisory mode — subagent should clarify or resolve these open questions during execution.*'
+      '\n\n### ⚠️ DoR Advisory Hints\n' +
+      ctx.dorResult.missing.map(m => `- ${m}`).join('\n')
     );
   }
 
   let buildGuidance = '';
   if (ctx.selectedAgent === 'jonin' || /\b(website|web\s*app|landing\s*page|frontend|storefront|portfolio|dashboard|scaffold.*ui)\b/i.test(ctx.effPrompt)) {
     buildGuidance = (
-      '\n\n### ⚡ Website & UI Scaffolding Notice\n' +
-      '- For text-based builds, call `konoha.build_from_text(name, description, framework)` FIRST to get framework-native directives and mandatory Konoha design invariants (far-left logo, no mobile hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, hero carousel).\n' +
-      '- For mockup builds with images, call `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
-      '- Pass the returned directives directly as structured tool constraints when calling `jonin`.\n' +
-      '- Jonin implements the complete working website with an inline `README.md` and validates cleanly via framework validation commands. DO NOT delegate to `tokubetsu_jonin` or other subagents unless technical documentation was explicitly requested by the user.'
+      '\n\n### ⚡ Website Scaffolding\n' +
+      '- Text build: Call `konoha.build_from_text(name, description, framework)` FIRST.\n' +
+      '- Mockup build: Call `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
+      '- Pass directives to `jonin`. Implement complete site with inline README and clean validation.'
     );
   }
 
   let parallelGuidance = '';
   if (ctx.parallelWorkstreams.length > 1) {
     parallelGuidance = (
-      '\n\n### ⚡ Parallel Execution Opportunity (Time-Saving)\n' +
-      `- Multi-domain workstreams detected: ${ctx.parallelWorkstreams.map(w => `\`${w.agent}\` (${w.domain})`).join(', ')}.\n` +
-      '- For maximum execution time savings, once architectural interfaces are locked in the approved Gate 1 plan evidence, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.\n' +
-      '- In OMP / Cursor: Dispatch real concurrent subagents via task batching (`task(context=..., tasks=[...])`). Each subagent must load its informed skills using `konoha.use_skills` and preserve intermediate context throughout execution.'
+      '\n\n### ⚡ Parallel Opportunity\n' +
+      `- Multi-domain workstreams: ${ctx.parallelWorkstreams.map(w => `\`${w.agent}\` (${w.domain})`).join(', ')}.\n` +
+      '- Dispatch independent workstreams concurrently once Gate 1 interfaces are locked.'
     );
   }
 
@@ -297,34 +294,23 @@ function _buildInstructionText(ctx) {
 
   let trackGuidance = '';
   if (ctx.executionTrack === 'fast_track') {
-    trackGuidance = (
-      '\n\n### ⚡ Fast-Track Direct Execution (Zero Pipeline Overhead)\n' +
-      '- Direct, immediate execution by target agent without 8-phase DAG or Gate 1 plan pause.\n' +
-      '- Subagent executes directly and reports verification via `konoha.report_from_agent`.'
-    );
+    trackGuidance = '\n\n### ⚡ Fast-Track: Execute directly without 8-phase DAG.';
   }
 
   const executionBlock = (
-    '\n\n## Delegation Steps\n\n' +
-    `1. Call \`${ctx.selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`, \`project_path="${ctx.resolvedProjPath}"\`).\n` +
-    `2. Subagent is provisioned with main agent tool parity (within archetype boundaries), loads routed skills via \`konoha.use_skills(skills=${JSON.stringify(ctx.routedSkills)})\`, preserves all intermediate context, and reports verification via \`konoha.report_from_agent\` with \`task_id="${ctx.taskId}"\`.\n` +
-    `3. Call \`sannin\` with \`task_dir=${ctx.resolvedTaskDir}\` to advance the workflow.` +
-    (ctx.envelope ? `\n\n${ctx.envelope.text}` : '')
+    '\n\n## Delegation Steps\n' +
+    `1. Call \`${ctx.selectedAgent}\` with (\`task\`, \`context\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`).\n` +
+    `2. Subagent executes within archetype boundaries and reports via \`konoha.report_from_agent\` (\`task_id="${ctx.taskId}"\`).\n` +
+    `3. Call \`sannin(task_dir="${ctx.resolvedTaskDir}")\` to advance.`
   );
 
   return (
-    `**Selected Agent**: \`${ctx.selectedAgent}\`\n` +
-    `**Execution Track**: \`${ctx.executionTrack}\`\n` +
+    `**Selected Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
     routeLine +
-    `**Flow Hash**: \`${ctx.flowHash}\`\n` +
-    `**Routed Skills**: ${ctx.routedSkills.length > 0 ? ctx.routedSkills.map(s => `\`${s}\``).join(', ') : 'None (soul-bound defaults)'}\n` +
-    `**Reason**: ${ctx.description}\n\n` +
-    `Task directory: \`${ctx.resolvedTaskDir}\`\n` +
-    `SDLC Task ID: \`${ctx.taskId}\`\n` +
+    `**Flow Hash**: \`${ctx.flowHash}\` | **Task ID**: \`${ctx.taskId}\`\n` +
+    `**Task Dir**: \`${ctx.resolvedTaskDir}\`\n` +
     executionBlock +
-    `\n\n## Original Prompt\n\n${ctx.effPrompt}` +
-    advisoryText + trackGuidance + buildGuidance + parallelGuidance +
-    (ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '')
+    buildGuidance + parallelGuidance + trackGuidance + advisoryText
   );
 }
 

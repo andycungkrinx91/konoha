@@ -1074,7 +1074,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: LangGraph.js Production State Graph, Per-Turn Budget Governor & Circuit Breaker Error Edge (v2.2.17)
+title: LangGraph.js Production State Graph, Per-Turn Budget Governor & Circuit Breaker Error Edge (v2.2.18)
 config:
   theme: base
   themeVariables:
@@ -1153,7 +1153,7 @@ flowchart TD
 
 ```mermaid
 ---
-title: LangGraph.js Turn-Scoped Budget Execution & Resume Loop Protocol (v2.2.17)
+title: LangGraph.js Turn-Scoped Budget Execution & Resume Loop Protocol (v2.2.18)
 config:
   theme: base
   themeVariables:
