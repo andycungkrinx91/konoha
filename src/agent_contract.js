@@ -41,7 +41,7 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 6 (Automated Testing & QA: Anbu & Jonin)
   - Phase 7 (Security, Hardening & Audit: Akatsuki)
   - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
-- **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
+- **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
 - **Authoritative Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
   - **Uniform rendering on EVERY client**: Antigravity, Claude Code, Cursor, Codex, OMP, OpenCode, CommandCode, Gemini CLI and the CLI/TUI all render gates identically. Render whatever the gate response returns; never suppress, summarize away, or auto-answer it.
   - **Interactive option picker (not number lookup)**: Render the gate's \`interactive_prompt\` as a pick-one list where the LABEL is what the human enters. The human replies with the option text or its number; never ask them to "enter the number of the option".

@@ -1,5 +1,21 @@
 'use strict';
 
+const layout = require('./drawio_flow_layout');
+
+/** Helpers the layout module needs from this file (lazy: CANVAS is defined below). */
+function layoutHelpers() {
+  return {
+    baseCanvas: CANVAS,
+    isPageHeading,
+    isPageSubheading,
+    contentBounds: (page) => layout.contentBounds(page, layoutHelpers())
+  };
+}
+
+function fitScale(page, canvas) { return layout.fitScale(page, canvas, layoutHelpers()); }
+function contentBounds(page) { return layout.contentBounds(page, layoutHelpers()); }
+const cardType = layout.cardType;
+
 /**
  * Renders a drawio page as a self-contained animated HTML/SVG scene.
  *
@@ -284,16 +300,6 @@ function cardLines(vertex) {
   return simplifyLabel(vertex).split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
-/** Kit type scale, kept small so dense pages never collide with their canvas. */
-function cardType(box) {
-  const roomy = box.h >= 76 && box.w >= 190;
-  const medium = box.h >= 48;
-  const base = roomy ? 16 : medium ? 14.5 : 13;
-  const detail = roomy ? 13.5 : medium ? 12.5 : 12;
-  const cap = Math.max(12, Math.min(box.h * 0.36, box.w * 0.13));
-  return { title: Math.min(base, cap), detail: Math.min(detail, Math.max(12, cap - 1)) };
-}
-
 function textDiv(rect, text, opt) {
   const { x, y, w, h } = rect;
   const justify = opt.align === 'left' ? 'flex-start' : opt.align === 'right' ? 'flex-end' : 'center';
@@ -319,32 +325,32 @@ function labelMarkup(vertex, agent) {
   if (!lines.length) return '';
   const detailLines = lines.slice(1);
   if (isPanel(vertex)) {
-    const head = Math.min(26, box.h * 0.4);
+    const head = Math.min(28, box.h * 0.4);
     const title = textDiv({ x: box.x + 8, y: box.y + 2, w: box.w - 16, h: head }, esc(lines[0]),
-      { size: 15, weight: 700, color: KIT_INK, align: 'left' });
+      { size: 16, weight: 700, color: KIT_INK, align: 'left' });
     if (!detailLines.length || box.h < 52) return title;
     const available = box.h - head - 10;
     const maxLines = Math.max(1, Math.floor(available / 16));
     const kept = detailLines.slice(0, maxLines);
     if (detailLines.length > maxLines) kept[kept.length - 1] = `${kept[kept.length - 1].slice(0, 60)}\u2026`;
     return title + textDiv({ x: box.x + 8, y: box.y + head + 2, w: box.w - 16, h: available }, kept.map((line) => esc(line)).join('<br/>'),
-      { size: 12.5, weight: 500, color: KIT_MUTED, align: 'left', vertical: 'flex-start' });
+      { size: 13.5, weight: 500, color: KIT_MUTED, align: 'left', vertical: 'flex-start' });
   }
   if (style.rhombus) {
     const innerW = box.w * 0.56;
     const innerH = box.h * 0.5;
-    const size = Math.max(13, Math.min(16, box.h * 0.16, innerW / 9));
+    const size = Math.max(14, Math.min(17, box.h * 0.17, innerW / 9));
     const text = fitOneLine(lines.join(' \u00b7 '), innerW, size);
     return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, esc(text),
       { size, weight: 700, color: KIT_INK });
   }
-  const type = cardType(box);
+  const type = cardType(box, vertex.id);
   const pad = 6;
   const top = style.shape === 'cylinder3'
     ? box.y + Math.min(9, box.h / 5) + 2
-    : box.y + (box.h >= 44 ? 4 : 3) + 3;
-  const bottom = agent ? 10 : 0;
-  const usable = Math.max(12, box.y + box.h - bottom - pad - top);
+    : box.y + (box.h >= 44 ? 3 : 2) + 2;
+  const bottom = agent ? 9 : 0;
+  const usable = Math.max(12, box.y + box.h - bottom - pad + 2 - top);
   const width = Math.max(8, box.w - pad * 2);
   const hasDetail = detailLines.length > 0 && usable >= type.title + type.detail * 1.5;
   const multiDetail = detailLines.length > 1 && usable >= type.title * 1.3 + type.detail * 2.5;
@@ -369,7 +375,7 @@ function agentTagMarkup(vertex, agent) {
   if (!agent || vertex.box.h < 34 || isTextBox(vertex) || isPanel(vertex)) return '';
   const accent = hueOf(vertex.style.strokeColor, KIT.violet);
   return `<text class="card-agent" data-agent="${esc(agent)}" x="${num(vertex.box.x + 10)}" y="${num(vertex.box.y + vertex.box.h - 6)}"`
-    + ` font-family="${FONT_MONO}" font-size="10" font-weight="700" letter-spacing="0.4" fill="${accent}">\u25c8 ${esc(agent)}</text>`;
+    + ` font-family="${FONT_MONO}" font-size="11" font-weight="700" letter-spacing="0.3" fill="${accent}">\u25c8 ${esc(agent)}</text>`;
 }
 
 function cylinderMarkup(vertex, accent) {
@@ -415,19 +421,19 @@ function edgeLabelMarkup(edge, mid, accent) {
   return `<rect x="${num(mid.x - width / 2)}" y="${num(mid.y - 7)}" width="${num(width)}" height="14" rx="7"`
     + ` fill="#FFFFFF" stroke="${accent}" stroke-opacity="0.35" filter="url(#panelShadow)"/>`
     + `<text x="${num(mid.x)}" y="${num(mid.y + 3.3)}" text-anchor="middle" font-family="${FONT_SANS}"`
-    + ` font-size="12" font-weight="700" fill="${accent}">${esc(label)}</text>`;
+    + ` font-size="13" font-weight="700" fill="${accent}">${esc(label)}</text>`;
 }
 
 function textNodeMarkup(vertex) {
   const { box, style } = vertex;
   const raw = Number(style.fontSize || 12);
   const heading = raw >= 16;
-  const size = heading ? Math.min(Math.max(raw, 17), 26) : 14;
+  const size = heading ? Math.min(Math.max(raw, 18), 28) : 15;
   const weight = heading ? 800 : 500;
   const color = heading ? KIT_INK : KIT_MUTED;
   const justify = style.align === 'center' ? 'center' : style.align === 'right' ? 'flex-end' : 'flex-start';
   const text = esc(simplifyLabel(vertex)).replace(/\n/g, '<br/>');
-  return `<foreignObject x="${num(box.x)}" y="${num(box.y)}" width="${num(Math.max(8, box.w))}" height="${num(Math.max(10, box.h))}">`
+  return `<foreignObject x="${num(box.x)}" y="${num(box.y - 1)}" width="${num(Math.max(8, box.w))}" height="${num(Math.max(10, box.h + 3))}">`
     + `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:${justify};height:100%;`
     + `font-family:${FONT_SANS};font-size:${num(size)}px;font-weight:${weight};color:${color};line-height:1.2;`
     + `text-align:${style.align || 'left'};white-space:pre-wrap;overflow:hidden;">${text}</div></foreignObject>`;
@@ -456,17 +462,6 @@ function stepPlan(page) {
   }
   const max = Math.max(0, ...steps.values());
   return { steps, total: max + 1 };
-}
-
-/** Uniform scale that fits a drawio page inside the output canvas (no clipping, no stretch). */
-function fitScale(page, canvas) {
-  const cw = canvas.width || CANVAS.width;
-  const ch = canvas.height || CANVAS.height;
-  const pw = page.pageWidth || page.width;
-  const ph = page.pageHeight || page.height;
-  // A 4% safety margin keeps page edges (and the footer) off the canvas border.
-  const inset = canvas.margin === undefined ? 0.04 : canvas.margin;
-  return Math.min((cw * (1 - inset)) / pw, (ch * (1 - inset)) / ph);
 }
 
 function svgForPage(page, options) {
@@ -520,11 +515,19 @@ function svgForPage(page, options) {
     + ` font-family="${FONT_SANS}" font-size="22" font-weight="800" letter-spacing="0.02em">`
     + `${esc(caption)}</text>`;
 
+  // Centre the drawing itself (excluding the caption token) on the viewBox centre.
+  // contentBounds() walks page vertices only, so the caption never biases the aim.
+  const bounds = contentBounds(page);
+  const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : page.pageWidth / 2;
+  const cy = bounds ? (bounds.minY + bounds.maxY) / 2 : page.pageHeight / 2;
+  const shiftX = page.pageWidth / 2 - cx;
+  const shiftY = page.pageHeight / 2 - cy;
   return {
     steps: total,
     svg: `<svg width="${num(page.pageWidth * scale)}" height="${num(page.pageHeight * scale)}"`
       + ` viewBox="0 0 ${page.pageWidth} ${page.pageHeight}" xmlns="http://www.w3.org/2000/svg">`
-      + `<defs>${kitDefs(markerColors)}</defs>${kitBackground(page)}${parts.join('')}${footer}</svg>`
+      + `<defs>${kitDefs(markerColors)}</defs>${kitBackground(page)}`
+      + `<g transform="translate(${num(shiftX)} ${num(shiftY)})">${parts.join('')}${footer}</g></svg>`
   };
 }
 
@@ -562,10 +565,19 @@ const FRAME_SCRIPT = `
     document.querySelectorAll('foreignObject > div').forEach(function (div) {
       var size = parseFloat(getComputedStyle(div).fontSize);
       var guard = 0;
-      while (guard < 26 && size > 12 && (div.scrollHeight > div.clientHeight + 1 || div.scrollWidth > div.clientWidth + 1)) {
+      while (guard < 26 && size > 12.5 && (div.scrollHeight > div.clientHeight + 1 || div.scrollWidth > div.clientWidth + 1)) {
         size -= 0.5;
         div.style.fontSize = size + 'px';
         guard += 1;
+      }
+      // Still too wide at the floor: trim the copy so the type keeps its declared
+      // size instead of shrinking below it.
+      if (div.scrollWidth > div.clientWidth + 1) {
+        var raw = div.textContent;
+        while (raw.length > 3 && div.scrollWidth > div.clientWidth + 1) {
+          raw = raw.slice(0, -2) + '\u2026';
+          div.textContent = raw;
+        }
       }
     });
   };

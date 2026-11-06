@@ -619,7 +619,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const executionProtocol = (
     `You are ${dbAgentName}. The payload below is the subagent contract the caller must hand to the spawned \`${dbAgentName}\` subagent; the caller must not execute it.\n\n` +
     '## Execution Protocol\n\n' +
-    `0. Mandatory Skills Activation: Before taking actions, invoke \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind references.\n` +
+    `0. Mandatory Skills Activation: Before taking actions, Spawn \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind references.\n` +
     '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
     `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
     (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
