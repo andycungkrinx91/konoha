@@ -283,6 +283,27 @@ function manifoldMeshToThreeGeometry(THREE, mMesh) {
   return geom;
 }
 
+function combineManifolds(current, next, op) {
+  if (!current) return next;
+  if (op === 'subtract') return current.subtract(next);
+  if (op === 'intersect') return current.intersect(next);
+  return current.add(next);
+}
+
+async function resolveOperandManifold(THREE, wasm, opNode, polyFactor) {
+  if (opNode.csg) {
+    const subResult = await buildCsgNode(THREE, wasm, opNode, polyFactor);
+    if (subResult?.object?.isMesh && subResult.object.userData?.manifold) {
+      return { manifold: subResult.object.userData.manifold, material: null };
+    }
+    return null;
+  }
+  return {
+    manifold: createManifoldPrimitive(wasm, opNode),
+    material: opNode.material || null
+  };
+}
+
 async function buildCsgNode(THREE, wasm, nodeSpec, polyFactor) {
   const op = (nodeSpec.csg && nodeSpec.csg.op) || 'union';
   const operands = (nodeSpec.csg && nodeSpec.csg.operands) || [];
@@ -297,33 +318,14 @@ async function buildCsgNode(THREE, wasm, nodeSpec, polyFactor) {
 
     for (let i = 0; i < operands.length; i++) {
       const opNode = operands[i];
-      let operandManifold = null;
-
-      if (opNode.csg) {
-        const subResult = await buildCsgNode(THREE, wasm, opNode, polyFactor);
-        if (subResult && subResult.isMesh && subResult.userData && subResult.userData.manifold) {
-          operandManifold = subResult.userData.manifold;
-        } else {
-          return buildGroupFallback(THREE, wasm, nodeSpec, polyFactor);
-        }
-      } else {
-        if (!baseMaterialSpec && opNode.material) {
-          baseMaterialSpec = opNode.material;
-        }
-        operandManifold = createManifoldPrimitive(wasm, opNode);
+      const resolved = await resolveOperandManifold(THREE, wasm, opNode, polyFactor);
+      if (!resolved) {
+        return buildGroupFallback(THREE, wasm, nodeSpec, polyFactor);
       }
-
-      if (!resultManifold) {
-        resultManifold = operandManifold;
-      } else {
-        if (op === 'subtract') {
-          resultManifold = resultManifold.subtract(operandManifold);
-        } else if (op === 'intersect') {
-          resultManifold = resultManifold.intersect(operandManifold);
-        } else {
-          resultManifold = resultManifold.add(operandManifold);
-        }
+      if (!baseMaterialSpec && resolved.material) {
+        baseMaterialSpec = resolved.material;
       }
+      resultManifold = combineManifolds(resultManifold, resolved.manifold, op);
     }
 
     if (!resultManifold || resultManifold.isEmpty()) {
@@ -345,7 +347,6 @@ async function buildCsgNode(THREE, wasm, nodeSpec, polyFactor) {
     return buildGroupFallback(THREE, wasm, nodeSpec, polyFactor);
   }
 }
-
 async function buildGroupFallback(THREE, wasm, nodeSpec, polyFactor) {
   const group = new THREE.Group();
   group.name = nodeSpec.name || 'group';

@@ -381,6 +381,24 @@ function _readWorkspaceGlobs(canonical) {
   return globs;
 }
 
+function _matchSegmentEntries(base, seg) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(base, { withFileTypes: true });
+  } catch (_) {
+    return [];
+  }
+  if (seg === '*') {
+    return entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => path.join(base, e.name));
+  }
+  if (seg.includes('*')) {
+    const escaped = seg.replace(/[.+^$()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    const re = new RegExp('^' + escaped + '$');
+    return entries.filter(e => e.isDirectory() && re.test(e.name)).map(e => path.join(base, e.name));
+  }
+  return [path.join(base, seg)];
+}
+
 function _expandWorkspacePattern(canonical, pattern) {
   const clean = String(pattern).replace(/^\.?\//, '').replace(/\/+$/, '');
   if (!clean || clean.startsWith('!')) return [];
@@ -393,25 +411,7 @@ function _expandWorkspacePattern(canonical, pattern) {
   for (const seg of segments) {
     const next = [];
     for (const base of bases) {
-      let entries = [];
-      try {
-        entries = fs.readdirSync(base, { withFileTypes: true });
-      } catch (_) {
-        continue;
-      }
-      if (seg === '*') {
-        for (const e of entries) {
-          if (e.isDirectory() && !e.name.startsWith('.')) next.push(path.join(base, e.name));
-        }
-      } else if (seg.includes('*')) {
-        const escaped = seg.replace(/[.+^$()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-        const re = new RegExp('^' + escaped + '$');
-        for (const e of entries) {
-          if (e.isDirectory() && re.test(e.name)) next.push(path.join(base, e.name));
-        }
-      } else {
-        next.push(path.join(base, seg));
-      }
+      next.push(..._matchSegmentEntries(base, seg));
     }
     bases = next;
   }
@@ -423,7 +423,6 @@ function _expandWorkspacePattern(canonical, pattern) {
     }
   });
 }
-
 /**
  * Fall back to workspace packages when the root manifest carries no framework or
  * styling signal, which is normal for monorepo roots that only orchestrate apps.
@@ -466,6 +465,33 @@ function _mergeWorkspaceStack(canonical, stackInfo) {
  * Context surface reports the real stack instead of a cached placeholder.
  * Rows whose directory is gone are left untouched and reported as skipped.
  */
+function _refreshSingleProject(row, stmt, now, onlyStale) {
+  const projectPath = row.project_path;
+  if (!projectPath || !fs.existsSync(projectPath)) {
+    return { skipped: { project_hash: row.project_hash, reason: 'path_missing' } };
+  }
+  if (onlyStale && row.framework !== 'Unknown' && row.styling !== 'Standard CSS') {
+    return { skipped: { project_hash: row.project_hash, reason: 'already_detected' } };
+  }
+  const detected = detectProjectStack(projectPath);
+  const framework = detected.framework === 'Unknown' ? row.framework : detected.framework;
+  const styling = detected.styling === 'Standard CSS' ? row.styling : detected.styling;
+  if (framework === row.framework && styling === row.styling) {
+    return { skipped: { project_hash: row.project_hash, reason: 'no_change' } };
+  }
+  stmt.run(framework, styling, detected.package_manager, detected.project_name || null, now, row.project_hash);
+  return { updated: { project_hash: row.project_hash, framework, styling } };
+}
+
+function _applyProjectRefresh(stmt, rows, opts, updated, skipped) {
+  const { now, onlyStale } = opts;
+  for (const row of rows) {
+    const res = _refreshSingleProject(row, stmt, now, onlyStale);
+    if (res.updated) updated.push(res.updated);
+    else if (res.skipped) skipped.push(res.skipped);
+  }
+}
+
 function refreshProjectStacks(options = {}, dbPath = null) {
   const onlyStale = options.onlyStale !== false;
   const conn = getDb(dbPath);
@@ -475,29 +501,8 @@ function refreshProjectStacks(options = {}, dbPath = null) {
     const now = new Date().toISOString();
     const updated = [];
     const skipped = [];
-    const tx = conn.transaction(() => {
-      const stmt = conn.prepare('UPDATE projects SET framework = ?, styling = ?, package_manager = ?, project_name = ?, updated_at = ? WHERE project_hash = ?');
-      for (const row of rows) {
-        const projectPath = row.project_path;
-        if (!projectPath || !fs.existsSync(projectPath)) {
-          skipped.push({ project_hash: row.project_hash, reason: 'path_missing' });
-          continue;
-        }
-        if (onlyStale && row.framework !== 'Unknown' && row.styling !== 'Standard CSS') {
-          skipped.push({ project_hash: row.project_hash, reason: 'already_detected' });
-          continue;
-        }
-        const detected = detectProjectStack(projectPath);
-        const framework = detected.framework === 'Unknown' ? row.framework : detected.framework;
-        const styling = detected.styling === 'Standard CSS' ? row.styling : detected.styling;
-        if (framework === row.framework && styling === row.styling) {
-          skipped.push({ project_hash: row.project_hash, reason: 'no_change' });
-          continue;
-        }
-        stmt.run(framework, styling, detected.package_manager, detected.project_name || null, now, row.project_hash);
-        updated.push({ project_hash: row.project_hash, framework, styling });
-      }
-    });
+    const stmt = conn.prepare('UPDATE projects SET framework = ?, styling = ?, package_manager = ?, project_name = ?, updated_at = ? WHERE project_hash = ?');
+    const tx = conn.transaction(() => _applyProjectRefresh(stmt, rows, { now, onlyStale }, updated, skipped));
     tx();
     return { updated: updated.length, skipped: skipped.length, details: updated };
   } finally {

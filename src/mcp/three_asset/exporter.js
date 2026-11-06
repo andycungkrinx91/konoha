@@ -97,6 +97,49 @@ async function exportScene(scene, outputPath, options = {}) {
   };
 }
 
+async function exportObjFormat(scene, outDir, name) {
+  try {
+    const { OBJExporter } = await import('three/addons/exporters/OBJExporter.js');
+    const objText = new OBJExporter().parse(scene);
+    const objPath = path.join(outDir, `${name}.obj`);
+    fs.writeFileSync(objPath, objText, 'utf8');
+    return objPath;
+  } catch (err) {
+    process.stderr.write(`[exporter] OBJ export error: ${err.message}\n`);
+    return null;
+  }
+}
+
+async function exportStlFormat(scene, outDir, name) {
+  try {
+    const { STLExporter } = await import('three/addons/exporters/STLExporter.js');
+    const stlData = new STLExporter().parse(scene, { binary: true });
+    const stlPath = path.join(outDir, `${name}.stl`);
+    const buf = stlData.buffer ? Buffer.from(stlData.buffer, stlData.byteOffset, stlData.byteLength) : Buffer.from(stlData);
+    fs.writeFileSync(stlPath, buf);
+    return stlPath;
+  } catch (err) {
+    process.stderr.write(`[exporter] STL export error: ${err.message}\n`);
+    return null;
+  }
+}
+
+async function exportPlyFormat(scene, outDir, name) {
+  try {
+    const { PLYExporter } = await import('three/addons/exporters/PLYExporter.js');
+    const plyData = await new Promise(resolve => {
+      new PLYExporter().parse(scene, res => resolve(res), { binary: true });
+    });
+    const plyPath = path.join(outDir, `${name}.ply`);
+    const buf = plyData instanceof ArrayBuffer ? Buffer.from(plyData) : (Buffer.isBuffer(plyData) ? plyData : Buffer.from(plyData));
+    fs.writeFileSync(plyPath, buf);
+    return plyPath;
+  } catch (err) {
+    process.stderr.write(`[exporter] PLY export error: ${err.message}\n`);
+    return null;
+  }
+}
+
 async function exportFormats(scene, outDir, name, requestedFormats = ['glb'], options = {}) {
   ensureHeadlessShim();
   if (!fs.existsSync(outDir)) {
@@ -120,39 +163,14 @@ async function exportFormats(scene, outDir, name, requestedFormats = ['glb'], op
       const gltfRes = await exportScene(scene, gltfPath, { ...options, binary: false, format: 'gltf' });
       results.gltf = gltfRes.outputPath;
     } else if (fmt === 'obj' && !results.obj) {
-      try {
-        const { OBJExporter } = await import('three/addons/exporters/OBJExporter.js');
-        const objText = new OBJExporter().parse(scene);
-        const objPath = path.join(outDir, `${name}.obj`);
-        fs.writeFileSync(objPath, objText, 'utf8');
-        results.obj = objPath;
-      } catch (err) {
-        process.stderr.write(`[exporter] OBJ export error: ${err.message}\n`);
-      }
+      const p = await exportObjFormat(scene, outDir, name);
+      if (p) results.obj = p;
     } else if (fmt === 'stl' && !results.stl) {
-      try {
-        const { STLExporter } = await import('three/addons/exporters/STLExporter.js');
-        const stlData = new STLExporter().parse(scene, { binary: true });
-        const stlPath = path.join(outDir, `${name}.stl`);
-        const buf = stlData.buffer ? Buffer.from(stlData.buffer, stlData.byteOffset, stlData.byteLength) : Buffer.from(stlData);
-        fs.writeFileSync(stlPath, buf);
-        results.stl = stlPath;
-      } catch (err) {
-        process.stderr.write(`[exporter] STL export error: ${err.message}\n`);
-      }
+      const p = await exportStlFormat(scene, outDir, name);
+      if (p) results.stl = p;
     } else if (fmt === 'ply' && !results.ply) {
-      try {
-        const { PLYExporter } = await import('three/addons/exporters/PLYExporter.js');
-        const plyData = await new Promise(resolve => {
-          new PLYExporter().parse(scene, (res) => resolve(res), { binary: true });
-        });
-        const plyPath = path.join(outDir, `${name}.ply`);
-        const buf = plyData instanceof ArrayBuffer ? Buffer.from(plyData) : (Buffer.isBuffer(plyData) ? plyData : Buffer.from(plyData));
-        fs.writeFileSync(plyPath, buf);
-        results.ply = plyPath;
-      } catch (err) {
-        process.stderr.write(`[exporter] PLY export error: ${err.message}\n`);
-      }
+      const p = await exportPlyFormat(scene, outDir, name);
+      if (p) results.ply = p;
     }
   }
 

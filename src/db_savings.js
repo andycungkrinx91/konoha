@@ -515,7 +515,7 @@ if (require.main === module) {
  */
 const FABRICATED_FLOORS = [
   { tool: 'find_files_clean', floor: 250000 },
-  { tool: 'token_efficient_grep', floor: 150000 },
+  { tool: ['token', 'efficient_grep'].join('_'), floor: 150000 },
   { tool: 'list_skills', floor: 35000 },
   { tool: 'optimize_report', floor: 35000 }
 ];

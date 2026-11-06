@@ -22,6 +22,65 @@ function paeth(a, b, c) {
   return c;
 }
 
+function applyPngFilter(filterType, rawByte, left, up, upLeft) {
+  if (filterType === 1) return (rawByte + left) & 0xff;
+  if (filterType === 2) return (rawByte + up) & 0xff;
+  if (filterType === 3) return (rawByte + Math.floor((left + up) / 2)) & 0xff;
+  if (filterType === 4) return (rawByte + paeth(left, up, upLeft)) & 0xff;
+  return rawByte;
+}
+
+function decodePngScanlines(decompressed, width, height, bpp) {
+  const rowBytes = width * bpp;
+  const stride = 1 + rowBytes;
+  const uncompressed = new Uint8Array(width * height * bpp);
+  const priorRow = new Uint8Array(rowBytes);
+  const currentRow = new Uint8Array(rowBytes);
+
+  for (let y = 0; y < height; y++) {
+    const filterType = decompressed[y * stride];
+    const scanlineStart = y * stride + 1;
+
+    for (let x = 0; x < rowBytes; x++) {
+      const rawByte = decompressed[scanlineStart + x] || 0;
+      const left = x >= bpp ? currentRow[x - bpp] : 0;
+      const up = priorRow[x] || 0;
+      const upLeft = x >= bpp ? priorRow[x - bpp] : 0;
+      currentRow[x] = applyPngFilter(filterType, rawByte, left, up, upLeft);
+    }
+
+    uncompressed.set(currentRow, y * rowBytes);
+    priorRow.set(currentRow);
+  }
+  return uncompressed;
+}
+
+function convertPngToRgba(uncompressed, width, height, bpp, colorType) {
+  const rgba = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    const srcIdx = i * bpp;
+    const dstIdx = i * 4;
+    if (colorType === 6) {
+      rgba[dstIdx] = uncompressed[srcIdx];
+      rgba[dstIdx + 1] = uncompressed[srcIdx + 1];
+      rgba[dstIdx + 2] = uncompressed[srcIdx + 2];
+      rgba[dstIdx + 3] = uncompressed[srcIdx + 3];
+    } else if (colorType === 2) {
+      rgba[dstIdx] = uncompressed[srcIdx];
+      rgba[dstIdx + 1] = uncompressed[srcIdx + 1];
+      rgba[dstIdx + 2] = uncompressed[srcIdx + 2];
+      rgba[dstIdx + 3] = 255;
+    } else {
+      const v = uncompressed[srcIdx];
+      rgba[dstIdx] = v;
+      rgba[dstIdx + 1] = v;
+      rgba[dstIdx + 2] = v;
+      rgba[dstIdx + 3] = 255;
+    }
+  }
+  return rgba;
+}
+
 function parsePngPixels(buf) {
   if (!buf || buf.length < 8 || buf.readUInt32BE(0) !== 0x89504E47) {
     return null;
@@ -54,63 +113,8 @@ function parsePngPixels(buf) {
   try {
     const decompressed = zlib.inflateSync(Buffer.concat(idatChunks));
     const bpp = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 0 ? 1 : 4;
-    const rowBytes = width * bpp;
-    const stride = 1 + rowBytes;
-    const uncompressed = new Uint8Array(width * height * bpp);
-
-    const priorRow = new Uint8Array(rowBytes);
-    const currentRow = new Uint8Array(rowBytes);
-
-    for (let y = 0; y < height; y++) {
-      const filterType = decompressed[y * stride];
-      const scanlineStart = y * stride + 1;
-
-      for (let x = 0; x < rowBytes; x++) {
-        const rawByte = decompressed[scanlineStart + x] || 0;
-        const left = x >= bpp ? currentRow[x - bpp] : 0;
-        const up = priorRow[x] || 0;
-        const upLeft = x >= bpp ? priorRow[x - bpp] : 0;
-
-        let val = rawByte;
-        if (filterType === 1) {
-          val = (rawByte + left) & 0xff;
-        } else if (filterType === 2) {
-          val = (rawByte + up) & 0xff;
-        } else if (filterType === 3) {
-          val = (rawByte + Math.floor((left + up) / 2)) & 0xff;
-        } else if (filterType === 4) {
-          val = (rawByte + paeth(left, up, upLeft)) & 0xff;
-        }
-        currentRow[x] = val;
-      }
-
-      uncompressed.set(currentRow, y * rowBytes);
-      priorRow.set(currentRow);
-    }
-
-    const rgba = new Uint8Array(width * height * 4);
-    for (let i = 0; i < width * height; i++) {
-      const srcIdx = i * bpp;
-      const dstIdx = i * 4;
-      if (colorType === 6) {
-        rgba[dstIdx] = uncompressed[srcIdx];
-        rgba[dstIdx + 1] = uncompressed[srcIdx + 1];
-        rgba[dstIdx + 2] = uncompressed[srcIdx + 2];
-        rgba[dstIdx + 3] = uncompressed[srcIdx + 3];
-      } else if (colorType === 2) {
-        rgba[dstIdx] = uncompressed[srcIdx];
-        rgba[dstIdx + 1] = uncompressed[srcIdx + 1];
-        rgba[dstIdx + 2] = uncompressed[srcIdx + 2];
-        rgba[dstIdx + 3] = 255;
-      } else {
-        const v = uncompressed[srcIdx];
-        rgba[dstIdx] = v;
-        rgba[dstIdx + 1] = v;
-        rgba[dstIdx + 2] = v;
-        rgba[dstIdx + 3] = 255;
-      }
-    }
-
+    const uncompressed = decodePngScanlines(decompressed, width, height, bpp);
+    const rgba = convertPngToRgba(uncompressed, width, height, bpp, colorType);
     return { width, height, data: rgba };
   } catch (_) {
     return null;

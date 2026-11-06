@@ -295,6 +295,75 @@ function buildCompletedCsgNode(completed, warnings) {
   };
 }
 
+function handleBlockOpen(cmd, tokens, blockStack, nodes, ctx) {
+  const { idx, warnings } = ctx;
+  if (blockStack.length >= 3) {
+    warnings.push(`CSG nesting exceeded limit 3 at line ${idx + 1}`);
+    return blockStack[blockStack.length - 1] || null;
+  }
+  const blockName = (tokens[1] && tokens[1] !== '{') ? tokens[1].replace(/[^a-zA-Z0-9_-]/g, '_') : `${cmd}_${nodes.length}`;
+  const newBlock = { type: cmd, name: blockName, operands: [[]], currentOperand: 0, depth: blockStack.length + 1 };
+  blockStack.push(newBlock);
+  return newBlock;
+}
+
+function handleOperandSeparator(inBlock, idx, warnings) {
+  if (!inBlock) {
+    warnings.push(`Dangling '--' at line ${idx + 1}`);
+    return;
+  }
+  inBlock.currentOperand++;
+  inBlock.operands.push([]);
+}
+
+function appendParsedNode(node, inBlock, nodes) {
+  if (!node) return;
+  if (inBlock) {
+    inBlock.operands[inBlock.currentOperand].push(node);
+  } else {
+    nodes.push(node);
+  }
+}
+
+function handleBlockEnd(blockStack, nodes, warnings, idx, cmd) {
+  if (blockStack.length === 0) {
+    warnings.push(`Unexpected closer '${cmd}' at line ${idx + 1}`);
+    return null;
+  }
+  const completed = blockStack.pop();
+  const parentBlock = blockStack.length > 0 ? blockStack[blockStack.length - 1] : null;
+  const csgNode = buildCompletedCsgNode(completed, warnings);
+  if (parentBlock) {
+    parentBlock.operands[parentBlock.currentOperand].push(csgNode);
+  } else {
+    nodes.push(csgNode);
+  }
+  return parentBlock;
+}
+
+function flushUnclosedBlocks(blockStack, nodes) {
+  while (blockStack.length > 0) {
+    const unclosed = blockStack.pop();
+    const operands = unclosed.operands.filter(op => op.length > 0);
+    const csgNode = {
+      name: unclosed.name,
+      csg: {
+        op: unclosed.type,
+        operands: operands.map(opGroup => (opGroup.length === 1 ? opGroup[0] : {
+          name: `${unclosed.name}_subgroup`,
+          csg: { op: 'group', operands: opGroup }
+        }))
+      }
+    };
+    if (blockStack.length > 0) {
+      const top = blockStack[blockStack.length - 1];
+      top.operands[top.currentOperand].push(csgNode);
+    } else {
+      nodes.push(csgNode);
+    }
+  }
+}
+
 function parseKonohaDSL(rawScript, _opts = {}) {
   const warnings = [];
   if (!rawScript || typeof rawScript !== 'string') {
@@ -350,63 +419,25 @@ function parseKonohaDSL(rawScript, _opts = {}) {
     }
 
     if (['union', 'subtract', 'intersect', 'group'].includes(cmd)) {
-      if (blockStack.length >= 3) {
-        warnings.push(`CSG nesting exceeded limit 3 at line ${idx + 1}`);
-        continue;
-      }
-      const blockName = (tokens[1] && tokens[1] !== '{') ? tokens[1].replace(/[^a-zA-Z0-9_-]/g, '_') : `${cmd}_${nodes.length}`;
-      const newBlock = { type: cmd, name: blockName, operands: [[]], currentOperand: 0, depth: blockStack.length + 1 };
-      blockStack.push(newBlock);
-      inBlock = newBlock;
+      inBlock = handleBlockOpen(cmd, tokens, blockStack, nodes, { idx, warnings });
       continue;
     }
 
     if (stripped === '--') {
-      if (inBlock) {
-        inBlock.currentOperand++;
-        inBlock.operands.push([]);
-      } else {
-        warnings.push(`Dangling '--' at line ${idx + 1}`);
-      }
+      handleOperandSeparator(inBlock, idx, warnings);
       continue;
     }
 
     if (cmd === 'end' || cmd === '}') {
-      if (blockStack.length > 0) {
-        const completed = blockStack.pop();
-        inBlock = blockStack.length > 0 ? blockStack[blockStack.length - 1] : null;
-        const csgNode = buildCompletedCsgNode(completed, warnings);
-        if (inBlock) inBlock.operands[inBlock.currentOperand].push(csgNode);
-        else nodes.push(csgNode);
-      } else {
-        warnings.push(`Unexpected closer '${cmd}' at line ${idx + 1}`);
-      }
+      inBlock = handleBlockEnd(blockStack, nodes, warnings, idx, cmd);
       continue;
     }
 
     const node = parsePrimitiveLine(stripped, idx, warnings);
-    if (node) {
-      if (inBlock) inBlock.operands[inBlock.currentOperand].push(node);
-      else nodes.push(node);
-    }
+    appendParsedNode(node, inBlock, nodes);
   }
 
-  while (blockStack.length > 0) {
-    const unclosed = blockStack.pop();
-    const operands = unclosed.operands.filter(op => op.length > 0);
-    const csgNode = {
-      name: unclosed.name,
-      csg: {
-        op: unclosed.type,
-        operands: operands.map(opGroup => (opGroup.length === 1 ? opGroup[0] : {
-          name: `${unclosed.name}_subgroup`,
-          csg: { op: 'group', operands: opGroup }
-        }))
-      }
-    };
-    if (blockStack.length > 0) blockStack[blockStack.length - 1].operands[blockStack[blockStack.length - 1].currentOperand].push(csgNode);
-    else nodes.push(csgNode);
-  }
+  flushUnclosedBlocks(blockStack, nodes);
 
   function countLeafPrimitives(nodeList) {
     let count = 0;
