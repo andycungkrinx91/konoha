@@ -75,6 +75,26 @@ function agentOf(vertex) {
   return '';
 }
 
+/**
+ * Page heading = the document title / subtitle annotations pinned to the top band.
+ * These are suppressed in the projection: the page label belongs in the bottom
+ * caption only, so diagrams carry no top header.
+ */
+function isPageHeading(vertex, pageHeight) {
+  if (!isTextBox(vertex) || !vertex.box || !(pageHeight > 0)) return false;
+  return /^p\d+-title$/i.test(vertex.id) && vertex.box.y < pageHeight * 0.12;
+}
+
+/**
+ * The subtitle line under the title: same top band, the only annotation cell
+ * sitting just below the heading row. Titles go to the caption; captions stay short.
+ */
+function isPageSubheading(vertex, pageHeight, headingBottom) {
+  if (!isTextBox(vertex) || !vertex.box || !(pageHeight > 0)) return false;
+  if (vertex.box.y >= pageHeight * 0.12) return false;
+  return vertex.box.y > headingBottom - 1;
+}
+
 /** Drawio writes `fillColor=none` for transparent annotation cells, not an absent key. */
 function isTextBox(vertex) {
   const fill = vertex.style.fillColor;
@@ -167,12 +187,12 @@ function routeEdge(edge, vertexById) {  // -> { d, mid } | null
 
 /** Characters that fit on one line inside a box at a given font size. */
 function charsPerLine(width, size) {
-  return Math.max(8, Math.floor((width - 12) / (size * 0.53)));
+  return Math.max(8, Math.floor((width - 12) / (size * 0.5)));
 }
 
 /** Greedy word wrap used when a drawio line is wider than its box. */
 function reflowLine(line, capacity) {
-  const words = line.split(/\s+/);
+  const words = line.split(/\s+/).filter(Boolean);
   const out = [];
   let current = '';
   for (const word of words) {
@@ -181,6 +201,16 @@ function reflowLine(line, capacity) {
     else { out.push(current); current = word; }
   }
   if (current) out.push(current);
+  // Balance a lopsided break so the last line is never a single short word.
+  if (out.length > 1) {
+    const [prev, last] = [out[out.length - 2], out[out.length - 1]];
+    const prevWords = prev.split(' ');
+    if (prevWords.length > 1 && last.length < capacity * 0.34) {
+      const moved = prevWords.pop();
+      out[out.length - 2] = prevWords.join(' ');
+      out[out.length - 1] = `${moved} ${last}`;
+    }
+  }
   return out;
 }
 
@@ -258,10 +288,10 @@ function cardLines(vertex) {
 function cardType(box) {
   const roomy = box.h >= 76 && box.w >= 190;
   const medium = box.h >= 48;
-  const base = roomy ? 12.5 : medium ? 11.5 : 10;
-  const detail = roomy ? 10.5 : medium ? 9.5 : 8.5;
-  const cap = Math.max(7.5, Math.min(box.h * 0.3, box.w * 0.11));
-  return { title: Math.min(base, cap), detail: Math.min(detail, Math.max(7.5, cap - 1.5)) };
+  const base = roomy ? 16 : medium ? 14.5 : 13;
+  const detail = roomy ? 13.5 : medium ? 12.5 : 12;
+  const cap = Math.max(12, Math.min(box.h * 0.36, box.w * 0.13));
+  return { title: Math.min(base, cap), detail: Math.min(detail, Math.max(12, cap - 1)) };
 }
 
 function textDiv(rect, text, opt) {
@@ -289,21 +319,21 @@ function labelMarkup(vertex, agent) {
   if (!lines.length) return '';
   const detailLines = lines.slice(1);
   if (isPanel(vertex)) {
-    const head = Math.min(20, box.h * 0.4);
+    const head = Math.min(26, box.h * 0.4);
     const title = textDiv({ x: box.x + 8, y: box.y + 2, w: box.w - 16, h: head }, esc(lines[0]),
-      { size: 11, weight: 700, color: KIT_INK, align: 'left' });
+      { size: 15, weight: 700, color: KIT_INK, align: 'left' });
     if (!detailLines.length || box.h < 52) return title;
     const available = box.h - head - 10;
-    const maxLines = Math.max(1, Math.floor(available / 11));
+    const maxLines = Math.max(1, Math.floor(available / 16));
     const kept = detailLines.slice(0, maxLines);
     if (detailLines.length > maxLines) kept[kept.length - 1] = `${kept[kept.length - 1].slice(0, 60)}\u2026`;
     return title + textDiv({ x: box.x + 8, y: box.y + head + 2, w: box.w - 16, h: available }, kept.map((line) => esc(line)).join('<br/>'),
-      { size: 9.5, weight: 500, color: KIT_MUTED, align: 'left', vertical: 'flex-start' });
+      { size: 12.5, weight: 500, color: KIT_MUTED, align: 'left', vertical: 'flex-start' });
   }
   if (style.rhombus) {
     const innerW = box.w * 0.56;
     const innerH = box.h * 0.5;
-    const size = Math.max(7.5, Math.min(10.5, box.h * 0.12));
+    const size = Math.max(13, Math.min(16, box.h * 0.16, innerW / 9));
     const text = fitOneLine(lines.join(' \u00b7 '), innerW, size);
     return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, esc(text),
       { size, weight: 700, color: KIT_INK });
@@ -339,7 +369,7 @@ function agentTagMarkup(vertex, agent) {
   if (!agent || vertex.box.h < 34 || isTextBox(vertex) || isPanel(vertex)) return '';
   const accent = hueOf(vertex.style.strokeColor, KIT.violet);
   return `<text class="card-agent" data-agent="${esc(agent)}" x="${num(vertex.box.x + 10)}" y="${num(vertex.box.y + vertex.box.h - 6)}"`
-    + ` font-family="${FONT_MONO}" font-size="8.2" font-weight="700" letter-spacing="0.5" fill="${accent}">\u25c8 ${esc(agent)}</text>`;
+    + ` font-family="${FONT_MONO}" font-size="10" font-weight="700" letter-spacing="0.4" fill="${accent}">\u25c8 ${esc(agent)}</text>`;
 }
 
 function cylinderMarkup(vertex, accent) {
@@ -385,14 +415,14 @@ function edgeLabelMarkup(edge, mid, accent) {
   return `<rect x="${num(mid.x - width / 2)}" y="${num(mid.y - 7)}" width="${num(width)}" height="14" rx="7"`
     + ` fill="#FFFFFF" stroke="${accent}" stroke-opacity="0.35" filter="url(#panelShadow)"/>`
     + `<text x="${num(mid.x)}" y="${num(mid.y + 3.3)}" text-anchor="middle" font-family="${FONT_SANS}"`
-    + ` font-size="9.5" font-weight="600" fill="${accent}">${esc(label)}</text>`;
+    + ` font-size="12" font-weight="700" fill="${accent}">${esc(label)}</text>`;
 }
 
 function textNodeMarkup(vertex) {
   const { box, style } = vertex;
   const raw = Number(style.fontSize || 12);
   const heading = raw >= 16;
-  const size = heading ? Math.min(raw, 22) : Math.max(9, Math.min(raw, 11.5));
+  const size = heading ? Math.min(Math.max(raw, 17), 26) : 14;
   const weight = heading ? 800 : 500;
   const color = heading ? KIT_INK : KIT_MUTED;
   const justify = style.align === 'center' ? 'center' : style.align === 'right' ? 'flex-end' : 'flex-start';
@@ -446,7 +476,15 @@ function svgForPage(page, options) {
   const vertexById = new Map(page.vertices.map((v) => [v.id, v]));
   const parts = [];
 
+  const pageHeight = page.pageHeight || page.height || 0;
+  const headingBottom = Math.max(0, ...page.vertices.filter((v) => isPageHeading(v, pageHeight)).map((v) => v.box.y + v.box.h));
   for (const vertex of page.vertices) {
+    if (isPageHeading(vertex, pageHeight) || isPageSubheading(vertex, pageHeight, headingBottom)) {
+      // Suppressed visually (the label lives in the bottom caption), but still
+      // projected as an anchor so the topology audit sees every drawio cell.
+      parts.push(`<g class="heading-anchor" data-cell="${esc(vertex.id)}" data-kind="heading" aria-hidden="true"/>`);
+      continue;
+    }
     if (isTextBox(vertex)) {
       parts.push(revealGroup(-1, textNodeMarkup(vertex), vertex.id, 'text'));
       continue;
@@ -474,10 +512,13 @@ function svgForPage(page, options) {
     parts.push(revealGroup(steps.get(edge.id) || 0, inner, edge.id, 'edge'));
   }
 
-  const footerY = page.pageHeight - 10;
-  const footer = `<text x="${num(page.pageWidth / 2)}" y="${num(footerY)}" text-anchor="middle" fill="${KIT_MUTED}"`
-    + ` font-family="${FONT_MONO}" font-size="9" font-weight="500">`
-    + `${esc(page.name)} \u00b7 Konoha v${esc(options.version)}</text>`;
+  // Bottom-centre caption only: the page label itself, with its drawio tab
+  // number stripped and no version suffix. No top header is drawn anywhere.
+  const footerY = page.pageHeight - 16;
+  const caption = String(page.name).replace(/^\s*\d+\s*[.)-]?\s*/, '');
+  const footer = `<text x="${num(page.pageWidth / 2)}" y="${num(footerY)}" text-anchor="middle" fill="${KIT_INK}"`
+    + ` font-family="${FONT_SANS}" font-size="22" font-weight="800" letter-spacing="0.02em">`
+    + `${esc(caption)}</text>`;
 
   return {
     steps: total,
@@ -521,7 +562,7 @@ const FRAME_SCRIPT = `
     document.querySelectorAll('foreignObject > div').forEach(function (div) {
       var size = parseFloat(getComputedStyle(div).fontSize);
       var guard = 0;
-      while (guard < 26 && size > 8 && (div.scrollHeight > div.clientHeight + 1 || div.scrollWidth > div.clientWidth + 1)) {
+      while (guard < 26 && size > 12 && (div.scrollHeight > div.clientHeight + 1 || div.scrollWidth > div.clientWidth + 1)) {
         size -= 0.5;
         div.style.fontSize = size + 'px';
         guard += 1;

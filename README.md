@@ -71,53 +71,81 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 * **Reading the diagrams:** every animated canvas below is a **projection of a Draw.io page**, not a hand-drawn picture — `docs/diagrams/konoha-architecture.drawio` (18 tabs) plus the enterprise `19 Authenticated Local Web UI & Ingress Queue` tab are the single source of truth, and `scripts/generate_drawio_flow_webp.js` renders each tab to a 2400×1632 animated WebP (24 frames at 12 fps, `loop: 0`) with `scripts/lib/drawio_flow_svg.js`. Geometry is parsed from the `.drawio` XML, so cards, lanes, decision diamonds and connector waypoints are exactly the ones edited in Draw.io; only the **label text is condensed** (parentheticals and duplicated agent prefixes dropped, one sentence capped at 118 characters per line) so the same graph stays readable at canvas size. Every page is fitted with a 4% canvas margin, so no box or label touches the border. Shapes are **static** — cards, lanes, diamonds and text hold still for the whole loop and only the connectors move (a travelling pulse phased by flow order plus a slow dash march) — drawn in the Konoha kit grammar: white rounded cards with a hued top bar and soft shadow, dashed connectors over a tinted track, dotted paper and a brand wash. Every process card carries an explicit `◈ agent` tag (`agent=<slug>;` in the cell style), links keep their drawio waypoints with quadratic-rounded corners, and `tests/test_flow_diagram_style_lock.js` proves the projection still contains **every** drawio cell (`data-cell` coverage 19/19) — simplified text, identical flow.
 
-### ✧ Diagram Flow Konoha Orchestrator
+### ✧ Diagram Gallery
+
+Every diagram is a Draw.io projection with one bottom-centre caption and no numbering. Expand a tab to view it:
+
+<details>
+<summary><b>Orchestrator</b> - multi-agent task artifact flow</summary>
+<br>
 
 <p align="center">
   <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
 
-*Projection of drawio tab `08 Orchestrator Task Artifact Flow`: 11 cells, 10 connectors, owners **sannin · anbu · akatsuki**.*
+<sub>drawio tab 08 Orchestrator Task Artifact Flow - 11 cells, 10 connectors, owners sannin / anbu / akatsuki</sub>
 
-### ♦ Diagram Flow Jonin
+</details>
+
+<details>
+<summary><b>Jonin</b></summary>
+<br>
 
 <p align="center">
   <img src="assets/konoha-jonin-flow.webp" alt="Jonin Frontend Engineering Flow" width="100%">
 </p>
 
-*Projection of drawio tab `09 Jonin Taste-Skill Frontend Engine`: 7 cells, 5 connectors, owners **jonin · akatsuki**.*
+<sub>drawio tab 09 Jonin Taste-Skill Frontend Engine - 7 cells, 5 connectors, owners jonin / akatsuki</sub>
 
-### ◎ Diagram Flow Kage
+</details>
+
+<details>
+<summary><b>Kage</b></summary>
+<br>
 
 <p align="center">
   <img src="assets/konoha-kage-gate.webp" alt="Kage Reviewer Confidence Gate Flow" width="100%">
 </p>
 
-*Projection of drawio tab `11 Kage Pre-Delivery Reviewer Workflow Gate`: 12 cells, 11 connectors, owners **sannin · genin · kage · anbu · tokubetsu-jonin**.*
+<sub>drawio tab 11 Kage Pre-Delivery Reviewer Workflow Gate - 12 cells, 11 connectors, owners sannin / genin / kage / anbu / tokubetsu-jonin</sub>
 
-### 🧪 Diagram Flow QA
+</details>
+
+<details>
+<summary><b>QA</b></summary>
+<br>
 
 <p align="center">
   <img src="assets/konoha-qa-flow.webp" alt="QA Automation E2E Verification Flow" width="100%">
 </p>
 
-*Projection of drawio tab `13 QA Automation Workflow`: 24 cells, 24 connectors, owners **sannin · genin · kage · chunin · anbu · jonin · tokubetsu-jonin**.*
+<sub>drawio tab 13 QA Automation Workflow - 24 cells, 24 connectors, owners sannin / genin / kage / chunin / anbu / jonin / tokubetsu-jonin</sub>
 
-### 🛡️ Diagram Flow Akatsuki
+</details>
+
+<details>
+<summary><b>Akatsuki</b></summary>
+<br>
 
 <p align="center">
-  <img src="assets/konoha-akatsuki-flow.webp" alt="Akatsuki Security Controls & Lab Lifecycle Flow" width="100%">
+  <img src="assets/konoha-akatsuki-flow.webp" alt="Akatsuki Security Controls and Lab Lifecycle Flow" width="100%">
 </p>
 
-*Projection of drawio tab `16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle`: 22 cells, 15 connectors, owners **akatsuki**.*
+<sub>drawio tab 16 Akatsuki Security Controls and Dual-Mode Lab Lifecycle - 22 cells, 15 connectors, owners akatsuki</sub>
 
-### ❖ Diagram Flow Yamanaka (3D Assets)
+</details>
+
+<details>
+<summary><b>Yamanaka 3D</b></summary>
+<br>
 
 <p align="center">
   <img src="assets/konoha-yamanaka-3d-flow.webp" alt="Yamanaka 3D Asset Pipeline Flow" width="100%">
 </p>
 
-*Projection of drawio tab `17 Yamanaka Image-to-3D Asset Pipeline`: 15 cells, 9 connectors, owners **yamanaka**.*
+<sub>drawio tab 17 Yamanaka Image-to-3D Asset Pipeline - 15 cells, 9 connectors, owners yamanaka</sub>
+
+</details>
 
 ### ✧ All 19 Drawio Tabs → Animated WebP
 
