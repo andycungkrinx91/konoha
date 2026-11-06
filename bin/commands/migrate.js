@@ -7,7 +7,7 @@
 
 const { spawnSync } = require("child_process");
 
-const { SKILLS_DB_DIR, MIGRATE_PATH, MIGRATION_TIMEOUT_MS } = require("../lib/paths");
+const { SKILLS_DB_DIR, MIGRATE_PATH, MIGRATION_TIMEOUT_MS, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
 const { C, log, info, warn, error, success, header } = require("../lib/format");
 const { fileExists } = require("../lib/prompt");
 const { moveUnusedSkills, detectSkillsDirs, syncTemplateSkills } = require("../lib/runtime");
@@ -131,8 +131,8 @@ async function cmdMigrate(args = []) {
     hasSkipEmbeddings: args.includes('--skip-embeddings')
   };
   const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
-  const baseTimeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : 180000;
-  const timeoutMs = flags.hasRebuildEmbeddings ? Math.max(baseTimeout, 600000) : baseTimeout;
+  const baseTimeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
+  const timeoutMs = flags.hasRebuildEmbeddings ? Math.max(baseTimeout, INSTALL_BUILD_MIGRATE_TIMEOUT_MS) : baseTimeout;
 
   if (hasForce) {
     info('Pruning unused/unembedded skills to prevent duplicate content...');

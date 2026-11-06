@@ -11,6 +11,7 @@ const {
   SERVER_PATH,
   MIGRATE_PATH,
   MIGRATION_TIMEOUT_MS,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
   FILE_TOOLS_MCP_PATH,
   MCP_CONFIG_PATH,
   DEFAULT_SKILLS_DIRS,
@@ -295,7 +296,7 @@ function runBootstrapProcess(bootstrapArgs, extraArgs, safeTimeoutMs) {
     });
     if (run.status !== 0) {
       spawnSync(process.execPath, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
+        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS
       });
     }
     return true;
@@ -308,7 +309,7 @@ function bootstrapSkillsMigration(pkgSkillsDir) {
   process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
   const extraArgs = (process.env.KONOHA_SEMANTIC_SEARCH === '0' || process.env.KONOHA_SEMANTIC_SEARCH === 'false') ? ['--skip-embeddings'] : [];
   const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
-  const safeTimeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : 180000;
+  const safeTimeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
 
   if (fileExists(pkgSkillsDir)) {
     const skills = detectCustomSkills(pkgSkillsDir);

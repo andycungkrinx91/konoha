@@ -50,7 +50,7 @@ function refreshRtk(silent = true) {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
     const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
-      encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
+      encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
     const home = os.homedir();
@@ -68,11 +68,11 @@ function _tryBrewInstallRtk(silent) {
     const brewAvail = spawnSync('brew', ['--version'], { encoding: 'utf-8', timeout: 5000 });
     if (brewAvail.status !== 0) return false;
     let result = spawnSync('brew', ['install', 'rtk'], {
-      encoding: 'utf-8', timeout: 180000, stdio: silent ? 'ignore' : 'inherit'
+      encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit'
     });
     if (result.status !== 0) {
       result = spawnSync('brew', ['install', 'rtk-ai/tap/rtk'], {
-        encoding: 'utf-8', timeout: 180000, stdio: silent ? 'ignore' : 'inherit'
+        encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit'
       });
     }
     return result.status === 0;
@@ -84,7 +84,7 @@ function _tryCargoInstallRtk(silent, cargo) {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return false;
     const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
-      encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
+      encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     return result.status === 0;
   } catch (error) {
@@ -96,7 +96,7 @@ function _tryCargoInstallRtk(silent, cargo) {
 function _executeVerifiedInstallScript(verifiedScript, silent) {
   try {
     const scriptRes = spawnSync('sh', [verifiedScript], {
-      encoding: 'utf-8', timeout: 180000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
+      encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     return scriptRes.status === 0;
   } catch (_) {

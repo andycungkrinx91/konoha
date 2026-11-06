@@ -22,7 +22,7 @@ main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **Semble is mandatory**: `search`/`find_related` with repo path.
 - **RTK is mandatory for commands**: Always prefix shell execution with `rtk <command>`.
 - **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
-- **HITL Gates**: Gate 1 (`pending_plan_approval`) prompt 1. Compact and approve / 2. Reject+Regenerate PLAN; Gate 2 (`pending_human_signoff`) 1. Compact and approve / 2. Remediation. Fail closed, never bypass.
+- **HITL Gates**: Gate 1 (`pending_plan_approval`) 1. Compact and approve / 2. Reject+Regenerate PLAN / 3. Input your own choice; Gate 2 (`pending_human_signoff`) 1. Compact and approve / 2. Remediation / 3. Input your own choice. Render the picker on EVERY client and submit the human's reply verbatim via `sannin({ task_dir, choice, refinement })`. Fail closed, never bypass.
 - **@advisor Review**: delivery needs @advisor approval.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
 - **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.

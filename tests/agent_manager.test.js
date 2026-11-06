@@ -432,7 +432,7 @@ console.log('\n[MCP Tool Name Mapping]');
     assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
   });
 
-  test('generateClaudeCodeSubagent includes sembe allowed-tools line', () => {
+  test('generateClaudeCodeSubagent grants semble/konoha tools explicitly (no wildcard)', () => {
     const mcp = require('../src/mcp_clients_manager');
     const result = mcp.generateClaudeCodeSubagent({
       name: 'kage',
@@ -441,7 +441,14 @@ console.log('\n[MCP Tool Name Mapping]');
       instructions: 'Test',
       type: 'self'
     });
-    assert.ok(result.includes('mcp__semble__*'), 'should include mcp__semble__* in allowed-tools');
+    // Subagents must carry the same explicit tool grants as the main agent.
+    // Wildcards are refused: approval stays a named allow-list.
+    assert.ok(result.includes('  - mcp__semble__search'), 'should grant mcp__semble__search');
+    assert.ok(result.includes('  - mcp__semble__find_related'), 'should grant mcp__semble__find_related');
+    assert.ok(result.includes('  - mcp__konoha__kage'), 'should grant mcp__konoha__kage');
+    assert.ok(result.includes('  - Bash'), 'should grant the Bash tool');
+    assert.ok(!result.includes('mcp__semble__*'), 'must NOT emit mcp__semble__* wildcard');
+    assert.ok(!result.includes('mcp__konoha__*'), 'must NOT emit mcp__konoha__* wildcard');
   });
 }
 

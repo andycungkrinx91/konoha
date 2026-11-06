@@ -17,10 +17,11 @@ let lastIngestTime = 0;
 const INGEST_MEMO_MS = 10 * 1000;
 const DEFAULT_MAX_AGE_MS = 15 * 60 * 1000;
 
-function safeJsonParse(str, fallback) {
+function safeJsonParse(str, fallback, context = 'payload') {
   try {
     return JSON.parse(str);
-  } catch (_) {
+  } catch (err) {
+    console.warn(`[client_task_ingest] Unparseable ${context}; falling back to defaults: ${err.message}`);
     return fallback;
   }
 }
@@ -34,6 +35,113 @@ function parseActiveTime(t) {
   return Number.isNaN(ms) ? Date.now() : ms;
 }
 
+function resolveTimeExpr(cols) {
+  if (cols.includes('last_active_at') && cols.includes('updated_at')) return 'COALESCE(last_active_at, updated_at)';
+  if (cols.includes('last_active_at')) return 'last_active_at';
+  if (cols.includes('updated_at')) return 'updated_at';
+  return "datetime('now')";
+}
+
+function splitLiveSessions(sessions, nowMs, maxAgeMs) {
+  const liveSessionIds = new Set();
+  const liveSessions = [];
+  for (const s of sessions) {
+    const activeMs = parseActiveTime(s.active_time);
+    if (nowMs - activeMs <= maxAgeMs) {
+      liveSessionIds.add(s.session_id);
+      liveSessions.push(s);
+    }
+  }
+  return { liveSessionIds, liveSessions };
+}
+
+function applyLiveSession(stmts, session, nowIso) {
+  if (stmts.checkKonoha.get(session.session_id)) return 0;
+
+  const taskId = `session:${session.session_id}`;
+  const projectBase = path.basename(session.workspace_root || '') || 'workspace';
+  const desc = `Active ${session.client || 'client'} session in ${projectBase}`;
+  const existingTask = stmts.checkTask.get(taskId);
+
+  if (!existingTask) {
+    insertSessionTask(stmts, session, taskId, desc, nowIso);
+    return 1;
+  }
+
+  const ev = safeJsonParse(existingTask.evidence, {}, 'session evidence');
+  ev.source = 'session';
+  ev.last_heartbeat_at = session.active_time || nowIso;
+
+  if (existingTask.status !== 'in_progress') {
+    stmts.updateTask.run('in_progress', JSON.stringify(ev), nowIso, taskId);
+    return 1;
+  }
+
+  stmts.touchEvidence.run(JSON.stringify(ev), nowIso, taskId);
+  return 0;
+}
+
+function insertSessionTask(stmts, session, taskId, desc, nowIso) {
+  const evidence = JSON.stringify({ source: 'session', last_heartbeat_at: session.active_time || nowIso });
+  stmts.insertTask.run(
+    taskId,
+    desc,
+    session.workspace_root || '',
+    session.session_id,
+    session.client || '',
+    evidence,
+    nowIso,
+    nowIso
+  );
+}
+
+function applyLiveSessions(conn, sessions, nowIso) {
+  const stmts = prepareTaskStatements(conn);
+  let ingestedCount = 0;
+  for (const session of sessions) {
+    ingestedCount += applyLiveSession(stmts, session, nowIso);
+  }
+  return { ingestedCount, stmts };
+}
+
+function closeStaleSessionTasks(conn, stmts, liveSessionIds, nowIso) {
+  const activeTasks = conn.prepare(`
+    SELECT id, session_id, evidence FROM sdlc_tasks
+    WHERE id LIKE 'session:%' AND status = 'in_progress'
+  `).all();
+
+  let closedCount = 0;
+  for (const task of activeTasks) {
+    if (liveSessionIds.has(task.session_id)) continue;
+    const ev = safeJsonParse(task.evidence, {}, 'session evidence');
+    ev.source = 'session';
+    ev.closed_at = nowIso;
+    ev.close_reason = 'session_inactivity';
+    stmts.updateTask.run('completed', JSON.stringify(ev), nowIso, task.id);
+    closedCount += 1;
+  }
+  return closedCount;
+}
+
+function prepareTaskStatements(conn) {
+  return {
+    checkKonoha: conn.prepare(`
+      SELECT id FROM sdlc_tasks
+      WHERE session_id = ? AND id NOT LIKE 'session:%'
+      LIMIT 1
+    `),
+    checkTask: conn.prepare('SELECT id, status, evidence FROM sdlc_tasks WHERE id = ?'),
+    insertTask: conn.prepare(`
+      INSERT INTO sdlc_tasks (id, description, status, project_path, session_id, client, evidence, created_at, updated_at)
+      VALUES (?, ?, 'in_progress', ?, ?, ?, ?, ?, ?)
+    `),
+    updateTask: conn.prepare(`
+      UPDATE sdlc_tasks SET status = ?, evidence = ?, updated_at = ? WHERE id = ?
+    `),
+    touchEvidence: conn.prepare('UPDATE sdlc_tasks SET evidence = ?, updated_at = ? WHERE id = ?')
+  };
+}
+
 function ingestClientTasks({ dbPath = null, force = false, maxAgeMs = DEFAULT_MAX_AGE_MS } = {}) {
   const nowMs = Date.now();
   if (!force && (nowMs - lastIngestTime < INGEST_MEMO_MS)) {
@@ -45,7 +153,6 @@ function ingestClientTasks({ dbPath = null, force = false, maxAgeMs = DEFAULT_MA
   try {
     conn = dbmod.getConnection(dbPath, false);
 
-    // Check if tables exist
     const hasActiveSessions = conn.prepare(
       "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'active_sessions'"
     ).get();
@@ -57,113 +164,29 @@ function ingestClientTasks({ dbPath = null, force = false, maxAgeMs = DEFAULT_MA
       return { ingested_count: 0, closed_count: 0, skipped: true };
     }
 
-    const cols = conn.prepare("PRAGMA table_info(active_sessions)").all().map((c) => c.name);
-    let timeExpr = "datetime('now')";
-    if (cols.includes('last_active_at') && cols.includes('updated_at')) {
-      timeExpr = 'COALESCE(last_active_at, updated_at)';
-    } else if (cols.includes('last_active_at')) {
-      timeExpr = 'last_active_at';
-    } else if (cols.includes('updated_at')) {
-      timeExpr = 'updated_at';
-    }
-
-    const wsCol = cols.includes('workspace_root') ? 'workspace_root' : (cols.includes('project_path') ? 'project_path' : "''");
-    const sessions = conn.prepare(`
-      SELECT client, ${wsCol} AS workspace_root, session_id, ${timeExpr} AS active_time
-      FROM active_sessions
-    `).all();
-
-    const liveSessionIds = new Set();
-    const liveSessions = [];
-
-    for (const s of sessions) {
-      const activeMs = parseActiveTime(s.active_time);
-      if (nowMs - activeMs <= maxAgeMs) {
-        liveSessionIds.add(s.session_id);
-        liveSessions.push(s);
-      }
-    }
-
-    let ingestedCount = 0;
+    const { liveSessionIds, liveSessions } = loadLiveSessions(conn, nowMs, maxAgeMs);
     const nowIso = new Date(nowMs).toISOString();
-
-    const checkKonohaStmt = conn.prepare(`
-      SELECT id FROM sdlc_tasks
-      WHERE session_id = ? AND id NOT LIKE 'session:%'
-      LIMIT 1
-    `);
-    const checkTaskStmt = conn.prepare('SELECT id, status, evidence FROM sdlc_tasks WHERE id = ?');
-    const insertTaskStmt = conn.prepare(`
-      INSERT INTO sdlc_tasks (id, description, status, project_path, session_id, client, evidence, created_at, updated_at)
-      VALUES (?, ?, 'in_progress', ?, ?, ?, ?, ?, ?)
-    `);
-    const updateTaskStmt = conn.prepare(`
-      UPDATE sdlc_tasks SET status = ?, evidence = ?, updated_at = ? WHERE id = ?
-    `);
-
-    for (const s of liveSessions) {
-      const existingKonoha = checkKonohaStmt.get(s.session_id);
-      if (existingKonoha) continue;
-
-      const taskId = `session:${s.session_id}`;
-      const projectBase = path.basename(s.workspace_root || '') || 'workspace';
-      const desc = `Active ${s.client || 'client'} session in ${projectBase}`;
-      const existingTask = checkTaskStmt.get(taskId);
-
-      if (!existingTask) {
-        insertTaskStmt.run(
-          taskId,
-          desc,
-          s.workspace_root || '',
-          s.session_id,
-          s.client || '',
-          JSON.stringify({ source: 'session', last_heartbeat_at: s.active_time || nowIso }),
-          nowIso,
-          nowIso
-        );
-        ingestedCount += 1;
-      } else if (existingTask.status !== 'in_progress') {
-        const ev = safeJsonParse(existingTask.evidence, {});
-        ev.source = 'session';
-        ev.last_heartbeat_at = s.active_time || nowIso;
-        updateTaskStmt.run('in_progress', JSON.stringify(ev), nowIso, taskId);
-        ingestedCount += 1;
-      } else {
-        const ev = safeJsonParse(existingTask.evidence, {});
-        ev.source = 'session';
-        ev.last_heartbeat_at = s.active_time || nowIso;
-        conn.prepare('UPDATE sdlc_tasks SET evidence = ?, updated_at = ? WHERE id = ?').run(
-          JSON.stringify(ev),
-          nowIso,
-          taskId
-        );
-      }
-    }
-
-    // Auto-close disappeared or stale session tasks
-    const activeTasks = conn.prepare(`
-      SELECT id, session_id, evidence FROM sdlc_tasks
-      WHERE id LIKE 'session:%' AND status = 'in_progress'
-    `).all();
-
-    let closedCount = 0;
-    for (const task of activeTasks) {
-      if (!liveSessionIds.has(task.session_id)) {
-        const ev = safeJsonParse(task.evidence, {});
-        ev.source = 'session';
-        ev.closed_at = nowIso;
-        ev.close_reason = 'session_inactivity';
-        updateTaskStmt.run('completed', JSON.stringify(ev), nowIso, task.id);
-        closedCount += 1;
-      }
-    }
+    const { ingestedCount, stmts } = applyLiveSessions(conn, liveSessions, nowIso);
+    const closedCount = closeStaleSessionTasks(conn, stmts, liveSessionIds, nowIso);
 
     return { ingested_count: ingestedCount, closed_count: closedCount };
   } finally {
-    if (conn) {
-      try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
-    }
+    if (conn) closeConnection(conn);
   }
+}
+
+function loadLiveSessions(conn, nowMs, maxAgeMs) {
+  const cols = conn.prepare('PRAGMA table_info(active_sessions)').all().map((c) => c.name);
+  const wsCol = cols.includes('workspace_root') ? 'workspace_root' : (cols.includes('project_path') ? 'project_path' : "''");
+  const sessions = conn.prepare(`
+    SELECT client, ${wsCol} AS workspace_root, session_id, ${resolveTimeExpr(cols)} AS active_time
+    FROM active_sessions
+  `).all();
+  return splitLiveSessions(sessions, nowMs, maxAgeMs);
+}
+
+function closeConnection(conn) {
+  try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
 }
 
 function resetIngestMemo() {

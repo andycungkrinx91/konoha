@@ -70,7 +70,23 @@ function loadModule(specifier) {
   }
 }
 
+function resolveThreeEntry() {
+  try {
+    return require.resolve('three');
+  } catch {
+    return resolveFromRoots('three');
+  }
+}
+
 function loadThree() {
+  const entry = resolveThreeEntry();
+  if (entry) {
+    const modulePath = path.join(path.dirname(entry), 'three.module.js');
+    if (fs.existsSync(modulePath)) {
+      const loader = createResolver(path.dirname(modulePath));
+      return loader(modulePath);
+    }
+  }
   return loadModule('three');
 }
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
+
 const CONTRACT_VERSION = '2.2.18';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
@@ -41,14 +43,19 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
 - **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
 - **Authoritative Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
-  - **Gate 1 (Plan Approval)**: Execution blocks unconditionally after Phase 1 until the human operator approves the action plan. Gate 1 is authoritative and mandatory across all modes, including client YOLO and autonomous execution. When receiving \`pending_plan_approval\`, EVERY client MUST STOP tool chaining and prompt the user interactively with the exact numbered choices:
+  - **Uniform rendering on EVERY client**: Antigravity, Claude Code, Cursor, Codex, OMP, OpenCode, CommandCode, Gemini CLI and the CLI/TUI all render gates identically. Render whatever the gate response returns; never suppress, summarize away, or auto-answer it.
+  - **Interactive option picker (not number lookup)**: Render the gate's \`interactive_prompt\` as a pick-one list where the LABEL is what the human enters. The human replies with the option text or its number; never ask them to "enter the number of the option".
+  - **Gate 1 (Plan Approval)**: Execution blocks unconditionally after Phase 1 until the human approves the plan. When receiving \`pending_plan_approval\`, STOP tool chaining and present exactly:
     1. Compact and approve
-    2. Reject and Regenerate PLAN (or type 'Input Refine PLAN' with custom refinement guidance)
-    Never proceed without explicit human input. Upon receiving the user's response, submit the choice via \`sannin(task_dir, { choice: <1|2>, refinement: <notes> })\` or \`workflow_gate_choice({ task_dir, choice: <1|2>, refinement: <notes> })\`.
-  - **Gate 2 (Delivery Sign-Off)**: Delivery blocks unconditionally after Phase 8 until explicit human sign-off. Gate 2 is authoritative and mandatory across all modes, including client YOLO and autonomous execution. When receiving \`pending_human_signoff\`, EVERY client MUST STOP tool chaining and prompt the user interactively with the exact numbered choices:
+    2. Reject and Regenerate PLAN
+    3. Input your own choice
+    Option 3 accepts free text, e.g. \`Input your own choice: use Postgres instead of SQLite\`, and routes it as refinement guidance so Kage regenerates the plan.
+  - **Gate 2 (Delivery Sign-Off)**: Delivery blocks unconditionally after Phase 8 until explicit human sign-off. When receiving \`pending_human_signoff\`, STOP tool chaining and present exactly:
     1. Compact and approve
     2. Remediation
-    Never conclude delivery without explicit human sign-off. Upon receiving the user's response, submit the choice via \`sannin(task_dir, { choice: <1|2> })\` or \`workflow_gate_choice({ task_dir, choice: <1|2> })\`.
+    3. Input your own choice
+    Option 3 accepts free text and routes it as the remediation brief dispatched to Anbu/Jonin.
+  - **Submit the verdict**: pass the human's answer back verbatim via \`sannin({ task_dir, choice: <option label | number | free text>, refinement: <notes> })\`. A custom answer may be sent as \`choice: "Input your own choice"\` together with \`refinement: "<text>"\`. Raw free text is also accepted and treated as a custom choice. NEVER discard or renumber the human's answer.
   - Blanket auto-approvals, autonomous settings, and client YOLO flags NEVER auto-advance or bypass Gate 1 or Gate 2.
   - If approval transport (such as Telegram or external notify) is unavailable or fails, gates fail closed and remain strictly paused awaiting operator verdict.
 - **RTK Boundary & Anti-cat/Anti-grep Invariant**: file reading is exclusively via \`konoha.read_file_range\` or \`konoha.read_file_head\`; search is via \`semble.search\` or \`konoha.token_efficient_grep\`. Shell reading commands (\`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`, \`fd\`) are strictly blocked (even with \`rtk\`).
@@ -173,25 +180,33 @@ function generateGenericSubagentMd(agent, client = 'generic') {
   const searchLine = 'Search codebase using semble MCP tools (search, find_related). Always pass repo absolute path.';
   const fileToolsLine = 'Read/inspect files using konoha MCP bounded file tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean).';
 
+  const toolGrants = buildSubagentToolGrants(client);
+  assertNoWildcardGrants(toolGrants, `subagent ${agent.name} (${client}) allowed-tools`);
+
   const frontmatter = [
     '---',
     `name: ${agent.name}`,
     `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
     'allowed-tools:',
-    '  - Write',
-    '  - Edit',
-    '  - Bash',
-    '  - Shell',
-    '  - TodoRead',
-    '  - TodoWrite',
-    '  - WebSearch',
-    '  - mcp__semble__*',
-    '  - mcp__konoha__*',
+    ...toolGrants.map(t => `  - ${t}`),
     '---',
     ''
   ];
 
   return frontmatter.join('\n') + instructions + '\n\n' + searchLine + '\n' + fileToolsLine + '\n';
+}
+
+function buildProhibitedActionBlock() {
+  const source = buildAgentContract({ client: 'konoha', role: 'main agent' });
+  const lines = source.split('\n');
+  const start = lines.findIndex((l) => l.includes('Destructive command, Git, cloud infra'));
+  if (start === -1) return '';
+  let end = start;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith('  - ')) { end = i; continue; }
+    break;
+  }
+  return lines.slice(start, end + 1).join('\n');
 }
 
 function buildLightweightContract(options = {}) {
@@ -200,6 +215,8 @@ function buildLightweightContract(options = {}) {
   const clientLabel = CLIENT_LABELS[client] || client;
   const roleLabel = role === 'subagent' ? 'subagent' : role;
 
+  const prohibited = role === 'subagent' ? buildProhibitedActionBlock() : '';
+
   return `${CONTRACT_START}
 ## Konoha runtime contract (${CONTRACT_VERSION})
 ${roleLabel} on ${clientLabel}. Mandatory every turn.
@@ -207,11 +224,11 @@ ${roleLabel} on ${clientLabel}. Mandatory every turn.
 - **Semble is mandatory**: \`search\`/\`find_related\` with repo path.
 - **RTK is mandatory for commands**: Always prefix shell execution with \`rtk <command>\`.
 - **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
-- **HITL Gates**: Gate 1 (\`pending_plan_approval\`) prompt 1. Compact and approve / 2. Reject+Regenerate PLAN; Gate 2 (\`pending_human_signoff\`) 1. Compact and approve / 2. Remediation. Fail closed, never bypass.
+- **HITL Gates**: Gate 1 (\`pending_plan_approval\`) 1. Compact and approve / 2. Reject+Regenerate PLAN / 3. Input your own choice; Gate 2 (\`pending_human_signoff\`) 1. Compact and approve / 2. Remediation / 3. Input your own choice. Render the picker on EVERY client and submit the human's reply verbatim via \`sannin({ task_dir, choice, refinement })\`. Fail closed, never bypass.
 - **@advisor Review**: delivery needs @advisor approval.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
 - **On-Demand Full Contract**: Call \`konoha.get_skill('konoha/contract')\`.
-${CONTRACT_END}`;
+${prohibited ? `${prohibited}\n` : ''}${CONTRACT_END}`;
 }
 
 function getClientContract(client = 'generic', options = {}) {
@@ -255,6 +272,7 @@ module.exports = {
   getClientContract,
   buildMainAgentContract,
   buildSubagentContract,
+  buildProhibitedActionBlock,
   buildManagedContract,
   validateContractText,
   buildContractManifest,

@@ -25,6 +25,8 @@ const {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
+  buildSubagentToolGrants,
+  assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
@@ -327,6 +329,14 @@ function registerCommandCodeWorkflowReminder(silent = true, options = {}) {
   }
 }
 
+function buildCommandCodeSubagentMd(agent) {
+  // Claude-style frontmatter plus the Command Code allow-list must both come
+  // from the one shared helper, so a subagent never gets a narrower tool set
+  // than the main agent (and never a wildcard).
+  assertNoWildcardGrants(buildSubagentToolGrants('commandcode'), `command code subagent ${agent.name} allowed-tools`);
+  return generateGenericSubagentMd(agent, 'commandcode');
+}
+
 function deployCommandCodeRules(silent = true, options = {}) {
   const opts = typeof silent === "object" && silent !== null ? silent : options;
   const home = (opts && opts.home) || HOME;
@@ -356,7 +366,7 @@ function deployCommandCodeRules(silent = true, options = {}) {
 
     for (const agent of agents) {
       if (!agent || !agent.name || !validateAgentName(agent.name, agentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
-      const subagentMd = generateGenericSubagentMd(agent, 'commandcode');
+      const subagentMd = buildCommandCodeSubagentMd(agent);
       fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
     }
 
@@ -534,6 +544,7 @@ module.exports = {
   registerCommandCodeNativeBlocker,
   registerCommandCodeWorkflowReminder,
   deployCommandCodeRules,
+  buildCommandCodeSubagentMd,
   getCommandCodeStatus,
   removeCommandCodeConfig
 };

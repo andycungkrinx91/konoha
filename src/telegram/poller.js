@@ -532,7 +532,7 @@ async function applyTaskVerdict(taskId, newStatus, isApproved, cb, targetMsg) {
  */
 async function handleCallbackQuery(cb) {
   if (!cb || !cb.data) return;
-  const match = cb.data.match(/^(?:hitl:)?(approve|reject):(.+)$/);
+  const match = cb.data.match(/^(?:hitl:)?(approve|reject|custom):(.+)$/);
   if (!match) return;
 
   const action = match[1];
@@ -554,6 +554,18 @@ async function handleCallbackQuery(cb) {
   } else if (action === 'reject') {
     const newStatus = task.status === 'pending_human_signoff' ? 'remediating' : 'blocked';
     await applyTaskVerdict(taskId, newStatus, false, cb, targetMsg);
+  } else if (action === 'custom') {
+    // "Input your own choice": ask for free text instead of forcing a fixed option.
+    await notifierModule.answerCallbackQuery(cb.id, {
+      text: `Type your instruction for ${taskId} as your next message.`,
+      show_alert: true
+    });
+    await notifierModule.sendTelegramMessage(
+      `✍️ <b>Input your own choice</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Task: <code>${escapeHtml(taskId)}</code>\n` +
+      `Reply to this message with your instruction (e.g. <i>use Postgres instead of SQLite</i>).`,
+      { chat_id: chatId, parse_mode: 'HTML' }
+    );
   }
 }
 

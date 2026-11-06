@@ -1,4 +1,5 @@
 <script>
+  import BridgeSourcesPanel from './BridgeSourcesPanel.svelte';
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
   import { toast } from "#lib/state/toast.svelte.ts";
@@ -17,6 +18,10 @@
   let loadingModels = $state(false);
   let modelsSearch = $state("");
   let selectedBridgeFilter = $state("all");
+
+  // OpenAI-compatible providers surfaced as bridge sources (9router, local runtimes).
+  let sources = $derived(status?.sources || []);
+  let activeSources = $derived(sources.filter((s) => s.running));
 
   let newBridge = $state({
     name: "",
@@ -313,6 +318,8 @@
       </div>
     </div>
   {/if}
+
+  <BridgeSourcesPanel {sources} {activeSources} />
 
   {#if error}
     <div class="p-4 rounded-2xl bg-status-danger-soft border badge-status badge-status-danger text-xs font-bold flex items-center justify-between">

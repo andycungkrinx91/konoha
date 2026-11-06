@@ -13,7 +13,8 @@ const {
   MCP_CONFIG_PATH,
   GEMINI_MD_PATH,
   FILE_TOOLS_MCP_PATH,
-  MIGRATION_TIMEOUT_MS
+  MIGRATION_TIMEOUT_MS,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
 } = require('../lib/paths');
 const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
@@ -35,7 +36,7 @@ function runMigrateForDir(s, runMigrate) {
 function executeMigrationRun(skillsDirs) {
   const safeTimeout = Number.isFinite(Number(MIGRATION_TIMEOUT_MS)) && Number(MIGRATION_TIMEOUT_MS) > 0
     ? Number(MIGRATION_TIMEOUT_MS)
-    : 180000;
+    : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
 
   const runMigrate = (args = []) => spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
     encoding: 'utf-8',

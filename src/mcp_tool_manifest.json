@@ -67,12 +67,10 @@
           },
           "start_line": {
             "type": "number",
-            "integer": true,
             "minimum": 1
           },
           "end_line": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 100000
           }
@@ -172,7 +170,6 @@
           },
           "max_matches": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 50
           }
@@ -236,7 +233,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 1000
           }
@@ -338,7 +334,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 10
           },
@@ -376,7 +371,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 10
           },
@@ -703,6 +697,14 @@
           },
           "auto_signoff": {
             "type": "boolean"
+          },
+          "choice": {
+            "type": "string",
+            "description": "HITL gate verdict submitted by the human operator: the option label they picked (e.g. 'Compact and approve', 'Reject and Regenerate PLAN', 'Remediation'), the numbered option (e.g. '1'), or a free-text custom choice."
+          },
+          "refinement": {
+            "type": "string",
+            "description": "Optional refinement guidance supplied alongside a custom/rejection choice at a HITL gate."
           }
         },
         "additionalProperties": false
@@ -1358,7 +1360,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 100
           }
@@ -1378,7 +1379,6 @@
           },
           "num_results": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 50
           },
@@ -1450,7 +1450,6 @@
           },
           "importance": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 5
           }
@@ -1480,7 +1479,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 100
           }
@@ -1505,7 +1503,6 @@
           },
           "limit": {
             "type": "number",
-            "integer": true,
             "minimum": 1,
             "maximum": 100
           }

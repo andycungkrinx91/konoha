@@ -87,10 +87,10 @@
       ]
     },
     {
-      title: 'Yamanaka 3D Studio',
+      title: 'Yamanaka 3D Studio · Beta',
       items: [
         { id: '3d-setup', path: '/3d/setup', label: '3D Setup Tools', iconSvg: 'M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5', badge: 'Toolchain' },
-        { id: '3d-maker', path: '/3d/maker', label: '3D Model Maker', iconSvg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', badge: 'Studio' }
+        { id: '3d-maker', path: '/3d/maker', label: '3D Model Maker', iconSvg: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', badge: 'Beta' }
       ]
     },
     {

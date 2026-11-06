@@ -543,10 +543,13 @@ function setupSchema(conn, backupDatabaseFn = null) {
 
   // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
   try {
-    const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema, applyQualityLadderMigration } = require('./mcp/three_asset/db_3d_schema');
+    const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema, applyQualityLadderMigration, ensureAdditiveColumns } = require('./mcp/three_asset/db_3d_schema');
     purgeLegacy3DTables(conn);
     verifyAndApplyCanonicalSchema(conn);
     applyQualityLadderMigration(conn);
+    // The ladder rebuild copies columns by position, so post-rebuild additive columns
+    // (including the refine-fork lineage columns) are re-applied afterwards.
+    ensureAdditiveColumns(conn);
   } catch (err) {
     if (err.message && (err.message.includes('SCHEMA DRIFT') || err.message.includes('FORBIDDEN') || err.message.includes('INTEGRITY') || err.message.includes('FOREIGN KEY VIOLATION'))) {
       throw err;

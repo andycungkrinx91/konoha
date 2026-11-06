@@ -81,6 +81,59 @@ try {
   assert.strictEqual(forcedGpuSuccess.autoFallbackApplied, false);
   console.log('  ✓ Force GPU on GPU-capable host resolved to GPU.');
 
+  // Test options.preferredBackend pins the backend (per-call override only)
+  const unpinned = resolveStageCompute('gpu', {
+    hardwareOverrides: { hasGpu: true, primaryBackend: 'OPTIX' }
+  });
+  assert.strictEqual(unpinned.backend, 'OPTIX', 'default policy keeps the probed primary backend');
+  assert.strictEqual(unpinned.preferredBackendApplied, false);
+  const pinned = resolveStageCompute('gpu', {
+    hardwareOverrides: { hasGpu: true, primaryBackend: 'OPTIX' },
+    preferredBackend: 'cuda'
+  });
+  assert.strictEqual(pinned.backend, 'CUDA', 'an explicit preferredBackend pins the backend');
+  assert.strictEqual(pinned.preferredBackendApplied, true);
+  assert.strictEqual(pinned.effectiveMode, 'gpu');
+  const pinnedAuto = resolveStageCompute('auto', {
+    hardwareOverrides: { hasGpu: true, primaryBackend: 'OPTIX' },
+    preferredBackend: 'CUDA'
+  });
+  assert.strictEqual(pinnedAuto.backend, 'CUDA', 'the pin applies in auto mode too');
+  const pinnedCpuHost = resolveStageCompute('gpu', {
+    hardwareOverrides: { hasGpu: false },
+    preferredBackend: 'CUDA'
+  });
+  assert.strictEqual(pinnedCpuHost.backend, 'CPU', 'a pin cannot invent a GPU on a CPU-only host');
+  assert.strictEqual(pinnedCpuHost.preferredBackendApplied, false);
+  const bogusPin = resolveStageCompute('gpu', {
+    hardwareOverrides: { hasGpu: true, primaryBackend: 'OPTIX' },
+    preferredBackend: 'NOT_A_BACKEND'
+  });
+  assert.strictEqual(bogusPin.backend, 'OPTIX', 'an invalid pin falls back to the default policy');
+  console.log('  ✓ options.preferredBackend pins a backend per call without changing the default policy.');
+
+  // requested_gpu_backend threading: refiner -> buildWorkerConfig -> gpu_backend
+  const { buildWorkerConfig } = require('../src/mcp/three_asset/blender_refiner');
+  const pinnedConfig = buildWorkerConfig({
+    baseGlbPath: '/tmp/base.glb',
+    intermediateDir: '/tmp/intermediate',
+    stagingDir: '/tmp/staging',
+    spec: { nodes: [] },
+    requestedComputeMode: 'gpu',
+    requestedGpuBackend: 'CUDA'
+  });
+  assert.strictEqual(pinnedConfig.gpu_backend, 'CUDA', 'the pin must reach the worker as gpu_backend');
+  assert.strictEqual(pinnedConfig.requested_gpu_backend, 'CUDA', 'the pin travels as requested_gpu_backend');
+  const unpinnedConfig = buildWorkerConfig({
+    baseGlbPath: '/tmp/base.glb',
+    intermediateDir: '/tmp/intermediate',
+    stagingDir: '/tmp/staging',
+    spec: { nodes: [] },
+    requestedComputeMode: 'gpu'
+  });
+  assert.strictEqual(unpinnedConfig.requested_gpu_backend, null, 'no pin leaves requested_gpu_backend unset');
+  console.log('  ✓ requested_gpu_backend threads through buildWorkerConfig into gpu_backend.');
+
   // --- 2. OS-Detecting Toolchain Auto-Installer ---
   console.log('\n--- 2. Testing OS-Detecting Blender & DCC-MCP-Blender Installer ---');
   const sysEnv = detectSystemEnvironment();

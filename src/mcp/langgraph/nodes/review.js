@@ -34,6 +34,31 @@ async function reviewNode(state) {
   const rootId = process.env.KONOHA_TASK_ID || state.threadId || status.task_id || path.basename(taskDir);
   const projectPath = state.projectPath || status.project_path || process.cwd();
 
+  // Delegation integrity: review may only judge work that subagents actually
+  // reported. Without this guard the graph raised Gate 2 "Delivery Sign-Off" on
+  // tasks that were still `pending` with `completed_dispatches: []` — the main
+  // agent had executed nothing, yet the task looked ready to ship.
+  const pendingTasks = (status.tasks || []).filter((t) => t.status !== 'completed');
+  if (pendingTasks.length > 0) {
+    status.phase = 'execute';
+    status.hitl_gate = null;
+    if (taskDir) saveWorkflowStatus(taskDir, status);
+
+    const payload = {
+      status,
+      phase: 'execute',
+      hitlPending: false,
+      hitlStage: null,
+      delegationPending: true,
+      pending_task_ids: pendingTasks.map((t) => t.id),
+      error: null,
+    };
+    return finalizeNodeResult(state, payload, 'node_dispatch', {
+      resumeNode: 'node_dispatch',
+      source: { delegationPending: true, pending: payload.pending_task_ids },
+    });
+  }
+
   if (status.confidence === undefined && !status.aislop_gate) {
     try {
       const gateRes = runAislopGate(projectPath, status);

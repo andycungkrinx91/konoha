@@ -1,6 +1,7 @@
 <script>
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
   import { onDestroy } from "svelte";
+  import RefinePanel from './RefinePanel.svelte';
 
   let {
     open = false,
@@ -30,6 +31,13 @@
   useScrollLock(() => open);
 
   let portalHost = $state(null);
+  let viewMode = $state('3d');
+
+  $effect(() => {
+    if (assetId || isGenerating) {
+      viewMode = '3d';
+    }
+  });
 
   $effect(() => {
     if (typeof document === 'undefined') return;
@@ -189,30 +197,74 @@
 
       {:else if assetId}
         <div class="space-y-4 shrink-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="inline-flex rounded-[5px] border p-0.5 text-xs font-bold" style="background-color: var(--color-bg); border-color: var(--color-border);">
+              <button
+                type="button"
+                onclick={() => { viewMode = '3d'; }}
+                class="px-3 py-1 rounded-[4px] transition-all cursor-pointer {viewMode === '3d' ? 'btn-primary-themed' : ''}"
+                style={viewMode === '3d' ? '' : 'color: var(--color-text-muted);'}
+              >
+                3D Model Viewport
+              </button>
+              <button
+                type="button"
+                onclick={() => { viewMode = 'image'; }}
+                class="px-3 py-1 rounded-[4px] transition-all cursor-pointer {viewMode === 'image' ? 'btn-primary-themed' : ''}"
+                style={viewMode === 'image' ? '' : 'color: var(--color-text-muted);'}
+              >
+                Rendered Image (PNG)
+              </button>
+            </div>
+            <button
+              type="button"
+              onclick={() => { viewMode = viewMode === '3d' ? 'image' : '3d'; }}
+              class="flex items-center gap-2 px-2 py-1 rounded-[4px] border text-[11px] font-mono cursor-pointer hover:opacity-90"
+              style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text-muted);"
+              title="Toggle rendered PNG preview"
+            >
+              <img
+                src="/api/v1/3d/assets/{assetId}/download/preview?_t={glbKey}"
+                alt="3D preview thumbnail"
+                class="w-6 h-6 rounded-[2px] object-cover bg-slate-900"
+              />
+              <span>{viewMode === '3d' ? 'Show PNG Preview' : 'Show 3D Viewport'}</span>
+            </button>
+          </div>
           <div class="glass-card-3d p-2 rounded-[5px] border overflow-hidden" style="background-color: var(--color-surface); border-color: var(--color-border);">
-            {#key glbKey}
-              {#await import('./ThreeViewport.svelte')}
-                <div class="h-[clamp(240px,52vh,520px)] flex items-center justify-center text-xs font-mono" style="color: var(--color-text-muted);">
-                  <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Mounting WebGL 3D Viewport...</span>
-                  </div>
-                </div>
-              {:then { default: ThreeViewport }}
-                <ThreeViewport
-                  {glbUrl}
-                  liveKey={glbKey}
-                  height="clamp(240px, 52vh, 520px)"
-                  triangleCount={stats?.triangleCount || 0}
-                  vertexCount={stats?.vertexCount || 0}
-                  isWatertight={stats?.isWatertight ?? true}
+            {#if viewMode === 'image'}
+              <div class="h-[clamp(240px,52vh,520px)] flex items-center justify-center bg-slate-950 rounded-[4px] overflow-hidden p-2">
+                <img
+                  src="/api/v1/3d/assets/{assetId}/download/preview?_t={glbKey}"
+                  alt="Rendered 3D Model Preview"
+                  class="max-w-full max-h-full object-contain rounded-[4px]"
                 />
-              {:catch err}
-                <div class="h-[clamp(240px,52vh,520px)] flex flex-col items-center justify-center text-xs font-mono text-red-400 p-4">
-                  <p>Failed to mount 3D viewport: {err?.message || err}</p>
-                </div>
-              {/await}
-            {/key}
+              </div>
+            {:else}
+              {#key glbKey}
+                {#await import('./ThreeViewport.svelte')}
+                  <div class="h-[clamp(240px,52vh,520px)] flex items-center justify-center text-xs font-mono" style="color: var(--color-text-muted);">
+                    <div class="flex items-center gap-2">
+                      <div class="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Mounting WebGL 3D Viewport...</span>
+                    </div>
+                  </div>
+                {:then { default: ThreeViewport }}
+                  <ThreeViewport
+                    {glbUrl}
+                    liveKey={glbKey}
+                    height="clamp(240px, 52vh, 520px)"
+                    triangleCount={stats?.triangleCount || 0}
+                    vertexCount={stats?.vertexCount || 0}
+                    isWatertight={stats?.isWatertight ?? true}
+                  />
+                {:catch err}
+                  <div class="h-[clamp(240px,52vh,520px)] flex flex-col items-center justify-center text-xs font-mono text-red-400 p-4">
+                    <p>Failed to mount 3D viewport: {err?.message || err}</p>
+                  </div>
+                {/await}
+              {/key}
+            {/if}
           </div>
 
           <div class="pt-4 border-t flex flex-wrap items-center justify-between gap-3" style="border-color: var(--color-border);">
@@ -230,6 +282,13 @@
                 style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
               >
                 PNG
+              </a>
+              <a
+                href="/api/v1/3d/assets/{assetId}/download/gltf"
+                class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-bold border transition-all"
+                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+              >
+                GLTF
               </a>
               <a
                 href="/api/v1/3d/assets/{assetId}/download/usdz"
@@ -261,6 +320,11 @@
               </a>
             </div>
           </div>
+          {#if assetId && !isGenerating}
+            <div class="pt-4 border-t" style="border-color: var(--color-border);">
+              <RefinePanel {assetId} {onRefined} />
+            </div>
+          {/if}
         </div>
       {:else}
         <div class="py-12 text-center text-xs" style="color: var(--color-text-muted);">

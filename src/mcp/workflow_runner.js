@@ -24,6 +24,7 @@ const {
   applyGate2Choice
 } = require('./workflow_gates');
 const { logToolCall } = require('./skills');
+const worktree = require('./worktree_isolation');
 
 const SKILL_RETRIEVAL_DIRECTIVE = 'Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill("<keywords>") and konoha.use_skills(["<skill>"]) or konoha.get_skill("<name>"). Never read raw markdown files directly.';
 
@@ -98,9 +99,40 @@ function _dispatchPlanPhase(status, resolvedTaskDir) {
   return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
 }
 
+function _isolationInputs(status, resolvedTaskDir) {
+  const projectPath = status.project_path || resolvedTaskDir;
+  return { projectPath, state: worktree.getIsolationState(projectPath) };
+}
+
+/**
+ * Attach the worktree instruction channel to an execute dispatch payload.
+ * The instruction is mirrored into options.constraints: the client would
+ * otherwise only pass `task` to runMcpAgent (tool_dispatch.js:180).
+ */
+function _applyWorktreePayload(target, workspace, fallbackReason) {
+  if (workspace) {
+    target.worktree_path = workspace.worktree_path;
+    target.branch = workspace.branch;
+    target.base_sha = workspace.base_sha;
+    target.worktree_isolated = true;
+    const directive = worktree.buildWorktreeDirective(workspace);
+    target.worktree_directive = directive;
+    target.constraints = [target.constraints, directive].filter(Boolean).join('\n\n');
+  } else {
+    target.worktree_isolated = false;
+    target.worktree_fallback_reason = fallbackReason || 'unknown';
+    if (target.constraints) target.constraints += `\n\n${worktree.buildFallbackDirective(target.worktree_fallback_reason)}`;
+  }
+  return target;
+}
+
 function _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir) {
   status.active_dispatches = status.active_dispatches || [];
+  const { state } = _isolationInputs(status, resolvedTaskDir);
+  // One anchor for the whole group: every member branches from this SHA.
+  const groupBase = state.enabled ? worktree.captureBaseSha(state.repo_root) : null;
   const dispatches = [];
+  const members = [];
   for (const t of groupTasks) {
     const d = workflowDispatch(resolvedTaskDir, status, 'execute', t.agent, t.id, t.task);
     t.dispatch_id = d.id;
@@ -118,10 +150,21 @@ function _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir) 
       task_dir: resolvedTaskDir,
       skill_directive: SKILL_RETRIEVAL_DIRECTIVE
     });
+    members.push({ dispatch: d, agent: t.agent, taskId: t.id });
   }
   status.active_parallel_group = groupName;
+  status.active_parallel_group_order = groupTasks.map(t => t.id);
   status.pending_executors = groupTasks.map(t => t.id);
   status.assigned_agent = groupTasks[0].agent;
+
+  const prepared = worktree.prepareDispatchesWorktrees({
+    status,
+    repoRoot: state.enabled ? state.repo_root : null,
+    groupBaseSha: groupBase,
+    items: members
+  });
+  prepared.forEach((p, idx) => _applyWorktreePayload(dispatches[idx], p.workspace, p.reason));
+
   saveWorkflowStatus(resolvedTaskDir, status);
   return JSON.stringify(dispatches);
 }
@@ -129,7 +172,9 @@ function _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir) 
 function _dispatchExecutePhase(status, resolvedTaskDir) {
   const tasks = status.tasks || [];
   const nextTask = tasks.find(t => t.status !== 'completed');
-  if (!nextTask) {
+  // The parallel barrier (and its merge-back) must still run when the group's
+  // last member completes, so "all tasks done" cannot short-circuit it.
+  if (!nextTask && !status.active_parallel_group) {
     status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
     status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
     status.current_dispatch = null;
@@ -154,7 +199,34 @@ function _dispatchExecutePhase(status, resolvedTaskDir) {
         message: `Waiting for parallel group "${status.active_parallel_group}" barrier (${pendingMembers.length} remaining).`
       });
     }
+    // Merge-back step: every member's branch is integrated before the barrier
+    // releases. A failed merge keeps the group active so it is retried or
+    // surfaced instead of being stepped over.
+    const mergeBack = worktree.mergeBackParallelGroup({ status, groupName: status.active_parallel_group });
+    saveWorkflowStatus(resolvedTaskDir, status);
+    if (!mergeBack.ok) {
+      return JSON.stringify({
+        status: 'merge_blocked',
+        phase: 'execute',
+        parallel_group: status.active_parallel_group,
+        reason: mergeBack.reason,
+        failures: mergeBack.failed.map(f => ({ task_id: f.task_id, reason: f.reason, blocked_by: f.blocked_by, conflicting_paths: f.conflicting_paths })),
+        results: mergeBack.results.map(r => ({ task_id: r.task_id, ok: r.ok, merged: r.merged, reason: r.reason })),
+        task_dir: resolvedTaskDir
+      });
+    }
+    groupTasks.forEach(t => { t.worktree_merged = true; });
     status.active_parallel_group = null;
+    status.active_parallel_group_order = null;
+    status.last_group_merge = { group: mergeBack.group, results: mergeBack.results.map(r => ({ task_id: r.task_id, merged: r.merged, reason: r.reason })) };
+    if (!nextTask) {
+      status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
+      status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
+      status.current_dispatch = null;
+      status.active_dispatches = [];
+      saveWorkflowStatus(resolvedTaskDir, status);
+      return null;
+    }
   }
 
   const nextIdx = tasks.findIndex(t => t.status !== 'completed');
@@ -184,8 +256,29 @@ function _dispatchExecutePhase(status, resolvedTaskDir) {
   firstTask.dispatch_id = dispatch.id;
   status.assigned_agent = firstTask.agent;
   status.pending_executors = [firstTask.id];
+
+  // A remediation retry re-uses the same task id; if the previous attempt's
+  // branch failed the syntax gate, release it so this attempt gets a fresh
+  // anchored worktree instead of a stale "already failed" record.
+  const prevDispatch = status.current_dispatch && status.current_dispatch.id !== dispatch.id ? status.current_dispatch.id : null;
+  if (firstTask.retry_of_dispatch) {
+    worktree.resetDispatchWorkspace(status, firstTask.retry_of_dispatch);
+  } else if (prevDispatch) {
+    const prevRec = status.worktree_isolations && status.worktree_isolations[prevDispatch];
+    if (prevRec && prevRec.status === 'failed') worktree.resetDispatchWorkspace(status, prevDispatch);
+  }
+
+  const { state } = _isolationInputs(status, resolvedTaskDir);
+  const groupBase = state.enabled ? worktree.captureBaseSha(state.repo_root) : null;
+  const [prepared] = worktree.prepareDispatchesWorktrees({
+    status,
+    repoRoot: state.enabled ? state.repo_root : null,
+    groupBaseSha: groupBase,
+    items: [{ dispatch, agent: firstTask.agent, taskId: firstTask.id }]
+  });
+
   saveWorkflowStatus(resolvedTaskDir, status);
-  return JSON.stringify({
+  const payload = {
     status: 'ready',
     phase: 'execute',
     agent: firstTask.agent,
@@ -194,7 +287,8 @@ function _dispatchExecutePhase(status, resolvedTaskDir) {
     dispatch_id: dispatch.id,
     task_dir: resolvedTaskDir,
     skill_directive: SKILL_RETRIEVAL_DIRECTIVE
-  });
+  };
+  return JSON.stringify(_applyWorktreePayload(payload, prepared.workspace, prepared.reason));
 }
 
 function _dispatchDocumentPhase(status, resolvedTaskDir) {
@@ -415,6 +509,9 @@ module.exports = {
   _checkDeliverySignoff,
   _dispatchPlanPhase,
   _dispatchExecutePhase,
+  _dispatchParallelGroup,
+  _isolationInputs,
+  _applyWorktreePayload,
   _dispatchDocumentPhase,
   _dispatchReviewPhase,
   _processCompletion,

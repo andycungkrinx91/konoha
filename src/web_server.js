@@ -13,6 +13,7 @@ const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
 const servicesController = require('./web/controllers/services_controller');
 const model3DController = require('./web/controllers/model_3d_controller');
+const model3DRefineController = require('./web/controllers/model3d_refine_controller');
 const {
   MAX_BODY_BYTES,
   sendJson,
@@ -138,6 +139,7 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await model3DController.handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+  if (await model3DRefineController.routeRefineForkRequests(req, res, ctx, pathname, method)) return true;
 
   const error_id = 'err_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   return sendJson(res, 404, {

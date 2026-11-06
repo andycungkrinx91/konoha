@@ -31,6 +31,8 @@ const {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
+  buildSubagentToolGrants,
+  assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
@@ -245,6 +247,11 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/(?<!mcp__konoha__)\btoken_efficient_grep\b/g, 'mcp__konoha__token_efficient_grep')
     .replace(/(?<!mcp__konoha__)\bget_file_structure\b/g, 'mcp__konoha__get_file_structure')
     .replace(/(?<!mcp__konoha__)\bfind_files_clean\b/g, 'mcp__konoha__find_files_clean')
+    // Native Grep/Glob stay allowed for the main agent, so subagents get them
+    // too — but the bare words are routed at the bounded Konoha tools so the
+    // anti-grep invariant is not weakened.
+    .replace(/(?<!mcp__konoha__)\bGrep\b/g, 'mcp__konoha__token_efficient_grep')
+    .replace(/(?<!mcp__konoha__)\bGlob\b/g, 'mcp__konoha__find_files_clean')
     .trim();
 }
 
@@ -289,19 +296,15 @@ function generateClaudeCodeSubagent(agent) {
   const fileToolsLine = buildFileToolsPolicyCompact();
   const body = adaptInstructionsForClaudeCode(`${instructions}\n\n${sembleLine}\n${fileToolsLine}\n`);
 
+  const toolGrants = buildSubagentToolGrants('claude');
+  assertNoWildcardGrants(toolGrants, `claude code subagent ${agent.name} allowed-tools`);
+
   const frontmatter = [
     '---',
     `name: ${agent.name}`,
     `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
     'allowed-tools:',
-    '  - Write',
-    '  - Edit',
-    '  - Bash',
-    '  - TodoRead',
-    '  - TodoWrite',
-    '  - WebSearch',
-    '  - mcp__semble__*',
-    '  - mcp__konoha__*',
+    ...toolGrants.map(t => `  - ${t}`),
     '---',
     ''
   ];

@@ -58,9 +58,13 @@ async function nodeSynthesizeDsl(state, config = {}) {
     }
     const res = await generateSceneSpecFromImage({
       image_path: state.imagePath,
+      prompt: state.prompt,
       archetype: state.domainArchetype,
       model: state.modelUsed,
-      reference_analysis: referenceAnalysis && !referenceAnalysis.error ? referenceAnalysis : null
+      target_polycount: state.targetPolycount || 50000,
+      object_brief: state.objectBrief || null,
+      reference_analysis: referenceAnalysis && !referenceAnalysis.error ? referenceAnalysis : null,
+      onAction: onSynthesisEvent
     });
     if (referenceAnalysis && !referenceAnalysis.error) {
       state = { ...state, referenceAnalysis };

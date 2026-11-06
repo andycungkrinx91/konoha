@@ -58,7 +58,7 @@ function stripVsuffix(modelId) {
 
 function collectClientRoles(ompConfig) {
   const roles = (ompConfig && ompConfig.modelRoles) || {};
-  const priority = ['default', 'plan', 'task', 'slow', 'advisor', 'smol', 'tiny', 'vision', 'memory', 'commit', 'judge'];
+  const priority = ['default', 'task', 'vision', 'slow', 'plan', 'advisor', 'smol', 'tiny', 'memory', 'commit', 'judge'];
   const ordered = priority.filter((k) => roles[k]).map((k) => roles[k]);
   return ordered
     .filter((v) => typeof v === 'string' && /^9router[/-]/i.test(v))
@@ -113,6 +113,11 @@ function readClientProviderCredentials(homeDir = os.homedir()) {
   const providers = {};
   const preferredModels = [];
 
+  if (process.env.KONOHA_3D_MODEL) {
+    const norm = normalizeModelId(process.env.KONOHA_3D_MODEL);
+    if (norm) preferredModels.push(norm);
+  }
+
   if (process.env.KONOHA_9ROUTER_API_KEY || process.env.KONOHA_9ROUTER_URL) {
     providers['9router'] = {
       baseUrl: process.env.KONOHA_9ROUTER_URL || `http://${DEFAULT_9ROUTER_HOST}:${process.env.KONOHA_9ROUTER_PORT || DEFAULT_9ROUTER_PORT}/v1`,
@@ -150,6 +155,12 @@ function readClientProviderCredentials(homeDir = os.homedir()) {
 
   readClaudeSettings(homeDir, providers, preferredModels);
   readOpencodeConfig(homeDir, providers);
+  try {
+    for (const cm of discoverClientModels() || []) {
+      const norm = normalizeModelId(cm && cm.id);
+      if (norm) preferredModels.push(norm);
+    }
+  } catch { /* best-effort client discovery */ }
 
   return { providers, preferredModels: [...new Set(preferredModels.filter(Boolean))] };
 }
@@ -480,6 +491,13 @@ async function readChatResponse(res, chatArgs, requestedModel) {
   return { text: acc.content, reasoning: acc.reasoning, usage: acc.usage, raw: { chunks: acc.rawChunks.length } };
 }
 
+function shouldTargetUseStream(target, chatArgs) {
+  if (chatArgs.stream !== undefined) return Boolean(chatArgs.stream);
+  if (typeof chatArgs.onProgress === 'function') return true;
+  if (target?.kind === '9router' || target?.group === '9router' || target?.source === '9router') return true;
+  return false;
+}
+
 async function sendChatMessage(target, chatArgs = {}) {
   if (!target || (!target.target_url && !target.baseUrl)) {
     throw new Error('Valid target endpoint configuration required for sendChatMessage');
@@ -487,13 +505,14 @@ async function sendChatMessage(target, chatArgs = {}) {
 
   const baseUrl = (target.target_url || target.baseUrl).replace(/\/+$/, '');
   const apiKey = target.api_key || target.apiKey || '';
-  const timeoutMs = chatArgs.timeoutMs || 45000;
+  const timeoutMs = chatArgs.timeoutMs || 90000;
   const requestedModel = normalizeModelId(chatArgs.model || target.model || 'default') || 'default';
   const messages = buildChatMessages(chatArgs);
 
   const chatUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const useStream = shouldTargetUseStream(target, chatArgs);
 
   const res = await fetch(chatUrl, {
     method: 'POST',
@@ -502,8 +521,8 @@ async function sendChatMessage(target, chatArgs = {}) {
       model: requestedModel,
       messages,
       temperature: chatArgs.temperature !== undefined ? chatArgs.temperature : 0.2,
-      max_tokens: chatArgs.max_tokens || 8192,
-      stream: false,
+      max_tokens: chatArgs.max_tokens || 12288,
+      stream: useStream,
       // Providers that support prompt caching (9router/Anthropic-style) reuse the
       // byte-stable system prompt + spec schema across iterations.
       ...(chatArgs.cacheKey ? { cache_key: chatArgs.cacheKey, prompt_cache_key: chatArgs.cacheKey } : {})

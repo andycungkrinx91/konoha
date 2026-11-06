@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, spawnSync } = require('child_process');
-const { HOME } = require('./paths');
+const { HOME, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
 const { fileExists } = require('./prompt');
 const { log, info, warn, success } = require('./format');
 const { SEMBLE_PACKAGE } = require('../../src/semble_manager');
@@ -25,13 +25,13 @@ const PINNED_UV_VERSION = '0.9.5';
 function installUvWindows(tmpDir, stdioOpt, silent) {
   const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.ps1`);
   try {
-    execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt });
+    execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
-      execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, { stdio: stdioOpt });
+      execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
   } catch (psErr) {
     if (!silent) warn(`PowerShell uv installer failed: ${psErr.message}. Falling back to winget if available.`);
-    execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: stdioOpt });
+    execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
   } finally {
     try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
   }
@@ -40,9 +40,9 @@ function installUvWindows(tmpDir, stdioOpt, silent) {
 function installUvPosix(tmpDir, stdioOpt) {
   const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.sh`);
   try {
-    execSync(`curl -LsSf "https://astral.sh/uv/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt });
+    execSync(`curl -LsSf "https://astral.sh/uv/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
-      execSync(`sh "${scriptPath}"`, { stdio: stdioOpt });
+      execSync(`sh "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
   } finally {
     try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
@@ -194,8 +194,8 @@ function tryInstallWithPm(pm, isWin, stdioOpt) {
       : spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8' });
     if (check.status !== 0) return false;
     const installRes = isWin
-      ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, { stdio: stdioOpt, shell: true, windowsHide: true })
-      : spawnSync(pm.cmd, pm.args, { stdio: stdioOpt });
+      ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, { stdio: stdioOpt, shell: true, windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS })
+      : spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     return installRes.status === 0;
   } catch {
     return false;

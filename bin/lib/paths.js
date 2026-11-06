@@ -47,8 +47,16 @@ const SERVER_PATH = path.join(KONOHA, 'server.js');
 /** Migration entry point */
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
 
-/** Migration timeout: 180s (3 minutes) default for FTS5 + neural vector embedding generation */
-const MIGRATION_TIMEOUT_MS = 180000;
+/** Migration timeout: 900s (15 minutes) default for FTS5 + neural vector embedding generation */
+const MIGRATION_TIMEOUT_MS = 900000;
+
+/**
+ * Canonical budget for every install / build / migrate / embed subprocess.
+ * Slow-network package manager operations, web builds, index migrations and
+ * neural vector embedding generation all share a single 15-minute ceiling so no
+ * long-running provisioning step can hang the CLI indefinitely.
+ */
+const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = 900000;
 
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
@@ -233,6 +241,7 @@ module.exports = {
   SERVER_PATH,
   MIGRATE_PATH,
   MIGRATION_TIMEOUT_MS,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
   DB_PATH,
   FINGERPRINT_PATH,
   BRIDGES_JSON_PATH,

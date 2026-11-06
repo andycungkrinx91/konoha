@@ -71,7 +71,7 @@ function getTempDirs(isWin) {
 function purgePackageCaches({ _ = false } = {}) {
   const isWin = process.platform === 'win32';
   const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
-  const spawnOpts = { stdio: 'ignore', timeout: 15000, env: childEnv, windowsHide: true };
+  const spawnOpts = { stdio: 'ignore', timeout: 60000, env: childEnv, windowsHide: true };
   if (isWin) spawnOpts.shell = true;
 
   try {
@@ -410,13 +410,13 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     const entry = deployUtils.buildKonohaFilesMcpEntry('execPath');
     if (entry) {
       run = spawnSync(entry.command, entry.args, {
-        input, encoding: 'utf-8', timeout: 15000, env: cleanEnv, windowsHide: true
+        input, encoding: 'utf-8', timeout: 60000, env: cleanEnv, windowsHide: true
       });
     }
   }
   if (!run || run.status !== 0) {
     run = spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
-      input, encoding: 'utf-8', timeout: 15000, env: cleanEnv
+      input, encoding: 'utf-8', timeout: 60000, env: cleanEnv
     });
   }
 

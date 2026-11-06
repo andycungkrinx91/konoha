@@ -17,7 +17,9 @@ const EXTRA_ASSET_COLUMNS = [
   'object_brief_json',
   'reference_analysis_json',
   'iteration_history_json',
-  'final_score'
+  'final_score',
+  'parent_asset_id',
+  'refine_instruction'
 ];
 
 const EXTRA_JOB_COLUMNS = [
@@ -27,7 +29,10 @@ const EXTRA_JOB_COLUMNS = [
   'output_orientation',
   'object_brief_json',
   'reference_analysis_json',
-  'iteration_history_json'
+  'iteration_history_json',
+  'parent_job_id',
+  'parent_asset_id',
+  'refine_instruction'
 ];
 
 function _applyOptionalColumnUpdates(conn, tableName, idCol, idVal, ...rest) {

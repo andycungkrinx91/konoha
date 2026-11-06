@@ -36,6 +36,7 @@ const {
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
 const { buildMainAgentContract, generateGenericSubagentMd } = require('./agent_contract');
 const { loadAgents, generateAgentsMd } = require('./agent_manager');
+const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
 
 /**
  * Auto-install oh-my-opencode-slim if available and not yet installed.
@@ -182,6 +183,25 @@ function _configureOpenCodePermissions(config) {
   }
 }
 
+function _buildOpenCodeAgentPermission() {
+  // OpenCode gates tools through `permission` categories. The main agent gets
+  // the full category map below; each subagent entry now carries the same map
+  // explicitly instead of relying on inheritance. The mcp category is what
+  // governs konoha/semble/aislop tool approval; bash remains 'allow' for the
+  // TOOL only — destructive commands are still refused by the contract and
+  // the client's own command guard rather than by widening approval.
+  const permission = {
+    read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+    list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+    question: 'allow', webfetch: 'allow', websearch: 'allow',
+    lsp: 'allow', skill: 'allow', mcp: 'allow'
+  };
+  assertNoWildcardGrants(Object.values(permission), 'opencode agent permission');
+  const toolGrants = buildSubagentToolGrants('opencode');
+  assertNoWildcardGrants(toolGrants, 'opencode subagent allowed-tools');
+  return permission;
+}
+
 function _registerNinjaAgents(config) {
   const DEFAULT_ROLE_DESCRIPTIONS = {
     'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
@@ -204,7 +224,8 @@ function _registerNinjaAgents(config) {
       agentMap[agent.name] = {
         description: desc,
         prompt: agent.instructions || `Execute ${agent.name} workflow using konoha and semble MCP tools.`,
-        mode: 'subagent'
+        mode: 'subagent',
+        permission: _buildOpenCodeAgentPermission()
       };
     }
     config.agent = agentMap;

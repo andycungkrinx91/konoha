@@ -8,6 +8,35 @@
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+function _detectNvidia() {
+  try {
+    const res = spawnSync('nvidia-smi', ['--query-gpu=name', '--format=csv,noheader'], {
+      encoding: 'utf8',
+      timeout: 2000
+    });
+    if (res.status !== 0 || !res.stdout) return null;
+    const names = res.stdout.trim().split('\n').filter(Boolean);
+    return names.length > 0 ? names[0].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function _detectAmd() {
+  try {
+    const res = spawnSync('rocm-smi', ['--showproductname'], {
+      encoding: 'utf8',
+      timeout: 2000
+    });
+    if (res.status === 0 && res.stdout && !res.stdout.includes('not found')) {
+      return 'AMD Radeon ROCm Device';
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function detectComputeHardware(overrides = {}) {
   if (overrides.hasGpu !== undefined) {
     return {
@@ -33,42 +62,23 @@ function detectComputeHardware(overrides = {}) {
   const backends = [];
   let gpuName = null;
 
-  // Apple Silicon Metal Check on Darwin
   if (platform === 'darwin') {
     backends.push('METAL');
     gpuName = os.cpus()[0]?.model || 'Apple Silicon GPU';
   }
 
-  // NVIDIA CUDA / OPTIX Check (Linux & Windows)
-  try {
-    const nvRes = spawnSync('nvidia-smi', ['--query-gpu=name', '--format=csv,noheader'], {
-      encoding: 'utf8',
-      timeout: 2000
-    });
-    if (nvRes.status === 0 && nvRes.stdout) {
-      const names = nvRes.stdout.trim().split('\n').filter(Boolean);
-      if (names.length > 0) {
-        gpuName = names[0].trim();
-        backends.push('OPTIX', 'CUDA');
-      }
+  const nvidiaGpu = _detectNvidia();
+  if (nvidiaGpu) {
+    gpuName = nvidiaGpu;
+    backends.push('OPTIX', 'CUDA');
+  } else {
+    const amdGpu = _detectAmd();
+    if (amdGpu) {
+      gpuName = amdGpu;
+      backends.push('HIP');
     }
-  } catch { /* intentional best-effort fallback: probe is advisory; default policy applies */ }
-
-  // AMD ROCm / HIP Check
-  if (backends.length === 0) {
-    try {
-      const rocmRes = spawnSync('rocm-smi', ['--showproductname'], {
-        encoding: 'utf8',
-        timeout: 2000
-      });
-      if (rocmRes.status === 0 && rocmRes.stdout && !rocmRes.stdout.includes('not found')) {
-        backends.push('HIP');
-        gpuName = 'AMD Radeon ROCm Device';
-      }
-    } catch { /* intentional best-effort fallback: probe is advisory; default policy applies */ }
   }
 
-  // Fallback to CPU
   backends.push('CPU');
   const hasGpu = backends.some(b => b !== 'CPU');
 
@@ -86,65 +96,62 @@ function detectComputeHardware(overrides = {}) {
   };
 }
 
-function resolveStageCompute(requestedMode = 'auto', options = {}) {
-  const normRequested = String(requestedMode || 'auto').toLowerCase();
-  const hardware = detectComputeHardware(options.hardwareOverrides || {});
+function normalizeGpuBackend(backend) {
+  if (!backend) return null;
+  const upper = String(backend).trim().toUpperCase();
+  return GPU_BACKENDS.includes(upper) ? upper : null;
+}
 
-  if (normRequested === 'cpu') {
-    return {
-      requestedMode: 'cpu',
-      effectiveMode: 'cpu',
-      backend: 'CPU',
-      autoFallbackApplied: false,
-      fallbackReason: null
-    };
-  }
-
-  if (normRequested === 'gpu') {
-    if (hardware.hasGpu) {
-      return {
-        requestedMode: 'gpu',
-        effectiveMode: 'gpu',
-        backend: hardware.primaryBackend,
-        autoFallbackApplied: false,
-        fallbackReason: null
-      };
-    }
-
-    // Force GPU on host without GPU -> automatic seamless CPU fallback
-    return {
-      requestedMode: 'gpu',
-      effectiveMode: 'cpu',
-      backend: 'CPU',
-      autoFallbackApplied: true,
-      fallbackReason: 'No compatible GPU hardware detected; automatically fell back to CPU execution'
-    };
-  }
-
-  // 'auto' mode
-  if (hardware.hasGpu) {
-    return {
-      requestedMode: 'auto',
-      effectiveMode: 'gpu',
-      backend: hardware.primaryBackend,
-      autoFallbackApplied: false,
-      fallbackReason: null
-    };
-  }
-
+function _makeResult(reqMode, effMode, backend, options = {}) {
   return {
-    requestedMode: 'auto',
-    effectiveMode: 'cpu',
-    backend: 'CPU',
-    autoFallbackApplied: false,
-    fallbackReason: null
+    requestedMode: reqMode,
+    effectiveMode: effMode,
+    backend,
+    autoFallbackApplied: Boolean(options.autoFallbackApplied),
+    fallbackReason: options.fallbackReason || null,
+    preferredBackend: options.preferredBackend || null,
+    preferredBackendApplied: Boolean(options.preferredBackendApplied)
   };
 }
 
+function resolveStageCompute(requestedMode = 'auto', options = {}) {
+  const normRequested = String(requestedMode || 'auto').toLowerCase();
+  const preferredBackend = normalizeGpuBackend(options.preferredBackend);
+  const hardware = detectComputeHardware(options.hardwareOverrides || {});
+
+  if (normRequested === 'cpu') {
+    return _makeResult('cpu', 'cpu', 'CPU', { preferredBackend });
+  }
+
+  if (preferredBackend && hardware.hasGpu) {
+    return _makeResult(normRequested, 'gpu', preferredBackend, {
+      preferredBackend,
+      preferredBackendApplied: true
+    });
+  }
+
+  if (hardware.hasGpu) {
+    return _makeResult(normRequested, 'gpu', hardware.primaryBackend, { preferredBackend });
+  }
+
+  if (normRequested === 'gpu') {
+    return _makeResult('gpu', 'cpu', 'CPU', {
+      autoFallbackApplied: true,
+      fallbackReason: 'No compatible GPU hardware detected; automatically fell back to CPU execution',
+      preferredBackend
+    });
+  }
+
+  return _makeResult('auto', 'cpu', 'CPU', { preferredBackend });
+}
+
 const COMPUTE_MODES = Object.freeze(['auto', 'cpu', 'gpu']);
+const GPU_BACKENDS = Object.freeze(['OPTIX', 'CUDA', 'HIP', 'METAL', 'ONEAPI']);
 
 module.exports = {
   COMPUTE_MODES,
+  GPU_BACKENDS,
   detectComputeHardware,
+  normalizeGpuBackend,
   resolveStageCompute
 };

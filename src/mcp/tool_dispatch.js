@@ -180,10 +180,11 @@ function _dispatchAgentDelegation(toolName, args) {
   const taskDir = args.task_dir;
   const sessId = args.session_id || args.sessionId;
   const flowHash = _resolveFlowHash(args, taskDir);
+  const worktree = args.worktree || null;
 
   return runMcpAgent(
     toolName, task, args.context, args.constraints, args.skills,
-    args.taste_dials, projectPath, taskDir, sessId, flowHash
+    args.taste_dials, projectPath, taskDir, sessId, flowHash, null, worktree
   );
 }
 

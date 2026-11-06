@@ -438,6 +438,9 @@ async function sendInteractiveApproval({
       [
         { text: '✅ 1. Compact and approve', callback_data: `hitl:approve:${taskId}` },
         { text: isGate2 ? '🔄 2. Remediation' : '❌ 2. Reject / Regenerate', callback_data: `hitl:reject:${taskId}` }
+      ],
+      [
+        { text: '✍️ 3. Input your own choice', callback_data: `hitl:custom:${taskId}` }
       ]
     ]
   };

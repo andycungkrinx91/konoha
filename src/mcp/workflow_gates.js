@@ -4,57 +4,92 @@ const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
 
 const GATE1_CHOICES = [
-  '1. Compact and approve',
-  '2. Reject and Regenerate PLAN'
+  'Compact and approve',
+  'Reject and Regenerate PLAN'
 ];
 
 const GATE1_REFINE_LABEL = 'Input Refine PLAN';
 
 const GATE2_CHOICES = [
-  '1. Compact and approve',
-  '2. Remediation'
+  'Compact and approve',
+  'Remediation'
 ];
+
+// Universal escape hatch rendered on EVERY HITL gate so a human is never boxed
+// into the numbered options. Submitting this option returns free-text that is
+// routed to the matching verdict (refine at Gate 1, remediation at Gate 2).
+const CUSTOM_CHOICE_LABEL = 'Input your own choice';
+
+/**
+ * Render gate options as a pick-one list where the label IS the input — a human
+ * replies with the option text (or its number) instead of counting options.
+ */
+function renderChoiceList(labels) {
+  return labels.map((label, i) => `${i + 1}. ${label}`).join('\n');
+}
+
+/**
+ * Single source of truth for the structured payload both HITL gates return as
+ * `interactive_prompt`; each gate supplies its own label, question, choices and
+ * options. Key order here IS the emitted JSON key order.
+ */
+function buildPromptPayload({
+  gate,
+  gateName,
+  title,
+  question,
+  choices,
+  options
+}) {
+  return {
+    gate,
+    gate_name: gateName,
+    title,
+    question,
+    input_mode: 'reply_with_option_label',
+    choices,
+    refinement_option: CUSTOM_CHOICE_LABEL,
+    options
+  };
+}
 
 function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
   const planText = planContent || status.plan || '';
-  const promptPayload = {
+  const choices = [...GATE1_CHOICES, CUSTOM_CHOICE_LABEL];
+  const promptPayload = buildPromptPayload({
     gate: 'gate_1',
-    gate_name: 'Gate 1 (Plan Approval)',
+    gateName: 'Gate 1 (Plan Approval)',
     title: 'Gate 1: Action Plan Approval Required',
     question: 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1). How would you like to proceed?',
-    choices: [
-      '1. Compact and approve',
-      '2. Reject and Regenerate PLAN',
-      'Input Refine PLAN'
-    ],
-    refinement_option: GATE1_REFINE_LABEL,
+    choices,
     options: [
       {
         id: '1',
-        label: '1. Compact and approve',
+        label: GATE1_CHOICES[0],
         action: 'approve',
         description: 'Approve the action plan and advance directly to Phase 2 (Foundation & Tooling).'
       },
       {
         id: '2',
-        label: '2. Reject and Regenerate PLAN',
+        label: GATE1_CHOICES[1],
         action: 'regenerate',
         description: 'Reject the action plan and instruct Kage to regenerate the Phase 1 action plan.'
       },
       {
-        id: 'refine',
-        label: 'Input Refine PLAN',
+        id: CUSTOM_CHOICE_LABEL,
+        label: CUSTOM_CHOICE_LABEL,
         action: 'refine',
-        description: 'Provide custom refinement instructions to refine and regenerate the action plan.'
+        accepts_text: true,
+        description: 'Type any custom instruction (e.g. "use Postgres instead of SQLite"). It is applied as refinement guidance and the plan is regenerated.'
       }
     ]
-  };
+  });
 
   const message = 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1).\n\n' +
-    'Please select an option to proceed:\n' +
-    '1. Compact and approve\n' +
-    '2. Reject and Regenerate PLAN\n' +
-    '(Or provide feedback: Input Refine PLAN <notes>)';
+    'Reply with the option label (or its number):\n' +
+    renderChoiceList(choices) +
+    '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type any instruction, e.g.: ' +
+    CUSTOM_CHOICE_LABEL + ': use Postgres instead of SQLite';
 
   return JSON.stringify({
     status: 'pending_plan_approval',
@@ -71,35 +106,41 @@ function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
 
 function buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, reportPath) {
   const finalReport = reportPath || status?.report || '';
-  const promptPayload = {
+  const choices = [...GATE2_CHOICES, CUSTOM_CHOICE_LABEL];
+  const promptPayload = buildPromptPayload({
     gate: 'gate_2',
-    gate_name: 'Gate 2 (Delivery Sign-Off)',
+    gateName: 'Gate 2 (Delivery Sign-Off)',
     title: 'Gate 2: Delivery Sign-Off Required',
     question: `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2). How would you like to proceed?`,
-    choices: [
-      '1. Compact and approve',
-      '2. Remediation'
-    ],
+    choices,
     options: [
       {
         id: '1',
-        label: '1. Compact and approve',
+        label: GATE2_CHOICES[0],
         action: 'approve',
         description: 'Sign off on delivery and conclude task execution.'
       },
       {
         id: '2',
-        label: '2. Remediation',
+        label: GATE2_CHOICES[1],
         action: 'remediation',
         description: 'Reject delivery and dispatch remediation task to Anbu/Jonin with Kage findings.'
+      },
+      {
+        id: CUSTOM_CHOICE_LABEL,
+        label: CUSTOM_CHOICE_LABEL,
+        action: 'remediation',
+        accepts_text: true,
+        description: 'Type any custom remediation instruction (e.g. "add integration tests for the upload path"). It is dispatched to Anbu/Jonin as the fix brief.'
       }
     ]
-  };
+  });
 
   const message = `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2).\n\n` +
-    'Please select an option to conclude:\n' +
-    '1. Compact and approve\n' +
-    '2. Remediation';
+    'Reply with the option label (or its number):\n' +
+    renderChoiceList(choices) +
+    '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type the exact fix you want, e.g.: ' +
+    CUSTOM_CHOICE_LABEL + ': add integration tests for the upload path';
 
   return JSON.stringify({
     status: 'pending_human_signoff',
@@ -171,7 +212,19 @@ function parseGateChoice(rawInput, rawRefinement) {
     return { action: 'regenerate', choice: 2, raw: str };
   }
 
-  return null;
+  // "Input your own choice" — the escape hatch rendered on every gate. The
+  // operator's text may arrive inline after the label, or via `refinement`.
+  const customLabel = CUSTOM_CHOICE_LABEL.toLowerCase().replace(/_/g, ' ');
+  const isCustomChoice = lower === customLabel || lower.startsWith(customLabel);
+  if (isCustomChoice) {
+    const inline = str.replace(/^input\s+your\s+own\s+choice\s*[:-]?\s*/i, '').trim();
+    const notes = inline || (rawRefinement ? String(rawRefinement).trim() : '');
+    return { action: 'custom', choice: 3, custom: true, refinement: notes, raw: str };
+  }
+
+  // Any other free text is treated as a custom choice rather than a dead end:
+  // the operator typed what they wanted, so honour it instead of dropping it.
+  return { action: 'custom', choice: 3, custom: true, refinement: str, raw: str };
 }
 
 function applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
@@ -204,7 +257,7 @@ function applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
     return { ok: true, status, nextPhase: 'execute', approved: true };
   }
 
-  if (choiceObj.action === 'regenerate' || choiceObj.action === 'refine') {
+  if (choiceObj.action === 'regenerate' || choiceObj.action === 'refine' || choiceObj.action === 'custom') {
     status.plan_approved = false;
     status.hitl_gate = null;
     status.phase = 'plan';
@@ -269,7 +322,7 @@ function applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
     return { ok: true, status, nextPhase: 'done', signed_off: true };
   }
 
-  if (choiceObj.action === 'remediation') {
+  if (choiceObj.action === 'remediation' || choiceObj.action === 'custom') {
     status.human_signed_off = false;
     status.hitl_gate = null;
     status.remediation_cycles = (status.remediation_cycles || 0) + 1;

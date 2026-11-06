@@ -205,6 +205,77 @@ function buildBareToolGrants() {
   return [...tools, 'search', 'find_related', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 }
 
+/**
+ * Grants tools to subagents with parity to the parent runtime. Tool grants decide
+ * which tools may be invoked; prohibited actions are enforced by the contract.
+ */
+
+const MAIN_AGENT_BUILTIN_TOOLS = Object.freeze([
+  'Read',
+  'Write',
+  'Edit',
+  'Grep',
+  'Glob',
+  'Bash',
+  'WebSearch',
+  'TodoRead',
+  'TodoWrite',
+  'Task'
+]);
+
+const SUBAGENT_SAFE_MCP_GRANTS = Object.freeze({
+  semble: ['search', 'find_related'],
+  aislop: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline']
+});
+
+function getKonohaMappedTools(client) {
+  if (client === 'claude') {
+    // adaptInstructionsForClaudeCode rewrites native Read/Write/Edit/Bash.
+    return ['Read', 'Write', 'Edit', 'Bash'];
+  }
+  if (client === 'gemini') {
+    // Gemini CLI consumes Antigravity-style tool names.
+    return ['run_command', 'write_to_file', 'replace_file_content', 'view_file'];
+  }
+  return [];
+}
+
+/**
+ * The single source of truth for "which tools does an agent get".
+ * The main agent and every subagent definition are both derived from it, so
+ * parity holds by construction rather than by two hand-maintained lists.
+ */
+function buildSubagentToolGrants(client = 'generic') {
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `mcp__konoha__${t}`);
+  const semble = SUBAGENT_SAFE_MCP_GRANTS.semble.map(t => `mcp__semble__${t}`);
+  const aislop = SUBAGENT_SAFE_MCP_GRANTS.aislop.map(t => `mcp__aislop__${t}`);
+  const native = getKonohaMappedTools(client);
+  return [
+    ...konoha,
+    ...semble,
+    ...aislop,
+    ...MAIN_AGENT_BUILTIN_TOOLS,
+    ...native.filter(t => !MAIN_AGENT_BUILTIN_TOOLS.includes(t))
+  ];
+}
+
+function isWildcardGrant(grant) {
+  if (typeof grant !== 'string') return true;
+  const g = grant.trim();
+  if (g === '' || g === '*') return true;
+  // `mcp__konoha__*` style prefixes, `*`, `Bash(*)`, `command(*)`, `mcp(*)`
+  return g.endsWith('*') || g.includes('(*)') || /^[A-Za-z_]+\s*\(\s*\*\s*\)$/.test(g);
+}
+
+/** Throws if any grant would widen approval to a wildcard. */
+function assertNoWildcardGrants(grants, label = 'grants') {
+  const offenders = (grants || []).filter(isWildcardGrant);
+  if (offenders.length > 0) {
+    throw new Error(`${label} contains wildcard approval grant(s): ${offenders.join(', ')}`);
+  }
+  return true;
+}
+
 function readMcpHealth(config, key = 'mcpServers') {
   const block = config[key] || config.mcp || {};
   return {
@@ -247,6 +318,12 @@ module.exports = {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
+  MAIN_AGENT_BUILTIN_TOOLS,
+  SUBAGENT_SAFE_MCP_GRANTS,
+  getKonohaMappedTools,
+  buildSubagentToolGrants,
+  isWildcardGrant,
+  assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 };

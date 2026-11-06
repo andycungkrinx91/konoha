@@ -24,6 +24,7 @@
     { method: 'GET', path: '/api/v1/3d/generate/:jobId/stream', desc: 'Server-sent events for stage progress, narratives, and stage timings.' },
     { method: 'GET', path: '/api/v1/3d/jobs', desc: 'Generation jobs with status, compute mode, and mesh statistics.' },
     { method: 'GET', path: '/api/v1/3d/assets', desc: 'Generated assets with GLB, PNG preview, and export downloads.' },
+    { method: 'POST', path: '/api/v1/3d/assets/:assetId/refine', desc: 'Fork a new asset from an existing one with an edit prompt; the parent asset stays read only.' },
     { method: 'GET', path: '/api/v1/3d/telemetry', desc: 'Token and cost telemetry per generation job.' },
     { method: 'GET', path: '/api/v1/3d/setup/status', desc: 'Blender, DCC-MCP host support, and model readiness.' }
   ];

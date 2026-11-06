@@ -136,9 +136,20 @@ function classifyExecutionTrack(prompt = '') {
   const isDirectDevopsOrSearch = /\b(search for|lookup|find symbol|query|check logs|status of|restart|ping|inspect error|question|explain)\b/i.test(p);
   const isSmallBugFix = /\b(fix typo|fix spelling|rename variable|remove log|comment out|update version|bump version|typo fix|quick fix)\b/i.test(p);
 
-  if (isDirectDevopsOrSearch || isSmallBugFix || wordCount <= 12) {
+  if (isSmallBugFix) return 'fast_track';
+
+  // Concrete implementation verbs signal real delegated work even in a short
+  // prompt. A word-count cutoff must NEVER override these: "add login page and
+  // api endpoint" is 6 words but needs Anbu + Jonin subagents.
+  const isImplementationWork = /\b(add|implement|create|build|write|fix|migrate|refactor|update|remove|delete|rename|move|extract|convert|replace|integrate|wire|hook|connect|upgrade|downgrade|install|configure|setup|set|make|support|enable|disable|handle|validate|parse|render|display|store|fetch|send|persist|deploy|test|cover|document)\b/i.test(p);
+
+  if (isImplementationWork) return 'full_sdlc';
+
+  if (isDirectDevopsOrSearch) {
     return 'fast_track';
   }
+  // Short prompts with no implementation verb are conversational/exploratory.
+  if (wordCount <= 12) return 'fast_track';
   return 'full_sdlc';
 }
 

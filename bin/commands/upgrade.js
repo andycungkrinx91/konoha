@@ -68,7 +68,7 @@ function semverCompare(v1, v2) {
 
 async function fetchJsonUrl(url, userAgent = 'Konoha-CLI-Updater') {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
   try {
     const res = await fetch(url, {
       headers: {
@@ -177,8 +177,8 @@ function buildPackageManagerCandidates(pkgTarget, isWin) {
   const checkCmd = (c) => {
     try {
       const res = isWin
-        ? spawnSync(`"${c}" --version`, { encoding: 'utf-8', shell: true, timeout: 5000, windowsHide: true })
-        : spawnSync(c, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+        ? spawnSync(`"${c}" --version`, { encoding: 'utf-8', shell: true, timeout: 30000, windowsHide: true })
+        : spawnSync(c, ['--version'], { encoding: 'utf-8', timeout: 30000 });
       return res.status === 0;
     } catch { return false; }
   };
@@ -233,7 +233,7 @@ function tryInstallCandidate(pm, args, spawnOptions, isWin = false) {
 }
 
 function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) {
-  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000, windowsHide: true };
+  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 900000, windowsHide: true };
   let lastError = null;
 
   for (const pm of pmCandidates) {
@@ -279,8 +279,8 @@ function locateGlobalPackageRoot(isWin = process.platform === 'win32', targetVer
   const runRootCmd = (cmd) => {
     try {
       const res = isWin
-        ? spawnSync(`${cmd}.cmd root -g`, { encoding: 'utf-8', timeout: 6000, shell: true, windowsHide: true })
-        : spawnSync(cmd, ['root', '-g'], { encoding: 'utf-8', timeout: 6000 });
+        ? spawnSync(`${cmd}.cmd root -g`, { encoding: 'utf-8', timeout: 30000, shell: true, windowsHide: true })
+        : spawnSync(cmd, ['root', '-g'], { encoding: 'utf-8', timeout: 30000 });
       const out = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
       if (out && fileExists(out)) roots.add(out);
     } catch { /* best-effort */ }
@@ -330,7 +330,7 @@ function readInstalledVersion(targetVer, preferredRoot = null) {
     const cliPath = resolveInstalledCliPath(preferredRoot);
     const res = spawnSync(process.execPath, [cliPath, '--version'], {
       encoding: 'utf8',
-      timeout: 10000,
+      timeout: 60000,
       windowsHide: true
     });
 
@@ -358,7 +358,7 @@ function syncRuntimeAndMigrate(globalPkgRoot) {
     const effectiveMigrate = fileExists(migratePath) ? migratePath : fallbackMigrate;
     if (fileExists(effectiveMigrate)) {
       spawnSync(process.execPath, [effectiveMigrate, '--require-skill', 'genin-skill'], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 180000
+        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 900000
       });
     }
   } catch { /* best-effort */ }
@@ -448,7 +448,7 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, l
     deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop, semble });
     await restartOrAutoStartUiDaemon(pbar, uiWasRunning);
 
-    const portReady = await waitForPortReady(1404, { timeoutMs: 90000 });
+    const portReady = await waitForPortReady(1404, { timeoutMs: 180000 });
     if (!portReady) {
       pbar.logStep('Web UI daemon is still warming up; it will answer on port 1404 shortly');
     }

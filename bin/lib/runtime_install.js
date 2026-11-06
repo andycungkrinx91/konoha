@@ -44,6 +44,29 @@ function isSimpleSemverNewer(vA, vB) {
   return a2 > b2;
 }
 
+/**
+ * Stale-sourceRoot guard.
+ *
+ * `resolveEffectiveSourceRoot` may hand us a tree that is older than this repo
+ * (e.g. KONOHA_UPGRADE_SOURCE_ROOT pointing at a previously installed global
+ * package). Mirroring such a tree would silently *downgrade* ~/.konoha/src.
+ * returns { stale, sourceVersion, repoVersion } where `stale` is true only when
+ * the sourceRoot is a different tree whose version is strictly older.
+ */
+function assessSourceRootFreshness(sourceRoot, repoRoot = REPO_ROOT) {
+  const resolvedSource = path.resolve(sourceRoot);
+  const resolvedRepo = path.resolve(repoRoot);
+  const repoVersion = readPackageVersionSafe(path.join(resolvedRepo, 'package.json'));
+  if (resolvedSource === resolvedRepo) {
+    return { stale: false, sourceVersion: repoVersion, repoVersion };
+  }
+  const sourceVersion = readPackageVersionSafe(path.join(resolvedSource, 'package.json'));
+  const stale = Boolean(
+    sourceVersion && repoVersion && isSimpleSemverNewer(repoVersion, sourceVersion)
+  );
+  return { stale, sourceVersion, repoVersion };
+}
+
 function readDeclaredDependencies(pkgJsonPath) {
   try {
     const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
@@ -185,9 +208,39 @@ function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
   const pkgSrc = path.join(sourceRoot, 'package.json');
   const destVer = readPackageVersionSafe(destPkgPath);
   const srcVer = readPackageVersionSafe(pkgSrc);
+  // The mirror only ever moves forward. A sourceRoot older than what is
+  // already installed must neither downgrade nor silently re-populate ~/.konoha.
   if (destVer && srcVer && isSimpleSemverNewer(destVer, srcVer)) {
+    warn(
+      `Skipping runtime mirror from ${path.resolve(sourceRoot)}: source version ${srcVer} is older than ` +
+      `installed version ${destVer}. The mirror at ${SKILLS_DB_DIR} was left untouched.`
+    );
     return cliDest;
   }
+
+  // --- src/ mirror -------------------------------------------------------
+  // Copies src/mcp/**/*.js and friends. Guarded so a stale sourceRoot can
+  // never populate the mirror silently.
+  const destSrc = path.join(SKILLS_DB_DIR, 'src');
+  const effectiveSrcDir = fileExists(path.join(sourceRoot, 'src')) ? path.join(sourceRoot, 'src') : SRC_DIR;
+  const freshness = assessSourceRootFreshness(sourceRoot);
+  let srcFresh = false;
+  if (freshness.stale) {
+    warn(
+      `Refusing to mirror stale sourceRoot into ${destSrc}: ` +
+      `source version ${freshness.sourceVersion} is older than repo version ${freshness.repoVersion}. ` +
+      `Re-run from the current repo or upgrade the installed package.`
+    );
+  } else if (fileExists(effectiveSrcDir)) {
+    srcFresh = true;
+    if (path.resolve(effectiveSrcDir) !== path.resolve(destSrc)) copyTree(effectiveSrcDir, destSrc);
+  }
+
+  // Everything below is gated on src/: a tree whose src/ was refused is not a
+  // trustworthy source for docs/, skills, CLI or manifest either.
+  if (!srcFresh) return cliDest;
+
+  copyRuntimeAssets(path.join(sourceRoot, 'assets'), copyTree);
 
   const sourceCliPath = path.join(sourceRoot, 'bin', 'cli.js');
   if (fileExists(sourceCliPath) && path.resolve(sourceCliPath) !== path.resolve(cliDest)) {
@@ -212,29 +265,6 @@ function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
 
   copyDirectoryFiles(path.join(sourceRoot, 'bin', 'lib'), path.join(SKILLS_DB_DIR, 'bin', 'lib'));
   copyDirectoryFiles(path.join(sourceRoot, 'bin', 'commands'), path.join(SKILLS_DB_DIR, 'bin', 'commands'));
-
-  const effectiveSrcDir = fileExists(path.join(sourceRoot, 'src')) ? path.join(sourceRoot, 'src') : SRC_DIR;
-  if (fileExists(effectiveSrcDir)) {
-    const destSrc = path.join(SKILLS_DB_DIR, 'src');
-    if (path.resolve(effectiveSrcDir) !== path.resolve(destSrc)) copyTree(effectiveSrcDir, destSrc);
-  }
-
-  const templateSkills = path.join(sourceRoot, 'src', 'templates', 'skills');
-  const skillsSrc = fileExists(templateSkills)
-    ? templateSkills
-    : path.join(sourceRoot, '.agents', 'skills');
-  const skillsDest = path.join(SKILLS_DB_DIR, '.agents', 'skills');
-  if (fileExists(skillsSrc) && path.resolve(skillsSrc) !== path.resolve(skillsDest)) {
-    copyTree(skillsSrc, skillsDest);
-  }
-
-  const docsSrc = path.join(sourceRoot, 'docs');
-  const docsDest = path.join(SKILLS_DB_DIR, 'docs');
-  if (fileExists(docsSrc) && path.resolve(docsSrc) !== path.resolve(docsDest)) {
-    copyTree(docsSrc, docsDest);
-  }
-
-  copyRuntimeAssets(path.join(sourceRoot, 'assets'), copyTree);
   return cliDest;
 }
 
@@ -278,9 +308,9 @@ function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
     const { execSync } = require('child_process');
     info(`Building Web UI v${currentVersion} during runtime initialization...`);
     try {
-      execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 180000 });
+      execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 900000 });
     } catch (_) {
-      execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 180000 });
+      execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 900000 });
     }
     const builtOutput = path.join(sourceDir, 'build');
     if (fileExists(path.join(builtOutput, 'handler.js')) && path.resolve(builtOutput) !== path.resolve(webBuildDest)) {
@@ -332,10 +362,10 @@ function installMissingDependencies(deps) {
     try {
       const res = isWin
         ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, {
-            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', shell: true, windowsHide: true, env: childEnv
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 900000, stdio: 'ignore', shell: true, windowsHide: true, env: childEnv
           })
         : spawnSync(pm.cmd, pm.args, {
-            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 300000, stdio: 'ignore', env: childEnv
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 900000, stdio: 'ignore', env: childEnv
           });
       if (res.status === 0 && listMissingDependencies(path.join(SKILLS_DB_DIR, 'node_modules'), deps).length === 0) return true;
     } catch { /* best-effort package manager fallback */ }
@@ -397,8 +427,8 @@ function getCandidateShimDirs(isWin, homeDir) {
   try {
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
     const res = isWin
-      ? spawnSync('npm.cmd config get prefix', { encoding: 'utf-8', timeout: 8000, shell: true, windowsHide: true })
-      : spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000 });
+      ? spawnSync('npm.cmd config get prefix', { encoding: 'utf-8', timeout: 30000, shell: true, windowsHide: true })
+      : spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 30000 });
     const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
     if (prefix && fs.existsSync(prefix)) {
       candidateDirs.add(isWin ? prefix : path.join(prefix, 'bin'));
@@ -513,7 +543,10 @@ function reconcileGlobalCommand() {
 }
 
 module.exports = {
+  assessSourceRootFreshness,
   copyIfDifferent,
+  copyRuntimeFiles,
+  resolveEffectiveSourceRoot,
   copyRecursive,
   copyRecursiveIfDifferent,
   installCliRuntime,

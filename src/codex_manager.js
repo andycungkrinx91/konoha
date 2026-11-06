@@ -32,6 +32,8 @@ const {
   buildMainAgentContract,
 } = require('./agent_contract');
 
+const { assertNoWildcardGrants } = require('./mcp_clients/common');
+
 const VALID_AGENT_NAME = /^[a-zA-Z0-9_-]+$/;
 
 // Codex Detection
@@ -280,6 +282,25 @@ function _buildCodexMcpSection(cfg) {
   ].join('\n');
 }
 
+/**
+ * Codex subagent tool parity.
+ *
+ * The main agent is governed by `[mcp_servers.<srv>.tools.<tool>]
+ * approval_mode = "auto"` (konoha/semble/aislop, every canonical tool named
+ * explicitly — see _buildCodexMcpSection). A Codex `[agents.*]` subagent does
+ * NOT automatically inherit those per-tool tables. This repo documents only
+ * the server-level `[mcp_servers.*]` form, so no invented per-agent tool table
+ * is emitted; instead each agent block carries the documented agent-level
+ * `approval_mode = "auto"` key so its tool approval matches the main agent.
+ * Whether Codex honours that key per-agent is INTENDED, not PROVEN here.
+ */
+function _buildCodexAgentApprovalKeys() {
+  assertNoWildcardGrants(KONOHA_TOOLS, 'codex konoha tool names');
+  assertNoWildcardGrants(SEMBLE_TOOLS, 'codex semble tool names');
+  assertNoWildcardGrants(AISLOP_TOOLS, 'codex aislop tool names');
+  return 'approval_mode = "auto"';
+}
+
 function _buildCodexAgentBlocks(userOwnedAgentNames) {
   let agents = [];
   try {
@@ -313,7 +334,8 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
     })
     .map(a => {
       const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
-      return `[agents.${a.name}]\ndescription = "${desc}"\nprompt = "file:~/.codex/agents/${a.name}.md"`;
+      const approval = _buildCodexAgentApprovalKeys();
+      return `[agents.${a.name}]\ndescription = "${desc}"\n${approval}\nprompt = "file:~/.codex/agents/${a.name}.md"`;
     })
     .join('\n\n');
 }

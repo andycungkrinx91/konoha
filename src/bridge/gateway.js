@@ -4,16 +4,15 @@
 const http = require('http');
 
 const {
-  httpAgent,
   bridgeModelsCache,
-  STREAM_TIMEOUT_MS,
-  STREAM_INACTIVITY_MS,
   sendJson,
   resolveBridgeAndModel,
   sanitizeForwardHeaders,
   readBody,
   pipeWithModelRewrite
 } = require('./gateway_router');
+
+const { forwardWithRetry, hasFlushed } = require('./request_retry');
 
 const {
   anthropicMessagesToOpenAi,
@@ -219,31 +218,8 @@ async function handleGetModels(activeBridges, req, res) {
   }
 }
 
-function setupChatCompletionsEvents(forwardReq, res, options) {
-  const { bridgeName, getLastActivity } = options;
-  forwardReq.on('error', (err) => {
-    if (!res.headersSent) {
-      sendJson(res, 502, { error: { message: `Gateway failed to reach bridge "${bridgeName}": ${err.message}`, type: 'gateway_error' } });
-    }
-  });
-
-  forwardReq.on('timeout', () => {
-    const inactivityMs = Date.now() - getLastActivity();
-    if (inactivityMs <= STREAM_INACTIVITY_MS) {
-      forwardReq.setTimeout(STREAM_TIMEOUT_MS);
-      return;
-    }
-    forwardReq.destroy();
-    if (!res.headersSent) {
-      sendJson(res, 504, { error: { message: `Bridge request timed out: no data for ${inactivityMs}ms`, type: 'gateway_timeout' } });
-    }
-  });
-}
 
 async function handleChatCompletions(activeBridges, req, res) {
-  let lastActivityTime = Date.now();
-  const resetStreamTimeout = () => { lastActivityTime = Date.now(); };
-
   try {
     const bodyStr = await readBody(req);
     const body = JSON.parse(bodyStr);
@@ -268,21 +244,30 @@ async function handleChatCompletions(activeBridges, req, res) {
       headers['authorization'] = `Bearer ${active.bridgeConfig.apiKey}`;
     }
 
-    const forwardReq = http.request({
-      hostname: '127.0.0.1',
-      port: active.bridgeConfig.port,
-      path: req.url,
-      method: 'POST',
+    // Same-provider retry before the first byte. The requested model and body are
+    // re-sent unchanged; only the winning attempt may write to the client.
+    const forwardUrl = `http://127.0.0.1:${active.bridgeConfig.port}${req.url}`;
+    const result = await forwardWithRetry({
+      url: forwardUrl,
       headers,
-      agent: httpAgent,
-      timeout: STREAM_TIMEOUT_MS
-    }, (forwardRes) => {
-      pipeWithModelRewrite(forwardRes, res, { baseModel: targetModel, originalModel: model, onActivity: resetStreamTimeout });
+      body: rewrittenBody,
+      res,
+      onRetry: ({ attempt, delayMs, decision }) => {
+        if (!hasFlushed(res)) {
+          process.stderr.write(`[gateway] retrying "${bridgeName}" (attempt ${attempt + 1}) after ${decision.reason} in ${delayMs}ms\n`);
+        }
+      }
     });
 
-    setupChatCompletionsEvents(forwardReq, res, { bridgeName, getLastActivity: () => lastActivityTime });
-    forwardReq.write(rewrittenBody);
-    forwardReq.end();
+    if (result.delivered) {
+      pipeWithModelRewrite(result.response.body, res, { baseModel: targetModel, originalModel: model });
+      return;
+    }
+    if (!res.headersSent) {
+      return sendJson(res, result.error.error.final_status || 502, result.error);
+    }
+    res.end();
+    return;
   } catch (err) {
     if (!res.headersSent) {
       const status = err.message === 'PAYLOAD_TOO_LARGE' ? 413 : 500;

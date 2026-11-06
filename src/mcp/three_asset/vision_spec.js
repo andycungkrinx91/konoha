@@ -24,7 +24,8 @@ const {
   generateObjectBrief,
   buildObjectBriefFromAnalysis,
   critiqueRender,
-  normalizeObjectBrief
+  normalizeObjectBrief,
+  alignSpecToBriefRatio
 } = require('./spec_brief');
 const { parseKonohaDSL, specToDSL } = require('./dsl_parser');
 const { globalCircuitRegistry } = require('../../circuit_breaker');
@@ -72,7 +73,7 @@ ${skillText}
    - Aggregate dimensions must fit inside a 3.0 x 3.0 x 3.0 bounding extent.
    - Symmetrically balanced or dynamically centered around x=0.
 5. COMPONENT HIERARCHY:
-   - Include 6 to 14 meaningful subcomponents. Keep output concise with zero comments.
+   - Include 14 to 32 detailed, layered subcomponents (primary hull/body, secondary structural tiers, bevel trims, inset panels/windows, vents, surface hardware, emissive accents, grounded base at y=0). Keep output concise with zero comments.
 6. ORGANIC & CREATURE ANATOMY:
    - For creatures/quadrupeds build full anatomy: ribcage, spine, pelvis, neck, skull, muzzle, jaw, eyes (with pupil), ears, and 4 articulated limbs whose paws touch y=0.
    - Every separate tail plume must be its own named node (tail_1 ... tail_N) radially fanned so they never overlap in any orthographic view.
@@ -282,14 +283,16 @@ async function tryImageVisionTarget(target, ctx) {
       userText: ctx.userText,
       imageBuffer: ctx.imageBuffer,
       mimeType: ctx.mimeType,
-      model: ctx.requestedModel,
-      timeoutMs: 45000,
+      model: target.model || ctx.requestedModel,
+      max_tokens: 12288,
+      timeoutMs: 90000,
       cacheKey: PROMPT_CACHE_KEY
     });
     const parsed = parseDslOrJson(response.text);
     if (parsed) {
       ctx.circuit.recordSuccess();
-      return { spec: parsed.spec, dsl: parsed.dsl, source: 'vision', model_used: response.model_used, tokens: computeTokenTelemetry(ctx.userText, response.text, response.usage) };
+      const enriched = alignSpecToBriefRatio(await enrichSynthesizedSpec(ctx.prompt || ctx.name, parsed.spec, ctx.name, ctx.targetPolycount, ctx.effectiveArch), ctx.brief);
+      return { spec: enriched, dsl: parsed.dsl, source: 'vision', model_used: response.model_used, tokens: computeTokenTelemetry(ctx.userText, response.text, response.usage) };
     }
   } catch (err) {
     ctx.circuit.recordFailure();
@@ -299,22 +302,24 @@ async function tryImageVisionTarget(target, ctx) {
 }
 
 async function generateSceneSpecFromImage(options = {}) {
-  const { image_path: imagePath, name = 'HeroModel', archetype = 'application', model: requestedModel = null, target_polycount = 50000 } = options;
+  const { image_path: imagePath, prompt = '', name = 'HeroModel', archetype = 'application', model: requestedModel = null, target_polycount = 50000, object_brief: brief = null } = options;
   if (!imagePath || !fs.existsSync(imagePath)) return makeFallbackImageResult(archetype, name, 'default', 'No image provided');
   const circuit = globalCircuitRegistry.getOrCreate('yamanaka-llm-synthesis', 3, 60);
   if (!circuit.allowRequest()) return makeFallbackImageResult(archetype, name, 'circuit-breaker-open', 'LLM synthesis circuit breaker is OPEN');
   const targets = resolveChatTargets(options);
   if (targets.length === 0) return makeFallbackImageResult(archetype, name, 'threejs-procedural-engine', 'No vision targets available');
 
+  const effectiveArch = resolveEffectiveArchetype(prompt || name, archetype);
   const refAnalysis = options.reference_analysis && !options.reference_analysis.error ? options.reference_analysis : null;
   const analysisHint = refAnalysis ? ` Reference metrics: height/width ratio ${refAnalysis.height_to_width_ratio}, symmetry ${refAnalysis.symmetry_x_score}, palette ${(refAnalysis.dominant_colors || []).join(' ')}.` : '';
-  const userText = `Examine this reference image. Deconstruct its 3D form, materials, and silhouette into a production-grade Konoha 3D DSL script. Name: ${name}, Archetype: ${archetype}, Polycount: ${target_polycount}.${analysisHint} Output raw DSL only.`;
-  const ctx = { userText, imageBuffer: fs.readFileSync(imagePath), mimeType: detectMimeType(imagePath), requestedModel, circuit };
+  const promptHint = prompt ? ` User Prompt: "${prompt}".` : '';
+  const userText = `Examine this reference image.${promptHint} Deconstruct its 3D form, layered subcomponents, PBR materials, and silhouette into a production-grade Konoha 3D DSL script (16-32 nodes). Name: ${name}, Archetype: ${effectiveArch}, Polycount: ${target_polycount}.${analysisHint} Output raw DSL only.`;
+  const ctx = { prompt, name, targetPolycount: target_polycount, effectiveArch, brief, userText, imageBuffer: fs.readFileSync(imagePath), mimeType: detectMimeType(imagePath), requestedModel, circuit };
   for (const target of targets.slice(0, 2)) {
     const res = await tryImageVisionTarget(target, ctx);
     if (res) return res;
   }
-  return makeFallbackImageResult(archetype, name, 'default', 'All vision targets failed or returned invalid DSL');
+  return makeFallbackImageResult(effectiveArch, name, 'default', 'All vision targets failed or returned invalid DSL');
 }
 
 function countTailNodes(spec) {
@@ -357,19 +362,19 @@ async function enrichSynthesizedSpec(prompt, spec, name, targetPolycount, reques
 }
 
 function resolveComponentPrimitive(desc, w, h, d) {
-  if (/lid|dome|cap|sphere|bulb/.test(desc)) {
+  if (/\b(lid|dome|cap|sphere|bulb|orb)\b/.test(desc)) {
     return {
       primitive: 'sphere',
       params: { radius: Math.max(w, d) * 0.5, widthSegments: 32, heightSegments: 24, size: [w, h, d] }
     };
   }
-  if (/ring|handle|torus|rim/.test(desc)) {
+  if (/\b(ring|handle|torus|rim|halo)\b/.test(desc)) {
     return {
       primitive: 'torus',
       params: { radius: Math.max(w, d) * 0.45, tube: Math.max(0.025, h * 0.35), radialSegments: 16, tubularSegments: 32, size: [w, h, d] }
     };
   }
-  if (/body|pot|cylinder|housing|base|vent|hinge|barrel/.test(desc)) {
+  if (/\b(body|pot|cylinder|housing|base|vent|hinge|barrel|column|pillar)\b/.test(desc)) {
     return {
       primitive: 'cylinder',
       params: { radiusTop: w * 0.5, radiusBottom: d * 0.48, height: h, radialSegments: 32, size: [w, h, d] }
@@ -381,20 +386,37 @@ function resolveComponentPrimitive(desc, w, h, d) {
   };
 }
 
+function resolveBriefPlacement({ index: i, description: desc, height: h, depth: d, cursorY, mainDims }) {
+  if (i === 0) return { pos: [0, Number((h * 0.5).toFixed(4)), 0], nextY: h };
+  if (/\b(window|facade|glazing|screen|display|panel|grille)\b/.test(desc)) {
+    return { pos: [0, Number((mainDims[1] * 0.58).toFixed(4)), Number((mainDims[2] * 0.5 + d * 0.25).toFixed(4))], nextY: cursorY };
+  }
+  if (/\b(canopy|entrance|door|porch|awning)\b/.test(desc)) {
+    return { pos: [0, Number((Math.min(mainDims[1] * 0.28, h * 0.6)).toFixed(4)), Number((mainDims[2] * 0.5 + d * 0.45).toFixed(4))], nextY: cursorY };
+  }
+  if (/\b(sign|signage|cross|emblem|logo|badge)\b/.test(desc)) {
+    return { pos: [0, Number((mainDims[1] * 0.86).toFixed(4)), Number((mainDims[2] * 0.5 + d * 0.35).toFixed(4))], nextY: cursorY };
+  }
+  const yCenter = Number((cursorY + h * 0.5).toFixed(4));
+  return { pos: [0, yCenter, 0], nextY: cursorY + h * 0.88 };
+}
+
 function specFromBriefComponents(brief, name, effectiveArch, targetPolycount) {
   if (!brief || !Array.isArray(brief.components) || brief.components.length === 0) return null;
   const nodes = [];
   let cursorY = 0;
+  let mainDims = [1.0, 1.0, 1.0];
   for (let i = 0; i < brief.components.length; i++) {
     const comp = brief.components[i] || {};
     const bbox = comp.relative_bbox || {};
     const w = Math.max(0.08, Math.min(2.4, Number(bbox.w) || 0.6));
     const h = Math.max(0.06, Math.min(2.4, Number(bbox.h) || 0.35));
     const d = Math.max(0.08, Math.min(2.4, Number(bbox.d) || w));
+    if (i === 0) mainDims = [w, h, d];
     const desc = `${comp.name || ''} ${comp.description || ''}`.toLowerCase();
     const { primitive, params } = resolveComponentPrimitive(desc, w, h, d);
-    const yCenter = Number((cursorY + h * 0.5).toFixed(4));
-    cursorY += h * 0.88;
+    const { pos, nextY } = resolveBriefPlacement({ index: i, description: desc, height: h, depth: d, cursorY, mainDims });
+    cursorY = nextY;
     const matText = String(comp.material || '').toLowerCase();
     const isMetal = /metal|steel|chrome|aluminum|iron|brass/.test(matText);
     const nodeName = String(comp.name || `part_${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -403,7 +425,7 @@ function specFromBriefComponents(brief, name, effectiveArch, targetPolycount) {
       part: {
         primitive,
         size: [w, h, d],
-        position: [0, yCenter, 0],
+        position: pos,
         parent: i > 0 ? nodes[0].name : null,
         modifiers: { bevel: 0.02 }
       },
@@ -415,13 +437,14 @@ function specFromBriefComponents(brief, name, effectiveArch, targetPolycount) {
           : (i % 2 === 0 ? '#cbd5e1' : '#334155'),
         roughness: isMetal ? 0.22 : 0.38,
         metalness: isMetal ? 0.82 : 0.18,
-        clearcoat: 0.35
+        clearcoat: 0.35,
+        ...(/\b(illuminat|neon|glow|beacon|led|light)\b/.test(desc) ? { emissive: comp.color || '#38bdf8', emissiveIntensity: 2.2 } : {})
       },
-      transform: { position: [0, yCenter, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }
+      transform: { position: pos, rotation: [0, 0, 0], scale: [1, 1, 1] }
     });
   }
-  if (nodes.length < 6) {
-    nodes.push(...detailParts(6, nodes));
+  if (nodes.length < 8) {
+    nodes.push(...detailParts(8, nodes));
   }
   const distinct = new Set(nodes.map((n) => String(n.material?.color || '').toLowerCase()).filter(Boolean));
   if (distinct.size < 2 && nodes.length >= 2) {
@@ -453,6 +476,7 @@ function assembleSpec(prompt, name, targetPolycount, ...archArgs) {
   if (fallbackSpec) {
     fallbackSpec.__prompt = prompt;
     fallbackSpec.turnaround = parseTurnaroundIntent(prompt, fallbackSpec.turnaround);
+    alignSpecToBriefRatio(fallbackSpec, brief);
   }
   return fallbackSpec;
 }
@@ -505,8 +529,8 @@ async function tryPromptSynthesisTarget(target, targetIndex, totalTargets, ctx) 
       system: DSL_SYSTEM_PROMPT,
       userText: ctx.userText,
       model: target.model || ctx.requestedModel,
-      max_tokens: 2048,
-      timeoutMs: 25000,
+      max_tokens: 12288,
+      timeoutMs: 90000,
       cacheKey: PROMPT_CACHE_KEY,
       onProgress: (progress) => ctx.emit('llm_synthesis_progress', {
         model: progress.model,
@@ -519,7 +543,7 @@ async function tryPromptSynthesisTarget(target, targetIndex, totalTargets, ctx) 
     const parsed = parseDslOrJson(response.text);
     if (parsed) {
       ctx.circuit.recordSuccess();
-      const enriched = await enrichSynthesizedSpec(ctx.prompt, parsed.spec, ctx.name, ctx.targetPolycount, ctx.effectiveArch);
+      const enriched = alignSpecToBriefRatio(await enrichSynthesizedSpec(ctx.prompt, parsed.spec, ctx.name, ctx.targetPolycount, ctx.effectiveArch), ctx.brief);
       const telem = computeTokenTelemetry(ctx.userText, response.text, response.usage);
       ctx.emit('llm_synthesis_complete', { model: response.model_used, tokens: telem, nodes: enriched.nodes.length });
       return {
@@ -589,7 +613,7 @@ async function generateSceneSpecFromPrompt(prompt, options = {}) {
 
   const userText = buildPromptSynthesisUserText(prompt, name, effectiveArch, target_polycount, brief);
   const cappedTargets = targets.slice(0, 2);
-  const ctx = { prompt, name, targetPolycount: target_polycount, effectiveArch, requestedModel, userText, circuit, emit };
+  const ctx = { prompt, name, targetPolycount: target_polycount, effectiveArch, requestedModel, userText, circuit, emit, brief };
 
   for (const [targetIndex, target] of cappedTargets.entries()) {
     const res = await tryPromptSynthesisTarget(target, targetIndex, cappedTargets.length, ctx);

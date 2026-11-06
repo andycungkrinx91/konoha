@@ -36,6 +36,7 @@
   ];
 
   let scene, camera, renderer, controls, animationFrameId;
+  let sceneReady = $state(false);
   let currentModel = null;
   let keyLight, fillLight, rimLight, ambientLight;
 
@@ -119,6 +120,7 @@
       containerResizeObserver = new ResizeObserver(() => handleResize());
       containerResizeObserver.observe(containerRef);
     }
+    sceneReady = true;
   }
 
   function twoViewSize() {
@@ -253,6 +255,7 @@
     });
 
     scene.add(currentModel);
+    handleResize();
 
     if (previousCamera) {
       camera.position.copy(previousCamera.position);
@@ -308,8 +311,8 @@
   $effect(() => {
     const url = glbUrl;
     const key = liveKey;
-    if (url && scene) {
-      loadGlb(url, key > 0);
+    if (url && sceneReady && scene) {
+      loadGlb(url, Boolean(currentModel) && key > 0);
     }
   });
 

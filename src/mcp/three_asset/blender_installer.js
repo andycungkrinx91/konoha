@@ -98,7 +98,14 @@ function scanPathForBlender(platform) {
     .filter((line) => line && isExecutableFile(line));
 }
 
+function blenderDisabled() {
+  // A test (or a host that must never shell out) sets this so a machine with Blender
+  // installed still exercises the deterministic path. Instance setup never sets it.
+  return process.env.KONOHA_BLENDER_DISABLED === '1';
+}
+
 function findInstalledBlenderBinaries() {
+  if (blenderDisabled()) return [];
   const env = detectSystemEnvironment();
   const candidates = [];
   if (process.env.KONOHA_BLENDER_BIN) candidates.push(process.env.KONOHA_BLENDER_BIN);
@@ -535,6 +542,7 @@ module.exports = {
   detectSystemEnvironment,
   findInstalledBlenderBinary,
   findInstalledBlenderBinaries,
+  blenderDisabled,
   parseBlenderVersionBanner,
   readBlenderVersion,
   getBlenderStatus,

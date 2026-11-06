@@ -20,9 +20,13 @@ function _handleDownloadAssetFile(res, assetId, format) {
       primary_glb: 'primary_glb',
       preview: 'preview_png',
       png: 'preview_png',
+      gltf: 'export_gltf',
+      export_gltf: 'export_gltf',
       usdz: 'usdz',
-      obj: 'obj',
-      stl: 'stl',
+      obj: 'export_obj',
+      export_obj: 'export_obj',
+      stl: 'export_stl',
+      export_stl: 'export_stl',
       ply: 'ply'
     };
 
@@ -37,7 +41,7 @@ function _handleDownloadAssetFile(res, assetId, format) {
     res.writeHead(200, {
       'Content-Type': resolved.mimeType || 'application/octet-stream',
       'Content-Length': resolved.byteSize || fs.statSync(resolved.absPath).size,
-      'Content-Disposition': `attachment; filename="${filename}"`
+      'Content-Disposition': `${(format === 'preview' || format === 'glb') ? 'inline' : 'attachment'}; filename="${filename}"`
     });
 
     const stream = fs.createReadStream(resolved.absPath);

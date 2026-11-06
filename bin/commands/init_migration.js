@@ -9,7 +9,8 @@ const {
   SKILLS_DB_DIR,
   MIGRATE_PATH,
   MCP_CONFIG_PATH,
-  SERVER_PATH
+  SERVER_PATH,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
 } = require('../lib/paths');
 const cursorManager = require('../../src/cursor_manager');
 const { C, log, info, warn, error, drawBox, LEAF_THEME, getCliVersion } = require('../lib/format');
@@ -31,7 +32,7 @@ function runMigrationAttempts(migrationArgs, safeTimeoutMs) {
   if (run.status === 0) return run;
 
   const skillsOnlyArgs = migrationArgs.filter(a => a !== '--skip-embeddings');
-  const runFallback = runMigrateProcess([...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], 120000);
+  const runFallback = runMigrateProcess([...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], INSTALL_BUILD_MIGRATE_TIMEOUT_MS);
   if (runFallback.status === 0) {
     warn("Reference indexing deferred: subagent skills are ready; references will index on first search or via 'konoha migrate'.");
   }
@@ -43,7 +44,7 @@ function migrateSingleSkillsDir(sDirPath) {
     spawnSync(process.execPath, [MIGRATE_PATH, '--skills-dir', sDirPath, '--skip-embeddings'], {
       encoding: 'utf-8',
       cwd: SKILLS_DB_DIR,
-      timeout: 60000
+      timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS
     });
   } catch { /* intentional fallback */ }
 }

@@ -9,6 +9,7 @@ const dbSavings = require('../../db_savings');
 const agentManager = require('../../agent_manager');
 const { SKILLS_DB_DIR } = require('../../../bin/lib/paths');
 const { killProcessOnPort, checkPortActive } = require('../../platform_utils');
+const { handleBridgesModels, _fetchBridgeModels, _collectBridgeSources } = require('./bridge_models_controller');
 const {
   sendJson,
   parseBody,
@@ -383,84 +384,13 @@ async function _handleBridges(req, res, pathname, method, broadcastEvent) {
         name: b.name, port: b.port, provider: b.provider, enabled: Boolean(b.enabled),
         target_url: b.target_url, running: await checkPortActive(b.port)
       })));
-      return sendJson(res, 200, { router_port: 19999, gateway_running: gatewayRunning, bridges: bridgeStatuses });
+      const sources = await _collectBridgeSources();
+      return sendJson(res, 200, { router_port: 19999, gateway_running: gatewayRunning, bridges: bridgeStatuses, sources });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
   }
   return false;
-}
-
-function _parseBridgeModelsResponse(d, bridgeName) {
-  try {
-    const parsedData = JSON.parse(d);
-    return { bridge: bridgeName, data: Array.isArray(parsedData?.data) ? parsedData.data : [] };
-  } catch {
-    return { bridge: bridgeName, data: [] };
-  }
-}
-
-function _fetchBridgeModels(bridge) {
-  let targetPath = bridge.target_url || bridge.targetUrl || `http://127.0.0.1:${bridge.port}`;
-  if (targetPath.endsWith('/chat/completions')) targetPath = targetPath.replace('/chat/completions', '/models');
-  if (!targetPath.endsWith('/models')) {
-    if (targetPath.endsWith('/')) targetPath = targetPath.slice(0, -1);
-    targetPath = targetPath.endsWith('/v1') ? targetPath + '/models' : targetPath + '/v1/models';
-  }
-  const check = validateBridgeTargetUrl(targetPath);
-  if (!check.ok) return Promise.resolve({ bridge: bridge.name, data: [] });
-  try {
-    const parsed = check.parsed;
-    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
-    const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
-    const headers = {};
-    const key = bridge.api_key || bridge.apiKey;
-    const isLoopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname.toLowerCase());
-    if (key && (parsed.protocol === 'https:' || isLoopback)) {
-      headers['Authorization'] = `Bearer ${key}`;
-    }
-    return new Promise((resolve) => {
-      const reqMod = mod.get(url, { headers }, (r) => {
-        let d = '';
-        r.on('data', c => d += c);
-        r.on('end', () => resolve(_parseBridgeModelsResponse(d, bridge.name)));
-      });
-      reqMod.on('error', () => resolve({ bridge: bridge.name, data: [] }));
-      reqMod.setTimeout(5000, () => { reqMod.destroy(); resolve({ bridge: bridge.name, data: [] }); });
-    });
-  } catch {
-    return Promise.resolve({ bridge: bridge.name, data: [] });
-  }
-}
-
-async function _handleBridgesModels(res, pathname) {
-  if (pathname === '/api/v1/9router/status' || pathname === '/api/v1/router/status') {
-    try {
-      const nineRouter = require('../../nine_router');
-      return sendJson(res, 200, await nineRouter.get9RouterStatus());
-    } catch (err) {
-      return sendJson(res, 500, { error: err.message });
-    }
-  }
-
-  try {
-    const bridges = dbBridges.listBridges();
-    const enabledBridges = bridges.filter(b => b.enabled && (b.target_url || b.targetUrl));
-    const results = await Promise.all(enabledBridges.map(_fetchBridgeModels));
-    const models = [];
-    for (const resItem of results) {
-      for (const m of resItem.data) {
-        models.push({ id: `${resItem.bridge}-${m.id}`, model_name: m.id, bridge: resItem.bridge, owned_by: m.owned_by || resItem.bridge, source: 'bridge' });
-      }
-    }
-    for (const cm of discoverClientModels()) models.push(cm);
-    const nineRouter = require('../../nine_router');
-    for (const nm of await nineRouter.discover9RouterModels()) models.push(nm);
-    const nineRouterStatus = await nineRouter.get9RouterStatus();
-    return sendJson(res, 200, { models, total: models.length, nine_router: nineRouterStatus });
-  } catch (err) {
-    return sendJson(res, 500, { error: err.message });
-  }
 }
 
 async function _stopGatewayProcess() {
@@ -642,14 +572,14 @@ async function handleCoreRoutes(req, res, ctx, _parsedUrl, ...rest) {
       return await _handleGateway(req, res, pathname, sessionToken);
     }
     if (pathname === '/api/v1/bridges/models') {
-      return await _handleBridgesModels(res, pathname);
+      return await handleBridgesModels(res, pathname);
     }
     const bridgeRes = await _handleBridges(req, res, pathname, method, broadcastEvent);
     if (bridgeRes !== false) return bridgeRes;
   }
 
   if (method === 'GET' && (pathname === '/api/v1/models' || pathname === '/api/v1/9router/status' || pathname === '/api/v1/router/status')) {
-    return await _handleBridgesModels(res, pathname);
+    return await handleBridgesModels(res, pathname);
   }
 
   if (pathname === '/api/v1/agents' || pathname.startsWith('/api/v1/agents/')) {

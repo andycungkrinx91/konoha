@@ -6,6 +6,7 @@
   import TokenCostCard from './TokenCostCard.svelte';
   import GenerateParamsCard from './GenerateParamsCard.svelte';
   import RecentAssetsCard from './RecentAssetsCard.svelte';
+  import RefinePanel from './RefinePanel.svelte';
   import SynthesisModal from './SynthesisModal.svelte';
 
   // Telemetry State
@@ -164,7 +165,12 @@
     try {
       const data = await apiRequest('/api/v1/3d/setup/models');
       modelsCatalog = data.models || [];
-      selectedModel = data.client_default_model || modelsCatalog[0]?.id || '';
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('konoha_3d_selected_model') : null;
+      if (saved !== null && (saved === '' || saved === '__custom__' || modelsCatalog.some((m) => m.id === saved))) {
+        selectedModel = saved;
+      } else if (!selectedModel) {
+        selectedModel = '';
+      }
       const catalogs = data.catalogs || {};
       archetypes = toOptions(catalogs.archetypes);
       profiles = toOptions(catalogs.profiles, PROFILE_LABELS);
@@ -226,6 +232,12 @@
     resolvedArchetype = asset.domain_archetype || null;
     liveKey = Date.now();
     modalOpen = true;
+  }
+
+  function handleRefinedAsset(asset) {
+    loadRecentAssets(1, false);
+    loadTelemetry(telemetryPeriod);
+    if (asset && asset.asset_id) selectAsset(asset);
   }
 
   async function handleImageUpload(event) {
@@ -313,12 +325,13 @@
           profile,
           quality_preset: qualityPreset,
           requested_compute_mode: requestedComputeMode,
-          model: selectedModel || null,
+          model: selectedModel && selectedModel.trim() !== '' ? selectedModel.trim() : null,
           target_polycount: Number(targetPolycount),
           texture_resolution: Number(textureResolution),
           output_size: outputSize,
           enable_pbr: enablePbr,
-          image_path: sourceMode === 'image_to_3d' ? imagePath : undefined
+          source_mode: imagePath ? 'image_to_3d' : sourceMode,
+          image_path: imagePath || null
         })
       });
 
@@ -506,7 +519,12 @@
     </div>
   {/if}
 
-  <!-- 3. Recent 3D Assets (full width at the bottom, infinite scroll) -->
+  <!-- 3. Refine (fork) panel for the selected asset -->
+  {#if currentAssetId && !isGenerating}
+    <RefinePanel assetId={currentAssetId} onRefined={handleRefinedAsset} />
+  {/if}
+
+  <!-- 4. Recent 3D Assets (full width at the bottom, infinite scroll) -->
   <RecentAssetsCard
     assets={recentAssets}
     total={assetsTotal}
@@ -531,4 +549,10 @@
   error={synthesisError}
   onClose={() => { modalOpen = false; }}
   onRetry={startGeneration}
+  onRefined={(newAssetId) => {
+    currentAssetId = newAssetId;
+    currentGlbUrl = `/api/v1/3d/assets/${newAssetId}/download/glb`;
+    liveKey += 1;
+    fetchAssets();
+  }}
 />

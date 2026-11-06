@@ -148,8 +148,8 @@ for (const client of CLIENTS) {
   assert.strictEqual(gateRes.status, 'pending_plan_approval', 'Must block on Gate 1 Plan Approval');
   assert.strictEqual(gateRes.hitl_gate, 'Gate 1 (Plan Approval)');
   assert.ok(gateRes.interactive_prompt, 'Gate 1 must return interactive prompt');
-  assert.ok(gateRes.interactive_prompt.choices.includes('1. Compact and approve'));
-  assert.ok(gateRes.interactive_prompt.choices.includes('2. Reject and Regenerate PLAN'));
+  assert.ok(gateRes.interactive_prompt.choices.includes('Compact and approve'));
+  assert.ok(gateRes.interactive_prompt.choices.includes('Reject and Regenerate PLAN'));
 
   // Calling sannin without choice keeps task paused at Gate 1
   const sanninPauseRaw = agentManager.runCanonicalWorkflow(null, {

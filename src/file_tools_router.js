@@ -494,7 +494,9 @@ function validateSchemaValue(value, schema, key) {
   }
   if (schema.type === 'number' || schema.type === 'integer') {
     if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${key} must be a finite number`);
-    if (schema.integer && !Number.isInteger(value)) throw new Error(`${key} must be an integer`);
+    // Integer-ness is derived from type === 'integer' ONLY. The legacy `integer: true`
+    // annotation is not a JSON Schema keyword and is rejected by Gemini's tool-schema
+    // validator, so it must never be required or honoured here.
     if (schema.type === 'integer' && !Number.isInteger(value)) throw new Error(`${key} must be an integer`);
     if (schema.minimum !== undefined && value < schema.minimum) throw new Error(`${key} must be at least ${schema.minimum}`);
     if (schema.maximum !== undefined && value > schema.maximum) throw new Error(`${key} must be at most ${schema.maximum}`);

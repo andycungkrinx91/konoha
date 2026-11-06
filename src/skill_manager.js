@@ -57,7 +57,7 @@ const currentCwd = (() => {
   try { return process.cwd(); } catch (_) { return HOME; }
 })();
 const {
-  AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
+  AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI, INSTALL_BUILD_MIGRATE_TIMEOUT_MS
 } = require('../bin/lib/paths');
 
 function getSkillsScanDirs(_targetCwd = null) {
@@ -414,7 +414,7 @@ Standard Operating Procedures and guidelines for ${skillName}.
     process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
     const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
     const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
-    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', env: childEnv, windowsHide: true });
+    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', env: childEnv, windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
     return targetDir;
   } else {
@@ -497,7 +497,7 @@ function autoMigrateProjectSkills(projectRoot) {
   let totalMigrated = 0;
   for (const dir of foundDirs) {
     try {
-      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', env: childEnv, windowsHide: true });
+      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', env: childEnv, windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
       if (run.status === 0) {
         totalMigrated++;
       }

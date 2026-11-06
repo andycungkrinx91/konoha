@@ -37,6 +37,40 @@
   } = $props();
 
   let activeLevel = $derived(qualityLevels.find((level) => level.id === qualityPreset) || null);
+  let customModelValue = $state('');
+  let isCustom = $state(false);
+
+  let nineRouterModels = $derived(
+    modelsCatalog.filter((m) => m.group === '9router' || m.source === '9router' || /^9router/i.test(m.id || ''))
+  );
+  let otherModels = $derived(
+    modelsCatalog.filter((m) => !(m.group === '9router' || m.source === '9router' || /^9router/i.test(m.id || '')))
+  );
+
+  function handleModelSelect(val) {
+    if (val === '__custom__') {
+      isCustom = true;
+      customModelValue = selectedModel && selectedModel !== '__custom__' ? selectedModel : '';
+    } else {
+      isCustom = false;
+      selectedModel = val;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('konoha_3d_selected_model', val);
+        } catch (_) {}
+      }
+    }
+  }
+
+  function handleCustomModelCommit() {
+    const trimmed = customModelValue.trim();
+    selectedModel = trimmed;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('konoha_3d_selected_model', trimmed);
+      } catch (_) {}
+    }
+  }
 
   function selectQualityLevel(level) {
     qualityPreset = level.id;
@@ -210,19 +244,73 @@
 
   <!-- Unified Model Selector Across 8+ Clients + 9router Catalog -->
   <div class="space-y-1">
-    <label for="synthesizer-model-select" class="text-xs font-bold block" style="color: var(--color-text);">
-      Synthesizer Model Router (Inherited Priority)
-    </label>
+    <div class="flex items-center justify-between">
+      <label for="synthesizer-model-select" class="text-xs font-bold block" style="color: var(--color-text);">
+        Synthesizer Model Router (Inherited Priority)
+      </label>
+      {#if selectedModel}
+        <span class="text-[10px] font-mono opacity-70">
+          Active: {selectedModel}
+        </span>
+      {:else}
+        <span class="text-[10px] font-mono text-status-success">
+          Automatic Inherited
+        </span>
+      {/if}
+    </div>
     <select
       id="synthesizer-model-select"
-      bind:value={selectedModel}
+      value={isCustom ? '__custom__' : selectedModel}
+      onchange={(e) => handleModelSelect(e.currentTarget.value)}
       class="w-full text-xs font-mono p-2.5 rounded-[5px] border focus:outline-hidden"
       style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
     >
-      {#each modelsCatalog as m}
-        <option value={m.id}>{m.id} ({m.model_name || m.bridge || 'Active'})</option>
-      {/each}
+      <option value="">⤺ Inherited Priority (Automatic Smart Router)</option>
+      {#if selectedModel && !modelsCatalog.some(m => m.id === selectedModel) && !isCustom}
+        <option value={selectedModel}>{selectedModel} (Active Assignment)</option>
+      {/if}
+      {#if nineRouterModels.length > 0}
+        <optgroup label="9router Endpoints (Auto-Detected Local Gateway)">
+          {#each nineRouterModels as m}
+            <option value={m.id}>{m.id} ({m.model_name || m.bridge || 'Active'})</option>
+          {/each}
+        </optgroup>
+      {/if}
+      {#if otherModels.length > 0}
+        <optgroup label="Client Coding Agents & LLM Bridges">
+          {#each otherModels as m}
+            <option value={m.id}>{m.id} ({m.model_name || m.bridge || 'Client'})</option>
+          {/each}
+        </optgroup>
+      {/if}
+      {#if nineRouterModels.length === 0 && otherModels.length === 0}
+        {#each modelsCatalog as m}
+          <option value={m.id}>{m.id} ({m.model_name || m.bridge || 'Active'})</option>
+        {/each}
+      {/if}
+      <option value="__custom__">✎ Custom model string...</option>
     </select>
+
+    {#if isCustom}
+      <div class="flex items-center gap-1.5 pt-1">
+        <input
+          type="text"
+          bind:value={customModelValue}
+          oninput={handleCustomModelCommit}
+          placeholder="e.g. ag/gemini-3.8-flash-high, cx/gpt-6-luna[1m]"
+          class="flex-1 text-xs font-mono p-1.5 rounded-[3px] border focus:outline-hidden"
+          style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+        />
+        <button
+          type="button"
+          onclick={() => { isCustom = false; handleModelSelect(''); }}
+          class="px-2 py-1 text-[10px] font-mono rounded border hover:opacity-80"
+          style="border-color: var(--color-border);"
+        >
+          Reset to Auto
+        </button>
+      </div>
+    {/if}
   </div>
 
   <!-- Prompt Textarea -->
@@ -267,7 +355,7 @@
     </div>
   </div>
 
-  {#if sourceMode === 'image_to_3d'}
+  {#if sourceMode === 'image_to_3d' || imagePreviewUrl}
     <div class="space-y-2">
       <span class="text-xs font-bold block" style="color: var(--color-text);">Reference Image</span>
       {#if imagePreviewUrl}

@@ -7,7 +7,6 @@ intermediate/live_step.glb, renders intermediate/live_preview.png, and streams a
 relay genuine progress to the web UI in real time.
 """
 
-import glob
 import json
 import math
 import os
@@ -19,10 +18,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from blender_worker_compute import (  # noqa: E402
     _CYCLES_SAMPLES,
+    GpuRenderFailed,
     build_principled_material,
     clear_scene,
     configure_render,
     emit,
+    engine_selection_payload,
     ensure_camera_and_light,
     ground_scene,
     mesh_objects,
@@ -30,6 +31,7 @@ from blender_worker_compute import (  # noqa: E402
     scene_report,
     select_only,
     set_output_dir,
+    wants_gpu_compute,
 )
 from blender_worker_views import (  # noqa: E402
     _read_size,
@@ -340,7 +342,16 @@ STEPS = [
 ]
 
 
-def run_steps(cfg, bpy):
+class RequestAbandoned(RuntimeError):
+    """Raised when the orchestrator drops the request file mid-sequence."""
+
+
+def _assert_request_alive(request_path):
+    if request_path and not os.path.exists(request_path):
+        raise RequestAbandoned("request file removed by orchestrator")
+
+
+def run_steps(cfg, bpy, request_path=None):
     blender_version = ".".join(str(v) for v in bpy.app.version)
     dcc_version = register_dcc_mcp()
     _CYCLES_SAMPLES["value"] = int(cfg.get("cycles_samples") or 64)
@@ -356,8 +367,11 @@ def run_steps(cfg, bpy):
         flat,
         cfg.get("compute_mode"),
         cfg.get("gpu_backend"),
+        purpose="final",
     )
     for index, (step_id, step_name, tool, fn) in enumerate(STEPS, start=1):
+        if index < len(STEPS):
+            _assert_request_alive(request_path)
         started = time.time()
         payload = {
             "event": "step",
@@ -369,12 +383,36 @@ def run_steps(cfg, bpy):
             "blender_version": blender_version,
             "dcc_mcp_version": dcc_version,
         }
-        payload["metrics"] = fn(bpy, cfg)
+        # Only the per-step live preview is intermediate; the studio and export
+        # steps own the final/inspection engine and must never degrade it.
+        step_purpose = "intermediate" if fn is not step_export else "final"
+        try:
+            if fn is step_studio or fn is step_export:
+                payload["metrics"] = fn(bpy, cfg, purpose=step_purpose)
+            else:
+                payload["metrics"] = fn(bpy, cfg)
+        except GpuRenderFailed as exc:
+            # The error already names every backend tried and its specific failure;
+            # it must reach the orchestrator verbatim, not as "refinement failed".
+            payload["status"] = "failed"
+            payload["error_code"] = exc.code
+            payload["error"] = str(exc)
+            emit(payload)
+            raise
         if index < len(STEPS):
             export_glb(bpy, cfg["live_glb_path"])
-            render_preview(bpy, cfg["live_preview_path"])
+            # Per-step thumbnails render on the raster engine, so ``cfg`` never
+            # triggers the GPU failover ladder here; it is passed for honesty.
+            render_preview(bpy, cfg["live_preview_path"], cfg=cfg)
         payload["status"] = "ok"
         payload["elapsed_ms"] = int((time.time() - started) * 1000)
+        # Run-level engine truth, so every streamed step carries it.
+        payload.update(
+            engine_selection_payload(
+                bpy, wants_gpu_compute(cfg.get("compute_mode"), cfg.get("gpu_backend"))
+            )
+        )
+        payload["purpose"] = step_purpose
         emit(payload)
         _focus_viewport(bpy)
 
@@ -408,6 +446,7 @@ def run_batch():
             False,
             cfg.get("compute_mode"),
             cfg.get("gpu_backend"),
+            purpose="final",
         )
     try:
         run_steps(cfg, bpy)
@@ -432,25 +471,68 @@ def run_batch():
     sys.stdout.flush()
 
 
+def _pending_request_files(queue_dir):
+    pending = []
+    for entry in sorted(os.listdir(queue_dir)):
+        request_dir = os.path.join(queue_dir, entry)
+        if not os.path.isdir(request_dir):
+            continue
+        claim_name = entry + ".request.json"
+        if claim_name in os.listdir(request_dir):
+            pending.append(os.path.join(request_dir, claim_name))
+    return pending
+
+
+def _write_json(path, payload):
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+
+def _log(message, exc=None):
+    """Recorded in ~/.konoha/blender_worker.log by the orchestrator's spawn."""
+    sys.stderr.write("[konoha] %s\n" % message)
+    if exc is not None:
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+    sys.stderr.flush()
+
+
 def _consume_requests(queue_dir, bpy):
-    pending = sorted(glob.glob(os.path.join(queue_dir, "*.request.json")))
-    for request_path in pending:
+    for request_path in _pending_request_files(queue_dir):
         try:
             os.rename(request_path, request_path + ".running")
         except OSError:
             continue
         running_path = request_path + ".running"
         result_path = request_path.replace(".request.json", ".result.json")
+        cancel_path = request_path.replace(".request.json", ".cancel.json")
+        completed = False
+        request_id = os.path.basename(running_path).split(".")[0]
+        os.environ["KONOHA_BLENDER_REQUEST_ID"] = request_id
+        set_output_dir(os.path.dirname(running_path))
         try:
             with open(running_path, "r", encoding="utf-8") as handle:
                 cfg = json.load(handle)
-            os.environ["KONOHA_BLENDER_REQUEST_ID"] = os.path.basename(
-                running_path
-            ).split(".")[0]
-            run_steps(cfg, bpy)
-            with open(result_path, "w", encoding="utf-8") as handle:
-                json.dump({"success": True, "finished_at": time.time()}, handle)
+            run_steps(cfg, bpy, request_path=running_path)
+            _write_json(
+                result_path,
+                {
+                    "success": True,
+                    "steps_executed": len(STEPS),
+                    "finished_at": time.time(),
+                },
+            )
+            completed = True
+        except RequestAbandoned as exc:
+            # The orchestrator timed out or cancelled: stop the remaining steps and
+            # mark the request so a crashed dispatcher never leaves it half-done.
+            completed = True
+            _write_json(
+                cancel_path,
+                {"success": False, "error": str(exc), "abandoned_at": time.time()},
+            )
         except Exception as exc:  # pragma: no cover - telemetry only
+            completed = True
+            _log("request_failed", exc)
             emit(
                 {
                     "event": "worker_failed",
@@ -458,13 +540,29 @@ def _consume_requests(queue_dir, bpy):
                     "traceback": traceback.format_exc()[-1200:],
                 }
             )
-            with open(result_path, "w", encoding="utf-8") as handle:
-                json.dump({"success": False, "error": str(exc)}, handle)
+            _write_json(result_path, {"success": False, "error": str(exc)})
         finally:
+            # Telemetry stays pinned to the request directory until every record for
+            # this request is written; a record emitted off-request lands in the queue
+            # root and cannot be attributed to any dispatcher.
+            # Each except clause above leaves `completed` set after writing its terminal
+            # record; only a handler-less BaseException (or a terminal-record write that
+            # itself raised) skips them, and its caller must still find a result file.
+            if not completed:
+                _log(
+                    "request_aborted: %s/%s"
+                    % (type(sys.exc_info()[1]).__name__, sys.exc_info()[1])
+                )
+                _write_json(
+                    result_path,
+                    {"success": False, "error": repr(sys.exc_info()[1])},
+                )
             try:
                 os.remove(running_path)
             except OSError as exc:
                 emit({"event": "heartbeat_remove_failed", "error": str(exc)})
+            os.environ.pop("KONOHA_BLENDER_REQUEST_ID", None)
+            set_output_dir(queue_dir)
 
 
 def _set_area_material_shading(area):
@@ -499,11 +597,23 @@ def run_server():
             "queue_dir": queue_dir,
         }
     )
-    configure_render(bpy, 1280, 720, "#1e293b", False)
+    # Live-GUI warm-up is an interactive viewport preview, not a final render.
+    configure_render(bpy, 1280, 720, "#1e293b", False, purpose="intermediate")
 
     def _tick():
-        _consume_requests(queue_dir, bpy)
-        _focus_viewport(bpy)
+        try:
+            _consume_requests(queue_dir, bpy)
+            _focus_viewport(bpy)
+        except (
+            Exception
+        ) as exc:  # a raised exception would silently unregister the timer
+            emit(
+                {
+                    "event": "worker_tick_failed",
+                    "error": str(exc),
+                    "traceback": traceback.format_exc()[-1200:],
+                }
+            )
         return 1.0
 
     bpy.app.timers.register(_tick, first_interval=1.0, persistent=True)

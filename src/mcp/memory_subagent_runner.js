@@ -470,7 +470,7 @@ function _assembleSystemPrompt(data) {
 }
 
 function _parseTaskOptions(task, context, constraints, rest) {
-  let [skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null, flowHash = null, taskId = null, client = null] = rest;
+  let [skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null, flowHash = null, taskId = null, client = null, worktree = null] = rest;
   if (typeof task === 'object' && task !== null) {
     const opts = task;
     return {
@@ -484,10 +484,11 @@ function _parseTaskOptions(task, context, constraints, rest) {
       sessionId: opts.sessionId || opts.session_id || sessionId,
       flowHash: opts.flowHash || opts.flow_hash || flowHash,
       taskId: opts.taskId || opts.task_id || taskId,
-      client: opts.client || client
+      client: opts.client || client,
+      worktree: opts.worktree || opts.worktree_path || worktree
     };
   }
-  return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId, client };
+  return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId, client, worktree };
 }
 
 function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
@@ -521,6 +522,19 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   else if (Array.isArray(opts.context) && opts.context.length > 0) instructions += `\n\n### Context & Relevant Code Paths:\n${opts.context.join('\n')}`;
   if (typeof opts.constraints === 'string' && opts.constraints.trim()) instructions += `\n\n### Execution Constraints:\n${opts.constraints.trim()}`;
   else if (Array.isArray(opts.constraints) && opts.constraints.length > 0) instructions += `\n\n### Execution Constraints:\n${opts.constraints.join('\n')}`;
+
+  // Per-dispatch worktree isolation. The spawn path has no cwd parameter, so
+  // the only lever is the prompt: state the worktree path and the commit
+  // requirement explicitly. Honour it or the agent edits the shared checkout.
+  if (opts.worktree) {
+    try {
+      const { buildWorktreeDirective } = require('./worktree_isolation');
+      const directive = buildWorktreeDirective(typeof opts.worktree === 'string'
+        ? { worktree_path: opts.worktree }
+        : opts.worktree);
+      if (directive) instructions += `\n\n${directive}`;
+    } catch (_) { /* isolation is best-effort; never block the dispatch */ }
+  }
 
   let dbAgentName = agentName.startsWith('mcp_') ? agentName.substring(4) : agentName;
   dbAgentName = dbAgentName.replace(/_/g, '-');
@@ -636,7 +650,8 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const res = JSON.stringify({
     status: 'ready', phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
     flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
-    task_dir: effTaskDir, instructions: instruction
+    task_dir: effTaskDir, worktree_path: opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined,
+    instructions: instruction
   });
   logToolCall(agentName, `project_path=${resolvedProjPath} session_id=${resolvedSessionId} task_dir=${effTaskDir}`, res, dbAgentName);
   return res;

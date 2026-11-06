@@ -198,6 +198,44 @@ function promoteStagingToAsset({
     }
   ];
 
+  const extraArtifacts = [
+    { src: 'scene.gltf', role: 'export_gltf', mime: 'model/gltf+json' },
+    { src: 'scene.bin', role: null, mime: 'application/octet-stream' },
+    { src: 'model.obj', role: 'export_obj', mime: 'model/obj' },
+    { src: 'model.stl', role: 'export_stl', mime: 'model/stl' },
+    { src: 'model.ply', role: null, mime: 'application/x-ply' },
+    { src: 'model.usdz', role: null, mime: 'model/vnd.usdz+zip' }
+  ];
+  for (const item of extraArtifacts) {
+    const srcPath = path.join(stagingDir, item.src);
+    if (statNonEmpty(srcPath)) {
+      const dstPath = path.join(assetDir, item.src);
+      fs.copyFileSync(srcPath, dstPath);
+      if (item.role) {
+        const meta = verifyFileIntegrity(dstPath);
+        fileRecords.push({
+          file_role: item.role,
+          rel_path: path.join(assetRel, item.src),
+          mime_type: item.mime,
+          byte_size: meta.byte_size,
+          sha256: meta.sha256
+        });
+      }
+    }
+  }
+
+  const stagingTexDir = path.join(stagingDir, 'textures');
+  if (fs.existsSync(stagingTexDir)) {
+    const dstTexDir = path.join(assetDir, 'textures');
+    fs.mkdirSync(dstTexDir, { recursive: true });
+    for (const texFile of fs.readdirSync(stagingTexDir)) {
+      const srcTex = path.join(stagingTexDir, texFile);
+      if (statNonEmpty(srcTex)) {
+        fs.copyFileSync(srcTex, path.join(dstTexDir, texFile));
+      }
+    }
+  }
+
   promoteAssetTransaction(conn, {
     job: { job_id: jobId },
     asset: assetRecord,
@@ -351,11 +389,31 @@ function resolveSafeAssetDownloadPath(assetIdOrJobId, fileRole, conn, overrideRo
     throw new Error('Database connection required to resolve promoted asset');
   }
 
-  const row = conn.prepare(`
+  const diskFallbacks = {
+    export_gltf: { file: 'scene.gltf', mime: 'model/gltf+json' },
+    gltf: { file: 'scene.gltf', mime: 'model/gltf+json' },
+    export_obj: { file: 'model.obj', mime: 'model/obj' },
+    obj: { file: 'model.obj', mime: 'model/obj' },
+    export_stl: { file: 'model.stl', mime: 'model/stl' },
+    stl: { file: 'model.stl', mime: 'model/stl' },
+    ply: { file: 'model.ply', mime: 'application/x-ply' },
+    usdz: { file: 'model.usdz', mime: 'model/vnd.usdz+zip' }
+  };
+  let row = conn.prepare(`
     SELECT rel_path, mime_type, byte_size, sha256
     FROM asset_files
     WHERE asset_id = ? AND file_role = ?
   `).get(assetIdOrJobId, fileRole);
+
+  if (!row && diskFallbacks[fileRole] && /^[a-zA-Z0-9_-]+$/.test(String(assetIdOrJobId || ''))) {
+    const fb = diskFallbacks[fileRole];
+    const candidateRel = path.join('assets', String(assetIdOrJobId), fb.file);
+    const candidateAbs = path.resolve(root, candidateRel);
+    if (statNonEmpty(candidateAbs)) {
+      const meta = verifyFileIntegrity(candidateAbs);
+      row = { rel_path: candidateRel, mime_type: fb.mime, byte_size: meta.byte_size, sha256: meta.sha256 };
+    }
+  }
 
   if (!row) return null;
 

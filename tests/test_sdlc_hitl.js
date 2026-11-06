@@ -90,9 +90,9 @@ try {
   assert.ok(gate1Res.interactive_prompt, 'Gate 1 must return structured interactive_prompt');
   assert.strictEqual(gate1Res.interactive_prompt.gate, 'gate_1');
   assert.deepStrictEqual(gate1Res.interactive_prompt.choices, [
-    '1. Compact and approve',
-    '2. Reject and Regenerate PLAN',
-    'Input Refine PLAN'
+    'Compact and approve',
+    'Reject and Regenerate PLAN',
+    'Input your own choice'
   ]);
   assert.ok(gate1Res.message.includes('1. Compact and approve'));
   assert.ok(gate1Res.message.includes('2. Reject and Regenerate PLAN'));
@@ -173,8 +173,9 @@ try {
   assert.ok(gate2Res.interactive_prompt, 'Gate 2 must return structured interactive_prompt');
   assert.strictEqual(gate2Res.interactive_prompt.gate, 'gate_2');
   assert.deepStrictEqual(gate2Res.interactive_prompt.choices, [
-    '1. Compact and approve',
-    '2. Remediation'
+    'Compact and approve',
+    'Remediation',
+    'Input your own choice'
   ]);
   assert.ok(gate2Res.message.includes('1. Compact and approve'));
   assert.ok(gate2Res.message.includes('2. Remediation'));

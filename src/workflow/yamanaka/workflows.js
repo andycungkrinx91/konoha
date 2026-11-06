@@ -7,9 +7,7 @@
 
 const { runYamanaka3DGraph } = require('./graph');
 
-async function dispatchYamanakaWorkflow(args = {}) {
-  return runYamanaka3DGraph(args);
-}
+const dispatchYamanakaWorkflow = runYamanaka3DGraph;
 
 module.exports = {
   dispatchYamanakaWorkflow,

@@ -17,7 +17,8 @@ const {
   HOME,
   SRC_DIR,
   SKILLS_DB_DIR,
-  SERVER_PATH
+  SERVER_PATH,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
 } = require('../lib/paths');
 const { fileExists, ensureDir } = require('../../src/platform_utils');
 const {
@@ -307,7 +308,7 @@ async function cmdInit(args, options = {}) {
     skillsDirs,
     skills,
     migrationArgs,
-    safeTimeoutMs: 180000,
+    safeTimeoutMs: INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
     python,
     pkgSkillsDir,
     spinner: spinnerMigrate

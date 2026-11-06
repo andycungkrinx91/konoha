@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const db = require('../../db');
+const { INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('../../../bin/lib/paths');
 const {
   sendJson,
   parseBody,
@@ -260,7 +261,7 @@ async function _handleSkillRoutes(req, res, route, broadcastEvent) {
     try {
       const { spawnSync } = require('child_process');
       const cliPath = path.join(__dirname, '..', '..', '..', 'bin', 'cli.js');
-      const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { encoding: 'utf8', windowsHide: true });
+      const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { encoding: 'utf8', windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
       broadcastEvent('skills_updated', { action: 'reindex' });
       return sendJson(res, 200, { ok: true, output: (run.stdout || '').trim() });
     } catch (err) {

@@ -89,7 +89,13 @@ const ADDITIVE_COLUMNS = Object.freeze([
   ['generation_jobs', 'output_orientation', 'TEXT'],
   ['generation_jobs', 'object_brief_json', 'TEXT'],
   ['generation_jobs', 'reference_analysis_json', 'TEXT'],
-  ['generation_jobs', 'iteration_history_json', 'TEXT']
+  ['generation_jobs', 'iteration_history_json', 'TEXT'],
+  ['generation_jobs', 'parent_job_id', 'TEXT'],
+  ['generation_jobs', 'parent_asset_id', 'TEXT'],
+  ['generation_jobs', 'refine_instruction', 'TEXT'],
+  ['generation_jobs', 'reference_sources_json', 'TEXT'],
+  ['assets', 'parent_asset_id', 'TEXT'],
+  ['assets', 'refine_instruction', 'TEXT']
 ]);
 
 /**
@@ -321,6 +327,10 @@ function readDependencyVersion(pkgName) {
 }
 
 function createJobRecord(conn, job) {
+  // The canonical migration may already have recorded its checksum, so every post-canonical
+  // column (output/iteration metadata and refine lineage) is installed through the single
+  // ADDITIVE_COLUMNS mechanism before the INSERT references it.
+  ensureAdditiveColumns(conn);
   const stmt = conn.prepare(`
     INSERT INTO generation_jobs (
       job_id, nonce, source_mode, status, prompt, negative_prompt,
@@ -330,7 +340,8 @@ function createJobRecord(conn, job) {
       threejs_version, raw_base_glb_sha256, refinement_backend, blender_version,
       dcc_mcp_version, model_used, client_source, input_tokens, output_tokens,
       total_tokens, est_cost_usd, staging_rel_dir, staging_cleaned, repair_attempts,
-      error_stage, error_code, error_message, created_at, started_at, completed_at
+      error_stage, error_code, error_message, created_at, started_at, completed_at,
+      parent_job_id, parent_asset_id, refine_instruction
     ) VALUES (
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
@@ -339,7 +350,8 @@ function createJobRecord(conn, job) {
       ?, ?, ?, ?,
       ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?
     )
   `);
 
@@ -352,7 +364,8 @@ function createJobRecord(conn, job) {
     job.dcc_mcp_version || null, job.model_used || null, job.client_source || null, job.input_tokens || 0, job.output_tokens || 0,
     job.total_tokens || 0, job.est_cost_usd || 0.0, job.staging_rel_dir, job.staging_cleaned ? 1 : 0, job.repair_attempts || 0,
     job.error_stage || null, job.error_code || null, job.error_message || null, job.created_at || new Date().toISOString(),
-    job.started_at || null, job.completed_at || null
+    job.started_at || null, job.completed_at || null,
+    job.parent_job_id || null, job.parent_asset_id || null, job.refine_instruction || null
   );
   const extraJobFields = {};
   for (const k of ['output_width', 'output_height', 'output_aspect_ratio', 'output_orientation', 'object_brief_json', 'reference_analysis_json', 'iteration_history_json']) {
@@ -586,6 +599,8 @@ function applyQualityLadderMigration(conn) {
   } finally {
     if (fkWasOn) conn.exec('PRAGMA foreign_keys = ON;');
   }
+  // The rebuild inserts by column position, so any additive-only column is dropped by it.
+  ensureAdditiveColumns(conn);
   const violations = conn.prepare('PRAGMA foreign_key_check').all();
   if (violations.length > 0) {
     throw new Error(`[FOREIGN KEY VIOLATION]: quality ladder rebuild produced ${violations.length} violations`);

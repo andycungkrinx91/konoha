@@ -19,10 +19,11 @@ function sendJson(res, statusCode, data) {
 function handleChunkLimit(chunk, state, targetRes, req) {
   if (state.destroyed) return false;
   state.bytesCount += chunk.length;
-  if (state.bytesCount > MAX_BODY_BYTES) {
+  const limit = state.maxBytes || MAX_BODY_BYTES;
+  if (state.bytesCount > limit) {
     state.destroyed = true;
     if (targetRes && !targetRes.headersSent) {
-      sendJson(targetRes, 413, { error: 'Request body exceeds 1 MiB limit' });
+      sendJson(targetRes, 413, { error: 'Request body exceeds size limit' });
     }
     req.destroy();
     return false;
@@ -30,16 +31,16 @@ function handleChunkLimit(chunk, state, targetRes, req) {
   return true;
 }
 
-function parseBody(req, res = null) {
+function parseBody(req, res = null, maxBytes = MAX_BODY_BYTES) {
   const targetRes = res || req._res || null;
   return new Promise((resolve, reject) => {
     let raw = '';
-    const state = { bytesCount: 0, destroyed: false };
+    const state = { bytesCount: 0, destroyed: false, maxBytes };
     req.on('data', chunk => {
       if (handleChunkLimit(chunk, state, targetRes, req)) raw += chunk;
     });
     req.on('end', () => {
-      if (state.destroyed || state.bytesCount > MAX_BODY_BYTES) return;
+      if (state.destroyed || state.bytesCount > state.maxBytes) return;
       if (!raw) return resolve({});
       try { resolve(JSON.parse(raw)); } catch (_) { resolve({}); }
     });
@@ -314,54 +315,55 @@ function _discoverOpenCodeModels(discovered, seenIds, HOME) {
   }
 }
 
-function _discoverCursorModels(discovered, seenIds, HOME) {
-  const cursorPaths = [
-    path.join(HOME, '.cursor', 'argv.json'),
-    path.join(HOME, '.cursor', 'mcp.json'),
-    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json')
-  ];
-  for (const p of cursorPaths) {
-    if (!fs.existsSync(p)) continue;
+function _collectPathModels(discovered, seenIds, paths, fields, meta) {
+  for (const candidate of paths) {
+    if (!fs.existsSync(candidate)) continue;
     try {
-      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-      const models = [data['cursor.general.model'], data['cursor.chat.defaultModel'], data.model, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
+      const data = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+      const extra = Array.isArray(data.models) ? data.models : [];
+      const models = [...fields.map((field) => data[field]), ...extra].filter(Boolean);
       for (const m of models) {
-        const id = typeof m === 'string' ? m : m?.id;
+        const id = typeof m === 'string' ? m : m && m.id;
         _addDiscoveredModel(discovered, seenIds, {
           id,
           model_name: typeof m === 'object' && m.name ? m.name : id,
-          bridge: 'cursor',
-          owned_by: 'cursor',
-          source: 'client:cursor'
+          bridge: meta.bridge,
+          owned_by: meta.owned_by,
+          source: meta.source
         });
       }
-    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
+    } catch (err) {
+      process.stderr.write(`[common] model discovery skipped for ${candidate}: ${err.message}\n`);
+    }
   }
 }
 
+function _discoverCursorModels(discovered, seenIds, HOME) {
+  _collectPathModels(
+    discovered,
+    seenIds,
+    [
+      path.join(HOME, '.cursor', 'argv.json'),
+      path.join(HOME, '.cursor', 'mcp.json'),
+      path.join(HOME, '.config', 'Cursor', 'User', 'settings.json')
+    ],
+    ['cursor.general.model', 'cursor.chat.defaultModel', 'model'],
+    { bridge: 'cursor', owned_by: 'cursor', source: 'client:cursor' }
+  );
+}
+
 function _discoverAntigravityModels(discovered, seenIds, HOME) {
-  const agPaths = [
-    path.join(HOME, '.gemini', 'settings.json'),
-    path.join(HOME, '.gemini', 'antigravity', 'config.json'),
-    path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json')
-  ];
-  for (const p of agPaths) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-      const models = [data.model, data.defaultModel, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
-      for (const m of models) {
-        const id = typeof m === 'string' ? m : m?.id;
-        _addDiscoveredModel(discovered, seenIds, {
-          id,
-          model_name: typeof m === 'object' && m.name ? m.name : id,
-          bridge: 'antigravity',
-          owned_by: 'antigravity',
-          source: 'client:antigravity'
-        });
-      }
-    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
-  }
+  _collectPathModels(
+    discovered,
+    seenIds,
+    [
+      path.join(HOME, '.gemini', 'settings.json'),
+      path.join(HOME, '.gemini', 'antigravity', 'config.json'),
+      path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json')
+    ],
+    ['model', 'defaultModel'],
+    { bridge: 'antigravity', owned_by: 'antigravity', source: 'client:antigravity' }
+  );
 }
 
 function _discoverCodexModels(discovered, seenIds, HOME) {
@@ -384,51 +386,29 @@ function _discoverCodexModels(discovered, seenIds, HOME) {
 }
 
 function _discoverCommandCodeModels(discovered, seenIds, HOME) {
-  const ccPaths = [
-    path.join(HOME, '.commandcode', 'config.json'),
-    path.join(HOME, '.commandcode', 'settings.json')
-  ];
-  for (const p of ccPaths) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-      const models = [data.model, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
-      for (const m of models) {
-        const id = typeof m === 'string' ? m : m?.id;
-        _addDiscoveredModel(discovered, seenIds, {
-          id,
-          model_name: typeof m === 'object' && m.name ? m.name : id,
-          bridge: 'commandcode',
-          owned_by: 'commandcode',
-          source: 'client:command-code'
-        });
-      }
-    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
-  }
+  _collectPathModels(
+    discovered,
+    seenIds,
+    [
+      path.join(HOME, '.commandcode', 'config.json'),
+      path.join(HOME, '.commandcode', 'settings.json')
+    ],
+    ['model'],
+    { bridge: 'commandcode', owned_by: 'commandcode', source: 'client:command-code' }
+  );
 }
 
 function _discoverPiModels(discovered, seenIds, HOME) {
-  const piPaths = [
-    path.join(HOME, '.pi', 'agent', 'settings.json'),
-    path.join(HOME, '.pi', 'agent', 'models.json')
-  ];
-  for (const p of piPaths) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-      const models = [data.defaultModel, ...(Array.isArray(data.models) ? data.models : [])].filter(Boolean);
-      for (const m of models) {
-        const id = typeof m === 'string' ? m : m?.id;
-        _addDiscoveredModel(discovered, seenIds, {
-          id,
-          model_name: typeof m === 'object' && m.name ? m.name : id,
-          bridge: 'pi',
-          owned_by: 'pi',
-          source: 'client:pi'
-        });
-      }
-    } catch { /* intentional best-effort fallback: response already sent or client disconnected; nothing left to do */ }
-  }
+  _collectPathModels(
+    discovered,
+    seenIds,
+    [
+      path.join(HOME, '.pi', 'agent', 'settings.json'),
+      path.join(HOME, '.pi', 'agent', 'models.json')
+    ],
+    ['defaultModel'],
+    { bridge: 'pi', owned_by: 'pi', source: 'client:pi' }
+  );
 }
 
 function _discoverKonohaAgentModels(discovered, seenIds) {

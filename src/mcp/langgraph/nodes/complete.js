@@ -18,8 +18,17 @@ async function completeNode(state) {
     cleanupTransientScratchFiles(taskDir);
   }
 
+  // Only mark the task completed when the work really ran. `planNode` treats a
+  // `completed` DB record as "plan already approved", so stamping completion
+  // here on a fast-track/no-op run silently skips Gate 1 on the next turn and
+  // makes a spawned subagent arrive to an already-finished task.
+  const tasks = Array.isArray(status.tasks) ? status.tasks : [];
+  const allTasksDone = tasks.length > 0 && tasks.every((t) => t.status === 'completed');
+  const hasDelegatedWork = (status.completed_dispatches || []).length > 0 || allTasksDone;
   try {
-    sdlcManager.updateTask(rootId, { status: 'completed' });
+    if (hasDelegatedWork) {
+      sdlcManager.updateTask(rootId, { status: 'completed' });
+    }
   } catch {
     // optional db update
   }

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { isCommandAvailable } = require('./platform_utils');
+const { probeOpenAiCompatibleEndpoint } = require('./provider_sources');
 
 const DEFAULT_9ROUTER_PORT = 20128;
 const DEFAULT_9ROUTER_HOST = '127.0.0.1';
@@ -166,11 +167,67 @@ async function get9RouterStatus(port = DEFAULT_9ROUTER_PORT) {
   };
 }
 
+/**
+ * Non-9router OpenAI-compatible provider sources that can be surfaced as
+ * bridges (Ollama, LM Studio, vLLM, llama.cpp). Models route through the
+ * OpenAI-compatible /v1/models + /v1/chat/completions contract, so no extra
+ * adapter is required. These are local services and carry no credentials.
+ */
+const COMPATIBLE_SOURCES = [
+  { id: 'ollama', label: 'Ollama', host: DEFAULT_9ROUTER_HOST, port: 11434, provider: 'openai-compatible' },
+  { id: 'lmstudio', label: 'LM Studio', host: DEFAULT_9ROUTER_HOST, port: 1234, provider: 'openai-compatible' },
+  { id: 'vllm', label: 'vLLM', host: DEFAULT_9ROUTER_HOST, port: 8000, provider: 'openai-compatible' },
+  { id: 'llamacpp', label: 'llama.cpp', host: DEFAULT_9ROUTER_HOST, port: 8080, provider: 'openai-compatible' }
+];
+
+function toNineRouterSource(model) {
+  const rawId = model.raw_id || model.model_name || model.id;
+  return {
+    id: model.id,
+    model_name: rawId,
+    provider: '9router',
+    surface: '9router',
+    target_url: `http://${DEFAULT_9ROUTER_HOST}:${DEFAULT_9ROUTER_PORT}/v1`,
+    has_credentials: false
+  };
+}
+
+/**
+ * Enumerates every OpenAI-compatible provider that can act as a bridge source.
+ * 9router models come from a live probe; local compatible runtimes only appear
+ * once they answer. The result never includes credentials — bridge keys stay in
+ * the encrypted SQLite store.
+ */
+async function discoverBridgeSources(options = {}) {
+  const nineRouterModels = await discover9RouterModels(options);
+  const models = nineRouterModels.map(toNineRouterSource);
+
+  for (const candidate of COMPATIBLE_SOURCES) {
+    const probe = await probeOpenAiCompatibleEndpoint(candidate.port, candidate.host);
+    if (!probe.ok) continue;
+    for (const item of probe.data) {
+      if (!item || typeof item.id !== 'string' || !item.id) continue;
+      models.push({
+        id: `${candidate.id}/${item.id}`,
+        model_name: item.id,
+        provider: candidate.provider,
+        surface: candidate.id,
+        target_url: `http://${candidate.host}:${candidate.port}/v1`,
+        has_credentials: false
+      });
+    }
+  }
+
+  return models;
+}
+
 module.exports = {
   is9RouterInstalled,
   probe9RouterEndpoint,
   discover9RouterModels,
   get9RouterStatus,
+  discoverBridgeSources,
+  COMPATIBLE_SOURCES,
   DEFAULT_9ROUTER_PORT,
   DEFAULT_9ROUTER_HOST
 };

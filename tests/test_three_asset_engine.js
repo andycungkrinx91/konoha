@@ -215,6 +215,27 @@ async function runTests() {
   assert.ok(Array.isArray(targets), 'resolveChatTargets must return array');
   assert.ok(!fs.existsSync(path.join(__dirname, '../src/mcp/three_asset/local_reconstruction.js')), 'local_reconstruction must be deleted');
   console.log('  ✓ Zero local models invariant and multi-target model router verified.');
+  // Test Native ESM Three.js Loader & Addon Compatibility
+  console.log('\n--- Testing Native ESM Three.js Loader & Addon Compatibility ---');
+  const depLoader = require('../src/mcp/three_asset/dep_loader');
+  const warnings = [];
+  const onWarning = (w) => warnings.push(w);
+  process.on('warning', onWarning);
+  try {
+    const THREE = depLoader.loadThree();
+    assert.ok(THREE && typeof THREE.Scene === 'function', 'loadThree must export Scene constructor');
+    assert.ok(typeof THREE.Mesh === 'function', 'loadThree must export Mesh constructor');
+    const cjsWarnings = warnings.filter((w) => w.code === 'THREE_CJS_DEPRECATED' || /require\("three"\)/.test(w.message));
+    assert.strictEqual(cjsWarnings.length, 0, 'loadThree must never emit THREE_CJS_DEPRECATED warning');
+    const { GLTFExporter } = depLoader.loadAddon('exporters/GLTFExporter.js');
+    assert.ok(GLTFExporter, 'loadAddon must resolve GLTFExporter without error');
+    const roots = depLoader.candidateNodeModulesRoots();
+    assert.ok(Array.isArray(roots) && roots.length > 0, 'candidateNodeModulesRoots must find at least one root');
+    console.log('  ✓ Native ESM Three.js loaded with 0 deprecation warnings and verified addon compatibility.');
+  } finally {
+    process.removeListener('warning', onWarning);
+  }
+
   console.log('\nAll tests in test_three_asset_engine.js passed cleanly!\n');
 }
 

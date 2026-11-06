@@ -5,28 +5,46 @@ inspection grid rendering, and GLB/PNG export for the Konoha Blender worker.
 import math
 import os
 import shutil
+import sys
 
+import blender_worker_compute as _compute
 from blender_worker_compute import (
     _CYCLES_SAMPLES,
+    _cycles_assignable,
+    RenderAttempt,
     bake_normal_map,
     build_principled_material,
     configure_compute,
     configure_render,
     emit,
+    engine_selection_payload,
     ensure_camera_and_light,
+    ensure_mesh_uvs,
     get_last_compute_info,
     mesh_objects,
+    normalize_render_purpose,
     node_material_spec,
+    render_with_gpu_fallback,
     scene_mesh_stats,
     scene_report,
     select_fast_raster_engine,
+    set_render_engine,
+    wants_gpu_compute,
 )
 
 
 INSPECTION_VIEWS = ("front", "side", "top", "three_quarter")
 
 
-def render_preview(bpy, path, width=None, height=None):
+def render_preview(bpy, path, width=None, height=None, cfg=None):
+    """Render the preview still.
+
+    When ``cfg`` requests GPU compute the render is wrapped in the failover ladder
+    (OPTIX -> CUDA -> CPU Cycles, max 2 retries): a GPU signature is retried on the
+    next backend *after discarding that call's partial file*, never after an
+    artifact was committed. The single output file is committed only once Blender
+    has finished writing it, so it is always discarded before a retry.
+    """
     ensure_camera_and_light(bpy)
     scene = bpy.context.scene
     if (
@@ -38,8 +56,21 @@ def render_preview(bpy, path, width=None, height=None):
     ):
         scene.render.resolution_x = width
         scene.render.resolution_y = height
-    scene.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+
+    def render_once(attempt):
+        scene.render.filepath = path
+        attempt.record(path)
+        bpy.ops.render.render(write_still=True)
+        attempt.mark_committed(path)
+
+    cfg = cfg or {}
+    requested_gpu = wants_gpu_compute(cfg.get("compute_mode"), cfg.get("gpu_backend"))
+    if not requested_gpu:
+        render_once(RenderAttempt())
+        return os.path.exists(path)
+    render_with_gpu_fallback(
+        bpy, cfg.get("gpu_backend"), render_once, purpose="final", compute=_compute
+    )
     return os.path.exists(path)
 
 
@@ -59,6 +90,46 @@ def export_glb(bpy, path):
     return os.path.exists(path)
 
 
+def export_gltf_package(bpy, staging_dir):
+    if not staging_dir or not os.path.isdir(staging_dir):
+        return False
+    gltf_path = os.path.join(staging_dir, "scene.gltf")
+    kwargs = {
+        "filepath": gltf_path,
+        "export_format": "GLTF_SEPARATE",
+        "export_texture_dir": "textures",
+        "export_apply": True,
+        "export_normals": True,
+        "export_materials": "EXPORT",
+    }
+    try:
+        bpy.ops.export_scene.gltf(**kwargs)
+    except (TypeError, RuntimeError):
+        kwargs.pop("export_texture_dir", None)
+        kwargs.pop("export_materials", None)
+        try:
+            bpy.ops.export_scene.gltf(**kwargs)
+        except RuntimeError as exc:
+            sys.stderr.write(
+                f"[blender_worker_views] GLTF_SEPARATE export failed for {gltf_path}: {exc}\n"
+            )
+    for op_name, ext in (
+        ("obj_export", "obj"),
+        ("stl_export", "stl"),
+        ("ply_export", "ply"),
+    ):
+        op = getattr(bpy.ops.wm, op_name, None)
+        if callable(op):
+            aux_path = os.path.join(staging_dir, f"model.{ext}")
+            try:
+                op(filepath=aux_path)
+            except RuntimeError as exc:
+                sys.stderr.write(
+                    f"[blender_worker_views] {ext.upper()} export failed for {aux_path}: {exc}\n"
+                )
+    return os.path.exists(gltf_path)
+
+
 def step_materials(bpy, cfg):
     organic = bool(cfg.get("organic"))
     prompt = str(cfg.get("prompt", "")).lower()
@@ -73,9 +144,12 @@ def step_materials(bpy, cfg):
         "roughness": 0.6,
         "sheen": 0.85 if fur else 0.0,
     }
+    staging_dir = os.path.dirname(str(cfg.get("final_glb_path") or ""))
+    tex_dir = os.path.join(staging_dir, "textures") if staging_dir else None
     cache = {}
     shaded = 0
     for obj in mesh_objects(bpy):
+        ensure_mesh_uvs(obj)
         spec = node_material_spec(cfg, obj) or fallback
         key = (
             spec.get("color"),
@@ -84,8 +158,11 @@ def step_materials(bpy, cfg):
             bool(spec.get("emissive")),
         )
         if key not in cache:
-            mat = bpy.data.materials.new(f"KonohaMAT_{len(cache)}")
-            build_principled_material(bpy, mat, spec, fur)
+            mat_idx = len(cache)
+            mat = bpy.data.materials.new(f"material_{mat_idx}")
+            build_principled_material(
+                bpy, mat, spec, fur, mat_index=mat_idx, tex_dir=tex_dir
+            )
             cache[key] = mat
         obj.data.materials.clear()
         obj.data.materials.append(cache[key])
@@ -128,8 +205,16 @@ def _frame_studio_camera(bpy, cam):
     cam.data.sensor_width = 36.0
 
 
-def step_studio(bpy, cfg):
+def step_studio(bpy, cfg, purpose="final"):
+    """Light rig + compute device.
+
+    ``purpose="final"`` keeps a GPU-requested scene on Cycles: a raster engine
+    must never clobber the compute backend chosen for the final/inspection
+    render. ``purpose="intermediate"`` (per-step live preview) may degrade to the
+    fast raster engine.
+    """
     scene = bpy.context.scene
+    purpose = normalize_render_purpose(purpose)
     for light in [o for o in scene.objects if o.type == "LIGHT"]:
         bpy.data.objects.remove(light, do_unlink=True)
     flat = bool(cfg.get("flat_studio_lighting"))
@@ -161,13 +246,22 @@ def step_studio(bpy, cfg):
         backend = None
     _CYCLES_SAMPLES["value"] = int(cfg.get("cycles_samples") or 64)
     compute_info = configure_compute(bpy, backend, cfg.get("compute_mode"))
-    if not cfg.get("cycles_final_render"):
-        scene.render.engine = select_fast_raster_engine(bpy)
+    requested_gpu = wants_gpu_compute(cfg.get("compute_mode"), backend)
+    if purpose == "final":
+        if requested_gpu:
+            # Keep the GPU compute backend configure_compute actually achieved;
+            # never swap in an EEVEE raster engine for a final render.
+            set_render_engine(bpy, compute_info.get("compute_backend") or "CYCLES")
+        elif cfg.get("cycles_final_render") and _cycles_assignable(bpy):
+            set_render_engine(bpy, "CYCLES")
+    elif not cfg.get("cycles_final_render"):
+        set_render_engine(bpy, select_fast_raster_engine(bpy))
     return {
         "lights": len(rig),
         "flat_studio_lighting": flat,
         "scene_report": scene_report(bpy),
         **compute_info,
+        **engine_selection_payload(bpy, requested_gpu),
     }
 
 
@@ -231,7 +325,7 @@ def composite_turnaround(bpy, parts, output_path, _aspect=None, _cfg_canvas_widt
     return os.path.exists(output_path)
 
 
-def render_turnaround_sheet(bpy, path, aspect):
+def render_turnaround_sheet(bpy, path, aspect, cfg=None):
     scene = bpy.context.scene
     meshes = mesh_objects(bpy)
     if not meshes:
@@ -281,6 +375,8 @@ def render_turnaround_sheet(bpy, path, aspect):
             _fit_ortho(width, depth, slot_aspect, margin),
         ),
     ]
+    cfg = cfg or {}
+    requested_gpu = wants_gpu_compute(cfg.get("compute_mode"), cfg.get("gpu_backend"))
     parts = []
     original_res = (scene.render.resolution_x, scene.render.resolution_y)
     for name, loc, rot, ortho in views:
@@ -289,8 +385,23 @@ def render_turnaround_sheet(bpy, path, aspect):
         scene.render.resolution_x = tile_w
         scene.render.resolution_y = tile_h
         tile_path = os.path.join(os.path.dirname(path), name + ".png")
-        scene.render.filepath = tile_path
-        bpy.ops.render.render(write_still=True)
+
+        def render_once(attempt, _tile=tile_path):
+            scene.render.filepath = _tile
+            attempt.record(_tile)
+            bpy.ops.render.render(write_still=True)
+            attempt.mark_committed(_tile)
+
+        if requested_gpu:
+            render_with_gpu_fallback(
+                bpy,
+                cfg.get("gpu_backend"),
+                render_once,
+                purpose="final",
+                compute=_compute,
+            )
+        else:
+            render_once(RenderAttempt())
         parts.append(tile_path)
     scene.render.resolution_x, scene.render.resolution_y = original_res
     composite_turnaround(bpy, parts, path, aspect)
@@ -380,6 +491,7 @@ def render_inspection_grid(bpy, cfg, path):
     parts = []
     original_res = (scene.render.resolution_x, scene.render.resolution_y)
     original_cam = scene.camera
+    requested_gpu = wants_gpu_compute(cfg.get("compute_mode"), cfg.get("gpu_backend"))
     try:
         for view in requested:
             name, loc, rot, ortho = cameras[view]
@@ -388,8 +500,25 @@ def render_inspection_grid(bpy, cfg, path):
             scene.render.resolution_x = slot_w
             scene.render.resolution_y = slot_h
             tile_path = os.path.join(os.path.dirname(path), "inspect_" + view + ".png")
-            scene.render.filepath = tile_path
-            bpy.ops.render.render(write_still=True)
+
+            def render_once(attempt, _tile=tile_path):
+                scene.render.filepath = _tile
+                attempt.record(_tile)
+                bpy.ops.render.render(write_still=True)
+                attempt.mark_committed(_tile)
+
+            # One view failing on OPTIX must not abort the grid: the ladder
+            # discards that view's partial tile and re-renders it on CUDA/CPU.
+            if requested_gpu:
+                render_with_gpu_fallback(
+                    bpy,
+                    cfg.get("gpu_backend"),
+                    render_once,
+                    purpose="final",
+                    compute=_compute,
+                )
+            else:
+                render_once(RenderAttempt())
             parts.append(tile_path)
         scene.render.resolution_x, scene.render.resolution_y = original_res
         composite_turnaround(bpy, parts, path, "%d:%d" % (out_w, out_h))
@@ -408,38 +537,66 @@ def render_inspection_grid(bpy, cfg, path):
     return os.path.exists(path)
 
 
-def step_export(bpy, cfg):
+def step_export(bpy, cfg, purpose="final"):
     export_ok = export_glb(bpy, cfg["final_glb_path"])
+    export_gltf_package(bpy, os.path.dirname(str(cfg.get("final_glb_path") or "")))
     preview_path = cfg["preview_png_path"]
     live_preview = cfg["live_preview_path"]
     turnaround = cfg.get("turnaround") or {}
     out_w, out_h = _read_size(cfg)
     compute_mode = cfg.get("compute_mode")
     gpu_backend = cfg.get("gpu_backend")
-    if turnaround.get("enabled"):
-        configure_render(
-            bpy,
-            400,
-            675,
-            turnaround.get("background", "#d4d4d8"),
-            False,
-            compute_mode,
-            gpu_backend,
-        )
-        render_turnaround_sheet(
-            bpy, preview_path, turnaround.get("aspectRatio", "16:9")
+    purpose = normalize_render_purpose(purpose)
+    background = turnaround.get("background", "#1e293b")
+
+    # One render call for this step: the exported GLB is already committed, so a
+    # GPU failure may only be retried while no preview artifact has been flushed.
+    # The ledger below records exactly what this call wrote; the failover deletes
+    # it before retrying and refuses to retry once it is committed.
+    step_attempt = RenderAttempt()
+
+    def render_once(attempt):
+        if turnaround.get("enabled"):
+            configure_render(
+                bpy,
+                400,
+                675,
+                background,
+                False,
+                compute_mode,
+                gpu_backend,
+                purpose=purpose,
+            )
+        else:
+            configure_render(
+                bpy,
+                out_w,
+                out_h,
+                background,
+                False,
+                compute_mode,
+                gpu_backend,
+                purpose=purpose,
+            )
+        attempt.record(preview_path)
+        step_attempt.record(preview_path)
+        if turnaround.get("enabled"):
+            render_turnaround_sheet(
+                bpy, preview_path, turnaround.get("aspectRatio", "16:9"), cfg
+            )
+        else:
+            render_preview(bpy, preview_path, out_w, out_h, cfg=cfg)
+        if os.path.exists(preview_path):
+            attempt.mark_committed(preview_path)
+            step_attempt.mark_committed(preview_path)
+
+    requested_gpu = wants_gpu_compute(compute_mode, gpu_backend)
+    if requested_gpu:
+        render_with_gpu_fallback(
+            bpy, gpu_backend, render_once, purpose=purpose, compute=_compute
         )
     else:
-        configure_render(
-            bpy,
-            out_w,
-            out_h,
-            turnaround.get("background", "#1e293b"),
-            False,
-            compute_mode,
-            gpu_backend,
-        )
-        render_preview(bpy, preview_path, out_w, out_h)
+        render_once(RenderAttempt())
     if os.path.exists(preview_path):
         try:
             shutil.copyfile(preview_path, live_preview)
@@ -459,5 +616,6 @@ def step_export(bpy, cfg):
         "inspection_views": list(inspection.get("views") or []),
         "scene_report": scene_report(bpy),
         **compute_info,
+        **engine_selection_payload(bpy, wants_gpu_compute(compute_mode, gpu_backend)),
         **scene_mesh_stats(bpy),
     }

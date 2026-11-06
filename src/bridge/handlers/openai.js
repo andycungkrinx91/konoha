@@ -11,6 +11,7 @@ const {
 } = require('../utils');
 const { extractText, extractAllImages } = require('../images');
 const { sanitizeRequest } = require('../sanitize');
+const { forwardWithRetry } = require('../request_retry');
 
 // POST /v1/chat/completions
 
@@ -81,20 +82,18 @@ async function handleOpenAiDirect(ctx, req, res, messages, ...rest) {
     const reqBody = { model: ctx.requestedModel || payload.model, messages, stream: false };
     if (tools) reqBody.tools = tools;
 
-    const response = await fetch(requestUrl, {
-      method: 'POST',
+    const forwarded = await forwardWithRetry({
+      url: requestUrl,
       headers,
       body: JSON.stringify(reqBody),
+      res,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return sendJson(res, response.status, {
-        error: { message: errText, type: 'upstream_error' },
-      });
+    if (!forwarded.delivered) {
+      return sendJson(res, forwarded.error.error.final_status || 502, forwarded.error);
     }
 
-    const completion = await response.json();
+    const completion = await forwardJsonBody(forwarded.response.body);
     sendJson(res, 200, completion);
   } catch (err) {
     const status = err.statusCode || 502;
@@ -183,21 +182,36 @@ function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
     }
   });
 
-  fetch(requestUrl, {
-    method: 'POST',
+  forwardWithRetry({
+    url: requestUrl,
     headers,
     body: JSON.stringify(reqBody),
-    signal: abortController.signal,
+    res,
   })
-    .then(async (response) => _handleStreamFetchResponse(response, res))
+    .then(async (forwarded) => {
+      if (!forwarded.delivered) {
+        return _writeStreamError(res, forwarded.error.error.message, forwarded.error);
+      }
+      await _pipeReaderToResponse(forwarded.response.body, res);
+    })
     .catch((err) => {
       if (err.name === 'AbortError') return;
-      if (!res.writableEnded) {
-        res.write(`data: ${JSON.stringify({ error: { message: (err.message || 'Stream error').substring(0, 4000), type: 'upstream_error' } })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-      }
+      _writeStreamError(res, (err.message || 'Stream error').substring(0, 4000));
     });
+}
+
+function _writeStreamError(res, message, detail) {
+  if (res.writableEnded) return;
+  const errorBody = detail ? { ...detail, message, type: 'upstream_error' } : { message, type: 'upstream_error' };
+  res.write(`data: ${JSON.stringify({ error: errorBody })}\n\n`);
+  res.write('data: [DONE]\n\n');
+  res.end();
+}
+
+async function forwardJsonBody(response) {
+  const chunks = [];
+  for await (const chunk of response) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
 module.exports = { handleChatCompletions, handleOpenAiDirect };

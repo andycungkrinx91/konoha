@@ -19,6 +19,7 @@ const {
 const {
   COMPUTE_MODES,
   detectComputeHardware,
+  normalizeGpuBackend,
   resolveStageCompute
 } = require('../../mcp/three_asset/compute_selector');
 const { ARCHETYPES } = require('../../mcp/three_asset/spec_schema');
@@ -214,7 +215,7 @@ async function _resizeUploadedImageBuffer(buf, ext, maxTargetEdge) {
 
 async function _handleUploadImage(req, res) {
   try {
-    const body = await parseJsonBody(req, res);
+    const body = await parseJsonBody(req, res, IMAGE_UPLOAD_MAX_BYTES * 2);
     if (!body) return false;
     const { data_base64: dataBase64, filename, output_size: rawOutputSize } = body;
     if (!dataBase64 || typeof dataBase64 !== 'string') {
@@ -300,10 +301,12 @@ function _dispatchAsyncGenerationJob(jobId, ctx) {
           prompt,
           negative_prompt: body.negative_prompt,
           image_path: body.image_path,
+          source_mode: body.image_path ? 'image_to_3d' : (body.source_mode || 'text_to_3d'),
           archetype: body.archetype || 'game-prop',
           profile: body.profile || 'enterprise_pbr',
           quality_preset: levelOptions.quality_preset,
           requested_compute_mode: body.requested_compute_mode || 'auto',
+          requested_gpu_backend: normalizeGpuBackend(body.preferred_backend ?? body.preferredBackend),
           target_polycount: levelOptions.target_polycount,
           texture_resolution: body.texture_resolution,
           output_size: clampedOutputSize,
@@ -359,7 +362,11 @@ async function _handleGenerate(req, res) {
 
     const jobId = `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const nonce = crypto.randomBytes(8).toString('hex');
-    const compute = resolveStageCompute(body.requested_compute_mode || 'auto');
+    const preferredBackend = normalizeGpuBackend(body.preferred_backend ?? body.preferredBackend);
+    const compute = resolveStageCompute(
+      body.requested_compute_mode || 'auto',
+      preferredBackend ? { preferredBackend } : {}
+    );
 
     const gpuTelemetry = getGpuTelemetry();
     const gpuVramTotalBytes = gpuTelemetry?.vram_total_bytes || 0;
@@ -581,6 +588,9 @@ async function handleModel3DRoutes(req, res, _ctx, ...routeArgs) {
     return handleDownloadAssetFile(res, assetId, format);
   }
   if (pathname.startsWith('/api/v1/3d/assets/') && method === 'GET') {
+    // `/refine` and `/refine/stream` belong to the refine-fork controller; matching them here
+    // would answer the fork route with an asset row instead of letting its own router reply.
+    if (/\/refine(\/|$)/.test(pathname)) return false;
     const assetId = decodeURIComponent(pathname.slice('/api/v1/3d/assets/'.length));
     return _handleGetAsset(res, assetId);
   }

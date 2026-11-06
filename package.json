@@ -80,6 +80,7 @@
     "test:workflow": "node scripts/rtk_exec.js node tests/test_workflow_gates.js && node scripts/rtk_exec.js node tests/test_workflow_loop.js",
     "test:jonin": "node scripts/rtk_exec.js node tests/test_build_workflows.js && node scripts/rtk_exec.js node tests/test_taste_skill_jonin.js",
     "test:docs": "node scripts/rtk_exec.js node tests/test_docs_currency.js && node scripts/rtk_exec.js node tests/test_documentation_diagrams.js",
+    "test:router": "node scripts/rtk_exec.js node tests/test_model_router_protocols.js",
     "check": "pnpm --dir apps/web run check",
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",

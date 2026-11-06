@@ -146,6 +146,48 @@ function handleExecuteCompletion(completion, dispatch, status, context) {
   const { sdlcManager, resolvedTaskDir } = context;
   const taskId = dispatch.task_id;
   const task = status.tasks ? status.tasks.find(t => t.id === taskId) : null;
+
+  // Worktree isolation: a member of an active parallel group is merged later,
+  // at the barrier, so every sibling still branches from the group base. A
+  // solo dispatch is merged as soon as it reports, and a failed merge blocks.
+  const worktree = require('./worktree_isolation');
+  const workspace = worktree.findWorkspaceForDispatch(status, dispatch.id);
+  const inActiveGroup = Boolean(task && task.parallel_group && status.active_parallel_group === task.parallel_group);
+  let worktreeMerge = null;
+  if (workspace && !inActiveGroup) {
+    worktreeMerge = worktree.integrateDispatchWorktree({
+      status,
+      dispatchId: dispatch.id,
+      message: `konoha: ${dispatch.agent} work for ${taskId || dispatch.id}`
+    });
+    if (task) {
+      task.worktree_merge = { ok: worktreeMerge.ok, merged: Boolean(worktreeMerge.merged), reason: worktreeMerge.reason || null };
+      if (worktreeMerge.ok && worktreeMerge.merged) task.worktree_merged = true;
+    }
+    if (!worktreeMerge.ok) {
+      if (workspace.last_reason === 'syntax_gate_failed' && task) {
+        task.retry_of_dispatch = dispatch.id;
+        task.syntax_gate_failed = true;
+      }
+      saveWorkflowStatus(resolvedTaskDir, status);
+      return {
+        response: JSON.stringify({
+          status: 'merge_blocked',
+          phase: 'execute',
+          reason: workspace.last_reason || worktreeMerge.reason,
+          task_id: taskId,
+          dispatch_id: dispatch.id,
+          branch: workspace.branch,
+          worktree_path: workspace.worktree_path,
+          conflicting_paths: worktreeMerge.conflicting_paths || [],
+          syntax_gate: worktreeMerge.syntax_gate || null,
+          task_dir: resolvedTaskDir,
+          message: 'Worktree merge-back was refused; the branch and worktree were preserved. Nothing was stashed, checked out or reset.'
+        })
+      };
+    }
+  }
+
   if (task) {
     if (task.status !== 'completed' && task.status !== 'unverified') {
       task.status = 'completed';
@@ -172,7 +214,7 @@ function handleExecuteCompletion(completion, dispatch, status, context) {
       });
     } catch (_) { /* best effort */ }
   }
-  return { nextPhase: 'execute' };
+  return worktreeMerge ? { nextPhase: 'execute', worktree_merge: worktreeMerge } : { nextPhase: 'execute' };
 }
 
 function handleDocumentCompletion(status, context, dispatchId) {

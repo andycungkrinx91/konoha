@@ -347,16 +347,15 @@ function appendObjectiveCheckRows(objective, rows, issues) {
   if (!symPassed) issues.push(`Symmetry ${Number(sym).toFixed(3)} below target ${symTarget.toFixed(2)}`);
   rows.push({ rowId: 13, metricName: 'symmetry', measuredValue: sym === null || sym === undefined ? null : Number(Number(sym).toFixed(4)), threshold: symTarget, passed: symPassed });
 
-  if (objective.boxRatioOk === false) {
-    rows.push({
-      rowId: 14,
-      metricName: 'bbox_scale_ratio',
-      measuredValue: objective.boxRatio === null || objective.boxRatio === undefined ? null : Number(Number(objective.boxRatio).toFixed(4)),
-      threshold: Number(objective.boxRatioTolerance ?? 0.25),
-      passed: false
-    });
-    issues.push('Bounding-box height/width ratio drifted outside tolerance');
-  }
+  const ratioPassed = objective.boxRatioOk !== false;
+  if (!ratioPassed) issues.push('Bounding-box height/width ratio drifted outside tolerance');
+  rows.push({
+    rowId: 14,
+    metricName: 'bbox_scale_ratio',
+    measuredValue: objective.boxRatio === null || objective.boxRatio === undefined ? null : Number(Number(objective.boxRatio).toFixed(4)),
+    threshold: Number(objective.boxRatioTolerance ?? 0.25),
+    passed: ratioPassed
+  });
 }
 
 function scoreSpec(spec, options = {}) {

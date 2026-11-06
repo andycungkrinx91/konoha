@@ -29,9 +29,8 @@ async function nodeInspect(state) {
   const refMaskPath = state.referenceAnalysis?.reference_mask_path || null;
   const silhouette_iou = maskIoU(state.inspectionGridPath, refMaskPath);
   const expectedRatioSource = state.referenceAnalysis
-    || state.sceneReport
-    || state.spec
     || state.objectBrief?.proportions
+    || state.objectBrief
     || targets.expectedHeightToWidthRatio
     || null;
   const box_ok = boxRatioOk(state.sceneReport || state.spec, expectedRatioSource, targets.boxRatioTolerance);

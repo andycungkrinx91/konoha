@@ -123,7 +123,11 @@ async function run() {
     const bridgeModels = await request({ hostname: '127.0.0.1', port, path: '/api/v1/bridges/models', method: 'GET' });
     assert.strictEqual(bridgeModels.status, 200);
     assert.ok(Array.isArray(bridgeModels.data.models));
-    console.log('✓ GET /api/v1/bridges/models passed');
+    assert.ok(Array.isArray(bridgeModels.data.sources), 'Bridge sources must be surfaced');
+    assert.ok(bridgeModels.data.sources.some(s => s.id === '9router'), '9router must be listed as a provider source');
+    const { findCredentialLeaks } = require('../src/provider_sources');
+    assert.deepStrictEqual(findCredentialLeaks(bridgeModels.data), [], 'Bridge sources must never expose credentials');
+    console.log('✓ GET /api/v1/bridges/models passed (sources credential-free)');
 
     // Agents endpoint
     const agents = await request({ hostname: '127.0.0.1', port, path: '/api/v1/agents', method: 'GET' });

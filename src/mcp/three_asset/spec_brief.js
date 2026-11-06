@@ -10,6 +10,7 @@
 const fs = require('fs');
 const { resolveChatTargets, sendChatMessage } = require('./model_router');
 const { extractLabelText, stripLabelText } = require('./spec_schema');
+const { extractSpecHeightToWidthRatio } = require('./silhouette');
 const { globalCircuitRegistry } = require('../../circuit_breaker');
 const { countTiktoken } = require('../../token_sampler');
 
@@ -129,8 +130,8 @@ async function tryBriefTarget(target, userText, model, circuit) {
       system: OBJECT_BRIEF_SYSTEM_PROMPT,
       userText,
       model: target.model || model,
-      max_tokens: 1024,
-      timeoutMs: 25000,
+      max_tokens: 4096,
+      timeoutMs: 60000,
       cacheKey: PROMPT_CACHE_KEY
     });
     const brief = normalizeObjectBrief(parseJsonLoose(response.text));
@@ -149,6 +150,21 @@ async function tryBriefTarget(target, userText, model, circuit) {
   return null;
 }
 
+const MAX_REFERENCE_CONTEXT_BYTES = 1200;
+
+/**
+ * Search snippets are external input, so they are hard-capped before entering the brief
+ * prompt: an unbounded block would silently push the instruction past the model budget.
+ */
+function capReferenceContext(text) {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  if (Buffer.byteLength(value, 'utf8') <= MAX_REFERENCE_CONTEXT_BYTES) return value;
+  let capped = value.slice(0, MAX_REFERENCE_CONTEXT_BYTES);
+  while (Buffer.byteLength(capped, 'utf8') > MAX_REFERENCE_CONTEXT_BYTES) capped = capped.slice(0, -1);
+  return `${capped}\n[reference context truncated]`;
+}
+
 async function generateObjectBrief(prompt, options = {}) {
   const archetype = options.archetype || 'auto';
   const model = options.model || null;
@@ -162,9 +178,11 @@ async function generateObjectBrief(prompt, options = {}) {
   if (!circuit.allowRequest()) {
     return { brief: null, model_used: null, tokens: { ...ZERO_TOKENS }, fallback_reason: 'Brief circuit breaker is OPEN' };
   }
+  const referenceBlock = capReferenceContext(options.referenceContext);
   const userText = `Subject: "${shapePrompt}"
 Resolved archetype: ${archetype}
 ${labels.length ? `Surface label text (texture only, never geometry): ${labels.join(', ')}` : ''}
+${referenceBlock}
 Decompose the subject into its physical parts with relative proportions.`;
   for (const target of targets.slice(0, 2)) {
     const res = await tryBriefTarget(target, userText, model, circuit);
@@ -253,7 +271,29 @@ Compare the multi-view render grid (image 1) against the reference (image 2). Re
   return { critique: null, model_used: null, tokens: { ...ZERO_TOKENS }, fallback_reason: 'All critique targets failed' };
 }
 
+
+function alignSpecToBriefRatio(spec, brief) {
+  const targetRatio = Number(brief?.proportions?.height_to_width_ratio);
+  const actualRatio = extractSpecHeightToWidthRatio(spec);
+  if (!(targetRatio > 0) || !(actualRatio > 0) || !spec || !Array.isArray(spec.nodes)) return spec;
+  if (Math.abs(actualRatio - targetRatio) / targetRatio <= 0.15) return spec;
+  const factor = Math.max(0.35, Math.min(3.0, targetRatio / actualRatio));
+  for (const node of spec.nodes) {
+    if (node.transform) {
+      node.transform.position = node.transform.position || [0, 0, 0];
+      node.transform.scale = node.transform.scale || [1, 1, 1];
+      node.transform.position[1] = Number((node.transform.position[1] * factor).toFixed(4));
+      node.transform.scale[1] = Number(((node.transform.scale[1] || 1) * factor).toFixed(4));
+    }
+    if (node.part && Array.isArray(node.part.position)) {
+      node.part.position[1] = Number((node.part.position[1] * factor).toFixed(4));
+    }
+  }
+  return spec;
+}
+
 module.exports = {
+  alignSpecToBriefRatio,
   PROMPT_CACHE_KEY,
   OBJECT_BRIEF_SYSTEM_PROMPT,
   CRITIQUE_SYSTEM_PROMPT,

@@ -5,7 +5,7 @@ const path = require('path');
 const { spawn, execSync } = require('child_process');
 const deployUtils = require('../../src/deploy_utils');
 const { fileExists } = require('../../src/platform_utils');
-const { SKILLS_DB_DIR } = require('./paths');
+const { SKILLS_DB_DIR, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
 const { getCliVersion } = require('./format');
 const { C, header, log, info, success, warn, error, drawLogo } = require('./format');
 
@@ -43,10 +43,10 @@ function installWebUiDeps(webDir, hasPnpm, isWin, buildEnv) {
   info(`Installing apps/web dependencies in ${webDir}...`);
   const pmCmd = hasPnpm ? 'pnpm install' : 'npm install';
   try {
-    execSync(pmCmd, { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv });
+    execSync(pmCmd, { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
   } catch (_) {
     try {
-      execSync('npm install', { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv });
+      execSync('npm install', { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     } catch (e) {
       warn(`Could not install apps/web dependencies: ${e.message}`);
     }
@@ -112,9 +112,9 @@ async function cmdUiBuild() {
     info('Running build in apps/web...');
     const buildCmd = hasPnpm ? 'pnpm run build' : 'npm run build';
     try {
-      execSync(buildCmd, { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv });
+      execSync(buildCmd, { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     } catch (_) {
-      execSync('npm run build', { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv });
+      execSync('npm run build', { cwd: webDir, stdio: 'inherit', shell: isWin, env: buildEnv, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
 
     refreshInstalledRuntimeCopy(webDir);
