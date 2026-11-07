@@ -14,6 +14,8 @@
  * - vacuum: Defragment and shrink SQLite file
  * - backup: Online SQLite hot snapshot via VACUUM INTO
  * - rebuild-fts: Reconstruct FTS5 full-text search index
+ * - check: Verify database integrity without modifying anything
+ * - restore [path]: Recover from a verified backup, archiving the damaged file first
  */
 
 const fs = require("fs");
@@ -53,6 +55,8 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}vacuum${C.reset}            ⚡ Defragment and compress SQLite database file directly.
   ${C.cyan}backup [path]${C.reset}     💾 Create an online, consistent SQLite database snapshot using VACUUM INTO.
   ${C.cyan}rebuild-fts${C.reset}       🔄 Rebuild FTS5 full-text search indexes for skills and persona memories.
+  ${C.cyan}check${C.reset}             🩺 Verify database integrity without modifying anything; exits 1 if damaged.
+  ${C.cyan}restore [path]${C.reset}    ♻️ Recover from a verified backup (archives the damaged database first).
 
 ${C.bold}EXAMPLES${C.reset}
   ${C.dim}1. View current database statistics:${C.reset}
@@ -115,6 +119,12 @@ async function cmdData(args) {
       break;
     case 'rebuild-fts':
       await cmdDataRebuildFts();
+      break;
+    case 'check':
+      await cmdDataCheck();
+      break;
+    case 'restore':
+      await cmdDataRestore(subArgs);
       break;
     case 'memories':
     case 'list':
@@ -562,8 +572,61 @@ async function cmdDataDelete(args) {
 
 
 
+/**
+ * Verify the live database and report integrity, schema version and backup count.
+ * Read-only: exits 1 when the database is not healthy so it can gate scripts.
+ */
+async function cmdDataCheck() {
+  try {
+    const { checkIntegrity, findLatestVerifiedBackup } = require('../../src/db_recovery');
+    if (!fs.existsSync(DB_PATH)) {
+      error(`Database not found: ${DB_PATH}`);
+      process.exit(1);
+    }
+    const result = checkIntegrity(DB_PATH);
+    log(`  ${C.bold}Database:${C.reset} ${DB_PATH}`);
+    log(`  ${C.bold}Integrity:${C.reset} ${result.ok ? result.status : `${result.status} — ${result.details.join('; ')}`}`);
+    const backup = findLatestVerifiedBackup(DB_PATH);
+    log(`  ${C.bold}Backup:${C.reset} ${backup || 'none available'}`);
+    if (result.ok) success('Database integrity check passed.');
+    else error('Database integrity check failed.');
+    if (!result.ok) process.exit(1);
+  } catch (err) {
+    error(`Failed to check database: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Restore from a verified backup. Archives the current file before copying and
+ * never initializes an empty database; a failed restore leaves the original intact.
+ */
+async function cmdDataRestore(args = []) {
+  try {
+    const { restoreDatabase } = require('../../src/db_recovery');
+    if (!fs.existsSync(DB_PATH)) {
+      error(`Database not found: ${DB_PATH}`);
+      process.exit(1);
+    }
+    info('Verifying backup before restore...');
+    const outcome = restoreDatabase({ dbPath: DB_PATH, backupPath: args[0] || undefined });
+    if (!outcome.restored) {
+      error(`Restore did not complete: ${outcome.details}`);
+      process.exit(1);
+    }
+    success('Database restored from a verified backup.');
+    log(`  ${C.bold}Source:${C.reset} ${outcome.source}`);
+    if (outcome.archived) log(`  ${C.bold}Previous database preserved at:${C.reset} ${outcome.archived}`);
+  } catch (err) {
+    error(`Failed to restore database: ${err.message}`);
+    process.exit(1);
+  }
+}
+
 module.exports = {
   cmdData,
+  cmdDataCheck,
+  cmdDataRestore,
   cmdDataHelp,
   cmdDataView,
   cmdDataPrune,
