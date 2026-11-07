@@ -19,7 +19,7 @@ async function collectUpgradeChoices(args = [], { probe } = {}) {
 
   if (autoYes) {
     return {
-      injectConfigs: true,
+      injectConfigs: false,
       rtk: true,
       aislop: true,
       semble: true
@@ -27,10 +27,7 @@ async function collectUpgradeChoices(args = [], { probe } = {}) {
   }
 
   const promptFn = probe || confirmPrompt;
-  const injectConfigs = await promptFn(
-    'Inject Konoha configs into all detected coding clients (global ~/.cursor, ~/.claude, ~/.codex, ~/.omp, ~/.gemini)?',
-    true
-  );
+  const injectConfigs = false;
   const rtk = await promptFn(
     'Install RTK (Rust Token Killer) shell filter and rules?',
     true

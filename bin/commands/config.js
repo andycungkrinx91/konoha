@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { KONOHA } = require('../lib/paths');
 const { C, log, error, success } = require('../lib/format');
+const backupManager = require('../../src/config_backup_manager');
 
 const CONFIG_FILE = path.join(KONOHA, 'config.json');
 
@@ -67,9 +68,93 @@ function parseValue(val) {
   return val;
 }
 
+function _parseFlagValue(args, prefix, defaultValue) {
+  const match = args.find((a) => a.startsWith(`${prefix}=`));
+  if (match) return match.slice(prefix.length + 1).trim();
+  const idx = args.indexOf(prefix);
+  if (idx !== -1 && args[idx + 1] && !args[idx + 1].startsWith('-')) {
+    return args[idx + 1].trim();
+  }
+  return defaultValue;
+}
+
+function _parseBackupRestoreOptions(args) {
+  const client = _parseFlagValue(args, '--client', 'all');
+  const scope = _parseFlagValue(args, '--scope', 'all');
+  const fromPath = _parseFlagValue(args, '--from', null);
+  const toPath = _parseFlagValue(args, '--to', null);
+  const projectRoot = _parseFlagValue(args, '--project', process.cwd());
+  return { client, scope, fromPath, toPath, projectRoot };
+}
+
+function _handleBackupSubcommand(args, jsonOut) {
+  const opts = _parseBackupRestoreOptions(args);
+  const res = backupManager.backupClientConfigs(opts.client, {
+    scope: opts.scope,
+    projectRoot: opts.projectRoot
+  });
+  if (jsonOut) {
+    process.stdout.write(JSON.stringify(res, null, 2) + '\n');
+  } else {
+    success(`Backed up ${res.backedUpCount} configuration file(s) for client=${opts.client} (scope=${opts.scope}).`);
+  }
+  return res;
+}
+
+function _handleBackupsListSubcommand(args, jsonOut) {
+  const opts = _parseBackupRestoreOptions(args);
+  const entries = backupManager.listClientBackups({
+    client: opts.client,
+    scope: opts.scope,
+    projectRoot: opts.projectRoot
+  });
+  if (jsonOut) {
+    process.stdout.write(JSON.stringify({ backups: entries }, null, 2) + '\n');
+    return entries;
+  }
+  log(`  ${C.bold}Konoha Configuration Backups (client=${opts.client}, scope=${opts.scope}):${C.reset}`);
+  if (entries.length === 0) {
+    log(`  ${C.dim}(no tracked configuration backups found)${C.reset}`);
+  } else {
+    for (const item of entries) {
+      log(`    [${item.client}:${item.scope}] ${item.sourcePath} -> ${item.latestBackup || '(created by konoha)'}`);
+    }
+  }
+  return entries;
+}
+
+function _handleRestoreSubcommand(args, jsonOut) {
+  const opts = _parseBackupRestoreOptions(args);
+  if (opts.fromPath && opts.toPath) {
+    const snapRes = backupManager.restoreFromBackupSnapshot(opts.fromPath, opts.toPath);
+    if (!snapRes.ok) {
+      error(snapRes.error || 'Backup restore failed');
+      process.exitCode = 1;
+      return snapRes;
+    }
+    if (jsonOut) {
+      process.stdout.write(JSON.stringify(snapRes, null, 2) + '\n');
+    } else {
+      success(`Restored ${opts.toPath} from snapshot ${opts.fromPath}.`);
+    }
+    return snapRes;
+  }
+  const res = backupManager.restoreLatestClientBackups({
+    client: opts.client,
+    scope: opts.scope,
+    projectRoot: opts.projectRoot
+  });
+  if (jsonOut) {
+    process.stdout.write(JSON.stringify(res, null, 2) + '\n');
+  } else {
+    success(`Restored ${res.restoredCount} configuration file(s) (removed ${res.removedCreatedCount} Konoha-created file(s)) for client=${opts.client}.`);
+  }
+  return res;
+}
+
 function cmdConfigHelp() {
   log(`
-${C.cyan}konoha config${C.reset} — Manage global Konoha system configuration
+${C.cyan}konoha config${C.reset} — Manage global Konoha system configuration & client config backups
 
 ${C.bold}USAGE${C.reset}
   konoha config <subcommand> [key] [value] [--json]
@@ -79,16 +164,18 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}get <key>${C.reset}            Get the value of a specific configuration key
   ${C.cyan}set <key> <val>${C.reset}      Set the value of a configuration key
   ${C.cyan}unset <key>${C.reset}          Remove a configuration key
+  ${C.cyan}backup${C.reset}               Back up AI client configurations (--client=<name|all> --scope=<global|project|all>)
+  ${C.cyan}backups${C.reset}              List available AI client configuration backups
+  ${C.cyan}restore${C.reset}              Restore AI client configurations from verified backups (--client=<name|all> --scope=<global|project|all>)
 
 ${C.bold}ALLOWED KEYS${C.reset}
   ${Array.from(ALLOWED_KEYS).join(', ')}
 
 ${C.bold}EXAMPLES${C.reset}
   konoha config list
-  konoha config get turn_budget
   konoha config set turn_budget 16384
-  konoha config unset auto_signoff
-  konoha config list --json
+  konoha config backup --client=cursor --scope=all
+  konoha config restore --client=cursor --scope=all
 `);
 }
 
@@ -176,8 +263,17 @@ async function cmdConfig(cmdArgs = []) {
       return { unset: key };
     }
 
+    case 'backup':
+      return _handleBackupSubcommand(cleanArgs.slice(1), jsonOut);
+
+    case 'backups':
+      return _handleBackupsListSubcommand(cleanArgs.slice(1), jsonOut);
+
+    case 'restore':
+      return _handleRestoreSubcommand(cleanArgs.slice(1), jsonOut);
+
     default: {
-      error(`Unknown config subcommand "${subcommand}". Use "list", "get", "set", or "unset".`);
+      error(`Unknown config subcommand "${subcommand}". Use "list", "get", "set", "unset", "backup", "backups", or "restore".`);
       process.exitCode = 1;
       return null;
     }

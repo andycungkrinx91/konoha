@@ -9,6 +9,8 @@ const {
   runFullInstallationLifecycle,
   runTransactionalDatabaseMigration
 } = require('../bin/lib/install_lifecycle');
+const { collectUpgradeChoices } = require('../bin/lib/upgrade_prompts');
+const { syncTemplateSkills } = require('../bin/lib/runtime_lifecycle');
 
 function runTests() {
   const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-test-lifecycle-'));
@@ -48,7 +50,12 @@ function runTests() {
       assert.strictEqual(dbMig.ok, true);
       assert.ok(dbMig.schemaVersion >= 2218, 'Database schema version must be updated transactionally');
 
-      console.log('PASS: test_install_lifecycle_and_db_preservation.js');
+      // Verify upgrade/reinstall/bare init never auto-injects client configs or copies template mirror skills
+      assert.strictEqual(syncTemplateSkills(), 0, 'syncTemplateSkills must be a no-op (no template mirror skill injection)');
+      return collectUpgradeChoices(['--yes']).then((choices) => {
+        assert.strictEqual(choices.injectConfigs, false, 'Upgrade must never auto-inject client configs (require explicit konoha init --client=<name>)');
+        console.log('PASS: test_install_lifecycle_and_db_preservation.js');
+      });
     }).catch((err) => {
       console.error(err);
       process.exit(1);

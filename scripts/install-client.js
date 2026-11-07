@@ -31,6 +31,19 @@ async function installClient(clientName, options = {}) {
   const results = {};
   const agents = agentManager.loadAgents();
 
+  const deployProject = options.deployProject !== false;
+  const appendProject = Boolean(options.appendProject);
+
+  if (norm === 'all' || norm === 'antigravity' || norm === 'gemini') {
+    const antigravityManager = require('../src/antigravity_manager');
+    results.antigravity = antigravityManager.ensureAntigravitySetup({
+      silent,
+      projectRoot,
+      deployProject,
+      appendProject
+    });
+  }
+
   if (norm === 'all' || norm === 'cursor') {
     results.cursor = cursorManager.ensureCursorSetup({
       pythonCmd: python,
@@ -38,7 +51,8 @@ async function installClient(clientName, options = {}) {
       uvxCmd,
       agents,
       projectRoot,
-      deployProject: false,
+      deployProject,
+      appendProject,
       silent
     });
   }
@@ -52,44 +66,39 @@ async function installClient(clientName, options = {}) {
       silent,
       agents,
       projectRoot,
-      deployProject: false
+      deployProject,
+      appendProject,
+      force: true,
+      skipDetection: true
     });
   }
 
+  const commonSetupOpts = {
+    pythonCmd: python,
+    serverPath,
+    uvxCmd,
+    projectRoot,
+    deployProject,
+    appendProject,
+    silent,
+    force: true,
+    skipDetection: true
+  };
+
   if (norm === 'all' || norm === 'opencode') {
-    results.opencode = opencodeManager.ensureOpenCodeSetup({
-      pythonCmd: python,
-      serverPath,
-      uvxCmd,
-      silent
-    });
+    results.opencode = opencodeManager.ensureOpenCodeSetup(commonSetupOpts);
   }
 
   if (norm === 'all' || norm === 'commandcode' || norm === 'command-code') {
-    results.commandcode = mcpClientsManager.ensureCommandCodeSetup({
-      pythonCmd: python,
-      serverPath,
-      uvxCmd,
-      silent
-    });
+    results.commandcode = mcpClientsManager.ensureCommandCodeSetup(commonSetupOpts);
   }
 
   if (norm === 'all' || norm === 'codex') {
-    results.codex = codexManager.ensureCodexSetup({
-      pythonCmd: python,
-      serverPath,
-      uvxCmd,
-      silent
-    });
+    results.codex = codexManager.ensureCodexSetup(commonSetupOpts);
   }
 
   if (norm === 'all' || norm === 'pi') {
-    results.pi = piManager.ensurePiSetup({
-      pythonCmd: python,
-      serverPath,
-      uvxCmd,
-      silent
-    });
+    results.pi = piManager.ensurePiSetup(commonSetupOpts);
   }
 
   if (norm === 'all' || norm === 'omp') {
@@ -97,7 +106,11 @@ async function installClient(clientName, options = {}) {
       nodeCmd: process.execPath,
       launcherPath: FILE_TOOLS_LAUNCHER_JS,
       uvxCmd,
-      silent
+      projectRoot,
+      deployProject,
+      appendProject,
+      silent,
+      force: true
     });
   }
 

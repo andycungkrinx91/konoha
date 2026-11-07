@@ -413,14 +413,29 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 
 ### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 
-Install Konoha globally from npm and initialize all 8 agentic coding clients in one command:
+Install Konoha globally from npm, initialize the runtime database, and append configuration for your coding clients one by one (or all at once):
 
 ```bash
 # Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
 npm install -g konoha-mcp
 
-# Initialize all coding clients, SQLite FTS5 database, and Antigravity bridge extension
+# 1. Initialize ~/.konoha runtime & SQLite FTS5 database (zero automatic client config or template skill mirror injection)
 konoha init
+
+# 2. Append Konoha MCP & rules into your AI coding clients (both IDE & CLI, global & project scopes):
+konoha init --client=cursor
+konoha init --client=claude
+konoha init --client=opencode
+konoha init --client=omp
+konoha init --client=codex
+konoha init --client=pi
+konoha init --client=antigravity
+konoha init --client=commandcode
+konoha init --client=all
+
+# 3. Optional: Back up or restore client configurations (global & project scopes):
+konoha config backup --client=all --scope=all
+konoha config restore --client=cursor --scope=all
 ```
 
 Or run directly without global installation via `npx` / `pnpm dlx`:

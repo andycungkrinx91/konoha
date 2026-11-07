@@ -131,7 +131,11 @@ function _ensureAislopMcpServer(config) {
   return false;
 }
 
-function registerClaudeCodePermissions(silent = true) {
+function registerClaudeCodePermissions(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const targetSettings = (opts && opts.settingsPath) ||
+    (opts && opts.home ? path.join(opts.home, '.claude', 'settings.json') : CLAUDE_SETTINGS);
   const grants = [
     ...buildClientToolGrants('mcp__'),
     'Bash(rtk)',
@@ -139,7 +143,7 @@ function registerClaudeCodePermissions(silent = true) {
   ];
 
   return mergeJsonFile(
-    CLAUDE_SETTINGS,
+    targetSettings,
     (config) => {
       if (!config.permissions) config.permissions = {};
       const allowRaw = config.permissions.allow;
@@ -198,7 +202,22 @@ function registerClaudeCodePermissions(silent = true) {
 
       return updated;
     },
-    silent
+    isSilent
+  );
+}
+
+function registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
+  if (!projectRoot || !fileExists(projectRoot)) return false;
+  const targetMcp = path.join(projectRoot, '.mcp.json');
+  return registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, { configPath: targetMcp });
+}
+
+function _hasExistingClaudeProjectConfig(projectRoot) {
+  if (!projectRoot || !fileExists(projectRoot)) return false;
+  return (
+    fileExists(path.join(projectRoot, '.mcp.json')) ||
+    fileExists(path.join(projectRoot, '.claude', 'settings.json')) ||
+    fileExists(path.join(projectRoot, 'CLAUDE.md'))
   );
 }
 
@@ -466,6 +485,19 @@ function ensureClaudeCodeSetup(options = {}) {
   deployClaudeCodeRules(effectiveRuleContent, silent, options);
 
   _deployClaudeCodeAgents(effectiveAgents, options);
+
+  const projectRoot = options.projectRoot || null;
+  if (projectRoot && (options.appendProject || (options.deployProject && _hasExistingClaudeProjectConfig(projectRoot)))) {
+    if (options.appendProject || fileExists(path.join(projectRoot, '.mcp.json'))) {
+      registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent);
+    }
+    if (options.appendProject || fileExists(path.join(projectRoot, '.claude', 'settings.json'))) {
+      registerClaudeCodePermissions(silent, { settingsPath: path.join(projectRoot, '.claude', 'settings.json') });
+    }
+    if (options.appendProject || fileExists(path.join(projectRoot, 'CLAUDE.md'))) {
+      deployProjectClaudeMd(projectRoot, effectiveAgents, silent, effectiveRuleContent);
+    }
+  }
 
   return { ok: true };
 }

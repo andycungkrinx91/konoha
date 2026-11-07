@@ -488,6 +488,18 @@ function ensurePiSetup(options = {}) {
   const rtk = deployPiRtkRule(silent);
   const contract = deployPiContract(silent, null, options);
   const blocker = deployPiBlockerExtension(silent, options);
+
+  const projectRoot = options.projectRoot || null;
+  const projMcp = projectRoot ? path.join(projectRoot, '.pi', 'mcp.json') : null;
+  if (projMcp && (options.appendProject || (options.deployProject && fileExists(projMcp)))) {
+    registerPiMcp(pythonCmd, serverPath, uvxCmd, {
+      ...options,
+      agentDir: path.join(projectRoot, '.pi'),
+      configPath: projMcp,
+      silent
+    });
+  }
+
   return {
     ok: true,
     changed: !!(adapter.changed || contract.changed || blocker.changed),

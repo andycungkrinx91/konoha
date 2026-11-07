@@ -19,19 +19,14 @@ const {
 } = require('./paths');
 const { fileExists, ensureDir, checkPython } = require('./prompt');
 const { info, warn, success, getCliVersion } = require('./format');
-const { installUv, getUvxCommand } = require('./extension');
+const { installUv } = require('./extension');
 const agentManager = require('../../src/agent_manager');
-const skillManager = require('../../src/skill_manager');
-const antigravityManager = require('../../src/antigravity_manager');
 const {
   ensureCoreDirectories,
-  registerMcp,
-  registerHooks,
   installFileTools
 } = require('./runtime_mcp');
 const {
   copyIfDifferent,
-  copyRecursiveIfDifferent,
   installCliRuntime
 } = require('./runtime_install');
 
@@ -130,10 +125,9 @@ function verifySkillDatabaseContract(python = null, requiredSkill = 'genin-skill
 }
 
 function syncTemplateSkills() {
-  const templateSkillsDir = path.join(SRC_DIR, 'templates', 'skills');
-  const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-  if (!fileExists(templateSkillsDir)) return;
-  copyRecursiveIfDifferent(templateSkillsDir, globalSkillsDir);
+  // Canonical template skills are indexed directly into ~/.konoha/konoha.db
+  // from packaged src/templates/skills; no filesystem mirror copying occurs.
+  return 0;
 }
 
 function processFingerprintEntry(p, stack, state) {
@@ -340,34 +334,16 @@ function ensureAutoSetup(force = false) {
   const pkgSkillsDir = fileExists(path.join(SRC_DIR, 'templates', 'skills'))
     ? path.join(SRC_DIR, 'templates', 'skills')
     : path.resolve(__dirname, '..', '..', '.agents', 'skills');
-  const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-  copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
-  skillManager.syncAllClientSkills({ silent: true });
 
-  const python = checkPython() || 'python3';
   installUv(true);
-  registerMcp(python, true);
-  registerHooks(true, true);
 
   if (!fileExists(agentsYamlPath)) {
     try { agentManager.loadAgents(false, true); } catch (_) { /* best-effort */ }
   }
 
-  const originalLog = console.log;
-  console.log = () => {};
-  let uvxCmd = 'uvx';
-  try { uvxCmd = getUvxCommand(); } catch (_) { /* best-effort */ }
-  try {
-    agentManager.regenerateAndDeploy({
-      pythonCmd: python, serverPath: SERVER_PATH, uvxCmd, projectRoot: currentCwd, deployProject: false,
-      force: force || versionChanged, silent: true
-    });
-  } catch (_) { /* best-effort */ }
-  finally { console.log = originalLog; }
+  const _forceRefresh = { force: force || versionChanged };
 
-  try { antigravityManager.deployAntigravityRtkRule(true); } catch (_) { /* best-effort */ }
-
-  if (!fileExists(DB_PATH) || versionChanged) {
+  if (!fileExists(DB_PATH) || versionChanged || _forceRefresh.force) {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     }

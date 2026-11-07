@@ -288,21 +288,33 @@ function _syncSingleSettingsFile(sPath) {
   } catch { /* ignore */ }
 }
 
-function _syncOpenCodeSettingsFiles(config) {
+function _syncOpenCodeSettingsFiles(config, options = {}) {
+  const home = options.home || HOME;
+  const openCodeDir = options.home ? path.join(home, '.config', 'opencode') : OPENCODE_DIR;
+  const legacyDir = options.home ? path.join(home, '.opencode') : OPENCODE_LEGACY_DIR;
+  const legacyConfig = options.home ? path.join(legacyDir, 'opencode.json') : OPENCODE_LEGACY_CONFIG;
   const openCodeSettingsPaths = [
-    path.join(OPENCODE_DIR, 'settings.json'),
-    path.join(OPENCODE_LEGACY_DIR, 'settings.json')
+    path.join(openCodeDir, 'settings.json'),
+    path.join(legacyDir, 'settings.json')
   ];
   for (const sPath of openCodeSettingsPaths) {
     _syncSingleSettingsFile(sPath);
   }
 
-  if (fileExists(OPENCODE_LEGACY_DIR) || fileExists(OPENCODE_LEGACY_CONFIG)) {
+  if (fileExists(legacyDir) || fileExists(legacyConfig)) {
     try {
-      ensureDir(OPENCODE_LEGACY_DIR);
-      fs.writeFileSync(OPENCODE_LEGACY_CONFIG, JSON.stringify(config, null, 2) + '\n');
+      ensureDir(legacyDir);
+      fs.writeFileSync(legacyConfig, JSON.stringify(config, null, 2) + '\n');
     } catch { /* ignore */ }
   }
+}
+
+function _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath, uvxCmd) {
+  if (!projectRoot || !fileExists(projectRoot)) return;
+  const targetPath = fileExists(path.join(projectRoot, '.opencode', 'opencode.json'))
+    ? path.join(projectRoot, '.opencode', 'opencode.json')
+    : path.join(projectRoot, 'opencode.json');
+  registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, true, { configPath: targetPath });
 }
 
 // MCP Server Registration
@@ -329,7 +341,9 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, optio
   _registerNinjaAgents(config);
 
   writeOpenCodeConfig(config, options);
-  _syncOpenCodeSettingsFiles(config);
+  if (!options.configPath) {
+    _syncOpenCodeSettingsFiles(config, options);
+  }
 
   if (!silent) {
     process.stderr.write('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)\n');
@@ -532,6 +546,15 @@ function ensureOpenCodeSetup(options = {}) {
   // Deploy the shared contract and RTK rule (OpenCode has no RTK hook).
   const contractRule = deployOpenCodeRules(silent, options);
   const rtkRule = deployOpenCodeRtkRule(silent, options);
+
+  const projectRoot = options.projectRoot || null;
+  const hasExistingProj = projectRoot && (
+    fileExists(path.join(projectRoot, 'opencode.json')) ||
+    fileExists(path.join(projectRoot, '.opencode', 'opencode.json'))
+  );
+  if (projectRoot && (options.appendProject || (options.deployProject && hasExistingProj))) {
+    _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath, uvxCmd);
+  }
 
   return { ok: true, contractRule, rtkRule };
 }

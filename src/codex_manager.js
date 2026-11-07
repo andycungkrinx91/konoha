@@ -588,6 +588,12 @@ function ensureCodexSetup(options = {}) {
   const contractRule = deployCodexRules(silent, options);
   const rtkRule = deployCodexRtkRule(silent, options);
 
+  const projectRoot = options.projectRoot || null;
+  const projToml = projectRoot ? path.join(projectRoot, '.codex', 'config.toml') : null;
+  if (projToml && (options.appendProject || (options.deployProject && fileExists(projToml)))) {
+    registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, { ...options, configPath: projToml });
+  }
+
   return { ok: true, contractRule, rtkRule };
 }
 

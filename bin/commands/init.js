@@ -33,15 +33,12 @@ const {
 } = require('../lib/format');
 const { confirmPrompt, checkPython, startSpinner } = require('../lib/prompt');
 const {
-  ensureCoreDirectories,
-  registerMcp,
-  registerHooks
+  ensureCoreDirectories
 } = require('../lib/runtime_mcp');
 const {
   hasCompleteDatabaseSchema,
   detectSkillsDirs,
-  hasCanonicalGeninSkill,
-  syncTemplateSkills
+  hasCanonicalGeninSkill
 } = require('../lib/runtime_lifecycle');
 const {
   installCliRuntime,
@@ -79,8 +76,10 @@ function cmdInitHelp() {
   Options:
     -h, --help               Show this help message
     -y, --yes                Auto-approve all confirmation prompts (non-interactive)
-    --force                  Reinstall and overwrite existing configuration
-    --client=<name>          Configure specific client only (cursor, claude, opencode, commandcode, codex, pi, omp, all)
+    --force                  Reinstall and refresh runtime files
+    --client=<name>          Append Konoha config into specific client (cursor, claude, opencode, omp, codex, pi, antigravity, commandcode, all)
+    --project                Also create/append project-level client configuration in current directory
+    --no-project             Skip project-level configuration updates
   `);
 }
 
@@ -158,21 +157,23 @@ async function refreshExistingInstallation(flags, options) {
     if (!bridge1313Active || !bridge19999Active) await cmdBridgeStart();
   } catch { /* intentional fallback */ }
 
-  registerMcp(flags.python, true, true);
-  registerHooks(true, true);
   try {
-    deployUtils.syncSoulAcrossClients({ silent: true });
     deployUtils.ensureGlobalGitExcludes();
   } catch (_) { /* intentional fallback */ }
-  const setupAgents = agentManager.loadAgents();
-  const currentCwd = path.resolve(process.cwd());
 
-  setupClientIntegrations({
-    ...flags,
-    setupAgents,
-    currentCwd,
-    onProgress: options.onProgress
-  });
+  if (flags.explicitSelection) {
+    const setupAgents = agentManager.loadAgents();
+    const currentCwd = path.resolve(process.cwd());
+    setupClientIntegrations({
+      ...flags,
+      setupAgents,
+      currentCwd,
+      onProgress: options.onProgress
+    });
+    if (flags.allowAntigravity) {
+      deployRtkRules([]);
+    }
+  }
 
   success('Integrations refreshed.');
 
@@ -208,7 +209,7 @@ function deployRtkRules(args) {
 }
 
 function makeClientChecker(requestedClients) {
-  if (!requestedClients) return (_name, installed) => installed;
+  if (!requestedClients) return () => false;
   if (requestedClients.includes('all')) return () => true;
   return (name) => requestedClients.includes(name);
 }
@@ -223,9 +224,16 @@ function detectAllClientFlags(args) {
   const codexInstalled = codexManager.isCodexInstalled();
   const piInstalled = piManager.isPiInstalled();
   const ompInstalled = ompManager.isOmpInstalled();
+  const deployProject = !args.includes('--no-project');
+  const appendProject = args.includes('--project');
 
   return {
+    explicitSelection: Array.isArray(requestedClients) && requestedClients.length > 0,
+    requestedClients,
+    deployProject,
+    appendProject,
     cursorInstalled, claudeInstalled, openCodeInstalled, commandCodeInstalled, codexInstalled, piInstalled, ompInstalled,
+    allowAntigravity: shouldConfigure('antigravity', true),
     allowCursor: shouldConfigure('cursor', cursorInstalled),
     allowClaudeCode: shouldConfigure('claude', claudeInstalled),
     allowOpenCode: shouldConfigure('opencode', openCodeInstalled),
@@ -249,9 +257,10 @@ async function handleExistingInstallation(clientFlags, args, options) {
 }
 
 async function promptInitializationConsent(args) {
-  const isNonInteractive = args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
+  const hasExplicitClient = Boolean(parseRequestedClients(args));
+  const isNonInteractive = hasExplicitClient || args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
   if (isNonInteractive) return true;
-  return await confirmPrompt('Initialize Konoha and modify ~/.gemini configurations?', true);
+  return await confirmPrompt('Initialize Konoha runtime and SQLite database (~/.konoha/)?', true);
 }
 
 async function cmdInit(args, options = {}) {
@@ -266,7 +275,6 @@ async function cmdInit(args, options = {}) {
       await cmdUiStop(['--port=1404']);
     } catch (_) { /* non-fatal best effort */ }
   }
-  syncTemplateSkills();
   drawLogo();
 
   header('🚀 Konoha Installer');
@@ -326,24 +334,24 @@ async function cmdInit(args, options = {}) {
     spinner: spinnerMigrate
   });
 
-  registerMcp(python, true, true);
-  registerHooks(false, true);
   agentManager.loadAgents();
-  agentManager.regenerateAndDeploy({ force: true, silent: true });
-  deployRtkRules(args);
   try {
-    deployUtils.syncSoulAcrossClients({ silent: true });
     deployUtils.ensureGlobalGitExcludes();
   } catch (_) { /* intentional fallback */ }
 
-  const setupAgents = agentManager.loadAgents();
-  const currentCwd = path.resolve(process.cwd());
-  setupClientIntegrations({
-    ...clientFlags,
-    setupAgents,
-    currentCwd,
-    onProgress: options.onProgress
-  });
+  if (clientFlags.explicitSelection) {
+    const setupAgents = agentManager.loadAgents();
+    const currentCwd = path.resolve(process.cwd());
+    setupClientIntegrations({
+      ...clientFlags,
+      setupAgents,
+      currentCwd,
+      onProgress: options.onProgress
+    });
+    if (clientFlags.allowAntigravity) {
+      deployRtkRules(args);
+    }
+  }
 
   renderInitSummary(clientFlags);
   if (!options.skipUiAutoStart) {

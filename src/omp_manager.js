@@ -277,6 +277,12 @@ function ensureOmpSetup(options = {}) {
   const contractResult = deployOmpContract({ ...options, silent });
   const rtkResult = deployOmpRtkRule({ ...options, silent });
 
+  const projectRoot = options.projectRoot || null;
+  const projMcp = projectRoot ? path.join(projectRoot, '.omp', 'mcp.json') : null;
+  if (projMcp && (options.appendProject || (options.deployProject && fileExists(projMcp)))) {
+    registerOmpMcp({ ...options, configPath: projMcp, silent });
+  }
+
   return {
     ok: mcpResult.ok && contractResult.ok,
     mcp: mcpResult,

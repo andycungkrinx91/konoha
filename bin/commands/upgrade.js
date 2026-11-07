@@ -367,21 +367,22 @@ function syncRuntimeAndMigrate(globalPkgRoot) {
 }
 
 function deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, mcpChoices) {
-  if (rtk) {
+  if (mcpChoices && mcpChoices.injectConfigs) {
+    if (rtk) {
+      try {
+        const antigravityManager = require('../../src/antigravity_manager');
+        antigravityManager.ensureRtkInstalled(false);
+        antigravityManager.deployAntigravityRtkRule(true);
+        pbar.logStep('RTK rules deployed');
+      } catch { /* best-effort */ }
+    }
     try {
-      const antigravityManager = require('../../src/antigravity_manager');
-      antigravityManager.ensureRtkInstalled(false);
-      antigravityManager.deployAntigravityRtkRule(true);
-      pbar.logStep('RTK rules deployed');
+      const { checkPython } = require('../lib/prompt');
+      const { registerMcp } = require('../lib/runtime_mcp');
+      const python = checkPython() || 'python3';
+      registerMcp(python, true, mcpChoices);
     } catch { /* best-effort */ }
   }
-
-  try {
-    const { checkPython } = require('../lib/prompt');
-    const { registerMcp } = require('../lib/runtime_mcp');
-    const python = checkPython() || 'python3';
-    registerMcp(python, true, mcpChoices);
-  } catch { /* best-effort */ }
 
   pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
   pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
@@ -414,11 +415,11 @@ function prepareUpgradeSourceRoot(globalPkgRoot) {
 
 async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
   if (!injectConfigs) {
-    pbar.logStep('Skipping client config injection per user choice');
+    pbar.logStep('Syncing Konoha runtime and SQLite database (no client config injection; use "konoha init --client=<name>" to append client configs)');
     syncRuntimeAndMigrate(globalPkgRoot);
     return;
   }
-  await cmdInit(['--force', '--yes'], {
+  await cmdInit(['--yes'], {
     skipUiAutoStart: true,
     onProgress: (stepNum, stepTitle, stepDetail) => {
       const stageNum = Math.min(6, 2 + stepNum);
@@ -446,7 +447,7 @@ async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
 }
 
 async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, localVer = '') {
-  const { injectConfigs = true, rtk = true, aislop = true, semble = true } = choices;
+  const { injectConfigs = false, rtk = true, aislop = true, semble = true } = choices;
   const cleanTarget = String(targetTag || '').replace(/^v/, '');
   const globalPkgRoot = locateGlobalPackageRoot(process.platform === 'win32', cleanTarget);
   prepareUpgradeSourceRoot(globalPkgRoot);

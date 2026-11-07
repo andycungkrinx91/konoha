@@ -48,21 +48,39 @@ cd konoha
 # 2. Install CLI dependencies (if node_modules is not included in zip)
 pnpm install
 
-# 3. Execute one-command cross-client initialization
-node bin/cli.js init --yes --force
-```
+# 3. Initialize Konoha runtime & SQLite database (no client config injection by default)
+node bin/cli.js init --yes
 
-### Direct Initialization
-```bash
-npx konoha-mcp init
-# Or target a specific client installer declaratively:
+# 4. Append Konoha configuration per coding client (global + project, IDE + CLI):
 konoha init --client=cursor
 konoha init --client=claude
 konoha init --client=opencode
 konoha init --client=omp
 konoha init --client=codex
 konoha init --client=pi
+konoha init --client=antigravity
+konoha init --client=commandcode
 konoha init --client=all
+```
+
+### Direct Initialization & Config Backup / Restore
+```bash
+npx konoha-mcp init
+# Append configuration per client (preserves existing global & project settings):
+konoha init --client=cursor
+konoha init --client=claude
+konoha init --client=opencode
+konoha init --client=omp
+konoha init --client=codex
+konoha init --client=pi
+konoha init --client=antigravity
+konoha init --client=commandcode
+konoha init --client=all
+
+# Back up and restore client configurations (global & project scopes):
+konoha config backup --client=all --scope=all
+konoha config backups --client=all
+konoha config restore --client=cursor --scope=all
 ```
 
 ---

@@ -158,7 +158,9 @@ const CLIENT_REL_CONFIG_SPECS = {
     global: [
       ['.gemini', 'settings.json'],
       ['.gemini', 'GEMINI.md'],
+      ['.gemini', 'config', 'mcp_config.json'],
       ['.gemini', 'antigravity', 'mcp_config.json'],
+      ['.gemini', 'antigravity-ide', 'mcp_config.json'],
       ['.gemini', 'antigravity-cli', 'settings.json'],
       ['.gemini', 'antigravity-ide', 'settings.json'],
       ['.agents', 'AGENTS.md'],
@@ -167,7 +169,13 @@ const CLIENT_REL_CONFIG_SPECS = {
     project: [['GEMINI.md'], ['AGENTS.md'], ['.agents', 'AGENTS.md'], ['.gemini', 'settings.json']]
   },
   cursor: {
-    global: [['.cursor', 'mcp.json'], ['.cursor', 'cli-config.json'], ['.cursor', 'hooks.json'], ['.config', 'Cursor', 'User', 'settings.json']],
+    global: [
+      ['.cursor', 'mcp.json'],
+      ['.cursor', 'cli-config.json'],
+      ['.cursor', 'hooks.json'],
+      ['.cursor', 'rules', 'konoha.mdc'],
+      ['.config', 'Cursor', 'User', 'settings.json']
+    ],
     project: [['.cursor', 'mcp.json'], ['.cursor', 'rules', 'konoha.mdc']]
   },
   claude: {
@@ -190,7 +198,7 @@ const CLIENT_REL_CONFIG_SPECS = {
   },
   codex: {
     global: [['.codex', 'config.toml'], ['.codex', 'AGENTS.md']],
-    project: [['.codex', 'config.toml']]
+    project: [['.codex', 'config.toml'], ['AGENTS.md']]
   },
   pi: {
     global: [['.pi', 'agent', 'mcp.json'], ['.pi', 'agent', 'settings.json'], ['.pi', 'agent', 'AGENTS.md']],
@@ -399,22 +407,115 @@ function _backupScopeFiles(filePaths, client, scope, options, results) {
   }
 }
 
-function backupAllDetectedClients(options = {}) {
+function _resolveTargetClients(clientsInput) {
+  if (!clientsInput || clientsInput === 'all') return [...SUPPORTED_CLIENTS];
+  const rawList = Array.isArray(clientsInput) ? clientsInput : String(clientsInput).split(',');
+  const normalized = rawList
+    .map(c => String(c || '').trim().toLowerCase())
+    .map(c => (c === 'claude-code' ? 'claude' : c === 'command-code' ? 'commandcode' : c === 'gemini' ? 'antigravity' : c))
+    .filter(Boolean);
+  if (normalized.includes('all')) return [...SUPPORTED_CLIENTS];
+  return normalized.filter(c => SUPPORTED_CLIENTS.includes(c));
+}
+
+function backupClientConfigs(clientsInput, options = {}) {
+  const targetClients = _resolveTargetClients(clientsInput);
   const configMap = getClientConfigMap(options);
+  const scopeFilter = options.scope || 'all';
+  const includeGlobal = options.includeGlobal !== false && (scopeFilter === 'all' || scopeFilter === 'global');
+  const includeProject = options.includeProject !== false && (scopeFilter === 'all' || scopeFilter === 'project');
   const results = [];
-  for (const client of SUPPORTED_CLIENTS) {
+
+  for (const client of targetClients) {
     const scopes = configMap[client] || { global: [], project: [] };
-    if (options.includeGlobal !== false) {
+    if (includeGlobal) {
       _backupScopeFiles(scopes.global, client, 'global', options, results);
     }
-    if (options.includeProject !== false) {
+    if (includeProject) {
       _backupScopeFiles(scopes.project, client, 'project', options, results);
     }
   }
   return {
     ok: true,
+    clients: targetClients,
     backedUpCount: results.filter(r => r.existed).length,
     backups: results
+  };
+}
+
+function backupAllDetectedClients(options = {}) {
+  return backupClientConfigs('all', options);
+}
+
+function _matchesBackupFilter(meta, targetClients, scopeFilter) {
+  if (!meta) return false;
+  if (!targetClients.includes(meta.client)) return false;
+  if (scopeFilter !== 'all' && meta.scope !== scopeFilter) return false;
+  return true;
+}
+
+function listClientBackups(options = {}) {
+  const manifest = loadOwnershipManifest(options);
+  const targetClients = _resolveTargetClients(options.client || options.clients || 'all');
+  const scopeFilter = options.scope || 'all';
+  const entries = [];
+
+  for (const [sourcePath, meta] of Object.entries(manifest.files || {})) {
+    if (!_matchesBackupFilter(meta, targetClients, scopeFilter)) continue;
+    const backups = Array.isArray(meta.backups) ? meta.backups.filter(b => fs.existsSync(b)) : [];
+    const latestBackup = meta.latest_backup && fs.existsSync(meta.latest_backup)
+      ? meta.latest_backup
+      : (backups[backups.length - 1] || null);
+    entries.push({
+      sourcePath,
+      client: meta.client,
+      scope: meta.scope,
+      createdByKonoha: Boolean(meta.created_by_konoha),
+      latestBackup,
+      latestSha256: meta.latest_sha256 || null,
+      backupCount: backups.length,
+      backups
+    });
+  }
+  return entries;
+}
+
+function _restoreSingleManifestEntry(entry, restored, removedCreated) {
+  if (entry.latestBackup && fs.existsSync(entry.latestBackup)) {
+    fs.mkdirSync(path.dirname(entry.sourcePath), { recursive: true });
+    fs.copyFileSync(entry.latestBackup, entry.sourcePath);
+    const check = verifyBackupIntegrity(entry.sourcePath, entry.latestBackup);
+    if (!check.ok) {
+      throw new Error(`Restore integrity check failed for ${entry.sourcePath}: ${check.error}`);
+    }
+    restored.push({
+      sourcePath: entry.sourcePath,
+      backupPath: entry.latestBackup,
+      client: entry.client,
+      scope: entry.scope,
+      sha256: check.sha256
+    });
+    return;
+  }
+  if (entry.createdByKonoha && fs.existsSync(entry.sourcePath)) {
+    fs.unlinkSync(entry.sourcePath);
+    removedCreated.push(entry.sourcePath);
+  }
+}
+
+function restoreLatestClientBackups(options = {}) {
+  const entries = listClientBackups(options);
+  const restored = [];
+  const removedCreated = [];
+  for (const entry of entries) {
+    _restoreSingleManifestEntry(entry, restored, removedCreated);
+  }
+  return {
+    ok: true,
+    restoredCount: restored.length,
+    removedCreatedCount: removedCreated.length,
+    restored,
+    removedCreated
   };
 }
 
@@ -423,6 +524,7 @@ function _restoreBatchItem(item, restored) {
   if (!fs.existsSync(item.backupPath)) return;
   const check = verifyBackupIntegrity(item.backupPath, item.backupPath);
   if (check.ok) {
+    fs.mkdirSync(path.dirname(item.sourcePath), { recursive: true });
     fs.copyFileSync(item.backupPath, item.sourcePath);
     restored.push(item.sourcePath);
   }
@@ -463,6 +565,9 @@ module.exports = {
   saveOwnershipManifest,
   recordOwnership,
   backupConfigFile,
+  backupClientConfigs,
   backupAllDetectedClients,
+  listClientBackups,
+  restoreLatestClientBackups,
   restoreFromBackupSnapshot
 };

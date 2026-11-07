@@ -284,11 +284,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
     deployUtils.syncSoulAcrossClients({ home: effectiveHome, silent });
   } catch (_) { /* intentional fallback */ }
 
-  try {
-    const skillManager = require('./skill_manager');
-    skillManager.syncAllClientSkills({ projectRoot, silent: true });
-  } catch (_) { /* intentional fallback */ }
-
   if (fingerprint) {
     try {
       fs.mkdirSync(path.dirname(fingerprintPath), { recursive: true });

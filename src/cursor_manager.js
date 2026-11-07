@@ -232,6 +232,18 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   }
 
   if (updated || !fileExists(mcpPath)) {
+    try {
+      const backupMgr = require('./config_backup_manager');
+      if (fileExists(mcpPath)) {
+        backupMgr.backupConfigFile(mcpPath, { client: 'cursor', scope: 'project', projectRoot });
+      }
+      backupMgr.recordOwnership(mcpPath, {
+        client: 'cursor',
+        scope: 'project',
+        format: 'json',
+        ownedKeys: Object.keys(servers).map(k => `mcpServers.${k}`)
+      });
+    } catch (_) { /* best-effort */ }
     fs.writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n');
     if (!silent) {
       process.stderr.write(`✓ Registered project MCP config: ${mcpPath}\n`);
@@ -456,6 +468,14 @@ function copyCursorHelperScripts(home = null) {
   return false;
 }
 
+function _hasExistingCursorProjectConfig(projectRoot) {
+  if (!projectRoot || !fileExists(projectRoot)) return false;
+  return (
+    fileExists(path.join(projectRoot, '.cursor', 'mcp.json')) ||
+    fileExists(path.join(projectRoot, '.cursor', 'rules', 'konoha.mdc'))
+  );
+}
+
 function ensureCursorSetup(options = {}) {
   const {
     pythonCmd = 'python3',
@@ -463,6 +483,8 @@ function ensureCursorSetup(options = {}) {
     uvxCmd = 'uvx',
     agents = [],
     projectRoot = null,
+    deployProject = false,
+    appendProject = false,
     silent = true,
     allowHooks = true
   } = options;
@@ -481,7 +503,10 @@ function ensureCursorSetup(options = {}) {
   const effectiveAgents = (agents && agents.length > 0) ? agents : require('./agent_manager').loadAgents();
   deployCursorGlobalRule(effectiveAgents, silent, options);
 
-  deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject: false, silent });
+  if (projectRoot && (appendProject || (deployProject && _hasExistingCursorProjectConfig(projectRoot)))) {
+    registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent);
+    deployProjectCursor(projectRoot, effectiveAgents, silent, options.ruleContent || null);
+  }
 
   return { ok: true };
 }

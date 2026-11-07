@@ -517,6 +517,28 @@ function _writeTargetAntigravityMcp(mcpConfigPath, isPrimary, servers) {
   } catch (_) { /* best-effort */ }
 }
 
+function _appendAntigravityProjectConfigs(options, agents, home) {
+  const projectRoot = options.projectRoot || null;
+  if (!projectRoot || !fs.existsSync(projectRoot) || path.resolve(projectRoot) === path.resolve(home)) return;
+  const projSettings = path.join(projectRoot, '.gemini', 'settings.json');
+  const projGeminiMd = path.join(projectRoot, 'GEMINI.md');
+  const hasExisting = fs.existsSync(projSettings) || fs.existsSync(projGeminiMd);
+  if (!options.appendProject && !(options.deployProject && hasExisting)) return;
+
+  const konohaToolGrants = (KONOHA_CANONICAL_TOOLS || []).map(t => 'mcp(konoha/' + t + ')');
+  if (options.appendProject || fs.existsSync(projSettings)) {
+    _updateSingleAntigravitySettings(projSettings, ['command(rtk)', 'command(konoha)', ...konohaToolGrants], konohaToolGrants);
+  }
+  if (options.appendProject || fs.existsSync(projGeminiMd)) {
+    const { generateGeminiMd, injectManagedConfig } = require('./agent_manager');
+    fs.writeFileSync(
+      projGeminiMd,
+      injectManagedConfig(projGeminiMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'project' }),
+      'utf8'
+    );
+  }
+}
+
 function ensureAntigravitySetup(options = {}) {
   const { silent = true } = options;
   const home = options.home || process.env.HOME || os.homedir();
@@ -547,6 +569,7 @@ function ensureAntigravitySetup(options = {}) {
     fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
     fs.writeFileSync(agentsMd, injectManagedConfig(agentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), "utf8");
     ensureAntigravityAgents(agents, options);
+    _appendAntigravityProjectConfigs(options, agents, home);
   } catch (_) { /* best-effort */ }
 
   return { ok: true };

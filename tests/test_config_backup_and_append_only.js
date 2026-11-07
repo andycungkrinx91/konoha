@@ -8,12 +8,16 @@ const assert = require('assert');
 const {
   backupConfigFile,
   verifyBackupIntegrity,
+  backupClientConfigs,
   backupAllDetectedClients,
+  listClientBackups,
+  restoreLatestClientBackups,
   recordOwnership,
   loadOwnershipManifest,
   restoreFromBackupSnapshot,
   getBackupRoot
 } = require('../src/config_backup_manager');
+const { parseRequestedClients } = require('../bin/commands/init_clients');
 
 const {
   mergeJsonConfigAppendOnly,
@@ -171,6 +175,36 @@ function runTests() {
 
     const restoreRes = restoreFromBackupSnapshot(b1.backupPath, agySettings);
     assert.strictEqual(restoreRes.ok, true, 'restoreFromBackupSnapshot must succeed');
+
+    // Verify standard --client=<name> parsing for all 8 clients + all
+    assert.strictEqual(parseRequestedClients([]), null, 'Bare init without --client must return null');
+    for (const c of ['cursor', 'claude', 'opencode', 'omp', 'codex', 'pi', 'antigravity', 'commandcode', 'all']) {
+      assert.deepStrictEqual(parseRequestedClients([`--client=${c}`]), [c]);
+    }
+
+    // Verify client-scoped backup, listing, and latest restore (global + project)
+    const cursorGlobalMcp = path.join(homeDir, '.cursor', 'mcp.json');
+    const cursorProjectMcp = path.join(projDir, '.cursor', 'mcp.json');
+    fs.mkdirSync(path.dirname(cursorGlobalMcp), { recursive: true });
+    fs.mkdirSync(path.dirname(cursorProjectMcp), { recursive: true });
+    fs.writeFileSync(cursorGlobalMcp, JSON.stringify({ mcpServers: { old_global: { command: 'node' } } }, null, 2));
+    fs.writeFileSync(cursorProjectMcp, JSON.stringify({ mcpServers: { old_project: { command: 'node' } } }, null, 2));
+
+    const cursorBakRes = backupClientConfigs('cursor', { home: homeDir, projectRoot: projDir, scope: 'all' });
+    assert.strictEqual(cursorBakRes.ok, true);
+    assert.strictEqual(cursorBakRes.backedUpCount, 2, 'Both global and project cursor mcp.json must be backed up');
+
+    mergeJsonConfigAppendOnly(cursorGlobalMcp, { mcpServers: { konoha: { command: 'node' } } }, { client: 'cursor', scope: 'global' });
+    mergeJsonConfigAppendOnly(cursorProjectMcp, { mcpServers: { konoha: { command: 'node' } } }, { client: 'cursor', scope: 'project' });
+    assert.ok(JSON.parse(fs.readFileSync(cursorGlobalMcp, 'utf8')).mcpServers.old_global, 'Global old config preserved on append');
+    assert.ok(JSON.parse(fs.readFileSync(cursorProjectMcp, 'utf8')).mcpServers.old_project, 'Project old config preserved on append');
+
+    const listedBackups = listClientBackups({ client: 'cursor', scope: 'all' });
+    assert.ok(listedBackups.length >= 2, 'listClientBackups must list both global and project cursor backups');
+
+    const latestRestore = restoreLatestClientBackups({ client: 'cursor', scope: 'all' });
+    assert.strictEqual(latestRestore.ok, true);
+    assert.ok(latestRestore.restoredCount >= 2, 'restoreLatestClientBackups must restore both global and project files');
 
     console.log('PASS: test_config_backup_and_append_only.js');
   } finally {

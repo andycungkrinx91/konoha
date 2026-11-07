@@ -409,6 +409,19 @@ function ensureCommandCodeSetup(options = {}) {
   const nativeBlocker = registerCommandCodeNativeBlocker(silent, options);
   const rtkRule = deployCommandCodeRtkRule(silent);
   const contractRule = deployCommandCodeRules(silent, options);
+
+  const projectRoot = options.projectRoot || null;
+  const projMcp = projectRoot ? path.join(projectRoot, '.commandcode', 'mcp.json') : null;
+  const projSettings = projectRoot ? path.join(projectRoot, '.commandcode', 'settings.json') : null;
+  if (projectRoot && (options.appendProject || (options.deployProject && (fileExists(projMcp) || fileExists(projSettings))))) {
+    if (options.appendProject || fileExists(projMcp)) {
+      registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, { ...options, configPath: projMcp });
+    }
+    if (options.appendProject || fileExists(projSettings)) {
+      registerCommandCodePermissions(silent, { ...options, settingsPath: projSettings });
+    }
+  }
+
   const status = getCommandCodeStatus(options);
   if (!status.mcpKonoha || !status.mcpSemble) {
     return { ok: false, reason: 'commandcode-mcp-verification-failed' };
