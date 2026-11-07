@@ -10,9 +10,12 @@ const {
 } = require('./runtime_state');
 const {
   MAX_CONTENT_SIZE,
+  MAX_MULTI_SKILL_TOTAL_BYTES,
   normalizeLegacySkillName,
   contentHash,
   smartTruncate,
+  compileSkillDigest,
+  isDisciplineSkillName,
   extractSectionTitle,
   getServedSkillsSet,
   resolveFlowHashFromTask,
@@ -304,7 +307,50 @@ function _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkil
   } catch (_) { /* ignore */ }
 }
 
+function _computeMultiSkillBudgets(skillNames, totalBudgetBytes = MAX_MULTI_SKILL_TOTAL_BYTES) {
+  const count = skillNames.length;
+  if (count <= 1) return skillNames.map(() => MAX_CONTENT_SIZE);
+  const overheadReserve = count * 380;
+  const usableBytes = Math.max(1500, totalBudgetBytes - overheadReserve);
+  const flags = skillNames.map(s => isDisciplineSkillName(normalizeLegacySkillName(s)));
+  const disciplineCount = flags.filter(Boolean).length;
+  const domainCount = Math.max(0, count - disciplineCount);
+
+  if (domainCount > 0 && disciplineCount > 0) {
+    const perDiscipline = Math.min(500, Math.max(340, Math.floor((usableBytes * 0.44) / disciplineCount)));
+    const remainingForDomain = Math.max(1000, usableBytes - (perDiscipline * disciplineCount));
+    const perDomain = Math.min(2000, Math.max(850, Math.floor(remainingForDomain / domainCount)));
+    return flags.map(isDisc => (isDisc ? perDiscipline : perDomain));
+  }
+  const evenBudget = Math.max(420, Math.floor(usableBytes / count));
+  return skillNames.map(() => evenBudget);
+}
+
+function _buildDeduplicatedSkillItem(normName, loaded, rawContent) {
+  const shielded = shieldPromptInjection(rawContent || '');
+  const rawSections = shielded.split(/\n(?=#{1,3}\s)/).filter(Boolean);
+  const sectionTitles = rawSections.map(extractSectionTitle).filter(Boolean).slice(0, 8);
+  const badgeText = `[Active in current session: '${normName}' rules are already bound and enforced. Call get_skill("${normName}", { section: "${sectionTitles[0] || 'Overview'}" }) if a specific section is needed.]`;
+  return {
+    name: normName,
+    type: loaded.skillType || 'skill',
+    status: 'loaded',
+    deduplicated: true,
+    source: loaded.source,
+    content: badgeText,
+    byte_size: Buffer.byteLength(badgeText, 'utf8'),
+    line_count: 1,
+    truncated: true,
+    hash: contentHash(shielded),
+    remaining_sections: sectionTitles
+  };
+}
+
 function useSkills(skillsInput, agentName = null, options = {}) {
+  if (typeof agentName === 'object' && agentName !== null) {
+    options = agentName;
+    agentName = options.agentName || options.agent_name || null;
+  }
   process.stderr.write(`[mcp konoha] tool_call: use_skills(skills=${JSON.stringify(skillsInput)})\n`);
   try { autoMigrateProjectSkills(); } catch (_) { /* ignore */ }
 
@@ -317,27 +363,65 @@ function useSkills(skillsInput, agentName = null, options = {}) {
 
   const tokenBudget = options?.tokenBudget || options?.token_budget ? parseInt(options.tokenBudget || options.token_budget, 10) : 0;
   const requestedSection = options?.section ? String(options.section).trim() : null;
+  const forceFull = options?.full === true || options?.forceFull === true;
   const taskId = options?.taskId || options?.task_id || null;
   const sessionId = options?.sessionId || options?.session_id || null;
   const flowHash = options?.flowHash || options?.flow_hash || null;
 
-  const trackingKey = flowHash || taskId || sessionId || 'default_session';
-  for (const name of skillNames) getServedSkillsSet(trackingKey).add(normalizeLegacySkillName(name));
+  const hasExplicitSessionKey = Boolean(flowHash || taskId || sessionId);
+  const trackingKey = flowHash || taskId || sessionId || (agentName ? `agent_${agentName}` : 'default_session');
+  const servedSet = getServedSkillsSet(trackingKey);
+
+  const totalBudgetBytes = tokenBudget > 0
+    ? Math.min(tokenBudget * 4, MAX_CONTENT_SIZE)
+    : MAX_MULTI_SKILL_TOTAL_BYTES;
+  const perSkillBudgets = _computeMultiSkillBudgets(skillNames, totalBudgetBytes);
 
   const loadedSkills = [];
   const allWarnings = [];
+  let totalRawBaselineBytes = 0;
   let conn = null;
   try { conn = getDb(); } catch (err) { allWarnings.push(`Database connection failed: ${err.message}. Falling back to mirror skills.`); }
 
-  for (const rawName of skillNames) {
+  for (let idx = 0; idx < skillNames.length; idx++) {
+    const rawName = skillNames[idx];
     const normName = normalizeLegacySkillName(rawName);
+    const alreadyServed = hasExplicitSessionKey && !forceFull && !requestedSection && servedSet.has(normName);
+
     const loaded = _loadSingleSkill(conn, normName, agentName, allWarnings);
     if (!loaded.content) {
       loadedSkills.push({ name: normName, status: loaded.status || 'not_found', error: loaded.error, source: loaded.source || 'none' });
       continue;
     }
 
-    const { finalContent, truncated, remainingSections, hash } = _truncateSkillContent(loaded.content, normName, tokenBudget, requestedSection);
+    totalRawBaselineBytes += Buffer.byteLength(loaded.content, 'utf8');
+    servedSet.add(normName);
+
+    if (alreadyServed) {
+      loadedSkills.push(_buildDeduplicatedSkillItem(normName, loaded, loaded.content));
+      continue;
+    }
+
+    let finalContent;
+    let truncated;
+    let remainingSections;
+    let hash;
+
+    if (skillNames.length > 1 && !forceFull && !requestedSection) {
+      const shielded = shieldPromptInjection(loaded.content);
+      const digest = compileSkillDigest(shielded, normName, perSkillBudgets[idx]);
+      finalContent = digest.text;
+      truncated = digest.truncated;
+      remainingSections = digest.remainingSections;
+      hash = contentHash(shielded);
+    } else {
+      const trunc = _truncateSkillContent(loaded.content, normName, tokenBudget, requestedSection);
+      finalContent = trunc.finalContent;
+      truncated = trunc.truncated;
+      remainingSections = trunc.remainingSections;
+      hash = trunc.hash;
+    }
+
     const item = {
       name: normName, type: loaded.skillType, status: 'loaded', source: loaded.source,
       content: finalContent, byte_size: Buffer.byteLength(finalContent, 'utf8'),
@@ -361,7 +445,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
   if (effFlowHash) resPayload.flow_hash = effFlowHash;
 
   const resStr = JSON.stringify(resPayload);
-  logToolCall('use_skills', skillNames.join(','), resStr, agentName);
+  logToolCall('use_skills', skillNames.join(','), resStr, agentName, totalRawBaselineBytes > 0 ? totalRawBaselineBytes : null);
   return resStr;
 }
 

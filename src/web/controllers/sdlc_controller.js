@@ -152,7 +152,9 @@ async function _handleSdlcConfig(req, res, method, parsedUrl, broadcastEvent) {
     const config = sdlcManager.setProjectSdlcConfig(projectPath, {
       dor_mode: body.dor_mode !== undefined ? body.dor_mode : null,
       review_mode: body.review_mode !== undefined ? body.review_mode : null,
-      hitl_mode: hitlMode
+      hitl_mode: hitlMode,
+      advisor_mode: body.advisor_mode !== undefined ? body.advisor_mode : null,
+      advisor_max_tokens: body.advisor_max_tokens !== undefined ? body.advisor_max_tokens : null
     });
     broadcastEvent('sdlc_config_updated', { project_path: projectPath, ...config });
     return sendJson(res, 200, { project_path: projectPath, ...config });

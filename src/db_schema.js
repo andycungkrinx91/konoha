@@ -8,9 +8,7 @@ function getCurrentUserVersion(conn) {
   try {
     const row = conn.prepare('PRAGMA user_version').get();
     return row ? (row.user_version !== undefined ? row.user_version : Object.values(row)[0] || 0) : 0;
-  } catch (_) {
-    return 0;
-  }
+  } catch (_) { return 0; }
 }
 
 function setUserVersion(conn, version) {
@@ -22,9 +20,7 @@ function verifyIntegrity(conn) {
     const row = conn.prepare('PRAGMA integrity_check').get();
     const val = row ? (row.integrity_check || Object.values(row)[0]) : null;
     return val === 'ok';
-  } catch (_) {
-    return false;
-  }
+  } catch (_) { return false; }
 }
 
 function hasFts5Support(conn) {
@@ -89,6 +85,25 @@ function _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn) {
       `);
     }
   } catch (_) { /* intentional best-effort fallback */ }
+}
+
+function _purgeLegacyDbArtifacts(conn) {
+  try {
+    conn.exec(`
+      DELETE FROM persona_memories
+      WHERE content LIKE '%delegate.md%'
+         OR content LIKE '%result.md%'
+         OR content LIKE '%prompt.md%'
+         OR content LIKE '%report.md%';
+    `);
+  } catch (_) { /* best-effort legacy memory purge */ }
+  try {
+    conn.exec(`
+      UPDATE agents
+      SET instructions = REPLACE(REPLACE(instructions, 'delegate.md', 'structured MCP arguments'), 'prompt.md', 'structured MCP arguments')
+      WHERE instructions LIKE '%delegate.md%' OR instructions LIKE '%prompt.md%';
+    `);
+  } catch (_) { /* best-effort agent instruction cleanup */ }
 }
 
 function _backfillActiveSessionsProjectHash(conn) {
@@ -365,6 +380,7 @@ function setupSchema(conn, backupDatabaseFn = null) {
   } catch (_) { /* intentional best-effort fallback */ }
 
   _backfillActiveSessionsProjectHash(conn);
+  _purgeLegacyDbArtifacts(conn);
 
   if (ftsSupported) {
     try {
@@ -448,6 +464,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
     "ALTER TABLE agents ADD COLUMN model TEXT;",
     "ALTER TABLE projects ADD COLUMN dor_mode TEXT DEFAULT 'advisory';",
     "ALTER TABLE projects ADD COLUMN review_mode TEXT DEFAULT 'self';",
+    "ALTER TABLE projects ADD COLUMN advisor_mode TEXT DEFAULT 'realtime-idle';",
+    "ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 1000;",
     "ALTER TABLE tool_calls ADD COLUMN cached_tokens INTEGER;",
     "ALTER TABLE tool_calls ADD COLUMN input_tokens INTEGER;",
     "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;",

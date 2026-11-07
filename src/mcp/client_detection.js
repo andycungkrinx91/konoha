@@ -37,7 +37,6 @@ function getDb() {
 function matchesPattern(pattern, entry) {
   if (pattern.endsWith('*.jsonl') && entry.endsWith('.jsonl')) return true;
   if (pattern.endsWith('*.json') && entry.endsWith('.json')) return true;
-  if (pattern.endsWith('prompt.md') && entry === 'prompt.md') return true;
   return Boolean(pattern.endsWith('transcript.jsonl') && entry === 'transcript.jsonl');
 }
 
@@ -137,12 +136,9 @@ function _collectBrainFiles(client, convId) {
     if (bDir.includes('cursor') || bDir.includes('claude')) {
       allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
     } else if (convId && (bDir.includes('antigravity-ide') || bDir.includes('antigravity-cli'))) {
-      const p1 = path.join(bDir, 'prompt.md');
       const p2 = path.join(bDir, '.system_generated', 'logs', 'transcript.jsonl');
-      if (fs.existsSync(p1)) allFiles.push(p1);
       if (fs.existsSync(p2)) allFiles.push(p2);
     } else {
-      allFiles.push(...globSync(path.join(bDir, 'prompt.md')));
       allFiles.push(...globSync(path.join(bDir, 'transcript.jsonl')));
     }
   }
@@ -152,41 +148,6 @@ function _collectBrainFiles(client, convId) {
     try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch (_) { return 0; }
   });
   return existingFiles;
-}
-
-function _parsePromptContentForAgent(promptContent) {
-  const lower = promptContent.toLowerCase();
-  if (lower.includes('[konoha] orchestrator active') || lower.includes('[konoha] active') || lower.includes('orchestrator active')) {
-    return 'orchestrator';
-  }
-  const match = promptContent.match(/\[([^\]]+)\]\s+active/);
-  if (match) {
-    const parts = match[1].trim().split(/\s+/);
-    const name = parts[parts.length - 1].toLowerCase();
-    if (getCanonicalAgentNames().includes(name)) return name;
-    if (['antigravity', 'orchestrator'].includes(name)) return 'orchestrator';
-  }
-  for (const candidate of getCanonicalAgentNames()) {
-    if (new RegExp(`\\b${candidate}\\b`, 'i').test(promptContent)) {
-      if (new RegExp(`you\\s+are\\s+(?:the|a)\\s+${candidate}\\s+(?:agent|subagent|scout|builder|intel|scribe|leader)`, 'i').test(promptContent)) {
-        return candidate;
-      }
-      if (new RegExp(`Log:\\s*"\\[.*${candidate}.*\\]\\s*active"`, 'i').test(promptContent)) {
-        return candidate;
-      }
-    }
-  }
-  return null;
-}
-
-function _detectFromPromptFile(convDir) {
-  const promptPath = path.join(convDir, 'prompt.md');
-  if (!fs.existsSync(promptPath)) return null;
-  try {
-    return _parsePromptContentForAgent(fs.readFileSync(promptPath, 'utf8'));
-  } catch (_) {
-    return null;
-  }
 }
 
 function extractContentFromBlocks(blocks) {
@@ -323,7 +284,6 @@ function _detectFromSessionDb() {
 }
 
 function resolveConvDir(fpath) {
-  if (fpath.endsWith('prompt.md')) return path.dirname(fpath);
   if (fpath.includes('agent-transcripts')) return path.dirname(path.dirname(fpath));
   if (fpath.includes('claude')) return path.dirname(fpath);
   return path.dirname(path.dirname(path.dirname(fpath)));
@@ -345,8 +305,7 @@ function detectActiveAgent() {
       if (visitedDirs.has(convDir)) continue;
       visitedDirs.add(convDir);
 
-      let detected = _detectFromPromptFile(convDir);
-      if (!detected) detected = _detectFromTranscriptFile(fpath, convDir);
+      const detected = _detectFromTranscriptFile(fpath, convDir);
 
       if (detected) {
         _saveActiveSession(fpath, convId);

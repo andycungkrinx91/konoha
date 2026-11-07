@@ -79,7 +79,7 @@ const SKIP_SOURCE_DIRS = new Set([
 const VALID_SOURCE_EXTS = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.svg', '.html', '.xml',
   '.tsx', '.jsx', '.ts', '.js', '.css', '.scss', '.svelte',
-  '.vue', '.mjs', '.cjs'
+  '.vue', '.mjs', '.cjs', '.fig', '.json', '.pen'
 ]);
 
 function processSourceEntry(entry, dir, resolvedRoot, allFiles) {
@@ -241,7 +241,7 @@ function collectDetectedImages(allFiles, resolvedSourceDir) {
 }
 
 function collectDetectedSources(allFiles, resolvedSourceDir) {
-  const codeExts = new Set(['.html', '.css', '.scss', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.svelte', '.vue', '.xml']);
+  const codeExts = new Set(['.html', '.css', '.scss', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.svelte', '.vue', '.xml', '.fig', '.json', '.pen']);
   const detected = [];
   for (const s of allFiles) {
     if (detected.length >= 15) break;

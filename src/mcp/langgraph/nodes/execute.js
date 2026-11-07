@@ -4,6 +4,7 @@ const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
 const { finalizeNodeResult } = require('../budget');
+const worktree = require('../../worktree_isolation');
 
 function recordCompletedDispatch(status, dispatchId) {
   if (!dispatchId) return;
@@ -18,9 +19,14 @@ function completePendingTasks(status, sliceResults) {
   const pendingTask = tasks.find(t => t.status !== 'completed');
   if (!pendingTask) return tasks;
 
-  if (sliceResults && sliceResults[pendingTask.id]) {
-    pendingTask.status = 'completed';
-    pendingTask.result = sliceResults[pendingTask.id];
+  if (sliceResults && typeof sliceResults === 'object' && Object.keys(sliceResults).length > 0) {
+    for (const t of tasks) {
+      if (t.status !== 'completed' && sliceResults[t.id]) {
+        t.status = 'completed';
+        t.result = sliceResults[t.id];
+        recordCompletedDispatch(status, t.dispatch_id);
+      }
+    }
     return tasks;
   }
 
@@ -33,9 +39,25 @@ function completePendingTasks(status, sliceResults) {
   return tasks;
 }
 
+function _tryMergeActiveParallelGroup(status) {
+  if (!status.active_parallel_group) return;
+  try {
+    const mergeBack = worktree.mergeBackParallelGroup({ status, groupName: status.active_parallel_group });
+    if (!mergeBack || !mergeBack.ok) return;
+    (status.tasks || []).filter(t => t.parallel_group === status.active_parallel_group).forEach(t => { t.worktree_merged = true; });
+    status.last_group_merge = {
+      group: mergeBack.group,
+      results: (mergeBack.results || []).map(r => ({ task_id: r.task_id, merged: r.merged, reason: r.reason }))
+    };
+    status.active_parallel_group = null;
+    status.active_parallel_group_order = null;
+  } catch (_) { /* best effort merge-back */ }
+}
+
 function advancePostExecutionPhase(status, state, allCompleted) {
   const defaultReport = 'Documentation synthesized according to Tokubetsu-Jonin engineering standard.';
   if (allCompleted) {
+    _tryMergeActiveParallelGroup(status);
     const isRemediating = status.slop_cycles && status.slop_cycles > 0;
     if (isRemediating || status.report || state.report) {
       status.phase = 'review';

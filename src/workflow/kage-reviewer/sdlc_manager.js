@@ -51,6 +51,8 @@ function getDbConn(dbPath = null) {
     try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN session_id TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
     try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN client TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
     try { conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';"); } catch (_) { /* column already exists */ }
+    try { conn.exec("ALTER TABLE projects ADD COLUMN advisor_mode TEXT DEFAULT 'realtime-idle';"); } catch (_) { /* column already exists */ }
+    try { conn.exec('ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 1000;'); } catch (_) { /* column already exists */ }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return conn;
 }
@@ -503,13 +505,20 @@ function recordSlopResult(id, slopResult, slopCycles = null, dbPath = null) {
 
 function getProjectSdlcConfig(projectPath, dbPath = null) {
   const envHitl = process.env.KONOHA_HITL_MODE;
+  const envAdvisor = process.env.KONOHA_ADVISOR_MODE;
   if (!projectPath) {
-    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: envHitl || 'enabled' };
+    return {
+      dor_mode: 'advisory',
+      review_mode: 'self',
+      hitl_mode: envHitl || 'enabled',
+      advisor_mode: envAdvisor || 'realtime-idle',
+      advisor_max_tokens: 1000
+    };
   }
   const conn = getDbConn(dbPath);
   try {
     const row = conn.prepare(`
-      SELECT dor_mode, review_mode, hitl_mode FROM projects
+      SELECT dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects
       WHERE project_path = ? OR project_hash = ?
       LIMIT 1
     `).get(projectPath, projectPath);
@@ -517,25 +526,35 @@ function getProjectSdlcConfig(projectPath, dbPath = null) {
     return {
       dor_mode: row && row.dor_mode ? row.dor_mode : 'advisory',
       review_mode: row && row.review_mode ? row.review_mode : 'self',
-      hitl_mode: envHitl || (row && row.hitl_mode ? row.hitl_mode : 'enabled')
+      hitl_mode: envHitl || (row && row.hitl_mode ? row.hitl_mode : 'enabled'),
+      advisor_mode: envAdvisor || (row && row.advisor_mode ? row.advisor_mode : 'realtime-idle'),
+      advisor_max_tokens: row && Number.isFinite(Number(row.advisor_max_tokens))
+        ? Math.min(1000, Math.max(250, Number(row.advisor_max_tokens)))
+        : 1000
     };
   } catch (_) {
-    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: envHitl || 'enabled' };
+    return {
+      dor_mode: 'advisory',
+      review_mode: 'self',
+      hitl_mode: envHitl || 'enabled',
+      advisor_mode: envAdvisor || 'realtime-idle',
+      advisor_max_tokens: 1000
+    };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
-function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null, hitl_mode = null }, dbPath = null) {
+function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null, hitl_mode = null, advisor_mode = null, advisor_max_tokens = null }, dbPath = null) {
   if (!projectPath) {
     throw new Error('Project path is required to set SDLC configuration.');
   }
   const conn = getDbConn(dbPath);
   try {
-    let row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+    let row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
     if (!row) {
       personaMemory.saveOrUpdateProject(projectPath, '', null, dbPath || db.DB_PATH);
-      row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+      row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
     }
 
     const updates = [];
@@ -557,6 +576,19 @@ function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null
       const normalizedHitl = (hitl_mode === 'disabled' || hitl_mode === 'autonomous') ? 'disabled' : 'enabled';
       updates.push('hitl_mode = ?');
       params.push(normalizedHitl);
+    }
+
+    if (advisor_mode !== null) {
+      const validModes = ['realtime-idle', 'turn-gate', 'off'];
+      const normalizedAdvisor = validModes.includes(String(advisor_mode)) ? String(advisor_mode) : 'realtime-idle';
+      updates.push('advisor_mode = ?');
+      params.push(normalizedAdvisor);
+    }
+
+    if (advisor_max_tokens !== null && Number.isFinite(Number(advisor_max_tokens))) {
+      const clampedTokens = Math.min(1000, Math.max(250, Math.floor(Number(advisor_max_tokens))));
+      updates.push('advisor_max_tokens = ?');
+      params.push(clampedTokens);
     }
 
     if (updates.length > 0 && row) {

@@ -14,10 +14,12 @@ const {
   buildGate1Prompt,
   buildGate2Prompt
 } = require('./workflow_gates');
+const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
 const {
   decideRoute,
   formatRouteLine,
   buildSpawnDirective,
+  buildParallelSpawnDirective,
   buildDelegationEnvelope
 } = require('./sannin_router');
 
@@ -74,7 +76,7 @@ function parseKonohaCommandInvocation(prompt = '') {
   if (!prompt || typeof prompt !== 'string') {
     return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: '' };
   }
-  const trimmed = prompt.trim();
+  const trimmed = prompt.trim().replace(/^@sannin\b\s*/i, '');
   const slashMatch = trimmed.match(/^\/([a-zA-Z0-9_-]+)(?:\s+([\s\S]*))?$/);
   if (!slashMatch) {
     return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: trimmed };
@@ -82,7 +84,7 @@ function parseKonohaCommandInvocation(prompt = '') {
   const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
   const rest = (slashMatch[2] || '').trim();
   if (rawCmd === 'konoha' || rawCmd === 'sannin') {
-    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: rest || trimmed };
+    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: rest || trimmed.replace(/^\/(konoha|sannin)\b\s*/i, '').trim() };
   }
   const directSubagents = ['genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin', 'akatsuki', 'yamanaka'];
   if (directSubagents.includes(rawCmd)) {
@@ -184,15 +186,23 @@ function detectParallelWorkstreams(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return [];
   const p = prompt.toLowerCase();
   const workstreams = [];
+  const exploreMatch = /\b(explore|trace|map dependencies|symbol search|codebase survey|scout)\b/i.test(p);
+  const researchMatch = /\b(research|benchmark|rfc|upstream docs|literature|compare libraries|citation)\b/i.test(p);
+  const archMatch = /\b(architecture review|system design|threat model review|adr|risk assessment|kage review)\b/i.test(p);
   const frontendMatch = /\b(frontend|ui|css|html|tailwind|component|react|vue|svelte|page|screen|client-side)\b/i.test(p);
   const backendMatch = /\b(backend|api|database|db|migration|endpoint|server|controller|service|sql|schema|postgres|redis)\b/i.test(p);
   const docsMatch = /\b(docs|documentation|user guide|api spec|readme|architecture doc|tutorial|manual)\b/i.test(p);
   const securityMatch = /\b(security audit|penetration test|pentest|red team|blue team|vulnerability|cve|owasp|threat model)\b/i.test(p);
+  const spatialMatch = /\b(3d model|three\.js|threejs|blender|manifold|glb|gltf|spatial asset)\b/i.test(p);
 
+  if (exploreMatch) workstreams.push({ agent: 'genin', domain: 'exploration', ready_to_dispatch: true });
+  if (researchMatch) workstreams.push({ agent: 'chunin', domain: 'research', ready_to_dispatch: true });
+  if (archMatch) workstreams.push({ agent: 'kage', domain: 'architecture', ready_to_dispatch: true });
   if (frontendMatch) workstreams.push({ agent: 'jonin', domain: 'frontend', ready_to_dispatch: true });
   if (backendMatch) workstreams.push({ agent: 'anbu', domain: 'backend', ready_to_dispatch: true });
   if (docsMatch) workstreams.push({ agent: 'tokubetsu-jonin', domain: 'documentation', ready_to_dispatch: true });
   if (securityMatch) workstreams.push({ agent: 'akatsuki', domain: 'security', ready_to_dispatch: true });
+  if (spatialMatch) workstreams.push({ agent: 'yamanaka', domain: 'spatial_3d', ready_to_dispatch: true });
 
   return workstreams;
 }
@@ -209,7 +219,7 @@ function _extractAgentSkills(agentRow, routedSkills) {
     const dbSkills = JSON.parse(agentRow.skills);
     if (!Array.isArray(dbSkills)) return;
     for (const ds of dbSkills) {
-      if (!ds.startsWith('antislop') && ds !== 'i-have-adhd' && !routedSkills.includes(ds)) {
+      if (ds && !routedSkills.includes(ds)) {
         routedSkills.push(ds);
       }
     }
@@ -326,19 +336,16 @@ function _buildInstructionText(ctx) {
 
   const executionBlock = (
     '\n\n## Delegation Steps\n' +
-    `1. Call \`${ctx.selectedAgent}\` with (\`task\`, \`context\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`).\n` +
-    `2. Subagent executes within archetype boundaries and reports via \`konoha.report_from_agent\` (\`task_id="${ctx.taskId}"\`).\n` +
-    `3. Call \`sannin(task_dir="${ctx.resolvedTaskDir}")\` to advance.`
+    `1. Call \`${ctx.selectedAgent}\` (\`task\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`).\n` +
+    `2. Report via \`konoha.report_from_agent\`, then call \`sannin(task_dir="${ctx.resolvedTaskDir}")\`.`
   );
 
   const spawnBlock = ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '';
   return (
-    `**Selected Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
-    `**Reason**: ${ctx.description}\n` +
+    `**Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
     routeLine +
-    `**Flow Hash**: \`${ctx.flowHash}\` | **Task ID**: \`${ctx.taskId}\`\n` +
-    `**Task Dir**: \`${ctx.resolvedTaskDir}\`\n` +
-    `**Task**: ${ctx.effPrompt}\n` +
+    `**Flow**: \`${ctx.flowHash}\` | **Task ID**: \`${ctx.taskId}\` | **Dir**: \`${ctx.resolvedTaskDir}\`\n` +
+    `**Task**: ${ctx.effPrompt}` +
     spawnBlock +
     executionBlock +
     buildGuidance + parallelGuidance + trackGuidance + advisoryText
@@ -471,11 +478,31 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     projectPath: resolvedProjPath,
     prompt: effPrompt
   });
+  const parallelSpawnDirective = parallelWorkstreams.length > 1
+    ? buildParallelSpawnDirective({
+      client: actClient,
+      projectPath: resolvedProjPath,
+      dispatches: parallelWorkstreams.map((ws) => ({
+        agent: ws.agent,
+        task: ws.task || `${effPrompt} (${ws.domain} slice)`,
+        skills: _resolveRoutedSkills(effPrompt, ws.agent)
+      }))
+    })
+    : '';
 
   const instruction = _buildInstructionText({
     selectedAgent, executionTrack, flowHash, routedSkills, description,
     resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
     route, envelope, spawnDirective
+  });
+
+  const currentSt = loadWorkflowStatus(resolvedTaskDir);
+  const syncBundle = syncTodoAndWalkthrough(currentSt, {
+    client: actClient,
+    taskDir: resolvedTaskDir,
+    tasks: parallelWorkstreams.length > 1
+      ? parallelWorkstreams.map((ws, i) => ({ id: `task_${i + 1}`, task: `${effPrompt} (${ws.domain} slice)`, agent: ws.agent, status: 'pending' }))
+      : [{ id: 'task_1', task: effPrompt, agent: selectedAgent, status: 'in_progress' }]
   });
 
   const res = JSON.stringify({
@@ -484,11 +511,15 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     mandatory_kage_review: invocationMode === 'direct_subagent' ? true : undefined,
     skills: routedSkills, execution_track: executionTrack, parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
+    parallel_spawn_directive: parallelSpawnDirective || undefined,
+    todos: syncBundle.todos.map(t => ({ id: t.id, content: t.content.slice(0, 72), status: t.status, agent: t.agent })),
+    walkthrough_steps: syncBundle.walkthrough_steps.slice(0, 4).map(s => ({ step: s.step, id: s.id, status: s.status })),
+    client_todo_directive: { native_tool: syncBundle.client_todo_directive.native_tool, progress_summary: syncBundle.client_todo_directive.progress_summary },
     route, delegation_envelope: envelope
-      ? { agent: envelope.agent, skills: envelope.skills, dropped_skills: envelope.dropped_skills, recall: envelope.recall }
+      ? { agent: envelope.agent, skills: envelope.skills }
       : undefined,
     phase: 'delegation', execution_mode: route.mode, instructions: instruction, task_dir: resolvedTaskDir,
-    session_id: resolvedSessionId, client: actClient, dor_result: dorResult
+    session_id: resolvedSessionId, client: actClient, dor_result: { ready: dorResult.ready, score: dorResult.score }
   });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
   return res;
@@ -501,7 +532,8 @@ function dispatchParallelSlices(workstreams = [], sharedOptions = {}) {
     flowHash = null,
     sessionId = null,
     projectPath = null,
-    taskDir = null
+    taskDir = null,
+    client = null
   } = sharedOptions;
 
   if (!Array.isArray(workstreams) || workstreams.length === 0) {
@@ -513,18 +545,32 @@ function dispatchParallelSlices(workstreams = [], sharedOptions = {}) {
     const task = ws.task || ws.prompt || ws.instructions || `Execute ${ws.domain || agent} slice.`;
     const context = ws.context || sharedOptions.context || null;
     const constraints = ws.constraints || sharedOptions.constraints || null;
-    const skills = Array.isArray(ws.skills) ? ws.skills : (ws.routed_skills || []);
+    const skills = Array.isArray(ws.skills) && ws.skills.length > 0 ? ws.skills : (ws.routed_skills || _resolveRoutedSkills(task, agent));
     const tasteDials = ws.taste_dials || ws.tasteDials || sharedOptions.tasteDials || null;
+    const worktree = ws.worktree || ws.worktree_path || null;
 
-    const resRaw = runMcpAgent(
-      agent, task, context, constraints, skills, tasteDials,
-      projectPath, taskDir, sessionId, flowHash, taskId
-    );
+    const resRaw = runMcpAgent(agent, {
+      task, context, constraints, skills, tasteDials,
+      projectPath, taskDir, sessionId, flowHash, taskId, client, worktree
+    });
     try {
       return JSON.parse(resRaw);
     } catch (_) {
       return { status: 'ready', agent, output: resRaw };
     }
+  });
+}
+
+async function dispatchParallelSlicesAsync(workstreams = [], sharedOptions = {}) {
+  if (!Array.isArray(workstreams) || workstreams.length === 0) {
+    return [];
+  }
+  const tasks = workstreams.map(ws => Promise.resolve().then(() => dispatchParallelSlices([ws], sharedOptions)[0]));
+  const settled = await Promise.allSettled(tasks);
+  return settled.map((item, idx) => {
+    if (item.status === 'fulfilled') return item.value;
+    const fallbackAgent = workstreams[idx]?.agent || workstreams[idx]?.name || 'unknown';
+    return { status: 'error', agent: fallbackAgent, error: item.reason?.message || String(item.reason) };
   });
 }
 
@@ -534,6 +580,7 @@ module.exports = {
   classifyExecutionTrack,
   detectParallelWorkstreams,
   dispatchParallelSlices,
+  dispatchParallelSlicesAsync,
   computeFlowHash,
   runSannin
 };

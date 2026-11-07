@@ -316,10 +316,9 @@ function _buildTasteSkillBlock(tasteDials) {
   return (
     '### 🎨 Taste-Skill Design Engine Directives (tasteskill.dev):\n' +
     `- Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10\n` +
-    '- Anti-Slop: Zero generic AI-purple gradients, zero 3-card boilerplate stacks. Bespoke editorial UI.\n' +
-    '- Typography & Layout: Geist, Cabinet Grotesk, Satoshi. py-24 pacing, CSS Grid (grid-cols-12), min-h-[100dvh].\n' +
-    '- Theme: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt, zero emojis (Lucide SVG).\n' +
-    '- Invariants: Far-left logo, no mobile hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
+    '- Anti-Slop: Zero generic AI-purple gradients, zero rigid boilerplate templates, zero emojis (Phosphor/custom SVG only).\n' +
+    '- Composition & Hero: Astra/Fable-level visual storytelling, bespoke asymmetric grids, adaptive Dark & Light Mode support.\n' +
+    '- Branding & QA: Include `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer, live browser monitor, and automated tests.\n' +
     '- Quality: pnpm exclusively, zero errors/warnings, run `rtk aislop scan --changes`.\n'
   );
 }
@@ -650,11 +649,21 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
   const effTaskDir = opts.taskDir || getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
+  const resolvedWorktreePath = opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined;
+  const topSpawnDirective = buildSpawnDirective({
+    client: opts.client || activeClient,
+    agent: dbAgentName,
+    skills: skillsList,
+    projectPath: resolvedWorktreePath || resolvedProjPath,
+    prompt: opts.task,
+    worktree: opts.worktree || null
+  });
   const res = JSON.stringify({
     status: 'ready', phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
     mandatory_next_step: dbAgentName === 'kage' ? 'delivery' : 'kage_review',
     flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
-    task_dir: effTaskDir, worktree_path: opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined,
+    task_dir: effTaskDir, worktree_path: resolvedWorktreePath,
+    spawn_directive: topSpawnDirective || undefined,
     instructions: instruction
   });
   logToolCall(agentName, `project_path=${resolvedProjPath} session_id=${resolvedSessionId} task_dir=${effTaskDir}`, res, dbAgentName);

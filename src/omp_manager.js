@@ -346,6 +346,16 @@ function getOmpStatus() {
   let mcpAislop = false;
   let contractDeployed = false;
   let rtkRuleDeployed = false;
+  let advisorConfigured = true;
+  const advisorConfig = {
+    enabled: true,
+    reviewMode: 'turn',
+    evictStaleResults: true,
+    syncBacklog: 'off',
+    continueSeverity: 'nit',
+    reviewInterval: 5,
+    maxTurnTokens: 1000
+  };
 
   if (fileExists(configPath)) {
     const config = readJsonSafe(configPath);
@@ -377,6 +387,8 @@ function getOmpStatus() {
     mcpAislop,
     contractDeployed,
     rtkRuleDeployed,
+    advisorConfigured,
+    advisorConfig,
     configPath
   };
 }

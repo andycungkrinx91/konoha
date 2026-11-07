@@ -3,37 +3,18 @@
 /**
  * src/mcp/worktree_isolation.js — per-subagent git worktree + branch isolation.
  *
- * WHY THIS EXISTS
- * The Konoha client spawns every subagent in its own process, and that process
- * inherits the ambient workspace root (`getWorkspaceRoot() || process.cwd()` in
- * memory_subagent_runner.js). There is no cwd parameter on the spawn path. So
- * two subagents dispatched in parallel write to the SAME checkout and
- * interleave their edits. This module gives each dispatch its own git worktree
- * and its own branch, so their working trees cannot collide.
+ * Gives each parallel subagent dispatch its own git worktree and branch so
+ * concurrent working trees cannot collide.
  *
- * SCOPE / LIMITS (read before trusting this module)
- * 1. Isolation depends on the CLIENT honouring the instruction channel we emit
- *    (see buildWorktreeDirective). We cannot force a client to `cd` into the
- *    worktree. If the client ignores it, the subagent edits the main checkout
- *    and isolation is not achieved. The payload makes the requirement explicit
- *    and verifiable; see assertBelongsToWorktree.
- * 2. Only COMMITS are integrated. mergeAgentWorktree merges the branch ref.
- *    Whatever sits uncommitted inside a worktree is never touched.
- * 3. The merge-back step runs `git merge` in the main worktree and therefore
- *    touches its index/HEAD. It refuses up front when a pre-existing
- *    modification/removal overlaps the incoming paths (reason 'main_dirty'),
- *    when the branch has no commit ('no_commits'), and when the branch was not
- *    created by this orchestration ('not_orchestrated_branch'). Nothing here
- *    runs `git checkout`, `git stash` or `git reset` on the main worktree.
- * 4. The pre-commit syntax gate only proves the incoming files PARSE
- *    (`node --check`, `python -m py_compile`). Files that no longer compile or
- *    parse are rejected; semantic correctness is not asserted.
+ * SCOPE / LIMITS:
+ * - Isolation relies on the client honouring buildWorktreeDirective (see assertBelongsToWorktree).
+ * - Only committed changes are merged back via mergeAgentWorktree.
+ * - Merge-back refuses when pre-existing dirty paths overlap ('main_dirty'),
+ *   when no commit exists ('no_commits'), or on non-orchestrated branches.
+ * - Pre-commit syntax gate verifies incoming JS/Python files parse cleanly.
  *
- * FEATURE FLAG
+ * FEATURE FLAG:
  * KONOHA_WORKTREE_ISOLATION: '1'/'true' force-enable, '0'/'false' disable.
- * When unset the feature is enabled only when projectPath resolves to a real
- * git repository. Any failure degrades to a single-checkout ('fallback')
- * dispatch with a recorded reason instead of blocking the workflow.
  */
 
 const fs = require('fs');
@@ -52,8 +33,11 @@ const SUPPORTED_SYNTAX = Object.freeze({
   '.js': 'node',
   '.cjs': 'node',
   '.mjs': 'node',
+  '.json': 'json',
   '.py': 'python'
 });
+
+const CONFLICT_MARKER_REGEX = /^(<<<<<<<|=======|>>>>>>>)(\s|$)/m;
 
 function _isEnabledFlag(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -247,15 +231,38 @@ function fileSha256(filePath) {
   }
 }
 
+function _hasConflictMarkersInFile(abs) {
+  try {
+    const stat = fs.statSync(abs);
+    if (!stat.isFile() || stat.size > 1024 * 1024) return false;
+    return CONFLICT_MARKER_REGEX.test(fs.readFileSync(abs, 'utf8'));
+  } catch (_) {
+    return false;
+  }
+}
+
 function syntaxGateForFiles(worktreePath, files) {
   const checked = [];
   const failed = [];
   for (const file of files) {
+    const abs = path.join(worktreePath, file);
+    if (!fs.existsSync(abs)) continue;
+    if (_hasConflictMarkersInFile(abs)) {
+      failed.push({ file, error: 'unresolved git conflict markers (<<<<<<< / ======= / >>>>>>>) detected' });
+      continue;
+    }
     const ext = path.extname(file).toLowerCase();
     const mode = SUPPORTED_SYNTAX[ext];
     if (!mode) continue;
-    const abs = path.join(worktreePath, file);
-    if (!fs.existsSync(abs)) continue;
+    if (mode === 'json') {
+      try {
+        JSON.parse(fs.readFileSync(abs, 'utf8'));
+        checked.push(file);
+      } catch (jsonErr) {
+        failed.push({ file, error: `json parse failed: ${jsonErr.message}` });
+      }
+      continue;
+    }
     const res = mode === 'node'
       ? spawnSync(process.execPath, ['--check', abs], { encoding: 'utf8', timeout: GIT_TIMEOUT_MS })
       : spawnSync('python3', ['-m', 'py_compile', abs], { encoding: 'utf8', timeout: GIT_TIMEOUT_MS });

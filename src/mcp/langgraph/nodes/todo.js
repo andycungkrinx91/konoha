@@ -3,6 +3,7 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus, workflowParseTasks } = require('../../workflow_common');
 const { detectParallelWorkstreams } = require('../../workflow_sannin');
+const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
 const { finalizeNodeResult } = require('../budget');
 
 async function todoNode(state) {
@@ -42,9 +43,17 @@ async function todoNode(state) {
     saveWorkflowStatus(taskDir, status);
   }
 
+  const syncBundle = syncTodoAndWalkthrough(status, {
+    client: state.client || status.client || '',
+    taskDir,
+    tasks
+  });
+
   const payload = {
     status,
     todos: tasks,
+    walkthrough_steps: syncBundle.walkthrough_steps,
+    client_todo_directive: syncBundle.client_todo_directive,
     slices: tasks.filter(t => t.parallel_group),
     phase: 'execute',
   };

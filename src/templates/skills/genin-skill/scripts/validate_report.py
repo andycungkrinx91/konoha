@@ -356,7 +356,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python validate_report.py --report report.md
+  python validate_report.py --report research_findings.md
   python validate_report.py -r ~/.claude/research_output/research_report_20251104_153045.md
         """,
     )

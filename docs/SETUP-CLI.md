@@ -32,7 +32,7 @@ If `rtk` is installed (`cargo install --git https://github.com/rtk-ai/rtk`), Kon
 
 ## Step 1: Install Konoha (Zero-Configuration Auto-Setup)
 
-### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)
+### 📦 Standard 3-Step Team Onboarding (Explicit `--client` Append-Only Setup)
 For manual repository distribution or local development:
 ```bash
 # 1. Extract and enter the directory
@@ -42,8 +42,17 @@ cd konoha
 # 2. Install CLI dependencies (if node_modules is not included in zip)
 pnpm install
 
-# 3. Execute one-command cross-client initialization
-node bin/cli.js init --yes --force
+# 3. Append Konoha MCP & agent config for your target coding client(s) (with automatic backup):
+node bin/cli.js init --client=cursor
+node bin/cli.js init --client=claude
+node bin/cli.js init --client=opencode
+node bin/cli.js init --client=omp
+node bin/cli.js init --client=codex
+node bin/cli.js init --client=pi
+node bin/cli.js init --client=antigravity
+node bin/cli.js init --client=commandcode
+# Or initialize all 8 supported clients at once:
+node bin/cli.js init --client=all
 ```
 
 ### Global Installation (Permanent 'konoha' terminal command)
@@ -53,16 +62,20 @@ npm install -g konoha-mcp
 # Or with pnpm:
 pnpm add -g konoha-mcp
 
-# Then initialize:
-konoha init
+# Initialize a specific client or all 8 clients (append-only, preserves existing settings):
+konoha init --client=all
+
+# Restore a previous client configuration backup at any time:
+konoha restore --client=cursor
+konoha restore --client=all
 ```
 
 ### Direct Execution (Zero-Install via npx or pnpm dlx)
 ```bash
 # 1. Run one-shot directly via npx:
-npx konoha-mcp init
+npx konoha-mcp init --client=all
 # Or with pnpm dlx:
-pnpm dlx konoha-mcp init
+pnpm dlx konoha-mcp init --client=all
 
 # 2. Re-index skills & synchronize neural vector embeddings (strictly non-destructive):
 konoha migrate --rebuild-embeddings

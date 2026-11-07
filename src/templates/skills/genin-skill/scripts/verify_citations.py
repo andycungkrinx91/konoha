@@ -410,7 +410,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python verify_citations.py --report report.md
+  python verify_citations.py --report research_findings.md
 
 Note: Requires internet connection to check DOIs.
 Uses free DOI resolver - no API key needed.

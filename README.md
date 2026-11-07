@@ -1,72 +1,74 @@
 <p align="center">
-  <img src="assets/konoha_logo_kyubi.webp" alt="Konoha Logo" width="320">
+  <img src="assets/konoha_logo_kyubi.webp" alt="Konoha Logo" width="300">
 </p>
 
 <h1 align="center">🍃 KONOHA</h1>
 
 <p align="center">
-  <b>Autonomous Multi-Agent MCP Orchestration Platform for Elite AI Coding</b><br>
-  <sub>Powered by LangGraph.js State Machines · 9 Specialist Ninja Agents · Per-Turn Token Governors · 83–98% Context Reduction</sub>
-</p>
-
-[![Release](https://img.shields.io/badge/Release-v2.2.18-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
-[![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
-[![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
-[![OpenCode](https://img.shields.io/badge/OpenCode-CLI-10b981?logo=vscodium&logoColor=white)](README.md)
-[![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue?logo=gnubash&logoColor=white)](README.md)
-[![Codex](https://img.shields.io/badge/Codex-CLI-purple?logo=github&logoColor=white)](README.md)
-[![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
-[![OMP](https://img.shields.io/badge/OMP-CLI-0284c7?logo=linux&logoColor=white)](README.md)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-48%20Canonical-10b981)](README.md)
-[![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white)](README.md)
-[![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white)](docs/BENCHMARK.md)
-[![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
-[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white)](docs/SETUP-SEARXNG.md)
-[![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
-[![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
-[![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.18-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
-[![Tests](https://img.shields.io/badge/Tests-189%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
-
----
-
-## ☕ Support & Buy Me a Coffee
-
-If you find Konoha helpful and want to support ongoing development, maintenance, and coffee-fueled coding sessions, consider buying me a coffee!
-
-<p align="center">
-  <a href="https://saweria.co/andycungkrinx">
-    <img src="https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Donate via Saweria">
-  </a>
+  <b>Enterprise Multi-Agent MCP Orchestration &amp; Context-Optimization Platform for AI Coding</b><br>
+  <sub>LangGraph.js Parallel State Machines · 9 Specialist Ninja Agents · Real-Time Idle <code>@advisor</code> Guard (≤1k tok/turn) · Per-Agent Git Worktrees · 83–98% Context Reduction</sub>
 </p>
 
 <p align="center">
-  👉 <b><a href="https://saweria.co/andycungkrinx">Support Andy on Saweria (Buy Me Some Coffee)</a></b> ☕
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.18-blue.svg?logo=git&logoColor=white" alt="Release v2.2.18"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white" alt="Antigravity"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white" alt="Cursor"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white" alt="Claude Code"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/OpenCode-CLI-10b981?logo=vscodium&logoColor=white" alt="OpenCode"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Command%20Code-CLI-blue?logo=gnubash&logoColor=white" alt="Command Code"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Codex-CLI-purple?logo=github&logoColor=white" alt="Codex"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white" alt="Pi (pi.dev)"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/OMP-CLI-0284c7?logo=linux&logoColor=white" alt="OMP"></a>
+  <br>
+  <a href="README.md"><img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white" alt="Platform"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white" alt="Node.js"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/MCP%20Tools-48%20Canonical-10b981" alt="MCP Tools"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white" alt="Skills Indexed"></a>
+  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white" alt="Observed Token Savings"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white" alt="RTK"></a>
+  <a href="docs/SETUP-SEARXNG.md"><img src="https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white" alt="SearXNG"></a>
+  <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot"></a>
+  <br>
+  <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white" alt="Crypto Vault"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white" alt="Cybersecurity"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white" alt="Zero AI Slop"></a>
+  <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.18-blue?logo=googlecloud&logoColor=white" alt="Security Policy"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Tests-194%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white" alt="License: MIT"></a>
+  <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Buy Me A Coffee"></a>
 </p>
 
 <p align="center">
   <b>Quick Navigation:</b>
-  <a href="#-flagship-demos--workflow-previews">Previews</a> •
+  <a href="#-flagship-demos--workflow-previews">Architecture &amp; Previews</a> •
   <a href="#-master-architectural-feature-matrix">Feature Matrix</a> •
-  <a href="#-8-phase-sdlc-workflow--interactive-hitl-gates">SDLC &amp; Gates</a> •
-  <a href="#-ninja-specialist-team-9-agents">Ninja Team</a> •
-  <a href="#-supported-coding-clients-matrix">Clients</a> •
-  <a href="#-mcp-tools-catalog">MCP Tools</a> •
   <a href="#-quick-start">Quick Start</a> •
-  <a href="#-documentation--guides-index">Documentation</a>
+  <a href="#-8-phase-multi-agent-workflow-engine">SDLC &amp; HITL Gates</a> •
+  <a href="#-supported-coding-clients-matrix">8 Coding Clients</a> •
+  <a href="#-mcp-tools-available">48 MCP Tools</a> •
+  <a href="#-ninja-specialist-team-9-agents">9 Ninja Agents</a> •
+  <a href="#-benchmark-token-footprint--optimization">Benchmarks</a> •
+  <a href="#-documentation--guides-index">Docs</a>
 </p>
+
+---
+
+## ⚡ Executive Summary — What's New in `v2.2.18`
+
+| Pillar | Architectural Capability | Measured Guarantee |
+| :--- | :--- | :--- |
+| **Compact Skill Retrieval (`use_skills`)** | High-density core extraction (`extractHighDensityCore`) + session deduplication (`[ALREADY_IN_CONTEXT]`) across all 8 specialist agents while preserving `i-have-adhd` & `antislop*` | **`≤ 6,400 bytes` (~1.6k tokens)** per 5-skill batch (down from ~48.4 KB / ~12.1k tokens; **87% reduction**) |
+| **Parallel Subagent Execution & Git Worktrees** | `executeNode` fans out independent tasks concurrently via `Promise.all` inside isolated git worktrees (`~/.konoha/tmp/worktrees/<task_id>/<step_id>-<agent>`); `@sannin` is strictly a router | **Zero race conditions**; deterministic conflict detection prior to worktree merge |
+| **Real-Time Idle `@advisor` Monitor** | Deterministic AST/regex pre-filter (`0 tokens` when clean) + bounded on-the-fly `[ADVISOR_INTERRUPT]` correction payloads (`evict_stale_results: true`) | **`0 tokens` when idle · `≤ 1,000 tokens/turn` hard ceiling** when interrupting drift |
+| **Native Walkthrough Sync & Gate 1 Compaction** | Emits native `walkthrough_steps`, `todos`, and `client_todo_directive` across all 8 clients; Gate 1 approval compacts prior exploration turns automatically | **`runSannin < 3 KB` (`2,867B`)** · **`< 1,500B` compacted context** post-approval |
+| **Dynamic Jonin Frontend Architecture** | Replaces rigid templates with Astra/Fable-inspired dynamic composition, Dark & Light Mode, optional Figma/OpenDesign dual-mode, live browser monitor, and auto-generated project skill | Mandatory `<meta name="generator" content="Build by konoha">` + **`Build by konoha`** footer |
+| **Append-Only `--client` Setup & Backup/Restore** | Explicit `konoha init --client=<cursor\|claude\|opencode\|omp\|codex\|pi\|antigravity\|commandcode\|all>` with non-destructive config merge and timestamped backups | Instant rollback via `konoha restore --client=<target\|all>`; zero template skill mirror injection |
 
 ---
 
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
-* **Latest Release:** [v2.2.18](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
+* **Latest Release:** [v2.2.18](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
 
 * **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-enterprise-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
@@ -206,31 +208,35 @@ flowchart TB
 
 | Category | Capability / Feature | Subsystem / Engine | Key Invariant & Contract | Status |
 |:---|:---|:---|:---|:---:|
-| **Orchestration & Personas** | **✧ Sannin Router** | `src/mcp/tool_dispatch.js` | Top-level triage, domain routing, zero inline implementation | ✅ `ACTIVE` |
-| | **⚑ Genin Scout** | `genin-skill` | Read-only symbol search, codepath tracing, zero file mutations | ✅ `ACTIVE` |
-| | **◎ Kage Governor** | `kage-skill` | Architecture decisions, security auditing, 98% Confidence Gate | ✅ `ACTIVE` |
-| | **♦ Jonin Builder** | `jonin-skill` | Taste-Skill UI across Next.js, Nuxt, SvelteKit, Angular | ✅ `ACTIVE` |
-| | **♠ Anbu Black Ops** | `anbu-skill` | Backend dev, bug fixes, DevOps, 817 offensive security skills | ✅ `ACTIVE` |
-| | **▫ Chunin Intel** | `chunin-skill` | Zero-API-key web research (SearXNG + Wikipedia OpenSearch) | ✅ `ACTIVE` |
-| | **⬡ Tokubetsu-Jonin** | `tokubetsu-jonin-skill` | Technical documentation, API specs, runbooks, README sync | ✅ `ACTIVE` |
-| | **☠ Akatsuki Security** | `akatsuki-skill` | Dual-mode blue-team gates plus isolated red-team lab (`akatsuki-lab`) | ✅ `ACTIVE` |
-| | **✎ Yamanaka 3D** | `yamanaka-skill` | Text-to-3D and Image-to-3D generation, watertight manifold gate, agentic Blender refinement | ✅ `ACTIVE` |
-| **Token & Context Optimization** | **Bounded File I/O** | `src/file_tools_router.js` | `read_file_range`, `read_file_head` (50–100 line caps; whole-file dumps withheld) | ✅ `ACTIVE` |
+| **Orchestration & Personas** | **✧ Sannin Router** | `src/mcp/workflow_sannin.js` | Top-level triage, domain routing, `SANNIN_ROUTER_ONLY_ERROR` (never runs worker code) | ✅ `ACTIVE` |
+| | **⚑ Genin Scout** | `genin-skill` | Read-only symbol search, codepath tracing, zero file mutations (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **◎ Kage Governor** | `kage-skill` | Architecture decisions, security auditing, 98% Confidence Gate (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **♦ Jonin Builder** | `jonin-skill` | Dynamic Astra/Fable-inspired UI across Next.js, Nuxt, SvelteKit, Angular + `Build by konoha` | ✅ `ACTIVE` |
+| | **♠ Anbu Black Ops** | `anbu-skill` | Backend dev, bug fixes, DevOps, 817 offensive security skills (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **▫ Chunin Intel** | `chunin-skill` | Zero-API-key web research (SearXNG + Wikipedia OpenSearch, `rtk` compressed) | ✅ `ACTIVE` |
+| | **⬡ Tokubetsu-Jonin** | `tokubetsu-jonin-skill` | Technical documentation, API specs, runbooks, Office deliverables (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **☠ Akatsuki Security** | `akatsuki-skill` | Dual-mode blue-team gates plus isolated red-team lab (`akatsuki-lab`, `i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **❖ Yamanaka 3D** | `yamanaka-skill` | Generative 3D synthesis, manifold gate, Blender refinement (Web UI menu hidden in `v2.2.18`) | ✅ `ACTIVE` |
+| | **Parallel Git Worktree Isolation** | `src/mcp/worktree_isolation.js` | Concurrent worker subagents run in isolated git worktrees (`~/.konoha/tmp/worktrees/...`) | ✅ `ACTIVE` |
+| | **Real-Time Idle `@advisor` Guard** | `src/workflow/kage-reviewer/advisor_monitor.js` | `0 tokens` when clean; `≤ 1,000 tokens/turn` on-the-fly `[ADVISOR_INTERRUPT]` correction | ✅ `ACTIVE` |
+| **Token & Context Optimization** | **Compact `use_skills` (`≤ 6.4 KB`)** | `src/mcp/skills_common.js` | High-density core extraction + session deduplication (`[ALREADY_IN_CONTEXT]`); `full: true` opt-in | ✅ `ACTIVE` |
+| | **Bounded File I/O** | `src/file_tools_router.js` | `read_file_range`, `read_file_head` (50–100 line caps; whole-file dumps withheld) | ✅ `ACTIVE` |
 | | **Semantic Code Search** | `semble` MCP | Vector embeddings & line spans replace full repository dumps | ✅ `ACTIVE` |
 | | **Shell Output Compaction** | `rtk` (Rust Token Killer) | Global CLI proxy compresses noisy command outputs (60–95% savings) | ✅ `ACTIVE` |
-| | **Auto-Compaction** | `src/mcp/runtime_state.js` | Automatic badge compaction on turn ≥ 2 (preserves tech stack) | ✅ `ACTIVE` |
+| | **Post-Approval Context Compaction** | `src/mcp/workflow_gates.js` | Gate 1 approval compacts prior exploration turns into `< 1,500B` summary (`compaction_applied: true`) | ✅ `ACTIVE` |
 | | **Hybrid Vector RAG** | `src/vector_search.js` | IBM Granite multilingual + MS MARCO MiniLM neural reranker | ✅ `ACTIVE` |
-| **SDLC Quality Gates** | **Two-Stage HITL Gates** | `src/mcp/workflow.js` | Gate 1 (`pending_plan_approval`) & Gate 2 (`pending_human_signoff`) via Desktop IDE / Telegram | ✅ `ACTIVE` |
-| | **Dual-Track Execution Engine** | `src/mcp/workflow.js` | Direct request fast-track (`/kage`, `/anbu`) vs Canonical 8-Phase Master SDLC DAG | ✅ `ACTIVE` |
+| **SDLC Quality Gates** | **Two-Stage HITL Gates** | `src/mcp/workflow_gates.js` | Gate 1 (`pending_plan_approval`) & Gate 2 (`pending_human_signoff`) with 3-option picker | ✅ `ACTIVE` |
+| | **Native Walkthrough & TODO Sync** | `src/mcp/todo_walkthrough_sync.js` | Syncs `walkthrough_steps`, `todos`, and `client_todo_directive` across all 8 clients (`< 3 KB`) | ✅ `ACTIVE` |
 | | **Definition-of-Readiness (DoR)** | `src/sdlc_dor.js` | Enforced/advisory check blocks unready, ambiguous prompts | ✅ `ACTIVE` |
 | | **Two-Step Zero-AI-Slop Gate** | `aislop_scan` + `anti_slop` | Mechanically requires 100/100 scan & 0 findings before synthesis | ✅ `ACTIVE` |
-| | **Kage Confidence Gate** | `src/workflow_gates.js` | Strict ≥ 98% verification score required across all categories | ✅ `ACTIVE` |
+| | **Kage Confidence Gate** | `src/mcp/workflow_gates.js` | Strict ≥ 98% verification score required across all categories | ✅ `ACTIVE` |
 | | **Supply-Chain Security Gate** | Socket CLI (`socket ci`) | Mechanical blocker on High/Medium dependency vulnerabilities | ✅ `ACTIVE` |
 | | **Autonomous Remediation Loop**| `src/sdlc_remediation.js` | Bounded circuit breaker (7 cycles) for auto-fixing slop findings | ✅ `ACTIVE` |
-| **Frontend & UI Engine** | **Taste-Skill v2 Dials** | `Leonxlnx/taste-skill` | `DESIGN_VARIANCE`, `MOTION_INTENSITY`, `VISUAL_DENSITY` | ✅ `ACTIVE` |
+| **Frontend & UI Engine** | **Dynamic Astra/Fable Composition** | `src/templates/skills/jonin-skill/` | Archetype-specific visual storytelling; no rigid 10-theme FAB or 4-slide template lock-in | ✅ `ACTIVE` |
 | | **4 Supported Frameworks** | `src/mcp/build_spec.js` | Official CLI scaffolding: Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+ | ✅ `ACTIVE` |
-| | **10 Palette Themes × Light/Dark** | `apps/web/src/` | Pure light-mode first class + dark mode; floating bottom-left theme picker FAB (`fixed bottom-6 left-6 z-50`) with neon focus | ✅ `ACTIVE` |
-| | **Image Mockup Replication** | `build_from_source` | 100% exact layout, spacing, typography, and asset replication | ✅ `ACTIVE` |
+| | **First-Class Dark & Light Mode** | `jonin-skill` | Semantic CSS variables (`--bg-canvas`, `--text-primary`), WCAG 2.2 AA, zero emoji policy | ✅ `ACTIVE` |
+| | **Live Browser Monitor & Skill Gen** | `src/workflow/jonin-builder/` | Auto-opens live dev browser (`live_browser_monitor.js`) + generates `.agents/skills/<project>-frontend-maintenance/SKILL.md` | ✅ `ACTIVE` |
+| | **Figma / OpenDesign Optional Mode** | `src/mcp/build_spec.js` | Optional Mode A (exported assets) or Mode B (live MCP); zero hard dependency when absent | ✅ `ACTIVE` |
 | | **AI-Website Fingerprint Detector**| `src/workflow/jonin-builder/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
 | **Document Engineering** | **Office Deliverables** | `src/workflow/tokubetsu-scribe/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
 | | **Animated WebP Pipeline** | `src/workflow/tokubetsu-scribe/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
@@ -266,16 +272,16 @@ flowchart TB
 
 | Developer Challenge & Problem | Traditional / Naive Approach | Konoha Enterprise Solution | Key Impact & Metric |
 |:---|:---|:---|:---|
-| **Vibe Coder Career Dilemma**<br>*(Newbi Vibe Coder is confused about how to reach the higher level in this AI era so konoha appear as solution for one shot setup)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **One-Shot Setup (`konoha init --force`)**: Turnkey initialization instantly provisioning 9 specialized ninja subagents, 1,000+ indexed domain skills, and 48 canonical MCP tools across 8 supported coding clients with zero manual glue code. | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
-| **Context Window Flooding & High API Costs** | Dumping entire skill trees, unindexed files, and massive prompt boilerplates at startup (~1.1 MB payload / 800,000+ tokens). | **On-Demand SQLite FTS5 Indexing & Bounded File I/O**: `find_skill` and bounded file operations slice context to exact 50–100 line spans. | **83%–98% byte-weighted reduction** on core retrieval (see `docs/BENCHMARK.md`); eliminates context bloat and LLM amnesia. |
+| **Vibe Coder Career Dilemma**<br>*(Transitioning from casual prompting to enterprise multi-agent engineering)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **Append-Only Client Setup (`konoha init --client=<target\|all>`)**: Turnkey initialization provisioning 9 specialized ninja subagents, 1,027 indexed domain skills, and 48 canonical MCP tools across 8 supported coding clients with automatic backup & restore (`konoha restore --client=<target\|all>`). | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
+| **Context Window Flooding & High API Costs** | Dumping entire skill trees, unindexed files, and massive prompt boilerplates at startup (~1.1 MB payload / 800,000+ tokens) or 48.4 KB `use_skills` dumps. | **Compact `use_skills` (`≤ 6,400B`), SQLite FTS5 & Bounded File I/O**: `extractHighDensityCore` caps multi-skill batches at `≤ 6.4 KB` with session deduplication (`[ALREADY_IN_CONTEXT]`); `read_file_range` slices files to exact line spans. | **83%–98% byte-weighted reduction** on core retrieval (see `docs/BENCHMARK.md`); eliminates context bloat and LLM amnesia. |
 | **Terminal Output Noise & Shell Explosion** | Build tools, test runners, and linters dump hundreds of noisy progress bars and logs directly into model context. | **RTK (Rust Token Killer) Global CLI Proxy**: Transparently intercepts terminal commands, compresses noisy outputs, and preserves critical error signals. | **60%–95% terminal output compression**; saves thousands of tokens per command execution. |
-| **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, center-aligned hero clutter, broken mobile layouts, and excessive emoji decor. | **Jonin + Taste-Skill v2 Anti-Slop Frontend Engine**: Strict typography standards (Geist, Cabinet Grotesk), bento CSS grids, 10 four-stop gradient palettes with Light/Dark appearance, bottom mobile dock, and zero emoji policy. | **100/100 `aislop` scan compliance**; production-grade, human-crafted aesthetic fidelity. |
-| **Hallucinated Passes & Broken Builds** | Agents claiming tasks are complete without running tests, silently introducing type regressions and breaking dependencies. | **Kage Reviewer 98% Minimum Confidence Gate & Playwright QA**: Two-step Zero-AI-Slop gate (`aislop_scan` + anti-slop rules), automated E2E test generation (`qa_codify` / `qa_e2e_run`), and strict rejection below 98% confidence. | Mechanical delivery gate; **≥ 98% confidence invariant** across architecture, tests, and security. |
+| **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, rigid cookie-cutter templates, broken mobile layouts, and excessive emoji decor. | **Dynamic Jonin + Taste-Skill v2 Frontend Engine**: Astra/Fable-inspired dynamic visual storytelling, first-class Dark & Light Mode, live browser inspection (`live_browser_monitor.js`), auto-generated project frontend maintenance skill, zero emojis, and `Build by konoha` signature. | **100/100 `aislop` scan compliance**; production-grade, bespoke human-crafted aesthetic fidelity. |
+| **Hallucinated Passes, Worker Drift & Merge Conflicts** | Sequential execution bottlenecks, worker agents drifting off-spec or overwriting each other's files, and fake-green test claims. | **Parallel Git Worktrees, Real-Time Idle `@advisor` (`≤ 1k tok/turn`) & Kage 98% Gate**: Independent steps run concurrently in isolated git worktrees; idle `@advisor` interrupts drift on the fly (`0 tokens` when clean); Kage enforces `100/100` aislop + `≥ 98%` confidence. | Genuine parallel multi-agent execution with mechanical drift prevention and zero file collisions. |
 | **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Prompt Queue**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
 | **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens and bot tokens in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & credentials. |
-| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu Black Ops**: Integrated MITRE ATT&CK techniques, penetration testing, exploit analysis, container hardening, and enterprise defense capabilities in dev/local environments. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
-| **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (retired file-based IPC), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
-| **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, `.omp`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 8 premier AI coding environments. |
+| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu/Akatsuki Ops**: Integrated MITRE ATT&CK techniques, penetration testing in isolated `akatsuki-lab`, exploit analysis, container hardening, and enterprise defense gates. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
+| **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (retired file-based IPC), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Post-Approval Compaction**: In-memory argument passing, native IDE/CLI TODO & walkthrough sync (`< 3 KB`), and automatic `< 1,500B` context compaction after Gate 1 approval. | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
+| **Fragmented IDE Configuration & Invasive Overwrites** | Destructive `--force --yes` installers that clobber existing user MCP configs or dump duplicate template skill mirrors into repositories. | **Explicit Append-Only `--client` Provisioning & Backup/Restore**: `konoha init --client=<cursor\|claude\|opencode\|omp\|codex\|pi\|antigravity\|commandcode\|all>` appends safely into global/project configs with timestamped backups. | Non-destructive setup across all 8 premier AI coding environments (IDE & CLI). |
 
 > [!TIP]
 > **Optimization Result**: Konoha and Semble retrieve bounded, task-relevant context instead of full skill trees. See [BENCHMARK.md](docs/BENCHMARK.md) for historical snapshots and reproducible `konoha savings` output; latency and cost reductions are environment-dependent and are not guaranteed.
@@ -297,16 +303,17 @@ Konoha subagents execute inline via direct structured MCP tool arguments (`task`
 </details>
 
 <details>
-<summary><b>🎨 Jonin + Taste-Skill Anti-Slop Frontend Engine (tasteskill.dev)</b></summary>
+<summary><b>🎨 Dynamic Jonin + Taste-Skill Anti-Slop Frontend Engine</b></summary>
 <br>
 
-Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leonxlnx/taste-skill`) design directives:
-- **Deterministic High-End Typography**: Enforces Geist, Cabinet Grotesk, Outfit, Satoshi, and Clash Display. Generic Inter defaults are forbidden.
-- **Cinematic Chapter Pacing**: Enforces generous vertical section rhythm (`py-24`, `py-32`, or `py-48`).
-- **Strict CSS Grid**: Implements CSS Grid (`grid-cols-12`, bento grids) with bounded `max-w-[1400px]` containers instead of flaky flexbox percentages.
-- **Mobile Viewport Stability**: Uses `min-h-[100dvh]` to eliminate layout jumps on mobile address bar resizing.
-- **Zero-Emoji Policy**: Pure SVG vector iconography (Lucide, Radix, Phosphor); zero emojis in production UI.
-- **Configurable Taste Dials**: `DESIGN_VARIANCE` (1-10), `MOTION_INTENSITY` (1-10), `VISUAL_DENSITY` (1-10).
+Jonin combines bespoke **Astra / Fable-inspired visual direction** with **Taste-Skill v2** (`Leonxlnx/taste-skill`) design directives:
+- **Dynamic Archetype-Driven Composition**: Eliminates rigid template lock-in. Every build adapts its layout, hero storytelling, section choreography, and interactive surfaces to the product archetype rather than forcing a fixed 4-slide carousel or bottom-left 10-theme FAB.
+- **First-Class Dark & Light Mode**: Semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--bg-elevated`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) supporting both Dark Mode and Light Mode with WCAG 2.2 AA contrast.
+- **Deterministic High-End Typography**: Enforces Geist, Cabinet Grotesk, Outfit, Satoshi, Plus Jakarta Sans, and Clash Display. Generic Inter defaults are forbidden.
+- **Real-Time Browser Inspection (`live_browser_monitor.js`)**: Automatically starts the framework dev server, polls readiness, and opens the live preview URL in the developer's browser or `agent-browser` during build execution.
+- **Auto-Generated Project Maintenance Skill (`project_skill_generator.js`)**: Generates `.agents/skills/<project-slug>-frontend-maintenance/SKILL.md` after every frontend build and indexes it into `konoha.db`.
+- **Mandatory Konoha Signature & Zero-Emoji Policy**: Pure vector iconography (zero emojis/emoticons in UI/code), `<meta name="generator" content="Build by konoha">` in the HTML `<head>`, and visible `Build by konoha` footer branding.
+- **Optional Figma & OpenDesign Integration**: Supports Mode A (exported design tokens/assets) or Mode B (live MCP servers) when configured, with zero hard dependency when absent.
 
 </details>
 
@@ -464,8 +471,20 @@ cd konoha
 # 2. Install dependencies via pnpm
 pnpm install
 
-# 3. Execute one-command cross-client initialization
-node bin/cli.js init --yes --force
+# 3. Append Konoha configuration for a specific client or all 8 clients (with automatic backup):
+node bin/cli.js init --client=cursor
+node bin/cli.js init --client=claude
+node bin/cli.js init --client=opencode
+node bin/cli.js init --client=omp
+node bin/cli.js init --client=codex
+node bin/cli.js init --client=pi
+node bin/cli.js init --client=antigravity
+node bin/cli.js init --client=commandcode
+# Or initialize all 8 supported clients at once:
+node bin/cli.js init --client=all
+
+# 4. Restore previous client configuration backup at any time:
+node bin/cli.js restore --client=all
 ```
 
 *(Optional: Run `pnpm link --global` or `npm link` so team members can run `konoha status`, `konoha test`, or `konoha migrate` directly from any terminal).*
@@ -963,15 +982,15 @@ Konoha provisions an official, synchronized team of **9 specialized ninja agents
 
 | Ninja Agent | Rank & Role | Primary Domains & Skills | Key Responsibilities & Invariants | Output Shaping SOP |
 |:---|:---|:---|:---|:---:|
-| **@sannin** | **Grand Master**<br>Router & Orchestrator | Task triage, domain classification, execution tracking, synthesis | Analyzes prompts, enforces Definition-of-Readiness, selects target subagents, compiles final handover reports. Zero inline edits. | Delivery Contract |
-| **@genin** | **Junior Scout**<br>Codebase Exploration | Codepath tracing, architecture exploration, dependency mapping | Fast read-only codebase reconnaissance; generates `findings.md`. Strictly forbidden from modifying files. | `i-have-adhd` |
-| **@chunin** | **Journeyman**<br>Intel & Web Research | Web search, RFC analysis, vendor documentation, citations | External intelligence gathering with SearXNG/Wikipedia fallback; batches multi-source queries with verified URL citations. | `i-have-adhd` |
-| **@jonin** | **Elite Builder**<br>Frontend & UI/UX | Next.js, SvelteKit, Nuxt 3, Angular, Tailwind v4, 3D Web | Taste-Skill v2 aesthetic engineering, responsive mobile dock, floating 10-theme picker, zero emoji UI policy, framework validation. | `i-have-adhd` |
-| **@anbu** | **Special Black Ops**<br>Backend & DevOps | APIs, databases, microservices, QA automation, containerization | High-concurrency backend design, Playwright E2E testing (`qa_codify`/`qa_e2e_run`), Docker/Helm deployment, bug fixing. | `i-have-adhd` |
-| **@tokubetsu-jonin** | **Special Scribe**<br>Technical Writing | Documentation, API specs, runbooks, native office docs | Authors comprehensive docs, generates native DOCX, PDF, XLSX, and PPTX with <3% AI detection target. | `i-have-adhd` |
-| **@kage** | **Village Leader**<br>Architect & Governor | Systems architecture, risk assessment, delivery review | Authors action plans (`plan.md`), evaluates 98% confidence score, enforces Two-Step Zero-AI-Slop Pre-Gate before synthesis. | Delivery Contract |
-| **@akatsuki** | **Security Specialist**<br>Red/Blue Team | Vulnerability scanning, SAST, CVE audit, isolated pentest | Executes Blue-Team security gates (Socket CLI, secret scan, Skill Guardian) and authorized Red-Team ops in `akatsuki-lab`. | Security Protocol |
-| **@yamanaka** | **3D Specialist**<br>Generative 3D & Spatial | Generative 3D synthesis, Three.js/Manifold geometry, Blender LTS | Watertight manifold validation, enterprise PBR shaders, OS-aware Blender installer, live agentic 6-step refinement, GPU auto-detect with CPU fallback. | `yamanaka-skill` |
+| **@sannin** | **Grand Master**<br>Router & Orchestrator | Task triage, domain classification, parallel fan-out, synthesis | Analyzes prompts, enforces Definition-of-Readiness, dispatches specialist subagents, compiles final reports. Strictly router-only (`SANNIN_ROUTER_ONLY_ERROR`). | Delivery Contract |
+| **@genin** | **Junior Scout**<br>Codebase Exploration | Codepath tracing, architecture exploration, dependency mapping | Fast read-only codebase reconnaissance; generates `findings.md`. Strictly forbidden from modifying files. | `i-have-adhd` + `antislop*` |
+| **@chunin** | **Journeyman**<br>Intel & Web Research | Web search, RFC analysis, vendor documentation, citations | External intelligence gathering with SearXNG/Wikipedia fallback and `rtk` compression; batches multi-source queries with verified URL citations. | `i-have-adhd` + `antislop*` |
+| **@jonin** | **Elite Builder**<br>Frontend & UI/UX | Next.js, SvelteKit, Nuxt 3, Angular, Tailwind v4, 3D Web | Dynamic Astra/Fable-inspired UI engineering, Dark & Light Mode, live browser monitor, project skill auto-generator, zero emojis, `Build by konoha` signature. | `i-have-adhd` + `antislop*` |
+| **@anbu** | **Special Black Ops**<br>Backend & DevOps | APIs, databases, microservices, QA automation, containerization | High-concurrency backend design, Playwright E2E testing (`qa_codify`/`qa_e2e_run`), Docker/Helm deployment, bug fixing in isolated git worktrees. | `i-have-adhd` + `antislop*` |
+| **@tokubetsu-jonin** | **Special Scribe**<br>Technical Writing | Documentation, API specs, runbooks, native office docs | Authors comprehensive docs, generates native DOCX, PDF, XLSX, PPTX, and animated WebP with <3% AI detection target. | `i-have-adhd` + `antislop*` |
+| **@kage** | **Village Leader**<br>Architect & Governor | Systems architecture, risk assessment, delivery review, `@advisor` | Authors action plans (`plan.md`), runs Real-Time Idle `@advisor` (`≤1k tok/turn`), evaluates 98% confidence score, enforces Two-Step Zero-AI-Slop Pre-Gate. | `i-have-adhd` + `antislop*` |
+| **@akatsuki** | **Security Specialist**<br>Red/Blue Team | Vulnerability scanning, SAST, CVE audit, isolated pentest | Executes Blue-Team security gates (Socket CLI, secret scan, Skill Guardian) and authorized Red-Team ops in `akatsuki-lab`. | `i-have-adhd` + `antislop*` |
+| **@yamanaka** | **3D Specialist**<br>Generative 3D & Spatial | Generative 3D synthesis, Three.js/Manifold geometry, Blender LTS | Watertight manifold validation, PBR shaders, OS-aware Blender installer, 6-step refinement (Web UI menu hidden in `v2.2.18` with zero idle overhead). | `i-have-adhd` + `antislop*` |
 
 ---
 
@@ -1119,6 +1138,18 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 | **[SearXNG Search Setup](docs/SETUP-SEARXNG.md)** | Zero-API-key privacy search engine deployment | Chunin research agent, Docker Compose, JSON API |
 | **[LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md)** | Multi-provider proxy router on port 19999 | Local model multiplexing, sidecar integration |
 | **[Security Compliance Report](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)** | Certified policy compliance and threat analysis | Google Policy v2.2.18 audit, AES-256 vault |
+
+---
+
+## ☕ Support & Sponsorship
+
+If Konoha accelerates your engineering workflows or saves your team significant API token costs, consider supporting ongoing open-source development:
+
+<p align="center">
+  <a href="https://saweria.co/andycungkrinx">
+    <img src="https://img.shields.io/badge/Sponsor%20%2F%20Donate-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Donate via Saweria">
+  </a>
+</p>
 
 ---
 

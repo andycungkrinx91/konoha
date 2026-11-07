@@ -13,6 +13,7 @@ const { detectActiveClient } = require('./client_detection');
 
 const USER_AGENTS_YAML = path.join(AGENTS_DIR, 'agents.yaml');
 const MAX_CONTENT_SIZE = 12000;
+const MAX_MULTI_SKILL_TOTAL_BYTES = 6400;
 
 const OFFENSIVE_SKILL_PREFIXES = ['akatsuki-skill', 'pentest', 'patch-diff-exploit'];
 
@@ -139,6 +140,108 @@ function extractSnippet(content, maxLen = 150) {
 function extractSectionTitle(sectionText) {
   const firstLine = sectionText.split('\n')[0].trim();
   return firstLine.replace(/^[#\s]+/, '').trim();
+}
+
+function isDisciplineSkillName(skillName) {
+  const lower = String(skillName || '').toLowerCase();
+  return lower === 'i-have-adhd' || lower === 'antislop' || lower.startsWith('antislop-');
+}
+
+function _extractActionableLines(sectionBody, isDiscipline) {
+  const lines = sectionBody.split(/\r?\n/);
+  const kept = [];
+  let inCodeBlock = false;
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    if (!trimmed) continue;
+    if (/^#{1,4}\s+/.test(trimmed)) {
+      kept.push(trimmed);
+      continue;
+    }
+    if (/^(?:[-*]|\d+\.)\s+/.test(trimmed) || /^>\s*\[!(?:IMPORTANT|WARNING|CAUTION|NOTE)\]/.test(trimmed)) {
+      kept.push(trimmed.length > 220 ? trimmed.substring(0, 217) + '...' : trimmed);
+      continue;
+    }
+    if (!isDiscipline && kept.length < 6 && !trimmed.startsWith('|')) {
+      kept.push(trimmed.length > 200 ? trimmed.substring(0, 197) + '...' : trimmed);
+    }
+  }
+  return kept.join('\n');
+}
+
+function _fitPartialSectionLines(compactSec, remainingSpace) {
+  if (remainingSpace <= 100) return '';
+  const lines = compactSec.split('\n');
+  let partial = '';
+  for (const ln of lines) {
+    const nextPart = partial ? `${partial}\n${ln}` : ln;
+    if (Buffer.byteLength(nextPart, 'utf8') > remainingSpace - 20) break;
+    partial = nextPart;
+  }
+  return partial;
+}
+
+function _extractDigestHeader(content, normName) {
+  const fmMatch = content.match(/^---[\s\S]*?---\s*/);
+  if (!fmMatch) return { headerLine: `# ${normName}`, body: content };
+  const descMatch = fmMatch[0].match(/description:\s*([^\n]+)/i);
+  const desc = descMatch ? descMatch[1].trim().replace(/^['"]|['"]$/g, '').substring(0, 140) : '';
+  return {
+    headerLine: desc ? `# ${normName} — ${desc}` : `# ${normName}`,
+    body: content.slice(fmMatch[0].length)
+  };
+}
+
+function compileSkillDigest(content, normName, maxBytes) {
+  if (!content || typeof content !== 'string') {
+    return { text: '', truncated: false, remainingSections: [] };
+  }
+  if (Buffer.byteLength(content, 'utf8') <= maxBytes) {
+    return { text: content, truncated: false, remainingSections: [] };
+  }
+
+  const isDiscipline = isDisciplineSkillName(normName);
+  const { headerLine, body } = _extractDigestHeader(content, normName);
+  const rawSections = body.split(/\n(?=#{1,3}\s)/).filter(Boolean);
+  const allTitles = rawSections.map(extractSectionTitle).filter(Boolean);
+
+  let accumulated = headerLine;
+  const includedTitles = [];
+  const budgetLimit = Math.max(200, maxBytes - 160);
+
+  for (const sec of rawSections) {
+    const title = extractSectionTitle(sec);
+    const compactSec = _extractActionableLines(sec, isDiscipline);
+    if (!compactSec) continue;
+    const candidate = `${accumulated}\n\n${compactSec}`;
+    if (Buffer.byteLength(candidate, 'utf8') <= budgetLimit) {
+      accumulated = candidate;
+      if (title) includedTitles.push(title);
+      continue;
+    }
+    const partial = _fitPartialSectionLines(compactSec, budgetLimit - Buffer.byteLength(accumulated, 'utf8'));
+    if (partial) {
+      accumulated = `${accumulated}\n\n${partial}`;
+      if (title) includedTitles.push(title);
+    }
+    break;
+  }
+
+  const remainingSections = allTitles.filter(t => !includedTitles.includes(t)).slice(0, 6);
+  const pointerNote = remainingSections.length > 0
+    ? `\n\n[Digest active. Load section: get_skill("${normName}", { section: "${remainingSections[0]}" })]`
+    : `\n\n[Digest active. Full: get_skill("${normName}")]`;
+
+  return {
+    text: accumulated + pointerNote,
+    truncated: true,
+    remainingSections
+  };
 }
 
 const SERVED_SKILLS_BY_FLOW = new Map();
@@ -336,9 +439,35 @@ function _getGetSkillBaselineBytes(conn, queryStr, returnedBytes) {
   }
 }
 
+function _getUseSkillsBaselineBytes(conn, queryStr, returnedBytes) {
+  try {
+    const names = String(queryStr || '')
+      .split(',')
+      .map(s => normalizeLegacySkillName(s.trim()))
+      .filter(Boolean);
+    if (names.length === 0) return returnedBytes;
+    let totalBytes = 0;
+    const stmt = conn.prepare(
+      'SELECT COALESCE(NULLIF(byte_size, 0), LENGTH(CAST(content AS BLOB))) AS b FROM skills WHERE name = ? OR skill_name = ? OR name LIKE ? LIMIT 1'
+    );
+    for (const nm of names) {
+      const row = stmt.get(nm, nm, `%/${nm}`);
+      if (row && Number(row.b) > 0) {
+        totalBytes += Number(row.b);
+      }
+    }
+    return totalBytes > 0 ? Math.max(returnedBytes, totalBytes) : returnedBytes;
+  } catch (_) {
+    return returnedBytes;
+  }
+}
+
 function _calculateBaselineBytes(conn, toolName, queryStr, returnedBytes, baselineOverride) {
   if (baselineOverride !== null && baselineOverride !== undefined && Number(baselineOverride) > 0) {
     return Math.max(returnedBytes, Number(baselineOverride));
+  }
+  if (toolName === 'use_skills') {
+    return _getUseSkillsBaselineBytes(conn, queryStr, returnedBytes);
   }
   if (toolName === 'find_skill' || toolName === 'find_skills') {
     return Math.max(returnedBytes, _getFindSkillBaselineBytes(conn, queryStr));
@@ -382,11 +511,14 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null, base
 module.exports = {
   USER_AGENTS_YAML,
   MAX_CONTENT_SIZE,
+  MAX_MULTI_SKILL_TOTAL_BYTES,
   normalizeLegacySkillName,
   contentHash,
   levenshtein,
   fuzzyResolveSkill,
   smartTruncate,
+  compileSkillDigest,
+  isDisciplineSkillName,
   extractSnippet,
   extractSectionTitle,
   getServedSkillsSet,

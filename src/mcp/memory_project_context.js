@@ -221,15 +221,55 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   };
 
   let actClient = '';
+  let advisorVerdict = null;
   try {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
+    const advisorMonitor = require('../workflow/kage-reviewer/advisor_monitor');
     const cd = require('./client_detection');
     actClient = (typeof cd.getActiveClient === 'function' ? cd.getActiveClient() : null) || cd.detectActiveClient() || process.env.KONOHA_CLIENT || '';
+    const sdlcConf = sdlcManager.getProjectSdlcConfig(pPath);
+    const activeDispatchObj = workflowStatus?.current_dispatch || {};
+    advisorVerdict = advisorMonitor.evaluateWorkerTurn({
+      agent: cleanAgent,
+      taskId: effTaskId,
+      sessionId: cd.getActiveSessionId(pPath),
+      delegatedTodo: activeDispatchObj.task || '',
+      summary: reportSummary,
+      status: finalStatus,
+      filesCreated: opts.filesCreated || [],
+      filesModified: opts.filesModified || [],
+      ownedFiles: opts.ownedFiles || opts.owned_files || activeDispatchObj.owned_files || [],
+      worktreePath: opts.worktree || opts.worktree_path || activeDispatchObj.worktree_path || null,
+      projectPath: pPath,
+      validation: opts.validation || []
+    }, sdlcConf);
+
+    if (advisorVerdict && advisorVerdict.interrupted) {
+      result.advisor_status = advisorVerdict.status;
+      result.advisor_interrupted = true;
+      result.advisor_tokens_used = advisorVerdict.tokens_used;
+      result.advisor_directive = advisorVerdict.directive;
+      result.advisor_violations = advisorVerdict.violations;
+      if (finalStatus === 'completed') {
+        finalStatus = 'unverified';
+        result.task_status = 'unverified';
+      }
+    } else if (advisorVerdict) {
+      result.advisor_status = advisorVerdict.status;
+      result.advisor_tokens_used = advisorVerdict.tokens_used;
+    }
+
     const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
     const evidenceData = {
       verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
       status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : finalStatus) : finalStatus,
       summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
+      advisor: advisorVerdict ? {
+        status: advisorVerdict.status,
+        interrupted: advisorVerdict.interrupted,
+        tokens_used: advisorVerdict.tokens_used,
+        violations: advisorVerdict.violations
+      } : undefined,
       is_phase_dispatch: isPhaseDispatch,
       recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
     };

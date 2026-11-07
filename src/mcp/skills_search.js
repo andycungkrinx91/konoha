@@ -75,7 +75,7 @@ function _migrateSingleCandidateDir(cdir, migratedSkills) {
       const cnt = migrateModule.migrateSingleSkill(skillName, cdir);
       if (cnt > 0) {
         migratedSkills.push(`${skillName} (${cdir})`);
-        process.stderr.write(`[mcp konoha] Auto-migrated project skill '${skillName}' from ${cdir} into skills.db\n`);
+        process.stderr.write(`[mcp konoha] Auto-migrated project skill '${skillName}' from ${cdir} into konoha.db\n`);
       }
     }
   } catch (e) {

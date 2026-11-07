@@ -26,6 +26,10 @@ async function planNode(state) {
         const payload = {
           status,
           plan: status.plan,
+          compaction: choiceResult.compaction || status.compaction,
+          todos: choiceResult.todos || status.tasks || [],
+          walkthrough_steps: choiceResult.walkthrough_steps,
+          client_todo_directive: choiceResult.client_todo_directive,
           phase: 'brief',
           hitlPending: false,
           hitlStage: null,

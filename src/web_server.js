@@ -12,8 +12,16 @@ const coreController = require('./web/controllers/core_controller');
 const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
 const servicesController = require('./web/controllers/services_controller');
-const model3DController = require('./web/controllers/model_3d_controller');
-const model3DRefineController = require('./web/controllers/model3d_refine_controller');
+let _model3DController = null;
+let _model3DRefineController = null;
+function getModel3DController() {
+  if (!_model3DController) _model3DController = require('./web/controllers/model_3d_controller');
+  return _model3DController;
+}
+function getModel3DRefineController() {
+  if (!_model3DRefineController) _model3DRefineController = require('./web/controllers/model3d_refine_controller');
+  return _model3DRefineController;
+}
 const {
   MAX_BODY_BYTES,
   sendJson,
@@ -138,8 +146,10 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   if (await skillsController.handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
-  if (await model3DController.handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
-  if (await model3DRefineController.routeRefineForkRequests(req, res, ctx, pathname, method)) return true;
+  if (pathname.startsWith('/api/v1/3d') || pathname.startsWith('/api/v1/model3d')) {
+    if (await getModel3DController().handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+    if (await getModel3DRefineController().routeRefineForkRequests(req, res, ctx, pathname, method)) return true;
+  }
 
   const error_id = 'err_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   return sendJson(res, 404, {

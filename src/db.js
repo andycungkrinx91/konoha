@@ -1,5 +1,5 @@
 /**
- * Canonical database access layer for Konoha (skills.db) using the built-in node:sqlite driver.
+ * Canonical database access layer for Konoha (konoha.db) using the built-in node:sqlite driver.
  * Owns DB_PATH, connection pragmas, vector extension loading, and the unified schema.
  */
 

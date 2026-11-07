@@ -834,7 +834,7 @@ def main():
 Examples:
   python complexity_analyzer.py /path/to/project
   python complexity_analyzer.py ./my-app --language python --top 20
-  python complexity_analyzer.py ./my-app --threshold 10 --output report.md
+  python complexity_analyzer.py ./my-app --threshold 10 --output complexity_summary.md
   python complexity_analyzer.py ./my-app --json --output complexity.json
         """,
     )

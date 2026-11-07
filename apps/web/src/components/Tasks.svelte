@@ -9,6 +9,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   let dorMode = $state('advisory');
   let reviewMode = $state('self');
   let hitlMode = $state('enabled');
+  let advisorMode = $state('realtime-idle');
+  let advisorMaxTokens = $state(1000);
   let configLoading = $state(false);
   let savingConfig = $state(false);
 
@@ -24,18 +26,12 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
 
   // Canonical SDLC task statuses (matches src/sdlc_manager.js + src/mcp/workflow.js).
   const statusColors = {
-    draft: 'theme-bg-subtle theme-text-secondary theme-border',
-    pending: 'badge-status badge-status-warning',
-    pending_plan_approval: 'badge-status badge-status-warning',
-    in_progress: 'badge-status badge-status-info',
-    remediating: 'badge-status badge-status-warning',
-    pending_human_signoff: 'badge-status badge-status-warning',
-    completed: 'badge-status badge-status-success',
-    verified: 'badge-status badge-status-info',
-    blocked: 'badge-status badge-status-danger',
-    timed_out: 'badge-status badge-status-danger',
-    stale: 'badge-status badge-status-danger',
-    failed: 'badge-status badge-status-danger'
+    draft: 'theme-bg-subtle theme-text-secondary theme-border', pending: 'badge-status badge-status-warning',
+    pending_plan_approval: 'badge-status badge-status-warning', in_progress: 'badge-status badge-status-info',
+    remediating: 'badge-status badge-status-warning', pending_human_signoff: 'badge-status badge-status-warning',
+    completed: 'badge-status badge-status-success', verified: 'badge-status badge-status-info',
+    blocked: 'badge-status badge-status-danger', timed_out: 'badge-status badge-status-danger',
+    stale: 'badge-status badge-status-danger', failed: 'badge-status badge-status-danger'
   };
 
   const DISPLAY_STATUS = {
@@ -53,15 +49,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   }
 
   const CLIENT_LABELS = {
-    antigravity: 'Antigravity',
-    cursor: 'Cursor',
-    claude: 'Claude Code',
-    claudecode: 'Claude Code',
-    omp: 'OMP',
-    codex: 'Codex',
-    opendevin: 'OpenDevin',
-    cline: 'Cline',
-    universal: 'Universal'
+    antigravity: 'Antigravity', cursor: 'Cursor', claude: 'Claude Code', claudecode: 'Claude Code',
+    omp: 'OMP', codex: 'Codex', opendevin: 'OpenDevin', cline: 'Cline', universal: 'Universal'
   };
   function clientLabel(c) {
     if (!c) return 'Universal';
@@ -107,6 +96,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       dorMode = data.dor_mode || 'advisory';
       reviewMode = data.review_mode || 'self';
       hitlMode = data.hitl_mode || 'enabled';
+      advisorMode = data.advisor_mode || 'realtime-idle';
+      advisorMaxTokens = data.advisor_max_tokens || 1000;
     } catch (err) {
       toast.error('Failed to load SDLC config: ' + err.message);
     } finally {
@@ -125,11 +116,15 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
         project_path: configPath.trim(),
         dor_mode: dorMode,
         review_mode: reviewMode,
-        hitl_mode: hitlMode
+        hitl_mode: hitlMode,
+        advisor_mode: advisorMode,
+        advisor_max_tokens: advisorMaxTokens
       });
       dorMode = data.dor_mode || dorMode;
       reviewMode = data.review_mode || reviewMode;
       hitlMode = data.hitl_mode || hitlMode;
+      advisorMode = data.advisor_mode || advisorMode;
+      advisorMaxTokens = data.advisor_max_tokens || advisorMaxTokens;
       toast.success('SDLC configuration saved');
     } catch (err) {
       toast.error('Failed to save SDLC config: ' + err.message);
@@ -292,7 +287,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   <!-- Project SDLC Config -->
   <section class="metric-card-3d rounded-[5px] p-6 space-y-4 border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
     <h2 class="text-lg font-bold theme-text mb-4">Project Configuration</h2>
-    <div class="grid md:grid-cols-4 gap-4">
+    <div class="grid md:grid-cols-5 gap-4">
       <label class="block">
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">Project Path</span>
         <input
@@ -330,6 +325,17 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
         >
           <option value="enabled">Enabled (Safe)</option>
           <option value="disabled">Disabled (Autonomous)</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Advisor Guard (≤1k tok/turn)</span>
+        <select
+          bind:value={advisorMode}
+          class="w-full px-3 py-2 rounded-[3px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
+        >
+          <option value="realtime-idle">Real-Time Idle Monitor (Default)</option>
+          <option value="turn-gate">Turn Gate Only</option>
+          <option value="off">Off</option>
         </select>
       </label>
     </div>

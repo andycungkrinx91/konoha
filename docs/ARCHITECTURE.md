@@ -204,14 +204,20 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 | **Portfolio / Personal** | Far-left logo sticky header + Projects Bento grid + Skills matrix + Contact form | Software engineers, cloud architects, designers, consultants |
 | **SaaS & Landing Page** | High-impact hero + Bento features + Monthly/Annual pricing switcher + Testimonials | SaaS startups, developer tools, waitlists, app launches |
 | **Company Profile** | Mission hero carousel + Team leadership grid + Services tabs + Office locations | Corporate businesses, digital agencies, consulting firms |
-| **E-Commerce** | 4-slide 3D hero carousel + 50-item catalog + Faceted filters + Slide-over cart drawer | Retail storefronts, brand merchandise, digital product stores |
+| **E-Commerce** | Dynamic Astra/Fable-inspired hero showcase + 50-item catalog + Faceted filters + Slide-over cart drawer + `Build by konoha` signature | Retail storefronts, brand merchandise, digital product stores |
 | **Documentation** | 3-column layout (Left Sidebar Nav, Center Markdown Content, Right TOC) | Open-source libraries, API specifications, technical handbooks |
 
 ---
 
 ## 🛡️ Quality & Verification Gates
 
-1. **Zero-AI-Slop Pre-Gate with `aislop` MCP**:
+1. **Real-Time Idle `@advisor` Worker Manager & Hallucination Guard (`src/workflow/kage-reviewer/advisor_monitor.js`)**:
+   - Stays idle (`0 tokens` / `status: 'IDLE_OK'`) when workers are compliant, and enforces a hard `<= 1,000 tokens` (`4,000 bytes`) per-turn inspection budget with `evict_stale_results: true` (OMP-aligned).
+   - Inspects every worker subagent report on-the-fly for: (a) TODO scope drift, (b) `owned_files` / `worktree_path` escape, (c) fabricated files or git conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`), (d) unverified completion claims, and (e) placeholder/slop artifacts.
+   - Immediately emits an `INTERRUPT_CORRECTION` directive when any violation is detected so the worker self-corrects on the fly.
+2. **Per-Agent Contract & Git Worktree (`git worktree`) Parallel Isolation (`src/mcp/worktree_isolation.js`)**:
+   - Every parallel worker slice is isolated in a dedicated git worktree (`~/.konoha/tmp/<client>/<session>/worktrees/<task_id>_<agent>_<slice>/`) with disjoint `owned_files`, pre-merge `syntaxGateForFiles`, and 3-way conflict-free merge-back.
+3. **Zero-AI-Slop Pre-Gate with `aislop` MCP**:
    - Hard pre-gate: `kage` executes `aislop_scan` scoped to all changed files before any confidence percentage is assessed.
    - Requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json`. Missing or non-zero findings mechanically block workflow delivery.
    - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate issues.

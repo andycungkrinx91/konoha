@@ -269,7 +269,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 Agent attribution when the `agent` MCP parameter is omitted is resolved by `detectActiveAgent()` in `src/mcp/client_detection.js`:
 
-- **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise). If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
+- **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise). If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
 - **Cursor**: Scans `~/.cursor/projects/*/agent-transcripts/` for `Task` `subagent_type`, subagent `[Agent] active` logs, or `[Konoha] orchestrator active`.
 - **Claude Code**: Scans `~/.claude/projects/*/*.jsonl` for assistant message blocks containing subagent `[Agent] active` activation strings or Task delegation.
 
@@ -312,7 +312,7 @@ The agent's instructions must be updated. Check the following:
 
 1. `~/.gemini/GEMINI.md` — should contain instructions for `konoha` references, NOT "Load and follow".
 2. IDE User Rules — should match the updated `GEMINI.md`.
-3. If necessary, force-reinstall instructions: `pnpm dlx github:andycungkrinx91/konoha init --force`
+3. If necessary, re-run client initialization: `konoha init --client=all`
 
 ---
 
@@ -332,16 +332,16 @@ chmod 644 ~/.konoha/konoha.db
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
   2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 48 canonical tools.
-- **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
+- **If it persists**: re-run `konoha init --client=pi` (or `konoha init --client=all`), fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
 
 ### ℹ️ Pi reports `[Skill conflicts] ... ✗ skipped` on startup (`informational — no action needed`)
 
-- **Cause**: Konoha seeds packaged skills into the global `~/.agents/skills/` and auto-migrates them into project `.agents/skills/` directories. Pi loads both and reports the duplicate names.
-- **Behavior**: Pi automatically prefers the **project-local** copy (`✓ auto (project)`) and skips the global one — the effective skill set is correct and complete.
-- **Action**: None. The warnings are informational; do not delete either copy (the global set serves the other 7 clients, the project set serves per-project customization).
-- **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --force --yes` to deploy it). The mandate instructs Pi to route through `sannin` with structured task arguments and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
+- **Cause**: Konoha seeds packaged skills into the global `~/.agents/skills/` and indexes them into `~/.konoha/konoha.db`.
+- **Behavior**: Pi automatically resolves the active skill set without duplicating context.
+- **Action**: None. The warnings are informational.
+- **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --client=pi` to deploy it). The mandate instructs Pi to route through `sannin` with structured task arguments and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
 
 ---
 
@@ -349,7 +349,7 @@ chmod 644 ~/.konoha/konoha.db
 
 - **Cause**: Contracts/rules are injected at session **start**; on `--resume`/`--continue` the existing conversation history dominated and nothing re-engaged the Konoha workflow mechanically.
 - **Fix**: Claude Code now runs the Konoha **workflow reminder** on `UserPromptSubmit` (every prompt, all sessions) and on `SessionStart` with matcher `resume|compact|clear`. Pi/Codex re-read the deployed `AGENTS.md` (contract + Workflow Mandate) on every startup; Cursor's `konoha.mdc` uses `alwaysApply: true`; Antigravity's per-prompt `prompt_hook` emits structured workflow reminders without writing any session files.
-- **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and confirm `~/.claude/settings.json` contains a `UserPromptSubmit` entry with `workflow_reminder.js`.
+- **If it persists**: re-run `konoha init --client=claude` (or `konoha init --client=all`), fully restart the client, and confirm `~/.claude/settings.json` contains a `UserPromptSubmit` entry with `workflow_reminder.js`.
 
 ---
 

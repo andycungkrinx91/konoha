@@ -2,6 +2,60 @@
 
 const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
+const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
+const { setSessionTurn, getSessionKey } = require('./client_detection');
+
+function compactPostApprovalContext(resolvedTaskDir, status = {}, options = {}) {
+  const preBytes = Buffer.byteLength(JSON.stringify({
+    plan: status.plan || '',
+    findings: status.findings || '',
+    exploration_evidence: status.exploration_evidence || '',
+    history: status.history || []
+  }), 'utf8');
+
+  const rawPlan = String(status.plan || '').trim();
+  const planLines = rawPlan.split('\n').filter((l) => l.trim());
+  const compactPlanSummary = planLines.slice(0, 18).join('\n').slice(0, 1200);
+
+  if (rawPlan.length > 1200) {
+    status.plan_full_length = rawPlan.length;
+    status.plan = `${compactPlanSummary}\n...[compacted after Gate 1 approval]`;
+  }
+  if (status.findings && String(status.findings).length > 360) {
+    status.findings = `${String(status.findings).slice(0, 360).trim()}... [compacted]`;
+  }
+  if (status.exploration_evidence && String(status.exploration_evidence).length > 360) {
+    status.exploration_evidence = `${String(status.exploration_evidence).slice(0, 360).trim()}... [compacted]`;
+  }
+
+  const projPath = options.projectPath || status.project_path || process.cwd();
+  const sessId = options.sessionId || status.session_id || 'default';
+  try {
+    setSessionTurn(getSessionKey(projPath, sessId), 2);
+  } catch (_) { /* best-effort session turn bump */ }
+
+  const postBytes = Buffer.byteLength(JSON.stringify({
+    plan: status.plan || '',
+    findings: status.findings || '',
+    exploration_evidence: status.exploration_evidence || '',
+    history: status.history || []
+  }), 'utf8');
+
+  const summary = {
+    compacted: true,
+    compacted_at: new Date().toISOString(),
+    bytes_before: preBytes,
+    bytes_after: postBytes,
+    bytes_saved: Math.max(0, preBytes - postBytes),
+    auto_compaction_turn: 2,
+    client_compact_directive: 'Context compacted after Gate 1 approval. Proceed directly with TodoWrite/task_boundary execution.'
+  };
+  status.compaction = summary;
+  if (resolvedTaskDir) {
+    saveWorkflowStatus(resolvedTaskDir, status);
+  }
+  return summary;
+}
 
 const GATE1_CHOICES = [
   'Compact and approve',
@@ -53,6 +107,29 @@ function buildPromptPayload({
   };
 }
 
+function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, status, resolvedTaskDir, taskId, message, promptPayload }) {
+  const syncBundle = syncTodoAndWalkthrough(status, { taskDir: resolvedTaskDir });
+  return JSON.stringify({
+    ...baseFields,
+    hitl_gate: gateName,
+    hitl_gate_meta: {
+      stage,
+      gate_name: gateName,
+      required: true,
+      choices,
+      resume_tool: 'sannin',
+      resume_example: { task_dir: resolvedTaskDir, choice: '1. Compact and approve' }
+    },
+    task_id: taskId,
+    message,
+    interactive_prompt: promptPayload,
+    todos: syncBundle.todos,
+    walkthrough_steps: syncBundle.walkthrough_steps,
+    client_todo_directive: syncBundle.client_todo_directive,
+    task_dir: resolvedTaskDir
+  });
+}
+
 function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
   const planText = planContent || status.plan || '';
   const choices = [...GATE1_CHOICES, CUSTOM_CHOICE_LABEL];
@@ -91,17 +168,10 @@ function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type any instruction, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': use Postgres instead of SQLite';
 
-  return JSON.stringify({
-    status: 'pending_plan_approval',
-    phase: 'plan_approval',
-    hitl_gate: 'Gate 1 (Plan Approval)',
-    task_id: rootTaskId,
-    message,
-    interactive_prompt: promptPayload,
-    plan: planText,
-    tasks: status.tasks || [],
-    task_dir: resolvedTaskDir
-  });
+  return _serializeHitlPromptEnvelope(
+    { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, tasks: status.tasks || [] },
+    { stage: 'gate1', gateName: 'Gate 1 (Plan Approval)', choices, status, resolvedTaskDir, taskId: rootTaskId, message, promptPayload }
+  );
 }
 
 function buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, reportPath) {
@@ -142,17 +212,10 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, report
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type the exact fix you want, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': add integration tests for the upload path';
 
-  return JSON.stringify({
-    status: 'pending_human_signoff',
-    phase: 'delivery_signoff',
-    hitl_gate: 'Gate 2 (Delivery Sign-Off)',
-    task_id: rootId,
-    confidence: confidenceVal,
-    message,
-    interactive_prompt: promptPayload,
-    report: finalReport,
-    task_dir: resolvedTaskDir
-  });
+  return _serializeHitlPromptEnvelope(
+    { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport },
+    { stage: 'gate2', gateName: 'Gate 2 (Delivery Sign-Off)', choices, status, resolvedTaskDir, taskId: rootId, message, promptPayload }
+  );
 }
 
 function parseGateChoice(rawInput, rawRefinement) {
@@ -244,17 +307,29 @@ function applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager) {
       choice: '1. Compact and approve',
       decided_at: new Date().toISOString()
     };
+    const compaction = compactPostApprovalContext(resolvedTaskDir, status);
+    const syncBundle = syncTodoAndWalkthrough(status, { taskDir: resolvedTaskDir });
     try {
       sdlcManager.updateTask(rootTaskId, {
         status: 'in_progress',
         evidence: {
           gate1_verdict: 'approved',
-          approved_at: new Date().toISOString()
+          approved_at: new Date().toISOString(),
+          compaction
         }
       });
     } catch (_) { /* best-effort update */ }
     saveWorkflowStatus(resolvedTaskDir, status);
-    return { ok: true, status, nextPhase: 'execute', approved: true };
+    return {
+      ok: true,
+      status,
+      nextPhase: 'execute',
+      approved: true,
+      compaction,
+      todos: syncBundle.todos,
+      walkthrough_steps: syncBundle.walkthrough_steps,
+      client_todo_directive: syncBundle.client_todo_directive
+    };
   }
 
   if (choiceObj.action === 'regenerate' || choiceObj.action === 'refine' || choiceObj.action === 'custom') {
@@ -363,5 +438,6 @@ module.exports = {
   buildGate2Prompt,
   parseGateChoice,
   applyGate1Choice,
-  applyGate2Choice
+  applyGate2Choice,
+  compactPostApprovalContext
 };

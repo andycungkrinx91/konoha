@@ -1,16 +1,16 @@
 # 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.18)
 
-Technical specification and operational guide for the LangGraph.js cyclic StateGraph orchestration engine, per-turn token budget governor, and circuit breaker error edges.
+Technical specification and operational guide for the LangGraph.js cyclic StateGraph orchestration engine, parallel git worktree execution, Real-Time Idle `@advisor` worker guard, native walkthrough/TODO synchronization, per-turn token budget governor, and HITL gates.
 
 ---
 
 ## 🏗️ StateGraph Architecture Overview
 
-In Konoha v2.2.18, all multi-step engineering tasks run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`. The legacy procedural engine (`runMcpWorkflow`) serves as a fail-closed fallback.
+In Konoha `v2.2.18`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
 
 ### Dual-Track Execution Model
-1. **Branch B (Fast-Track / Website Builds)**: Direct request intent (UI builds, `build_from_text`, `build_from_source`, slash shortcuts `/jonin`) bypasses multi-stage state transitions and dispatches directly to `@jonin` with Taste-Skill directives.
-2. **Branch A (Standard SDLC Pipeline)**: Complete software engineering workflows traverse the full cyclic StateGraph under Kage governance.
+1. **Branch B (Fast-Track / Single-Slice Tasks)**: Direct single-domain requests or slash shortcuts (`/jonin`, `/anbu`, `/genin`, etc.) dispatch with a compact delegation envelope (`<= 3KB` router payload) and client-native `spawn_directive`.
+2. **Branch A (Full SDLC & Parallel Multi-Agent Pipeline)**: Multi-step engineering and `/konoha` workflows traverse the cyclic StateGraph with parallel git worktree isolation, Real-Time Idle `@advisor` monitoring, native TODO/walkthrough synchronization, and Kage 98% governance.
 
 ---
 
@@ -25,14 +25,14 @@ In Konoha v2.2.18, all multi-step engineering tasks run on a compiled, cyclic La
                │   planNode   │
                └──────┬───────┘
                       │
-        [Gate 1: pending_plan_approval] ◄─── HITL Gate
+        [Gate 1: pending_plan_approval] ◄─── HITL Gate 1 + Post-Approval Compaction
                       │
                ┌──────▼───────┐
                │  briefNode   │
                └──────┬───────┘
                       │
                ┌──────▼───────┐
-               │   todoNode   │
+               │   todoNode   │ ───► Syncs Native Walkthrough & Client TODOs
                └──────┬───────┘
                       │
         ┌─────────────┴─────────────┐
@@ -40,17 +40,18 @@ In Konoha v2.2.18, all multi-step engineering tasks run on a compiled, cyclic La
  ┌──────▼───────┐            ┌──────▼───────┐
  │ dispatchNode │ ◄───────── │ remediateNode│ (slop_cycles <= 7)
  └──────┬───────┘            └──────▲───────┘
-        │                           │
+        │ (Parallel Worktrees +     │
+        │  Real-Time Idle @advisor) │
  ┌──────▼───────┐                   │ (remediate)
  │ executeNode  │                   │
  └──────┬───────┘                   │
-        │                           │
-        ▼ (all tasks complete & no report)
+        │ (3-Way Worktree Merge)    │
+        ▼                           │
    [status.phase = 'document', assigned = 'tokubetsu-jonin']
         │                           │
  ┌──────▼───────┐                   │
  │ reviewNode   │ ──────────────────┘
- └──────┬───────┘ (pass)
+ └──────┬───────┘ (100/100 aislop & >= 98% confidence)
         │
   [Gate 2: pending_human_signoff] (or auto_signoff: true)
         │
@@ -60,54 +61,42 @@ In Konoha v2.2.18, all multi-step engineering tasks run on a compiled, cyclic La
 ```
 
 ### Node Responsibilities
-- **`classifyNode`** (`src/mcp/langgraph/nodes/classify.js`): Evaluates prompt intent (`'fast_track'`, `'pentest'`, `'full_sdlc'`), derives deterministic 12-char `flowHash`, and measures turn token delta.
-- **`planNode`** (`src/mcp/langgraph/nodes/plan.js`): Generates implementation blueprint (`plan.md`) via Kage. Blocks execution for **HITL Gate 1** (`pending_plan_approval`).
-- **`briefNode`** (`src/mcp/langgraph/nodes/brief.js`): Synthesizes task objectives and architectural constraints.
-- **`todoNode`** (`src/mcp/langgraph/nodes/todo.js`): Decomposes work into structured task slices with assigned specialist roles.
-- **`dispatchNode`** (`src/mcp/langgraph/nodes/dispatch.js`): Assembles the lazy dispatch payload for the active subagent:
-  - `skills`: Routed skills array.
-  - `skill_directive`: FTS5 RAG retrieval directive.
-  - `tool_block`: Client-specific subagent MCP tool permissions (`buildSubagentMcpBlock`).
-  - `turn_budget`: Active turn token ceiling (8192 default).
-  - `todo`: Current task slice.
-- **`executeNode`** (`src/mcp/langgraph/nodes/execute.js`): Tracks task execution. When all tasks complete without a report, transitions `status.phase = 'document'` and assigns `@tokubetsu-jonin`.
-- **`reviewNode`** (`src/mcp/langgraph/nodes/review.js`): Actively executes the Kage Review Gate via `runAislopGate`. Verifies `ai_slop_clean: true`, `ai_slop_findings: 0`, and `confidence >= 98%`.
-- **`remediateNode`** (`src/mcp/langgraph/nodes/remediate.js`): Autonomous repair loop. Increments `slop_cycles` (circuit breaker ceiling $\le 7$). Re-delegates failing code slices to `@anbu` or `@jonin`.
-- **`node_error`** (`src/mcp/langgraph/nodes/error.js`): Catches circuit breaker trips and uncaught node exceptions, routing to `__end__` with structured diagnostics.
+- **`classifyNode`** (`src/mcp/langgraph/nodes/classify.js`): Strips `/konoha` and `@sannin` prefixes, evaluates prompt intent (`'fast_track'`, `'pentest'`, `'full_sdlc'`), detects parallel workstreams across all 8 specialist domains, and derives deterministic 12-char `flowHash`.
+- **`planNode`** (`src/mcp/langgraph/nodes/plan.js`): Generates implementation blueprint (`plan.md`) via Kage and synchronizes `walkthrough_steps` and `todos`. Blocks execution for **HITL Gate 1** (`pending_plan_approval`).
+- **`briefNode`** (`src/mcp/langgraph/nodes/brief.js`): Synthesizes task objectives and architectural constraints after post-approval context compaction.
+- **`todoNode`** (`src/mcp/langgraph/nodes/todo.js`): Decomposes work into structured task slices with assigned specialist roles, disjoint `owned_files`, and native client TODO directives (`src/mcp/todo_walkthrough_sync.js`).
+- **`dispatchNode`** (`src/mcp/langgraph/nodes/dispatch.js`): Assembles single or concurrent (`parallel_dispatches`) payloads with isolated git worktrees (`prepareParallelWorktrees` / `prepareTaskWorktree`), `spawn_directive`, and `parallel_spawn_directive`.
+- **`executeNode`** (`src/mcp/langgraph/nodes/execute.js`): Tracks worker completion, runs `mergeBackParallelGroup` across parallel worktree branches (enforcing `syntaxGateForFiles`), and transitions to `document` (`@tokubetsu-jonin`) or `review` (`@kage`).
+- **`reviewNode`** (`src/mcp/langgraph/nodes/review.js`): Executes the Kage Review Gate via `runAislopGate`. Verifies `ai_slop_clean: true`, `ai_slop_findings: 0` (100/100 score), and `confidence >= 98%`.
+- **`remediateNode`** (`src/mcp/langgraph/nodes/remediate.js`): Autonomous repair loop (`slop_cycles <= 7`), re-delegating failing slices to the responsible worker subagent.
 
 ---
 
-## ⚡ Per-Turn Token Budget Governor
+## 🛡️ Real-Time Idle `@advisor` Worker Manager (`<= 1,000 Tokens` / Turn)
 
-Konoha v2.2.18 replaces cumulative thread limits with a **strict per-turn token budget governor**:
-- **Turn Scope**: Budget evaluates tokens consumed *within the current execution turn only*. `tokensUsed` remains cumulative for thread reporting, while `turnTokensUsed` resets at the beginning of each invoke.
-- **Default Budget**: `8,192` tokens per turn.
-- **Allowed Ceilings**: `{8192, 16384, 32768, 65536}`.
-- **Resolution Precedence**: Explicit `token_budget` MCP argument > `options.turnBudget` > `process.env.KONOHA_TURN_BUDGET` > 8192 default.
-- **Clamping Invariant**: Values not matching allowed ceilings are clamped **UP** to the nearest ceiling (fail-safe, never silently shrinks budget).
-- **Halt & Resume**: When usage exceeds the turn ceiling, the graph routes to `node_budget_exceeded` and halts. Passing a higher ceiling (e.g. 16384 or 32768) in `sanninWorkflowNext` resumes execution cleanly from checkpoint.
-
----
-
-## 🛡️ Circuit Breaker Error Edge (`node_error`)
-
-- **Guarded Nodes**: Every node function added to `StateGraph` is wrapped via `guarded(name, fn)` in `src/mcp/langgraph/node_guard.js`.
-- **Failure Recording**: Uncaught errors invoke `globalCircuitRegistry.getOrCreate('workflow').recordFailure()`.
-- **Edge Routing**: Nodes return `{ error, circuitOpen, circuitState }` on failure, routing via conditional edge directly to `node_error` and `__end__`.
-- **Fast-Fail on OPEN**: When the circuit breaker trips to `OPEN`, `guarded` fast-fails immediately without running the faulty node, protecting LLM context and downstream services.
+Implemented in `src/workflow/kage-reviewer/advisor_monitor.js` and integrated into `konoha.report_from_agent` and SDLC settings:
+- **Zero-Token Idle State**: When workers are idle or compliant, `@advisor` returns `status: 'IDLE_OK'` with **`0` output tokens**.
+- **Hard 1,000-Token Per-Turn Cap**: Input digests and interrupt directives are clamped via `clampAdvisorBytes` to **`<= 4,000 bytes` (`<= 1,000 tokens`)** per turn with `evict_stale_results: true` (OMP-aligned).
+- **5-Point Real-Time Guard**:
+  1. `todo_drift`: Worker output deviates from the delegated task slice.
+  2. `owned_files_breach` / `worktree_escape`: Worker modifies files outside `owned_files` or outside `worktree_path`.
+  3. `fabricated_file` / `conflict_marker`: Claimed file does not exist on disk or contains unresolved git conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`).
+  4. `unverified_claim`: Worker claims completion without command/exit-code validation evidence.
+  5. `placeholder_slop`: Summary contains placeholder or incomplete stub markers.
+- **On-the-Fly Interruption**: When any violation occurs, `report_from_agent` returns `status: 'interrupted_by_advisor'` with a compact `INTERRUPT_CORRECTION` directive so the worker self-corrects immediately.
 
 ---
 
-## 🤝 Authoritative Two-Stage HITL Gates
+## 🤝 Authoritative Two-Stage HITL Gates & Post-Approval Compaction
 
 1. **Gate 1 (`pending_plan_approval`)**:
-   - Triggers immediately after `planNode` creates `plan.md`.
    - Prompt choices:
-     `1. Compact and approve`
-     `2. Reject and Regenerate PLAN`
+     - `1. Compact and approve`
+     - `2. Reject and Regenerate PLAN`
+     - `3. Input your own choice`
+   - **Automatic Post-Approval Compaction**: Selecting Option 1 automatically invokes `compactPostApprovalContext(taskDir, status)` (`src/mcp/workflow_gates.js`), pruning verbose pre-approval discovery dumps and compacting `plan.md` to actionable steps before Phase 2 starts.
 2. **Gate 2 (`pending_human_signoff`)**:
-   - Triggers after Kage review passes and Tokubetsu-Jonin finishes documentation.
    - Prompt choices:
-     `1. Compact and approve`
-     `2. Remediation`
-   - **Optional Auto-Signoff**: When `auto_signoff: true` is passed (via MCP `sannin` tool or workflow options), Gate 2 HITL prompting is skipped if Kage review passes cleanly, immediately completing the workflow.
+     - `1. Compact and approve`
+     - `2. Remediation`
+     - `3. Input your own choice`

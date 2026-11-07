@@ -1,10 +1,10 @@
 'use strict';
 
 const { getSoul } = require('../persona_memory_soul');
-const { buildSpawnDirective } = require('./lazy_subagent');
+const { buildSpawnDirective, buildParallelSpawnDirective } = require('./lazy_subagent');
 
 /** Skills a delegated subagent receives; the rest stay discoverable on demand. */
-const MAX_ENVELOPE_SKILLS = 4;
+const MAX_ENVELOPE_SKILLS = 8;
 /** Soul behaviour kept verbatim in the envelope. */
 const SOUL_SNIPPET_BYTES = 700;
 /** Project-memory recalls attached to a delegated turn. */
@@ -260,5 +260,6 @@ module.exports = {
   decideRoute,
   formatRouteLine,
   buildDelegationEnvelope,
-  buildSpawnDirective
+  buildSpawnDirective,
+  buildParallelSpawnDirective
 };

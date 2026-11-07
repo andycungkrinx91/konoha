@@ -40,9 +40,14 @@ const RULES = [
     title: 'Generator meta tag present',
     applies: () => true,
     test: (ctx) => {
+      const isKonohaGen = (line) =>
+        /<meta\s+[^>]*name=["']generator["'][^>]*content=["']Build by konoha["']/i.test(line) ||
+        /<meta\s+[^>]*content=["']Build by konoha["'][^>]*name=["']generator["']/i.test(line);
       const isGen = (line) =>
-        /<meta\s+[^>]*name=["']generator["'][^>]*content=["'][^"']+["']/i.test(line) ||
-        /<meta\s+[^>]*content=["'][^"']+["'][^>]*name=["']generator["']/i.test(line);
+        !isKonohaGen(line) && (
+          /<meta\s+[^>]*name=["']generator["'][^>]*content=["'][^"']+["']/i.test(line) ||
+          /<meta\s+[^>]*content=["'][^"']+["'][^>]*name=["']generator["']/i.test(line)
+        );
       return [...ctx.html, ...ctx.sources].some((h) => isGen(h.line))
         ? 'Generator meta tag exposes the site builder toolchain' : null;
     }
@@ -67,8 +72,9 @@ const RULES = [
     title: 'AI-tool attribution comment or badge',
     applies: () => true,
     test: (ctx) => {
+      const isKonohaBrand = (line) => /\bBuild by konoha\b/i.test(line);
       const re = /(?:built|created|generated|made)\s+with[^a-z]{0,3}(?:v0|lovable|bolt|cursor|chatgpt|claude|ai)|v0\.dev|lovable\.dev|bolt\.new|generated\s+by\s+ai|created\s+by\s+ai|<!--\s*built\s+with|<!--\s*generated\s+by/i;
-      const hit = [...ctx.html, ...ctx.sources].find((l) => re.test(l.line));
+      const hit = [...ctx.html, ...ctx.sources].find((l) => !isKonohaBrand(l.line) && re.test(l.line));
       return hit ? `attribution signal in ${hit.file}: ${hit.line.trim().slice(0, 80)}` : null;
     }
   },

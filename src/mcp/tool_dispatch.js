@@ -160,10 +160,10 @@ function _resolveFlowHash(args, taskDir) {
 
 function _dispatchAgentDelegation(toolName, args) {
   if (toolName === 'akatsuki') {
-    const akatsukiRedIntent = /\b(red[- ]team|pentest|penetration test|exploit|adversary|attack simulation|fuzz)\b/i.test([
-      args.task || '', args.prompt || '', args.instructions || '', args.context || ''
-    ].join(' '));
-    if (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow || akatsukiRedIntent) {
+    const akatsukiExplicitLab = Boolean(
+      args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow
+    );
+    if (akatsukiExplicitLab) {
       const { dispatchAkatsuki } = require('../workflow/akatsuki/workflows');
       return dispatchAkatsuki(args);
     }
@@ -180,12 +180,22 @@ function _dispatchAgentDelegation(toolName, args) {
   const taskDir = args.task_dir;
   const sessId = args.session_id || args.sessionId;
   const flowHash = _resolveFlowHash(args, taskDir);
-  const worktree = args.worktree || null;
+  const worktree = args.worktree || args.worktree_path || null;
 
-  return runMcpAgent(
-    toolName, task, args.context, args.constraints, args.skills,
-    args.taste_dials, projectPath, taskDir, sessId, flowHash, null, worktree
-  );
+  return runMcpAgent(toolName, {
+    task,
+    context: args.context,
+    constraints: args.constraints,
+    skills: args.skills,
+    tasteDials: args.taste_dials || args.tasteDials,
+    projectPath,
+    taskDir,
+    sessionId: sessId,
+    flowHash,
+    taskId: args.task_id || args.taskId || null,
+    client: args.client || null,
+    worktree
+  });
 }
 
 function _dispatchWorkflowCore(toolName, args, agent) {
@@ -246,9 +256,6 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
     if (parsedSannin && (parsedSannin.status === 'blocked' || parsedSannin.status === 'completed' || parsedSannin.status === 'error')) {
       return sanninRes;
     }
-    if (parsedSannin && parsedSannin.parallel_eligible) {
-      return sanninRes;
-    }
 
     const resolvedTaskDir = (parsedSannin && parsedSannin.task_dir) || getResolvedTaskDir(args.task_dir, projPath, sessId);
     const threadId = args.thread_id || args.threadId || (parsedSannin && parsedSannin.task_id) || (resolvedTaskDir ? path.basename(resolvedTaskDir) : 'default-thread');
@@ -264,9 +271,14 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
         autoSignoff,
       });
       if (parsedSannin && typeof graphInitRes === 'object' && graphInitRes !== null) {
+        const graphStatusStr = typeof graphInitRes.status === 'string'
+          ? graphInitRes.status
+          : (graphInitRes.status && typeof graphInitRes.status.status === 'string' ? graphInitRes.status.status : parsedSannin.status);
         return {
           ...parsedSannin,
           ...graphInitRes,
+          status: graphStatusStr || parsedSannin.status,
+          workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
           selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
         };
       }

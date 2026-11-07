@@ -46,64 +46,55 @@ function getArchetypeDirectives(archetype) {
   const map = {
     commerce: [
       'Commerce features: implement a 50-item production catalog with reactive search, category filters, price range, sorting, pagination, product detail, cart, and checkout routes.',
-      'Commerce hero: add the full-width interactive 4-slide 3D carousel with 1200px perspective, max 12deg tilt, 5000ms autoplay, split-drapes transition, thumbnails, and keyboard controls.',
-      'Commerce shell: add the ten-theme light-mode switcher popup, sticky header search, mobile dock, lazy images, security headers, custom error pages, and Build by Konoha shadow ninja with coffee by Andy Setiyawan footer watermark.'
+      'Commerce hero: craft an editorial storefront hero with high-impact product storytelling, interactive quick-view/filter controls, and bespoke motion (Astra/Fable-inspired composition without rigid template cloning).',
+      'Commerce shell: support adaptive dark & light modes, sticky header search, responsive navigation, lazy images, security headers, custom error pages, `<meta name="generator" content="Build by konoha">`, and `Build by konoha` footer branding.'
     ],
     dashboard: [
-      'Dashboard Shell Architecture: implement a fixed Left Sidebar (hidden lg:flex w-64 flex-col border-r border-[var(--theme-border)] bg-white/95 min-h-screen sticky top-0) with brand logo at top-left, navigation links with badges, and user profile badge.',
-      'Dashboard Top Header: sticky top bar (h-16 border-b border-[var(--theme-border)] bg-white/80 backdrop-blur-md px-6 flex items-center justify-between) with breadcrumb, global search bar, live status pill, and notification trigger.',
-      'Dashboard KPI & Analytics Widgets: implement 4+ Metric KPI stat cards with trend percentage badges (+12.5%), SSR-safe interactive SVG Area/Line charts with time-range filters (24h, 7d, 30d), and filterable data tables with status pills (Healthy, Warning, Critical).',
-      'Dashboard Mobile View: fixed bottom mobile dock (MobileDock) with quick one-tap links (Overview, Analytics, Servers/Users, Settings, Themes) and NO top hamburger menu toggle.'
+      'Dashboard Shell Architecture: compose a high-density telemetry/operations shell with collapsible navigation, command bar (Cmd+K), live status indicators, and adaptive dark & light mode tokens.',
+      'Dashboard KPI & Analytics Widgets: implement interactive KPI stat cards with trend badges, SSR-safe interactive SVG Area/Line charts with time-range filters (24h, 7d, 30d), and filterable data tables.',
+      'Dashboard Responsiveness: ensure seamless responsive reflow from mobile (375px) to desktop (1440px) with accessible keyboard navigation and zero horizontal overflow.'
     ],
     portfolio: [
-      'Portfolio Hero Section: developer/designer introduction with editorial typography, interactive status badge, tech stack pills, resume download CTA, and social links.',
-      'Projects Bento Grid: showcase 6+ rich projects with category filter tabs (All, Fullstack, AI, Mobile), tags, interactive modal preview dialogs, and live demo / GitHub links.',
-      'Interactive Skills & Experience: category-filtered skills matrix (Frontend, Backend, DevOps, AI) with proficiency meters, and interactive career timeline.',
-      'Contact & Inquiries: interactive contact form with client-side validation, instant feedback toast, and direct email/calendar booking triggers.',
-      'Portfolio Mobile View: fixed bottom mobile dock (Home, Projects, Experience, Skills, Contact, Themes) with zero mobile header menu toggle.'
+      'Portfolio Hero Section: distinctive typographic/kinetic or interactive canvas hero tailored to the creator discipline, with direct work previews and zero generic boilerplate.',
+      'Projects Showcase: interactive case-study grid or editorial index with category filters, live preview modals, and architecture breakdowns.',
+      'Contact & Inquiries: interactive inquiry flow with client-side validation and instant feedback.'
     ],
     landing: [
-      'SaaS/Landing Hero: high-impact value proposition hero with interactive product preview mockup or 4-slide hero banner carousel with 5000ms autoplay.',
-      'Feature Bento Grid: interactive feature showcase with glassmorphism cards, hover tilt effects, and clear benefit descriptions.',
-      'Interactive Pricing Tier Switcher: Monthly vs Annual billing toggle with 20% discount badge, feature comparison checklist, and highlighted Recommended tier.',
-      'Social Proof & FAQ: client testimonials carousel, trusted company logos, and interactive FAQ accordion with smooth spring expansion.',
-      'SaaS Mobile View: fixed bottom mobile dock (Home, Features, Pricing, Testimonials, Themes) with zero mobile header menu toggle.'
+      'SaaS/Landing Hero: Astra/Fable-inspired visual storytelling hero — choose the best composition for the product (interactive live product workspace, split-screen kinetic showcase, or choreographed visual narrative) rather than a forced generic template.',
+      'Feature Architecture: bespoke asymmetric bento grid or interactive workflow walkthrough with tactile micro-interactions and GPU-accelerated motion.',
+      'Interactive Pricing & Proof: billing cadence toggle, transparent tier comparison, verifiable social proof, and accessible FAQ.'
     ],
     company: [
-      'Company Profile Hero: 4-slide mission and achievements banner carousel with high-definition slides and CTA buttons.',
-      'Corporate Showcase: About Us narrative, leadership team grid, services/solutions interactive tab switcher, and client case studies.',
-      'Contact & Locations: interactive inquiry form, office location cards, and company credentials.',
-      'Corporate Mobile View: fixed bottom mobile dock (Home, About, Services, Case Studies, Contact, Themes) with zero mobile header menu toggle.'
+      'Company Profile Hero: authoritative editorial hero communicating mission, scale, and domain proof.',
+      'Corporate Showcase: interactive capabilities matrix, leadership/team architecture, and measurable client case studies.',
+      'Contact & Locations: interactive inquiry workflow and global presence overview.'
     ],
     documentation: [
-      'Documentation Layout: two-column or three-column documentation layout with sticky left sidebar navigation, central markdown/content reader, and right-hand On This Page table of contents.',
-      'Doc Features: fast search modal (Cmd+K), interactive code blocks with copy-to-clipboard buttons, syntax highlighting, and callout alert boxes.',
-      'Docs Mobile View: fixed bottom mobile dock (Docs, Guides, API, Search, Themes).'
+      'Documentation Layout: multi-column technical reader with sticky navigation tree, semantic content hierarchy, and live table of contents.',
+      'Doc Features: instant search modal (Cmd+K), copyable code blocks, and interactive API/component playground.'
     ]
   };
-  return map[archetype] || ['Application features: infer only the routes and interactions required by the description, adhering strictly to the 4 layout invariants, 10 light-mode themes, and zero errors contract.'];
+  return map[archetype] || ['Application features: infer the bespoke routes, domain workflows, and interactive states required by the description with adaptive dark & light mode, zero emojis, and zero errors.'];
 }
 
 function assembleTextDirectives(options) {
   const { displayFramework, name, description, frameworkSpec, validatedDials, archetype } = options;
   const directives = [
-    `Build a premium, intentional ${displayFramework} website named '${name}' from this description: '${description}'.`,
+    `Build a dynamic, distinctive, professionally composed ${displayFramework} website named '${name}' from this description: '${description}'.`,
     `Standard Project Scaffolding Command: When scaffolding a fresh project, use the official framework CLI command: '${frameworkSpec.scaffold_command || ''}'.`,
     'Load Taste-Skill v2 once as the design source, declare the design read and explain each dial before implementation.',
     `Use framework-native routing: ${frameworkSpec.routing}`,
     'Install and validate dependencies with pnpm using rtk (e.g. rtk pnpm add <packages> --silent, rtk pnpm install --silent), then run every command returned in validation_commands.',
-    'Framework Version Mandates: Next.js builds MUST strictly use Next.js with React 19 and a fully custom-themed Tailwind CSS setup (pnpm create next-app@latest). Svelte builds use SvelteKit 2 + Svelte 5 with scoped <style> styling (pnpm dlx sv create <project-name>). Nuxt builds use Nuxt (pnpm dlx nuxi@latest init <project-name>). Angular builds use Angular 19+ with hand-written SCSS (pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm).',
+    'Framework Version Mandates: Next.js builds MUST strictly use Next.js with React 19 and a custom-themed Tailwind CSS setup (pnpm create next-app@latest). Svelte builds use SvelteKit 2 + Svelte 5 with scoped <style> styling (pnpm dlx sv create <project-name>). Nuxt builds use Nuxt (pnpm dlx nuxi@latest init <project-name>). Angular builds use Angular 19+ with hand-written SCSS (pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm).',
     `Apply Taste-Skill dials: DESIGN_VARIANCE=${validatedDials.design_variance}/10, MOTION_INTENSITY=${validatedDials.motion_intensity}/10, VISUAL_DENSITY=${validatedDials.visual_density}/10, with one-line rationale for each.`,
+    'Dynamic Architecture & Anti-Template Mandate: Do NOT force a rigid predefined template, fixed section order, mandatory 4-slide carousel, or bottom-left 10-theme FAB unless requested. Compose a bespoke layout, hero narrative (Astra/Fable-level craft), and navigation pattern tailored to the domain.',
+    'Dark & Light Mode + Zero Emoji Policy: Support cohesive Dark Mode and Light Mode (`prefers-color-scheme` + user toggle with `localStorage` persistence and WCAG AA contrast). Strictly ZERO emojis or emoticons anywhere in UI copy, headings, buttons, badges, or metadata (use crisp vector icons).',
+    'Required Konoha Branding & Metadata: Render the exact visible footer text `Build by konoha` and include `<meta name="generator" content="Build by konoha">` in the HTML `<head>`.',
+    'Real-Time Live Browser Monitoring & Meaningful Tests: Launch the dev server and open the live browser monitor (`live_browser_monitor`) so the user can watch progress in real time, and include meaningful automated smoke/interaction test scripts (`pnpm test`). After verification, generate/update the project maintenance skill into Konoha Project Knowledge RAG.',
+    'Optional Figma & OpenDesign Integration: If Figma or OpenDesign exports (`*.fig`, `design-tokens.json`, `opendesign.json`) or live Figma/OpenDesign MCP tools are available, honor their tokens and layout; otherwise proceed autonomously.',
     'Apply semantic design tokens, accessible keyboard and focus states, reduced-motion fallbacks, transform/opacity-only motion, and teardown for timers, observers, listeners, and animation frames.',
     'Run Taste-Skill audits before completion: zero em-dash or en-dash characters, Pre-Flight Check, section-layout repetition, hero discipline when a hero exists, and preservation/brand fidelity when an existing brand exists.',
-    'Use distinctive editorial typography, cinematic section spacing, intentional CSS Grid or bento composition, mobile-safe min-h-[100dvh], and vector icons with no emojis in UI controls.',
-    'Header Architecture Mandate: The brand logo MUST always be placed on the far LEFT of the navigation header with navigation links adjacent/centered and action buttons on the right. Never position the logo on the right or center.',
-    'Mobile View Invariant (NO Top Menu Toggle in Header): In mobile view (lg:hidden), NEVER show a top menu toggle or hamburger button in the header. Mobile navigation is powered exclusively by the fixed bottom MobileDock.',
-    'Floating Bottom-Left Theme Switcher Popup: Every text-based website build MUST include an interactive 10-Theme Light-Mode Switcher floating button in the bottom-left corner (fixed bottom-6 left-6 z-50, like a customer chat widget) in both desktop and mobile viewports that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).',
-    'Archetype-Adaptive Mobile Dock: Every text-based website build MUST include a fixed bottom mobile navigation dock (MobileDock) on mobile viewports (lg:hidden) with quick one-tap links dynamically adapted to the website archetype (e.g. E-commerce: Home, Shop, Themes, Wishlist, Cart; Portfolio: Home, Projects, Case Studies, About, Contact; Dashboard: Overview, Analytics, Users, Settings; SaaS: Home, Features, Pricing, Contact).',
-    'Hero Banner Carousel Mandate: The homepage hero section MUST implement an interactive hero banner carousel with a minimum of 4 high-definition slides, autoplay (5000ms) with hover pause, previous/next chevron buttons, indicator thumbnails/dots, slide badges, and call-to-action buttons.',
-    'Taste-Skill Prettification: Combine Taste-Skill principles (editorial typography, negative space, subtle 3D hover tilt, glassmorphic depth, smooth GPU transitions, zero emoji policy in UI controls) to enrich the visual polish without altering the default Konoha design.',
-    "SSR & Hydration Safety Mandate: All interactive client components accessing localStorage, window, or document (ThemeSwitcher, HeroCarousel, MobileDock) MUST use 'use client' and an explicit useMounted() state guard before rendering localStorage-dependent DOM elements to guarantee 0 hydration mismatch errors.",
+    "SSR & Hydration Safety Mandate: All interactive client components accessing localStorage, window, or document MUST use 'use client' (in Next.js) and an explicit mounted guard before rendering client-only state to guarantee 0 hydration mismatch errors.",
     'Essential Dependency Packages: install the framework icon and utility packages during scaffolding using rtk (e.g. rtk pnpm add @phosphor-icons/react clsx --silent) to suppress verbose terminal output and prevent missing module errors.',
     ...humanBuiltFingerprintDirectives('build_from_text'),
     ...frameworkStylingDirectives(displayFramework),
@@ -182,7 +173,19 @@ function buildFromText(name, description, framework, options = {}) {
     taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || 'https://www.tasteskill.dev/guide',
     taste_skill_read: 'Load Taste-Skill v2 once, declare the design read, and explain each dial before implementation.',
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
-    design_tokens: { perspective: '1200px', tilt_max: '12deg', transition: '300ms', entrance: '500ms', hero_content_entrance: '600ms', hero_autoplay: '6000ms', theme_storage_key: 'konoha-theme' },
+    design_tokens: {
+      perspective: '1200px',
+      tilt_max: '12deg',
+      transition: '300ms',
+      entrance: '500ms',
+      hero_content_entrance: '600ms',
+      hero_autoplay: '6000ms',
+      theme_storage_key: 'konoha-theme',
+      generator_meta: '<meta name="generator" content="Build by konoha">',
+      footer_signature: 'Build by konoha',
+      color_modes: { dark_mode: true, light_mode: true },
+      zero_emoji_policy: true
+    },
     directives,
     required_skills: agentSkills,
     skill_load_sequence: agentSkills,
