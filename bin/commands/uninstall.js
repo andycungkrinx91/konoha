@@ -55,7 +55,11 @@ function _removeSingleServerFile(filePath) {
 function cleanServerFiles() {
   if (!fileExists(SKILLS_DB_DIR)) return;
   const files = fs.readdirSync(SKILLS_DB_DIR);
-  const preservedDbs = new Set(['konoha.db', 'konoha.db-journal', 'konoha.db-wal', 'konoha.db-shm', 'skills.db', 'skills.db-journal', 'skills.db-wal', 'skills.db-shm']);
+  const preservedDbs = new Set([
+    'konoha.db', 'konoha.db-journal', 'konoha.db-wal', 'konoha.db-shm',
+    'skills.db', 'skills.db-journal', 'skills.db-wal', 'skills.db-shm',
+    'backups', 'outputs', 'data', 'logs'
+  ]);
   files.forEach(file => {
     if (preservedDbs.has(file)) return;
     const filePath = path.join(SKILLS_DB_DIR, file);
@@ -63,7 +67,7 @@ function cleanServerFiles() {
       _removeSingleServerFile(filePath);
     } catch (_) { /* non-fatal */ }
   });
-  success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
+  success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db and backups)`);
 }
 
 function cleanCommandCodeHooks() {
@@ -177,21 +181,17 @@ function cleanMcpConfig() {
 }
 
 function restoreSingleMarkdown(mdPath, defaultHeader) {
-  const backupPath = mdPath + '.backup';
-  if (fileExists(backupPath)) {
-    fs.copyFileSync(backupPath, mdPath);
-    fs.unlinkSync(backupPath);
-    success(`Restored ${path.basename(mdPath)} from backup`);
-    return;
-  }
   if (!fileExists(mdPath)) return;
   try {
+    const { backupConfigFile } = require('../../src/config_backup_manager');
+    backupConfigFile(mdPath, { client: 'antigravity', scope: 'global' });
     const cur = fs.readFileSync(mdPath, 'utf8');
     const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
     if (stripped && !stripped.startsWith(defaultHeader)) {
       fs.writeFileSync(mdPath, stripped + '\n', 'utf8');
-    } else {
-      fs.unlinkSync(mdPath);
+      success(`Removed Konoha section from ${path.basename(mdPath)} (preserved user instructions)`);
+    } else if (!stripped) {
+      fs.writeFileSync(mdPath, '', 'utf8');
     }
   } catch (_) { /* non-fatal */ }
 }

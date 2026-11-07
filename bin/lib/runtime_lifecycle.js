@@ -381,7 +381,7 @@ function ensureAutoSetup(force = false) {
   } catch { /* best-effort */ }
 }
 
-function buildActiveSkillsSet(agents) {
+function _buildActiveSkillsSet(agents) {
   const activeSkills = new Set();
   for (const agent of agents) {
     if (Array.isArray(agent.skills)) {
@@ -421,7 +421,7 @@ function backupUnusedSkill(entry, skillsDir, backupSkillsDir, yyyymmdd) {
   }
 }
 
-function pruneSkillsDir(skillsDir, activeSkills, backupSkillsDir, yyyymmdd) {
+function _pruneSkillsDir(skillsDir, activeSkills, backupSkillsDir, yyyymmdd) {
   if (!fileExists(skillsDir)) return;
   const absSkillsDir = path.resolve(skillsDir);
   const projectAgentsSkills = path.resolve(currentCwd, '.agents', 'skills');
@@ -449,15 +449,9 @@ function updateGeminiMd(silent = false) {
   agentManager.regenerateAndDeploy(silent);
 }
 
-function moveUnusedSkills(skillsDirs, agents) {
-  const activeSkills = buildActiveSkillsSet(agents);
-  const today = new Date();
-  const yyyymmdd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-  const backupSkillsDir = path.join(HOME, '.agents.backup', 'skills');
-
-  for (const dirObj of skillsDirs) {
-    pruneSkillsDir(dirObj.path, activeSkills, backupSkillsDir, yyyymmdd);
-  }
+function moveUnusedSkills(_skillsDirs, _agents) {
+  // Ownership boundary invariant: Konoha NEVER moves or deletes external user skills
+  // from global or project-level skill directories. External skills are indexed in-place.
 }
 
 module.exports = {

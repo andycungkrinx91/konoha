@@ -91,16 +91,34 @@ function readOpenCodeConfig(options = {}) {
   }
 }
 
+function _copyOpenCodeBakSafe(configPath, bakPath) {
+  if (fileExists(bakPath)) return;
+  try {
+    fs.copyFileSync(configPath, bakPath);
+  } catch (_) { /* intentional best-effort backup */ }
+}
+
 function writeOpenCodeConfig(config, options = {}) {
   const configPath = getOpenCodeConfigPath(options);
   ensureDir(path.dirname(configPath));
-  const bakPath = `${configPath}.bak`;
-  if (fileExists(configPath) && !fileExists(bakPath)) {
+  if (fileExists(configPath)) {
     try {
-      fs.copyFileSync(configPath, bakPath);
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.backupConfigFile(configPath, { client: 'opencode', scope: 'global', konohaHome: options.konohaHome });
     } catch (_) { /* intentional best-effort backup */ }
+    _copyOpenCodeBakSafe(configPath, `${configPath}.bak`);
   }
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  try {
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.recordOwnership(configPath, {
+      client: 'opencode',
+      scope: 'global',
+      format: 'json',
+      ownedKeys: ['mcp.konoha', 'mcp.semble', 'mcp.aislop'],
+      ownedArrayItems: { instructions: ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'] }
+    }, options.konohaHome);
+  } catch (_) { /* best-effort */ }
 }
 
 
@@ -169,17 +187,19 @@ function _configureAislopMcpServer(config) {
 }
 
 function _configureOpenCodePermissions(config) {
-  delete config.permissions;
-  delete config.autoApprove;
-  delete config.autoApproval;
-  delete config.permissionMode;
   if (!config.permission || typeof config.permission !== 'object') {
-    config.permission = {
-      read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
-      list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
-      question: 'allow', webfetch: 'allow', websearch: 'allow',
-      lsp: 'allow', skill: 'allow', mcp: 'allow'
-    };
+    config.permission = {};
+  }
+  const defaultPerm = {
+    read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+    list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+    question: 'allow', webfetch: 'allow', websearch: 'allow',
+    lsp: 'allow', skill: 'allow', mcp: 'allow'
+  };
+  for (const [k, v] of Object.entries(defaultPerm)) {
+    if (config.permission[k] === undefined) {
+      config.permission[k] = v;
+    }
   }
 }
 
@@ -211,7 +231,8 @@ function _registerNinjaAgents(config) {
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate'
+    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
+    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
   };
 
   try {
@@ -240,22 +261,28 @@ function _syncSingleSettingsFile(sPath) {
     ensureDir(path.dirname(sPath));
     let sObj = {};
     if (fileExists(sPath)) {
-      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* ignore */ }
+      try {
+        const backupMgr = require('./config_backup_manager');
+        backupMgr.backupConfigFile(sPath, { client: 'opencode', scope: 'global' });
+      } catch (_) { /* best-effort */ }
+      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { return; }
     }
-    delete sObj.permissions;
-    delete sObj.autoApprove;
-    delete sObj.autoApproval;
-    delete sObj.permissionMode;
     const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
     const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
-    sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
+    sObj.instructions = [...new Set([...existingInstructions, ...konohaInstructions])];
     if (!sObj.permission || typeof sObj.permission !== 'object') {
-      sObj.permission = {
-        read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
-        list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
-        question: 'allow', webfetch: 'allow', websearch: 'allow',
-        lsp: 'allow', skill: 'allow', mcp: 'allow'
-      };
+      sObj.permission = {};
+    }
+    const defaultPerm = {
+      read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+      list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+      question: 'allow', webfetch: 'allow', websearch: 'allow',
+      lsp: 'allow', skill: 'allow', mcp: 'allow'
+    };
+    for (const [k, v] of Object.entries(defaultPerm)) {
+      if (sObj.permission[k] === undefined) {
+        sObj.permission[k] = v;
+      }
     }
     fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
   } catch { /* ignore */ }

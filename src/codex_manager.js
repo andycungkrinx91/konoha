@@ -113,16 +113,33 @@ function readCodexConfig(options = {}) {
   return fs.readFileSync(configPath, 'utf-8');
 }
 
+function _copyBakSafe(configPath, bakPath) {
+  if (fileExists(bakPath)) return;
+  try {
+    fs.copyFileSync(configPath, bakPath);
+  } catch (_) { /* intentional best-effort backup */ }
+}
+
 function writeCodexConfig(content, options = {}) {
   const configPath = getCodexConfigPath(options);
   ensureDir(path.dirname(configPath));
-  const bakPath = `${configPath}.bak`;
-  if (fileExists(configPath) && !fileExists(bakPath)) {
+  if (fileExists(configPath)) {
     try {
-      fs.copyFileSync(configPath, bakPath);
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.backupConfigFile(configPath, { client: 'codex', scope: 'global', konohaHome: options.konohaHome });
     } catch (_) { /* intentional best-effort backup */ }
+    _copyBakSafe(configPath, `${configPath}.bak`);
   }
   fs.writeFileSync(configPath, content, 'utf-8');
+  try {
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.recordOwnership(configPath, {
+      client: 'codex',
+      scope: 'global',
+      format: 'toml',
+      ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.semble]', '[mcp_servers.aislop]']
+    }, options.konohaHome);
+  } catch (_) { /* best-effort */ }
 }
 
 function readCodexInstructions() {
@@ -175,15 +192,7 @@ function _filterExistingCodexToml(existingToml) {
   ];
 
   const TOP_LEVEL_MANAGED_KEYS = [
-    /^suppress_unstable_features_warning\s*=/i,
-    /^sandbox_mode\s*=/i,
-    /^approval_mode\s*=/i,
-    /^ask_for_approval\s*=/i,
-    /^approve_for_me\s*=/i,
-    /^sandbox\s*=/i,
-    /^sandbox_permissions\s*=/i,
-    /^auto_approve\s*=/i,
-    /^auto_approve_tools\s*=/i
+    /^suppress_unstable_features_warning\s*=/i
   ];
 
   for (let i = 0; i < lines.length; i++) {

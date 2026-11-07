@@ -17,6 +17,8 @@ const { cmdUiRestart, ensureUiDaemonAutoStart, waitForPortReady } = require("../
 const { collectUpgradeChoices } = require("../lib/upgrade_prompts");
 const { cmdInit } = require("./init");
 const { checkPortActive } = require("./bridge");
+const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
+const { cmdUiBuild } = require("../lib/ui_build");
 
 
 function parseSemver(v) {
@@ -427,6 +429,13 @@ async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
 }
 
 async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
+  try {
+    const installedHandler = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build', 'handler.js');
+    if (!fileExists(installedHandler)) {
+      pbar.logStep('Building Konoha Web UI bundle...');
+      await cmdUiBuild();
+    }
+  } catch { /* best-effort */ }
   if (uiWasRunning) {
     pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
     await cmdUiRestart(['--no-open']);
@@ -511,7 +520,15 @@ async function cmdUpgrade(args = []) {
   let uiWasRunning = false;
   try { uiWasRunning = await checkPortActive(1404); } catch { /* best-effort */ }
 
-  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager & purging stale caches...`);
+  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Backing up client configurations & detecting package manager...`);
+  try {
+    executePreInstallBackup({ projectRoot: process.cwd() });
+    runTransactionalDatabaseMigration();
+  } catch (backupErr) {
+    pbar.stopPulse();
+    error(`Pre-upgrade configuration backup verification failed: ${backupErr.message}`);
+    process.exit(1);
+  }
   const isWin = process.platform === 'win32';
   purgePackageCaches({ silent: true });
 

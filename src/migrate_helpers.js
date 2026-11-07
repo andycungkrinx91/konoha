@@ -331,29 +331,114 @@ function verifyRequiredSkills(conn, requiredSkills = []) {
   return { missing, remainingLegacy: legacyRows.map(r => r.name) };
 }
 
+const crypto = require('crypto');
+
+const MAX_EXTERNAL_SKILL_FILE_BYTES = 1024 * 1024; // 1 MB limit
+const FORBIDDEN_SKILL_PATTERNS = [
+  /^\.env(\..+)?$/i,
+  /^secrets?\.(ya?ml|json|toml)$/i,
+  /^credentials?(\..+)?$/i,
+  /\.(pem|key|p12|pfx|tfvars)$/i,
+  /^id_(rsa|ed25519|ecdsa)$/i
+];
+
+function isSafeExternalSkillFile(filePath, allowedRootDir) {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return false;
+    const base = path.basename(filePath);
+    if (FORBIDDEN_SKILL_PATTERNS.some(re => re.test(base))) return false;
+    const realFile = fs.realpathSync(filePath);
+    if (allowedRootDir && fs.existsSync(allowedRootDir)) {
+      const realRoot = fs.realpathSync(allowedRootDir);
+      const rel = path.relative(realRoot, realFile);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
+    }
+    const st = fs.statSync(realFile);
+    if (!st.isFile() || st.size > MAX_EXTERNAL_SKILL_FILE_BYTES) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function classifySkillSourceProvenance(skillsDir) {
+  const resolved = path.resolve(skillsDir || '');
+  const normSlash = resolved.replace(/\\/g, '/');
+  const currentHome = path.resolve(process.env.HOME || process.env.USERPROFILE || os.homedir());
+  const homeSlash = currentHome.replace(/\\/g, '/');
+
+  let harness = 'generic';
+  if (normSlash.includes('/.cursor/')) harness = 'cursor';
+  else if (normSlash.includes('/.claude/')) harness = 'claude';
+  else if (normSlash.includes('/.commandcode/')) harness = 'commandcode';
+  else if (normSlash.includes('/.codex/')) harness = 'codex';
+  else if (normSlash.includes('/opencode/') || normSlash.includes('/.opencode/')) harness = 'opencode';
+  else if (normSlash.includes('/.pi/')) harness = 'pi';
+  else if (normSlash.includes('/.omp/')) harness = 'omp';
+  else if (normSlash.includes('/.gemini/')) harness = 'antigravity';
+  else if (normSlash.includes('/.agents/') || normSlash.includes('/.agent/')) harness = 'agents';
+
+  const isGlobal = normSlash === homeSlash || normSlash.startsWith(homeSlash + '/.');
+  if (isGlobal) {
+    return { scope: 'global', harness, projectRoot: null, projectHash: null };
+  }
+
+  let projectRoot = resolved;
+  const markers = [
+    '/.agents/skills', '/.agent/skills', '/.cursor/skills', '/.gemini/antigravity-cli/skills',
+    '/.gemini/antigravity-ide/skills', '/.gemini/skills', '/.commandcode/skills',
+    '/.claude/skills', '/.codex/skills', '/.config/opencode/skills', '/.opencode/skills',
+    '/.pi/agent/skills', '/.pi/skills', '/.omp/agent/skills', '/.omp/skills',
+    '/docs/skills', '/.skills', '/skills'
+  ];
+  for (const m of markers) {
+    const idx = normSlash.lastIndexOf(m);
+    if (idx !== -1 && idx + m.length === normSlash.length) {
+      projectRoot = resolved.slice(0, idx) || resolved;
+      break;
+    }
+  }
+  const normProject = process.platform === 'win32' ? path.resolve(projectRoot).toLowerCase() : path.resolve(projectRoot);
+  const projectHash = crypto.createHash('sha256').update(normProject, 'utf8').digest('hex').slice(0, 12);
+  return { scope: 'project', harness, projectRoot: path.resolve(projectRoot), projectHash };
+}
+
 function resolveCandidateSkillRoots(globalSkillsDir) {
+  const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  const cwd = process.cwd();
   const candidateRoots = [
     globalSkillsDir,
-    path.resolve(process.cwd(), ".agents", "skills"),
-    path.resolve(process.cwd(), ".cursor", "skills"),
-    path.resolve(process.cwd(), ".gemini", "skills"),
-    path.resolve(process.cwd(), ".commandcode", "skills"),
-    path.resolve(process.cwd(), ".claude", "skills"),
-    path.resolve(process.cwd(), ".omp", "skills"),
-    path.resolve(process.cwd(), ".config", "opencode", "skills"),
-    path.resolve(process.cwd(), ".opencode", "skills"),
-    path.resolve(process.cwd(), "skills"),
-    path.resolve(process.cwd(), ".skills"),
-    path.resolve(process.cwd(), "docs", "skills"),
-    path.normalize(path.join(os.homedir(), ".gemini", "antigravity-cli", "skills")),
-    path.normalize(path.join(os.homedir(), ".cursor", "skills")),
-    path.normalize(path.join(os.homedir(), ".commandcode", "skills")),
-    path.normalize(path.join(os.homedir(), ".claude", "skills")),
-    path.normalize(path.join(os.homedir(), ".gemini", "skills")),
-    path.normalize(path.join(os.homedir(), ".config", "opencode", "skills")),
-    path.normalize(path.join(os.homedir(), ".opencode", "skills")),
-    path.normalize(path.join(os.homedir(), ".codex", "skills")),
-    path.normalize(path.join(os.homedir(), ".omp", "agent", "skills"))
+    path.resolve(cwd, ".agents", "skills"),
+    path.resolve(cwd, ".agent", "skills"),
+    path.resolve(cwd, ".cursor", "skills"),
+    path.resolve(cwd, ".gemini", "skills"),
+    path.resolve(cwd, ".gemini", "antigravity-cli", "skills"),
+    path.resolve(cwd, ".gemini", "antigravity-ide", "skills"),
+    path.resolve(cwd, ".commandcode", "skills"),
+    path.resolve(cwd, ".claude", "skills"),
+    path.resolve(cwd, ".codex", "skills"),
+    path.resolve(cwd, ".omp", "agent", "skills"),
+    path.resolve(cwd, ".omp", "skills"),
+    path.resolve(cwd, ".pi", "agent", "skills"),
+    path.resolve(cwd, ".pi", "skills"),
+    path.resolve(cwd, ".config", "opencode", "skills"),
+    path.resolve(cwd, ".opencode", "skills"),
+    path.resolve(cwd, "skills"),
+    path.resolve(cwd, ".skills"),
+    path.resolve(cwd, "docs", "skills"),
+    path.normalize(path.join(home, ".gemini", "antigravity-cli", "skills")),
+    path.normalize(path.join(home, ".gemini", "antigravity-ide", "skills")),
+    path.normalize(path.join(home, ".cursor", "skills")),
+    path.normalize(path.join(home, ".commandcode", "skills")),
+    path.normalize(path.join(home, ".claude", "skills")),
+    path.normalize(path.join(home, ".gemini", "skills")),
+    path.normalize(path.join(home, ".config", "opencode", "skills")),
+    path.normalize(path.join(home, ".opencode", "skills")),
+    path.normalize(path.join(home, ".codex", "skills")),
+    path.normalize(path.join(home, ".pi", "agent", "skills")),
+    path.normalize(path.join(home, ".pi", "skills")),
+    path.normalize(path.join(home, ".omp", "agent", "skills")),
+    path.normalize(path.join(home, ".omp", "skills"))
   ];
   const detected = [];
   for (const cand of candidateRoots) {
@@ -400,5 +485,7 @@ module.exports = {
   normalizeLegacySkillNames,
   verifyRequiredSkills,
   resolveCandidateSkillRoots,
-  parseCyberSkillFrontmatter
+  parseCyberSkillFrontmatter,
+  isSafeExternalSkillFile,
+  classifySkillSourceProvenance
 };

@@ -129,6 +129,35 @@ function brainDirFromTranscript(transcriptPath) {
   return path.dirname(sysDir);
 }
 
+const KONOHA_COMMAND_PREFIX_RE = /(?:^|\s|>)(\/(?:konoha|sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|tokubetsu_jonin|akatsuki|yamanaka)\b|@(?:konoha|sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|tokubetsu_jonin|akatsuki|yamanaka)\b)/i;
+
+function isKonohaInvocationPrompt(promptText) {
+  if (!promptText || typeof promptText !== 'string') return false;
+  return KONOHA_COMMAND_PREFIX_RE.test(promptText.trim());
+}
+
+function isKonohaSessionActive(contextOrPath = null) {
+  if (process.env.KONOHA_MANAGED_CONTEXT === '1' || process.env.KONOHA_TASK_ID || process.env.KONOHA_ACTIVE_SESSION === '1') {
+    return true;
+  }
+  const transcriptPath = typeof contextOrPath === 'string'
+    ? contextOrPath
+    : (contextOrPath && (contextOrPath.transcriptPath || contextOrPath.transcript_path));
+  if (transcriptPath && fs.existsSync(transcriptPath)) {
+    try {
+      const raw = fs.readFileSync(transcriptPath, 'utf-8');
+      if (KONOHA_COMMAND_PREFIX_RE.test(raw) || raw.includes('task_mw') || raw.includes('sannin') || raw.includes('konoha.')) {
+        return true;
+      }
+    } catch { /* ignore */ }
+  }
+  const promptText = contextOrPath && (contextOrPath.prompt || contextOrPath.user_prompt || contextOrPath.content || contextOrPath.message);
+  if (typeof promptText === 'string' && isKonohaInvocationPrompt(promptText)) {
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   readStdin,
   readStdinJson,
@@ -137,4 +166,7 @@ module.exports = {
   isConfirmedSelf,
   isConfirmedOrchestrator: isConfirmedSelf,
   brainDirFromTranscript,
+  isKonohaInvocationPrompt,
+  isKonohaSessionActive,
+  KONOHA_COMMAND_PREFIX_RE,
 };

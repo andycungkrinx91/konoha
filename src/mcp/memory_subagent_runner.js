@@ -492,6 +492,45 @@ function _parseTaskOptions(task, context, constraints, rest) {
   return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId, client, worktree };
 }
 
+function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
+  const basePersonalityBlock = (
+    '## Base Personality: High Effort + Instruct Style\n\n' +
+    '- Strictly NO conversational filler (FORBIDDEN: "Hmmmm", "Let me check", "Wait - but", "let me").\n' +
+    '- Lead with direct action and verified evidence. Start immediately with action or factual result.\n' +
+    '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code.\n' +
+    '- Zero hallucination, errors, warnings, AI slop: target accuracy 95%-100%, cost efficiency 83%-98%.\n' +
+    '- MANDATORY TOOL & SKILL PARITY: Always discover skills via konoha.find_skill and activate with konoha.use_skills or konoha.get_skill.\n\n'
+  );
+  const dualBoundaryAnchor = (
+    '## 🛡️ Critical Invariants & Non-Negotiables (Dual-Boundary Anchor)\n\n' +
+    '- STRICT FACTUAL TRUTH: Never fabricate test results or simulated tool outputs.\n' +
+    '- STRICT NO-PUSH / NO-PUBLISH: Never run git push, npm publish, or create remote tags.\n' +
+    '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
+    '- PRESERVE PROXY GATEWAY: Never modify or disable local OpenAI proxy gateway (port 19999).\n' +
+    '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools. Never use shell cat/head/grep.\n' +
+    '- SEMBLE IS MANDATORY: Use `mcp__semble__search` and `mcp__semble__find_related` with absolute repo path.\n' +
+    '- RTK IS MANDATORY: Prefix shell and test runs with `rtk <command>`; fetch web pages with `rtk curl <url>`, never bare curl, wget, or raw fetch.\n' +
+    '- SOUL ARCHETYPE MANDATORY: Strictly embody your ninja soul archetype behavior directives, voice, and tenets.\n' +
+    (RESEARCH_AGENTS.has(dbAgentName) ? buildResearchFetchRule(dbAgentName) : '') +
+    (dbAgentName === 'genin' ? '- GENIN READ-ONLY MANDATE: As @genin, strictly read-only mode. Never write, create, overwrite, modify, or delete files.\n' : '') +
+    '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and 0 findings.\n' +
+    '- KAGE 98% CONFIDENCE GATE: Delivery blocked if confidence < 98%.\n\n'
+  );
+  const executionProtocol = (
+    `You are ${dbAgentName}. The payload below is the subagent contract the caller must hand to the spawned \`${dbAgentName}\` subagent; the caller must not execute it.\n\n` +
+    '## Execution Protocol\n\n' +
+    `0. Mandatory Skills Activation: Before taking actions, Spawn \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${flowHash ? `, flow_hash="${flowHash}"` : ''})\` to load and bind references.\n` +
+    '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
+    `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
+    (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
+    '4. Execute the task directly as described in TASK INSTRUCTIONS below, inside the spawned subagent.\n' +
+    '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
+    '6. Run `rtk aislop scan --changes`; zero findings required.\n' +
+    '7. When complete, report results and validation evidence via `report_from_agent`, followed by mandatory `@kage` review before final delivery.\n\n'
+  );
+  return `${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}`;
+}
+
 function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
   const opts = _parseTaskOptions(task, context, constraints, rest);
   const resolvedProjPath = opts.projectPath || getWorkspaceRoot() || process.cwd();
@@ -593,46 +632,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const tasteSkillBlock = dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '';
   const docDesignBlock = dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : '';
 
-
-  const basePersonalityBlock = (
-    '## Base Personality: High Effort + Instruct Style\n\n' +
-    '- Strictly NO conversational filler (FORBIDDEN: "Hmmmm", "Let me check", "Wait - but", "let me").\n' +
-    '- Lead with direct action and verified evidence. Start immediately with action or factual result.\n' +
-    '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code.\n' +
-    '- Zero hallucination, errors, warnings, AI slop: target accuracy 95%-100%, cost efficiency 83%-98%.\n' +
-    '- MANDATORY TOOL & SKILL PARITY: Always discover skills via konoha.find_skill and activate with konoha.use_skills or konoha.get_skill.\n\n'
-  );
-  const dualBoundaryAnchor = (
-    '## 🛡️ Critical Invariants & Non-Negotiables (Dual-Boundary Anchor)\n\n' +
-    '- STRICT FACTUAL TRUTH: Never fabricate test results or simulated tool outputs.\n' +
-    '- STRICT NO-PUSH / NO-PUBLISH: Never run git push, npm publish, or create remote tags.\n' +
-    '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
-    '- PRESERVE PROXY GATEWAY: Never modify or disable local OpenAI proxy gateway (port 19999).\n' +
-    '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools. Never use shell cat/head/grep.\n' +
-    '- SEMBLE IS MANDATORY: Use `mcp__semble__search` and `mcp__semble__find_related` with absolute repo path.\n' +
-    '- RTK IS MANDATORY: Prefix shell and test runs with `rtk <command>`; fetch web pages with `rtk curl <url>`, never bare curl, wget, or raw fetch.\n' +
-    '- SOUL ARCHETYPE MANDATORY: Strictly embody your ninja soul archetype behavior directives, voice, and tenets.\n' +
-    (RESEARCH_AGENTS.has(dbAgentName) ? buildResearchFetchRule(dbAgentName) : '') +
-    (dbAgentName === 'genin' ? '- GENIN READ-ONLY MANDATE: As @genin, strictly read-only mode. Never write, create, overwrite, modify, or delete files.\n' : '') +
-    '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and 0 findings.\n' +
-    '- KAGE 98% CONFIDENCE GATE: Delivery blocked if confidence < 98%.\n\n'
-  );
-  const executionProtocol = (
-    `You are ${dbAgentName}. The payload below is the subagent contract the caller must hand to the spawned \`${dbAgentName}\` subagent; the caller must not execute it.\n\n` +
-    '## Execution Protocol\n\n' +
-    `0. Mandatory Skills Activation: Before taking actions, Spawn \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${opts.flowHash ? `, flow_hash="${opts.flowHash}"` : ''})\` to load and bind references.\n` +
-    '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
-    `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
-    (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
-    '4. Execute the task directly as described in TASK INSTRUCTIONS below, inside the spawned subagent.\n' +
-    '5. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '6. Run `rtk aislop scan --changes`; zero findings required.\n' +
-    '7. When complete, report results and validation evidence via `report_from_agent`.\n\n'
-  );
-
   let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
   const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
-  const fixedTail = `${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}`;
+  const fixedTail = _buildFixedTailBlocks(dbAgentName, skillsList, opts.flowHash);
   if (Buffer.byteLength(fixedTail + taskBlock, 'utf8') > tailCeiling) {
     const room = tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24;
     instructions = truncateAtBoundary(instructions, Math.max(0, room));
@@ -650,6 +652,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const effTaskDir = opts.taskDir || getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const res = JSON.stringify({
     status: 'ready', phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
+    mandatory_next_step: dbAgentName === 'kage' ? 'delivery' : 'kage_review',
     flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
     task_dir: effTaskDir, worktree_path: opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined,
     instructions: instruction

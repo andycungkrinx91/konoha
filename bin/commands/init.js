@@ -57,6 +57,10 @@ const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary } = require('./init_migration');
+const {
+  executePreInstallBackup,
+  runTransactionalDatabaseMigration
+} = require('../lib/install_lifecycle');
 
 function cmdInitHelp() {
   header('Konoha Installer Help');
@@ -277,6 +281,13 @@ async function cmdInit(args, options = {}) {
 
   const clientFlags = detectAllClientFlags(args);
   ensureCoreDirectories();
+  try {
+    executePreInstallBackup({ projectRoot: process.cwd() });
+    runTransactionalDatabaseMigration();
+  } catch (backupErr) {
+    error(`Configuration backup verification failed: ${backupErr.message}`);
+    process.exit(1);
+  }
   checkNodeAndToolchains(options, args);
   const python = checkPython() || 'node';
   clientFlags.python = python;

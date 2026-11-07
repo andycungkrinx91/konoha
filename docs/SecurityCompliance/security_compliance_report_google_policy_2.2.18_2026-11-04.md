@@ -59,8 +59,15 @@
 - `src/mcp/lazy_subagent.js` and `src/mcp/antigravity_agents.js` route delegations through client-native subagent tools (`task`, `Task`, `spawn_agent`, `invoke_subagent`) across all 8 coding clients.
 - `tests/test_client_delegation_contracts.js`: 13/13 scenarios PASS across the 8 client surfaces.
 
-### 3.2 Global-Only Client Configs & Doctor-Only Auto-Setup
+### 3.2 Global-Only Client Configs, Automatic Backups, Append-Only Merge & Scoped Isolation
 - `bin/cli.js` restricts `ensureAutoSetup()` to `konoha doctor`, eliminating startup latency and background config writes on everyday CLI subcommands.
+- `src/config_backup_manager.js` automatically backs up global and project configurations for all 8 supported AI clients into `~/.konoha/backups/configs/<client>/<scope>/` with SHA-256 + syntax verification before any modification, and records ownership in `~/.konoha/backups/ownership_manifest.json`.
+- `src/config_merger.js` enforces syntax-aware append-only merging across JSON, JSONC, YAML, TOML, XML, and plain-text/Markdown files, preserving all user keys, hooks, and unrelated MCP servers while removing only Konoha-owned entries on uninstall/rollback.
+- `src/agent_deployer.js`, `src/antigravity_agents.js`, and `src/antigravity_subagent_hook.js` strictly protect existing `agents/` and `conversations/` directories across all 8 clients, pruning only `.konoha-owned` / `konoha-*.md` entries.
+- `src/hook-base.js`, `src/prompt_hook.js`, `src/antigravity_tool_sanitize_hook.js`, and `src/pi_blocker_template.js` scope Konoha guardrails to active `/konoha <prompt>` and `/<subagent-name> <prompt>` workflows so normal client messages execute natively without interception.
+- `src/mcp/workflow_sannin.js`, `src/mcp/workflow.js`, and `bin/commands/run_agent.js` enforce the 3-mode command contract (`/konoha` full LangGraph SDLC, `/<subagent-name>` direct specialist execution + mandatory Kage review gate, normal messages native pass-through) and provide the `konoha run-agent` CLI bridge for Cursor, Codex, and Command Code.
+- `src/mcp/skills_search.js`, `src/migrate_helpers.js`, and `src/migrate.js` integrate external global and project skills into the existing SQLite Project Knowledge RAG (`projects`, `persona_memories`, `skills`, `skills_fts`, `skill_chunks`) with strict `isPathVisible` project isolation and `@proj-<hash>` / `@global-<harness>` disambiguation.
+- `bin/lib/install_lifecycle.js` enforces the mandatory 5-stage non-destructive lifecycle (`backup -> install/upgrade -> konoha init --y -> konoha embed -> konoha ui build && konoha ui restart`) across fresh install, upgrade, `update`, reinstall, `--force`, and migration.
 - `src/omp_manager.js` and `src/workflow/kage-reviewer/skill_guardian.js` write exclusively to global home directories (`~/.omp/agent/mcp.json`, `~/.agents/skills/`), never polluting project workspaces.
 - `src/deploy_utils.js` (`ensureGlobalGitExcludes`) maintains global git excludes in `~/.config/git/ignore` rather than mutating project `.gitignore` files.
 

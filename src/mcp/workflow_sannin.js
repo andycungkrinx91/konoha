@@ -70,6 +70,27 @@ function _findBestAgentFromDb(promptLower) {
   return bestAgent;
 }
 
+function parseKonohaCommandInvocation(prompt = '') {
+  if (!prompt || typeof prompt !== 'string') {
+    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: '' };
+  }
+  const trimmed = prompt.trim();
+  const slashMatch = trimmed.match(/^\/([a-zA-Z0-9_-]+)(?:\s+([\s\S]*))?$/);
+  if (!slashMatch) {
+    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: trimmed };
+  }
+  const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
+  const rest = (slashMatch[2] || '').trim();
+  if (rawCmd === 'konoha' || rawCmd === 'sannin') {
+    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: rest || trimmed };
+  }
+  const directSubagents = ['genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin', 'akatsuki', 'yamanaka'];
+  if (directSubagents.includes(rawCmd)) {
+    return { invocationMode: 'direct_subagent', targetAgent: rawCmd, cleanPrompt: rest || trimmed };
+  }
+  return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: trimmed };
+}
+
 function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   let p = prompt;
   if (!p) {
@@ -78,15 +99,13 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   }
   if (!p) return 'kage';
 
-  const trimmed = p.trim();
-  const slashMatch = trimmed.match(/^\/([a-zA-Z_-]+)(?:\s+([\s\S]*))?$/);
-  if (slashMatch) {
-    const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
-    const knownAgents = ['sannin', 'genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin', 'akatsuki'];
-    if (knownAgents.includes(rawCmd)) return rawCmd;
+  const parsed = parseKonohaCommandInvocation(p);
+  if (parsed.invocationMode === 'direct_subagent' && parsed.targetAgent) {
+    return parsed.targetAgent;
   }
 
-  const promptLower = p.toLowerCase();
+  const effectiveText = parsed.cleanPrompt || p;
+  const promptLower = effectiveText.toLowerCase();
   let bestAgent = _findBestAgentFromDb(promptLower);
 
   if (!bestAgent) {
@@ -94,6 +113,8 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
       bestAgent = 'anbu';
     } else if (/\b(frontend|ui|css|html|tailwind|component|react|vue|svelte)\b/i.test(promptLower)) {
       bestAgent = 'jonin';
+    } else if (/\b(3d|blender|manifold|glb|gltf|three\.js|threejs|mesh|procedural 3d|spatial)\b/i.test(promptLower)) {
+      bestAgent = 'yamanaka';
     } else {
       bestAgent = 'kage';
     }
@@ -117,12 +138,18 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   if (securitySignals.some(sig => promptLower.includes(sig))) {
     bestAgent = 'akatsuki';
   }
+  const spatialSignals = ['text-to-3d', 'image-to-3d', 'blender headless', 'manifold-3d', 'export glb', '3d model'];
+  if (spatialSignals.some(sig => promptLower.includes(sig))) {
+    bestAgent = 'yamanaka';
+  }
   return bestAgent;
 }
 
 function classifyExecutionTrack(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return 'full_sdlc';
-  const p = prompt.trim();
+  const parsed = parseKonohaCommandInvocation(prompt);
+  if (parsed.invocationMode === 'direct_subagent') return 'fast_track';
+  const p = (parsed.cleanPrompt || prompt).trim();
   if (p.startsWith('fast_track:') || p.startsWith('[fast_track]') || p.startsWith('DIRECT:')) return 'fast_track';
   if (p.startsWith('full_sdlc:') || p.startsWith('[full_sdlc]') || p.startsWith('SDLC:')) return 'full_sdlc';
   if (/^\/[a-zA-Z_-]+(?:\s+|$)/.test(p)) return 'fast_track';
@@ -319,20 +346,24 @@ function _buildInstructionText(ctx) {
 }
 
 function _recordTaskStatusAndFlow(ctx) {
-  const { sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route } = ctx;
+  const { sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route, invocationMode, directSubagent } = ctx;
   try {
     sdlcManager.createTask({
       id: taskId,
       description: effPrompt,
       status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
       dor_result: dorResult,
-      evidence: { execution_track: executionTrack, flow_hash: flowHash, routed_skills: routedSkills, active_skills: routedSkills, route_mode: route ? route.mode : undefined },
+      evidence: { execution_track: executionTrack, flow_hash: flowHash, routed_skills: routedSkills, active_skills: routedSkills, route_mode: route ? route.mode : undefined, invocation_mode: invocationMode, direct_subagent: directSubagent || undefined },
       project_path: resolvedProjPath, session_id: resolvedSessionId, client: actClient
     });
     const st = loadWorkflowStatus(resolvedTaskDir);
     st.task_id = taskId;
     st.prompt = effPrompt;
     st.execution_track = executionTrack;
+    st.invocation_mode = invocationMode || 'konoha_orchestrator';
+    if (directSubagent) {
+      st.direct_subagent = directSubagent.replace(/_/g, '-');
+    }
     st.session_id = resolvedSessionId;
     st.project_path = resolvedProjPath;
     st.client = actClient;
@@ -407,10 +438,13 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const effPrompt = _resolveEffectivePrompt(prompt, status, taskId, sdlcManager);
   if (!effPrompt) return JSON.stringify({ status: 'error', message: 'No prompt provided for task execution.' });
 
+  const parsedCmd = parseKonohaCommandInvocation(effPrompt);
+  const invocationMode = parsedCmd.invocationMode;
+  const directSubagent = parsedCmd.targetAgent;
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
   const executionTrack = classifyExecutionTrack(effPrompt);
-  const parallelWorkstreams = detectParallelWorkstreams(effPrompt);
+  const parallelWorkstreams = invocationMode === 'direct_subagent' ? [] : detectParallelWorkstreams(effPrompt);
   const route = decideRoute({ prompt: effPrompt, executionTrack, workstreams: parallelWorkstreams });
   const flowHash = computeFlowHash(resolvedSessionId, taskId, effPrompt);
 
@@ -418,7 +452,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
   const routedSkills = _resolveRoutedSkills(effPrompt, selectedAgent);
 
-  _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route });
+  _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route, invocationMode, directSubagent });
 
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
     const res = JSON.stringify({ status: 'blocked', phase: 'dor', message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.', missing: dorResult.missing, dor_result: dorResult, flow_hash: flowHash, task_dir: resolvedTaskDir });
@@ -446,6 +480,8 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   const res = JSON.stringify({
     status: 'routed', task_id: taskId, flow_hash: flowHash, selected_agent: selectedAgent,
+    invocation_mode: invocationMode, direct_subagent: directSubagent || undefined,
+    mandatory_kage_review: invocationMode === 'direct_subagent' ? true : undefined,
     skills: routedSkills, execution_track: executionTrack, parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     route, delegation_envelope: envelope
@@ -493,6 +529,7 @@ function dispatchParallelSlices(workstreams = [], sharedOptions = {}) {
 }
 
 module.exports = {
+  parseKonohaCommandInvocation,
   routeByKeywordsWithPrompt,
   classifyExecutionTrack,
   detectParallelWorkstreams,

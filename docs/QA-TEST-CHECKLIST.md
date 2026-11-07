@@ -57,6 +57,8 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha test` | - | Executes MCP server protocol self-test followed by complete JavaScript test runner. | `PASS` (verified) |
 | `konoha db check` | `[path]` | Runs PRAGMA quick_check and integrity_check on SQLite database. | `PASS` (verified) |
 | `konoha db restore` | `[path] [--from <bcp>] [--force]` | Preserves corrupted DB to .corrupt.<timestamp> and restores from verified backup or salvages rows. | `PASS` (verified) |
+| `konoha update` | `--force`, `--yes` | Alias for `konoha upgrade`; runs the 5-stage non-destructive upgrade lifecycle (`backup -> upgrade -> init --y -> embed -> ui build & restart`). | `PASS` (verified) |
+| `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
 
 ### 1.2 Edge Case & Symlink Handling Verification
 
@@ -837,4 +839,9 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **Three.js 3D Viewport Pipeline** | `PASS` | `PASS` | `PASS` | `tests/test_three_asset_viewport.js`, `tests/test_yamanaka_refine_fork.js`, binary glTF 2.0 + PNG | `PASS` |
 | **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth (`konohagakure`), 10-theme switch, 56/56 Playwright E2E + live `agent-browser` | `PASS` |
 | **Workflow Diagrams & Draw.io Parity** | `PASS` | `PASS` | `PASS` | Reverted 6 `assets/*.webp` to `448d894c`, synced with Draw.io Tabs 08/09/11/13/14/16, regenerated 7 animated WebP diagrams | `PASS` |
-| **Static Code Quality & Anti-Slop** | `PASS` | `PASS` | `PASS` | `node scripts/lint.js` (697 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy) | `PASS` |
+| **Static Code Quality & Anti-Slop** | `PASS` | `PASS` | `PASS` | `node scripts/lint.js` (706 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy) | `PASS` |
+| **Config Backup & Append-Only Merge** | `PASS` | `PASS` | `PASS` | `tests/test_config_backup_and_append_only.js` (SHA-256 verified backups in `~/.konoha/backups/configs/<client>/<scope>/`, syntax-aware JSON/JSONC/YAML/TOML/XML/Markdown merge) | `PASS` |
+| **Ownership & Scoped Hook Isolation** | `PASS` | `PASS` | `PASS` | `tests/test_ownership_and_hook_scoping.js` (protects `agents/` & `conversations/`, `.konoha-owned` marker check, hooks pass through normal messages) | `PASS` |
+| **Project Knowledge RAG & External Skills** | `PASS` | `PASS` | `PASS` | `tests/test_project_rag_and_external_skills.js` (preserves SQLite FTS5 + 384-dim embeddings, zero cross-project leakage in `isPathVisible`, `@proj-<hash>` / `@global-<harness>` disambiguation) | `PASS` |
+| **Command Routing & 8-Client Spawning** | `PASS` | `PASS` | `PASS` | `tests/test_command_routing_and_spawning.js` (`/konoha` full LangGraph SDLC, `/<subagent>` direct execution + mandatory Kage gate, `konoha run-agent` CLI bridge) | `PASS` |
+| **5-Stage Install Lifecycle & DB Safety** | `PASS` | `PASS` | `PASS` | `tests/test_install_lifecycle_and_db_preservation.js` (`backup -> install -> init --y -> embed -> ui build & restart` preserving existing SQLite rows) | `PASS` |

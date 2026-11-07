@@ -16,6 +16,7 @@ const ompManager = require('../src/omp_manager');
 const agentManager = require('../src/agent_manager');
 const { getUvxCommand, detectPythonOrDefault } = require('../src/platform_utils');
 const { SERVER_PATH, FILE_TOOLS_LAUNCHER_JS } = require('../bin/lib/paths');
+const { executePreInstallBackup } = require('../bin/lib/install_lifecycle');
 
 async function installClient(clientName, options = {}) {
   const norm = String(clientName || '').toLowerCase().trim();
@@ -24,6 +25,8 @@ async function installClient(clientName, options = {}) {
   const serverPath = options.serverPath || SERVER_PATH;
   const projectRoot = options.projectRoot || process.cwd();
   const silent = options.silent !== false;
+
+  executePreInstallBackup({ projectRoot });
 
   const results = {};
   const agents = agentManager.loadAgents();

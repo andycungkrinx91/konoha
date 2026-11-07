@@ -485,16 +485,11 @@ function _walkWorkspaceDir(currentDir, depth, maxDepth, removed) {
   }
 }
 
-function pruneWorkspacePollution(workspaceRoot, options = {}) {
-  if (!workspaceRoot || !fileExists(workspaceRoot)) return { removed: [] };
-  const resolvedRoot = path.resolve(workspaceRoot);
-  const userHome = path.resolve(options.home || process.env.HOME || process.env.USERPROFILE || HOME || os.homedir());
-  if (resolvedRoot === userHome) return { removed: [] };
-
-  const removed = [];
-  const maxDepth = options.maxDepth || 4;
-  _walkWorkspaceDir(resolvedRoot, 0, maxDepth, removed);
-  return { removed };
+function pruneWorkspacePollution(_workspaceRoot, _options = {}) {
+  // Ownership boundary invariant: Konoha NEVER deletes `.cursor`, `.gemini`,
+  // `.claude`, `.commandcode`, `.opencode`, `.codex`, `.pi`, `.omp`, `skills/`,
+  // `agents/`, `conversations/`, or `.agents/` inside user workspaces.
+  return { removed: [], skipped: true, reason: 'protected_user_workspace' };
 }
 
 module.exports = {

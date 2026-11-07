@@ -186,9 +186,15 @@ let raw = '';
 try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
 let input = null;
 try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
+const isKonohaManaged = process.env.KONOHA_MANAGED_CONTEXT === '1' ||
+  Boolean(process.env.KONOHA_TASK_ID) ||
+  Boolean(input && input.konoha_managed);
+if (!isKonohaManaged) {
+  process.exit(0);
+}
 const toolName = input && (input.tool_name || input.tool_display_name);
 if (toolName === 'read_file' || toolName === 'READ') {
-  const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+  const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
   process.stdout.write(JSON.stringify({
     suppressOutput: false,
     hookSpecificOutput: {

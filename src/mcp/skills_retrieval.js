@@ -109,19 +109,34 @@ function loadSkillFromMirrorFallback(normName) {
   }
 }
 
+function _selectVisibleSkillCandidate(candidates) {
+  let fallbackGlobal = null;
+  for (const cand of candidates) {
+    if (!isPathVisible(cand.file_path)) continue;
+    if (cand.tags && cand.tags.includes('scope:project')) {
+      cand.source_provenance = 'sqlite_fts5';
+      return cand;
+    }
+    if (!fallbackGlobal) fallbackGlobal = cand;
+  }
+  if (fallbackGlobal) {
+    fallbackGlobal.source_provenance = 'sqlite_fts5';
+    return fallbackGlobal;
+  }
+  return null;
+}
+
 function resolveSkillRow(conn, normName) {
   const contractRow = resolveContractRow(normName);
   if (contractRow) return contractRow;
 
   if (conn) {
     try {
-      let row = conn.prepare('SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name = ?').get(normName) ||
-                conn.prepare('SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name LIKE ? LIMIT 1').get(`%/${normName}`);
-
-      if (row && isPathVisible(row.file_path)) {
-        row.source_provenance = 'sqlite_fts5';
-        return row;
-      }
+      const candidates = conn.prepare(
+        'SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name = ? OR skill_name = ? OR name LIKE ? ORDER BY CASE WHEN name = ? THEN 0 WHEN type = \'skill\' THEN 1 ELSE 2 END'
+      ).all(normName, normName, `%/${normName}`, normName);
+      const selected = _selectVisibleSkillCandidate(candidates);
+      if (selected) return selected;
     } catch (_) {
       // Database query failed (e.g. table not ready) -> fall through to mirror fallback
     }

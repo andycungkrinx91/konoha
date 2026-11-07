@@ -175,6 +175,21 @@ function _mirrorOmpMcpToLocalDirs(payload, options = {}) {
   } catch (_) { /* best-effort mirror to global ~/.omp/mcp.json only */ }
 }
 
+function _backupAndRecordOmpOwnership(configPath, servers, konohaHome) {
+  try {
+    const backupMgr = require('./config_backup_manager');
+    if (fileExists(configPath)) {
+      backupMgr.backupConfigFile(configPath, { client: 'omp', scope: 'global', konohaHome });
+    }
+    backupMgr.recordOwnership(configPath, {
+      client: 'omp',
+      scope: 'global',
+      format: 'json',
+      ownedKeys: Object.keys(servers).map(k => `mcpServers.${k}`)
+    }, konohaHome);
+  } catch (_) { /* best-effort */ }
+}
+
 function registerOmpMcp(options = {}) {
   const configPath = options.configPath || (options.home ? path.join(options.home, '.omp', 'agent', 'mcp.json') : getOmpConfigPath());
   const silent = options.silent !== false;
@@ -186,11 +201,14 @@ function registerOmpMcp(options = {}) {
     const servers = buildOmpMcpServers(options);
     const mergedServers = Object.assign({}, existingServers, servers);
 
-    // OMP schema strictly requires $schema and mcpServers only
+    // Preserve any existing top-level keys while ensuring $schema and mcpServers
     const payload = {
-      $schema: OMP_MCP_SCHEMA,
+      ...existing,
+      $schema: existing.$schema || OMP_MCP_SCHEMA,
       mcpServers: mergedServers
     };
+
+    _backupAndRecordOmpOwnership(configPath, servers, options.konohaHome);
 
     writeJsonAtomic(configPath, payload);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);

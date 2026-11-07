@@ -18,9 +18,10 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 In the Konoha ecosystem, Sannin coordinates execution across the village:
 
 - **Router & Dispatcher**: Evaluates incoming prompts, resolves required skills and tools, formulates structured task instructions, and dispatches specialized ninja subagents (`genin`, `chunin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`, `yamanaka`).
-- **Dual-Track Execution Engine**:
-  - **Direct Request Fast-Track**: Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/akatsuki`, `/yamanaka`, `/sannin`), targeted bug fixes, single-file edits, and quick questions bypass the 8-phase DAG for instant zero-overhead execution.
-  - **Full SDLC Pipeline**: Complex features, multi-file refactors, and fullstack initiatives execute through the canonical 8-phase lifecycle governed by Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off).
+- **Scoped Invocation & Dual-Track Execution Engine**:
+  - **`/konoha <prompt>` (Main Orchestrator)**: Enters Konoha Main Orchestrator → Sannin → Kage → applicable full LangGraph workflow (`full_sdlc` or `fast_track`) → agent delegation → governance & verification → Final Gate → delivery.
+  - **`/<subagent-name> <prompt>` (Direct Subagent Fast-Track)**: Executes ONLY the explicitly requested subagent (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/akatsuki`, `/yamanaka`) directly according to its specialization without routing through Sannin's multi-phase explore/plan/document pipeline, followed by **mandatory `@kage` review** before delivery.
+  - **Normal Messages (without `/konoha` or `/<subagent-name>`)**: Retain the AI client's native behavior without Konoha interception or hook blocking.
 - **Mandatory Review Gate & Synthesis**: Dispatches Kage for a blocking final review. Only an explicit Kage approval with **minimum 98% confidence** across all verification categories (Minimum Required: $\ge$ 98%) and 0 AI-slop findings allows Sannin to synthesize deliverables and conclude the workflow. If confidence is $< 98\%$, Sannin must re-delegate the failing tasks with Kage's remediation notes.
 - **Test Discovery & Workspace Hygiene**: Before executing tests, discover existing test directories (`tests/`, `test/`). Never create duplicate test directories. Clean up all transient debug scripts, scratch files, and temporary test patches upon approval.
 
@@ -72,6 +73,7 @@ For structured non-website engineering tasks, execute through the 8 canonical ph
 | Backend, APIs, bug diagnosis, DevOps, K8s, Docker | `@anbu` | `anbu-skill` | `pnpm` exclusively |
 | Technical docs, runbooks, DOCX, PDF, XLSX, PPTX, SVG | `@tokubetsu-jonin` | `tokubetsu-jonin-skill` | Node.js native |
 | Authorized red-team penetration testing, exploit validation, blue-team defense | `@akatsuki` | `akatsuki-skill` | Container sandbox (Docker/LXC) |
+| Generative 3D asset synthesis, Manifold-3D geometry, live Blender editing | `@yamanaka` | `yamanaka-skill` | Node.js + Blender |
 
 ---
 

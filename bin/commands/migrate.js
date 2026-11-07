@@ -11,6 +11,7 @@ const { SKILLS_DB_DIR, MIGRATE_PATH, MIGRATION_TIMEOUT_MS, INSTALL_BUILD_MIGRATE
 const { C, log, info, warn, error, success, header } = require("../lib/format");
 const { fileExists } = require("../lib/prompt");
 const { moveUnusedSkills, detectSkillsDirs, syncTemplateSkills } = require("../lib/runtime");
+const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
 const agentManager = require("../../src/agent_manager");
 
 
@@ -119,6 +120,12 @@ async function cmdMigrate(args = []) {
   }
   syncTemplateSkills();
   header('📊 Re-running Skills Migration');
+  try {
+    executePreInstallBackup({ projectRoot: process.cwd() });
+    runTransactionalDatabaseMigration();
+  } catch (backupErr) {
+    warn(`Pre-migration backup warning: ${backupErr.message}`);
+  }
 
   if (!fileExists(MIGRATE_PATH)) {
     error('Migration script not found. Run "konoha init" first.');

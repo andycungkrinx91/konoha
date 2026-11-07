@@ -415,6 +415,19 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silentOrOptions = true) {
     config.mcpServers['semble'] = { command: resolvedUvx, args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'] };
     config.mcpServers['aislop'] = { command: isWin ? 'npx.cmd' : 'npx', args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'] };
 
+    try {
+      const backupMgr = require('./config_backup_manager');
+      if (fileExists(targetMcp)) {
+        backupMgr.backupConfigFile(targetMcp, { client: 'pi', scope: 'global', konohaHome: options.konohaHome });
+      }
+      backupMgr.recordOwnership(targetMcp, {
+        client: 'pi',
+        scope: 'global',
+        format: 'json',
+        ownedKeys: ['mcpServers.konoha', 'mcpServers.semble', 'mcpServers.aislop']
+      }, options.konohaHome);
+    } catch (_) { /* best-effort */ }
+
     fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n', 'utf-8');
     if (!silent) process.stderr.write(`✓ Pi MCP servers registered: ${targetMcp}\n`);
     return { ok: true, configPath: targetMcp };

@@ -99,20 +99,9 @@ function validateAgentName(name) {
   return true;
 }
 
-function _pruneStaleAgentDirs(resolvedBaseDir, agentNames) {
-  if (!fs.existsSync(resolvedBaseDir)) return;
-  try {
-    const existingDirs = fs.readdirSync(resolvedBaseDir, { withFileTypes: true })
-      .filter(entry => entry.isDirectory())
-      .map(entry => entry.name);
-    for (const dirName of existingDirs) {
-      if (!validateAgentName(dirName) || agentNames.has(dirName)) continue;
-      const staleDir = path.resolve(resolvedBaseDir, dirName);
-      if (staleDir.startsWith(resolvedBaseDir + path.sep)) {
-        fs.rmSync(staleDir, { recursive: true, force: true });
-      }
-    }
-  } catch (_) { /* intentional best-effort fallback */ }
+function _pruneStaleAgentDirs(_resolvedBaseDir, _agentNames) {
+  // Ownership boundary invariant: Konoha NEVER deletes non-Konoha agent directories
+  // inside `agents/`. User-created and third-party agents are strictly preserved.
 }
 
 function _writeSingleAgentJson(resolvedBaseDir, agent) {
@@ -121,11 +110,22 @@ function _writeSingleAgentJson(resolvedBaseDir, agent) {
   if (!agentDir.startsWith(resolvedBaseDir + path.sep)) return 0;
   const agentPath = path.join(agentDir, 'agent.json');
   try {
+    const backupMgr = require('./config_backup_manager');
+    if (fs.existsSync(agentPath)) {
+      backupMgr.backupConfigFile(agentPath, { client: 'antigravity', scope: 'global' });
+    }
     fs.mkdirSync(agentDir, { recursive: true });
     const payload = JSON.stringify(buildAgentJson(agent), null, 2) + '\n';
     const existing = fs.existsSync(agentPath) ? fs.readFileSync(agentPath, 'utf8') : null;
     if (existing !== payload) {
       fs.writeFileSync(agentPath, payload, 'utf8');
+      backupMgr.recordOwnership(agentPath, {
+        client: 'antigravity',
+        scope: 'global',
+        format: 'json',
+        createdByKonoha: existing === null,
+        ownedKeys: ['name', 'description', 'config']
+      });
       return 1;
     }
   } catch (_) { /* intentional best-effort fallback */ }
@@ -208,8 +208,9 @@ module.exports = {
   agentAllowsWriteTools,
   processAgentInstructions,
   buildAgentJson,
-  validateAgentName,
+  _pruneStaleAgentDirs,
   deployAgentsToDir,
+  validateAgentName,
   ensureAntigravityAgents,
   buildDefineSubagentArgs,
   removeAntigravityAgents

@@ -177,15 +177,14 @@ function _updateAislopAuxiliarySchemas(aislopDir) {
   } catch { /* intentional best-effort fallback */ }
 }
 
-function _writeManifestFindSkillsSchema(schemaDir) {
+function _writeManifestAllSchemas(schemaDir) {
   const manifestPath = path.join(__dirname, 'mcp_tool_manifest.json');
   if (!fs.existsSync(manifestPath)) return;
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     for (const tool of (manifest.tools || [])) {
-      if (tool.name === 'find_skills') {
-        fs.writeFileSync(path.join(schemaDir, 'find_skills.json'), JSON.stringify(tool, null, 2) + '\n', 'utf8');
-      }
+      if (!tool || !tool.name) continue;
+      fs.writeFileSync(path.join(schemaDir, `${tool.name}.json`), JSON.stringify(tool, null, 2) + '\n', 'utf8');
     }
   } catch { /* intentional best-effort fallback */ }
 }
@@ -217,6 +216,11 @@ function ensureAntigravityMcpSchemas(options = {}) {
         type: "object",
         properties: {
           ...(s.hasPrompt ? { prompt: { type: "string", description: "The task prompt directly passed from chat context or instructions." } } : {}),
+          task: { type: "string", description: "Structured task payload for the subagent." },
+          context: { type: "string", description: "Structured project/file context." },
+          constraints: { type: "string", description: "Structured constraints." },
+          skills: { type: "array", items: { type: "string" }, description: "Assigned skills." },
+          project_path: { type: "string", description: "Absolute project workspace path." },
           task_dir: { type: "string", description: "Task workspace directory." }
         }
       }
@@ -224,9 +228,10 @@ function ensureAntigravityMcpSchemas(options = {}) {
     fs.writeFileSync(path.join(schemaDir, `${s.name}.json`), JSON.stringify(info, null, 2) + "\n", "utf8");
   }
 
-  _writeManifestFindSkillsSchema(schemaDir);
+  _writeManifestAllSchemas(schemaDir);
   _updateSembleAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "semble"));
   _updateAislopAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "aislop"));
+  return { ok: true, schemaDir };
 }
 
 function getAntigravityStatus() {
@@ -291,6 +296,32 @@ function _loadAntigravitySettingsSafe(sPath) {
   }
 }
 
+function _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove) {
+  try {
+    const backupMgr = require('./config_backup_manager');
+    if (fs.existsSync(sPath)) {
+      backupMgr.backupConfigFile(sPath, { client: 'antigravity', scope: 'global' });
+    }
+    backupMgr.recordOwnership(sPath, {
+      client: 'antigravity',
+      scope: 'global',
+      format: 'json',
+      ownedArrayItems: { 'permissions.allow': requiredGrants, autoApprove: safeAutoApprove }
+    });
+  } catch (_) { /* best-effort */ }
+}
+
+function _appendMissingGrants(targetList, grants) {
+  let added = false;
+  for (const grant of grants) {
+    if (!targetList.includes(grant)) {
+      targetList.push(grant);
+      added = true;
+    }
+  }
+  return added;
+}
+
 function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrants) {
   try {
     const dir = path.dirname(sPath);
@@ -305,12 +336,7 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     );
     if (filteredAllow.length !== prevAllow.length) modified = true;
     settings.permissions.allow = filteredAllow;
-    for (const grant of requiredGrants) {
-      if (!settings.permissions.allow.includes(grant)) {
-        settings.permissions.allow.push(grant);
-        modified = true;
-      }
-    }
+    if (_appendMissingGrants(settings.permissions.allow, requiredGrants)) modified = true;
 
     const kTools = KONOHA_CANONICAL_TOOLS || [];
     const safeAutoApprove = [
@@ -328,14 +354,7 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     );
     if (filteredAuto.length !== prevAuto.length) modified = true;
     settings.autoApprove = filteredAuto;
-    for (const grant of safeAutoApprove) {
-      if (!settings.autoApprove.includes(grant)) {
-        settings.autoApprove.push(grant);
-        modified = true;
-      }
-    }
-    if (settings.permissionMode === 'allowAll') { delete settings.permissionMode; modified = true; }
-    if (settings.confirmDangerousCommands === false) { delete settings.confirmDangerousCommands; modified = true; }
+    if (_appendMissingGrants(settings.autoApprove, safeAutoApprove)) modified = true;
     if (settings.mcpServers && settings.mcpServers.konoha) {
       const srv = settings.mcpServers.konoha;
       const nodeCmd = typeof resolveCompatibleNode === 'function' ? resolveCompatibleNode() : process.execPath;
@@ -347,6 +366,7 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     }
 
     if (modified || !fs.existsSync(sPath)) {
+      _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove);
       fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
       return true;
     }
@@ -476,12 +496,25 @@ function _writeTargetAntigravityMcp(mcpConfigPath, isPrimary, servers) {
   let config = { mcpServers: {} };
   if (fs.existsSync(mcpConfigPath)) {
     try {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.backupConfigFile(mcpConfigPath, { client: 'antigravity', scope: 'global' });
+    } catch (_) { /* best-effort */ }
+    try {
       config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8')) || {};
       if (!config.mcpServers) config.mcpServers = {};
-    } catch { config = { mcpServers: {} }; }
+    } catch { return; }
   }
   Object.assign(config.mcpServers, servers);
   fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
+  try {
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.recordOwnership(mcpConfigPath, {
+      client: 'antigravity',
+      scope: 'global',
+      format: 'json',
+      ownedKeys: Object.keys(servers).map(k => `mcpServers.${k}`)
+    });
+  } catch (_) { /* best-effort */ }
 }
 
 function ensureAntigravitySetup(options = {}) {
@@ -505,16 +538,14 @@ function ensureAntigravitySetup(options = {}) {
   deployAntigravityRtkRule(silent, options);
 
   try {
-    const { loadAgents, generateGeminiMd, generateAgentsMd } = require("./agent_manager");
+    const { loadAgents, generateGeminiMd, generateAgentsMd, injectManagedConfig } = require("./agent_manager");
     const agents = loadAgents();
     const geminiMd = path.join(home, ".gemini", "GEMINI.md");
     const agentsMd = path.join(home, ".agents", "AGENTS.md");
     fs.mkdirSync(path.dirname(geminiMd), { recursive: true });
-    fs.writeFileSync(geminiMd, generateGeminiMd(agents), "utf8");
+    fs.writeFileSync(geminiMd, injectManagedConfig(geminiMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
     fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
-    fs.writeFileSync(agentsMd, generateAgentsMd(agents), "utf8");
-    // A subagent can only be spawned if its definition file exists on disk.
-    // Deploy the loaded roster before returning.
+    fs.writeFileSync(agentsMd, injectManagedConfig(agentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), "utf8");
     ensureAntigravityAgents(agents, options);
   } catch (_) { /* best-effort */ }
 

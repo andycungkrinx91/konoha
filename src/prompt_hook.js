@@ -1,6 +1,6 @@
 const fs = require('fs');
 const readline = require('readline');
-const { readStdinJson, isConfirmedSelf } = require('./hook-base');
+const { readStdinJson, isConfirmedSelf, isKonohaInvocationPrompt, isKonohaSessionActive } = require('./hook-base');
 
 function _processTranscriptLine(line, state) {
   if (!line.trim()) return;
@@ -64,7 +64,15 @@ async function main() {
     const { transcriptPath } = context;
     if (!transcriptPath) process.exit(0);
 
-    const { isNewInput } = await getLastUserInput(transcriptPath);
+    const { lastInput, isNewInput } = await getLastUserInput(transcriptPath);
+
+    // Non-invasive scoped execution invariant: only inject Konoha orchestration
+    // instructions when the user explicitly invokes `/konoha <prompt>` or
+    // `/<subagent-name> <prompt>` (or when a Konoha session is already active).
+    const isScopedKonoha = isKonohaInvocationPrompt(lastInput) || isKonohaSessionActive(context);
+    if (!isScopedKonoha) {
+      process.exit(0);
+    }
 
     // Inbox notification peeks SQLite only — never claims, never writes prompt.md.
     // Claiming happens via structured queue tools when the agent actually dispatches.

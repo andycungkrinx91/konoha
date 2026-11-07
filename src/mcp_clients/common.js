@@ -140,6 +140,12 @@ function buildStdioMcpServers(options = {}) {
 
 function mergeJsonFile(filePath, mutator, silent = true) {
   const { parseYaml, stringifyYaml } = require('../agent_manager');
+  const { backupConfigFile, recordOwnership } = require('../config_backup_manager');
+  const backupRes = backupConfigFile(filePath);
+  if (!backupRes.ok) {
+    throw new Error(`Aborted configuration modification on ${filePath}: backup verification failed (${backupRes.error})`);
+  }
+
   if (!fileExists(filePath)) {
     const isJson = filePath.endsWith('.json');
     const config = {};
@@ -147,6 +153,7 @@ function mergeJsonFile(filePath, mutator, silent = true) {
     if (updated) {
       ensureDir(path.dirname(filePath));
       fs.writeFileSync(filePath, isJson ? JSON.stringify(config, null, 2) + '\n' : stringifyYaml(config) + '\n');
+      recordOwnership(filePath, { createdByKonoha: true, ownedKeys: Object.keys(config) });
       if (!silent) {
         process.stderr.write(`✓ Created ${filePath}\n`);
       }
@@ -157,11 +164,17 @@ function mergeJsonFile(filePath, mutator, silent = true) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     const isJson = filePath.endsWith('.json');
+    const beforeKeys = new Set();
     const config = isJson ? JSON.parse(content) : parseYaml(content);
+    if (config && typeof config === 'object') {
+      Object.keys(config).forEach(k => beforeKeys.add(k));
+    }
     const updated = mutator(config);
     if (updated) {
       ensureDir(path.dirname(filePath));
       fs.writeFileSync(filePath, isJson ? JSON.stringify(config, null, 2) + '\n' : stringifyYaml(config) + '\n');
+      const addedKeys = Object.keys(config || {}).filter(k => !beforeKeys.has(k));
+      recordOwnership(filePath, { ownedKeys: [...addedKeys, 'mcpServers.konoha', 'mcpServers.semble'] });
       if (!silent) {
         process.stderr.write(`✓ Updated ${filePath}\n`);
       }
@@ -184,11 +197,17 @@ function mergeMcpServersBlock(target, incoming) {
 }
 
 function backupFile(filePath, silent = true) {
+  const { backupConfigFile } = require('../config_backup_manager');
+  const res = backupConfigFile(filePath);
+  if (!res.ok) {
+    throw new Error(`Backup integrity check failed for ${filePath}: ${res.error}`);
+  }
   const backPath = filePath + '.back';
   if (fileExists(filePath) && !fileExists(backPath)) {
     fs.copyFileSync(filePath, backPath);
     if (!silent) process.stderr.write(`  ✓ Backed up ${path.basename(filePath)} → ${path.basename(backPath)}\n`);
   }
+  return res;
 }
 
 function buildClientToolGrants(prefix) {

@@ -15,18 +15,38 @@
  */
 
 
+const fs = require('fs');
+
 const REMINDER = [
-  '[konoha] Workflow active — applies to ALL sessions (new, resumed, compacted):',
-  'FIRST ACTION on any new task: call konoha.find_skill with keywords from the user prompt BEFORE any code changes.',
-  'Route tasks via konoha MCP `sannin` (structured task args, never file IPC); skills via konoha.find_skill/get_skill;',
-  'code search via semble search/find_related; bounded file tools konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
-  'artifacts live in konoha.get_resolved_task_dir; completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100);',
-  '@advisor approval review before final delivery sign-off;',
-  'base personality: high effort + instruct style (STRICTLY FORBIDDEN filler: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine");',
-  'lead with direct action/evidence; ADHD-friendly: number steps, bold headings, bullet points, zero fluff;',
-  'zero hallucination: never fabricate test results, never claim success without verified evidence, never lie;',
-  'anti-context-loss / middle-attenuation guard: never lose user constraints in the middle of multi-turn sessions; re-anchor explicit parameters (author, identity, flags, negative constraints) on every turn, and assert exact string equality rather than relying on degraded conversational memory.'
+  '[konoha] Scoped Workflow Contract (active when invoked via `/konoha <prompt>` or `/<subagent-name> <prompt>`):',
+  'For `/konoha <prompt>`: execute Konoha Main Orchestrator -> Sannin -> Kage -> applicable LangGraph workflow -> agent delegation -> governance & verification -> Final Gate -> delivery.',
+  'For `/<subagent-name> <prompt>`: execute ONLY the requested subagent directly according to its specialization (do NOT route through Sannin or full SDLC workflow), followed by mandatory Kage review before delivery.',
+  'For normal messages without `/konoha` or `/<subagent-name>`: preserve the AI client native behavior without Konoha interception.',
+  'Within Konoha workflows: call konoha.find_skill first; code search via semble search/find_related; bounded file tools via konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
+  'completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100) and @advisor approval review before final delivery sign-off.'
 ].join(' ');
+
+// Check if stdin provides a UserPromptSubmit payload without `/konoha` or `/<subagent-name>`
+let shouldSkipReminder = false;
+try {
+  if (!process.stdin.isTTY) {
+    const rawStdin = fs.readFileSync(0, 'utf-8').trim();
+    if (rawStdin) {
+      const parsed = JSON.parse(rawStdin);
+      const userPrompt = parsed && (parsed.prompt || parsed.user_prompt || parsed.message || parsed.content);
+      if (typeof userPrompt === 'string' && userPrompt.trim().length > 0) {
+        const isKonohaCmd = /(?:^|\s|>)(\/(?:konoha|sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|tokubetsu_jonin|akatsuki|yamanaka)\b|@(?:konoha|sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin|tokubetsu_jonin|akatsuki|yamanaka)\b)/i.test(userPrompt);
+        if (!isKonohaCmd && process.env.KONOHA_MANAGED_CONTEXT !== '1' && !process.env.KONOHA_TASK_ID) {
+          shouldSkipReminder = true;
+        }
+      }
+    }
+  }
+} catch (_) { /* non-blocking stdin check */ }
+
+if (shouldSkipReminder) {
+  process.exit(0);
+}
 
 // Detect active client for hook-specific output format (retained for future client-specific formatting)
 const _activeClient = (() => {

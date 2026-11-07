@@ -16,6 +16,7 @@ const {
 } = require('./workflow_common');
 
 const {
+  parseKonohaCommandInvocation,
   routeByKeywordsWithPrompt,
   classifyExecutionTrack,
   detectParallelWorkstreams,
@@ -140,6 +141,7 @@ module.exports = {
   runAislopGate,
   loadWorkflowStatus,
   saveWorkflowStatus,
+  parseKonohaCommandInvocation,
   routeByKeywordsWithPrompt,
   dispatchParallelSlices,
   runSannin,

@@ -45,24 +45,16 @@ const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', '
  * `test-*` debug agents) is purged by `cleanStaleSessionAgents` so it cannot
  * shadow the real roster and break `Agent(name: ...)` invocations.
  */
-const OFFICIAL_NINJAS = getCanonicalAgentNames();
+const _OFFICIAL_NINJAS = getCanonicalAgentNames();
 
 /**
  * Remove any directory under `base` whose name is NOT in the official ninja
  * whitelist. Defense-in-depth against leaked `define_subagent` artifacts and
  * stale test agents. Safe-by-default: silent on every error path.
  */
-function cleanStaleSessionAgents(base) {
-  if (!fs.existsSync(base)) return;
-  const official = new Set(OFFICIAL_NINJAS);
-  try {
-    const entries = fs.readdirSync(base, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (official.has(entry.name)) continue;
-      try { fs.rmSync(path.join(base, entry.name), { recursive: true, force: true }); } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
-    }
-  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+function cleanStaleSessionAgents(_base) {
+  // Ownership boundary invariant: Konoha NEVER deletes custom or third-party
+  // agent directories inside `agents/` or session `brain/` directories.
 }
 
 function loadAgentsFromGlobalDir() {
@@ -152,4 +144,12 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  cleanStaleSessionAgents,
+  deploySessionAgents,
+  loadAgents
+};

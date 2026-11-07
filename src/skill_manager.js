@@ -504,10 +504,6 @@ function autoMigrateProjectSkills(projectRoot) {
     } catch { /* intentional best-effort fallback */ }
   }
 
-  try {
-    deployUtils.pruneWorkspacePollution(ws);
-  } catch (_) { /* intentional best-effort fallback */ }
-
   return { migrated: totalMigrated, dirs: foundDirs };
 }
 

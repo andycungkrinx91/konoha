@@ -128,25 +128,36 @@ function isPathVisible(filePath) {
   const normFp = normCase(filePath);
   if (isIdeInstallationDir(normFp)) return false;
 
-  const normalizedSlashPath = normFp.replace(/\\/g, "/");
-  if (
-    normalizedSlashPath.includes(".agents/skills") ||
-    normalizedSlashPath.includes(".cursor/skills") ||
-    normalizedSlashPath.includes(".gemini/skills") ||
-    normalizedSlashPath.includes(".konoha/skills") ||
-    normalizedSlashPath.includes("/skills/") ||
-    normalizedSlashPath.includes("/docs/skills")
-  ) {
-    return true;
+  const currentHome = process.env.HOME || process.env.USERPROFILE || HOME;
+  const homeDir = normCase(currentHome);
+  const sep = path.sep;
+
+  const globalAllowedRoots = [
+    normCase(path.join(currentHome, ".agents")),
+    normCase(path.join(currentHome, ".konoha")),
+    normCase(path.join(currentHome, ".gemini")),
+    normCase(path.join(currentHome, ".cursor")),
+    normCase(path.join(currentHome, ".claude")),
+    normCase(path.join(currentHome, ".commandcode")),
+    normCase(path.join(currentHome, ".codex")),
+    normCase(path.join(currentHome, ".config", "opencode")),
+    normCase(path.join(currentHome, ".opencode")),
+    normCase(path.join(currentHome, ".pi")),
+    normCase(path.join(currentHome, ".omp")),
+    normCase(AGENTS_DIR),
+    normCase(GEMINI_DIR),
+    normCase(KONOHA_DIR),
+    normCase(path.resolve(__dirname, "..", "templates"))
+  ];
+
+  for (const gRoot of globalAllowedRoots) {
+    if (gRoot && (normFp === gRoot || normFp.startsWith(gRoot + sep))) {
+      return true;
+    }
   }
 
-  const globalAgents = normCase(AGENTS_DIR);
-  const globalGemini = normCase(GEMINI_DIR);
-  const globalKonoha = normCase(KONOHA_DIR);
-
-  const workspace = getWorkspaceRoot() || process.cwd();
+  const workspace = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
   const currentWorkspace = normCase(workspace);
-  const homeDir = normCase(HOME);
 
   const isGenericWorkspace = (
     currentWorkspace === homeDir ||
@@ -154,15 +165,8 @@ function isPathVisible(filePath) {
     (process.platform === "win32" && currentWorkspace.length <= 3)
   );
 
-  const sep = path.sep;
-  if (normFp.startsWith(globalAgents + sep) || normFp === globalAgents) return true;
-  if (normFp.startsWith(globalGemini + sep) || normFp === globalGemini) return true;
-  if (normFp.startsWith(globalKonoha + sep) || normFp === globalKonoha) return true;
-
   if (!isGenericWorkspace) {
-    if (normFp.startsWith(currentWorkspace + sep) || normFp === currentWorkspace) return true;
-    const parentWs = path.dirname(currentWorkspace);
-    if (parentWs !== homeDir && parentWs !== normCase("/") && (normFp.startsWith(parentWs + sep) || normFp === parentWs)) {
+    if (normFp === currentWorkspace || normFp.startsWith(currentWorkspace + sep)) {
       return true;
     }
   }

@@ -15,6 +15,7 @@ const {
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const db = require('./db');
 const {
   seedAgents: seedAgentsHelper,
@@ -28,6 +29,8 @@ const {
   normalizeLegacySkillNames,
   verifyRequiredSkills,
   resolveCandidateSkillRoots,
+  isSafeExternalSkillFile,
+  classifySkillSourceProvenance,
 } = require('./migrate_helpers');
 
 const { isEmbeddedReference, isCanonicalSkill } = require('./canonical_skills');
@@ -66,55 +69,104 @@ function setupDb(dbPath = null) {
 }
 
 
+function _computeSkillRowIdentity(conn, baseSkillName, filePath, skillsDir, rawContent) {
+  const prov = classifySkillSourceProvenance(skillsDir);
+  const contentHash = crypto.createHash('sha256').update(rawContent || '', 'utf8').digest('hex').slice(0, 16);
+  const existingExact = conn.prepare('SELECT name, file_path, tags, content FROM skills WHERE name = ?').get(baseSkillName);
+
+  let rowName = baseSkillName;
+  if (prov.scope === 'project' && prov.projectHash) {
+    if (existingExact && existingExact.file_path && path.resolve(existingExact.file_path) !== path.resolve(filePath)) {
+      rowName = `${baseSkillName}@proj-${prov.projectHash}`;
+    } else if (!existingExact && !isCanonicalSkill(baseSkillName)) {
+      rowName = baseSkillName;
+    }
+  } else if (prov.scope === 'global' && prov.harness && prov.harness !== 'agents') {
+    if (existingExact && existingExact.file_path && path.resolve(existingExact.file_path) !== path.resolve(filePath)) {
+      const existingContent = optimizeContent(rawContent);
+      if (existingExact.content !== existingContent) {
+        rowName = `${baseSkillName}@global-${prov.harness}`;
+      }
+    }
+  }
+
+  const provTags = [
+    `scope:${prov.scope}`,
+    `harness:${prov.harness}`,
+    prov.projectHash ? `project_hash:${prov.projectHash}` : null,
+    `hash:${contentHash}`
+  ].filter(Boolean);
+
+  return { rowName, prov, contentHash, provTags };
+}
+
 function _migrateFlatSkillFile(conn, skillName, skillsDir) {
   const skillNameClean = path.basename(skillName, ".md");
   const filePath = path.join(skillsDir, skillName);
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    log(`  ✗ File not found: ${filePath}`);
+  if (!isSafeExternalSkillFile(filePath, skillsDir)) {
+    log(`  ✗ File not found or unsafe: ${filePath}`);
     return 0;
   }
 
-  try {
-    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)").run(skillNameClean, skillNameClean);
-  } catch (_) { /* intentional best-effort fallback */ }
-  conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillNameClean);
-
   const rawContent = fs.readFileSync(filePath, 'utf8');
-  const tags = extractTagsFromFrontmatter(rawContent);
+  const { rowName, contentHash, provTags } = _computeSkillRowIdentity(conn, skillNameClean, filePath, skillsDir, rawContent);
+
+  const existingRow = conn.prepare("SELECT tags, file_path FROM skills WHERE name = ?").get(rowName);
+  if (existingRow && existingRow.tags && existingRow.tags.includes(`hash:${contentHash}`) && existingRow.file_path === filePath) {
+    return 1;
+  }
+
+  try {
+    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(rowName);
+  } catch (_) { /* intentional best-effort fallback */ }
+  conn.prepare("DELETE FROM skills WHERE name = ?").run(rowName);
+
+  const baseTags = extractTagsFromFrontmatter(rawContent);
+  const tags = [baseTags, ...provTags].filter(Boolean).join(',');
   const content = optimizeContent(rawContent);
   const byteSize = Buffer.byteLength(content, 'utf8');
   const rawSize = Buffer.byteLength(rawContent, 'utf8');
   const lineCount = (content.match(/\n/g) || []).length + 1;
   const pct = rawSize > 0 ? ((rawSize - byteSize) / rawSize * 100) : 0;
 
-  conn.prepare("DELETE FROM skills WHERE name = ?").run(skillNameClean);
   conn.prepare(
     "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(skillNameClean, skillNameClean, "skill", tags, content, filePath, byteSize, lineCount);
+  ).run(rowName, skillNameClean, "skill", tags, content, filePath, byteSize, lineCount);
 
   log(`  ✓ ${skillName} (${rawSize.toLocaleString()} → ${byteSize.toLocaleString()} bytes, optimized ${pct.toFixed(1)}%)`);
   return 1;
 }
 
-function _migrateSkillMd(conn, skillDir, skillName) {
+function _migrateSkillMd(conn, skillDir, skillName, skillsDir = SKILLS_DIR) {
   const skillMd = path.join(skillDir, "SKILL.md");
-  if (!fs.existsSync(skillMd) || !fs.statSync(skillMd).isFile()) return 0;
+  if (!isSafeExternalSkillFile(skillMd, skillDir)) return { count: 0, rowName: skillName, unchanged: false };
 
   const rawContent = fs.readFileSync(skillMd, 'utf8');
-  const tags = extractTagsFromFrontmatter(rawContent);
+  const { rowName, contentHash, provTags } = _computeSkillRowIdentity(conn, skillName, skillMd, skillsDir, rawContent);
+
+  const existingRow = conn.prepare("SELECT tags, file_path FROM skills WHERE name = ?").get(rowName);
+  if (existingRow && existingRow.tags && existingRow.tags.includes(`hash:${contentHash}`) && existingRow.file_path === skillMd) {
+    return { count: 1, rowName, unchanged: true };
+  }
+
+  const baseTags = extractTagsFromFrontmatter(rawContent);
+  const tags = [baseTags, ...provTags].filter(Boolean).join(',');
   const content = optimizeContent(rawContent);
   const byteSize = Buffer.byteLength(content, 'utf8');
   const rawSize = Buffer.byteLength(rawContent, 'utf8');
   const lineCount = (content.match(/\n/g) || []).length + 1;
   const pct = rawSize > 0 ? ((rawSize - byteSize) / rawSize * 100) : 0;
 
-  conn.prepare("DELETE FROM skills WHERE name = ?").run(skillName);
+  try {
+    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(rowName);
+  } catch (_) { /* best-effort */ }
+  conn.prepare("DELETE FROM skills WHERE name = ?").run(rowName);
   conn.prepare(
     "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(skillName, skillName, "skill", tags, content, skillMd, byteSize, lineCount);
+  ).run(rowName, skillName, "skill", tags, content, skillMd, byteSize, lineCount);
 
   log(`  ✓ SKILL.md (${rawSize.toLocaleString()} → ${byteSize.toLocaleString()} bytes, optimized ${pct.toFixed(1)}%)`);
-  return 1;
+  return { count: 1, rowName, unchanged: false };
 }
 
 function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DIR) {
@@ -133,14 +185,13 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
     return 0;
   }
 
-  try {
-    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name LIKE ?").run(skillName, `${skillName}/%`);
-  } catch (_) { /* intentional best-effort fallback */ }
-  conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillName);
-
-  let count = _migrateSkillMd(conn, skillDir, skillName);
-  count += _migrateReferences(conn, skillDir, skillName, skillsOnly, log);
-  count += _migrateRootReferences(conn, skillDir, skillName, skillsOnly, log);
+  const mdRes = _migrateSkillMd(conn, skillDir, skillName, skillsDir);
+  let count = mdRes.count;
+  const effectivePrefix = mdRes.rowName || skillName;
+  if (!mdRes.unchanged) {
+    count += _migrateReferences(conn, skillDir, effectivePrefix, skillsOnly, log);
+    count += _migrateRootReferences(conn, skillDir, effectivePrefix, skillsOnly, log);
+  }
   return count;
 }
 

@@ -43,6 +43,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}project${C.reset}           📁 Manage persistent project workspaces, detected stacks, and invariants.
   ${C.cyan}queue${C.reset}             📬 Background task prompt queue and execution worker.
   ${C.cyan}reinstall${C.reset}         🔄 Force clean re-installation and replace existing configuration (implies --force).
+  ${C.cyan}run-agent${C.reset}         🥷 Execute a single Ninja subagent via CLI bridge with mandatory Kage review.
   ${C.cyan}savings${C.reset}           📊 View your total token savings (Today, 7 days, All time).
   ${C.cyan}search${C.reset}            🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
   ${C.cyan}service${C.reset}           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
@@ -55,7 +56,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}tui${C.reset}               🥷 Launch interactive Terminal User Interface (TUI) for subagents and skills.
   ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
-  ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
+  ${C.cyan}upgrade, update${C.reset}   🔄 Upgrade Konoha CLI to the latest version from npm registry.
   ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
   ${C.cyan}webhook, webhooks${C.reset}           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
 

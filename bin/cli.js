@@ -107,6 +107,7 @@ async function dispatchCoreCommand(cmd, cmdArgs) {
       await cmdVersion(cmdArgs);
       return true;
     case 'upgrade':
+    case 'update':
       await cmdUpgrade(cmdArgs);
       return true;
     case 'db': {
@@ -188,6 +189,11 @@ async function dispatchAgentCommand(cmd, cmdArgs) {
     case 'agent':
       await cmdAgent(cmdArgs);
       return true;
+    case 'run-agent': {
+      const { cmdRunAgent } = require('./commands/run_agent');
+      await cmdRunAgent(cmdArgs);
+      return true;
+    }
     case 'data':
       await cmdData(cmdArgs);
       return true;

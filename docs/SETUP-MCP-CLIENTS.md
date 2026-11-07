@@ -1,5 +1,5 @@
 
-Konoha registers **konoha**, **semble**, and **aislop** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. Existing configs are preserved or backed up according to each client manager.
+Konoha registers **konoha**, **semble**, and **aislop** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. Before modifying any configuration, Konoha automatically backs up global and project-level client configs to `~/.konoha/backups/configs/<client>/<scope>/` (with SHA-256 and syntax verification), applies syntax-aware append-only merging, and records ownership in `~/.konoha/backups/ownership_manifest.json` so existing user settings, hooks, `agents/`, and `conversations/` directories are strictly preserved.
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
@@ -8,7 +8,7 @@ Konoha registers **konoha**, **semble**, and **aislop** for every supported clie
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
 | **Command Code** | When detected as `cmd` or `commandcode` | `~/.commandcode/mcp.json` → `mcpServers` |
-| **OpenAI Codex** | When detected as `codex` | `~/.codex/config.toml` → `[mcp_servers]`, `sandbox_mode = "danger-full-access"` |
+| **OpenAI Codex** | When detected as `codex` | `~/.codex/config.toml` → `[mcp_servers]` (preserves existing user `sandbox_mode` and `approval_policy`) |
 | **Pi (pi.dev)** | When detected as `pi` or `~/.pi/agent` | `~/.pi/agent/mcp.json` → `mcpServers` (loaded via the `pi-mcp-adapter` extension, auto-added to `~/.pi/agent/settings.json`) |
 | **OMP** | When detected as `omp` or `~/.omp` | `~/.omp/agent/mcp.json` → `mcpServers`; `~/.omp/agent/AGENTS.md` → runtime workflow contract |
 

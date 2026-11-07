@@ -12,7 +12,7 @@
  * alongside this script to ~/.konoha/. The guardrail checker lives in
  * ./guardrails, also deployed flat to ~/.konoha/.
  */
-const { readStdinJson, respond } = require('./hook-base');
+const { readStdinJson, respond, isKonohaSessionActive } = require('./hook-base');
 
 let checkCommandGuardrails = null;
 try {
@@ -67,21 +67,30 @@ async function main() {
       name = name.split(':').pop();
     }
 
-    // DENY 1: Block direct subagent creation/invocation — must use MCP tools
-    if (name === 'define_subagent' || name === 'invoke_subagent') {
+    // Scoped Hook Invariant: If the current session is NOT a Konoha-managed
+    // execution context (`/konoha` or `/<subagent-name>`), allow all native tools
+    // and subagent invocations without interference.
+    if (!isKonohaSessionActive(payload)) {
+      respond({ decision: 'allow' });
+      return;
+    }
+
+    // Within a Konoha-managed context, allow `invoke_subagent` for registered
+    // agents while blocking dynamic `define_subagent` shadow creation.
+    if (name === 'define_subagent') {
       respond({
         decision: 'deny',
-        reason: `Subagents must be executed strictly as MCP tools (e.g. kage, jonin, etc.) served by the konoha MCP server. Direct agent tool calls (define_subagent, invoke_subagent) are disabled in Konoha.`,
+        reason: `Dynamic agent definition (define_subagent) is disabled in Konoha-managed workflows. Use official Konoha MCP tools or pre-deployed agents.`,
       });
       return;
     }
 
-    // DENY 2: Block native file/search tools — must use konoha MCP + semble MCP
+    // DENY 2: Block native file/search tools inside Konoha-managed workflows
     const FORBIDDEN_TOOLS = ['view_file', 'grep_search', 'list_dir', 'Read', 'Grep', 'Glob', 'Search'];
     if (FORBIDDEN_TOOLS.includes(name)) {
       respond({
         decision: 'deny',
-        reason: `Konoha Enforcement: Native tool '${name}' is DISABLED. You MUST use 'konoha' MCP (for bounded file reads/skills) and 'semble' MCP (for codebase search) instead.`,
+        reason: `Konoha Enforcement: Native tool '${name}' is DISABLED inside Konoha-managed workflows. You MUST use 'konoha' MCP (for bounded file reads/skills) and 'semble' MCP (for codebase search) instead.`,
       });
       return;
     }

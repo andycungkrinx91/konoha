@@ -83,12 +83,33 @@ function _migrateSingleCandidateDir(cdir, migratedSkills) {
   }
 }
 
+function _deleteSkillAndChunks(conn, skillName) {
+  try { conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(skillName); } catch (_) { /* ignore */ }
+  conn.prepare("DELETE FROM skills WHERE name = ?").run(skillName);
+}
+
+function _pruneDeletedProjectSkillRows(conn, ws) {
+  if (!conn || !ws) return;
+  try {
+    const normWs = path.resolve(ws) + path.sep;
+    const rows = conn.prepare("SELECT name, file_path FROM skills WHERE file_path IS NOT NULL").all();
+    for (const r of rows) {
+      if (!r.file_path) continue;
+      const resolvedFp = path.resolve(r.file_path);
+      if (resolvedFp.startsWith(normWs) && !fs.existsSync(resolvedFp)) {
+        _deleteSkillAndChunks(conn, r.name);
+      }
+    }
+  } catch (_) { /* best-effort */ }
+}
+
 function autoMigrateProjectSkills(workspaceRoot = null) {
   const ws = workspaceRoot || getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
   if (!ws || isIdeInstallationDir(ws)) return [];
 
   let normWs = path.resolve(ws);
-  let homeDir = path.resolve(HOME);
+  const currentHome = process.env.HOME || process.env.USERPROFILE || HOME;
+  let homeDir = path.resolve(currentHome);
   if (process.platform === 'win32') {
     normWs = normWs.toLowerCase();
     homeDir = homeDir.toLowerCase();
@@ -99,14 +120,20 @@ function autoMigrateProjectSkills(workspaceRoot = null) {
 
   const candidateSubdirs = [
     path.join(ws, '.agents', 'skills'),
+    path.join(ws, '.agent', 'skills'),
     path.join(ws, 'skills'),
     path.join(ws, '.skills'),
     path.join(ws, '.cursor', 'skills'),
     path.join(ws, '.gemini', 'skills'),
     path.join(ws, '.gemini', 'antigravity-cli', 'skills'),
+    path.join(ws, '.gemini', 'antigravity-ide', 'skills'),
     path.join(ws, '.commandcode', 'skills'),
     path.join(ws, '.claude', 'skills'),
+    path.join(ws, '.codex', 'skills'),
+    path.join(ws, '.omp', 'agent', 'skills'),
     path.join(ws, '.omp', 'skills'),
+    path.join(ws, '.pi', 'agent', 'skills'),
+    path.join(ws, '.pi', 'skills'),
     path.join(ws, '.config', 'opencode', 'skills'),
     path.join(ws, '.opencode', 'skills'),
     path.join(ws, 'docs', 'skills')
@@ -114,6 +141,13 @@ function autoMigrateProjectSkills(workspaceRoot = null) {
 
   const migratedSkills = [];
   for (const cdir of candidateSubdirs) _migrateSingleCandidateDir(cdir, migratedSkills);
+
+  try {
+    const conn = getDb();
+    _pruneDeletedProjectSkillRows(conn, ws);
+    conn.close();
+  } catch (_) { /* best-effort */ }
+
   return migratedSkills;
 }
 

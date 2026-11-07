@@ -98,10 +98,10 @@ konoha migrate
 konoha migrate --rebuild-embeddings
 ```
 
-In Konoha v2.0.2, migrations are strictly non-destructive: existing user skills, custom agent configurations, and prior indexed references are preserved and never pruned. The migration automatically:
-1. Scans `~/.agents/skills/` and `./.agents/skills/`.
-2. Indexes the main `SKILL.md` instructions.
-3. Automatically detects other root markdown files (e.g., `JSON.md`, `PRD.md`) or nested `references/*.md` files and indexes them as reference assets in the database.
+In Konoha v2.2.18, migrations are strictly non-destructive and integrate directly with the existing SQLite Project Knowledge RAG (`~/.konoha/konoha.db`): existing user skills, custom agent configurations, project memories, and prior indexed references are preserved and never moved or deleted. The migration automatically:
+1. Scans global and project-level skill directories across all 8 harnesses (`~/.agents/skills/`, `./.agents/skills/`, `.cursor/skills/`, `.claude/skills/`, `.gemini/skills/`, `.commandcode/skills/`, `.codex/skills/`, `.opencode/skills/`, `.pi/agent/skills/`, `.omp/agent/skills/`) in-place without modifying external files.
+2. Enforces strict project isolation (`project_hash` / `isPathVisible`) so project-level skills belong exclusively to their originating project and never leak into other workspaces, while preserving distinct skills with matching names (`@proj-<hash>` / `@global-<harness>`).
+3. Indexes the main `SKILL.md` instructions with content-hash deduplication and automatically detects nested `references/*.md` files.
 
 **Migration output example:**
 ```

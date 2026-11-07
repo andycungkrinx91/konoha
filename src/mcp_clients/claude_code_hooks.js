@@ -14,7 +14,18 @@ function _writeBlockerScript(binDir, blockerJs) {
   try {
     fs.mkdirSync(binDir, { recursive: true });
     const payload = `#!/usr/bin/env node
-const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+const fs = require('fs');
+let raw = '';
+try { raw = fs.readFileSync(0, 'utf-8'); } catch (_) { process.exit(0); }
+let input = null;
+try { input = JSON.parse(raw); } catch (_) { process.exit(0); }
+const isKonohaManaged = process.env.KONOHA_MANAGED_CONTEXT === '1' ||
+  Boolean(process.env.KONOHA_TASK_ID) ||
+  Boolean(input && input.konoha_managed);
+if (!isKonohaManaged) {
+  process.exit(0);
+}
+const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
 const decision = {
   "decision": "block",
   "reason": reason,
@@ -97,6 +108,12 @@ let raw = '';
 try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
 let input = null;
 try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
+const isKonohaManaged = process.env.KONOHA_MANAGED_CONTEXT === '1' ||
+  Boolean(process.env.KONOHA_TASK_ID) ||
+  Boolean(input && input.konoha_managed);
+if (!isKonohaManaged) {
+  process.exit(0);
+}
 const toolInput = input && input.tool_input;
 const command = toolInput && typeof toolInput.command === 'string' ? toolInput.command : '';
 if (!command) process.exit(0);

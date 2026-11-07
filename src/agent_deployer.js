@@ -94,13 +94,21 @@ function getCliVersion() {
   return '0.0.0';
 }
 
-function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA') {
+function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA', options = {}) {
   const startMarker = `<!-- ${marker}-START -->`;
   const endMarker = `<!-- ${marker}-END -->`;
   const wrapped = `${startMarker}\n${newManagedContent.trim()}\n${endMarker}\n`;
 
   let existing = '';
-  if (fs.existsSync(filePath)) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.backupConfigFile(filePath, {
+        client: options.client || 'global',
+        scope: options.scope || 'global',
+        konohaHome: options.konohaHome
+      });
+    } catch (_) { /* backup best-effort when invoked in pure string tests */ }
     try {
       existing = fs.readFileSync(filePath, 'utf8');
     } catch {
@@ -108,57 +116,58 @@ function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA') {
     }
   }
 
+  let result;
   const trimmed = existing.trim();
   if (!trimmed) {
-    return wrapped;
+    result = wrapped;
+  } else {
+    const startIndex = existing.indexOf(startMarker);
+    const endIndex = existing.indexOf(endMarker);
+    if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+      const before = existing.slice(0, startIndex).trim();
+      const after = existing.slice(endIndex + endMarker.length).trim();
+      const parts = [];
+      if (before) parts.push(before);
+      parts.push(`${startMarker}\n${newManagedContent.trim()}\n${endMarker}`);
+      if (after) parts.push(after);
+      result = parts.join('\n\n') + '\n';
+    } else {
+      result = `${trimmed}\n\n${wrapped}`;
+    }
   }
 
-  const startIndex = existing.indexOf(startMarker);
-  const endIndex = existing.indexOf(endMarker);
-  if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-    const before = existing.slice(0, startIndex).trim();
-    const after = existing.slice(endIndex + endMarker.length).trim();
-    const isBeforeKonoha = before.startsWith('# Global Agent Instructions') ||
-      before.startsWith('# Antigravity') ||
-      before.startsWith('# AGENTS.md') ||
-      before.startsWith('# Claude Code') ||
-      before.startsWith('# Gemini');
-    const parts = [];
-    if (before && !isBeforeKonoha) parts.push(before);
-    parts.push(`${startMarker}\n${newManagedContent.trim()}\n${endMarker}`);
-    if (after) parts.push(after);
-    return parts.join('\n\n') + '\n';
+  if (filePath) {
+    try {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.recordOwnership(filePath, {
+        client: options.client || 'global',
+        scope: options.scope || 'global',
+        format: 'text',
+        ownedSections: [startMarker]
+      }, options.konohaHome);
+    } catch (_) { /* best-effort */ }
   }
 
-  const isKonohaFile = trimmed.startsWith('# Global Agent Instructions') ||
-    trimmed.startsWith('# Antigravity') ||
-    trimmed.startsWith('# AGENTS.md') ||
-    trimmed.startsWith('# Claude Code') ||
-    trimmed.startsWith('# Gemini');
-
-  if (isKonohaFile) {
-    return wrapped;
-  }
-
-  return `${trimmed}\n\n${wrapped}`;
+  return result;
 }
 
-function cleanObsoleteAgentDirs(home = null) {
-  const effectiveHome = home || process.env.HOME || process.env.USERPROFILE || os.homedir();
-  const obsoleteDirs = [
-    path.join(__dirname, '..', '.agents', 'agents'),
-    path.join(__dirname, '..', '.cursor', 'agents'),
-    path.join(effectiveHome, '.gemini', 'config', 'agents'),
-    path.join(effectiveHome, '.gemini', 'antigravity-cli', 'agents'),
-    path.join(effectiveHome, '.gemini', 'antigravity-ide', 'agents'),
-    path.join(effectiveHome, '.cursor', 'agents')
-  ];
-  for (const d of obsoleteDirs) {
-    if (!fs.existsSync(d)) continue;
-    try {
-      fs.rmSync(d, { recursive: true, force: true });
-    } catch (_) { /* intentional best-effort fallback */ }
+function isProtectedUserPath(targetPath) {
+  if (!targetPath || typeof targetPath !== 'string') return false;
+  const normalized = path.resolve(targetPath).replace(/\\/g, '/');
+  const segments = normalized.split('/').filter(Boolean);
+  for (const seg of segments) {
+    const lower = seg.toLowerCase();
+    if (lower === 'agents' || lower === 'conversations' || lower === 'brain') {
+      return true;
+    }
   }
+  return false;
+}
+
+function cleanObsoleteAgentDirs(_home = null) {
+  // Ownership boundary invariant: Konoha NEVER deletes `agents/` or `conversations/`
+  // directories across any client or workspace.
+  return { skipped: true, reason: 'protected_user_directories' };
 }
 
 function deployGlobalClientConfigs(options) {
@@ -239,13 +248,22 @@ function regenerateAndDeploy(silentOrOptions = false) {
   if (agents.length === 0) return;
 
   try {
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.backupAllDetectedClients({
+      home: effectiveHome,
+      projectRoot: projectRoot || process.cwd(),
+      includeProject: Boolean(deployProject)
+    });
+  } catch (_) { /* best-effort backup */ }
+
+  try {
     fs.mkdirSync(path.dirname(geminiMdPath), { recursive: true });
-    fs.writeFileSync(geminiMdPath, injectManagedConfig(geminiMdPath, generateGeminiMd(agents), 'KONOHA'), 'utf8');
+    fs.writeFileSync(geminiMdPath, injectManagedConfig(geminiMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
   } catch (_) { /* intentional fallback */ }
 
   try {
     fs.mkdirSync(path.dirname(agentsMdPath), { recursive: true });
-    fs.writeFileSync(agentsMdPath, injectManagedConfig(agentsMdPath, generateAgentsMd(agents), 'KONOHA'), 'utf8');
+    fs.writeFileSync(agentsMdPath, injectManagedConfig(agentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), 'utf8');
   } catch (_) { /* intentional fallback */ }
 
   try {
@@ -292,6 +310,8 @@ module.exports = {
   generateAgentsMd,
   getCliVersion,
   injectManagedConfig,
+  isProtectedUserPath,
+  cleanObsoleteAgentDirs,
   regenerateAndDeploy,
   deployProjectWorkspace
 };

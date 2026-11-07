@@ -172,10 +172,11 @@ function _dispatchParallelGroup(groupTasks, groupName, status, resolvedTaskDir) 
 function _dispatchExecutePhase(status, resolvedTaskDir) {
   const tasks = status.tasks || [];
   const nextTask = tasks.find(t => t.status !== 'completed');
+  const isDirectSubagent = status.invocation_mode === 'direct_subagent';
   // The parallel barrier (and its merge-back) must still run when the group's
   // last member completes, so "all tasks done" cannot short-circuit it.
   if (!nextTask && !status.active_parallel_group) {
-    status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
+    status.phase = (isDirectSubagent || (status.slop_cycles && status.slop_cycles > 0)) ? 'review' : 'document';
     status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
     status.current_dispatch = null;
     status.active_dispatches = [];
@@ -231,7 +232,7 @@ function _dispatchExecutePhase(status, resolvedTaskDir) {
 
   const nextIdx = tasks.findIndex(t => t.status !== 'completed');
   if (nextIdx === -1) {
-    status.phase = (status.slop_cycles && status.slop_cycles > 0) ? 'review' : 'document';
+    status.phase = (isDirectSubagent || (status.slop_cycles && status.slop_cycles > 0)) ? 'review' : 'document';
     status.assigned_agent = (status.phase === 'review') ? 'kage' : 'tokubetsu-jonin';
     status.current_dispatch = null;
     status.active_dispatches = [];
@@ -431,12 +432,34 @@ function runMcpWorkflow(taskDir = null, options = {}) {
 
   if (phase === 'route') {
     if (!effPrompt) return JSON.stringify({ status: 'error', message: 'No task prompt found in workflow context.', phase: 'route' });
-    status.phase = 'explore';
-    status.assigned_agent = 'genin';
-    status.history.push({ phase: 'route', agent: 'genin' });
-    status.current_dispatch = null;
-    saveWorkflowStatus(resolvedTaskDir, status);
-    phase = 'explore';
+    const { parseKonohaCommandInvocation } = require('./workflow_sannin');
+    const parsedCmd = parseKonohaCommandInvocation(effPrompt);
+    if (parsedCmd.invocationMode === 'direct_subagent' && parsedCmd.targetAgent) {
+      const directAgent = parsedCmd.targetAgent.replace(/_/g, '-');
+      status.invocation_mode = 'direct_subagent';
+      status.direct_subagent = directAgent;
+      status.plan_approved = true;
+      status.phase = 'execute';
+      status.assigned_agent = directAgent;
+      status.tasks = [{
+        id: 'direct-subagent-1',
+        agent: directAgent,
+        task: parsedCmd.cleanPrompt || effPrompt,
+        status: 'pending'
+      }];
+      status.history.push({ phase: 'route', agent: directAgent, invocation_mode: 'direct_subagent' });
+      status.current_dispatch = null;
+      saveWorkflowStatus(resolvedTaskDir, status);
+      phase = 'execute';
+    } else {
+      status.invocation_mode = status.invocation_mode || 'konoha_orchestrator';
+      status.phase = 'explore';
+      status.assigned_agent = 'genin';
+      status.history.push({ phase: 'route', agent: 'genin' });
+      status.current_dispatch = null;
+      saveWorkflowStatus(resolvedTaskDir, status);
+      phase = 'explore';
+    }
   }
   const compRes = _processCompletion(resolvedTaskDir, status, phase, sdlcConfig, sdlcManager);
   if (compRes.response) return compRes.response;
