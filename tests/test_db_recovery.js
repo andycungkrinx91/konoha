@@ -21,6 +21,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 const {
   checkIntegrity,
+  checkDatabase,
   detectCorruption,
   restoreDatabase
 } = require('../src/db_recovery');
@@ -158,6 +159,51 @@ try {
 // Verify database is healthy again
 assert.strictEqual(checkIntegrity(corruptDbPath).ok, true);
 console.log('  ✓ Restored database passed integrity check');
+
+// ---------------------------------------------------------------------------
+// Safety: a corrupt backup must never damage the live database.
+// ---------------------------------------------------------------------------
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_badbackup_'));
+  const liveDb = path.join(dir, 'live.db');
+  const badBackup = path.join(dir, 'bad.backup.db');
+
+  const seed = new DatabaseSync(liveDb);
+  seed.exec('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT);');
+  seed.exec("INSERT INTO t (v) VALUES ('keepme');");
+  seed.close();
+
+  fs.writeFileSync(badBackup, Buffer.alloc(4096, 0x41));
+  const beforeBytes = fs.readFileSync(liveDb);
+
+  let threw = false;
+  try {
+    restoreDatabase({ dbPath: liveDb, backupPath: badBackup });
+  } catch (err) {
+    threw = true;
+    assert.ok(/corrupt/i.test(err.message), `Expected a corruption error, got: ${err.message}`);
+  }
+  assert.strictEqual(threw, true, 'restore must reject a corrupt backup');
+  console.log('  ✓ Corrupt backup rejected');
+
+  assert.strictEqual(fs.existsSync(liveDb), true, 'live database must still exist after a rejected restore');
+  assert.ok(fs.readFileSync(liveDb).equals(beforeBytes), 'live database bytes must be untouched');
+  console.log('  ✓ Live database untouched by rejected restore');
+
+  const archived = fs.readdirSync(dir).filter((f) => f.includes('pre-restore'));
+  assert.strictEqual(archived.length, 0, 'no archive should be created for a rejected restore');
+  console.log('  ✓ No stray archive left behind');
+
+  // checkDatabase reports the structured contract the CLI depends on.
+  const report = checkDatabase(liveDb);
+  assert.strictEqual(report.ok, true);
+  assert.strictEqual(typeof report.userVersion, 'number');
+  assert.strictEqual(typeof report.schemaVersion, 'number');
+  assert.strictEqual(report.foreignKeyViolations, 0);
+  console.log('  ✓ checkDatabase reports integrity, schema and FK status');
+
+  fs.rmSync(dir, { recursive: true, force: true });
+}
 
 console.log('\n====================================================');
 console.log('✔ All SQLite disaster recovery tests passed cleanly!');

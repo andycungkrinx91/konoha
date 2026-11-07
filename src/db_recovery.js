@@ -242,12 +242,22 @@ function restoreDatabase(options = {}) {
     throw new Error(`Target path already exists: ${targetPath}. Use force: true to overwrite.`);
   }
 
-  const archivePath = archiveCorruptDatabase(dbPath);
+  // Resolve and verify the backup first: a bad backup must fail without side effects.
   const chosenBackup = resolveAndValidateBackup(dbPath, options.backupPath);
+  let archivePath = chosenBackup ? archiveCorruptDatabase(dbPath) : null;
 
   if (chosenBackup) {
-    return copyBackupToTarget(chosenBackup, targetPath, archivePath);
+    const outcome = copyBackupToTarget(chosenBackup, targetPath, archivePath);
+    // Post-copy verification: if the restored file is not healthy, put the original back.
+    if (!checkIntegrity(targetPath).ok) {
+      if (archivePath && fs.existsSync(archivePath)) fs.copyFileSync(archivePath, targetPath);
+      throw new Error(`Restore verification failed; original database preserved at ${archivePath || dbPath}`);
+    }
+    return outcome;
   }
+
+  // No explicit or verified backup: archive only now, to attempt salvage from the copy.
+  archivePath = archiveCorruptDatabase(dbPath);
 
   // If no backup, attempt salvage from the archived file
   if (archivePath) {
