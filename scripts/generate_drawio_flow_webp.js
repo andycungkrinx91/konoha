@@ -34,6 +34,15 @@ const VERSION = require('../package.json').version;
 const FRAMES = 24;
 const FPS = 12;
 const WEB_INGRESS_PAGE = '19 Authenticated Local Web UI & Ingress Queue';
+const TOKUBETSU_OWNED_ASSETS = new Set([
+  'konoha-orchestration-flow.webp',
+  'konoha-jonin-flow.webp',
+  'konoha-kage-gate.webp',
+  'konoha-qa-flow.webp',
+  'konoha-telegram-flow.webp',
+  'konoha-akatsuki-flow.webp',
+  'konoha-anbu-flow.webp'
+]);
 
 fs.mkdirSync(ASSETS_DIR, { recursive: true });
 
@@ -56,7 +65,7 @@ function filterTargets(manifest, argv) {
   const probe = (argv.find((a) => a.startsWith('--probe')) || '').split('=')[1];
   if (probe) return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(probe) || m.asset.includes(probe)) };
   const only = (argv.find((a) => a.startsWith('--only')) || '').split('=')[1];
-  if (!only) return { list: [], targets: manifest };
+  if (!only) return { list: [], targets: manifest.filter((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset)) };
   return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(only) || m.asset.includes(only)) };
 }
 

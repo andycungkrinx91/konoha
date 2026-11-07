@@ -816,24 +816,25 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 
 | Client | Linux (Ubuntu/Debian/Arch) | macOS (Apple Silicon / Intel) | Windows (Win 11 / Server 2022) | Protocol / Transport | Configuration Path | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Antigravity CLI/IDE** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.gemini/settings.json` & `~/.gemini/antigravity/mcp_config.json` | `READY` |
 | **Cursor** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.cursor/mcp.json` | `READY` |
-| **Claude Code** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.claude.json` | `READY` |
-| **Windsurf** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.codeium/windsurf/mcp_config.json` | `READY` |
-| **Trae** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.trae/mcp.json` | `READY` |
-| **Gemini CLI** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.gemini/mcp_config.json` | `READY` |
-| **Codex** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.codex/config.json` | `READY` |
-| **Antigravity** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.antigravity/mcp.json` | `READY` |
-| **OMP** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.omp/mcp.json` | `READY` |
+| **Claude Code** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.claude.json` & `~/.claude/settings.json` | `READY` |
+| **OpenCode** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.config/opencode/opencode.json` | `READY` |
+| **Command Code** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.commandcode/mcp.json` | `READY` |
+| **Codex** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.codex/config.toml` | `READY` |
+| **Pi (pi.dev)** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.pi/agent/mcp.json` & `~/.pi/agent/AGENTS.md` | `READY` |
+| **OMP** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | stdio | `~/.omp/agent/mcp.json` & `~/.omp/agent/AGENTS.md` | `READY` |
 
 ### 36.2 Functional Verification Across Environments
 
 | Feature / Subsystem | Linux | macOS | Windows | Verification Method | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CLI & TUI Engine** | `PASS` | `PASS` | `PASS` | `konoha` banner, `version`, `status`, `doctor` | `PASS` |
-| **50 MCP Tools Orchestration** | `PASS` | `PASS` | `PASS` | JSON-RPC 2.0 stdio protocol handshake | `PASS` |
-| **9-Ninja Roster Governance** | `PASS` | `PASS` | `PASS` | YAML parse, soul archetype bindings, SDLC tasks | `PASS` |
-| **Disaster Recovery & Integrity** | `PASS` | `PASS` | `PASS` | `konoha db check`, `konoha db restore`, atomic archive | `PASS` |
-| **SQLite FTS5 & Semble Search** | `PASS` | `PASS` | `PASS` | `skills_fts`, `persona_memories_fts`, vector index | `PASS` |
-| **Three.js 3D Viewport Pipeline** | `PASS` | `PASS` | `PASS` | `tests/test_three_asset_viewport.js`, binary glTF 2.0 | `PASS` |
-| **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth, 10-theme switch | `PASS` |
-| **Static Code Quality & Anti-Slop** | `PASS` | `PASS` | `PASS` | `node scripts/lint.js`, `npx aislop scan . --changes` | `PASS` |
+| **50 MCP Tools Orchestration** | `PASS` | `PASS` | `PASS` | JSON-RPC 2.0 stdio protocol handshake (`tests/test_mcp_protocol.js`) | `PASS` |
+| **9-Ninja Roster Governance** | `PASS` | `PASS` | `PASS` | YAML parse, soul archetype bindings, SDLC tasks (`tests/test_agent_delegation.js`) | `PASS` |
+| **Disaster Recovery & Integrity** | `PASS` | `PASS` | `PASS` | `konoha db check`, `konoha db restore`, `konoha data check/restore`, 100-byte SQLite header check | `PASS` |
+| **SQLite FTS5 & Semble Search** | `PASS` | `PASS` | `PASS` | `skills_fts` (1,081 entries), `persona_memories_fts`, vector index | `PASS` |
+| **Three.js 3D Viewport Pipeline** | `PASS` | `PASS` | `PASS` | `tests/test_three_asset_viewport.js`, `tests/test_yamanaka_refine_fork.js`, binary glTF 2.0 + PNG | `PASS` |
+| **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth (`konohagakure`), 10-theme switch, 56/56 Playwright E2E + live `agent-browser` | `PASS` |
+| **Workflow Diagrams & Draw.io Parity** | `PASS` | `PASS` | `PASS` | Reverted 6 `assets/*.webp` to `448d894c`, synced with Draw.io Tabs 08/09/11/13/14/16, regenerated 7 animated WebP diagrams | `PASS` |
+| **Static Code Quality & Anti-Slop** | `PASS` | `PASS` | `PASS` | `node scripts/lint.js` (697 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy) | `PASS` |

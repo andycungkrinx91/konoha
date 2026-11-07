@@ -93,7 +93,7 @@ function testStaleSourceRootGuard() {
     } finally {
       process.stdout.write = prevStdout;
     }
-    const joined = captured.join('');
+    const joined = captured.join('').replace(/\x1b\[[0-9;]*m/g, '');
     assert.ok(/stale sourceRoot|Skipping runtime mirror/.test(joined), `guard must log a loud warning, got: ${joined}`);
     assert.ok(joined.includes(fakePkg.version), 'warning must name the stale source version');
     assert.ok(!fs.existsSync(path.join(KONOHA_HOME, 'src', 'mcp', 'guard_probe.js')),

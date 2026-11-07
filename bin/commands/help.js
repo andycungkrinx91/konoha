@@ -31,6 +31,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
   ${C.cyan}config${C.reset}            ⚙️  View and manage CLI configurations (list, get, set, unset).
   ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
+  ${C.cyan}db${C.reset}                🛠️  SQLite database integrity checks and disaster recovery (check, restore).
   ${C.cyan}detect-ai${C.reset}         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
   ${C.cyan}detect-docs${C.reset}       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
   ${C.cyan}doctor${C.reset}            🩺 Run environment diagnostics to detect/fix integration issues.

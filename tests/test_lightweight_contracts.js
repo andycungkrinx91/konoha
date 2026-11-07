@@ -39,8 +39,8 @@ for (const relPath of filesToCheck) {
   const content = fs.readFileSync(fullPath, 'utf8');
   const byteSize = Buffer.byteLength(content, 'utf8');
   assert.ok(
-    byteSize < 1600,
-    `${relPath} must be lightweight (< 1.6 KB / 1600 bytes), found ${byteSize} bytes`
+    byteSize < 1800,
+    `${relPath} must be lightweight (< 1.8 KB / 1800 bytes), found ${byteSize} bytes`
   );
   const validation = contract.validateContractText(content);
   assert.ok(

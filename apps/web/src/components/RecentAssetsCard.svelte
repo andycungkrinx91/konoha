@@ -97,7 +97,7 @@
   <div bind:this={sentinelRef} class="h-6 w-full flex items-center justify-center my-2" aria-hidden="true">
     {#if loading && assets.length > 0}
       <div class="flex items-center gap-2 text-[11px] font-mono" style="color: var(--color-text-muted);">
-        <div class="w-3 h-3 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+        <div class="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--theme-info); border-top-color: transparent;"></div>
         <span>Loading more models...</span>
       </div>
     {/if}

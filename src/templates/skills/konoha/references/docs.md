@@ -15,7 +15,7 @@ Konoha maintains a strictly organized, single-source documentation hierarchy:
 - `docs/SecurityCompliance/`: Versioned Google Policy & security compliance audit reports (`security_compliance_report_google_policy_<version>_<date>.md`).
 - `docs/architecture/`: Canonical specifications (`CANONICAL-API.md`, `CANONICAL-CLI.md`, `CAPABILITY-MAP.md`).
 - `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio`, `konoha-enterprise-architecture.drawio`).
-- `assets/`: 18 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
+- `assets/`: 33 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
 
 ---
 

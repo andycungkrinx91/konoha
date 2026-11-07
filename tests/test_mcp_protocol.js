@@ -12,7 +12,11 @@ child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
 
 function request(message) {
   return new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error(`Timed out waiting for ${message.method}`)), 5000);
+    let pollTimer = null;
+    const deadline = setTimeout(() => {
+      if (pollTimer) clearTimeout(pollTimer);
+      reject(new Error(`Timed out waiting for ${message.method}`));
+    }, 15000);
     const id = message.id;
     const poll = () => {
       const lines = stdout.split('\n');
@@ -22,11 +26,12 @@ function request(message) {
         try { parsed = JSON.parse(lines[i]); } catch { continue; }
         if (parsed.id === id) {
           clearTimeout(deadline);
+          if (pollTimer) clearTimeout(pollTimer);
           resolve(parsed);
           return;
         }
       }
-      setTimeout(poll, 10);
+      pollTimer = setTimeout(poll, 10);
     };
     child.stdin.write(`${JSON.stringify(message)}\n`);
     poll();

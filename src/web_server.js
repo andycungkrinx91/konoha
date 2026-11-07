@@ -403,7 +403,11 @@ function createWebServer(options = {}) {
     broadcastEvent,
     ctx,
     start: () => _startServer(server, port, host, ctx.sessionToken, instance),
-    stop: () => new Promise(resolve => server.close(resolve))
+    stop: () => new Promise(resolve => {
+      if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections();
+      if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+      server.close(resolve);
+    })
   };
   return instance;
 }

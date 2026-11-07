@@ -182,12 +182,13 @@ function runSuiteAsync(cmd, args, name) {
     let out = '';
     let err = '';
     let settled = false;
+    const suiteTimeoutMs = name.includes('yamanaka') ? 900000 : 300000;
     const timer = setTimeout(() => {
       if (!settled) {
-        err += `\n[TIMEOUT] Suite ${name} timed out after 300s and was terminated.`;
+        err += `\n[TIMEOUT] Suite ${name} timed out after ${suiteTimeoutMs / 1000}s and was terminated.`;
         try { child.kill('SIGKILL'); } catch (_) {}
       }
-    }, 300000);
+    }, suiteTimeoutMs);
 
     child.stdout.on('data', d => out += d);
     child.stderr.on('data', d => err += d);

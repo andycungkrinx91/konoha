@@ -437,10 +437,11 @@ function _assembleSystemPrompt(data) {
   // Disciplines and a skill preview are non-negotiable, so the body uses the
   // richest variant that still leaves room for both. Persona prose is trimmed
   // first because the soul block already carries the archetype voice.
+  const requiredSkillReserve = Math.min(Buffer.byteLength(skillsSection, 'utf8'), MIN_SKILL_PREVIEW_BYTES);
   const reserve = Buffer.byteLength(buildDisciplineContract(), 'utf8')
     + Buffer.byteLength(DIFF_FOOTER, 'utf8') + 2
     + spawnDirectiveBytes
-    + Math.min(Buffer.byteLength(skillsSection, 'utf8'), MIN_SKILL_PREVIEW_BYTES);
+    + requiredSkillReserve;
   const bodyLadder = [
     { personaChars: personaCap, taste: true, doc: true },
     { personaChars: Math.min(personaCap, 600), taste: true, doc: true },
@@ -456,7 +457,7 @@ function _assembleSystemPrompt(data) {
   if (!prompt) prompt = buildBody(bodyLadder[bodyLadder.length - 1]);
 
   const disciplineHeadroom = ceilingBytes - Buffer.byteLength(prompt, 'utf8')
-    - Buffer.byteLength(DIFF_FOOTER, 'utf8') - 1;
+    - Buffer.byteLength(DIFF_FOOTER, 'utf8') - requiredSkillReserve - 1;
   const disciplineBlock = resolveDisciplineBlock(disciplineHeadroom);
   if (disciplineBlock) prompt += `${disciplineBlock}\n`;
   const skillsBudget = ceilingBytes - Buffer.byteLength(prompt, 'utf8')

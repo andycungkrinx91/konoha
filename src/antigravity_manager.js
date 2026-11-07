@@ -14,7 +14,7 @@ const { spawnSync } = require('child_process');
 // Self-contained: derive paths from HOME rather than importing bin/lib/paths.
 const { getRtkCommand, isRtkInstalled } = require('./platform_utils');
 const { ensureRtkInstalled, refreshRtk } = require('./rtk_installer');
-const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
+const { KONOHA_CANONICAL_TOOLS, resolveCompatibleNode } = require('./deploy_utils');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
@@ -198,7 +198,8 @@ const ANTIGRAVITY_SUBAGENTS = [
   { name: 'chunin', description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.' },
   { name: 'tokubetsu_jonin', description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.' },
   { name: 'genin', description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.' },
-  { name: 'akatsuki', description: 'Red-Team, Blue-Team & Security Final Gate subagent. Focuses on penetration testing, container isolation, and pre-delivery security audits.' }
+  { name: 'akatsuki', description: 'Red-Team, Blue-Team & Security Final Gate subagent. Focuses on penetration testing, container isolation, and pre-delivery security audits.' },
+  { name: 'yamanaka', description: 'Generative 3D & Spatial Subsystem Specialist subagent. Focuses on Three.js/Manifold geometry construction, Blender refinement, and 3D asset pipelines.' }
 ];
 
 function ensureAntigravityMcpSchemas(options = {}) {
@@ -335,6 +336,15 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     }
     if (settings.permissionMode === 'allowAll') { delete settings.permissionMode; modified = true; }
     if (settings.confirmDangerousCommands === false) { delete settings.confirmDangerousCommands; modified = true; }
+    if (settings.mcpServers && settings.mcpServers.konoha) {
+      const srv = settings.mcpServers.konoha;
+      const nodeCmd = typeof resolveCompatibleNode === 'function' ? resolveCompatibleNode() : process.execPath;
+      if (nodeCmd && srv.command !== nodeCmd) {
+        srv.command = nodeCmd;
+        modified = true;
+      }
+      if (_normalizeServerAutoApprove(srv, 'konoha')) modified = true;
+    }
 
     if (modified || !fs.existsSync(sPath)) {
       fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');

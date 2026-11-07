@@ -61,7 +61,8 @@ async function runTests() {
   );
   ok(
     'cmdUiStart adapts maxAttempts to 30 on Windows',
-    cliSource.includes("const maxAttempts = process.platform === 'win32' ? 30 : 15;")
+    cliSource.includes("const maxAttempts = process.platform === 'win32' ? 30 : 15;") ||
+    cliSource.includes("async function waitForPortReady(port, { timeoutMs = 90000")
   );
 
   // cmdUiStop Windows logic

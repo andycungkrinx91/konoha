@@ -1,6 +1,7 @@
 'use strict';
 
 const layout = require('./drawio_flow_layout');
+const FRAME_SCRIPT = require('./drawio_flow_frame_script');
 
 /** Helpers the layout module needs from this file (lazy: CANVAS is defined below). */
 function layoutHelpers() {
@@ -15,6 +16,7 @@ function layoutHelpers() {
 function fitScale(page, canvas) { return layout.fitScale(page, canvas, layoutHelpers()); }
 function contentBounds(page) { return layout.contentBounds(page, layoutHelpers()); }
 const cardType = layout.cardType;
+const { projectionInsets } = layout;
 
 /**
  * Renders a drawio page as a self-contained animated HTML/SVG scene.
@@ -60,6 +62,9 @@ const LABEL_OVERRIDES = {
   'p13-qfb': 'fix backend code\nAPIs · routes · ops',
   'p15-akatsuki': 'Zero-Trust Attack Audit\ntoken validation · container\nboundaries'
 };
+
+/** Card inset on every side; text boxes are drawn from `box + CARD_PAD` inward. */
+const CARD_PAD = 6;
 
 const FONT_SANS = "'Inter', 'Noto Sans', 'DejaVu Sans', sans-serif";
 const FONT_MONO = "'JetBrains Mono', 'DejaVu Sans Mono', monospace";
@@ -124,7 +129,8 @@ function isNumberedStep(vertex) {
 function pointOnBorder(box, toward, hint) {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
-  if (hint && hint.x !== undefined) return { x: box.x + (box.w * Number(hint.x)) / 100, y: box.y + (box.h * Number(hint.y)) / 100 };
+  // drawio exit/entry hints are fractions of the box (0..1), exactly as the drawio tab reads them.
+  if (hint && hint.x !== undefined) return { x: box.x + box.w * Number(hint.x), y: box.y + box.h * Number(hint.y) };
   const dx = toward.x - cx;
   const dy = toward.y - cy;
   if (!dx && !dy) return { x: cx, y: cy };
@@ -244,11 +250,13 @@ function simplifyLabel(vertex) {
     return sentence.length > 118 ? `${sentence.slice(0, 117).replace(/[\s,;:]\S*$/, '')}\u2026` : raw;
   }
   const agent = agentOf(vertex);
-  const capacity = charsPerLine(vertex.box.w, Number(vertex.style.fontSize || 12));
+  // simplifyLabel works in drawio coordinates with the drawio font size, which is wider than
+  // the projected kit type; it only guards degenerate cases, cardLines does the real cut.
+  const capacity = charsPerLine(vertex.box.w, Number(vertex.style.fontSize || 16.5));
   const reserve = agent ? 12 : 0;
   const maxLines = Math.max(2, Math.floor((vertex.box.h - 8 - reserve) / 10.5));
   let lines = raw.split('\n')
-    .map((line) => line.replace(/\s*\(([^)]{25,})\)/g, '').replace(/\s{2,}/g, ' ').trim())
+    .map((line) => line.replace(/\s*\(([^)]{38,})\)/g, '').replace(/\s{2,}/g, ' ').trim())
     .filter(Boolean);
   if (agent) {
     // The `◈ agent` tag already names the owner, so drop a duplicated label prefix.
@@ -296,8 +304,10 @@ function isPanel(vertex) {
   return vertex.box.w >= 360 && vertex.box.h >= 150;
 }
 
+/** Drawio label split into trimmed rows, with 2+ spaces collapsed the way the drawio tab is. */
 function cardLines(vertex) {
-  return simplifyLabel(vertex).split('\n').map((line) => line.trim()).filter(Boolean);
+  const label = LABEL_OVERRIDES[vertex.id] || String(vertex.label || '');
+  return label.split('\n').map((line) => line.trim().replace(/\s{2,}/g, ' ')).filter(Boolean);
 }
 
 function textDiv(rect, text, opt) {
@@ -310,23 +320,76 @@ function textDiv(rect, text, opt) {
     + `line-height:1.16;text-align:${textAlign};white-space:pre-wrap;overflow:hidden;">${text}</div></foreignObject>`;
 }
 
-/** Kit card labels: 700-weight title over 500-weight detail, all inside the box. */
+/**
+ * Average glyph advance used for every width budget: 0.56 em is an upper bound for the kit
+ * type stack at weight 500-700, so a line cut to it can never overrun its box.
+ */
+const GLYPH_EM = 0.56;
+
 /** Truncate a condensed line so it never wraps past the box it belongs to. */
 function fitOneLine(text, width, size) {
-  const capacity = Math.max(10, Math.floor(width / (size * 0.5)));
+  const capacity = Math.max(10, Math.floor(width / (size * GLYPH_EM)));
   if (text.length <= capacity) return text;
   return `${text.slice(0, capacity - 1).replace(/[\s,;:\u00b7]\S*$/, '')}\u2026`;
 }
 
+/**
+ * Lay out a card's rows so every row fits its width budget at a legible size. A drawio line
+ * written on two lines keeps its first line as the title and the rest as the detail; a single
+ * long line is stepped down in type first, and only split on a word boundary when even the
+ * 12px floor cannot hold it — which keeps the wording instead of ending the card in `...`.
+ */
+function fitCardRows(lines, width, type, usable) {
+
+  const fits = (text, size) => text.length * size * GLYPH_EM <= width;
+  const detailSize = (titleSize) => Math.min(type.detail, Math.max(12, titleSize - 1));
+  // Drawio wraps card copy at its 12px default, so a line that fitted there fits here at that
+  // size; the kit type only grows it when the whole row still fits within the card.
+  const drawioSize = Number(type.fontSize) || 12;
+  // A single line that drawio wrapped cannot fit at 12 either, so the title keeps the kit size
+  // and is cut on a word boundary; only the stacked form is pinned to the 12px default.
+  const fitsAtDrawio = lines[0].length * drawioSize * GLYPH_EM <= width;
+  const stepDown = Math.max(12, Math.min(type.title,
+    fitsAtDrawio ? drawioSize : type.title,
+    width / (Math.max(8, lines[0].length) * GLYPH_EM)));
+  // Two rows only when the agent tag still has its room under the detail; re-fit the title at
+  // the next smaller size so a card that can host both rows keeps its second line.
+  // The detail row keeps at least the 11px tag height, so two rows always leave the tag its band.
+  const twoRowRoom = (titleSize) => usable >= titleSize * 1.17 + 1 + Math.max(11, detailSize(titleSize)) * 1.17;
+  const pack = (title, titleSize, detail) => {
+    let size = detailSize(titleSize);
+    let trimmed = detail;
+    if (detail && !twoRowRoom(titleSize)) {
+      const smaller = Math.max(12, titleSize - 1.5);
+      if (twoRowRoom(smaller)) { titleSize = smaller; trimmed = fits(title, smaller) ? title : fitOneLine(title, width, smaller); size = detailSize(smaller); }
+      else trimmed = '';
+    }
+    // The tag band is already outside `usable`, so a detail row here can never reach the tag.
+    return { title, titleSize, detail: trimmed ? fitOneLine(trimmed, width, size) : '', detailSize: size };
+  };
+  if (lines.length > 1) {
+    // The first drawio line is the card name; the remaining lines are its one detail line.
+    const title = fits(lines[0], stepDown) ? lines[0] : fitOneLine(lines[0], width, stepDown);
+    return pack(title, stepDown, lines.slice(1).join(' \u00b7 '));
+  }
+  const whole = lines[0];
+  if (fits(whole, stepDown)) return pack(whole, stepDown, '');
+  const room = Math.floor(width / (stepDown * GLYPH_EM));
+  const pivot = whole.slice(0, room + 2).lastIndexOf(' ');
+  if (pivot <= 0) return { title: fitOneLine(whole, width, stepDown), titleSize: stepDown, detail: '', detailSize: detailSize(stepDown) };
+  return pack(whole.slice(0, pivot), stepDown, whole.slice(pivot + 1));
+}
+
 /** Kit card labels: 700-weight title over one 500-weight detail line, inside the box. */
-function labelMarkup(vertex, agent) {
+function labelMarkup(vertex, agent, insets = { typeScale: 1 }) {
   const { box, style } = vertex;
   const lines = cardLines(vertex);
   if (!lines.length) return '';
   const detailLines = lines.slice(1);
   if (isPanel(vertex)) {
     const head = Math.min(28, box.h * 0.4);
-    const title = textDiv({ x: box.x + 8, y: box.y + 2, w: box.w - 16, h: head }, esc(lines[0]),
+    const panelTitle = fitOneLine(lines[0], box.w - 16, 16);
+    const title = textDiv({ x: box.x + 8, y: box.y + 2, w: box.w - 16, h: head }, esc(panelTitle),
       { size: 16, weight: 700, color: KIT_INK, align: 'left' });
     if (!detailLines.length || box.h < 52) return title;
     const available = box.h - head - 10;
@@ -339,36 +402,34 @@ function labelMarkup(vertex, agent) {
   if (style.rhombus) {
     const innerW = box.w * 0.56;
     const innerH = box.h * 0.5;
-    const size = Math.max(14, Math.min(17, box.h * 0.17, innerW / 9));
-    const text = fitOneLine(lines.join(' \u00b7 '), innerW, size);
-    return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, esc(text),
+    const label = lines.join(' \u00b7 ');
+    // Decision text never shrinks below 12 and is never replaced by a bare `...`: the size is
+    // chosen so the longest drawio line fits the rhombus, and multi-line labels keep a row each.
+    const widest = Math.max(...lines.map((line) => line.length), 6);
+    const size = Math.max(12, Math.min(17, box.h * 0.17, innerW / 9, (innerW - 12) / (widest * GLYPH_EM)));
+    // Two rows, or `spec valid?` collapses to `spec ·…`, which hides the question the gate asks.
+    const twoRows = lines.length > 1;
+    const text = twoRows ? lines.join('\n') : fitOneLine(label, innerW, size);
+    return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, esc(text).replace(/\n/g, '<br/>'),
       { size, weight: 700, color: KIT_INK });
   }
-  const type = cardType(box, vertex.id);
-  const pad = 6;
+  const type = { ...cardType(box, vertex.id, insets.typeScale), fontSize: style.fontSize };
+  const width = Math.max(8, box.w - CARD_PAD * 2);
   const top = style.shape === 'cylinder3'
     ? box.y + Math.min(9, box.h / 5) + 2
     : box.y + (box.h >= 44 ? 3 : 2) + 2;
-  const bottom = agent ? 9 : 0;
-  const usable = Math.max(12, box.y + box.h - bottom - pad + 2 - top);
-  const width = Math.max(8, box.w - pad * 2);
-  const hasDetail = detailLines.length > 0 && usable >= type.title + type.detail * 1.5;
-  const multiDetail = detailLines.length > 1 && usable >= type.title * 1.3 + type.detail * 2.5;
-  const titleH = hasDetail
-    ? (multiDetail ? Math.max(type.title * 1.3, usable - type.detail * 2.4) : Math.max(type.title * 1.3, usable - type.detail * 1.4))
-    : usable;
-  const title = textDiv({ x: box.x + pad, y: top, w: width, h: titleH }, esc(lines[0]), { size: type.title, weight: 700, color: KIT_INK });
-  if (!hasDetail) return title;
-  let detailMarkup;
-  if (multiDetail) {
-    const d1 = fitOneLine(detailLines[0], width, type.detail);
-    const d2 = fitOneLine(detailLines.slice(1).join(' · '), width, type.detail);
-    detailMarkup = `${esc(d1)}<br/>${esc(d2)}`;
-  } else {
-    detailMarkup = esc(fitOneLine(detailLines.join(' · '), width, type.detail));
-  }
-  return title + textDiv({ x: box.x + pad, y: top + titleH, w: width, h: Math.max(0, usable - titleH) }, detailMarkup,
-    { size: type.detail, weight: 500, color: KIT_BODY });
+  // The agent tag is drawn 6px above the card's bottom edge and stands ~11px tall; a card with
+  // a tag reserves that band, so the tag never prints over the card's last text row.
+  const tagBand = agent ? Math.min(20, box.h * 0.35) : 0;
+  const rows = fitCardRows(lines, width, type, box.h - (top - box.y) - tagBand);
+  const lineTitle = rows.titleSize * 1.17 + 1;
+  const title = textDiv({ x: box.x + CARD_PAD, y: top, w: width, h: lineTitle }, esc(rows.title),
+    { size: rows.titleSize, weight: 700, color: KIT_INK });
+  if (!rows.detail) return title;
+  // The detail row sits directly under the title and ends above the tag band.
+  const detailHeight = Math.max(0, box.y + box.h - tagBand - (top + lineTitle));
+  return title + textDiv({ x: box.x + CARD_PAD, y: top + lineTitle, w: width, h: detailHeight },
+    esc(rows.detail), { size: rows.detailSize, weight: 500, color: KIT_BODY, vertical: 'flex-start' });
 }
 
 function agentTagMarkup(vertex, agent) {
@@ -466,6 +527,7 @@ function stepPlan(page) {
 
 function svgForPage(page, options) {
   const scale = fitScale(page, options);
+  const insets = projectionInsets(page);
   const { steps, total } = stepPlan(page);
   const markerColors = new Map();
   const vertexById = new Map(page.vertices.map((v) => [v.id, v]));
@@ -485,7 +547,7 @@ function svgForPage(page, options) {
       continue;
     }
     const agent = agentOf(vertex);
-    const inner = shapeMarkup(vertex) + labelMarkup(vertex, agent) + agentTagMarkup(vertex, agent);
+    const inner = shapeMarkup(vertex) + labelMarkup(vertex, agent, insets) + agentTagMarkup(vertex, agent);
     parts.push(revealGroup(-1, inner, vertex.id, 'vertex'));
   }
 
@@ -515,19 +577,23 @@ function svgForPage(page, options) {
     + ` font-family="${FONT_SANS}" font-size="22" font-weight="800" letter-spacing="0.02em">`
     + `${esc(caption)}</text>`;
 
-  // Centre the drawing itself (excluding the caption token) on the viewBox centre.
+  // Centre the drawing itself on the viewBox centre, minus half the reserved caption
+  // band on wide pages so the caption sits below the drawing instead of inside it.
   // contentBounds() walks page vertices only, so the caption never biases the aim.
   const bounds = contentBounds(page);
   const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : page.pageWidth / 2;
   const cy = bounds ? (bounds.minY + bounds.maxY) / 2 : page.pageHeight / 2;
   const shiftX = page.pageWidth / 2 - cx;
-  const shiftY = page.pageHeight / 2 - cy;
+  const shiftY = page.pageHeight / 2 - cy - insets.bottomCaption / 2;
+  // The caption stays pinned to the page edge, outside that band.
+  const footerShift = insets.bottomCaption > 0 ? ` translate(0 ${num(insets.bottomCaption / 2)})` : '';
   return {
     steps: total,
     svg: `<svg width="${num(page.pageWidth * scale)}" height="${num(page.pageHeight * scale)}"`
       + ` viewBox="0 0 ${page.pageWidth} ${page.pageHeight}" xmlns="http://www.w3.org/2000/svg">`
       + `<defs>${kitDefs(markerColors)}</defs>${kitBackground(page)}`
-      + `<g transform="translate(${num(shiftX)} ${num(shiftY)})">${parts.join('')}${footer}</g></svg>`
+      + `<g transform="translate(${num(shiftX)} ${num(shiftY)})">${parts.join('')}</g>`
+      + `<g transform="translate(${num(shiftX)} 0)${footerShift}">${footer}</g></svg>`
   };
 }
 
@@ -559,53 +625,6 @@ function kitBackground(page) {
     + `<rect width="${w}" height="${h}" fill="url(#dotgrid)"/>`
     + `<rect width="${w}" height="${h}" fill="url(#brandWash)"/>`;
 }
-
-const FRAME_SCRIPT = `
-  window.fitLabels = function () {
-    document.querySelectorAll('foreignObject > div').forEach(function (div) {
-      var size = parseFloat(getComputedStyle(div).fontSize);
-      var guard = 0;
-      while (guard < 26 && size > 12.5 && (div.scrollHeight > div.clientHeight + 1 || div.scrollWidth > div.clientWidth + 1)) {
-        size -= 0.5;
-        div.style.fontSize = size + 'px';
-        guard += 1;
-      }
-      // Still too wide at the floor: trim the copy so the type keeps its declared
-      // size instead of shrinking below it.
-      if (div.scrollWidth > div.clientWidth + 1) {
-        var raw = div.textContent;
-        while (raw.length > 3 && div.scrollWidth > div.clientWidth + 1) {
-          raw = raw.slice(0, -2) + '\u2026';
-          div.textContent = raw;
-        }
-      }
-    });
-  };
-  document.addEventListener('DOMContentLoaded', function () {
-    window.fitLabels();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { window.fitLabels(); });
-  });
-  function pulseLength(el) {
-    if (el.dataset.len) return Number(el.dataset.len);
-    var len = 600;
-    try { len = Math.max(60, el.getTotalLength()); } catch (err) { len = 600; }
-    el.dataset.len = String(len);
-    el.style.strokeDasharray = '14 ' + (len + 24);
-    return len;
-  }
-  window.updateFrame = function (frameIdx, total) {
-    const progress = frameIdx / total;
-    document.querySelectorAll('.flow-path').forEach(function (el) {
-      el.style.strokeDashoffset = String(-progress * 14);
-    });
-    document.querySelectorAll('.pulse').forEach(function (el) {
-      const len = pulseLength(el);
-      const travel = (progress + Number(el.dataset.phase || 0)) % 1;
-      el.style.strokeDashoffset = String(-travel * (len + 14));
-      el.style.opacity = String(0.12 + 0.5 * Math.sin(Math.PI * travel));
-    });
-  };
-`;
 
 function pageHtml(page, options) {
   const { svg, steps } = svgForPage(page, options);
@@ -662,6 +681,7 @@ module.exports = {
   pageHtml,
   svgForPage,
   fitScale,
+  projectionInsets,
   CANVAS_SCALE_1250,
   routeEdge,
   agentOf,

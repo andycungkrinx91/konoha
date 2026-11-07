@@ -91,7 +91,17 @@ async function run() {
     const fixtureJsonl = path.join(ompDir, 'session-test-hermetic.jsonl');
     fs.writeFileSync(fixtureJsonl, '{"timestamp": ' + Date.now() + ', "role": "user"}\n', 'utf8');
 
-    const sessions = sessionManager.getActiveSessions();
+    const prevAgyConv = process.env.ANTIGRAVITY_CONVERSATION_ID;
+    const prevGemConv = process.env.GEMINI_CONVERSATION_ID;
+    delete process.env.ANTIGRAVITY_CONVERSATION_ID;
+    delete process.env.GEMINI_CONVERSATION_ID;
+    let sessions;
+    try {
+      sessions = sessionManager.getActiveSessions();
+    } finally {
+      if (prevAgyConv !== undefined) process.env.ANTIGRAVITY_CONVERSATION_ID = prevAgyConv;
+      if (prevGemConv !== undefined) process.env.GEMINI_CONVERSATION_ID = prevGemConv;
+    }
     assert.ok(sessions.length > 0, 'Active sessions list must not be empty');
     const hasOmp = sessions.some(s => s.client === 'omp');
     assert.ok(hasOmp, 'Active sessions must detect OMP agent instead of phantom antigravity');

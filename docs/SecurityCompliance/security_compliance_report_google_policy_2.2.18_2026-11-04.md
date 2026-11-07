@@ -80,8 +80,8 @@
 
 ## 5. Documentation, Diagram & Asset Integrity
 
-- **Draw.io**: both architecture files validate at 18 pages each; `validate.py --score` reports architecture **635** and enterprise **605** with **0 errors** each. `tests/test_diagram_sync.js` independently reports 0 penetrations, 0 crossings and 0 overlaps across all 18 pages of each file.
-- **Animated WebP**: 32 binaries measured and validated — `validateAnimatedWebP` passes **32/32**, all 2400×1632 at `loop: 0` for the 19 drawio projections and 1100×680 for the 13 CLI/IDE demo canvases.
+- **Draw.io**: `docs/diagrams/konoha-architecture.drawio` (18 pages) and `docs/diagrams/konoha-enterprise-architecture.drawio` (19 pages) pass `tests/test_diagram_sync.js` and `tests/test_documentation_diagrams.js` with **0 penetrations, 0 crossings and 0 overlaps** across all pages.
+- **Animated WebP**: 33 binaries measured and validated — `validateAnimatedWebP` passes **33/33** (`tests/test_all_assets_webp.js`), covering the 13 Draw.io projections (2400×1632 at `loop: 0`), the 7 Tokubetsu-Jonin multi-card workflow animations (2400×1350 and 2400×1520 at `loop: 0`), and the 13 CLI/IDE demo canvases (1100×680 at `loop: 0`).
 - **Docs freshness & Currency**: `tests/test_docs_freshness_api.js` (6/6 PASS) and `tests/test_docs_currency.js` pass across all documentation files; `docs/QA-TEST-CHECKLIST.md` and `docs/diagrams/README.md` carry v2.2.18.
 
 ---

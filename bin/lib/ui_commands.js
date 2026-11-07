@@ -49,7 +49,8 @@ function openUrlInBrowser(targetUrl) {
 }
 
 function uiPidFileForPort(port) {
-  return path.join(SKILLS_DB_DIR, `ui_${port}.pid`);
+  const p = parseInt(port, 10);
+  return path.join(SKILLS_DB_DIR, p === 1404 ? 'ui.pid' : `ui-${p}.pid`);
 }
 
 function checkPortActive(port) {
@@ -147,7 +148,12 @@ async function cmdUiDaemon(args = []) {
 
   const shutdown = async () => {
     try { if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile); } catch (_) { /* non-fatal */ }
-    if (srv && srv.instance) await srv.instance.stop();
+    if (srv && srv.instance) {
+      await Promise.race([
+        srv.instance.stop(),
+        new Promise((resolve) => setTimeout(resolve, 3000))
+      ]);
+    }
     process.exit(0);
   };
   process.on('SIGINT', shutdown);

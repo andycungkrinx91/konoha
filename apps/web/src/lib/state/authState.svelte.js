@@ -79,7 +79,7 @@ function createAuthState() {
       // Ignore transport errors — local session state is cleared regardless.
     }
     resetSession();
-    await checkAuth();
+    isChecking = false;
     return { ok: true };
   }
 

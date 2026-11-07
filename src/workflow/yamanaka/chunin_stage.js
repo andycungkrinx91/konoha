@@ -60,14 +60,23 @@ function normalizeSources(results) {
 }
 
 async function gatherReferenceSources(queries) {
+  if (process.env.KONOHA_SKIP_NETWORK_TESTS === '1') return [];
   const collected = [];
   for (const query of queries) {
+    let timer = null;
     try {
-      const raw = await webSearch.runWebSearch(query, MAX_RESULTS);
+      const searchPromise = webSearch.runWebSearch(query, MAX_RESULTS);
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('chunin_search_timeout')), 4000);
+        if (timer && typeof timer.unref === 'function') timer.unref();
+      });
+      const raw = await Promise.race([searchPromise, timeoutPromise]);
       const batch = parseSearchPayload(raw);
       if (batch) collected.push(...batch);
     } catch (err) {
       process.stderr.write(`[konoha] chunin_search_skipped: ${err && err.message ? err.message : err}\n`);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
   return normalizeSources(collected);

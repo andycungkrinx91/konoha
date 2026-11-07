@@ -22,7 +22,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// Expected 32 canonical animation assets (13 demos + 19 drawio tabs)
+// Expected 33 canonical animation assets (13 demos + 19 drawio tabs + 1 tokubetsu workflow)
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -36,6 +36,7 @@ const EXPECTED_WEBP_ASSETS = [
   'demo-web.webp',
   'demo.webp',
   'konoha-akatsuki-flow.webp',
+  'konoha-anbu-flow.webp',
   'konoha-jonin-flow.webp',
   'konoha-kage-gate.webp',
   'konoha-langgraph-flow.webp',
@@ -63,7 +64,21 @@ const EXPECTED_WEBP_ASSETS = [
 // scripts/generate_drawio_flow_webp.js.
 const DRAWIO_CANVAS = { width: 2400, height: 1632 };
 
-console.log('1. Checking that all 32 Animated WebP assets exist and legacy GIFs are removed...');
+// Tokubetsu-Jonin workflows come from scripts/generate_tokubetsu_flow_webp.js, which renders
+// 1200x675 (orchestration) and 1200x760 (the other 6) CSS canvases at deviceScaleFactor 2.
+const TOKUBETSU_ORCHESTRATION_CANVAS = { width: 2400, height: 1350 };
+const TOKUBETSU_CANVAS = { width: 2400, height: 1520 };
+const TOKUBETSU_ONLY_ASSETS = new Set([
+  'konoha-akatsuki-flow.webp',
+  'konoha-anbu-flow.webp',
+  'konoha-jonin-flow.webp',
+  'konoha-kage-gate.webp',
+  'konoha-orchestration-flow.webp',
+  'konoha-qa-flow.webp',
+  'konoha-telegram-flow.webp'
+]);
+
+console.log('1. Checking that all 33 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -85,7 +100,14 @@ for (const webpName of EXPECTED_WEBP_ASSETS) {
   assert.ok(val.frameCount > 0, `Asset ${webpName} must have at least 1 frame, found ${val.frameCount}`);
   assert.ok(val.canvasWidth > 0 && val.canvasHeight > 0, `Asset ${webpName} must have non-zero dimensions`);
   assert.strictEqual(val.loopCount, 0, `Asset ${webpName} must loop infinitely (loopCount 0)`);
-  if (webpName.startsWith('konoha-')) {
+  if (TOKUBETSU_ONLY_ASSETS.has(webpName)) {
+    const expectedCanvas = webpName === 'konoha-orchestration-flow.webp'
+      ? TOKUBETSU_ORCHESTRATION_CANVAS
+      : TOKUBETSU_CANVAS;
+    assert.strictEqual(val.canvasWidth, expectedCanvas.width, `Asset ${webpName} must keep the tokubetsu canvas width`);
+    assert.strictEqual(val.canvasHeight, expectedCanvas.height, `Asset ${webpName} must keep the tokubetsu canvas height`);
+    assert.ok(val.frameCount > 1, `Asset ${webpName} must animate (>1 frame), found ${val.frameCount}`);
+  } else if (webpName.startsWith('konoha-')) {
     assert.strictEqual(val.canvasWidth, DRAWIO_CANVAS.width, `Asset ${webpName} must keep the drawio canvas width`);
     assert.strictEqual(val.canvasHeight, DRAWIO_CANVAS.height, `Asset ${webpName} must keep the drawio canvas height`);
     assert.ok(val.frameCount > 1, `Asset ${webpName} must animate (>1 frame), found ${val.frameCount}`);
@@ -133,5 +155,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 32 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 33 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

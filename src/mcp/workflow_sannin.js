@@ -266,7 +266,7 @@ function _buildInstructionText(ctx) {
   let advisoryText = '';
   if (!ctx.dorResult.ready && ctx.dorResult.missing && ctx.dorResult.missing.length > 0) {
     advisoryText = (
-      '\n\n### ⚠️ DoR Advisory Hints\n' +
+      '\n\n### ⚠️ Definition-of-Readiness (DoR) Advisory Hints\n' +
       ctx.dorResult.missing.map(m => `- ${m}`).join('\n')
     );
   }
@@ -304,11 +304,15 @@ function _buildInstructionText(ctx) {
     `3. Call \`sannin(task_dir="${ctx.resolvedTaskDir}")\` to advance.`
   );
 
+  const spawnBlock = ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '';
   return (
     `**Selected Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
+    `**Reason**: ${ctx.description}\n` +
     routeLine +
     `**Flow Hash**: \`${ctx.flowHash}\` | **Task ID**: \`${ctx.taskId}\`\n` +
     `**Task Dir**: \`${ctx.resolvedTaskDir}\`\n` +
+    `**Task**: ${ctx.effPrompt}\n` +
+    spawnBlock +
     executionBlock +
     buildGuidance + parallelGuidance + trackGuidance + advisoryText
   );

@@ -207,7 +207,7 @@ flowchart TD
 
     subgraph AssessmentRules ["Multi-Rule Verification Engine"]
         R1["Length &amp; Context Rule<br/>• Prompt &gt; 4 words<br/>• Explicit functional directive"]
-        R2["Placeholder Hygiene<br/>• Zero TODO / FIXME / ???<br/>• No unresolved pseudocode"]
+        R2["Placeholder Hygiene<br/>• Zero unresolved placeholders<br/>• No incomplete pseudocode"]
         R3["File Existence Check<br/>• Target files must exist on disk<br/>• Workspace boundaries valid"]
         R4["Domain Alignment<br/>• Keywords match target specialist"]
     end
@@ -403,7 +403,7 @@ config:
 flowchart TD
     Trigger["Pre-Delivery Review Gate Triggered"] --> Step1["Step 1: Mechanical Scan Gate<br/>• Run `aislop_scan` (or CLI `rtk aislop scan --changes`)<br/>• CircuitBreaker fail-safe degrade (recovery=120s)<br/>• Dynamic file mtime cache invalidation<br/>• TARGET: Exactly 100 / 100 Score, 0 Findings"]
 
-    Step1 --> Step2["Step 2: Anti-Slop Rule Review<br/>• Load vendored `antislop` skill family<br/>• Audit code comments (zero syntax narration)<br/>• Audit implementations (zero lazy TODOs / stubs)<br/>• Audit accessibility (contrast, focus states)"]
+    Step1 --> Step2["Step 2: Anti-Slop Rule Review<br/>• Load vendored `antislop` skill family<br/>• Audit code comments (zero syntax narration)<br/>• Audit implementations (zero lazy placeholders)<br/>• Audit accessibility (contrast, focus states)"]
 
     Step2 --> CheckSlop{"Any AI Slop<br/>Findings Found?"}
 

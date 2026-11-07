@@ -66,7 +66,7 @@
           {#if isGenerating}
             <span class="text-[10px] font-mono px-2 py-0.5 rounded badge-accent-themed">Running</span>
           {:else if assetId}
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Ready</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded badge-status-success">Ready</span>
           {/if}
         </h3>
         {#if !isGenerating}
@@ -74,7 +74,7 @@
             type="button"
             onclick={onClose}
             aria-label="Close modal"
-            class="text-sm p-1 rounded hover:bg-slate-800 transition-colors"
+            class="text-sm p-1 rounded transition-colors"
             style="color: var(--color-text-muted);"
           >
             ✕
@@ -83,21 +83,22 @@
       </div>
 
       {#if error && !isGenerating}
-        <div class="p-6 rounded-[5px] border border-red-500/40 bg-red-950/20 text-center space-y-4 my-auto">
-          <div class="w-12 h-12 mx-auto rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
+        <div class="p-6 rounded-[5px] badge-status-danger text-center space-y-4 my-auto">
+          <div class="w-12 h-12 mx-auto rounded-full bg-status-danger-soft flex items-center justify-center text-status-danger">
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
           <div>
-            <h4 class="text-sm font-bold text-red-300">Synthesis Halted</h4>
-            <p class="text-xs text-red-200/80 mt-1 font-mono max-w-lg mx-auto">{error}</p>
+            <h4 class="text-sm font-bold text-status-danger">Synthesis Halted</h4>
+            <p class="text-xs mt-1 font-mono max-w-lg mx-auto" style="color: var(--color-text-muted);">{error}</p>
           </div>
           <div class="flex items-center justify-center gap-3 pt-2">
             <button
               type="button"
               onclick={onRetry}
-              class="px-4 py-2 rounded-[5px] text-xs font-bold bg-red-600 text-white hover:bg-red-500 transition-all cursor-pointer"
+              class="px-4 py-2 rounded-[5px] text-xs font-bold bg-status-danger transition-all cursor-pointer"
+              style="color: var(--theme-text-inverse);"
             >
               Retry
             </button>
@@ -124,7 +125,8 @@
                 stroke="currentColor"
                 stroke-width="8"
                 stroke-dasharray="16 12"
-                class="text-slate-700/60 animate-spin origin-center"
+                class="animate-spin origin-center"
+                style="color: var(--color-border);"
               />
               <circle
                 cx="60"
@@ -210,7 +212,7 @@
                 {#await import('./ThreeViewport.svelte')}
                   <div class="h-[clamp(240px,52vh,520px)] flex items-center justify-center text-xs font-mono" style="color: var(--color-text-muted);">
                     <div class="flex items-center gap-2">
-                      <div class="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div class="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--theme-info); border-top-color: transparent;"></div>
                       <span>Mounting WebGL 3D Viewport...</span>
                     </div>
                   </div>
@@ -224,7 +226,7 @@
                     isWatertight={stats?.isWatertight ?? true}
                   />
                 {:catch err}
-                  <div class="h-[clamp(240px,52vh,520px)] flex flex-col items-center justify-center text-xs font-mono text-red-400 p-4">
+                  <div class="h-[clamp(240px,52vh,520px)] flex flex-col items-center justify-center text-xs font-mono text-status-danger p-4">
                     <p>Failed to mount 3D viewport: {err?.message || err}</p>
                   </div>
                 {/await}

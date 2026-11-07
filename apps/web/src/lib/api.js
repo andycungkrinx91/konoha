@@ -190,6 +190,7 @@ export async function login(password) {
   }
   if (data.token) {
     memoryToken = data.token;
+    tokenExpiresAt = Date.now() + DEFAULT_TOKEN_TTL_MS;
   }
   return data;
 }

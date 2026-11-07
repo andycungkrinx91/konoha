@@ -127,13 +127,14 @@ function checkNodeAndToolchains(options, args) {
 }
 
 async function autoStartUiDaemonIfRequested(options) {
-  if (options.skipUiAutoStart) return;
-  try {
-    const uiAuto = await ensureUiDaemonAutoStart();
-    if (uiAuto?.started) {
-      info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:1404/${C.reset}`);
-    }
-  } catch { /* intentional fallback */ }
+  if (!options.skipUiAutoStart) {
+    try {
+      const uiAuto = await ensureUiDaemonAutoStart();
+      if (uiAuto?.started) {
+        info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:1404/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
+      }
+    } catch { /* intentional fallback */ }
+  }
 }
 
 async function refreshExistingInstallation(flags, options) {
@@ -334,6 +335,9 @@ async function cmdInit(args, options = {}) {
   });
 
   renderInitSummary(clientFlags);
+  if (!options.skipUiAutoStart) {
+    await autoStartUiDaemonIfRequested(options);
+  }
   recordAutoSetupState();
 }
 

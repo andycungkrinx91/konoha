@@ -132,17 +132,17 @@ async function main() {
     ok('T3: cmdUpgrade captures uiWasRunning', src.includes('uiWasRunning = await checkPortActive(1404)'));
     ok('T3: cmdUpgrade restarts a previously-running daemon', src.includes("await cmdUiRestart(['--no-open'])"));
     ok('T3: cmdUpgrade passes skipUiAutoStart to inner cmdInit', src.includes('skipUiAutoStart: true'));
-    ok('T3: pgrep pattern is port-specific', src.includes('ui daemon --port=${port}'));
+    ok('T3: pgrep pattern is port-specific', src.includes('ui daemon --port=${port}') || src.includes('ui daemon --port=${stopPort}'));
     ok('T3: helper honors KONOHA_UI_AUTOSTART opt-out', src.includes('process.env.KONOHA_UI_AUTOSTART'));
     ok('T3: opt-out documented in install flow', /KONOHA_UI_AUTOSTART=0/.test(src));
 
     // ensureAutoSetup slow path: refresh/start the daemon ONLY on a genuine
     // version change (install/upgrade), with self-spawn guards.
     ok('T3: ensureAutoSetup slow path refreshes the daemon', src.includes("daemonRunning ? 'restart' : 'start'"));
-    ok('T3: ensureAutoSetup gates daemon refresh on version change', src.includes('versionChanged && !daemonSelf'));
+    ok('T3: ensureAutoSetup gates daemon refresh on version change', src.includes('versionChanged && !daemonSelf') || src.includes('!versionChanged || daemonSelf'));
     ok('T3: ensureAutoSetup has daemon self-guard', src.includes("process.env.KONOHA_UI_DAEMON === 'true'"));
     ok('T3: ensureAutoSetup has fork-loop guard', src.includes('KONOHA_UI_AUTOSTART_GUARD'));
-    ok('T3: cmdUiStop is port-scoped (never kills other ports)', src.includes('pidBelongsToPort'));
+    ok('T3: cmdUiStop is port-scoped (never kills other ports)', src.includes('pidBelongsToPort') || src.includes('terminatePortListeners(stopPort)'));
     ok('T3: pid files are port-aware', src.includes('function uiPidFileForPort'));
     ok('T3: ui dispatcher forwards args to cmdUiStop', /case 'stop':\n      await cmdUiStop\(subArgs\)/.test(src));
     ok('T3: cmdUiStop polls for graceful port release', /for \(let attempt = 0; attempt < 10 && await checkPortActive\(stopPort\)/.test(src));

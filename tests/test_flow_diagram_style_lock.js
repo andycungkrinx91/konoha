@@ -29,6 +29,7 @@ const {
   CANONICAL_NAMES,
   assetNameFor,
   fitScale,
+  projectionInsets,
   svgForPage
 } = require('../scripts/lib/drawio_flow_svg.js');
 const { loadDrawioCorpus } = require('../scripts/lib/drawio_pages.js');
@@ -72,6 +73,17 @@ assert.strictEqual(fitScale(STYLE_LOCK.page, CANVAS), STYLE_LOCK.uniformScale,
 console.log(`  ✓ Frozen canvas: ${STYLE_LOCK.canvas.width}x${STYLE_LOCK.canvas.height} CSS -> `
   + `${STYLE_LOCK.canvas.width * STYLE_LOCK.deviceScale}x${STYLE_LOCK.canvas.height * STYLE_LOCK.deviceScale} device; `
   + `legacy ${STYLE_LOCK.page.width}x${STYLE_LOCK.page.height} page at ${STYLE_LOCK.uniformScale}.`);
+
+// Wide 1600x1000 pages fit by height, so they carry a 1.5% margin and reserve a 64-unit band
+// under the drawing for the caption; the 1250x850 pages keep the 4% margin and no band.
+const narrow = projectionInsets({ pageWidth: 1250, pageHeight: 850 });
+assert.deepStrictEqual({ inset: narrow.inset, bottomCaption: narrow.bottomCaption, typeScale: narrow.typeScale },
+  { inset: 0.04, bottomCaption: 0, typeScale: 1 }, 'a 1250x850 page must keep the 4% margin, no caption band and the 1:1 type scale');
+const wide = projectionInsets({ pageWidth: 1600, pageHeight: 1000 });
+assert.deepStrictEqual({ inset: wide.inset, bottomCaption: wide.bottomCaption, typeScale: wide.typeScale },
+  { inset: 0.015, bottomCaption: 64, typeScale: 0.93 }, 'a 1600x1000 page must reserve the 64-unit caption band');
+assert.ok(fitScale({ pageWidth: 1600, pageHeight: 1000, vertices: [] }, CANVAS) >= 0.72,
+  'a 1600x1000 page must project at 0.72 or larger so its type stays readable');
 
 // ── 2. One asset per drawio tab, stable names preserved ──────────────────
 const corpus = loadDrawioCorpus();
@@ -177,6 +189,23 @@ for (const page of pages) {
     }
   }
   assert.ok(/font-family:'Inter'/.test(svg), `${page.name}: card labels must use the Inter type stack`);
+
+  // Card text never wraps: each card div holds one row of a single line, sized to its own
+  // width budget (the renderer's 0.56 em average glyph), so nothing spills out of a card.
+  // Decision diamonds size their type to the narrowest line that has to fit, so they are exempt.
+  const rhombusIds = new Set(page.vertices.filter((v) => v.style.rhombus).map((v) => v.id));
+  const cardGroups = [...svg.matchAll(/<g class="reveal"[^>]*data-cell="([^"]+)" data-kind="vertex"[\s\S]*?<\/g>/g)]
+    .filter((group) => !rhombusIds.has(group[1]))
+    .map((group) => group[0]);
+  const cardDivs = cardGroups
+    .flatMap((group) => [...group.matchAll(/<foreignObject x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="[\d.]+"><div[^>]*style="[^"]*font-size:([\d.]+)px[^"]*"[^>]*>([^<]*)<\/div>/g)]);
+  for (const [, , width, size, text] of cardDivs) {
+    assert.ok(!/<br\s*\/?>/i.test(text), `${page.name}: card text must not wrap with <br/>: ${text.slice(0, 50)}`);
+    assert.ok(Number(size) >= 12, `${page.name}: card type must stay at or above the 12px readable floor (got ${size})`);
+    const estimate = decodeText(text).length * Number(size) * 0.56;
+    assert.ok(estimate <= Number(width) + 1,
+      `${page.name}: card line needs ${Math.round(estimate)}px at ${size}px in a ${width}px box: ${text.slice(0, 50)}`);
+  }
 
   // Connectors: orthogonal, rounded turns, no dead paths.
   const paths = [...svg.matchAll(/<path class="flow-path" d="([^"]+)"[^>]*marker-end="url\(#([^)]+)\)"/g)];

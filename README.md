@@ -69,43 +69,51 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 * **Latest Release:** [v2.2.18](CHANGELOG.md) — Cross-platform reliability, authoritative HITL gates, client session bootstrap, and upgrade resilience.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
 
-* **Reading the diagrams:** every animated canvas below is a **projection of a Draw.io page**, not a hand-drawn picture — `docs/diagrams/konoha-architecture.drawio` (18 tabs) plus the enterprise `19 Authenticated Local Web UI & Ingress Queue` tab are the single source of truth, and `scripts/generate_drawio_flow_webp.js` renders each tab to a 2400×1632 animated WebP (24 frames at 12 fps, `loop: 0`) with `scripts/lib/drawio_flow_svg.js`. Geometry is parsed from the `.drawio` XML, so cards, lanes, decision diamonds and connector waypoints are exactly the ones edited in Draw.io; only the **label text is condensed** (parentheticals and duplicated agent prefixes dropped, one sentence capped at 118 characters per line) so the same graph stays readable at canvas size. Every page is fitted with a 4% canvas margin, so no box or label touches the border. Shapes are **static** — cards, lanes, diamonds and text hold still for the whole loop and only the connectors move (a travelling pulse phased by flow order plus a slow dash march) — drawn in the Konoha kit grammar: white rounded cards with a hued top bar and soft shadow, dashed connectors over a tinted track, dotted paper and a brand wash. Every process card carries an explicit `◈ agent` tag (`agent=<slug>;` in the cell style), links keep their drawio waypoints with quadratic-rounded corners, and `tests/test_flow_diagram_style_lock.js` proves the projection still contains **every** drawio cell (`data-cell` coverage 19/19) — simplified text, identical flow.
+* **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-enterprise-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
 
 ### ✧ Diagram Gallery
 
-One featured projection, with the full catalogue linked below. Every diagram renders at a fixed 2400×1632 canvas with a bold caption centred on the bottom edge and no page numbering:
+One featured workflow, with the full 19-tab catalogue plus the Anbu DB disaster-recovery workflow linked below:
 
 <p align="center">
   <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
 
-<sub>drawio tab 08 Orchestrator Task Artifact Flow — 11 cells, 10 connectors, owners sannin / anbu / akatsuki. The other 18 projections are one click away in the table below.</sub>
+<sub>drawio tab 08 Orchestrator Task Artifact Flow — 11 cells, 10 connectors, owners sannin / anbu / akatsuki (2400×1350 animated WebP). The other 18 projections and workflows are one click away in the tables below.</sub>
 
 ### ✧ All 19 Drawio Tabs → Animated WebP
 
-| Drawio tab | Animated WebP (2400×1632) | Cells (v / e) | Owners |
-| :--- | :--- | :--- | :--- |
-| 01 System Architecture | [`konoha-flow-01-system-architecture.webp`](assets/konoha-flow-01-system-architecture.webp) | 21 / 12 | host, sannin, genin, akatsuki |
-| 02 Runtime Query Lifecycle | [`konoha-flow-02-runtime-query-lifecycle.webp`](assets/konoha-flow-02-runtime-query-lifecycle.webp) | 14 / 13 | host, sannin, genin, akatsuki |
-| 03 MCP Tool and Skill Routing | [`konoha-flow-03-mcp-tool-and-skill-routing.webp`](assets/konoha-flow-03-mcp-tool-and-skill-routing.webp) | 16 / 13 | sannin, jonin, genin, kage, anbu, chunin, tokubetsu-jonin, akatsuki |
-| 04 LLM Bridge Gateway | [`konoha-flow-04-llm-bridge-gateway.webp`](assets/konoha-flow-04-llm-bridge-gateway.webp) | 14 / 11 | host, sannin, anbu, akatsuki |
-| 05 Search Fallback Chain | [`konoha-flow-05-search-fallback-chain.webp`](assets/konoha-flow-05-search-fallback-chain.webp) | 9 / 10 | akatsuki |
-| 06 Skill Registry Installation | [`konoha-flow-06-skill-registry-installation.webp`](assets/konoha-flow-06-skill-registry-installation.webp) | 11 / 11 | host, anbu, akatsuki |
-| 07 Token Footprint Comparison | [`konoha-flow-07-token-footprint-comparison.webp`](assets/konoha-flow-07-token-footprint-comparison.webp) | 11 / 4 | akatsuki |
-| 08 Orchestrator Task Artifact Flow | [`konoha-orchestration-flow.webp`](assets/konoha-orchestration-flow.webp) | 11 / 10 | sannin, anbu, akatsuki |
-| 09 Jonin Taste-Skill Frontend Engine | [`konoha-jonin-flow.webp`](assets/konoha-jonin-flow.webp) | 7 / 5 | jonin, akatsuki |
-| 10 Persistent Project Context & Auto-Compaction | [`konoha-flow-10-persistent-project-context-auto-compaction.webp`](assets/konoha-flow-10-persistent-project-context-auto-compaction.webp) | 6 / 4 | anbu, sannin, akatsuki |
-| 11 Kage Pre-Delivery Reviewer Workflow Gate | [`konoha-kage-gate.webp`](assets/konoha-kage-gate.webp) | 12 / 11 | sannin, genin, kage, host, anbu, tokubetsu-jonin, akatsuki |
-| 12 CLI Upgrade & Progress Engine | [`konoha-flow-12-cli-upgrade-progress-engine.webp`](assets/konoha-flow-12-cli-upgrade-progress-engine.webp) | 13 / 10 | host, anbu, akatsuki |
-| 13 QA Automation Workflow | [`konoha-qa-flow.webp`](assets/konoha-qa-flow.webp) | 24 / 24 | sannin, genin, kage, chunin, anbu, jonin, tokubetsu-jonin, host, akatsuki |
-| 14 Remote Access & Telegram Inbound/Outbound | [`konoha-telegram-flow.webp`](assets/konoha-telegram-flow.webp) | 18 / 13 | tokubetsu-jonin, anbu, sannin, akatsuki |
-| 15 Inbound Prompt Queue & Worker Pipeline | [`konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp`](assets/konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp) | 15 / 10 | host, akatsuki, anbu, sannin, tokubetsu-jonin |
-| 16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle | [`konoha-akatsuki-flow.webp`](assets/konoha-akatsuki-flow.webp) | 22 / 15 | akatsuki, host |
-| 17 Yamanaka Image-to-3D Asset Pipeline | [`konoha-yamanaka-3d-flow.webp`](assets/konoha-yamanaka-3d-flow.webp) | 15 / 9 | host, yamanaka |
-| 18 LangGraph.js Orchestration Runtime | [`konoha-langgraph-flow.webp`](assets/konoha-langgraph-flow.webp) | 23 / 18 | sannin, kage, anbu, yamanaka |
-| 19 Authenticated Local Web UI & Ingress Queue | [`konoha-web-ingress-flow.webp`](assets/konoha-web-ingress-flow.webp) | 14 / 9 | host, anbu, sannin, tokubetsu-jonin |
+| Drawio tab | Animated WebP | Dimensions | Cells (v / e) | Owners |
+| :--- | :--- | :--- | :--- | :--- |
+| 01 System Architecture | [`konoha-flow-01-system-architecture.webp`](assets/konoha-flow-01-system-architecture.webp) | 2400×1632 | 21 / 12 | host, sannin, genin, akatsuki |
+| 02 Runtime Query Lifecycle | [`konoha-flow-02-runtime-query-lifecycle.webp`](assets/konoha-flow-02-runtime-query-lifecycle.webp) | 2400×1632 | 14 / 13 | host, sannin, genin, akatsuki |
+| 03 MCP Tool and Skill Routing | [`konoha-flow-03-mcp-tool-and-skill-routing.webp`](assets/konoha-flow-03-mcp-tool-and-skill-routing.webp) | 2400×1632 | 16 / 13 | sannin, jonin, genin, kage, anbu, chunin, tokubetsu-jonin, akatsuki |
+| 04 LLM Bridge Gateway | [`konoha-flow-04-llm-bridge-gateway.webp`](assets/konoha-flow-04-llm-bridge-gateway.webp) | 2400×1632 | 14 / 11 | host, sannin, anbu, akatsuki |
+| 05 Search Fallback Chain | [`konoha-flow-05-search-fallback-chain.webp`](assets/konoha-flow-05-search-fallback-chain.webp) | 2400×1632 | 9 / 10 | akatsuki |
+| 06 Skill Registry Installation | [`konoha-flow-06-skill-registry-installation.webp`](assets/konoha-flow-06-skill-registry-installation.webp) | 2400×1632 | 11 / 11 | host, anbu, akatsuki |
+| 07 Token Footprint Comparison | [`konoha-flow-07-token-footprint-comparison.webp`](assets/konoha-flow-07-token-footprint-comparison.webp) | 2400×1632 | 11 / 4 | akatsuki |
+| 08 Orchestrator Task Artifact Flow | [`konoha-orchestration-flow.webp`](assets/konoha-orchestration-flow.webp) | 2400×1350 | 11 / 10 | sannin, anbu, akatsuki |
+| 09 Jonin Taste-Skill Frontend Engine | [`konoha-jonin-flow.webp`](assets/konoha-jonin-flow.webp) | 2400×1520 | 7 / 5 | jonin, akatsuki |
+| 10 Persistent Project Context & Auto-Compaction | [`konoha-flow-10-persistent-project-context-auto-compaction.webp`](assets/konoha-flow-10-persistent-project-context-auto-compaction.webp) | 2400×1632 | 6 / 4 | anbu, sannin, akatsuki |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | [`konoha-kage-gate.webp`](assets/konoha-kage-gate.webp) | 2400×1520 | 12 / 11 | sannin, genin, kage, host, anbu, tokubetsu-jonin, akatsuki |
+| 12 CLI Upgrade & Progress Engine | [`konoha-flow-12-cli-upgrade-progress-engine.webp`](assets/konoha-flow-12-cli-upgrade-progress-engine.webp) | 2400×1632 | 13 / 10 | host, anbu, akatsuki |
+| 13 QA Automation Workflow | [`konoha-qa-flow.webp`](assets/konoha-qa-flow.webp) | 2400×1520 | 24 / 24 | sannin, genin, kage, chunin, anbu, jonin, tokubetsu-jonin, host, akatsuki |
+| 14 Remote Access & Telegram Inbound/Outbound | [`konoha-telegram-flow.webp`](assets/konoha-telegram-flow.webp) | 2400×1520 | 18 / 13 | tokubetsu-jonin, anbu, sannin, akatsuki |
+| 15 Inbound Prompt Queue & Worker Pipeline | [`konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp`](assets/konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp) | 2400×1632 | 15 / 10 | host, akatsuki, anbu, sannin, tokubetsu-jonin |
+| 16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle | [`konoha-akatsuki-flow.webp`](assets/konoha-akatsuki-flow.webp) | 2400×1520 | 22 / 15 | akatsuki, host |
+| 17 Yamanaka Image-to-3D Asset Pipeline | [`konoha-yamanaka-3d-flow.webp`](assets/konoha-yamanaka-3d-flow.webp) | 2400×1632 | 15 / 9 | host, yamanaka |
+| 18 LangGraph.js Orchestration Runtime | [`konoha-langgraph-flow.webp`](assets/konoha-langgraph-flow.webp) | 2400×1632 | 23 / 18 | sannin, kage, anbu, yamanaka |
+| 19 Authenticated Local Web UI & Ingress Queue | [`konoha-web-ingress-flow.webp`](assets/konoha-web-ingress-flow.webp) | 2400×1632 | 14 / 9 | host, anbu, sannin, tokubetsu-jonin |
 
-*Every row is rendered from the `.drawio` source, so the table can never disagree with the diagrams: the counts are read from the same XML the renderer projects.*
+*Every row is backed by the `.drawio` XML source; the 6 Tokubetsu-Jonin multi-card workflow diagrams (Tabs 08, 09, 11, 13, 14, 16) enrich each step with detailed v2.2.18 sub-bullet checklists while preserving exact Draw.io step alignment.*
+
+### ✧ Tokubetsu-Jonin Animated Workflows
+
+Seven multi-card operational workflows (Tabs 08, 09, 11, 13, 14, 16 above plus `konoha-anbu-flow.webp` below) are generated by `scripts/generate_tokubetsu_flow_webp.js` using Playwright + FFmpeg (`libwebp_anim`, 24 frames, `loop: 0`):
+
+| Workflow | Animated WebP (2400×1520) | Steps | Owner |
+| :--- | :--- | :--- | :--- |
+| Anbu SQLite Disaster Recovery & DB Health | [`konoha-anbu-flow.webp`](assets/konoha-anbu-flow.webp) | `konoha db check` → PRAGMA quick/integrity check → verified backup select → atomic corrupt archive → restore or `.recover` salvage → post-restore verify gate | anbu |
 
 ### 📐 Mermaid Diagram: Multi-Agent Orchestration & Execution Flow
 
@@ -514,6 +522,7 @@ Once installed, the following CLI commands are available:
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
+| `konoha db <subcommand>` | SQLite disaster recovery & integrity operations (`check [--db <path>]`, `restore [--from <backup>] [--db <path>]`) |
 | `konoha data <subcommand>` | Database maintenance operations (`backup [path]`, `rebuild-fts`, `prune --retention <days>`) |
 | `konoha detect-ai <path-file-or-url>` | Website/code AI-fingerprint detector (anonymiz.com-style): scans a site directory, single file, or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
 | `konoha detect-docs <path-or-url>` | Documentation AI-pattern detector: scans markdown/docs for AI-writing clichés, conversational filler, and structural fingerprints |
@@ -648,9 +657,8 @@ Konoha features an autonomous **Remote Access & Telegram Automation Engine** tha
 - **Two-Way Remote Prompting Mode**: Accepts commands directly from Telegram:
   - `/session [number]` — View and switch active target client sessions across Antigravity, Claude Code, Codex, Pi, OpenCode, and Command Code.
   - `/session create <client> <path>` — Register and immediately target a remote project directory.
-  - `/sh <cmd>` — Execute shell commands directly in the active target workspace via interactive shell (`bash -i -c`) with full support for `~/.bashrc` aliases (`kubectl`, `kc*`, `helm`, etc.) and security guardrails (`isDangerousCommand` blocking destructive patterns).
   - `/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu-jonin`, `/sannin`, `/akatsuki`, `/yamanaka` — Direct subagent dispatch bypassing general triage.
-  - `/run <prompt>` or plain text — Enqueue coding tasks into the unified prompt inbox.
+  - `/run <prompt>` or plain text — Enqueue coding tasks into the unified prompt inbox (direct remote shell execution via `/sh` was removed in v2.2.1 for security hardening).
   - `/status`, `/savings`, `/cancel`, `/help` — Live daemon telemetry, token savings metrics, and queue cancellation.
 - **Strict Security Invariant**: Enforces a strict numeric `chat_id` whitelist (`telegram_config.chat_id`) dropping unauthorized messages immediately.
 - **Zero Emojis Standard**: All notifications use clean bracketed tags (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[QUEUED]`, `[KAGE REVIEW GATE PASSED]`).
@@ -765,7 +773,7 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── migrate.js             ← Pure Node.js migration script
 ├── vector_search.js       ← Semantic vector search & embedding engine
 ├── bridge/                ← Proxy Gateway bridge modules
-└── skills.db              ← SQLite FTS5 database (+ `agents`, `bridges` tables)
+└── konoha.db              ← SQLite FTS5 database (+ `agents`, `bridges`, `sdlc_tasks` tables)
 
 ~/.cursor/
 ├── mcp.json               ← konoha + semble + aislop MCP (Cursor)

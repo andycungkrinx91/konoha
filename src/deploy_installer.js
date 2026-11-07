@@ -14,6 +14,7 @@ const {
 } = require('../bin/lib/paths');
 const { IS_WIN } = require('./platform_utils');
 const {
+  resolveCompatibleNode,
   resolveCompatibleNodeEnv,
   writeNodeExecPathRecord,
   writePythonCmdRecord
@@ -171,7 +172,7 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
 
   return {
     type: "stdio",
-    command: process.execPath || "node",
+    command: resolveCompatibleNode() || process.execPath || "node",
     args: [targetScript],
     env: { ACTIVE_CLIENT: clientName, KONOHA_CLIENT: clientName, KONOHA_SEMANTIC_SEARCH: "1" },
     autoApprove: [...KONOHA_CANONICAL_TOOLS],

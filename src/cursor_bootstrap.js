@@ -88,10 +88,14 @@ function buildKonohaFilesMcpEntry() {
   const mcpJs = path.join(HOME, '.konoha', 'file_tools_mcp.js');
   if (!fs.existsSync(mcpJs)) return null;
   const target = fs.existsSync(launcherJs) ? launcherJs : mcpJs;
+  let nodeCmd = process.execPath || 'node';
+  try {
+    const { resolveCompatibleNode } = require('./runtime_resolver');
+    nodeCmd = resolveCompatibleNode() || nodeCmd;
+  } catch { /* fallback */ }
   return {
     type: 'stdio',
-    // Absolute node path: GUI-launched Cursor may not inherit a shell PATH
-    command: process.execPath || 'node',
+    command: nodeCmd,
     args: [target]
   };
 }

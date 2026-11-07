@@ -28,6 +28,22 @@ function checkIntegrity(dbPath) {
     return { ok: false, status: 'FILE_NOT_FOUND', details: [`Database file does not exist: ${dbPath}`] };
   }
 
+  try {
+    const stat = fs.statSync(dbPath);
+    if (stat.size < 100) {
+      return { ok: false, status: 'CORRUPTED', details: ['File smaller than minimum SQLite 100-byte header'] };
+    }
+    const fd = fs.openSync(dbPath, 'r');
+    const headerBuf = Buffer.alloc(16);
+    fs.readSync(fd, headerBuf, 0, 16, 0);
+    fs.closeSync(fd);
+    if (headerBuf.toString('utf8', 0, 16) !== SQLITE_HEADER_MAGIC) {
+      return { ok: false, status: 'CORRUPTED', details: ['INVALID_HEADER_MAGIC: missing SQLite format 3 signature'] };
+    }
+  } catch (err) {
+    return { ok: false, status: 'CORRUPTED', details: [`HEADER_READ_FAILED: ${err.message}`] };
+  }
+
   let db = null;
   try {
     const { DatabaseSync } = require('node:sqlite');

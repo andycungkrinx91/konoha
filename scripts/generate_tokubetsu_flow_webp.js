@@ -3,14 +3,14 @@
 
 /**
  * scripts/generate_tokubetsu_flow_webp.js
- * Generates the 7 canonical animated workflow diagrams embedded in the README and documentation
- * using the Tokubetsu-Jonin Light Design Standard:
- *   - Pure light canvas (#FFFFFF to #FAFBFD), slate dot matrix, subtle brand glow.
- *   - Base Theme 01 4-color gradient accents: Azure (#3B82F6), Teal (#14B8A6), Violet (#8B5CF6), Amber (#F97316).
- *   - White card nodes (#FFFFFF) with elevation shadows, colored accent top bars, and bold slate typography (#0F172A).
- *   - Animated marching dashed lines, flowing ambient tracks, and traveling pulse particles.
- *   - High-fidelity Playwright Chromium capture (deviceScaleFactor: 2) + FFmpeg libwebp_anim (-q:v 90).
- *   - Pure Node.js binary structural validation via validateAnimatedWebP.
+ * Generates the 7 canonical Tokubetsu-Jonin animated workflow diagrams embedded in README and docs:
+ *   - konoha-orchestration-flow.webp (1200x675 -> 2400x1350 @2x)
+ *   - konoha-jonin-flow.webp         (1200x760 -> 2400x1520 @2x)
+ *   - konoha-kage-gate.webp          (1200x760 -> 2400x1520 @2x)
+ *   - konoha-qa-flow.webp            (1200x760 -> 2400x1520 @2x)
+ *   - konoha-telegram-flow.webp      (1200x760 -> 2400x1520 @2x)
+ *   - konoha-akatsuki-flow.webp      (1200x760 -> 2400x1520 @2x)
+ *   - konoha-anbu-flow.webp          (1200x760 -> 2400x1520 @2x)
  */
 
 const fs = require('fs');
@@ -24,11 +24,13 @@ const {
   generateOrchestrationHtml,
   generateJoninHtml,
   generateKageHtml,
-  generateQaHtml,
+  generateQaHtml
+} = require('./lib/tokubetsu_flow_templates');
+const {
   generateTelegramHtml,
   generateAkatsukiHtml,
-  generateYamanakaHtml
-} = require('./lib/tokubetsu_flow_templates');
+  generateAnbuHtml
+} = require('./lib/tokubetsu_flow_anbu');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
@@ -124,8 +126,6 @@ async function renderAndExportWebP(htmlContent, outputPath, options = {}) {
   try {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
     await page.setContent(htmlContent, { waitUntil: 'networkidle' });
-    // A page that ships its own `window.updateFrame` (the drawio port) must not be
-    // overridden by the legacy template hook.
     if (options.injectHooks !== false) await setupPageAnimatedHooks(page);
     await captureFrames(page, totalFrames, tmpFramesDir);
   } finally {
@@ -151,22 +151,28 @@ async function main() {
   console.log('================================================================');
 
   const targets = [
-    { name: 'konoha-orchestration-flow.webp', html: generateOrchestrationHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
+    { name: 'konoha-orchestration-flow.webp', html: generateOrchestrationHtml(), w: 1200, h: 675, frames: 24, fps: 12 },
     { name: 'konoha-jonin-flow.webp', html: generateJoninHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
     { name: 'konoha-kage-gate.webp', html: generateKageHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
     { name: 'konoha-qa-flow.webp', html: generateQaHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
     { name: 'konoha-telegram-flow.webp', html: generateTelegramHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
     { name: 'konoha-akatsuki-flow.webp', html: generateAkatsukiHtml(), w: 1200, h: 760, frames: 24, fps: 12 },
-    { name: 'konoha-yamanaka-3d-flow.webp', html: generateYamanakaHtml(), w: 1200, h: 760, frames: 24, fps: 12 }
+    { name: 'konoha-anbu-flow.webp', html: generateAnbuHtml(), w: 1200, h: 760, frames: 24, fps: 12 }
   ];
 
-  for (const t of targets) {
+  const onlyArg = process.argv.find((a) => a.startsWith('--only='));
+  const filter = onlyArg ? onlyArg.split('=')[1].toLowerCase() : null;
+  const selected = filter ? targets.filter((t) => t.name.toLowerCase().includes(filter)) : targets;
+
+  for (const t of selected) {
     const outPath = path.join(ASSETS_DIR, t.name);
-    await renderAndExportWebP(t.html, outPath, { width: t.w, height: t.h, totalFrames: t.frames, fps: t.fps });
+    const tmpPath = `${outPath}.tmp.webp`;
+    await renderAndExportWebP(t.html, tmpPath, { width: t.w, height: t.h, totalFrames: t.frames, fps: t.fps });
+    fs.renameSync(tmpPath, outPath);
   }
 
   console.log('\n================================================================');
-  console.log('✓ All 7 Tokubetsu-Jonin Animated Flow Diagrams Generated Cleanly!');
+  console.log(`✓ All ${selected.length} Tokubetsu-Jonin Animated Flow Diagrams Generated Cleanly!`);
   console.log('================================================================\n');
 }
 
@@ -185,5 +191,5 @@ module.exports = {
   generateQaHtml,
   generateTelegramHtml,
   generateAkatsukiHtml,
-  generateYamanakaHtml
+  generateAnbuHtml
 };

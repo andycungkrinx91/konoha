@@ -3,7 +3,7 @@
 **Product:** Konoha (`konoha-mcp`) — Multi-Agent MCP Orchestrator & Token-Saving Skills-DB Engine  
 **Version:** 2.2.18  
 **Report Date:** 2026-11-06  
-**Scope:** SQLite Disaster Recovery Engine (`src/db_recovery.js`, `bin/commands/db.js`), Default Credential Safety (`konohagakure`), 8-Client × 3-OS Cross-Platform Support Matrix, 32 Canonical WebP Architecture & Workflow Assets, 50 MCP Tools, 9-Ninja Subagent Roster, Headless Three.js 3D Viewport Pipeline, and 100/100 Zero-AI-Slop Governance.  
+**Scope:** SQLite Disaster Recovery Engine (`src/db_recovery.js`, `bin/commands/db.js`), Default Credential Safety (`konohagakure`), 8-Client × 3-OS Cross-Platform Support Matrix, 33 Canonical WebP Architecture & Workflow Assets, 50 MCP Tools (48 Active + 2 Deprecated), 9-Ninja Subagent Roster, Headless Three.js 3D Viewport Pipeline, and 100/100 Zero-AI-Slop Governance.  
 **Prepared by:** Kage (Village Leader, Security & Architecture Reviewer), Akatsuki (Red-Team & Security Specialist) & Anbu (Backend & DevOps Specialist)  
 
 ---
@@ -14,13 +14,13 @@
 | :--- | :--- | :--- |
 | **Kage Delivery Confidence** | **100.0% (Threshold: ≥ 98.0%)** | APPROVED |
 | **Zero-AI-Slop Score** | **100 / 100 Healthy (0 errors, 0 warnings, 0 fixable)** | ENFORCED |
-| **Backend Static Analysis** | **694 files verified with 0 errors and 0 warnings** | ENFORCED |
+| **Backend Static Analysis** | **All `.js`, `.py`, and `.svelte` files verified (< 700 LOC) with 0 errors and 0 warnings** | ENFORCED |
 | **SQLite Disaster Recovery** | **Integrity check, corruption detection, atomic archiving, safe restore** | PASSED |
 | **Default Credential Safety** | **`konohagakure` default with mandatory post-bootstrap reset dialog** | ENFORCED |
 | **Version Consistency** | **19 of 19 release targets synchronized at v2.2.18** | PASSED |
-| **WebP Asset Integrity** | **32 of 32 canonical WebPs verified (13 demos + 19 architecture tabs)** | PASSED |
+| **WebP Asset Integrity** | **33 of 33 canonical WebPs verified (13 demos + 7 Tokubetsu-Jonin workflows + 13 Draw.io projections)** | PASSED |
 | **3D Viewport Pipeline** | **Headless Three.js r187, WebGL shim, perspective projection, glTF 2.0** | PASSED |
-| **Cross-Platform Matrix** | **8 Clients (Cursor, Claude, Windsurf, Trae, Gemini, Codex, Antigravity, OMP) × 3 OSes** | VERIFIED |
+| **Cross-Platform Matrix** | **8 Clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP) × 3 OSes** | VERIFIED |
 | **Supply-Chain & Deprecations** | **0 known high/critical vulnerabilities across production dependencies** | VERIFIED |
 
 ---
@@ -67,14 +67,14 @@ Comprehensive verification across 8 MCP client configurations and 3 major operat
 
 | Client Target | Linux (x64/arm64) | macOS (Darwin ARM/Intel) | Windows (Win 11 / Server 2022) | Config Path |
 | :--- | :--- | :--- | :--- | :--- |
+| **Antigravity CLI/IDE** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.gemini/config/mcp_config.json` / `~/.gemini/antigravity/mcp_config.json` |
 | **Cursor** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.cursor/mcp.json` |
 | **Claude Code** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.claude.json` |
-| **Windsurf** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.codeium/windsurf/mcp_config.json` |
-| **Trae** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.trae/mcp.json` |
-| **Gemini CLI** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.gemini/mcp_config.json` |
-| **Codex** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.codex/config.json` |
-| **Antigravity** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.antigravity/mcp.json` |
-| **OMP** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.omp/mcp.json` |
+| **OpenCode** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.config/opencode/opencode.json` |
+| **Command Code** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.commandcode/mcp.json` |
+| **Codex** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.codex/config.toml` |
+| **Pi (pi.dev)** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.pi/agent/mcp.json` |
+| **OMP** | `PASS` (verified) | `PASS` (verified) | `PASS` (verified) | `~/.omp/agent/mcp.json` |
 
 ---
 

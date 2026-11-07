@@ -45,7 +45,7 @@ async function run() {
     assert.strictEqual(health.data.status, 'healthy');
     assert.strictEqual(health.data.port, port);
     assert.ok(health.data.skills_count > 0);
-    assert.strictEqual(health.data.agents_count, 8);
+    assert.strictEqual(health.data.agents_count, 9);
     console.log('✓ GET /api/v1/health passed');
 
     // CSRF rejection without token
@@ -132,12 +132,13 @@ async function run() {
     // Agents endpoint
     const agents = await request({ hostname: '127.0.0.1', port, path: '/api/v1/agents', method: 'GET' });
     assert.strictEqual(agents.status, 200);
-    assert.strictEqual(agents.data.length, 8);
+    assert.strictEqual(agents.data.length, 9);
     const names = agents.data.map(a => a.name);
     assert.ok(names.includes('sannin'));
     assert.ok(names.includes('genin'));
     assert.ok(names.includes('kage'));
     assert.ok(names.includes('akatsuki'));
+    assert.ok(names.includes('yamanaka'));
     console.log('✓ GET /api/v1/agents passed');
 
     // Skills endpoint

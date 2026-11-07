@@ -15,7 +15,7 @@ tags:
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
-Konoha serves ALL 50 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 9 specialists:
+Konoha serves ALL 48 canonical tools through standard MCP protocols across 8 supported AI coding clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 total in manifest) are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js` across 9 specialists:
 - Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
 - Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
 - Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
@@ -50,7 +50,7 @@ To prevent token burn and provide surgically accurate guidance, maintenance inst
    - Skill lookup: ALWAYS use Konoha MCP (`konoha.find_skill`, `konoha.get_skill`).
    - Bounded file I/O: ALWAYS use Konoha bounded tools (`read_file_range`, `read_file_head`, `token_efficient_grep`).
    - Shell commands: ALWAYS prefix with RTK (`rtk <command>`).
-   - Global-Only Client Configs: Never write `.omp`, `.codex`, `.cursor`, `.claude`, `.agents`, or `.gitignore` rules into user project directories; all client configs live under user home (`~/.omp`, `~/.codex`, `~/.cursor`, `~/.config/git/ignore`, etc.) and auto-regenerate only on `konoha doctor` or explicit `konoha init`.
+   - Global-Only Client Configs: Never write `.omp`, `.codex`, `.cursor`, `.claude`, `.agents`, or `.gitignore` rules into user project directories; all client configs live under user home (`~/.omp`, `~/.codex`, `~/.cursor`, `~/.config/git/ignore`, etc.) and auto-regenerate only on `konoha doctor` or explicit `konoha init`. Konoha does not maintain filesystem mirrors in client project directories; all skills are served from SQLite FTS5 (`~/.konoha/konoha.db`).
    - Extension Isolation: The obsolete `andycungkrinx91.konoha-bridge-master-universal` extension directory is eliminated; all IDEs use direct MCP configuration.
 2. **Quality & Security Delivery Gate**:
    - Shipped code must pass `rtk npx aislop scan --changes` with score **100/100 Healthy**, 0 errors, and 0 warnings.

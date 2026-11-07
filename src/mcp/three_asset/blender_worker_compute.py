@@ -123,9 +123,31 @@ def scene_mesh_stats(bpy):
     return {"meshes": meshes, "vertices": total_v, "triangles": total_t}
 
 
+def _ensure_object_mode(bpy):
+    active = getattr(bpy.context.view_layer.objects, "active", None)
+    if active is None or getattr(active, "mode", "OBJECT") == "OBJECT":
+        return
+    try:
+        bpy.ops.object.mode_set(mode="OBJECT")
+    except RuntimeError as exc:
+        _ = exc
+
+
+def _remove_all_scene_objects(bpy):
+    for obj in list(bpy.context.scene.objects):
+        try:
+            bpy.data.objects.remove(obj, do_unlink=True)
+        except (RuntimeError, ReferenceError) as exc:
+            _ = exc
+
+
 def clear_scene(bpy):
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
+    _ensure_object_mode(bpy)
+    try:
+        bpy.ops.object.select_all(action="SELECT")
+        bpy.ops.object.delete(use_global=False)
+    except RuntimeError:
+        _remove_all_scene_objects(bpy)
     for datablocks in (
         bpy.data.meshes,
         bpy.data.materials,
@@ -141,8 +163,20 @@ def mesh_objects(bpy):
     return [o for o in bpy.context.scene.objects if o.type == "MESH"]
 
 
+def _deselect_all_scene_objects(bpy):
+    for existing in list(bpy.context.scene.objects):
+        try:
+            existing.select_set(False)
+        except (RuntimeError, ReferenceError) as exc:
+            _ = exc
+
+
 def select_only(bpy, objects):
-    bpy.ops.object.select_all(action="DESELECT")
+    _ensure_object_mode(bpy)
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except RuntimeError:
+        _deselect_all_scene_objects(bpy)
     for obj in objects:
         obj.select_set(True)
     if objects:

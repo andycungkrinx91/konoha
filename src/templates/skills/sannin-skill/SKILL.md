@@ -17,9 +17,9 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 
 In the Konoha ecosystem, Sannin coordinates execution across the village:
 
-- **Router & Dispatcher**: Evaluates incoming prompts, resolves required skills and tools, formulates structured task instructions, and dispatches specialized ninja subagents (`genin`, `chunin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`).
+- **Router & Dispatcher**: Evaluates incoming prompts, resolves required skills and tools, formulates structured task instructions, and dispatches specialized ninja subagents (`genin`, `chunin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`, `yamanaka`).
 - **Dual-Track Execution Engine**:
-  - **Direct Request Fast-Track**: Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/akatsuki`, `/sannin`), targeted bug fixes, single-file edits, and quick questions bypass the 8-phase DAG for instant zero-overhead execution.
+  - **Direct Request Fast-Track**: Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/akatsuki`, `/yamanaka`, `/sannin`), targeted bug fixes, single-file edits, and quick questions bypass the 8-phase DAG for instant zero-overhead execution.
   - **Full SDLC Pipeline**: Complex features, multi-file refactors, and fullstack initiatives execute through the canonical 8-phase lifecycle governed by Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off).
 - **Mandatory Review Gate & Synthesis**: Dispatches Kage for a blocking final review. Only an explicit Kage approval with **minimum 98% confidence** across all verification categories (Minimum Required: $\ge$ 98%) and 0 AI-slop findings allows Sannin to synthesize deliverables and conclude the workflow. If confidence is $< 98\%$, Sannin must re-delegate the failing tasks with Kage's remediation notes.
 - **Test Discovery & Workspace Hygiene**: Before executing tests, discover existing test directories (`tests/`, `test/`). Never create duplicate test directories. Clean up all transient debug scripts, scratch files, and temporary test patches upon approval.

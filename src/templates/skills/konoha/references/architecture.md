@@ -20,14 +20,14 @@ Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi
 
 ## 🛠️ Canonical MCP Tools & Server Boundaries
 
-All 48 canonical MCP tools are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`:
+All 48 active canonical MCP tools (50 total in `src/mcp_tool_manifest.json`, including 2 deprecated compatibility aliases) are dispatched via `src/mcp/tool_dispatch.js`:
 
 | Category | Tools | Primary Purpose |
 |---|---|---|
 | **Orchestration & Workflow** | `sannin`, `check_readiness`, `get_resolved_task_dir`, `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `qa_codify`, `qa_e2e_run` | Request triage, LangGraph StateGraph execution, test codification, E2E runner. |
 | **Skill & Knowledge RAG** | `find_skill`, `get_skill`, `list_skills`, `use_skills`, `migrate_skills`, `optimize_report` | SQLite FTS5 RAG search, on-demand skill retrieval, token footprint analysis. |
 | **Bounded File Operations** | `read_file_head`, `read_file_range`, `token_efficient_grep`, `file_info`, `get_file_structure`, `find_files_clean` | Bounded file I/O, token-capped grepping, symbol outline preview. |
-| **Specialist Subagents** | `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki` | Direct invocation of specialist personas for focused tasks. |
+| **Specialist Subagents** | `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka` | Direct invocation of specialist personas for focused tasks. |
 | **Security & Auditing** | `akatsuki_init`, `anti_slop`, `aislop_scan`, `aislop_why`, `aislop_fix`, `aislop_baseline`, `docs_ai_detector`, `website_ai_detector` | Dual-mode red/blue security, Zero-AI-Slop audit, automated repairs, AI detection. |
 | **Document Engineering** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Native DOCX/PDF, XLSX, PPTX, SVG diagrams, and animated WebP exports. |
 | **Web & Research** | `web_search`, `build_from_text`, `build_from_source` | Live web research and website scaffolding specification generators. |

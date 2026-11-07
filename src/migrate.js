@@ -139,8 +139,8 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
   conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillName);
 
   let count = _migrateSkillMd(conn, skillDir, skillName);
-  count += _migrateReferences(conn, skillDir, skillName, skillsOnly);
-  count += _migrateRootReferences(conn, skillDir, skillName, skillsOnly);
+  count += _migrateReferences(conn, skillDir, skillName, skillsOnly, log);
+  count += _migrateRootReferences(conn, skillDir, skillName, skillsOnly, log);
   return count;
 }
 

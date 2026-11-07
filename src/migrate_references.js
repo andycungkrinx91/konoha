@@ -9,7 +9,11 @@ const {
   extractTagsFromFilename
 } = require('./migrate_helpers');
 
-function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly, log = console.log) {
+function defaultStderrLog(...args) {
+  process.stderr.write(args.map(a => (typeof a === 'object' && a !== null) ? JSON.stringify(a) : String(a)).join(' ') + '\n');
+}
+
+function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly, log = defaultStderrLog) {
   const cyberSkillsDir = path.join(refsDir, "anthropic-cybersecurity-skills-assets", "skills");
   if (skillsOnly || !fs.existsSync(cyberSkillsDir) || !fs.statSync(cyberSkillsDir).isDirectory()) {
     return 0;
@@ -52,7 +56,7 @@ function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly, log = console
   return cyberCount;
 }
 
-function _migrateReferences(conn, skillDir, skillName, skillsOnly, log = console.log) {
+function _migrateReferences(conn, skillDir, skillName, skillsOnly, log = defaultStderrLog) {
   const refsDir = path.join(skillDir, "references");
   if (!fs.existsSync(refsDir) || !fs.statSync(refsDir).isDirectory()) return 0;
 
@@ -95,7 +99,7 @@ function _migrateReferences(conn, skillDir, skillName, skillsOnly, log = console
   return count;
 }
 
-function _migrateRootReferences(conn, skillDir, skillName, skillsOnly, log = console.log) {
+function _migrateRootReferences(conn, skillDir, skillName, skillsOnly, log = defaultStderrLog) {
   const excludeFilenames = new Set(["skill.md", "readme.md", "license.md", "changelog.md"]);
   const rootMdFiles = fs.readdirSync(skillDir).filter(f => f.endsWith(".md")).sort();
 
@@ -160,7 +164,7 @@ function _collectDocFiles(dirPath, prefix = '') {
 function _migrateDocumentation(conn, skillsOnly, options = {}) {
   if (skillsOnly) return 0;
   const targetDir = options.targetDir || path.normalize(path.join(os.homedir(), '.konoha'));
-  const log = options.log || console.log;
+  const log = options.log || defaultStderrLog;
   const candidates = [
     path.join(targetDir, 'docs'),
     path.normalize(path.join(os.homedir(), '.konoha', 'docs')),
