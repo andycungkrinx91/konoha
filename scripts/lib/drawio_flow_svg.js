@@ -1,7 +1,6 @@
 'use strict';
 
 const layout = require('./drawio_flow_layout');
-const glass = require('./drawio_flow_glass');
 
 /** Helpers the layout module needs from this file (lazy: CANVAS is defined below). */
 function layoutHelpers() {
@@ -50,11 +49,18 @@ const KIT = {
   crimson: '#EF4444',
   slate: '#64748B'
 };
-const KIT_INK = glass.GLASS.inkTitle;
-const KIT_BODY = glass.GLASS.inkDesc;
-const KIT_MUTED = glass.GLASS.inkTag;
+const KIT_SURFACE = '#FAFBFD';
+const KIT_PANEL = '#F8FAFC';
+const KIT_INK = '#0F172A';
+const KIT_BODY = '#475569';
+const KIT_MUTED = '#64748B';
 
 /** Per-cell wording overrides (drawio stays verbatim; only the WebP is condensed). */
+const LABEL_OVERRIDES = {
+  'p13-qfb': 'fix backend code\nAPIs · routes · ops',
+  'p15-akatsuki': 'Zero-Trust Attack Audit\ntoken validation · container\nboundaries'
+};
+
 const FONT_SANS = "'Inter', 'Noto Sans', 'DejaVu Sans', sans-serif";
 const FONT_MONO = "'JetBrains Mono', 'DejaVu Sans Mono', monospace";
 
@@ -196,14 +202,66 @@ function routeEdge(edge, vertexById) {  // -> { d, mid } | null
 }
 
 /** Characters that fit on one line inside a box at a given font size. */
+function charsPerLine(width, size) {
+  return Math.max(8, Math.floor((width - 12) / (size * 0.5)));
+}
+
+/** Greedy word wrap used when a drawio line is wider than its box. */
+function reflowLine(line, capacity) {
+  const words = line.split(/\s+/).filter(Boolean);
+  const out = [];
+  let current = '';
+  for (const word of words) {
+    if (!current) current = word;
+    else if (`${current} ${word}`.length <= capacity) current += ` ${word}`;
+    else { out.push(current); current = word; }
+  }
+  if (current) out.push(current);
+  // Balance a lopsided break so the last line is never a single short word.
+  if (out.length > 1) {
+    const [prev, last] = [out[out.length - 2], out[out.length - 1]];
+    const prevWords = prev.split(' ');
+    if (prevWords.length > 1 && last.length < capacity * 0.34) {
+      const moved = prevWords.pop();
+      out[out.length - 2] = prevWords.join(' ');
+      out[out.length - 1] = `${moved} ${last}`;
+    }
+  }
+  return out;
+}
+
+/**
+ * The WebP is a *simplified* rendering of the drawio tab: identical topology, condensed
+ * wording. Simplification is deterministic (long parentheticals dropped, over-wide lines
+ * re-wrapped, line count capped to the box height) so every diagram can be regenerated and
+ * reviewed from the drawio source alone.
+ */
 function simplifyLabel(vertex) {
+  if (LABEL_OVERRIDES[vertex.id]) return LABEL_OVERRIDES[vertex.id];
   const raw = String(vertex.label || '');
   if (isTextBox(vertex)) {
-    return raw;
+    const sentence = raw.replace(/\s+/g, ' ').trim();
+    return sentence.length > 118 ? `${sentence.slice(0, 117).replace(/[\s,;:]\S*$/, '')}\u2026` : raw;
   }
-  // Authored copy is rendered verbatim: no prefix stripping, no line dropping and
-  // no ellipsis truncation. Long lines wrap; the fitter only scales type if needed.
-  return raw.split('\n').map((line) => line.replace(/\s{2,}/g, ' ').trim()).filter(Boolean).join('\n');
+  const agent = agentOf(vertex);
+  const capacity = charsPerLine(vertex.box.w, Number(vertex.style.fontSize || 12));
+  const reserve = agent ? 12 : 0;
+  const maxLines = Math.max(2, Math.floor((vertex.box.h - 8 - reserve) / 10.5));
+  let lines = raw.split('\n')
+    .map((line) => line.replace(/\s*\(([^)]{25,})\)/g, '').replace(/\s{2,}/g, ' ').trim())
+    .filter(Boolean);
+  if (agent) {
+    // The `◈ agent` tag already names the owner, so drop a duplicated label prefix.
+    const prefix = new RegExp(`^${agent.replace('-', '[- _]?')}\\s*:\\s*`, 'i');
+    lines = lines.map((line, index) => (index === 0 ? line.replace(prefix, '') : line));
+  }
+  lines = lines.flatMap((line) => (line.length > capacity ? reflowLine(line, capacity) : [line]));
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = `${kept[maxLines - 1].slice(0, Math.max(4, capacity - 1))}\u2026`;
+    lines = kept;
+  }
+  return lines.join('\n');
 }
 
 function rgbOf(hex) {
@@ -255,19 +313,9 @@ function textDiv(rect, text, opt) {
 /** Kit card labels: 700-weight title over 500-weight detail, all inside the box. */
 /** Truncate a condensed line so it never wraps past the box it belongs to. */
 function fitOneLine(text, width, size) {
-  const escaped = esc(text);
   const capacity = Math.max(10, Math.floor(width / (size * 0.5)));
-  if (escaped.length <= capacity) return escaped;
-  // No truncation: break on word boundaries so the authored wording survives intact.
-  const words = escaped.split(' ');
-  const out = [];
-  let line = '';
-  for (const word of words) {
-    if (line && (line + ' ' + word).length > capacity) { out.push(line); line = word; }
-    else line = line ? `${line} ${word}` : word;
-  }
-  if (line) out.push(line);
-  return out.join('<br/>');
+  if (text.length <= capacity) return text;
+  return `${text.slice(0, capacity - 1).replace(/[\s,;:\u00b7]\S*$/, '')}\u2026`;
 }
 
 /** Kit card labels: 700-weight title over one 500-weight detail line, inside the box. */
@@ -282,7 +330,10 @@ function labelMarkup(vertex, agent) {
       { size: 16, weight: 700, color: KIT_INK, align: 'left' });
     if (!detailLines.length || box.h < 52) return title;
     const available = box.h - head - 10;
-    return title + textDiv({ x: box.x + 8, y: box.y + head + 2, w: box.w - 16, h: available }, detailLines.map((line) => esc(line)).join('<br/>'),
+    const maxLines = Math.max(1, Math.floor(available / 16));
+    const kept = detailLines.slice(0, maxLines);
+    if (detailLines.length > maxLines) kept[kept.length - 1] = `${kept[kept.length - 1].slice(0, 60)}\u2026`;
+    return title + textDiv({ x: box.x + 8, y: box.y + head + 2, w: box.w - 16, h: available }, kept.map((line) => esc(line)).join('<br/>'),
       { size: 13.5, weight: 500, color: KIT_MUTED, align: 'left', vertical: 'flex-start' });
   }
   if (style.rhombus) {
@@ -290,7 +341,7 @@ function labelMarkup(vertex, agent) {
     const innerH = box.h * 0.5;
     const size = Math.max(14, Math.min(17, box.h * 0.17, innerW / 9));
     const text = fitOneLine(lines.join(' \u00b7 '), innerW, size);
-    return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, text,
+    return textDiv({ x: box.x + (box.w - innerW) / 2, y: box.y + (box.h - innerH) / 2, w: innerW, h: innerH }, esc(text),
       { size, weight: 700, color: KIT_INK });
   }
   const type = cardType(box, vertex.id);
@@ -301,22 +352,23 @@ function labelMarkup(vertex, agent) {
   const bottom = agent ? 9 : 0;
   const usable = Math.max(12, box.y + box.h - bottom - pad + 2 - top);
   const width = Math.max(8, box.w - pad * 2);
-  // Every authored line is emitted. If the copy is taller than the box, the fitter
-  // shrinks the type for this card rather than dropping or ellipsising a line.
-  const need = type.title + detailLines.length * type.detail * 1.22;
-  const scale = Math.min(1, usable / Math.max(1, need));
-  const titleSize = Math.max(9, type.title * scale);
-  const detailSize = Math.max(8, type.detail * scale);
-  const titleH = detailLines.length
-    ? Math.max(titleSize * 1.3, usable - detailSize * 1.22 * detailLines.length)
+  const hasDetail = detailLines.length > 0 && usable >= type.title + type.detail * 1.5;
+  const multiDetail = detailLines.length > 1 && usable >= type.title * 1.3 + type.detail * 2.5;
+  const titleH = hasDetail
+    ? (multiDetail ? Math.max(type.title * 1.3, usable - type.detail * 2.4) : Math.max(type.title * 1.3, usable - type.detail * 1.4))
     : usable;
-  const title = textDiv({ x: box.x + pad, y: top, w: width, h: titleH }, esc(lines[0]), { size: titleSize, weight: 700, color: KIT_INK });
-  if (!detailLines.length) return title;
-  const detailMarkup = detailLines
-    .map((line) => fitOneLine(line, width, detailSize))
-    .join('<br/>');
+  const title = textDiv({ x: box.x + pad, y: top, w: width, h: titleH }, esc(lines[0]), { size: type.title, weight: 700, color: KIT_INK });
+  if (!hasDetail) return title;
+  let detailMarkup;
+  if (multiDetail) {
+    const d1 = fitOneLine(detailLines[0], width, type.detail);
+    const d2 = fitOneLine(detailLines.slice(1).join(' · '), width, type.detail);
+    detailMarkup = `${esc(d1)}<br/>${esc(d2)}`;
+  } else {
+    detailMarkup = esc(fitOneLine(detailLines.join(' · '), width, type.detail));
+  }
   return title + textDiv({ x: box.x + pad, y: top + titleH, w: width, h: Math.max(0, usable - titleH) }, detailMarkup,
-    { size: detailSize, weight: 500, color: KIT_BODY });
+    { size: type.detail, weight: 500, color: KIT_BODY });
 }
 
 function agentTagMarkup(vertex, agent) {
@@ -326,20 +378,41 @@ function agentTagMarkup(vertex, agent) {
     + ` font-family="${FONT_MONO}" font-size="11" font-weight="700" letter-spacing="0.3" fill="${accent}">\u25c8 ${esc(agent)}</text>`;
 }
 
-function shapeMarkup(vertex) {
-  const { box, style } = vertex;
-  const role = glass.roleOf(style.strokeColor);
-  // Group containers stay flat; every other node becomes a glass panel.
-  if (isPanel(vertex)) return glass.glassPanel(box, role, { group: true, radius: glass.GLASS.groupRadius });
-  if (style.rhombus) {
-    const pts = [[box.x + box.w / 2, box.y], [box.x + box.w, box.y + box.h / 2], [box.x + box.w / 2, box.y + box.h], [box.x, box.y + box.h / 2]];
-    const v = glass.ROLE_HUES[role];
-    return `<polygon points="${pts.map((q) => `${glass.num(q[0])},${glass.num(q[1])}`).join(' ')}"`
-      + ` fill="${v.hue}" fill-opacity="0.10" stroke="url(#${glass.paintId(role)})" stroke-width="1.8" stroke-linejoin="round"/>`;
-  }
-  return glass.glassPanel(box, role);
+function cylinderMarkup(vertex, accent) {
+  const { box } = vertex;
+  const rx = box.w / 2;
+  const ry = Math.min(9, box.h / 5);
+  const body = `M ${num(box.x)} ${num(box.y + ry)} L ${num(box.x)} ${num(box.y + box.h - ry)}`
+    + ` A ${num(rx)} ${num(ry)} 0 0 0 ${num(box.x + box.w)} ${num(box.y + box.h - ry)}`
+    + ` L ${num(box.x + box.w)} ${num(box.y + ry)} Z`;
+  const cap = `<ellipse cx="${num(box.x + rx)}" cy="${num(box.y + ry)}" rx="${num(rx)}" ry="${num(ry)}"`
+    + ` fill="#FFFFFF" stroke="${accent}" stroke-width="1.8"/>`;
+  return `<path d="${body}" fill="#FFFFFF" stroke="${accent}" stroke-width="1.8" stroke-linejoin="round"/>${cap}`;
 }
 
+function shapeMarkup(vertex) {
+  const { box, style } = vertex;
+  const accent = hueOf(style.strokeColor, KIT.violet);
+  const dash = style.dashed ? ' stroke-dasharray="5 4"' : '';
+  if (isPanel(vertex)) {
+    return `<rect x="${num(box.x)}" y="${num(box.y)}" width="${num(box.w)}" height="${num(box.h)}" rx="12"`
+      + ` fill="${KIT_PANEL}" stroke="${accent}" stroke-width="1.4"${dash} filter="url(#panelShadow)"/>`;
+  }
+  if (style.shape === 'cylinder3') return cylinderMarkup(vertex, accent);
+  if (style.rhombus) {
+    const pts = [[box.x + box.w / 2, box.y], [box.x + box.w, box.y + box.h / 2], [box.x + box.w / 2, box.y + box.h], [box.x, box.y + box.h / 2]];
+    return `<polygon points="${pts.map((p) => `${num(p[0])},${num(p[1])}`).join(' ')}" fill="url(#cardSurface)"`
+      + ` stroke="${accent}" stroke-width="1.8"${dash} stroke-linejoin="round" filter="url(#cardShadow)"/>`;
+  }
+  const radius = Math.min(11, Math.max(4, box.h / 4));
+  const barH = box.h >= 44 ? 4 : 3;
+  return `<rect x="${num(box.x)}" y="${num(box.y)}" width="${num(box.w)}" height="${num(box.h)}" rx="${num(radius)}"`
+    + ` fill="url(#cardSurface)" stroke="${accent}" stroke-width="1.8" filter="url(#cardShadow)"${dash}/>`
+    + `<rect x="${num(box.x + 2)}" y="${num(box.y + 2)}" width="${num(Math.max(4, box.w - 4))}" height="${num(barH)}"`
+    + ` rx="${num(barH / 2)}" fill="${accent}"/>`;
+}
+
+/** Edge label pill: short drawio verbiage only, in the connector's kit hue. */
 function edgeLabelMarkup(edge, mid, accent) {
   const raw = String(edge.label || '').trim();
   if (!raw) return '';
@@ -423,9 +496,14 @@ function svgForPage(page, options) {
     const key = hueKey(accent);
     markerColors.set(key, accent);
     const d = route.d;
-    const role = glass.roleOf(edge.style.strokeColor);
     const phase = num((steps.get(edge.id) || 0) / Math.max(1, total));
-    const inner = glass.neonEdge(d, role, phase) + edgeLabelMarkup(edge, route.mid, accent);
+    const inner = `<path class="bg-track" d="${d}" fill="none" stroke="${accent}" stroke-width="6" stroke-opacity="0.14"`
+      + ` stroke-linecap="round" stroke-linejoin="round"/>`
+      + `<path class="flow-path" d="${d}" fill="none" stroke="${accent}" stroke-width="2.2" stroke-linecap="round"`
+      + ` stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-${key})"/>`
+      + `<path class="pulse" data-phase="${phase}" d="${d}" fill="none" stroke="${accent}" stroke-width="3"`
+      + ` stroke-linecap="round" opacity="0.4"/>`
+      + edgeLabelMarkup(edge, route.mid, accent);
     parts.push(revealGroup(steps.get(edge.id) || 0, inner, edge.id, 'edge'));
   }
 
@@ -433,9 +511,7 @@ function svgForPage(page, options) {
   // number stripped and no version suffix. No top header is drawn anywhere.
   const footerY = page.pageHeight - 16;
   const caption = String(page.name).replace(/^\s*\d+\s*[.)-]?\s*/, '');
-  const footerPlate = `<rect x="${num(page.pageWidth / 2 - 420)}" y="${num(footerY - 28)}" width="840" height="40"`
-    + ` rx="20" fill="#0B1020" fill-opacity="0.72"/>`;
-  const footer = footerPlate + `<text x="${num(page.pageWidth / 2)}" y="${num(footerY)}" text-anchor="middle" fill="${KIT_INK}"`
+  const footer = `<text x="${num(page.pageWidth / 2)}" y="${num(footerY)}" text-anchor="middle" fill="${KIT_INK}"`
     + ` font-family="${FONT_SANS}" font-size="22" font-weight="800" letter-spacing="0.02em">`
     + `${esc(caption)}</text>`;
 
@@ -450,34 +526,39 @@ function svgForPage(page, options) {
     steps: total,
     svg: `<svg width="${num(page.pageWidth * scale)}" height="${num(page.pageHeight * scale)}"`
       + ` viewBox="0 0 ${page.pageWidth} ${page.pageHeight}" xmlns="http://www.w3.org/2000/svg">`
-      + `<defs>${kitDefs(page)}</defs>${kitBackground(page)}`
-      + `<g transform="translate(${num(shiftX)} ${num(shiftY)})">${parts.join('')}</g>${footer}</svg>`
+      + `<defs>${kitDefs(markerColors)}</defs>${kitBackground(page)}`
+      + `<g transform="translate(${num(shiftX)} ${num(shiftY)})">${parts.join('')}${footer}</g></svg>`
   };
 }
 
 /** Kit defs: card shadow, dotted paper, brand wash and one arrow per page hue. */
-function kitDefs(page) {
-  // Roles actually present on this page drive the blurred background blobs.
-  const roles = [...new Set(page.vertices
-    .filter((v) => !isTextBox(v))
-    .map((v) => glass.roleOf(v.style.strokeColor)))];
-  return glass.glassDefs()
+function kitDefs(markerColors) {
+  const markers = [...markerColors.entries()].map(([key, color]) => `<marker id="arrow-${key}" viewBox="0 0 10 8"`
+    + ` refX="8" refY="4" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7.2" orient="auto">`
+    + `<path d="M 0 1 L 8 4 L 0 7 L 1.5 4 Z" fill="${color}"/></marker>`).join('');
+  return '<filter id="cardShadow" x="-15%" y="-15%" width="135%" height="135%">'
+    + '<feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.05"/>'
+    + '<feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.08"/></filter>'
     + '<filter id="panelShadow" x="-5%" y="-5%" width="110%" height="110%">'
-    + '<feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#000000" flood-opacity="0.10"/></filter>'
+    + '<feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.04"/></filter>'
+    + '<linearGradient id="cardSurface" x1="0%" y1="0%" x2="0%" y2="100%">'
+    + '<stop offset="0%" stop-color="#FFFFFF"/>'
+    + '<stop offset="100%" stop-color="#F8FAFC"/></linearGradient>'
     + '<pattern id="dotgrid" width="22" height="22" patternUnits="userSpaceOnUse">'
-    + '<circle cx="1.4" cy="1.4" r="1.1" fill="#FFFFFF" opacity="0.05"/></pattern>'
-    + '<g data-roles="' + roles.join(',') + '"/>';
-}
-function kitBackground(page) {
-  const w = page.pageWidth;
-  const h = page.pageHeight;
-  const roles = [...new Set(page.vertices
-    .filter((v) => !isTextBox(v))
-    .map((v) => glass.roleOf(v.style.strokeColor)))];
-  return glass.glassBackground(w, h, roles)
-    + `<rect width="${num(w)}" height="${num(h)}" fill="url(#dotgrid)"/>`;
+    + '<circle cx="1.4" cy="1.4" r="1.1" fill="#94A3B8" opacity="0.18"/></pattern>'
+    + '<radialGradient id="brandWash" cx="50%" cy="28%" r="72%">'
+    + '<stop offset="0%" stop-color="#3B82F6" stop-opacity="0.05"/>'
+    + '<stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/></radialGradient>'
+    + markers;
 }
 
+function kitBackground(page) {
+  const w = num(page.pageWidth);
+  const h = num(page.pageHeight);
+  return `<rect width="${w}" height="${h}" fill="${KIT_SURFACE}"/>`
+    + `<rect width="${w}" height="${h}" fill="url(#dotgrid)"/>`
+    + `<rect width="${w}" height="${h}" fill="url(#brandWash)"/>`;
+}
 
 const FRAME_SCRIPT = `
   window.fitLabels = function () {
@@ -512,21 +593,16 @@ const FRAME_SCRIPT = `
     el.style.strokeDasharray = '14 ' + (len + 24);
     return len;
   }
-  // One dash period per loop: 6s at 24fps means the pattern advances by exactly one
-  // period, so frame 144 is identical to frame 0 and the loop has no visible seam.
-  var DOT_PERIOD = 9.1;
   window.updateFrame = function (frameIdx, total) {
-    var progress = frameIdx / total;
-    document.querySelectorAll('.edge-core').forEach(function (el) {
-      el.style.strokeDashoffset = String(-progress * DOT_PERIOD);
+    const progress = frameIdx / total;
+    document.querySelectorAll('.flow-path').forEach(function (el) {
+      el.style.strokeDashoffset = String(-progress * 14);
     });
-    document.querySelectorAll('.edge-glow').forEach(function (el) {
-      el.style.opacity = String(0.30 + 0.16 * Math.sin(progress * Math.PI * 2));
-    });
-    document.querySelectorAll('.edge-pulse').forEach(function (el) {
-      var phase = Number(el.dataset.phase || 0);
-      var travel = (progress + phase) % 1;
-      el.style.opacity = String(0.10 + 0.55 * Math.sin(Math.PI * travel));
+    document.querySelectorAll('.pulse').forEach(function (el) {
+      const len = pulseLength(el);
+      const travel = (progress + Number(el.dataset.phase || 0)) % 1;
+      el.style.strokeDashoffset = String(-travel * (len + 14));
+      el.style.opacity = String(0.12 + 0.5 * Math.sin(Math.PI * travel));
     });
   };
 `;
@@ -536,7 +612,7 @@ function pageHtml(page, options) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
-  html, body { margin: 0; padding: 0; background: ${options.bg || glass.GLASS.bgTop}; }
+  html, body { margin: 0; padding: 0; background: ${options.bg || KIT_SURFACE}; }
   body { width: ${options.width}px; height: ${options.height}px; overflow: hidden; }
   .stage { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
   svg { display: block; }
