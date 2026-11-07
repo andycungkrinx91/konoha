@@ -89,8 +89,24 @@ async function captureFrames(page, totalFrames, tmpFramesDir) {
   }
 }
 
+function countFrames(dir) {
+  return fs.readdirSync(dir).filter((name) => /^frame_\d+\.png$/.test(name)).length;
+}
+
 function compileWebPWithFfmpeg(tmpFramesDir, fps, outputPath) {
-  console.log('Compiling frames with FFmpeg libwebp_anim at High Quality (-q:v 90)...');
+  // FFmpeg silently writes a single still frame when it only finds one input, which
+  // then fails animation validation. Assert the frame set up front so the error says so.
+  const frameCount = countFrames(tmpFramesDir);
+  if (frameCount < 2) {
+    throw new Error(`Frame capture produced ${frameCount} frame(s); need at least 2 for an animation`);
+  }
+  const sizes = fs.readdirSync(tmpFramesDir)
+    .filter((name) => /^frame_\d+\.png$/.test(name))
+    .map((name) => fs.statSync(path.join(tmpFramesDir, name)).size);
+  if (new Set(sizes).size === 1) {
+    throw new Error(`All ${frameCount} captured frames are byte-identical (${sizes[0]}b); the animation hook is not changing the page`);
+  }
+  console.log(`Compiling ${frameCount} frames with FFmpeg libwebp_anim at High Quality (-q:v 90)...`);
   const ffmpegArgs = [
     '-y',
     '-framerate', String(fps),
@@ -123,10 +139,19 @@ async function renderAndExportWebP(htmlContent, outputPath, options = {}) {
 
   try {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err && err.message ? err.message : err)));
+    page.on('console', (msg) => { if (msg.type() === 'error') pageErrors.push(msg.text()); });
     await page.setContent(htmlContent, { waitUntil: 'networkidle' });
     // A page that ships its own `window.updateFrame` (the drawio port) must not be
     // overridden by the legacy template hook.
     if (options.injectHooks !== false) await setupPageAnimatedHooks(page);
+    // Only the self-contained drawio pages are required to bring their own hook; the
+    // legacy templates get theirs injected above.
+    if (options.injectHooks === false) {
+      const hasHook = await page.evaluate(() => typeof window.updateFrame === 'function');
+      if (!hasHook) throw new Error(`Page does not expose window.updateFrame: ${pageErrors.join(' | ') || 'no script errors reported'}`);
+    }
     await captureFrames(page, totalFrames, tmpFramesDir);
   } finally {
     await browser.close();
