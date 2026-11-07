@@ -578,14 +578,17 @@ async function cmdDataDelete(args) {
  */
 async function cmdDataCheck() {
   try {
-    const { checkIntegrity, findLatestVerifiedBackup } = require('../../src/db_recovery');
+    const { checkDatabase, findLatestVerifiedBackup } = require('../../src/db_recovery');
     if (!fs.existsSync(DB_PATH)) {
       error(`Database not found: ${DB_PATH}`);
       process.exit(1);
     }
-    const result = checkIntegrity(DB_PATH);
+    const result = checkDatabase(DB_PATH);
     log(`  ${C.bold}Database:${C.reset} ${DB_PATH}`);
-    log(`  ${C.bold}Integrity:${C.reset} ${result.ok ? result.status : `${result.status} — ${result.details.join('; ')}`}`);
+    log(`  ${C.bold}Integrity:${C.reset} ${result.ok ? 'OK' : 'DAMAGED'}`);
+    log(`  ${C.bold}Schema:${C.reset} v${result.userVersion} (current v${result.schemaVersion})`);
+    log(`  ${C.bold}Foreign keys:${C.reset} ${result.foreignKeyViolations} violation(s)`);
+    log(`  ${C.bold}FTS5:${C.reset} ${result.ftsAvailable ? 'available' : 'missing'}`);
     const backup = findLatestVerifiedBackup(DB_PATH);
     log(`  ${C.bold}Backup:${C.reset} ${backup || 'none available'}`);
     if (result.ok) success('Database integrity check passed.');

@@ -210,8 +210,9 @@ function resolveAndValidateBackup(dbPath, explicitBackup) {
 
 function archiveCorruptDatabase(dbPath) {
   if (!fs.existsSync(dbPath)) return null;
-  const archivePath = `${dbPath}.corrupt.${Date.now()}`;
-  fs.copyFileSync(dbPath, archivePath);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const archivePath = `${dbPath}.pre-restore-${stamp}`;
+  fs.renameSync(dbPath, archivePath);
   return archivePath;
 }
 function copyBackupToTarget(chosenBackup, targetPath, archivePath) {
@@ -304,8 +305,49 @@ function autoRecoverIfNeeded(dbPath) {
   return false;
 }
 
+/**
+ * Structured health report for one database file: integrity, foreign-key violations,
+ * user_version against the current schema version, and whether FTS5 is usable.
+ * Read-only; returns a report object rather than throwing on a damaged file.
+ *
+ * @param {string} dbPath
+ * @returns {{ ok: boolean, integrity: string, foreignKeyViolations: number,
+ *             userVersion: number|null, schemaVersion: number, ftsAvailable: boolean }}
+ */
+function checkDatabase(dbPath) {
+  const integrity = checkIntegrity(dbPath);
+  const schemaVersion = Number(require('./db_schema').CURRENT_SCHEMA_VERSION);
+  const report = {
+    ok: integrity.ok,
+    integrity: integrity.status,
+    foreignKeyViolations: 0,
+    userVersion: null,
+    schemaVersion,
+    ftsAvailable: false
+  };
+  if (!integrity.ok) return report;
+
+  let db = null;
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    db = new DatabaseSync(dbPath, { readOnly: true, allowExtension: false });
+    report.foreignKeyViolations = db.prepare('PRAGMA foreign_key_check;').all().length;
+    report.userVersion = Number(Object.values(db.prepare('PRAGMA user_version;').get())[0]);
+    const fts = db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE sql LIKE '%VIRTUAL TABLE%USING fts5%';").get();
+    report.ftsAvailable = Number(Object.values(fts)[0]) > 0;
+    report.ok = report.ok && report.foreignKeyViolations === 0;
+  } catch (err) {
+    report.ok = false;
+    report.integrity = `${report.integrity}: ${err.message}`;
+  } finally {
+    if (db) { try { db.close(); } catch (_) { /* non-fatal */ } }
+  }
+  return report;
+}
+
 module.exports = {
   checkIntegrity,
+  checkDatabase,
   detectCorruption,
   findLatestVerifiedBackup,
   restoreDatabase,

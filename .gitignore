@@ -120,8 +120,6 @@ PLAN*.md
 # Test / QA artifacts
 test-results/
 playwright-report/
-blob-report/
-playwright/.cache/
 .aislop-cache/
 apps/web/build/
 apps/web/.svelte-kit/
@@ -139,10 +137,5 @@ apps/web/test-results/
 
 # Local junk
 tmp/
-scratch/
-*.bak
-*.tmp
-*.temp
-output/
 vendor/
 !vendor/sqlite-vector/**
