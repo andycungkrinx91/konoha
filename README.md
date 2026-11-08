@@ -5,7 +5,7 @@
 <h1 align="center">🍃 KONOHA</h1>
 
 <p align="center">
-  <b>Enterprise Multi-Agent MCP Orchestration &amp; Context-Optimization Platform for AI Coding</b><br>
+  <b>Multi-Agent MCP Orchestration &amp; Context-Optimization Platform for AI Coding</b><br>
   <sub>LangGraph.js Parallel State Machines · 9 Specialist Ninja Agents · Real-Time Idle <code>@advisor</code> Guard (≤1k tok/turn) · Per-Agent Git Worktrees · 83–98% Context Reduction</sub>
 </p>
 
