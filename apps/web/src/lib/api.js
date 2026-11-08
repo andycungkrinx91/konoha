@@ -219,13 +219,17 @@ async function csrfHeaders() {
   };
 }
 
-export async function changePassword(currentPassword, newPassword) {
+export async function changePassword(currentPassword, newPassword, confirmPassword) {
   let res;
   try {
+    const payload = { current_password: currentPassword, new_password: newPassword };
+    if (typeof confirmPassword === 'string') {
+      payload.confirm_password = confirmPassword;
+    }
     res = await fetch('/api/v1/auth/change-password', {
       method: 'POST',
       headers: await csrfHeaders(),
-      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      body: JSON.stringify(payload)
     });
   } catch (_) {
     throw new ApiError('Gateway server is unreachable or offline', 0, null, 'err_offline');
@@ -234,6 +238,26 @@ export async function changePassword(currentPassword, newPassword) {
   const data = await readJson(res);
   if (!res.ok) {
     const msg = (data && (data.message || data.error)) || 'Password change failed';
+    throw new ApiError(msg, res.status, data, data?.error_id);
+  }
+  return data;
+}
+
+export async function setupInitialPassword(newPassword, confirmPassword) {
+  let res;
+  try {
+    res = await fetch('/api/v1/auth/setup-password', {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword })
+    });
+  } catch (_) {
+    throw new ApiError('Gateway server is unreachable or offline', 0, null, 'err_offline');
+  }
+
+  const data = await readJson(res);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || 'Initial password setup failed';
     throw new ApiError(msg, res.status, data, data?.error_id);
   }
   return data;

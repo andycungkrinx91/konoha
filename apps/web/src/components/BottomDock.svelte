@@ -95,7 +95,7 @@
 <nav
   aria-label="Quick Command Dock"
   data-testid="konoha-bottom-dock"
-  class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] pointer-events-auto"
+  class="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-[90] pointer-events-auto lg:hidden max-w-[calc(100vw-1rem)]"
   onpointermove={handlePointerMove}
   onpointerleave={handlePointerLeave}
 >

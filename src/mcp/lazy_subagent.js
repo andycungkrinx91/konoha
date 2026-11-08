@@ -19,14 +19,14 @@ function isSpawnableSubagent(agentName) {
 
 const CLIENT_SPAWN = {
   omp:         { tool: 'task', args: (d) => `task(context="…", tasks=[{name:"${d.agent}", task:"…", agent:"${d.agent}"${d.worktreePath ? `, cwd:"${d.worktreePath}"` : ''}}])` },
-  cursor:      { tool: 'Task', args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…")` },
-  claude:      { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…")` },
-  commandcode: { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…")` },
-  opencode:    { tool: 'task',  args: (d) => `task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…")` },
-  codex:       { tool: 'spawn_agent', args: (d) => `spawn_agent(agent="${d.agent}", task="…")` },
-  pi:          { tool: 'task',  args: (d) => `task(agent="${d.agent}", prompt="…")` },
-  antigravity: { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…"${d.worktreePath ? ', Workspace: "share"' : ''} })` },
-  agy:         { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…"${d.worktreePath ? ', Workspace: "share"' : ''} })` }
+  cursor:      { tool: 'Task', args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  claude:      { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  commandcode: { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  opencode:    { tool: 'task',  args: (d) => `task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  codex:       { tool: 'spawn_agent', args: (d) => `spawn_agent(agent="${d.agent}", task="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  pi:          { tool: 'task',  args: (d) => `task(agent="${d.agent}", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
+  antigravity: { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}"${d.worktreePath ? ', Workspace: "share"' : ''} })` },
+  agy:         { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}"${d.worktreePath ? ', Workspace: "share"' : ''} })` }
 };
 
 function resolveSpawnDescriptor(client) {
@@ -41,14 +41,15 @@ function resolveSpawnDescriptor(client) {
   return { tool: null, generic: true };
 }
 
-function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskDir, worktreePath } = {}) {
+function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskDir, worktreePath, worktree } = {}) {
+  const resolvedWt = worktreePath || (worktree && worktree.worktree_path) || null;
   const desc = resolveSpawnDescriptor(client);
   const rawAgent = String(agent || 'subagent').replace(/^mcp_/, '');
   const targetAgent = rawAgent === 'sannin' ? 'kage' : rawAgent;
-  const cliFallback = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${worktreePath ? ` --cwd "${worktreePath}"` : ''} --task "…"`;
+  const cliFallback = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${resolvedWt ? ` --cwd "${resolvedWt}"` : ''} --task "…"`;
 
   if (desc && desc.tool && typeof desc.args === 'function') {
-    const callStr = desc.args({ client, agent: targetAgent, skills, projectPath, prompt, taskDir, worktreePath });
+    const callStr = desc.args({ client, agent: targetAgent, skills, projectPath, prompt, taskDir, worktreePath: resolvedWt });
     return [
       '## Spawn (mandatory)',
       `Spawn a background subagent named \`${targetAgent}\` with \`${callStr}\` (CLI fallback: \`${cliFallback}\`).`,

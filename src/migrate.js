@@ -225,6 +225,9 @@ function migrate_skills(args = {}) {
       skills = autoDetectSkills(skillsDir);
     }
     let total = 0;
+    if (!args.skills || args.skills.length === 0) {
+      total += _migrateDocumentation(conn, false);
+    }
     const migrated = [];
     for (const s of skills) {
       const count = migrateSkill(conn, s, false, skillsDir);

@@ -217,7 +217,6 @@ async function handleRequest(req) {
 async function main() {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout,
     terminal: false
   });
 

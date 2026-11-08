@@ -160,6 +160,9 @@ function _checkAdvisorPass(review, status) {
 }
 
 function _checkAkatsukiGatePass(taskDir, review, status) {
+  if (status && status.skip_akatsuki_blue_mode === true) {
+    return false;
+  }
   const akatsukiPath = path.join(taskDir, 'akatsuki_review.json');
   if (fs.existsSync(akatsukiPath)) {
     try {
@@ -177,7 +180,16 @@ function _checkAkatsukiGatePass(taskDir, review, status) {
   }
   if (review.akatsuki_reviewed !== undefined) return review.akatsuki_reviewed === true;
   if (status.akatsuki_gate) return status.akatsuki_gate.passed !== false;
-  return true;
+  try {
+    const { runAkatsukiFinalGate } = require('../workflow/akatsuki/workflows');
+    const gateRes = runAkatsukiFinalGate(status?.project_path || process.cwd(), status, {
+      taskDir,
+      skip_if_not_applicable: false
+    });
+    return Boolean(gateRes && gateRes.passed !== false);
+  } catch (_) {
+    return false;
+  }
 }
 
 function _checkSdlcTasksComplete(taskDir, status, tasks) {

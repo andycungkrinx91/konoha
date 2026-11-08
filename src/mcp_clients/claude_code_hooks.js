@@ -15,6 +15,27 @@ function _writeBlockerScript(binDir, blockerJs) {
     fs.mkdirSync(binDir, { recursive: true });
     const payload = `#!/usr/bin/env node
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const TRUSTED_KONOHA_TASK_FILE_RE = /(?:^|\\/)(?:\\.konoha\\/tmp|konoha-tmp)\\/([a-zA-Z0-9_-]{1,32})\\/([a-zA-Z0-9._-]{1,64})\\/([a-zA-Z0-9._-]{1,96})\\/scratch\\/tasks\\/([a-zA-Z0-9._-]{1,96})\\/(walkthrough_todos\\.json|status\\.json|walkthrough\\.md|compact_checkpoint\\.json|plan\\.md|final_report\\.md)$/;
+function isTrustedKonohaTaskReadPath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string' || rawPath.includes('\\0')) return false;
+  const trimmed = rawPath.trim().replace(/^file:\\/\\//i, '');
+  if (!trimmed || /(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)/.test(trimmed)) return false;
+  let expanded = trimmed;
+  if (expanded.startsWith('~/') || expanded.startsWith('~\\\\')) {
+    expanded = path.join(process.env.HOME || os.homedir(), expanded.slice(2));
+  }
+  const normFwd = path.resolve(expanded).replace(/\\\\/g, '/');
+  if (!TRUSTED_KONOHA_TASK_FILE_RE.test(normFwd)) return false;
+  try {
+    if (fs.existsSync(expanded)) {
+      if (fs.lstatSync(expanded).isSymbolicLink()) return false;
+      if (!TRUSTED_KONOHA_TASK_FILE_RE.test(fs.realpathSync(expanded).replace(/\\\\/g, '/'))) return false;
+    }
+  } catch (_) { return false; }
+  return true;
+}
 let raw = '';
 try { raw = fs.readFileSync(0, 'utf-8'); } catch (_) { process.exit(0); }
 let input = null;
@@ -23,6 +44,19 @@ const isKonohaManaged = process.env.KONOHA_MANAGED_CONTEXT === '1' ||
   Boolean(process.env.KONOHA_TASK_ID) ||
   Boolean(input && input.konoha_managed);
 if (!isKonohaManaged) {
+  process.exit(0);
+}
+const toolName = input && (input.tool_name || input.tool || '');
+const toolInput = (input && (input.tool_input || input.input)) || {};
+const targetPath = toolInput.file_path || toolInput.path || toolInput.target || '';
+if ((toolName === 'Read' || toolName === 'View' || toolName === 'ReadFile' || !toolName) && isTrustedKonohaTaskReadPath(targetPath)) {
+  process.stdout.write(JSON.stringify({
+    decision: 'allow',
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'allow'
+    }
+  }) + "\\n");
   process.exit(0);
 }
 const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";

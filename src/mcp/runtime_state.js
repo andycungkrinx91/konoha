@@ -123,7 +123,7 @@ function normCase(p) {
   return res;
 }
 
-function isPathVisible(filePath) {
+function isPathVisible(filePath, explicitWorkspace = null) {
   if (!filePath) return true;
   const normFp = normCase(filePath);
   if (isIdeInstallationDir(normFp)) return false;
@@ -147,7 +147,8 @@ function isPathVisible(filePath) {
     normCase(AGENTS_DIR),
     normCase(GEMINI_DIR),
     normCase(KONOHA_DIR),
-    normCase(path.resolve(__dirname, "..", "templates"))
+    normCase(path.resolve(__dirname, "..", "templates")),
+    normCase(path.resolve(__dirname, "..", "..", "docs"))
   ];
 
   for (const gRoot of globalAllowedRoots) {
@@ -156,7 +157,7 @@ function isPathVisible(filePath) {
     }
   }
 
-  const workspace = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
+  const workspace = explicitWorkspace || getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
   const currentWorkspace = normCase(workspace);
 
   const isGenericWorkspace = (

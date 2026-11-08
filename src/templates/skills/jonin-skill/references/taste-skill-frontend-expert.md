@@ -1,4 +1,4 @@
-# 🎨 Konoha Core Design + Taste-Skill Enrichment Architecture
+# Konoha Core Design + Taste-Skill Enrichment Architecture
 Reference: https://www.tasteskill.dev/ | https://github.com/leonxlnx/taste-skill
 Upstream Pin: Tag `v2.1.5` | Commit `12af471` | License `MIT` | https://github.com/leonxlnx/taste-skill
 
@@ -7,7 +7,7 @@ Standard Operating Procedures for building modern, high-converting, production-g
 
 ---
 
-## 🏛️ Two-Layer Architecture Overview
+## Two-Layer Architecture Overview
 
 ```mermaid
 flowchart TD
@@ -34,7 +34,7 @@ flowchart TD
 
 ---
 
-## 1. 🧱 Layer 1: Dynamic Context-Driven Design System (Astra / Fable Foundation)
+## 1. Layer 1: Dynamic Context-Driven Design System (Astra / Fable Foundation)
 
 Every build composes its visual architecture dynamically around the product domain and user prompt — never forcing a rigid boilerplate template:
 
@@ -56,7 +56,7 @@ Every build composes its visual architecture dynamically around the product doma
 
 ---
 
-## 2. ✨ Layer 2: Taste-Skill Enrichment & Anti-Slop Polish
+## 2. Layer 2: Taste-Skill Enrichment & Anti-Slop Polish
 
 Taste-Skill enriches the Konoha foundation with 3 core pillars:
 
@@ -111,7 +111,7 @@ Taste-Skill enriches the Konoha foundation with 3 core pillars:
 
 ---
 
-## 🎛️ Taste Dials (1–10 Tuning Parameters)
+## Taste Dials (1–10 Tuning Parameters)
 
 Jonin tunes visual dynamism via 3 dials:
 1. **`DESIGN_VARIANCE` (Default: 8)**:
@@ -129,7 +129,7 @@ Jonin tunes visual dynamism via 3 dials:
 
 ---
 
-## 📋 Pre-Flight Quality Gate Checklist (Konoha + Taste-Skill)
+## Pre-Flight Quality Gate Checklist (Konoha + Taste-Skill)
 
 > **Production Build Inspection Gate (Upstream 2.1.5)**: Always run the final quality gate on the built production artifact (`pnpm run build && pnpm run start`, or static preview), not solely on the dev server. Minifiers and bundlers alter shipping artifacts (e.g. dropping unsupported `backdrop-filter` or modifying CSS transform chains). The quality inspector warns when examining a dev server (`next dev`, `vite`, `webpack`).
 

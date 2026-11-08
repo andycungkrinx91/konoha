@@ -11,6 +11,9 @@ const KonohaWorkflowState = Annotation.Root({
   sessionId: Annotation({ default: () => '' }),
   client: Annotation({ default: () => '' }),
   flowHash: Annotation({ default: () => '' }),
+  invocationMode: Annotation({ default: () => 'konoha_orchestrator' }),
+  directSubagent: Annotation({ default: () => '' }),
+  mandatoryKageReview: Annotation({ default: () => false }),
   isFastTrack: Annotation({ default: () => false }),
   phase: Annotation({ default: () => 'init' }),
 

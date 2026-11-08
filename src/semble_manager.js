@@ -8,21 +8,42 @@ const os = require('os');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
-function getUvxCommand() {
+function resolveUvxExecutablePath() {
   const isWin = process.platform === 'win32';
-  const uvCmd = isWin ? 'uv.exe' : 'uv';
-  try {
-    const res = spawnSync(uvCmd, ['--version'], {
-      encoding: 'utf-8',
-      timeout: 2000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-    if (res.status === 0) {
-      return isWin ? 'uvx.exe' : 'uvx';
+  const binName = isWin ? 'uvx.exe' : 'uvx';
+  const home = os.homedir();
+
+  const candidateDirs = [
+    path.join(home, '.local', 'bin'),
+    path.join(home, '.cargo', 'bin'),
+    isWin ? path.join(process.env.LOCALAPPDATA || '', 'Programs', 'uv') : '/usr/local/bin',
+    '/usr/bin'
+  ];
+  for (const dir of candidateDirs) {
+    if (!dir) continue;
+    const full = path.join(dir, binName);
+    if (fs.existsSync(full)) {
+      try {
+        const res = spawnSync(full, ['--version'], { encoding: 'utf-8', timeout: 2000, windowsHide: true, stdio: 'ignore' });
+        if (res.status === 0) return full;
+      } catch (_) { /* intentional fallback */ }
     }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+  }
+
+  try {
+    const whichCmd = isWin ? 'where.exe' : 'which';
+    const res = spawnSync(whichCmd, [binName], { encoding: 'utf-8', timeout: 2000, windowsHide: true });
+    if (res.status === 0 && res.stdout) {
+      const resolved = res.stdout.trim().split(/\r?\n/)[0].trim();
+      if (resolved && fs.existsSync(resolved)) return resolved;
+    }
+  } catch (_) { /* intentional fallback */ }
+
   return isWin ? 'uvx.exe' : 'uvx';
+}
+
+function getUvxCommand() {
+  return resolveUvxExecutablePath();
 }
 
 function isUvxUsable(uvxCmd) {
@@ -230,5 +251,7 @@ module.exports = {
   AISLOP_PACKAGE,
   getSembleStatus,
   getSembleSavings,
-  searchSemble
+  searchSemble,
+  getUvxCommand,
+  resolveUvxExecutablePath
 };

@@ -19,11 +19,11 @@
   let searchError = $state(null);
 
   const searchSources = [
-    { id: 'all', label: 'All Sources', icon: '✦' },
-    { id: 'duckduckgo', label: 'DuckDuckGo', icon: '🦆' },
-    { id: 'searxng', label: 'SearXNG', icon: '⚡' },
-    { id: 'wikipedia', label: 'Wikipedia', icon: '📖' },
-    { id: 'skills', label: 'Village Skills', icon: '🍃' }
+    { id: 'all', label: 'All Sources', icon: 'ALL' },
+    { id: 'duckduckgo', label: 'DuckDuckGo', icon: 'DDG' },
+    { id: 'searxng', label: 'SearXNG', icon: 'SXG' },
+    { id: 'wikipedia', label: 'Wikipedia', icon: 'WIKI' },
+    { id: 'skills', label: 'Village Skills', icon: 'SKL' }
   ];
 
   const quickQueries = [

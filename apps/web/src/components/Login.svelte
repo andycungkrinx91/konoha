@@ -15,11 +15,63 @@
 
   let password = $state('');
   let showPassword = $state(false);
+  let isSetupMode = $state(false);
+  let setupNewPassword = $state('');
+  let setupConfirmPassword = $state('');
+  let showSetupPasswords = $state(false);
   let isSubmitting = $state(false);
-  // 'idle' | 'charging' | 'fracture' | 'impact' | 'reveal' | 'stable-loading'
+  // 'idle' | 'charging' | 'fracture' | 'impact' | 'reveal' | 'stable-loading' | 'success'
   let authPhase = $state('idle');
   let errorMessage = $state('');
+  let successMessage = $state('');
   let reducedMotion = $state(false);
+
+  const setupValidation = $derived.by(() => {
+    if (!setupNewPassword && !setupConfirmPassword) {
+      return { valid: false, message: 'Minimum 8 characters required; must differ from default bootstrap passphrase.' };
+    }
+    if (setupNewPassword.length < 8) {
+      return { valid: false, message: `New password needs ${8 - setupNewPassword.length} more character(s).` };
+    }
+    if (setupNewPassword === DEFAULT_BOOTSTRAP_HINT) {
+      return { valid: false, message: 'Cannot set password to the default bootstrap credential.' };
+    }
+    if (setupConfirmPassword && setupNewPassword !== setupConfirmPassword) {
+      return { valid: false, message: 'New password and confirmation do not match.' };
+    }
+    if (setupConfirmPassword && setupNewPassword === setupConfirmPassword) {
+      return { valid: true, message: 'Password policy satisfied and confirmation verified.' };
+    }
+    return { valid: false, message: 'Confirm your new password to complete initialization.' };
+  });
+
+  async function handleInitialSetupSubmit(e) {
+    e.preventDefault();
+    if (isSubmitting) return;
+    errorMessage = '';
+    successMessage = '';
+    if (!setupValidation.valid) {
+      errorMessage = setupValidation.message;
+      return;
+    }
+    isSubmitting = true;
+    authPhase = 'charging';
+    try {
+      await authState.setupInitialPassword(setupNewPassword, setupConfirmPassword);
+      authPhase = 'success';
+      setupNewPassword = '';
+      setupConfirmPassword = '';
+      isSetupMode = false;
+      successMessage = 'Initial administrator password configured. Sign in with your new passphrase.';
+      toast.success(successMessage);
+    } catch (err) {
+      errorMessage = err?.message || 'Failed to initialize administrator password.';
+      toast.error(errorMessage);
+    } finally {
+      authPhase = 'idle';
+      isSubmitting = false;
+    }
+  }
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -211,13 +263,117 @@
       {#if errorMessage}
         <div
           role="alert"
-          class="mb-4 p-3 rounded-[3px] border text-xs font-semibold text-center"
+          class="mb-4 p-3 rounded-[3px] border text-xs font-semibold text-center animate-in fade-in duration-200"
           style="border-color: color-mix(in srgb, var(--theme-danger) 45%, transparent); background-color: color-mix(in srgb, var(--theme-danger) 10%, var(--theme-surface)); color: var(--theme-danger);"
         >
           {errorMessage}
         </div>
       {/if}
 
+      {#if successMessage}
+        <div
+          role="status"
+          class="mb-4 p-3 rounded-[3px] border text-xs font-semibold text-center animate-in fade-in duration-200"
+          style="border-color: color-mix(in srgb, var(--theme-success, #10b981) 45%, transparent); background-color: color-mix(in srgb, var(--theme-success, #10b981) 10%, var(--theme-surface)); color: var(--theme-success, #10b981);"
+        >
+          {successMessage}
+        </div>
+      {/if}
+
+      {#if authState.isBootstrap}
+        <div class="mb-4 flex items-center justify-between gap-2 p-1 rounded-[4px] border" style="border-color: var(--theme-border); background: color-mix(in srgb, var(--theme-bg) 60%, transparent);">
+          <button
+            type="button"
+            data-testid="first-run-login-tab"
+            onclick={() => { isSetupMode = false; errorMessage = ''; }}
+            class="flex-1 py-1.5 px-2.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer"
+            style={!isSetupMode ? 'background: var(--theme-4gradient); color: #ffffff;' : 'color: var(--theme-text-secondary);'}
+          >
+            Passphrase Sign-In
+          </button>
+          <button
+            type="button"
+            data-testid="first-run-setup-toggle"
+            onclick={() => { isSetupMode = true; errorMessage = ''; }}
+            class="flex-1 py-1.5 px-2.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer"
+            style={isSetupMode ? 'background: var(--theme-4gradient); color: #ffffff;' : 'color: var(--theme-text-secondary);'}
+          >
+            First-Run Setup (2 Fields)
+          </button>
+        </div>
+      {/if}
+
+      {#if isSetupMode && authState.isBootstrap}
+        <form onsubmit={handleInitialSetupSubmit} class="space-y-4" data-testid="first-run-setup-form" novalidate>
+          <div>
+            <label for="setup-new-password" class="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style="color: var(--theme-text-secondary);">
+              New Password
+            </label>
+            <div class="relative">
+              <input
+                id="setup-new-password"
+                name="newPassword"
+                type={showSetupPasswords ? 'text' : 'password'}
+                bind:value={setupNewPassword}
+                oninput={() => { if (errorMessage) errorMessage = ''; }}
+                placeholder="Enter new administrator password"
+                disabled={isSubmitting}
+                required
+                minlength="8"
+                autocomplete="new-password"
+                class="w-full pl-4 pr-11 py-3 rounded-[3px] text-sm font-mono border transition-all placeholder:text-slate-500 login-field-effect input-theme"
+                style="background-color: var(--color-surface, #ffffff); color: var(--theme-text, #0f172a); border-color: var(--theme-border-strong, #94a3b8);"
+              />
+              <button
+                type="button"
+                onclick={() => showSetupPasswords = !showSetupPasswords}
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-[3px] cursor-pointer transition-colors hover:brightness-110"
+                style="color: var(--theme-text-secondary);"
+                aria-label={showSetupPasswords ? 'Hide setup passwords' : 'Show setup passwords'}
+              >
+                <span class="text-[10px] font-mono font-bold uppercase">{showSetupPasswords ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label for="setup-confirm-password" class="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style="color: var(--theme-text-secondary);">
+              Confirm Password
+            </label>
+            <input
+              id="setup-confirm-password"
+              name="confirmPassword"
+              type={showSetupPasswords ? 'text' : 'password'}
+              bind:value={setupConfirmPassword}
+              oninput={() => { if (errorMessage) errorMessage = ''; }}
+              placeholder="Confirm new administrator password"
+              disabled={isSubmitting}
+              required
+              minlength="8"
+              autocomplete="new-password"
+              class="w-full px-4 py-3 rounded-[3px] text-sm font-mono border transition-all placeholder:text-slate-500 login-field-effect input-theme"
+              style="background-color: var(--color-surface, #ffffff); color: var(--theme-text, #0f172a); border-color: var(--theme-border-strong, #94a3b8);"
+            />
+          </div>
+
+          <p class="text-[11px] font-mono" style="color: {setupValidation.valid ? 'var(--theme-success, #10b981)' : 'var(--theme-text-secondary)'};">
+            {setupValidation.message}
+          </p>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !setupValidation.valid}
+            class="w-full py-3 rounded-[3px] text-xs font-black tracking-widest uppercase text-white shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2"
+            style="background: var(--theme-btn-3d-bg, var(--theme-4gradient)); color: #ffffff;"
+          >
+            {#if isSubmitting}
+              <span>Initializing Administrator Credentials…</span>
+            {:else}
+              <span>Initialize Password</span>
+            {/if}
+          </button>
+        </form>
+      {:else}
       <form onsubmit={handleSubmit} class="space-y-4" novalidate>
         <div>
           <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
@@ -309,6 +465,7 @@
           {/if}
         </button>
       </form>
+      {/if}
     </div>
   </div>
 

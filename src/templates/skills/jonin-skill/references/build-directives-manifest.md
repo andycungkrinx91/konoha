@@ -53,34 +53,36 @@ Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operationa
 | Nuxt 4.3 | File-based `app/pages/` and `app/layouts/` | `pnpm run lint && pnpm run build` |
 | SvelteKit | File-based `src/routes/` | `pnpm run lint && pnpm run check && pnpm run build` |
 
-## Build-mode boundary
+## Build-mode boundary (Three Independent Creation Modes)
 
-`build_from_text` applies the default premium theme and 3D system. `build_from_source` preserves source layout, content hierarchy, and visual language; it may add only non-structural, reduced-motion-safe enhancement. Do not inject generic themes, carousels, dialogs, or watermarks into source builds unless the source explicitly contains them.
+1. **Build from Image (`build_from_source` with image mockups)**: Preserves exact source composition, spatial hierarchy, lighting, materials, depth layers, typography, color tokens, and interactive states; adds only non-structural, reduced-motion-safe polish. Do not inject unrequested carousels, dialogs, or theme switchers absent from the mockup.
+2. **Build from Text (`build_from_text`)**: Begins with mandatory online reference research (`konoha.web_search` / `agent-browser` / Playwright) inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline** to synthesize an original creative direction, adaptive Dark/Light token system, and 3D motion-art language before coding.
+3. **Build from Source Website (`build_from_source` with live URL or multi-file source)**: Performs multi-route browser inspection (routes, subpages, navigation flows, interactive states, responsive breakpoints, scroll/hover choreography, design tokens) and reconstructs the application cleanly in **Next.js, Nuxt, SvelteKit, or Angular**.
 
 
 ## Application Archetype Directives (Landing Page vs Multi-Page SPA)
 
 1. **Landing Page Archetype**:
    - Triggered when prompt mentions *landing page*, *one page*, *portfolio*, or *promotional page*.
-   - Implements a single-page flowing narrative with section IDs (, , , , ).
+   - Implements a single-page flowing narrative with section IDs (`#hero`, `#features`, `#showcase`, `#metrics`, `#contact`).
    - Smooth scroll behavior with active section spy.
 
 2. **SPA / Multi-Page Store / Web App Archetype**:
    - Triggered when prompt mentions *SPA*, *multi-page*, *store*, *e-commerce*, *shop*, *dashboard*, *platform*, or *web application*.
    - MUST implement true framework-native multi-page routes with paging/pagination:
-     - : Home runway & curated preview.
-     -  (or ): Complete archive with category filtering, sorting, and pagination (e.g. Page 1, 2, 3).
-     - : Individual product detail page with 3D showcase, image gallery, size selector, and Add to Bag.
-     -  / : Visual lookbook and runway photo essay grid.
-     -  / : Atelier timeline, milestones, and brand storytelling.
-     -  / : Complete transactional shopping bag flow.
+     - `/`: Home runway & curated preview.
+     - `/catalog` (or `/collections`): Complete archive with category filtering, sorting, and pagination (e.g. Page 1, 2, 3).
+     - `/catalog/[id]`: Individual product detail page with 3D showcase, image gallery, size selector, and Add to Bag.
+     - `/lookbook` / `/showcase`: Visual lookbook and runway photo essay grid.
+     - `/about` / `/atelier`: Atelier timeline, milestones, and brand storytelling.
+     - `/cart` / `/checkout`: Complete transactional shopping bag flow.
 
 3. **Iconography Standard**:
    - Strictly use Phosphor Icons (`@phosphor-icons/react` for Next.js, `@phosphor-icons/web` for SvelteKit/Nuxt/Angular CSS-class icons, `@phosphor-icons/vue` for Nuxt component icons) or hand-exported inline SVG icon components. NEVER install or import any Lucide package (`lucide-react`, `lucide-svelte`, `lucide-vue-next`, `lucide-angular`) — Lucide is a named AI-scaffold fingerprint (PLAN_HUMAN_BUILT.md).
    - NEVER use emojis as icons. Wrap icons in styled, rounded glassmorphic containers with subtle borders and hover micro-animations.
 
 4. **Branding & Favicon Standard**:
-   - Generate dynamic vector emblem / SVG logos for headers and framework-native  /  for sharp browser tab icons.
+   - Generate dynamic vector emblem / SVG logos for headers and framework-native `icon.svg` / `favicon.svg` for sharp browser tab icons.
 
 ## Critical Layout & UI Architecture Rules
 

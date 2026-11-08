@@ -12,8 +12,8 @@ const {
 const { detectActiveClient } = require('./client_detection');
 
 const USER_AGENTS_YAML = path.join(AGENTS_DIR, 'agents.yaml');
-const MAX_CONTENT_SIZE = 12000;
-const MAX_MULTI_SKILL_TOTAL_BYTES = 6400;
+const MAX_CONTENT_SIZE = 8000;
+const MAX_MULTI_SKILL_TOTAL_BYTES = 4800;
 
 const OFFENSIVE_SKILL_PREFIXES = ['akatsuki-skill', 'pentest', 'patch-diff-exploit'];
 

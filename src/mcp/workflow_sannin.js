@@ -74,23 +74,23 @@ function _findBestAgentFromDb(promptLower) {
 
 function parseKonohaCommandInvocation(prompt = '') {
   if (!prompt || typeof prompt !== 'string') {
-    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: '' };
+    return { invocationMode: 'konoha_orchestrator', explicitSlash: false, targetAgent: null, cleanPrompt: '' };
   }
   const trimmed = prompt.trim().replace(/^@sannin\b\s*/i, '');
   const slashMatch = trimmed.match(/^\/([a-zA-Z0-9_-]+)(?:\s+([\s\S]*))?$/);
   if (!slashMatch) {
-    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: trimmed };
+    return { invocationMode: 'konoha_orchestrator', explicitSlash: false, targetAgent: null, cleanPrompt: trimmed };
   }
   const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
   const rest = (slashMatch[2] || '').trim();
   if (rawCmd === 'konoha' || rawCmd === 'sannin') {
-    return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: rest || trimmed.replace(/^\/(konoha|sannin)\b\s*/i, '').trim() };
+    return { invocationMode: 'konoha_orchestrator', explicitSlash: true, targetAgent: null, cleanPrompt: rest || trimmed.replace(/^\/(konoha|sannin)\b\s*/i, '').trim() };
   }
   const directSubagents = ['genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin', 'akatsuki', 'yamanaka'];
   if (directSubagents.includes(rawCmd)) {
-    return { invocationMode: 'direct_subagent', targetAgent: rawCmd, cleanPrompt: rest || trimmed };
+    return { invocationMode: 'direct_subagent', explicitSlash: true, targetAgent: rawCmd, cleanPrompt: rest || trimmed };
   }
-  return { invocationMode: 'konoha_orchestrator', targetAgent: null, cleanPrompt: trimmed };
+  return { invocationMode: 'konoha_orchestrator', explicitSlash: false, targetAgent: null, cleanPrompt: trimmed };
 }
 
 function routeByKeywordsWithPrompt(taskDir, prompt = '') {
@@ -340,7 +340,9 @@ function _buildInstructionText(ctx) {
     `2. Report via \`konoha.report_from_agent\`, then call \`sannin(task_dir="${ctx.resolvedTaskDir}")\`.`
   );
 
-  const spawnBlock = ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '';
+  const spawnBlock = ctx.parallelSpawnDirective
+    ? `\n\n${ctx.parallelSpawnDirective}`
+    : (ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '');
   return (
     `**Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
     routeLine +
@@ -386,9 +388,23 @@ function _recordTaskStatusAndFlow(ctx) {
   }
 }
 
+function _mergeGate1WorkflowOutput(g1Res, status, wfRaw) {
+  try {
+    const parsedWf = JSON.parse(wfRaw);
+    if (parsedWf && typeof parsedWf === 'object') {
+      if (g1Res?.compaction || status.compaction) parsedWf.compaction = g1Res?.compaction || status.compaction;
+      if (g1Res?.todos) parsedWf.todos = g1Res.todos;
+      if (g1Res?.walkthrough_steps) parsedWf.walkthrough_steps = g1Res.walkthrough_steps;
+      if (g1Res?.client_todo_directive) parsedWf.client_todo_directive = g1Res.client_todo_directive;
+      return JSON.stringify(parsedWf);
+    }
+  } catch (_) { /* return raw */ }
+  return wfRaw;
+}
+
 function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlcManager) {
-  const isGate1 = status.phase === 'plan_approval' || ((status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'plan_approval') && !status.plan_approved);
-  const isGate2 = status.phase === 'delivery_signoff' || ((status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'delivery_signoff') && !status.human_signed_off);
+  const isGate1 = status.phase === 'plan_approval' || ((status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'plan_approval' || status.hitl_gate === 'pending_plan_approval') && !status.plan_approved);
+  const isGate2 = status.phase === 'delivery_signoff' || ((status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'delivery_signoff' || status.hitl_gate === 'pending_human_signoff') && !status.human_signed_off);
   if (!isGate1 && !isGate2) return null;
 
   const taskId = path.basename(resolvedTaskDir);
@@ -399,8 +415,9 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
   if (choiceObj) {
     const { runMcpWorkflow } = require('./workflow_runner');
     if (isGate1) {
-      applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
-      return runMcpWorkflow(resolvedTaskDir);
+      const g1Res = applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
+      const wfRaw = runMcpWorkflow(resolvedTaskDir);
+      return _mergeGate1WorkflowOutput(g1Res, status, wfRaw);
     }
     const g2Res = applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
     if (g2Res.signed_off) {
@@ -493,7 +510,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const instruction = _buildInstructionText({
     selectedAgent, executionTrack, flowHash, routedSkills, description,
     resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
-    route, envelope, spawnDirective
+    route, envelope, spawnDirective, parallelSpawnDirective
   });
 
   const currentSt = loadWorkflowStatus(resolvedTaskDir);

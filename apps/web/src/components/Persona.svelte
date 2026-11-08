@@ -34,7 +34,6 @@
     { id: "sannin", name: "@sannin", title: "Router" },
     { id: "tokubetsu-jonin", name: "@tokubetsu-jonin", title: "Docs" },
     { id: "akatsuki", name: "@akatsuki", title: "Red-Team, Blue-Team & Gate" },
-    { id: "yamanaka", name: "@yamanaka", title: "Generative 3D & Blender" },
     { id: "global", name: "@global", title: "All Agents" }
   ];
   let agents = $state(fallbackAgents);
@@ -43,11 +42,16 @@
     try {
       const rows = await api.get("/api/v1/agents");
       if (Array.isArray(rows) && rows.length) {
-        const ids = new Set(rows.map(a => a.name));
-        const list = rows.map(a => ({ id: a.name, name: "@" + a.name, title: a.title || "" }));
+        const filteredRows = rows.filter(a => a.name !== "yamanaka" && a.id !== "yamanaka");
+        const ids = new Set(filteredRows.map(a => a.name));
+        const list = filteredRows
+          .map(a => ({ id: a.name, name: "@" + a.name, title: a.title || "" }))
+          .filter(a => a.id !== "yamanaka" && a.name !== "@yamanaka");
         if (!ids.has("global")) list.push({ id: "global", name: "@global", title: "All Agents" });
-        if (!ids.has(newMemory.agentName)) list.push({ id: newMemory.agentName, name: "@" + newMemory.agentName, title: "" });
-        agents = [{ id: "", name: "All Agents", title: "" }, ...list];
+        if (newMemory.agentName !== "yamanaka" && !ids.has(newMemory.agentName)) {
+          list.push({ id: newMemory.agentName, name: "@" + newMemory.agentName, title: "" });
+        }
+        agents = [{ id: "", name: "All Agents", title: "" }, ...list.filter(a => a.id !== "yamanaka" && a.name !== "@yamanaka")];
       }
     } catch (_) {
       // keep fallback list
@@ -193,7 +197,7 @@
         adhd_shaping: 'Lead with verified documentation answer, numbered evidence points, cap citations to 5, end with concrete recommendation.'
       },
       'tokubetsu-jonin': {
-        name: '⬡ Tokubetsu-Jonin',
+        name: 'Tokubetsu-Jonin',
         role: 'The Authentic Scribe (Humanist Writer)',
         voice: 'Writing must be human, clear, and compelling. Documents that people actually enjoy reading.',
         calling: 'Production-grade technical documentation, runbooks, and refined human-authentic office documents (Word, Excel, PPT, PDF).',
@@ -201,7 +205,7 @@
         adhd_shaping: 'Lead with executive takeaway, numbered sections, zero robotic AI fluff, compact human prose.'
       },
       akatsuki: {
-        name: '☁ Akatsuki',
+        name: 'Akatsuki',
         role: 'The Red Cloud Executioner (Red-Team, Blue-Team & Security Final Gate)',
         voice: 'The perimeter is breached or hardened—there is no middle ground. Offensive exploits isolated in the sandbox, defensive hardening on the host, and zero unmitigated vulnerabilities past the final security gate.',
         calling: 'Full-spectrum security engineering: Authorized red-team penetration testing and sandbox exploit verification (akatsuki-lab on LXC/Docker), direct-host blue-team defensive code audits, secret leakage detection, dependency CVE scans, Skill Guardian perimeter defense, and the mandatory fail-closed Security Final Gate before Kage delivery approval.',

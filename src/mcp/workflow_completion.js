@@ -556,9 +556,9 @@ function handleWorkflowSynthesis(options, dirArg, configArg, managerArg, promptA
   });
 
   const socketRow = reviewData.socket_reviewed !== undefined
-    ? `| **Socket Security Gate** | Clean from High & Medium (exclude Low) | 0 High, 0 Medium | **${socketOk ? 100 : 0}%** | ${socketOk ? '✅ Passed' : '❌ Needs Attention'} |\n`
+    ? `| **Socket Security Gate** | Clean from High & Medium (exclude Low) | 0 High, 0 Medium | **${socketOk ? 100 : 0}%** | ${socketOk ? 'Passed' : 'Needs Attention'} |\n`
     : '';
-  const akatsukiRow = `| **Akatsuki Security Final Gate** | 0 Critical, 0 High findings | ${akatsukiGateResult ? (akatsukiGateResult.decision || (akatsukiOk ? 'passed' : 'blocked')) : 'verified clean'} | **${akatsukiOk ? 100 : 0}%** | ${akatsukiOk ? '✅ Passed' : '❌ Needs Attention'} |\n`;
+  const akatsukiRow = `| **Akatsuki Security Final Gate** | 0 Critical, 0 High findings | ${akatsukiGateResult ? (akatsukiGateResult.decision || (akatsukiOk ? 'passed' : 'blocked')) : 'verified clean'} | **${akatsukiOk ? 100 : 0}%** | ${akatsukiOk ? 'Passed' : 'Needs Attention'} |\n`;
 
   const reviewGateBlock = buildReviewGateBlock({
     confidenceVal, aiSlopEval, aiSlopConf, aiSlopOk, socketRow, akatsukiRow, totalTasks, verifiedCount, validationEntries, evidencePct, reviewFindings, securityVerified, rollbackVerified

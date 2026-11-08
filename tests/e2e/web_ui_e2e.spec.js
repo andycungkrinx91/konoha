@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
+import path from 'path';
+import { execFileSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '../..');
 
 test.describe('Konoha Web UI End-to-End Suite', () => {
   test.beforeEach(async () => {
@@ -89,5 +95,100 @@ test.describe('Konoha Web UI End-to-End Suite', () => {
     await expect(page).toHaveTitle(/Konoha/i);
     const bodyText = await page.textContent('body');
     expect(bodyText.length).toBeGreaterThan(50);
+  });
+
+  test('Konoha 2.2.18 Master Suite, Linter, Agent Activity Full-Screen & Spider Flip, Mobile-Only Dock', async ({ page }) => {
+    test.setTimeout(240000);
+    execFileSync(process.execPath, [path.join(REPO_ROOT, 'scripts/sync_skills.js')], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 60000
+    });
+    execFileSync('pnpm', ['--dir', path.join(REPO_ROOT, 'apps/web'), 'run', 'build'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 60000
+    });
+
+    let masterOut = '';
+    try {
+      masterOut = execFileSync(process.execPath, [path.join(REPO_ROOT, 'tests/test_konoha_2_2_18_master.js')], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 180000
+      });
+    } catch (err) {
+      throw new Error(`master suite failed:\nSTDOUT:\n${err.stdout || ''}\nSTDERR_TAIL:\n${(err.stderr || '').slice(-600)}`);
+    }
+    expect(masterOut).toContain('ALL KONOHA 2.2.18 MASTER TESTS & BENCHMARKS PASSED');
+
+    const lintOut = execFileSync(process.execPath, [path.join(REPO_ROOT, 'scripts/lint.js')], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30000
+    });
+    expect(lintOut).toContain('0 errors and 0 warnings');
+
+    // Desktop viewport (1440x900): verify two-field initial password setup, BottomDock hidden on desktop, Agent Activity full-screen & spider 180 flip
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+
+    // Verify First-Run 2-Field Setup toggle on Login screen
+    const setupToggle = page.getByTestId('first-run-setup-toggle');
+    if (await setupToggle.isVisible()) {
+      await setupToggle.click();
+      await expect(page.locator('#setup-new-password')).toBeVisible();
+      await expect(page.locator('#setup-confirm-password')).toBeVisible();
+      await expect(page.locator('#login-password')).toHaveCount(0);
+      await page.getByTestId('first-run-login-tab').click();
+    }
+
+    await page.fill('#login-password', 'konohagakure');
+    await page.getByRole('button', { name: 'Login' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Mandatory Password Change' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#current-password')).toHaveCount(0);
+    await expect(page.locator('#new-password')).toBeVisible();
+    await expect(page.locator('#confirm-password')).toBeVisible();
+
+    await page.fill('#new-password', 'shinobi-enterprise-2026!');
+    await page.fill('#confirm-password', 'shinobi-enterprise-2026!');
+    await page.getByRole('button', { name: 'Update & Continue to Dashboard' }).click();
+
+    await expect(page.locator('#login-password')).toBeVisible({ timeout: 10000 });
+    await page.fill('#login-password', 'shinobi-enterprise-2026!');
+    await page.getByRole('button', { name: 'Login' }).click();
+    await expect(page.getByText('Mission Control Dashboard')).toBeVisible({ timeout: 10000 });
+
+    // Verify Overview embeds Agent Activity as a first-class section
+    await expect(page.getByTestId('overview-agent-activity-section')).toBeVisible();
+
+    // BottomDock must be hidden on desktop (1440x900)
+    const bottomDock = page.getByTestId('konoha-bottom-dock');
+    await expect(bottomDock).toBeHidden();
+
+    // Yamanaka and 3D Studio must remain hidden in navigation
+    const navText = await page.locator('body').innerText();
+    expect(navText).not.toContain('3D Studio');
+
+    // Navigate to Agent Activity page and verify Full Screen modal + Spider 180 flip + 6-state filter
+    await page.goto('/activity');
+    const stateFilter = page.getByTestId('activity-state-filter');
+    await expect(stateFilter).toBeVisible({ timeout: 10000 });
+    const fullScreenBtn = page.getByTestId('activity-fullscreen-btn');
+    await expect(fullScreenBtn).toBeVisible({ timeout: 10000 });
+    await fullScreenBtn.click();
+    await expect(page.getByTestId('activity-fullscreen-modal')).toBeVisible();
+
+    const spiderGroup = page.getByTestId('fullscreen-interactive-spider-core');
+    await expect(spiderGroup).toBeVisible();
+    await spiderGroup.click({ force: true });
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('activity-fullscreen-modal')).toHaveCount(0);
+
+    // Mobile viewport (390x844): verify BottomDock is visible on mobile
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(bottomDock).toBeVisible();
   });
 });

@@ -300,7 +300,7 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
     : '## TASK\n\nDocument the completed work and validation evidence and return it via report_from_agent summary with files_created/files_modified/validation fields.\n';
 
   const fontDirectives = (
-    '\n### 🖋️ Mandatory Tokubetsu-Jonin Document Engineering Directives:\n' +
+    '\n### Mandatory Tokubetsu-Jonin Document Engineering Directives:\n' +
     '- Official Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/workflow/tokubetsu-scribe/document_engine.js.\n' +
     '- Skill Retrieval via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"). Never read raw markdown files directly.\n' +
     '- Cover / Main Titles: Inter Display / Inter Bold (32pt, high impact, -0.02em letter spacing)\n' +
@@ -308,7 +308,7 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
     '- Content / Body: Inter Regular (~10.5–11 pt for A4, line spacing 1.5–1.6)\n' +
     '- Footer / Metadata: Inter Regular / Medium (8–9 pt, neutral slate #64748B)\n' +
     '- Technical / Code Snippets: JetBrains Mono (9–9.5 pt, neutral tint #F8FAFC)\n' +
-    '\n### 🎨 Reference Cover Design Directives (assets/cover-reference.jpg):\n' +
+    '\n### Reference Cover Design Directives (assets/cover-reference.jpg):\n' +
     '- Canvas: Pure white / soft pearl (#FFFFFF / #F8FAFC), 0 dark fills\n' +
     '- Chromatic Mesh Gradient: Multi-stop soft transitions (lavender #DBCCD0 -> periwinkle #C2C0D6 -> blue-slate #AAC2D8 -> turquoise #B0D5D8 -> mint #C5D7C2)\n' +
     '- Konoha Brand Accents: Hokage Purple #8A4FD0, Electric Violet #7C5CE0, Orange #F08A24, Red #E8453C\n' +
@@ -331,6 +331,15 @@ function _dispatchDocumentPhase(status, resolvedTaskDir) {
 }
 
 function _dispatchReviewPhase(status, resolvedTaskDir) {
+  if (!status.skip_akatsuki_blue_mode && !status.akatsuki_gate) {
+    try {
+      const { runAkatsukiFinalGate } = require('../workflow/akatsuki/workflows');
+      runAkatsukiFinalGate(status.project_path || process.cwd(), status, {
+        taskDir: resolvedTaskDir,
+        skip_if_not_applicable: false
+      });
+    } catch (_) { /* best-effort Blue Mode pre-gate */ }
+  }
   const isSlopRegen = status.slop_cycles && status.slop_cycles > 0;
   const dispatch = workflowDispatch(resolvedTaskDir, status, 'review', 'kage');
   status.assigned_agent = 'kage';
@@ -368,8 +377,8 @@ function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager
   const choiceObj = parseGateChoice(options.choice ?? options.gate_action, options.refinement ?? options.feedback);
   if (!choiceObj) return { phase };
 
-  const isGate1 = (status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'plan_approval' || phase === 'plan_approval' || phase === 'plan') && !status.plan_approved;
-  const isGate2 = (status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'delivery_signoff' || phase === 'delivery_signoff' || phase === 'synthesize' || phase === 'review') && !status.human_signed_off;
+  const isGate1 = (status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'plan_approval' || status.hitl_gate === 'pending_plan_approval' || phase === 'plan_approval' || phase === 'plan') && !status.plan_approved;
+  const isGate2 = (status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'delivery_signoff' || status.hitl_gate === 'pending_human_signoff' || phase === 'delivery_signoff' || phase === 'synthesize' || phase === 'review') && !status.human_signed_off;
 
   if (isGate1) {
     const g1Outcome = applyGate1Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
@@ -418,13 +427,13 @@ function runMcpWorkflow(taskDir = null, options = {}) {
   if (gateResult.response) return gateResult.response;
   phase = gateResult.phase;
 
-  if (phase === 'plan_approval' || (phase === 'plan' && (status.hitl_gate === 'plan_approval' || status.hitl_gate === 'Gate 1 (Plan Approval)') && !status.plan_approved)) {
+  if (phase === 'plan_approval' || (phase === 'plan' && (status.hitl_gate === 'plan_approval' || status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'pending_plan_approval') && !status.plan_approved)) {
     const approvalPrompt = _checkPlanApproval(status, resolvedTaskDir, sdlcConfig, sdlcManager);
     if (approvalPrompt) return approvalPrompt;
     phase = status.phase;
   }
 
-  if (phase === 'delivery_signoff' || (phase === 'review' && (status.hitl_gate === 'delivery_signoff' || status.hitl_gate === 'Gate 2 (Delivery Sign-Off)') && !status.human_signed_off)) {
+  if (phase === 'delivery_signoff' || (phase === 'review' && (status.hitl_gate === 'delivery_signoff' || status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'pending_human_signoff') && !status.human_signed_off)) {
     const deliveryGateRes = _checkDeliverySignoff(status, resolvedTaskDir, sdlcConfig, sdlcManager);
     if (deliveryGateRes) return deliveryGateRes;
     phase = status.phase;

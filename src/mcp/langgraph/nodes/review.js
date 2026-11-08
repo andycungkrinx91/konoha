@@ -6,6 +6,8 @@ const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_commo
 const { runAislopGate } = require('../../workflow_dispatch');
 const { applyGate2Choice, buildGate2Prompt, parseGateChoice } = require('../../workflow_gates');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
+const { superviseLifecycleStage } = require('../../../workflow/kage-reviewer/advisor_monitor');
+const { runAkatsukiFinalGate } = require('../../../workflow/akatsuki/workflows');
 const { finalizeNodeResult } = require('../budget');
 
 function createPassResult(status, taskDir, state, payload) {
@@ -25,6 +27,60 @@ function createPassResult(status, taskDir, state, payload) {
     hitlRefinement: null,
   };
   return finalizeNodeResult(state, resPayload, 'node_complete', { source: payload });
+}
+
+function _evaluateAkatsukiPreGate(state, status, projectPath, taskDir) {
+  let akatsukiGate = state.akatsukiGate || status.akatsuki_final_gate || status.akatsuki_review || null;
+  if (!akatsukiGate && taskDir) {
+    const reviewFile = path.join(taskDir, 'akatsuki_review.json');
+    if (fs.existsSync(reviewFile)) {
+      try {
+        akatsukiGate = JSON.parse(fs.readFileSync(reviewFile, 'utf8'));
+      } catch (_) {
+        // ignore malformed review artifact
+      }
+    }
+  }
+  const skipRequested = Boolean(
+    state.skipAkatsukiGate ||
+    status.skip_akatsuki_gate ||
+    status.skip_akatsuki_blue_mode === true ||
+    status.akatsuki_skipped === true
+  );
+  if (skipRequested) {
+    akatsukiGate = {
+      decision: 'skipped_violation',
+      mode: 'blue',
+      passed: false,
+      error: 'Akatsuki Blue Mode was explicitly skipped before Kage Review Gate (fail-closed violation).',
+    };
+    status.akatsuki_final_gate = akatsukiGate;
+    status.blue_mode_before_kage_verified = false;
+  } else if (!akatsukiGate) {
+    try {
+      akatsukiGate = runAkatsukiFinalGate(projectPath, taskDir, status);
+    } catch (err) {
+      akatsukiGate = {
+        decision: 'error',
+        mode: 'blue',
+        passed: false,
+        error: err.message,
+      };
+      status.akatsuki_final_gate = akatsukiGate;
+    }
+  }
+  const akatsukiPassed = !skipRequested && (
+    !akatsukiGate || (
+      akatsukiGate.decision !== 'block' &&
+      akatsukiGate.decision !== 'error' &&
+      akatsukiGate.decision !== 'skipped_violation' &&
+      akatsukiGate.passed !== false
+    )
+  );
+  if (akatsukiPassed) {
+    status.blue_mode_before_kage_verified = true;
+  }
+  return { akatsukiGate, akatsukiPassed };
 }
 
 async function reviewNode(state) {
@@ -77,23 +133,32 @@ async function reviewNode(state) {
     status.confidence = rootRecord.confidence;
   }
 
+  const { akatsukiGate, akatsukiPassed } = _evaluateAkatsukiPreGate(state, status, projectPath, taskDir);
+
   const confidence = status.confidence !== undefined ? status.confidence : 100;
   const slopFindings = status.ai_slop_findings || 0;
   const isSlopClean = status.ai_slop_clean !== false && slopFindings === 0;
+  const advisorReview = superviseLifecycleStage('review', { status, taskDir, projectPath });
 
-  if (confidence < 98 || !isSlopClean) {
+  if (confidence < 98 || !isSlopClean || !advisorReview.approved || !akatsukiPassed) {
     status.phase = 'remediate';
     status.gateVerdict = 'remediate';
+    if (!akatsukiPassed) {
+      status.remediation_reason = akatsukiGate?.decision === 'skipped_violation'
+        ? 'akatsuki_blue_mode_skipped'
+        : 'akatsuki_blue_mode_failed';
+    }
     if (taskDir) saveWorkflowStatus(taskDir, status);
 
     const payload = {
       status,
       phase: 'remediate',
       confidence,
+      akatsukiPassed,
       gateVerdict: 'remediate',
     };
     return finalizeNodeResult(state, payload, 'node_remediate', {
-      source: { verdict: 'remediate', confidence, slopFindings },
+      source: { verdict: 'remediate', confidence, slopFindings, akatsukiPassed },
     });
   }
 
@@ -125,7 +190,8 @@ async function reviewNode(state) {
   }
 
   const isSignedOffInDb = rootRecord && rootRecord.status === 'completed';
-  const autoSignoffActive = Boolean(state.autoSignoff || status.auto_signoff);
+  const isDirectSubagent = status.invocation_mode === 'direct_subagent' || state.invocationMode === 'direct_subagent';
+  const autoSignoffActive = Boolean(state.autoSignoff || status.auto_signoff || isDirectSubagent);
 
   if (status.human_signed_off || isSignedOffInDb || autoSignoffActive) {
     return createPassResult(status, taskDir, state, { verdict: 'pass', auto_signoff: autoSignoffActive });

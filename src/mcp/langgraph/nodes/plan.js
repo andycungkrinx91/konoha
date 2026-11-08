@@ -5,6 +5,7 @@ const path = require('path');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { applyGate1Choice, buildGate1Prompt, parseGateChoice } = require('../../workflow_gates');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
+const { superviseLifecycleStage } = require('../../../workflow/kage-reviewer/advisor_monitor');
 const { finalizeNodeResult } = require('../budget');
 
 async function planNode(state) {
@@ -21,12 +22,18 @@ async function planNode(state) {
         status.plan_approved = true;
         status.hitl_gate = null;
         status.phase = 'brief';
+        const compactionAudit = superviseLifecycleStage('compaction', {
+          status,
+          taskDir,
+          compaction: choiceResult.compaction || status.compaction
+        });
         saveWorkflowStatus(taskDir, status);
 
         const payload = {
           status,
           plan: status.plan,
           compaction: choiceResult.compaction || status.compaction,
+          advisor_compaction_audit: compactionAudit,
           todos: choiceResult.todos || status.tasks || [],
           walkthrough_steps: choiceResult.walkthrough_steps,
           client_todo_directive: choiceResult.client_todo_directive,

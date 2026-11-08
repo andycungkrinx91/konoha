@@ -164,7 +164,13 @@ async function refreshExistingInstallation(flags, options) {
     syncAllGlobalClientSkills({ clients: flags.requestedClients || ['all'] });
   } catch (_) { /* intentional fallback */ }
 
-  if (flags.explicitSelection) {
+  const hasClientsToSetup = flags.explicitSelection || (
+    flags.allowAntigravity || flags.allowCursor || flags.allowClaudeCode ||
+    flags.allowOpenCode || flags.allowCommandCode || flags.allowCodex ||
+    flags.allowPi || flags.allowOmp
+  );
+
+  if (hasClientsToSetup) {
     const setupAgents = agentManager.loadAgents();
     const currentCwd = path.resolve(process.cwd());
     setupClientIntegrations({
@@ -212,7 +218,7 @@ function deployRtkRules(args) {
 }
 
 function makeClientChecker(requestedClients) {
-  if (!requestedClients) return () => false;
+  if (!requestedClients) return (_name, installed) => Boolean(installed);
   if (requestedClients.includes('all')) return () => true;
   return (name) => requestedClients.includes(name);
 }
@@ -345,7 +351,13 @@ async function cmdInit(args, options = {}) {
     syncAllGlobalClientSkills({ clients: clientFlags.requestedClients || ['all'] });
   } catch (_) { /* intentional fallback */ }
 
-  if (clientFlags.explicitSelection) {
+  const hasClientsToSetup = clientFlags.explicitSelection || (
+    clientFlags.allowAntigravity || clientFlags.allowCursor || clientFlags.allowClaudeCode ||
+    clientFlags.allowOpenCode || clientFlags.allowCommandCode || clientFlags.allowCodex ||
+    clientFlags.allowPi || clientFlags.allowOmp
+  );
+
+  if (hasClientsToSetup) {
     const setupAgents = agentManager.loadAgents();
     const currentCwd = path.resolve(process.cwd());
     setupClientIntegrations({

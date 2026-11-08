@@ -398,9 +398,13 @@ function classifySkillSourceProvenance(skillsDir) {
       break;
     }
   }
-  const normProject = process.platform === 'win32' ? path.resolve(projectRoot).toLowerCase() : path.resolve(projectRoot);
+  let realProjectRoot = path.resolve(projectRoot);
+  try {
+    realProjectRoot = fs.realpathSync(realProjectRoot);
+  } catch (_) { /* fallback to resolved */ }
+  const normProject = process.platform === 'win32' ? realProjectRoot.toLowerCase() : realProjectRoot;
   const projectHash = crypto.createHash('sha256').update(normProject, 'utf8').digest('hex').slice(0, 12);
-  return { scope: 'project', harness, projectRoot: path.resolve(projectRoot), projectHash };
+  return { scope: 'project', harness, projectRoot: realProjectRoot, projectHash };
 }
 
 function resolveCandidateSkillRoots(globalSkillsDir) {

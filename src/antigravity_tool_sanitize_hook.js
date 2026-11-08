@@ -12,7 +12,13 @@
  * alongside this script to ~/.konoha/. The guardrail checker lives in
  * ./guardrails, also deployed flat to ~/.konoha/.
  */
-const { readStdinJson, respond, isKonohaSessionActive } = require('./hook-base');
+const {
+  readStdinJson,
+  respond,
+  isKonohaSessionActive,
+  isCanonicalKonohaSubagentName,
+  isTrustedKonohaTaskReadPath
+} = require('./hook-base');
 
 let checkCommandGuardrails = null;
 try {
@@ -76,13 +82,28 @@ async function main() {
     }
 
     // Within a Konoha-managed context, allow `invoke_subagent` for registered
-    // agents while blocking dynamic `define_subagent` shadow creation.
+    // agents and allow `define_subagent` only for canonical Konoha specialists.
     if (name === 'define_subagent') {
+      const requestedAgentName = rawArgs && (rawArgs.Name || rawArgs.name || rawArgs.TypeName || rawArgs.typeName);
+      if (isCanonicalKonohaSubagentName(requestedAgentName)) {
+        respond({ decision: 'allow' });
+        return;
+      }
       respond({
         decision: 'deny',
         reason: `Dynamic agent definition (define_subagent) is disabled in Konoha-managed workflows. Use official Konoha MCP tools or pre-deployed agents.`,
       });
       return;
+    }
+
+    // Allow read-only access to verified Konoha task coordination files (e.g. walkthrough_todos.json)
+    const READ_LIKE_TOOLS = ['read_file', 'view_file', 'Read', 'ReadFile', 'View'];
+    if (READ_LIKE_TOOLS.includes(name)) {
+      const targetPath = rawArgs && (rawArgs.Path || rawArgs.path || rawArgs.file_path || rawArgs.TargetFile || rawArgs.filePath || rawArgs.target);
+      if (isTrustedKonohaTaskReadPath(targetPath)) {
+        respond({ decision: 'allow' });
+        return;
+      }
     }
 
     // DENY 2: Block native file/search tools inside Konoha-managed workflows

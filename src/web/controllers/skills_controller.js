@@ -55,30 +55,44 @@ async function _handleVectorRoutes(res, pathname, method, parsedUrl, broadcastEv
   return false;
 }
 
+function _querySkillsByType(conn, type, limit) {
+  const sql = 'SELECT name, skill_name, type, tags, file_path, byte_size, line_count FROM skills WHERE type = ? ORDER BY name ASC LIMIT ?';
+  let rows = conn.prepare(sql).all(type, limit * 2);
+  if (type === 'documentation' && rows.length === 0) {
+    try {
+      require('../../migrate_references')._migrateDocumentation(conn, false);
+      rows = conn.prepare(sql).all(type, limit * 2);
+    } catch (_) { /* best-effort */ }
+  }
+  return rows;
+}
+
 async function _handleGetSkills(res, parsedUrl) {
   const q = (parsedUrl.searchParams.get('q') || '').trim();
   const type = (parsedUrl.searchParams.get('type') || '').trim();
+  const projectPath = (parsedUrl.searchParams.get('project_path') || '').trim() || null;
   const limit = parseInt(parsedUrl.searchParams.get('limit') || '100', 10);
+  const { isPathVisible } = require('../../mcp/runtime_state');
   let conn = null;
   try {
     conn = db.getConnection(null, false);
     if (q) {
       const vectorSearch = require('../../vector_search');
-      let results = await vectorSearch.findSkillHybrid(conn, q, { topK: limit });
-      if (type && Array.isArray(results)) {
-        results = results.filter(r => r.type === type);
+      let results = await vectorSearch.findSkillHybrid(conn, q, { topK: limit * 2 });
+      if (Array.isArray(results)) {
+        results = results.filter(r => isPathVisible(r.file_path, projectPath));
+        if (type) results = results.filter(r => r.type === type);
+        results = results.slice(0, limit);
       }
       return sendJson(res, 200, results);
     }
     if (type) {
-      const rows = conn.prepare(
-        'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills WHERE type = ? ORDER BY name ASC LIMIT ?'
-      ).all(type, limit);
+      const rows = _querySkillsByType(conn, type, limit).filter(r => isPathVisible(r.file_path, projectPath)).slice(0, limit);
       return sendJson(res, 200, rows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null })));
     }
     const allRows = conn.prepare(
-      'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
-    ).all(limit);
+      'SELECT name, skill_name, type, tags, file_path, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
+    ).all(limit * 2).filter(r => isPathVisible(r.file_path, projectPath)).slice(0, limit);
     return sendJson(res, 200, allRows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null })));
   } catch (err) {
     return sendJson(res, 500, { error: err.message });

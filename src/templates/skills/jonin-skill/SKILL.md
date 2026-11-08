@@ -26,35 +26,34 @@ Jonin executes with a dynamic, context-aware two-layer frontend engine:
 
 ---
 
-## Build Scenarios & Standard Protocols
+## Three Independent Creation Modes & Standard Protocols
 
-### Scenario 1: Mockup / Design-Source Builds (`build_from_source` — Optional Figma / OpenDesign Dual-Mode)
-Figma and OpenDesign are **optional enhancers** (never required to run `@jonin`). When available, Jonin supports two seamless modes:
-1. **Mode A — Exported Design Files (`build_from_source`)**: Consume exported mockup images (`.png`, `.jpg`, `.webp`, `.svg`) or design documents (`.fig`, `.pen`, `.json` token exports) via `konoha.build_from_source`.
-2. **Mode B — Live MCP Connection (Real-Time Design Sync)**: When `figma` or `opendesign` MCP servers are configured in the active client, query live frames, variables, and layout trees directly for real-time synchronization.
-3. **100% Exact Mockup Fidelity**: Strictly replicate visual layout, color palette, typography hierarchy, vertical spacing, and component alignments present in the source design without injecting unrequested carousels or widgets.
+### Mode 1: Build from Image (`build_from_source` / Image Mockups & Design Exports)
+When building from image mockups (`.png`, `.jpg`, `.webp`, `.svg`) or design documents (`.fig`, `.pen`, `.json` token exports, or live `figma` / `opendesign` MCP frames):
+1. **Structural & Visual Decomposition**: Call `konoha.build_from_source` and analyze composition, spatial hierarchy, lighting, materials, depth layers, typography, color tokens, and interactive states before generating code.
+2. **Optional Live MCP Sync**: When `figma` or `opendesign` MCP servers are configured in the active client, query live frames, variables, and layout trees directly for real-time synchronization.
+3. **100% Source Fidelity**: Strictly replicate the layout geometry, spacing scale, color tokens, typographic hierarchy, and component alignments present in the source image without injecting unrequested carousels, theme switchers, or decorative widgets.
 
-### Scenario 2: Text-Based Builds (`build_from_text`)
+### Mode 2: Build from Text (`build_from_text` — Creative Synthesis & Reference Research)
 When scaffolding a fresh project or interface from text descriptions:
-1. Call `konoha.build_from_text` first to retrieve the archetype build specification.
-2. **Standard Scaffolding via `pnpm`**: Strictly initialize using official framework CLIs with non-interactive flags wrapped by `rtk`:
+1. **Mandatory Online Reference Research & Framer Marketplace Discovery**: Before writing code, conduct reference discovery using `konoha.web_search`, `agent-browser`, or Playwright inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline**, and use `https://www.framer.com/marketplace/components/` as the primary dynamic component discovery source. Have `@chunin` perform Playwright-based Reverse-Engineering Analysis (REA) on live Marketplace component pages (`src/workflow/chunin-intel/framer_marketplace_rea.js`), evaluating both free and paid components across hover, click, animation, scroll, and responsive viewports (`375x812`, `768x1024`, `1440x900`). Paid/unlicensed components are evaluated via live preview only — never extract protected source or inject Marketplace iframes; independently recreate the observed design and behavior using native framework code (`Next.js/React`, `Nuxt/Vue`, `Svelte`, `Angular`) and record component provenance in the project's maintenance skill documentation.
+2. **Retrieve Archetype Specification**: Call `konoha.build_from_text` to load the framework and archetype build specification.
+3. **Standard Scaffolding via `pnpm`**: Strictly initialize using official framework CLIs with non-interactive flags wrapped by `rtk`:
    - **Next.js**: `rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent`
    - **Nuxt**: `rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false`
    - **Angular**: `rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true`
    - **SvelteKit**: `rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm`
    *Rule*: NEVER use `npm` or standalone `npx` without `pnpm`. Always install packages with `rtk pnpm add <packages> --silent`.
-3. **Mandatory `package.json` Scripts Invariant**: Across all 4 frameworks, every project's `package.json` MUST define working scripts for `"dev"`, `"lint"` (`pnpm run lint`), `"build"` (`pnpm run build`), `"start"` (`pnpm run start`), and `"test"` (`pnpm run test`) (plus `"check"` for SvelteKit). All commands must execute cleanly with 0 errors.
-4. **Real-Time Auto-Open Browser Monitor (`live_browser_monitor.js`)**: During development verification, launch the dev server and invoke `runLiveBrowserMonitor` (`src/workflow/jonin-builder/live_browser_monitor.js`) so the user's system browser opens automatically in real time (`xdg-open` / `open` / `start`) and verifies responsive viewports (`375x812`, `768x1024`, `1440x900`), zero console errors, zero emojis, and the required Konoha watermark.
-5. **Automatic Project Frontend Maintenance Skill (`project_skill_generator.js`)**: After frontend generation, run `generateAndIndexProjectFrontendSkill` (`src/workflow/jonin-builder/project_skill_generator.js`) to generate `<project_path>/.agents/skills/<project-slug>-frontend-maintenance/SKILL.md` and index it into `konoha.db` (`skills`, `skills_fts`, `skill_chunks`) isolated by `project_hash`.
-6. **Zero Errors & Zero Warnings Completion Gate**: Do not claim completion until every framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run test`, `pnpm run check`) passes cleanly with 0 errors and 0 warnings.
+4. **Mandatory `package.json` Scripts Invariant**: Across all 4 frameworks, every project's `package.json` MUST define working scripts for `"dev"`, `"lint"` (`pnpm run lint`), `"build"` (`pnpm run build`), `"start"` (`pnpm run start`), and `"test"` (`pnpm run test`) (plus `"check"` for SvelteKit). All commands must execute cleanly with 0 errors.
+5. **Real-Time Auto-Open Browser Monitor (`live_browser_monitor.js`)**: During development verification, launch the dev server and invoke `runLiveBrowserMonitor` (`src/workflow/jonin-builder/live_browser_monitor.js`) so the user's system browser opens automatically in real time (`xdg-open` / `open` / `start`) and verifies responsive viewports (`375x812`, `768x1024`, `1440x900`), zero console errors, zero emojis, and the required Konoha watermark.
+6. **Automatic Project Frontend Maintenance Skill (`project_skill_generator.js`)**: After frontend generation, run `generateAndIndexProjectFrontendSkill` (`src/workflow/jonin-builder/project_skill_generator.js`) to generate `<project_path>/.agents/skills/<project-slug>-frontend-maintenance/SKILL.md` and index it into `konoha.db` (`skills`, `skills_fts`, `skill_chunks`) isolated by `project_hash`.
+7. **Zero Errors & Zero Warnings Completion Gate**: Do not claim completion until every framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run test`, `pnpm run check`) passes cleanly with 0 errors and 0 warnings.
 
-### Scenario 3: UI Enhancement & Component Prettification (`existing_project`)
-When modifying, modernizing, or polishing existing projects or individual components:
-1. **Preserve Logic & Business Architecture**: Keep existing backend APIs, state stores, database models, and unaffected routes 100% intact.
-2. **Apply Taste-Skill Polish**: Elevate typography with distinctive font stacks (**Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display, Instrument Serif**), tight tracking (`tracking-tight`/`tracking-tighter`), and purposeful hierarchy.
-3. **Cinematic Negative Space**: Replace cramped padding with intentional vertical section pacing (`py-20`, `py-24`, `py-32`) and subtle hairline borders.
-4. **Grid Architecture**: Transition repetitive 3-card flexbox rows into deliberate asymmetric CSS Grid layouts (`grid-cols-12`, bento grids, editorial split screens).
-5. **Zero-Emoji Policy**: Emojis and emoticons are strictly forbidden across all UI buttons, badges, headings, and body copy. Use crisp SVG vector icons (Phosphor or Radix).
+### Mode 3: Build from Source Website (`build_from_source` with Live URL or Multi-File Source)
+When cloning, migrating, or reconstructing a live website URL or multi-file web source:
+1. **Multi-Route Browser Inspection**: Perform systematic multi-route inspection (`agent-browser` / Playwright / `konoha.build_from_source`) capturing all primary routes, subpages, navigation flows, interactive states, responsive breakpoints (`375px`, `768px`, `1440px`), scroll/hover choreography, and computed design tokens.
+2. **Clean Framework Reconstruction**: Reconstruct the multi-route application cleanly using native routing and component architecture in **Next.js, Nuxt, SvelteKit, or Angular** while preserving existing business logic, content hierarchy, and interactive fidelity.
+3. **Taste-Skill Polish & Zero-Emoji Discipline**: Elevate typography (**Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display, Instrument Serif**), enforce intentional vertical section pacing (`py-20`, `py-24`, `py-32`), use asymmetric CSS Grid layouts (`grid-cols-12`), and replace any emojis with crisp Phosphor or Radix vector SVG icons.
 
 ---
 
@@ -76,7 +75,7 @@ Every fresh website scaffolded by Jonin MUST honor these quality and branding in
 
 ---
 
-## 🎞️ 3D Graphics, Motion & Quality Contract
+## 3D Graphics, Motion & Quality Contract
 
 - **Perspective & Motion Invariants**: 1200px perspective, maximum 12deg tilt, 300ms standard transitions, 500ms entrances, and 600ms hero content entrances.
 - **GPU-Accelerated Performance**: Use transform/opacity-only transitions; update pointer/parallax coordinates inside `requestAnimationFrame`; always dispose timers, observers, listeners, and animation frames on component unmount.

@@ -21,6 +21,7 @@ function entryRouter(state) {
 function classifyRouter(state) {
   if (state.error || state.phase === 'error') return 'node_error';
   if (state.budgetExceeded) return 'node_budget_exceeded';
+  if (state.invocationMode === 'direct_subagent' || state.intent === 'direct_subagent') return 'node_dispatch';
   if (state.isFastTrack) return 'node_complete';
   return 'node_plan';
 }

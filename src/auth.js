@@ -465,10 +465,6 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 400, error: 'New password must be at least 8 characters long' };
   }
 
-  if (typeof currentPassword !== 'string' || !currentPassword) {
-    return { success: false, status: 400, error: 'Current password is required' };
-  }
-
   let config;
   try {
     config = getAuthConfig();
@@ -476,15 +472,22 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 500, error: 'Unable to read stored credentials' };
   }
 
-  if (!verifyPasswordHash(currentPassword, config)) {
+  const isBootstrapSetup = Boolean(session.isBootstrap && config.is_bootstrap && (currentPassword === undefined || currentPassword === null || currentPassword === ''));
+  const effectiveCurrent = isBootstrapSetup ? resolveBootstrapPassword() : currentPassword;
+
+  if (typeof effectiveCurrent !== 'string' || !effectiveCurrent) {
+    return { success: false, status: 400, error: 'Current password is required' };
+  }
+
+  if (!isBootstrapSetup && !verifyPasswordHash(effectiveCurrent, config)) {
     return { success: false, status: 400, error: 'Current password is incorrect' };
   }
 
-  if (config.is_bootstrap && verifyPasswordHash(newPassword, config)) {
+  if ((config.is_bootstrap && verifyPasswordHash(newPassword, config)) || newPassword === resolveBootstrapPassword()) {
     return { success: false, status: 400, error: 'Cannot set password to the default bootstrap credential' };
   }
 
-  if (newPassword === currentPassword) {
+  if (newPassword === effectiveCurrent) {
     return { success: false, status: 400, error: 'New password must differ from the current password' };
   }
 
@@ -517,6 +520,54 @@ function updatePassword(sessionId, currentPassword, newPassword) {
   };
 }
 
+function setupInitialPassword(newPassword, confirmPassword) {
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (_) {
+    return { success: false, status: 500, error: 'Unable to read stored credentials' };
+  }
+
+  if (!config.is_bootstrap) {
+    return { success: false, status: 403, error: 'Administrator password is already initialized' };
+  }
+
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return { success: false, status: 400, error: 'New password must be at least 8 characters long' };
+  }
+
+  if (typeof confirmPassword !== 'string' || newPassword !== confirmPassword) {
+    return { success: false, status: 400, error: 'New password and confirmation do not match' };
+  }
+
+  if (verifyPasswordHash(newPassword, config) || newPassword === resolveBootstrapPassword()) {
+    return { success: false, status: 400, error: 'Cannot set password to the default bootstrap credential' };
+  }
+
+  const newHash = hashPassword(newPassword);
+  const nextConfig = {
+    ...config,
+    format: newHash.format,
+    salt: newHash.salt,
+    hash: newHash.hash,
+    is_bootstrap: false,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    saveAuthConfig(nextConfig);
+  } catch (_) {
+    return { success: false, status: 500, error: 'Failed to persist new password' };
+  }
+
+  destroyAllSessions();
+  return {
+    success: true,
+    message: 'Initial administrator password configured successfully.',
+    requires_login: true
+  };
+}
+
 /**
  * Determine authentication and bootstrap status for a request.
  */
@@ -531,6 +582,7 @@ function getAuthStatus(sessionId) {
     return {
       authenticated: Boolean(session),
       is_bootstrap: false,
+      needs_initial_setup: false,
       requires_password_change: Boolean(session && session.isBootstrap),
       credential_store_error: true
     };
@@ -540,6 +592,7 @@ function getAuthStatus(sessionId) {
     return {
       authenticated: false,
       is_bootstrap: Boolean(config.is_bootstrap),
+      needs_initial_setup: Boolean(config.is_bootstrap),
       requires_password_change: false
     };
   }
@@ -547,6 +600,7 @@ function getAuthStatus(sessionId) {
   return {
     authenticated: true,
     is_bootstrap: Boolean(session.isBootstrap),
+    needs_initial_setup: Boolean(session.isBootstrap),
     requires_password_change: Boolean(session.isBootstrap)
   };
 }
@@ -561,6 +615,7 @@ module.exports = {
   destroySession,
   destroyAllSessions,
   updatePassword,
+  setupInitialPassword,
   resetPasswordToDefault,
   resetAuthToDefault,
   getAuthStatus,

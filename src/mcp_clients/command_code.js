@@ -193,7 +193,25 @@ if (!isKonohaManaged) {
   process.exit(0);
 }
 const toolName = input && (input.tool_name || input.tool_display_name);
-if (toolName === 'read_file' || toolName === 'READ') {
+if (toolName === 'read_file' || toolName === 'READ' || toolName === 'Read') {
+  const path = require('path');
+  const os = require('os');
+  const ti = (input && (input.tool_input || input.input)) || {};
+  const targetPath = ti.path || ti.file_path || input.path || '';
+  const TRUSTED_RE = /(?:^|\\/)(?:\\.konoha\\/tmp|konoha-tmp)\\/([a-zA-Z0-9_-]{1,32})\\/([a-zA-Z0-9._-]{1,64})\\/([a-zA-Z0-9._-]{1,96})\\/scratch\\/tasks\\/([a-zA-Z0-9._-]{1,96})\\/(walkthrough_todos\\.json|status\\.json|walkthrough\\.md|compact_checkpoint\\.json|plan\\.md|final_report\\.md)$/;
+  if (typeof targetPath === 'string' && !targetPath.includes('\\0') && !/(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)/.test(targetPath)) {
+    const exp = targetPath.startsWith('~/') ? path.join(process.env.HOME || os.homedir(), targetPath.slice(2)) : targetPath;
+    if (TRUSTED_RE.test(path.resolve(exp).replace(/\\\\/g, '/'))) {
+      process.stdout.write(JSON.stringify({
+        suppressOutput: false,
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow'
+        }
+      }) + '\\n');
+      process.exit(0);
+    }
+  }
   const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
   process.stdout.write(JSON.stringify({
     suppressOutput: false,
@@ -494,13 +512,13 @@ function _readCommandCodeConfig() {
   }
 }
 
-function _readCommandCodeSettingsStatus(status) {
-  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+function _readCommandCodeSettingsStatus(status, home = HOME) {
+  const settingsPath = path.join(home, '.commandcode', 'settings.json');
   if (!fileExists(settingsPath)) return;
   try {
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
-    status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*') && allow.includes('mcp__aislop__*');
+    status.permissionsAllowed = allow.includes('mcp__konoha__sannin') && allow.includes('mcp__semble__search') && allow.includes('mcp__aislop__aislop_scan');
     const ccHooks = settings.hooks || {};
     status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
       (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))

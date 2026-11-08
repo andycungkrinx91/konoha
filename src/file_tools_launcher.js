@@ -26,12 +26,34 @@ function resolveNode() {
   return process.execPath || 'node';
 }
 
+function isNodeCompatible(verStr) {
+  if (!verStr || typeof verStr !== 'string') return false;
+  const m = verStr.trim().match(/^v?(\d+)\.(\d+)/);
+  if (!m) return false;
+  const major = parseInt(m[1], 10);
+  const minor = parseInt(m[2], 10);
+  return major > 24 || (major === 24 && minor >= 0);
+}
+
 if (!fs.existsSync(MCP_SCRIPT)) {
   process.stderr.write(`[konoha-files] missing ${MCP_SCRIPT} — run konoha init\n`);
   process.exit(1);
 }
 
 const node = resolveNode();
+
+if (isNodeCompatible(process.versions.node) && (node === process.execPath || path.basename(node).toLowerCase().startsWith('node'))) {
+  try {
+    const mod = require(MCP_SCRIPT);
+    if (typeof mod.main === 'function') {
+      mod.main();
+    }
+    return;
+  } catch (err) {
+    process.stderr.write(`[konoha-files] in-process require failed: ${err.message}\n`);
+  }
+}
+
 const child = spawn(node, [MCP_SCRIPT], {
   stdio: 'inherit',
   windowsHide: true,

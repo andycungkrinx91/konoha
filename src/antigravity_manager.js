@@ -332,7 +332,7 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     if (!settings.permissions) settings.permissions = {};
     const prevAllow = Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
     const filteredAllow = prevAllow.filter(g =>
-      typeof g !== 'string' || !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g)
+      typeof g !== 'string' || (!/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g) && !g.includes('.konoha/tmp'))
     );
     if (filteredAllow.length !== prevAllow.length) modified = true;
     settings.permissions.allow = filteredAllow;
@@ -415,6 +415,7 @@ function _updateSingleMcpConfigAutoApproves(mPath) {
 function ensureAntigravityPermissions(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  try { fs.mkdirSync(path.join(home, '.konoha', 'tmp'), { recursive: true }); } catch (_) { /* ignore */ }
   const konohaToolGrants = (KONOHA_CANONICAL_TOOLS || []).map(t => 'mcp(konoha/' + t + ')');
   const requiredGrants = [
     'command(rtk)', 'command(rtk *)', 'command(rtk:*)', 'command(node bin/cli.js)', 'command(konoha)', 'command(konoha *)',

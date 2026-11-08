@@ -86,10 +86,49 @@ function norm(p) {
 
 let _KONOHA_HOME = null;
 function getKonohaHome() {
-  if (_KONOHA_HOME === null) {
-    _KONOHA_HOME = stripWinPrefix(path.resolve(path.normalize(path.join(os.homedir(), '.konoha'))));
+  const dynamicHome = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  const candidate = stripWinPrefix(path.resolve(path.normalize(path.join(dynamicHome, '.konoha'))));
+  if (_KONOHA_HOME === null || !candidate.startsWith(_KONOHA_HOME)) {
+    _KONOHA_HOME = candidate;
   }
-  return _KONOHA_HOME;
+  return candidate;
+}
+
+const TRUSTED_KONOHA_TASK_FILE_RE = /(?:^|\/)(?:\.konoha\/tmp|konoha-tmp)\/([a-zA-Z0-9_-]{1,32})\/([a-zA-Z0-9._-]{1,64})\/([a-zA-Z0-9._-]{1,96})\/scratch\/tasks\/([a-zA-Z0-9._-]{1,96})\/(walkthrough_todos\.json|status\.json|walkthrough\.md|compact_checkpoint\.json|plan\.md|final_report\.md)$/;
+
+function isTrustedKonohaTaskReadPath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return false;
+  if (rawPath.includes('\0')) return false;
+  const trimmed = stripWinPrefix(rawPath.trim().replace(/^file:\/\//i, ''));
+  if (!trimmed || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(trimmed)) return false;
+
+  let expanded = trimmed;
+  if (expanded.startsWith('~/') || expanded.startsWith('~\\')) {
+    const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
+    expanded = path.join(home, expanded.slice(2));
+  }
+  const normalizedFwd = path.resolve(expanded).replace(/\\/g, '/');
+  if (!TRUSTED_KONOHA_TASK_FILE_RE.test(normalizedFwd)) {
+    return false;
+  }
+
+  try {
+    if (fs.existsSync(expanded)) {
+      const lstat = fs.lstatSync(expanded);
+      if (lstat.isSymbolicLink()) return false;
+      const realFwd = stripWinPrefix(fs.realpathSync(expanded)).replace(/\\/g, '/');
+      if (!TRUSTED_KONOHA_TASK_FILE_RE.test(realFwd)) return false;
+    } else {
+      const parentDir = path.dirname(expanded);
+      if (fs.existsSync(parentDir)) {
+        const lstatParent = fs.lstatSync(parentDir);
+        if (lstatParent.isSymbolicLink()) return false;
+      }
+    }
+  } catch (_) {
+    return false;
+  }
+  return true;
 }
 
 function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
@@ -106,7 +145,18 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     throw new Error(`Access to IDE installation directory is forbidden: ${resolvedPath}`);
   }
 
-  // Konoha install directory — always allowed
+  // Verified read-only Konoha task coordination files (e.g. walkthrough_todos.json)
+  if (isTrustedKonohaTaskReadPath(resolvedPath)) {
+    return;
+  }
+
+  // Block sensitive Konoha key material even inside ~/.konoha
+  const fwdPath = normPath.replace(/\\/g, '/');
+  if (fwdPath.includes('/.konoha/keys/') || fwdPath.endsWith('/.konoha/keys')) {
+    throw new Error(`Access to Konoha secret key directory is forbidden: ${resolvedPath}`);
+  }
+
+  // Konoha install directory — allowed for managed resources
   const normKonoha = norm(getKonohaHome());
   const sep = path.sep;
   if (normPath === normKonoha || normPath.startsWith(normKonoha + sep) || normPath.startsWith(normKonoha + '/')) {
@@ -190,6 +240,9 @@ function resolvePath(rawPath, baseDir = null, devRoot = null) {
     expanded = path.resolve(p);
   }
 
+  if (typeof rawPath === 'string' && /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(rawPath) && rawPath.includes('.konoha/tmp')) {
+    throw new Error(`Path traversal forbidden in Konoha task path: ${rawPath}`);
+  }
   let real;
   try {
     real = fs.realpathSync(expanded);
@@ -242,8 +295,10 @@ module.exports = {
   SKIP_DIR_NAMES,
   SKIP_FILE_NAMES,
   TEXT_EXTENSIONS,
+  TRUSTED_KONOHA_TASK_FILE_RE,
   stripWinPrefix,
   isIdeInstallationDir,
+  isTrustedKonohaTaskReadPath,
   norm,
   assertWithinAllowed,
   resolvePath,

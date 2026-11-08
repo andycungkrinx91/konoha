@@ -5,6 +5,9 @@
   import { api } from '../lib/api.js';
   import PageHero from './PageHero.svelte';
   import AgentActivityInspector from './AgentActivityInspector.svelte';
+  import AgentActivityTable from './AgentActivityTable.svelte';
+
+  let { embedded = false } = $props();
 
   const POLL_MS = 4500;
   const VIEW_W = 1200;
@@ -14,10 +17,14 @@
 
   let snapshot = $state(null);
   let lastUpdated = $state(null);
+  let isDisconnected = $state(false);
   let viewMode = $state('spider');
   let reducedMotion = $state(false);
   let selectedNodeId = $state('agent:sannin');
   let filterType = $state('all');
+  let filterState = $state('all');
+  let lastFocusedEl = null;
+  let fullscreenCloseBtnEl = $state(null);
 
   let zoomLevel = $state(1);
   let panX = $state(0);
@@ -26,7 +33,9 @@
   let panStartX = 0;
   let panStartY = 0;
 
-  let isSpiderFlipped = $state(false);
+  let isFullScreen = $state(false);
+  let spiderFlipped = $state(false);
+  let isSpiderFlipped = $derived(spiderFlipped);
   let spiderFlipCount = $state(0);
   let spiderPatrolPaused = $state(false);
   let spiderTargetNodeId = $state('agent:sannin');
@@ -37,15 +46,55 @@
   const spiderFlipAngle = new Spring(0, { stiffness: 0.14, damping: 0.52 });
   const spiderScale = new Spring(1, { stiffness: 0.2, damping: 0.58 });
 
+  function openFullScreen() {
+    if (typeof document !== 'undefined') {
+      lastFocusedEl = document.activeElement;
+    }
+    isFullScreen = true;
+    setTimeout(() => {
+      fullscreenCloseBtnEl?.focus();
+    }, 30);
+  }
+
+  function closeFullScreen() {
+    isFullScreen = false;
+    setTimeout(() => {
+      if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
+        lastFocusedEl.focus();
+      }
+    }, 30);
+  }
+
+  function handleGlobalKeydown(e) {
+    if (e.key === 'Escape' && isFullScreen) {
+      e.preventDefault();
+      closeFullScreen();
+    }
+  }
+
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    const prevOverflow = document.body.style.overflow;
+    if (isFullScreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = prevOverflow || '';
+    };
+  });
+
   async function loadActivity() {
     try {
       const res = await api.get('/api/v1/activity/live?window=60&limit=60');
       if (res && res.ok) {
         snapshot = res;
         lastUpdated = new Date();
+        isDisconnected = false;
       }
     } catch (_) {
-      // Retain last valid snapshot
+      isDisconnected = true;
     }
   }
 
@@ -106,7 +155,13 @@
   }
 
   const graphLayout = $derived(computeGraphPositions(snapshot));
-  const visibleNodes = $derived(graphLayout.nodes.filter((n) => filterType === 'all' || n.type === filterType || n.id === 'agent:sannin'));
+  const visibleNodes = $derived(graphLayout.nodes.filter((n) => {
+    if (n.id === 'agent:sannin') return true;
+    const typeOk = filterType === 'all' || n.type === filterType;
+    const nodeState = n.execution_status || n.status || 'paused';
+    const stateOk = filterState === 'all' || nodeState === filterState;
+    return typeOk && stateOk;
+  }));
   const visibleNodeIds = $derived(new Set(visibleNodes.map((n) => n.id)));
   const visibleEdges = $derived(graphLayout.edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)));
   const selectedNode = $derived(graphLayout.nodeById.get(selectedNodeId) || graphLayout.nodeById.get('agent:sannin') || null);
@@ -154,7 +209,7 @@
 
   function triggerSpiderFlip(e) {
     if (e) e.stopPropagation();
-    isSpiderFlipped = !isSpiderFlipped;
+    spiderFlipped = !spiderFlipped;
     spiderFlipCount += 1;
     spiderPatrolPaused = true;
     const targetDeg = spiderFlipCount * 180;
@@ -263,6 +318,123 @@
   });
 </script>
 
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+{#snippet spiderSvgCanvas(isModal = false)}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <svg
+    viewBox="0 0 {VIEW_W} {VIEW_H}"
+    class="w-full {isModal ? 'h-full min-h-[480px]' : 'h-[560px]'} block {isPanning ? 'cursor-grabbing' : 'cursor-grab'}"
+    role="application"
+    aria-label="Interactive Konoha Agent Activity Spider Network"
+    data-testid={isModal ? 'agent-activity-spider-svg-fullscreen' : 'agent-activity-spider-svg'}
+    onwheel={handleWheel}
+    onpointerdown={handlePointerDown}
+    onpointermove={handlePointerMove}
+    onpointerup={handlePointerUp}
+    onpointerleave={handlePointerUp}
+  >
+    <defs>
+      <radialGradient id="spider-core-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="var(--theme-grad-1)" stop-opacity="0.55" />
+        <stop offset="55%" stop-color="var(--theme-grad-2)" stop-opacity="0.22" />
+        <stop offset="100%" stop-color="var(--theme-grad-4)" stop-opacity="0" />
+      </radialGradient>
+      <linearGradient id="spider-leg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--theme-grad-1)" />
+        <stop offset="50%" stop-color="var(--theme-grad-2)" />
+        <stop offset="100%" stop-color="var(--theme-grad-3)" />
+      </linearGradient>
+      <linearGradient id="spider-body-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--theme-grad-1)" />
+        <stop offset="50%" stop-color="var(--theme-grad-2)" />
+        <stop offset="100%" stop-color="var(--theme-grad-4)" />
+      </linearGradient>
+    </defs>
+
+    <g transform="translate({panX}, {panY}) translate({CENTER_X}, {CENTER_Y}) scale({zoomLevel}) translate({-CENTER_X}, {-CENTER_Y})">
+      {#each [110, 175, 260, 360, 445] as radius, rIdx}
+        <ellipse cx={CENTER_X} cy={CENTER_Y} rx={radius} ry={radius * 0.66} fill="none" stroke="var(--color-border)" stroke-width={rIdx === 1 ? '1.3' : '0.8'} stroke-dasharray={rIdx % 2 === 0 ? '4 6' : 'none'} opacity="0.48" />
+      {/each}
+
+      <text x="155" y="54" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">CLIENT HARNESSES (8)</text>
+      <text x={CENTER_X} y="54" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-primary)" letter-spacing="2">NINJA ORCHESTRATION RING</text>
+      <text x="1045" y="54" text-anchor="end" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">MCP &amp; SEMBLE TOOLS</text>
+
+      {#each visibleEdges as edge (edge.id)}
+        <g>
+          <line x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} stroke={edge.active ? 'var(--theme-grad-2)' : 'var(--color-border)'} stroke-width={edge.active ? '2.2' : '1.1'} stroke-opacity={edge.active ? '0.82' : '0.38'} stroke-dasharray={edge.active ? '6 4' : 'none'} />
+          {#if edge.active && !reducedMotion}
+            <circle r="3.5" fill="var(--theme-grad-1)">
+              <animateMotion dur="2.1s" repeatCount="indefinite" path="M {edge.x1} {edge.y1} L {edge.x2} {edge.y2}" />
+            </circle>
+          {/if}
+        </g>
+      {/each}
+
+      {#each spiderLegs as leg (leg.id)}
+        <g>
+          <path d={leg.filamentPath} fill="none" stroke={leg.active ? 'var(--theme-grad-2)' : 'var(--color-border)'} stroke-width={leg.active ? '1.2' : '0.75'} stroke-dasharray="3 4" opacity={leg.active ? '0.75' : '0.4'} />
+          <path d={leg.path} fill="none" stroke="url(#spider-leg-gradient)" stroke-width={leg.active ? '3.1' : '2.2'} stroke-linecap="round" opacity={leg.active ? '0.96' : '0.72'} />
+          <circle cx={leg.footX} cy={leg.footY} r={leg.active ? '3.6' : '2.5'} fill={leg.active ? 'var(--theme-grad-1)' : 'var(--color-surface)'} stroke="var(--theme-grad-2)" stroke-width="1.5" />
+        </g>
+      {/each}
+
+      {#each visibleNodes as node (node.id)}
+        {@const isSelected = selectedNodeId === node.id}
+        {@const tone = nodeTone(node)}
+        {@const nodeRadius = node.id === 'agent:sannin' ? 30 : (node.type === 'agent' ? 23 : 19)}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <g
+          transform="translate({node.x}, {node.y})"
+          class="cursor-pointer"
+          role="button"
+          tabindex="0"
+          aria-label="{node.type} node {node.label} ({node.status})"
+          data-testid="{isModal ? 'fullscreen-' : ''}activity-node-{node.id}"
+          onclick={(e) => selectNode(node, e)}
+        >
+          {#if node.active || isSelected}
+            <circle r={nodeRadius + 8} fill="none" stroke={tone} stroke-width={isSelected ? '2.5' : '1.4'} stroke-dasharray={isSelected ? 'none' : '4 3'} opacity="0.78" />
+          {/if}
+          <circle r={nodeRadius} fill="var(--color-surface)" stroke={tone} stroke-width={node.active || isSelected ? '2.8' : '1.8'} />
+          <circle r={nodeRadius - 5} fill={tone} fill-opacity={node.active ? '0.2' : '0.08'} />
+          <text y="4" text-anchor="middle" font-size={node.id === 'agent:sannin' ? '11' : '10'} font-weight="900" font-family="monospace" fill="var(--color-text)">
+            {node.type === 'agent' ? node.key.slice(0, 3).toUpperCase() : (node.type === 'client' ? 'CLI' : 'MCP')}
+          </text>
+          <g transform="translate(0, {nodeRadius + 15})">
+            <rect x="-54" y="-10" width="108" height="18" rx="4" fill="var(--color-surface)" stroke="var(--color-border)" stroke-width="1" opacity="0.94" />
+            <text y="2" text-anchor="middle" font-size="10" font-weight="800" fill="var(--color-text)">
+              {node.label.length > 15 ? `${node.label.slice(0, 14)}…` : node.label}
+            </text>
+          </g>
+        </g>
+      {/each}
+
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <g
+        transform="translate({spiderX.current}, {spiderY.current}) scale({spiderScale.current}) rotate({spiderFlipAngle.current})"
+        class="cursor-pointer"
+        role="button"
+        tabindex="0"
+        aria-label="Konoha Execution Spider — Click to flip 180 degrees"
+        data-testid={isModal ? 'fullscreen-interactive-spider-core' : 'interactive-spider-core'}
+        onclick={triggerSpiderFlip}
+      >
+        <circle r="48" fill="url(#spider-core-glow)" />
+        <circle r="28" fill="none" stroke="url(#spider-body-gradient)" stroke-width="2" stroke-dasharray="5 4" />
+        <ellipse cx="0" cy="12" rx="13" ry="16" fill="url(#spider-body-gradient)" stroke="var(--color-surface)" stroke-width="2" />
+        <circle cx="0" cy="-7" r="10" fill="var(--color-surface)" stroke="var(--theme-grad-1)" stroke-width="2.5" />
+        <circle cx="-4" cy="-10" r="2.1" fill="var(--theme-grad-1)" />
+        <circle cx="4" cy="-10" r="2.1" fill="var(--theme-grad-1)" />
+        <circle cx="-2" cy="-13" r="1.4" fill="var(--theme-grad-2)" />
+        <circle cx="2" cy="-13" r="1.4" fill="var(--theme-grad-2)" />
+        <path d="M -5 12 L 0 5 L 5 12 L 0 19 Z" fill="var(--color-surface)" opacity="0.9" />
+      </g>
+    </g>
+  </svg>
+{/snippet}
+
 <div class="space-y-6 animate-in fade-in duration-300" data-testid="agent-activity-page">
   <PageHero
     title="Live Agent Activity & Spider Network"
@@ -325,31 +497,21 @@
         </div>
         <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">Seq #{snapshot.seq}</p>
       </div>
-      <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Active Agents</p>
-        <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: var(--theme-grad-1);">{snapshot.summary.active_agents}<span class="text-xs font-semibold" style="color: var(--color-text-muted);"> / {snapshot.summary.total_agents}</span></p>
-        <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">Ninja Specialists</p>
-      </div>
-      <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Active MCP Tools</p>
-        <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: var(--theme-grad-2);">{snapshot.summary.active_tools}<span class="text-xs font-semibold" style="color: var(--color-text-muted);"> / {snapshot.summary.total_tools}</span></p>
-        <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">{snapshot.summary.recent_calls_count} recent calls</p>
-      </div>
-      <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Connected Harnesses</p>
-        <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: var(--theme-success);">{snapshot.summary.connected_clients}<span class="text-xs font-semibold" style="color: var(--color-text-muted);"> / {snapshot.summary.total_clients}</span></p>
-        <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">Global MCP synced</p>
-      </div>
-      <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Spider Filaments</p>
-        <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: var(--theme-grad-3);">{spiderLegs.length}<span class="text-xs font-semibold" style="color: var(--color-text-muted);"> legs</span></p>
-        <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">{snapshot.summary.active_edges} active vectors</p>
-      </div>
-      <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Window Token Savings</p>
-        <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: var(--theme-grad-4);">{(snapshot.summary.recent_tokens_saved || 0).toLocaleString()}</p>
-        <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">Bounded MCP reads</p>
-      </div>
+      {#each [
+        { label: 'Active Agents', val: snapshot.summary.active_agents, max: snapshot.summary.total_agents, sub: 'Ninja Specialists', color: 'var(--theme-grad-1)' },
+        { label: 'Active MCP Tools', val: snapshot.summary.active_tools, max: snapshot.summary.total_tools, sub: `${snapshot.summary.recent_calls_count} recent calls`, color: 'var(--theme-grad-2)' },
+        { label: 'Connected Harnesses', val: snapshot.summary.connected_clients, max: snapshot.summary.total_clients, sub: 'Global MCP synced', color: 'var(--theme-success)' },
+        { label: 'Spider Filaments', val: spiderLegs.length, max: 'legs', sub: `${snapshot.summary.active_edges} active vectors`, color: 'var(--theme-grad-3)' },
+        { label: 'Window Token Savings', val: (snapshot.summary.recent_tokens_saved || 0).toLocaleString(), max: null, sub: 'Bounded MCP reads', color: 'var(--theme-grad-4)' }
+      ] as card}
+        <div class="metric-card-3d p-4 rounded-[5px] border" style="border-color: var(--color-border);">
+          <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">{card.label}</p>
+          <p class="text-2xl font-black font-mono mt-1 tabular-nums" style="color: {card.color};">
+            {card.val}{#if card.max !== null}<span class="text-xs font-semibold" style="color: var(--color-text-muted);"> {card.max === 'legs' ? 'legs' : `/ ${card.max}`}</span>{/if}
+          </p>
+          <p class="text-[11px] mt-1 font-medium" style="color: var(--color-text-muted);">{card.sub}</p>
+        </div>
+      {/each}
     </div>
   {/if}
 
@@ -357,7 +519,7 @@
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
       <div class="xl:col-span-8 glass-card-3d rounded-[5px] border overflow-hidden relative select-none" style="border-color: var(--color-border); min-height: 620px;">
         <div class="p-3 border-b flex flex-wrap items-center justify-between gap-2 glass-frost z-20 relative" style="border-color: var(--color-border);">
-          <div class="flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center gap-1.5">
             {#each [{ id: 'all', label: 'All Nodes' }, { id: 'agent', label: 'Agents' }, { id: 'client', label: 'Clients' }, { id: 'tool', label: 'MCP Tools' }] as tab}
               <button
                 type="button"
@@ -366,127 +528,47 @@
                 style={filterType === tab.id ? 'background: var(--theme-4gradient);' : 'color: var(--color-text-muted);'}
               >{tab.label}</button>
             {/each}
+            <select
+              aria-label="Filter by execution state"
+              data-testid="activity-state-filter"
+              bind:value={filterState}
+              class="px-2 py-1 rounded-[4px] border text-[11px] font-mono font-bold theme-bg-surface cursor-pointer"
+              style="border-color: var(--color-border); color: var(--color-text);"
+            >
+              <option value="all">All States</option>
+              <option value="queued">queued ({snapshot?.summary?.state_counts?.queued ?? 0})</option>
+              <option value="running">running ({snapshot?.summary?.state_counts?.running ?? 0})</option>
+              <option value="completed">completed ({snapshot?.summary?.state_counts?.completed ?? 0})</option>
+              <option value="failed">failed ({snapshot?.summary?.state_counts?.failed ?? 0})</option>
+              <option value="paused">paused ({snapshot?.summary?.state_counts?.paused ?? 0})</option>
+              <option value="awaiting-approval">awaiting-approval ({snapshot?.summary?.state_counts?.['awaiting-approval'] ?? 0})</option>
+            </select>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center gap-1.5">
+            {#if isDisconnected}
+              <span class="px-2 py-0.5 rounded-[4px] border text-[10px] font-mono font-bold uppercase" style="border-color: var(--theme-warning, #f59e0b); color: var(--theme-warning, #f59e0b);">Reconnecting…</span>
+            {/if}
             <button type="button" onclick={zoomOut} class="w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text);" aria-label="Zoom out" data-testid="spider-zoom-out">−</button>
             <span class="text-[11px] font-mono font-bold px-2" style="color: var(--color-text);" data-testid="spider-zoom-level">{Math.round(zoomLevel * 100)}%</span>
             <button type="button" onclick={zoomIn} class="w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text);" aria-label="Zoom in" data-testid="spider-zoom-in">+</button>
             <button type="button" onclick={resetViewport} class="px-2.5 py-1 rounded-[4px] border text-[11px] font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text-muted);" data-testid="spider-reset-view">Reset View</button>
+            <button
+              type="button"
+              onclick={openFullScreen}
+              class="btn-3d px-3 py-1 rounded-[4px] border text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer text-white"
+              style="background: var(--theme-4gradient); border-color: transparent;"
+              data-testid="activity-fullscreen-btn"
+              aria-label="Open Full Screen Agent Activity"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
+              </svg>
+              <span>Full Screen</span>
+            </button>
           </div>
         </div>
 
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <svg
-          viewBox="0 0 {VIEW_W} {VIEW_H}"
-          class="w-full h-[560px] block {isPanning ? 'cursor-grabbing' : 'cursor-grab'}"
-          role="application"
-          aria-label="Interactive Konoha Agent Activity Spider Network"
-          data-testid="agent-activity-spider-svg"
-          onwheel={handleWheel}
-          onpointerdown={handlePointerDown}
-          onpointermove={handlePointerMove}
-          onpointerup={handlePointerUp}
-          onpointerleave={handlePointerUp}
-        >
-          <defs>
-            <radialGradient id="spider-core-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="var(--theme-grad-1)" stop-opacity="0.55" />
-              <stop offset="55%" stop-color="var(--theme-grad-2)" stop-opacity="0.22" />
-              <stop offset="100%" stop-color="var(--theme-grad-4)" stop-opacity="0" />
-            </radialGradient>
-            <linearGradient id="spider-leg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="var(--theme-grad-1)" />
-              <stop offset="50%" stop-color="var(--theme-grad-2)" />
-              <stop offset="100%" stop-color="var(--theme-grad-3)" />
-            </linearGradient>
-            <linearGradient id="spider-body-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="var(--theme-grad-1)" />
-              <stop offset="50%" stop-color="var(--theme-grad-2)" />
-              <stop offset="100%" stop-color="var(--theme-grad-4)" />
-            </linearGradient>
-          </defs>
-
-          <g transform="translate({panX}, {panY}) translate({CENTER_X}, {CENTER_Y}) scale({zoomLevel}) translate({-CENTER_X}, {-CENTER_Y})">
-            {#each [110, 175, 260, 360, 445] as radius, rIdx}
-              <ellipse cx={CENTER_X} cy={CENTER_Y} rx={radius} ry={radius * 0.66} fill="none" stroke="var(--color-border)" stroke-width={rIdx === 1 ? '1.3' : '0.8'} stroke-dasharray={rIdx % 2 === 0 ? '4 6' : 'none'} opacity="0.48" />
-            {/each}
-
-            <text x="155" y="54" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">CLIENT HARNESSES (8)</text>
-            <text x={CENTER_X} y="54" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-primary)" letter-spacing="2">NINJA ORCHESTRATION RING</text>
-            <text x="1045" y="54" text-anchor="end" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">MCP &amp; SEMBLE TOOLS</text>
-
-            {#each visibleEdges as edge (edge.id)}
-              <g>
-                <line x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} stroke={edge.active ? 'var(--theme-grad-2)' : 'var(--color-border)'} stroke-width={edge.active ? '2.2' : '1.1'} stroke-opacity={edge.active ? '0.82' : '0.38'} stroke-dasharray={edge.active ? '6 4' : 'none'} />
-                {#if edge.active && !reducedMotion}
-                  <circle r="3.5" fill="var(--theme-grad-1)">
-                    <animateMotion dur="2.1s" repeatCount="indefinite" path="M {edge.x1} {edge.y1} L {edge.x2} {edge.y2}" />
-                  </circle>
-                {/if}
-              </g>
-            {/each}
-
-            {#each spiderLegs as leg (leg.id)}
-              <g>
-                <path d={leg.filamentPath} fill="none" stroke={leg.active ? 'var(--theme-grad-2)' : 'var(--color-border)'} stroke-width={leg.active ? '1.2' : '0.75'} stroke-dasharray="3 4" opacity={leg.active ? '0.75' : '0.4'} />
-                <path d={leg.path} fill="none" stroke="url(#spider-leg-gradient)" stroke-width={leg.active ? '3.1' : '2.2'} stroke-linecap="round" opacity={leg.active ? '0.96' : '0.72'} />
-                <circle cx={leg.footX} cy={leg.footY} r={leg.active ? '3.6' : '2.5'} fill={leg.active ? 'var(--theme-grad-1)' : 'var(--color-surface)'} stroke="var(--theme-grad-2)" stroke-width="1.5" />
-              </g>
-            {/each}
-
-            {#each visibleNodes as node (node.id)}
-              {@const isSelected = selectedNodeId === node.id}
-              {@const tone = nodeTone(node)}
-              {@const nodeRadius = node.id === 'agent:sannin' ? 30 : (node.type === 'agent' ? 23 : 19)}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <g
-                transform="translate({node.x}, {node.y})"
-                class="cursor-pointer"
-                role="button"
-                tabindex="0"
-                aria-label="{node.type} node {node.label} ({node.status})"
-                data-testid="activity-node-{node.id}"
-                onclick={(e) => selectNode(node, e)}
-              >
-                {#if node.active || isSelected}
-                  <circle r={nodeRadius + 8} fill="none" stroke={tone} stroke-width={isSelected ? '2.5' : '1.4'} stroke-dasharray={isSelected ? 'none' : '4 3'} opacity="0.78" />
-                {/if}
-                <circle r={nodeRadius} fill="var(--color-surface)" stroke={tone} stroke-width={node.active || isSelected ? '2.8' : '1.8'} />
-                <circle r={nodeRadius - 5} fill={tone} fill-opacity={node.active ? '0.2' : '0.08'} />
-                <text y="4" text-anchor="middle" font-size={node.id === 'agent:sannin' ? '11' : '10'} font-weight="900" font-family="monospace" fill="var(--color-text)">
-                  {node.type === 'agent' ? node.key.slice(0, 3).toUpperCase() : (node.type === 'client' ? 'CLI' : 'MCP')}
-                </text>
-                <g transform="translate(0, {nodeRadius + 15})">
-                  <rect x="-54" y="-10" width="108" height="18" rx="4" fill="var(--color-surface)" stroke="var(--color-border)" stroke-width="1" opacity="0.94" />
-                  <text y="2" text-anchor="middle" font-size="10" font-weight="800" fill="var(--color-text)">
-                    {node.label.length > 15 ? `${node.label.slice(0, 14)}…` : node.label}
-                  </text>
-                </g>
-              </g>
-            {/each}
-
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <g
-              transform="translate({spiderX.current}, {spiderY.current}) scale({spiderScale.current}) rotate({spiderFlipAngle.current})"
-              class="cursor-pointer"
-              role="button"
-              tabindex="0"
-              aria-label="Konoha Execution Spider — Click to flip 180 degrees"
-              data-testid="interactive-spider-core"
-              onclick={triggerSpiderFlip}
-            >
-              <circle r="48" fill="url(#spider-core-glow)" />
-              <circle r="28" fill="none" stroke="url(#spider-body-gradient)" stroke-width="2" stroke-dasharray="5 4" />
-              <ellipse cx="0" cy="12" rx="13" ry="16" fill="url(#spider-body-gradient)" stroke="var(--color-surface)" stroke-width="2" />
-              <circle cx="0" cy="-7" r="10" fill="var(--color-surface)" stroke="var(--theme-grad-1)" stroke-width="2.5" />
-              <circle cx="-4" cy="-10" r="2.1" fill="var(--theme-grad-1)" />
-              <circle cx="4" cy="-10" r="2.1" fill="var(--theme-grad-1)" />
-              <circle cx="-2" cy="-13" r="1.4" fill="var(--theme-grad-2)" />
-              <circle cx="2" cy="-13" r="1.4" fill="var(--theme-grad-2)" />
-              <path d="M -5 12 L 0 5 L 5 12 L 0 19 Z" fill="var(--color-surface)" opacity="0.9" />
-            </g>
-          </g>
-        </svg>
+        {@render spiderSvgCanvas(false)}
 
         <div class="px-4 py-2.5 border-t flex flex-wrap items-center justify-between gap-3 text-[11px] glass-frost" style="border-color: var(--color-border); color: var(--color-text-muted);">
           <div class="flex flex-wrap items-center gap-4">
@@ -503,43 +585,110 @@
       <AgentActivityInspector
         {selectedNode}
         recentCalls={snapshot?.recent_calls || []}
+        tasks={snapshot?.tasks || []}
         {lastUpdated}
         {reducedMotion}
         {formatRelativeTime}
       />
     </div>
   {:else}
-    <div class="glass-card-3d p-6 rounded-[5px] border space-y-4" style="border-color: var(--color-border);" data-testid="activity-accessible-table" in:fade={{ duration: 150 }}>
-      <h3 class="text-base font-black" style="color: var(--color-text);">Structured Runtime Execution Matrix</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b uppercase text-[10px] font-bold tracking-wider" style="border-color: var(--color-border); color: var(--color-text-muted);">
-              <th class="py-2.5 px-3">Node</th>
-              <th class="py-2.5 px-3">Type</th>
-              <th class="py-2.5 px-3">Role / Category</th>
-              <th class="py-2.5 px-3">Status</th>
-              <th class="py-2.5 px-3 text-right">Calls</th>
-              <th class="py-2.5 px-3 text-right">Tokens Saved</th>
-              <th class="py-2.5 px-3 text-right">Last Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each graphLayout.nodes as node (node.id)}
-              <tr class="border-b hover-bg-subtle transition-colors" style="border-color: var(--color-border);">
-                <td class="py-2.5 px-3 font-mono font-bold" style="color: var(--color-text);">{node.label}</td>
-                <td class="py-2.5 px-3 uppercase font-mono text-[10px]" style="color: var(--color-primary);">{node.type}</td>
-                <td class="py-2.5 px-3" style="color: var(--color-text-muted);">{node.role || node.category || '—'}</td>
-                <td class="py-2.5 px-3">
-                  <span class="px-2 py-0.5 rounded-[4px] font-mono text-[10px] font-bold border" style="border-color: {node.active ? 'var(--theme-success)' : 'var(--color-border)'}; color: {node.active ? 'var(--theme-success)' : 'var(--color-text-muted)'};">{node.status}</span>
-                </td>
-                <td class="py-2.5 px-3 text-right font-mono">{(node.call_count || 0).toLocaleString()}</td>
-                <td class="py-2.5 px-3 text-right font-mono font-bold" style="color: var(--theme-grad-1);">{(node.tokens_saved || 0).toLocaleString()}</td>
-                <td class="py-2.5 px-3 text-right font-mono" style="color: var(--color-text-muted);">{formatRelativeTime(node.last_active_at)}</td>
-              </tr>
+    <AgentActivityTable
+      nodes={graphLayout.nodes}
+      tasks={snapshot?.tasks || []}
+      {selectedNodeId}
+      onSelectNode={(n) => selectNode(n)}
+      {formatRelativeTime}
+    />
+  {/if}
+
+  {#if isFullScreen}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full Screen Agent Activity Spider Topology"
+      data-testid="activity-fullscreen-modal"
+      class="fixed inset-0 z-[120] w-screen h-[100dvh] flex flex-col select-none animate-in fade-in duration-200"
+      style="background: var(--color-bg); color: var(--color-text);"
+    >
+      <div class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-3 glass-frost z-30" style="border-color: var(--color-border);">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full {snapshot?.summary?.runtime_state === 'executing' ? 'animate-ping' : ''}" style="background: {snapshot?.summary?.runtime_state === 'executing' ? 'var(--theme-success)' : 'var(--theme-grad-1)'};"></span>
+            <h2 class="text-sm sm:text-base font-black tracking-tight" style="color: var(--color-text);">Full Screen Spider Topology</h2>
+          </div>
+          {#if snapshot?.summary}
+            <div class="hidden md:flex items-center gap-2 text-[11px] font-mono">
+              <span class="px-2 py-0.5 rounded-[4px] border" style="border-color: var(--color-border);">Agents: <strong>{snapshot.summary.active_agents}/{snapshot.summary.total_agents}</strong></span>
+              <span class="px-2 py-0.5 rounded-[4px] border" style="border-color: var(--color-border);">Tools: <strong>{snapshot.summary.active_tools}/{snapshot.summary.total_tools}</strong></span>
+              <span class="px-2 py-0.5 rounded-[4px] border" style="border-color: var(--color-border);">Clients: <strong>{snapshot.summary.connected_clients}/{snapshot.summary.total_clients}</strong></span>
+              <span class="px-2 py-0.5 rounded-[4px] border" style="border-color: var(--color-border);">Saved: <strong>{(snapshot.summary.recent_tokens_saved || 0).toLocaleString()} tok</strong></span>
+            </div>
+          {/if}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1">
+            {#each [{ id: 'all', label: 'All' }, { id: 'agent', label: 'Agents' }, { id: 'client', label: 'Clients' }, { id: 'tool', label: 'Tools' }] as tab}
+              <button
+                type="button"
+                onclick={() => { filterType = tab.id; }}
+                class="px-2.5 py-1 rounded-[4px] text-[11px] font-bold transition-colors cursor-pointer {filterType === tab.id ? 'text-white' : ''}"
+                style={filterType === tab.id ? 'background: var(--theme-4gradient);' : 'color: var(--color-text-muted);'}
+              >{tab.label}</button>
             {/each}
-          </tbody>
-        </table>
+          </div>
+
+          <button
+            type="button"
+            onclick={triggerSpiderFlip}
+            class="px-3 py-1 rounded-[4px] border text-[11px] font-extrabold cursor-pointer theme-bg-surface"
+            style="border-color: var(--color-primary); color: var(--color-primary);"
+            data-testid="fullscreen-spider-flip-btn"
+          >
+            Flip 180° ({spiderFlipped ? 'Inverted' : 'Upright'})
+          </button>
+
+          <div class="flex items-center gap-1">
+            <button type="button" onclick={zoomOut} class="w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text);" aria-label="Zoom out">−</button>
+            <span class="text-[11px] font-mono font-bold px-1.5">{Math.round(zoomLevel * 100)}%</span>
+            <button type="button" onclick={zoomIn} class="w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text);" aria-label="Zoom in">+</button>
+            <button type="button" onclick={resetViewport} class="px-2 py-1 rounded-[4px] border text-[11px] font-bold cursor-pointer theme-bg-surface" style="border-color: var(--color-border); color: var(--color-text-muted);">Reset</button>
+          </div>
+
+          <button
+            type="button"
+            bind:this={fullscreenCloseBtnEl}
+            onclick={closeFullScreen}
+            class="btn-3d px-3 py-1.5 rounded-[4px] border text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
+            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            data-testid="activity-fullscreen-close"
+            aria-label="Exit Full Screen"
+          >
+            <span>Exit Full Screen (Esc)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
+        <div class="lg:col-span-8 xl:col-span-9 h-full w-full relative overflow-hidden flex flex-col justify-between">
+          <div class="flex-1 min-h-0 w-full flex items-center justify-center">
+            {@render spiderSvgCanvas(true)}
+          </div>
+          <div class="px-4 py-2 border-t flex flex-wrap items-center justify-between gap-2 text-[11px] glass-frost" style="border-color: var(--color-border); color: var(--color-text-muted);">
+            <span>Click any Spider, Ninja Agent, Client Harness, or MCP Tool node to inspect live telemetry</span>
+            <span class="font-mono font-bold">Orientation: {spiderFlipped ? 'INVERTED (180°)' : 'UPRIGHT (0°)'} · Flips: {spiderFlipCount}</span>
+          </div>
+        </div>
+        <div class="lg:col-span-4 xl:col-span-3 h-full overflow-y-auto border-t lg:border-t-0 lg:border-l p-4 theme-bg-surface" style="border-color: var(--color-border);" data-testid="activity-fullscreen-inspector">
+          <AgentActivityInspector
+            {selectedNode}
+            recentCalls={snapshot?.recent_calls || []}
+            tasks={snapshot?.tasks || []}
+            {lastUpdated}
+            {reducedMotion}
+            {formatRelativeTime}
+          />
+        </div>
       </div>
     </div>
   {/if}

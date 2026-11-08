@@ -11,6 +11,7 @@
 
 'use strict';
 
+const path = require('path');
 const db = require('../../db');
 const personaMemory = require('../../persona_memory');
 
@@ -148,7 +149,11 @@ function _matchesScope(row, scope) {
   if (!scope || typeof scope !== 'object' || !row) return true;
   if (scope.sessionId && row.session_id && row.session_id !== scope.sessionId) return false;
   if (scope.client && row.client && row.client !== scope.client) return false;
-  if (scope.projectPath && row.project_path && row.project_path !== scope.projectPath && !row.project_path.includes(scope.projectPath)) return false;
+  if (scope.projectPath && row.project_path) {
+    const normScope = path.resolve(scope.projectPath);
+    const normRow = path.resolve(row.project_path);
+    if (normRow !== normScope && !normRow.startsWith(normScope + path.sep)) return false;
+  }
   return true;
 }
 
@@ -255,8 +260,9 @@ function listTasks({ projectPath = null, sessionId = null, client = null, status
     const params = [];
 
     if (projectPath) {
+      const normProj = path.resolve(projectPath);
       sql += ' AND (project_path = ? OR project_path LIKE ?)';
-      params.push(projectPath, `%${projectPath}%`);
+      params.push(normProj, `${normProj}${path.sep}%`);
     }
     if (sessionId) {
       sql += " AND session_id = ?";
@@ -412,8 +418,9 @@ function deleteTasks({ projectPath = null, sessionId = null, client = null, stat
     const params = [];
 
     if (projectPath) {
+      const normProj = path.resolve(projectPath);
       sql += ' AND (project_path = ? OR project_path LIKE ?)';
-      params.push(projectPath, `%${projectPath}%`);
+      params.push(normProj, `${normProj}${path.sep}%`);
     }
     if (sessionId) {
       sql += ' AND session_id = ?';

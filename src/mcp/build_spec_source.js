@@ -162,13 +162,13 @@ function assembleSourceDirectives(context) {
     `Build a clean ${displayFramework} website named '${name}' based on the source design directory '${sourceDir}'.`
   ];
   if (detectedImages.length > 0) {
-    directives.push(`Detected design mockups: ${detectedImages.map(m => m.filename).join(', ')}. Translate these layouts directly into component structure with high visual fidelity.`);
+    directives.push(`Detected design mockups: ${detectedImages.map(m => m.filename).join(', ')}. Translate these layouts directly into component structure with high visual fidelity, analyzing composition, spatial depth, lighting, material, layering, and implied interaction.`);
   }
   if (layoutHints.length > 0) {
     directives.push(`Image layout analysis: ${layoutHints.join('; ')}. Use these dimensions to guide responsive breakpoints and aspect ratios.`);
   }
   if (detectedSources.length > 0) {
-    directives.push(`Detected source code reference files: ${detectedSources.map(s => s.filename).join(', ')}. Reconstruct or migrate component structure and logic from these files.`);
+    directives.push(`Detected source code reference files: ${detectedSources.map(s => s.filename).join(', ')}. Inspect all routes, interactions, layout hierarchy, and state transitions before reconstructing or migrating component structure.`);
   }
 
   directives.push('You MUST follow the package.json template, CSS variables, design-token manifest, and routing rules from the embedded skill content below.');
@@ -304,6 +304,16 @@ function buildFromSource(name, sourceDir, framework, options = {}) {
     framework: frameworkSpec.canonical,
     framework_display: displayFramework,
     mode: 'build_from_source',
+    creation_mode: (detectedImages.length > 0 && detectedSources.length === 0) ? 'build_from_image' : 'build_from_source',
+    creation_modes_supported: ['build_from_image', 'build_from_text', 'build_from_source'],
+    component_discovery_source: 'https://www.framer.com/marketplace/components/',
+    chunin_playwright_rea_required: true,
+    framer_licensing_boundaries: {
+      evaluate_free_and_paid: true,
+      no_protected_source_extraction: true,
+      no_iframe_injection: true,
+      native_framework_recreation: true
+    },
     source_directory: resolvedSourceDir,
     source_fidelity: true,
     premium_effects_policy: 'Only preserve or enhance effects explicitly present in source; do not inject generic themes, catalogs, carousels, dialogs, or sections.',

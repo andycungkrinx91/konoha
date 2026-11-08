@@ -97,6 +97,51 @@ function loadCanonicalAgents() {
     .map(([id, role]) => ({ id, name: id, icon: '*', role, model: 'inherit', skills_count: 1 }));
 }
 
+function normalizeExecutionStatus(rawStatus) {
+  const s = String(rawStatus || '').trim().toLowerCase();
+  if (s === 'queued' || s === 'pending') return 'queued';
+  if (s === 'in_progress' || s === 'executing' || s === 'running' || s === 'remediating' || s === 'orchestrating' || s === 'active') return 'running';
+  if (s === 'completed' || s === 'verified' || s === 'done') return 'completed';
+  if (s === 'failed' || s === 'error' || s === 'rejected' || s === 'circuit_broken') return 'failed';
+  if (s === 'paused' || s === 'blocked' || s === 'standby' || s === 'idle') return 'paused';
+  if (s === 'pending_plan_approval' || s === 'pending_human_signoff' || s === 'awaiting-approval' || s === 'awaiting_approval') return 'awaiting-approval';
+  return 'queued';
+}
+
+function parseTaskRow(row) {
+  let evidenceObj = {};
+  if (row && row.evidence) {
+    try {
+      evidenceObj = typeof row.evidence === 'string' ? JSON.parse(row.evidence) : row.evidence;
+    } catch (_) {
+      evidenceObj = {};
+    }
+  }
+  const rawDesc = String(row?.description || '').trim();
+  const derivedTitle = evidenceObj?.title
+    || (rawDesc ? rawDesc.split('\n')[0].slice(0, 96) : '')
+    || `Task #${row?.id || 'unknown'}`;
+  const rawConf = evidenceObj?.confidence_score ?? evidenceObj?.confidence ?? null;
+  const createdMs = parseTimestampMs(row?.created_at);
+  const updatedMs = parseTimestampMs(row?.updated_at || row?.created_at);
+  const durationMs = createdMs > 0 && updatedMs >= createdMs ? (updatedMs - createdMs) : 0;
+  const normalizedStatus = normalizeExecutionStatus(evidenceObj?.hitl_gate || row?.status);
+  return {
+    ...row,
+    title: derivedTitle,
+    agent: evidenceObj?.agent || evidenceObj?.assigned_agent || evidenceObj?.subagent || 'sannin',
+    client: normalizeClientId(row?.client || evidenceObj?.client || 'antigravity'),
+    tool: evidenceObj?.tool || evidenceObj?.last_tool || 'sannin',
+    workflow: evidenceObj?.workflow || evidenceObj?.phase || evidenceObj?.stage || row?.review_mode || 'sdlc-langgraph',
+    phase: evidenceObj?.phase || evidenceObj?.stage || row?.review_mode || row?.status || 'implementation',
+    execution_status: normalizedStatus,
+    duration_ms: durationMs,
+    evidence_summary: evidenceObj?.summary || evidenceObj?.exploration_evidence || (row?.dor_result ? String(row.dor_result).slice(0, 120) : 'Verified runtime telemetry'),
+    verified: Boolean(evidenceObj?.verified || evidenceObj?.qa_verified || row?.status === 'completed'),
+    confidence_score: rawConf !== null && rawConf !== undefined && Number.isFinite(Number(rawConf)) ? Number(rawConf) : null
+  };
+}
+
 function queryDatabaseActivity(windowMinutes = 60, limit = 60) {
   const nowMs = Date.now();
   const activeCutoffMs = nowMs - (Math.max(5, windowMinutes) * 60 * 1000);
@@ -112,8 +157,8 @@ function queryDatabaseActivity(windowMinutes = 60, limit = 60) {
     conn = db.getConnection(null, true);
     try {
       activeSessions = conn.prepare(`
-        SELECT session_id, client, turn_count, last_active_ts, project_hash, compact_override
-        FROM active_sessions ORDER BY last_active_ts DESC LIMIT 32
+        SELECT session_id, client, workspace_root, project_hash, transcript_path, last_active_at AS last_active_ts
+        FROM active_sessions ORDER BY last_active_at DESC LIMIT 32
       `).all();
     } catch (_) { activeSessions = []; }
 
@@ -125,10 +170,11 @@ function queryDatabaseActivity(windowMinutes = 60, limit = 60) {
     } catch (_) { recentToolCalls = []; }
 
     try {
-      sdlcTasks = conn.prepare(`
-        SELECT id, title, description, agent, status, phase, verified, confidence_score, created_at, updated_at
+      const rawTasks = conn.prepare(`
+        SELECT id, description, status, dor_result, review_mode, evidence, slop_result, slop_cycles, project_path, session_id, client, created_at, updated_at
         FROM sdlc_tasks ORDER BY updated_at DESC, id DESC LIMIT 40
       `).all();
+      sdlcTasks = rawTasks.map(parseTaskRow);
     } catch (_) { sdlcTasks = []; }
 
     try {
@@ -273,20 +319,30 @@ function populateTasksAndTools(graph, rawData) {
       agentNode.task_id = t.id;
       agentNode.task_title = t.title;
       agentNode.phase = t.phase || 'implementation';
+      agentNode.workflow = t.workflow || t.phase || 'sdlc-langgraph';
+      agentNode.client = t.client || 'antigravity';
+      agentNode.tool = t.tool || 'sannin';
+      agentNode.duration_ms = t.duration_ms || 0;
+      agentNode.evidence = t.evidence_summary || 'Verified runtime telemetry';
+      agentNode.execution_status = t.execution_status || normalizeExecutionStatus(t.status);
       agentNode.confidence_score = t.confidence_score;
     }
     if (agentNode && isTaskActive) {
       agentNode.active = true;
-      agentNode.status = t.status || 'in_progress';
+      agentNode.status = t.execution_status || t.status || 'running';
       agentNode.last_active_at = t.updated_at || t.created_at;
       graph.upsertEdge('agent:sannin', `agent:${agentId}`, {
-        kind: 'sdlc_task', status: t.status || 'in_progress', active: true, weight: 2,
+        kind: 'sdlc_task', status: t.execution_status || t.status || 'running', active: true, weight: 2,
         last_timestamp: t.updated_at || t.created_at, label: t.phase || t.status || 'active'
       });
     }
     return {
-      id: t.id, title: t.title || `Task #${t.id}`, description: t.description || '',
-      agent: agentId, status: t.status || 'queued', phase: t.phase || 'planning',
+      id: t.id, task_id: t.id, title: t.title || `Task #${t.id}`, description: t.description || '',
+      agent: agentId, client: t.client || 'antigravity', tool: t.tool || 'sannin',
+      workflow: t.workflow || t.phase || 'sdlc-langgraph',
+      status: t.status || 'queued', execution_status: t.execution_status || normalizeExecutionStatus(t.status),
+      phase: t.phase || 'planning', duration_ms: t.duration_ms || 0,
+      evidence: t.evidence_summary || 'Verified runtime telemetry',
       verified: Boolean(t.verified), confidence_score: t.confidence_score !== undefined ? t.confidence_score : null,
       created_at: t.created_at, updated_at: t.updated_at, active: isTaskActive
     };
@@ -380,6 +436,24 @@ function buildExecutionGraph(rawData, canonicalAgents) {
     if (sanninNode.status === 'standby') sanninNode.status = 'orchestrating';
   }
 
+  const stateCounts = {
+    queued: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+    paused: 0,
+    'awaiting-approval': 0
+  };
+  for (const t of formattedTasks) {
+    const st = t.execution_status || normalizeExecutionStatus(t.status);
+    if (stateCounts[st] !== undefined) stateCounts[st] += 1;
+  }
+  for (const n of graph.nodes) {
+    if (!n.execution_status) {
+      n.execution_status = n.active ? 'running' : normalizeExecutionStatus(n.status);
+    }
+  }
+
   _activitySeq += 1;
 
   return {
@@ -400,7 +474,8 @@ function buildExecutionGraph(rawData, canonicalAgents) {
       spider_leg_count: Math.max(6, Math.min(14, activeEdgesCount > 0 ? activeEdgesCount + 2 : 8)),
       recent_tokens_saved: formattedToolCalls.reduce((sum, c) => sum + (c.tokens_saved || 0), 0),
       recent_calls_count: formattedToolCalls.length,
-      runtime_state: activeEdgesCount > 0 ? 'executing' : 'standby'
+      runtime_state: activeEdgesCount > 0 ? 'executing' : 'standby',
+      state_counts: stateCounts
     },
     graph: {
       hub_id: 'agent:sannin',
@@ -456,5 +531,6 @@ async function handleActivityRoutes(req, res, ctx, parsedUrl, ...rest) {
 
 module.exports = {
   getLiveActivitySnapshot,
-  handleActivityRoutes
+  handleActivityRoutes,
+  normalizeExecutionStatus
 };

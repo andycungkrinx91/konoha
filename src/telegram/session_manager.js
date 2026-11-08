@@ -168,7 +168,7 @@ function _getAntigravityBrainDir(sessionId) {
 
 function _getBrainMtime(brainDir) {
   let newestMtime = 0;
-  for (const sub of ['.system_generated/logs/transcript.jsonl', 'prompt.md']) {
+  for (const sub of ['.system_generated/logs/transcript.jsonl', 'status.json']) {
     const p = path.join(brainDir, sub);
     if (fs.existsSync(p)) {
       try { newestMtime = Math.max(newestMtime, fs.statSync(p).mtimeMs); } catch (_) { /* ignore */ }

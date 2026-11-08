@@ -9,13 +9,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { autoMigrateProjectSkills } = require('../../mcp/skills_search');
-
-function computeProjectHash(projectPath) {
-  const norm = path.resolve(String(projectPath || process.cwd())).replace(/\\/g, '/');
-  return crypto.createHash('sha256').update(norm).digest('hex').slice(0, 12);
-}
+const { computeProjectHash } = require('../../persona_memory_projects');
 
 function toProjectSlug(nameOrPath) {
   const base = path.basename(String(nameOrPath || 'web-app').trim());
@@ -83,11 +78,22 @@ function buildFrontendMaintenanceSkillMarkdown(options = {}) {
     routes: ['src/app/page.tsx'],
     components: ['src/components/Footer.tsx']
   };
+  const provenanceList = Array.isArray(options.componentProvenance) && options.componentProvenance.length > 0
+    ? options.componentProvenance
+    : [
+      {
+        component_name: 'Framer Marketplace Adapted Surface',
+        marketplace_url: 'https://www.framer.com/marketplace/components/',
+        pricing_tier: 'free+paid-preview-rea',
+        licensing_mode: 'native_clean_room_recreation',
+        target_framework: framework
+      }
+    ];
 
   return [
     '---',
     `name: ${skillName}`,
-    `description: Project-scoped frontend maintenance skill for ${slug} (${framework}, ${archetype}). Preserves theme tokens, responsive layout, tests, and Build by konoha signature.`,
+    `description: Project-scoped frontend maintenance skill for ${slug} (${framework}, ${archetype}). Preserves theme tokens, responsive layout, Framer Marketplace provenance, tests, and Build by konoha signature.`,
     '---',
     '',
     `# ${slug} — Frontend Maintenance Skill`,
@@ -98,6 +104,11 @@ function buildFrontendMaintenanceSkillMarkdown(options = {}) {
     `- **Color Mode**: Dark & Light Mode via semantic CSS custom properties (\`${themeTokens.colorScheme}\`)`,
     '- **Required Signature**: `<meta name="generator" content="Build by konoha">` in document `<head>` and visible `Build by konoha` signature in `<footer>`.',
     '- **Anti-Slop Policy**: Zero emojis in UI controls/headings, zero hardcoded hex colors outside theme tokens, and dynamic Astra/Fable-grade visual hierarchy.',
+    '',
+    '## Framer Marketplace Component Provenance (Chunin REA -> Jonin Native)',
+    ...provenanceList.map((p) => (
+      `- **${p.component_name || p.component_id || 'Component'}**: Source \`${p.marketplace_url || 'https://www.framer.com/marketplace/components/'}\` | Tier: \`${p.pricing_tier || 'free'}\` | Mode: \`${p.licensing_mode || 'native_clean_room_recreation'}\` | Framework: \`${p.target_framework || framework}\` (No iframe injection; no protected source extraction)`
+    )),
     '',
     '## Discovered Routes',
     ...structure.routes.map((r) => `- \`${r}\``),

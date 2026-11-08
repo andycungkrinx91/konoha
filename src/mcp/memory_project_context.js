@@ -81,7 +81,7 @@ function _updateWorkflowStatus(taskDir, dispatchId, agentName, finalStatus, upda
     const found = workflowStatus.active_dispatches.find(d => d.id === dispatchId);
     if (found) dispatch = found;
   }
-  if (dispatchId && dispatch.id !== dispatchId) {
+  if (dispatchId && dispatch.id && dispatch.id !== dispatchId) {
     return { error: 'dispatch_id does not match the active workflow dispatch', workflowStatus };
   }
   if (dispatch?.agent && dispatch.agent !== agentName.replace(/_/g, '-')) {

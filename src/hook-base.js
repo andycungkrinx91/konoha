@@ -158,6 +158,64 @@ function isKonohaSessionActive(contextOrPath = null) {
   return false;
 }
 
+const TRUSTED_KONOHA_TASK_FILE_RE = /(?:^|\/)(?:\.konoha\/tmp|konoha-tmp)\/([a-zA-Z0-9_-]{1,32})\/([a-zA-Z0-9._-]{1,64})\/([a-zA-Z0-9._-]{1,96})\/scratch\/tasks\/([a-zA-Z0-9._-]{1,96})\/(walkthrough_todos\.json|status\.json|walkthrough\.md|compact_checkpoint\.json|plan\.md|final_report\.md)$/;
+
+const CANONICAL_KONOHA_SUBAGENTS = new Set([
+  'sannin',
+  'kage',
+  'jonin',
+  'anbu',
+  'chunin',
+  'genin',
+  'tokubetsu-jonin',
+  'tokubetsu_jonin',
+  'akatsuki',
+  'yamanaka'
+]);
+
+function isCanonicalKonohaSubagentName(rawName) {
+  if (!rawName || typeof rawName !== 'string') return false;
+  const cleaned = rawName.trim().toLowerCase().replace(/^@/, '');
+  return CANONICAL_KONOHA_SUBAGENTS.has(cleaned);
+}
+
+function isTrustedKonohaTaskReadPath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return false;
+  if (rawPath.includes('\0')) return false;
+  const trimmed = rawPath.trim().replace(/^file:\/\//i, '');
+  if (!trimmed || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(trimmed)) return false;
+
+  const pathMod = require('path');
+  const osMod = require('os');
+  let expanded = trimmed;
+  if (expanded.startsWith('~/') || expanded.startsWith('~\\')) {
+    const home = process.env.HOME || process.env.USERPROFILE || osMod.homedir();
+    expanded = pathMod.join(home, expanded.slice(2));
+  }
+  const normalizedFwd = pathMod.resolve(expanded).replace(/\\/g, '/');
+  if (!TRUSTED_KONOHA_TASK_FILE_RE.test(normalizedFwd)) {
+    return false;
+  }
+
+  try {
+    if (fs.existsSync(expanded)) {
+      const lstat = fs.lstatSync(expanded);
+      if (lstat.isSymbolicLink()) return false;
+      const realFwd = fs.realpathSync(expanded).replace(/\\/g, '/');
+      if (!TRUSTED_KONOHA_TASK_FILE_RE.test(realFwd)) return false;
+    } else {
+      const parentDir = pathMod.dirname(expanded);
+      if (fs.existsSync(parentDir)) {
+        const lstatParent = fs.lstatSync(parentDir);
+        if (lstatParent.isSymbolicLink()) return false;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 module.exports = {
   readStdin,
   readStdinJson,
@@ -168,5 +226,8 @@ module.exports = {
   brainDirFromTranscript,
   isKonohaInvocationPrompt,
   isKonohaSessionActive,
+  isCanonicalKonohaSubagentName,
+  isTrustedKonohaTaskReadPath,
   KONOHA_COMMAND_PREFIX_RE,
+  TRUSTED_KONOHA_TASK_FILE_RE,
 };

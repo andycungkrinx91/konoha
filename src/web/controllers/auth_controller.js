@@ -38,7 +38,26 @@ async function _handleChangePassword(req, res, broadcastEvent) {
   try {
     const body = await parseBody(req);
     const payload = body && typeof body === 'object' ? body : {};
+    if (payload.confirm_password !== undefined && payload.confirm_password !== payload.new_password) {
+      return sendJson(res, 400, { error: 'New password and confirmation do not match' });
+    }
     const result = webAuth.updatePassword(sessionId, payload.current_password, payload.new_password);
+    if (!result.success) {
+      return sendJson(res, result.status || 400, { error: result.error });
+    }
+    res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
+    broadcastEvent('auth_state_changed', { action: 'password_changed', requires_login: true });
+    return sendJson(res, 200, { ok: true, message: result.message, requires_login: true });
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+}
+
+async function _handleSetupInitialPassword(req, res, broadcastEvent) {
+  try {
+    const body = await parseBody(req);
+    const payload = body && typeof body === 'object' ? body : {};
+    const result = webAuth.setupInitialPassword(payload.new_password, payload.confirm_password);
     if (!result.success) {
       return sendJson(res, result.status || 400, { error: result.error });
     }
@@ -87,6 +106,9 @@ async function handleAuthRoutes(req, res, ctx, _parsedUrl, ...rest) {
   }
   if (method === 'POST' && pathname === '/api/v1/auth/change-password') {
     return await _handleChangePassword(req, res, broadcastEvent);
+  }
+  if (method === 'POST' && pathname === '/api/v1/auth/setup-password') {
+    return await _handleSetupInitialPassword(req, res, broadcastEvent);
   }
   if (method === 'POST' && pathname === '/api/v1/auth/reset-password') {
     return await _handleResetPassword(req, res, broadcastEvent);

@@ -592,13 +592,32 @@ function runAkatsukiFinalGate(projectPath, status = {}, options = {}) {
   }
 
   // Execute automated Blue-Team check across changed files
+  const executedAt = new Date().toISOString();
   const blueResult = runBlueTeamWorkflow({ projectPath, scope: 'local-repository', ...options });
+  blueResult.mode = 'blue';
+  blueResult.executed_at = executedAt;
+  blueResult.executed_before_kage = true;
   const passed = blueResult.gate_decision === 'passed';
+  const taskDir = options.taskDir || status.task_dir || null;
+  let evidencePath = null;
+  if (taskDir) {
+    try {
+      fs.mkdirSync(taskDir, { recursive: true });
+      evidencePath = path.join(taskDir, 'akatsuki_review.json');
+      fs.writeFileSync(evidencePath, JSON.stringify(blueResult, null, 2), 'utf8');
+    } catch (_) {
+      evidencePath = null;
+    }
+  }
 
   const gateResult = {
     gate: 'akatsuki_security',
+    mode: 'blue',
     decision: blueResult.gate_decision,
     passed,
+    executed_at: executedAt,
+    executed_before_kage: true,
+    evidence_path: evidencePath,
     score: passed ? 100 : Math.max(0, 100 - (blueResult.critical_count * 50 + blueResult.high_count * 25)),
     critical_count: blueResult.critical_count,
     high_count: blueResult.high_count,
@@ -608,7 +627,10 @@ function runAkatsukiFinalGate(projectPath, status = {}, options = {}) {
       : `Security gate failed: ${blueResult.critical_count} critical and ${blueResult.high_count} high findings.`
   };
 
-  if (status) status.akatsuki_gate = gateResult;
+  if (status) {
+    status.akatsuki_review = blueResult;
+    status.akatsuki_gate = gateResult;
+  }
   return gateResult;
 }
 

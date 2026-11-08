@@ -650,4 +650,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handleRequest, SERVER_NAME, SERVER_VERSION };
+module.exports = { handleRequest, SERVER_NAME, SERVER_VERSION, main };

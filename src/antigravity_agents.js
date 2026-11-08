@@ -20,11 +20,16 @@ const BASE_TOOLS = [
   'view_file',
   'view_file_outline',
   'view_symbol',
+  'read_file',
+  'call_mcp_tool',
+  'send_message',
 ];
 
 const WRITE_TOOLS = [
   'replace_file_content',
   'write_to_file',
+  'edit_file',
+  'write_file',
   'run_command',
 ];
 

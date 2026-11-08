@@ -79,8 +79,8 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "Mandatory Password Change" })).toBeVisible();
 
-    // Complete password change to secure credential
-    await page.locator("#current-password").fill("konohagakure");
+    // Complete initial password setup with strictly two fields (New Password and Confirm Password)
+    await expect(page.locator("#current-password")).toHaveCount(0);
     const newPassInput = page.locator("#new-password");
     const confirmPassInput = page.locator("#confirm-password");
     await newPassInput.fill("secure-shinobi-2026!");

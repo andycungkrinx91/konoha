@@ -63,6 +63,7 @@ function createGraphBuilder() {
       node_budget_exceeded: 'node_budget_exceeded',
       node_complete: 'node_complete',
       node_plan: 'node_plan',
+      node_dispatch: 'node_dispatch',
     })
 
     .addConditionalEdges('node_plan', planRouter, {
@@ -216,11 +217,13 @@ function formatGraphOutput(graphRes) {
         : (isComplete ? 'Workflow complete.' : (graphRes.hitlPending ? 'Awaiting human in the loop input.' : `In progress at ${resumeNode}.`)))
   );
 
+  const workflowStatus = graphRes.status && typeof graphRes.status === 'object' ? graphRes.status : null;
   const status = resultPayload.status || (isPaused ? 'paused_budget_exceeded' : (isError ? 'error' : (isComplete ? 'completed' : (graphRes.status?.phase || graphRes.phase || 'in_progress'))));
 
   return {
     ...graphRes,
     status,
+    workflow_status: workflowStatus,
     resume_node: resumeNode,
     next_action: nextAction,
     workflow_complete: isComplete,

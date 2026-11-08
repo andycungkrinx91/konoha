@@ -92,7 +92,7 @@ function _pruneDeletedProjectSkillRows(conn, ws) {
   if (!conn || !ws) return;
   try {
     const normWs = path.resolve(ws) + path.sep;
-    const rows = conn.prepare("SELECT name, file_path FROM skills WHERE file_path IS NOT NULL").all();
+    const rows = conn.prepare("SELECT name, file_path, tags FROM skills WHERE file_path IS NOT NULL AND tags LIKE '%scope:project%'").all();
     for (const r of rows) {
       if (!r.file_path) continue;
       const resolvedFp = path.resolve(r.file_path);

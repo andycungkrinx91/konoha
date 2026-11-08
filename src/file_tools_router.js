@@ -201,11 +201,22 @@ function resolveInputPath(rawPath) {
  * ~/.cursor/, etc).
  */
 function assertWithinAllowed(resolvedPath) {
+  const { isTrustedKonohaTaskReadPath } = require('./file_tools/common');
   const pathNorm = platform.normPath(resolvedPath);
 
   // Explicit block for IDE binary installation directory
   if (isIdeInstallationDirectory(resolvedPath) || isIdeInstallationDirectory(pathNorm)) {
     throw new Error(`Access to IDE installation directory is forbidden: ${resolvedPath}`);
+  }
+
+  // Verified read-only Konoha task coordination files (e.g. walkthrough_todos.json)
+  if (isTrustedKonohaTaskReadPath(resolvedPath)) {
+    return;
+  }
+
+  const fwdPath = pathNorm.replace(/\\/g, '/');
+  if (fwdPath.includes('/.konoha/keys/') || fwdPath.endsWith('/.konoha/keys')) {
+    throw new Error(`Access to Konoha secret key directory is forbidden: ${resolvedPath}`);
   }
 
   // Konoha install directory — always allowed

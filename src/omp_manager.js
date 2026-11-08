@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const {
+  HOME,
   OMP_DIR,
   OMP_AGENT_DIR,
   OMP_MCP_CONFIG,
@@ -28,7 +29,7 @@ const {
   isRtkInstalled
 } = require('./platform_utils');
 
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
 const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
 
@@ -120,9 +121,18 @@ function buildOmpManagedContract() {
 
 function buildOmpMcpServers(options = {}) {
   const isWin = process.platform === 'win32';
-  const launcherPath = options.launcherPath || (fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH);
+  let launcherPath = options.launcherPath;
+  if (!launcherPath || !fileExists(launcherPath)) {
+    launcherPath = fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;
+  }
   const npxCmd = isWin ? 'npx.cmd' : 'npx';
-  const uvxCmd = options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
+  const resolvedUvx = resolveUvxExecutablePath ? (resolveUvxExecutablePath(options.uvxCmd) || options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx')) : (options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx'));
+
+  const home = options.home || HOME;
+  const localBin = path.join(home, '.local', 'bin');
+  const cargoBin = path.join(home, '.cargo', 'bin');
+  const nodeDir = process.execPath ? path.dirname(process.execPath) : '';
+  const clientPathEnv = [nodeDir, localBin, cargoBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
 
   return {
     konoha: {
@@ -132,14 +142,15 @@ function buildOmpMcpServers(options = {}) {
       env: {
         ACTIVE_CLIENT: 'omp',
         KONOHA_CLIENT: 'omp',
-        KONOHA_SEMANTIC_SEARCH: '1'
+        KONOHA_SEMANTIC_SEARCH: '1',
+        PATH: clientPathEnv
       },
       autoApprove: KONOHA_CANONICAL_TOOLS ? [...KONOHA_CANONICAL_TOOLS] : [],
       auto_approve: true
     },
     semble: {
       type: 'stdio',
-      command: uvxCmd,
+      command: resolvedUvx,
       args: [
         '--from',
         SEMBLE_PACKAGE,
@@ -147,6 +158,9 @@ function buildOmpMcpServers(options = {}) {
         '--content',
         'all'
       ],
+      env: {
+        PATH: clientPathEnv
+      },
       autoApprove: ['search', 'find_related'],
       auto_approve: true
     },
@@ -159,6 +173,9 @@ function buildOmpMcpServers(options = {}) {
         AISLOP_PACKAGE,
         'aislop-mcp'
       ],
+      env: {
+        PATH: clientPathEnv
+      },
       autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
       auto_approve: true
     }
@@ -277,9 +294,9 @@ function ensureOmpSetup(options = {}) {
   const contractResult = deployOmpContract({ ...options, silent });
   const rtkResult = deployOmpRtkRule({ ...options, silent });
 
-  const projectRoot = options.projectRoot || null;
+  const projectRoot = options.projectRoot || (fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
   const projMcp = projectRoot ? path.join(projectRoot, '.omp', 'mcp.json') : null;
-  if (projMcp && (options.appendProject || (options.deployProject && fileExists(projMcp)))) {
+  if (projMcp && (options.appendProject || options.deployProject || fileExists(projMcp))) {
     registerOmpMcp({ ...options, configPath: projMcp, silent });
   }
 

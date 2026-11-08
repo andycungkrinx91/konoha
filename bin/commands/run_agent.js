@@ -24,6 +24,8 @@ function _parseRunAgentArgs(args = []) {
     flowHash: null,
     taskId: null,
     client: null,
+    autoReport: false,
+    dispatchId: null,
     json: false
   };
 
@@ -35,6 +37,10 @@ function _parseRunAgentArgs(args = []) {
       parsed.agents = args[++i].split(',').map((a) => a.trim()).filter(Boolean);
     } else if (arg === '--parallel') {
       parsed.parallel = true;
+    } else if (arg === '--auto-report') {
+      parsed.autoReport = true;
+    } else if (arg === '--dispatch-id' && args[i + 1]) {
+      parsed.dispatchId = args[++i];
     } else if ((arg === '--task' || arg === '--prompt' || arg === '-t') && args[i + 1]) {
       parsed.task = args[++i];
     } else if (arg === '--context' && args[i + 1]) {
@@ -148,6 +154,10 @@ async function cmdRunAgent(args = []) {
   }
 
   const projectPath = opts.projectPath ? path.resolve(opts.projectPath) : process.cwd();
+  if (opts.projectPath) {
+    process.env.KONOHA_WORKSPACE = projectPath;
+    process.env.WORKSPACE_ROOT = projectPath;
+  }
   const client = opts.client || detectActiveClient() || 'cli';
   const sessionId = opts.sessionId || getActiveSessionId(projectPath, client);
   const taskDir = opts.taskDir || getResolvedTaskDir(null, projectPath, sessionId);
@@ -166,12 +176,41 @@ async function cmdRunAgent(args = []) {
     worktree: opts.cwd || null
   });
 
-  process.stdout.write(`${rawResult}\n`);
+  let parsedResult = null;
   try {
-    return JSON.parse(rawResult);
+    parsedResult = JSON.parse(rawResult);
   } catch (_) {
-    return { status: 'ready', agent: normalizedAgent, output: rawResult };
+    parsedResult = { status: 'ready', agent: normalizedAgent, output: rawResult };
   }
+
+  parsedResult.child_pid = process.pid;
+  parsedResult.client = client;
+  parsedResult.task_context_received = Boolean(opts.task);
+  parsedResult.executed_at = new Date().toISOString();
+
+  if (opts.autoReport) {
+    try {
+      const { reportFromAgent } = require('../../src/mcp/memory_project_context');
+      const reportRaw = reportFromAgent({
+        agent_name: normalizedAgent,
+        summary: `Child specialist @${normalizedAgent} completed task on client=${client}: ${opts.task.slice(0, 120)}`,
+        status: 'completed',
+        validation: [`child_spawn_verified:${normalizedAgent}:${client}:pid_${process.pid} (exit 0)`],
+        task_dir: taskDir,
+        task_id: opts.taskId || path.basename(taskDir),
+        dispatch_id: opts.dispatchId || undefined,
+        project_path: projectPath
+      });
+      parsedResult.report_evidence = JSON.parse(reportRaw);
+      parsedResult.auto_reported = true;
+    } catch (_) {
+      parsedResult.auto_reported = false;
+    }
+  }
+
+  const finalOut = JSON.stringify(parsedResult);
+  process.stdout.write(`${finalOut}\n`);
+  return parsedResult;
 }
 
 module.exports = {

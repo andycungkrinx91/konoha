@@ -338,7 +338,7 @@ function applyPromptAndSanitizeHooks(config) {
   config['konoha-tool-sanitize'] = {
     PreToolUse: [
       {
-        matcher: 'define_subagent|invoke_subagent',
+        matcher: 'define_subagent|invoke_subagent|read_file|view_file|run_command',
         hooks: [{ type: 'command', command: `${quotePath(execPath)} ${quotePath(sanitizeHookPath)}`, timeout: 10 }],
       },
     ],

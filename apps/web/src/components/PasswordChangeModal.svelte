@@ -13,13 +13,18 @@
   let errorMessage = $state('');
   let successMessage = $state('');
   let currentInputEl = $state(null);
+  let newInputEl = $state(null);
 
   useScrollLock(() => authState.showPasswordChangeModal);
 
-  // Focus the current-password field whenever the dialog opens.
+  // Focus the first active field whenever the dialog opens.
   $effect(() => {
-    if (authState.showPasswordChangeModal && currentInputEl && !isSubmitting) {
-      currentInputEl.focus();
+    if (authState.showPasswordChangeModal && !isSubmitting) {
+      if (authState.requiresPasswordChange && newInputEl) {
+        newInputEl.focus();
+      } else if (currentInputEl) {
+        currentInputEl.focus();
+      }
     }
   });
 
@@ -29,7 +34,7 @@
     errorMessage = '';
     successMessage = '';
 
-    if (!currentPassword) {
+    if (!authState.requiresPasswordChange && !currentPassword) {
       errorMessage = 'Enter your current password.';
       return;
     }
@@ -46,7 +51,7 @@
 
     isSubmitting = true;
     try {
-      await authState.changePassword(currentPassword, newPassword);
+      await authState.changePassword(authState.requiresPasswordChange ? '' : currentPassword, newPassword, confirmPassword);
       currentPassword = '';
       newPassword = '';
       confirmPassword = '';
@@ -133,28 +138,31 @@
       {/if}
 
       <form onsubmit={handleSubmit} class="space-y-4" novalidate>
-        <div>
-          <label for="current-password" class="block text-xs font-bold uppercase tracking-wider mb-1 theme-text-secondary">
-            Current Password
-          </label>
-          <input
-            id="current-password"
-            bind:this={currentInputEl}
-            type={showPasswords ? 'text' : 'password'}
-            bind:value={currentPassword}
-            placeholder="Enter current password"
-            class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
-            autocomplete="current-password"
-            disabled={isSubmitting}
-          />
-        </div>
+        {#if !authState.requiresPasswordChange}
+          <div>
+            <label for="current-password" class="block text-xs font-bold uppercase tracking-wider mb-1 theme-text-secondary">
+              Current Password
+            </label>
+            <input
+              id="current-password"
+              bind:this={currentInputEl}
+              type={showPasswords ? 'text' : 'password'}
+              bind:value={currentPassword}
+              placeholder="Enter current password"
+              class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
+              autocomplete="current-password"
+              disabled={isSubmitting}
+            />
+          </div>
+        {/if}
 
         <div>
           <label for="new-password" class="block text-xs font-bold uppercase tracking-wider mb-1 theme-text-secondary">
-            New Password (Min 8 Characters)
+            New Password
           </label>
           <input
             id="new-password"
+            bind:this={newInputEl}
             type={showPasswords ? 'text' : 'password'}
             bind:value={newPassword}
             placeholder="Enter new strong password"
@@ -168,7 +176,7 @@
 
         <div>
           <label for="confirm-password" class="block text-xs font-bold uppercase tracking-wider mb-1 theme-text-secondary">
-            Confirm New Password
+            Confirm Password
           </label>
           <input
             id="confirm-password"

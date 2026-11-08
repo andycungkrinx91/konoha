@@ -169,12 +169,22 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
     : (fileExists(FILE_TOOLS_MCP_PATH) ? FILE_TOOLS_MCP_PATH : (fileExists(repoFileTools) ? repoFileTools : null));
   if (!targetScript) return null;
   const clientName = (mode === "global" || mode === "execPath") ? "antigravity" : mode;
+  const nodeCmd = resolveCompatibleNode() || process.execPath || "node";
+  const localBin = path.join(HOME, '.local', 'bin');
+  const cargoBin = path.join(HOME, '.cargo', 'bin');
+  const nodeDir = nodeCmd ? path.dirname(nodeCmd) : '';
+  const clientPathEnv = [nodeDir, localBin, cargoBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
 
   return {
     type: "stdio",
-    command: resolveCompatibleNode() || process.execPath || "node",
+    command: nodeCmd,
     args: [targetScript],
-    env: { ACTIVE_CLIENT: clientName, KONOHA_CLIENT: clientName, KONOHA_SEMANTIC_SEARCH: "1" },
+    env: {
+      ACTIVE_CLIENT: clientName,
+      KONOHA_CLIENT: clientName,
+      KONOHA_SEMANTIC_SEARCH: "1",
+      PATH: clientPathEnv
+    },
     autoApprove: [...KONOHA_CANONICAL_TOOLS],
     auto_approve: true
   };

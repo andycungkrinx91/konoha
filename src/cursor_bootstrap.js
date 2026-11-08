@@ -64,14 +64,32 @@ function checkPython() {
 
 function getUvx() {
   const isWin = process.platform === 'win32';
+  const binName = isWin ? 'uvx.exe' : 'uvx';
+  const candidateDirs = [
+    path.join(HOME, '.local', 'bin'),
+    path.join(HOME, '.cargo', 'bin'),
+    isWin ? path.join(process.env.LOCALAPPDATA || '', 'Programs', 'uv') : '/usr/local/bin',
+    '/usr/bin'
+  ];
+  for (const dir of candidateDirs) {
+    if (!dir) continue;
+    const full = path.join(dir, binName);
+    if (fileExists(full)) {
+      try {
+        const r = spawnSync(full, ['--version'], { stdio: 'ignore', timeout: 2000, windowsHide: true });
+        if (r.status === 0) return full;
+      } catch (_) { /* continue */ }
+    }
+  }
   try {
-    spawnSync(isWin ? 'uvx.exe' : 'uvx', ['--version'], { stdio: 'ignore', timeout: 5000, windowsHide: true });
-    return isWin ? 'uvx.exe' : 'uvx';
-  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
-  // Windows installs put uvx.exe in %USERPROFILE%\.local\bin
-  const localName = isWin ? 'uvx.exe' : 'uvx';
-  const local = path.join(HOME, '.local', 'bin', localName);
-  return fileExists(local) ? local : (isWin ? 'uvx.exe' : 'uvx');
+    const whichCmd = isWin ? 'where.exe' : 'which';
+    const res = spawnSync(whichCmd, [binName], { encoding: 'utf-8', timeout: 2000, windowsHide: true });
+    if (res.status === 0 && res.stdout) {
+      const resolved = res.stdout.trim().split(/\r?\n/)[0].trim();
+      if (resolved && fileExists(resolved)) return resolved;
+    }
+  } catch (_) { /* intentional fallback */ }
+  return isWin ? 'uvx.exe' : 'uvx';
 }
 
 function isUvxUsable() {
@@ -81,6 +99,14 @@ function isUvxUsable() {
     return r.status === 0;
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return false;
+}
+
+function _buildClientPathEnv(nodeCmd) {
+  const localBin = path.join(HOME, '.local', 'bin');
+  const cargoBin = path.join(HOME, '.cargo', 'bin');
+  const nodeDir = nodeCmd ? path.dirname(nodeCmd) : '';
+  const sysPath = process.env.PATH || '';
+  return [nodeDir, localBin, cargoBin, sysPath].filter(Boolean).join(path.delimiter);
 }
 
 function buildKonohaFilesMcpEntry() {
@@ -96,7 +122,13 @@ function buildKonohaFilesMcpEntry() {
   return {
     type: 'stdio',
     command: nodeCmd,
-    args: [target]
+    args: [target],
+    env: {
+      ACTIVE_CLIENT: 'cursor',
+      KONOHA_CLIENT: 'cursor',
+      KONOHA_SEMANTIC_SEARCH: '1',
+      PATH: _buildClientPathEnv(nodeCmd)
+    }
   };
 }
 
@@ -115,8 +147,8 @@ function registerMcp() {
   }
   let updated = false;
   // Clean legacy servers if present
-  if (config.mcpServers['konoha']) {
-    delete config.mcpServers['konoha'];
+  if (config.mcpServers['skills-db']) {
+    delete config.mcpServers['skills-db'];
     updated = true;
   }
   if (config.mcpServers['konoha-files']) {
@@ -150,6 +182,7 @@ function registerMcp() {
         type: 'stdio',
         command: getUvx(),
         args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
+        env: { PATH: _buildClientPathEnv(null) },
         autoApprove: ['search', 'find_related'],
         auto_approve: true
       }

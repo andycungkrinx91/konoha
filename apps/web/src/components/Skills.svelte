@@ -38,7 +38,8 @@
     { id: "chunin", name: "@chunin (Research & Web)" },
     { id: "genin", name: "@genin (Code Exploration)" },
     { id: "sannin", name: "@sannin (Router & Planner)" },
-    { id: "tokubetsu-jonin", name: "@tokubetsu-jonin (Technical Writer)" }
+    { id: "tokubetsu-jonin", name: "@tokubetsu-jonin (Technical Writer)" },
+    { id: "akatsuki", name: "@akatsuki (Red-Team & Security)" }
   ];
 
   let newSkill = $state({

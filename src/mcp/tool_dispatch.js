@@ -96,7 +96,7 @@ function _dispatchSkillsTool(toolName, args, agent) {
       tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
       section: args.section || null,
       taskId: args.task_id || args.taskId || null,
-      sessionId: args.session_id || args.sessionId || null,
+      sessionId: args.session_id || args.sessionId || getActiveSessionId() || null,
       flowHash: args.flow_hash || args.flowHash || null
     });
   }
@@ -106,7 +106,7 @@ function _dispatchSkillsTool(toolName, args, agent) {
       tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
       section: args.section || null,
       taskId: args.task_id || args.taskId || null,
-      sessionId: args.session_id || args.sessionId || null,
+      sessionId: args.session_id || args.sessionId || getActiveSessionId() || null,
       flowHash: args.flow_hash || args.flowHash || null
     });
   }
@@ -241,6 +241,38 @@ function _dispatchWorkflowCore(toolName, args, agent) {
   return null;
 }
 
+function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
+  if (!parsedSannin || typeof graphInitRes !== 'object' || graphInitRes === null) {
+    return graphInitRes;
+  }
+  if (parsedSannin.status === 'routed') {
+    return {
+      ...graphInitRes,
+      ...parsedSannin,
+      status: 'routed',
+      phase: parsedSannin.phase || 'delegation',
+      langgraph_checkpoint: {
+        thread_id: threadId,
+        graph_phase: graphInitRes.phase,
+        hitl_stage: graphInitRes.hitlStage || null,
+        flow_hash: graphInitRes.flowHash || parsedSannin.flow_hash
+      },
+      workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
+      selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
+    };
+  }
+  const graphStatusStr = typeof graphInitRes.status === 'string'
+    ? graphInitRes.status
+    : (graphInitRes.status && typeof graphInitRes.status.status === 'string' ? graphInitRes.status.status : parsedSannin.status);
+  return {
+    ...parsedSannin,
+    ...graphInitRes,
+    status: graphStatusStr || parsedSannin.status,
+    workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
+    selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
+  };
+}
+
 async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
   if (toolName === 'sannin') {
     const prompt = args.prompt || args.task || args.instructions;
@@ -270,19 +302,7 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
         threadId,
         autoSignoff,
       });
-      if (parsedSannin && typeof graphInitRes === 'object' && graphInitRes !== null) {
-        const graphStatusStr = typeof graphInitRes.status === 'string'
-          ? graphInitRes.status
-          : (graphInitRes.status && typeof graphInitRes.status.status === 'string' ? graphInitRes.status.status : parsedSannin.status);
-        return {
-          ...parsedSannin,
-          ...graphInitRes,
-          status: graphStatusStr || parsedSannin.status,
-          workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
-          selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
-        };
-      }
-      return graphInitRes;
+      return _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId);
     } catch (graphErr) {
       if (typeof logToolCall === 'function') {
         logToolCall('sannin', `task_dir=${resolvedTaskDir} fallback=runSannin error=${graphErr.message}`, sanninRes, 'sannin');
@@ -417,12 +437,19 @@ function _dispatchPersonaMemory(toolName, args, agent) {
 function _dispatchAuditAndDetectors(toolName, args, agent) {
   if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-    const taskId = args.task_id || args.id;
+    const taskId = args.task_id || args.id || (args.task_dir ? path.basename(String(args.task_dir)) : null);
     if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
     const task = sdlcManager.getTask(taskId);
     if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
     if (toolName === 'get_task_evidence') {
-      return JSON.stringify({ task_id: task.id, status: task.status, evidence: task.evidence || {}, updated_at: task.updated_at });
+      const ev = task.evidence || {};
+      return JSON.stringify({
+        task_id: task.id,
+        status: task.status,
+        evidence: ev,
+        total_reports: Object.keys(ev).length,
+        updated_at: task.updated_at
+      });
     }
     return JSON.stringify({ task_id: task.id, status: task.status, slop_result: task.slop_result || {}, slop_cycles: task.slop_cycles || 0, updated_at: task.updated_at });
   }

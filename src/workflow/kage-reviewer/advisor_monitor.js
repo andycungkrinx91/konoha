@@ -285,6 +285,188 @@ function evaluateWorkerTurn(event = {}, options = {}) {
   };
 }
 
+function buildAdvisorCoreCharter(options = {}) {
+  const maxBytes = Math.min(
+    MAX_ADVISOR_TURN_BYTES,
+    Number(options.maxBytes || MAX_ADVISOR_TURN_BYTES)
+  );
+  const roleFocus = options.stage ? ` | Stage: ${options.stage}` : '';
+  const charter = [
+    `# @advisor Always-On Engineering Foreman Charter (<=1,000 Tokens${roleFocus})`,
+    '## 1. Mission & Authority',
+    '- Continuous real-time supervisor across planning, task decomposition, specialist dispatch, parallel execution, MCP tool usage, handoffs, context compaction, remediation, and Final Gate.',
+    '- Authority to interrupt drift, reject fabricated evidence, enforce git worktree / owned_files boundaries, and require immediate specialist remediation.',
+    '## 2. Core Supervision Invariants',
+    '- Plan & Decomposition: Every requirement maps to an explicit specialist task with verifiable exit criteria and disjoint owned_files.',
+    '- Parallel Isolation: Concurrent specialists operate strictly inside their assigned worktree_path and owned_files without cross-branch interference.',
+    '- Evidence Over Claims: Completed tasks require concrete command/exit-code validation and existing on-disk artifacts with zero conflict markers.',
+    '- Compaction Integrity: Post-Gate-1 compaction must preserve beginning, middle, and end anchors, active TODOs, and architectural constraints.',
+    '- Zero-Slop Gate: Reject placeholder implementations, TODO/FIXME stubs, emojis in UI, and confidence < 98%.',
+    '## 3. Dynamic On-Demand Context Retrieval Pointers',
+    '- Canonical Contract: `konoha.get_skill("konoha/contract")`',
+    '- Active Workflow & Checkpoints: `status.json`, `walkthrough_todos.json`, LangGraph SQLite thread state',
+    '- Project Knowledge RAG: `konoha.query_project_memory` & `konoha.find_skill` (scoped by `project_hash`)'
+  ].join('\n');
+
+  const clamped = clampAdvisorBytes(charter, maxBytes);
+  return {
+    charter: clamped,
+    bytes_used: Buffer.byteLength(clamped, 'utf8'),
+    tokens_used: estimateTokens(clamped),
+    budget_tokens: MAX_ADVISOR_TURN_TOKENS
+  };
+}
+
+function _appendRagMemorySlice(slices, projectPath, query, status) {
+  if (!projectPath && !query) return;
+  try {
+    const personaMemory = require('../../persona_memory');
+    if (typeof personaMemory.queryMemories !== 'function') return;
+    const mems = personaMemory.queryMemories({
+      projectPath: projectPath || status.project_path,
+      query: query || status.prompt || '',
+      limit: 2
+    });
+    if (Array.isArray(mems) && mems.length > 0) {
+      slices.push(`RAG Memory: ${mems.map((m) => `${m.title}: ${(m.content || '').slice(0, 120)}`).join(' | ')}`);
+    }
+  } catch (_) {
+    /* best-effort RAG lookup */
+  }
+}
+
+function _recordTaskOwnershipCollisions(t, seenOwned, violations) {
+  if (!t || !Array.isArray(t.owned_files)) return;
+  for (const f of t.owned_files) {
+    const prev = seenOwned.get(f);
+    if (prev && prev.id !== t.id && t.parallel_group && prev.parallel_group === t.parallel_group) {
+      violations.push({
+        type: 'parallel_ownership_collision',
+        file: f,
+        detail: `Parallel tasks "${prev.id}" and "${t.id}" share owned file "${f}".`
+      });
+    }
+    seenOwned.set(f, { id: t.id, parallel_group: t.parallel_group });
+  }
+}
+
+function retrieveAdvisorDynamicContext(params = {}) {
+  const { status = {}, taskDir = '', projectPath = '', stage = 'execution', query = '' } = params;
+  const slices = [];
+
+  if (stage) {
+    slices.push(`Stage: ${stage} | Phase: ${status.phase || 'unknown'} | Track: ${status.execution_track || 'full_sdlc'}`);
+  }
+  if (status.task_id || taskDir) {
+    slices.push(`Task: ${status.task_id || path.basename(taskDir)} | Flow: ${status.flow_hash || 'none'}`);
+  }
+  if (status.plan && typeof status.plan === 'string') {
+    const planText = status.plan.trim();
+    const head = planText.slice(0, 280);
+    const tail = planText.length > 320 ? planText.slice(-200) : '';
+    slices.push(`Plan Anchor: ${head}${tail ? ` ... ${tail}` : ''}`);
+  }
+  if (Array.isArray(status.tasks) && status.tasks.length > 0) {
+    const summary = status.tasks
+      .slice(0, 8)
+      .map((t) => `${t.id || 't'}:${t.agent || 'worker'}=${t.status || 'pending'}`)
+      .join(', ');
+    slices.push(`Tasks (${status.tasks.length}): ${summary}`);
+  }
+  _appendRagMemorySlice(slices, projectPath, query, status);
+
+  const contextText = clampAdvisorBytes(slices.join('\n'), 1600);
+  return {
+    context: contextText,
+    bytes_used: Buffer.byteLength(contextText, 'utf8'),
+    tokens_used: estimateTokens(contextText),
+    sources_consulted: ['workflow_status', 'plan_anchors', 'task_graph', 'project_rag']
+  };
+}
+
+function _collectExecutionStageViolations(context, options, violations) {
+  if (!context.workerEvent) return;
+  const turnEval = evaluateWorkerTurn(context.workerEvent, options);
+  if (turnEval.interrupted && Array.isArray(turnEval.violations)) {
+    violations.push(...turnEval.violations);
+  }
+}
+
+function superviseLifecycleStage(stage, context = {}, options = {}) {
+  const normStage = String(stage || 'execution').toLowerCase();
+  const status = context.status || {};
+  const charterInfo = buildAdvisorCoreCharter({ stage: normStage });
+  const dynamicCtx = retrieveAdvisorDynamicContext({
+    status,
+    taskDir: context.taskDir,
+    projectPath: context.projectPath || status.project_path,
+    stage: normStage,
+    query: context.query || status.prompt
+  });
+
+  const violations = [];
+
+  if (normStage === 'plan' || normStage === 'planning') {
+    const tasks = Array.isArray(status.tasks) ? status.tasks : (Array.isArray(context.todos) ? context.todos : []);
+    const seenOwned = new Map();
+    for (const t of tasks) {
+      _recordTaskOwnershipCollisions(t, seenOwned, violations);
+    }
+  } else if (normStage === 'compaction') {
+    const comp = context.compaction || status.compaction || {};
+    if (comp.compacted && !status.plan && !comp.checkpoint_path) {
+      violations.push({
+        type: 'compaction_context_loss',
+        detail: 'Post-approval compaction lost plan reference without saving compact_checkpoint.json.'
+      });
+    }
+  } else if (normStage === 'execute' || normStage === 'execution' || normStage === 'handoff') {
+    _collectExecutionStageViolations(context, options, violations);
+  } else if (normStage === 'review' || normStage === 'final_gate') {
+    const pending = (status.tasks || []).filter((t) => t.status !== 'completed');
+    if (pending.length > 0) {
+      violations.push({
+        type: 'incomplete_tasks_at_review',
+        detail: `${pending.length} task(s) remain incomplete (${pending.map((t) => t.id).join(', ')}).`
+      });
+    }
+    if ((status.ai_slop_findings || 0) > 0 || status.ai_slop_clean === false) {
+      violations.push({
+        type: 'slop_gate_violation',
+        detail: `AI slop gate reported ${status.ai_slop_findings || 1} finding(s).`
+      });
+    }
+  }
+
+  const approved = violations.length === 0;
+  const record = {
+    stage: normStage,
+    status: approved ? 'ADVISOR_PASS' : 'INTERRUPT_CORRECTION',
+    approved,
+    interrupted: !approved,
+    charter_tokens: charterInfo.tokens_used,
+    dynamic_context_tokens: dynamicCtx.tokens_used,
+    budget_tokens: MAX_ADVISOR_TURN_TOKENS,
+    violations,
+    checked_at: new Date().toISOString()
+  };
+
+  if (status && typeof status === 'object') {
+    status.advisor_audit_log = Array.isArray(status.advisor_audit_log) ? status.advisor_audit_log.slice(-19) : [];
+    status.advisor_audit_log.push(record);
+    if (normStage === 'review' || normStage === 'final_gate' || normStage === 'execute') {
+      status.advisor_approved = approved;
+      status.advisor_review = record;
+    }
+  }
+
+  return {
+    ...record,
+    charter: charterInfo.charter,
+    dynamic_context: dynamicCtx.context
+  };
+}
+
 module.exports = {
   MAX_ADVISOR_TURN_TOKENS,
   MAX_ADVISOR_TURN_BYTES,
@@ -293,5 +475,8 @@ module.exports = {
   estimateTokens,
   evictStaleAdvisorState,
   buildInterruptCorrectionDirective,
-  evaluateWorkerTurn
+  evaluateWorkerTurn,
+  buildAdvisorCoreCharter,
+  retrieveAdvisorDynamicContext,
+  superviseLifecycleStage
 };

@@ -386,12 +386,22 @@ function sanitizePollutedProjectGitignore(projectRoot) {
     const original = fs.readFileSync(gitignorePath, 'utf-8');
     let updated = original;
 
-    const pollutedBlockRegex = /\r?\n?# Consolidated Plan Ignore Block \(Mandatory Konoha Invariant\)\r?\n\/PLAN\.md\r?\nPLAN\.md\r?\n\/\.omp\/plans\/\r?\n\.omp\/plans\/\r?\n\.omp\/plans\r?\n\.omp\/(?:\.|)\r?\n?/g;
+    const pollutedBlockRegex = /\r?\n?(?:# Consolidated Plan Ignore Block \(Mandatory Konoha Invariant\)\r?\n)?\/PLAN\.md\r?\nPLAN\.md\r?\n\/\.omp\/plans\/\r?\n\.omp\/plans\/\r?\n\.omp\/plans\r?\n\.omp\/(?:\.|)\r?\n?/g;
     updated = updated.replace(pollutedBlockRegex, '\n');
 
+    const pollutedLines = new Set([
+      '# Consolidated Plan Ignore Block (Mandatory Konoha Invariant)',
+      '/PLAN.md',
+      'PLAN.md',
+      '/.omp/plans/',
+      '.omp/plans/',
+      '.omp/plans',
+      '.omp/',
+      '.omp/.'
+    ]);
     updated = updated
       .split(/\r?\n/)
-      .filter((line) => line.trim() !== '.omp/.')
+      .filter((line) => !pollutedLines.has(line.trim()))
       .join('\n');
 
     if (updated !== original) {

@@ -47,25 +47,32 @@ function _truncateSkillContent(content, normName, tokenBudget, requestedSection)
   let finalContent = shielded;
   let truncated = false;
   let remainingSections = [];
+  const isContract = normName === 'konoha/contract' || normName === 'contract';
+  const maxBytes = tokenBudget > 0
+    ? Math.min(tokenBudget * 4, MAX_CONTENT_SIZE)
+    : (isContract ? 12000 : MAX_CONTENT_SIZE);
 
   if (tokenBudget > 0 || requestedSection) {
-    const maxChars = tokenBudget > 0 ? tokenBudget * 4 : Infinity;
     const rawSections = shielded.split(/\n(?=#{1,3}\s)/);
     if (rawSections.length > 1) {
       const sliced = _sliceSectionContent(rawSections, requestedSection);
       finalContent = sliced.finalContent;
       remainingSections = sliced.remainingSections;
       truncated = remainingSections.length > 0;
-      if (truncated) {
+      if (Buffer.byteLength(finalContent, 'utf8') > maxBytes) {
+        const truncRes = smartTruncate(finalContent, maxBytes, normName);
+        finalContent = truncRes.text;
+        truncated = true;
+      } else if (truncated) {
         finalContent += `\n\n[+${remainingSections.length} remaining sections: ${remainingSections.map(s => '#' + s).join(', ')}. Pass section parameter to read each.]`;
       }
-    } else if (finalContent.length > maxChars) {
-      const truncRes = smartTruncate(finalContent, maxChars, normName);
+    } else if (Buffer.byteLength(finalContent, 'utf8') > maxBytes) {
+      const truncRes = smartTruncate(finalContent, maxBytes, normName);
       finalContent = truncRes.text;
       truncated = truncRes.truncated;
     }
-  } else if (finalContent.length > MAX_CONTENT_SIZE && normName !== 'konoha/contract' && normName !== 'contract') {
-    const truncRes = smartTruncate(finalContent, MAX_CONTENT_SIZE, normName);
+  } else if (Buffer.byteLength(finalContent, 'utf8') > maxBytes && !isContract) {
+    const truncRes = smartTruncate(finalContent, maxBytes, normName);
     finalContent = truncRes.text;
     truncated = truncRes.truncated;
   }
@@ -189,7 +196,7 @@ function getSkill(name, agentName = null, options = {}) {
   try { conn = getDb(); } catch (_) { conn = null; }
   try {
     const row = resolveSkillRow(conn, normName);
-    if (!row || !isPathVisible(row.file_path)) {
+    if (!row || (row.source_provenance !== 'runtime_contract' && !isPathVisible(row.file_path))) {
       process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);
       const res = JSON.stringify({ error: `Skill '${normName}' not found. Use list_skills or find_skill to discover available skills.` });
       logToolCall('get_skill', normName, res, agentName);
@@ -255,22 +262,23 @@ function _loadSingleSkill(conn, normName, agentName, allWarnings) {
     return { status: 'denied', error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.`, source: 'none' };
   }
 
+  const contractRow = resolveContractRow(normName);
+  if (contractRow?.content) {
+    return { content: contractRow.content, skillType: contractRow.type || 'reference', source: 'runtime_contract', warning: null };
+  }
+
   const row = _findSkillInDb(conn, normName);
   if (row?.content) {
     process.stderr.write(`  → [use_skills] Retrieved '${normName}' from database (${row.byte_size || row.content.length} bytes)\n`);
     return { content: row.content, skillType: row.type || 'skill', source: 'sqlite_fts5', warning: null };
   }
 
-  const warnMsg = `Skill '${normName}' not found in database. Falling back to mirror skills.`;
-  process.stderr.write(`  ⚠️ [use_skills] ${warnMsg}\n`);
-  allWarnings.push(warnMsg);
-
   const mirrorHit = findInMirror(normName);
   if (mirrorHit) {
     try {
       const content = fs.readFileSync(mirrorHit.filePath, 'utf8');
       process.stderr.write(`  → [use_skills] Retrieved '${normName}' from mirror: ${mirrorHit.filePath} (${content.length} bytes)\n`);
-      return { content, skillType: mirrorHit.type, source: 'mirror_fallback', warning: warnMsg };
+      return { content, skillType: mirrorHit.type, source: 'mirror_fallback', warning: null };
     } catch (readErr) {
       const errWarning = `Failed to read mirror skill '${normName}' from ${mirrorHit.filePath}: ${readErr.message}`;
       allWarnings.push(errWarning);
@@ -310,19 +318,19 @@ function _recordFlowSkillsAndEvidence(effFlowHash, taskId, sessionId, loadedSkil
 function _computeMultiSkillBudgets(skillNames, totalBudgetBytes = MAX_MULTI_SKILL_TOTAL_BYTES) {
   const count = skillNames.length;
   if (count <= 1) return skillNames.map(() => MAX_CONTENT_SIZE);
-  const overheadReserve = count * 380;
-  const usableBytes = Math.max(1500, totalBudgetBytes - overheadReserve);
+  const overheadReserve = count * 360;
+  const usableBytes = Math.max(1200, totalBudgetBytes - overheadReserve);
   const flags = skillNames.map(s => isDisciplineSkillName(normalizeLegacySkillName(s)));
   const disciplineCount = flags.filter(Boolean).length;
   const domainCount = Math.max(0, count - disciplineCount);
 
   if (domainCount > 0 && disciplineCount > 0) {
-    const perDiscipline = Math.min(500, Math.max(340, Math.floor((usableBytes * 0.44) / disciplineCount)));
-    const remainingForDomain = Math.max(1000, usableBytes - (perDiscipline * disciplineCount));
-    const perDomain = Math.min(2000, Math.max(850, Math.floor(remainingForDomain / domainCount)));
+    const perDiscipline = Math.min(240, Math.max(180, Math.floor((usableBytes * 0.34) / disciplineCount)));
+    const remainingForDomain = Math.max(800, usableBytes - (perDiscipline * disciplineCount));
+    const perDomain = Math.min(1250, Math.max(650, Math.floor(remainingForDomain / domainCount)));
     return flags.map(isDisc => (isDisc ? perDiscipline : perDomain));
   }
-  const evenBudget = Math.max(420, Math.floor(usableBytes / count));
+  const evenBudget = Math.max(300, Math.floor(usableBytes / count));
   return skillNames.map(() => evenBudget);
 }
 
@@ -368,7 +376,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
   const sessionId = options?.sessionId || options?.session_id || null;
   const flowHash = options?.flowHash || options?.flow_hash || null;
 
-  const hasExplicitSessionKey = Boolean(flowHash || taskId || sessionId);
+  const hasExplicitSessionKey = Boolean(flowHash || taskId || sessionId || agentName);
   const trackingKey = flowHash || taskId || sessionId || (agentName ? `agent_${agentName}` : 'default_session');
   const servedSet = getServedSkillsSet(trackingKey);
 
