@@ -6,6 +6,7 @@
   import { uiState } from '#lib/state/uiState.svelte.js';
   import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
+  import BottomDock from '../components/BottomDock.svelte';
   import { toast } from '#lib/state/toast.svelte.ts';
   import { confirm, formDialog } from '#lib/state/dialog.svelte.ts';
   import ToastHost from '../components/ToastHost.svelte';
@@ -55,7 +56,8 @@
     {
       title: 'Overview',
       items: [
-        { id: 'dashboard', path: '/dashboard', label: 'Dashboard', iconSvg: 'M3 3v7h7M21 21v-7h-7M3 10a9 9 0 0115-5.7L21 8M21 14a9 9 0 01-15 5.7L3 16' }
+        { id: 'dashboard', path: '/dashboard', label: 'Dashboard', iconSvg: 'M3 3v7h7M21 21v-7h-7M3 10a9 9 0 0115-5.7L21 8M21 14a9 9 0 01-15 5.7L3 16' },
+        { id: 'activity', path: '/activity', label: 'Agent Activity', iconSvg: 'M13 10V3L4 14h7v7l9-11h-7z', badge: 'Live' }
       ]
     },
     {
@@ -97,7 +99,7 @@
       ]
     }] : []),
     {
-      title: 'OPRATION & DIAGNOSTICS',
+      title: 'OPERATIONS & DIAGNOSTICS',
       items: [
         { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', iconSvg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
         { id: 'doctor', path: '/doctor', label: 'Health & Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
@@ -462,8 +464,8 @@
       </div>
     </header>
 
-    <!-- Page Body (padding clears the bottom floating theme FAB on mobile) -->
-    <div class="flex-1 overflow-y-auto py-4 pb-20 lg:py-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: transparent;">
+    <!-- Page Body (padding clears the bottom floating dock and theme FAB) -->
+    <div class="flex-1 overflow-y-auto py-4 pb-24 lg:py-8 lg:pb-24 transition-colors duration-200 perspective-container" style="background-color: transparent;">
       {#if isCustomLayoutRoute}
         <!-- Explicit route exceptions: /dashboard and /docs retain their full-width layout with token gutters -->
         <div class="w-full px-4 lg:px-8">
@@ -477,6 +479,9 @@
       {/if}
     </div>
   </main>
+
+  <!-- Interactive Command Bottom Dock -->
+  <BottomDock />
 
   <!-- Floating Theme Switcher Button -->
   <ThemeSwitcher />

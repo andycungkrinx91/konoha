@@ -159,6 +159,9 @@ async function refreshExistingInstallation(flags, options) {
 
   try {
     deployUtils.ensureGlobalGitExcludes();
+    deployUtils.sanitizePollutedProjectGitignore(process.cwd());
+    const { syncAllGlobalClientSkills } = require('../../src/global_skill_sync');
+    syncAllGlobalClientSkills({ clients: flags.requestedClients || ['all'] });
   } catch (_) { /* intentional fallback */ }
 
   if (flags.explicitSelection) {
@@ -224,8 +227,8 @@ function detectAllClientFlags(args) {
   const codexInstalled = codexManager.isCodexInstalled();
   const piInstalled = piManager.isPiInstalled();
   const ompInstalled = ompManager.isOmpInstalled();
-  const deployProject = !args.includes('--no-project');
-  const appendProject = args.includes('--project');
+  const deployProject = Boolean(args.includes('--project'));
+  const appendProject = Boolean(args.includes('--project'));
 
   return {
     explicitSelection: Array.isArray(requestedClients) && requestedClients.length > 0,
@@ -337,6 +340,9 @@ async function cmdInit(args, options = {}) {
   agentManager.loadAgents();
   try {
     deployUtils.ensureGlobalGitExcludes();
+    deployUtils.sanitizePollutedProjectGitignore(process.cwd());
+    const { syncAllGlobalClientSkills } = require('../../src/global_skill_sync');
+    syncAllGlobalClientSkills({ clients: clientFlags.requestedClients || ['all'] });
   } catch (_) { /* intentional fallback */ }
 
   if (clientFlags.explicitSelection) {
@@ -362,5 +368,6 @@ async function cmdInit(args, options = {}) {
 
 module.exports = {
   cmdInit,
-  cmdInitHelp
+  cmdInitHelp,
+  detectAllClientFlags
 };

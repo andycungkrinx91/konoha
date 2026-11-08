@@ -29,10 +29,16 @@ function resolveTextSkills(displayFramework, agentName) {
     'jonin-skill/design-token-manifest',
     'jonin-skill/tailwind-design-system',
     'jonin-skill/build-directives-manifest',
-    'jonin-skill/source-fidelity-directives'
+    'jonin-skill/source-fidelity-directives',
+    'jonin-skill/framer-motion-animator',
+    'jonin-skill/svg-animation-motion-expert'
   ];
   if (basePrefix) {
-    frameworkSkills.push(`jonin-skill/${basePrefix}-ui-expert`, `jonin-skill/${basePrefix}-code-expert`);
+    frameworkSkills.push(
+      `jonin-skill/${basePrefix}-ui-expert`,
+      `jonin-skill/${basePrefix}-code-expert`,
+      `jonin-skill/motion-${basePrefix}`
+    );
   }
   frameworkSkills.push('jonin-skill/taste-skill-frontend-expert');
 
@@ -110,6 +116,9 @@ function getTextCriticalSkills(fwBase) {
   return [
     fwBase ? `jonin-skill/${fwBase}-ui-expert` : null,
     fwBase ? `jonin-skill/${fwBase}-code-expert` : null,
+    fwBase ? `jonin-skill/motion-${fwBase}` : null,
+    'jonin-skill/framer-motion-animator',
+    'jonin-skill/svg-animation-motion-expert',
     'jonin-skill/build-directives-manifest',
     'jonin-skill/design-token-manifest',
     'jonin-skill/taste-skill-frontend-expert'

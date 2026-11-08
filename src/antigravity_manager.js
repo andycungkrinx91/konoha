@@ -564,10 +564,18 @@ function ensureAntigravitySetup(options = {}) {
     const agents = loadAgents();
     const geminiMd = path.join(home, ".gemini", "GEMINI.md");
     const agentsMd = path.join(home, ".agents", "AGENTS.md");
+    const geminiConfigMd = path.join(home, ".gemini", "config", "GEMINI.md");
+    const geminiConfigAgentsMd = path.join(home, ".gemini", "config", "AGENTS.md");
     fs.mkdirSync(path.dirname(geminiMd), { recursive: true });
     fs.writeFileSync(geminiMd, injectManagedConfig(geminiMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
     fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
     fs.writeFileSync(agentsMd, injectManagedConfig(agentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), "utf8");
+    if (fs.existsSync(geminiConfigMd)) {
+      fs.writeFileSync(geminiConfigMd, injectManagedConfig(geminiConfigMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
+    }
+    if (fs.existsSync(geminiConfigAgentsMd)) {
+      fs.writeFileSync(geminiConfigAgentsMd, injectManagedConfig(geminiConfigAgentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
+    }
     ensureAntigravityAgents(agents, options);
     _appendAntigravityProjectConfigs(options, agents, home);
   } catch (_) { /* best-effort */ }

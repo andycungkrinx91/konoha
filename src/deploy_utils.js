@@ -338,7 +338,6 @@ function syncSoulAcrossClients(options = {}) {
 }
 
 const GLOBAL_GIT_EXCLUDE_PATTERNS = [
-  '.omp/',
   '.codex/',
   '.cursor/',
   '.claude/',
@@ -349,6 +348,62 @@ const GLOBAL_GIT_EXCLUDE_PATTERNS = [
   '.agents/',
   'CLAUDE.md'
 ];
+
+const OBSOLETE_KONOHA_GLOBAL_EXCLUDES = new Set([
+  '.omp/',
+  '.omp/.',
+  '.omp/plans/',
+  '.omp/plans',
+  '/.omp/plans/',
+  '/PLAN.md',
+  'PLAN.md'
+]);
+
+function isKonohaRepository(projectRoot) {
+  if (!projectRoot || typeof projectRoot !== 'string') return false;
+  try {
+    const pkgPath = path.join(path.resolve(projectRoot), 'package.json');
+    if (!fs.existsSync(pkgPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const name = String(pkg && pkg.name || '').trim().toLowerCase();
+    return (name === 'konoha' || name === 'konoha-mcp') &&
+      fs.existsSync(path.join(path.resolve(projectRoot), 'src', 'agent_contract.js'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function sanitizePollutedProjectGitignore(projectRoot) {
+  if (!projectRoot || typeof projectRoot !== 'string') return { ok: true, modified: false };
+  const resolvedRoot = path.resolve(projectRoot);
+  if (isKonohaRepository(resolvedRoot)) {
+    return { ok: true, modified: false, skipped: 'konoha_repository' };
+  }
+  const gitignorePath = path.join(resolvedRoot, '.gitignore');
+  if (!fileExists(gitignorePath)) return { ok: true, modified: false };
+
+  try {
+    const original = fs.readFileSync(gitignorePath, 'utf-8');
+    let updated = original;
+
+    const pollutedBlockRegex = /\r?\n?# Consolidated Plan Ignore Block \(Mandatory Konoha Invariant\)\r?\n\/PLAN\.md\r?\nPLAN\.md\r?\n\/\.omp\/plans\/\r?\n\.omp\/plans\/\r?\n\.omp\/plans\r?\n\.omp\/(?:\.|)\r?\n?/g;
+    updated = updated.replace(pollutedBlockRegex, '\n');
+
+    updated = updated
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '.omp/.')
+      .join('\n');
+
+    if (updated !== original) {
+      const normalized = updated.replace(/\n{3,}/g, '\n\n').trimEnd();
+      fs.writeFileSync(gitignorePath, normalized ? `${normalized}\n` : '', 'utf-8');
+      return { ok: true, modified: true, path: gitignorePath };
+    }
+    return { ok: true, modified: false, path: gitignorePath };
+  } catch (err) {
+    return { ok: false, modified: false, error: err.message };
+  }
+}
 
 function resolveGlobalGitExcludesPath(homeDir) {
   const effectiveHome = homeDir || process.env.HOME || process.env.USERPROFILE || HOME || os.homedir();
@@ -375,29 +430,34 @@ function ensureGlobalGitExcludes(homeDir) {
     const excludesPath = resolveGlobalGitExcludesPath(homeDir);
     ensureDir(path.dirname(excludesPath));
     const existing = fileExists(excludesPath) ? fs.readFileSync(excludesPath, 'utf-8') : '';
-    const existingLines = new Set(
-      existing
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean)
-    );
-    const missing = GLOBAL_GIT_EXCLUDE_PATTERNS.filter(pattern => !existingLines.has(pattern));
-    if (missing.length === 0) {
-      return { ok: true, path: excludesPath, added: 0 };
+    const rawLines = existing ? existing.split(/\r?\n/) : [];
+    const cleanedLines = [];
+    let removedObsolete = 0;
+    for (const line of rawLines) {
+      const trimmed = line.trim();
+      if (OBSOLETE_KONOHA_GLOBAL_EXCLUDES.has(trimmed)) {
+        removedObsolete++;
+        continue;
+      }
+      cleanedLines.push(line);
     }
-    const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
-    const block = `${prefix}${missing.join('\n')}\n`;
-    fs.writeFileSync(excludesPath, existing + block, 'utf-8');
-    return { ok: true, path: excludesPath, added: missing.length };
+    const existingSet = new Set(cleanedLines.map(l => l.trim()).filter(Boolean));
+    const missing = GLOBAL_GIT_EXCLUDE_PATTERNS.filter(pattern => !existingSet.has(pattern));
+    if (missing.length === 0 && removedObsolete === 0) {
+      return { ok: true, path: excludesPath, added: 0, removed: 0 };
+    }
+    const nextLines = [...cleanedLines.filter((l, idx, arr) => !(idx === arr.length - 1 && l === '')), ...missing];
+    fs.writeFileSync(excludesPath, nextLines.length > 0 ? `${nextLines.join('\n').trimEnd()}\n` : '', 'utf-8');
+    return { ok: true, path: excludesPath, added: missing.length, removed: removedObsolete };
   } catch (err) {
-    return { ok: false, error: err.message, added: 0 };
+    return { ok: false, error: err.message, added: 0, removed: 0 };
   }
 }
 
 const OFFICIAL_SKILL_NAMES = new Set([
   'akatsuki-skill', 'anbu-skill', 'chunin-skill', 'genin-skill',
   'jonin-skill', 'kage-skill', 'konoha', 'sannin-skill',
-  'tokubetsu-jonin-skill', 'antislop', 'antislop-code',
+  'tokubetsu-jonin-skill', 'yamanaka-skill', 'antislop', 'antislop-code',
   'antislop-copywriting', 'antislop-human', 'antislop-layoutmobile',
   'antislop-ui', 'i-have-adhd'
 ]);
@@ -514,6 +574,8 @@ module.exports = {
   resolveSoulSource,
   syncSoulAcrossClients,
   ensureGlobalGitExcludes,
+  isKonohaRepository,
+  sanitizePollutedProjectGitignore,
   pruneWorkspacePollution,
   writeNodeExecPathRecord,
   writePythonCmdRecord,

@@ -9,6 +9,7 @@ const deployUtils = require('./deploy_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 const authController = require('./web/controllers/auth_controller');
 const coreController = require('./web/controllers/core_controller');
+const activityController = require('./web/controllers/activity_controller');
 const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
 const servicesController = require('./web/controllers/services_controller');
@@ -143,6 +144,7 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   const { parsedUrl, pathname, method } = route;
   if (await authController.handleAuthRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await coreController.handleCoreRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+  if (await activityController.handleActivityRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await skillsController.handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;

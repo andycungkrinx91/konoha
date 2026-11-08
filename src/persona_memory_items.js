@@ -152,14 +152,18 @@ function memoryContentExists(content, agentName = null, projectPath = null, proj
 
 function appendSessionFilter(options) {
   const { allSessions, explicitSession, pHash, strictSession, sessionId, prefix = '' } = options;
-  if (allSessions) return { clause: '', params: [] };
   const col = prefix ? `${prefix}.` : '';
+  const projectBoundary = pHash
+    ? ` AND ${col}project_hash = ?`
+    : ` AND (${col}project_hash = '' OR ${col}project_hash IS NULL)`;
+  const projectParams = pHash ? [pHash] : [];
+  if (allSessions) return { clause: projectBoundary, params: projectParams };
   const sid = String(sessionId).trim();
   if (explicitSession) {
     if (pHash && !strictSession) {
       return {
-        clause: ` AND (${col}session_id = ? OR (${col}session_id = '' AND (${col}project_hash = '' OR ${col}project_hash IS NULL)) OR (${col}project_hash = ? AND ${col}memory_type != 'episodic'))`,
-        params: [sid, pHash]
+        clause: ` AND ((${col}session_id = ? AND (${col}project_hash = ? OR ${col}project_hash = '' OR ${col}project_hash IS NULL)) OR (${col}project_hash = ? AND ${col}memory_type != 'episodic'))`,
+        params: [sid, pHash, pHash]
       };
     }
     return {

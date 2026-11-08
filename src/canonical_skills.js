@@ -28,7 +28,8 @@ const CANONICAL_SKILL_NAMES = new Set([
   'kage-skill',
   'konoha',
   'sannin-skill',
-  'tokubetsu-jonin-skill'
+  'tokubetsu-jonin-skill',
+  'yamanaka-skill'
 ]);
 
 // Explicit registry of skills that were consolidated into references inside ninja skills.
@@ -167,6 +168,11 @@ const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
   'mobile-expo-expert',
   'modern-css-native-expert',
   'monorepo-architect',
+  'motion-angular',
+  'motion-animator',
+  'motion-nextjs',
+  'motion-nuxt',
+  'motion-svelte',
   'mpa-orchestrator',
   'multi-agent-orchestration',
   'multi-stage-dockerfile',

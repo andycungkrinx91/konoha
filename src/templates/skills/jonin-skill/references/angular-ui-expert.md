@@ -4,22 +4,20 @@ Canonical design system directives and production blueprints for **Angular v19+ 
 
 ---
 
-## 🎨 Universal UI/UX Invariants (Mandatory Across All Archetypes)
+## 🎨 Universal UI/UX & Storytelling Invariants (Angular 19/20+ Standalone & Signals)
 
-### 1. Header Architecture (Far-Left Logo & Zero Mobile Hamburger Toggle)
-- **Far-Left Brand Logo**: Brand logo MUST always be placed on the far LEFT (`flex items-center gap-3`) of the navigation header.
-- **Zero Mobile Hamburger Menu**: In mobile view (`lg:hidden`), **NEVER render a hamburger menu or top menu toggle button in the header**. Mobile navigation is handled strictly by the fixed bottom Mobile Dock.
+### 1. Dynamic Context-Driven Composition (Astra/Fable Standard)
+- Compose hero stages, section layouts, and interactive surfaces dynamically around the product domain and prompt.
+- Never force a rigid 4-slide hero carousel or bottom-left 10-theme FAB unless requested. Place the brand identity cleanly on the left of the header (`flex items-center justify-between`).
 
-### 2. Floating Bottom-Left 10-Theme Switcher Popup
-- **Placement**: Theme switcher trigger button MUST be positioned floating in the **bottom-left corner** (`fixed bottom-6 left-6 z-50`) on both desktop and mobile viewports.
-- **Pure Light Mode**: 10 curated Light Mode gradient themes. Zero dark mode enforcement.
-- **SSR/Hydration Safety**: Use `afterNextRender` or `isPlatformBrowser(this.platformId)` before reading `localStorage`.
+### 2. Adaptive Dark & Light Mode + SSR/Hydration Safety
+- Support both **Dark Mode and Light Mode** via semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`).
+- Use `afterNextRender` or `isPlatformBrowser(this.platformId)` before reading `localStorage`.
 
-### 3. Archetype-Adaptive Sticky Mobile Bottom Navigation Dock
-- **Placement**: Fixed mobile navigation dock (`fixed bottom-0 left-0 right-0 z-40 lg:hidden backdrop-blur-lg bg-white/90 border-t border-[var(--theme-border)] pb-safe`).
-- **Adaptive Routes**: Maps quick one-tap links to Dashboard (Overview, Analytics, Servers, Alerts, Themes), Portfolio (Home, Projects, Skills, Contact, Themes), SaaS, and Commerce.
+### 3. Motion Choreography (`motion` JS API + Signals & `afterNextRender`)
+- Integrate the official `'motion'` package (`animate`, `inView`, `scroll`, `stagger`, `spring` — see `jonin-skill/motion-angular`) inside `afterNextRender()` with `DestroyRef.onDestroy()` cleanup for spring-physics card elevation, dock magnification, and staggered hero choreography.
 
-### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include `@phosphor-icons/web` (load its CSS once in `styles.scss`: `@import '@phosphor-icons/web/regular'; @import '@phosphor-icons/web/bold';`) — NEVER `lucide-angular` or any Lucide package (AI-scaffold fingerprint). Styling uses hand-written SCSS (component-scoped stylesheets + global `styles.scss`), never Tailwind.
-- **Styling adaptation note (PLAN_HUMAN_BUILT)**: treat any Tailwind utility classes in the blueprints below as layout specifications to translate into hand-written SCSS, never as a reason to install Tailwind.
+### 4. Konoha Signature & Zero Errors Quality Gate
+- Include `<meta name="generator" content="Build by konoha">` in `src/index.html` and render the visible text `Build by konoha` in `<footer>`.
+- Scaffolding MUST include `@phosphor-icons/web` or hand-exported inline SVGs — NEVER `lucide-angular` and zero emojis anywhere in UI copy or controls.
 - Do not claim completion until `pnpm run build` and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.

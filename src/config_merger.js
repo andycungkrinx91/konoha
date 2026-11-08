@@ -416,6 +416,107 @@ function removeKonohaOwnedEntries(filePath, options = {}) {
   return { ok: true, removed: true };
 }
 
+function computeLineDiffPatch(oldText, newText) {
+  const oldLines = String(oldText || '').split(/\r?\n/);
+  const newLines = String(newText || '').split(/\r?\n/);
+  const hunks = [];
+  const maxLen = Math.max(oldLines.length, newLines.length);
+
+  let i = 0;
+  while (i < maxLen) {
+    if (oldLines[i] === newLines[i]) {
+      i++;
+      continue;
+    }
+    const start = i;
+    const removed = [];
+    const added = [];
+    while (i < maxLen && oldLines[i] !== newLines[i]) {
+      if (i < oldLines.length) removed.push(oldLines[i]);
+      if (i < newLines.length) added.push(newLines[i]);
+      i++;
+    }
+    hunks.push({ start, removed, added });
+  }
+
+  return {
+    changed: hunks.length > 0,
+    hunkCount: hunks.length,
+    hunks
+  };
+}
+
+function applyTargetedTextPatch(existingText, baselineText, nextTemplateText) {
+  const current = String(existingText || '');
+  const baseline = String(baselineText || '');
+  const target = String(nextTemplateText || '');
+
+  if (current === target) {
+    return { status: 'unchanged', content: current, hunksApplied: 0, conflict: false };
+  }
+  if (!baseline || current === baseline) {
+    const diff = computeLineDiffPatch(baseline || current, target);
+    return {
+      status: 'patched_clean',
+      content: target,
+      hunksApplied: diff.hunkCount,
+      conflict: false
+    };
+  }
+
+  const baseLines = baseline.split(/\r?\n/);
+  const currLines = current.split(/\r?\n/);
+  const nextLines = target.split(/\r?\n/);
+
+  if (currLines.length !== baseLines.length || nextLines.length !== baseLines.length) {
+    if (current.startsWith(baseline.trimEnd())) {
+      const userAppended = current.slice(baseline.trimEnd().length);
+      return {
+        status: 'merged_with_user_append',
+        content: `${target.trimEnd()}${userAppended}`,
+        hunksApplied: 1,
+        conflict: false
+      };
+    }
+    return {
+      status: 'conflict_preserved',
+      content: current,
+      hunksApplied: 0,
+      conflict: true,
+      reason: 'User modified line structure in a Konoha-managed file; preserving user file untouched.'
+    };
+  }
+
+  const merged = [];
+  let hunksApplied = 0;
+  for (let idx = 0; idx < baseLines.length; idx++) {
+    const b = baseLines[idx];
+    const c = currLines[idx];
+    const n = nextLines[idx];
+    if (c === b) {
+      if (n !== b) hunksApplied++;
+      merged.push(n);
+    } else if (n === b || c === n) {
+      merged.push(c);
+    } else {
+      return {
+        status: 'conflict_preserved',
+        content: current,
+        hunksApplied: 0,
+        conflict: true,
+        reason: `Line ${idx + 1} modified by both user and Konoha upgrade; preserving user file untouched.`
+      };
+    }
+  }
+
+  return {
+    status: 'merged_clean',
+    content: merged.join('\n'),
+    hunksApplied,
+    conflict: false
+  };
+}
+
 module.exports = {
   KONOHA_START_TAG,
   KONOHA_END_TAG,
@@ -431,5 +532,7 @@ module.exports = {
   mergeXmlConfigAppendOnly: mergeXmlConfigFile,
   mergeTextManagedBlock,
   mergePlainTextAppendOnly: mergeTextManagedBlock,
-  removeKonohaOwnedEntries
+  removeKonohaOwnedEntries,
+  computeLineDiffPatch,
+  applyTargetedTextPatch
 };

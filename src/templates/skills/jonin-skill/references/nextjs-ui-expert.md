@@ -4,28 +4,22 @@ Canonical design system directives and production blueprints for **Next.js 16.3 
 
 ---
 
-## 🎨 Universal UI/UX Invariants (Mandatory Across All Archetypes)
+## 🎨 Universal UI/UX & Storytelling Invariants (Next.js 16 App Router)
 
-### 1. Header Architecture (Far-Left Logo & Zero Mobile Hamburger Toggle)
-- **Far-Left Brand Logo**: Brand logo MUST always be placed on the far LEFT (`justify-start` / `flex items-center gap-3`) of the navigation header.
-- **Zero Mobile Hamburger Menu**: In mobile view (`lg:hidden`), **NEVER render a hamburger menu or top menu toggle button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
+### 1. Dynamic Context-Driven Composition (Astra/Fable Standard)
+- Compose hero stages, section layouts, and interactive surfaces dynamically around the product domain and prompt.
+- Never force a rigid 4-slide hero carousel or bottom-left 10-theme FAB unless requested. Place the brand identity cleanly on the left of the header (`flex items-center justify-between`).
 
-### 2. Floating Bottom-Left 10-Theme Switcher Popup
-- **Placement**: Theme switcher trigger button MUST be positioned floating in the **bottom-left corner** (`fixed bottom-6 left-6 z-50`) on both desktop and mobile viewports.
-- **Pure Light Mode**: 10 curated Light Mode gradient themes. Zero dark mode enforcement.
-- **SSR Hydration Safety**: Strict `useMounted()` guard before accessing `localStorage` or rendering theme DOM to guarantee **0 hydration mismatch errors**.
+### 2. Adaptive Dark & Light Mode + SSR Hydration Safety
+- Support both **Dark Mode and Light Mode** via semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) and user theme persistence in `localStorage`.
+- Use a strict `useMounted()` guard before accessing `localStorage` or rendering client-only theme state to guarantee **0 hydration mismatch errors**.
 
-### 3. Archetype-Adaptive Sticky Mobile Bottom Navigation Dock
-- **Placement**: Fixed mobile navigation dock (`fixed bottom-0 left-0 right-0 z-40 lg:hidden backdrop-blur-lg bg-white/90 border-t border-[var(--theme-border)] pb-safe`).
-- **Adaptive Routes**: Dynamically maps quick one-tap links to the website's archetype:
-  - *Admin / Infra Dashboard*: Overview, Analytics, Servers/Nodes, Alerts, Themes
-  - *Portfolio*: Home, Projects, Experience, Skills, Contact, Themes
-  - *SaaS / Landing*: Home, Features, Pricing, Testimonials, Themes
-  - *E-commerce*: Home, Shop, Categories, Wishlist, Cart, Themes
-  - *Company Profile*: Home, About, Services, Case Studies, Contact, Themes
+### 3. Motion Choreography (`motion/react`)
+- Use `import { motion, AnimatePresence, LayoutGroup, useScroll, useTransform, useSpring, useReducedMotion } from 'motion/react'` (`jonin-skill/motion-nextjs`) inside `'use client'` leaf components for spring-physics card elevation, shared `layoutId` pills, dock magnification, and staggered hero storytelling.
 
-### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include the framework's Phosphor Icons package (`@phosphor-icons/react`) or hand-exported inline SVG icon components — NEVER `lucide-react` (AI-scaffold fingerprint). Include `clsx` and `tailwind-merge` only when the build actually uses Tailwind utility merging.
+### 4. Konoha Signature & Zero Errors Quality Gate
+- Include `<meta name="generator" content="Build by konoha">` in `app/layout.tsx` metadata (`other: { generator: 'Build by konoha' }` or `generator: 'Build by konoha'`) and render the visible text `Build by konoha` in `<footer>`.
+- Scaffolding MUST include `@phosphor-icons/react` or hand-exported inline SVG icon components — NEVER `lucide-react` and zero emojis anywhere in UI copy or controls.
 - Do not claim completion until `pnpm run build` and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.
 
 ---

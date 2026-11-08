@@ -111,7 +111,11 @@ Load specialized frontend references via `konoha.get_skill("jonin-skill/<referen
 | SvelteKit 2, Svelte 5 Runes, reactive state | `jonin-skill/svelte-ui-expert` / `jonin-skill/svelte-code-expert` |
 | Nuxt 4, Vue 3 Composition API, auto-imports | `jonin-skill/nuxt-ui-expert` / `jonin-skill/nuxt-code-expert` |
 | Angular 19/20, standalone components, signals | `jonin-skill/angular-ui-expert` / `jonin-skill/angular-code-expert` |
-| Framer Motion, micro-interactions, exit animations | `jonin-skill/framer-motion-animator` |
+| Cross-framework Motion architecture, spring physics, storytelling | `jonin-skill/framer-motion-animator` |
+| Next.js / React 19 Motion (`motion/react`) | `jonin-skill/motion-nextjs` |
+| Nuxt 4 / Vue 3.5 Motion (`motion-v` + `motion` JS API) | `jonin-skill/motion-nuxt` |
+| SvelteKit 2 / Svelte 5 Motion (`svelte/motion` + `motion` JS API) | `jonin-skill/motion-svelte` |
+| Angular 19/20+ Motion (`motion` JS API + Signals/afterNextRender) | `jonin-skill/motion-angular` |
 | 3D Spline embeds, WebGL canvas, Three.js shaders | `jonin-skill/spline-interactive` / `jonin-skill/web-3d-graphics-expert` |
 | Form validation, Zod schemas, accessible error states | `jonin-skill/form-validation-expert` |
 | Accessible navigation, WCAG contrast verification | `jonin-skill/accessibility-testing-expert` |

@@ -95,9 +95,18 @@ konoha web
 
 ## 📱 Features & Screens
 
-### 1. 📊 System Dashboard Screen (`Dashboard.svelte`)
+### 1. 📊 System Dashboard & Live Agent Activity Spider (`Dashboard.svelte` & `AgentActivity.svelte`)
 - Real-time CPU, RAM, disk mount metrics, and active daemon statuses.
 - **Live GPU Telemetry Card**: Hardware probe via `src/gpu_telemetry.js` (10 s TTL) reporting GPU model name, utilization percentage, VRAM usage/capacity, and temperature across NVIDIA (`nvidia-smi`), AMD ROCm (`rocm-smi`), Apple Silicon (`system_profiler`), or Windows WMI; displays `CPU compute only` (`no_data`) when no GPU probe responds.
+- **Live Agent Activity & Spider Network (`/activity` under `Overview`)**:
+  - Powered by `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) and real-time Server-Sent Events (`/api/v1/events`).
+  - Interactive neural spider topology mapping connected client harnesses (8), active ninja agents, SDLC task boundaries, and MCP/Semble tool invocations.
+  - **180-Degree Chakra Inversion Flip**: Clicking the kinetic spider core or the `Flip Spider` toolbar control triggers a smooth 180-degree spring flip animation while preserving all graph state and resuming autonomous patrol afterward.
+  - **Viewport & Inspection Controls**: Smooth zoom (`50%`–`260%`), drag pan, `Reset View`, node inspection drawer with live token savings and query telemetry, and an **Accessible Table** view for `prefers-reduced-motion` and screen readers.
+- **Interactive Command Bottom Dock (`BottomDock.svelte`)**:
+  - Floating bottom dock with Gaussian spring magnification, active route pill transitions, and one-tap navigation across `Dashboard`, `Agent Activity`, `Ninja Agents`, `Skills & Vectors`, `SDLC Tasks`, `Token Savings`, and `Client IDEs`.
+- **Hidden Yamanaka & 3D Studio Menu Flag (`SHOW_3D_STUDIO_MENU = false`)**:
+  - In v2.2.18, the Yamanaka and 3D Studio sidebar menu items remain hidden by default while preserving the underlying `/3d/setup` and `/3d/maker` routes and backend APIs intact.
 
 ### 2. 🌉 Bridges Screen (`Bridges.svelte`)
 - View all configured local LLM proxy bridges and gateway ports.

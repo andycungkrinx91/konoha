@@ -43,6 +43,51 @@ function _validateFilePathCandidate(candidate, isCreating, projectPath, missing)
 
 // Definition of Readiness (DoR) Engine
 
+function isKonohaRepository(projectPath) {
+  if (!projectPath || typeof projectPath !== 'string') return false;
+  try {
+    const pkgPath = path.join(path.resolve(projectPath), 'package.json');
+    if (!fs.existsSync(pkgPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const name = String(pkg && pkg.name || '').trim().toLowerCase();
+    return (name === 'konoha' || name === 'konoha-mcp') &&
+      fs.existsSync(path.join(path.resolve(projectPath), 'src', 'agent_contract.js'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveProjectAcceptanceCriteria(taskInput, projectPath = null) {
+  let taskText = '';
+  let explicitFramework = null;
+  if (typeof taskInput === 'string') {
+    taskText = taskInput.trim();
+  } else if (taskInput && typeof taskInput === 'object') {
+    taskText = (taskInput.task || taskInput.description || taskInput.prompt || '').trim();
+    explicitFramework = taskInput.framework || null;
+  }
+
+  const isKonohaRepo = isKonohaRepository(projectPath);
+  const lower = taskText.toLowerCase();
+
+  let detectedFramework = explicitFramework ? String(explicitFramework).toLowerCase() : null;
+  if (!detectedFramework) {
+    if (/\b(nuxt|vue\s*3|nuxt\s*3|nuxt\s*4)\b/i.test(lower)) detectedFramework = 'nuxt';
+    else if (/\b(next\.?js|react\s*19)\b/i.test(lower)) detectedFramework = 'nextjs';
+    else if (/\b(sveltekit|svelte\s*5)\b/i.test(lower)) detectedFramework = 'sveltekit';
+    else if (/\b(angular)\b/i.test(lower)) detectedFramework = 'angular';
+  }
+
+  return {
+    projectPath: projectPath ? path.resolve(projectPath) : null,
+    isKonohaRepo,
+    requiresKonohaMaintenancePlan: isKonohaRepo,
+    requiresPlanGitignoreBlock: isKonohaRepo,
+    frameworkScope: detectedFramework,
+    applyNuxtVueCriteria: detectedFramework === 'nuxt'
+  };
+}
+
 function checkReadiness(taskInput, projectPath = null) {
   let taskText = '';
   if (typeof taskInput === 'string') {
@@ -89,10 +134,13 @@ function checkReadiness(taskInput, projectPath = null) {
     confidence = (missing.length === 1 && words.length >= 5) ? 'medium' : 'low';
   }
 
+  const scope = resolveProjectAcceptanceCriteria(taskInput, projectPath);
+
   return {
     ready,
     missing,
-    confidence
+    confidence,
+    scope
   };
 }
 
@@ -188,6 +236,8 @@ module.exports = {
   FILE_PATH_REGEX,
   CREATION_WORDS,
   checkReadiness,
+  isKonohaRepository,
+  resolveProjectAcceptanceCriteria,
   detectReviewIndependence,
   evaluateAntiSlopDeliveryGate,
   generateSlopFixTask

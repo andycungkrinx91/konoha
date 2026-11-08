@@ -94,6 +94,44 @@ function getCliVersion() {
   return '0.0.0';
 }
 
+function stripLegacyKonohaPreamble(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  let text = rawText;
+
+  // Strip legacy Konoha repository-maintenance preamble (# Custom Agent Rules for Konoha ... ### Rule 3 — PLAN.md First)
+  if (
+    text.includes('# Custom Agent Rules for Konoha') &&
+    text.includes('### Rule 3 — PLAN.md First, Never Commit Plans')
+  ) {
+    const startMarkerIdx = text.indexOf('<!-- KONOHA-START -->');
+    if (startMarkerIdx !== -1) {
+      const before = text.slice(0, startMarkerIdx);
+      const customIdx = before.indexOf('# Custom Agent Rules for Konoha');
+      if (customIdx !== -1) {
+        const userPrefix = before.slice(0, customIdx).trim();
+        text = (userPrefix ? `${userPrefix}\n\n` : '') + text.slice(startMarkerIdx);
+      }
+    }
+  }
+
+  // Strip unclosed legacy v1/v2.0 Konoha GEMINI.md dump ending with <!-- KONOHA-CONTRACT-END --> without <!-- KONOHA-START -->
+  if (
+    !text.includes('<!-- KONOHA-START -->') &&
+    text.includes('<!-- KONOHA-CONTRACT-END -->') &&
+    text.includes('You are equipped with two MCP servers: **`konoha`** and **`semble`**')
+  ) {
+    const endContractIdx = text.indexOf('<!-- KONOHA-CONTRACT-END -->');
+    const headerIdx = text.indexOf('# Global Agent Instructions');
+    if (headerIdx !== -1 && endContractIdx > headerIdx) {
+      const before = text.slice(0, headerIdx).trim();
+      const after = text.slice(endContractIdx + '<!-- KONOHA-CONTRACT-END -->'.length).trim();
+      text = [before, after].filter(Boolean).join('\n\n');
+    }
+  }
+
+  return text;
+}
+
 function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA', options = {}) {
   const startMarker = `<!-- ${marker}-START -->`;
   const endMarker = `<!-- ${marker}-END -->`;
@@ -110,7 +148,7 @@ function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA', opt
       });
     } catch (_) { /* backup best-effort when invoked in pure string tests */ }
     try {
-      existing = fs.readFileSync(filePath, 'utf8');
+      existing = stripLegacyKonohaPreamble(fs.readFileSync(filePath, 'utf8'));
     } catch {
       existing = '';
     }
@@ -262,6 +300,17 @@ function regenerateAndDeploy(silentOrOptions = false) {
   } catch (_) { /* intentional fallback */ }
 
   try {
+    const geminiConfigMdPath = path.join(effectiveHome, '.gemini', 'config', 'GEMINI.md');
+    const geminiConfigAgentsMdPath = path.join(effectiveHome, '.gemini', 'config', 'AGENTS.md');
+    if (fs.existsSync(geminiConfigMdPath)) {
+      fs.writeFileSync(geminiConfigMdPath, injectManagedConfig(geminiConfigMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
+    }
+    if (fs.existsSync(geminiConfigAgentsMdPath)) {
+      fs.writeFileSync(geminiConfigAgentsMdPath, injectManagedConfig(geminiConfigAgentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
+    }
+  } catch (_) { /* intentional fallback */ }
+
+  try {
     fs.mkdirSync(path.dirname(agentsMdPath), { recursive: true });
     fs.writeFileSync(agentsMdPath, injectManagedConfig(agentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), 'utf8');
   } catch (_) { /* intentional fallback */ }
@@ -305,6 +354,7 @@ module.exports = {
   generateAgentsMd,
   getCliVersion,
   injectManagedConfig,
+  stripLegacyKonohaPreamble,
   isProtectedUserPath,
   cleanObsoleteAgentDirs,
   regenerateAndDeploy,

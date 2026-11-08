@@ -3,26 +3,24 @@
 Comprehensive implementation standards for **Angular 20+** (Standalone Components + Signals + Tailwind CSS v4) projects using `pnpm` exclusively.
 
 ## 🏗️ Technical Directives
-- **Package Manager**: `pnpm` exclusively (`pnpm dlx @angular/cli@latest new <path> --style=css --routing=true --ssr=false`, `pnpm install`, `pnpm run start --open`).
+- **Package Manager**: `pnpm` exclusively (`pnpm dlx @angular/cli@latest new <path> --style=scss --routing=true --ssr=false`, `pnpm install`, `pnpm run start --open`).
 - **Reactivity**: Angular Signals (`signal()`, `computed()`, `effect()`) for state management and reactive filters.
-- **Components**: Standalone components (`standalone: true` or default in Angular 19).
-- **Theme Engine**: Reactive CSS gradient variables driven by `ThemeSwitcherComponent`.
-- **Watermark**: `Build by Konoha shadow ninja with coffee by Andy Setiyawan` footer watermark required on all pages.
+- **Components**: Standalone components (`standalone: true` or default in Angular 19/20+).
+- **Theme Engine**: Adaptive Dark & Light Mode semantic CSS variables (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--accent-primary`).
+- **Motion Engine**: Official `motion` JS API (`animate`, `inView`, `scroll`, `stagger`, `spring`) inside `afterNextRender()` with `DestroyRef` cleanup — see `jonin-skill/motion-angular`.
+- **Signature**: `<meta name="generator" content="Build by konoha">` in `src/index.html` and visible `Build by konoha` signature in `<footer>`.
 
 ---
 
-## 🎨 Canonical Visual Standards & 10 Light-Mode Theme Matrix
+## 🎨 Dynamic Storytelling & Visual Standards (Astra/Fable Direction)
 
-All generated Angular code must conform to the following baseline visual standards:
-1. **10 Light-Mode Gradient Themes**: Nebula (`#4f46e5`/`#06b6d4`), Aurora (`#059669`/`#10b981`), Sunset (`#e11d48`/`#f59e0b`), Ocean (`#0284c7`/`#3b82f6`), Forest (`#15803d`/`#84cc16`), Volcano (`#dc2626`/`#ea580c`), Sakura (`#db2777`/`#f472b6`), Cyberpunk (`#7c3aed`/`#06b6d4`), Midnight (`#1e293b`/`#64748b`), Gold (`#d97706`/`#f59e0b`).
-2. **Theme Switcher Widget**: Floating interactive chat-style popup positioned at the **bottom-left** (`fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000]`), saving selection to `localStorage` under key `'konoha-theme'`.
-3. **3D Hero Banner Carousel**: Autoplaying 3D interactive layout with mouse-tracking GPU perspective tilt (`perspective: 1200px`), high-contrast dark spec badges, 3D split drapes transition, play/pause controls, and thumbnail preview strip.
-4. **5 Interactive 3D Carousels**: Minimum of 5 interactive 3D carousels per website using GPU-accelerated CSS transforms.
-5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows and 3D tilts applied to all cards.
-6. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
-7. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting using Angular `computed()`.
-8. **Zero-Emoji Policy in UI**: Clean vector icons strictly from `@phosphor-icons/web` CSS classes (or hand-exported inline SVGs). Emojis in buttons, navigation, and badges are strictly forbidden.
-9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha shadow ninja with coffee by Andy Setiyawan`.
+All generated Angular code must follow dynamic, domain-driven composition rather than a rigid boilerplate template:
+1. **Adaptive Dark & Light Mode Palettes**: Support Dark Mode and Light Mode cleanly with semantic CSS variables persisted under `'konoha-theme'`.
+2. **Bespoke Hero Storytelling**: Compose the hero around the product domain (interactive workbench, kinetic typography stage, editorial split showcase, or 3D preview). Do not force a 4-slide hero carousel or 5 carousels per site unless requested.
+3. **Motion & 3D Spring Choreography**: Use `motion` spring physics (`jonin-skill/motion-angular`) for card elevation, shared layout indicators, dock magnification, and reduced-motion-safe scroll reveals.
+4. **Domain-Scoped Data & Filters**: When building e-commerce or catalog apps, provide rich reactive datasets with search, category filters, and sorting using Angular `computed()`; for SaaS, dashboards, or portfolios, scope data structures to that specific domain.
+5. **Zero-Emoji Policy in UI**: Clean vector icons strictly from `@phosphor-icons/web` CSS classes or hand-exported inline SVGs. Emojis in buttons, navigation, and badges are strictly forbidden.
+6. **Konoha Generator Signature**: Mandatory `<meta name="generator" content="Build by konoha">` and footer signature `Build by konoha`.
 
 ---
 
@@ -207,14 +205,12 @@ export class ThemeSwitcherComponent implements OnInit {
 
 ---
 
-## 📋 Taste-Skill Pre-Flight Checklist for Angular 19+
-- [ ] Tailwind v4 `@import "tailwindcss";` configured in `src/styles.css`.
-- [ ] 10 Light-Mode themes mapped via CSS custom variables (`[data-theme="..."]`).
-- [ ] `ThemeSwitcherComponent` positioned fixed at `bottom-6 left-6` saving to `localStorage`.
-- [ ] `HeroCarouselComponent` with full-width GPU tilt and spec badges.
-- [ ] 50 items dataset catalog with multi-criteria reactive filters using `computed()`.
+## 📋 Taste-Skill Pre-Flight Checklist for Angular 19/20+ Projects (Scoped to Angular Builds Only)
+- [ ] Adaptive Dark & Light Mode semantic CSS variables configured in `src/styles.scss` / `src/styles.css`.
+- [ ] Bespoke hero storytelling and section layout tailored to the domain.
+- [ ] Motion choreography (`motion` JS API with `afterNextRender` & `DestroyRef`) with spring physics and `prefers-reduced-motion` support.
 - [ ] All interactive icons rendered via `@phosphor-icons/web` CSS classes or inline SVGs (zero emojis in UI).
-- [ ] `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark included in footer.
+- [ ] `<meta name="generator" content="Build by konoha">` in `src/index.html` and `Build by konoha` signature in `<footer>`.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
 

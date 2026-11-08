@@ -3,29 +3,29 @@
 This manifest is required by `build_from_text` and `build_from_source` for Angular, Next.js, Nuxt, and SvelteKit.
 
 
-## Architecture: Konoha Core Base + Taste-Skill Enrichment
+## Architecture: Dynamic Context-Driven Composition + Taste-Skill Enrichment
 
 All web application builds execute in two complementary layers:
 
-1. **Layer 1: Konoha Core Design Base (Foundation)**:
-   - **Themes**: 10 Light-Mode Themes (`[data-theme="..."]`) via CSS custom variables (`--theme-bg`, `--theme-fg`, `--theme-card`, `--theme-border`, `--theme-accent`, etc.).
-   - **ThemeSwitcher**: Fixed at `bottom-6 left-6 z-[999]` with `localStorage` persistence.
-   - **Hero Carousel**: Full-width 3D `HeroCarousel` with 1200px perspective, tilt physics, thumbnails, play/pause, and spec badges.
-   - **Catalog & Commerce**: 50-item production-grade catalog dataset with reactive filters, category search, sort, pagination, cart drawer, and checkout modals.
-   - **Framework Standard**: Strictly **Next.js 16.3+ App Router (React 19, Tailwind v4)**, **SvelteKit 2 (Svelte 5 Runes)**, **Nuxt 3.15+/4.3**, or **Angular 19+**.
-   - **Footer Watermark**: `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark.
+1. **Layer 1: Dynamic Context-Driven Foundation (Astra / Fable Direction)**:
+   - **Adaptive Color System**: Semantic Dark & Light Mode CSS variables (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) with `localStorage` persistence and WCAG AA contrast.
+   - **Bespoke Hero & Section Storytelling**: Compose hero sections dynamically around the product domain (interactive product workbench, kinetic typography stage, editorial split-screen, or 3D spatial preview). Never force a rigid 4-slide carousel or bottom-left 10-theme FAB unless requested.
+   - **Cross-Framework Motion Standard**: Implement spring-physics choreography using `motion/react` (Next.js), `motion-v` + `motion` (Nuxt), `svelte/motion` + `motion` (SvelteKit), or `motion` JS API with `afterNextRender` (Angular).
+   - **Domain-Scoped Features**: Implement the exact data models and interactive flows required by the project archetype (e.g. 50-item reactive catalog when building e-commerce; live KPI telemetry and topology views when building dashboards).
+   - **Framework Standard**: Strictly **Next.js 16.3+ App Router (React 19, Tailwind v4)**, **SvelteKit 2 (Svelte 5 Runes)**, **Nuxt 4.3 (Vue 3.5)**, or **Angular 19/20+**.
+   - **Konoha Signature**: `<meta name="generator" content="Build by konoha">` in `<head>` and visible `Build by konoha` signature in `<footer>`.
 
-2. **Layer 2: Taste-Skill Enrichment (Polish, 3D & Anti-Slop)**:
-   - **3D Animation & Sensory Dynamics**: Motion 12 spring physics, 3D card tilt (`perspective(1200px)`), dynamic hover sheen, `hover:-translate-y-1`, and tactile `active:scale-[0.98]`.
-   - **Prettifier & Editorial Typography**: Distinctive fonts (Geist, Cabinet Grotesk, Clash Display), tight tracking, scale contrast (`text-6xl`-`text-8xl` vs micro badges), cinematic section spacing (`py-24`, `py-32`, `py-48`), and 12-column asymmetric bento layouts.
-   - **Anti-Slop Discipline**: Zero emojis in UI (Phosphor vector icons only — never Lucide), viewport-safe `min-h-[100dvh]`, sticky mobile bottom dock, and leaf-component client isolation (`'use client'` strictly on micro-interactions).
+2. **Layer 2: Taste-Skill Enrichment (Polish, Motion & Anti-Slop)**:
+   - **Motion & Sensory Dynamics**: Motion v12+ spring physics, 3D card tilt (`perspective(1200px)`), dynamic hover sheen, `hover:-translate-y-1`, and tactile `active:scale-[0.98]`.
+   - **Prettifier & Editorial Typography**: Distinctive fonts (Geist, Cabinet Grotesk, Clash Display), tight tracking, scale contrast (`text-5xl`-`text-7xl` vs micro badges), cinematic section spacing (`py-24`, `py-32`, `py-48`), and 12-column asymmetric bento layouts.
+   - **Anti-Slop Discipline**: Zero emojis in UI (Phosphor vector icons only — never Lucide), viewport-safe `min-h-[100dvh]`, accessible mobile navigation, and leaf-component client isolation (`'use client'` strictly on micro-interactions).
 
 ## Shared requirements
 
 - Use `pnpm` exclusively. Do not use `npm`, `yarn`, or standalone `npx`.
 - Use framework-native routing; never use hash routing or a fake `activePage` router.
-- Implement the official ten light-mode themes and semantic CSS variables from `design-token-manifest.md`.
-- Add bounded 3D perspective interactions, entrance motion, glass surfaces, and responsive behavior without harming readability.
+- Implement adaptive Dark & Light Mode semantic CSS variables from `design-token-manifest.md`.
+- Add bounded 3D perspective interactions, spring-driven entrance motion, glass surfaces, and responsive behavior without harming readability.
 - Respect `prefers-reduced-motion`; disable tilt/parallax and use opacity-only transitions when requested.
 - Clean up event listeners, timers, animation frames, and observers on component teardown.
 - Add `pnpm run lint` and `pnpm run build`; SvelteKit also requires `pnpm run check`.
@@ -84,18 +84,16 @@ Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operationa
 
 ## Critical Layout & UI Architecture Rules
 
-1. **Full-Width Hero Banner Carousel**:
-   - MUST be edge-to-edge full width (`w-full min-w-full`). Do NOT constrain the outer container to a narrow `max-w`.
-   - Feature 4+ real high-definition photography slides with GPU 3D perspective tilt (`perspective: 1400px`), crossfade transitions, play/pause controls, and indicator dots.
+1. **Dynamic Hero Composition (Astra/Fable Standard)**:
+   - Compose edge-to-edge or editorial split-screen hero stages (`min-h-[100dvh]`) tailored to the product domain.
+   - When a visual showcase or carousel is appropriate for the domain, support GPU 3D perspective (`perspective: 1200px`), smooth spring transitions, and accessible controls.
 
-2. **Top-Left Header Brand Logo**:
-   - The brand emblem and typography MUST be positioned at the **top-left** of the navigation header on both desktop and mobile view.
-   - Desktop navigation links occupy the center, and action triggers (Search, Wishlist, Cart) are placed on the right.
+2. **Top-Left Header Brand Identity**:
+   - Position the brand emblem and typography cleanly on the left of the navigation header (`flex items-center justify-between`).
+   - Provide clear desktop navigation and touch-safe (`>= 44px`) mobile navigation or an archetype-adaptive bottom dock (`BottomDock`).
 
-3. **Sticky Mobile Bottom Navigation Dock**:
-   - The mobile bottom navigation dock (`MobileDock`) MUST be placed in the root layout (`layout.tsx`, `+layout.svelte`, `layouts/default.vue`, `app.component.html`) so it is present across all routes.
-   - Positioned as `fixed bottom-0 left-0 right-0 z-[999] lg:hidden` with `backdrop-blur-2xl` and high contrast.
-   - The `<body>` or root wrapper must have `pb-20 lg:pb-0` so bottom page content is never obscured by the mobile dock.
+3. **Interactive Bottom Dock / Mobile Navigation**:
+   - When an application or mobile dock is used, place it in the root layout (`layout.tsx`, `+layout.svelte`, `layouts/default.vue`, `app.component.html`) with spring magnification, `backdrop-blur-xl`, and `pb-20 lg:pb-0` clearance so page content is never obscured.
 
 4. **File Writing & Tool Safety Guardrail**:
    - NEVER provide `ArtifactMetadata` in `write_to_file` when writing or editing project code files outside the artifact directory (`<appDataDir>/brain/<conversation-id>/`).

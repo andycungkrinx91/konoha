@@ -33,7 +33,7 @@ Use Framer Motion for declarative component animations, layout animations, and g
 ```tsx
 'use client'
 
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'motion/react'
 import { useRef } from 'react'
 
 export function ScrollReveal({ children }: { children: React.ReactNode }) {

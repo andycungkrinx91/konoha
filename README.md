@@ -53,19 +53,6 @@
 
 ---
 
-## ⚡ Executive Summary — What's New in `v2.2.18`
-
-| Pillar | Architectural Capability | Measured Guarantee |
-| :--- | :--- | :--- |
-| **Compact Skill Retrieval (`use_skills`)** | High-density core extraction (`extractHighDensityCore`) + session deduplication (`[ALREADY_IN_CONTEXT]`) across all 8 specialist agents while preserving `i-have-adhd` & `antislop*` | **`≤ 6,400 bytes` (~1.6k tokens)** per 5-skill batch (down from ~48.4 KB / ~12.1k tokens; **87% reduction**) |
-| **Parallel Subagent Execution & Git Worktrees** | `executeNode` fans out independent tasks concurrently via `Promise.all` inside isolated git worktrees (`~/.konoha/tmp/worktrees/<task_id>/<step_id>-<agent>`); `@sannin` is strictly a router | **Zero race conditions**; deterministic conflict detection prior to worktree merge |
-| **Real-Time Idle `@advisor` Monitor** | Deterministic AST/regex pre-filter (`0 tokens` when clean) + bounded on-the-fly `[ADVISOR_INTERRUPT]` correction payloads (`evict_stale_results: true`) | **`0 tokens` when idle · `≤ 1,000 tokens/turn` hard ceiling** when interrupting drift |
-| **Native Walkthrough Sync & Gate 1 Compaction** | Emits native `walkthrough_steps`, `todos`, and `client_todo_directive` across all 8 clients; Gate 1 approval compacts prior exploration turns automatically | **`runSannin < 3 KB` (`2,867B`)** · **`< 1,500B` compacted context** post-approval |
-| **Dynamic Jonin Frontend Architecture** | Replaces rigid templates with Astra/Fable-inspired dynamic composition, Dark & Light Mode, optional Figma/OpenDesign dual-mode, live browser monitor, and auto-generated project skill | Mandatory `<meta name="generator" content="Build by konoha">` + **`Build by konoha`** footer |
-| **Append-Only `--client` Setup & Backup/Restore** | Explicit `konoha init --client=<cursor\|claude\|opencode\|omp\|codex\|pi\|antigravity\|commandcode\|all>` with non-destructive config merge and timestamped backups | Instant rollback via `konoha restore --client=<target\|all>`; zero template skill mirror injection |
-
----
-
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
 * **Latest Release:** [v2.2.18](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
@@ -81,46 +68,10 @@ One featured workflow, with the full 19-tab catalogue plus the Anbu DB disaster-
   <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
 
-<sub>drawio tab 08 Orchestrator Task Artifact Flow — 11 cells, 10 connectors, owners sannin / anbu / akatsuki (2400×1350 animated WebP). The other 18 projections and workflows are one click away in the tables below.</sub>
-
-### ✧ All 19 Drawio Tabs → Animated WebP
-
-| Drawio tab | Animated WebP | Dimensions | Cells (v / e) | Owners |
-| :--- | :--- | :--- | :--- | :--- |
-| 01 System Architecture | [`konoha-flow-01-system-architecture.webp`](assets/konoha-flow-01-system-architecture.webp) | 2400×1632 | 21 / 12 | host, sannin, genin, akatsuki |
-| 02 Runtime Query Lifecycle | [`konoha-flow-02-runtime-query-lifecycle.webp`](assets/konoha-flow-02-runtime-query-lifecycle.webp) | 2400×1632 | 14 / 13 | host, sannin, genin, akatsuki |
-| 03 MCP Tool and Skill Routing | [`konoha-flow-03-mcp-tool-and-skill-routing.webp`](assets/konoha-flow-03-mcp-tool-and-skill-routing.webp) | 2400×1632 | 16 / 13 | sannin, jonin, genin, kage, anbu, chunin, tokubetsu-jonin, akatsuki |
-| 04 LLM Bridge Gateway | [`konoha-flow-04-llm-bridge-gateway.webp`](assets/konoha-flow-04-llm-bridge-gateway.webp) | 2400×1632 | 14 / 11 | host, sannin, anbu, akatsuki |
-| 05 Search Fallback Chain | [`konoha-flow-05-search-fallback-chain.webp`](assets/konoha-flow-05-search-fallback-chain.webp) | 2400×1632 | 9 / 10 | akatsuki |
-| 06 Skill Registry Installation | [`konoha-flow-06-skill-registry-installation.webp`](assets/konoha-flow-06-skill-registry-installation.webp) | 2400×1632 | 11 / 11 | host, anbu, akatsuki |
-| 07 Token Footprint Comparison | [`konoha-flow-07-token-footprint-comparison.webp`](assets/konoha-flow-07-token-footprint-comparison.webp) | 2400×1632 | 11 / 4 | akatsuki |
-| 08 Orchestrator Task Artifact Flow | [`konoha-orchestration-flow.webp`](assets/konoha-orchestration-flow.webp) | 2400×1350 | 11 / 10 | sannin, anbu, akatsuki |
-| 09 Jonin Taste-Skill Frontend Engine | [`konoha-jonin-flow.webp`](assets/konoha-jonin-flow.webp) | 2400×1520 | 7 / 5 | jonin, akatsuki |
-| 10 Persistent Project Context & Auto-Compaction | [`konoha-flow-10-persistent-project-context-auto-compaction.webp`](assets/konoha-flow-10-persistent-project-context-auto-compaction.webp) | 2400×1632 | 6 / 4 | anbu, sannin, akatsuki |
-| 11 Kage Pre-Delivery Reviewer Workflow Gate | [`konoha-kage-gate.webp`](assets/konoha-kage-gate.webp) | 2400×1520 | 12 / 11 | sannin, genin, kage, host, anbu, tokubetsu-jonin, akatsuki |
-| 12 CLI Upgrade & Progress Engine | [`konoha-flow-12-cli-upgrade-progress-engine.webp`](assets/konoha-flow-12-cli-upgrade-progress-engine.webp) | 2400×1632 | 13 / 10 | host, anbu, akatsuki |
-| 13 QA Automation Workflow | [`konoha-qa-flow.webp`](assets/konoha-qa-flow.webp) | 2400×1520 | 24 / 24 | sannin, genin, kage, chunin, anbu, jonin, tokubetsu-jonin, host, akatsuki |
-| 14 Remote Access & Telegram Inbound/Outbound | [`konoha-telegram-flow.webp`](assets/konoha-telegram-flow.webp) | 2400×1520 | 18 / 13 | tokubetsu-jonin, anbu, sannin, akatsuki |
-| 15 Inbound Prompt Queue & Worker Pipeline | [`konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp`](assets/konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp) | 2400×1632 | 15 / 10 | host, akatsuki, anbu, sannin, tokubetsu-jonin |
-| 16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle | [`konoha-akatsuki-flow.webp`](assets/konoha-akatsuki-flow.webp) | 2400×1520 | 22 / 15 | akatsuki, host |
-| 17 Yamanaka Image-to-3D Asset Pipeline | [`konoha-yamanaka-3d-flow.webp`](assets/konoha-yamanaka-3d-flow.webp) | 2400×1632 | 15 / 9 | host, yamanaka |
-| 18 LangGraph.js Orchestration Runtime | [`konoha-langgraph-flow.webp`](assets/konoha-langgraph-flow.webp) | 2400×1632 | 23 / 18 | sannin, kage, anbu, yamanaka |
-| 19 Authenticated Local Web UI & Ingress Queue | [`konoha-web-ingress-flow.webp`](assets/konoha-web-ingress-flow.webp) | 2400×1632 | 14 / 9 | host, anbu, sannin, tokubetsu-jonin |
-
-*Every row is backed by the `.drawio` XML source; the 6 Tokubetsu-Jonin multi-card workflow diagrams (Tabs 08, 09, 11, 13, 14, 16) enrich each step with detailed v2.2.18 sub-bullet checklists while preserving exact Draw.io step alignment.*
-
-### ✧ Tokubetsu-Jonin Animated Workflows
-
-Seven multi-card operational workflows (Tabs 08, 09, 11, 13, 14, 16 above plus `konoha-anbu-flow.webp` below) are generated by `scripts/generate_tokubetsu_flow_webp.js` using Playwright + FFmpeg (`libwebp_anim`, 24 frames, `loop: 0`):
-
-| Workflow | Animated WebP (2400×1520) | Steps | Owner |
-| :--- | :--- | :--- | :--- |
-| Anbu SQLite Disaster Recovery & DB Health | [`konoha-anbu-flow.webp`](assets/konoha-anbu-flow.webp) | `konoha db check` → PRAGMA quick/integrity check → verified backup select → atomic corrupt archive → restore or `.recover` salvage → post-restore verify gate | anbu |
-
 ### 📐 Mermaid Diagram: Multi-Agent Orchestration & Execution Flow
 
 <details>
-<summary><b style="display:inline">📐 Click to expand Multi-Agent Orchestration &amp; SDLC Decision Flow (Mermaid Diagram)</b></summary>
+<summary><b style="display:inline"> Click to expand Multi-Agent Orchestration &amp; SDLC Decision Flow (Mermaid Diagram)</b></summary>
 <br>
 
 ```mermaid
@@ -179,30 +130,6 @@ flowchart TB
 ```
 
 </details>
-
-### 🌐 Demo Web
-
-<details>
-<summary><b style="display:inline">🌐 Flagship Frontend Demo: SvelteKit 3 Web UI &amp; 10 Gradient Themes (<code>demo-web.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/demo-web.webp" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
-</p>
-</details>
-
-### 🎬 Demo TUI
-
-<details>
-<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands &amp; Interactive Workflows in Action (<code>demo.webp</code>)</b></summary>
-<br>
-
-<p align="center">
-  <img src="assets/demo.webp" alt="Konoha Core & Subagent Commands Demo" width="100%">
-</p>
-</details>
-
----
 
 ## 🌟 Master Architectural Feature Matrix
 
@@ -1047,56 +974,6 @@ Combined, all time    ███████████████████�
 
 > **Canonical editable diagram:** [07 Token Footprint Comparison](docs/diagrams/konoha-architecture.drawio) · [Diagram manifest](docs/diagrams/README.md).
 
-```mermaid
----
-title: Token Footprint Before and After Konoha
-config:
-  theme: base
-  themeVariables:
-    darkMode: false
-    background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#3b82f6'
-    lineColor: '#334155'
-    arrowheadColor: '#334155'
-    secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-    fontSize: '13px'
-  flowchart:
-    nodeSpacing: 45
-    rankSpacing: 55
-    padding: 24
-    wrappingWidth: 380
----
-flowchart TB
-    subgraph Before ["Before: Folder-Level Loading"]
-        Raw["Raw SKILL.md files"] --> References["All references and scripts"]
-        References --> FullContext["Entire context window<br/>(Large repeated payload)"]
-    end
-
-    subgraph After ["After: On-Demand Retrieval"]
-        Index["SQLite FTS5 index"] --> Query["find_skill(keyword)"]
-        Query --> Relevant["Relevant bounded reference<br/>(Preview or full content)"]
-    end
-
-    Before --> Compare["Smaller query payload<br/>(97–99% token reduction)"]
-    After --> Compare
-
-    linkStyle default stroke:#334155,stroke-width:2px;
-    style Before fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style After fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-
-    classDef wasteNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    classDef optNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef compNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-
-    class Raw,References,FullContext wasteNode;
-    class Index,Query,Relevant optNode;
-    class Compare compNode;
-```
 
 📊 **Benchmark Comparison: Antigravity Session Metrics**
 

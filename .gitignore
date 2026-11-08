@@ -94,12 +94,12 @@ playwright/.cache/
 # KONOHA-QA-END
 
 # Konoha runtime / plans (local only, never committed)
-.omp/
-.omp/**
-**/.omp/
-**/.omp/**
-PLAN.md
 /PLAN.md
+PLAN.md
+/.omp/plans/
+.omp/plans/
+.omp/plans
+.omp/
 PLAN*.md
 **/PLAN.md
 **/PLAN*.md

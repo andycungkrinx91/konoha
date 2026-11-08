@@ -124,10 +124,14 @@ function verifySkillDatabaseContract(python = null, requiredSkill = 'genin-skill
   }
 }
 
-function syncTemplateSkills() {
-  // Canonical template skills are indexed directly into ~/.konoha/konoha.db
-  // from packaged src/templates/skills; no filesystem mirror copying occurs.
-  return 0;
+function syncTemplateSkills(options = {}) {
+  try {
+    const { syncAllGlobalClientSkills } = require('../../src/global_skill_sync');
+    const res = syncAllGlobalClientSkills(options);
+    return (res.installed || 0) + (res.patched || 0);
+  } catch (_) {
+    return 0;
+  }
 }
 
 function processFingerprintEntry(p, stack, state) {

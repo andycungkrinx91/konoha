@@ -24,6 +24,17 @@
   class="glass-card-3d relative overflow-hidden rounded-[5px] p-8 border transition-all duration-300"
   style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
 >
+  <!-- Ambient Astra/Fable Storytelling Shimmer Band -->
+  <div
+    class="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-25"
+    style="background: var(--theme-4gradient);"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="pointer-events-none absolute bottom-0 left-0 right-0 h-[2px] opacity-70"
+    style="background: var(--theme-4gradient-bar);"
+    aria-hidden="true"
+  ></div>
   <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
     <div class="space-y-2">
       {#if badge}

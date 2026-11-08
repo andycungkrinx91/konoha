@@ -154,7 +154,18 @@
         </div>
       </div>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <a
+        href="/activity"
+        class="btn-3d px-3.5 py-1.5 rounded-full border text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer"
+        style="background: var(--theme-4gradient); color: #ffffff; border-color: transparent; box-shadow: 0 4px 14px var(--color-primary-glow);"
+        data-testid="dashboard-open-spider-link"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span>Open Agent Spider</span>
+      </a>
       <!-- Looping Telemetry Lamp Visual Pulse (Dynamic Glow from Theme & Mode) -->
       <div
         class="telemetry-lamp-container flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm select-none"

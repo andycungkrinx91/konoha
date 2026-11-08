@@ -203,8 +203,14 @@ function syncSkills() {
 
   const prunedCount = pruneStaleFiles(destDir, { validTopLevels, validRelFiles, isTemplate: false });
   const soulUpdated = syncSoul();
+  let clientSynced = 0;
+  try {
+    const { syncAllGlobalClientSkills } = require('../src/global_skill_sync');
+    const res = syncAllGlobalClientSkills();
+    clientSynced = (res.installed || 0) + (res.patched || 0);
+  } catch (_) { /* best-effort */ }
 
-  console.log(`✓ Skill sync complete: ${state.totalCount} files checked, ${state.updatedCount} copies updated, ${prunedCount} stray items pruned, ${legacyPruned} legacy client mirrors cleaned (SOUL.md synced: ${soulUpdated} updated).`);
+  console.log(`✓ Skill sync complete: ${state.totalCount} files checked, ${state.updatedCount} copies updated, ${clientSynced} global client files synced, ${prunedCount} stray items pruned, ${legacyPruned} legacy client mirrors cleaned (SOUL.md synced: ${soulUpdated} updated).`);
 }
 
 function syncSoul() {

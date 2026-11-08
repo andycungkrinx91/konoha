@@ -14,6 +14,10 @@
   let error = $state("");
 
   let nineRouterModels = $derived(bridgeModels.filter(m => m.bridge === '9router' || m.source === '9router'));
+  const SHOW_YAMANAKA_AGENT = false;
+  let visibleAgents = $derived(
+    (agents || []).filter((a) => SHOW_YAMANAKA_AGENT || String(a.name || '').toLowerCase() !== 'yamanaka')
+  );
   let otherModels = $derived(bridgeModels.filter(m => m.bridge !== '9router' && m.source !== '9router'));
 
   const rankIcons = {
@@ -321,7 +325,7 @@
     </div>
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 perspective-container">
-      {#each agents as agent}
+      {#each visibleAgents as agent}
         <div
           class="metric-card-3d flex flex-col justify-between p-6 rounded-[5px] border"
           style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
