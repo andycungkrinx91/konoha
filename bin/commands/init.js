@@ -299,7 +299,10 @@ async function cmdInit(args, options = {}) {
   const clientFlags = detectAllClientFlags(args);
   ensureCoreDirectories();
   try {
-    executePreInstallBackup({ projectRoot: process.cwd() });
+    const backupSummary = executePreInstallBackup({ projectRoot: process.cwd() });
+    for (const line of (backupSummary.summaryLines || [])) {
+      log(`${C.dim}${line}${C.reset}`);
+    }
     runTransactionalDatabaseMigration();
   } catch (backupErr) {
     error(`Configuration backup verification failed: ${backupErr.message}`);

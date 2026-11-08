@@ -101,23 +101,20 @@ function _copyOpenCodeBakSafe(configPath, bakPath) {
 function writeOpenCodeConfig(config, options = {}) {
   const configPath = getOpenCodeConfigPath(options);
   ensureDir(path.dirname(configPath));
+  const backupMgr = require('./config_backup_manager');
   if (fileExists(configPath)) {
-    try {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.backupConfigFile(configPath, { client: 'opencode', scope: 'global', konohaHome: options.konohaHome });
-    } catch (_) { /* intentional best-effort backup */ }
+    backupMgr.ensureBackupBeforeModify(configPath, { client: 'opencode', scope: 'global', ...options });
     _copyOpenCodeBakSafe(configPath, `${configPath}.bak`);
   }
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   try {
-    const backupMgr = require('./config_backup_manager');
     backupMgr.recordOwnership(configPath, {
       client: 'opencode',
       scope: 'global',
       format: 'json',
       ownedKeys: ['mcp.konoha', 'mcp.semble', 'mcp.aislop'],
       ownedArrayItems: { instructions: ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'] }
-    }, options.konohaHome);
+    }, options);
   } catch (_) { /* best-effort */ }
 }
 
@@ -229,7 +226,7 @@ function _registerNinjaAgents(config) {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
+    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, CI/CD, infrastructure deployment, and QA automation',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
     'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
     'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
@@ -256,36 +253,61 @@ function _registerNinjaAgents(config) {
   } catch { /* intentional best-effort fallback */ }
 }
 
-function _syncSingleSettingsFile(sPath) {
+function _loadOpenCodeSettingsSafe(sPath, options) {
+  if (!fileExists(sPath)) return {};
+  const backupMgr = require('./config_backup_manager');
+  backupMgr.ensureBackupBeforeModify(sPath, { client: 'opencode', scope: 'global', ...options });
+  try {
+    return JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {};
+  } catch (err) {
+    if (!options.silent) console.warn(`Invalid JSON in ${sPath}: ${err.message}`);
+    return null;
+  }
+}
+
+const DEFAULT_OPENCODE_PERMISSIONS = {
+  read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
+  list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
+  question: 'allow', webfetch: 'allow', websearch: 'allow',
+  lsp: 'allow', skill: 'allow', mcp: 'allow'
+};
+
+function _applyDefaultOpenCodePermissions(permissionObj) {
+  const perm = permissionObj && typeof permissionObj === 'object' ? permissionObj : {};
+  for (const [k, v] of Object.entries(DEFAULT_OPENCODE_PERMISSIONS)) {
+    if (perm[k] === undefined) perm[k] = v;
+  }
+  return perm;
+}
+
+function _syncSingleSettingsFile(sPath, options = {}) {
   try {
     ensureDir(path.dirname(sPath));
-    let sObj = {};
-    if (fileExists(sPath)) {
-      try {
-        const backupMgr = require('./config_backup_manager');
-        backupMgr.backupConfigFile(sPath, { client: 'opencode', scope: 'global' });
-      } catch (_) { /* best-effort */ }
-      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { return; }
-    }
+    const sObj = _loadOpenCodeSettingsSafe(sPath, options);
+    if (!sObj) return;
+
     const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
     const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
     sObj.instructions = [...new Set([...existingInstructions, ...konohaInstructions])];
-    if (!sObj.permission || typeof sObj.permission !== 'object') {
-      sObj.permission = {};
-    }
-    const defaultPerm = {
-      read: 'allow', edit: 'allow', glob: 'allow', grep: 'allow',
-      list: 'allow', bash: 'allow', task: 'allow', todowrite: 'allow',
-      question: 'allow', webfetch: 'allow', websearch: 'allow',
-      lsp: 'allow', skill: 'allow', mcp: 'allow'
-    };
-    for (const [k, v] of Object.entries(defaultPerm)) {
-      if (sObj.permission[k] === undefined) {
-        sObj.permission[k] = v;
-      }
-    }
+    sObj.permission = _applyDefaultOpenCodePermissions(sObj.permission);
     fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-  } catch { /* ignore */ }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
+}
+
+function _syncLegacyOpenCodeConfig(legacyDir, legacyConfig, config, options) {
+  if (!fileExists(legacyDir) && !fileExists(legacyConfig)) return;
+  try {
+    ensureDir(legacyDir);
+    if (fileExists(legacyConfig)) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(legacyConfig, { client: 'opencode', scope: 'global', ...options });
+    }
+    fs.writeFileSync(legacyConfig, JSON.stringify(config, null, 2) + '\n');
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 }
 
 function _syncOpenCodeSettingsFiles(config, options = {}) {
@@ -298,15 +320,9 @@ function _syncOpenCodeSettingsFiles(config, options = {}) {
     path.join(legacyDir, 'settings.json')
   ];
   for (const sPath of openCodeSettingsPaths) {
-    _syncSingleSettingsFile(sPath);
+    _syncSingleSettingsFile(sPath, options);
   }
-
-  if (fileExists(legacyDir) || fileExists(legacyConfig)) {
-    try {
-      ensureDir(legacyDir);
-      fs.writeFileSync(legacyConfig, JSON.stringify(config, null, 2) + '\n');
-    } catch { /* ignore */ }
-  }
+  _syncLegacyOpenCodeConfig(legacyDir, legacyConfig, config, options);
 }
 
 function _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath, uvxCmd) {
@@ -387,10 +403,12 @@ function deployOpenCodeRules(silent = true, options = {}) {
     try {
       ensureDir(path.dirname(dest));
       const agentMgr = require('./agent_manager');
-      const finalDest = agentMgr.injectManagedConfig(dest, fullInstructions, 'KONOHA');
+      const finalDest = agentMgr.injectManagedConfig(dest, fullInstructions, 'KONOHA', { client: 'opencode', scope: 'global', ...opts });
       fs.writeFileSync(dest, finalDest, 'utf-8');
       deployed++;
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } catch (err) {
+      if (err && /backup/i.test(err.message)) throw err;
+    }
   }
 
   // Deploy rules/konoha.md

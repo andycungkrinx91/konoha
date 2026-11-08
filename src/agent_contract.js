@@ -149,7 +149,7 @@ function generateGenericSubagentMd(agent, client = 'generic') {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across all modern frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
     'akatsuki': 'Red-team and blue-team security specialist; authorized security execution only',
     'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'

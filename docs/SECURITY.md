@@ -98,18 +98,26 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ## 10. Akatsuki Security Sandbox Controls & Dual-Mode Isolation
 
-### 10.1 Dual-Mode Operation (`mode: blue | red`)
-- **Default Mode (`blue`)**: Blue-Team defensive security operates directly on the host for static application security testing (SAST), secrets scanning, dependency CVE verification, and delivery gate checks. In blue mode, any offensive `akatsuki-lab` container is stopped and removed (`fail-closed` safety invariant).
-- **Offensive Mode (`red`)**: Requires explicit authorization. Switching to red mode via `konoha akatsuki mode red` or `konoha akatsuki enable` automatically provisions an isolated, unprivileged sandbox container (`akatsuki-lab`).
+`@akatsuki` is the successor to the legacy BlackOps security identity and holds all dedicated offensive and defensive security responsibilities in Konoha. `@anbu` remains an independent agent focused on Backend engineering, DevOps, infrastructure automation, and bug fixing, escalating security reviews and vulnerability assessments to `@akatsuki`.
+
+### 10.1 Dual-Mode Operation (`mode: blue | red`) & Governance Integration
+- **Default Mode (`blue` — Defensive Security Review & SDLC Gate)**:
+  - By default, `@akatsuki` operates in **Blue Mode (`mode: blue`)** as a standard, non-invasive defensive security reviewer integrated into Konoha SDLC governance (`runAkatsukiFinalGate`).
+  - Blue Mode performs static application security testing (SAST) on modified files, secret/credential leakage detection (`.env*`, API tokens, private keys), dependency supply-chain CVE verification (`pnpm audit`, Socket CLI), and Skill Guardian policy checks (`src/workflow/kage-reviewer/skill_guardian.js`) before `@kage` evaluates the final delivery gate.
+  - Normal defensive code review is standard engineering governance—not an invasive or unauthorized activity. In Blue Mode, any offensive `akatsuki-lab` container is stopped and removed (`fail-closed` safety invariant).
+- **Authorized Red-Team Mode (`red` — Isolated Sandbox Assessment)**:
+  - Switching to Red Mode via `konoha akatsuki mode red` or `konoha akatsuki enable` provisions an isolated, unprivileged sandbox container (`akatsuki-lab`) for authorized security assessments, penetration testing, and exploit verification within Konoha or an explicitly user-approved local/dev project scope.
 
 ### 10.2 Container Execution Engine Isolation (`env: docker | lxc`)
 - **Host Execution Prohibited**: Direct execution of offensive security tools (`nmap`, `metasploit`, `zap`, `nuclei`, `ffuf`, `sqlmap`, `tshark`, `testssl`, `trivy`, `curl_probe`) on the host system is strictly blocked.
 - **Docker Sandbox Engine (Default)**: Executes within container `akatsuki-lab` with `--security-opt=no-new-privileges:true`, `--cap-drop=ALL`, `--cap-add=NET_RAW`, non-root user `akatsuki` (UID 1000), internal bridge isolation (`internal: true`), 2GB memory cap, and 2 CPU core limit.
 - **LXC Container Engine**: Executes within an unprivileged system container (`security.privileged=false`) bound to isolated bridge `labbr0` with strict egress ACL rejection (`lab-egress`).
 
-### 10.3 Persona Boundary & Offensive Skill Gating
-- **Strict Persona Access**: Offensive security skills (`akatsuki-skill`, `patch-diff-exploit`, `pentest-osint-recon`, `php-cve-patch-collection-maintenance`) are strictly quarantined to `@akatsuki`. Invocations from other Ninja agents (`@genin`, `@anbu`, `@jonin`, `@kage`, `@chunin`) are denied fail-closed.
-- **Rules of Engagement (RoE) Authorization**: Offensive tasks must include written authorization defining target scope, emergency cutoff, and authorized operator consent. Ambiguous or out-of-scope targets are refused.
+### 10.3 Authorized Scope Boundaries & Persona Gating
+- **Authorized vs. Prohibited Activity**:
+  - **Authorized Scope**: Defensive Blue-Mode code review of the active workspace, dependency auditing, and authorized Red-Mode testing against `localhost`, `127.0.0.1`, local containers, or explicitly user-approved project targets under written Rules of Engagement (RoE).
+  - **Prohibited Activity**: Targeting unauthorized external infrastructure, destructive payloads (`rm -rf`, `DROP`), credential exfiltration, or unconsented network probing is strictly forbidden and fails closed immediately.
+- **Strict Persona Access**: Dedicated security skills (`akatsuki-skill`, `patch-diff-exploit`, `pentest-osint-recon`, `php-cve-patch-collection-maintenance`) are strictly quarantined to `@akatsuki`. Invocations from other Ninja agents (`@genin`, `@anbu`, `@jonin`, `@kage`, `@chunin`) are denied fail-closed.
 
 ---
 

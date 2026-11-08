@@ -32,6 +32,10 @@ If `rtk` is installed (`cargo install --git https://github.com/rtk-ai/rtk`), Kon
 
 ## Step 1: Install Konoha (Zero-Configuration Auto-Setup)
 
+> [!TIP]
+> **Automatic Global `settings.json` & Config Backup (No Manual `cp -r` Required):**
+> You never need to manually back up (`cp -r`) your existing global `settings.json` or coding-agent configurations before installing, upgrading, reinstalling, or migrating Konoha. Before touching any global or project configuration file across all 8 supported clients (`antigravity`, `cursor`, `claude`, `opencode`, `commandcode`, `codex`, `pi`, `omp`), Konoha automatically creates a timestamped, collision-safe, SHA-256-verified backup under `~/.konoha/backups/configs/<client>/<scope>/` with restrictive file permissions (`0600`) and aborts fail-closed if a backup cannot be verified.
+
 ### 📦 Standard 3-Step Team Onboarding (Explicit `--client` Append-Only Setup)
 For manual repository distribution or local development:
 ```bash

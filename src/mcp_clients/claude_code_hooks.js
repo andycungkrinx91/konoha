@@ -128,7 +128,9 @@ function registerClaudeCodeNativeBlocker(options = {}) {
         hooks: [{ type: "command", command: blockerCommand }]
       });
       return true;
-    }
+    },
+    true,
+    { client: 'claude', ...options }
   );
 }
 
@@ -214,7 +216,9 @@ function registerClaudeCodeBashGuard(silent = true, options = {}) {
         changed = true;
       }
       return changed;
-    }
+    },
+    silent,
+    { client: 'claude', ...opts }
   );
 }
 
@@ -301,7 +305,9 @@ function registerClaudeCodeWorkflowReminder(_silent = true, options = {}) {
       if (_updateSessionStartHook(config, reminderCommand, 'resume|compact|clear')) changed = true;
 
       return changed;
-    }
+    },
+    typeof _silent === 'boolean' ? _silent : true,
+    { client: 'claude', ...opts }
   );
 }
 

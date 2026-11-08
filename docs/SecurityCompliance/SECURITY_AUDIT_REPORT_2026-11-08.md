@@ -49,3 +49,32 @@
 | **Responsive behavior** | `PASS` (`375`/`768`/`1440`) | `PASS` (`375`/`768`/`1440`) | `PASS` (`375`/`768`/`1440`) | `PASS` (`375`/`768`/`1440`) |
 | **Reduced-motion support** | `PASS` (`useReducedMotion`) | `PASS` (`matchMedia` guard) | `PASS` (`matchMedia` guard) | `PASS` (`matchMedia` guard) |
 | **Browser QA passes** | `PASS` (0 console errors) | `PASS` (0 console errors) | `PASS` (0 console errors) | `PASS` (0 console errors) |
+
+---
+
+## 4. Workstream D — Legacy Anbu / BlackOps Documentation & Identity Audit
+
+1. **Identity Separation**:
+   - Outdated active references equating `Anbu = BlackOps` have been completely removed across active documentation, diagrams, agent templates, soul archetypes, CLI help, and Web UI components.
+   - `@akatsuki` is established as the canonical successor to BlackOps security responsibilities (`Red-Team & Blue-Team Security Specialist`).
+   - `@anbu` is preserved as an independent agent dedicated to `Backend, DevOps & Bug Fixing`.
+2. **Defensive Blue Mode Clarity**:
+   - Akatsuki operates by default in **Blue Mode (`mode: blue`)** within Konoha SDLC governance (`runAkatsukiFinalGate`), performing non-invasive defensive code audits, secret scanning, dependency CVE checks, and Skill Guardian verification prior to Kage sign-off.
+   - Delineated authorized local/project security assessments from prohibited activities (no external attacks, no network exfiltration, no destructive operations).
+   - Historical compliance and audit reports in `docs/SecurityCompliance/` retain their historical records intact.
+
+---
+
+## 5. Workstream E — Automatic Global Configuration Backup Audit
+
+1. **Pre-Modification Backup Invariant**:
+   - Konoha automatically backs up all existing global and project configuration files (including global `settings.json`, `mcp.json`, `config.toml`, `agents.yaml`, and rule files) across all 8 clients (`antigravity`, `cursor`, `claude`, `opencode`, `commandcode`, `codex`, `pi`, `omp`) before modifying them.
+   - Users are never required to manually run `cp -r` on `settings.json` before installing, upgrading, updating, or migrating Konoha.
+2. **Atomic & Secure Storage**:
+   - Backups are stored under `~/.konoha/backups/configs/<client>/<scope>/` with collision-safe timestamped filenames (`<filename>.<YYYYMMDDTHHmmssSSSZ>.<nanosec>.bak`).
+   - Directories and backup files are restricted with `0700` and `0600` permissions on POSIX systems.
+   - Atomic writes via temporary files and `fs.renameSync` prevent incomplete writes.
+   - SHA-256 integrity verification (`verifyBackupIntegrity`) guarantees byte-for-byte fidelity against the source file.
+3. **Fail-Closed Gate**:
+   - Any backup verification failure or broken symlink immediately aborts execution (`ensureBackupBeforeModify`), leaving original configuration files 100% untouched.
+   - Tested and verified across 14 regression scenarios in `tests/test_config_backup_and_append_only.js`.

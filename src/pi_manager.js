@@ -150,10 +150,15 @@ function deployPiContract(silent = true, targetFile = null, options = {}) {
     if (managed === existing) {
       return { ok: true, changed: false };
     }
+    if (fileExists(destFile)) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(destFile, { client: 'pi', scope: 'global', ...opts });
+    }
     fs.writeFileSync(destFile, managed, 'utf-8');
     if (!silent) process.stderr.write(`✓ Konoha runtime contract deployed to Pi: ${destFile}\n`);
     return { ok: true, changed: true };
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ Pi contract deployment failed: ${err.message}`);
     return { ok: false, reason: 'pi-contract-deploy-failed', error: err.message };
   }
@@ -350,41 +355,64 @@ function readJsonSafe(filePath) {
   }
 }
 
-/**
- * Ensures the pi-mcp-adapter package is listed in Pi settings so the MCP
- * config is actually loaded. Never removes user packages.
- */
-function ensureAdapterPackage(silent = true) {
-  if (!fileExists(PI_SETTINGS)) {
-    return { ok: false, reason: 'pi-settings-missing' };
-  }
-  const settings = readJsonSafe(PI_SETTINGS);
-  if (!settings || typeof settings !== 'object') {
-    // Corrupt settings: back up before any modification attempt
-    try {
-      fs.copyFileSync(PI_SETTINGS, PI_SETTINGS + '.corrupt-' + Date.now());
-      if (!silent) {
-        console.warn(`⚠ ${PI_SETTINGS} was invalid JSON — backed up to ${PI_SETTINGS}.corrupt-*`);
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    return { ok: false, reason: 'pi-settings-corrupt' };
-  }
-  if (!Array.isArray(settings.packages)) settings.packages = [];
-  const present = settings.packages.some((pkg) => {
+function _handleCorruptPiSettings(settingsPath, isSilent) {
+  try {
+    fs.copyFileSync(settingsPath, settingsPath + '.corrupt-' + Date.now());
+    if (!isSilent) console.warn(`⚠ ${settingsPath} was invalid JSON — backed up to ${settingsPath}.corrupt-*`);
+  } catch (_) { /* intentional best-effort fallback */ }
+  return { ok: false, reason: 'pi-settings-corrupt' };
+}
+
+function _isAdapterPackagePresent(packages) {
+  if (!Array.isArray(packages)) return false;
+  return packages.some((pkg) => {
     const source = typeof pkg === 'string' ? pkg : (pkg && pkg.source);
     return typeof source === 'string' && source.split('#')[0] === PI_ADAPTER_PACKAGE;
   });
-  if (present) {
-    return { ok: true, changed: false };
-  }
-  settings.packages.push(PI_ADAPTER_PACKAGE);
+}
+
+function _writePiAdapterPackage(settingsPath, settings, backupMgr, opts, isSilent) {
   try {
-    fs.writeFileSync(PI_SETTINGS, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
-    if (!silent) process.stderr.write(`  ✓ pi-mcp-adapter added to Pi packages (${PI_SETTINGS})\n`);
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    try {
+      backupMgr.recordOwnership(settingsPath, {
+        client: 'pi',
+        scope: 'global',
+        format: 'json',
+        ownedArrayItems: { packages: [PI_ADAPTER_PACKAGE] }
+      }, opts);
+    } catch (_) { /* best-effort */ }
+    if (!isSilent) process.stderr.write(`  ✓ pi-mcp-adapter added to Pi packages (${settingsPath})\n`);
     return { ok: true, changed: true };
   } catch (err) {
     return { ok: false, reason: 'pi-settings-write-failed', error: err.message };
   }
+}
+
+/**
+ * Ensures the pi-mcp-adapter package is listed in Pi settings so the MCP
+ * config is actually loaded. Never removes user packages.
+ */
+function ensureAdapterPackage(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const settingsPath = (opts && opts.settingsPath) || (opts && opts.home ? path.join(opts.home, '.pi', 'agent', 'settings.json') : PI_SETTINGS);
+  if (!fileExists(settingsPath)) {
+    return { ok: false, reason: 'pi-settings-missing' };
+  }
+  const backupMgr = require('./config_backup_manager');
+  backupMgr.ensureBackupBeforeModify(settingsPath, { client: 'pi', scope: 'global', ...opts });
+
+  const settings = readJsonSafe(settingsPath);
+  if (!settings || typeof settings !== 'object') {
+    return _handleCorruptPiSettings(settingsPath, isSilent);
+  }
+  if (!Array.isArray(settings.packages)) settings.packages = [];
+  if (_isAdapterPackagePresent(settings.packages)) {
+    return { ok: true, changed: false };
+  }
+  settings.packages.push(PI_ADAPTER_PACKAGE);
+  return _writePiAdapterPackage(settingsPath, settings, backupMgr, opts, isSilent);
 }
 
 /**
@@ -415,23 +443,24 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silentOrOptions = true) {
     config.mcpServers['semble'] = { command: resolvedUvx, args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'] };
     config.mcpServers['aislop'] = { command: isWin ? 'npx.cmd' : 'npx', args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'] };
 
+    const backupMgr = require('./config_backup_manager');
+    if (fileExists(targetMcp)) {
+      backupMgr.ensureBackupBeforeModify(targetMcp, { client: 'pi', scope: 'global', ...options });
+    }
     try {
-      const backupMgr = require('./config_backup_manager');
-      if (fileExists(targetMcp)) {
-        backupMgr.backupConfigFile(targetMcp, { client: 'pi', scope: 'global', konohaHome: options.konohaHome });
-      }
       backupMgr.recordOwnership(targetMcp, {
         client: 'pi',
         scope: 'global',
         format: 'json',
         ownedKeys: ['mcpServers.konoha', 'mcpServers.semble', 'mcpServers.aislop']
-      }, options.konohaHome);
+      }, options);
     } catch (_) { /* best-effort */ }
 
     fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n', 'utf-8');
     if (!silent) process.stderr.write(`✓ Pi MCP servers registered: ${targetMcp}\n`);
     return { ok: true, configPath: targetMcp };
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ Pi MCP registration failed: ${err.message}`);
     return { ok: false, reason: 'pi-mcp-registration-failed', error: err.message };
   }
@@ -482,7 +511,7 @@ function ensurePiSetup(options = {}) {
       return { ok: false, reason: 'pi-settings-unavailable', error: err.message };
     }
   }
-  const adapter = ensureAdapterPackage(silent);
+  const adapter = ensureAdapterPackage(silent, { ...options, settingsPath });
   const registration = registerPiMcp(pythonCmd, serverPath, uvxCmd, { ...options, silent });
   if (!registration.ok) return registration;
   const rtk = deployPiRtkRule(silent);

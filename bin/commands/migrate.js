@@ -121,10 +121,14 @@ async function cmdMigrate(args = []) {
   syncTemplateSkills();
   header('📊 Re-running Skills Migration');
   try {
-    executePreInstallBackup({ projectRoot: process.cwd() });
+    const backupSummary = executePreInstallBackup({ projectRoot: process.cwd() });
+    for (const line of (backupSummary.summaryLines || [])) {
+      info(line.trim());
+    }
     runTransactionalDatabaseMigration();
   } catch (backupErr) {
-    warn(`Pre-migration backup warning: ${backupErr.message}`);
+    error(`Pre-migration configuration backup verification failed: ${backupErr.message}`);
+    process.exit(1);
   }
 
   if (!fileExists(MIGRATE_PATH)) {

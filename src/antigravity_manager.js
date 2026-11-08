@@ -193,7 +193,7 @@ const ANTIGRAVITY_SUBAGENTS = [
   { name: 'sannin', description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.', hasPrompt: true },
   { name: 'kage', description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.' },
   { name: 'jonin', description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.' },
-  { name: 'anbu', description: 'Backend Specialist & Cyber Black Ops subagent. Focuses on backend logic, bug fixes, CI/CD, infra, cyber defense, and dev/local penetration testing.' },
+  { name: 'anbu', description: 'Backend, DevOps & Bug Fixing subagent. Focuses on backend logic, APIs, databases, bug fixes, CI/CD, infrastructure deployment, and QA automation.' },
   { name: 'chunin', description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.' },
   { name: 'tokubetsu_jonin', description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.' },
   { name: 'genin', description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.' },
@@ -296,19 +296,17 @@ function _loadAntigravitySettingsSafe(sPath) {
   }
 }
 
-function _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove) {
-  try {
-    const backupMgr = require('./config_backup_manager');
-    if (fs.existsSync(sPath)) {
-      backupMgr.backupConfigFile(sPath, { client: 'antigravity', scope: 'global' });
-    }
-    backupMgr.recordOwnership(sPath, {
-      client: 'antigravity',
-      scope: 'global',
-      format: 'json',
-      ownedArrayItems: { 'permissions.allow': requiredGrants, autoApprove: safeAutoApprove }
-    });
-  } catch (_) { /* best-effort */ }
+function _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove, options = {}) {
+  const backupMgr = require('./config_backup_manager');
+  if (fs.existsSync(sPath)) {
+    backupMgr.ensureBackupBeforeModify(sPath, { client: 'antigravity', scope: 'global', ...options });
+  }
+  backupMgr.recordOwnership(sPath, {
+    client: 'antigravity',
+    scope: 'global',
+    format: 'json',
+    ownedArrayItems: { 'permissions.allow': requiredGrants, autoApprove: safeAutoApprove }
+  }, options);
 }
 
 function _appendMissingGrants(targetList, grants) {
@@ -322,7 +320,20 @@ function _appendMissingGrants(targetList, grants) {
   return added;
 }
 
-function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrants) {
+function _syncKonohaServerNodeCommand(mcpServers) {
+  if (!mcpServers || !mcpServers.konoha) return false;
+  let modified = false;
+  const srv = mcpServers.konoha;
+  const nodeCmd = typeof resolveCompatibleNode === 'function' ? resolveCompatibleNode() : process.execPath;
+  if (nodeCmd && srv.command !== nodeCmd) {
+    srv.command = nodeCmd;
+    modified = true;
+  }
+  if (_normalizeServerAutoApprove(srv, 'konoha')) modified = true;
+  return modified;
+}
+
+function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrants, options = {}) {
   try {
     const dir = path.dirname(sPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -355,22 +366,16 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     if (filteredAuto.length !== prevAuto.length) modified = true;
     settings.autoApprove = filteredAuto;
     if (_appendMissingGrants(settings.autoApprove, safeAutoApprove)) modified = true;
-    if (settings.mcpServers && settings.mcpServers.konoha) {
-      const srv = settings.mcpServers.konoha;
-      const nodeCmd = typeof resolveCompatibleNode === 'function' ? resolveCompatibleNode() : process.execPath;
-      if (nodeCmd && srv.command !== nodeCmd) {
-        srv.command = nodeCmd;
-        modified = true;
-      }
-      if (_normalizeServerAutoApprove(srv, 'konoha')) modified = true;
-    }
+    if (_syncKonohaServerNodeCommand(settings.mcpServers)) modified = true;
 
     if (modified || !fs.existsSync(sPath)) {
-      _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove);
+      _recordAntigravitySettingsOwnership(sPath, requiredGrants, safeAutoApprove, options);
       fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
       return true;
     }
-  } catch { /* intentional best-effort fallback */ }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
   return false;
 }
 
@@ -398,7 +403,7 @@ function _normalizeServerAutoApprove(srv, serverName) {
   return modified;
 }
 
-function _updateSingleMcpConfigAutoApproves(mPath) {
+function _updateSingleMcpConfigAutoApproves(mPath, options = {}) {
   if (!fs.existsSync(mPath)) return;
   try {
     const mConfig = JSON.parse(fs.readFileSync(mPath, 'utf8')) || {};
@@ -408,8 +413,14 @@ function _updateSingleMcpConfigAutoApproves(mPath) {
       const srv = mConfig.mcpServers[serverName];
       if (srv && _normalizeServerAutoApprove(srv, serverName)) mModified = true;
     }
-    if (mModified) fs.writeFileSync(mPath, JSON.stringify(mConfig, null, 2) + '\n', 'utf8');
-  } catch { /* intentional best-effort fallback */ }
+    if (mModified) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(mPath, { client: 'antigravity', scope: 'global', ...options });
+      fs.writeFileSync(mPath, JSON.stringify(mConfig, null, 2) + '\n', 'utf8');
+    }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 }
 
 function ensureAntigravityPermissions(silent = true, options = {}) {
@@ -437,10 +448,12 @@ function ensureAntigravityPermissions(silent = true, options = {}) {
     path.join(home, '.gemini', 'config', 'settings.json'),
     path.join(home, '.gemini', 'settings.json')
   ];
+  const legacyAgySettings = path.join(home, '.gemini', 'antigravity', 'settings.json');
+  if (fs.existsSync(legacyAgySettings)) settingsPaths.push(legacyAgySettings);
 
   let updatedCount = 0;
   for (const sPath of settingsPaths) {
-    if (_updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrants)) {
+    if (_updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrants, opts)) {
       updatedCount++;
     }
   }
@@ -452,7 +465,7 @@ function ensureAntigravityPermissions(silent = true, options = {}) {
   ];
 
   for (const mPath of mcpConfigPaths) {
-    _updateSingleMcpConfigAutoApproves(mPath);
+    _updateSingleMcpConfigAutoApproves(mPath, opts);
   }
 
   if (!silent && updatedCount > 0) {
@@ -488,18 +501,16 @@ function removeAntigravityConfig(silent = true, options = {}) {
   return { ok: true };
 }
 
-function _writeTargetAntigravityMcp(mcpConfigPath, isPrimary, servers) {
+function _writeTargetAntigravityMcp(mcpConfigPath, isPrimary, servers, options = {}) {
   const dir = path.dirname(mcpConfigPath);
   if (!fs.existsSync(dir)) {
     if (isPrimary) fs.mkdirSync(dir, { recursive: true });
     else return;
   }
+  const backupMgr = require('./config_backup_manager');
   let config = { mcpServers: {} };
   if (fs.existsSync(mcpConfigPath)) {
-    try {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.backupConfigFile(mcpConfigPath, { client: 'antigravity', scope: 'global' });
-    } catch (_) { /* best-effort */ }
+    backupMgr.ensureBackupBeforeModify(mcpConfigPath, { client: 'antigravity', scope: 'global', ...options });
     try {
       config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8')) || {};
       if (!config.mcpServers) config.mcpServers = {};
@@ -508,13 +519,12 @@ function _writeTargetAntigravityMcp(mcpConfigPath, isPrimary, servers) {
   Object.assign(config.mcpServers, servers);
   fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
   try {
-    const backupMgr = require('./config_backup_manager');
     backupMgr.recordOwnership(mcpConfigPath, {
       client: 'antigravity',
       scope: 'global',
       format: 'json',
       ownedKeys: Object.keys(servers).map(k => `mcpServers.${k}`)
-    });
+    }, options);
   } catch (_) { /* best-effort */ }
 }
 
@@ -553,7 +563,7 @@ function ensureAntigravitySetup(options = {}) {
   const servers = buildStdioMcpServers({ client: 'antigravity' });
 
   targetPaths.forEach((mcpConfigPath, idx) => {
-    _writeTargetAntigravityMcp(mcpConfigPath, idx === 0, servers);
+    _writeTargetAntigravityMcp(mcpConfigPath, idx === 0, servers, options);
   });
 
   ensureAntigravityPermissions(silent, options);
@@ -568,18 +578,20 @@ function ensureAntigravitySetup(options = {}) {
     const geminiConfigMd = path.join(home, ".gemini", "config", "GEMINI.md");
     const geminiConfigAgentsMd = path.join(home, ".gemini", "config", "AGENTS.md");
     fs.mkdirSync(path.dirname(geminiMd), { recursive: true });
-    fs.writeFileSync(geminiMd, injectManagedConfig(geminiMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
+    fs.writeFileSync(geminiMd, injectManagedConfig(geminiMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', ...options }), "utf8");
     fs.mkdirSync(path.dirname(agentsMd), { recursive: true });
-    fs.writeFileSync(agentsMd, injectManagedConfig(agentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), "utf8");
+    fs.writeFileSync(agentsMd, injectManagedConfig(agentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', ...options }), "utf8");
     if (fs.existsSync(geminiConfigMd)) {
-      fs.writeFileSync(geminiConfigMd, injectManagedConfig(geminiConfigMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
+      fs.writeFileSync(geminiConfigMd, injectManagedConfig(geminiConfigMd, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', ...options }), "utf8");
     }
     if (fs.existsSync(geminiConfigAgentsMd)) {
-      fs.writeFileSync(geminiConfigAgentsMd, injectManagedConfig(geminiConfigAgentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), "utf8");
+      fs.writeFileSync(geminiConfigAgentsMd, injectManagedConfig(geminiConfigAgentsMd, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', ...options }), "utf8");
     }
     ensureAntigravityAgents(agents, options);
     _appendAntigravityProjectConfigs(options, agents, home);
-  } catch (_) { /* best-effort */ }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 
   return { ok: true };
 }

@@ -135,7 +135,7 @@ async function run() {
     // Test Dynamic Agent Detection (fixes hardcoded Kage & Jonin bug)
     assert.strictEqual(
       workerModule.detectExecutingAgent('/anbu fix docker networking', ''),
-      'Black Ops Anbu',
+      'Backend & DevOps Anbu',
       'Detects Anbu from /anbu'
     );
     assert.strictEqual(
@@ -168,7 +168,7 @@ async function run() {
     const mockOutput = 'Initializing turn...\n[♠ Anbu] active. Calling konoha.read_file_head...\nDone.';
     assert.strictEqual(
       workerModule.detectExecutingAgent('general coding task', mockOutput),
-      'Black Ops Anbu',
+      'Backend & DevOps Anbu',
       'Extracts Anbu from output marker'
     );
 

@@ -94,7 +94,7 @@ Status: Forwarded to local terminal agent.
 | `/session create <client> <path>` | Register and target a client session & directory | `/session create agy /home/user/projectA` |
 | `/session delete <number>` | Remove an inactive session from the list | `/session delete 3` |
 | `/kage <prompt>` | Direct dispatch to Village Leader (Architecture & security audit) | `/kage audit auth flow` |
-| `/anbu <prompt>` | Direct dispatch to Black Ops (Backend, DevOps, bug fixing) | `/anbu fix connection leak` |
+| `/anbu <prompt>` | Direct dispatch to Anbu (Backend, DevOps, bug fixing) | `/anbu fix connection leak` |
 | `/jonin <prompt>` | Direct dispatch to Elite Builder (UI/UX, frontend components) | `/jonin build hero carousel` |
 | `/genin <prompt>` | Direct dispatch to Scout (Codebase exploration & dependency mapping) | `/genin trace session flow` |
 | `/chunin <prompt>` | Direct dispatch to Intel Ninja (Web research & docs lookup) | `/chunin research cloudflare api` |

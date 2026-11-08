@@ -34,7 +34,7 @@ async function testAgentModelDispatch() {
     // Agent with assigned model
     conn.prepare(`
       INSERT OR REPLACE INTO agents (name, title, purpose, skills, constraints_text, instructions, model)
-      VALUES ('anbu', 'Anbu Black Ops', 'Backend & Security', '[]', 'Zero CVEs', 'Write secure APIs', 'claude-3-7-sonnet')
+      VALUES ('anbu', 'Anbu Backend & DevOps', 'Backend & DevOps', '[]', 'Zero CVEs', 'Write secure APIs', 'claude-3-7-sonnet')
     `).run();
 
     // Agent without assigned model (inherit)

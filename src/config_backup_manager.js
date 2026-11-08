@@ -10,26 +10,26 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-const SUPPORTED_CLIENTS = [
-  'antigravity',
-  'cursor',
-  'claude',
-  'opencode',
-  'commandcode',
-  'codex',
-  'pi',
-  'omp'
-];
+const SUPPORTED_CLIENTS = ['antigravity', 'cursor', 'claude', 'opencode', 'commandcode', 'codex', 'pi', 'omp'];
+
+function _normOpts(options) {
+  if (!options) return {};
+  if (typeof options === 'string') return { konohaRoot: options };
+  return typeof options === 'object' ? options : {};
+}
 
 function getHomeDir(options = {}) {
-  return options.home || options.homeDir || process.env.HOME || process.env.USERPROFILE || os.homedir();
+  const opts = _normOpts(options);
+  return opts.home || opts.homeDir || process.env.HOME || process.env.USERPROFILE || os.homedir();
 }
 
 function getKonohaRoot(options = {}) {
-  if (options.konohaRoot) return path.resolve(options.konohaRoot);
+  const opts = _normOpts(options);
+  if (opts.konohaRoot) return path.resolve(opts.konohaRoot);
+  if (opts.konohaHome) return path.resolve(opts.konohaHome);
   if (process.env.KONOHA_HOME) return path.resolve(process.env.KONOHA_HOME);
   if (process.env.KONOHA_SKILLS_DB_DIR) return path.resolve(process.env.KONOHA_SKILLS_DB_DIR);
-  return path.join(getHomeDir(options), '.konoha');
+  return path.join(getHomeDir(opts), '.konoha');
 }
 
 function getBackupsRoot(options = {}) {
@@ -156,57 +156,56 @@ function validateFileSyntax(filePath, rawContent) {
 const CLIENT_REL_CONFIG_SPECS = {
   antigravity: {
     global: [
-      ['.gemini', 'settings.json'],
-      ['.gemini', 'GEMINI.md'],
-      ['.gemini', 'config', 'mcp_config.json'],
-      ['.gemini', 'antigravity', 'mcp_config.json'],
-      ['.gemini', 'antigravity-ide', 'mcp_config.json'],
-      ['.gemini', 'antigravity-cli', 'settings.json'],
-      ['.gemini', 'antigravity-ide', 'settings.json'],
-      ['.agents', 'AGENTS.md'],
-      ['.agents', 'agents.yaml']
+      ['.gemini', 'settings.json'], ['.gemini', 'GEMINI.md'],
+      ['.gemini', 'config', 'settings.json'], ['.gemini', 'config', 'mcp_config.json'],
+      ['.gemini', 'config', 'hooks.json'], ['.gemini', 'config', 'GEMINI.md'], ['.gemini', 'config', 'AGENTS.md'],
+      ['.gemini', 'antigravity', 'settings.json'], ['.gemini', 'antigravity', 'mcp_config.json'],
+      ['.gemini', 'antigravity-cli', 'settings.json'], ['.gemini', 'antigravity-cli', 'mcp_config.json'],
+      ['.gemini', 'antigravity-ide', 'settings.json'], ['.gemini', 'antigravity-ide', 'mcp_config.json'],
+      ['.agents', 'AGENTS.md'], ['.agents', 'agents.yaml']
     ],
     project: [['GEMINI.md'], ['AGENTS.md'], ['.agents', 'AGENTS.md'], ['.gemini', 'settings.json']]
   },
   cursor: {
     global: [
-      ['.cursor', 'mcp.json'],
-      ['.cursor', 'cli-config.json'],
-      ['.cursor', 'hooks.json'],
-      ['.cursor', 'rules', 'konoha.mdc'],
-      ['.config', 'Cursor', 'User', 'settings.json']
+      ['.cursor', 'mcp.json'], ['.cursor', 'settings.json'], ['.cursor', 'cli-config.json'], ['.cursor', 'hooks.json'],
+      ['.cursor', 'rules', 'konoha.mdc'], ['.cursor', 'rules', 'rtk.mdc'],
+      ['.config', 'Cursor', 'User', 'settings.json'],
+      ['Library', 'Application Support', 'Cursor', 'User', 'settings.json'],
+      ['AppData', 'Roaming', 'Cursor', 'User', 'settings.json']
     ],
-    project: [['.cursor', 'mcp.json'], ['.cursor', 'rules', 'konoha.mdc']]
+    project: [['.cursor', 'mcp.json'], ['.cursor', 'rules', 'konoha.mdc'], ['.cursor', 'rules', 'rtk.mdc']]
   },
   claude: {
-    global: [['.claude.json'], ['.claude', 'settings.json'], ['.claude', 'CLAUDE.md']],
-    project: [['.mcp.json'], ['CLAUDE.md'], ['.claude', 'settings.json'], ['.claude', 'settings.local.json']]
+    global: [['.claude.json'], ['.claude', 'settings.json'], ['.claude', 'settings.local.json'], ['.claude', 'CLAUDE.md'], ['.claude', 'rules', 'rtk.md']],
+    project: [['.mcp.json'], ['CLAUDE.md'], ['.claude', 'settings.json'], ['.claude', 'settings.local.json'], ['.claude', 'rules', 'rtk.md']]
   },
   opencode: {
     global: [
-      ['.config', 'opencode', 'opencode.json'],
-      ['.config', 'opencode', 'settings.json'],
-      ['.config', 'opencode', 'AGENTS.md'],
-      ['.opencode', 'opencode.json'],
-      ['.opencode', 'settings.json']
+      ['.config', 'opencode', 'opencode.json'], ['.config', 'opencode', 'settings.json'], ['.config', 'opencode', 'AGENTS.md'],
+      ['.config', 'opencode', 'rules', 'konoha.md'], ['.config', 'opencode', 'rules', 'rtk.md'],
+      ['.opencode', 'opencode.json'], ['.opencode', 'config.json'], ['.opencode', 'settings.json']
     ],
-    project: [['opencode.json'], ['.opencode', 'opencode.json']]
+    project: [['opencode.json'], ['.opencode', 'opencode.json'], ['.opencode', 'settings.json']]
   },
   commandcode: {
-    global: [['.commandcode', 'mcp.json'], ['.commandcode', 'settings.json'], ['.commandcode', 'CLAUDE.md']],
-    project: [['.commandcode', 'mcp.json'], ['.commandcode', 'settings.json']]
+    global: [['.commandcode', 'mcp.json'], ['.commandcode', 'settings.json'], ['.commandcode', 'CLAUDE.md'], ['.commandcode', 'rules', 'rtk.md']],
+    project: [['.commandcode', 'mcp.json'], ['.commandcode', 'settings.json'], ['.commandcode', 'rules', 'rtk.md']]
   },
   codex: {
-    global: [['.codex', 'config.toml'], ['.codex', 'AGENTS.md']],
-    project: [['.codex', 'config.toml'], ['AGENTS.md']]
+    global: [['.codex', 'config.toml'], ['.codex', 'settings.json'], ['.codex', 'AGENTS.md'], ['.codex', 'rules', 'rtk.md']],
+    project: [['.codex', 'config.toml'], ['.codex', 'settings.json'], ['AGENTS.md']]
   },
   pi: {
-    global: [['.pi', 'agent', 'mcp.json'], ['.pi', 'agent', 'settings.json'], ['.pi', 'agent', 'AGENTS.md']],
+    global: [['.pi', 'agent', 'mcp.json'], ['.pi', 'agent', 'settings.json'], ['.pi', 'agent', 'AGENTS.md'], ['.pi', 'agent', 'extensions', 'konoha-blocker.ts'], ['.pi', 'settings.json']],
     project: [['.pi', 'mcp.json'], ['.pi', 'settings.json']]
   },
   omp: {
-    global: [['.omp', 'agent', 'mcp.json'], ['.omp', 'agent', 'config.yml'], ['.omp', 'agent', 'AGENTS.md']],
-    project: [['.omp', 'mcp.json'], ['.omp', 'config.yml']]
+    global: [
+      ['.omp', 'agent', 'mcp.json'], ['.omp', 'agent', 'config.yml'], ['.omp', 'agent', 'settings.json'], ['.omp', 'agent', 'AGENTS.md'],
+      ['.omp', 'mcp.json'], ['.omp', 'config.yml'], ['.omp', 'settings.json'], ['.omp', 'rules', 'rtk.md']
+    ],
+    project: [['.omp', 'mcp.json'], ['.omp', 'config.yml'], ['.omp', 'settings.json']]
   }
 };
 
@@ -214,9 +213,16 @@ function _joinPaths(baseDir, relPaths) {
   return relPaths.map((rel) => path.join(baseDir, ...rel));
 }
 
+function _appendCursorAppdata(globalList, appdata) {
+  if (!appdata) return;
+  const winCursorSettings = path.join(appdata, 'Cursor', 'User', 'settings.json');
+  if (!globalList.includes(winCursorSettings)) globalList.push(winCursorSettings);
+}
+
 function getClientConfigMap(options = {}) {
-  const home = getHomeDir(options);
-  const projectRoot = options.projectRoot ? path.resolve(options.projectRoot) : null;
+  const opts = _normOpts(options);
+  const home = getHomeDir(opts);
+  const projectRoot = opts.projectRoot ? path.resolve(opts.projectRoot) : null;
   const isDistinctProject = Boolean(
     projectRoot &&
     path.resolve(projectRoot) !== path.resolve(home) &&
@@ -224,8 +230,12 @@ function getClientConfigMap(options = {}) {
   );
   const out = {};
   for (const [client, spec] of Object.entries(CLIENT_REL_CONFIG_SPECS)) {
+    const globalList = _joinPaths(home, spec.global);
+    if (client === 'cursor') {
+      _appendCursorAppdata(globalList, opts.appdata || process.env.APPDATA);
+    }
     out[client] = {
-      global: _joinPaths(home, spec.global),
+      global: globalList,
       project: isDistinctProject ? _joinPaths(projectRoot, spec.project) : []
     };
   }
@@ -233,17 +243,30 @@ function getClientConfigMap(options = {}) {
 }
 
 function inferClientAndScope(filePath, options = {}) {
+  const opts = _normOpts(options);
   const norm = path.resolve(filePath).replace(/\\/g, '/');
-  const home = getHomeDir(options).replace(/\\/g, '/');
-  const isGlobal = norm.startsWith(home + '/') && (
+  const home = path.resolve(getHomeDir(opts)).replace(/\\/g, '/');
+  const isUnderHome = norm.startsWith(home + '/') && (
     norm.slice(home.length + 1).startsWith('.') ||
     norm.slice(home.length + 1).startsWith('AppData/') ||
     norm.slice(home.length + 1).startsWith('Library/')
   );
-  const scope = options.scope || (isGlobal ? 'global' : 'project');
+  const isKnownGlobalPattern = (
+    norm.includes('/.gemini/antigravity') ||
+    norm.includes('/.gemini/config/') ||
+    norm.includes('/.config/Cursor/') ||
+    norm.includes('/Library/Application Support/Cursor/') ||
+    norm.includes('/AppData/Roaming/Cursor/') ||
+    norm.includes('/.config/opencode/') ||
+    norm.includes('/.pi/agent/') ||
+    norm.includes('/.omp/agent/') ||
+    norm.endsWith('/.claude.json') ||
+    norm.endsWith('/.agents/agents.yaml')
+  );
+  const scope = opts.scope || ((isUnderHome || isKnownGlobalPattern) ? 'global' : 'project');
 
-  if (options.client && SUPPORTED_CLIENTS.includes(options.client)) {
-    return { client: options.client, scope };
+  if (opts.client && SUPPORTED_CLIENTS.includes(opts.client)) {
+    return { client: opts.client, scope };
   }
   if (norm.includes('.cursor') || norm.includes('/Cursor/')) return { client: 'cursor', scope };
   if (norm.includes('.commandcode')) return { client: 'commandcode', scope };
@@ -342,24 +365,34 @@ function recordOwnership(filePath, metadata = {}, options = {}) {
 }
 
 function backupConfigFile(filePath, options = {}) {
+  const opts = _normOpts(options);
   const absPath = path.resolve(filePath);
-  const { client, scope } = inferClientAndScope(absPath, options);
-  if (!fs.existsSync(absPath)) {
-    recordOwnership(absPath, { client, scope, createdByKonoha: true }, options);
-    return { ok: true, existed: false, client, scope, backupPath: null };
+  const { client, scope } = inferClientAndScope(absPath, opts);
+
+  let lstat;
+  try {
+    lstat = fs.lstatSync(absPath);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      recordOwnership(absPath, { client, scope, createdByKonoha: true }, opts);
+      return { ok: true, existed: false, backedUp: false, verified: true, client, scope, sourcePath: absPath, backupPath: null };
+    }
+    throw new Error(`Cannot inspect config file ${absPath}: ${err.message}`);
   }
 
-  let stat;
-  try {
-    stat = fs.statSync(absPath);
-  } catch (err) {
-    return { ok: false, error: `Cannot stat config file ${absPath}: ${err.message}` };
+  let stat = lstat;
+  if (lstat.isSymbolicLink()) {
+    try {
+      stat = fs.statSync(absPath);
+    } catch (err) {
+      throw new Error(`Cannot back up broken symlink ${absPath}: ${err.message}`);
+    }
   }
   if (!stat.isFile()) {
-    return { ok: true, existed: false, client, scope, backupPath: null };
+    return { ok: true, existed: false, backedUp: false, verified: true, client, scope, sourcePath: absPath, backupPath: null };
   }
 
-  if (options.simulateBackupFailure === true || process.env.KONOHA_SIMULATE_BACKUP_FAILURE === '1') {
+  if (opts.simulateBackupFailure === true || process.env.KONOHA_SIMULATE_BACKUP_FAILURE === '1') {
     throw new Error(`Simulated backup verification failure for ${absPath}`);
   }
 
@@ -368,15 +401,30 @@ function backupConfigFile(filePath, options = {}) {
   const stamp = formatDateStamp();
   const safeBase = path.basename(absPath).replace(/[^a-zA-Z0-9._-]/g, '_');
   const pathHash = crypto.createHash('sha256').update(absPath).digest('hex').slice(0, 6);
-  const backupDir = path.join(getBackupsRoot(options), 'configs', client, scope);
-  fs.mkdirSync(backupDir, { recursive: true });
+  const backupDir = path.join(getBackupsRoot(opts), 'configs', client, scope);
+  fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
 
-  const backupName = `${stamp}-${pathHash}-${sha8}-${safeBase}.bak`;
-  const backupPath = path.join(backupDir, backupName);
-  fs.writeFileSync(backupPath, srcBuf);
+  let backupName = `${stamp}-${pathHash}-${sha8}-${safeBase}.bak`;
+  let backupPath = path.join(backupDir, backupName);
+  let collisionAttempt = 0;
+  while (fs.existsSync(backupPath)) {
+    collisionAttempt += 1;
+    const nonce = crypto.randomBytes(2).toString('hex');
+    backupName = `${stamp}-${collisionAttempt}-${nonce}-${pathHash}-${sha8}-${safeBase}.bak`;
+    backupPath = path.join(backupDir, backupName);
+  }
+
+  const fileMode = (stat.mode & 0o777) ? Math.min(stat.mode & 0o777, 0o600) : 0o600;
+  const tmpBackupPath = `${backupPath}.tmp.${process.pid}.${Date.now()}`;
+  fs.writeFileSync(tmpBackupPath, srcBuf, { mode: fileMode || 0o600 });
+  try {
+    fs.chmodSync(tmpBackupPath, fileMode || 0o600);
+  } catch (_) { /* ignore on non-POSIX */ }
+  fs.renameSync(tmpBackupPath, backupPath);
 
   const verification = verifyBackupIntegrity(absPath, backupPath);
   if (!verification.ok) {
+    try { fs.unlinkSync(backupPath); } catch (_) { /* ignore */ }
     throw new Error(`Configuration backup integrity check failed for ${absPath}: ${verification.error}`);
   }
 
@@ -385,25 +433,60 @@ function backupConfigFile(filePath, options = {}) {
     scope,
     backupPath,
     sha256: verification.sha256
-  }, options);
+  }, opts);
 
   return {
     ok: true,
     existed: true,
     backedUp: true,
+    verified: true,
     client,
     scope,
     sourcePath: absPath,
     backupPath,
     sha256: verification.sha256,
-    size: verification.size
+    size: verification.size,
+    mode: fileMode || 0o600
   };
+}
+
+function ensureBackupBeforeModify(filePath, options = {}) {
+  const res = backupConfigFile(filePath, options);
+  if (!res || !res.ok || (res.existed && (!res.backedUp || !res.verified))) {
+    throw new Error((res && res.error) || `Pre-modification configuration backup failed for ${filePath}`);
+  }
+  return res;
+}
+
+function formatBackupSummaryLines(backupSummary) {
+  if (!backupSummary || !Array.isArray(backupSummary.backups)) {
+    return ['  [Backup] Configuration backup check completed.'];
+  }
+  const backedUp = backupSummary.backups.filter((b) => b && b.existed && b.backedUp);
+  if (backedUp.length === 0) {
+    return ['  [Backup] No existing client configuration files required backup (fresh state).'];
+  }
+  const lines = [
+    `  [Backup] Backed up and verified ${backedUp.length} existing configuration file(s) before modification:`
+  ];
+  for (const item of backedUp) {
+    const statusLabel = item.verified !== false ? 'verified SHA-256 ✓' : 'unverified';
+    lines.push(`    • [${item.client}:${item.scope}] ${item.sourcePath} -> ${item.backupPath} (${statusLabel})`);
+  }
+  return lines;
 }
 
 function _backupScopeFiles(filePaths, client, scope, options, results) {
   for (const filePath of (filePaths || [])) {
-    if (!fs.existsSync(filePath)) continue;
-    results.push(backupConfigFile(filePath, { ...options, client, scope }));
+    let existsOrLink = false;
+    try {
+      fs.lstatSync(filePath);
+      existsOrLink = true;
+    } catch (_) {
+      existsOrLink = false;
+    }
+    if (!existsOrLink) continue;
+    results.push(ensureBackupBeforeModify(filePath, { ..._normOpts(options), client, scope }));
   }
 }
 
@@ -435,10 +518,12 @@ function backupClientConfigs(clientsInput, options = {}) {
       _backupScopeFiles(scopes.project, client, 'project', options, results);
     }
   }
+  const backedUpCount = results.filter(r => r.existed).length;
   return {
     ok: true,
     clients: targetClients,
-    backedUpCount: results.filter(r => r.existed).length,
+    backedUpCount,
+    totalBackedUp: backedUpCount,
     backups: results
   };
 }
@@ -565,6 +650,8 @@ module.exports = {
   saveOwnershipManifest,
   recordOwnership,
   backupConfigFile,
+  ensureBackupBeforeModify,
+  formatBackupSummaryLines,
   backupClientConfigs,
   backupAllDetectedClients,
   listClientBackups,

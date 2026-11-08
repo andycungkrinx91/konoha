@@ -119,14 +119,12 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   return servers;
 }
 
-function _backupCursorMcpSafe(targetMcp, backupPath, konohaHome) {
+function _backupCursorMcpSafe(targetMcp, backupPath, konohaHome, options = {}) {
   if (!fileExists(targetMcp)) return;
-  try {
-    const backupMgr = require('./config_backup_manager');
-    backupMgr.backupConfigFile(targetMcp, { client: 'cursor', scope: 'global', konohaHome });
-  } catch (_) { /* ignore backup error */ }
+  const backupMgr = require('./config_backup_manager');
+  backupMgr.ensureBackupBeforeModify(targetMcp, { client: 'cursor', scope: 'global', konohaHome, ...options });
   if (!fileExists(backupPath)) {
-    try { fs.copyFileSync(targetMcp, backupPath); } catch (_) { /* ignore backup error */ }
+    try { fs.copyFileSync(targetMcp, backupPath); } catch (_) { /* ignore legacy .bak copy error */ }
   }
 }
 
@@ -138,28 +136,25 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
   const targetMcp = options.configPath || (options.home ? path.join(options.home, '.cursor', 'mcp.json') : CURSOR_MCP_GLOBAL);
   const targetDir = path.dirname(targetMcp);
 
-  if (!serverPath || !fileExists(serverPath)) {
-    return false;
-  }
+  if (!serverPath || !fileExists(serverPath)) return false;
 
   const { parseYaml } = require('../bin/lib/yaml_utils');
   ensureDir(targetDir);
 
   const backupPath = targetMcp + '.back';
-  _backupCursorMcpSafe(targetMcp, backupPath, options.konohaHome);
+  _backupCursorMcpSafe(targetMcp, backupPath, options.konohaHome, options);
 
   let config = { mcpServers: {} };
   if (fileExists(targetMcp)) {
-    try {
-      config = JSON.parse(fs.readFileSync(targetMcp, 'utf-8')) || {};
-    } catch {
-      if (!silent) console.warn(`Invalid JSON in ${targetMcp}; leaving it unchanged.`);
+    try { config = JSON.parse(fs.readFileSync(targetMcp, 'utf-8')) || {}; } catch (err) {
+      if (!silent) console.warn(`Invalid JSON in ${targetMcp}; leaving it unchanged: ${err.message}`);
       return false;
     }
   } else if (fileExists(CURSOR_MCP_LEGACY) && targetMcp === CURSOR_MCP_GLOBAL) {
     try {
       config = parseYaml(fs.readFileSync(CURSOR_MCP_LEGACY, 'utf-8')) || {};
-    } catch {
+    } catch (err) {
+      if (!silent) console.warn(`Failed to parse legacy YAML config in ${CURSOR_MCP_LEGACY}: ${err.message}`);
       return false;
     }
   }
@@ -250,11 +245,11 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   }
 
   if (updated || !fileExists(mcpPath)) {
+    const backupMgr = require('./config_backup_manager');
+    if (fileExists(mcpPath)) {
+      backupMgr.ensureBackupBeforeModify(mcpPath, { client: 'cursor', scope: 'project', projectRoot });
+    }
     try {
-      const backupMgr = require('./config_backup_manager');
-      if (fileExists(mcpPath)) {
-        backupMgr.backupConfigFile(mcpPath, { client: 'cursor', scope: 'project', projectRoot });
-      }
       backupMgr.recordOwnership(mcpPath, {
         client: 'cursor',
         scope: 'project',
@@ -281,16 +276,22 @@ function _getCursorGrants() {
   ];
 }
 
-function _updateSingleCursorSettingsPath(sPath, grants) {
+function _loadCursorSettingsObject(sPath, options) {
+  if (!fileExists(sPath)) return {};
+  const backupMgr = require('./config_backup_manager');
+  backupMgr.ensureBackupBeforeModify(sPath, { client: 'cursor', scope: 'global', ...options });
   try {
-    let sObj = {};
-    if (fileExists(sPath)) {
-      try {
-        const backupMgr = require('./config_backup_manager');
-        backupMgr.backupConfigFile(sPath, { client: 'cursor', scope: 'global' });
-      } catch (_) { /* best-effort */ }
-      try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { return; }
-    }
+    return JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {};
+  } catch (err) {
+    if (!options.silent) console.warn(`Invalid JSON in ${sPath}: ${err.message}`);
+    return null;
+  }
+}
+
+function _updateSingleCursorSettingsPath(sPath, grants, options = {}) {
+  try {
+    const sObj = _loadCursorSettingsObject(sPath, options);
+    if (!sObj) return;
     const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
     const konohaMcpApprovals = [
       ...kTools.map(t => 'konoha/' + t), ...kTools.map(t => 'konoha:' + t), ...kTools,
@@ -299,17 +300,13 @@ function _updateSingleCursorSettingsPath(sPath, grants) {
       'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline',
       'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'
     ];
-    if (Array.isArray(sObj['cursor.mcp.autoApprove'])) {
-      sObj['cursor.mcp.autoApprove'] = [...new Set([...sObj['cursor.mcp.autoApprove'], ...konohaMcpApprovals])];
-    } else if (sObj['cursor.mcp.autoApprove'] === undefined) {
-      sObj['cursor.mcp.autoApprove'] = konohaMcpApprovals;
-    }
+    sObj['cursor.mcp.autoApprove'] = Array.isArray(sObj['cursor.mcp.autoApprove'])
+      ? [...new Set([...sObj['cursor.mcp.autoApprove'], ...konohaMcpApprovals])]
+      : (sObj['cursor.mcp.autoApprove'] ?? konohaMcpApprovals);
     const konohaTermApprovals = ['rtk', 'rtk *', 'konoha', 'konoha *'];
-    if (Array.isArray(sObj['cursor.terminal.autoApprove'])) {
-      sObj['cursor.terminal.autoApprove'] = [...new Set([...sObj['cursor.terminal.autoApprove'], ...konohaTermApprovals])];
-    } else if (sObj['cursor.terminal.autoApprove'] === undefined) {
-      sObj['cursor.terminal.autoApprove'] = konohaTermApprovals;
-    }
+    sObj['cursor.terminal.autoApprove'] = Array.isArray(sObj['cursor.terminal.autoApprove'])
+      ? [...new Set([...sObj['cursor.terminal.autoApprove'], ...konohaTermApprovals])]
+      : (sObj['cursor.terminal.autoApprove'] ?? konohaTermApprovals);
     if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
     const allowArr = Array.isArray(sObj.permissions.allow) ? sObj.permissions.allow : [];
     sObj.permissions.allow = allowArr.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
@@ -317,7 +314,9 @@ function _updateSingleCursorSettingsPath(sPath, grants) {
       if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
     }
     fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-  } catch { /* best-effort */ }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 }
 
 function registerCursorCliPermissions(silent = true, options = {}) {
@@ -332,10 +331,8 @@ function registerCursorCliPermissions(silent = true, options = {}) {
 
   let config = {};
   if (fileExists(cursorCliConfig)) {
-    try {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.backupConfigFile(cursorCliConfig, { client: 'cursor', scope: 'global', konohaHome: opts.konohaHome });
-    } catch (_) { /* best-effort */ }
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.ensureBackupBeforeModify(cursorCliConfig, { client: 'cursor', scope: 'global', ...opts });
     try { config = JSON.parse(fs.readFileSync(cursorCliConfig, 'utf-8')) || {}; } catch { return false; }
   }
 
@@ -343,24 +340,18 @@ function registerCursorCliPermissions(silent = true, options = {}) {
   const allowRaw = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
   config.permissions.allow = allowRaw.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
 
-  let updated = false;
-  for (const grant of grants) {
-    if (!config.permissions.allow.includes(grant)) {
-      config.permissions.allow.push(grant);
-      updated = true;
-    }
-  }
+  const beforeLen = config.permissions.allow.length;
+  config.permissions.allow = [...new Set([...config.permissions.allow, ...grants])];
+  const updated = config.permissions.allow.length !== beforeLen;
 
   const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
   const konohaAutoApprove = ['rtk', 'rtk *', 'konoha', 'konoha *',
     ...kTools.map(t => `konoha:${t}`), ...kTools.map(t => `konoha/${t}`), ...kTools,
     'semble:search', 'semble:find_related', 'search', 'find_related',
     'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'];
-  if (Array.isArray(config.autoApprove)) {
-    config.autoApprove = [...new Set([...config.autoApprove, ...konohaAutoApprove])];
-  } else {
-    config.autoApprove = konohaAutoApprove;
-  }
+  config.autoApprove = Array.isArray(config.autoApprove)
+    ? [...new Set([...config.autoApprove, ...konohaAutoApprove])]
+    : konohaAutoApprove;
 
   try {
     fs.writeFileSync(cursorCliConfig, JSON.stringify(config, null, 2) + '\n');
@@ -376,13 +367,14 @@ function registerCursorCliPermissions(silent = true, options = {}) {
 
   const cursorSettingsPaths = [
     fileExists(cursorDir) ? path.join(cursorDir, 'settings.json') : null,
-    process.platform !== 'win32' ? path.join(home, '.config', 'Cursor', 'User', 'settings.json') : null,
-    process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
-    process.platform === 'darwin' ? path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null
+    path.join(home, '.config', 'Cursor', 'User', 'settings.json'),
+    (opts.appdata || process.env.APPDATA) ? path.join(opts.appdata || process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
+    path.join(home, 'AppData', 'Roaming', 'Cursor', 'User', 'settings.json'),
+    path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json')
   ].filter(p => p && (fileExists(p) || fileExists(path.dirname(p))));
 
-  for (const sPath of cursorSettingsPaths) {
-    _updateSingleCursorSettingsPath(sPath, grants);
+  for (const sPath of Array.from(new Set(cursorSettingsPaths))) {
+    _updateSingleCursorSettingsPath(sPath, grants, opts);
   }
   return true;
 }
@@ -425,10 +417,26 @@ function registerCursorHooks(silent = true, allowHooks = true, options = {}) {
   const bootstrapCmd = `"${process.execPath}" "${CURSOR_BOOTSTRAP_PATH}"`;
   const existing = config.hooks.sessionStart || [];
   if (!existing.some(h => h.command?.includes('cursor_bootstrap.js'))) {
+    if (fileExists(cursorHooksGlobal)) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(cursorHooksGlobal, { client: 'cursor', scope: 'global', ...opts });
+    }
     config.hooks.sessionStart = [...existing, { command: bootstrapCmd }];
     fs.writeFileSync(cursorHooksGlobal, JSON.stringify(config, null, 2) + '\n');
     if (!isSilent) process.stderr.write(`✓ Registered Cursor sessionStart hook: ${cursorHooksGlobal}\n`);
   }
+  return true;
+}
+
+function _writeCursorRuleIfChanged(rulePath, content, opts) {
+  if (fileExists(rulePath) && fs.readFileSync(rulePath, 'utf8') === content) {
+    return false;
+  }
+  if (fileExists(rulePath)) {
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.ensureBackupBeforeModify(rulePath, { client: 'cursor', scope: 'global', ...opts });
+  }
+  fs.writeFileSync(rulePath, content, 'utf8');
   return true;
 }
 
@@ -442,13 +450,11 @@ function deployCursorGlobalRule(agents, silent = true, options = {}) {
   try {
     ensureDir(cursorRulesGlobal);
     const rulePath = path.join(cursorRulesGlobal, 'konoha.mdc');
-    const content = generateCursorRule(agents);
-    if (!fileExists(rulePath) || fs.readFileSync(rulePath, 'utf8') !== content) {
-      fs.writeFileSync(rulePath, content, 'utf8');
-    }
+    _writeCursorRuleIfChanged(rulePath, generateCursorRule(agents), opts);
     if (!isSilent) process.stderr.write(`✓ Deployed global Cursor rule: ${rulePath}\n`);
     return true;
-  } catch {
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     return false;
   }
 }
@@ -648,13 +654,12 @@ function getCursorStatus() {
 
   if (status.mcpGlobal) {
     try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
-      status.mcpSkillsDb = !!(config.mcpServers?.konoha);
-      status.mcpSemble = !!(config.mcpServers?.semble);
-      status.mcpKonoha = !!(config.mcpServers?.konoha);
+      const cfg = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
+      status.mcpSkillsDb = !!(cfg.mcpServers?.konoha);
+      status.mcpSemble = !!(cfg.mcpServers?.semble);
+      status.mcpKonoha = !!(cfg.mcpServers?.konoha);
     } catch { /* best-effort */ }
   }
-
   if (fileExists(CURSOR_AGENTS_GLOBAL)) {
     try { status.subagentsGlobal = fs.readdirSync(CURSOR_AGENTS_GLOBAL).filter(f => f.endsWith('.md')).length; } catch { /* best-effort */ }
   }
@@ -663,19 +668,17 @@ function getCursorStatus() {
   }
   if (fileExists(CURSOR_CLI_CONFIG)) {
     try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-      const allows = Array.isArray(config.permissions?.allow) ? config.permissions.allow : [];
+      const cfg = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
+      const allows = Array.isArray(cfg.permissions?.allow) ? cfg.permissions.allow : [];
       status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
     } catch { /* best-effort */ }
   }
   if (fileExists(CURSOR_HOOKS_GLOBAL)) {
     try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
-      const hooks = config.hooks?.sessionStart || [];
-      status.hooks = hooks.some(h => h.command?.includes('cursor_bootstrap.js'));
+      const cfg = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
+      status.hooks = (cfg.hooks?.sessionStart || []).some(h => h.command?.includes('cursor_bootstrap.js'));
     } catch { /* best-effort */ }
   }
-
   const cwd = process.cwd();
   const projectAgents = path.join(cwd, PROJECT_CURSOR_DIR, 'agents');
   status.projectMcp = fileExists(path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.json'));

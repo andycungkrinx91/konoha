@@ -268,7 +268,7 @@
                 <mxCell id="p3-jonin" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=jonin;" value="jonin&#10;jonin-skill + taste-skill (Elite Builder)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="485" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-anbu" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=anbu;" value="anbu&#10;anbu-skill + qa-automation (Black Ops)" vertex="1">
+                <mxCell id="p3-anbu" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=anbu;" value="anbu&#10;anbu-skill + qa-automation (Backend &amp; DevOps)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="560" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-chunin" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=chunin;" value="chunin&#10;chunin-skill + i-have-adhd (Intel Ninja)" vertex="1">

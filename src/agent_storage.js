@@ -151,8 +151,14 @@ function _mergeDefaults(agents, defaults, loadedFromUser) {
   }
   if (anyAdded && loadedFromUser) {
     try {
+      if (fs.existsSync(USER_AGENTS_YAML_PATH)) {
+        const { ensureBackupBeforeModify } = require('./config_backup_manager');
+        ensureBackupBeforeModify(USER_AGENTS_YAML_PATH, { client: 'antigravity', scope: 'global' });
+      }
       fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(agents) + '\n', 'utf8');
-    } catch (_) { /* best-effort */ }
+    } catch (err) {
+      if (err && /backup/i.test(err.message)) throw err;
+    }
   }
   return agents;
 }
@@ -349,6 +355,10 @@ function saveAgents(agents) {
   const agentsDir = path.dirname(USER_AGENTS_YAML_PATH);
   if (!fs.existsSync(agentsDir)) {
     fs.mkdirSync(agentsDir, { recursive: true });
+  }
+  if (fs.existsSync(USER_AGENTS_YAML_PATH)) {
+    const { ensureBackupBeforeModify } = require('./config_backup_manager');
+    ensureBackupBeforeModify(USER_AGENTS_YAML_PATH, { client: 'antigravity', scope: 'global' });
   }
   fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(agents) + '\n');
 

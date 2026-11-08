@@ -147,7 +147,7 @@ async function run() {
     capturedReplies = [];
     await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/anbu fix redis connection leak' });
     assert.strictEqual(capturedReplies.length, 1, 'Anbu reply sent');
-    assert.ok(capturedReplies[0].text.includes('Black Ops Anbu'), 'Anbu task accepted');
+    assert.ok(capturedReplies[0].text.includes('Backend & DevOps Anbu'), 'Anbu task accepted');
     assert.ok(capturedReplies[0].text.includes('fix redis connection leak'), 'Anbu prompt preserved');
 
     // Test /tokubetsu_jonin command

@@ -41,7 +41,7 @@ async function testStructuredDelegation() {
 
     conn.prepare(`
       INSERT OR REPLACE INTO agents (name, title, purpose, skills, constraints_text, instructions, model_tier)
-      VALUES ('anbu', 'Anbu Black Ops', 'Backend & Security', '[]', 'Zero CVEs', 'Write secure APIs', 'Pro')
+      VALUES ('anbu', 'Anbu Backend & DevOps', 'Backend & DevOps', '[]', 'Zero CVEs', 'Write secure APIs', 'Pro')
     `).run();
 
     conn.close();
@@ -61,7 +61,7 @@ async function testStructuredDelegation() {
     assert.ok(resJonin.instructions.includes('Build a responsive showroom header'));
     assert.ok(resJonin.instructions.includes('Geist typography'));
     assert.ok(resJonin.instructions.includes('Persistent Project Context'));
-    assert.ok(resJonin.instructions.includes('Taste-Skill Design Engine Directives'));
+    assert.ok(resJonin.instructions.includes('Taste-Skill Design Engine'));
     assert.ok(resJonin.instructions.includes('DESIGN_VARIANCE=9/10'));
 
     // Direct structured delegation anbu

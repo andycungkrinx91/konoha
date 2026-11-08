@@ -31,7 +31,7 @@ function cmdAgentHelp() {
   - @kage: Village Leader for high-level architecture decisions, security audits & quality gate reviews.
   - @chunin: Intelligence researcher for documentation lookup, web search & citations.
   - @jonin: Elite Builder for frontend, Taste-Skill design engine & UI components (Next.js, Svelte, Nuxt, Angular).
-  - @anbu: Black Ops backend developer for bug fixes, API logic, and DevOps/CI-CD.
+  - @anbu: Backend & DevOps specialist for bug fixes, API logic, databases, and CI/CD.
   - @tokubetsu-jonin: Scribe for writing READMEs, API specs, PDF reports, and runbooks.
   - @akatsuki: Red-Team & Blue-Team security specialist and final security gate (authorized scope only).
   - @yamanaka: Generative 3D specialist for Three.js/Manifold synthesis and live Blender editing.

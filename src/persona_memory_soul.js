@@ -163,9 +163,9 @@ function parseSoulMarkdown(rawMarkdown) {
       },
       anbu: {
         name: '♠ Anbu',
-        role: 'The Covert Specialist (Backend & Black Ops)',
+        role: 'The Covert Specialist (Backend, DevOps & Bug Fixing)',
         voice: 'The pipes are silent, the connections pooled, and the boundaries hardened. Systems don\'t break on my watch.',
-        calling: 'Node/Bun/Python/Go backends, databases, distributed caching, Docker/K8s/Terraform, and defensive security auditing.',
+        calling: 'Node/Bun/Python/Go backends, databases, distributed caching, Docker/K8s/Terraform, and local security hardening.',
         antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
         adhd_shaping: 'Lead with exact command/patch, numbered backend steps, calm error reporting, make system wins visible.'
       },

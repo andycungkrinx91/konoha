@@ -59,7 +59,7 @@ function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tr
   if (!fileExists(serverPath)) return false;
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'commandcode' });
 
-  backupFile(targetConfig, silent);
+  backupFile(targetConfig, silent, { client: 'commandcode', ...options });
 
   let existingConfig = {};
   if (fileExists(targetConfig)) {
@@ -172,7 +172,8 @@ function registerCommandCodePermissions(silent = true, options = {}) {
 
       return updated;
     },
-    silent
+    silent,
+    { client: 'commandcode', ...opts }
   );
 }
 
@@ -245,12 +246,39 @@ if (SHELL_TOOL_NAMES.indexOf(toolName) !== -1) {
 `;
 }
 
-function registerCommandCodeNativeBlocker(silent = true) {
-  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+function _attachCommandCodeBlockerHook(config, blockerCommand) {
+  if (!config.hooks) config.hooks = {};
+  if (!Array.isArray(config.hooks.PreToolUse)) config.hooks.PreToolUse = [];
+  const existing = config.hooks.PreToolUse.find(
+    (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
+  );
+  if (existing) {
+    const entry = existing.hooks.find((e) => e.command && e.command.includes('konoha-native-blocker-cc'));
+    if (entry && entry.command !== blockerCommand) {
+      entry.command = blockerCommand;
+      return true;
+    }
+    return false;
+  }
+  config.hooks.PreToolUse.push({
+    hooks: [
+      {
+        type: 'command',
+        command: blockerCommand
+      }
+    ]
+  });
+  return true;
+}
+
+function registerCommandCodeNativeBlocker(silent = true, options = {}) {
+  const opts = typeof silent === "object" && silent !== null ? silent : options;
+  const home = (opts && opts.home) || HOME;
+  const settingsPath = (opts && opts.settingsPath) || path.join(home, '.commandcode', 'settings.json');
   if (!fileExists(settingsPath)) {
     return { ok: false, reason: 'commandcode-settings-missing' };
   }
-  const binDir = path.join(HOME, '.local', 'bin');
+  const binDir = path.join(home, '.local', 'bin');
   const blockerJs = path.join(binDir, 'konoha-native-blocker-cc.js');
   try {
     fs.mkdirSync(binDir, { recursive: true });
@@ -263,31 +291,9 @@ function registerCommandCodeNativeBlocker(silent = true) {
   const blockerCommand = `"${process.execPath}" "${blockerJs}"`;
   mergeJsonFile(
     settingsPath,
-    (config) => {
-      if (!config.hooks) config.hooks = {};
-      if (!Array.isArray(config.hooks.PreToolUse)) config.hooks.PreToolUse = [];
-      const existing = config.hooks.PreToolUse.find(
-        (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
-      );
-      if (existing) {
-        const entry = existing.hooks.find((e) => e.command && e.command.includes('konoha-native-blocker-cc'));
-        if (entry.command !== blockerCommand) {
-          entry.command = blockerCommand;
-          return true;
-        }
-        return false;
-      }
-      config.hooks.PreToolUse.push({
-        hooks: [
-          {
-            type: 'command',
-            command: blockerCommand
-          }
-        ]
-      });
-      return true;
-    },
-    silent
+    (config) => _attachCommandCodeBlockerHook(config, blockerCommand),
+    silent,
+    { client: 'commandcode', ...opts }
   );
   return { ok: true, blocker: blockerJs };
 }
@@ -343,12 +349,16 @@ function registerCommandCodeWorkflowReminder(silent = true, options = {}) {
       (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('workflow_reminder'))
     );
     if (already) return;
+    if (fileExists(settingsPath)) {
+      backupFile(settingsPath, silent, { client: 'commandcode', scope: 'global', ...opts });
+    }
     settings.hooks.SessionStart.push({
       hooks: [{ type: 'command', command: reminderCommand }]
     });
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
     if (!silent) process.stderr.write('✓ Konoha workflow reminder registered (Command Code SessionStart: startup/resume/clear)\n');
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ Command Code workflow reminder registration failed: ${err.message}`);
   }
 }
@@ -382,10 +392,13 @@ function deployCommandCodeRules(silent = true, options = {}) {
 
     const fullInstructions = generateAgentsMd(agents, 'commandcode');
     const agentManager = require('../agent_manager');
-    const finalAgentsMd = agentManager.injectManagedConfig(agentsMd, fullInstructions, 'KONOHA');
+    const finalAgentsMd = agentManager.injectManagedConfig(agentsMd, fullInstructions, 'KONOHA', { client: 'commandcode', scope: 'global', ...opts });
     fs.writeFileSync(agentsMd, finalAgentsMd, 'utf8');
 
     const contractContent = buildMainAgentContract('commandcode') + '\n';
+    if (fileExists(ruleDest)) {
+      backupFile(ruleDest, silent, { client: 'commandcode', scope: 'global', ...opts });
+    }
     fs.writeFileSync(ruleDest, contractContent, 'utf8');
 
     for (const agent of agents) {
@@ -397,6 +410,7 @@ function deployCommandCodeRules(silent = true, options = {}) {
     if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Command Code\n`);
     return { ok: true };
   } catch (error) {
+    if (error && /backup/i.test(error.message)) throw error;
     return { ok: false, reason: 'copy-failed', error: error.message };
   }
 }

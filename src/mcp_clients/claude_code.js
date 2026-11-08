@@ -58,10 +58,14 @@ function deployClaudeCodeRtkRule(silent = true, options = {}) {
   }
   try {
     ensureDir(path.dirname(dest));
+    if (fileExists(dest)) {
+      backupFile(dest, isSilent, { client: 'claude', scope: 'global', ...opts });
+    }
     fs.copyFileSync(src, dest);
     if (!isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
     return { ok: true };
   } catch (e) {
+    if (e && /backup/i.test(e.message)) throw e;
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
 }
@@ -75,7 +79,7 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
   if (!fileExists(serverPath)) return false;
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'claudecode' });
 
-  backupFile(targetConfig, silent);
+  backupFile(targetConfig, silent, { client: 'claude', ...options });
 
   let existingConfig = {};
   if (fileExists(targetConfig)) {
@@ -202,7 +206,8 @@ function registerClaudeCodePermissions(silent = true, options = {}) {
 
       return updated;
     },
-    isSilent
+    isSilent,
+    { client: 'claude', ...opts }
   );
 }
 
@@ -281,7 +286,7 @@ function generateClaudeCodeSubagent(agent) {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
     'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
     'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
@@ -353,12 +358,16 @@ function deployClaudeCodeRules(ruleContent, silent = true, options = {}) {
   const finalContent = cleanContent.trim() + '\n' + wrapper;
 
   try {
+    if (fileExists(CLAUDE_MD)) {
+      backupFile(CLAUDE_MD, silent, { client: 'claude', scope: 'global', ...opts });
+    }
     fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
     if (!silent) {
       process.stderr.write(`✓ Deployed Konoha instructions to ${CLAUDE_MD}\n`);
     }
     return true;
-  } catch {
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     return false;
   }
 }
@@ -395,12 +404,16 @@ function deployProjectClaudeMd(projectRoot, _agents, silent = true, ruleContent 
   }
 
   try {
+    if (fileExists(CLAUDE_MD)) {
+      backupFile(CLAUDE_MD, silent, { client: 'claude', scope: 'project', projectRoot });
+    }
     fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
     if (!silent) {
       process.stderr.write(`✓ Deployed Konoha instructions to ${CLAUDE_MD}\n`);
     }
     return true;
-  } catch {
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     return false;
   }
 }

@@ -139,14 +139,12 @@ function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA', opt
 
   let existing = '';
   if (filePath && fs.existsSync(filePath)) {
-    try {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.backupConfigFile(filePath, {
-        client: options.client || 'global',
-        scope: options.scope || 'global',
-        konohaHome: options.konohaHome
-      });
-    } catch (_) { /* backup best-effort when invoked in pure string tests */ }
+    const backupMgr = require('./config_backup_manager');
+    backupMgr.ensureBackupBeforeModify(filePath, {
+      client: options.client || 'antigravity',
+      scope: options.scope || 'global',
+      ...options
+    });
     try {
       existing = stripLegacyKonohaPreamble(fs.readFileSync(filePath, 'utf8'));
     } catch {
@@ -285,34 +283,36 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const agents = loadAgents(force);
   if (agents.length === 0) return;
 
-  try {
-    const backupMgr = require('./config_backup_manager');
-    backupMgr.backupAllDetectedClients({
-      home: effectiveHome,
-      projectRoot: projectRoot || process.cwd(),
-      includeProject: Boolean(deployProject)
-    });
-  } catch (_) { /* best-effort backup */ }
+  const backupMgr = require('./config_backup_manager');
+  backupMgr.backupAllDetectedClients({
+    home: effectiveHome,
+    projectRoot: projectRoot || process.cwd(),
+    includeProject: Boolean(deployProject)
+  });
 
   try {
     fs.mkdirSync(path.dirname(geminiMdPath), { recursive: true });
-    fs.writeFileSync(geminiMdPath, injectManagedConfig(geminiMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
-  } catch (_) { /* intentional fallback */ }
+    fs.writeFileSync(geminiMdPath, injectManagedConfig(geminiMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', home: effectiveHome }), 'utf8');
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 
   try {
     const geminiConfigMdPath = path.join(effectiveHome, '.gemini', 'config', 'GEMINI.md');
     const geminiConfigAgentsMdPath = path.join(effectiveHome, '.gemini', 'config', 'AGENTS.md');
     if (fs.existsSync(geminiConfigMdPath)) {
-      fs.writeFileSync(geminiConfigMdPath, injectManagedConfig(geminiConfigMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
+      fs.writeFileSync(geminiConfigMdPath, injectManagedConfig(geminiConfigMdPath, generateGeminiMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', home: effectiveHome }), 'utf8');
     }
     if (fs.existsSync(geminiConfigAgentsMdPath)) {
-      fs.writeFileSync(geminiConfigAgentsMdPath, injectManagedConfig(geminiConfigAgentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global' }), 'utf8');
+      fs.writeFileSync(geminiConfigAgentsMdPath, injectManagedConfig(geminiConfigAgentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', home: effectiveHome }), 'utf8');
     }
-  } catch (_) { /* intentional fallback */ }
+  } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
+  }
 
   try {
     fs.mkdirSync(path.dirname(agentsMdPath), { recursive: true });
-    fs.writeFileSync(agentsMdPath, injectManagedConfig(agentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'global', scope: 'global' }), 'utf8');
+    fs.writeFileSync(agentsMdPath, injectManagedConfig(agentsMdPath, generateAgentsMd(agents), 'KONOHA', { client: 'antigravity', scope: 'global', home: effectiveHome }), 'utf8');
   } catch (_) { /* intentional fallback */ }
 
   try {

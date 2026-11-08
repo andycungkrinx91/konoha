@@ -164,10 +164,22 @@ function registerMcp(_python, silent = false, allowAutoApprove = true, options =
 
   ensureDir(path.dirname(MCP_CONFIG_PATH));
 
+  if (fileExists(MCP_CONFIG_PATH)) {
+    const { ensureBackupBeforeModify } = require('../../src/config_backup_manager');
+    const bakRes = ensureBackupBeforeModify(MCP_CONFIG_PATH, {
+      client: 'antigravity',
+      scope: 'global',
+      home: opts.home,
+      konohaHome: opts.konohaHome,
+      simulateBackupFailure: opts.simulateBackupFailure
+    });
+    if (!silent && bakRes && bakRes.backupPath) {
+      info(`Backed up existing [antigravity:global] ${path.basename(MCP_CONFIG_PATH)} → ${bakRes.backupPath} (verified SHA-256 ✓)`);
+    }
+  }
   const backupPath = MCP_CONFIG_PATH + '.back';
   if (fileExists(MCP_CONFIG_PATH) && !fileExists(backupPath)) {
     fs.copyFileSync(MCP_CONFIG_PATH, backupPath);
-    if (!silent) info(`Backed up existing config → ${path.basename(backupPath)}`);
   }
 
   const config = loadExistingMcpConfig(silent);
@@ -365,6 +377,10 @@ function registerHooks(silent = false, allowHooks) {
   }
 
   if (!shouldWrite) return;
+  if (fileExists(HOOKS_CONFIG_PATH)) {
+    const { ensureBackupBeforeModify } = require('../../src/config_backup_manager');
+    ensureBackupBeforeModify(HOOKS_CONFIG_PATH, { client: 'antigravity', scope: 'global' });
+  }
   try {
     fs.writeFileSync(HOOKS_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
     if (!silent) {

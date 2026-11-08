@@ -192,18 +192,18 @@ function _mirrorOmpMcpToLocalDirs(payload, options = {}) {
   } catch (_) { /* best-effort mirror to global ~/.omp/mcp.json only */ }
 }
 
-function _backupAndRecordOmpOwnership(configPath, servers, konohaHome) {
+function _backupAndRecordOmpOwnership(configPath, servers, konohaHome, options = {}) {
+  const backupMgr = require('./config_backup_manager');
+  if (fileExists(configPath)) {
+    backupMgr.ensureBackupBeforeModify(configPath, { client: 'omp', scope: 'global', konohaHome, ...options });
+  }
   try {
-    const backupMgr = require('./config_backup_manager');
-    if (fileExists(configPath)) {
-      backupMgr.backupConfigFile(configPath, { client: 'omp', scope: 'global', konohaHome });
-    }
     backupMgr.recordOwnership(configPath, {
       client: 'omp',
       scope: 'global',
       format: 'json',
       ownedKeys: Object.keys(servers).map(k => `mcpServers.${k}`)
-    }, konohaHome);
+    }, konohaHome || options);
   } catch (_) { /* best-effort */ }
 }
 
@@ -225,7 +225,7 @@ function registerOmpMcp(options = {}) {
       mcpServers: mergedServers
     };
 
-    _backupAndRecordOmpOwnership(configPath, servers, options.konohaHome);
+    _backupAndRecordOmpOwnership(configPath, servers, options.konohaHome, options);
 
     writeJsonAtomic(configPath, payload);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);
@@ -234,6 +234,7 @@ function registerOmpMcp(options = {}) {
 
     return { ok: true, configPath };
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ Could not register OMP MCP config: ${err.message}`);
     return { ok: false, reason: 'omp-mcp-registration-failed', error: err.message };
   }
@@ -250,10 +251,15 @@ function deployOmpContract(options = {}) {
     if (managed === existing) {
       return { ok: true, changed: false };
     }
+    if (fileExists(targetFile)) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(targetFile, { client: 'omp', scope: 'global', ...options });
+    }
     fs.writeFileSync(targetFile, managed, 'utf-8');
     if (!silent) process.stderr.write(`✓ Konoha contract deployed to OMP: ${targetFile}\n`);
     return { ok: true, changed: true };
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ OMP contract deployment failed: ${err.message}`);
     return { ok: false, reason: 'omp-contract-deploy-failed', error: err.message };
   }
@@ -270,6 +276,10 @@ function deployOmpRtkRule(options = {}) {
 
   try {
     ensureDir(targetDir);
+    if (fileExists(targetFile)) {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(targetFile, { client: 'omp', scope: 'global', ...options });
+    }
     const sourceRtk = path.join(__dirname, 'templates', 'rules', 'rtk.md');
     if (fileExists(sourceRtk)) {
       fs.copyFileSync(sourceRtk, targetFile);
@@ -280,6 +290,7 @@ function deployOmpRtkRule(options = {}) {
     if (!silent) process.stderr.write(`✓ RTK rule deployed to OMP: ${targetFile}\n`);
     return { ok: true, targetFile };
   } catch (err) {
+    if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ OMP RTK rule deployment failed: ${err.message}`);
     return { ok: false, reason: 'omp-rtk-deploy-failed', error: err.message };
   }
@@ -289,6 +300,19 @@ function ensureOmpSetup(options = {}) {
   const silent = options.silent !== false;
   const targetAgentDir = options.home ? path.join(options.home, '.omp', 'agent') : OMP_AGENT_DIR;
   ensureDir(targetAgentDir);
+
+  const backupMgr = require('./config_backup_manager');
+  const ompRoot = options.home ? path.join(options.home, '.omp') : OMP_DIR;
+  for (const sCandidate of [
+    path.join(targetAgentDir, 'settings.json'),
+    path.join(targetAgentDir, 'config.yml'),
+    path.join(ompRoot, 'settings.json'),
+    path.join(ompRoot, 'config.yml')
+  ]) {
+    if (fileExists(sCandidate)) {
+      backupMgr.ensureBackupBeforeModify(sCandidate, { client: 'omp', scope: 'global', ...options });
+    }
+  }
 
   const mcpResult = registerOmpMcp({ ...options, silent });
   const contractResult = deployOmpContract({ ...options, silent });

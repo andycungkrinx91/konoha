@@ -7,6 +7,7 @@ const { HOME, SKILLS_DB_DIR, MIGRATE_PATH, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = 
 const {
   backupAllDetectedClients,
   verifyBackupIntegrity,
+  formatBackupSummaryLines,
   restoreFromBackupSnapshot
 } = require('../../src/config_backup_manager');
 
@@ -23,12 +24,24 @@ function _verifyBackupEntry(entry) {
 }
 
 function executePreInstallBackup(options = {}) {
-  const homeDir = options.homeDir || process.env.HOME || process.env.USERPROFILE || HOME;
+  const homeDir = options.home || options.homeDir || process.env.HOME || process.env.USERPROFILE || HOME;
   const projectRoot = options.projectRoot || process.cwd();
-  const backupSummary = backupAllDetectedClients({ homeDir, projectRoot });
+  const konohaRoot = options.konohaRoot || options.konohaHome || getKonohaRoot();
+  const backupSummary = backupAllDetectedClients({
+    home: homeDir,
+    homeDir,
+    projectRoot,
+    konohaRoot,
+    simulateBackupFailure: options.simulateBackupFailure
+  });
 
   for (const entry of (backupSummary.backups || [])) {
     _verifyBackupEntry(entry);
+  }
+
+  backupSummary.summaryLines = formatBackupSummaryLines(backupSummary);
+  if (typeof options.onBackupSummary === 'function') {
+    options.onBackupSummary(backupSummary);
   }
 
   return backupSummary;

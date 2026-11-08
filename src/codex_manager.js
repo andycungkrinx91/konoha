@@ -123,22 +123,24 @@ function _copyBakSafe(configPath, bakPath) {
 function writeCodexConfig(content, options = {}) {
   const configPath = getCodexConfigPath(options);
   ensureDir(path.dirname(configPath));
+  const backupMgr = require('./config_backup_manager');
   if (fileExists(configPath)) {
-    try {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.backupConfigFile(configPath, { client: 'codex', scope: 'global', konohaHome: options.konohaHome });
-    } catch (_) { /* intentional best-effort backup */ }
+    backupMgr.ensureBackupBeforeModify(configPath, { client: 'codex', scope: 'global', ...options });
     _copyBakSafe(configPath, `${configPath}.bak`);
+  }
+  const home = options.home || HOME;
+  const codexSettings = path.join(home, '.codex', 'settings.json');
+  if (fileExists(codexSettings)) {
+    backupMgr.ensureBackupBeforeModify(codexSettings, { client: 'codex', scope: 'global', ...options });
   }
   fs.writeFileSync(configPath, content, 'utf-8');
   try {
-    const backupMgr = require('./config_backup_manager');
     backupMgr.recordOwnership(configPath, {
       client: 'codex',
       scope: 'global',
       format: 'toml',
       ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.semble]', '[mcp_servers.aislop]']
-    }, options.konohaHome);
+    }, options);
   } catch (_) { /* best-effort */ }
 }
 
@@ -147,11 +149,12 @@ function readCodexInstructions() {
   return fs.readFileSync(CODEX_AGENTS_MD, 'utf-8');
 }
 
-function writeCodexInstructions(content) {
-  ensureDir(path.dirname(CODEX_AGENTS_MD));
+function writeCodexInstructions(content, options = {}) {
+  const targetMd = (options && options.home) ? path.join(options.home, '.codex', 'AGENTS.md') : CODEX_AGENTS_MD;
+  ensureDir(path.dirname(targetMd));
   const agentMgr = require('./agent_manager');
-  const finalContent = agentMgr.injectManagedConfig(CODEX_AGENTS_MD, content, 'KONOHA');
-  fs.writeFileSync(CODEX_AGENTS_MD, finalContent, 'utf-8');
+  const finalContent = agentMgr.injectManagedConfig(targetMd, content, 'KONOHA', { client: 'codex', scope: 'global', ...options });
+  fs.writeFileSync(targetMd, finalContent, 'utf-8');
 }
 
 function getKonohaToolNames() {
@@ -325,7 +328,7 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
+    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, CI/CD, infrastructure deployment, and QA automation',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
     'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
     'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
@@ -405,6 +408,7 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options 
 
     return { ok: true };
   } catch (error) {
+    if (error && /backup/i.test(error.message)) throw error;
     if (!silent) {
       console.warn(`Failed to update Codex configuration: ${error.message}`);
     }
@@ -439,8 +443,8 @@ function deployCodexRules(silent = true, options = {}) {
     const codexMdPath = path.join(codexDir, "CODEX.md");
     const instructionsMdPath = path.join(codexDir, "instructions.md");
     const agentMgr = require("./agent_manager");
-    fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, "KONOHA"), "utf8");
-    fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, "KONOHA"), "utf8");
+    fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, "KONOHA", { client: "codex", scope: "global", ...opts }), "utf8");
+    fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, "KONOHA", { client: "codex", scope: "global", ...opts }), "utf8");
 
     // Deploy rules/konoha.md
     fs.writeFileSync(path.join(codexRulesDir, "konoha.md"), buildMainAgentContract("codex") + "\n", "utf8");
@@ -457,6 +461,7 @@ function deployCodexRules(silent = true, options = {}) {
     if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Codex\n`);
     return { ok: true };
   } catch (error) {
+    if (error && /backup/i.test(error.message)) throw error;
     return { ok: false, reason: 'copy-failed', error: error.message };
   }
 }

@@ -15,22 +15,24 @@ tags:
 
 # Akatsuki: Red-Team & Blue-Team Security Specialist
 
-This skill provides the **Standard Operating Procedures (SOP)** for the Akatsuki specialist agent — specialized in authorized offensive security (red-team), defensive vulnerability mitigation (blue-team), supply chain defense, Skill Guardian policy enforcement, and the mandatory **Akatsuki Security Final Gate**.
+This skill provides the **Standard Operating Procedures (SOP)** for the Akatsuki specialist agent — the successor to the legacy BlackOps security identity, specialized in defensive vulnerability mitigation and security review (Blue Mode), supply chain defense, Skill Guardian policy enforcement, the mandatory **Akatsuki Security Final Gate**, and authorized offensive security assessment (Red Mode).
 
-## Workflow Role
+> **Agent Boundary Note (`@akatsuki` vs. `@anbu`)**: `@akatsuki` owns all dedicated security auditing, CVE/SAST review gates, and authorized penetration testing responsibilities formerly associated with the legacy BlackOps label. `@anbu` is an independent agent dedicated to Backend engineering, DevOps, infrastructure automation, and bug fixing.
 
-In the Konoha workflow, Akatsuki serves as the **mandatory Security Review Gate before Kage delivery review**:
+## Workflow Role & Governance Integration
 
-- **Normal Workflow Role (Blue-Team Security Gate — Mandatory before Kage)**:
-  Before Kage evaluates the final delivery review gate (Phase 8), Akatsuki Blue-Team executes the pre-delivery security gate:
+In the Konoha workflow, Akatsuki operates in **Blue Mode (`mode: blue`) by default** and serves as the **mandatory Security Review Gate before Kage delivery review**:
+
+- **Normal Workflow Role (Blue Mode — Default Defensive Security Gate before Kage)**:
+  Blue Mode is normal, non-invasive defensive engineering review integrated into Konoha SDLC governance (`runAkatsukiFinalGate`). Before Kage evaluates the final delivery review gate (Phase 8), Akatsuki Blue-Team executes:
   1. Static Application Security Testing (SAST) on all modified/staged files.
   2. Secret & credential leakage audit (`.env*`, API tokens, private keys).
-  3. Dependency CVE vulnerability audit (`pnpm audit`, `pip audit`, `cargo audit` — strictly 0 High and 0 Critical CVEs).
+  3. Dependency CVE vulnerability audit (`pnpm audit`, `pip audit`, `cargo audit`, Socket CLI — strictly 0 High and 0 Critical CVEs).
   4. Skill Guardian policy compliance (`src/workflow/kage-reviewer/skill_guardian.js`).
   *Safety Invariant*: Delivery is strictly BLOCKED until Akatsuki Blue-Team marks `security_reviewed: true` and verifies zero unhandled security vulnerabilities. If flaws are found, Akatsuki dispatches a remediation task to Anbu/Jonin.
 
-- **Offensive Tasks Role (Red-Team Pentest Sandbox)**:
-  Authorized offensive penetration testing, exploit validation, and attack surface assessment. Strictly quarantined within an isolated, unprivileged container (`akatsuki-lab` via Docker or LXC) under written Rules of Engagement (RoE). Host execution is denied fail-closed.
+- **Authorized Security Assessment Role (Red Mode — Isolated `akatsuki-lab` Sandbox)**:
+  Authorized penetration testing, exploit validation, and attack surface assessment of Konoha or user-approved project scope. Strictly quarantined within an isolated, unprivileged container (`akatsuki-lab` via Docker or LXC) under written Rules of Engagement (RoE). Direct host execution of offensive tools and any unauthorized external targeting are denied fail-closed.
 
 ---
 

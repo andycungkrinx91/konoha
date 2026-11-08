@@ -523,7 +523,10 @@ async function cmdUpgrade(args = []) {
 
   pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Backing up client configurations & detecting package manager...`);
   try {
-    executePreInstallBackup({ projectRoot: process.cwd() });
+    const backupSummary = executePreInstallBackup({ projectRoot: process.cwd() });
+    for (const line of (backupSummary.summaryLines || [])) {
+      pbar.logStep(line.trim());
+    }
     runTransactionalDatabaseMigration();
   } catch (backupErr) {
     pbar.stopPulse();

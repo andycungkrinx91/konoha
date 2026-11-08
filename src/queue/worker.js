@@ -310,7 +310,7 @@ function detectExecutingAgent(prompt = '', output = '', fallback = null) {
     const raw = directMatch[1].toLowerCase().replace('_', '-');
     const names = {
       kage: 'Village Leader Kage',
-      anbu: 'Black Ops Anbu',
+      anbu: 'Backend & DevOps Anbu',
       jonin: 'Elite Builder Jonin',
       genin: 'Scout Genin',
       chunin: 'Intel Ninja Chunin',
@@ -331,7 +331,7 @@ function detectExecutingAgent(prompt = '', output = '', fallback = null) {
         const key = m[1].toLowerCase().replace(/_/g, '-');
         const map = {
           kage: 'Village Leader Kage',
-          anbu: 'Black Ops Anbu',
+          anbu: 'Backend & DevOps Anbu',
           jonin: 'Elite Builder Jonin',
           genin: 'Scout Genin',
           chunin: 'Intel Ninja Chunin',
@@ -347,7 +347,7 @@ function detectExecutingAgent(prompt = '', output = '', fallback = null) {
   // Fallback heuristic from prompt keywords
   const lower = p.toLowerCase();
   if (lower.includes('backend') || lower.includes('bug') || lower.includes('fix') || lower.includes('docker') || lower.includes('api') || lower.includes('server')) {
-    return 'Black Ops Anbu';
+    return 'Backend & DevOps Anbu';
   }
   if (lower.includes('ui') || lower.includes('frontend') || lower.includes('css') || lower.includes('tailwind') || lower.includes('component') || lower.includes('design')) {
     return 'Elite Builder Jonin';
@@ -422,7 +422,7 @@ async function processTask(task) {
         const output = (stdout || stderr || (err ? err.message : '')).trim();
         const isSuccess = !err;
         const summary = output ? (output.length > 500 ? output.slice(0, 500) + '...' : output) : '(Command completed with 0 output)';
-        const agentName = detectExecutingAgent(cleanPrompt, output, 'Black Ops Anbu');
+        const agentName = detectExecutingAgent(cleanPrompt, output, 'Backend & DevOps Anbu');
         const clientName = task.client ? (CLIENT_DISPLAY_NAMES[task.client.toLowerCase()] || task.client) : 'Konoha Autonomous Worker (Operational)';
 
         await finalizeTaskResult(task, {

@@ -123,9 +123,9 @@ konoha web
   - `◎ Kage` (Village Leader & Architecture/Security Audits)
   - `▫ Chunin` (Intel & Web Research)
   - `♦ Jonin` (Elite UI/Frontend Builder)
-  - `♠ Anbu` (Black Ops Backend & DevOps)
+  - `♠ Anbu` (Backend, DevOps & Bug Fixing)
   - `⬡ Tokubetsu-jonin` (Technical Writing & Scribe)
-  - `🛡️ Akatsuki` (Red-Team Pentest & Blue-Team Security Gate)
+  - `🛡️ Akatsuki` (Red-Team Pentest & Blue-Team Security Gate — BlackOps Security Successor)
   - `❖ Yamanaka` (Generative 3D & Spatial Subsystem)
 - Interactive embedded skill checkboxes: toggling instantly syncs `~/.agents/agents.yaml` and `konoha.db`. Primary dedicated skills (`kage-skill`, `jonin-skill`, etc.) are strictly preserved at priority index 0.
 - **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `akatsuki-skill`, `yamanaka-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).

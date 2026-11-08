@@ -6,7 +6,7 @@
   - @kage: Village Leader for high-level architecture decisions & security audits.
   - @chunin: Intelligence researcher for looking up documentation and best practices.
   - @jonin: Builder for high-quality frontend styling and component creation.
-  - @anbu: Black Ops backend developer for fixing bugs, API logic, and DevOps/CI-CD.
+  - @anbu: Backend & DevOps specialist for fixing bugs, API logic, databases, and CI/CD.
   - @tokubetsu-jonin: Scribe for writing READMEs, API specs, and runbooks.
   ========================================================================
 

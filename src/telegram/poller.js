@@ -50,7 +50,7 @@ async function _handleHelpCommand(chatId) {
     '',
     '<b>🥷 Subagent Direct Dispatch:</b>',
     '• <b>/kage &lt;prompt&gt;</b>    - Village Leader (Architecture & security audit)',
-    '• <b>/anbu &lt;prompt&gt;</b>    - Black Ops (Backend, DevOps, bug fixing)',
+    '• <b>/anbu &lt;prompt&gt;</b>    - Backend &amp; DevOps (APIs, infra, bug fixing)',
     '• <b>/jonin &lt;prompt&gt;</b>   - Elite Builder (UI/UX, frontend components)',
     '• <b>/genin &lt;prompt&gt;</b>   - Scout (Codebase exploration & analysis)',
     '• <b>/chunin &lt;prompt&gt;</b>  - Intel Ninja (Web research & docs synthesis)',
@@ -306,7 +306,7 @@ async function _handleApproveRejectCommand(rawText, chatId) {
 
 const AGENT_SUBCOMMANDS = {
   kage: { name: 'Village Leader Kage', defaultPrompt: 'Execute Kage architecture and security risk assessment review on current workspace', icon: '🛡️' },
-  anbu: { name: 'Black Ops Anbu', defaultPrompt: 'Execute Anbu backend development, bug fixing, and infrastructure hardening', icon: '♠️' },
+  anbu: { name: 'Backend & DevOps Anbu', defaultPrompt: 'Execute Anbu backend development, bug fixing, and infrastructure hardening', icon: '♠️' },
   jonin: { name: 'Elite Builder Jonin', defaultPrompt: 'Execute Jonin UI/UX design matching and component development', icon: '♦️' },
   genin: { name: 'Scout Genin', defaultPrompt: 'Execute Genin codebase exploration, symbol search, and dependency analysis', icon: '⚑' },
   chunin: { name: 'Intel Ninja Chunin', defaultPrompt: 'Execute Chunin web research, documentation lookup, and synthesis', icon: '▫️' },
