@@ -9,10 +9,9 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const { DB_PATH } = require('../lib/paths');
 const { C, log, info, error, success, chidoriTransition } = require('../lib/format');
-const { checkIntegrity, restoreDatabase } = require('../../src/db_recovery');
+const { checkIntegrity, restoreDatabase, validateDatabasePath } = require('../../src/db_recovery');
 
 function cmdDbHelp() {
   log(`
@@ -22,8 +21,8 @@ ${C.bold}USAGE${C.reset}
   konoha db <subcommand> [path] [options]
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}check [path]${C.reset}                         🔍 Perform PRAGMA integrity and quick checks.
-  ${C.cyan}restore [path] [--from <bcp>] [--force]${C.reset}  🛠️  Restore from verified backup or salvage tables.
+  ${C.cyan}check [path]${C.reset}                         Perform PRAGMA integrity and quick checks.
+  ${C.cyan}restore [path] [--from <bcp>] [--force]${C.reset}  Restore from verified backup or salvage tables.
 
 ${C.bold}OPTIONS${C.reset}
   ${C.cyan}--from, -b <backupPath>${C.reset}   Explicit path to a verified backup snapshot.
@@ -44,8 +43,24 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
+function resolveCheckTargetArg(args = []) {
+  if (!args || args.length === 0) return DB_PATH;
+  const raw = args[0] === '--' ? args[1] : args[0];
+  if (!raw) return DB_PATH;
+  if (args[0] !== '--' && raw.startsWith('-')) {
+    error(`Invalid option or leading-hyphen path without '--': ${raw}`);
+    process.exit(1);
+  }
+  const v = validateDatabasePath(raw, { mustExist: false, requireDbExtension: true });
+  if (!v.ok) {
+    error(`Invalid database path (${v.code}): ${v.reason}`);
+    process.exit(1);
+  }
+  return v.resolved;
+}
+
 async function cmdDbCheck(args) {
-  const targetDb = args[0] && !args[0].startsWith('-') ? path.resolve(args[0]) : DB_PATH;
+  const targetDb = resolveCheckTargetArg(args);
   info(`Checking database integrity for: ${targetDb}`);
 
   if (!fs.existsSync(targetDb)) {
@@ -67,21 +82,56 @@ async function cmdDbCheck(args) {
   }
 }
 
-async function cmdDbRestore(args) {
-  let targetDb = DB_PATH;
-  let backupPath = null;
+function parseRestoreArgs(args = []) {
+  let rawTarget = null;
+  let rawBackup = null;
   let force = false;
+  let afterDoubleDash = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if ((arg === '--from' || arg === '-b') && args[i + 1]) {
-      backupPath = path.resolve(args[++i]);
-    } else if (arg === '--force' || arg === '-f') {
+    if (!afterDoubleDash && arg === '--') {
+      afterDoubleDash = true;
+      continue;
+    }
+    if (!afterDoubleDash && (arg === '--from' || arg === '-b')) {
+      if (!args[i + 1]) {
+        error(`Option ${arg} requires a backup path.`);
+        process.exit(1);
+      }
+      rawBackup = args[++i];
+    } else if (!afterDoubleDash && (arg === '--force' || arg === '-f')) {
       force = true;
-    } else if (!arg.startsWith('-') && targetDb === DB_PATH) {
-      targetDb = path.resolve(arg);
+    } else if (!afterDoubleDash && arg.startsWith('-')) {
+      error(`Unknown option for db restore: ${arg}`);
+      process.exit(1);
+    } else if (!rawTarget) {
+      rawTarget = arg;
     }
   }
+
+  const targetDb = rawTarget || DB_PATH;
+  const vTarget = validateDatabasePath(targetDb, { mustExist: false, requireDbExtension: true });
+  if (!vTarget.ok) {
+    error(`Invalid target database path (${vTarget.code}): ${vTarget.reason}`);
+    process.exit(1);
+  }
+
+  let backupPath = null;
+  if (rawBackup) {
+    const vBackup = validateDatabasePath(rawBackup, { mustExist: false, requireDbExtension: true });
+    if (!vBackup.ok) {
+      error(`Invalid backup path (${vBackup.code}): ${vBackup.reason}`);
+      process.exit(1);
+    }
+    backupPath = vBackup.resolved;
+  }
+
+  return { targetDb: vTarget.resolved, backupPath, force };
+}
+
+async function cmdDbRestore(args) {
+  const { targetDb, backupPath, force } = parseRestoreArgs(args);
 
   info(`Initiating database recovery protocol for: ${targetDb}`);
   try {
@@ -92,7 +142,7 @@ async function cmdDbRestore(args) {
     });
 
     if (result.restored) {
-      success(`Database recovery successful!`);
+      success('Database recovery successful!');
       log(`  ${C.bold}Method:${C.reset}   ${result.method}`);
       log(`  ${C.bold}Source:${C.reset}   ${result.source}`);
       log(`  ${C.bold}Target:${C.reset}   ${result.target}`);
@@ -102,7 +152,7 @@ async function cmdDbRestore(args) {
       log(`  ${C.bold}Details:${C.reset}  ${result.details}\n`);
       process.exit(0);
     } else {
-      error(`Database recovery failed.`);
+      error('Database recovery failed.');
       log(`  ${C.bold}Details:${C.reset} ${result.details}`);
       if (result.archived) {
         log(`  ${C.bold}Preserved file:${C.reset} ${result.archived}\n`);

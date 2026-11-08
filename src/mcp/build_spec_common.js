@@ -181,8 +181,10 @@ function fetchSkillPreview(conn, name) {
     const row = conn.prepare('SELECT content FROM skills WHERE name = ?').get(resolved);
     if (!row || !row.content) return null;
     const raw = row.content.trim();
-    let preview = raw.substring(0, 250).trim();
-    if (raw.length > 250) {
+    const bodyOnly = raw.replace(/^---[\s\S]*?---\s*/, '').trim() || raw;
+    const maxPreviewChars = 280;
+    let preview = bodyOnly.substring(0, maxPreviewChars).trim();
+    if (bodyOnly.length > maxPreviewChars) {
       preview += `\n...(Call konoha.get_skill('${resolved}') for full reference manual)`;
     }
     return { skill_name: resolved, content: preview, byte_size: Buffer.byteLength(raw, 'utf8'), token_efficient: true };

@@ -16,7 +16,7 @@ Use this reference for all **Angular 19/20+** builds. Angular standalone compone
 ## 1. Installation & Imports
 
 ```bash
-rtk pnpm add motion --silent
+rtk pnpm add motion gsap three @types/three angular-three --silent
 ```
 
 ```ts
@@ -147,6 +147,135 @@ export class HeroStageComponent {
       { transform: entering ? 'translateY(-4px) scale(1.015)' : 'translateY(0px) scale(1)' },
       { type: spring, stiffness: 380, damping: 24 }
     );
+  }
+}
+```
+
+---
+
+## 3. Native `animate.enter` / `animate.leave` & Interactive 3D Stage (`three` + `NgZone.runOutsideAngular`)
+
+```ts
+import {
+  Component,
+  ElementRef,
+  DestroyRef,
+  NgZone,
+  inject,
+  signal,
+  viewChild,
+  afterNextRender
+} from '@angular/core';
+import * as THREE from 'three';
+
+@Component({
+  selector: 'app-orbital-3d-stage',
+  standalone: true,
+  template: `
+    <div
+      animate.enter="stage-enter"
+      animate.leave="stage-leave"
+      (pointermove)="onPointerMove($event)"
+      (pointerleave)="pointer.set({ x: 0, y: 0 })"
+      class="relative w-full h-[400px] rounded-2xl overflow-hidden border border-[var(--border-subtle)] bg-slate-950"
+    >
+      <canvas #canvasRef data-3d-stage="true" class="w-full h-full block"></canvas>
+    </div>
+  `
+})
+export class Orbital3dStageComponent {
+  readonly pointer = signal({ x: 0, y: 0 });
+  private readonly canvasRef = viewChild<ElementRef<HTMLCanvasElement>>('canvasRef');
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly zone = inject(NgZone);
+
+  constructor() {
+    afterNextRender(() => {
+      const canvas = this.canvasRef()?.nativeElement;
+      if (!canvas || typeof window === 'undefined') return;
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      this.zone.runOutsideAngular(() => {
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(canvas.clientWidth || 640, canvas.clientHeight || 400, false);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 640) / (canvas.clientHeight || 400), 0.1, 100);
+        camera.position.set(0, 0.3, 4.2);
+
+        scene.add(new THREE.AmbientLight(0x38bdf8, 0.7));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+        keyLight.position.set(3, 4, 5);
+        scene.add(keyLight);
+
+        const geo = new THREE.IcosahedronGeometry(1.0, 3);
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 } },
+          vertexShader: `
+            uniform float uTime;
+            varying vec3 vN;
+            void main() {
+              vN = normalMatrix * normal;
+              vec3 p = position + normal * sin(uTime * 2.0 + position.z * 3.0) * 0.06;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vN;
+            void main() {
+              float rim = pow(1.0 - abs(dot(normalize(vN), vec3(0.0, 0.0, 1.0))), 2.0);
+              gl_FragColor = vec4(mix(vec3(0.06, 0.46, 0.8), vec3(0.5, 0.9, 1.0), rim), 0.92);
+            }
+          `,
+          transparent: true
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        scene.add(mesh);
+
+        const pts = new Float32Array(240 * 3);
+        for (let i = 0; i < pts.length; i++) pts[i] = (Math.random() - 0.5) * 7;
+        const ptGeo = new THREE.BufferGeometry();
+        ptGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+        const ptMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.035 });
+        scene.add(new THREE.Points(ptGeo, ptMat));
+
+        let raf = 0;
+        const tick = (t: number) => {
+          mat.uniforms.uTime.value = t * 0.001;
+          if (!reduced) {
+            const p = this.pointer();
+            mesh.rotation.y += 0.005 + p.x * 0.01;
+            mesh.rotation.x += 0.003 + p.y * 0.01;
+            camera.position.x = p.x * 0.45;
+            camera.position.y = p.y * 0.35;
+            camera.lookAt(0, 0, 0);
+          }
+          renderer.render(scene, camera);
+          if (!reduced) raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+
+        this.destroyRef.onDestroy(() => {
+          cancelAnimationFrame(raf);
+          geo.dispose();
+          mat.dispose();
+          ptGeo.dispose();
+          ptMat.dispose();
+          renderer.dispose();
+        });
+      });
+    });
+  }
+
+  onPointerMove(event: PointerEvent): void {
+    const el = event.currentTarget as HTMLElement | null;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    this.pointer.set({
+      x: ((event.clientX - r.left) / (r.width || 1) - 0.5) * 2,
+      y: -(((event.clientY - r.top) / (r.height || 1) - 0.5) * 2)
+    });
   }
 }
 ```

@@ -16,7 +16,7 @@ Use this reference for all **Next.js 16 App Router + React 19** builds. In Motio
 ## 1. Installation & Client Boundary Rules
 
 ```bash
-rtk pnpm add motion --silent
+rtk pnpm add motion three @types/three @react-three/fiber @react-three/drei gsap --silent
 ```
 
 - **Server Component Boundary**: Next.js 16 defaults to React Server Components (RSC). Any component importing from `'motion/react'` MUST declare `'use client'` at line 1.
@@ -230,6 +230,131 @@ export function MotionBottomDock({
         );
       })}
     </nav>
+  );
+}
+```
+
+---
+
+## 5. Interactive 3D Stage (React Three Fiber / Three.js + Shaders, Particles & Scroll/Pointer Camera)
+
+```tsx
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
+import * as THREE from 'three';
+
+export function InteractiveOrbital3DStage() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  const yParallax = useTransform(scrollYProgress, [0, 1], [0, -48]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(canvas.clientWidth || 640, canvas.clientHeight || 420, false);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 640) / (canvas.clientHeight || 420), 0.1, 100);
+    camera.position.set(0, 0.4, 4.2);
+
+    const ambient = new THREE.AmbientLight(0x38bdf8, 0.65);
+    const keyLight = new THREE.DirectionalLight(0xf8fafc, 1.8);
+    keyLight.position.set(3, 4, 5);
+    const rimLight = new THREE.PointLight(0x6366f1, 2.4, 14);
+    rimLight.position.set(-3, -2, 3);
+    scene.add(ambient, keyLight, rimLight);
+
+    const coreGeo = new THREE.IcosahedronGeometry(1.05, 4);
+    const shaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uPointer: { value: new THREE.Vector2(0, 0) }
+      },
+      vertexShader: `
+        uniform float uTime;
+        uniform vec2 uPointer;
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalMatrix * normal;
+          vec3 pos = position + normal * sin(uTime * 2.0 + position.y * 3.5 + uPointer.x * 2.0) * 0.08;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        void main() {
+          float fresnel = pow(1.0 - abs(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0))), 2.2);
+          vec3 col = mix(vec3(0.05, 0.45, 0.78), vec3(0.45, 0.85, 1.0), fresnel);
+          gl_FragColor = vec4(col, 0.92);
+        }
+      `,
+      transparent: true
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, shaderMat);
+    scene.add(coreMesh);
+
+    const particleCount = 320;
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i++) {
+      positions[i] = (Math.random() - 0.5) * 7.5;
+    }
+    const particleGeo = new THREE.BufferGeometry();
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.035, transparent: true, opacity: 0.75 });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    scene.add(particles);
+
+    const pointer = { x: 0, y: 0 };
+    const onMove = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - r.left) / (r.width || 1) - 0.5) * 2;
+      pointer.y = -(((e.clientY - r.top) / (r.height || 1) - 0.5) * 2);
+      shaderMat.uniforms.uPointer.value.set(pointer.x, pointer.y);
+    };
+    canvas.addEventListener('pointermove', onMove);
+
+    let rafId = 0;
+    const renderFrame = (t: number) => {
+      shaderMat.uniforms.uTime.value = t * 0.001;
+      if (!reduceMotion) {
+        coreMesh.rotation.y += 0.005 + pointer.x * 0.01;
+        coreMesh.rotation.x += 0.003 + pointer.y * 0.01;
+        particles.rotation.y -= 0.0015;
+        camera.position.x += (pointer.x * 0.45 - camera.position.x) * 0.06;
+        camera.position.y += (pointer.y * 0.35 - camera.position.y) * 0.06;
+        camera.lookAt(0, 0, 0);
+      }
+      renderer.render(scene, camera);
+      if (!reduceMotion) rafId = requestAnimationFrame(renderFrame);
+    };
+    rafId = requestAnimationFrame(renderFrame);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      canvas.removeEventListener('pointermove', onMove);
+      coreGeo.dispose();
+      shaderMat.dispose();
+      particleGeo.dispose();
+      particleMat.dispose();
+      renderer.dispose();
+    };
+  }, [reduceMotion]);
+
+  return (
+    <motion.div
+      drag="x"
+      dragConstraints={{ left: -24, right: 24 }}
+      style={reduceMotion ? undefined : { y: yParallax }}
+      className="relative w-full h-[420px] rounded-2xl overflow-hidden border border-[var(--border-subtle)] bg-slate-950"
+    >
+      <canvas ref={canvasRef} data-3d-stage="true" className="w-full h-full block" />
+    </motion.div>
   );
 }
 ```

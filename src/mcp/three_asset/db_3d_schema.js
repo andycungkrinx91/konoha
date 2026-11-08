@@ -427,7 +427,7 @@ function recordValidationResult(conn, val) {
     val.asset_id || null,
     val.validation_stage,
     val.validator_name || 'yamanaka_spec_scorer',
-    val.validator_version || '2.2.18',
+    val.validator_version || '2.2.19',
     val.attempt_number || 1,
     val.passed ? 1 : 0,
     val.overall_score || 0.0,

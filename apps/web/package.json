@@ -1,6 +1,6 @@
 {
   "name": "konoha-web",
-  "version": "2.2.18",
+  "version": "2.2.19",
   "private": true,
   "type": "module",
   "engines": {

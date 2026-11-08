@@ -152,11 +152,29 @@ function verifyDirectDependencyScores() {
   console.log('✓ Direct dependency Socket score check complete: 0 high, 0 critical alerts');
 }
 
+function verifyDbRecoveryRemediation() {
+  console.log('[Socket Audit] Verifying P0 remediation for src/db_recovery.js and src/db_recovery_salvage.js...');
+  const dbRecPath = path.join(REPO_ROOT, 'src', 'db_recovery.js');
+  const dbSalvagePath = path.join(REPO_ROOT, 'src', 'db_recovery_salvage.js');
+  const recSrc = fs.readFileSync(dbRecPath, 'utf8');
+  const salvageSrc = fs.readFileSync(dbSalvagePath, 'utf8');
+
+  for (const [label, src] of [['src/db_recovery.js', recSrc], ['src/db_recovery_salvage.js', salvageSrc]]) {
+    assert.ok(!src.includes("require('child_process')") && !src.includes('require("child_process")'), `${label} must not import child_process`);
+    assert.ok(!/\bexecSync\s*\(/.test(src), `${label} must not invoke execSync`);
+    assert.ok(!/\bspawnSync\s*\(/.test(src), `${label} must not invoke spawnSync`);
+    assert.ok(src.includes('allowExtension: false'), `${label} must enforce allowExtension: false`);
+    assert.ok(src.includes('PRAGMA trusted_schema = OFF'), `${label} must enforce PRAGMA trusted_schema = OFF`);
+  }
+  console.log('✓ src/db_recovery.js and src/db_recovery_salvage.js verified: 0 shell invocations, constrained SQLite salvage active');
+}
+
 async function main() {
   console.log('====================================================');
   console.log('     KONOHA SOCKET.DEV SUPPLY-CHAIN SECURITY AUDIT   ');
   console.log('====================================================');
   verifySocketConfigRules();
+  verifyDbRecoveryRemediation();
   verifySocketFixAudit();
   verifySocketNpmAudit();
   verifyPnpmAuditMatrix();

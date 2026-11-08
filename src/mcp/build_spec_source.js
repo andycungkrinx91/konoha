@@ -12,6 +12,7 @@ const {
   loadSkillContentForBuild,
   frameworkSourceSignals
 } = require('./build_spec_common');
+const { getFrameworkMotion3dBlueprint } = require('../workflow/chunin-intel/framer_marketplace_rea');
 
 function readPngDimensions(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), format: 'PNG' };
@@ -143,10 +144,18 @@ function resolveSourceSkills(displayFramework, agentName) {
     'jonin-skill/design-token-manifest',
     'jonin-skill/tailwind-design-system',
     'jonin-skill/build-directives-manifest',
-    'jonin-skill/source-fidelity-directives'
+    'jonin-skill/source-fidelity-directives',
+    'jonin-skill/framer-motion-animator',
+    'jonin-skill/svg-animation-motion-expert',
+    'jonin-skill/web-3d-graphics-expert',
+    'jonin-skill/glsl-shader-expert'
   ];
   if (basePrefix) {
-    frameworkSkills.push(`jonin-skill/${basePrefix}-ui-expert`, `jonin-skill/${basePrefix}-code-expert`);
+    frameworkSkills.push(
+      `jonin-skill/${basePrefix}-ui-expert`,
+      `jonin-skill/${basePrefix}-code-expert`,
+      `jonin-skill/motion-${basePrefix}`
+    );
   }
   frameworkSkills.push('jonin-skill/taste-skill-frontend-expert');
 
@@ -186,6 +195,10 @@ function getCriticalSkills(fwBase) {
   return [
     fwBase ? `jonin-skill/${fwBase}-ui-expert` : null,
     fwBase ? `jonin-skill/${fwBase}-code-expert` : null,
+    fwBase ? `jonin-skill/motion-${fwBase}` : null,
+    'jonin-skill/framer-motion-animator',
+    'jonin-skill/web-3d-graphics-expert',
+    'jonin-skill/glsl-shader-expert',
     'jonin-skill/build-directives-manifest',
     'jonin-skill/design-token-manifest',
     'jonin-skill/source-fidelity-directives',
@@ -308,6 +321,11 @@ function buildFromSource(name, sourceDir, framework, options = {}) {
     creation_modes_supported: ['build_from_image', 'build_from_text', 'build_from_source'],
     component_discovery_source: 'https://www.framer.com/marketplace/components/',
     chunin_playwright_rea_required: true,
+    chunin_rea_findings: {
+      target_framework: frameworkSpec.canonical,
+      motion_library: getFrameworkMotion3dBlueprint(frameworkSpec.canonical).motion_architecture.primary_library,
+      three_d_stack: getFrameworkMotion3dBlueprint(frameworkSpec.canonical).three_d_rendering_approach.primary_stack
+    },
     framer_licensing_boundaries: {
       evaluate_free_and_paid: true,
       no_protected_source_extraction: true,

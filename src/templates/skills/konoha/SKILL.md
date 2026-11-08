@@ -11,7 +11,7 @@ tags:
   - fts5
 ---
 
-# 🍃 Konoha Maintenance & Engineering Skill (v2.2.18)
+# 🍃 Konoha Maintenance & Engineering Skill (v2.2.19)
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
@@ -77,7 +77,7 @@ rtk node tests/test_diagram_sync.js
 # Verify animated WebP assets
 rtk node tests/test_all_assets_webp.js
 
-# Verify LangGraph.js v2.2.18 activation
+# Verify LangGraph.js v2.2.19 activation
 rtk node tests/test_langgraph_v2217.js
 
 # Static analysis & Zero-AI-Slop audit

@@ -77,6 +77,12 @@ Every fresh website scaffolded by Jonin MUST honor these quality and branding in
 
 ## 3D Graphics, Motion & Quality Contract
 
+- **Framework-Specific Motion & 3D Matrix (Never Force One Framework's Library Into Another)**:
+  - **Next.js / React 19**: `motion/react` (`motion`, `AnimatePresence`, `LayoutGroup`, `useSpring`, `useScroll`, `useReducedMotion`) + `@react-three/fiber` & `@react-three/drei` & `three` + `gsap` (`ScrollTrigger`).
+  - **Nuxt 4 / Vue 3.5**: `motion-v` (`<Motion>`, `<AnimatePresence>`) + `motion` JS API (`animate`, `inView`, `scroll`, `stagger`, `spring`) + `@tresjs/core` & `three` wrapped in `<ClientOnly>` / `onMounted()`.
+  - **SvelteKit 2 / Svelte 5 (Runes)**: `svelte/motion` (`Spring`, `Tween`), `svelte/animate` (`flip`), `svelte/transition` + `motion` JS API + `@threlte/core` & `@threlte/extras` & `three`.
+  - **Angular 19/20+ (Signals & Standalone)**: Native `animate.enter` & `animate.leave` composition + Signals (`signal`, `computed`), `afterNextRender()`, `DestroyRef`, `motion` JS API, `gsap`, and `angular-three` / `three` inside `NgZone.runOutsideAngular()`.
+- **Interactive 3D Scene Capabilities**: Every 3D experience must support dynamic camera rigs, custom GLSL/TSL shaders or physical materials, multi-source dynamic lighting, GPU particle systems, pointer/scroll-driven 3D interaction, responsive canvas sizing, reduced-motion static fallbacks, and deterministic GPU disposal (`geometry.dispose()`, `material.dispose()`, `renderer.dispose()`).
 - **Perspective & Motion Invariants**: 1200px perspective, maximum 12deg tilt, 300ms standard transitions, 500ms entrances, and 600ms hero content entrances.
 - **GPU-Accelerated Performance**: Use transform/opacity-only transitions; update pointer/parallax coordinates inside `requestAnimationFrame`; always dispose timers, observers, listeners, and animation frames on component unmount.
 - **Mobile Viewport Stability**: Never use `h-screen` for hero sections. Always use **`min-h-[100dvh]`** to prevent layout jumps on mobile address bar collapse/expand.
@@ -111,11 +117,12 @@ Load specialized frontend references via `konoha.get_skill("jonin-skill/<referen
 | Nuxt 4, Vue 3 Composition API, auto-imports | `jonin-skill/nuxt-ui-expert` / `jonin-skill/nuxt-code-expert` |
 | Angular 19/20, standalone components, signals | `jonin-skill/angular-ui-expert` / `jonin-skill/angular-code-expert` |
 | Cross-framework Motion architecture, spring physics, storytelling | `jonin-skill/framer-motion-animator` |
-| Next.js / React 19 Motion (`motion/react`) | `jonin-skill/motion-nextjs` |
-| Nuxt 4 / Vue 3.5 Motion (`motion-v` + `motion` JS API) | `jonin-skill/motion-nuxt` |
-| SvelteKit 2 / Svelte 5 Motion (`svelte/motion` + `motion` JS API) | `jonin-skill/motion-svelte` |
-| Angular 19/20+ Motion (`motion` JS API + Signals/afterNextRender) | `jonin-skill/motion-angular` |
-| 3D Spline embeds, WebGL canvas, Three.js shaders | `jonin-skill/spline-interactive` / `jonin-skill/web-3d-graphics-expert` |
+| Next.js / React 19 Motion & 3D (`motion/react` + R3F / Three.js + GSAP) | `jonin-skill/motion-nextjs` |
+| Nuxt 4 / Vue 3.5 Motion & 3D (`motion-v` + `motion` + TresJS / Three.js) | `jonin-skill/motion-nuxt` |
+| SvelteKit 2 / Svelte 5 Motion & 3D (`svelte/motion` + `motion` + Threlte / Three.js) | `jonin-skill/motion-svelte` |
+| Angular 19/20+ Motion & 3D (`animate.enter`/`animate.leave` + `motion` + GSAP + Three.js) | `jonin-skill/motion-angular` |
+| 3D Spline embeds, WebGL/WebGPU canvas, Three.js scenes | `jonin-skill/spline-interactive` / `jonin-skill/web-3d-graphics-expert` |
+| Custom GLSL / WGSL / TSL shaders & particle fields | `jonin-skill/glsl-shader-expert` |
 | Form validation, Zod schemas, accessible error states | `jonin-skill/form-validation-expert` |
 | Accessible navigation, WCAG contrast verification | `jonin-skill/accessibility-testing-expert` |
 | Output formatting, concise response shaping | `jonin-skill/i-have-adhd` (`i-have-adhd`) |

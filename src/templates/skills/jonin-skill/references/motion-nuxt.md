@@ -16,7 +16,7 @@ Use this reference for all **Nuxt 4 / Vue 3.5** builds. Vue and Nuxt projects co
 ## 1. Installation & SSR Safety
 
 ```bash
-rtk pnpm add motion motion-v --silent
+rtk pnpm add motion motion-v three @types/three @tresjs/core --silent
 ```
 
 - **SSR & Hydration Guard**: Always run imperative `animate()`, `inView()`, and `scroll()` calls inside `onMounted()` and clean up returned controls inside `onBeforeUnmount()` so SSR HTML and client hydration match 100%.
@@ -153,4 +153,103 @@ export function useMotionReveal(containerRef: Ref<HTMLElement | null>, selector 
     if (stopInView) stopInView();
   });
 }
+```
+
+---
+
+## 4. Interactive 3D Stage in Nuxt 4 (`@tresjs/core` / `three` + Custom Shaders & Particles)
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import * as THREE from 'three';
+
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+let cleanupFn: (() => void) | null = null;
+
+onMounted(() => {
+  const canvas = canvasRef.value;
+  if (!canvas || typeof window === 'undefined') return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(canvas.clientWidth || 640, canvas.clientHeight || 400, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 640) / (canvas.clientHeight || 400), 0.1, 100);
+  camera.position.set(0, 0.3, 4.2);
+
+  const ambient = new THREE.AmbientLight(0x38bdf8, 0.7);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+  keyLight.position.set(3, 4, 5);
+  scene.add(ambient, keyLight);
+
+  const torusGeo = new THREE.TorusKnotGeometry(0.85, 0.26, 128, 32);
+  const shaderMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uPointer: { value: new THREE.Vector2(0, 0) } },
+    vertexShader: `
+      uniform float uTime;
+      varying vec3 vNormal;
+      void main() {
+        vNormal = normalMatrix * normal;
+        vec3 p = position + normal * sin(uTime * 2.0 + position.x * 3.0) * 0.05;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      void main() {
+        float rim = pow(1.0 - abs(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0))), 2.0);
+        gl_FragColor = vec4(mix(vec3(0.06, 0.52, 0.84), vec3(0.56, 0.9, 1.0), rim), 0.94);
+      }
+    `,
+    transparent: true
+  });
+  const mesh = new THREE.Mesh(torusGeo, shaderMat);
+  scene.add(mesh);
+
+  const pts = new Float32Array(240 * 3);
+  for (let i = 0; i < pts.length; i++) pts[i] = (Math.random() - 0.5) * 7;
+  const ptGeo = new THREE.BufferGeometry();
+  ptGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const ptMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.035 });
+  const cloud = new THREE.Points(ptGeo, ptMat);
+  scene.add(cloud);
+
+  let raf = 0;
+  const tick = (t: number) => {
+    shaderMat.uniforms.uTime.value = t * 0.001;
+    if (!reduced) {
+      mesh.rotation.y += 0.006;
+      mesh.rotation.x += 0.003;
+      cloud.rotation.y -= 0.0015;
+    }
+    renderer.render(scene, camera);
+    if (!reduced) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+
+  cleanupFn = () => {
+    cancelAnimationFrame(raf);
+    torusGeo.dispose();
+    shaderMat.dispose();
+    ptGeo.dispose();
+    ptMat.dispose();
+    renderer.dispose();
+  };
+});
+
+onBeforeUnmount(() => {
+  if (cleanupFn) cleanupFn();
+});
+</script>
+
+<template>
+  <ClientOnly>
+    <div class="relative w-full h-[400px] rounded-2xl overflow-hidden border border-[var(--border-subtle)] bg-slate-950">
+      <canvas ref="canvasRef" data-3d-stage="true" class="w-full h-full block" />
+    </div>
+  </ClientOnly>
+</template>
 ```

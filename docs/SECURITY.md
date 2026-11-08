@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.18)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.19)
 
 ## 1. Overview & Threat Model
 
@@ -113,7 +113,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.18)
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.19)
 
 ### 11.1 Bridge Request Budget
 - **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.

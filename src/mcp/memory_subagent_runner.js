@@ -10,7 +10,7 @@ const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
 const { getSessionKey, getAndIncrementSessionTurn } = require('./client_detection');
 const { fuzzyResolveSkill, logToolCall } = require('./skills');
-const { getResolvedTaskDir } = require('./workflow');
+const { getResolvedTaskDir } = require('./workflow_common');
 const { buildSpawnDirective } = require('./lazy_subagent');
 
 function getMainModel() {

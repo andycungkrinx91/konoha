@@ -17,6 +17,9 @@ const {
   analyzeImageMetadata,
   buildFromSource
 } = require('./build_spec_source');
+const {
+  getFrameworkMotion3dBlueprint
+} = require('../workflow/chunin-intel/framer_marketplace_rea');
 
 function resolveTextSkills(displayFramework, agentName) {
   let skills = agentName ? getAgentSkills(agentName) : null;
@@ -31,7 +34,9 @@ function resolveTextSkills(displayFramework, agentName) {
     'jonin-skill/build-directives-manifest',
     'jonin-skill/source-fidelity-directives',
     'jonin-skill/framer-motion-animator',
-    'jonin-skill/svg-animation-motion-expert'
+    'jonin-skill/svg-animation-motion-expert',
+    'jonin-skill/web-3d-graphics-expert',
+    'jonin-skill/glsl-shader-expert'
   ];
   if (basePrefix) {
     frameworkSkills.push(
@@ -121,6 +126,8 @@ function getTextCriticalSkills(fwBase) {
     fwBase ? `jonin-skill/motion-${fwBase}` : null,
     'jonin-skill/framer-motion-animator',
     'jonin-skill/svg-animation-motion-expert',
+    'jonin-skill/web-3d-graphics-expert',
+    'jonin-skill/glsl-shader-expert',
     'jonin-skill/build-directives-manifest',
     'jonin-skill/design-token-manifest',
     'jonin-skill/taste-skill-frontend-expert'
@@ -169,9 +176,13 @@ function buildFromText(name, description, framework, options = {}) {
   const archetype = inferBuildArchetype(description);
   const displayFramework = frameworkSpec.display;
   const agentSkills = resolveTextSkills(displayFramework, agentName);
+  const motion3dBlueprint = getFrameworkMotion3dBlueprint(frameworkSpec.canonical);
   const directives = assembleTextDirectives({
     displayFramework, name, description, frameworkSpec, validatedDials, archetype
   });
+  directives.push(
+    `Motion & 3D Stack (${motion3dBlueprint.display}): Use ${motion3dBlueprint.motion_architecture.primary_library} for springs/gestures/layout/scroll and ${motion3dBlueprint.three_d_rendering_approach.primary_stack.join(' + ')} for interactive 3D scenes with shaders, lighting, particles, and GPU disposal.`
+  );
 
   const spec = {
     status: 'success',
@@ -184,6 +195,15 @@ function buildFromText(name, description, framework, options = {}) {
     online_reference_research_required: true,
     component_discovery_source: 'https://www.framer.com/marketplace/components/',
     chunin_playwright_rea_required: true,
+    chunin_rea_findings: {
+      discovery_source: 'https://www.framer.com/marketplace/components/',
+      target_framework: motion3dBlueprint.framework,
+      motion_library: motion3dBlueprint.motion_architecture.primary_library,
+      motion_primitives: motion3dBlueprint.motion_architecture.primitives,
+      three_d_stack: motion3dBlueprint.three_d_rendering_approach.primary_stack,
+      dependencies: motion3dBlueprint.dependencies_and_versions,
+      reference_docs: motion3dBlueprint.reference_docs
+    },
     framer_licensing_boundaries: {
       evaluate_free_and_paid: true,
       no_protected_source_extraction: true,
