@@ -73,6 +73,21 @@ Teardown purge is best-effort by construction: a failed unlink leaves the file i
 - Windows-style, canonical, and traversal paths classify correctly
 - existing-file-only open refuses to create a lab DB, including paths carrying `?`, `#`, or spaces
 
+`tests/test_akatsuki_lab_isolation_section_i.js` section I — physical isolation, measured:
+
+| Case | Assertion | Result |
+|------|-----------|--------|
+| I1 | sha256 of `konoha.db`, `-wal`, `-shm` unchanged across `initLab` + `provisionLab` (mock runner) | byte-identical |
+| I2 | `initLab` completes with `db.getConnection` monkeypatched to throw; call count 0 | main connector never reached |
+| I3 | confirmed teardown removes `lab.db`, `-wal`, `-shm`; main DB and its rows survive | pass |
+| I4 | unconfirmed teardown (`status: 1`, `permission denied`) retains the lab DB; main DB byte-identical | pass |
+| I5 | `lab.db` symlinked to `konoha.db` → `openLabDb()` throws `LAB_DB_ISOLATION_VIOLATION` | pass |
+| I6 | 25 interleaved writes on both connections; counts independent; main DB has no `lab_runs` table | pass |
+| I7 | reopen `openLabDb()` keeps `lab_runs` rows, seeds exactly 361 `kali_tools`, main DB unchanged | pass |
+| I8 | with `KONOHA_LAB_DB_ROOT` unset, `getLabDbPath()` is `~/.konoha/akatsuki-lab/lab.db` and `getConnection()` refuses it | pass |
+
+I1 and I2 are not vacuous: `initLab` returns `ok: true` with `status: 'created'` and `provisionLab` returns `ok: true` in the same configuration, so the provisioning path runs to completion while the main DB stays byte-identical. `initLab` does not create `lab.db` — only `openLabDb()` does — which is why I1's byte comparison is the meaningful assertion.
+
 ## Cross-platform
 
 The guards are path arithmetic plus SQLite, so nothing is platform-specific in the enforcement
