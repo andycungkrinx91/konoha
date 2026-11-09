@@ -417,6 +417,8 @@ Install Konoha globally from npm, initialize the runtime database, and append co
 npm install -g konoha-mcp@latest
 
 # 1. Initialize ~/.konoha runtime & SQLite FTS5 database (zero automatic client config or template skill mirror injection)
+#    Canonical skills are seeded and vector-embedded here, so semantic search works immediately.
+#    Add --no-embed for CI/containers that cannot load the ONNX models.
 konoha init --yes
 
 # 2. Append Konoha MCP & rules into your AI coding clients (both IDE & CLI, global & project scopes):
@@ -501,16 +503,13 @@ Get Konoha up and running in under 2 minutes:
 
 ```bash
 # 1. Zero-install one-liner via npm exec (or: pnpm dlx konoha-mcp init)
+#    Skills are seeded AND embedded (IBM Granite) in this step.
 npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
 
-# 2. Re-index skills & synchronize vector embeddings (IBM Granite + MS MARCO MiniLM Reranker)
-konoha migrate --clean --rebuild-embeddings
-# (or simply: konoha embed)
-
-# 3. Verify the MCP server connection works
+# 2. Verify the MCP server connection works
 konoha test
 
-# 4. Check installation status and index database statistics
+# 3. Check installation status and index database statistics
 konoha status
 ```
 
@@ -545,7 +544,7 @@ Once installed, the following CLI commands are available:
 | `konoha akatsuki <subcommand>` | Akatsuki security controls: `status`, `mode [blue|red]` (automated lab setup), `env [docker|lxc]` |
 | `konoha migrate` | Re-index/migrate skills database into SQLite FTS5 (supports `--clean`, `--rebuild-embeddings`, `--skip-embeddings`, `--skills-dir`) |
 | `konoha reinstall` | Force clean re-installation and configuration replacement (implies `--force`) |
-| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
+| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`). `konoha init` already embeds; use this after bulk skill changes or with `--no-embed` installs |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.2.19) and check for updates from npm registry |

@@ -69,7 +69,8 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. Setup everything for the first time:${C.reset}
      pnpm dlx konoha-mcp init  # (or: npm install -g konoha-mcp && konoha init)
 
-  ${C.dim}2. Re-index skills & synchronize vector embeddings:${C.reset}
+  ${C.dim}2. Re-index skills & synchronize vector embeddings (init already embeds;${C.reset}
+  ${C.dim}   run this after bulk skill changes or a --no-embed install):${C.reset}
      konoha migrate --clean --rebuild-embeddings  # (or: konoha embed)
 
   ${C.dim}3. Verify MCP server connection:${C.reset}

@@ -70,7 +70,7 @@ function cmdInitHelp() {
   2. Creates ~/.konoha directory structure.
   3. Copies runtime and migration files.
   4. Discovers skills directories (~/.agents/skills).
-  5. Seeds canonical subagent skills into SQLite (~/.konoha/konoha.db).
+  5. Seeds canonical subagent skills and builds their vector embeddings (~/.konoha/konoha.db).
   6. Registers Konoha & Semble MCP tools with your AI coding assistants.
   7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
@@ -83,6 +83,8 @@ function cmdInitHelp() {
     --no-project             Skip project-level configuration updates
     --with-red-team          Opt in to the cyber pack (offensive/dual-use reference
                              material; fetched from a release asset, sha256-verified)
+    --no-embed               Skip vector embedding of skills (search stays keyword-only
+                             until you run "konoha embed")
   `);
 }
 
@@ -343,7 +345,8 @@ async function cmdInit(args, options = {}) {
   const skillsDirs = detectSkillsDirs();
   const { CANONICAL_SKILL_NAMES } = require('../../src/canonical_skills');
   const skills = Array.from(CANONICAL_SKILL_NAMES);
-  const migrationArgs = ['--skills-dir', pkgSkillsDir, '--skills', ...skills, '--skip-embeddings'];
+  const skipEmbed = args.includes('--no-embed');
+  const migrationArgs = buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed });
 
   executeInitMigration({
     skillsDirs,
@@ -383,7 +386,7 @@ async function cmdInit(args, options = {}) {
     }
   }
 
-  renderInitSummary(clientFlags);
+  renderInitSummary({ ...clientFlags, skipEmbed });
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }
@@ -415,8 +418,22 @@ async function installCyberPackAfterInit() {
   }
 }
 
+/**
+ * Migration flags used to seed canonical skills during init.
+ *
+ * Embeddings are ON by default so skill search is semantic on first use.
+ * `--no-embed` opts out for CI/containers; runMigrationAttempts still degrades
+ * to --skip-embeddings on its own if the model cannot load.
+ */
+function buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed = false }) {
+  const out = ['--skills-dir', pkgSkillsDir, '--skills', ...skills];
+  if (skipEmbed) out.push('--skip-embeddings');
+  return out;
+}
+
 module.exports = {
   cmdInit,
   cmdInitHelp,
-  detectAllClientFlags
+  detectAllClientFlags,
+  buildInitMigrationArgs
 };

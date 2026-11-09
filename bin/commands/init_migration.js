@@ -28,8 +28,12 @@ function runMigrationAttempts(migrationArgs, safeTimeoutMs) {
   let run = runMigrateProcess(migrationArgs, safeTimeoutMs);
   if (run.status === 0) return run;
 
-  run = runMigrateProcess([...migrationArgs, '--skip-embeddings'], safeTimeoutMs);
-  if (run.status === 0) return run;
+  // Retry without embeddings only when the first attempt actually asked for them.
+  // `--no-embed` already passed --skip-embeddings, so re-running is identical.
+  if (!migrationArgs.includes('--skip-embeddings')) {
+    run = runMigrateProcess([...migrationArgs, '--skip-embeddings'], safeTimeoutMs);
+    if (run.status === 0) return run;
+  }
 
   const skillsOnlyArgs = migrationArgs.filter(a => a !== '--skip-embeddings');
   const runFallback = runMigrateProcess([...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], INSTALL_BUILD_MIGRATE_TIMEOUT_MS);
@@ -120,11 +124,14 @@ function renderInitSummary(flags) {
   log('');
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Re-index & embed: ${C.cyan}konoha embed${C.reset} ${C.dim}(or: konoha migrate --clean --rebuild-embeddings)${C.reset}`);
-  log(`  2. Restart IDE/CLI:  Restart Antigravity, Cursor${flags.claudeInstalled ? ', Claude Code' : ''}${flags.openCodeInstalled ? ', OpenCode' : ''}${flags.commandCodeInstalled ? ', Command Code' : ''}${flags.codexInstalled ? ', Codex' : ''} to load MCP servers`);
-  log(`  3. Test execution:   ${C.cyan}konoha test${C.reset}`);
-  log(`  4. Check status:     ${C.cyan}konoha status${C.reset}`);
-  log(`  5. Web UI:           ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
+  log(`  1. Restart IDE/CLI:  Restart Antigravity, Cursor${flags.claudeInstalled ? ', Claude Code' : ''}${flags.openCodeInstalled ? ', OpenCode' : ''}${flags.commandCodeInstalled ? ', Command Code' : ''}${flags.codexInstalled ? ', Codex' : ''} to load MCP servers`);
+  log(`  2. Test execution:   ${C.cyan}konoha test${C.reset}`);
+  log(`  3. Check status:     ${C.cyan}konoha status${C.reset}`);
+  log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
+  if (flags.skipEmbed) {
+    log('');
+    warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha embed${C.reset} to enable semantic skill search.`);
+  }
   log('');
 }
 
