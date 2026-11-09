@@ -71,7 +71,7 @@ async function nodeSynthesizeDsl(state, config = {}) {
     }
     ({ spec, dsl, modelUsed, inTok, outTok, totalTok, cost, tokenSource } = _unpackSynthesisResult(res, tokenSource));
   } else {
-    const res = await generateSceneSpecFromPrompt(state.prompt || 'Futuristic enterprise 3D model', {
+    const res = await generateSceneSpecFromPrompt(state.prompt || 'Futuristic production 3D model', {
       archetype: state.domainArchetype,
       model: state.modelUsed,
       target_polycount: state.targetPolycount || 50000,

@@ -288,7 +288,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
   const title = options.title || 'Technical Architecture Specification';
   const subtitle = options.subtitle || 'Operational Standards & Automated Engineering Architecture';
   const author = options.author || 'Andy Setiyawan | Principal Infrastructure Architect';
-  const classification = options.classification || 'Enterprise Standard (v1.0.0)';
+  const classification = options.classification || 'Production Standard (v1.0.0)';
   const dateStr = options.date || new Date().toISOString().split('T')[0];
   const compliance = options.compliance || 'Production Verified — Zero AI Artifacts';
 
@@ -307,7 +307,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
 </svg>
 
 <div class="content-panel">
-  <div class="chip">ENTERPRISE TECHNICAL STANDARD</div>
+  <div class="chip">PRODUCTION TECHNICAL STANDARD</div>
   <h1 class="cover-title">
     ${titleLine1}
     ${titleLine2 ? `<span class="cover-title-line2">${titleLine2}</span>` : ''}

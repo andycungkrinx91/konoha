@@ -203,20 +203,52 @@ function loadSkillContentForBuild(skillNames, conn) {
   return blocks;
 }
 
-function inferBuildArchetype(description) {
+const DESIGN_BRIEF_FIELDS = [
+  'product',
+  'industry',
+  'audience',
+  'primary_objective',
+  'user_outcome',
+  'information_architecture',
+  'interactions',
+  'visual_identity',
+  'technical_constraints'
+];
+
+const DOMAIN_VECTORS = [
+  { id: 'corporate_business', keywords: ['corporate', 'business site', 'production website', 'consultancy', 'firm', 'company website'] },
+  { id: 'saas_production', keywords: ['saas', 'platform', 'subscription', 'pricing', 'waitlist', 'product launch'] },
+  { id: 'ai_developer_tools', keywords: ['ai', 'llm', 'model', 'developer tool', 'sdk', 'api', 'agent'] },
+  { id: 'admin_operations', keywords: ['admin', 'dashboard', 'operations', 'back office', 'internal tool', 'monitoring', 'telemetry', 'crm', 'infra', 'infrastructure'] },
+  { id: 'creative_agency_studio', keywords: ['agency', 'studio', 'creative', 'branding'] },
+  { id: 'personal_portfolio', keywords: ['portfolio', 'resume', 'curriculum vitae', 'personal site'] },
+  { id: 'architecture_interior', keywords: ['architecture', 'interior', 'architect', 'spatial design'] },
+  { id: 'education_research', keywords: ['course', 'school', 'university', 'research', 'learning', 'curriculum'] },
+  { id: 'media_journalism', keywords: ['news', 'magazine', 'journalism', 'editorial', 'publication', 'blog'] },
+  { id: 'healthcare_wellness', keywords: ['health', 'clinic', 'wellness', 'medical', 'patient', 'therapy'] },
+  { id: 'finance_fintech', keywords: ['fintech', 'bank', 'payment', 'trading', 'invoice', 'wallet', 'loan'] },
+  { id: 'community_social', keywords: ['community', 'forum', 'social', 'members', 'network'] },
+  { id: 'events_entertainment', keywords: ['event', 'conference', 'festival', 'ticket', 'entertainment', 'concert'] },
+  { id: 'nonprofit_public', keywords: ['nonprofit', 'charity', 'donation', 'public service', 'ngo', 'volunteer'] },
+  { id: 'documentation_knowledge', keywords: ['documentation', 'docs', 'knowledge base', 'developer portal', 'api reference', 'handbook', 'wiki'] },
+  { id: 'ecommerce_marketplace', keywords: ['e-commerce', 'ecommerce', 'store', 'shop', 'catalog', 'checkout', 'storefront', 'marketplace', 'cart'] }
+];
+
+function inferDomainHints(description) {
   const text = (description || '').toLowerCase();
-  const archetypes = [
-    { type: 'commerce', keywords: ['e-commerce', 'ecommerce', 'online store', 'shop', 'catalog', 'product detail', 'checkout', 'storefront', 'marketplace'] },
-    { type: 'dashboard', keywords: ['dashboard', 'admin', 'analytics', 'back office', 'internal tool', 'infra', 'infrastructure', 'metric', 'monitoring', 'server', 'cluster', 'k8s', 'control panel', 'crm', 'telemetry'] },
-    { type: 'portfolio', keywords: ['portfolio', 'personal site', 'case studies', 'resume', 'curriculum vitae', 'developer site', 'designer site'] },
-    { type: 'landing', keywords: ['landing page', 'one-page', 'one page', 'marketing page', 'saas', 'waitlist', 'product launch'] },
-    { type: 'company', keywords: ['company', 'corporate', 'agency', 'consultancy', 'firm', 'enterprise', 'organization', 'business profile'] },
-    { type: 'documentation', keywords: ['documentation', 'docs site', 'knowledge base', 'developer portal', 'api reference', 'handbook'] }
-  ];
-  for (const a of archetypes) {
-    if (a.keywords.some(k => text.includes(k))) return a.type;
-  }
-  return 'application';
+  return DOMAIN_VECTORS
+    .filter(v => v.keywords.some(k => text.includes(k)))
+    .map(v => v.id);
+}
+
+function buildDesignBrief(name, description) {
+  return {
+    status: 'requires_jonin_authoring',
+    project: { name, description },
+    fields: DESIGN_BRIEF_FIELDS,
+    instructions: 'Author all 9 fields from the description and domain before choosing any layout, section order, palette, or motion. If a field is genuinely not implied, decide the most defensible professional value and mark the field with "[inferred]" — never skip a field.',
+    inferred_domain_hints: inferDomainHints(description)
+  };
 }
 
 function frameworkSourceSignals(filename, content) {
@@ -247,6 +279,9 @@ module.exports = {
   resolveBuildSourceDir,
   normalizeFrameworkName,
   loadSkillContentForBuild,
-  inferBuildArchetype,
+  DESIGN_BRIEF_FIELDS,
+  DOMAIN_VECTORS,
+  inferDomainHints,
+  buildDesignBrief,
   frameworkSourceSignals
 };

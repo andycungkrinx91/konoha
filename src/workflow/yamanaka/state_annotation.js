@@ -15,7 +15,7 @@ const Yamanaka3DStateAnnotation = Annotation.Root({
   imagePath: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   sourceMode: Annotation({ reducer: (x, y) => y ?? x, default: () => 'text_to_3d' }),
   status: Annotation({ reducer: (x, y) => y ?? x, default: () => 'pending' }),
-  profile: Annotation({ reducer: (x, y) => y ?? x, default: () => 'enterprise_pbr' }),
+  profile: Annotation({ reducer: (x, y) => y ?? x, default: () => 'production_pbr' }),
   qualityPreset: Annotation({ reducer: (x, y) => y ?? x, default: () => 'standard' }),
   targetPolycount: Annotation({ reducer: (x, y) => y ?? x, default: () => 50000 }),
   textureResolution: Annotation({ reducer: (x, y) => y ?? x, default: () => 2048 }),
@@ -48,6 +48,12 @@ const Yamanaka3DStateAnnotation = Annotation.Root({
   scoreSpecPre: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   scoreSpecPost: Annotation({ reducer: (x, y) => y ?? x, default: () => null }),
   repairAttempts: Annotation({ reducer: (x, y) => (y !== undefined ? y : (x || 0)), default: () => 0 }),
+  // The DSL gate and the post-Blender gate are different quality checks; sharing one
+  // budget let pre-gate repairs exhaust it, so a mesh that only failed after
+  // refinement was promoted without ever getting a post-gate repair.
+  postRepairAttempts: Annotation({ reducer: (x, y) => (y !== undefined ? y : (x || 0)), default: () => 0 }),
+  // Ephemeral: marks the next `repair` as post-gate so it charges postRepairAttempts.
+  repairFromPostGate: Annotation({ reducer: (x, y) => (y !== undefined ? y : (x || 0)), default: () => false }),
   repairApplied: Annotation({ reducer: (x, y) => (y !== undefined ? y : (x || false)), default: () => false }),
   liveAgentSteps: Annotation({ reducer: (x, y) => (y ? [...(x || []), ...y] : (x || [])), default: () => [] }),
   inputTokens: Annotation({ reducer: (x, y) => (x || 0) + (y || 0), default: () => 0 }),

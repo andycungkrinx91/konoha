@@ -42,7 +42,16 @@ nvm use stable
 
 ### ❌ "Node.js is required but not found or outdated"
 
-Konoha runs on a 100% pure Node.js runtime and requires Node.js >=24.0.0. Python is no longer required or used.
+Konoha runs on a 100% pure Node.js runtime and requires **Node.js ≥ 24.0.0**. Python is not required or used.
+
+The concrete failure is `bin/cli.js` exiting before any runtime module loads:
+
+```
+Konoha requires Node.js >= 24.0.0 (found v22.x.x).
+Install Node 24: https://nodejs.org/
+```
+
+Exit code is `1`. `engines.node` is `>=24.0.0` and must stay that way: `src/sqlite_driver.js` requires the built-in `node:sqlite`, which only ships in Node 24+. Do not widen it to `>=20`.
 
 To install or update Node.js:
 * **Linux/macOS (via nvm)**: `nvm install 24 && nvm use 24`
@@ -56,13 +65,76 @@ node --version  # Must be >= 24.0.0
 
 ---
 
+### ❌ `Cannot find module './nodes/plan'` (or `./edges/router`) from `~/.konoha/mcp/langgraph/index.js`
+
+- **Cause**: a legacy *flattened* mirror. An older `konoha doctor` copied only top-level `.js` files into `~/.konoha/mcp/`, `~/.konoha/file_tools/`, and `~/.konoha/workflow/`, dropping `langgraph/nodes/`, `langgraph/edges/`, `qa-automation/`, and `three_asset/`. The copied `index.js` then required siblings that were never copied.
+- **Important**: `~/.konoha/mcp`, `~/.konoha/file_tools`, and `~/.konoha/workflow` are **not obsolete** — when present with their nested directories they are required, because the deployed `file_tools_router.js` requires `./mcp/runtime_state` and `./workflow/qa-automation/qa_tools`. Only flattened trees are invalid.
+- **Fix**: run `konoha doctor --yes`. It purges the flattened mirrors (`Removed flattened mirror missing langgraph/index.js`) and keeps intact trees. Confirm `~/.konoha/src/mcp/langgraph/nodes/plan.js` exists afterwards; `node -e "require(require('os').homedir()+'/.konoha/src/mcp/langgraph/index.js')"` must not throw.
+
+---
+
+### ❌ `Runtime not initialized. Run "konoha init --yes" first.`
+
+- **Cause**: the package is installed but `~/.konoha` has no runtime yet. `bin/cli.js` detects `Cannot find module '…/.konoha/…'` and replaces the raw stack with this message.
+- **Fix**: `konoha init --yes`. Full install mode notes: `npm install -g konoha-mcp@latest` posts a guidance-only `postinstall` (no network, no installs, no `$HOME` writes) and does **not** initialize the runtime for you.
+
+---
+
+### ❌ `Upgrade aborted: no package manager could install konoha-mcp@<version>.`
+
+- **Cause**: npm, pnpm, yarn, and the GitHub fallback all failed to install the target — usually a missing/blocked package manager or an unreachable registry.
+- **Behavior**: the command exits `1`, leaves the existing installation and configuration modified by nothing, and does not continue into the runtime lifecycle. An `unverified` version read (`konoha --version` failing) also aborts the run rather than reporting a version it never confirmed.
+- **Fix**: install directly, then re-run:
+  ```bash
+  npm install -g konoha-mcp@latest
+  konoha upgrade --yes
+  ```
+- **Windows / interrupted upgrade**: `~/.konoha/.upgrade_pending.json` marks an in-flight upgrade. If you see `Upgrade to <target> was interrupted. Re-run "konoha upgrade --yes".`, the previous run was killed mid-install (Windows cannot replace a running package, so it hits `EBUSY`). Startup still proceeds normally; just re-run the upgrade.
+
+---
+
+### ❌ MCP tool returns `{"error":"invalid_arguments","message":"...","tool":"..."}`
+
+- **Cause**: the `arguments` value could not be parsed into a JSON object, and the tool is not a delegation tool. Konoha returns a JSON-RPC *tool* error (`isError: true`) instead of a transport error so the client shows exactly what failed.
+- **Not affected**: delegation tools (`genin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `sannin`, `akatsuki`) accept bare prose and wrap it as `{ "task": "<text>" }`. `null`, `undefined`, and `{}` are treated as empty argument sets.
+- **Fix**: send `arguments` as a JSON object. A JSON *string* works when it parses to an object; arrays and scalars are rejected.
+
+---
+
+### ❌ `File not found: <skill>/<reference>` from a `skill://` URI
+
+- **Cause**: clients may request `<skill>/<file>` as well as `<skill>/references/<file>`; a tree installed only under `references/` fails the bare form.
+- **Fix**: run `konoha migrate` (or `konoha doctor --yes`). Entry-point `.md` files are mirrored next to `SKILL.md` as well as under `references/`, and both URI forms resolve through the same lookup. Do not hand-create alias files — `src/templates/skills` and the installed tree must stay in exact parity.
+- Path traversal requests (`../x`, `C:\x`, `..%2F`) are rejected with `invalid_skill_path` and never throw across the MCP boundary.
+
+---
+
+### ⚠️ `QA blocked: agent-browser unavailable (...)` during `konoha init`
+
+- **Cause**: `agent-browser` is a **hard requirement for QA only**. `init` resolves it in order: global install → managed `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, verifying each with `--version`. If none works, core install still succeeds and this actionable warning is recorded so `konoha doctor` shows `QA: BLOCKED`.
+- **Linux note**: `agent-browser@0.3.1` publishes **no linux-x64 native binary** (`Error: No binary found for linux-x64`), so QA stays blocked on Linux x64 regardless of install method. Do not treat this as a broken install — every non-QA feature works.
+- **Effect**: `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason }`; `qa_e2e_run` remains usable for Playwright suites that do not shell out to `agent-browser`.
+- **Fix (where a native binary exists)**: `npm i -g agent-browser@0.3.1`, then `agent-browser install` (`--with-deps` on Linux only).
+
+---
+
+### ⚠️ `The "pnpm" field in package.json is no longer read` / `ignored: "pnpm.auditConfig"`
+
+- **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and `package.json#overrides` was duplicated dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both keys were removed in 2.2.19.
+- **Current state**: `pnpm-workspace.yaml` carries `overrides` plus `audit:\n  ignore:\n    - "GHSA-gcqx-w48m-w2h4"`. CVE-2026-93753 is **no longer suppressed** — pnpm 12 has no CVE-level suppression, and this is a documented accepted change.
+- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `{"ignore":["GHSA-gcqx-w48m-w2h4"]}`. Do not re-add `package.json#pnpm` or `package.json#overrides`.
+
+---
+
 ### ❌ "Server not installed" or "Database not found"
 
 Starting with version `2.0.0`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
 
 Alternatively, you can manually re-run the full installer script to verify all files are correctly created and configured:
 ```bash
-pnpm dlx github:andycungkrinx91/konoha init
+npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
+# or, if konoha is installed globally:
+konoha init --yes
 ```
 
 ---
@@ -170,9 +242,7 @@ The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an 
 4. If missing, run `konoha doctor --yes` to auto-repair the `~/.claude.json` registration.
 5. Restart Claude Code to pick up the new MCP config.
 
-
-2. If **not installed**, Konoha skips auto-setup by design — use templates in `docs/templates/` after you install the CLI, or run `konoha init` once the CLI is available.
-3. If **installed**, run `konoha doctor --yes` or `konoha init --force` to merge Konoha MCP entries.
+**If the Claude Code CLI is not installed at all:** Konoha skips auto-setup by design. Install the CLI, then run `konoha init` (or `konoha doctor --yes` once it is installed) to merge the Konoha MCP entries; `docs/templates/claude-code.mcp.yaml` is the manual fallback for the global `~/.claude.json` → `mcpServers` entry.
 
 Full walkthrough: [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
@@ -226,7 +296,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 **Common errors:**
 - `Refused: requested span is N lines (max 500)` — narrow `read_file_range` window.
-- `Showing first 20 matches` — expected; refine `token_efficient_grep` pattern.
+- `Showing 20 of 137 matches. Refine: add a term or path filter.` — expected; the footer always reports `showing X of Y`, and `token_efficient_grep` caps at 20 matches (hard cap 50). Narrow the pattern, add a `path` filter, or raise the limit.
 
 ---
 
@@ -388,7 +458,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **nvm-windows**: Konoha works with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>
-  pnpm add --global github:andycungkrinx91/konoha
+  npm install -g konoha-mcp@latest
   ```
 * **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
 * **Cursor on Windows**: Works natively on Windows; ensure `node` is on PATH.

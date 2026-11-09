@@ -214,7 +214,7 @@ function runSuiteAsync(cmd, args, name) {
 
 async function runAllParallel() {
   // Host daemon, attribution, and vector search access shared resources; run them sequentially
-  const isSequential = f => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_vector_search.js';
+  const isSequential = f => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_akatsuki_skill_authz_db_isolation.js' || f === 'test_akatsuki_init.js' || f === 'test_akatsuki_security_centralization.js' || f === 'test_vector_search.js';
   const parallelPool = jsTests.filter(f => !isSequential(f));
   const sequentialPool = jsTests.filter(f => isSequential(f));
 

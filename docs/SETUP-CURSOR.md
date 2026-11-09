@@ -23,21 +23,32 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 
 ### Cross-Platform Notes
 
-| OS | Node.js Install | Cursor Setup |
+Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.19.
+
+| OS | Node.js 24+ Install | Cursor Setup |
 |----|-----------------|--------------|
 | **Linux** | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Standard install |
-| **macOS** | `brew install node` | Standard install |
-| **Windows (native)** | [nodejs.org](https://nodejs.org/) | Standard install |
+| **macOS** | `brew install node` or `nvm install 24` | Standard install |
+| **Windows (native)** | [nodejs.org](https://nodejs.org/) or `nvm install 24` + `nvm use 24` | Standard install |
 | **Windows (WSL)** | Same as Linux | Run Cursor inside WSL for full integration |
 
 ## Step 1: Install Konoha (Auto-Setup)
 
-
-For a full install:
+Three modes — pick one:
 
 ```bash
-npx konoha-mcp init
+# Persistent global install, then wire Cursor:
+npm install -g konoha-mcp@latest
+konoha init
+
+# In-place upgrade of an existing global install:
+konoha upgrade --yes
+
+# Ephemeral, no persistent install:
+npm exec --yes --package=konoha-mcp@latest -- konoha init
 ```
+
+`konoha upgrade` aborts with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and exit `1` when npm/pnpm/yarn/GitHub all fail; your existing install is left untouched.
 
 Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` binary on PATH) and skip silently otherwise. The following paths are deployed:
 

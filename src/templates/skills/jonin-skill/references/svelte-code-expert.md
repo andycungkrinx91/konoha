@@ -723,9 +723,9 @@ For UI components, see `svelte-ui-expert.md`.
 ## Premium Visual Standards & 3D Interactivity Guidelines
 
 All generated Svelte code must conform to the following baseline visual standards:
-1. **10 Light-Mode Themes**: Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold with the exact shared CSS variable values from `design-token-manifest.md`.
-2. **Theme Switcher**: Floating bottom-left selector at `bottom-20 left-4 md:bottom-6 md:left-6 z-[1000]`, persisted under `konoha-theme`.
-3. **Optional 3D Hero**: When selected by the build archetype, implement 1200px perspective, max 12deg tilt, 6000ms autoplay, split drapes, thumbnails, keyboard controls, touch fallback, and reduced-motion behavior.
+1. **Project Token Set**: Define one semantic variable set from the design brief; single theme unless the brief asks for user-selectable themes.
+2. **Theme Control**: Optional. Render a switcher only when more than one theme exists, persisted under a project-specific key.
+3. **Optional 3D Hero**: Only when the brief calls for a banner. Perspective depth, max tilt, autoplay timing, thumbnails, keyboard controls, touch fallback, and reduced-motion behavior are project decisions.
 4. **Accessible Interaction**: Use SvelteKit-native routing, semantic controls, focus states, `aria-pressed` where applicable, and teardown for timers, listeners, observers, and animation frames.
 5. **Footer Watermark**: Add `Build by Konoha shadow ninja with coffee by Andy Setiyawan` when the selected build contract requires the Konoha shell.
 
@@ -734,7 +734,7 @@ All generated Svelte code must conform to the following baseline visual standard
 - **Image-to-Code Generation**: Agents can and should generate user interfaces from design images/mockups (such as png, jpg, webp, svg) present in the workspace. The agent must search the directory for design assets, analyze them, and translate the visual mockups into Svelte components.
 
   ### Svelte-Specific Source-to-Code Design Match Workflow:
-  1. **Select Build Method**: If a design mockup folder or reference source code is present, call the `build_from_source` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
+  1. **Select Build Method**: If a design mockup folder or reference source code is present, call the `build_from_source` tool. Otherwise, call `build_from_text` and author the 9-field design brief before any visual decision.
   2. **Direct SVG/HTML/Code Translation**: If a design reference file is `.svg`, `.html`, `.xml`, `.tsx`, `.ts`, `.js`, `.css`, view the file's raw content. Translate vectors, structures, or logic directly into Svelte markup/logic. This yields an accurate representation without vision model token overhead.
   3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first using `view_file` to capture page structure.
   4. **Start Development Server**: Bind the SvelteKit development server using `pnpm run dev`.
@@ -755,5 +755,5 @@ All generated Svelte code must conform to the following baseline visual standard
 
 ### Pre-Scaffolding Security & CVE Pre-Flight Standards
 - **Zero-Day & CVE Vulnerability Guard**: Verify all package versions against known security advisories before installation.
-- **Audit Verification on First Init**: Run No known vulnerabilities found after installation to confirm 0 high/critical vulnerabilities.
+- **Audit Verification on First Init**: Run `pnpm audit --audit-level=high` after installation and require zero high or critical vulnerabilities.
 - **Supply-Chain Hardening**: Use exact or strict caret ranges for verified stable releases (e.g. Next.js 16 / React 19, Svelte 5, Nuxt 3.15+, Angular 19+).

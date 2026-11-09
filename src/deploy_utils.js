@@ -280,7 +280,59 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
     }
   };
   walk(srcRoot);
+  removeNestedSkillDirForEachSkill(destRoot);
   try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional fallback */ }
+}
+
+// A previous installer could re-copy a skill into itself, producing
+// <skill>/<skill>/ with a duplicate tree that clients then resolve to. Remove the
+// nested copy only when it is a byte-identical duplicate of the outer tree, so a
+// nested directory holding user edits is never destroyed.
+function removeNestedSkillDirForEachSkill(destRoot) {
+  let skills;
+  try { skills = fs.readdirSync(destRoot, { withFileTypes: true }); } catch { return; }
+  for (const skill of skills) {
+    if (!skill.isDirectory()) continue;
+    removeNestedSkillDir(path.join(destRoot, skill.name));
+  }
+}
+
+function removeNestedSkillDir(skillDir) {
+  const nested = path.join(skillDir, path.basename(skillDir));
+  if (path.resolve(nested) === path.resolve(skillDir)) return false;
+  if (!fileExists(nested)) return false;
+  if (!isMirrorDuplicate(skillDir, nested)) return false;
+  try {
+    fs.rmSync(nested, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isMirrorDuplicate(root, dupRoot) {
+  const walk = (base, rel) => {
+    const dir = path.join(base, rel);
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return false; }
+    for (const entry of entries) {
+      const childRel = path.join(rel, entry.name);
+      if (entry.isDirectory()) {
+        if (!walk(base, childRel)) return false;
+        continue;
+      }
+      const a = path.join(root, childRel);
+      const b = path.join(dupRoot, childRel);
+      if (!fileExists(b)) return false;
+      try {
+        if (!fs.readFileSync(a).equals(fs.readFileSync(b))) return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  };
+  return walk(dupRoot, '');
 }
 
 function mirrorSkillsDirectory() {
@@ -580,6 +632,7 @@ module.exports = {
   copyRecursiveIfDifferent,
   listSkillEntries,
   mirrorSkillsDirectory,
+  removeNestedSkillDirForEachSkill,
   syncCursorSkillsFromAgents,
   resolveSoulSource,
   syncSoulAcrossClients,

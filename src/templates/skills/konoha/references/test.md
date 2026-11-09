@@ -26,7 +26,7 @@ Operational runbook and testing matrix for verifying Konoha `v2.2.18` core engin
 
 ## 📐 Draw.io Zero-Collision Rule & Sync SOP
 
-When editing `docs/diagrams/konoha-architecture.drawio` or `docs/diagrams/konoha-enterprise-architecture.drawio`:
+When editing `docs/diagrams/konoha-architecture.drawio` or `docs/diagrams/konoha-infrastructure-architecture.drawio`:
 1. **Never alter existing `mxGeometry` coordinates** unless doing a dedicated layout refactor.
 2. Edit the `value="..."` attribute of existing cells in-place to keep 0 geometric collisions.
 3. Every cell MUST have a globally unique `id="..."`.

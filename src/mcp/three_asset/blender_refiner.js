@@ -538,7 +538,7 @@ async function executeLiveAgenticBlenderSession(options) {
     stagingDir,
     jobId,
     spec,
-    profile = 'enterprise_pbr',
+    profile = 'production_pbr',
     prompt = '',
     requestedComputeMode = 'auto',
     requestedGpuBackend = null,

@@ -88,7 +88,7 @@ function buildMetadataTable(docxModule, primaryColor, metadata) {
   const borderSubtle = { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' };
 
   const author = metadata.author || 'Andy Setiyawan | Principal Infrastructure Architect';
-  const classification = metadata.classification || 'Enterprise Standard (v1.0.0)';
+  const classification = metadata.classification || 'Production Standard (v1.0.0)';
   const dateStr = metadata.date || new Date().toISOString().split('T')[0];
   const compliance = metadata.compliance || 'Production Verified — Zero AI Artifacts';
 
@@ -117,7 +117,7 @@ function renderDocxNativeCover(docxModule, theme, metadata = {}) {
 
   elements.push(new Paragraph({ text: '', spacing: { before: 7200 } }));
 
-  const chipCategory = metadata.category || 'ENTERPRISE TECHNICAL STANDARD';
+  const chipCategory = metadata.category || 'PRODUCTION TECHNICAL STANDARD';
   elements.push(buildChipTable(docxModule, primaryColor, chipCategory));
   elements.push(new Paragraph({ text: '', spacing: { after: 200 } }));
 

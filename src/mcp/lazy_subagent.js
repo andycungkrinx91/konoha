@@ -48,8 +48,28 @@ function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskD
   const targetAgent = rawAgent === 'sannin' ? 'kage' : rawAgent;
   const cliFallback = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${resolvedWt ? ` --cwd "${resolvedWt}"` : ''} --task "…"`;
 
+  // Red skills are @akatsuki-only: a spawn for any other agent never carries them.
+  const skillAuthz = require('../skill_authorization');
+  const requestedSkills = Array.isArray(skills) ? skills : (skills ? [skills] : []);
+  const skillsForTarget = requestedSkills.filter(
+    (s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName: targetAgent }).authorized
+  );
+  const deniedSkills = requestedSkills.filter((s) => !skillsForTarget.includes(s));
+
+  if (deniedSkills.length > 0) {
+    return JSON.stringify(
+      require('../skill_authorization').authorizationDeniedResult(
+        {
+          identity: targetAgent,
+          reason: `Delegation to @${targetAgent} requested red skill(s) ${deniedSkills.map((s) => `"${s}"`).join(', ')}; red skills may only be delegated to @akatsuki.`
+        },
+        deniedSkills[0]
+      )
+    );
+  }
+
   if (desc && desc.tool && typeof desc.args === 'function') {
-    const callStr = desc.args({ client, agent: targetAgent, skills, projectPath, prompt, taskDir, worktreePath: resolvedWt });
+    const callStr = desc.args({ client, agent: targetAgent, skills: skillsForTarget, projectPath, prompt, taskDir, worktreePath: resolvedWt });
     return [
       '## Spawn (mandatory)',
       `Spawn a background subagent named \`${targetAgent}\` with \`${callStr}\` (CLI fallback: \`${cliFallback}\`).`,
@@ -69,6 +89,24 @@ function buildParallelSpawnDirective({ client, dispatches = [], taskDir = null, 
     return ag && ag !== 'sannin';
   });
   if (validDispatches.length === 0) return '';
+
+  const skillAuthz = require('../skill_authorization');
+  for (const d of validDispatches) {
+    const ag = String(d.agent || d.name).replace(/^mcp_/, '').replace(/_/g, '-');
+    const requested = Array.isArray(d.skills) ? d.skills : (d.skills ? [d.skills] : []);
+    const denied = requested.filter((s) => !skillAuthz.authorizeSkillAccess({ skillName: s, agentName: ag }).authorized);
+    if (denied.length > 0) {
+      return JSON.stringify(
+        skillAuthz.authorizationDeniedResult(
+          {
+            identity: ag,
+            reason: `Parallel delegation to @${ag} requested red skill(s) ${denied.map((s) => `"${s}"`).join(', ')}; red skills may only be delegated to @akatsuki.`
+          },
+          denied[0]
+        )
+      );
+    }
+  }
 
   const desc = resolveSpawnDescriptor(client);
   const agentNames = validDispatches.map(d => String(d.agent || d.name).replace(/^mcp_/, '').replace(/_/g, '-'));

@@ -4,7 +4,7 @@
  * Regression Test Suite: Jonin Astra/Fable Storytelling & Cross-Framework Motion Skills
  * Verifies:
  * 1. `buildFromText` dynamically resolves the framework-specific Motion reference (`motion-nextjs`, `motion-nuxt`, `motion-svelte`, `motion-angular`) plus `framer-motion-animator` and `svg-animation-motion-expert`.
- * 2. `buildFromText` directives enforce Astra/Fable narrative storytelling, Dark & Light Mode support, and `Build by konoha` signature without forcing rigid 4-slide hero carousels or bottom-left 10-theme FAB pickers unless requested.
+ * 2. `buildFromText` directives enforce brief-driven art direction, the Anti-Template Gate, and `Build by konoha` signature without forcing rigid 4-slide hero carousels or bottom-left 10-theme FAB pickers unless requested.
  * 3. All 4 framework Motion reference files exist, are non-empty, and stay under the 700-line limit.
  */
 
@@ -36,7 +36,7 @@ function runTests() {
     assert.ok(spec.required_skills.includes('jonin-skill/svg-animation-motion-expert'), 'Required skills must include jonin-skill/svg-animation-motion-expert');
 
     const directivesText = (spec.directives || []).join('\n');
-    assert.ok(directivesText.includes('Astra/Fable'), 'Directives must teach Astra/Fable storytelling');
+    assert.ok(directivesText.includes('Anti-Template'), 'Directives must teach the Anti-Template Gate');
     assert.ok(directivesText.includes('Build by konoha'), 'Directives must include Build by konoha signature requirement');
     assert.ok(!directivesText.includes('minimum of 4 high-definition slides, 5000ms autoplay'), 'Directives must NOT force rigid 4-slide 5000ms carousels on every site');
   }

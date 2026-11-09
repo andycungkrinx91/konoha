@@ -11,6 +11,11 @@ Browsing web applications using LLMs is expensive in token consumption. Re-runni
 3. **Codify automatically** via `qa_codify` into a deterministic Playwright test (zero LLM involved).
 4. **Run and re-run with Playwright** via `qa_e2e_run` with compact, capped summaries (zero LLM browsing).
 
+> [!IMPORTANT]
+> **Prerequisite: a working `agent-browser`.** Verify with `agent-browser --version` before step 1. Konoha resolves it as global → `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, accepting each only after `--version` exits 0. When none resolve, `konoha init` prints `QA blocked: <reason>` (the core install still succeeds) and `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason }`. `qa_e2e_run` drives Playwright directly and still runs, but it never proves a flow was explored. Record a blocked browser as **BLOCKED**.
+>
+> On Linux x64 the pinned `agent-browser@0.3.1` currently fails with `Error: No binary found for linux-x64` — that native binary is not published — so exploration is BLOCKED there at every resolution tier.
+
 ```mermaid
 ---
 config:

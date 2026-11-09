@@ -357,7 +357,7 @@ function createJobRecord(conn, job) {
 
   stmt.run(
     job.job_id, job.nonce, job.source_mode, job.status || 'pending', job.prompt || null, job.negative_prompt || null,
-    job.input_image_rel_path || null, job.input_image_sha256 || null, job.profile || 'enterprise_pbr', job.quality_preset || 'standard',
+    job.input_image_rel_path || null, job.input_image_sha256 || null, job.profile || 'production_pbr', job.quality_preset || 'standard',
     job.requested_compute_mode || 'auto', job.effective_compute_mode || 'cpu', job.compute_fallback_reason || null,
     job.dsl_version || '1.0.0', job.dsl_payload_json || '{}', job.domain_archetype || 'game-prop', job.manifold_kernel_version || readDependencyVersion('manifold-3d'),
     job.threejs_version || readDependencyVersion('three'), job.raw_base_glb_sha256 || null, job.refinement_backend || 'deterministic_only', job.blender_version || null,

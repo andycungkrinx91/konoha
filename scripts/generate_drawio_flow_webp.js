@@ -9,7 +9,7 @@
  * connectors are read from `mxCell` geometry, and the animation only adds a staged
  * reveal plus a travelling pulse along each already-rounded path.
  *
- * Union of tabs across both drawio files = 19 diagrams (the enterprise file re-states
+ * Union of tabs across both drawio files = 19 diagrams (the production file re-states
  * the same 18 pages with one extra security box and adds page 19 for the local Web UI
  * ingress topology, so only that page is rendered additionally).
  *
@@ -50,8 +50,8 @@ function buildManifest() {
   const corpus = loadDrawioCorpus();
   const byName = new Map();
   for (const page of corpus.architecture) byName.set(page.name, { page, source: 'konoha-architecture.drawio' });
-  for (const page of corpus.enterprise) {
-    if (page.name === WEB_INGRESS_PAGE) byName.set(page.name, { page, source: 'konoha-enterprise-architecture.drawio' });
+  for (const page of corpus.production) {
+    if (page.name === WEB_INGRESS_PAGE) byName.set(page.name, { page, source: 'konoha-infrastructure-architecture.drawio' });
   }
   return [...byName.values()].map((entry) => ({
     ...entry,

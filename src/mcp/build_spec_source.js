@@ -141,7 +141,6 @@ function resolveSourceSkills(displayFramework, agentName) {
   const basePrefix = fwLower.includes('svelte') ? 'svelte' : (fwLower.includes('next') || fwLower.includes('react') ? 'nextjs' : (fwLower.includes('nuxt') ? 'nuxt' : (fwLower.includes('angular') ? 'angular' : null)));
 
   const frameworkSkills = [
-    'jonin-skill/design-token-manifest',
     'jonin-skill/tailwind-design-system',
     'jonin-skill/build-directives-manifest',
     'jonin-skill/source-fidelity-directives',
@@ -185,6 +184,7 @@ function assembleSourceDirectives(context) {
   directives.push(`Provide the framework validation scripts: ${frameworkSpec.validation.join(', ')}. All validation must finish with zero errors and zero warnings.`);
   directives.push("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).");
   directives.push(`Apply Taste-Skill dials: DESIGN_VARIANCE=${validatedDials.design_variance}/10, MOTION_INTENSITY=${validatedDials.motion_intensity}/10, VISUAL_DENSITY=${validatedDials.visual_density}/10.`);
+  directives.push('Anti-Template Mandate: Before implementation run the Anti-Template Gate — (1) brief authored for this domain, (2) every section maps to a brief objective, (3) zero unrequested commerce/SaaS/catalog/pricing/cart/checkout/testimonials, (4) layout not recycled from any prior project, (5) motion and 3D justified by the brief, (6) responsive behavior described for 375/768/1440. Failing any check means redesign, not restyle. In source mode the gate is satisfied by fidelity: unrequested commerce/SaaS elements must be absent because the source has none, not because the gate was skipped.');
   directives.push("SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run 'rtk aislop scan --changes' to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery.");
   directives.push("Token-Safe Dependencies: Install packages with 'rtk pnpm add <packages> --silent' to suppress verbose terminal output and protect token budget.");
   directives.push(...humanBuiltFingerprintDirectives('build_from_source'));
@@ -199,8 +199,6 @@ function getCriticalSkills(fwBase) {
     'jonin-skill/framer-motion-animator',
     'jonin-skill/web-3d-graphics-expert',
     'jonin-skill/glsl-shader-expert',
-    'jonin-skill/build-directives-manifest',
-    'jonin-skill/design-token-manifest',
     'jonin-skill/source-fidelity-directives',
     'jonin-skill/taste-skill-frontend-expert'
   ].filter(Boolean);
@@ -335,7 +333,7 @@ function buildFromSource(name, sourceDir, framework, options = {}) {
     source_directory: resolvedSourceDir,
     source_fidelity: true,
     premium_effects_policy: 'Only preserve or enhance effects explicitly present in source; do not inject generic themes, catalogs, carousels, dialogs, or sections.',
-    design_tokens: { perspective: '1200px', tilt_max: '12deg', transition: '300ms', entrance: '500ms', hero_content_entrance: '600ms', hero_autoplay: '6000ms', theme_storage_key: 'konoha-theme' },
+    design_tokens: { perspective: '1200px', tilt_max: '12deg', transition: '300ms', entrance: '500ms', hero_content_entrance: '600ms' },
     taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || 'https://www.tasteskill.dev/guide',
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
     detected_images: detectedImages,

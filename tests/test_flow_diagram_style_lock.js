@@ -88,11 +88,11 @@ assert.ok(fitScale({ pageWidth: 1600, pageHeight: 1000, vertices: [] }, CANVAS) 
 // ── 2. One asset per drawio tab, stable names preserved ──────────────────
 const corpus = loadDrawioCorpus();
 const pages = [...corpus.architecture];
-const ingress = corpus.enterprise.find((p) => p.name === '19 Authenticated Local Web UI & Ingress Queue');
-assert.ok(ingress, 'enterprise drawio must still carry the local web ingress page');
+const ingress = corpus.production.find((p) => p.name === '19 Authenticated Local Web UI & Ingress Queue');
+assert.ok(ingress, 'production drawio must still carry the local web ingress page');
 pages.push(ingress);
 assert.strictEqual(corpus.architecture.length, 18, 'architecture drawio must have 18 pages');
-assert.strictEqual(corpus.enterprise.length, 18, 'enterprise drawio must have 18 pages');
+assert.strictEqual(corpus.production.length, 18, 'production drawio must have 18 pages');
 assert.strictEqual(pages.length, STYLE_LOCK.pages, `union of drawio tabs must be ${STYLE_LOCK.pages} diagrams, found ${pages.length}`);
 
 const assets = pages.map((page) => assetNameFor(page));

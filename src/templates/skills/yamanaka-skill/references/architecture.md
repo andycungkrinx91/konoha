@@ -8,7 +8,7 @@ The Yamanaka subsystem is orchestrated by LangGraph.js (`@langchain/langgraph`) 
 - `nonce`: Cryptographic nonce for staging isolation.
 - `sourceMode`: `text_to_3d` | `image_to_3d` | `dsl_direct`.
 - `status`: Multi-stage lifecycle (`synthesizing_spec`, `parsing_dsl`, `validating_base_mesh`, `refining_blender`, `validating_final_asset`, `promoting_asset`, `completed`, `failed`).
-- `profile`: `enterprise_pbr` | `realistic` | `premium_stylized` | `draft`.
+- `profile`: `production_pbr` | `realistic` | `premium_stylized` | `draft`.
 - `qualityPreset`: `draft` | `standard` | `high` | `ultra`.
 - `requestedComputeMode`: `auto` | `gpu` | `cpu`.
 - `effectiveComputeMode`: `gpu` | `cpu` (with seamless automatic CPU fallback if physical GPU absent).

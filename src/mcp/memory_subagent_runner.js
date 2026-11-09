@@ -303,7 +303,6 @@ function _resolveJoninSkills(resolvedProjPath, instructions, context, currentSki
     'jonin-skill',
     `jonin-skill/${targetFw}-code-expert`,
     `jonin-skill/${targetFw}-ui-expert`,
-    'jonin-skill/design-token-manifest',
     'jonin-skill/taste-skill-frontend-expert'
   ];
 }
@@ -314,14 +313,14 @@ function _buildTasteSkillBlock(tasteDials) {
   const motDial = dials.motion_intensity !== undefined ? dials.motion_intensity : 7;
   const densDial = dials.visual_density !== undefined ? dials.visual_density : 6;
   return (
-    '### Taste-Skill Design Engine & Framer Marketplace Directives:\n' +
-    `- Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10\n` +
-    '- Primary Component Discovery: Dynamically discover suitable components via https://www.framer.com/marketplace/components/ with @chunin performing Playwright REA on live previews (both free and paid components).\n' +
-    '- Licensing & Native Implementation: Paid components are previewed for visual/physics REA only; never extract protected source or inject Marketplace iframes. Recreate observed behavior natively in Next.js/React, Nuxt/Vue, Svelte, or Angular and record component provenance in project documentation.\n' +
-    '- Anti-Slop: Zero generic AI-purple gradients, zero rigid boilerplate templates, zero emojis (Phosphor/custom SVG only).\n' +
-    '- Composition & Hero: Astra/Fable-level visual storytelling, bespoke asymmetric grids, adaptive Dark & Light Mode support.\n' +
-    '- Branding & QA: Include `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer, live browser monitor, and automated tests.\n' +
-    '- Quality: pnpm exclusively, zero errors/warnings, run `rtk aislop scan --changes`.\n'
+    '### Design Brief & Anti-Template Directives:\n' +
+    '- Author the 9-field design brief (product, industry, audience, primary_objective, user_outcome, information_architecture, interactions, visual_identity, technical_constraints) before any layout or palette decision.\n' +
+    `- Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10 (exploration breadth, not a house style)\n` +
+    '- Derive art direction, IA, navigation pattern, theme strategy, and motion from the brief. Commerce/SaaS/catalog/cart/pricing/testimonial sections only when the brief requires them.\n' +
+    '- Chunin research: query by the brief domain and objective; reject visually strong references whose domain does not match.\n' +
+    '- Anti-Template Gate before delivery: every section maps to a brief objective; no recycled layout; motion justified; responsive plan for 375/768/1440.\n' +
+    '- Anti-Slop: zero generic AI-purple gradients, zero boilerplate sections, zero emojis (Phosphor or inline SVG only).\n' +
+    '- Branding & QA: `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer, live browser monitor, tests. pnpm only, zero errors/warnings, `rtk aislop scan --changes`.\n'
   );
 }
 
@@ -330,7 +329,7 @@ function _buildTokubetsuDocBlock() {
     '### Tokubetsu-Jonin Document Engineering & Design Directives:\n' +
     '- Native Tools: document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP).\n' +
     '- Skills via FTS5/RAG: Query konoha.find_skill and konoha.get_skill; never read raw markdown directly.\n' +
-    '- Fonts & Themes: Inter, JetBrains Mono. 20 Enterprise Themes (T01-T20). Pure light mode, zero dark fills.\n' +
+    '- Fonts & Themes: Inter, JetBrains Mono. 20 Production Themes (T01-T20). Pure light mode, zero dark fills.\n' +
     '- Quality Gate: Strict AI score < 3.0% (ZeroGPT risk < 3.0%), sentence CV >= 0.85, active voice, zero robotic clichés, metadata scrubbed.\n'
   );
 }

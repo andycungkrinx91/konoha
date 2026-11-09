@@ -30,7 +30,7 @@ async function runBenchmark() {
       ]
     },
     {
-      name: 'High-Color Enterprise Architecture (TB)',
+      name: 'High-Color Production Architecture (TB)',
       orientation: 'TB',
       gradient_theme: 'sunset_violet',
       nodes: [

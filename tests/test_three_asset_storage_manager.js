@@ -75,7 +75,7 @@ try {
     source_mode: 'text_to_3d',
     status: 'pending',
     prompt: 'Space exploration rover',
-    profile: 'enterprise_pbr',
+    profile: 'production_pbr',
     quality_preset: 'high',
     requested_compute_mode: 'auto',
     effective_compute_mode: 'cpu',

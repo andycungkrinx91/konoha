@@ -7,7 +7,7 @@ const { runAislopGate } = require('../../workflow_dispatch');
 const { applyGate2Choice, buildGate2Prompt, parseGateChoice } = require('../../workflow_gates');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
 const { superviseLifecycleStage } = require('../../../workflow/kage-reviewer/advisor_monitor');
-const { runAkatsukiFinalGate } = require('../../../workflow/akatsuki/workflows');
+const { runAkatsukiFinalGate, _evaluateAkatsukiReview } = require('../../../workflow/akatsuki/workflows');
 const { finalizeNodeResult } = require('../budget');
 
 function createPassResult(status, taskDir, state, payload) {
@@ -29,15 +29,64 @@ function createPassResult(status, taskDir, state, payload) {
   return finalizeNodeResult(state, resPayload, 'node_complete', { source: payload });
 }
 
+const AKATSUKI_VERDICTS = Object.freeze(['passed', 'blocked', 'failed', 'error', 'skipped_violation', 'not_applicable']);
+
+/** A cached gate is only meaningful when it names a verdict this gate understands. */
+function isRecognizedAkatsukiGate(gate) {
+  if (!gate || typeof gate !== 'object') return false;
+  if (!AKATSUKI_VERDICTS.includes(gate.decision)) return false;
+  if (typeof gate.passed !== 'boolean') return false;
+  return true;
+}
+
 function _evaluateAkatsukiPreGate(state, status, projectPath, taskDir) {
-  let akatsukiGate = state.akatsukiGate || status.akatsuki_final_gate || status.akatsuki_review || null;
+  // A cached review may arrive in either shape: the raw blue-team report
+  // (`akatsuki_review`, uses `gate_decision`) or the normalized gate
+  // (`akatsuki_gate`, uses `decision`). Reading either verbatim and then testing
+  // `decision` silently treated a BLOCKED review as a pass (fail-open). Keep the
+  // presence info but always normalize through _evaluateAkatsukiReview.
+  const cachedReview = state.akatsukiReview || status.akatsuki_review || null;
+  // `akatsuki_gate` is what execute persists as the authoritative normalized verdict;
+  // `akatsuki_final_gate` is the same shape under a different key. Both outrank a raw report.
+  const cachedGate = state.akatsukiGate || status.akatsuki_gate || status.akatsuki_final_gate || null;
+  let akatsukiGate = null;
+  if (cachedGate) {
+    // A cached object is only trusted when it carries a recognizable verdict. An
+    // empty/partial object would otherwise satisfy the permissive pass check below
+    // (`undefined !== false`), turning missing security evidence into a pass.
+    akatsukiGate = isRecognizedAkatsukiGate(cachedGate)
+      ? cachedGate
+      : {
+          decision: 'error',
+          mode: 'blue',
+          passed: false,
+          error: `Unrecognized cached Akatsuki gate shape: ${JSON.stringify(cachedGate).slice(0, 200)}`,
+        };
+  } else if (cachedReview) {
+    try {
+      akatsukiGate = _evaluateAkatsukiReview(cachedReview);
+    } catch (err) {
+      // Unreadable security evidence must not authorize delivery.
+      akatsukiGate = {
+        decision: 'error',
+        mode: 'blue',
+        passed: false,
+        error: `Malformed cached Akatsuki review: ${err.message}`,
+      };
+    }
+  }
   if (!akatsukiGate && taskDir) {
     const reviewFile = path.join(taskDir, 'akatsuki_review.json');
     if (fs.existsSync(reviewFile)) {
       try {
-        akatsukiGate = JSON.parse(fs.readFileSync(reviewFile, 'utf8'));
-      } catch (_) {
-        // ignore malformed review artifact
+        akatsukiGate = _evaluateAkatsukiReview(JSON.parse(fs.readFileSync(reviewFile, 'utf8')));
+      } catch (err) {
+        akatsukiGate = {
+          decision: 'error',
+          mode: 'blue',
+          passed: false,
+          error: `Malformed Akatsuki review artifact: ${err.message}`,
+        };
       }
     }
   }
@@ -58,7 +107,7 @@ function _evaluateAkatsukiPreGate(state, status, projectPath, taskDir) {
     status.blue_mode_before_kage_verified = false;
   } else if (!akatsukiGate) {
     try {
-      akatsukiGate = runAkatsukiFinalGate(projectPath, taskDir, status);
+      akatsukiGate = runAkatsukiFinalGate(projectPath, status, { taskDir });
     } catch (err) {
       akatsukiGate = {
         decision: 'error',
@@ -115,21 +164,22 @@ async function reviewNode(state) {
     });
   }
 
-  if (status.confidence === undefined && !status.aislop_gate) {
-    try {
-      const gateRes = runAislopGate(projectPath, status);
-      if (gateRes && gateRes.score !== undefined) {
-        status.confidence = gateRes.score;
-        status.ai_slop_findings = (gateRes.findings || []).length;
-        status.ai_slop_clean = gateRes.pass;
-      }
-    } catch (_) {
-      // safe fallback
+  // Re-run the slop gate on every review pass. Confidence must reflect the code
+  // as it is now; caching it meant a run that started below 98% remediated 7 times
+  // against a frozen score and could never recover, even after the code was fixed.
+  try {
+    const gateRes = runAislopGate(projectPath, status);
+    if (gateRes && gateRes.score !== undefined) {
+      status.confidence = gateRes.score;
+      status.ai_slop_findings = (gateRes.findings || []).length;
+      status.ai_slop_clean = gateRes.pass;
     }
+  } catch (_) {
+    // safe fallback: keep any previously recorded confidence
   }
 
   const rootRecord = sdlcManager.getTask(rootId);
-  if (rootRecord && rootRecord.confidence !== undefined && status.confidence === undefined) {
+  if (status.confidence === undefined && rootRecord && rootRecord.confidence !== undefined) {
     status.confidence = rootRecord.confidence;
   }
 

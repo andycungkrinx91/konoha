@@ -123,12 +123,20 @@ function run() {
   });
 
   section('Delegation envelope');
-  const skills = ['a', 'b', 'c', 'd', 'e', 'f'];
+  // Enough skills to exceed the cap regardless of what the cap is set to.
+  const cap = router.MAX_ENVELOPE_SKILLS;
+  const skills = Array.from({ length: cap + 2 }, (_, i) => `skill_${i}`);
   const envelope = router.buildDelegationEnvelope({ agentName: 'jonin', prompt: BUILD_PROMPT, routedSkills: skills });
   check('skills are capped and the overflow is reported', () => {
-    assert.strictEqual(envelope.skills.length, router.MAX_ENVELOPE_SKILLS);
-    assert.deepStrictEqual(envelope.dropped_skills, ['e', 'f']);
-    assert.deepStrictEqual(envelope.skills, skills.slice(0, 4));
+    assert.strictEqual(envelope.skills.length, cap);
+    assert.deepStrictEqual(envelope.skills, skills.slice(0, cap));
+    assert.deepStrictEqual(envelope.dropped_skills, skills.slice(cap));
+  });
+
+  const underCap = router.buildDelegationEnvelope({ agentName: 'jonin', prompt: BUILD_PROMPT, routedSkills: skills.slice(0, 2) });
+  check('a short skill list is passed through undropped', () => {
+    assert.deepStrictEqual(underCap.skills, skills.slice(0, 2));
+    assert.deepStrictEqual(underCap.dropped_skills, []);
   });
 
   check('recall is capped', () => {
@@ -189,7 +197,7 @@ function run() {
     assert.ok(!delegatedRun.instructions.includes('Direct Execution'));
     assert.ok(delegatedRun.delegation_envelope, 'envelope present');
     assert.ok(delegatedRun.delegation_envelope.skills.length <= router.MAX_ENVELOPE_SKILLS);
-    assert.ok(delegatedRun.delegation_envelope.recall.length <= router.MAX_RECALL_ITEMS);
+    assert.deepStrictEqual(Object.keys(delegatedRun.delegation_envelope).sort(), ['agent', 'skills'], 'runSannin projects the compact envelope to hold the <3KB payload contract');
     assert.strictEqual(delegatedRun.delegation_envelope.agent, delegatedRun.selected_agent);
   });
 

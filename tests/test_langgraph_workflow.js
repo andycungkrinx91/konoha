@@ -4,6 +4,20 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// Install the slop-gate stub BEFORE ../src/mcp/workflow is required: review.js
+// destructures runAislopGate at load time, so reassigning the module export later
+// would be invisible to it. The installed stub delegates through a mutable
+// controller so individual tests can still choose the gate verdict.
+const dispatchStub = require('../src/mcp/workflow_dispatch');
+const originalAislopGate = dispatchStub.runAislopGate;
+const aislopGateController = { mode: 'clean' };
+dispatchStub.runAislopGate = function controlledGate(projectPath, status) {
+  if (aislopGateController.mode === 'failing') {
+    return { enforced: true, ok: false, pass: false, score: 85, findings: [{ severity: 'high' }] };
+  }
+  return { enforced: true, ok: true, pass: true, score: 100, findings: [] };
+};
+
 const {
   getWorkflowGraph,
   runKonohaGraph,
@@ -116,7 +130,7 @@ async function runTests() {
 
     // Invoke with very low token budget (ceiling = 50 tokens)
     const lowBudgetRes = await graph.invoke({
-      prompt: 'Build comprehensive enterprise microservice suite with auth and database',
+      prompt: 'Build comprehensive production microservice suite with auth and database',
       taskDir,
       tokenBudget: 50,
     }, config);
@@ -145,7 +159,10 @@ async function runTests() {
     const taskDir = path.join(os.tmpdir(), `lg_cb_remediate_${Date.now()}`);
     fs.mkdirSync(taskDir, { recursive: true });
 
-    // Seed a status with 7 remediation cycles already exhausted and low confidence
+    // Seed a status with 7 remediation cycles already exhausted. Confidence is no
+    // longer cached (it is re-measured from the slop gate each review pass), so the
+    // gate itself must be forced to return a failing score for the cap to be reached.
+    aislopGateController.mode = 'failing';
     const initialStatus = {
       plan: 'Fix defects',
       plan_approved: true,
@@ -165,6 +182,8 @@ async function runTests() {
     assert.strictEqual(res.circuitOpen, true, 'Circuit breaker must be open after max remediation cycles');
     assert.ok(res.error.includes('Circuit breaker tripped'), 'Must report circuit breaker error');
     assert.strictEqual(res.status.circuit_broken, true);
+    aislopGateController.mode = 'clean';
+    dispatchStub.runAislopGate = originalAislopGate;
     console.log('✓ Test 5: Circuit breaker 7-cycle remediation cap verified');
   }
 

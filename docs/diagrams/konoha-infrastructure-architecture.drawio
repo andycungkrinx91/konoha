@@ -31,7 +31,7 @@
 <mxCell id="p1-sannin" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=sannin;" value="sannin &amp; LangGraph Engine&#10;Per-Turn Governor &amp; Circuit Breaker" vertex="1">
                     <mxGeometry height="75" width="260" x="350" y="70" as="geometry" />
                 </mxCell>
-<mxCell id="p1-agents" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin | yamanaka" vertex="1">
+<mxCell id="p1-agents" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Ninja Agents&#10;genin | kage | chunin | jonin | anbu | tokubetsu-jonin | akatsuki | yamanaka" vertex="1">
                     <mxGeometry height="100" width="430" x="710" y="61" as="geometry" />
                 </mxCell>
 <mxCell id="p1-task" parent="p1-l2" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Task Artifacts&#10;Structured Tool Calls" vertex="1">
@@ -149,7 +149,7 @@
 <mxCell id="p2-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FDF2F8;strokeColor=#E7157B;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#831843;fontStyle=1;shadow=0;agent=sannin;" value="sannin Router" vertex="1">
                     <mxGeometry height="75" width="260" x="650" y="390" as="geometry" />
                 </mxCell>
-<mxCell id="p2-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin / yamanaka" vertex="1">
+<mxCell id="p2-agent" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Selected Ninja Agent&#10;genin / kage / chunin / jonin / anbu / tokubetsu-jonin / akatsuki / yamanaka" vertex="1">
                     <mxGeometry height="85" width="360" x="990" y="385" as="geometry" />
                 </mxCell>
 <mxCell id="p2-artifact" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Task Directory&#10;Structured Results" vertex="1">
@@ -265,7 +265,10 @@
 <mxCell id="p3-toku" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=tokubetsu-jonin;" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="710" as="geometry" />
                 </mxCell>
-<mxCell id="p3-akatsuki" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
+<mxCell id="p3-yamanaka" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=yamanaka;" value="yamanaka&#10;yamanaka-skill + three_asset (3D &amp; Spatial)" vertex="1">
+                    <mxGeometry height="60" width="280" x="651" y="860" as="geometry" />
+                </mxCell>
+                <mxCell id="p3-akatsuki" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=akatsuki;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="785" as="geometry" />
                 </mxCell>
 <mxCell id="p3-mcp" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Konoha MCP&#10;find_skill / get_skill / direct specialist tools" vertex="1">
@@ -405,7 +408,7 @@
 <mxCell id="p4-antigravity" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Antigravity Sidecar Bridge" vertex="1">
                     <mxGeometry height="70" width="270" x="820" y="440" as="geometry" />
                 </mxCell>
-<mxCell id="p4-discovery" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="UDP Discovery :19899" vertex="1">
+<mxCell id="p4-discovery" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="Process Discovery&#10;sidecar via command line (wmic / netstat -ano)" vertex="1">
                     <mxGeometry height="70" width="260" x="820" y="570" as="geometry" />
                 </mxCell>
 <mxCell id="p4-openai" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;" value="OpenAI API" vertex="1">
@@ -687,7 +690,7 @@
       <root>
 <mxCell id="0" />
 <mxCell id="1" parent="0" />
-<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.18)" vertex="1">
+<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.19)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
 <mxCell id="p8-input" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="User Prompt / Resume" vertex="1">
@@ -998,7 +1001,7 @@
 <mxCell id="p13-kage-plan" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=kage;" value="3. Plan: Kage&#10;tasks &amp; test spec" vertex="1">
                     <mxGeometry height="55" width="180" x="490" y="100" as="geometry" />
                 </mxCell>
-<mxCell id="p13-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=chunin;" value="Chunin: Intel&#10;web &amp; docs research" vertex="1">
+<mxCell id="p13-chunin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#8C4FFF;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=chunin;" value="4. Research: Chunin&#10;web &amp; docs research" vertex="1">
                     <mxGeometry height="55" width="170" x="750" y="100" as="geometry" />
                 </mxCell>
 <mxCell id="p13-p5" parent="1" style="shape=mxgraph.aws4.groupCenter;grIcon=mxgraph.aws4.group_auto_scaling_group;strokeColor=#ED7100;fillColor=none;verticalAlign=top;align=center;fontColor=#ED7100;dashed=1;strokeWidth=1.5;spacingTop=25;fontFamily=Inter, system-ui;fontSize=11;fontStyle=1;agent=anbu;" value="5. Execute: QA Loop (Anbu: qa_codify + qa_e2e_run · Jonin: UI fixes · Managed Workspace Hygiene &amp; Retention)" vertex="1">

@@ -98,7 +98,6 @@ const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
   'deep-research-analyst',
   'dependency-upgrade-migrator',
   'design-system-architect',
-  'design-token-manifest',
   'desktop-electron-expert',
   'details',
   'devops-engineer',

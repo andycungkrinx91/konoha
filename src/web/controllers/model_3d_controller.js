@@ -303,7 +303,7 @@ function _dispatchAsyncGenerationJob(jobId, ctx) {
           image_path: body.image_path,
           source_mode: body.image_path ? 'image_to_3d' : (body.source_mode || 'text_to_3d'),
           archetype: body.archetype || 'game-prop',
-          profile: body.profile || 'enterprise_pbr',
+          profile: body.profile || 'production_pbr',
           quality_preset: levelOptions.quality_preset,
           requested_compute_mode: body.requested_compute_mode || 'auto',
           requested_gpu_backend: normalizeGpuBackend(body.preferred_backend ?? body.preferredBackend),

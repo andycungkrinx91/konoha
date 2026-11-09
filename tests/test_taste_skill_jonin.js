@@ -63,7 +63,7 @@ async function run() {
       'jonin-skill/nuxt-code-expert',
       'jonin-skill/angular-code-expert',
       'jonin-skill/build-directives-manifest',
-      'jonin-skill/design-token-manifest',
+      'jonin-skill/tailwind-design-system',
       'jonin-skill/source-fidelity-directives'
     ]) {
       conn.prepare("INSERT OR REPLACE INTO skills (name, skill_name, description, content, type) VALUES (?, ?, ?, ?, 'reference')")
@@ -82,12 +82,9 @@ async function run() {
     // Directives presence
     const res1 = JSON.parse(server.runMcpAgent('jonin', 'Scaffold a high-converting hero section', null, null, null, null, projectDir));
     const instr1 = res1.instructions;
-    assert.ok(instr1.includes('Taste-Skill Design Engine Directives'));
-    assert.ok(instr1.includes('Geist'));
-    assert.ok(instr1.includes('Cabinet Grotesk'));
-    assert.ok(instr1.includes('py-24'));
-    assert.ok(instr1.includes('grid-cols-12'));
-    assert.ok(instr1.includes('min-h-[100dvh]'));
+    assert.ok(instr1.includes('Design Brief & Anti-Template Directives'));
+    assert.ok(instr1.includes('design brief'));
+    assert.ok(instr1.includes('Anti-Template Gate'));
     assert.ok(instr1.toLowerCase().includes('zero emojis'));
     console.log('✓ Directives presence passed');
 
@@ -110,10 +107,8 @@ async function run() {
       assert.ok(directivesStr.includes('Taste-Skill'));
       assert.ok(directivesStr.includes('reduced-motion'));
       assert.ok(directivesStr.includes('framework-native'));
-      assert.ok(res.design_tokens);
-      assert.strictEqual(res.design_tokens.perspective, '1200px');
-      assert.strictEqual(res.design_tokens.tilt_max, '12deg');
-      assert.strictEqual(res.design_tokens.hero_autoplay, '6000ms');
+      assert.ok(res.design_brief && Array.isArray(res.directives));
+      assert.ok(!res.directives.join(' ').includes('50-item production catalog'));
       assert.ok(res.taste_skill_audits.includes('em_dash'));
     }
     console.log('✓ build_from_text all frameworks passed');

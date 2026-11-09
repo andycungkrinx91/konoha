@@ -13,7 +13,7 @@
  * never parsed back to build the spec. e.g.
  *   "make the hull plate gold"  ->  `box 1.6 0.9 1.1 at 0 0.45 0 as hull_plate color #d4af37 metal 0.95 rough 0.22`
  *
- * Token values are chosen to survive `applyEnterpriseProfile` clamping for enterprise_pbr
+ * Token values are chosen to survive `applyGenerationProfile` clamping for production_pbr
  * (metalness [0.5, 1.0], roughness [0.2, 0.9]).
  */
 

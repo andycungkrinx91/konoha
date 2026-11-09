@@ -128,6 +128,7 @@ async function runAkatsukiTests() {
 
   // Test 3a: Explicit unauthorized red team -> blocked
   const unauthResult = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Probe login endpoint for SQL injection vulnerability',
     target: 'localhost:3000',
     authorized: false
@@ -140,6 +141,7 @@ async function runAkatsukiTests() {
 
   // Test 3b: Out-of-scope target -> blocked
   const outOfScopeResult = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Audit endpoint',
     authorized: true,
     target: 'https://unauthorized-external-domain.com'
@@ -151,6 +153,7 @@ async function runAkatsukiTests() {
 
   // Test 3c: Explicit authorized local target -> executes cleanly with non-destructive proof & cleanup
   const authResult = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Conduct authorized penetration test on auth routes',
     authorized: true,
     target: 'localhost:8080'

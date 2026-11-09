@@ -251,7 +251,7 @@ function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) 
   const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
   for (const pm of pmCandidates) {
     const fallbackArgs = pm.args.map(a => a === pkgTarget ? gitPkgTarget : a);
-    const result = tryInstallCandidate(pm, fallbackArgs, spawnOptions);
+    const result = tryInstallCandidate(pm, fallbackArgs, spawnOptions, isWin);
     if (result.success) {
       pbar.stopPulse();
       pbar.logStep(`Konoha ${targetTag} installed from GitHub fallback via ${pm.name}`);
@@ -280,11 +280,16 @@ function locateGlobalPackageRoot(isWin = process.platform === 'win32', targetVer
   const roots = new Set();
   const runRootCmd = (cmd) => {
     try {
+      // PowerShell does not apply PATHEXT to a name that already carries an
+      // extension, so `npm.cmd.cmd` would not exist. Use the extension-less name
+      // and let the shell resolve it.
       const res = isWin
-        ? spawnSync(`${cmd}.cmd root -g`, { encoding: 'utf-8', timeout: 30000, shell: true, windowsHide: true })
+        ? spawnSync(`${cmd} root -g`, { encoding: 'utf-8', timeout: 30000, shell: true, windowsHide: true })
         : spawnSync(cmd, ['root', '-g'], { encoding: 'utf-8', timeout: 30000 });
       const out = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
-      if (out && fileExists(out)) roots.add(out);
+      // A root that never contained konoha-mcp (a stale store path, a pnpm home
+      // with no install) is not the installation; check the package is there.
+      if (out && fileExists(path.join(out, 'konoha-mcp', 'package.json'))) roots.add(out);
     } catch { /* best-effort */ }
   };
 
@@ -314,22 +319,44 @@ function locateGlobalPackageRoot(isWin = process.platform === 'win32', targetVer
 }
 
 function resolveInstalledCliPath(preferredRoot) {
-  if (preferredRoot && fileExists(path.join(preferredRoot, 'bin', 'cli.js'))) {
-    return path.join(preferredRoot, 'bin', 'cli.js');
+  if (preferredRoot) {
+    const explicit = path.join(preferredRoot, 'bin', 'cli.js');
+    // An explicit root is a promise about where the install lives. Falling back
+    // to this repo's own CLI would report a version for a package that was never
+    // installed, so honour the caller and fail loudly instead.
+    return fileExists(explicit) ? explicit : null;
   }
   try {
     const shimReport = reconcileGlobalCommand();
     if (shimReport && shimReport.sourceCli && fileExists(shimReport.sourceCli)) {
-      return shimReport.sourceCli;
+      // ~/.konoha is the runtime mirror, which the post-upgrade sync refreshes
+      // regardless of whether the npm package replacement succeeded. Using it as
+      // the verification target would report success for a failed upgrade, so it
+      // is never acceptable here.
+      if (!isUnderRuntimeMirror(shimReport.sourceCli)) return shimReport.sourceCli;
     }
   } catch { /* fallback */ }
-  const dbCli = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
-  return fileExists(dbCli) ? dbCli : path.resolve(__dirname, '..', 'cli.js');
+  // No package root and no shim outside the runtime mirror means the global
+  // package could not be located. Returning this repo's own CLI here would report
+  // a version for a package that was never installed, so fail closed instead.
+  return null;
 }
 
-function readInstalledVersion(targetVer, preferredRoot = null) {
+function isUnderRuntimeMirror(candidate) {
+  try {
+    const rel = path.relative(path.resolve(SKILLS_DB_DIR), path.resolve(candidate));
+    return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}
+
+function readInstalledVersion(preferredRoot = null) {
   try {
     const cliPath = resolveInstalledCliPath(preferredRoot);
+    if (!cliPath) {
+      return { version: null, source: 'unverified', error: 'no installed CLI found under the requested root' };
+    }
     const res = spawnSync(process.execPath, [cliPath, '--version'], {
       encoding: 'utf8',
       timeout: 60000,
@@ -342,10 +369,14 @@ function readInstalledVersion(targetVer, preferredRoot = null) {
         return { version: match[0], source: 'installed' };
       }
     }
-  } catch { /* best-effort */ }
-
-  const cleanTarget = String(targetVer || '').replace(/^v/, '');
-  return { version: cleanTarget, source: 'target' };
+    return {
+      version: null,
+      source: 'unverified',
+      error: `konoha --version exited ${res.status}${res.stderr ? `: ${String(res.stderr).trim().slice(0, 200)}` : ''}`
+    };
+  } catch (err) {
+    return { version: null, source: 'unverified', error: err.message };
+  }
 }
 
 function syncRuntimeAndMigrate(globalPkgRoot) {
@@ -463,15 +494,35 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, l
       pbar.logStep('Web UI daemon is still warming up; it will answer on port 1404 shortly');
     }
 
-    const installed = readInstalledVersion(cleanTarget, globalPkgRoot);
+    const installed = readInstalledVersion(globalPkgRoot);
+
+    // Without a located package root the version can only come from the runtime
+    // mirror or the running process's own CLI — neither proves the npm package
+    // was replaced. Treat that as unverified instead of reporting success.
+    const verifiedFromPackage = Boolean(globalPkgRoot) && installed.source === 'installed';
+
+    if (installed.source === 'unverified' || !installed.version || !verifiedFromPackage) {
+      // The package install succeeded but the result could not be verified, so
+      // the runtime may be partially replaced. Keep the marker: unlike a clean
+      // package-manager failure, this state needs the recovery warning on the
+      // next CLI start.
+      pbar.stopPulse();
+      error(`Upgrade verification failed: ${installed.error || (globalPkgRoot ? 'konoha --version produced no version' : 'the global package root could not be located, so the upgrade cannot be confirmed')}`);
+      error('  Run "konoha --version" to confirm. If it still reports the previous');
+      error(`  version, re-run "konoha upgrade --yes" or install directly:`);
+      error(`    npm install -g konoha-mcp@${cleanTarget}`);
+      process.exit(1);
+    }
+
     pbar.finish(`Konoha has been successfully upgraded to v${installed.version}!`);
     log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}v${installed.version}${C.reset}`);
     log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
 
     const old = String(localVer || '').replace(/^v/, '');
-    if ((installed.source === 'target' && installed.version === old) || (installed.version === old && cleanTarget !== old)) {
-      warn(`Reported version still v${old} — run "konoha --version" after the shell reloads`);
+    if (installed.version === old && cleanTarget !== old) {
+      warn(`Reported version still v${old} — the new package may not be on PATH yet; open a new shell and run "konoha --version"`);
     }
+    clearUpgradePendingMarker();
   } catch (err) {
     pbar.stopPulse();
     error(`Failed to refresh Konoha configuration: ${err.message}`);
@@ -514,6 +565,10 @@ async function cmdUpgrade(args = []) {
     return;
   }
 
+  // A fresh, confirmed attempt supersedes any marker left by a previous run, so
+  // stale "interrupted" notices do not accumulate across attempts.
+  clearUpgradePendingMarker();
+
   const choices = await collectUpgradeChoices(args);
 
   log('');
@@ -547,16 +602,64 @@ async function cmdUpgrade(args = []) {
   pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching konoha-mcp@${cleanTarget} from npm registry via ${pmCandidates[0].name}...`);
   pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and installing Konoha package via ${pmCandidates[0].name}...`);
 
-  executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
+  if (isWin) writeUpgradePendingMarker(cleanTarget);
+
+  const pkgInstalled = executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
+  if (!pkgInstalled) {
+    // Every package manager and the GitHub fallback failed. Continuing would run
+    // the post-upgrade lifecycle against the old package and then report success.
+    // Clear the marker: this is a clean, reported failure, not an interrupted one.
+    clearUpgradePendingMarker();
+    pbar.stopPulse();
+    error(`Upgrade aborted: no package manager could install ${pkgTarget}.`);
+    error('  Your existing installation and configuration were not modified.');
+    error('  Recovery: install directly, then re-run this command:');
+    error(`    npm install -g ${pkgTarget}`);
+    error('    konoha upgrade --yes');
+    process.exit(1);
+  }
+
   await runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices, localVer);
 }
 
-// cmdRender removed — visual comparison feature deprecated in favor of image/source-to-code (build_from_source)
+const UPGRADE_PENDING_MARKER = path.join(SKILLS_DB_DIR, '.upgrade_pending.json');
+
+// Windows cannot replace a global package while a process from it is running, and
+// a killed upgrade leaves no trace. Write the intent before the install so the
+// next CLI start can tell the user what happened instead of silently landing on a
+// half-upgraded tree.
+function writeUpgradePendingMarker(cleanTarget) {
+  // Write to a sibling temp file and rename over the marker. A direct truncate-
+  // then-write can leave a zero-byte marker if the process dies mid-write, which
+  // would read back as "no upgrade in flight" and lose the recovery signal.
+  const tmp = `${UPGRADE_PENDING_MARKER}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify({ target: cleanTarget, startedAt: new Date().toISOString() }, null, 2) + '\n');
+    fs.renameSync(tmp, UPGRADE_PENDING_MARKER);
+  } catch {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* advisory */ }
+  }
+}
+
+function clearUpgradePendingMarker() {
+  try { fs.rmSync(UPGRADE_PENDING_MARKER, { force: true }); } catch { /* advisory */ }
+}
+
+function readUpgradePendingMarker() {
+  try {
+    if (!fileExists(UPGRADE_PENDING_MARKER)) return null;
+    return JSON.parse(fs.readFileSync(UPGRADE_PENDING_MARKER, 'utf8'));
+  } catch {
+    return null;
+  }
+}
 
 
 
 module.exports = {
   cmdUpgrade,
+  readUpgradePendingMarker,
+  clearUpgradePendingMarker,
   cmdUpgradeHelp,
   locateGlobalPackageRoot,
   readInstalledVersion,

@@ -2,7 +2,7 @@
 
 ## Architecture
 
-> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Enterprise Infrastructure View](diagrams/konoha-enterprise-architecture.drawio) · [Complete Workflow Architecture](ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](diagrams/README.md).
+> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Full Infrastructure View](diagrams/konoha-infrastructure-architecture.drawio) · [Complete Workflow Architecture](ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](diagrams/README.md).
 
 ```mermaid
 ---
@@ -90,10 +90,12 @@ flowchart TB
 
 ## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)
 
+`TOOL_HANDLERS` in `src/file_tools_router.js` registers **50** dispatch keys; `listToolSchemas()` advertises **48**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
+
 | Tool Category | Registered Tools (48 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
-| **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. |
+| **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. The plural `find_skills` is a hidden dispatch alias for `find_skill`. |
 | **Autonomous Website Builders (2)** | `build_from_source`, `build_from_text` | Side-effect-free structured specifications for multi-archetype website generation. |
 | **Specialist Delegation & Security Sandbox (10)** | `sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `akatsuki_init`, `chunin`, `tokubetsu_jonin`, `genin`, `yamanaka` | In-line direct subagent delegation, lab container initialization, and specialist workflow execution. |
 | **AI Fingerprint Detection (2)** | `website_ai_detector`, `docs_ai_detector` | Website (0-20 Human-Built target) and Document AI detectors (.docx, .pdf, .pptx, text). |
@@ -103,10 +105,10 @@ flowchart TB
 | **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
-| **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
+| **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
 
 
-### 🧭 Canonical Roster & Runtime Surfaces (v2.2.18)
+### 🧭 Canonical Roster & Runtime Surfaces (v2.2.19)
 
 Nine ninja agents ship as first-class MCP tools and as per-client agent definitions: `sannin` (router), `genin` (scout), `chunin` (research), `jonin` (frontend), `anbu` (backend/QA), `tokubetsu_jonin` (docs), `kage` (review/quality gate), `akatsuki` (security), and `yamanaka` (generative 3D). `src/canonical_agents.js` is the single roster source consumed by the tool manifest, contract generators, client bootstrappers, Telegram routing, and the Web UI, so a roster change cannot silently miss a surface.
 
@@ -118,6 +120,29 @@ Runtime surfaces added for this release:
 - **GPU telemetry** — `src/gpu_telemetry.js` probes the host GPU with a 10 s TTL and a 2.5 s timeout, exposing `system.gpu` on the status payload; the dashboard renders `no_data` rather than inferring a device.
 - **Docs drift** — `GET /api/v1/docs/drift` compares each documentation file mtime against the `package.json` release cut and classifies it `current`, `review_pending`, `historical`, or `unknown`. `GET /api/v1/tools` serves the live tool catalog so the docs page never hardcodes a roster.
 - **Savings accounting** — byte-weighted savings are computed from recorded call telemetry; projects without measurements report `no_data` and a null percentage instead of a floor value.
+
+### 🗂️ Runtime Layout Rules (`~/.konoha/`)
+
+The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/` is mirrored into it whole, nested directories included.
+
+- **Valid subsystem mirrors:** `~/.konoha/mcp/` and `~/.konoha/workflow/` are legitimate and load-bearing. The deployed `file_tools_router.js` requires `./mcp/runtime_state` and `./workflow/qa-automation/qa_tools` **from the runtime root**, so those trees must be complete copies, not flat file dumps.
+- **The purge rule is narrow:** `konoha doctor` removes a mirror only when it is *flattened* — it lost the nested path its own code requires (`mcp/langgraph/index.js`, `workflow/qa-automation/qa_tools.js`) while still holding loose files in its place. That flat layout is the residue of a retired installer pass and cannot load. `purgeInvalidRuntimeMirrors` in `bin/commands/doctor_runtime.js` implements exactly this check; a complete mirror is never touched.
+- **`~/.konoha/bridge/` is not a runtime mirror.** Bridge state lives elsewhere; the purge list covers `mcp` and `workflow` only.
+- **Case-exact module names:** `src/mcp/langgraph/index.js` asserts at load time that every `require('./nodes/<name>')` has an exact-case `.js` on disk, so a case-insensitive filesystem (macOS, Windows) cannot hide a mismatch that Linux CI would reject.
+- **Skills are installed once, resolved by several URI shapes:** `get_skill` resolves `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>`, and `<skill>/references/<file>.md` through `_findSubpathInMirror`, staying inside the skills root. No alias copies are written.
+
+### 🖥️ Cross-Platform Install Verification Status
+
+| Platform | Status |
+|---|---|
+| Linux x64 | **VERIFIED** on this host (install, `init`, runtime module load, upgrade failure paths) |
+| Windows 10/11 | **NOT RUN** |
+| macOS arm64 / x64 | **NOT RUN** |
+
+`agent-browser@0.3.1` publishes no linux-x64 native binary (`Error: No binary found for linux-x64`), so QA automation reports `QA blocked:` on Linux instead of pretending to work. Do not describe it as functional there.
+
+---
+
 
 ### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
 
@@ -136,13 +161,14 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.19), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `kali_tools`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.19), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
    - **Retention Pruning (`konoha data prune --retention <days>`)**: Prunes older execution logs from `tool_calls` beyond the retention window (default 90 days) while preserving all-time summary counters.
    - **Agent Name Normalization (`normalizeAgentName`)**: Maps runtime aliases (e.g. `mcp_kage`, `delegate_to_jonin`) to canonical agent identities across telemetry reporting.
    - **Foreign Key Cascade Integrity**: Enforces `ON DELETE CASCADE` from `projects` to `persona_memories` with `PRAGMA foreign_keys = ON`, eliminating orphaned records.
+5. **Akatsuki Lab Segregation**: The Kali catalog and all lab execution records live in a separate file (`~/.konoha/akatsuki-lab/lab.db`) opened only through `src/workflow/akatsuki/lab_db.js#openLabDb`. `getConnection()` throws `LAB_DB_ISOLATION_VIOLATION` for any lab path, and `openRawConnection(path)` skips the main schema, migration, and vector setup. The lab store has four tables (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`) and is purged on confirmed teardown. See `docs/security/DATABASE-ISOLATION-INVENTORY.md` and the schema diagram in `docs/DATABASE-ERD.md`.
 
 ---
 
@@ -270,7 +296,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 13. **Strict Zero Dark Theme & 3-Color Minimum Gradient Invariants for Documentation**:
    - Strictly forbids dark theme styles (dark covers, dark headers, dark footers, black fills) across all generated and refined document formats: Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), and PDF (`.pdf`). All canvases must be pure white (`#FFFFFF`) or pearl (`#F8FAFC`).
    - Mandates a smooth multi-stop gradient with a minimum of 3 colors (e.g. Sapphire-to-Azure-to-Sky `#1E3A8A` → `#2563EB` → `#60A5FA`) for decorative accents, cover ribbons, running headers/footers, and divider lines.
-   - Enforces business-class enterprise typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
+   - Enforces business-class document typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
 14. **Konoha Bridge 1.6.0 VSIX Extension**:
    - Upgraded local extension binary (`assets/konoha-bridge-1.6.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
 15. **Cross-Client Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
@@ -285,8 +311,8 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Extracted 1,068 lines of UI CLI commands into `bin/lib/ui_commands.js` to preserve the < 9,000 lines complexity threshold. Enforces strict zero-exclusions across application code — `aislop-ignore` and config suppressions are strictly forbidden on codebase files, mandating root-cause architectural resolution.
 19. **QA Automation Workflow & Bounded Browser Loop (v2.1.0)**:
    - Integrates deterministic `agent-browser` + Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
-20. **13-Page Enterprise Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
-   - Full 13-page Draw.io enterprise cloud model in `docs/diagrams/konoha-enterprise-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
+20. **13-Page Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
+   - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
 21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13 - v2.1.14)**:
    - Centralizes canonical skill definitions into `src/canonical_skills.js` (15 canonical ninja and core skills, with `helm-chart-scaffolding` consolidated into `anbu-skill`). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees.
 22. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
@@ -506,14 +532,14 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
    - **Single Deterministic Token-Bounded Prompt Architecture (`src/mcp/memory_reporting.js`)**: Eradicated legacy Turn 2 auto-compaction branching (`isAutoCompact`). Every turn (Turn 1, Turn 2, Turn 3, ...) generates a unified, token-bounded prompt format strictly < 8,000 bytes (< 8 KB, ~1,800 tokens) with 100% prefix determinism ($T_1 == T_2 == T_3$) for maximum provider KV prompt caching. Dynamic task inputs are placed strictly at the prompt suffix (`## TASK INSTRUCTIONS`).
    - **Lightweight On-Demand Contract Architecture (`src/agent_contract.js`, `src/agent_manager.js`, `src/cursor_manager.js`)**: Replaced 45 KB monolithic on-disk markdown instruction files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, etc.) and bundled templates with lightweight pointer contracts strictly < 1.2 KB (1,097–1,211 bytes, saving > 97% file I/O tokens per cold start). Full multi-agent specifications, framework invariants, and operational guidelines are retrieved dynamically on-demand via `konoha.get_skill('konoha/contract')` and `getClientContract(client)`.
    - **Alphabetized CLI Architecture (`bin/commands/help.js`, `bin/cli.js`)**: Reorganized all 30 CLI commands alphabetically (A–Z) with `agent` 1st. Exposed SDLC Governance and `hitl_mode` (`enabled` vs `disabled`) in `konoha project context` output and provided configuration via `konoha mode yolo/hitl (alias: konoha project set hitl-mode) <enabled|disabled>`.
-   - **8-Ninja Team Parity**: Shipped default templates (`src/templates/agents.yaml`, `src/templates/AGENTS.md`, `src/templates/GEMINI.md`) and contract generators uniformly enforce the complete 8-ninja team roster (`@sannin`, `@genin`, `@kage`, `@chunin`, `@jonin`, `@anbu`, `@tokubetsu-jonin`, `@akatsuki`) with canonical distributed skills and zero unbundled host references.
+   - **9-Ninja Team Parity**: Shipped default templates (`src/templates/agents.yaml`, `src/templates/AGENTS.md`, `src/templates/GEMINI.md`) and contract generators uniformly enforce the complete 9-ninja team roster (`@sannin`, `@genin`, `@kage`, `@chunin`, `@jonin`, `@anbu`, `@tokubetsu-jonin`, `@akatsuki`, `@yamanaka`) with canonical distributed skills and zero unbundled host references. `src/canonical_agents.js` is the single roster source.
 
 ---
 
-## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.18 Production Architecture)
+## 🔬 LangGraph.js Workflow Orchestration Engine (v2.2.19 Production Architecture)
 
-> **Architectural Specification & Runtime Architecture (Release 2.2.18)**:
-> In release 2.2.18, LangGraph.js is integrated as the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Key runtime guarantees include mandatory PLAN → BRIEF → TODO first 2 steps, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), circuit breaker remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates preservation.
+> **Architectural Specification & Runtime Architecture (Release 2.2.19)**:
+> LangGraph.js is the primary workflow orchestration engine located in `src/mcp/langgraph/`. Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, it provides a cyclic `StateGraph` state machine with `KonohaCheckpointSaver` backed by Node's built-in `node:sqlite` driver via `src/sqlite_driver.js`. Node 24 or newer is therefore a hard requirement. Key runtime guarantees include mandatory CLASSIFY → PLAN → BRIEF → TODO → DISPATCH before EXECUTE, turn-by-turn hard token budget governor (8k default, configurable 16k/32k/64k), a per-thread circuit breaker with remediation loop cap (max 7 cycles), lazy dynamic subagent invocation, and two-stage HITL gates (`pending_plan_approval`, `pending_human_signoff`).
 ---
 
 ### 1. Phase 1: Inventory of Current Routing & Runtime Invariants
@@ -548,11 +574,11 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
 
 ### 2. Phase 2: One-to-One Stage-to-Graph-Node Mapping
 
-The production LangGraph.js implementation in `src/mcp/langgraph/` models the orchestration lifecycle as a compiled cyclic `StateGraph` with per-turn token budget governor, error-edge circuit breaker, and two-stage HITL gates:
+The production implementation in `src/mcp/langgraph/` compiles a cyclic `StateGraph` with eleven nodes registered in `createGraphBuilder()` and a per-turn token budget governor, error edge, and two-stage HITL gates. The agent-facing phases (`explore`, `research`, `document`, `synthesize`) are executed **inside** `node_dispatch` / `node_execute` and `node_review`, not as separate graph nodes.
 
 ```mermaid
 ---
-title: LangGraph.js Production StateGraph Architecture (Active in v2.2.18)
+title: LangGraph.js Production StateGraph Architecture (v2.2.19)
 config:
   theme: base
   themeVariables:
@@ -574,89 +600,85 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    Start([__start__]) --> NodeRoute["Node: route<br/><i>(sannin)</i>"]
-    NodeRoute --> BranchRoute{"fast_track?"}
-    BranchRoute -->|Yes| NodeFastTrack["Node: fast_track_execute<br/><i>(specialist)</i>"]
-    BranchRoute -->|No| NodeExplore["Node: explore<br/><i>(genin)</i>"]
-    
-    NodeExplore --> NodePlan["Node: plan<br/><i>(kage)</i>"]
-    NodePlan --> Gate1Interrupt{"Gate 1: interrupt()<br/><i>(pending_plan_approval)</i>"}
-    
-    Gate1Interrupt -->|Reject / Choice 2| NodePlan
-    Gate1Interrupt -->|Approve / Choice 1| BranchResearch{"needs_research?"}
-    
-    BranchResearch -->|Yes| NodeResearch["Node: research<br/><i>(chunin)</i>"]
-    BranchResearch -->|No| NodeExecute["Node: execute<br/><i>(jonin / anbu)</i>"]
-    NodeResearch --> NodeExecute
-    
-    NodeExecute --> BranchTasks{"has_pending_tasks?"}
-    BranchTasks -->|Yes| NodeExecute
-    BranchTasks -->|No (slop_cycles > 0)| NodeReview["Node: review<br/><i>(kage / akatsuki / @advisor)</i>"]
-    BranchTasks -->|No (slop_cycles == 0)| NodeDocument["Node: document<br/><i>(tokubetsu-jonin)</i>"]
-    
-    NodeDocument --> NodeReview
-    NodeReview --> BranchReview{"Review Passed?<br/>(Akatsuki + Slop 100/100 + Conf >= 98%)"}
-    
-    BranchReview -->|Failed & slop_cycles < 7| NodeRemediation["Node: remediation<br/><i>(anbu / jonin)</i>"]
-    NodeRemediation --> NodeReview
-    BranchReview -->|Failed & slop_cycles >= 7| NodeFailClosed["Node: node_error<br/><i>(circuit_breaker error edge)</i>"]
-    BranchReview -->|Passed| Gate2Interrupt{"Gate 2: interrupt()<br/><i>(pending_human_signoff)</i>"}
-    
-    Gate2Interrupt -->|Remediation / Choice 2| NodeExecute
-    Gate2Interrupt -->|Sign Off / Choice 1| NodeSynthesize["Node: synthesize<br/><i>(sannin)</i>"]
-    
-    NodeFastTrack --> NodeReview
-    NodeSynthesize --> End([__end__])
-    NodeFailClosed --> End
-    
+    Start([__start__]) --> EntryRouter{"entryRouter<br/>(state.resumeNode)"}
+    EntryRouter -->|"resumeNode in RESUMABLE_NODES"| ResumeNode["resume at that node"]
+    EntryRouter -->|"unset / not allowlisted"| NodeClassify["node_classify<br/><i>(sannin)</i>"]
+
+    NodeClassify -->|"direct_subagent intent"| NodeDispatch["node_dispatch<br/><i>(sannin)</i>"]
+    NodeClassify -->|"isFastTrack"| NodeComplete["node_complete<br/><i>(sannin)</i>"]
+    NodeClassify -->|"default"| NodePlan["node_plan<br/><i>(kage)</i>"]
+
+    NodePlan -->|"hitlPending"| GatePause1(["__end__ — Gate 1<br/>(pending_plan_approval)"])
+    NodePlan -->|"approved"| NodeBrief["node_brief<br/><i>(sannin)</i>"]
+
+    NodeBrief --> NodeTodo["node_todo<br/><i>(sannin)</i>"]
+    NodeTodo --> NodeDispatch
+    NodeDispatch -->|"phase === 'done'"| NodeComplete
+    NodeDispatch -->|"default"| NodeExecute["node_execute<br/><i>(jonin / anbu)</i>"]
+    NodeExecute -->|"phase === 'document'"| NodeDispatch
+    NodeExecute -->|"default"| NodeReview["node_review<br/><i>(kage / akatsuki / @advisor)</i>"]
+
+    NodeReview -->|"gateVerdict === 'pass'"| NodeComplete
+    NodeReview -->|"gateVerdict === 'pending_signoff'"| GatePause2(["__end__ — Gate 2<br/>(pending_human_signoff)"])
+    NodeReview -->|"remediate / unknown verdict"| NodeRemediate["node_remediate<br/><i>(anbu / jonin)</i>"]
+    NodeRemediate -->|"default"| NodeDispatch
+
+    NodeClassify -.->|"error"| NodeError["node_error"]
+    NodePlan -.->|"error"| NodeError
+    NodeBrief -.->|"error"| NodeError
+    NodeTodo -.->|"error"| NodeError
+    NodeDispatch -.->|"error"| NodeError
+    NodeExecute -.->|"error"| NodeError
+    NodeReview -.->|"error / circuitOpen"| NodeError
+    NodeRemediate -.->|"error / circuitOpen"| NodeError
+
+    NodeClassify -.->|"budgetExceeded"| NodeBudget["node_budget_exceeded"]
+    NodeDispatch -.->|"budgetExceeded"| NodeBudget
+    NodeExecute -.->|"budgetExceeded"| NodeBudget
+    NodeReview -.->|"budgetExceeded"| NodeBudget
+    NodeRemediate -.->|"budgetExceeded"| NodeBudget
+
+    NodeComplete --> End([__end__])
+    NodeBudget --> End
+    NodeError --> End
+
     classDef graphNode fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
     classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
     classDef terminal fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
-    class NodeRoute,NodeExplore,NodePlan,NodeResearch,NodeExecute,NodeDocument,NodeReview,NodeRemediation,NodeSynthesize,NodeFastTrack,NodeFailClosed graphNode;
-    BranchRoute,Gate1Interrupt,BranchResearch,BranchTasks,BranchReview,Gate2Interrupt decision;
-    Start,End terminal;
+    class NodeClassify,NodePlan,NodeBrief,NodeTodo,NodeDispatch,NodeExecute,NodeReview,NodeRemediate,NodeComplete,NodeBudget,NodeError,ResumeNode graphNode;
+    class EntryRouter decision;
+    class Start,End,GatePause1,GatePause2 terminal;
 ```
 
-#### Graph State Schema (`KonohaSDLCState`)
-The state channels must strictly reflect existing properties:
-```typescript
-interface KonohaSDLCState {
-  task_id: string;
-  project_path: string;
-  session_id: string;
-  client: string;
-  prompt: string;
-  phase: 'route' | 'explore' | 'plan' | 'research' | 'execute' | 'document' | 'review' | 'synthesize' | 'done';
-  tasks: Array<{ id: string; agent: string; task: string; status: 'pending' | 'in_progress' | 'completed' | 'failed' }>;
-  findings: string;
-  plan: string;
-  needs_research: boolean;
-  research_evidence: string;
-  validation_evidence: Array<{ command: string; exit_code: number; errors: number; warnings: number; timestamp: string }>;
-  final_docs: string;
-  review: { approved: boolean; ai_slop_clean: boolean; ai_slop_findings: number; akatsuki_reviewed: boolean; confidence: number };
-  hitl_gate: 'pending_plan_approval' | 'pending_human_signoff' | null;
-  slop_cycles: number;
-  report: string;
-  error?: string;
-}
+Budget edges are present only where the router in `src/mcp/langgraph/edges/router.js` declares `node_budget_exceeded`; `node_brief`, `node_todo`, and `node_plan` declare it too, and are omitted from the dashed set above only to keep the diagram readable.
+
+#### Graph State Schema (`KonohaWorkflowState`)
+The real state channels are declared in `src/mcp/langgraph/state.js` as a LangGraph annotation object. The runtime keys the routers read are:
+```text
+taskDir, threadId, turnIndex, turnTokensUsed, tokenBudget,
+phase ('route' | 'executing' | 'document' | 'review' | 'done' | 'error'),
+intent, invocationMode, isFastTrack, hitlPending, hitlStage,
+gateVerdict ('pass' | 'remediate' | 'pending_signoff' | 'circuit_open'),
+circuitOpen, budgetExceeded, error, resumeNode, autoSignoff, report
 ```
 
 #### Node Specification & Mapping Matrix
 
-| Existing Stage (`workflow_runner.js`) | LangGraph Node Name | Agent Owner | State Inputs | State Outputs / Mutations | Transition Edge / Condition |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `route` | `node_route` | `sannin` | `prompt`, `project_path`, `session_id`, `client` | `task_id`, `phase: 'explore'` | Conditional edge: if fast-track target -> `node_fast_track`; else -> `node_explore`. |
-| `explore` | `node_explore` | `genin` | `prompt`, `project_path` | `findings`, `phase: 'plan'` | Direct edge -> `node_plan`. |
-| `plan` | `node_plan` | `kage` | `findings`, `prompt`, `project_path` | `plan`, `tasks`, `needs_research`, `hitl_gate: 'pending_plan_approval'` | Direct edge -> `gate_plan_approval`. |
-| `plan_approval` (Gate 1) | `gate_plan_approval` | HITL (User) | `plan`, `tasks`, human input `{ choice, refinement }` | `plan_approved: true`, `hitl_gate: null` | `interrupt()` boundary. Choice 1 & `needs_research` -> `node_research`; Choice 1 & `!needs_research` -> `node_execute`; Choice 2 -> `node_plan`. |
-| `research` | `node_research` | `chunin` | `plan`, `research_query` | `research_evidence`, `phase: 'execute'` | Direct edge -> `node_execute`. |
-| `execute` | `node_execute` | `jonin` / `anbu` | `tasks`, `project_path` | `tasks` (item updated), `validation_evidence` | Loop back to `node_execute` while pending tasks remain; upon completion -> `node_document` (or `node_review` if `slop_cycles > 0`). |
-| `document` | `node_document` | `tokubetsu-jonin` | `plan`, `validation_evidence` | `final_docs`, `document_gate` | If AI risk >= 3.0% and attempts < 3 -> `node_document` (regen); else -> `node_review`. |
-| `review` | `node_review` | `kage`, `akatsuki`, `@advisor` | `validation_evidence`, `changed_files` | `review`, `aislop_gate`, `confidence` | If clean (`approved && ai_slop_clean && akatsuki_reviewed && confidence >= 98.0`) -> `gate_delivery_signoff`; if failed and `slop_cycles < 7` -> `node_remediation`; if `slop_cycles >= 7` -> fail closed. |
-| `remediation` | `node_remediation` | `anbu` / `jonin` | `review.findings` | `slop_cycles: slop_cycles + 1`, `tasks` | Direct edge back to `node_review`. |
-| `delivery_signoff` (Gate 2) | `gate_delivery_signoff` | HITL (User) | `report`, `review`, human input `{ choice, refinement }` | `human_signed_off: true`, `hitl_gate: null` | `interrupt()` boundary. Choice 1 -> `node_synthesize`; Choice 2 -> `node_execute`. |
-| `synthesize` | `node_synthesize` | `sannin` | Full state, artifacts | `report`, `phase: 'done'`, `status: 'completed'` | Direct edge -> `__end__`. |
+| Graph Node (`index.js`) | Agent Owner | Router | Transition Edges/Conditions |
+| :--- | :--- | :--- | :--- |
+| `node_classify` | `sannin` | `classifyRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; `invocationMode`/`intent === 'direct_subagent'` → `node_dispatch`; `isFastTrack` → `node_complete`; else `node_plan`. |
+| `node_plan` | `kage` | `planRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; `hitlPending` → `__end__` (Gate 1 pause); else `node_brief`. |
+| `node_brief` | `sannin` | `briefRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; else `node_todo`. |
+| `node_todo` | `sannin` | `todoRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; else `node_dispatch`. |
+| `node_dispatch` | `sannin` | `dispatchRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; `phase === 'done'` → `node_complete`; else `node_execute`. **This is where the explore/research/document phases are executed by delegated subagents.** |
+| `node_execute` | `jonin` / `anbu` | `executeRouter` | error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; `phase === 'document'` → `node_dispatch`; else `node_review`. |
+| `node_review` | `kage`, `akatsuki`, `@advisor` | `reviewRouter` | `circuitOpen` or `gateVerdict === 'circuit_open'` → `node_error`; error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; `hitlPending` → `__end__` (Gate 2 pause); `pass` → `node_complete`; `remediate` **or any unknown verdict** → `node_remediate` (fail closed). `review.js` returns `node_complete` with `selfResume: true` when signed off in the DB, when `human_signed_off` is set, or when auto-signoff is active. |
+| `node_remediate` | `anbu` / `jonin` | `remediateRouter` | `circuitOpen` → `node_error`; error → `node_error`; `budgetExceeded` → `node_budget_exceeded`; else `node_dispatch`. |
+| `node_complete` | `sannin` | edge | `addEdge` → `__end__`. |
+| `node_budget_exceeded` | governor | edge | `addEdge` → `__end__`; turn pauses, successor persisted in `resumeNode`. |
+| `node_error` | governor | edge | `addEdge` → `__end__`; failed node persisted in `resumeNode`. |
+
+`node_budget_exceeded` and `node_error` are registered **without** `wrapGuardedNode`; the other nine nodes are wrapped. Conditional edges are registered for `__start__` and the seven stateful routers; `node_complete`, `node_budget_exceeded`, and `node_error` use plain edges to `__end__`.
 
 ---
 
@@ -714,8 +736,9 @@ Before any graph-based engine can be introduced beyond research, it must clear n
    - **Test Suite Baseline**: The candidate graph adapter must pass 100% of existing regression and unit test suites (`rtk node tests/run_all.js`, 100% pass across all JavaScript test suites).
 
 2. **Instant Zero-Downtime Rollback Mechanism**:
-   - A runtime configuration switch (`KONOHA_ORCHESTRATOR_ENGINE=procedural`) must exist. If set to `procedural` or unset, the engine executes through the canonical `src/mcp/workflow_runner.js`.
-   - Graph engine activation must require dual explicit opt-in (`KONOHA_ORCHESTRATOR_ENGINE=langgraph` AND `KONOHA_EXPERIMENTAL_GRAPH=1`). Any graph exception, timeout, or schema mismatch must fail closed and fall back immediately to procedural execution.
+   - The documented `KONOHA_ORCHESTRATOR_ENGINE` / `KONOHA_EXPERIMENTAL_GRAPH` dual opt-in switches **do not exist in the current source**; `grep -rn "KONOHA_ORCHESTRATOR_ENGINE\|KONOHA_EXPERIMENTAL_GRAPH" src/ bin/` returns nothing. LangGraph is the only orchestrator engine.
+   - Backward compatibility is provided at the API surface instead: `src/mcp/workflow.js` re-exports the facade functions (`sanninWorkflowInit`, `sanninWorkflowNext`, `sanninWorkflowStatus`, `sanninWorkflowReset`, `runMcpWorkflow`, `runSannin`) over the graph engine.
+   - Do not document an environment-variable rollback until such a switch is implemented and tested.
 
 3. **Lifecycle & Resource Cleanup**:
    - Graph executions must enforce the 30-minute session idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`).
@@ -723,16 +746,17 @@ Before any graph-based engine can be introduced beyond research, it must clear n
 
 ---
 
-### 6. Phase 6: Production Implementation & Checkpointer Architecture (v2.2.18)
+### 6. Phase 6: Production Implementation & Checkpointer Architecture (introduced v2.2.18, current in v2.2.19)
 
-1. **Release v2.2.18 Activation**:
+1. **Production activation (v2.2.18, unchanged in v2.2.19)**:
    - Integrated as the production state-machine orchestrator in `src/mcp/langgraph/`.
    - Backward compatibility preserved via `src/mcp/workflow.js` facade functions (`sanninWorkflowInit`, `sanninWorkflowNext`, `sanninWorkflowStatus`, `sanninWorkflowReset`, `runMcpWorkflow`, `runSannin`).
 2. **Zero-Native Pure Node Checkpointer**:
    - `KonohaCheckpointSaver` implements `BaseCheckpointSaver` on `node:sqlite`, eliminating native C++ dependencies while providing WAL mode, atomic commits, and thread-level state isolation across `lg_checkpoints` and `lg_writes`.
+
 ---
 
-### 7. Turn-Scoped Token Budget & Resumption Protocol (v2.2.18 Amendment)
+### 7. Turn-Scoped Token Budget & Resumption Protocol (introduced v2.2.18, current in v2.2.19)
 
 In v2.2.18, the execution boundary of the token budget governor was re-architected from workflow-scoped termination to strict **turn-scoped progression**. Previously, reaching the token budget ceiling set `budgetExceeded: true` permanently into SQLite checkpoint state, wedging subsequent turns at `node_budget_exceeded`.
 
@@ -804,6 +828,19 @@ flowchart TD
 
     End -.->|Next Turn Invocation<br/>turnTokensUsed: 0<br/>budgetExceeded: false<br/>retains tokenBudget| START
 ```
+
+---
+
+### 🔁 Yamanaka Repair Gates & Refine-Fork Invariants
+
+The Yamanaka 3D graph validates twice — `validate_pre` before Blender refines the base mesh and `validate_post` after. Both gates repair by routing to `repair`, then `build_base` (pre) or back to `validate_post` (post).
+
+| Invariant | Behaviour | Why |
+|---|---|---|
+| Separate repair budgets | `repairAttempts` counts DSL-gate repairs; `postRepairAttempts` counts post-Blender repairs, each capped by `MAX_YAMANAKA_REPAIR_ATTEMPTS` | A shared counter let three DSL repairs exhaust the budget, so a mesh that only failed after refinement was promoted with no repair |
+| Per-stage attempt ordinals | `validation_results.attempt_number` is `repairAttempts + 1` for `pre_blender_base` and `postRepairAttempts + 1` for `post_blender_final` | Rows are unique per `(job_id, validation_stage, attempt_number)`; a shared ordinal collided across stages and across repeated passes |
+| Refine forks bypass the generation profile | All three call sites — `nodeValidatePre`, `nodeRepair`, `nodeValidatePost` — score and persist `state.spec` unchanged when `refineMode` is true, including on the passing branch | `applyGenerationProfile` pads short specs with filler parts and rewrites every node (grounding offset, clearcoat), so a fork would lose the parent composition it is defined to preserve. `applyProfileWithoutPadding` only strips the padding; it still applies those rewrites, so it cannot be used as the fork-safe variant |
+| Built spec is what is persisted | `nodeBuildBaseMesh` writes `dsl_payload_json` from the spec it actually built | The profile pass can add parts during repair, so the spec written at `validate_pre` is not necessarily the one that reached the mesh |
 
 ---
 

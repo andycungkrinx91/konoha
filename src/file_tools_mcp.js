@@ -278,25 +278,48 @@ function handleInitialize(id, params) {
   };
 }
 
+const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+
+// Tool arguments arrive from client adapters that may hand us an object, a JSON
+// string, or a bare prose string. Return { args, error } instead of guessing:
+// delegation tools get their prose wrapped as { task }, everything else gets a
+// precise error so the caller can report invalid_arguments rather than crashing
+// or silently dropping the call.
 function parseToolArguments(toolName, rawArgs) {
-  let args = rawArgs;
-  if (args === undefined || args === null) args = {};
-  if (typeof args === 'string') {
+  if (rawArgs === undefined || rawArgs === null) return { args: {}, error: null };
+  if (typeof rawArgs === 'object' && !Array.isArray(rawArgs)) return { args: rawArgs, error: null };
+  if (typeof rawArgs === 'string') {
+    const trimmed = rawArgs.trim();
+    if (!trimmed) return { args: {}, error: null };
+    let parsed;
     try {
-      args = JSON.parse(args);
-    } catch (_) {
-      const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
-      if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
-        args = { task: args.trim() };
-      }
+      parsed = JSON.parse(trimmed);
+    } catch (err) {
+      if (AGENT_DELEGATION_TOOLS.includes(toolName)) return { args: { task: trimmed }, error: null };
+      return { args: {}, error: `JSON Parse error: ${err.message}` };
     }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return { args: parsed, error: null };
+    return { args: {}, error: `arguments must be a JSON object, got ${Array.isArray(parsed) ? 'array' : typeof parsed}` };
   }
-  return args;
+  return { args: {}, error: `arguments must be a JSON object, got ${typeof rawArgs}` };
 }
 
 function handleToolCall(id, params) {
   const toolName = params.name;
-  const args = parseToolArguments(toolName, params.arguments);
+  const { args, error: argsError } = parseToolArguments(toolName, params.arguments);
+
+  if (argsError) {
+    process.stderr.write(`[mcp ${SERVER_NAME}] invalid arguments for ${toolName}: ${argsError}\n`);
+    return {
+      jsonrpc: "2.0",
+      id,
+      result: {
+        content: [{ type: "text", text: JSON.stringify({ error: 'invalid_arguments', message: argsError, tool: toolName }) }],
+        isError: true,
+      },
+    };
+  }
+
   process.stderr.write(`[mcp ${SERVER_NAME}] tool_call: ${toolName}(${JSON.stringify(args)})\n`);
 
   let text, isError;
@@ -650,4 +673,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handleRequest, SERVER_NAME, SERVER_VERSION, main };
+module.exports = { handleRequest, parseToolArguments, handleToolCall, SERVER_NAME, SERVER_VERSION, main };

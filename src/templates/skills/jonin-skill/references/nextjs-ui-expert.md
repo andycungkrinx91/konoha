@@ -8,10 +8,10 @@ Canonical design system directives and production blueprints for **Next.js 16.3 
 
 ### 1. Dynamic Context-Driven Composition (Astra/Fable Standard)
 - Compose hero stages, section layouts, and interactive surfaces dynamically around the product domain and prompt.
-- Never force a rigid 4-slide hero carousel or bottom-left 10-theme FAB unless requested. Place the brand identity cleanly on the left of the header (`flex items-center justify-between`).
+- Composition, section order, theme count, and navigation pattern come from the 9-field design brief; never reuse a house template. Place the brand identity cleanly on the left of a horizontal header (`flex items-center justify-between`).
 
 ### 2. Adaptive Dark & Light Mode + SSR Hydration Safety
-- Support both **Dark Mode and Light Mode** via semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) and user theme persistence in `localStorage`.
+- Choose the theme strategy from the design brief (single or dual theme) and define semantic color tokens (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) with WCAG AA contrast.
 - Use a strict `useMounted()` guard before accessing `localStorage` or rendering client-only theme state to guarantee **0 hydration mismatch errors**.
 
 ### 3. Motion Choreography (`motion/react`)
@@ -26,121 +26,24 @@ Canonical design system directives and production blueprints for **Next.js 16.3 
 
 ## 🛠️ Canonical Code Blueprints
 
-### Blueprint 1: `app/globals.css` (10 Light Themes Engine)
+### Blueprint 1: `app/globals.css` (Project Token Set)
 
 ```css
 @import "tailwindcss";
 
 @layer base {
-  :root, [data-theme="imperial-gold"] {
-    --theme-primary: #d97706;
-    --theme-primary-hover: #b45309;
-    --theme-secondary: #fef3c7;
-    --theme-accent: #f59e0b;
-    --theme-bg: #fffdfa;
-    --theme-card: #ffffff;
-    --theme-text: #1c1917;
-    --theme-muted: #78716c;
-    --theme-border: #fde68a;
-  }
-  [data-theme="nebula-indigo"] {
+  :root {
+    /* Replace with the project's tokens from the design brief. */
     --theme-primary: #4f46e5;
     --theme-primary-hover: #4338ca;
-    --theme-secondary: #e0e7ff;
-    --theme-accent: #6366f1;
-    --theme-bg: #f8fafc;
-    --theme-card: #ffffff;
-    --theme-text: #0f172a;
-    --theme-muted: #64748b;
-    --theme-border: #cbd5e1;
-  }
-  [data-theme="aurora-emerald"] {
-    --theme-primary: #059669;
-    --theme-primary-hover: #047857;
-    --theme-secondary: #d1fae5;
-    --theme-accent: #10b981;
-    --theme-bg: #f0fdf4;
-    --theme-card: #ffffff;
-    --theme-text: #064e3b;
-    --theme-muted: #047857;
-    --theme-border: #a7f3d0;
-  }
-  [data-theme="sunset-amber"] {
-    --theme-primary: #ea580c;
-    --theme-primary-hover: #c2410c;
-    --theme-secondary: #ffedd5;
-    --theme-accent: #f97316;
-    --theme-bg: #fffaf5;
-    --theme-card: #ffffff;
-    --theme-text: #27272a;
-    --theme-muted: #71717a;
-    --theme-border: #fed7aa;
-  }
-  [data-theme="ocean-sapphire"] {
-    --theme-primary: #0284c7;
-    --theme-primary-hover: #0369a1;
-    --theme-secondary: #e0f2fe;
-    --theme-accent: #38bdf8;
-    --theme-bg: #f8fafc;
-    --theme-card: #ffffff;
-    --theme-text: #0f172a;
-    --theme-muted: #64748b;
-    --theme-border: #bae6fd;
-  }
-  [data-theme="forest-jade"] {
-    --theme-primary: #15803d;
-    --theme-primary-hover: #166534;
-    --theme-secondary: #dcfce7;
-    --theme-accent: #22c55e;
-    --theme-bg: #f0fdf4;
-    --theme-card: #ffffff;
-    --theme-text: #14532d;
-    --theme-muted: #15803d;
-    --theme-border: #bbf7d0;
-  }
-  [data-theme="volcano-crimson"] {
-    --theme-primary: #dc2626;
-    --theme-primary-hover: #b91c1c;
-    --theme-secondary: #fee2e2;
-    --theme-accent: #ef4444;
-    --theme-bg: #fff5f5;
-    --theme-card: #ffffff;
-    --theme-text: #1f2937;
-    --theme-muted: #6b7280;
-    --theme-border: #fecaca;
-  }
-  [data-theme="sakura-rose"] {
-    --theme-primary: #db2777;
-    --theme-primary-hover: #be185d;
-    --theme-secondary: #fce7f3;
-    --theme-accent: #ec4899;
-    --theme-bg: #fdf2f8;
-    --theme-card: #ffffff;
-    --theme-text: #374151;
-    --theme-muted: #6b7280;
-    --theme-border: #fbcfe8;
-  }
-  [data-theme="cyber-violet"] {
-    --theme-primary: #7c3aed;
-    --theme-primary-hover: #6d28d9;
-    --theme-secondary: #ede9fe;
-    --theme-accent: #8b5cf6;
-    --theme-bg: #faf5ff;
-    --theme-card: #ffffff;
-    --theme-text: #1e1b4b;
-    --theme-muted: #6b7280;
-    --theme-border: #ddd6fe;
-  }
-  [data-theme="midnight-slate"] {
-    --theme-primary: #334155;
-    --theme-primary-hover: #1e293b;
-    --theme-secondary: #f1f5f9;
-    --theme-accent: #475569;
+    --theme-secondary: #eef2ff;
+    --theme-accent: #06b6d4;
     --theme-bg: #ffffff;
     --theme-card: #ffffff;
     --theme-text: #0f172a;
     --theme-muted: #64748b;
     --theme-border: #e2e8f0;
+    /* Add [data-theme="..."] overrides ONLY when the brief defines multiple themes. */
   }
 }
 
@@ -154,114 +57,7 @@ body {
 
 ---
 
-### Blueprint 2: `components/ThemeSwitcher.tsx` (Hydration-Safe FAB Modal)
-
-```tsx
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { Palette, Check, X } from '@phosphor-icons/react/dist/ssr';
-
-export const THEMES = [
-  { id: 'imperial-gold', name: 'Imperial Gold', primary: '#d97706', bg: '#fffdfa' },
-  { id: 'nebula-indigo', name: 'Nebula Indigo', primary: '#4f46e5', bg: '#f8fafc' },
-  { id: 'aurora-emerald', name: 'Aurora Emerald', primary: '#059669', bg: '#f0fdf4' },
-  { id: 'sunset-amber', name: 'Sunset Amber', primary: '#ea580c', bg: '#fffaf5' },
-  { id: 'ocean-sapphire', name: 'Ocean Sapphire', primary: '#0284c7', bg: '#f8fafc' },
-  { id: 'forest-jade', name: 'Forest Jade', primary: '#15803d', bg: '#f0fdf4' },
-  { id: 'volcano-crimson', name: 'Volcano Crimson', primary: '#dc2626', bg: '#fff5f5' },
-  { id: 'sakura-rose', name: 'Sakura Rose', primary: '#db2777', bg: '#fdf2f8' },
-  { id: 'cyber-violet', name: 'Cyber Violet', primary: '#7c3aed', bg: '#faf5ff' },
-  { id: 'midnight-slate', name: 'Midnight Slate', primary: '#334155', bg: '#ffffff' },
-] as const;
-
-export function ThemeSwitcher() {
-  const [mounted, setMounted] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<string>('imperial-gold');
-
-  useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem('konoha-theme') || 'imperial-gold';
-    setCurrentTheme(saved);
-    document.documentElement.setAttribute('data-theme', saved);
-  }, []);
-
-  const selectTheme = (themeId: string) => {
-    setCurrentTheme(themeId);
-    document.documentElement.setAttribute('data-theme', themeId);
-    localStorage.setItem('konoha-theme', themeId);
-    setIsOpen(false);
-  };
-
-  if (!mounted) return null;
-
-  return (
-    <>
-      {/* Floating Bottom-Left Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Open theme switcher"
-        className="fixed bottom-6 left-6 z-50 flex h-13 w-13 items-center justify-center rounded-full bg-[var(--theme-primary)] text-white shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200 border-2 border-white/80 cursor-pointer"
-      >
-        <Palette className="h-6 w-6" />
-      </button>
-
-      {/* Theme Selection Modal Popup */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-start p-4 sm:p-6 bg-black/30 backdrop-blur-xs">
-          <div 
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-[var(--theme-border)] animate-in fade-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-[var(--theme-primary)]" />
-                <h3 className="font-semibold text-gray-900 text-sm">Light Mode Themes</h3>
-              </div>
-              <button 
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-4 max-h-[60vh] overflow-y-auto">
-              {THEMES.map((theme) => {
-                const isActive = currentTheme === theme.id;
-                return (
-                  <button
-                    key={theme.id}
-                    onClick={() => selectTheme(theme.id)}
-                    className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left text-xs font-medium transition-all border ${
-                      isActive 
-                        ? 'border-[var(--theme-primary)] bg-[var(--theme-secondary)] text-[var(--theme-text)] font-semibold shadow-xs' 
-                        : 'border-gray-200 bg-gray-50/50 hover:bg-gray-100/70 text-gray-700'
-                    }`}
-                  >
-                    <span 
-                      className="h-4 w-4 rounded-full border border-black/10 shrink-0 flex items-center justify-center"
-                      style={{ backgroundColor: theme.primary }}
-                    >
-                      {isActive && <Check className="h-2.5 w-2.5 text-white stroke-[3]" />}
-                    </span>
-                    <span className="truncate">{theme.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-```
-
----
-
-### Blueprint 3: `components/DashboardShell.tsx` & `DashboardSidebar.tsx` (Admin & Infra Dashboard)
+### Blueprint 2: `components/DashboardShell.tsx` & `DashboardSidebar.tsx` (Admin & Infra Dashboard)
 
 ```tsx
 'use client';
@@ -368,7 +164,7 @@ export function DashboardHeader({ title }: { title: string }) {
 
 ---
 
-### Blueprint 4: `components/MetricWidgets.tsx` (SSR-Safe KPI Cards & Pure SVG Area Chart)
+### Blueprint 3: `components/MetricWidgets.tsx` (SSR-Safe KPI Cards & Pure SVG Area Chart)
 
 ```tsx
 'use client';
@@ -448,7 +244,7 @@ export function SvgAreaChart({ title, points }: { title: string; points: number[
 
 ---
 
-### Blueprint 5: `components/PortfolioHero.tsx` & `ProjectsBento.tsx` (Portfolio Archetype)
+### Blueprint 4: `components/PortfolioHero.tsx` & `ProjectsBento.tsx` (Portfolio Archetype)
 
 ```tsx
 'use client';

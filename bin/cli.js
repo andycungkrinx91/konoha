@@ -6,6 +6,19 @@ if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
   delete process.env.NO_COLOR;
 }
 
+// src/sqlite_driver.js requires node:sqlite, which only ships with Node 24+.
+// Fail with the actual requirement rather than an opaque MODULE_NOT_FOUND from
+// a runtime module we have not loaded yet.
+const REQUIRED_NODE_MAJOR = 24;
+const nodeMajor = Number(process.versions.node.split('.')[0]);
+if (!Number.isFinite(nodeMajor) || nodeMajor < REQUIRED_NODE_MAJOR) {
+  process.stderr.write(
+    `Konoha requires Node.js >= ${REQUIRED_NODE_MAJOR}.0.0 (found ${process.versions.node}).\n` +
+    `Install Node ${REQUIRED_NODE_MAJOR}: https://nodejs.org/\n`
+  );
+  process.exit(1);
+}
+
 
 /**
  * bin/cli.js — Konoha command-line interface.
@@ -223,10 +236,30 @@ async function dispatchAgentCommand(cmd, cmdArgs) {
   }
 }
 
+function warnInterruptedUpgrade() {
+  // An upgrade writes this marker before replacing the global package and clears
+  // it only after verifying the new version; its presence means the previous
+  // upgrade was killed mid-flight. Advisory only — never blocks a command.
+  try {
+    const markerPath = require('path').join(
+      process.env.HOME || process.env.USERPROFILE || require('os').homedir(),
+      '.konoha', '.upgrade_pending.json'
+    );
+    if (!require('fs').existsSync(markerPath)) return;
+    const marker = JSON.parse(require('fs').readFileSync(markerPath, 'utf8'));
+    process.stderr.write(
+      `Upgrade to ${marker.target || 'a newer version'} was interrupted. ` +
+      `Re-run "konoha upgrade --yes" to finish, or delete ${markerPath} to dismiss this notice.\n`
+    );
+  } catch { /* advisory only */ }
+}
+
 async function main() {
   if (command === undefined) {
     await runSplashScreen();
   }
+
+  warnInterruptedUpgrade();
 
   // Removed synonyms are rejected from argv alone, before any bootstrap, so the
   // error is instant and identical regardless of install state.
@@ -281,9 +314,30 @@ if (require.main === module) {
     })
     .catch(err => {
       closeReadline();
+      if (isUninitializedRuntimeError(err)) {
+        error('Runtime not initialized. Run "konoha init --yes" first.');
+        flushStdStreamsAndExit(1);
+        return;
+      }
       error(`Execution error: ${err.message}`);
       flushStdStreamsAndExit(1);
     });
+}
+
+// A global install ships the CLI but not ~/.konoha. Before `init`, requires of
+// runtime modules fail with MODULE_NOT_FOUND pointing into the runtime root; say
+// what the user should do instead of printing a resolution stack.
+function isUninitializedRuntimeError(err) {
+  if (!err || typeof err.message !== 'string') return false;
+  if (!/Cannot find module/.test(err.message)) return false;
+  const runtimeRoot = require('path').join(
+    process.env.HOME || process.env.USERPROFILE || require('os').homedir(),
+    '.konoha'
+  );
+  // Node's MODULE_NOT_FOUND text uses forward slashes even on Windows, while
+  // path.join produces backslashes there, so compare on separators normalized to /.
+  const normalize = (value) => value.replace(/\\/g, '/');
+  return normalize(err.message).includes(normalize(runtimeRoot));
 }
 
 module.exports = {

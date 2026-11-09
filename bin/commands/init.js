@@ -47,7 +47,7 @@ const {
 const { purgePackageCaches } = require('../lib/runtime_mcp');
 const {
   installUv,
-  installAgentBrowser,
+  installAgentBrowserDetailed,
   refreshSemblePackage
 } = require('../lib/extension');
 const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
@@ -118,10 +118,13 @@ function checkNodeAndToolchains(options, args) {
   }
 
   const spinner1c = startSpinner('Checking agent-browser CLI...');
-  let abInstalled = installAgentBrowser(true);
-  if (!abInstalled) abInstalled = installAgentBrowser(false);
-  if (abInstalled) spinner1c.success('agent-browser CLI is ready.');
-  else spinner1c.warn('agent-browser not found — optional for browser automation.');
+  let ab = installAgentBrowserDetailed(true);
+  if (!ab.ok) ab = installAgentBrowserDetailed(false);
+  if (ab.ok) {
+    spinner1c.success(`agent-browser CLI ready (${ab.via}).`);
+  } else {
+    spinner1c.warn(`QA blocked: agent-browser unavailable (${ab.reason}). Install with: npm i -g agent-browser@0.3.1`);
+  }
 
   if (args.includes('--force')) {
     const sembleRefresh = refreshSemblePackage(true);

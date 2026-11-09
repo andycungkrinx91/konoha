@@ -115,7 +115,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: Core Multi-Agent MCP SDLC 8-Phase Lifecycle & Akatsuki Security Gate
+title: Core Multi-Agent MCP SDLC Lifecycle, LangGraph Nodes & Akatsuki Security Gate
 config:
   theme: base
   themeVariables:
@@ -138,25 +138,26 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin &amp; LangGraph StateGraph)<br/>• LangGraph.js Production Orchestrator<br/>• Per-Turn Budget Governor (8k default)<br/>• Node Guard &amp; Circuit Breaker"]
-    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Structured report_from_agent payload"]
-    Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate contracted task checklist<br/>• Register tasks in sdlc_tasks"]
+    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE — node_classify (✧ Sannin &amp; LangGraph StateGraph)<br/>• LangGraph.js Production Orchestrator<br/>• Per-Turn Budget Governor (8k default)<br/>• Node Guard &amp; Circuit Breaker"]
+    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin, inside node_dispatch)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Structured report_from_agent payload"]
+    Phase1 --> Phase2["Phase 2: PLAN — node_plan (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate contracted task checklist<br/>• Register tasks in sdlc_tasks"]
 
-    Phase2 --> Gate1["GATE 1: PLAN APPROVAL<br/>• Authoritative pending_plan_approval<br/>• Compact &amp; approve / Reject &amp; Refine"]
+    Phase2 --> Gate1["GATE 1: PLAN APPROVAL — node_plan returns __end__<br/>• Authoritative pending_plan_approval<br/>• Compact &amp; approve / Reject &amp; Regenerate"]
     Gate1 --> CheckResearch{"External Intel<br/>Required?"}
     CheckResearch -- "needs_research: true" --> Phase2b["Phase 2b: RESEARCH (▫ Chunin)<br/>• Web search &amp; official doc extraction<br/>• Return citations via structured report"]
-    Phase2b --> Phase2
+    Phase2b --> Gate2A["Phase 3a: BRIEF — node_brief · Phase 3b: TODO — node_todo"]
     CheckResearch -- "needs_replan: true" --> Phase2
-    CheckResearch -- "Approved to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Planner-marked parallel fan-out (parallel_group, cap 8)<br/>• Barrier synchronization on completed dispatches<br/>• Jonin: UI · Anbu: Backend/DevOps/QA<br/>• Framework build &amp; validation commands"]
+    CheckResearch -- "Approved to execute" --> Gate2A
+    Gate2A --> Phase3["Phase 3c: EXECUTE — node_dispatch / node_execute (♦ Jonin / ♠ Anbu)<br/>• node_dispatch delegates, node_execute runs edits<br/>• Jonin: UI · Anbu: Backend/DevOps/QA<br/>• Framework build &amp; validation commands"]
 
-    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Return documentation deliverables<br/>• AI detection threshold &lt; 3.0%"]
-    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage review_node, 🛡️ Akatsuki &amp; @advisor)<br/>• LangGraph review_node &amp; runAislopGate (100/100)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
+    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin, phase === 'document' loops back to node_dispatch)<br/>• Return documentation deliverables<br/>• AI detection threshold &lt; 3.0%"]
+    Phase4 --> Phase5["Phase 5: REVIEW — node_review (◎ Kage, 🛡️ Akatsuki &amp; @advisor)<br/>• LangGraph node_review &amp; runAislopGate (100/100)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
 
     Phase5 --> CheckReview{"Security, Slop &amp; Confidence<br/>Review Approved?"}
-    CheckReview -- "Approved (≥ 98% Conf, Security Cleared &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence<br/>• GATE 2: Delivery Sign-Off (pending_human_signoff)"]
+    CheckReview -- "gateVerdict: pass → node_complete" --> Phase6["Phase 6: COMPLETE / SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• GATE 2 pause point: node_review returns __end__ with pending_human_signoff<br/>• Resume at node_review to consume the human decision"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
-    CheckReview -- "Security Flaw / Slop / Advisor Reject" --> Remediation["LangGraph remediate_node Remediation Loop<br/>• Convert findings &amp; feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Error edge routing to node_error on cap exceed<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
+    CheckReview -- "gateVerdict: remediate (or unknown)" --> Remediation["node_remediate Remediation Loop<br/>• Convert findings &amp; feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Error edge routing to node_error on cap exceed<br/>• Returns to node_dispatch, not node_execute"]
     Remediation --> Phase3
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -168,8 +169,8 @@ flowchart TD
     classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
 
     class Init,Phase0,Phase7 routeNode;
-    class Phase1,Phase2,Phase2b,Phase3,Phase4,Phase6 executeNode;
-    class Phase5,CheckReview,CheckResearch reviewNode;
+    class Phase1,Phase2,Phase2b,Gate2A,Phase3,Phase4,Phase6 executeNode;
+    class Phase5,CheckReview,CheckResearch,Gate1 reviewNode;
     class Remediation failNode;
 ```
 
@@ -274,18 +275,18 @@ flowchart TD
 
     Step2 --> Step3["Step 3: Framework-Native CLI Scaffolding<br/>• Next.js: pnpm create next-app@latest<br/>• Nuxt: pnpm dlx nuxi@latest init<br/>• Angular: pnpm dlx @angular/cli@latest new<br/>• SvelteKit: pnpm dlx sv create"]
 
-    subgraph MandatoryInvariants ["Mandatory Konoha Layout Invariants"]
-        I1["Brand Logo Far-Left<br/>(Never centered; actions on right)"]
-        I2["Zero Mobile Header Toggle<br/>(No broken hamburger menu)"]
-        I3["Archetype-Adaptive Mobile Dock<br/>(Fixed bottom navigation bar)"]
-        I4["Fixed Left Sidebar (Desktop)<br/>(Dashboard / Admin / Infra builds)"]
-        I5["Floating Theme Picker Modal<br/>(Bottom-right FAB, 10 palettes × Light/Dark)"]
-        I6["Hero Banner Carousel<br/>(4+ HD slides, 5000ms autoplay)"]
+    subgraph MandatoryInvariants ["Project-Specific Design Invariants"]
+        I1["Design Brief Authored First<br/>(9 fields, domain-derived)"]
+        I2["Navigation Pattern From The Brief<br/>(menu / inline / bar / dock)"]
+        I3["Theme Strategy From The Brief<br/>(single or dual)"]
+        I4["Composition From IA<br/>(no fixed sections or archetype list)"]
+        I5["Anti-Template Gate<br/>(no unrequested commerce/SaaS blocks)"]
+        I6["Konoha Signature<br/>(generator meta + footer)"]
         I7["Mandatory package.json Scripts<br/>('build', 'lint', 'start', 'check')"]
     end
 
     Step3 --> MandatoryInvariants
-    MandatoryInvariants --> Step4["Step 4: Elite Implementation (♦ Jonin)<br/>• Semantic Tailwind CSS v4 styling<br/>• Reduced-motion accessible transitions<br/>• Pure Light Mode fidelity"]
+    MandatoryInvariants --> Step4["Step 4: Elite Implementation (♦ Jonin)<br/>• Project tokens from the design brief<br/>• Reduced-motion accessible transitions<br/>• Brief-derived art direction"]
 
     Step4 --> Step5["Step 5: Framework Validation Suite<br/>• pnpm run build ──► 0 Errors<br/>• pnpm run lint  ──► 0 Warnings<br/>• pnpm run check ──► Clean"]
 
@@ -1023,7 +1024,9 @@ flowchart TB
 
         ModeBranch -- "Mode: RED (Offensive Sandbox)" --> AuthGate{"Written RoE Authorization Check<br/>(Scope, Emergency Cutoff, Consent)"}
         AuthGate -- "Missing / Ambiguous" --> AuthDenied["BLOCKED: Decline Fail-Closed<br/>('Red-Team operations require authorization')"]
-        AuthGate -- "Authorized &amp; Confirmed" --> AutoProvision["Automated Sandbox Provisioning<br/>(Idempotent Lab Setup Engine)"]
+        AuthGate -- "Authorized &amp; Confirmed" --> SkillIdentityGate{"Caller Identity == @akatsuki?<br/>(skill_authorization.js)"}
+        SkillIdentityGate -- "No / Anonymous" --> SkillDenied["BLOCKED: SKILL_AUTHORIZATION_DENIED<br/>Discovery, retrieval, dispatch &amp; delegation<br/>all fail closed"]
+        SkillIdentityGate -- "Yes" --> AutoProvision["Automated Sandbox Provisioning<br/>(Idempotent Lab Setup Engine)"]
     end
 
     subgraph SandboxLifecycle ["Isolated Sandbox Execution (akatsuki-lab)"]
@@ -1038,12 +1041,13 @@ flowchart TB
     end
 
     subgraph ToolingGuard ["Approved Tool Execution & Persona Boundary"]
-        SandboxReady --> ToolDispatch["Approved 10-Tool Sandbox Execution<br/>nmap · tshark · metasploit · zap · nuclei<br/>ffuf · sqlmap · testssl · trivy · curl_probe"]
+        SandboxReady --> LabDb["Lab-local SQLite · ~/.konoha/akatsuki-lab/lab.db<br/>lab_runs · lab_tool_invocations · kali_tools · red_skill_audit<br/>(main konoha.db never touched; LAB_DB_ISOLATION_VIOLATION on cross-path)"]
+        LabDb --> ToolDispatch["Approved 10-Tool Sandbox Execution<br/>nmap · tshark · metasploit · zap · nuclei<br/>ffuf · sqlmap · testssl · trivy · curl_probe"]
         ToolDispatch --> EvidenceCollection["Structured Evidence Archival<br/>• Output XML / JSON / Logs to /tmp/akatsuki_*<br/>• Diagnostic Cleanup After Probe Execution"]
         EvidenceCollection --> GateHandoff["Handoff to Phase 8 Security Review Gate<br/>• Zero Critical &amp; High Findings<br/>• Remediation Patch Synthesis"]
 
         NonAkatsuki["Non-Akatsuki Agent Delegation<br/>(@genin, @anbu, @jonin, @chunin, @kage)"] --> PersonaCheck{"Offensive Skill Requested?"}
-        PersonaCheck -- "Yes (isOffensiveSkill)" --> PersonaDenied["DENIED: Access restricted to @akatsuki<br/>(Offensive skills blocked fail-closed)"]
+        PersonaCheck -- "Yes (classifySkill → red)" --> PersonaDenied["DENIED: SKILL_AUTHORIZATION_DENIED<br/>(red skills are @akatsuki-only, fail-closed)"]
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -1061,10 +1065,10 @@ flowchart TB
 
     class Operator,CLICommand,StatusCheck cliNode;
     class BlueOps,BlueStopLab blueNode;
-    class SetMode,SetEnv,AutoProvision,ToolDispatch redNode;
-    class DockerSetup,LXCSetup,SandboxReady,EvidenceCollection sandNode;
+    class SetMode,SetEnv,AutoProvision,ToolDispatch,SkillIdentityGate redNode;
+    class DockerSetup,LXCSetup,SandboxReady,EvidenceCollection,LabDb sandNode;
     class GateHandoff passNode;
-    class AuthDenied,PersonaDenied failNode;
+    class AuthDenied,PersonaDenied,SkillDenied failNode;
 ```
 
 
@@ -1074,7 +1078,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: LangGraph.js Production State Graph, Per-Turn Budget Governor & Circuit Breaker Error Edge (v2.2.18)
+title: LangGraph.js Production State Graph, Per-Turn Budget Governor & Circuit Breaker Error Edge (v2.2.19)
 config:
   theme: base
   themeVariables:
@@ -1097,51 +1101,63 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    StartGraph([__start__]) --> ClassifyNode[classify_intent]
-    
-    ClassifyNode -- "Fast-Track Intent" --> CompleteNode[complete_node]
-    ClassifyNode -- "Standard Workflow" --> PlanNode[plan_node]
-    
-    PlanNode --> BriefNode[brief_node]
-    BriefNode --> TodoNode[todo_node]
-    TodoNode --> DispatchNode[dispatch_node]
-    
-    DispatchNode --> ExecuteNode[execute_node]
-    
-    ExecuteNode -- "Has More Tasks" --> DispatchNode
-    ExecuteNode -- "Document Phase" --> ReviewNode[review_node]
-    
-    ReviewNode -- "Gate Passed (Conf >= 98% & Slop Clean)" --> CompleteNode
-    ReviewNode -- "Remediation Needed (Cycles <= 7)" --> RemediateNode[remediate_node]
-    ReviewNode -- "Remediation Cap Exceeded (Cycles > 7)" --> ErrorNode[node_error]
-    
-    RemediateNode --> ExecuteNode
-    
-    ClassifyNode -. "Turn Budget Exceeded" .-> BudgetNode[budget_exceeded]
+    StartGraph([__start__]) --> EntryRouter{"entryRouter<br/>(state.resumeNode)"}
+    EntryRouter -- "resumeNode in RESUMABLE_NODES" --> ResumeTarget["resume at allowlisted node"]
+    EntryRouter -- "unset / not allowlisted" --> ClassifyNode[node_classify]
+
+    ClassifyNode -- "isFastTrack" --> CompleteNode[node_complete]
+    ClassifyNode -- "direct_subagent intent" --> DispatchNode[node_dispatch]
+    ClassifyNode -- "Standard Workflow" --> PlanNode[node_plan]
+
+    PlanNode -- "hitlPending" --> Gate1End(["__end__ — Gate 1<br/>(pending_plan_approval)"])
+    PlanNode -- "approved" --> BriefNode[node_brief]
+    BriefNode --> TodoNode[node_todo]
+    TodoNode --> DispatchNode
+
+    DispatchNode -- "phase === 'done'" --> CompleteNode
+    DispatchNode -- "default" --> ExecuteNode[node_execute]
+
+    ExecuteNode -- "phase === 'document'" --> DispatchNode
+    ExecuteNode -- "default" --> ReviewNode[node_review]
+
+    ReviewNode -- "gateVerdict: pass" --> CompleteNode
+    ReviewNode -- "gateVerdict: pending_signoff" --> Gate2End(["__end__ — Gate 2<br/>(pending_human_signoff)"])
+    ReviewNode -- "gateVerdict: remediate / unknown" --> RemediateNode[node_remediate]
+
+    RemediateNode --> DispatchNode
+
+    ClassifyNode -. "Turn Budget Exceeded" .-> BudgetNode[node_budget_exceeded]
     PlanNode -. "Turn Budget Exceeded" .-> BudgetNode
+    BriefNode -. "Turn Budget Exceeded" .-> BudgetNode
+    TodoNode -. "Turn Budget Exceeded" .-> BudgetNode
     DispatchNode -. "Turn Budget Exceeded" .-> BudgetNode
     ExecuteNode -. "Turn Budget Exceeded" .-> BudgetNode
     ReviewNode -. "Turn Budget Exceeded" .-> BudgetNode
-    
-    ClassifyNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    RemediateNode -. "Turn Budget Exceeded" .-> BudgetNode
+
+    ClassifyNode -. "Unhandled Error / Circuit Open" .-> ErrorNode[node_error]
     PlanNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    BriefNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    TodoNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+    DispatchNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
     ExecuteNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
     ReviewNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
-    
+    RemediateNode -. "Unhandled Error / Circuit Open" .-> ErrorNode
+
     CompleteNode --> EndGraph([__end__])
     BudgetNode --> EndGraph
     ErrorNode --> EndGraph
-    
+
     linkStyle default stroke:#334155,stroke-width:2px;
     classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
     classDef coreNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
     classDef warnNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
     classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
     classDef successNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    
-    class StartGraph,EndGraph startEnd;
-    class ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode coreNode;
-    class BudgetNode,ReviewNode warnNode;
+
+    class StartGraph,EndGraph,Gate1End,Gate2End startEnd;
+    class EntryRouter,ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode coreNode;
+    class BudgetNode,ReviewNode,ResumeTarget warnNode;
     class ErrorNode,RemediateNode errNode;
     class CompleteNode successNode;
 ```
@@ -1153,7 +1169,7 @@ flowchart TD
 
 ```mermaid
 ---
-title: LangGraph.js Turn-Scoped Budget Execution & Resume Loop Protocol (v2.2.18)
+title: LangGraph.js Turn-Scoped Budget Execution & Resume Loop Protocol (v2.2.19)
 config:
   theme: base
   themeVariables:
@@ -1189,24 +1205,37 @@ flowchart TD
     EntryRouter -- "resumeNode = node_complete" --> CompleteNode["node_complete"]
 
     ClassifyNode --> PlanNode
+    ClassifyNode -- "direct_subagent intent" --> DispatchNode
+    ClassifyNode -- "isFastTrack" --> CompleteNode
     PlanNode --> BriefNode
     BriefNode --> TodoNode
     TodoNode --> DispatchNode
     DispatchNode --> ExecuteNode
+    DispatchNode -- "phase === 'done'" --> CompleteNode
     ExecuteNode --> ReviewNode
+    ExecuteNode -- "phase === 'document'" --> DispatchNode
     ReviewNode --> CompleteNode
-    ReviewNode -- "Defect (<98% / slop)" --> RemediateNode
+    ReviewNode -- "gateVerdict: remediate / unknown" --> RemediateNode
+    ReviewNode -- "gateVerdict: pending_signoff" --> Gate2End(["__end__ — Gate 2<br/>(pending_human_signoff)"])
     RemediateNode --> DispatchNode
 
     ClassifyNode -. "Turn Budget Exceeded" .-> BudgetHalt["node_budget_exceeded<br/>(status: paused_budget_exceeded<br/>persists resumeNode: successor<br/>workflow_complete: false)"]
+    PlanNode -. "Turn Budget Exceeded" .-> BudgetHalt
+    BriefNode -. "Turn Budget Exceeded" .-> BudgetHalt
+    TodoNode -. "Turn Budget Exceeded" .-> BudgetHalt
+    DispatchNode -. "Turn Budget Exceeded" .-> BudgetHalt
     ExecuteNode -. "Turn Budget Exceeded" .-> BudgetHalt
     ReviewNode -. "Turn Budget Exceeded" .-> BudgetHalt
+    RemediateNode -. "Turn Budget Exceeded" .-> BudgetHalt
 
     ExecuteNode -. "Node Exception / Breaker Open" .-> ErrorHalt["node_error<br/>(status: error<br/>persists resumeNode: failed node<br/>retryable: true)"]
+    ReviewNode -. "Circuit Open" .-> ErrorHalt
+    RemediateNode -. "Circuit Open" .-> ErrorHalt
 
     BudgetHalt --> EndTurn(["__end__ (Turn Pauses)"])
     ErrorHalt --> EndTurn
     CompleteNode --> EndTurn
+    Gate2End --> EndTurn
 
     EndTurn -. "Subsequent Turn Invocation<br/>turnTokensUsed: 0 · budgetExceeded: false<br/>persisted ceiling preserved" .-> StartTurn
 
@@ -1216,7 +1245,7 @@ flowchart TD
     classDef haltNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
     classDef errorNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
 
-    class StartTurn,EndTurn startNode;
+    class StartTurn,EndTurn,Gate2End startNode;
     class EntryRouter routerNode;
     class ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode,ReviewNode,RemediateNode,CompleteNode activeNode;
     class BudgetHalt haltNode;
@@ -1226,10 +1255,12 @@ flowchart TD
 ### Architectural Guarantees & Operational Lifecycle
 
 1. **Turn vs Workflow Scoping**: Reaching a per-turn token ceiling (8k, 16k, 32k, or 64k) suspends the **current turn** rather than terminating the workflow. The node cursor is cleanly persisted in SQLite checkpoint storage via `resumeNode`.
-2. **Deterministic Resumption Routing**: When the caller resumes via `sannin` or `workflow_gate_choice`, `entryRouter` evaluates `state.resumeNode` against the allowlist `RESUMABLE_NODES` and dispatches directly to the resume point. Earlier nodes are skipped, preserving monotonic progress.
+2. **Deterministic Resumption Routing**: When the caller resumes via `sannin`, `entryRouter` evaluates `state.resumeNode` against the allowlist `RESUMABLE_NODES` and dispatches directly to the resume point. Earlier nodes are skipped, preserving monotonic progress.
 3. **No Caller Overhead**: Resuming turns do not require re-supplying `token_budget` or prior-turn arguments; persisted ceilings survive across turn boundaries automatically.
-4. **Single-Owner Token Metering**: Every node update passes through `finalizeNodeResult` in `src/mcp/langgraph/budget.js`, ensuring unified token estimation and absolute turn accounting.
-5. **Per-Thread Circuit Breaker**: State-machine error edges are guarded by thread-scoped breakers (`workflow:${threadId}`) that trip after 3 consecutive failures, preventing cascade retries while isolating concurrent execution threads.
+4. **Single-Owner Token Metering**: Every node update passes through `finalizeNodeResult` in `src/mcp/langgraph/budget.js`, which computes `tokensUsed`, `turnTokensUsed`, `budgetExceeded`, and `resumeNode` in one place.
+5. **Per-Thread Circuit Breaker**: Error edges are guarded by thread-scoped breakers (`workflow:${threadId}`). When `node_remediate` trips the breaker it sets `gateVerdict = 'circuit_open'`, and `reviewRouter`/`remediateRouter` route to `node_error`. The 3-consecutive-failure trip count and the wiring itself live in the guard/breaker modules; only the routing consequence is asserted here.
+6. **HITL resume is a self-resume**: a Gate pause is produced by `finalizeNodeResult(..., { selfResume: true, selfNode })`, so `resumeNode` names the same node that paused. `node_plan` pauses Gate 1; `node_review` pauses Gate 2. Budget exhaustion instead records the **successor** node.
+7. **Early-exit ordering**: `node_execute` loops back to `node_dispatch` (not to itself) when `phase === 'document'`, and `node_remediate` always returns to `node_dispatch`. The graph never loops `node_execute → node_execute` or `node_remediate → node_review`.
 
 ---
 
@@ -1237,7 +1268,7 @@ flowchart TD
 
 ```mermaid
 ---
-title: Yamanaka Text-to-3D Generation Pipeline & Agentic Blender Refinement (v2.2.18)
+title: Yamanaka Text-to-3D Generation Pipeline & Agentic Blender Refinement (v2.2.19)
 config:
   theme: base
   themeVariables:
@@ -1279,8 +1310,9 @@ flowchart TD
     
     PostValNode -- "scoreSpec Passed (≥98% confidence)" --> PromoteNode["Stage 5: Asset Export<br/>• promote (nodePromoteAsset)<br/>• Watertight GLB export &amp; DB telemetry"]
     
-    PostValNode -- "scoreSpec Defect" --> RepairPost["Repair Loop<br/>• repair (nodeRepair)<br/>• Topology &amp; material adjustment"]
-    RepairPost --> BaseMeshNode
+    PostValNode -- "scoreSpec Defect" --> RepairPost["Repair Loop<br/>• repair_post (nodeRepairFromPostGate)<br/>• marks a post-gate repair"]
+    RepairPost --> RepairRepair["repair (nodeRepair)<br/>• Topology &amp; material adjustment<br/>• charged to postRepairAttempts"]
+    RepairRepair -- "post-gate repair" --> PostValNode
     
     PromoteNode --> EndAsset(["Production 3D Asset<br/>(~/.konoha/3d-output/ &amp; SSE Stream Complete)"])
 
@@ -1302,10 +1334,10 @@ flowchart TD
 
 ### Architectural Guarantees & Operational Lifecycle
 
-1. **5-Stage Pipeline Sequencing**: Text-to-3D strictly executes through Prompt Intake (`init` → `synthesize_dsl`), Manifold Geometry (`build_base`), PBR Shading (`build_base`), Blender Refinement (`refine_blender`), and Asset Export (`promote`).
+1. **14-Node Pipeline Sequencing**: Text-to-3D executes the full LangGraph in `src/workflow/yamanaka/graph.js` — `init` → `refine_request` → (`settle_refine_failure`) → `chunin_search` → `object_brief` → `synthesize_dsl` → `validate_pre` → `build_base` → `refine_blender` → `inspect` → (`fix` back to `build_base`) → `validate_post` → `promote`, with `repair` looping back to `build_base` on a pre-gate scoreSpec defect and back to `validate_post` on a post-gate defect (the post-gate pass is routed through `repair_post` and charged to its own `postRepairAttempts` budget). `settle_refine_failure` and `fix` are conditional branches, not optional extras.
 2. **Watertight Manifold Invariant**: Geometry generated by Manifold-3D is mathematically guaranteed watertight (zero self-intersections, watertight non-manifold edge count = 0) prior to Blender hand-off.
 3. **Agentic 6-Step Blender Processing**: `dcc-mcp-blender` applies deterministic bevel modifiers, smart UV unwrapping, principled PBR BSDF material networks, studio three-point lighting, and export verification.
-4. **11-Row scoreSpec Validation Gate**: `validate_post` enforces enterprise geometric and shading tolerances before promoting staging assets to production (`~/.konoha/3d-output/`).
+4. **11-Row scoreSpec Validation Gate**: `validate_post` enforces Production geometric and shading tolerances before promoting staging assets to production (`~/.konoha/3d-output/`).
 5. **Real-Time Telemetry & Progress Streaming**: SSE endpoint `GET /api/v1/3d/generate/:jobId/stream` emits stage transitions, node timers, and GPU memory utilization to the Web UI in real time.
 
 ---
@@ -1314,7 +1346,7 @@ flowchart TD
 
 ```mermaid
 ---
-title: Yamanaka Image-to-3D Upload, Relief Mesh & Blender Refinement Pipeline (v2.2.18)
+title: Yamanaka Image-to-3D Upload, Relief Mesh & Blender Refinement Pipeline (v2.2.19)
 config:
   theme: base
   themeVariables:
@@ -1355,8 +1387,8 @@ flowchart TD
     
     PostGate -- "Passed (scoreSpec clean)" --> PromoteStage["Stage 5: GLB Export &amp; Promotion<br/>• promote (nodePromoteAsset)<br/>• GLB file write &amp; token telemetry recording"]
     
-    PostGate -- "Defect Detected" --> RepairLoop["Autonomous Repair<br/>• repair (nodeRepair)<br/>• Mesh re-triangulation &amp; UV re-map"]
-    RepairLoop --> BaseGeom
+    PostGate -- "Defect Detected" --> RepairLoop["Autonomous Repair<br/>• repair_post (nodeRepairFromPostGate)<br/>• Mesh re-triangulation &amp; UV re-map"]
+    RepairLoop --> PostGate
     
     PromoteStage --> FinalOutput(["Delivery &amp; Client Telemetry<br/>• Preview PNG + Binary GLB download<br/>• SSE completed event &amp; Recent Assets gallery"])
 

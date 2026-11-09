@@ -3,10 +3,10 @@
 /**
  * 3D Scene Specification Schema & Validation Engine.
  * Supports PBR materials, procedural geometry, CSG hierarchies, and 16 domain archetypes.
- * Backed by enterprise realistic templates from part_library.js.
+ * Backed by production realistic templates from part_library.js.
  */
 
-const { ENTERPRISE_TEMPLATES } = require('./part_library');
+const { PRODUCTION_TEMPLATES } = require('./part_library');
 
 function clamp(val, min, max, fallback) {
   const num = Number(val);
@@ -241,9 +241,9 @@ function createCamera(pos = [0, 1.4, 4.0], fov = 40, target = [0, 1.0, 0]) {
 }
 
 function templateSpec(archetypeKey, name, defaultPoly = 12000) {
-  const nodes = ENTERPRISE_TEMPLATES[archetypeKey] || ENTERPRISE_TEMPLATES['application'];
+  const nodes = PRODUCTION_TEMPLATES[archetypeKey] || PRODUCTION_TEMPLATES['application'];
   return {
-    name: name || `Enterprise${archetypeKey.replace(/[^a-zA-Z0-9]/g, '')}`,
+    name: name || `Production${archetypeKey.replace(/[^a-zA-Z0-9]/g, '')}`,
     archetype: archetypeKey,
     target_polycount: defaultPoly,
     camera: createCamera([0, 1.5, 4.0], 40, [0, 0.8, 0]),

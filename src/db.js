@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { pathToFileURL } = require('url');
 const Database = require('./sqlite_driver');
 
 // Single canonical declaration of DB_PATH.
@@ -46,8 +47,50 @@ function _loadVectorSearchExtension(db) {
  * Opens connection, sets PRAGMA journal_mode=WAL, foreign_keys=ON, busy_timeout=5000,
  * synchronous=NORMAL, and conditionally loads sqlite-vector extension if present and enabled.
  */
+function _applyConnectionPragmas(db) {
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  db.pragma('busy_timeout = 5000');
+  db.pragma('synchronous = NORMAL');
+  return db;
+}
+
+/**
+ * Low-level open without legacy-skill migration and without vector extension loading.
+ * Used by the akatsuki-lab connector (src/workflow/akatsuki/lab_db.js), which owns
+ * its own schema and must never inherit main-DB behaviour.
+ */
+function openRawConnection(dbPath, options = {}) {
+  if (typeof dbPath !== 'string' || !dbPath.trim()) {
+    throw new Error('openRawConnection requires an explicit database path.');
+  }
+  const targetPath = path.normalize(path.resolve(dbPath));
+  // Existing-file-only open: SQLite's mode=rw fails instead of creating, so the
+  // check and the open are one atomic operation (no TOCTOU window). The URL
+  // encoder is required — a raw path containing ? or # would be misparsed and
+  // SQLite would silently create a different file. No directory is created
+  // here: a missing parent simply makes the open fail, which is the point.
+  if (options.fileMustExist) {
+    return _applyConnectionPragmas(
+      new Database(`${pathToFileURL(targetPath).href}?mode=rw`, { uri: true })
+    );
+  }
+  const dir = path.dirname(targetPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return _applyConnectionPragmas(new Database(targetPath));
+}
+
 function getConnection(dbPath = null, loadVector = true) {
   const targetPath = path.normalize(dbPath !== null ? dbPath : currentDbPath);
+
+  if (require('./skill_authorization').isLabDbPath(targetPath)) {
+    const err = new Error('Use lab_db.openLabDb() for lab paths.');
+    err.code = 'LAB_DB_ISOLATION_VIOLATION';
+    throw err;
+  }
+
   const dir = path.dirname(path.resolve(targetPath));
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -56,11 +99,7 @@ function getConnection(dbPath = null, loadVector = true) {
   _migrateLegacySkillsDb(dir, targetPath);
 
   const db = new Database(targetPath);
-
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  db.pragma('busy_timeout = 5000');
-  db.pragma('synchronous = NORMAL');
+  _applyConnectionPragmas(db);
 
   if (loadVector) {
     _loadVectorSearchExtension(db);
@@ -238,6 +277,7 @@ module.exports = {
   backupDatabase,
   getConnection,
   get_connection: getConnection,
+  openRawConnection,
   getDb: getConnection,
   hasFts5Support,
   has_fts5_support: hasFts5Support,

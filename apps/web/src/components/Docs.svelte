@@ -507,7 +507,7 @@
       <section id="crypto" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Crypto Vault &amp; Secret Sanitization</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Enterprise-grade secret management ensures zero plaintext API tokens, bot keys, or credentials exist in databases, logs, or network wire.
+          Production-grade secret management ensures zero plaintext API tokens, bot keys, or credentials exist in databases, logs, or network wire.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">

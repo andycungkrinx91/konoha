@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.19-blue.svg?logo=git&logoColor=white" alt="Release v2.2.18"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.19-blue.svg?logo=git&logoColor=white" alt="Release v2.2.19"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white" alt="Antigravity"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white" alt="Cursor"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white" alt="Claude Code"></a>
@@ -20,7 +20,7 @@
   <a href="README.md"><img src="https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white" alt="Pi (pi.dev)"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/OMP-CLI-0284c7?logo=linux&logoColor=white" alt="OMP"></a>
   <br>
-  <a href="README.md"><img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white" alt="Platform"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Platform-Linux%20verified%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white" alt="Platform"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white" alt="Node.js"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/MCP%20Tools-48%20Canonical-10b981" alt="MCP Tools"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white" alt="Skills Indexed"></a>
@@ -58,7 +58,60 @@
 * **Latest Release:** [v2.2.19](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
 
-* **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-enterprise-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
+* **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-infrastructure-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
+
+### 📐 Mermaid Diagram: Skill Resolution & Token-Bounded Retrieval
+
+<details>
+<summary><b style="display:inline"> Click to expand Skill Discovery, URI Resolution &amp; Token Budget Flow (Mermaid Diagram)</b></summary>
+<br>
+
+```mermaid
+---
+title: Skill Resolution and Token-Bounded Retrieval
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TB
+    Request["Client request<br/>konoha.find_skill / konoha.get_skill"]
+    Request --> Validate{"validateSkillPath<br/>reject backslash · .. · drive letter · absolute · NUL"}
+    Validate -->|Invalid| Reject["{ error: 'invalid_skill_path' }<br/>returned, never thrown"]
+    Validate -->|Valid| Normalize["normalizeLegacySkillName<br/>legacy aliases → canonical skill"]
+    Normalize --> Resolve{"resolveSkillRow<br/>SQLite FTS5 lookup"}
+    Resolve -->|Hit| Visible{"isPathVisible<br/>src/mcp/runtime_state.js"}
+    Resolve -->|Miss| Mirror["findInMirror<br/>path.resolve containment per root"]
+    Mirror --> Roots["Mirror roots<br/>~/.agents/skills · ~/.cursor/skills<br/>~/.claude/skills · ~/.omp/agent/skills · ~/.codex/skills"]
+    Roots --> Sub{"<skill>/<file><br/>or <skill>/references/<file>?"}
+    Sub -->|Short form| RefPath["resolves to <skill>/references/<file>.md<br/>no alias files — tree stays in parity"]
+    Sub -->|Long form| Direct["<skill>/references/<file>.md"]
+    RefPath --> Budget
+    Direct --> Budget
+    Visible --> Budget["Token budget<br/>MAX_MULTI_SKILL_TOTAL_BYTES = 4800<br/>compileSkillDigest · smartTruncate"]
+    Budget --> Serve["Serve to agent<br/>logToolCall telemetry"]
+    Serve --> Recap{"Already served this session?<br/>servedSet.has(normName)"}
+    Recap -->|Yes| Stub["[Active in current session …]<br/>pass { full: true } or section to reload"]
+    Recap -->|No| Done["Full content delivered"]
+```
+
+</details>
 
 ### ✧ Diagram Gallery
 
@@ -197,16 +250,16 @@ flowchart TB
 
 ### Architectural Comparison: The Vibe Coding Dilemma vs. Autonomous Agentic Rigor
 
-| Developer Challenge & Problem | Traditional / Naive Approach | Konoha Enterprise Solution | Key Impact & Metric |
+| Developer Challenge & Problem | Traditional / Naive Approach | Konoha Solution | Key Impact & Metric |
 |:---|:---|:---|:---|
-| **Vibe Coder Career Dilemma**<br>*(Transitioning from casual prompting to enterprise multi-agent engineering)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **Append-Only Client Setup (`konoha init --client=<target\|all>`)**: Turnkey initialization provisioning 9 specialized ninja subagents, 1,027 indexed domain skills, and 48 canonical MCP tools across 8 supported coding clients with automatic backup & restore (`konoha restore --client=<target\|all>`). | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
+| **Vibe Coder Career Dilemma**<br>*(Transitioning from casual prompting to production multi-agent engineering)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable multi-agent systems. | **Append-Only Client Setup (`konoha init --client=<target\|all>`)**: Turnkey initialization provisioning 9 specialized ninja subagents, 1,027 indexed domain skills, and 48 canonical MCP tools across 8 supported coding clients with automatic backup & restore (`konoha restore --client=<target\|all>`). | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
 | **Context Window Flooding & High API Costs** | Dumping entire skill trees, unindexed files, and massive prompt boilerplates at startup (~1.1 MB payload / 800,000+ tokens) or 48.4 KB `use_skills` dumps. | **Compact `use_skills` (`≤ 6,400B`), SQLite FTS5 & Bounded File I/O**: `extractHighDensityCore` caps multi-skill batches at `≤ 6.4 KB` with session deduplication (`[ALREADY_IN_CONTEXT]`); `read_file_range` slices files to exact line spans. | **83%–98% byte-weighted reduction** on core retrieval (see `docs/BENCHMARK.md`); eliminates context bloat and LLM amnesia. |
 | **Terminal Output Noise & Shell Explosion** | Build tools, test runners, and linters dump hundreds of noisy progress bars and logs directly into model context. | **RTK (Rust Token Killer) Global CLI Proxy**: Transparently intercepts terminal commands, compresses noisy outputs, and preserves critical error signals. | **60%–95% terminal output compression**; saves thousands of tokens per command execution. |
 | **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, rigid cookie-cutter templates, broken mobile layouts, and excessive emoji decor. | **Dynamic Jonin + Taste-Skill v2 Frontend Engine**: Astra/Fable-inspired dynamic visual storytelling, first-class Dark & Light Mode, live browser inspection (`live_browser_monitor.js`), auto-generated project frontend maintenance skill, zero emojis, and `Build by konoha` signature. | **100/100 `aislop` scan compliance**; production-grade, bespoke human-crafted aesthetic fidelity. |
 | **Hallucinated Passes, Worker Drift & Merge Conflicts** | Sequential execution bottlenecks, worker agents drifting off-spec or overwriting each other's files, and fake-green test claims. | **Parallel Git Worktrees, Real-Time Idle `@advisor` (`≤ 1k tok/turn`) & Kage 98% Gate**: Independent steps run concurrently in isolated git worktrees; idle `@advisor` interrupts drift on the fly (`0 tokens` when clean); Kage enforces `100/100` aislop + `≥ 98%` confidence. | Genuine parallel multi-agent execution with mechanical drift prevention and zero file collisions. |
 | **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Prompt Queue**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
 | **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens and bot tokens in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & credentials. |
-| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu/Akatsuki Ops**: Integrated MITRE ATT&CK techniques, penetration testing in isolated `akatsuki-lab`, exploit analysis, container hardening, and enterprise defense gates. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
+| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu/Akatsuki Ops**: Integrated MITRE ATT&CK techniques, penetration testing in isolated `akatsuki-lab`, exploit analysis, container hardening, and adversarial defense gates. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
 | **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (retired file-based IPC), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Post-Approval Compaction**: In-memory argument passing, native IDE/CLI TODO & walkthrough sync (`< 3 KB`), and automatic `< 1,500B` context compaction after Gate 1 approval. | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
 | **Fragmented IDE Configuration & Invasive Overwrites** | Destructive `--force --yes` installers that clobber existing user MCP configs or dump duplicate template skill mirrors into repositories. | **Explicit Append-Only `--client` Provisioning & Backup/Restore**: `konoha init --client=<cursor\|claude\|opencode\|omp\|codex\|pi\|antigravity\|commandcode\|all>` appends safely into global/project configs with timestamped backups. | Non-destructive setup across all 8 premier AI coding environments (IDE & CLI). |
 
@@ -345,16 +398,26 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 
 ## 🚀 Quick Start
 
+### ⚡ Three Install Modes
+
+| Mode | Command | What it does |
+|:---|:---|:---|
+| **Persistent global install** | `npm install -g konoha-mcp@latest` | Installs the `konoha` binary on PATH. The package `postinstall` hook only prints guidance — it never runs network calls, installs, or writes to `~` |
+| **In-place upgrade** | `konoha upgrade` (alias `konoha update`) | Reinstalls the global package with the detected package manager (npm/pnpm/yarn) and re-runs the runtime lifecycle. Exits `1` with `Upgrade aborted` when no package manager can install the target |
+| **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry without a persistent install. Never writes a global package |
+
+`npx i -g konoha-mcp` is not valid syntax — use one of the three forms above.
+
 ### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 
 Install Konoha globally from npm, initialize the runtime database, and append configuration for your coding clients one by one (or all at once):
 
 ```bash
 # Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
-npm install -g konoha-mcp
+npm install -g konoha-mcp@latest
 
 # 1. Initialize ~/.konoha runtime & SQLite FTS5 database (zero automatic client config or template skill mirror injection)
-konoha init
+konoha init --yes
 
 # 2. Append Konoha MCP & rules into your AI coding clients (both IDE & CLI, global & project scopes):
 konoha init --client=cursor
@@ -372,12 +435,14 @@ konoha config backup --client=all --scope=all
 konoha config restore --client=cursor --scope=all
 ```
 
-Or run directly without global installation via `npx` / `pnpm dlx`:
+Or run directly without global installation via `npm exec` / `pnpm dlx`:
 
 ```bash
-npx konoha-mcp init
-# or: pnpm dlx konoha-mcp init
+npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
+# or: pnpm dlx konoha-mcp init --yes
 ```
+
+Pre-install requirement: **Node.js ≥ 24.0.0**. `bin/cli.js` refuses to start on older runtimes and prints `Konoha requires Node.js >= 24.0.0 (found <v>)` before any runtime module loads, because `src/sqlite_driver.js` requires `node:sqlite`.
 
 > [!IMPORTANT]
 > **Breaking Changes Notice (Post-v2.1.17)**:
@@ -433,8 +498,8 @@ When installing Konoha, all required Node.js libraries, SQLite FTS5 database sch
 Get Konoha up and running in under 2 minutes:
 
 ```bash
-# 1. Zero-install one-liner via npx (or: pnpm dlx konoha-mcp init)
-npx konoha-mcp init
+# 1. Zero-install one-liner via npm exec (or: pnpm dlx konoha-mcp init)
+npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
 
 # 2. Re-index skills & synchronize vector embeddings (IBM Granite + MS MARCO MiniLM Reranker)
 konoha migrate --clean --rebuild-embeddings
@@ -451,9 +516,10 @@ konoha status
 
 ## 📋 Requirements
 
-- **Node.js** ≥ 24.0.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency)
+- **Node.js** ≥ 24.0.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency). Older runtimes exit 1 with `Konoha requires Node.js >= 24.0.0 (found <v>)`
+- **Package manager for source builds**: `pnpm@12.16.1`, pinned in `package.json#packageManager`
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
-- **Cross-platform**: Linux, macOS, Windows (native and WSL)
+- **Cross-platform**: Linux (verified), macOS (unverified as of 2.2.19), Windows native and WSL (unverified as of 2.2.19)
 <details>
 <summary><h2 style="display:inline">🛠️ CLI Commands & Hard Guardrail Enforcement (v2.0.0) Reference</h2></summary>
 <br>
@@ -463,8 +529,10 @@ konoha status
 To run all commands simply as `konoha <command>`, install the package globally:
 
 ```bash
-npm install -g konoha-mcp
-# or: pnpm add -g konoha-mcp
+npm install -g konoha-mcp@latest
+# or: pnpm add -g konoha-mcp@latest
+# upgrade later in place: konoha upgrade --yes
+# ephemeral trial:        npm exec --yes --package=konoha-mcp@latest -- konoha --version
 ```
 
 Once installed, the following CLI commands are available:
@@ -479,7 +547,7 @@ Once installed, the following CLI commands are available:
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.2.19) and check for updates from npm registry |
-| `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
+| `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim. If no package manager (npm/pnpm/yarn) or the GitHub fallback can install the target, it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and exits 1 without continuing the lifecycle |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
@@ -487,7 +555,7 @@ Once installed, the following CLI commands are available:
 | `konoha data <subcommand>` | Database maintenance operations (`backup [path]`, `rebuild-fts`, `prune --retention <days>`) |
 | `konoha detect-ai <path-file-or-url>` | Website/code AI-fingerprint detector (anonymiz.com-style): scans a site directory, single file, or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
 | `konoha detect-docs <path-or-url>` | Documentation AI-pattern detector: scans markdown/docs for AI-writing clichés, conversational filler, and structural fingerprints |
-| `konoha doctor` | Diagnose environment health, verify `agent-browser` CLI & Chrome binary readiness, and automatically repair missing files |
+| `konoha doctor` | Diagnose environment health, verify `agent-browser` CLI & Chrome binary readiness (reports `QA: BLOCKED` with the resolver reason when unavailable), and automatically repair missing files |
 | `konoha ui <subcommand>` | Optional Web UI lifecycle management (`start`, `stop`, `restart`, `status`, `open`) on port 1404 |
 | `konoha web` | Launch the browser-based Web Configuration UI on port 1404 (Svelte 5 + Vite) |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
@@ -542,6 +610,8 @@ Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDL
 > **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md) · [QA Test Checklist](docs/QA-TEST-CHECKLIST.md)
 
 Konoha implements a token-efficient, bounded QA automation pipeline owned exclusively by `anbu`. By combining `agent-browser` interactive exploration (`snapshot -i -c` taking <500 tokens) with declarative flow specifications (`tests/e2e/flows/*.json`), deterministic `qa_codify` Playwright compilation, and bounded `qa_e2e_run` test execution (<2,000 characters output cap), Konoha achieves **92% token savings** over traditional unconstrained browser trace dumps while completely eliminating fake-green test claims. Working artifacts are directed outside the workspace with automated retention (default 20 newest runs) and managed `.gitignore` isolation in git repositories (opt out via `KONOHA_QA_GITIGNORE=0`).
+
+> **agent-browser availability**: `agent-browser` is a **hard requirement for QA only**. `konoha init` resolves it globally → managed `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, each verified with `--version`. When it cannot run, core install still succeeds and `init` prints `QA blocked: agent-browser unavailable (...)`; `qa_codify` returns `{ error: 'qa_blocked', reason }`. On Linux x64 `agent-browser@0.3.1` publishes **no native binary**, so QA reports `QA blocked:` on this platform — every other Konoha feature is unaffected.
 
 <details>
 <summary><b>📐 View Text-Based Mermaid Source Specification</b></summary>
@@ -632,34 +702,43 @@ Konoha features an autonomous **Remote Access & Telegram Automation Engine** tha
 
 ## 🛰️ Cross-Platform Install
 
-Konoha runs on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
+Konoha targets Linux, macOS, and Windows (native and WSL). As of 2.2.19 only **Linux x64** is verified end-to-end on real hardware; Windows 10/11 and macOS (arm64/x64) are **not yet verified**.
 
 ```bash
-pnpm add --global github:andycungkrinx91/konoha
-konoha init
+# Persistent global install (identical on all platforms)
+npm install -g konoha-mcp@latest
+konoha init --yes
+
+# In-place upgrade of that global install
+konoha upgrade --yes
+
+# Ephemeral, no persistent install
+npm exec --yes --package=konoha-mcp@latest -- konoha --version
 ```
 
 If `konoha` is not found after install:
 - **nvm on Linux/macOS**: `source ~/.nvm/nvm.sh` then `nvm use stable`
-- **nvm-windows**: `nvm use <version>` then `pnpm add --global github:andycungkrinx91/konoha`
-- **Windows without nvm**: Reinstall Node.js from [nodejs.org](https://nodejs.org/) and ensure PATH is set
+- **nvm-windows (PowerShell)**: `nvm use <version>`, then re-run `npm install -g konoha-mcp@latest`
+- **Windows without nvm**: Reinstall Node.js 24+ from [nodejs.org](https://nodejs.org/), open a new PowerShell window so PATH refreshes, and check `where konoha`
+
+A freshly installed package with no runtime yet prints `Runtime not initialized. Run "konoha init --yes" first.` instead of a raw module-not-found stack.
 
 Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md](docs/SETUP-IDE.md), [SETUP-CURSOR.md](docs/SETUP-CURSOR.md), [SETUP-MCP-CLIENTS.md](docs/SETUP-MCP-CLIENTS.md).
 
 ## 💻 Supported Coding Clients Matrix
 
-Konoha natively integrates across **8 premier agentic coding clients** via standardized stdio Model Context Protocol (MCP) transports and tool auto-approval policies:
+Konoha natively integrates across **8 premier agentic coding clients** via standardized stdio Model Context Protocol (MCP) transports and tool auto-approval policies. All rows are verified on **Linux x64** only; Windows 10/11 and macOS were not executed for 2.2.19.
 
 | Coding Client | Platform Support | MCP Configuration Path | PreToolUse Hooks & Guardrails | Status |
 |:---|:---|:---|:---|:---:|
-| **Antigravity** | Linux, macOS, Windows | `~/.gemini/config/mcp_config.json` | `antigravity_tool_sanitize_hook.js` (DENY-3 active) | ✅ Verified |
-| **Cursor** | Linux, macOS, Windows | `~/.cursor/mcp.json` | `cli-config.json` permissions + `hooks.json` bootstrap | ✅ Verified |
-| **Claude Code** | Linux, macOS, Windows | `~/.claude.json` / `~/.claude/` | `konoha-bash-guard.js` PreToolUse hook (`^Bash$`) | ✅ Verified |
-| **OpenCode** | Linux, macOS, Windows | `~/.config/opencode/opencode.json` | `permission.mcp = 'allow'` + native rules | ✅ Verified |
-| **Command Code** | Linux, macOS, Windows | `~/.commandcode/mcp.json` | `konoha-native-blocker-cc.js` PreToolUse hook | ✅ Verified |
-| **Codex** | Linux, macOS, Windows | `~/.codex/config.toml` | TOML MCP server registration + prompt rules | ✅ Verified |
-| **Pi (pi.dev)** | Linux, macOS, Windows | `~/.pi/agent/mcp.json` | `konoha-blocker.ts` TypeScript extension | ✅ Verified |
-| **OMP** | Linux, macOS, Windows | `~/.omp/agent/mcp.json` | Runtime workflow contract with `auto_approve` | ✅ Verified |
+| **Antigravity** | Linux (verified), macOS/Windows (unverified) | `~/.gemini/config/mcp_config.json` | `antigravity_tool_sanitize_hook.js` (DENY-3 active) | ✅ Verified (Linux) |
+| **Cursor** | Linux (verified), macOS/Windows (unverified) | `~/.cursor/mcp.json` | `cli-config.json` permissions + `hooks.json` bootstrap | ✅ Verified (Linux) |
+| **Claude Code** | Linux (verified), macOS/Windows (unverified) | `~/.claude.json` / `~/.claude/` | `konoha-bash-guard.js` PreToolUse hook (`^Bash$`) | ✅ Verified (Linux) |
+| **OpenCode** | Linux (verified), macOS/Windows (unverified) | `~/.config/opencode/opencode.json` | `permission.mcp = 'allow'` + native rules | ✅ Verified (Linux) |
+| **Command Code** | Linux (verified), macOS/Windows (unverified) | `~/.commandcode/mcp.json` | `konoha-native-blocker-cc.js` PreToolUse hook | ✅ Verified (Linux) |
+| **Codex** | Linux (verified), macOS/Windows (unverified) | `~/.codex/config.toml` | TOML MCP server registration + prompt rules | ✅ Verified (Linux) |
+| **Pi (pi.dev)** | Linux (verified), macOS/Windows (unverified) | `~/.pi/agent/mcp.json` | `konoha-blocker.ts` TypeScript extension | ✅ Verified (Linux) |
+| **OMP** | Linux (verified), macOS/Windows (unverified) | `~/.omp/agent/mcp.json` | Runtime workflow contract with `auto_approve` | ✅ Verified (Linux) |
 
 ### RTK (Rust Token Killer)
 
@@ -802,7 +881,7 @@ The Sannin routing workflow tool. Structured arguments are the primary path; `ta
 Executes the specified subagent inline with structured task context, dynamic skill loading, project context, and optional Taste-Skill dials. In normal SDLC workflows, `@akatsuki` acts as the **Blue-Team Security Review Gate** (SAST, secrets leakage audit, dependency CVE verification, and Skill Guardian policy clearance before Kage review). For offensive pentest tasks, Akatsuki executes in isolated unprivileged containers (`akatsuki-lab`).
 
 #### `web_search(query, num_results?, search_depth?)`
-Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically Spawned by `chunin` for deep research.
+Production-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically Spawned by `chunin` for deep research.
 
 #### `website_ai_detector(target)`
 Website AI-fingerprint detector (anonymiz.com-style). Scans a site directory, file, or http(s) URL for generator meta tags, Lucide icon packages, shadcn/ui component shapes, Vercel/Netlify hosting signals, AI-tool attribution comments, scaffold boilerplate, and generic template asset names. Returns a 0-100 score with evidence-backed findings — **0-20 = Human-Built** (the PLAN_HUMAN_BUILT.md target band). Also available as `konoha detect-ai <target> [--json]` and in the Web UI at `/detector`.

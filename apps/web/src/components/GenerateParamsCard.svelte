@@ -25,7 +25,7 @@
     archetypeMode = null,
     enablePbr = $bindable(true),
     archetype = $bindable('auto'),
-    profile = $bindable('enterprise_pbr'),
+    profile = $bindable('production_pbr'),
     archetypes = [],
     profiles = [],
     requestedComputeMode = $bindable('auto'),

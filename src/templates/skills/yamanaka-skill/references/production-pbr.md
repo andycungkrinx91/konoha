@@ -1,4 +1,4 @@
-# Enterprise PBR Physical Material Standards
+# Production PBR Physical Material Standards
 
 ## Zero Roblox Policy
 Yamanaka strictly prohibits blocky R6 rigs, primitive cubes without bevels, and flat-color PBR clamps (`metalness <= 0.25`, `roughness 0.55..0.75`).

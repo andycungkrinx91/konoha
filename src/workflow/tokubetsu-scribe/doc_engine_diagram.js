@@ -155,7 +155,7 @@ async function diagramCreate(options = {}) {
 
   <g transform="translate(60, 40)">
     <text x="0" y="32" font-family="'Inter', sans-serif" font-size="24" font-weight="800" fill="#0F172A">${title}</text>
-    <text x="0" y="56" font-family="'Inter', sans-serif" font-size="13" fill="#64748B">Enterprise Architectural Topology &amp; Automated Pipeline Flow</text>
+    <text x="0" y="56" font-family="'Inter', sans-serif" font-size="13" fill="#64748B">Production Architectural Topology &amp; Automated Pipeline Flow</text>
   </g>
 
   ${edgesSvg}

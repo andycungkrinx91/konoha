@@ -17,8 +17,8 @@ async function documentCreate(options = {}) {
 
   const title = options.title || 'Technical Architecture Specification';
   const subtitle = options.subtitle || 'Operational Standards & Automated Delivery Architecture';
-  const author = options.author || 'Enterprise Architecture Team';
-  const classification = options.classification || 'Enterprise Standard (v1.0.0)';
+  const author = options.author || 'Production Architecture Team';
+  const classification = options.classification || 'Production Standard (v1.0.0)';
   const dateStr = options.date || new Date().toISOString().split('T')[0];
   const compliance = options.compliance || 'Production Verified — Zero AI Artifacts';
   const sections = options.sections || [];

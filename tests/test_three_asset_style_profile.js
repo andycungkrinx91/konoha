@@ -3,7 +3,7 @@
 
 /**
  * tests/test_three_asset_style_profile.js
- * Comprehensive unit tests for Enterprise Realistic PBR style profiles,
+ * Comprehensive unit tests for Production Realistic PBR style profiles,
  * boundary normalizer, and 11-row scoreSpec quality gate.
  */
 
@@ -11,7 +11,7 @@ const assert = require('assert');
 const {
   GENERATION_PROFILES,
   QUALITY_PRESETS,
-  applyEnterpriseProfile,
+  applyGenerationProfile,
   applyStylizedProfile,
   scoreSpec,
   getNodeBounds
@@ -21,9 +21,9 @@ const { createDefaultSceneSpec } = require('../src/mcp/three_asset/spec_schema')
 console.log('Running test_three_asset_style_profile.js...');
 
 // Verify GENERATION_PROFILES definitions (zero Roblox clamps)
-console.log('\n--- 1. Testing Enterprise Profile Definitions ---');
-const ep = GENERATION_PROFILES.enterprise_pbr;
-assert.ok(ep, 'enterprise_pbr profile must exist');
+console.log('\n--- 1. Testing Production Profile Definitions ---');
+const ep = GENERATION_PROFILES.production_pbr;
+assert.ok(ep, 'production_pbr profile must exist');
 assert.strictEqual(ep.metalness[0], 0.0);
 assert.strictEqual(ep.metalness[1], 1.0);
 assert.strictEqual(ep.roughness[0], 0.02);
@@ -31,7 +31,7 @@ assert.strictEqual(ep.roughness[1], 0.96);
 assert.strictEqual(ep.clearcoatMax, 1.0);
 assert.strictEqual(ep.transmissionMax, 1.0);
 assert.strictEqual(ep.maxExtent, 3.0);
-console.log('  ✓ enterprise_pbr profile supports full PBR metalness [0, 1] and roughness [0.02, 0.96].');
+console.log('  ✓ production_pbr profile supports full PBR metalness [0, 1] and roughness [0.02, 0.96].');
 
 // Test clamping and material normalization on degenerate spec
 console.log('\n--- 2. Testing Boundary Normalizer ---');
@@ -54,7 +54,7 @@ const rawSpec = {
   ]
 };
 
-const normalized = applyEnterpriseProfile(rawSpec, 'enterprise_pbr');
+const normalized = applyGenerationProfile(rawSpec, 'production_pbr');
 console.log('  Normalized nodes count:', normalized.nodes.length);
 
 // Sub-threshold tiny part filtered out, padding added to reach >= minParts (6)
@@ -72,7 +72,7 @@ console.log('  ✓ Grounding and node padding verified cleanly.');
 
 // Test 11-Row scoreSpec Quality Gate
 console.log('\n--- 3. Testing 11-Row scoreSpec Output ---');
-const scoreRes = scoreSpec(normalized, { profile: 'enterprise_pbr' });
+const scoreRes = scoreSpec(normalized, { profile: 'production_pbr' });
 
 assert.strictEqual(typeof scoreRes.ok, 'boolean');
 assert.strictEqual(typeof scoreRes.score, 'number');
@@ -105,6 +105,6 @@ console.log('  ✓ Exactly 11 structured ScoreSpecRow objects returned with corr
 console.log('\n--- 4. Testing Backward-Compatibility Aliases ---');
 const legacyNormalized = applyStylizedProfile(rawSpec);
 assert.ok(legacyNormalized.nodes.length >= 6);
-console.log('  ✓ applyStylizedProfile backward-compatible alias functions identical to applyEnterpriseProfile.');
+console.log('  ✓ applyStylizedProfile backward-compatible alias functions identical to applyGenerationProfile.');
 
 console.log('\n✔ All test_three_asset_style_profile assertions passed 100%!\n');

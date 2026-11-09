@@ -13,7 +13,7 @@ async function _renderCoverSlide(slide, sDef, options, theme, pptx) {
       title: sDef.title || pptx.title,
       subtitle: sDef.subtitle || pptx.subject,
       author: options.author || pptx.author,
-      classification: options.classification || 'Enterprise Technical Standard',
+      classification: options.classification || 'Production Technical Standard',
       date: options.date || new Date().toISOString().split('T')[0],
       cover_model: options.cover_model
     }, true);
@@ -59,7 +59,7 @@ function _renderHeaderAndFooter(slide, sDef, slideInfo, themeColors, pptx) {
     });
   });
 
-  slide.addText(`Enterprise Operational Standards   |   Slide ${sIdx + 1} of ${totalSlides}   |   Classification: Production Verified`, {
+  slide.addText(`Production Operational Standards   |   Slide ${sIdx + 1} of ${totalSlides}   |   Classification: Production Verified`, {
     x: 0.8, y: 6.68, w: 11.7, h: 0.25,
     fontSize: 9, color: '94A3B8', fontFace: 'Arial'
   });
@@ -181,10 +181,10 @@ async function presentationCreate(options = {}) {
   const pptx = new PptxGenJS();
 
   pptx.layout = 'LAYOUT_WIDE';
-  pptx.author = options.author || 'Enterprise Architecture Team';
-  pptx.company = options.company || 'Enterprise Engineering';
+  pptx.author = options.author || 'Production Architecture Team';
+  pptx.company = options.company || 'Production Engineering';
   pptx.title = options.title || 'Technical Architecture Presentation';
-  pptx.subject = options.subtitle || options.title || 'Enterprise Operational Standards';
+  pptx.subject = options.subtitle || options.title || 'Production Operational Standards';
 
   const theme = selectGradientTheme(options.theme);
   const themeColors = theme.colors.map((c) => c.replace('#', ''));

@@ -37,7 +37,7 @@ const OUTPUT_DIR = path.resolve(
 
 const SUITE_THEME = process.env.SUITE_THEME || 'random';
 const SUITE_AUTHOR = 'Andy Setiyawan | Principal Infrastructure Architect';
-const SUITE_CLASSIFICATION = 'Enterprise Technical Standard (v1.0.0)';
+const SUITE_CLASSIFICATION = 'Production Technical Standard (v1.0.0)';
 const SUITE_DATE = 'October 2026';
 
 const makeCols = (specs) => specs.map(([header, width, format]) => ({ header, width, format }));
@@ -101,7 +101,7 @@ const SECTIONS = [
     paragraphs: [
       'CAB was dead weight. They ate 71% of our lead time without catching a single production incident. During our 2024 platform audit across 34 EulerOS microservices, lead times collapsed from 48 hours to 126 minutes only after automated branch protection replaced manual manager sign-offs, forcing development squads to own every container release directly. Results proved decisive.',
       'CAMS is practical hygiene. Tools never fix culture. While fast CI runners and automated linter gates eliminate developer fatigue, forcing engineers into Jira ticket queues for approval stamps inevitably causes large, terrifying batch deployments that break checkout fleets on Friday afternoons. We chose automation over paperwork.',
-      'DORA numbers run our reviews. We track four signals relentlessly. When our edge payment gateway experienced intermittent 502 bad gateway spikes due to unoptimized sysctl net.ipv4.tcp_tw_reuse kernel settings, having sub-ten-minute automated rollback pipelines prevented a catastrophic enterprise SLA breach across 18 regional availability zones. Metrics never lie. Speed saves systems.'
+      'DORA numbers run our reviews. We track four signals relentlessly. When our edge payment gateway experienced intermittent 502 bad gateway spikes due to unoptimized sysctl net.ipv4.tcp_tw_reuse kernel settings, having sub-ten-minute automated rollback pipelines prevented a catastrophic production SLA breach across 18 regional availability zones. Metrics never lie. Speed saves systems.'
     ],
     callout: {
       title: 'OPERATIONAL LESSON',
@@ -112,7 +112,7 @@ const SECTIONS = [
   {
     title: 'Source Control Architecture & Trunk-Based Development',
     paragraphs: [
-      'GitFlow failed us. Merging two-week branches triggered 42 nasty conflicts and grounded our staging environment for three straight days. Our enterprise standard now limits branch lifespans to 24 hours, requiring engineers to push verified commits directly into main at least three times per shift to avoid integration pain. Speed demands discipline.',
+      'GitFlow failed us. Merging two-week branches triggered 42 nasty conflicts and grounded our staging environment for three straight days. Our production standard now limits branch lifespans to 24 hours, requiring engineers to push verified commits directly into main at least three times per shift to avoid integration pain. Speed demands discipline.',
       'Hide unfinished code behind flags. Dark deployments decouple artifact delivery from user exposure. By wrapping new EulerOS socket handlers in LaunchDarkly runtime flags, developers merge incomplete work into production safely; if an unexpected memory leak triggers at 02:00 UTC, on-call operators toggle the flag off in 150 milliseconds without restarting pods. Zero rollback drama.',
       'Short diffs review faster. Small PRs under 200 lines pass automated linting in thirty seconds. While massive thousand-line pull requests cause reviewer fatigue and hide subtle security vulnerabilities, concise single-purpose commits allow senior engineers to catch edge-case concurrency bugs during initial peer reviews. Small increments win.'
     ],
@@ -270,7 +270,7 @@ const SPREADSHEET_SHEETS = [
   ),
   makeSheet(
     'Service_SLO_Registry',
-    'ENTERPRISE SERVICE LEVEL OBJECTIVE REGISTRY',
+    'PRODUCTION SERVICE LEVEL OBJECTIVE REGISTRY',
     'Service Classification, Availability Targets, and On-Call Routing',
     ['Service Component', 'Tier Classification', 'Target Availability', 'Monthly Downtime Allowance (Min)', 'Escalation Squad'],
     [
@@ -318,7 +318,7 @@ const PRESENTATION_SLIDES = [
   {
     layout: 'title',
     title: 'DevOps Engineering Principles & Reliability Architecture',
-    subtitle: 'Enterprise Operational Standards & Automated Delivery Architecture'
+    subtitle: 'Production Operational Standards & Automated Delivery Architecture'
   },
   makeCardsSlide('OPERATIONAL METRICS', 'CAMS Model & The Four DORA Metrics', [
     ['VELOCITY', 'Deployment Frequency', '14/day', 'Elite performers deploy multiple times daily, shortening delivery lead times.'],
@@ -478,7 +478,7 @@ async function main() {
       format,
       output_path: path.join(OUTPUT_DIR, `sample.${ext}`),
       title: 'DevOps Engineering: Principles, Pipelines & Site Reliability',
-      subtitle: 'Enterprise Operational Standards & Automated Delivery Architecture',
+      subtitle: 'Production Operational Standards & Automated Delivery Architecture',
       author: SUITE_AUTHOR,
       classification: SUITE_CLASSIFICATION,
       date: SUITE_DATE,
@@ -509,7 +509,7 @@ async function main() {
   await presentationCreate({
     output_path: path.join(OUTPUT_DIR, 'sample.pptx'),
     title: 'DevOps Engineering Principles & Reliability Architecture',
-    subtitle: 'Enterprise Operational Standards & Automated Delivery Architecture',
+    subtitle: 'Production Operational Standards & Automated Delivery Architecture',
     author: SUITE_AUTHOR,
     theme: SUITE_THEME,
     slides: PRESENTATION_SLIDES

@@ -54,8 +54,10 @@ All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 t
 When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), `@jonin` executes a dynamic, context-driven design architecture across all supported frameworks (**Next.js, SvelteKit, Nuxt, Angular**):
 
 ### 1. Dynamic Astra/Fable-Inspired Composition (No Rigid Template)
-- **Context-Driven Layouts**: Every generated interface adapts its hero composition, typography scale, section rhythm, and interactive surfaces to the product domain and brand personality. Never force a fixed 4-slide hero carousel or floating bottom-left 10-theme switcher FAB unless explicitly requested.
-- **Native Dark & Light Mode**: Semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) supporting both Dark Mode and Light Mode cleanly with WCAG AA contrast.
+- **Context-Driven Layouts**: Every generated interface derives hero composition, typography scale, section rhythm, and interactive surfaces from the design brief. There is no fixed hero, carousel, or floating theme-widget preset.
+- **Brief-Derived Design**: `build_from_text`/`build_from_source` return a 9-field `design_brief` (product, industry, audience, primary_objective, user_outcome, information_architecture, interactions, visual_identity, technical_constraints) plus `inferred_domain_hints` across 16 domains. Art direction, IA, navigation pattern, theme count, and motion are derived from that brief — never from a fixed archetype map.
+- **Theme Strategy**: Semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) defined per project with WCAG AA contrast; single or dual theme as the brief decides.
+- **Branding Scope**: Myōboku/Konoha branding applies only to the Konoha Web UI itself, never to generated client projects (which carry only the `Build by konoha` generator meta and footer signature).
 
 ### 2. Optional Figma & OpenDesign Dual-Mode Integration
 - **Mode A (Exported Design Files)**: `build_from_source` ingests mockup images (`.png`, `.jpg`, `.webp`, `.svg`) and design documents (`.fig`, `.pen`, `.json` token exports) with 100% layout fidelity.

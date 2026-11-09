@@ -1732,7 +1732,7 @@
           },
           "classification": {
             "type": "string",
-            "description": "Classification label (e.g. Enterprise Standard)"
+            "description": "Classification label (e.g. Production Standard)"
           },
           "date": {
             "type": "string",

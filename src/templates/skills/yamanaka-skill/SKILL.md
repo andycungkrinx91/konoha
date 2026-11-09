@@ -26,13 +26,13 @@ This skill provides the **Standard Operating Procedures (SOP)** for the **@yaman
 
 ## Core Tenets & Guardrails
 
-1. **Production Enterprise Grade — Zero Hardcoding**:
+1. **Production Production Grade — Zero Hardcoding**:
    - Never hardcode model names (no `ag/gemini-3.8-flash-high`, `gpt-4o`, `claude-3-5-sonnet` literals), ports, paths, or pricing constants.
    - Dynamically discover models via `src/mcp/three_asset/model_router.js` (`discoverAll3DModels()` and `resolveInherited3DModel()`).
 
 2. **Zero Roblox — Pure Physical Realism**:
    - Eradicate blocky R6 rigs, flat-color PBR clamps (`metalness <= 0.25`, `roughness 0.55..0.75`), and primitive cubes.
-   - Use realistic/enterprise `MeshPhysicalMaterial` ranges with micro-chamfer bevels and high-segment curved primitives (`CapsuleGeometry`, `LatheGeometry`, `TubeGeometry`, `ExtrudeGeometry`, `RoundedBoxGeometry`).
+   - Use realistic/production `MeshPhysicalMaterial` ranges with micro-chamfer bevels and high-segment curved primitives (`CapsuleGeometry`, `LatheGeometry`, `TubeGeometry`, `ExtrudeGeometry`, `RoundedBoxGeometry`).
 
 3. **Mandatory Watertight Manifold Validation**:
    - Zero self-intersections and zero non-manifold edges.

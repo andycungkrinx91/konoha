@@ -113,7 +113,7 @@ function evaluateDeliverable(filePath, _options = {}) {
     remediationHints.push(`ZeroGPT sliding-window risk (${zeroGptScore}%) exceeds strict < ${GATE_THRESHOLD}% threshold. Vary paragraph sentence lengths (target CV >= 0.85) to eliminate uniform synthetic cadence.`);
   }
   if (hasWatermark) {
-    remediationHints.push('Remove all embedded watermark elements or stamp text. Enterprise documents must have zero watermarks.');
+    remediationHints.push('Remove all embedded watermark elements or stamp text. Production documents must have zero watermarks.');
   }
   if (hasDarkTheme) {
     remediationHints.push('Enforce pure light mode. Replace dark fills and dark text with pure white/pearl canvas (#FFFFFF/#F8FAFC) and medium slate text (#64748B).');

@@ -335,12 +335,12 @@ for (const page of pageMatches) {
 }
 console.log('  ✓ Zero geometric collisions verified across all 18 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
 
-// Verify Enterprise Architecture Diagram (konoha-enterprise-architecture.drawio)
-const ENTERPRISE_DRAWIO_PATH = path.join(DIAGRAMS_DIR, 'konoha-enterprise-architecture.drawio');
-assert.ok(fs.existsSync(ENTERPRISE_DRAWIO_PATH), 'konoha-enterprise-architecture.drawio must exist');
-const entContent = fs.readFileSync(ENTERPRISE_DRAWIO_PATH, 'utf-8');
-assert.ok(entContent.startsWith('<mxfile'), 'enterprise drawio must start with <mxfile');
-assert.ok(entContent.endsWith('</mxfile>'), 'enterprise drawio must end with </mxfile>');
+// Verify Production Architecture Diagram (konoha-infrastructure-architecture.drawio)
+const INFRA_DRAWIO_PATH = path.join(DIAGRAMS_DIR, 'konoha-infrastructure-architecture.drawio');
+assert.ok(fs.existsSync(INFRA_DRAWIO_PATH), 'konoha-infrastructure-architecture.drawio must exist');
+const entContent = fs.readFileSync(INFRA_DRAWIO_PATH, 'utf-8');
+assert.ok(entContent.startsWith('<mxfile'), 'production drawio must start with <mxfile');
+assert.ok(entContent.endsWith('</mxfile>'), 'production drawio must end with </mxfile>');
 
 const entDiagramRegex = /<diagram\s+id="([^"]+)"\s+name="([^"]+)">([\s\S]*?)<\/diagram>/g;
 const entPages = [];
@@ -352,7 +352,7 @@ while ((entMatch = entDiagramRegex.exec(entContent)) !== null) {
     body: entMatch[3]
   });
 }
-assert.strictEqual(entPages.length, 18, `Expected exactly 18 pages in enterprise drawio, found ${entPages.length}`);
+assert.strictEqual(entPages.length, 18, `Expected exactly 18 pages in production drawio, found ${entPages.length}`);
 
 // Check unique mxCell IDs
 for (const page of entPages) {
@@ -361,7 +361,7 @@ for (const page of entPages) {
   let cMatch;
   while ((cMatch = cellIdRegex.exec(page.body)) !== null) {
     const cellId = cMatch[1];
-    assert.ok(!seenIds.has(cellId), `Duplicate cell ID "${cellId}" in enterprise page "${page.name}"`);
+    assert.ok(!seenIds.has(cellId), `Duplicate cell ID "${cellId}" in production page "${page.name}"`);
     seenIds.add(cellId);
   }
 }
@@ -369,10 +369,10 @@ for (const page of entPages) {
 // Verify official cloud architecture stencils (AWS4 group containers & cloud palettes) are used
 const requiredStencils = ['shape=mxgraph.aws4.group', 'mxgraph.aws4.group_aws_cloud', 'mxgraph.aws4.group_vpc', 'mxgraph.aws4.group_security_group'];
 for (const stencil of requiredStencils) {
-  assert.ok(entContent.includes(stencil), `Enterprise diagram must include cloud stencil: ${stencil}`);
+  assert.ok(entContent.includes(stencil), `Production diagram must include cloud stencil: ${stencil}`);
 }
 
-// Verify zero collisions across all 18 enterprise pages
+// Verify zero collisions across all 18 production pages
 for (const page of entPages) {
   const cells = parsePageGeometry(page.body);
   const vertices = Array.from(cells.values()).filter(c => c.vertex && c.absW > 0 && c.absH > 0);
@@ -404,7 +404,7 @@ for (const page of entPages) {
         if (v.id === e.src.parent || v.id === e.tgt.parent) continue;
         assert.ok(
           !segPenetratesBox(p1, p2, v),
-          `Enterprise Page "${page.name}": Edge "${e.edge.id}" penetrates shape "${v.id}"`
+          `Production Page "${page.name}": Edge "${e.edge.id}" penetrates shape "${v.id}"`
         );
       }
     }
@@ -418,17 +418,60 @@ for (const page of entPages) {
           const p3 = e2.points[s2], p4 = e2.points[s2+1];
           assert.ok(
             !lineIntersects(p1, p2, p3, p4),
-            `Enterprise Page "${page.name}": Edge "${e1.edge.id}" crosses edge "${e2.edge.id}"`
+            `Production Page "${page.name}": Edge "${e1.edge.id}" crosses edge "${e2.edge.id}"`
           );
           assert.ok(
             !lineOverlap(p1, p2, p3, p4),
-            `Enterprise Page "${page.name}": Edge "${e1.edge.id}" overlaps edge "${e2.edge.id}"`
+            `Production Page "${page.name}": Edge "${e1.edge.id}" overlaps edge "${e2.edge.id}"`
           );
         }
       }
     }
   }
 }
-console.log('  ✓ Enterprise architecture diagram verified (18 pages, official AWS/GCP cloud styles, 0 collisions).');
+console.log('  ✓ Infrastructure architecture diagram verified (18 pages, official AWS/GCP cloud styles, 0 collisions).');
+
+// Roster parity: every agent in src/templates/agents.yaml must appear on the
+// "MCP Tool and Skill Routing" page of BOTH drawio files. This defect class
+// (a page silently dropping an agent) previously shipped undetected because the
+// suite only checked geometry, IDs and page names.
+{
+  const agentsYaml = fs.readFileSync(path.join(__dirname, '..', 'src', 'templates', 'agents.yaml'), 'utf8');
+  const roster = [];
+  const nameRe = /^\s*-\s*name:\s*([a-z0-9-]+)\s*$/gm;
+  let m;
+  while ((m = nameRe.exec(agentsYaml)) !== null) roster.push(m[1]);
+  assert.ok(roster.length > 0, 'agents.yaml roster must not be empty');
+
+  const routing = 'MCP Tool and Skill Routing';
+  for (const [label, content] of [['canonical', drawioContent], ['production', entContent]]) {
+    const pageRe = new RegExp(`<diagram\\s+id="[^"]+"\\s+name="[^"]*${routing}[^"]*">([\\s\\S]*?)</diagram>`);
+    const pageMatch = content.match(pageRe);
+    assert.ok(pageMatch, `${label} drawio must contain a "${routing}" page`);
+    const agentsOnPage = new Set([...pageMatch[1].matchAll(/agent=([a-z0-9-]+);/g)].map(x => x[1]));
+    for (const agent of roster) {
+      assert.ok(
+        agentsOnPage.has(agent),
+        `${label} drawio page "${routing}" is missing agent "${agent}" (roster has ${roster.length})`
+      );
+    }
+  }
+  console.log(`  ✓ Agent roster parity verified on the routing page of both drawio files (${roster.length} agents).`);
+}
+
+// A hardcoded release string in a diagram caption silently rots every release.
+// Assert the LangGraph caption tracks package.json instead of a literal.
+{
+  const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+  for (const [label, content] of [['canonical', drawioContent], ['production', entContent]]) {
+    const stale = [...content.matchAll(/v(\d+\.\d+\.\d+)/g)].map(m => m[1]).filter(v => v !== pkgVersion);
+    assert.deepStrictEqual(
+      [...new Set(stale)],
+      [],
+      `${label} drawio carries version label(s) that do not match package.json (${pkgVersion})`
+    );
+  }
+  console.log(`  ✓ Diagram version labels match package.json (${pkgVersion}).`);
+}
 
 console.log('✓ All tests in test_diagram_sync.js passed cleanly!');

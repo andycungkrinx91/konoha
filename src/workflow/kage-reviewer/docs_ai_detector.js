@@ -1,5 +1,5 @@
 /**
- * src/workflow/kage-reviewer/docs_ai_detector.js — Enterprise Document AI-Fingerprint Detector.
+ * src/workflow/kage-reviewer/docs_ai_detector.js — Production Document AI-Fingerprint Detector.
  *
  * Scans generated and source documents (.docx, .pdf, .pptx, .xlsx, .md, .txt)
  * for AI fingerprints, watermarks, metadata generator footprints, monotonous
@@ -49,7 +49,7 @@ function checkStructuralRules(docData, findings) {
     findings.push({
       rule: 'WM-01', severity: 'high', weight: 35,
       title: 'Watermark or Evaluation Stamp Detected',
-      evidence: 'Document contains embedded watermark elements or stamp text. Enterprise deliverables must have zero watermarks.'
+      evidence: 'Document contains embedded watermark elements or stamp text. Production deliverables must have zero watermarks.'
     });
     score += 35;
   }
@@ -70,7 +70,7 @@ function checkStructuralRules(docData, findings) {
     findings.push({
       rule: 'THEME-01', severity: 'medium', weight: 20,
       title: 'Dark Theme Style Violation in Document',
-      evidence: `Found dark fill styling (${docData.darkFills.slice(0, 3).join(', ')}). Enterprise documents must strictly enforce pure light mode.`
+      evidence: `Found dark fill styling (${docData.darkFills.slice(0, 3).join(', ')}). Production documents must strictly enforce pure light mode.`
     });
     score += 20;
   }

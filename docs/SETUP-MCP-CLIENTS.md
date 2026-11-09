@@ -63,9 +63,17 @@ konoha init --client=commandcode
 konoha init --client=all
 ```
 
+### Installation Modes
+
+| Mode | Command | Notes |
+|:---|:---|:---|
+| **Persistent global install** | `npm install -g konoha-mcp@latest` | The `postinstall` hook is guidance-only (no network, no installs, no `$HOME` writes) |
+| **In-place upgrade** | `konoha upgrade --yes` | Aborts with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and exit `1` when every installer fails |
+| **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha init --yes` | No persistent install; still writes `~/.konoha` runtime state when `init` runs |
+
 ### Direct Initialization & Config Backup / Restore
 ```bash
-npx konoha-mcp init
+npm exec --yes --package=konoha-mcp@latest -- konoha init
 # Append configuration per client (preserves existing global & project settings):
 konoha init --client=cursor
 konoha init --client=claude
@@ -86,7 +94,7 @@ konoha config restore --client=cursor --scope=all
 ---
 
 
-Konoha skips their config. After installing the CLI:
+Clients that are not detected are **skipped without failing installation** — `konoha init` never treats a missing optional client as an error. After installing a client CLI, wire it up with:
 
 ```bash
 konoha doctor --yes
@@ -96,7 +104,7 @@ konoha doctor --yes
 
 | Client | Template | Target |
 |--------|----------|--------|
-| Claude Code | [templates/claude-code.mcp.yaml](templates/claude-code.mcp.yaml) | `~/.claude.json` → `mcpServers` |
+| Claude Code | [templates/claude-code.mcp.yaml](templates/claude-code.mcp.yaml) (same dir as this guide) | `~/.claude.json` → `mcpServers` |
 
 ---
 
@@ -107,6 +115,8 @@ konoha status
 konoha test
 konoha doctor --yes
 ```
+
+> **Runtime layout invariant**: `~/.konoha/mcp/`, `~/.konoha/file_tools/`, and `~/.konoha/workflow/` are **valid** and required when present — the deployed `file_tools_router.js` requires `./mcp/runtime_state` and `./workflow/qa-automation/qa_tools` from the runtime root. Only *flattened* mirrors (loose files with the nested directories missing) are invalid; `konoha doctor --yes` purges exactly those and leaves intact trees alone. `~/.konoha/src/` is mirrored in full, so `~/.konoha/src/mcp/langgraph/nodes/*.js` must exist and load.
 
 ---
 
@@ -175,7 +185,7 @@ konoha doctor --yes
 ```toml
 [mcp_servers.konoha]
 command = "node"
-args = ["/home/<user>/.konoha/server.js"]
+args = ["/home/<user>/.konoha/file_tools_launcher.js"]
 
 [mcp_servers.semble]
 command = "uvx"

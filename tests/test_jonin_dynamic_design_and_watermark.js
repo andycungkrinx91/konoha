@@ -34,8 +34,7 @@ async function runTests() {
   assert.strictEqual(spec.status, 'success');
   assert.strictEqual(spec.design_tokens.generator_meta, '<meta name="generator" content="Build by konoha">');
   assert.strictEqual(spec.design_tokens.footer_signature, 'Build by konoha');
-  assert.strictEqual(spec.design_tokens.color_modes.dark_mode, true);
-  assert.strictEqual(spec.design_tokens.color_modes.light_mode, true);
+  assert.strictEqual(spec.design_brief.fields.length, 9);
   assert.strictEqual(spec.design_tokens.zero_emoji_policy, true);
   assert.ok(
     !spec.directives.join(' ').includes('Floating Bottom-Left 10-Theme'),

@@ -11,25 +11,34 @@ const {
   listKaliTools
 } = require('../src/workflow/akatsuki/init.js');
 const { getConnection, setupSchema } = require('../src/db.js');
-const { seedKaliTools } = require('../src/db_schema.js');
 const { _executeToolInternal } = require('../src/mcp/tool_dispatch.js');
 const { TOOL_HANDLERS } = require('../src/file_tools_router.js');
 
 async function runAkatsukiInitTests() {
   console.log('Running test_akatsuki_init test suite...');
 
-  // Verify listKaliTools against SQLite database
+  // Verify listKaliTools against the lab-local SQLite database
   const tmpDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'akatsuki_init_test_'));
-  const testDbPath = path.join(tmpDbDir, 'test_konoha.db');
+  const prevLabRoot = process.env.KONOHA_LAB_DB_ROOT;
+  const prevDbPath = process.env.KONOHA_DB_PATH;
+  process.env.KONOHA_LAB_DB_ROOT = tmpDbDir;
+  process.env.KONOHA_DB_PATH = path.join(tmpDbDir, 'main.db');
+  let conn = null;
 
   try {
-    const conn = getConnection(testDbPath);
-    setupSchema(conn);
-    seedKaliTools(conn);
+    const { openLabDb, closeLabDb } = require('../src/workflow/akatsuki/lab_db.js');
+    conn = openLabDb();
 
-    // Count tools in SQLite
+    // Count tools in the lab-local catalog
     const row = conn.prepare('SELECT COUNT(*) as count FROM kali_tools').get();
     assert.ok(row.count >= 360, `Kali tools table must contain at least 360 cataloged tools (found ${row.count})`);
+
+    // Main DB must not carry the catalog
+    const mainConn = getConnection(process.env.KONOHA_DB_PATH);
+    setupSchema(mainConn);
+    const mainTables = mainConn.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    assert.ok(!mainTables.includes('kali_tools'), 'Main DB must not define a kali_tools table');
+    mainConn.close();
 
     // List all (limit 400)
     const allTools = listKaliTools({}, conn);
@@ -182,6 +191,9 @@ async function runAkatsukiInitTests() {
 
     console.log('\nAll test_akatsuki_init tests passed successfully!');
   } finally {
+    try { if (conn) closeLabDb(conn); } catch (_) {}
+    if (prevLabRoot === undefined) delete process.env.KONOHA_LAB_DB_ROOT; else process.env.KONOHA_LAB_DB_ROOT = prevLabRoot;
+    if (prevDbPath === undefined) delete process.env.KONOHA_DB_PATH; else process.env.KONOHA_DB_PATH = prevDbPath;
     fs.rmSync(tmpDbDir, { recursive: true, force: true });
   }
 }

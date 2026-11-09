@@ -174,61 +174,6 @@ function generateAkatsukiHtml() {
   return buildHtmlPage(W, H, `${header}\n${topTrackContainer}\n${middleRoeContainer}\n${sandboxContainer}\n${rightGatePanel}\n${paths}\n${cards}\n${roster}\n${footer}`);
 }
 
-function generateYamanakaHtml() {
-  const W = 1200;
-  const H = 760;
-
-  const header = renderHeader(W, 'YAMANAKA 3D ASSET BUILD PIPELINE', `appliance archetype · inspect/fix repair cap · Force GPU Cycles · PNG download · v${PKG_VERSION}`, { text: 'INSPECT/FIX LOOP CAPPED', col: C.violet });
-  const roster = stdRoster('yamanaka', C.violet);
-  const footer = renderFooter(W, H, 'v2.2.18: build_base → refine_blender → inspect → fix · OPTIX/CUDA/HIP/METAL/ONEAPI · honest CPU fallback when no GPU · silhouette IoU gates');
-
-  const ingress = [
-    renderCard([50, 150, 340, 76], C.azure, 'TEXT PROMPT & SYNTHESIS MODAL', '/3d/maker · modal stage progress', 'host'),
-    renderCard([430, 150, 340, 76], C.teal, 'IMAGE-TO-3D · APPLIANCE', 'upload-image · buildApplianceSpec · brand isolation', 'host'),
-    renderCard([810, 150, 340, 76], C.violet, 'DSL SCENE SPEC', 'explicit primitives · materials', 'host')
-  ].join('\n');
-
-  const fanIn = [
-    stdLink('M 220 226 C 220 272, 495 272, 495 300', C.azure),
-    stdLink('M 600 226 L 600 300', C.teal),
-    stdLink('M 980 226 C 980 272, 705 272, 705 300', C.violet)
-  ].join('\n');
-
-  const synthesis = renderCard([430, 300, 340, 84], C.violet, 'SPEC SYNTHESIS', 'validateSceneSpec + richness floor', 'yamanaka');
-  const archetype = renderCard([810, 300, 340, 84], C.azure, 'CLOSED-LOOP INSPECT & FIX', 'build_base → refine → inspect → fix', 'yamanaka');
-  const geometry = renderCard([430, 470, 340, 84], C.teal, 'GEOMETRY FINALIZE', 'weld · world-scale UV · smooth normals', 'yamanaka');
-
-  const ladder = [
-    renderCard([50, 462, 220, 42], C.emerald, 'LOW · 3,000', 'yamanaka'),
-    renderCard([50, 512, 220, 42], C.azure, 'NORMAL · 12,000', 'yamanaka'),
-    renderCard([50, 562, 220, 42], C.amber, 'HIGH · 35,000', 'yamanaka'),
-    renderCard([50, 612, 220, 42], C.crimson, 'ULTRA · 85,000', 'yamanaka')
-  ].join('\n');
-
-  const ladderIn = [
-    stdLink('M 270 483 C 348 483, 356 494, 430 494', C.emerald),
-    stdLink('M 270 533 C 348 533, 356 508, 430 508', C.azure),
-    stdLink('M 270 583 C 348 583, 356 522, 430 522', C.amber),
-    stdLink('M 270 633 C 348 633, 356 536, 430 536', C.crimson)
-  ].join('\n');
-
-  const ship = renderCard([810, 470, 340, 84], C.amber, 'BLENDER CYCLES GPU REFINE', 'configure_render · OPTIX / CUDA / HIP', 'yamanaka');
-  const store = renderCard([810, 580, 340, 84], C.emerald, 'EXPORT GLB & PNG PREVIEW', '/assets/:id/download/png · lazy viewport', 'yamanaka');
-
-  const flow = [
-    stdLink('M 770 342 L 810 342', C.azure),
-    stdLink('M 600 384 L 600 470', C.teal),
-    stdLink('M 770 512 L 810 512', C.amber),
-    stdLink('M 980 554 L 980 580', C.emerald)
-  ].join('\n');
-
-  const notes = [
-    stdNote(50, 452, 'DENSITY = sqrt(polyFactor) · CLAMPED [0.8, 12]', C.slateMuted)
-  ].join('\n');
-
-  return buildHtmlPage(W, H, `${header}\n${ingress}\n${fanIn}\n${synthesis}\n${archetype}\n${geometry}\n${ladder}\n${ladderIn}\n${ship}\n${store}\n${flow}\n${notes}\n${roster}\n${footer}`);
-}
-
 function generateAnbuHtml() {
   const W = 1200;
   const H = 760;
@@ -286,6 +231,5 @@ function generateAnbuHtml() {
 module.exports = {
   generateTelegramHtml,
   generateAkatsukiHtml,
-  generateYamanakaHtml,
   generateAnbuHtml
 };

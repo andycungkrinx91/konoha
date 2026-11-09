@@ -36,7 +36,7 @@ async function budgetExceededNode(state) {
     task_dir: taskDir,
     thread_id: state.threadId || null,
     message: `Workflow turn halted: per-turn token budget reached (${turnTokensUsed} >= ${tokenBudget}). State persisted for continuation at ${resumeNode}.`,
-    next_action: `Continue with another turn: the next sannin/workflow_gate_choice call resumes at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`,
+    next_action: `Continue with another turn: call sannin again with the same task_dir to resume at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`,
   };
 
   return {

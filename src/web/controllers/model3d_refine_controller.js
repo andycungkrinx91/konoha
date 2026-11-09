@@ -131,7 +131,7 @@ function _dispatchRefineFork(jobId, ctx) {
           parent_asset: parentAsset,
           prompt: parentJob.prompt || '',
           archetype: parentJob.domain_archetype || 'auto',
-          profile: parentJob.profile || 'enterprise_pbr',
+          profile: parentJob.profile || 'production_pbr',
           quality_preset: levelOptions.quality_preset,
           requested_compute_mode: body.requested_compute_mode || parentJob.requested_compute_mode || 'auto',
           requested_gpu_backend: body.requested_gpu_backend || parentJob.requested_gpu_backend || null,

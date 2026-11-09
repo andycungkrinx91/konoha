@@ -1,4 +1,4 @@
-# Antigravity CLI (agy) Setup Guide
+# Konoha CLI Setup Guide (Antigravity CLI `agy` + cross-platform install)
 
 ## Prerequisites
 
@@ -8,11 +8,13 @@
 
 ### Cross-Platform Notes
 
-| OS | Node.js Install | Notes |
+Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.19.
+
+| OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
 | **Linux (Ubuntu/Debian)** | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Pure Node.js |
 | **Linux (Fedora)** | `curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo -E bash -` | Pure Node.js |
-| **macOS** | `brew install node` or `nvm install node` | Pure Node.js |
+| **macOS** | `brew install node` or `nvm install 24` | Pure Node.js |
 | **Windows (WSL)** | Same as Linux | Recommended: use WSL2 |
 | **Windows (native)** | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Pure Node.js |
 
@@ -59,12 +61,24 @@ node bin/cli.js init --client=commandcode
 node bin/cli.js init --client=all
 ```
 
+### Installation Modes — Pick Exactly One
+
+Konoha has three distinct modes. They are not interchangeable, and no mode performs another's work.
+
+| Mode | Command | Behavior |
+|:---|:---|:---|
+| **Persistent global install** | `npm install -g konoha-mcp@latest` (or `pnpm add -g konoha-mcp@latest`) | Puts `konoha` on PATH. `package.json#scripts.postinstall` runs `bin/postinstall.js`, which is guidance-only: no network calls, no installs, no writes to `$HOME`. Runtime setup stays explicit (`konoha init --yes`) |
+| **In-place upgrade** | `konoha upgrade` / `konoha update` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
+| **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry. No persistent global install, no `postinstall` side effects |
+
+`npx i -g konoha-mcp` is **not valid syntax** — `i` is not an `npx` flag. Use the persistent or ephemeral form above.
+
 ### Global Installation (Permanent 'konoha' terminal command)
 ```bash
-# Install globally from npm:
-npm install -g konoha-mcp
+# Install globally from npm (recommended):
+npm install -g konoha-mcp@latest
 # Or with pnpm:
-pnpm add -g konoha-mcp
+pnpm add -g konoha-mcp@latest
 
 # Initialize a specific client or all 8 clients (append-only, preserves existing settings):
 konoha init --client=all
@@ -74,10 +88,16 @@ konoha restore --client=cursor
 konoha restore --client=all
 ```
 
-### Direct Execution (Zero-Install via npx or pnpm dlx)
+```powershell
+# Windows PowerShell — identical commands
+npm install -g konoha-mcp@latest
+konoha init --client=all
+```
+
+### Direct Execution (Zero-Install via npm exec or pnpm dlx)
 ```bash
-# 1. Run one-shot directly via npx:
-npx konoha-mcp init --client=all
+# 1. Run one-shot directly via npm exec:
+npm exec --yes --package=konoha-mcp@latest -- konoha init --client=all
 # Or with pnpm dlx:
 pnpm dlx konoha-mcp init --client=all
 
@@ -88,23 +108,31 @@ konoha migrate --rebuild-embeddings
 
 This installs the MCP server and migrates your skills. The CLI should output:
 
-```
+```text
 🚀 Konoha Installer
 ──────────────────────────────────────────────
-✓ Node.js 18+ found: node
+✓ Node.js ≥ 24.0.0 found: v24.x.x
 ✓ Found: ~/.agents/skills/ (5 skills)
 📦 Installing MCP Server
 ✓ Installed: ~/.konoha/file_tools_mcp.js, file_tools_launcher.js, file_tools_router.js
+✓ Runtime mirrored: ~/.konoha/src (mcp/ langgraph/ nodes/ workflow/ intact)
 ✓ Database: ~/.konoha/konoha.db (created if missing)
 ✓ Migration Complete: skills indexed, FTS5 ready
 ✓ Global command 'konoha' → ~/.konoha/bin/cli.js
 ✅ Installation Complete!
 ```
 
+> On Node < 24 the CLI never reaches this output: `bin/cli.js` prints `Konoha requires Node.js >= 24.0.0 (found <v>).` and exits `1`, because `src/sqlite_driver.js` requires the Node 24 built-in `node:sqlite`.
+
 ### Cross-Platform: Windows PowerShell
-On Windows, the above commands work in PowerShell:
+On Windows, the same registry commands work in PowerShell:
 ```powershell
-pnpm dlx github:andycungkrinx91/konoha init
+# Persistent global install, then init
+npm install -g konoha-mcp@latest
+konoha init --client=all
+
+# Ephemeral, no persistent install
+npm exec --yes --package=konoha-mcp@latest -- konoha init --client=all
 ```
 
 ## Step 2: Verify MCP Detection
@@ -124,8 +152,9 @@ agy inspect
 
 Or use the node launcher directly:
 ```powershell
-node "$env:USERPROFILE\.konoha\file_tools_launcher.js" <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node "$env:USERPROFILE\.konoha\file_tools_launcher.js"
 ```
+(PowerShell has no `<<<` here-string operator — the bash `<<<` form only works in WSL or Git Bash.)
 
 ## Step 3: Verify Konoha Works
 
@@ -328,8 +357,9 @@ Konoha includes a built-in SDLC governance layer tracking tasks, Definition of R
   konoha project set dor-mode advisory
   konoha project set dor-mode enforced
 
-  # Set Review Independence mode (independent | same_bridge | relaxed):
-  konoha project set review-mode independent
+  # Set Review Independence mode (self | cross-provider):
+  konoha project set review-mode self
+  konoha project set review-mode cross-provider
   ```
 
 ### Tracking Efficiency and Token Savings
@@ -344,7 +374,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
 
 ### AI Fingerprint Detection (Website & Documents) (v2.0.2)
 
-Scan websites and enterprise documents for AI generation markers, generator footprints, and robotic cadence:
+Scan websites and Production documents for AI generation markers, generator footprints, and robotic cadence:
 
 - **Scan Website or Code for AI Fingerprints**:
   ```bash
@@ -469,6 +499,10 @@ To keep Konoha updated with the latest optimizations and features, you can check
   # Non-interactive / headless CI mode:
   konoha upgrade --yes
   ```
+
+  **Failure semantics (2.2.19):** if npm, pnpm, yarn, and the GitHub fallback all fail to install the target, the command prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, states that your existing installation and configuration were not modified, prints the recovery commands, and **exits 1**. It never continues into the post-upgrade lifecycle against an un-upgraded package.
+
+  **Windows file locking:** Windows cannot replace a global package while a process from it is running. Konoha writes `~/.konoha/.upgrade_pending.json` before the install stage, verifies and deletes it afterwards, and on the next `konoha` startup reads a leftover marker and prints `Upgrade to <target> was interrupted. Re-run "konoha upgrade --yes".` — startup continues normally either way.
 
 ### Optional Antigravity Bridge Extension
 

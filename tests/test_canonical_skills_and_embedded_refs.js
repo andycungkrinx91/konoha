@@ -4,11 +4,11 @@
  * tests/test_canonical_skills_and_embedded_refs.js
  * 
  * Verifies that:
- * 1. Exactly 16 canonical skills are recognized.
+ * 1. The canonical skill set matches the skills bundled in src/templates/skills.
  * 2. Embedded reference skills (like react-patterns, elite-powerpoint-designer,
  *    multi-stage-dockerfile) are identified as embedded references and never
  *    detected or migrated as standalone top-level skills.
- * 3. Database has exactly 16 skills of type = 'skill'.
+ * 3. Database carries every canonical skill with type = 'skill'.
  * 4. Client mirrors and project auto-migration maintain complete integrity.
  * 5. Global skills (~/.agents/skills) are strictly preserved and never pruned.
  */
@@ -31,8 +31,15 @@ const deployUtils = require('../src/deploy_utils');
 function runTest() {
   console.log('Running test_canonical_skills_and_embedded_refs.js...');
 
-  // Verify canonical skill names set
-  assert.strictEqual(CANONICAL_SKILL_NAMES.size, 16, 'Must have exactly 16 canonical skills');
+  // Verify canonical skill names match what actually ships. A hard-coded count
+  // drifts every time a skill is added; the bundled template directory is the
+  // real contract.
+  const templateSkills = fs.readdirSync(path.join(__dirname, '..', 'src', 'templates', 'skills'), { withFileTypes: true })
+    .filter(e => e.isDirectory())
+    .map(e => e.name)
+    .sort();
+  assert.deepStrictEqual([...CANONICAL_SKILL_NAMES].sort(), templateSkills,
+    'canonical skill set must match the bundled template skills');
   assert.ok(isCanonicalSkill('akatsuki-skill'), 'akatsuki-skill must be canonical');
   assert.ok(isCanonicalSkill('anbu-skill'), 'anbu-skill must be canonical');
   assert.ok(isCanonicalSkill('jonin-skill'), 'jonin-skill must be canonical');
@@ -42,7 +49,7 @@ function runTest() {
   assert.ok(isCanonicalSkill('tokubetsu-jonin-skill'), 'tokubetsu-jonin-skill must be canonical');
   assert.ok(isCanonicalSkill('chunin-skill'), 'chunin-skill must be canonical');
   assert.ok(isCanonicalSkill('konoha'), 'konoha must be canonical');
-  console.log('✓ 15 canonical skills verified');
+  console.log(`✓ ${CANONICAL_SKILL_NAMES.size} canonical skills verified`);
 
   // Verify embedded reference classification
   assert.ok(getEmbeddedReferenceSkills().has('helm-chart-scaffolding'), 'getEmbeddedReferenceSkills must include helm-chart-scaffolding');

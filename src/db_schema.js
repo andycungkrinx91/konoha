@@ -310,16 +310,6 @@ function setupSchema(conn, backupDatabaseFn = null) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS kali_tools (
-        id TEXT PRIMARY KEY,
-        slug TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        package TEXT NOT NULL,
-        category TEXT NOT NULL,
-        description TEXT,
-        url TEXT
-    );
-
     CREATE TABLE IF NOT EXISTS lg_checkpoints (
         thread_id TEXT NOT NULL,
         checkpoint_ns TEXT NOT NULL DEFAULT '',
@@ -500,11 +490,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
     CREATE INDEX IF NOT EXISTS idx_active_sessions_last_active ON active_sessions(last_active_at);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_status ON prompt_queue(status);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_created ON prompt_queue(created_at);
-    CREATE INDEX IF NOT EXISTS idx_kali_tools_category ON kali_tools(category);
-    CREATE INDEX IF NOT EXISTS idx_kali_tools_slug ON kali_tools(slug);
   `);
 
-  seedKaliTools(conn);
 
   try {
     const queueCols = conn.prepare("PRAGMA table_info(prompt_queue)").all().map(c => c.name);
@@ -562,9 +549,11 @@ function setupSchema(conn, backupDatabaseFn = null) {
   // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
   try {
     const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema, applyQualityLadderMigration, ensureAdditiveColumns } = require('./mcp/three_asset/db_3d_schema');
+    const { applyProfileVocabularyMigration } = require('./mcp/three_asset/profile_vocabulary_migration');
     purgeLegacy3DTables(conn);
     verifyAndApplyCanonicalSchema(conn);
     applyQualityLadderMigration(conn);
+    applyProfileVocabularyMigration(conn);
     // The ladder rebuild copies columns by position, so post-rebuild additive columns
     // (including the refine-fork lineage columns) are re-applied afterwards.
     ensureAdditiveColumns(conn);
@@ -585,34 +574,6 @@ function setupSchema(conn, backupDatabaseFn = null) {
  *
  * @param {Object} conn
  */
-function seedKaliTools(conn) {
-  try {
-    const row = conn.prepare('SELECT count(*) as count FROM kali_tools').get();
-    const count = row ? (row.count !== undefined ? row.count : Object.values(row)[0] || 0) : 0;
-    if (count > 0) return;
-
-    const path = require('path');
-    const kaliJsonPath = path.join(__dirname, 'templates', 'akatsuki_lab', 'kali_tools.json');
-    if (!fs.existsSync(kaliJsonPath)) return;
-    const tools = JSON.parse(fs.readFileSync(kaliJsonPath, 'utf8'));
-    if (!Array.isArray(tools) || tools.length === 0) return;
-
-    const stmt = conn.prepare(`
-      INSERT OR REPLACE INTO kali_tools (id, slug, name, package, category, description, url)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    conn.transaction(() => {
-      for (const t of tools) {
-        const id = t.id || t.slug;
-        stmt.run(id, t.slug, t.name || t.slug, t.package || t.slug, t.category || 'general', t.description || '', t.url || '');
-      }
-    })();
-  } catch (_) {
-    // Non-blocking best effort seed
-  }
-}
-
 /**
  * Validate that the database contains strictly canonical tables, columns,
  * vector dimensions (384 float32), and zero orphaned or duplicate records.
@@ -640,7 +601,7 @@ function validateCanonicalSchema(conn) {
       'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
-      'kali_tools', 'schema_migrations', 'generation_jobs', 'assets',
+      'schema_migrations', 'generation_jobs', 'assets',
       'asset_files', 'validation_results', 'llm_requests_3d'
     ];
     for (const req of requiredTables) {
@@ -693,6 +654,5 @@ module.exports = {
   verifyIntegrity,
   hasFts5Support,
   setupSchema,
-  seedKaliTools,
   validateCanonicalSchema
 };

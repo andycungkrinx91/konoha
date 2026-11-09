@@ -244,194 +244,75 @@ Whenever generating or modifying Next.js frontend code, execute this pipeline to
 3. **Run Linting**: Execute `pnpm run lint` and verify there are no ESLint issues.
 4. **Compile Production Build**: Run `pnpm run build` and ensure the next build completes successfully with no warnings or type errors.
 
-## 🎨 Canonical Visual Standards & 3D Interactivity Guidelines
+## 🎨 Visual Standards (Brief-Derived)
 
-All generated Next.js code must conform to the following baseline visual standards:
-1. **10 Light-Mode Gradient Themes**: Nebula (`#4f46e5`/`#06b6d4`), Aurora (`#059669`/`#10b981`), Sunset (`#e11d48`/`#f59e0b`), Ocean (`#0284c7`/`#3b82f6`), Forest (`#15803d`/`#84cc16`), Volcano (`#dc2626`/`#ea580c`), Sakura (`#db2777`/`#f472b6`), Cyberpunk (`#7c3aed`/`#06b6d4`), Midnight (`#1e293b`/`#64748b`), Gold (`#d97706`/`#f59e0b`) defined via Tailwind CSS `@theme` / CSS custom variables.
-2. **Theme Switcher Widget**: Floating interactive chat-like bubble in bottom-left corner (`fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000]`) utilizing a 3D entrance transition with 10 options, saving to `localStorage` under key `'konoha-theme'`.
-3. **3D Hero Banner Carousel**: Autoplaying 3D interactive layout with mouse-tracking GPU perspective tilt (`perspective: 1200px; transform: rotateX(...) rotateY(...) scale3d(...)`), high-contrast dark spec badges, 3D split drapes transition, play/pause controls, and thumbnail preview strip.
-4. **5 Interactive 3D Carousels**: Minimum of 5 interactive 3D carousels per website (hero banner, category showcases, reviews, featured items, customer lookbooks) using GPU-accelerated CSS transforms.
-5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows (`radial-gradient(150px circle at var(--mouse-x) var(--mouse-y), ...)`) and 3D tilts applied to all cards with `will-change: transform`.
-6. **3D SweetAlert2 Dialogs**: Entrance animation using custom 3D CSS scale and tilt transforms, styled with the active theme gradient on buttons.
-7. **Custom Styled SVG/CSS Logo**: Active inline SVG utilizing the active theme gradient (`stroke="url(#theme-gradient)"`) paired with gradient typography matching the actual project name.
-8. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
-9. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting.
-10. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `@phosphor-icons/react` (or hand-exported inline SVGs). Emojis in buttons, navigation, and badges are strictly forbidden.
-11. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha shadow ninja with coffee by Andy Setiyawan`.
+Visual direction comes from the 9-field design brief — no fixed palette, theme count, carousel count, or dataset size.
+
+1. **Palette & Type**: Define one project-specific token set in `@theme` (`--color-brand`, `--color-accent`, surfaces, text, borders) from the brief, with WCAG AA contrast. Single theme unless the brief asks for user-selectable themes.
+2. **Theme Control**: Optional. Add a switcher only when multiple themes exist, and persist the choice under the project's own key — never a shared house key.
+3. **Imagery & Motion**: Choose hero treatment, carousel usage, and hover choreography from the brief. 3D tilt, glow, and gradient treatments are options, not requirements.
+4. **Custom Styled SVG/CSS Logo**: Inline SVG built from the project's token colors, paired with typography matching the actual project name.
+5. **Data Volume**: Dataset size follows the brief's real content. Never generate a fixed-size filler catalog.
+6. **Zero-Emoji Policy in UI**: Vector icons from `@phosphor-icons/react` or hand-exported inline SVGs. Emojis in buttons, navigation, or badges are forbidden.
+
 
 ---
 
 ## 💻 Production-Ready Next.js App Router Component Templates
 
-### 1. `app/globals.css` (Tailwind v4 & 10 Theme Directives)
+### 1. `app/globals.css` (Tailwind v4 Project Tokens)
 ```css
 @import "tailwindcss";
 
 :root {
+  /* Project tokens from the design brief — replace these values. */
   --theme-primary: #4f46e5;
   --theme-accent: #06b6d4;
-  --theme-gradient: linear-gradient(135deg, #4f46e5, #06b6d4);
+  --theme-gradient: linear-gradient(135deg, var(--theme-primary), var(--theme-accent));
   --theme-glow: rgba(79, 70, 229, 0.35);
   --theme-surface: rgba(255, 255, 255, 0.85);
   --theme-border: rgba(0, 0, 0, 0.08);
 }
-
-[data-theme="nebula"] {
-  --theme-primary: #4f46e5;
-  --theme-accent: #06b6d4;
-  --theme-gradient: linear-gradient(135deg, #4f46e5, #06b6d4);
-  --theme-glow: rgba(79, 70, 229, 0.35);
-}
-[data-theme="aurora"] {
-  --theme-primary: #059669;
-  --theme-accent: #10b981;
-  --theme-gradient: linear-gradient(135deg, #059669, #10b981);
-  --theme-glow: rgba(5, 150, 105, 0.35);
-}
-[data-theme="sunset"] {
-  --theme-primary: #e11d48;
-  --theme-accent: #f59e0b;
-  --theme-gradient: linear-gradient(135deg, #e11d48, #f59e0b);
-  --theme-glow: rgba(225, 29, 72, 0.35);
-}
-[data-theme="ocean"] {
-  --theme-primary: #0284c7;
-  --theme-accent: #3b82f6;
-  --theme-gradient: linear-gradient(135deg, #0284c7, #3b82f6);
-  --theme-glow: rgba(2, 132, 199, 0.35);
-}
-[data-theme="forest"] {
-  --theme-primary: #15803d;
-  --theme-accent: #84cc16;
-  --theme-gradient: linear-gradient(135deg, #15803d, #84cc16);
-  --theme-glow: rgba(21, 128, 61, 0.35);
-}
-[data-theme="volcano"] {
-  --theme-primary: #dc2626;
-  --theme-accent: #ea580c;
-  --theme-gradient: linear-gradient(135deg, #dc2626, #ea580c);
-  --theme-glow: rgba(220, 38, 38, 0.35);
-}
-[data-theme="sakura"] {
-  --theme-primary: #db2777;
-  --theme-accent: #f472b6;
-  --theme-gradient: linear-gradient(135deg, #db2777, #f472b6);
-  --theme-glow: rgba(219, 39, 119, 0.35);
-}
-[data-theme="cyberpunk"] {
-  --theme-primary: #7c3aed;
-  --theme-accent: #06b6d4;
-  --theme-gradient: linear-gradient(135deg, #7c3aed, #06b6d4);
-  --theme-glow: rgba(124, 58, 237, 0.35);
-}
-[data-theme="midnight"] {
-  --theme-primary: #1e293b;
-  --theme-accent: #64748b;
-  --theme-gradient: linear-gradient(135deg, #1e293b, #64748b);
-  --theme-glow: rgba(30, 41, 59, 0.35);
-}
-[data-theme="gold"] {
-  --theme-primary: #d97706;
-  --theme-accent: #f59e0b;
-  --theme-gradient: linear-gradient(135deg, #d97706, #f59e0b);
-  --theme-glow: rgba(217, 119, 6, 0.35);
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px 0 var(--theme-glow); }
-  50% { box-shadow: 0 0 20px 4px var(--theme-glow); }
-}
-
-.glow-card {
-  position: relative;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
-  will-change: transform;
-}
-.glow-card:hover {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
+/* Add [data-theme="..."] blocks ONLY when the brief defines multiple themes. */
 ```
 
-### 2. `components/ThemeSwitcher.tsx` (Floating 10-Theme Selector)
+### 2. `components/ThemeSwitcher.tsx` (Optional — only when the brief has multiple themes)
+
 ```tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Palette, Check } from '@phosphor-icons/react/dist/ssr';
-
-const THEMES = [
-  { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
-  { id: 'aurora', name: 'Aurora', primary: '#059669', accent: '#10b981' },
-  { id: 'sunset', name: 'Sunset', primary: '#e11d48', accent: '#f59e0b' },
-  { id: 'ocean', name: 'Ocean', primary: '#0284c7', accent: '#3b82f6' },
-  { id: 'forest', name: 'Forest', primary: '#15803d', accent: '#84cc16' },
-  { id: 'volcano', name: 'Volcano', primary: '#dc2626', accent: '#ea580c' },
-  { id: 'sakura', name: 'Sakura', primary: '#db2777', accent: '#f472b6' },
-  { id: 'cyberpunk', name: 'Cyberpunk', primary: '#7c3aed', accent: '#06b6d4' },
-  { id: 'midnight', name: 'Midnight', primary: '#1e293b', accent: '#64748b' },
-  { id: 'gold', name: 'Gold', primary: '#d97706', accent: '#f59e0b' },
-];
-
-export function ThemeSwitcher() {
-  const [activeTheme, setActiveTheme] = useState('nebula');
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('konoha-theme') || 'nebula';
-    setActiveTheme(saved);
-    document.documentElement.setAttribute('data-theme', saved);
+// Emit this component ONLY when the design brief defines more than one theme.
+// Token ids come from the project brief; persist under a project-specific key.
+export function ThemeSwitcher({ themes }: { themes: { id: string; label: string }[] }) {
+  const [active, setActive] = React.useState(themes[0]?.id);
+  React.useEffect(() => {
+    const saved = localStorage.getItem('theme-preference');
+    if (saved) { setActive(saved); document.documentElement.dataset.theme = saved; }
   }, []);
-
-  const selectTheme = (themeId: string) => {
-    setActiveTheme(themeId);
-    localStorage.setItem('konoha-theme', themeId);
-    document.documentElement.setAttribute('data-theme', themeId);
+  const select = (id: string) => {
+    setActive(id);
+    document.documentElement.dataset.theme = id;
+    localStorage.setItem('theme-preference', id);
   };
-
+  if (themes.length < 2) return null;
   return (
-    <div className="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000] flex flex-col items-start">
-      {isOpen && (
-        <div className="mb-3 p-4 bg-white/90 backdrop-blur-xl border border-zinc-200/80 rounded-2xl shadow-2xl w-64 max-h-96 overflow-y-auto animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center justify-between mb-3 border-b border-zinc-100 pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Theme Presets</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 font-medium text-zinc-600">10 Light</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => selectTheme(t.id)}
-                className={`flex items-center justify-between p-2 rounded-xl text-left transition-all ${
-                  activeTheme === t.id ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-4 h-4 rounded-full shadow-inner"
-                    style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.accent})` }}
-                  />
-                  <span className="text-xs text-zinc-800">{t.name}</span>
-                </div>
-                {activeTheme === t.id && <Check className="w-3.5 h-3.5 text-zinc-800" />}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle theme selector"
-        className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md border border-zinc-200/80 shadow-lg flex items-center justify-center text-zinc-800 hover:scale-105 active:scale-95 transition-all"
-        style={{ boxShadow: '0 4px 20px var(--theme-glow)' }}
-      >
-        <Palette className="w-5 h-5" style={{ color: 'var(--theme-primary)' }} />
-      </button>
+    <div role="group" aria-label="Theme" className="flex gap-2">
+      {themes.map((t) => (
+        <button key={t.id} type="button" aria-pressed={active === t.id} onClick={() => select(t.id)} className="rounded-full px-3 py-1 text-sm">
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }
 ```
 
-### 3. `components/HeroCarousel.tsx` (3D Interactive Hero Banner)
+---
+
+### 3. `components/HeroBanner.tsx` (Optional — only when the brief calls for a banner)
+
+> Emit a banner only when the brief asks for one. Slide count, autoplay timing, and tilt depth are project decisions.
+
 ```tsx
 'use client';
 
@@ -447,7 +328,7 @@ export interface SlideItem {
   image: string;
 }
 
-export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
+export function HeroBanner({ slides, autoplayMs = 6000 }: { slides: SlideItem[]; autoplayMs?: number }) {
   const [current, setCurrent] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -457,7 +338,7 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
     if (!isPlaying || slides.length <= 1) return;
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length);
-    }, 6000);
+    }, autoplayMs);
     return () => clearInterval(interval);
   }, [isPlaying, slides.length]);
 
@@ -576,10 +457,10 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
 
 ## 📋 Taste-Skill Pre-Flight Checklist for Next.js
 - [ ] Tailwind v4 `@import "tailwindcss";` configured in `app/globals.css`.
-- [ ] 10 Light-Mode themes mapped via CSS custom variables (`[data-theme="..."]`).
-- [ ] `ThemeSwitcher.tsx` positioned fixed at `bottom-6 left-6` saving to `localStorage`.
-- [ ] `HeroCarousel.tsx` with full-width GPU tilt and spec badges.
-- [ ] 50 items dataset catalog with multi-criteria reactive filters and search.
+- [ ] One project token set derived from the design brief (extra `[data-theme]` blocks only when multi-theme is intended).
+- [ ] Theme control rendered only when the brief defines more than one theme.
+- [ ] Banner or hero treatment matches the brief (no default carousel, no default slide count).
+- [ ] Dataset size and filters follow the brief's real content (no filler catalog).
 - [ ] All interactive SVG icons strictly imported from `@phosphor-icons/react` (zero emojis in UI).
 - [ ] `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
@@ -595,8 +476,8 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
   2. **Direct SVG/HTML Translation**: If a mockup is `.svg` or `.html`, inspect the source directly and translate it into React/JSX code to achieve 100% layout fidelity without vision token overhead.
   3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via `view_file` to identify the general structure.
   4. **Start Development Server**: Launch the Next.js development server with `pnpm run dev`.
-  5. **Visual Verification Loop**: Run `konoha render http://localhost:3000 <design-mockup-path> [diff-output-path]` to compare the running server with the design mockup.
-  6. **Layout Refinement via Diff Metrics**: Check printed similarity percentages and bounding box coordinates (`bbox_diff`) in the JSON output. Adjust Next.js JSX layout classes (`px`, `mx`, `flex`, `grid`, etc.) to reconcile mismatches. Loop this refinement process without re-reading image files to save 90% of token usage.
+  5. **Visual Verification Loop**: Launch the dev server, then invoke `runLiveBrowserMonitor` (`src/workflow/jonin-builder/live_browser_monitor.js`) to open the app in the user's real browser and capture console errors plus responsive viewports (`375x812`, `768x1024`, `1440x900`). Compare the captured render against the design mockup. The former `konoha render` command no longer exists; do not call it.
+  6. **Layout Refinement via Diff Metrics**: Reconcile observed spacing, type-scale, and colour mismatches by adjusting Next.js JSX layout classes (`px`, `mx`, `flex`, `grid`, etc.), then re-run the monitor to confirm the difference is gone. Loop this refinement without re-reading image files to conserve tokens.
 - **Preserving Existing Codebase (Flow, Logic, and Style)**: When working inside an existing Svelte or Next.js project directory/workdir, the agent is strictly prohibited from altering the existing flow, core logic, or style guidelines of the project. It must respect and follow the current architecture, styling systems (like specific CSS setups or custom Tailwind configs), and logic flows without introducing breaking changes or refactoring existing styles.
 
 

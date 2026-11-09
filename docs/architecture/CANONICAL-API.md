@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
 **Document Version:** 2.2.19  
-**Date:** 2026-11-04  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.19 Complete)  
+**Date:** 2026-11-08  
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.19)
 
 ---
 
@@ -101,24 +101,41 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 
 ## 4. Canonical CLI Interfaces
 
-* `konoha init [--force] [--yes] [--client <client>]`
+Command names below come from `bin/cli.js` dispatch. See `docs/architecture/CANONICAL-CLI.md` for flags and failure semantics.
+
+* `konoha init [--force] [--yes]`
+* `konoha reinstall` (same handler as `init`, implies `--force`)
 * `konoha migrate [--clean] [--rebuild-embeddings] [--skip-embeddings]`
-* `konoha embed` (alias for `konoha migrate --rebuild-embeddings`)
+* `konoha embed` (same handler as `migrate`, implies `--rebuild-embeddings`)
 * `konoha status`
-* `konoha version`
-* `konoha upgrade [--yes]`
+* `konoha version` (`--version`, `-v`)
+* `konoha upgrade` (`update` synonym; exits 1 when no package manager installs the target or the installed version cannot be verified)
 * `konoha savings`
 * `konoha doctor`
 * `konoha test`
+* `konoha clean`
+* `konoha uninstall`
+* `konoha db`
+* `konoha tui` (runs `agent list --tui`)
+* `konoha help` (`--help`, `-h`)
 * `konoha search <query>`
-* `konoha ui {start|status|stop}`
-* `konoha bridge {list|status|create|enable|disable|delete|start}`
-* `konoha task {list|show|slop|delete|clear}`
-* `konoha agent {list|status}`
-* `konoha skill {list|add}`
-* `konoha akatsuki {status|mode|env|redteam|blueteam}`
-* `konoha telegram {status|setup|start|stop|test}`
-* `konoha queue {status|list|run|clear}`
+* `konoha ui {start|stop|restart|status|daemon|build|preview|open|service}`
+* `konoha web` (foreground `ui start`)
+* `konoha service {...}`
+* `konoha auth reset`
+* `konoha bridge {list|status|create|enable|disable|delete|start|stop|restart|models}`
+* `konoha queue {...}`
+* `konoha telegram {...}`
+* `konoha webhook | webhooks {...}`
 * `konoha detect-ai <target>`
 * `konoha detect-docs <file>`
-* `konoha data {backup|rebuild-fts|prune}`
+* `konoha skill {...}`
+* `konoha akatsuki {...}`
+* `konoha agent {...}`
+* `konoha run-agent {...}`
+* `konoha data {...}`
+* `konoha soul [...args]`
+* `konoha project {...}`
+* `konoha task {...}`
+* `konoha mode [...]`
+* `konoha config {...}`

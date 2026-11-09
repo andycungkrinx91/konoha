@@ -41,7 +41,7 @@ flowchart TB
         OpenAI["OpenAI API-Key<br/>Bridge"]
         Compatible["OpenAI-Compatible<br/>Bridge"]
         Antigravity["Antigravity<br/>Sidecar"]
-        Discovery["UDP Discovery<br/>:19899"]
+        Discovery["Process Discovery<br/>wmic / netstat -ano"]
     end
 
     Gateway -->|Forward request| BridgesLayer
@@ -160,7 +160,7 @@ In addition to CLI commands, the Konoha Web Dashboard provides visual bridge man
 
 The gateway supports automatic sidecar discovery for detecting local LLM instances:
 
-1. **UDP broadcast** on port 19899 to discover running sidecars
+1. **Process discovery** of running sidecars via their command line (`wmic` on Windows, `netstat -ano` fallback)
 2. **Cascade fallback**: proto codec → raw JSON → gRPC
 3. Auto-registering discovered instances as bridges
 
@@ -311,7 +311,7 @@ Streaming and non-streaming Anthropic responses both derive usage from `buildAnt
 | `src/bridge/handlers/anthropic.js` | Anthropic `/v1/messages` handler |
 | `src/bridge/handlers/gemini.js` | Google Gemini API handler |
 | `src/bridge/handlers/proxy.js` | Generic reverse-proxy handler |
-| `src/bridge/sidecar/discovery.js` | Sidecar discovery via UDP broadcast |
+| `src/bridge/sidecar/discovery.js` | Sidecar discovery via process command line (`wmic` / `netstat -ano`) |
 | `src/bridge/sidecar/cascade.js` | Cascade failover chain (proto → raw → gRPC) |
 | `src/bridge/sidecar/proto.js` | Protobuf codec using `@bufbuild/protobuf` |
 | `src/bridge/sidecar/raw.js` | Raw inference codec |

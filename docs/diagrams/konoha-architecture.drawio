@@ -277,6 +277,9 @@
                 <mxCell id="p3-toku" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=tokubetsu-jonin;" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="710" as="geometry" />
                 </mxCell>
+                <mxCell id="p3-yamanaka" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;agent=yamanaka;" value="yamanaka&#10;yamanaka-skill + three_asset (3D &amp; Spatial)" vertex="1">
+                    <mxGeometry height="60" width="280" x="651" y="860" as="geometry" />
+                </mxCell>
                 <mxCell id="p3-akatsuki" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontStyle=1;;overflow=visible;agent=akatsuki;" value="akatsuki&#10;akatsuki-skill + sandbox lab (Security Specialist)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="785" as="geometry" />
                 </mxCell>
@@ -417,7 +420,7 @@
                 <mxCell id="p4-antigravity" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" value="Antigravity Sidecar Bridge" vertex="1">
                     <mxGeometry height="70" width="270" x="820" y="440" as="geometry" />
                 </mxCell>
-                <mxCell id="p4-discovery" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;;overflow=visible;" value="UDP Discovery :19899" vertex="1">
+                <mxCell id="p4-discovery" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;;overflow=visible;" value="Process Discovery&#10;sidecar via command line (wmic / netstat -ano)" vertex="1">
                     <mxGeometry height="70" width="260" x="820" y="570" as="geometry" />
                 </mxCell>
                 <mxCell id="p4-openai" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;;overflow=visible;" value="OpenAI API" vertex="1">
@@ -722,7 +725,7 @@
             <root>
                 <mxCell id="0" />
                 <mxCell id="1" parent="0" />
-                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.18)" vertex="1">
+                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.19)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-input" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="User Prompt / Resume" vertex="1">
@@ -902,7 +905,7 @@
                 <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha LangGraph.js Production StateGraph Pipeline, Per-Turn Budget &amp; Two-Stage HITL Gates" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;agent=sannin;" value="1. Route Phase&#10;(LangGraph classify_intent &amp; DoR Gate)" vertex="1">
+                <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;agent=sannin;" value="1. Route Phase&#10;(LangGraph node_classify &amp; DoR Gate)" vertex="1">
                     <mxGeometry height="70" width="150" x="50" y="180" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-explore" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;agent=genin;" value="2. Explore Phase&#10;(Genin: Read-only Scout)" vertex="1">
@@ -914,13 +917,13 @@
                 <mxCell id="p11-gate1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;agent=host;" value="GATE 1: PLAN APPROVAL&#10;(pending_plan_approval&#10;IDE / Telegram Bot)" vertex="1">
                     <mxGeometry height="70" width="190" x="640" y="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;agent=anbu;" value="4. Execute Phase&#10;(LangGraph dispatch_node &amp; execute_node&#10;Turn Budget Governor: 8k/16k/32k/64k)" vertex="1">
+                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;agent=anbu;" value="4. Execute Phase&#10;(LangGraph node_dispatch &amp; node_execute&#10;Turn Budget Governor: 8k/16k/32k/64k)" vertex="1">
                     <mxGeometry height="70" width="190" x="870" y="180" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-doc" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;agent=tokubetsu-jonin;" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" vertex="1">
                     <mxGeometry height="70" width="180" x="1100" y="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-review" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;agent=kage;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; LangGraph review_node:&#10;• Zero-AI-Slop Pre-Gate (runAislopGate: 100/100)&#10;• @advisor Final Review Evaluation&#10;• LangGraph remediate_node Remediation Loop&#10;• Circuit Breaker Error Edge (node_error: cap ≤ 7)&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
+                <mxCell id="p11-review" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;agent=kage;" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer &amp; LangGraph review_node:&#10;• Zero-AI-Slop Pre-Gate (runAislopGate: 100/100)&#10;• @advisor Final Review Evaluation&#10;• LangGraph node_remediate Remediation Loop&#10;• Circuit Breaker Error Edge (node_error: cap ≤ 7)&#10;• 98% Minimum Confidence Gate (≥ 98% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
                     <mxGeometry height="190" width="430" x="850" y="320" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-gate2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;agent=host;" value="GATE 2: DELIVERY SIGN-OFF&#10;(pending_human_signoff&#10;Optional auto_signoff)" vertex="1">
@@ -1073,7 +1076,7 @@
                 <mxCell id="p13-kage-plan" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;agent=kage;" value="3. Plan: Kage&#10;tasks &amp; test spec" vertex="1">
                     <mxGeometry height="55" width="180" x="490" y="100" as="geometry" />
                 </mxCell>
-                <mxCell id="p13-chunin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;align=center;agent=chunin;" value="Chunin: Intel&#10;web &amp; docs research" vertex="1">
+                <mxCell id="p13-chunin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;align=center;agent=chunin;" value="4. Research: Chunin&#10;web &amp; docs research" vertex="1">
                     <mxGeometry height="55" width="170" x="750" y="100" as="geometry" />
                 </mxCell>
                 <mxCell id="p13-p5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;dashed=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;fontStyle=1;fontColor=#475569;agent=anbu;" value="5. Execute: QA Loop (Anbu: qa_codify + qa_e2e_run · Jonin: UI fixes · Managed Workspace Hygiene &amp; Retention)" vertex="1">
@@ -1597,7 +1600,7 @@
                 <mxCell id="p18-complete" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="complete&#10;final report" vertex="1" parent="1">
                     <mxGeometry x="120" y="606" width="200" height="48" as="geometry" />
                 </mxCell>
-                <mxCell id="p18-remediate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="remediate&#10;fix loop to execute" vertex="1" parent="1">
+                <mxCell id="p18-remediate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="remediate&#10;fix loop to dispatch" vertex="1" parent="1">
                     <mxGeometry x="120" y="668" width="200" height="48" as="geometry" />
                 </mxCell>
                 <mxCell id="p18-init" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=yamanaka;" value="init&#10;job envelope" vertex="1" parent="1">
@@ -1624,10 +1627,10 @@
                 <mxCell id="p18-repair" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="repair&#10;DSL patch, rebuild" vertex="1" parent="1">
                     <mxGeometry x="640" y="544" width="220" height="48" as="geometry" />
                 </mxCell>
-                <mxCell id="p18-sub-note1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="9 process nodes · 10 routers · each node wrapped by wrapGuardedNode (@langchain/langgraph 1.6.0)" vertex="1" parent="1">
+                <mxCell id="p18-sub-note1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="11 nodes registered · 9 wrapped by wrapGuardedNode · 7 conditional routers (@langchain/langgraph 1.6.0)" vertex="1" parent="1">
                     <mxGeometry x="120" y="750" width="500" height="34" as="geometry" />
                 </mxCell>
-                <mxCell id="p18-sub-note2" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Sinks: budget_exceeded + node_error · checkpoints per thread (@langchain/langgraph-checkpoint 1.2.2, SQLite)" vertex="1" parent="1">
+                <mxCell id="p18-sub-note2" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Terminal sinks: node_budget_exceeded + node_error · checkpoints per thread (@langchain/langgraph-checkpoint 1.2.2, SQLite)" vertex="1" parent="1">
                     <mxGeometry x="640" y="750" width="560" height="34" as="geometry" />
                 </mxCell>
                 <mxCell id="p18-e-entry-classify" edge="1" parent="1" source="p18-entry" target="p18-classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2;exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;" value="">
@@ -1670,7 +1673,7 @@
                     </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="p18-e-remediate-execute" edge="1" parent="1" source="p18-remediate" target="p18-execute" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=0.0;exitY=0.5;entryX=0.0;entryY=0.5;" value="retry">
+                <mxCell id="p18-e-remediate-execute" edge="1" parent="1" source="p18-remediate" target="p18-dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#be123c;strokeWidth=2;exitX=0.0;exitY=0.5;entryX=0.0;entryY=0.5;" value="retry">
                     <mxGeometry relative="1" as="geometry">
                     <Array as="points">
                         <mxPoint x="60" y="692" />

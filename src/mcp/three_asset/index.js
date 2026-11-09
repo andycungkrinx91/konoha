@@ -27,7 +27,7 @@ const { buildImageReliefScene } = require('./image_relief');
 const { decodeRasterToPixels } = require('./raster_decoder');
 const { exportScene, validateGlbHeader } = require('./exporter');
 const { renderPreview } = require('./preview_renderer');
-const { applyEnterpriseProfile, scoreSpec } = require('./style_profile');
+const { applyGenerationProfile, scoreSpec } = require('./style_profile');
 const {
   generateSceneSpecFromImage,
   generateSceneSpecFromPrompt
@@ -303,7 +303,7 @@ async function generate3DAsset(args = {}) {
   );
   const targetPoly = normalizePolycount(args.target_polycount || args.polycount || 12000);
   const format = String(args.format || 'glb').toLowerCase();
-  const profileName = args.profile || 'enterprise_pbr';
+  const profileName = args.profile || 'production_pbr';
   const jobId = args.job_id || `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   const nonce = args.nonce || crypto.randomBytes(8).toString('hex');
   const tempFilesToClean = [];
@@ -323,7 +323,7 @@ async function generate3DAsset(args = {}) {
 
   let dslPayload = null;
   if (sceneSpec) {
-    sceneSpec = applyEnterpriseProfile(sceneSpec, profileName);
+    sceneSpec = applyGenerationProfile(sceneSpec, profileName);
     dslPayload = specToDSL(sceneSpec);
   }
 

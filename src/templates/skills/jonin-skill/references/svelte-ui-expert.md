@@ -8,10 +8,10 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 
 ### 1. Dynamic Context-Driven Composition (Astra/Fable Standard)
 - Compose hero stages, section layouts, and interactive surfaces dynamically around the product domain and prompt.
-- Never force a rigid 4-slide hero carousel or bottom-left 10-theme FAB unless requested. Place the brand identity cleanly on the left of the header (`flex items-center justify-between`).
+- Composition, section order, theme count, and navigation pattern come from the 9-field design brief; never reuse a house template. Place the brand identity cleanly on the left of a horizontal header (`flex items-center justify-between`).
 
 ### 2. Adaptive Dark & Light Mode + SSR Safety
-- Support both **Dark Mode and Light Mode** via semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`).
+- Choose the theme strategy from the design brief (single or dual theme) and define semantic color tokens (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) with WCAG AA contrast.
 - Use `onMount` before reading `localStorage` or updating `data-theme` to guarantee zero SSR/hydration mismatches.
 
 ### 3. Motion Choreography (`svelte/motion` `Spring`/`Tween` + `motion` JS API)
@@ -88,87 +88,3 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 </aside>
 ```
 
----
-
-### Blueprint 2: `src/lib/components/ThemeSwitcher.svelte` (Hydration-Safe FAB Modal)
-
-```svelte
-<script lang="ts">
-  import { onMount } from 'svelte';
-  // Icons via @phosphor-icons/web CSS classes (loaded in the global stylesheet).
-
-  const THEMES = [
-    { id: 'imperial-gold', name: 'Imperial Gold', primary: '#d97706' },
-    { id: 'nebula-indigo', name: 'Nebula Indigo', primary: '#4f46e5' },
-    { id: 'aurora-emerald', name: 'Aurora Emerald', primary: '#059669' },
-    { id: 'sunset-amber', name: 'Sunset Amber', primary: '#ea580c' },
-    { id: 'ocean-sapphire', name: 'Ocean Sapphire', primary: '#0284c7' },
-    { id: 'forest-jade', name: 'Forest Jade', primary: '#15803d' },
-    { id: 'volcano-crimson', name: 'Volcano Crimson', primary: '#dc2626' },
-    { id: 'sakura-rose', name: 'Sakura Rose', primary: '#db2777' },
-    { id: 'cyber-violet', name: 'Cyber Violet', primary: '#7c3aed' },
-    { id: 'midnight-slate', name: 'Midnight Slate', primary: '#334155' }
-  ];
-
-  let mounted = $state(false);
-  let isOpen = $state(false);
-  let currentTheme = $state('imperial-gold');
-
-  onMount(() => {
-    mounted = true;
-    const saved = localStorage.getItem('konoha-theme') || 'imperial-gold';
-    currentTheme = saved;
-    document.documentElement.setAttribute('data-theme', saved);
-  });
-
-  function selectTheme(themeId: string) {
-    currentTheme = themeId;
-    document.documentElement.setAttribute('data-theme', themeId);
-    localStorage.setItem('konoha-theme', themeId);
-    isOpen = false;
-  }
-</script>
-
-{#if mounted}
-  <button
-    onclick={() => (isOpen = !isOpen)}
-    aria-label="Open theme switcher"
-    class="fixed bottom-6 left-6 z-50 flex h-13 w-13 items-center justify-center rounded-full bg-[var(--theme-primary)] text-white shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200 border-2 border-white/80 cursor-pointer"
-  >
-    <i class="ph ph-palette" aria-hidden="true" style="font-size:1.5rem"></i>
-  </button>
-
-  {#if isOpen}
-    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-start p-4 sm:p-6 bg-black/30 backdrop-blur-xs">
-      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-[var(--theme-border)]">
-        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div class="flex items-center gap-2">
-            <i class="ph ph-palette" aria-hidden="true" style="font-size:1.25rem; color: var(--theme-primary)"></i>
-            <h3 class="font-semibold text-gray-900 text-sm">Light Mode Themes</h3>
-          </div>
-          <button onclick={() => (isOpen = false)} class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 text-gray-600">
-            <i class="ph ph-x" aria-hidden="true" style="font-size:1rem"></i>
-          </button>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5 pt-4 max-h-[60vh] overflow-y-auto">
-          {#each THEMES as theme}
-            {@const isActive = currentTheme === theme.id}
-            <button
-              onclick={() => selectTheme(theme.id)}
-              class="flex items-center gap-2.5 rounded-xl p-2.5 text-left text-xs font-medium transition-all border {isActive ? 'border-[var(--theme-primary)] bg-[var(--theme-secondary)] text-[var(--theme-text)] font-semibold shadow-xs' : 'border-gray-200 bg-gray-50/50 hover:bg-gray-100/70 text-gray-700'}"
-            >
-              <span class="h-4 w-4 rounded-full border border-black/10 shrink-0 flex items-center justify-center" style:background-color={theme.primary}>
-                {#if isActive}
-                  <i class="ph ph-bold ph-check" aria-hidden="true" style="font-size:0.625rem; color:#fff"></i>
-                {/if}
-              </span>
-              <span class="truncate">{theme.name}</span>
-            </button>
-          {/each}
-        </div>
-      </div>
-    </div>
-  {/if}
-{/if}
-```

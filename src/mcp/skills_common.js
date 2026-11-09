@@ -15,23 +15,29 @@ const USER_AGENTS_YAML = path.join(AGENTS_DIR, 'agents.yaml');
 const MAX_CONTENT_SIZE = 8000;
 const MAX_MULTI_SKILL_TOTAL_BYTES = 4800;
 
-const OFFENSIVE_SKILL_PREFIXES = ['akatsuki-skill', 'pentest', 'patch-diff-exploit'];
+const skillAuthz = require('../skill_authorization');
+const OFFENSIVE_SKILL_PREFIXES = skillAuthz.RED_SKILL_PREFIXES;
 
+/**
+ * Red (offensive/privileged) classification — single source of truth in
+ * src/skill_authorization.js. Name/tag based only; enforcement of who may
+ * invoke a red skill happens in denyIfUnauthorized().
+ */
 function isOffensiveSkill(skillName, tags = '') {
-  if (!skillName || typeof skillName !== 'string') return false;
-  const lower = skillName.toLowerCase();
-  for (const p of OFFENSIVE_SKILL_PREFIXES) {
-    if (lower === p || lower.startsWith(p + '/') || lower.startsWith(p + '-')) {
-      return true;
-    }
-  }
-  if (tags && typeof tags === 'string') {
-    const tLower = tags.toLowerCase();
-    if (tLower.includes('red-team') || tLower.includes('pentest') || tLower.includes('offensive')) {
-      return true;
-    }
-  }
-  return false;
+  return skillAuthz.classifySkill(skillName, tags).red;
+}
+
+/**
+ * Fail-closed authorization gate for red skills.
+ *
+ * @returns {null} when access is allowed (blue skill, or red skill by @akatsuki)
+ * @returns {object} denial payload (skill_authorization#authorizationDeniedResult)
+ */
+function denyIfUnauthorized(skillName, tags, agentName) {
+  if (!skillAuthz.classifySkill(skillName, tags).red) return null;
+  const result = skillAuthz.authorizeSkillAccess({ skillName, tags, agentName });
+  if (result.authorized) return null;
+  return skillAuthz.authorizationDeniedResult(result, skillName);
 }
 
 function normalizeLegacySkillName(skill) {
@@ -41,6 +47,43 @@ function normalizeLegacySkillName(skill) {
     return 'genin-skill/' + skill.substring('deep-code-explorer/'.length);
   }
   return skill;
+}
+
+// Skill names arrive over MCP from arbitrary clients, so they are untrusted input
+// that ends up joined onto the skills root. Reject anything that could escape it:
+// backslashes (Windows separators), parent traversal, drive letters, and absolute
+// paths. Callers turn `{ error }` into an MCP error response; this never throws.
+function validateSkillPath(rawName) {
+  if (typeof rawName !== 'string') return { value: null, error: 'skill_name_required' };
+  let decoded;
+  try {
+    decoded = decodeURIComponent(rawName);
+  } catch {
+    return { value: null, error: 'invalid_skill_path' };
+  }
+  if (!decoded.trim()) return { value: null, error: 'skill_name_required' };
+  if (decoded.includes('\\')) return { value: null, error: 'invalid_skill_path' };
+  if (decoded.startsWith('/')) return { value: null, error: 'invalid_skill_path' };
+  if (/^[A-Za-z]:/.test(decoded)) return { value: null, error: 'invalid_skill_path' };
+  const segments = decoded.split('/');
+  if (segments.some(seg => seg === '..' || seg === '.')) return { value: null, error: 'invalid_skill_path' };
+  if (decoded.includes('\0')) return { value: null, error: 'invalid_skill_path' };
+  return { value: decoded, error: null };
+}
+
+// The syntactic checks above reject obvious traversal, but the only reliable
+// guarantee is containment after resolution. A caller must pass the skills root
+// it will actually read from.
+function resolveSkillPathWithinRoot(rawName, skillsRoot) {
+  const checked = validateSkillPath(rawName);
+  if (checked.error) return checked;
+  if (!skillsRoot) return { value: null, error: 'skills_root_unavailable' };
+  const resolvedRoot = path.resolve(skillsRoot);
+  const resolved = path.resolve(resolvedRoot, ...checked.value.split('/'));
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+    return { value: null, error: 'invalid_skill_path' };
+  }
+  return { value: resolved, error: null };
 }
 
 function contentHash(content) {
@@ -348,15 +391,25 @@ function _findTopLevelInMirror(root, norm, resolvedRoot) {
 function findInMirror(name) {
   const norm = normalizeLegacySkillName(name);
   if (!norm || typeof norm !== 'string') return null;
-  if (norm.includes('..') || path.isAbsolute(norm) || /^[a-zA-Z]:/.test(norm)) return null;
+  // Syntactic rejection catches the obvious cases; the per-root containment
+  // check below is the invariant that actually protects filesystem reads.
+  const syntactic = validateSkillPath(norm);
+  if (syntactic.error) return null;
 
   for (const root of getMirrorRoots()) {
     if (!fs.existsSync(root)) continue;
     const resolvedRoot = path.resolve(root);
+    // Fast synthetic containment test before touching the filesystem.
+    const contained = resolveSkillPathWithinRoot(syntactic.value, resolvedRoot);
+    if (contained.error) continue;
     const hit = norm.includes('/')
       ? _findSubpathInMirror(root, norm, resolvedRoot)
       : _findTopLevelInMirror(root, norm, resolvedRoot);
-    if (hit) return hit;
+    if (hit) {
+      const rel = path.relative(resolvedRoot, path.resolve(hit.filePath));
+      if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      return hit;
+    }
   }
   return null;
 }
@@ -513,6 +566,8 @@ module.exports = {
   MAX_CONTENT_SIZE,
   MAX_MULTI_SKILL_TOTAL_BYTES,
   normalizeLegacySkillName,
+  validateSkillPath,
+  resolveSkillPathWithinRoot,
   contentHash,
   levenshtein,
   fuzzyResolveSkill,
@@ -527,5 +582,7 @@ module.exports = {
   findInMirror,
   searchMirrorSkills,
   logToolCall,
-  isOffensiveSkill
+  isOffensiveSkill,
+  denyIfUnauthorized,
+  OFFENSIVE_SKILL_PREFIXES
 };

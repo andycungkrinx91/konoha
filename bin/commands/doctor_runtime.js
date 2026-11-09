@@ -9,8 +9,7 @@ const {
   SKILLS_DB_DIR,
   FILE_TOOLS_MCP_PATH,
   FILE_TOOLS_ROUTER_PATH,
-  FILE_TOOLS_LAUNCHER_PATH,
-  FILE_TOOLS_PY_DIR
+  FILE_TOOLS_LAUNCHER_PATH
 } = require('../lib/paths');
 const deployUtils = require('../../src/deploy_utils');
 const { installFileTools } = require('../../src/deploy_installer');
@@ -81,23 +80,6 @@ function repairCoreModules(context) {
   }
 }
 
-function syncSubdirectoryFiles(subName, destDir, labelPrefix, context) {
-  const fullSrc = path.join(SRC_DIR, subName);
-  if (!fileExists(fullSrc)) return;
-  try {
-    ensureDir(destDir);
-    for (const entry of fs.readdirSync(fullSrc)) {
-      if (entry === '__pycache__' || !entry.endsWith('.js')) continue;
-      const srcEntry = path.join(fullSrc, entry);
-      if (!fs.statSync(srcEntry).isFile()) continue;
-      checkAndRepairFile(path.join(subName, entry), path.join(destDir, entry), `${labelPrefix} (${entry})`, context);
-    }
-  } catch (e) {
-    context.record(`${labelPrefix} files`, 'FAILED', e.message);
-    context.markError();
-  }
-}
-
 function repairFileToolsSubsystem(context) {
   checkAndRepairFile('file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)', context);
   checkAndRepairFile('file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)', context);
@@ -114,10 +96,48 @@ function repairFileToolsSubsystem(context) {
   deployUtils.writeNodeExecPathRecord();
   deployUtils.writePythonCmdRecord(checkPython());
 
-  syncSubdirectoryFiles('file_tools', FILE_TOOLS_PY_DIR, 'File Tools JS', context);
-  syncSubdirectoryFiles('mcp', path.join(SKILLS_DB_DIR, 'mcp'), 'MCP Subsystem', context);
-  syncSubdirectoryFiles('workflow', path.join(SKILLS_DB_DIR, 'workflow'), 'Workflow Subsystem', context);
-  syncSubdirectoryFiles('bridge', path.join(SKILLS_DB_DIR, 'bridge'), 'Bridge Subsystem', context);
+  purgeInvalidRuntimeMirrors(context);
+}
+
+// Earlier releases mirrored src/<sub>/*.js flattened into ~/.konoha/<sub>/, which
+// dropped nested trees (langgraph/{nodes,edges}/, qa-automation/) while the
+// deployed file_tools_router.js still requires ./mcp/runtime_state and
+// ./workflow/qa-automation/qa_tools from the runtime root. A complete copy is
+// legitimate and load-bearing; only a flattened one is broken. Detect flattening
+// by the absence of the nested directory the mirrored code itself requires.
+const RUNTIME_MIRROR_REQUIREMENTS = [
+  { sub: 'mcp', required: path.join('langgraph', 'index.js') },
+  { sub: 'workflow', required: path.join('qa-automation', 'qa_tools.js') }
+];
+
+function isFlattenedMirror(mirrorDir, requiredRelPath) {
+  if (!fileExists(mirrorDir)) return false;
+  if (fileExists(path.join(mirrorDir, requiredRelPath))) return false;
+  try {
+    const entries = fs.readdirSync(mirrorDir, { withFileTypes: true });
+    const hasFiles = entries.some(e => e.isFile());
+    const hasDirs = entries.some(e => e.isDirectory());
+    // A tree that lost its required nested path but still holds loose files is
+    // the flattened mirror produced by the retired syncSubdirectoryFiles pass.
+    return hasFiles && !hasDirs;
+  } catch {
+    return false;
+  }
+}
+
+function purgeInvalidRuntimeMirrors(context) {
+  for (const { sub, required } of RUNTIME_MIRROR_REQUIREMENTS) {
+    const dir = path.join(SKILLS_DB_DIR, sub);
+    if (!isFlattenedMirror(dir, required)) continue;
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      context.record(`${sub} legacy mirror`, 'REPAIRED', `Removed flattened mirror missing ${required}`);
+      context.incrementRepairs();
+    } catch (e) {
+      context.record(`${sub} legacy mirror`, 'FAILED', e.message);
+      context.markError();
+    }
+  }
 }
 
 function installMissingFileTools(context) {
@@ -177,5 +197,6 @@ function checkAndRepairRuntimeFiles(context) {
 
 module.exports = {
   checkAndRepairFile,
-  checkAndRepairRuntimeFiles
+  checkAndRepairRuntimeFiles,
+  purgeInvalidRuntimeMirrors
 };

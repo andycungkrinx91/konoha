@@ -15,7 +15,7 @@ Comprehensive implementation standards for **Nuxt 4.3** (Vue 3 Composition API +
 ## 🎨 Dynamic Storytelling & Visual Standards (Astra/Fable Direction)
 
 All generated Nuxt code must follow dynamic, domain-driven composition rather than a rigid boilerplate template:
-1. **Adaptive Dark & Light Mode Palettes**: Support Dark Mode and Light Mode cleanly with semantic CSS variables persisted under `'konoha-theme'`.
+1. **Theme Strategy From The Brief**: Choose single or dual theme from the design brief; define semantic CSS variables and persist any user choice under a project-specific key.
 2. **Bespoke Hero Storytelling**: Compose the hero around the product domain (interactive workbench, kinetic typography stage, editorial split showcase, or 3D preview). Do not force a 4-slide hero carousel or 5 carousels per site unless requested.
 3. **Motion & 3D Spring Choreography**: Use `motion-v` and `motion` spring physics for card elevation, shared layout pills, dock magnification, and reduced-motion-safe scroll reveals.
 4. **Domain-Scoped Data & Filters**: When building e-commerce or catalog apps, provide rich reactive datasets with search, category filters, and sorting; for SaaS, dashboards, or portfolios, scope data structures to that specific domain.
@@ -115,86 +115,16 @@ All generated Nuxt code must follow dynamic, domain-driven composition rather th
 }
 ```
 
-### 2. `components/ThemeSwitcher.vue` (Floating 10-Theme Switcher)
-```vue
-<script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { PhPalette, PhCheck } from '@phosphor-icons/vue';
+### 2. `theme-switcher.component.ts` (Optional — only when the brief has multiple themes)
 
-const THEMES = [
-  { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
-  { id: 'aurora', name: 'Aurora', primary: '#059669', accent: '#10b981' },
-  { id: 'sunset', name: 'Sunset', primary: '#e11d48', accent: '#f59e0b' },
-  { id: 'ocean', name: 'Ocean', primary: '#0284c7', accent: '#3b82f6' },
-  { id: 'forest', name: 'Forest', primary: '#15803d', accent: '#84cc16' },
-  { id: 'volcano', name: 'Volcano', primary: '#dc2626', accent: '#ea580c' },
-  { id: 'sakura', name: 'Sakura', primary: '#db2777', accent: '#f472b6' },
-  { id: 'cyberpunk', name: 'Cyberpunk', primary: '#7c3aed', accent: '#06b6d4' },
-  { id: 'midnight', name: 'Midnight', primary: '#1e293b', accent: '#64748b' },
-  { id: 'gold', name: 'Gold', primary: '#d97706', accent: '#f59e0b' },
-];
+> Emit a theme control only when the design brief defines more than one theme. Token ids and storage key are project decisions.
 
-const activeTheme = ref('nebula');
-const isOpen = ref(false);
+---
 
-onMounted(() => {
-  const saved = localStorage.getItem('konoha-theme') || 'nebula';
-  activeTheme.value = saved;
-  document.documentElement.setAttribute('data-theme', saved);
-});
+### 3. `components/HeroBanner.vue` (Optional — only when the brief calls for a banner)
 
-function selectTheme(themeId: string) {
-  activeTheme.value = themeId;
-  localStorage.setItem('konoha-theme', themeId);
-  document.documentElement.setAttribute('data-theme', themeId);
-}
-</script>
+> Emit a banner only when the brief asks for one. Slide count, autoplay timing, and tilt depth are project decisions.
 
-<template>
-  <div class="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000] flex flex-col items-start">
-    <div
-      v-if="isOpen"
-      class="mb-3 p-4 bg-white/90 backdrop-blur-xl border border-zinc-200/80 rounded-2xl shadow-2xl w-64 max-h-96 overflow-y-auto"
-    >
-      <div class="flex items-center justify-between mb-3 border-b border-zinc-100 pb-2">
-        <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500">Theme Presets</span>
-        <span class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 font-medium text-zinc-600">10 Light</span>
-      </div>
-      <div class="grid grid-cols-1 gap-1.5">
-        <button
-          v-for="t in THEMES"
-          :key="t.id"
-          @click="selectTheme(t.id)"
-          :class="[
-            'flex items-center justify-between p-2 rounded-xl text-left transition-all',
-            activeTheme === t.id ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50'
-          ]"
-        >
-          <div class="flex items-center gap-2.5">
-            <div
-              class="w-4 h-4 rounded-full shadow-inner"
-              :style="{ background: `linear-gradient(135deg, ${t.primary}, ${t.accent})` }"
-            />
-            <span class="text-xs text-zinc-800">{{ t.name }}</span>
-          </div>
-          <PhCheck v-if="activeTheme === t.id" class="w-3.5 h-3.5 text-zinc-800" />
-        </button>
-      </div>
-    </div>
-
-    <button
-      @click="isOpen = !isOpen"
-      aria-label="Toggle theme selector"
-      class="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md border border-zinc-200/80 shadow-lg flex items-center justify-center text-zinc-800 hover:scale-105 active:scale-95 transition-all"
-      style="box-shadow: 0 4px 20px var(--theme-glow)"
-    >
-      <PhPalette class="w-5 h-5" style="color: var(--theme-primary)" />
-    </button>
-  </div>
-</template>
-```
-
-### 3. `components/HeroCarousel.vue` (3D Interactive Hero Banner)
 ```vue
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';

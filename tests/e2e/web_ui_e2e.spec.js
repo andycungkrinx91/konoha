@@ -151,12 +151,12 @@ test.describe('Konoha Web UI End-to-End Suite', () => {
     await expect(page.locator('#new-password')).toBeVisible();
     await expect(page.locator('#confirm-password')).toBeVisible();
 
-    await page.fill('#new-password', 'shinobi-enterprise-2026!');
-    await page.fill('#confirm-password', 'shinobi-enterprise-2026!');
+    await page.fill('#new-password', 'shinobi-production-2026!');
+    await page.fill('#confirm-password', 'shinobi-production-2026!');
     await page.getByRole('button', { name: 'Update & Continue to Dashboard' }).click();
 
     await expect(page.locator('#login-password')).toBeVisible({ timeout: 10000 });
-    await page.fill('#login-password', 'shinobi-enterprise-2026!');
+    await page.fill('#login-password', 'shinobi-production-2026!');
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page.getByText('Mission Control Dashboard')).toBeVisible({ timeout: 10000 });
 

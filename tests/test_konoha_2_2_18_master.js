@@ -274,7 +274,7 @@ function testJoninModesAndWebUiContracts() {
     assert.strictEqual(loginRes.requiresPasswordChange, true);
 
     // Two-field updatePassword without currentPassword during bootstrap session
-    const updateRes = webAuth.updatePassword(loginRes.sessionId, '', 'shinobi-enterprise-2026!');
+    const updateRes = webAuth.updatePassword(loginRes.sessionId, '', 'shinobi-production-2026!');
     assert.strictEqual(updateRes.success, true);
     assert.strictEqual(updateRes.requires_login, true);
 
@@ -458,47 +458,48 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
 }
 
 async function testFramerMarketplaceChuninReaAndJoninAdaptation() {
-  const textSpec = JSON.parse(buildFromText('framer-saas', 'Enterprise analytics platform', 'nextjs'));
+  const textSpec = JSON.parse(buildFromText('framer-saas', 'Production analytics platform', 'nextjs'));
   assert.strictEqual(textSpec.component_discovery_source, FRAMER_MARKETPLACE_URL);
   assert.strictEqual(textSpec.chunin_playwright_rea_required, true);
+  assert.strictEqual(textSpec.design_brief.fields.length, 9);
   assert.strictEqual(textSpec.framer_licensing_boundaries.no_iframe_injection, true);
   assert.strictEqual(textSpec.framer_licensing_boundaries.no_protected_source_extraction, true);
 
-  const discoveryRes = discoverFramerMarketplaceComponents({ archetype: 'dashboard', query: 'telemetry bento' });
+  const discoveryRes = discoverFramerMarketplaceComponents({ domainHints: ['admin_operations'] });
   const candidates = discoveryRes.components || discoveryRes;
-  assert.ok(candidates.some((c) => c.pricing.tier === 'free'), 'Must discover free Marketplace components');
-  assert.ok(candidates.some((c) => c.pricing.tier === 'paid'), 'Must discover paid Marketplace components for preview evaluation');
+  assert.ok(candidates.length > 0, 'Domain hints must produce research candidates');
+  assert.ok(candidates.every((c) => c.suitability_score === null), 'Candidates must never carry fabricated scores');
 
   const reaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_framer_rea_'));
   try {
     const reaReport = await performFramerComponentREA({
-      archetype: 'dashboard',
+      domainHints: ['admin_operations'],
       targetFramework: 'nextjs',
       taskDir: reaDir,
       runPlaywrightProbe: true
     });
     assert.strictEqual(reaReport.discovery_source, FRAMER_MARKETPLACE_URL);
-    assert.strictEqual(reaReport.free_and_paid_evaluated, true, 'Both free and paid components must be evaluated');
+    assert.strictEqual(reaReport.free_and_paid_evaluated, false, 'Unknown tiers must not be reported as evaluated');
     for (const comp of reaReport.components) {
       assert.strictEqual(comp.licensing_boundary.protected_source_extracted, false);
       assert.strictEqual(comp.licensing_boundary.iframe_injected, false);
-      assert.strictEqual(comp.observations.responsive_viewports.length, 3);
+      assert.strictEqual(comp.observations.responsive_viewports, null, 'No viewport data without a navigated preview');
+      assert.strictEqual(comp.preview_evaluated, false, 'Nothing may claim a preview was evaluated without navigation');
     }
 
-    const paidComp = reaReport.components.find((c) => c.pricing.tier === 'paid');
+    const researchTarget = reaReport.components[0];
     for (const fw of ['nextjs', 'nuxt', 'svelte', 'angular']) {
-      const adapted = adaptFramerComponentToFramework(paidComp, fw);
-      assert.strictEqual(adapted.licensing_mode, 'independent_clean_room_native_recreation_from_observed_preview');
+      const adapted = adaptFramerComponentToFramework(researchTarget, fw);
       assert.ok(!adapted.code.includes('<iframe'), `Adapted ${fw} code must never use iframe injection`);
       assert.ok(adapted.provenance_markdown.includes(FRAMER_MARKETPLACE_URL), 'Provenance must reference Framer Marketplace');
     }
 
     const skillMd = buildFrontendMaintenanceSkillMarkdown({
-      slug: 'framer-enterprise',
+      slug: 'framer-production',
       framework: 'nextjs',
       archetype: 'dashboard',
       componentProvenance: reaReport.components.map((c) => ({
-        component_name: c.name,
+        component_name: c.component_name,
         marketplace_url: c.marketplace_url,
         pricing_tier: c.pricing.tier,
         licensing_mode: c.licensing_boundary.implementation_strategy,

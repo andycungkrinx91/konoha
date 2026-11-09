@@ -23,109 +23,16 @@
   --font-display: "Clash Display", ui-sans-serif, system-ui, sans-serif;
   --radius-card: 1.5rem;
 
-  /* Default Theme: Nebula (indigo -> cyan) */
-@theme {
-  --color-brand: #4f46e5;
+  --color-brand: #4f46e5;   /* replace with the brief's brand color */
   --color-brand-foreground: #ffffff;
   --color-accent: #06b6d4;
-  --gradient-primary: linear-gradient(135deg, #4f46e5, #06b6d4);
-  --gradient-subtle: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(6, 182, 212, 0.03));
+  --gradient-primary: linear-gradient(135deg, var(--color-brand), var(--color-accent));
   --color-glow: rgba(79, 70, 229, 0.15);
   --color-glow-accent: rgba(6, 182, 212, 0.1);
 }
-
-/* Theme 2: Aurora (emerald -> green) */
-[data-theme="aurora"] {
-  --color-brand: #059669;
-  --color-accent: #10b981;
-  --gradient-primary: linear-gradient(135deg, #059669, #10b981);
-  --gradient-subtle: linear-gradient(135deg, rgba(5, 150, 105, 0.05), rgba(16, 185, 129, 0.03));
-  --color-glow: rgba(5, 150, 105, 0.15);
-  --color-glow-accent: rgba(16, 185, 129, 0.1);
-}
-
-/* Theme 3: Sunset (rose -> amber) */
-[data-theme="sunset"] {
-  --color-brand: #e11d48;
-  --color-accent: #f59e0b;
-  --gradient-primary: linear-gradient(135deg, #e11d48, #f59e0b);
-  --gradient-subtle: linear-gradient(135deg, rgba(225, 29, 72, 0.05), rgba(245, 158, 11, 0.03));
-  --color-glow: rgba(225, 29, 72, 0.15);
-  --color-glow-accent: rgba(245, 158, 11, 0.1);
-}
-
-/* Theme 4: Ocean (sky -> blue) */
-[data-theme="ocean"] {
-  --color-brand: #0284c7;
-  --color-accent: #3b82f6;
-  --gradient-primary: linear-gradient(135deg, #0284c7, #3b82f6);
-  --gradient-subtle: linear-gradient(135deg, rgba(2, 132, 199, 0.05), rgba(59, 130, 246, 0.03));
-  --color-glow: rgba(2, 132, 199, 0.15);
-  --color-glow-accent: rgba(59, 130, 246, 0.1);
-}
-
-/* Theme 5: Forest (green -> lime) */
-[data-theme="forest"] {
-  --color-brand: #15803d;
-  --color-accent: #84cc16;
-  --gradient-primary: linear-gradient(135deg, #15803d, #84cc16);
-  --gradient-subtle: linear-gradient(135deg, rgba(21, 128, 61, 0.05), rgba(132, 204, 22, 0.03));
-  --color-glow: rgba(21, 128, 61, 0.15);
-  --color-glow-accent: rgba(132, 204, 22, 0.1);
-}
-
-/* Theme 6: Volcano (red -> orange) */
-[data-theme="volcano"] {
-  --color-brand: #dc2626;
-  --color-accent: #ea580c;
-  --gradient-primary: linear-gradient(135deg, #dc2626, #ea580c);
-  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(234, 88, 12, 0.03));
-  --color-glow: rgba(220, 38, 38, 0.15);
-  --color-glow-accent: rgba(234, 88, 12, 0.1);
-}
-
-/* Theme 7: Sakura (pink -> rose) */
-[data-theme="sakura"] {
-  --color-brand: #db2777;
-  --color-accent: #f472b6;
-  --gradient-primary: linear-gradient(135deg, #db2777, #f472b6);
-  --gradient-subtle: linear-gradient(135deg, rgba(219, 39, 119, 0.05), rgba(244, 114, 182, 0.03));
-  --color-glow: rgba(219, 39, 119, 0.15);
-  --color-glow-accent: rgba(244, 114, 182, 0.1);
-}
-
-/* Theme 8: Cyberpunk (violet -> cyan) */
-[data-theme="cyberpunk"] {
-  --color-brand: #7c3aed;
-  --color-accent: #06b6d4;
-  --gradient-primary: linear-gradient(135deg, #7c3aed, #06b6d4);
-  --gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(6, 182, 212, 0.03));
-  --color-glow: rgba(124, 58, 237, 0.15);
-  --color-glow-accent: rgba(6, 182, 212, 0.1);
-}
-
-/* Theme 9: Midnight (slate -> gray) */
-[data-theme="midnight"] {
-  --color-brand: #1e293b;
-  --color-accent: #64748b;
-  --gradient-primary: linear-gradient(135deg, #1e293b, #64748b);
-  --gradient-subtle: linear-gradient(135deg, rgba(30, 41, 59, 0.05), rgba(100, 116, 139, 0.03));
-  --color-glow: rgba(30, 41, 59, 0.15);
-  --color-glow-accent: rgba(100, 116, 139, 0.1);
-}
-
-/* Theme 10: Gold (amber -> yellow) */
-[data-theme="gold"] {
-  --color-brand: #d97706;
-  --color-accent: #f59e0b;
-  --gradient-primary: linear-gradient(135deg, #d97706, #f59e0b);
-  --gradient-subtle: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(245, 158, 11, 0.03));
-  --color-glow: rgba(217, 119, 6, 0.15);
-  --color-glow-accent: rgba(245, 158, 11, 0.1);
-}
 ```
 
-> **Note on Themes:** Every new UI generated from scratch MUST include these 10 light-theme definitions in `globals.css`/`app.css` and a floating chat-like theme switcher implementation to allow the user to toggle them. The theme switcher MUST save the chosen theme to `localStorage` (or cookies) and apply it immediately on page load (via a head script) so the theme never reverts to default on refresh.
+> **Note on Themes:** Define ONE project-specific semantic token set from the design brief (the values above are placeholders). A theme switcher, a `[data-theme]` matrix, or a `localStorage` theme key is added ONLY when the brief calls for user-selectable themes. Never reuse another project's palette or token names.
 
 Token names automatically create utility classes (e.g., `--color-brand` becomes `bg-brand`, `text-brand`, `border-brand`).
 
@@ -134,7 +41,7 @@ Token names automatically create utility classes (e.g., `--color-brand` becomes 
 Never deliver flat, basic designs. Use premium aesthetics:
 
 1. **Gradients over Solid Colors**: Always prefer the gradient variants (`bg-[image:var(--gradient-primary)]`, `text-transparent bg-clip-text bg-[image:var(--gradient-primary)]`) for primary buttons, heroic text, and active states.
-2. **Icons**: ALWAYS use Phosphor Icons (`@phosphor-icons/react` for Next.js, `@phosphor-icons/web` CSS classes for SvelteKit/Nuxt/Angular) — never a Lucide package (AI-scaffold fingerprint). **Crucially, all icons MUST use the active theme's gradient color.** Do not use flat colors. To achieve this, define an SVG `<linearGradient>` using the theme's CSS variables (`var(--color-primary)`, `var(--color-accent)`) and apply it via `stroke="url(#theme-gradient)"`, or use Tailwind CSS masking (`mask-image`). Do not hallucinate raw SVGs.
+2. **Icons**: ALWAYS use Phosphor Icons (`@phosphor-icons/react` for Next.js, `@phosphor-icons/web` CSS classes for SvelteKit/Nuxt/Angular) — never a Lucide package (AI-scaffold fingerprint). **Icons follow the brief's color system** (solid brand, muted, or gradient) — pick one treatment and apply it consistently. For a gradient treatment, define an SVG `<linearGradient>` from the project's CSS variables and apply it via `stroke="url(#theme-gradient)"`. Do not hallucinate raw SVGs.
    ```css
    @theme {
      --gradient-primary: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);
@@ -167,7 +74,7 @@ Example:
   - Borders: `border-border-subtle` (soft card and divider borders).
   - NEVER use hardcoded slate/zinc dark backgrounds (`bg-zinc-950`, `bg-black`, `text-white`, `border-white/10`) unless it is a specific, theme-invariant dark element (like a dark footer).
 - **Mobile-first**: Base classes target mobile screens, while prefixes (`md:`, `lg:`) override for desktop.
-- **Mobile Bottom Navigation (MANDATORY)**: For mobile view (screens below `md` breakpoint), you MUST implement a sticky bottom navigation dock (e.g., `fixed bottom-0 left-0 right-0 z-40 bg-surface-elevated/85 backdrop-blur-lg border-t border-border-subtle h-16`) containing 4-5 navigation options (e.g., Home, Shop, Cart, Profile) using Lucide icons. Do NOT use hamburger menus on mobile.
+- **Mobile Navigation**: Navigation is a design decision. A labeled menu, inline links, a pinned bottom bar, or a dock are all valid. When a pinned bottom bar fits the brief, define it in the root layout with content clearance (`pb-20`) so nothing is obscured. Never ship an unlabeled hamburger as the only way to reach primary navigation.
 - Use container queries for reusable cards/components that depend on parent width.
 - Prefer `grid` for page layout and `flex` for local alignment.
 

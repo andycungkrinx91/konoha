@@ -215,6 +215,10 @@ function run() {
     fs.mkdirSync(path.join(cursorSkillsDir, 'test-client-skill'), { recursive: true });
     fs.writeFileSync(path.join(cursorSkillsDir, 'test-client-skill', 'SKILL.md'), '# Test Client Skill\n');
 
+    // getMirrorRoots only reports directories that actually exist, so the global
+    // mirror has to exist for the assertions below to be meaningful.
+    fs.mkdirSync(path.join(tempRoot, '.agents', 'skills'), { recursive: true });
+
     const roots = skillsCommon.getMirrorRoots();
     assert.ok(roots.length > 0, 'getMirrorRoots must return roots');
 

@@ -115,10 +115,10 @@ async function run() {
     assert.strictEqual(stopMock.status, 'stopped');
 
     const denied = JSON.parse(getSkill('akatsuki-skill', 'genin'));
-    assert.ok(denied.error && denied.error.includes('Access restricted'), 'Non-akatsuki agent must be denied access to offensive skills');
+    assert.strictEqual(denied.code, 'SKILL_AUTHORIZATION_DENIED', 'Non-akatsuki agent must be denied access to offensive skills');
 
     const deniedSearch = JSON.parse(findSkill('pentest-osint-recon', 5, 'jonin'));
-    assert.strictEqual(deniedSearch.found, 0, 'Offensive skills must not be found by non-akatsuki agent');
+    assert.strictEqual(deniedSearch.code, 'SKILL_AUTHORIZATION_DENIED', 'Red-skill keyword search must fail closed for non-akatsuki agent');
 
     const allowed = JSON.parse(getSkill('akatsuki-skill', 'akatsuki'));
     assert.ok(!allowed.error || !allowed.error.includes('Access restricted'), 'Akatsuki agent must be permitted to access akatsuki-skill');

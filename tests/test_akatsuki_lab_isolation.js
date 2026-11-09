@@ -81,7 +81,7 @@ runTest('Unsupported platform returns null without falling back', () => {
 // Missing engine check and decline reason
 runTest('Missing engine returns exact decline message', () => {
   const mockRunner = () => ({ status: 1, stdout: '', stderr: 'not found' });
-  const check = checkEngineInstalled('lxc', { runner: mockRunner, platform: 'linux' });
+  const check = checkEngineInstalled('lxc', { agentName: 'akatsuki', runner: mockRunner, platform: 'linux' });
   assert.strictEqual(check.installed, false);
 
   const labCheck = validateLabPrerequisites({ authorized: true, target: '10.77.77.100' }, {
@@ -142,7 +142,7 @@ runTest('LXC network verification rejects bridge when ipv4.nat is true', () => {
     return { status: 0, stdout: '' };
   };
 
-  const status = getLabStatus('akatsuki-lab', 'lxc', { runner: mockRunner, platform: 'linux' });
+  const status = getLabStatus('akatsuki-lab', 'lxc', { agentName: 'akatsuki', runner: mockRunner, platform: 'linux' });
   assert.strictEqual(status.exists, true);
   assert.strictEqual(status.running, true);
   assert.strictEqual(status.network_isolated, false, 'Bridge with NAT enabled must fail isolation check');
@@ -171,7 +171,7 @@ runTest('LXC network verification accepts bridge when ipv4.nat is false', () => 
     return { status: 0, stdout: '' };
   };
 
-  const status = getLabStatus('akatsuki-lab', 'lxc', { runner: mockRunner, platform: 'linux' });
+  const status = getLabStatus('akatsuki-lab', 'lxc', { agentName: 'akatsuki', runner: mockRunner, platform: 'linux' });
   assert.strictEqual(status.exists, true);
   assert.strictEqual(status.running, true);
   assert.strictEqual(status.network_isolated, true, 'Bridge with ipv4.nat=false must pass isolation check');
@@ -190,7 +190,7 @@ runTest('Docker network verification rejects container on default bridge network
     return { status: 0, stdout: '' };
   };
 
-  const status = getLabStatus('akatsuki-lab', 'docker', { runner: mockRunner, platform: 'darwin' });
+  const status = getLabStatus('akatsuki-lab', 'docker', { agentName: 'akatsuki', runner: mockRunner, platform: 'darwin' });
   assert.strictEqual(status.exists, true);
   assert.strictEqual(status.network_isolated, false, 'Default docker bridge with NAT must fail isolation check');
   assert.match(status.details, /default "bridge" network/i);
@@ -213,7 +213,7 @@ runTest('Docker network verification rejects non-internal custom network', () =>
     return { status: 0, stdout: '' };
   };
 
-  const status = getLabStatus('akatsuki-lab', 'docker', { runner: mockRunner, platform: 'darwin' });
+  const status = getLabStatus('akatsuki-lab', 'docker', { agentName: 'akatsuki', runner: mockRunner, platform: 'darwin' });
   assert.strictEqual(status.exists, true);
   assert.strictEqual(status.network_isolated, false, 'Docker network with Internal: false must fail isolation check');
   assert.match(status.details, /internal: false/i);
@@ -236,7 +236,7 @@ runTest('Docker network verification accepts internal custom network', () => {
     return { status: 0, stdout: '' };
   };
 
-  const status = getLabStatus('akatsuki-lab', 'docker', { runner: mockRunner, platform: 'darwin' });
+  const status = getLabStatus('akatsuki-lab', 'docker', { agentName: 'akatsuki', runner: mockRunner, platform: 'darwin' });
   assert.strictEqual(status.exists, true);
   assert.strictEqual(status.network_isolated, true, 'Docker network with Internal: true must pass isolation check');
   assert.match(status.details, /verified internal/i);
@@ -276,7 +276,7 @@ runTest('executeInLab executes safely inside container without host execution', 
     assert.strictEqual(args[1], 'akatsuki-lab');
     return { status: 0, stdout: 'in-sandbox-output\n', stderr: '' };
   };
-  const res = executeInLab('akatsuki-lab', ['echo', 'ping'], { runner: mockRunner, platform: 'linux' });
+  const res = executeInLab('akatsuki-lab', ['echo', 'ping'], { agentName: 'akatsuki', runner: mockRunner, platform: 'linux' });
   assert.strictEqual(res.status, 0);
   assert.strictEqual(res.stdout, 'in-sandbox-output\n');
 });
@@ -286,7 +286,7 @@ runTest('Red-Team workflow blocks and declines when engine is missing', () => {
   const mockRunner = () => ({ status: 1, stdout: '', stderr: 'not found' });
   const result = runRedTeamWorkflow(
     { authorized: true, target: '10.77.77.153', lab_name: 'akatsuki-lab' },
-    { runner: mockRunner, platform: 'linux' }
+    { agentName: 'akatsuki', runner: mockRunner, platform: 'linux' }
   );
 
   assert.strictEqual(result.workflow_type, 'red_team');
@@ -329,7 +329,7 @@ runTest('Red-Team workflow fails gate if teardown cleanup cannot be confirmed', 
 
   const result = runRedTeamWorkflow(
     { authorized: true, target: '10.77.77.153', lab_name: 'akatsuki-lab' },
-    { runner: mockRunner, platform: 'linux', skip_container_exec: true }
+    { agentName: 'akatsuki', runner: mockRunner, platform: 'linux', skip_container_exec: true }
   );
 
   assert.strictEqual(result.workflow_type, 'red_team');
@@ -367,7 +367,7 @@ runTest('Red-Team workflow executes in sandbox when authorized and isolated with
 
   const result = runRedTeamWorkflow(
     { authorized: true, target: '10.77.77.153', lab_name: 'akatsuki-lab' },
-    { runner: mockRunner, platform: 'linux', skip_container_exec: true }
+    { agentName: 'akatsuki', runner: mockRunner, platform: 'linux', skip_container_exec: true }
   );
 
   assert.strictEqual(result.workflow_type, 'red_team');

@@ -154,7 +154,7 @@ function promoteStagingToAsset({
     nonce,
     display_name: metadata.display_name || metadata.prompt || 'Generated 3D Asset',
     source_mode: metadata.source_mode || 'text_to_3d',
-    profile: metadata.profile || 'enterprise_pbr',
+    profile: metadata.profile || 'production_pbr',
     quality_preset: metadata.quality_preset || 'standard',
     domain_archetype: metadata.domain_archetype || 'auto',
     dsl_version: metadata.dsl_version || '1.0.0',

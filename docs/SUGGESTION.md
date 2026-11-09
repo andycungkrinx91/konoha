@@ -135,8 +135,8 @@ A surface audit reveals a discrepancy between the 45 tools advertised in documen
    - Page 16: Akatsuki Security Controls & Dual-Mode Lab Lifecycle
    - Page 17: Yamanaka Image-to-3D Asset Pipeline (prompt → archetype routing → spec synthesis → Blender 5.2.2 headless build → IBL preview/export)
    - Page 18: LangGraph.js Orchestration Runtime (`@langchain/langgraph` checkpointer graph, budget/resume, subagent fan-out)
-2. **`docs/diagrams/konoha-enterprise-architecture.drawio`** (18 pages, one per canonical page):
-   - Enterprise deployment model with multi-client mesh, reverse proxy topologies, and systemd daemon management.
+2. **`docs/diagrams/konoha-infrastructure-architecture.drawio`** (18 pages, one per canonical page):
+   - Multi-client deployment model with multi-client mesh, reverse proxy topologies, and systemd daemon management.
 
 ### Validation Results
 
@@ -146,7 +146,7 @@ Both diagram files pass structural validation with `0 error(s)` using the bundle
 python3 src/templates/skills/kage-skill/references/drawio-skill-assets/scripts/validate.py docs/diagrams/konoha-architecture.drawio --score
 ```
 
-- **Validation Score**: `konoha-architecture.drawio` scores **635** (0 errors), `konoha-enterprise-architecture.drawio` scores **605** (0 errors), both measured 2026-11-04 with the bundled checker. That checker also reports 19 / 18 through-vertex edge routes and 51 / 49 label-and-edge overlaps; the stricter geometric gate in `tests/test_diagram_sync.js` (which skips swimlanes, groups and sub-lanes) reports 0 penetrations, 0 crossings and 0 overlaps across all 18 pages of each file.
+- **Validation Score**: `konoha-architecture.drawio` scores **635** (0 errors), `konoha-infrastructure-architecture.drawio` scores **605** (0 errors), both measured 2026-11-04 with the bundled checker. That checker also reports 19 / 18 through-vertex edge routes and 51 / 49 label-and-edge overlaps; the stricter geometric gate in `tests/test_diagram_sync.js` (which skips swimlanes, groups and sub-lanes) reports 0 penetrations, 0 crossings and 0 overlaps across all 18 pages of each file.
 - **Node & Label Parity**: All 18 pages correctly reflect canonical `genin-skill` nomenclature and active gateway port configurations (`19999`); the ninja roster labels on pages 01 and 02 enumerate all nine agents including `yamanaka` at v2.2.18.
 
 ---

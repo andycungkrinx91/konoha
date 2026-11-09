@@ -19,7 +19,7 @@ const {
   getServedSkillsSet,
   searchMirrorSkills,
   logToolCall,
-  isOffensiveSkill
+  denyIfUnauthorized
 } = require('./skills_common');
 const { isPathVisible } = require('./runtime_state');
 const { shieldPromptInjection } = require('../migrate');
@@ -230,10 +230,29 @@ function _sortSkillRows(rows, normKeyword) {
   });
 }
 
+function _redactedRow(row) {
+  return {
+    name: row.name,
+    type: row.type,
+    tags: row.tags,
+    byte_size: row.byte_size,
+    file_path: row.file_path,
+    redacted: true,
+    code: 'SKILL_AUTHORIZATION_DENIED',
+    requires_lab: true,
+    content: '',
+    rank: row.rank
+  };
+}
+
 function _collectVisibleRows(rows, agentName, limit) {
   const visible = [];
   for (const row of rows) {
-    if (agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) continue;
+    if (denyIfUnauthorized(row.name, row.tags, agentName)) {
+      if (isPathVisible(row.file_path) && visible.length < limit) visible.push(_redactedRow(row));
+      if (visible.length >= limit) break;
+      continue;
+    }
     if (isPathVisible(row.file_path)) visible.push(row);
     if (visible.length >= limit) break;
   }
@@ -246,7 +265,10 @@ function _appendMirrorFallbacks(normKeyword, limit, agentName, visibleRows) {
   if (!mirrorRows || mirrorRows.length === 0) return;
   process.stderr.write(`  ⚠️ [find_skill] '${normKeyword}' not found in SQLite FTS5/RAG. Retrieved ${mirrorRows.length} matches from mirror fallback.\n`);
   for (const mRow of mirrorRows) {
-    if (agentName !== 'akatsuki' && isOffensiveSkill(mRow.name, mRow.tags)) continue;
+    if (denyIfUnauthorized(mRow.name, mRow.tags, agentName)) {
+      visibleRows.push(_redactedRow(mRow));
+      continue;
+    }
     visibleRows.push(mRow);
   }
 }
@@ -257,6 +279,15 @@ function _buildFindSkillResults(visibleRows, trackingKey) {
   process.stderr.write(`  → Found ${visibleRows.length} matching skill/reference entries:\n`);
   for (const row of visibleRows) {
     process.stderr.write(`    - ${row.name} (${row.type}, ${row.byte_size} bytes)\n`);
+    if (row.redacted) {
+      results.push({
+        id: row.name, name: row.name, type: row.type, score: 1.0, estimated_tokens: 0,
+        snippet: '[REDACTED]', content: '[REDACTED]', loaded: false, truncated: true, hash: null,
+        redacted: true, code: row.code, requires_lab: true,
+        hint: 'Red skill: only @akatsuki inside akatsuki-lab may retrieve it.'
+      });
+      continue;
+    }
     const shielded = shieldPromptInjection(row.content || '');
     const isAlreadyServed = servedSet.has(row.name);
     servedSet.add(row.name);
@@ -293,10 +324,11 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, ...res
   const cacheKey = `${normKeyword}:${limit}:${compact}:${agentName || ''}:${trackingKey}`;
   if (_SKILL_QUERY_CACHE.has(cacheKey)) return _SKILL_QUERY_CACHE.get(cacheKey);
 
-  if (agentName !== 'akatsuki' && isOffensiveSkill(normKeyword)) {
-    const emptyResult = JSON.stringify({ found: 0, query: keyword, message: `No skills found for '${keyword}'. Use list_skills to see available skills.` });
-    _SKILL_QUERY_CACHE.set(cacheKey, emptyResult);
-    return emptyResult;
+  const keywordDenied = denyIfUnauthorized(normKeyword, null, agentName);
+  if (keywordDenied) {
+    const res = JSON.stringify(keywordDenied);
+    logToolCall('find_skill', String(keyword), res, agentName);
+    return res;
   }
 
   let conn = null;
@@ -363,7 +395,7 @@ function listSkills(agentName = null, fields = null) {
     for (const row of rows) {
       if (seenNames.has(row.name)) continue;
       seenNames.add(row.name);
-      if (agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) continue;
+      const denied = denyIfUnauthorized(row.name, row.tags, agentName);
       if (isPathVisible(row.file_path)) {
         const entry = {};
         if (effFields.includes('name')) entry.name = row.name;
@@ -372,6 +404,11 @@ function listSkills(agentName = null, fields = null) {
         if (effFields.includes('tags')) entry.tags = row.tags;
         if (effFields.includes('lines')) entry.lines = row.line_count;
         if (effFields.includes('skill_name')) entry.skill_name = row.skill_name;
+        if (denied) {
+          entry.redacted = true;
+          entry.code = denied.code;
+          entry.requires_lab = true;
+        }
         skills.push(entry);
       }
     }

@@ -8,6 +8,27 @@ const { getDb } = require('../../db');
 const { normalizeTokenBudget } = require('./token_guard');
 const { wrapGuardedNode } = require('./node_guard');
 
+// macOS and Windows use case-insensitive filesystems, so a require('./nodes/Plan')
+// typed against a plan.js on disk resolves locally but fails on Linux CI and on
+// case-sensitive macOS volumes. Read the modules we are about to require and
+// fail loudly at load time instead of at first node dispatch.
+function assertExactCaseRequires() {
+  const fs = require('fs');
+  const dir = path.join(__dirname, 'nodes');
+  const onDisk = new Set(fs.readdirSync(dir));
+  const source = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
+  const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const missing = [];
+  for (const match of withoutComments.matchAll(/require\('\.\/nodes\/([A-Za-z0-9_-]+)'\)/g)) {
+    if (!onDisk.has(`${match[1]}.js`)) missing.push(match[1]);
+  }
+  if (missing.length > 0) {
+    throw new Error(`langgraph node modules missing (case/existence mismatch): ${missing.join(', ')}`);
+  }
+}
+
+assertExactCaseRequires();
+
 const { classifyNode } = require('./nodes/classify');
 const { planNode } = require('./nodes/plan');
 const { briefNode } = require('./nodes/brief');
@@ -211,7 +232,7 @@ function formatGraphOutput(graphRes) {
   const resumeNode = graphRes.resumeNode || resultPayload.resume_node || (graphRes.phase ? `node_${graphRes.phase}` : 'node_classify');
   const nextAction = resultPayload.next_action || (
     isPaused
-      ? `Continue with another turn: the next sannin/workflow_gate_choice call resumes at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`
+      ? `Continue with another turn: call sannin again with the same task_dir to resume at ${resumeNode}. Do not resupply token_budget unless you want a different ceiling.`
       : (isError
         ? `Turn halted on error. Next call will retry at ${resumeNode}.`
         : (isComplete ? 'Workflow complete.' : (graphRes.hitlPending ? 'Awaiting human in the loop input.' : `In progress at ${resumeNode}.`)))

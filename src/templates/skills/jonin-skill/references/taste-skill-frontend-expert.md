@@ -1,9 +1,8 @@
-# Konoha Core Design + Taste-Skill Enrichment Architecture
+# Konoha Craft Checklist (Taste-Skill Enrichment)
 Reference: https://www.tasteskill.dev/ | https://github.com/leonxlnx/taste-skill
 Upstream Pin: Tag `v2.1.5` | Commit `12af471` | License `MIT` | https://github.com/leonxlnx/taste-skill
 
-Standard Operating Procedures for building modern, high-converting, production-grade user interfaces:
-**Konoha Design System as the Core Foundation**, enriched and elevated by **Taste-Skill 3D Physics, Editorial Prettifier & Anti-Slop Discipline**.
+> **This is a craft checklist applied AFTER the design brief.** It never selects the art direction, layout, theme count, or domain features — the 9-field design brief does that. Use these items to raise execution quality once direction is set.
 
 ---
 
@@ -12,11 +11,11 @@ Standard Operating Procedures for building modern, high-converting, production-g
 ```mermaid
 flowchart TD
     subgraph Layer1 ["Layer 1: Dynamic Context-Driven Composition (Astra / Fable Direction)"]
-        K1["Adaptive Dark & Light Mode Semantic Tokens"]
+        K1["Brief-Derived Semantic Tokens (single or dual theme)"]
         K2["Bespoke Hero Storytelling (Interactive Stage, Command Workbench, or Editorial Split)"]
         K3["Cross-Framework Motion Architecture (motion/react, motion-v, svelte/motion, motion JS)"]
-        K4["Responsive Navigation & Optional Contextual Dock"]
-        K5["Domain-Scoped Data & Interactive Flows (Commerce, SaaS, Dashboard, Portfolio)"]
+        K4["Navigation Pattern Chosen From The Brief"]
+        K5["Domain-Scoped Data & Flows (only what the brief requires)"]
         K6["Next.js 16.3+ / SvelteKit 2 (Svelte 5) / Nuxt 4 / Angular 19+"]
     end
 
@@ -38,8 +37,8 @@ flowchart TD
 
 Every build composes its visual architecture dynamically around the product domain and user prompt — never forcing a rigid boilerplate template:
 
-1. **Adaptive Dark & Light Mode Semantic Tokens**:
-   - Define semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--bg-elevated`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`, `--accent-glow`) that adapt across Dark Mode and Light Mode (`prefers-color-scheme` + user theme toggle persisted in `localStorage`).
+1. **Project Semantic Tokens**:
+   - Define semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--bg-elevated`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`, `--accent-glow`) from the brief. Single or dual theme is a brief decision; add `prefers-color-scheme` handling and a persisted toggle only for dual-theme projects.
 2. **Bespoke Hero Storytelling (Zero Forced Carousels)**:
    - Choose the hero composition that best serves the product narrative: an interactive product stage, live command/telemetry workbench, editorial split-screen showcase, kinetic typography canvas, or spatial 3D preview. Do not force a 4-slide banner carousel or bottom-left FAB unless requested.
 3. **Cross-Framework Motion Choreography (`framer-motion-animator`)**:
@@ -48,9 +47,9 @@ Every build composes its visual architecture dynamically around the product doma
    - **SvelteKit 2**: `svelte/motion` (`Spring`, `Tween`) + `motion` JS API (`jonin-skill/motion-svelte`)
    - **Angular 19/20+**: `motion` JS API with `afterNextRender`, Signals, and `DestroyRef` (`jonin-skill/motion-angular`)
 4. **Header Architecture & Responsive Navigation**:
-   - Place the brand identity cleanly on the left of the header (`flex justify-between items-center`), with accessible desktop navigation and touch-safe (`>= 44px`) mobile navigation or an archetype-adaptive bottom dock.
+   - Place the brand identity cleanly on the left of a horizontal header (`flex justify-between items-center`), with accessible desktop navigation and touch-safe (`>= 44px`) mobile navigation. The pattern (menu, inline links, pinned bar, or dock) comes from the brief.
 5. **Domain-Scoped Data & Interactive Flows**:
-   - Scope functional requirements to the requested archetype (e.g., reactive catalog/cart for e-commerce; live KPI cards, topology graphs, and time-range filters for dashboards; interactive pricing/workflow stages for SaaS; case-study filters for portfolios).
+   - Scope functional requirements to the brief: reactive catalog and cart only for commerce briefs; KPI and topology views only for operations briefs; pricing stages only when the product sells tiers; case-study filters only when the work is the product.
 6. **Required Konoha Generator Signature**:
    - Include `<meta name="generator" content="Build by konoha">` in the HTML `<head>` and render the visible text `Build by konoha` in the `<footer>`.
 

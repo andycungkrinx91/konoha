@@ -138,12 +138,12 @@ async function testRepairAppliedCannotMaskRequiredRepair() {
   const passJobId = 'job_d2_two_pass';
   createJobRecord(getConnection(), { job_id: passJobId, nonce: 'd2nonce', source_mode: 'text_to_3d', prompt: 'two pass', staging_rel_dir: `staging/${passJobId}` });
   const flawedSpec = { nodes: [{ name: 'hull', part: { primitive: 'box', size: [1, 1, 1] }, material: { type: 'physical', roughness: 9, metalness: 9 }, transform: { position: [0, 0.5, 0] } }] };
-  const secondPass = await nodeValidatePre({ jobId: passJobId, profile: 'enterprise_pbr', spec: flawedSpec });
+  const secondPass = await nodeValidatePre({ jobId: passJobId, profile: 'production_pbr', spec: flawedSpec });
   const merged = { ...coldState, ...secondPass };
   assert.strictEqual(merged.repairApplied, false, 'A second pass that produced no repair must not claim one');
   assert.strictEqual(merged.scoreSpecPre.passed, false, 'The second pass pre-gate must genuinely fail the out-of-range spec');
   assert.strictEqual(routePreValidation({ ...merged, repairAttempts: 0 }), 'repair', 'The second pass must still repair a failing pre-gate');
-  const repairedPass = await nodeRepair({ spec: flawedSpec, profile: 'enterprise_pbr', critique: { issues: [] }, repairAttempts: 0 });
+  const repairedPass = await nodeRepair({ spec: flawedSpec, profile: 'production_pbr', critique: { issues: [] }, repairAttempts: 0 });
   assert.strictEqual(repairedPass.repairApplied, false, 'Repair against an unfixable spec must not claim success');
   assert.strictEqual(channel.operator(merged.repairApplied, repairedPass.repairApplied), false, 'Only a real patch may set repairApplied');
   console.log('  ✓ D2: stale repairApplied neither survives a cold pass nor skips a failing gate.');
@@ -153,19 +153,19 @@ async function testRepairPathRunsFix() {
   console.log('\n  D3: the repair path re-runs fix and the pre-gate can genuinely fail');
   const critique = { issues: [{ part: 'primary_hull', fix: { axis: 'size', index: 1, direction: 'increase', amount: 0.2 } }] };
   const spec = { nodes: [{ name: 'primary_hull', part: { primitive: 'box', size: [1, 1, 1], position: [0, 0.5, 0] }, transform: { position: [0, 0.5, 0] } }] };
-  const repaired = await nodeRepair({ spec, profile: 'enterprise_pbr', critique, repairAttempts: 0 });
+  const repaired = await nodeRepair({ spec, profile: 'production_pbr', critique, repairAttempts: 0 });
   assert.strictEqual(repaired.repairApplied, true);
   assert.ok(Array.isArray(repaired.pendingPatch) && repaired.pendingPatch.length > 0, 'Repair must produce a patch through fix');
   assert.ok(repaired.spec.nodes[0].part.size[1] > 1, 'Repair must mutate the spec, not merely re-apply the profile');
   assert.strictEqual(repaired.scoreSpecPre.passed, false, 'Repair must re-score and expose a genuine failure');
-  const unfixable = await nodeRepair({ spec, profile: 'enterprise_pbr', critique: { issues: [] }, repairAttempts: 1 });
+  const unfixable = await nodeRepair({ spec, profile: 'production_pbr', critique: { issues: [] }, repairAttempts: 1 });
   assert.strictEqual(unfixable.repairApplied, false, 'A repaired claim without a patch is a lie and must be false');
   assert.strictEqual(unfixable.repairAttempts, 2, 'Each repair pass must still consume an attempt');
   assert.strictEqual(routePreValidation({ scoreSpecPre: repaired.scoreSpecPre, repairAttempts: repaired.repairAttempts }), 'repair',
     'A post-gate failure routed back through the pre-gate must repair, never short-circuit to build_base');
   const preJobId = 'job_d3_pre';
   createJobRecord(getConnection(), { job_id: preJobId, nonce: 'd3nonce', source_mode: 'text_to_3d', prompt: 'pre gate', staging_rel_dir: `staging/${preJobId}` });
-  const preGate = await nodeValidatePre({ jobId: preJobId, profile: 'enterprise_pbr', spec: { nodes: [] } });
+  const preGate = await nodeValidatePre({ jobId: preJobId, profile: 'production_pbr', spec: { nodes: [] } });
   assert.strictEqual(preGate.scoreSpecPre.passed, false, 'The pre-gate must genuinely fail a spec with no subcomponents');
   assert.ok(preGate.scoreSpecPre.rows.some((row) => row.rowId === 11 && row.passed === false), 'Row 11 must report the real hierarchy failure');
   assert.strictEqual(routePreValidation({ scoreSpecPre: preGate.scoreSpecPre, repairAttempts: 0 }), 'repair');
@@ -219,7 +219,7 @@ async function runTests() {
       job_id: jobId,
       prompt: 'Cyberpunk quantum mainframe terminal with glowing holographic rings',
       archetype: 'saas',
-      profile: 'enterprise_pbr',
+      profile: 'production_pbr',
       quality_preset: 'standard',
       requested_compute_mode: 'auto'
     },
@@ -285,7 +285,7 @@ async function runTests() {
   console.log('\n--- 5. Testing Focused Regressions (scoreSpec 14 rows, part_library, string materials, ricecooker, routePostValidation) ---');
   const { extractLabelText, stripLabelText, inferArchetypeFromPrompt } = require('../src/mcp/three_asset/spec_schema');
   const { synthesizeSceneFromPrompt } = require('../src/mcp/three_asset/prompt_synthesizer');
-  const { applyEnterpriseProfile, scoreSpec } = require('../src/mcp/three_asset/style_profile');
+  const { applyGenerationProfile, scoreSpec } = require('../src/mcp/three_asset/style_profile');
   const { boxNode, cylinderNode, capsuleNode, sphereNode, torusNode, coneNode, detailParts } = require('../src/mcp/three_asset/part_library');
   const { boxRatioOk, extractSpecHeightToWidthRatio } = require('../src/mcp/three_asset/silhouette');
   const { routePostValidation, routeAfterFix } = require('../src/workflow/yamanaka/graph');
@@ -324,11 +324,11 @@ async function runTests() {
       material: idx === 0 ? 'matte_black_steel' : '#cbd5e1'
     }))
   };
-  const normalizedMatSpec = applyEnterpriseProfile(stringMatSpec, 'enterprise_pbr');
+  const normalizedMatSpec = applyGenerationProfile(stringMatSpec, 'production_pbr');
   assert.strictEqual(typeof normalizedMatSpec.nodes[0].material, 'object');
   assert.strictEqual( typeof normalizedMatSpec.nodes[0].material.metalness, 'number');
   const scored = scoreSpec(normalizedMatSpec, {
-    profile: 'enterprise_pbr',
+    profile: 'production_pbr',
     checks: { silhouetteIoU: 0.9, symmetry: 0.95, boxRatioOk: true, boxRatio: 1.05 }
   });
   assert.strictEqual(scored.rows.length, 14, 'scoreSpec must emit all 14 rows');
@@ -344,11 +344,145 @@ async function runTests() {
   // routePostValidation repairs failed scores (including row 14 failure and missing scoreSpecPost)
   assert.strictEqual(routePostValidation({ scoreSpecPost: { passed: false, rows: scored.rows.map((r) => r.rowId === 14 ? { ...r, passed: false } : r) }, repairAttempts: 0 }), 'repair');
   assert.strictEqual(routePostValidation({ scoreSpecPost: null, repairAttempts: 1 }), 'repair');
-  assert.strictEqual(routePostValidation({ scoreSpecPost: { passed: false }, repairAttempts: MAX_YAMANAKA_REPAIR_ATTEMPTS }), 'promote');
+  // The pre-gate counter no longer governs this gate: an exhausted DSL budget must
+  // still leave the post-Blender gate able to repair.
+  assert.strictEqual(routePostValidation({ scoreSpecPost: { passed: false }, repairAttempts: MAX_YAMANAKA_REPAIR_ATTEMPTS }), 'repair');
+  assert.strictEqual(routePostValidation({ scoreSpecPost: { passed: false }, postRepairAttempts: MAX_YAMANAKA_REPAIR_ATTEMPTS }), 'promote');
   assert.strictEqual(routePostValidation({ scoreSpecPost: { passed: true }, repairAttempts: 0 }), 'promote');
   assert.strictEqual(routeAfterFix({ pendingPatch: [{ part: 'body', axis: 'size' }] }), 'rebuild');
   assert.strictEqual(routeAfterFix({ pendingPatch: [] }), 'validate');
-  console.log('  ✓ All focused regressions (14 rows, part_library, matte_black_steel, ricecooker, routePostValidation) passed.');
+
+  // The generation profile rewrites every node (grounding offset + clearcoat) and pads
+  // short specs with filler parts. A refine fork must not go through it: the parent
+  // composition is the thing a fork preserves.
+  const { nodeRepair } = require('../src/workflow/yamanaka/graph');
+  const { syntheticParentSpec } = require('./helpers/refine_fixtures');
+  const forkParentSpec = syntheticParentSpec();
+  const forkEditedName = forkParentSpec.nodes[0].name;
+  const forkSeedSpec = {
+    ...forkParentSpec,
+    nodes: forkParentSpec.nodes.map((n) => (n.name === forkEditedName
+      ? { ...n, material: { ...n.material, color: '#d4af37', metalness: 0.95, roughness: 0.22 } }
+      : n))
+  };
+  const forkRepaired = await nodeRepair({
+    refineMode: true,
+    repairAttempts: 0,
+    spec: forkSeedSpec,
+    profile: 'production_pbr',
+    critique: { issues: [] },
+    jobId: 'fork_repair_probe',
+    iteration: 1
+  });
+  assert.strictEqual(forkRepaired.spec.nodes.length, forkSeedSpec.nodes.length, 'repair must not pad a refine fork past its parent composition');
+  const forkParentByName = new Map(forkSeedSpec.nodes.map((n) => [n.name, n]));
+  let forkChanged = 0;
+  for (const node of forkRepaired.spec.nodes) {
+    const beforeNode = forkParentByName.get(node.name);
+    if (beforeNode && JSON.stringify(node) !== JSON.stringify(beforeNode)) forkChanged += 1;
+  }
+  assert.strictEqual(forkChanged, 0, `repair must not rewrite inherited fork nodes (${forkChanged} changed)`);
+
+  // A text generation must still be normalised and padded by the profile.
+  const genRepaired = await nodeRepair({
+    refineMode: false,
+    repairAttempts: 0,
+    spec: { archetype: 'character', nodes: forkSeedSpec.nodes.map((n) => JSON.parse(JSON.stringify(n))) },
+    profile: 'production_pbr',
+    critique: { issues: [] },
+    jobId: 'gen_repair_probe',
+    iteration: 1
+  });
+  assert.ok(genRepaired.spec.nodes.length >= 6, 'a generation repair must still pad up to the profile minimum');
+
+  // validate_pre is the third profile call site and must also leave a fork alone. Its
+  // helper drops the padding but still applies the grounding/material rewrites, so a
+  // passing fork that returned the helper's output was silently re-normalised. Exercise
+  // the passing branch with nodes the profile would rewrite.
+  const { nodeValidatePre } = require('../src/workflow/yamanaka/graph');
+  const normalizedParent = applyGenerationProfile(syntheticParentSpec(), 'production_pbr');
+  const forkPassSpec = {
+    ...normalizedParent,
+    nodes: normalizedParent.nodes.map((n) => {
+      const next = { ...n, material: { ...n.material } };
+      delete next.material.clearcoat;
+      if (next.transform && Array.isArray(next.transform.position)) {
+        next.transform = { ...next.transform, position: [...next.transform.position] };
+      }
+      return next;
+    })
+  };
+  const forkPassSeed = JSON.parse(JSON.stringify(forkPassSpec));
+  const forkPassJobId = 'validate_pre_fork_probe';
+  createJobRecord(getConnection(), { job_id: forkPassJobId, nonce: 'vpforksnonce', source_mode: 'text_to_3d', prompt: 'fork pre gate', staging_rel_dir: `staging/${forkPassJobId}` });
+  const forkPre = await nodeValidatePre({ jobId: forkPassJobId, profile: 'production_pbr', spec: forkPassSpec, refineMode: true, repairAttempts: 0 });
+  assert.strictEqual(forkPre.scoreSpecPre.passed, true, 'the fork pre-gate probe must exercise the passing branch');
+  assert.strictEqual(forkPre.spec.nodes.length, forkPassSeed.nodes.length, 'validate_pre must not pad a refine fork');
+  const forkPreByName = new Map(forkPassSeed.nodes.map((n) => [n.name, n]));
+  let forkPreChanged = 0;
+  for (const node of forkPre.spec.nodes) {
+    const beforeNode = forkPreByName.get(node.name);
+    if (beforeNode && JSON.stringify(node) !== JSON.stringify(beforeNode)) forkPreChanged += 1;
+  }
+  assert.strictEqual(forkPreChanged, 0, `validate_pre must not rewrite inherited fork nodes (${forkPreChanged} changed)`);
+  // A generation must still be normalised by the same node.
+  const genPreJobId = 'validate_pre_gen_probe';
+  createJobRecord(getConnection(), { job_id: genPreJobId, nonce: 'vpgensnonce', source_mode: 'text_to_3d', prompt: 'gen pre gate', staging_rel_dir: `staging/${genPreJobId}` });
+  const genPre = await nodeValidatePre({ jobId: genPreJobId, profile: 'production_pbr', spec: JSON.parse(JSON.stringify(forkPassSeed)), refineMode: false, repairAttempts: 0 });
+  let genPreRewritten = 0;
+  for (const node of genPre.spec.nodes) {
+    const beforeNode = forkPreByName.get(node.name);
+    if (beforeNode && JSON.stringify(node) !== JSON.stringify(beforeNode)) genPreRewritten += 1;
+  }
+  assert.strictEqual(genPreRewritten, forkPassSeed.nodes.length, 'validate_pre must still normalise a generation spec');
+
+  // A fork with non-finite geometry must fail the gate, never be rescued by the profile
+  // pass: scoring its normalised form would turn a NaN extent into a passing one.
+  const malformedSeed = JSON.parse(JSON.stringify(normalizedParent));
+  malformedSeed.nodes.forEach((n) => { if (n.transform && Array.isArray(n.transform.position)) delete n.transform.position[1]; });
+  const malformedJobId = 'validate_pre_nan_probe';
+  createJobRecord(getConnection(), { job_id: malformedJobId, nonce: 'vpnanonsnonce', source_mode: 'text_to_3d', prompt: 'nan pre gate', staging_rel_dir: `staging/${malformedJobId}` });
+  const malformedPre = await nodeValidatePre({ jobId: malformedJobId, profile: 'production_pbr', spec: malformedSeed, refineMode: true, repairAttempts: 0 });
+  assert.strictEqual(malformedPre.scoreSpecPre.passed, false, 'a fork with missing coordinates must not pass the pre-gate');
+  const extentRow = malformedPre.scoreSpecPre.rows.find((r) => r.rowId === 8);
+  assert.strictEqual(Number.isNaN(extentRow.measuredValue), true, 'the extent row must report the non-finite measurement rather than hiding it');
+  assert.strictEqual(malformedPre.spec.nodes.length, malformedSeed.nodes.length, 'the failing fork must still return its original composition for repair');
+  const malformedByName = new Map(malformedSeed.nodes.map((n) => [n.name, n]));
+  let malformedChanged = 0;
+  for (const node of malformedPre.spec.nodes) {
+    const beforeNode = malformedByName.get(node.name);
+    if (beforeNode && JSON.stringify(node) !== JSON.stringify(beforeNode)) malformedChanged += 1;
+  }
+  assert.strictEqual(malformedChanged, 0, 'the failing branch must return the untouched fork spec so repair starts from the original composition');
+
+  // The two quality gates are separate checks with separate budgets: exhausting the
+  // DSL gate must not silently disable the post-Blender gate.
+  assert.strictEqual(
+    routePostValidation({ scoreSpecPost: { passed: false }, repairAttempts: MAX_YAMANAKA_REPAIR_ATTEMPTS, postRepairAttempts: 0 }),
+    'repair',
+    'an exhausted pre-gate budget must not consume the post-gate budget'
+  );
+  assert.strictEqual(
+    routePostValidation({ scoreSpecPost: { passed: false }, postRepairAttempts: MAX_YAMANAKA_REPAIR_ATTEMPTS }),
+    'promote',
+    'an exhausted post-gate budget must stop repairing'
+  );
+  const postGateRepair = await nodeRepair({
+    repairFromPostGate: true,
+    refineMode: false,
+    repairAttempts: 2,
+    postRepairAttempts: 0,
+    spec: { archetype: 'character', nodes: [{ name: 'a', part: { type: 'box', size: [1, 1, 1] }, transform: { position: [0, 0.5, 0] }, material: { color: '#334455' } }] },
+    profile: 'draft',
+    critique: { issues: [] },
+    jobId: 'post_gate_repair_probe',
+    iteration: 1
+  });
+  assert.strictEqual(postGateRepair.postRepairAttempts, 1, 'a post-gate repair must charge the post-gate budget');
+  assert.strictEqual(postGateRepair.repairAttempts, 2, 'a post-gate repair must not charge the pre-gate budget');
+  assert.strictEqual(postGateRepair.repairFromPostGate, false, 'the post-gate marker must not survive the repair it flagged');
+
+  console.log('  ✓ All focused regressions (14 rows, part_library, matte_black_steel, ricecooker, routePostValidation, fork repair, fork pre-gate, split repair budgets) passed.');
 
   // Live-queue replay contract: guards that must hold even when Blender is idle.
   console.log('\n--- 6. Testing Live Blender Queue Replay Guards ---');

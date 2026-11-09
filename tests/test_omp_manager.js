@@ -39,10 +39,10 @@ assert.match(addendum, /## Konoha Workflow Mandate \(OMP\) — MANDATORY/, 'Adde
 assert.match(addendum, /Route through the village, never free-run/, 'Must enforce sannin triage');
 assert.match(addendum, /Step 0: Classify request/i, 'Must enforce request classification');
 assert.match(addendum, /BRANCH B: Website Scaffolding Pipeline/i, 'Must enforce Branch B pipeline');
-assert.match(addendum, /Header Logo on Far LEFT/, 'Must enforce header logo on left');
-assert.match(addendum, /Mobile View Invariant \(NO Hamburger Menu Toggle in Header\)/, 'Must enforce mobile invariant');
-assert.match(addendum, /Archetype-Adaptive Mobile Dock/, 'Must enforce mobile dock invariant');
-assert.match(addendum, /Floating Bottom-Left Theme Switcher Popup/, 'Must enforce floating theme popup');
+assert.match(addendum, /Project-Specific Design Mandate/, 'Must enforce the brief-driven design mandate');
+assert.doesNotMatch(addendum, /Archetype-Adaptive Mobile Dock/, 'Must not reimpose a house dock template');
+assert.doesNotMatch(addendum, /Floating Bottom-Left Theme Switcher Popup/, 'Must not reimpose a house theme popup');
+assert.doesNotMatch(addendum, /minimum of 4 high-definition slides/, 'Must not reimpose a hero carousel');
 assert.match(addendum, /Zero Errors & Zero Warnings/, 'Must enforce zero warnings/errors');
 console.log('  ✓ Workflow addendum invariants verified.');
 

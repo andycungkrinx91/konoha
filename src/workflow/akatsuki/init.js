@@ -55,13 +55,14 @@ function loadKaliToolsCatalog() {
 function _queryKaliToolsFromDb(dbOrPath, q, cat, limit) {
   let localConn = null;
   try {
-    const { getConnection, setupSchema } = require('../../db');
+    const { openLabDb } = require('./lab_db');
     let conn = dbOrPath;
     if (!conn || typeof conn.prepare !== 'function') {
-      localConn = getConnection(typeof dbOrPath === 'string' ? dbOrPath : null, false);
+      localConn = openLabDb();
       conn = localConn;
     }
-    setupSchema(conn);
+
+    if (!conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kali_tools'").get()) return null;
 
     let sql = 'SELECT id, slug, name, package, category, description, url FROM kali_tools';
     const conditions = [];

@@ -14,7 +14,7 @@ Konoha maintains a strictly organized, single-source documentation hierarchy:
 - `docs/QA-TEST-CHECKLIST.md`: Full QA testing matrices, manual verification procedures, and release verification checklists.
 - `docs/SecurityCompliance/`: Versioned Google Policy & security compliance audit reports (`security_compliance_report_google_policy_2.2.18_2026-11-04.md`).
 - `docs/architecture/`: Canonical specifications (`CANONICAL-API.md`, `CANONICAL-CLI.md`, `CAPABILITY-MAP.md`).
-- `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio`, `konoha-enterprise-architecture.drawio` — 18 pages each, 0 geometric collisions).
+- `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio`, `konoha-infrastructure-architecture.drawio` — 18 pages each, 0 geometric collisions).
 - `assets/`: 33 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
 
 ---

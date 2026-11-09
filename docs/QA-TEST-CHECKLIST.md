@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.18`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.19`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -59,6 +59,42 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha db restore` | `[path] [--from <bcp>] [--force]` | Preserves corrupted DB to .corrupt.<timestamp> and restores from verified backup or salvages rows. | `PASS` (verified) |
 | `konoha update` | `--force`, `--yes` | Alias for `konoha upgrade`; runs the 5-stage non-destructive upgrade lifecycle (`backup -> upgrade -> init --y -> embed -> ui build & restart`). | `PASS` (verified) |
 | `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
+| `konoha upgrade` | `--yes` | Upgrades the global install in place. Verifies the installed version by running `konoha --version`; on total package-manager failure it exits 1 with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and does **not** run the post-upgrade lifecycle. | `PASS` (verified on Linux x64: no-package-manager path exits 1; failure path leaves version unchanged) |
+| `npm install -g konoha-mcp@latest` | - | Persistent global install. `postinstall` prints guidance only (no network, no installs, no writes under `HOME`). | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
+| `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. | `PASS` (documented in `bin/postinstall.js`; string asserted by `tests/test_postinstall_contract.js`) |
+| `agent-browser` provisioning | `konoha init` | Resolution order: global → `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, each accepted only after `--version` exits 0. Failure prints `QA blocked: <reason>` and `qa_codify` returns `error: qa_blocked`. | `BLOCKED` on Linux x64 — upstream `agent-browser@0.3.1` publishes no linux-x64 native binary (`Error: No binary found for linux-x64`). Blocked-path reporting verified; browser automation not executed. |
+| Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
+| macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
+| `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
+
+### 1.1b Install & Upgrade Lifecycle Verification (2.2.19)
+
+Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command was executed and its observable result matched; an unexecuted path is `BLOCKED`, never assumed.
+
+| Check | Method | Result |
+| :--- | :--- | :--- |
+| Tarball contents include every LangGraph node | `pnpm pack`, then inspect the archive for `src/mcp/langgraph/nodes/*.js` | `PASS` — 11/11 node modules present, including `plan.js` |
+| Fresh global install from tarball | `npm install -g <tarball> --prefix <tmp>/gprefix` with isolated `HOME` | `PASS` |
+| Installed binary reports the packaged version | `konoha --version` → `2.2.19` | `PASS` |
+| `konoha --help` exposes `upgrade` | exit 0, `upgrade` listed | `PASS` |
+| `init` provisions the runtime | `konoha init --yes` creates `~/.konoha` and `src/mcp/langgraph/nodes/plan.js` | `PASS` |
+| Deployed runtime loads its required modules | `require('./mcp/runtime_state')`, `./workflow/qa-automation/qa_tools`, `src/mcp/langgraph/index.js` from the installed root | `PASS` |
+| Reinstall over the same prefix is idempotent | second `npm install -g`, then `--version` | `PASS` — exit 0, version unchanged |
+| Upgrade aborts when no package manager can install | `PATH=/usr/bin:/bin`, `konoha upgrade --yes` | `PASS` — exit 1, `Upgrade aborted`, version unchanged |
+| Upgrade never reports an unverified version as success | `readInstalledVersion` with a root that holds no `konoha-mcp/package.json` | `PASS` — `source: unverified`, no invented version |
+| Runtime mirror is never accepted as upgrade proof | Seed only `~/.konoha/bin/cli.js` with an isolated `HOME`, then call `readInstalledVersion(null)` | `PASS` (behavioral) — returns `{ version: null, source: 'unverified', error: 'no installed CLI found under the requested root' }`; the resolver returns `null` when no package root is found |
+| Windows global-root discovery | `runRootCmd` must not append `.cmd` twice | `PASS` (static assertion; execution `BLOCKED` on Windows) |
+| GitHub fallback passes the Windows flag | `tryInstallCandidate(..., isWin)` | `PASS` (static assertion) |
+| Interrupted-upgrade marker: written and cleared | `!pkgInstalled` clears it; verification failure retains it; a fresh confirmed attempt clears it | `PASS` |
+| Postinstall performs no network/installs/HOME writes | spawn with isolated `HOME`, diff the directory | `PASS` |
+| Stale Web UI build is rejected | seed `build-meta.json` with a mismatched version | `PASS` — `Skipping stale Web UI build`, resolves to `null` when every candidate is stale |
+| MCP stdio handshake + JSON-string arguments | pipe `initialize` and `tools/call` into `src/file_tools_mcp.js` | `PASS` — JSON string parsed; malformed input returns `invalid_arguments` with `isError: true` |
+| Skill URI: short and long form resolve | `findInMirror('<skill>/<file>')` and `…/references/<file>` | `PASS` — both resolve to the same `references/` file |
+| Skill path traversal rejected | `../x`, `..%2F`, `C:\x`, `/etc/passwd`, `%00` | `PASS` |
+| Windows 10/11 end-to-end | native runner | `BLOCKED` — not run |
+| macOS arm64 / x64 end-to-end | native runners | `BLOCKED` — not run |
+| Windows `EBUSY` in-place upgrade | native runner, binary in use during upgrade | `BLOCKED` — not run |
+| agent-browser on Linux x64 | `agent-browser --version` at every resolution tier | `BLOCKED` — upstream `agent-browser@0.3.1` ships no linux-x64 native binary |
 
 ### 1.2 Edge Case & Symlink Handling Verification
 
@@ -79,6 +115,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `tests/test_sdlc_hitl.js` | Full SDLC verification of interactive Gate 1 (approve, reject, refine) and Gate 2 (delivery sign-off, remediation loop) across prompt inputs and options payloads. | Complete lifecycle verified: Gate 1 approval & rejection/refinement; Gate 2 sign-off & remediation. | `PASS` (verified) |
 | `tests/test_workflow_gates.js` | Unit validation of `buildGate1Prompt`, `buildGate2Prompt`, `parseGateChoice`, and state transitions in `src/mcp/workflow_gates.js`. | 10/10 subtests passed: prompt structure, option parsing, and state updates verified. | `PASS` (verified) |
 | `tests/test_cross_client_workflow_matrix.js` | Cross-client workflow matrix validation across all 8 clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP) asserting correct hook paths and contracts. | 8/8 clients verified: contract parity, MCP config paths, and guardrail hook bindings. | `PASS` (verified) |
+| `tests/test_akatsuki_skill_authz_db_isolation.js` | Red-skill authorization matrix and Akatsuki Lab DB segregation. Sections: classification (exact name, prefix boundary, tags), authorization (akatsuki vs. blue identities vs. anonymous), retrieval redaction, search redaction, MCP dispatch, delegation denial, Sannin route block, `runRedTeamWorkflow` identity gate (absent identity denies), MCP caller identity resolution (non-akatsuki and absent caller denied), missing-engine decline with zero host tool spawns, lab/main DB separation, red-skill audit restricted to the lab DB (denial and allowed paths audit through a supplied connection or an existing-file-only open; a missing lab means no row and no store creation), path-guard traversal, template isolation, cross-platform path classification. | 46 test cases passed; runs with `HOME`/`KONOHA_DB_PATH`/`KONOHA_LAB_DB_ROOT` pointed at a temp root. | `PASS` (verified) |
 
 ### 1.4 Migration Robustness, Safe Timeouts & Skill RAG Retrieval Invariant (v2.2.3)
 
@@ -95,6 +132,23 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 ## Section 2: Web UI & Browser Automation QA
 
 The Konoha Web UI (`apps/web`) provides real-time observability and configuration management for the MCP server, running on `http://127.0.0.1:1404`.
+
+### 2.0 QA Prerequisites: `qa_blocked`
+
+QA hard-requires `agent-browser` for exploration, but the core install does not. Before running any Section 2 item:
+
+```bash
+agent-browser --version   # must exit 0
+```
+
+Konoha resolves the CLI as global → `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, accepting each only after `--version` succeeds.
+
+| Situation | `konoha init` | `qa_codify` | `qa_e2e_run` |
+|---|---|---|---|
+| Browser resolves | `agent-browser CLI ready (<via>)` | runs | runs |
+| Nothing resolves | `QA blocked: <reason>` (core install still succeeds) | `{ ok: false, error: 'qa_blocked', reason }` | **still runs** (Playwright, no `agent-browser` dependency) |
+
+**A blocked browser is `BLOCKED`, never `PASS` and never "no bugs found."** On Linux x64 the pinned `agent-browser@0.3.1` currently fails with `Error: No binary found for linux-x64` at every resolution tier, so Section 2 exploration items are BLOCKED on that platform while `qa_e2e_run` remains usable.
 
 ### 2.1 E2E Playwright Automation Architecture
 
@@ -632,7 +686,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
 ### 30.1 Production Orchestration Architecture & Safety Invariants
-- **LangGraph.js Production Activation**: Bypassed legacy procedural execution on all asynchronous MCP routes (`sannin`, `workflow_gate_choice`, `workflow_gate_response`) via `_dispatchWorkflowGraphAsync()`.
+- **LangGraph.js Production Activation**: Bypassed legacy procedural execution on the asynchronous MCP route `sannin` via `_dispatchWorkflowGraphAsync()`. Gate choices and halted-turn resumptions arrive through `sannin` itself — the manifest exposes no separate gate tool.
 - **Fail-Closed Fallback Guard**: Uncaught exceptions or schema mismatches in LangGraph execution automatically log diagnostic errors and fallback to legacy procedural execution without crashing host MCP servers.
 - **Node-Level Fault Isolation**: Every node is guarded by `wrapGuardedNode()` connecting to the global `workflow` circuit breaker (`src/circuit_breaker.js`). Unhandled exceptions trip the breaker and route conditionally via `node_error` to `__end__`.
 - **Per-Turn Token Budget Governor**: Implemented strict per-turn execution semantics (`turnTokensUsed` resets to 0 at each agent turn; cumulative `tokensUsed` preserved for telemetry). Enforces allowed ceilings `{8192, 16384, 32768, 65536}` with upward clamping.
@@ -721,6 +775,14 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **23. Quality Preset Validation** | `POST /api/v1/3d/generate` with `quality_preset` | A canonical level or legacy alias returns `202` with the resolved `quality_preset` + `target_polycount` forwarded into the Yamanaka graph; an unknown value returns `400` with `allowed_quality_levels` **before** any job id is issued | `PASS` (verified 2026-11-04) |
 | **24. Recent 3D Pagination & Lazy Load** | `GET /api/v1/3d/assets?limit=6&offset=…` + `apps/web/src/components/RecentAssetsCard.svelte` | Server-side `limit` / `offset` returns `{ assets, total, limit, offset }`; card renders at most 6 assets, exposes `Page n / N` computed from `total`, Prev/Next fetch a single page on demand, previews use `loading="lazy"`, and the card equalises height with the Generative Parameters card via `h-full` on both grid columns | `PASS` (build + unit verified 2026-11-04) |
 | **25. Quality Ladder Migration** | `src/mcp/three_asset/db_3d_schema.js` → `applyQualityLadderMigration` (id `20261104_001_quality_level_ladder`) | The shipped `20261103_001_yamanaka_3d_canonical` DDL stays untouched (checksum guard); a legacy DB staged from the narrow `quality_preset` CHECK upgrades in place — `generation_jobs` / `assets` accept `low` / `normal` / `high` / `ultra` plus every legacy alias, existing `draft` rows survive, custom indexes and autoindexes are identical before and after, `PRAGMA foreign_key_check` returns 0 violations, `PRAGMA integrity_check` returns `ok`, a second boot is a no-op, and no staging tables are left behind | `PASS` (upgrade probe, verified 2026-11-04) |
+
+
+
+| **26. Split Repair Budgets** | `routePreValidation` / `routePostValidation` in `src/workflow/yamanaka/graph.js` | The DSL gate and the post-Blender gate each hold their own `MAX_YAMANAKA_REPAIR_ATTEMPTS` budget: exhausting `repairAttempts` still leaves `postRepairAttempts` routing `repair`, and only an exhausted post-gate counter routes `promote` | `PASS` (asserted in `tests/test_yamanaka_langgraph_pipeline.js`, verified 2026-11-09) |
+| **27. Valid-Ordinal Re-Validation** | `nodeValidatePre` / `nodeValidatePost` → `validation_results` | Repeated passes record distinct `(job_id, validation_stage, attempt_number)` rows: three pre-gate passes store `pre_blender_base` 1/2/3, three post-gate passes store `post_blender_final` 1/2/3 even when `repairAttempts` is non-zero | `PASS` (DB probe, verified 2026-11-09) |
+| **28. Refine Fork Composition** | `nodeValidatePre` / `nodeRepair` / `nodeValidatePost` with `refineMode: true` | A fork validates and repairs without gaining filler parts or inheriting node rewrites (`4 → 4` nodes, `0` changed) — including the **passing** branch of the pre-gate, which previously returned `applyProfileWithoutPadding`'s output and re-normalised every node; the same spec generated from text still normalises and pads to the profile minimum (`4 → 6`) | `PASS` (DB probe + `tests/test_yamanaka_langgraph_pipeline.js`, verified 2026-11-09) |
+| **29. Built Spec Provenance** | `nodeBuildBaseMesh` → `generation_jobs.dsl_payload_json` | The persisted DSL is written from the spec the mesh was actually built from, after the GLB export validates, so a profile pass during repair cannot leave the asset record describing an unbuilt scene | `PASS` (source + DB probe, verified 2026-11-09) |
+| **30. Profile Vocabulary Migration** | `src/mcp/three_asset/profile_vocabulary_migration.js` → `applyProfileVocabularyMigration` (id `20261109_001_profile_vocabulary`) | The shipped `20261103_001_yamanaka_3d_canonical` DDL stays untouched (checksum guard); the `profile` CHECK on `generation_jobs` / `assets` widens in place to accept `production_pbr` while retaining `enterprise_pbr`, existing rows including legacy `enterprise_pbr` survive the rebuild, custom indexes and triggers are restored, unknown profiles still fail the CHECK, `PRAGMA foreign_key_check` returns 0 violations, a second boot is a no-op and leaves no staging tables | `PASS` (`tests/test_profile_vocabulary_migration.js`, 6 test cases, verified 2026-11-09) |
 
 
 

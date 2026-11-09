@@ -80,6 +80,16 @@ rtk node tests/test_all_assets_webp.js
 # Verify LangGraph.js v2.2.19 activation
 rtk node tests/test_langgraph_v2217.js
 
+# Verify cross-platform install & upgrade integrity
+rtk node tests/test_install_layout_integrity.js
+rtk node tests/test_pnpm_config_migration.js
+rtk node tests/test_upgrade_failure_reporting.js
+rtk node tests/test_postinstall_contract.js
+
+# Verify MCP argument boundary and skill URI resolution
+rtk node tests/test_mcp_argument_parsing.js
+rtk node tests/test_skill_uri_resolution.js
+
 # Static analysis & Zero-AI-Slop audit
 rtk node scripts/lint.js
 rtk npx aislop scan --changes

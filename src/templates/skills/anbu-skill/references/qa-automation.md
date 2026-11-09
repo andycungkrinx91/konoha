@@ -38,6 +38,26 @@ Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent
 
 **Strict Anti-Fake Green Rules**: Never add `test.skip`, `test.fixme`, `.only`, or `try/catch` around assertions. Never weaken expectations or increase timeouts to bypass failures.
 
+## Prerequisite Check: `qa_blocked`
+
+`agent-browser` is a hard requirement for QA, not for the core install. Before starting any exploration, confirm the CLI actually runs:
+
+```bash
+agent-browser --version   # must exit 0
+```
+
+Konoha resolves the CLI in this order — global install, managed copy at `~/.konoha/tools`, then `npx --yes agent-browser@0.3.1` — and accepts each only after `--version` succeeds. If none resolve:
+
+- `konoha init` prints `QA blocked: <reason>` as an actionable warning while the core install still succeeds.
+- `qa_codify` returns `{ "ok": false, "error": "qa_blocked", "reason": "..." }`, because it verifies flows by running `agent-browser batch`.
+- **`qa_e2e_run` does not depend on `agent-browser`** — it shells out to Playwright Test directly, so it still runs. It is not a substitute for exploration, and a green suite does not prove a flow was ever explored.
+
+**Report `qa_blocked` as BLOCKED, never as a pass and never as "no bugs found."** A missing browser is an unexecuted test.
+
+> [!WARNING]
+> On Linux x64, `agent-browser@0.3.1` fails with `Error: No binary found for linux-x64` — the npm package does not publish that native binary, so even the `npx` fallback cannot run there. Record QA as BLOCKED with the captured stderr; do not switch to a weaker verification method to manufacture a result.
+
+
 ## Playwright Overrides for Agent Runs
 
 | Setting | Standard Human CI (`e2e-testing-expert`) | Agent QA Run (`qa_e2e_run`) | Rationale |

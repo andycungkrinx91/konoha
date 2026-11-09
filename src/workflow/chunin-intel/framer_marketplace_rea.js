@@ -217,132 +217,117 @@ function getFrameworkMotion3dBlueprint(rawFramework = 'nextjs') {
   return FRAMEWORK_MOTION_3D_BLUEPRINTS[fw] || FRAMEWORK_MOTION_3D_BLUEPRINTS.nextjs;
 }
 
-function _buildDynamicCandidateCatalog(query = '', category = 'interactive', archetype = 'saas') {
-  const slugBase = String(query || category || archetype || 'kinetic-surface')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'kinetic-surface';
+const DOMAIN_HINT_LABELS = {
+  corporate_business: 'Corporate & business',
+  saas_production: 'SaaS & production product',
+  ai_developer_tools: 'AI & developer tools',
+  admin_operations: 'Admin & operations console',
+  creative_agency_studio: 'Creative agency & studio',
+  personal_portfolio: 'Personal portfolio',
+  architecture_interior: 'Architecture & interior studio',
+  education_research: 'Education & research',
+  media_journalism: 'Media & journalism',
+  healthcare_wellness: 'Healthcare & wellness',
+  finance_fintech: 'Finance & fintech',
+  community_social: 'Community & social',
+  events_entertainment: 'Events & entertainment',
+  nonprofit_public: 'Nonprofit & public service',
+  documentation_knowledge: 'Documentation & knowledge base',
+  ecommerce_marketplace: 'E-commerce & marketplace'
+};
 
-  return [
-    {
-      id: `framer-${slugBase}-magnetic-bento`,
-      name: `Magnetic 3D Bento Stage (${archetype})`,
-      category: category || 'interactive-grid',
-      marketplace_url: `${FRAMER_MARKETPLACE_URL}${slugBase}-magnetic-bento/`,
-      preview_url: `${FRAMER_MARKETPLACE_URL}${slugBase}-magnetic-bento/preview`,
-      pricing: { tier: 'free', price_usd: 0, license: 'framer-marketplace-free' },
-      previewable: true,
-      suitability_score: 97,
-      quality_score: 98,
-      observed_tokens: {
-        spring: { stiffness: 280, damping: 24, mass: 0.9 },
-        lighting: 'radial-gradient(600px circle at var(--pointer-x) var(--pointer-y), rgba(56,189,248,0.16), transparent 45%)',
-        elevation: '0 24px 48px -12px rgba(15, 23, 42, 0.38)',
-        shader_uniforms: ['uTime', 'uPointer', 'uScrollProgress', 'uAccentColor']
-      }
-    },
-    {
-      id: `framer-${slugBase}-orbital-command-deck`,
-      name: `Orbital 3D Command Deck & Scroll Timeline (${archetype})`,
-      category: category || 'navigation-motion-3d',
-      marketplace_url: `${FRAMER_MARKETPLACE_URL}${slugBase}-orbital-command-deck/`,
-      preview_url: `${FRAMER_MARKETPLACE_URL}${slugBase}-orbital-command-deck/preview`,
-      pricing: { tier: 'paid', price_usd: 39, license: 'commercial-preview-only' },
-      previewable: true,
-      suitability_score: 96,
-      quality_score: 98,
-      observed_tokens: {
-        spring: { stiffness: 310, damping: 28, mass: 1.0 },
-        lighting: 'linear-gradient(135deg, rgba(14,165,233,0.18), rgba(99,102,241,0.12))',
-        elevation: '0 30px 60px -15px rgba(2, 6, 23, 0.5)',
-        shader_uniforms: ['uTime', 'uPointer', 'uMorphFactor', 'uRimIntensity']
-      }
-    }
-  ];
+function hintLabel(hint) {
+  return DOMAIN_HINT_LABELS[hint] || String(hint).replace(/_/g, ' ');
+}
+
+function _buildDomainCandidateCatalog(domainHints = []) {
+  const hints = Array.from(new Set(Array.isArray(domainHints) ? domainHints : [])).slice(0, 4);
+  return hints.map((hint, index) => ({
+    id: `rea-${hint}-${index}`,
+    name: `${hintLabel(hint)} reference candidate`,
+    category: 'domain-research-target',
+    domain_hint: hint,
+    marketplace_url: FRAMER_MARKETPLACE_URL,
+    preview_url: null,
+    pricing: { tier: 'unknown', price_usd: null, license: 'evaluate-at-preview' },
+    previewable: false,
+    suitability_score: null,
+    quality_score: null,
+    observed_tokens: null
+  }));
 }
 
 function discoverFramerMarketplaceComponents(options = {}) {
-  const query = String(options.query || options.prompt || 'interactive 3d motion ui').trim();
-  const category = String(options.category || 'components').trim();
-  const archetype = String(options.archetype || 'enterprise-web').trim();
+  const domainHints = Array.isArray(options.domainHints) ? options.domainHints : [];
   const targetFramework = normalizeTargetFramework(options.framework || options.targetFramework);
-  const candidates = _buildDynamicCandidateCatalog(query, category, archetype);
+  const candidates = _buildDomainCandidateCatalog(domainHints);
 
   return {
     source_url: FRAMER_MARKETPLACE_URL,
     discovered_at: new Date().toISOString(),
-    query,
-    category,
-    archetype,
+    domain_hints: candidates.map((c) => c.domain_hint),
     target_framework: targetFramework,
     framework_blueprint: getFrameworkMotion3dBlueprint(targetFramework),
     total_discovered: candidates.length,
+    needs_domain_hint: candidates.length === 0,
     includes_free_and_paid: candidates.some((c) => c.pricing.tier === 'free') && candidates.some((c) => c.pricing.tier === 'paid'),
+    research_instruction: 'Inspect 3-5 live references matching each domain hint via Playwright; return observed layout, type scale, motion, and interaction notes. Findings inform original decisions; never reproduce a reference layout.',
     components: candidates
   };
 }
-
 async function _measureResponsiveViewports(page) {
   const responsiveChecks = [];
   for (const vp of RESPONSIVE_VIEWPORTS) {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     const metrics = await page.evaluate(() => ({
       overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      rectWidth: document.querySelector('.framer-preview-stage')?.getBoundingClientRect().width || 0,
-      canvasReady: Boolean(document.querySelector('canvas[data-3d-stage="true"]'))
+      viewportWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      bodyWidth: Math.round(document.body.getBoundingClientRect().width),
+      canvasCount: document.querySelectorAll('canvas').length
     }));
     responsiveChecks.push({
       viewport: vp.id,
       width: vp.width,
       height: vp.height,
       overflow_x: Boolean(metrics.overflowX),
-      measured_width: Math.round(metrics.rectWidth),
-      canvas_ready: Boolean(metrics.canvasReady),
-      layout_intact: !metrics.overflowX && metrics.rectWidth > 0
+      client_width: metrics.viewportWidth,
+      scroll_width: metrics.scrollWidth,
+      body_width: metrics.bodyWidth,
+      canvas_count: metrics.canvasCount
     });
   }
   return responsiveChecks;
+}
+
+function _isNavigablePreview(component) {
+  const url = component && component.preview_url;
+  return typeof url === 'string' && url.startsWith('https://');
 }
 
 async function _runPlaywrightPreviewProbe(component, observations) {
   let browser = null;
   try {
     const pw = require('@playwright/test');
-    if (!pw || !pw.chromium) return;
+    if (!pw || !pw.chromium) {
+      observations.navigation_failed = true;
+      return;
+    }
     browser = await pw.chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
-    const previewHtml = `<!DOCTYPE html><html><head><style>
-      body { margin: 0; font-family: system-ui; background: #090d16; color: #f8fafc; min-height: 200vh; display: flex; flex-direction: column; align-items: center; padding-top: 8vh; }
-      .framer-preview-stage { width: min(92vw, 820px); padding: 28px; border-radius: 12px; border: 1px solid rgba(56,189,248,0.3); background: rgba(15,23,42,0.92); transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease; cursor: pointer; position: relative; }
-      .framer-preview-stage:hover { transform: translate3d(0, -4px, 0) scale(1.015); border-color: rgba(56,189,248,0.75); }
-      .framer-preview-stage:active { transform: scale(0.985); }
-      canvas[data-3d-stage="true"] { width: 100%; height: 220px; display: block; border-radius: 8px; background: radial-gradient(circle at 50% 40%, rgba(56,189,248,0.22), rgba(2,6,23,0.95)); }
-      @media (prefers-reduced-motion: reduce) { .framer-preview-stage { transition: none !important; transform: none !important; } }
-    </style></head><body>
-      <main class="framer-preview-stage" data-component-id="${component.id}" data-layout-expanded="false" tabindex="0" role="region" aria-label="${component.name}">
-        <canvas data-3d-stage="true" width="760" height="220"></canvas>
-        <h1>${component.name}</h1>
-        <p>Live Preview Telemetry Probe (${component.pricing.tier.toUpperCase()})</p>
-      </main>
-      <script>
-        const stage = document.querySelector('.framer-preview-stage');
-        stage.addEventListener('click', () => {
-          const next = stage.getAttribute('data-layout-expanded') === 'true' ? 'false' : 'true';
-          stage.setAttribute('data-layout-expanded', next);
-        });
-      </script>
-    </body></html>`;
-    await page.setContent(previewHtml, { waitUntil: 'domcontentloaded' });
-    const stage = page.locator('.framer-preview-stage');
-    await stage.hover();
-    await stage.click();
-    await page.evaluate(() => window.scrollTo(0, 240));
-    observations.live_inspected = true;
-    observations.layout_toggled = (await stage.getAttribute('data-layout-expanded')) === 'true';
+    await page.goto(component.preview_url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    observations.navigated = true;
+    observations.measured = await page.evaluate(() => ({
+      canvas_count: document.querySelectorAll('canvas').length,
+      media_count: document.querySelectorAll('video, canvas').length,
+      body_transition: getComputedStyle(document.body).transitionDuration
+    }));
+    observations.measured.has_motion = observations.measured.body_transition !== '0s';
     observations.responsive_viewports = await _measureResponsiveViewports(page);
   } catch (_) {
-    observations.live_inspected = false;
+    observations.navigated = false;
+    observations.navigation_failed = true;
   } finally {
     if (browser) {
       try { await browser.close(); } catch (_) { /* ignore */ }
@@ -351,60 +336,14 @@ async function _runPlaywrightPreviewProbe(component, observations) {
 }
 
 async function _inspectPreviewWithPlaywright(component, options = {}) {
-  const observations = {
-    engine: 'playwright-chromium',
-    live_inspected: false,
-    layout_toggled: true,
-    hover_behavior: {
-      pointer_tracking: true,
-      transform_delta: 'perspective(1200px) rotateX(4deg) rotateY(-4deg) translate3d(0, -4px, 12px) scale(1.015)',
-      border_luminance_shift: 'rgba(56, 189, 248, 0.45)'
-    },
-    click_behavior: {
-      active_press_scale: 0.985,
-      spring_rebound_ms: 280,
-      aria_state_toggled: true
-    },
-    gesture_behavior: {
-      drag_elastic: 0.18,
-      pointer_parallax: true,
-      wheel_camera_dolly: true
-    },
-    animation_behavior: {
-      physics_model: 'spring',
-      stiffness: component.observed_tokens?.spring?.stiffness || 280,
-      damping: component.observed_tokens?.spring?.damping || 26,
-      mass: component.observed_tokens?.spring?.mass || 1.0,
-      stagger_children_ms: 70,
-      reduced_motion_respected: true
-    },
-    scroll_behavior: {
-      intersection_reveal: true,
-      parallax_depth_ratio: 0.14,
-      header_pinning: true,
-      camera_scroll_interpolation: true
-    },
-    three_d_behavior: {
-      webgl_canvas_present: true,
-      shader_uniforms: component.observed_tokens?.shader_uniforms || ['uTime', 'uPointer', 'uScrollProgress'],
-      particle_count: 640,
-      dynamic_lighting: true,
-      gpu_disposal_verified: true
-    },
-    responsive_viewports: RESPONSIVE_VIEWPORTS.map((vp) => ({
-      viewport: vp.id,
-      width: vp.width,
-      height: vp.height,
-      overflow_x: false,
-      canvas_ready: true,
-      layout_intact: true
-    }))
-  };
-
+  const base = { engine: 'playwright-chromium', attempted: false, navigated: false };
+  if (!_isNavigablePreview(component)) {
+    return { ...base, reason: 'no_preview_url', measured: null, responsive_viewports: null, interaction_notes: null };
+  }
+  const observations = { ...base, attempted: true, measured: null, responsive_viewports: null, interaction_notes: null };
   if (options.runPlaywrightProbe !== false) {
     await _runPlaywrightPreviewProbe(component, observations);
   }
-
   return observations;
 }
 
@@ -424,15 +363,8 @@ async function performFramerComponentREA(options = {}) {
       marketplace_url: comp.marketplace_url,
       preview_url: comp.preview_url,
       pricing: comp.pricing,
-      preview_evaluated: true,
-      observed_interactions: {
-        hover: observations.hover_behavior,
-        click: observations.click_behavior,
-        gesture: observations.gesture_behavior,
-        scroll: observations.scroll_behavior,
-        three_d: observations.three_d_behavior
-      },
-      animation_behavior: observations.animation_behavior,
+      preview_evaluated: observations.navigated === true,
+      observed: observations.measured,
       motion_architecture: blueprint.motion_architecture,
       three_d_rendering_approach: blueprint.three_d_rendering_approach,
       suitable_framework_implementation: {
@@ -445,7 +377,7 @@ async function performFramerComponentREA(options = {}) {
       dependencies_and_versions: blueprint.dependencies_and_versions,
       compatibility_and_limitations: blueprint.compatibility_and_limitations,
       evidence_and_recommendations: {
-        playwright_live_inspected: observations.live_inspected,
+        playwright_live_inspected: observations.navigated === true,
         reference_docs: blueprint.reference_docs,
         astra_fable_storytelling: [
           'Choreograph hero entrance with staggered spring physics + interactive 3D canvas depth',
@@ -456,8 +388,8 @@ async function performFramerComponentREA(options = {}) {
       quality_assessment: {
         quality_score: comp.quality_score,
         suitability_score: comp.suitability_score,
-        accessibility_verified: true,
-        reduced_motion_ready: true
+        accessibility_verified: null,
+        reduced_motion_ready: null
       },
       dependencies_assessment: {
         external_framer_runtime_allowed: false,
@@ -513,7 +445,10 @@ async function performFramerComponentREA(options = {}) {
 function adaptFramerComponentToFramework(componentRea, rawFramework = 'nextjs') {
   const fw = normalizeTargetFramework(rawFramework);
   const comp = componentRea || {};
-  const spring = comp.observations?.animation_behavior || { stiffness: 280, damping: 26, mass: 1 };
+  const observedMotion = comp.observations?.animation_behavior;
+  const spring = (observedMotion && typeof observedMotion === 'object')
+    ? observedMotion
+    : { stiffness: 280, damping: 26, mass: 1 };
   const name = comp.component_name || 'KineticBentoSurface';
   const blueprint = getFrameworkMotion3dBlueprint(fw);
 
@@ -530,11 +465,11 @@ function adaptFramerComponentToFramework(componentRea, rawFramework = 'nextjs') 
     component_id: comp.component_id || 'framer-adapted-surface',
     component_name: name,
     marketplace_url: comp.marketplace_url || FRAMER_MARKETPLACE_URL,
-    pricing_tier: comp.pricing?.tier || 'free',
+    pricing_tier: comp.pricing?.tier || 'unknown',
     licensing_mode: comp.licensing_boundary?.implementation_strategy || 'native_clean_room_recreation',
     no_iframe_used: true,
     no_protected_source_extracted: true,
-    provenance_markdown: `- **${name}**: Source \`${comp.marketplace_url || FRAMER_MARKETPLACE_URL}\` | Tier: \`${comp.pricing?.tier || 'free'}\` | Mode: \`${comp.licensing_boundary?.implementation_strategy || 'native_clean_room_recreation'}\` | Framework: \`${fw}\``,
+    provenance_markdown: `- **${name}**: Source \`${comp.marketplace_url || FRAMER_MARKETPLACE_URL}\` | Tier: \`${comp.pricing?.tier || 'unknown'}\` | Mode: \`${comp.licensing_boundary?.implementation_strategy || 'native_clean_room_recreation'}\` | Framework: \`${fw}\``,
     code: templates[fw] || templates.nextjs
   };
 }
@@ -546,6 +481,7 @@ module.exports = {
   FRAMEWORK_MOTION_3D_BLUEPRINTS,
   normalizeTargetFramework,
   getFrameworkMotion3dBlueprint,
+  _buildDomainCandidateCatalog,
   discoverFramerMarketplaceComponents,
   performFramerComponentREA,
   adaptFramerComponentToFramework

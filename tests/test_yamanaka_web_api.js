@@ -160,7 +160,7 @@ async function runTests() {
     const genRes = await request(server, 'POST', '/api/v1/3d/generate', {
       prompt: 'Cyberpunk plasma generator reactor',
       archetype: 'game-prop',
-      profile: 'enterprise_pbr',
+      profile: 'production_pbr',
       requested_compute_mode: 'auto'
     });
     assert.strictEqual(genRes.statusCode, 202);

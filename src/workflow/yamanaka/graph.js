@@ -34,15 +34,15 @@ const { nodeObjectBrief } = require('./brief_stage');
 const { nodeChuninSearch } = require('./chunin_stage');
 const { nodeRefineRequest, REFINE_SOURCE_MODE } = require('./refine_stage');
 const { resolveOutputSize, clampOutputSizeForVram, withWarningSuffix } = require('../../mcp/three_asset/output_size');
-const { applyEnterpriseProfile, scoreSpec } = require('../../mcp/three_asset/style_profile');
+const { applyGenerationProfile, scoreSpec } = require('../../mcp/three_asset/style_profile');
 const { buildSceneFromSpec } = require('../../mcp/three_asset/scene_builder');
 const { exportScene, validateGlbHeader } = require('../../mcp/three_asset/exporter');
 const { executeLiveAgenticBlenderSession } = require('../../mcp/three_asset/blender_refiner');
 
 const { Yamanaka3DStateAnnotation } = require('./state_annotation');
+const { MAX_YAMANAKA_REPAIR_ATTEMPTS, clampNumber, routeAfterInit, routeAfterRefine, routePreValidation, routeAfterFix, routePostValidation } = require('./routing');
 const refineStage = require('./refine_stage');
 
-const MAX_YAMANAKA_REPAIR_ATTEMPTS = 3;
 
 async function nodeInit(state) {
   const jobId = state.jobId || `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
@@ -87,7 +87,7 @@ async function nodeInit(state) {
     negative_prompt: state.negativePrompt || null,
     input_image_rel_path: hasImg ? path.basename(imgPath) : null,
     input_image_sha256: imgSha,
-    profile: state.profile || 'enterprise_pbr',
+    profile: state.profile || 'production_pbr',
     quality_preset: state.qualityPreset || 'standard',
     requested_compute_mode: compute.requestedMode,
     effective_compute_mode: compute.effectiveMode,
@@ -125,7 +125,7 @@ async function nodeInit(state) {
 function applyProfileWithoutPadding(rawSpec, profileName) {
   if (!rawSpec || !Array.isArray(rawSpec.nodes)) return rawSpec;
   const original = rawSpec.nodes.length;
-  const normalized = applyEnterpriseProfile(rawSpec, profileName);
+  const normalized = applyGenerationProfile(rawSpec, profileName);
   if (!normalized || !Array.isArray(normalized.nodes) || normalized.nodes.length === original) return normalized;
   return { ...normalized, nodes: normalized.nodes.slice(0, original) };
 }
@@ -158,14 +158,21 @@ async function nodeValidatePre(state) {
   if (state.refineMode && state.spec) {
     updateJobStage(conn, state.jobId, { dsl_payload_json: JSON.stringify(state.spec) });
   }
-  // The gate judges what synthesis produced. applyEnterpriseProfile pads short specs
+  // The gate judges what synthesis produced. applyGenerationProfile pads short specs
   // with filler parts, so scoring its output would let every thin spec pass row 11.
-  const normalizedSpec = applyProfileWithoutPadding(state.spec, state.profile);
+  // A fork is scored on the composition it inherited: the helper drops the padding but
+  // still applies grounding/material rewrites, so its output must not enter state.
+  const normalizedSpec = state.refineMode
+    ? state.spec
+    : applyProfileWithoutPadding(state.spec, state.profile);
   const scoreRes = scoreSpec(normalizedSpec, { profile: state.profile });
 
   recordValidationResult(conn, {
     job_id: state.jobId,
     validation_stage: 'pre_blender_base',
+    // Rows are unique per (job, stage, attempt), so each pass needs its own ordinal:
+    // repairAttempts counts the pre-gate passes that already happened.
+    attempt_number: (state.repairAttempts || 0) + 1,
     passed: scoreRes.passed,
     overall_score: scoreRes.score,
     score_spec_11_rows_json: scoreRes.rows,
@@ -215,7 +222,11 @@ async function nodeBuildBaseMesh(state, config = {}) {
   });
 
   updateJobStage(conn, state.jobId, {
-    status: 'refining_blender'
+    status: 'refining_blender',
+    // The profile pass can add parts during repair, so the spec persisted at
+    // validate_pre is not necessarily the one that gets built. Record what the
+    // mesh was actually built from, or the asset row cannot reproduce it.
+    dsl_payload_json: JSON.stringify(state.spec || {})
   });
 
   return {
@@ -321,15 +332,6 @@ async function nodeRefineBlender(state, config = {}) {
   };
 }
 
-/** Refine forks skip object_brief + synthesize_dsl: the edited parent spec is already built. */
-function routeAfterInit(state) {
-  return state.refineMode ? 'refine_request' : 'chunin_search';
-}
-
-function routeAfterRefine(state) {
-  return state.errorCode ? 'settle_refine_failure' : 'validate_pre';
-}
-
 /** An inexpressible refine fails the CHILD job loudly; the parent asset is never touched. */
 async function settleRefineFailure(state) {
   const conn = getConnection();
@@ -350,7 +352,11 @@ async function nodeValidatePost(state) {
   const conn = getConnection();
   const last = state.lastIteration || {};
   const targets = state.archetypeTargets || buildTargets(state.domainArchetype, state.qualityPreset, state.objectBrief);
-  const normalizedSpec = applyEnterpriseProfile(state.spec, state.profile);
+  // A fork is scored on the parent composition it inherited; running the generation
+  // profile here would both pad it and rewrite every inherited node.
+  const normalizedSpec = state.refineMode
+    ? state.spec
+    : applyGenerationProfile(state.spec, state.profile);
   const expectedRatioSource = state.referenceAnalysis
     || (state.sourceMode === 'image_to_3d' ? (state.objectBrief?.proportions || state.objectBrief || targets.expectedHeightToWidthRatio) : null);
   const computedBoxOk = last.box_ratio_ok ?? (expectedRatioSource ? boxRatioOk(state.sceneReport || state.spec, expectedRatioSource, targets.boxRatioTolerance) : true);
@@ -365,7 +371,9 @@ async function nodeValidatePost(state) {
   };
   const scoreRes = scoreSpec(normalizedSpec, { profile: state.profile, checks });
 
-  const attemptNumber = (state.repairAttempts || 0) + 1;
+  // The post-gate has its own pass ordinal; using the pre-gate counter collided with
+  // the (job, stage, attempt) uniqueness whenever the DSL gate had also repaired.
+  const attemptNumber = (state.postRepairAttempts || 0) + 1;
   recordValidationResult(conn, {
     job_id: state.jobId,
     validation_stage: 'post_blender_final',
@@ -464,14 +472,25 @@ async function nodePromoteAsset(state) {
 }
 
 async function nodeRepair(state) {
+  // `repairFromPostGate` is set by routePostValidation so the repair is charged to
+  // the post-gate budget instead of the pre-gate one.
+  const fromPostGate = Boolean(state.repairFromPostGate);
   const attempts = (state.repairAttempts || 0) + 1;
-  const normalized = applyEnterpriseProfile(state.spec, state.profile);
+  const postAttempts = (state.postRepairAttempts || 0) + 1;
+  // A fork inherits its parent's composition. Passing it through the generation
+  // profile rewrites every inherited node (grounding offset + clearcoat) and pads
+  // short parents with filler detail parts, so a fork must be repaired in place.
+  const normalized = state.refineMode
+    ? state.spec
+    : applyGenerationProfile(state.spec, state.profile);
   const fixed = await nodeFix({ ...state, spec: normalized });
   const spec = fixed.spec || normalized;
   const repaired = Boolean(fixed.pendingPatch && fixed.pendingPatch.length > 0);
   const scoreRes = scoreSpec(spec, { profile: state.profile });
   return {
-    repairAttempts: attempts,
+    repairFromPostGate: false,
+    repairAttempts: fromPostGate ? (state.repairAttempts || 0) : attempts,
+    postRepairAttempts: fromPostGate ? postAttempts : (state.postRepairAttempts || 0),
     spec,
     repairApplied: repaired,
     scoreSpecPre: scoreRes,
@@ -481,30 +500,13 @@ async function nodeRepair(state) {
   };
 }
 
-function routePreValidation(state) {
-  if (state.scoreSpecPre?.passed) return 'build_base';
-  if ((state.repairAttempts || 0) < MAX_YAMANAKA_REPAIR_ATTEMPTS) return 'repair';
-  return 'build_base';
-}
-
-function routeAfterFix(state) {
-  if (Array.isArray(state.pendingPatch) && state.pendingPatch.length > 0) {
-    return 'rebuild';
-  }
-  return 'validate';
-}
-
-function routePostValidation(state) {
-  if (state.scoreSpecPost?.passed) return 'promote';
-  if ((state.repairAttempts || 0) < MAX_YAMANAKA_REPAIR_ATTEMPTS) return 'repair';
-  return 'promote';
-}
-
-function clampNumber(value, min, max, fallback) {
-  if (value === null || value === undefined || value === '') return fallback;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(n)));
+/**
+ * Marks a repair that came from the post-Blender gate so it is charged to that
+ * gate's own budget. Set by a node rather than the edge map, which only takes
+ * node names.
+ */
+async function nodeRepairFromPostGate() {
+  return { repairFromPostGate: true };
 }
 
 function buildYamanaka3DGraph(customDb) {
@@ -535,6 +537,7 @@ function buildYamanaka3DGraph(customDb) {
     .addNode('validate_post', nodeValidatePost)
     .addNode('promote', nodePromoteAsset)
     .addNode('repair', nodeRepair)
+    .addNode('repair_post', nodeRepairFromPostGate)
     .addEdge(START, 'init')
     .addConditionalEdges('init', routeAfterInit, {
       chunin_search: 'chunin_search',
@@ -552,7 +555,11 @@ function buildYamanaka3DGraph(customDb) {
       build_base: 'build_base',
       repair: 'repair'
     })
-    .addEdge('repair', 'build_base')
+    .addConditionalEdges('repair', (state) => (state.repairFromPostGate ? 'validate_post' : 'build_base'), {
+      build_base: 'build_base',
+      validate_post: 'validate_post'
+    })
+    .addEdge('repair_post', 'repair')
     .addEdge('build_base', 'refine_blender')
     .addEdge('refine_blender', 'inspect')
     .addConditionalEdges('inspect', routeInspection, {
@@ -565,7 +572,7 @@ function buildYamanaka3DGraph(customDb) {
     })
     .addConditionalEdges('validate_post', routePostValidation, {
       promote: 'promote',
-      repair: 'repair'
+      repair: 'repair_post'
     })
     .addEdge('promote', END);
 
@@ -597,7 +604,7 @@ async function runYamanaka3DGraph(inputs = {}, config = {}) {
     negativePrompt: inputs.negative_prompt || '',
     imagePath: inputs.image_path || inputs.imagePath || null,
     sourceMode: inputs.source_mode || inputs.sourceMode || ((inputs.image_path || inputs.imagePath) ? 'image_to_3d' : 'text_to_3d'),
-    profile: inputs.profile || 'enterprise_pbr',
+    profile: inputs.profile || 'production_pbr',
     qualityPreset: resolvedLevel.id,
     targetPolycount: clampNumber(inputs.target_polycount ?? inputs.targetPolycount, 500, 200000, resolvedLevel.level.targetPolycount),
     textureResolution: clampNumber(inputs.texture_resolution ?? inputs.textureResolution, 256, 4096, 2048),

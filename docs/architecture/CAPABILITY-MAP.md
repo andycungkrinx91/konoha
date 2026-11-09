@@ -278,12 +278,12 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ### 2.14 Native Document Engineering & Publication Deliverables (`document_engine`)
 
-* **Purpose:** High-fidelity Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification and zero-AI quality gates.
+* **Purpose:** High-fidelity Production Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification and zero-AI quality gates.
 * **Canonical Implementation:** `src/workflow/tokubetsu-scribe/document_engine.js`.
 * **Entry Points:**
   - MCP Tools: `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`.
   - Delegated Subagent: `tokubetsu_jonin` (Technical Writing & Scribe).
-* **Consumers:** Tokubetsu-Jonin, technical documentation pipelines, enterprise reporting, interactive architecture diagrams.
+* **Consumers:** Tokubetsu-Jonin, technical documentation pipelines, production reporting, interactive architecture diagrams.
 * **Storage:** Local target directory specified via `output_path` (defaults to `./sample.docx`, `./sample.xlsx`, `./sample.pptx`, `./diagram.svg`, `./animation.webp`).
 * **Features:**
   - Discrete per-page Word sections with static `TextRun` page numbers, eliminating grey background shading in Word and LibreOffice.
@@ -391,8 +391,28 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Pipeline:** prompt/image intake (Text-to-3D, Image-to-3D) → manifold watertight geometry synthesis (Three.js + Manifold-3D) → PBR shading → live Blender LTS refinement (`dcc-mcp-blender`) → 11-row `scoreSpec` evaluation gate → GLB export; `compute_selector` reports the effective compute mode (GPU when Blender is available, otherwise CPU).
 * **GPU Telemetry:** `src/gpu_telemetry.js` samples the host GPU with a 10 s TTL and 2500 ms timeout, and is surfaced as `system.gpu` on `GET /api/v1/system`; a host without a readable GPU reports `available: false` rather than a placeholder value.
 * **Diagnostics:** `src/doctor_3d.js` probes the Blender LTS install, `dcc-mcp-blender` host support, Three.js, and Manifold-3D, and is rendered on both `/doctor` surfaces.
-* **Tests:** `tests/test_three_asset_engine.js`, `tests/test_three_asset_single_image.js`, `tests/test_three_asset_enterprise_pbr.js`, `tests/test_three_asset_style_profile.js`, `tests/test_three_asset_storage_manager.js`, `tests/test_doctor_client_coverage.js`.
+* **Tests:** `tests/test_three_asset_engine.js`, `tests/test_three_asset_single_image.js`, `tests/test_three_asset_production_pbr.js`, `tests/test_three_asset_style_profile.js`, `tests/test_three_asset_storage_manager.js`, `tests/test_doctor_client_coverage.js`.
 * **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/ARCHITECTURE.md`, `.agents/skills/yamanaka-skill/SKILL.md`.
 * **Dependencies:** Blender LTS + `dcc-mcp-blender` (optional, for refinement), Three.js, Manifold-3D.
+
+### 2.21 Cross-Platform Install & Upgrade Integrity (`bin/`, `package.json`)
+
+* **Purpose:** Every fresh install and in-place upgrade works on Windows 10/11, Linux, and macOS, and every failure is reported instead of masked.
+* **Canonical Implementation:** `bin/commands/doctor_runtime.js` (`purgeInvalidRuntimeMirrors`), `bin/commands/upgrade.js` (`readInstalledVersion`, upgrade-pending marker), `bin/lib/runtime_install.js` (`resolveWebBuildSource`, `readBuildVersion`), `bin/lib/extension.js` (`installAgentBrowserDetailed`, `provisionAgentBrowser`), `bin/cli.js` (Node 24 guard, interrupted-upgrade warning, uninitialized-runtime message), `src/deploy_utils.js` (`mirrorReferenceEntrypoints`, `removeNestedSkillDir`), `src/file_tools_mcp.js` (`parseToolArguments`), `src/mcp/skills_common.js` (`validateSkillPath`, `resolveSkillPathWithinRoot`).
+* **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); `postinstall` prints guidance only and performs no network access or runtime setup.
+* **Failure transparency:** an upgrade whose package install fails exits 1 before the post-upgrade lifecycle; version verification never substitutes the requested version for the installed one; a missing agent-browser reports `QA blocked:` in `init` and `{ error: 'qa_blocked' }` from `qa_codify`.
+* **Tests:** `tests/test_install_layout_integrity.js`, `tests/test_mcp_argument_parsing.js`, `tests/test_skill_uri_resolution.js`, `tests/test_pnpm_config_migration.js`, `tests/test_upgrade_failure_reporting.js`, `tests/test_postinstall_contract.js`.
+
+| Platform | Verified | Evidence |
+|---|---|---|
+| Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. 20 targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, postinstall, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner builds a fresh golden seed and runs 262 suites; it was not run to completion here — the targeted set is the evidence above. |
+| Windows 10/11 | **no — not run** | Requires a Windows runner. The `EBUSY` upgrade-marker path in particular is unexercised. |
+| macOS arm64 / x64 | **no — not run** | Requires macOS runners. Case-sensitivity behavior verified only on Linux. |
+
+`bin/cli.js#isUninitializedRuntimeError` is defence in depth: unit-tested against runtime-root, forward-slash, third-party and relative module errors, but no shipped command was observed to reach it — commands run against an empty `~/.konoha` already exit cleanly without leaking a stack. Keep the classifier; do not treat it as a user-visible guarantee.
+
+Do not mark a platform verified from static tests; update this table only after a real run on that OS.
+
+**Known unrelated failures (pre-existing, not introduced by 2.2.19 install work):** `tests/test_canonical_skills_and_embedded_refs.js` asserts 16 canonical skills while the working tree defines 17 (`src/canonical_skills.js` was already modified before this work), and `tests/test_fresh_install_cross_platform_sync.js` asserts `getMirrorRoots()` includes `.agents/skills` after clearing `HOME` — it fails on both an isolated and the real `HOME`, and `getMirrorRoots`/`canonical_skills` were not touched by this change. `tests/test_runtime_mirror_parity.js` compares the repo against the live `~/.konoha` mirror and fails while the mirror predates these edits; it passes (SKIP) under an isolated `HOME` and re-converges after `konoha doctor`/`init` re-syncs.
 
 ---

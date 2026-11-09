@@ -18,8 +18,16 @@ function matchGlob(name, pattern) {
     const c = pattern[i];
     if (c === '*') {
       if (pattern[i + 1] === '*') {
-        reStr += '.*';
-        i++;
+        // `**/` means zero or more directories, so `dir/**/*.js` must match
+        // `dir/a.js` as well as `dir/sub/a.js`. Compiling it to `.*/` requires
+        // at least one separator and silently matches nothing one level deep.
+        if (pattern[i + 2] === '/') {
+          reStr += '(?:.*/)?';
+          i += 2;
+        } else {
+          reStr += '.*';
+          i++;
+        }
       } else {
         reStr += '[^/\\\\]*';
       }
@@ -62,8 +70,12 @@ function _grepFileLines(filePath, rootDir, regex, matches, maxMatches) {
 function _matchesGlobFilter(filePath, name, rootDir, globPattern, hasPathGlob) {
   if (!globPattern) return true;
   if (!hasPathGlob) return matchGlob(name, globPattern);
+  // Callers on Windows write `dir\\**\\*.js`; the relative path is built with
+  // forward slashes, so the pattern has to be normalized the same way or it can
+  // never match on the platform that produced it.
+  const normalizedGlob = globPattern.replace(/\\/g, '/');
   const rel = path.relative(rootDir, filePath).replace(/\\/g, '/');
-  return matchGlob(name, globPattern) || matchGlob(rel, globPattern);
+  return matchGlob(name, normalizedGlob) || matchGlob(rel, normalizedGlob);
 }
 
 function tokenEfficientGrep(args = {}) {
@@ -90,6 +102,16 @@ function tokenEfficientGrep(args = {}) {
   const globPattern = args.glob || args.file_glob || args.Glob;
   const ignoreCase = Boolean(args.ignore_case || args.ignoreCase);
 
+  // A pattern that matches every character of every file turns a bounded grep
+  // into a dump of the whole tree. Reject it for directory-wide searches only:
+  // a narrowing glob already bounds the result set.
+  if (!globPattern && isMatchEverythingPattern(pattern)) {
+    throw new Error(
+      'Pattern matches the whole document ("(?s).", "^", "[\\s\\S]*"). ' +
+      'Use a specific term, or pass a glob to narrow the search.'
+    );
+  }
+
   const flags = ignoreCase ? 'im' : 'm';
   let regex;
   try {
@@ -101,6 +123,7 @@ function tokenEfficientGrep(args = {}) {
   const matches = [];
   let truncated = false;
   const hasPathGlob = Boolean(globPattern && (globPattern.includes('/') || globPattern.includes('\\')));
+  let totalMatches = 0;
 
   for (const filePath of common.walkFiles(rootDir)) {
     if (!common.isProbablyText(filePath)) continue;
@@ -110,15 +133,17 @@ function tokenEfficientGrep(args = {}) {
       continue;
     }
 
-    if (_grepFileLines(filePath, rootDir, regex, matches, maxMatches)) {
-      truncated = true;
-      break;
-    }
+    const hit = _grepFileLines(filePath, rootDir, regex, matches, maxMatches);
+    if (hit) truncated = true;
   }
+
+  totalMatches = truncated ? _countAllMatches(rootDir, regex, globPattern, hasPathGlob) : matches.length;
 
   const lines = matches.slice(0, maxMatches);
   if (truncated) {
-    lines.push(`Showing first ${maxMatches} matches. Refine pattern or add glob filter.`);
+    const shown = lines.length;
+    const known = totalMatches > shown ? String(totalMatches) : `${shown}+`;
+    lines.push(`Showing ${shown} of ${known} matches. Refine: add a term or path filter.`);
   }
 
   return {
@@ -128,6 +153,42 @@ function tokenEfficientGrep(args = {}) {
     matches: lines,
     text: lines.join('\n')
   };
+}
+
+const MAX_COUNTED_MATCHES = 100000;
+
+// Second pass used only when output was truncated: report how many matches
+// actually exist. Bounded by MAX_COUNTED_MATCHES so a runaway pattern cannot
+// stall the request.
+function _countAllMatches(rootDir, regex, globPattern, hasPathGlob) {
+  let total = 0;
+  // The scan regex is not global, so match() would count at most one hit per
+  // file. Clone it with the g flag to count every occurrence.
+  const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+  for (const filePath of common.walkFiles(rootDir)) {
+    if (total >= MAX_COUNTED_MATCHES) return total;
+    if (!common.isProbablyText(filePath)) continue;
+    if (!_matchesGlobFilter(filePath, path.basename(filePath), rootDir, globPattern, hasPathGlob)) continue;
+    let content;
+    try { content = fs.readFileSync(filePath, 'utf8'); } catch { continue; }
+    const found = content.match(globalRegex);
+    if (!found) continue;
+    total += found.length;
+  }
+  return total;
+}
+
+function isMatchEverythingPattern(pattern) {
+  if (typeof pattern !== 'string') return false;
+  const normalized = pattern.replace(/\s+/g, '');
+  // Only patterns that actually compile as JS regexes. `(?s).` and `(?s).*` are
+  // PCRE syntax and already throw "Invalid group" before reaching this check.
+  return normalized === '^' ||
+    normalized === '$^' ||
+    normalized === '(?s:.)' ||
+    normalized === '[\\s\\S]*' ||
+    normalized === '.' ||
+    normalized === '.*';
 }
 
 module.exports = {

@@ -226,9 +226,20 @@ function _extractAgentSkills(agentRow, routedSkills) {
   } catch (_) { /* ignore */ }
 }
 
-function _resolveRoutedSkills(effPrompt, selectedAgent) {
+/**
+ * Keep only skills the selected agent is authorized to invoke. Red skills are
+ * @akatsuki-only; a route targeting any other agent drops them (fail closed).
+ * Pass includeBlocked to keep them for denial reporting at the route boundary.
+ */
+function _filterAuthorizedSkills(routedSkills, agentName, options = {}) {
+  if (options.includeBlocked) return routedSkills.slice();
+  const skillAuthz = require('../skill_authorization');
+  return routedSkills.filter((s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized);
+}
+
+function _resolveRoutedSkills(effPrompt, selectedAgent, options = {}) {
   const { autoloadSkillsFromPrompt } = require('./memory_reporting');
-  const routedSkills = [];
+  let routedSkills = [];
   let skillConn = null;
   try {
     skillConn = getDb();
@@ -242,7 +253,7 @@ function _resolveRoutedSkills(effPrompt, selectedAgent) {
       try { skillConn.close(); } catch (_) { /* best effort */ }
     }
   }
-  return routedSkills;
+  return _filterAuthorizedSkills(routedSkills, selectedAgent, options);
 }
 
 function _loadAgentDescriptions() {
@@ -474,12 +485,29 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
-  const routedSkills = _resolveRoutedSkills(effPrompt, selectedAgent);
+  const candidateSkills = _resolveRoutedSkills(effPrompt, selectedAgent, { includeBlocked: true });
+  const routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent);
 
   _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route, invocationMode, directSubagent });
 
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
     const res = JSON.stringify({ status: 'blocked', phase: 'dor', message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.', missing: dorResult.missing, dor_result: dorResult, flow_hash: flowHash, task_dir: resolvedTaskDir });
+    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+    return res;
+  }
+
+  const { authorizeSkillAccess, authorizationDeniedResult } = require('../skill_authorization');
+  const deniedSkill = candidateSkills.find(
+    (s) => !authorizeSkillAccess({ skillName: s, agentName: selectedAgent }).authorized
+  );
+  if (deniedSkill) {
+    const res = JSON.stringify({
+      status: 'blocked',
+      phase: 'skill_authorization',
+      task_dir: resolvedTaskDir,
+      flow_hash: flowHash,
+      ...authorizationDeniedResult({ identity: selectedAgent, reason: `Route to @${selectedAgent} requires red skill "${deniedSkill}"; red skills may only be delegated to @akatsuki.` }, deniedSkill)
+    });
     logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
     return res;
   }

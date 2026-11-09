@@ -68,7 +68,7 @@ function _buildMethodologySection(reconDirective) {
   return {
     title: 'Methodology & Framework Mapping',
     paragraphs: [
-      'The assessment followed the Penetration Testing Execution Standard (PTES) across 9 deterministic phases, mapping tactical operations to MITRE ATT&CK for Enterprise and OWASP Top 10 classifications.'
+      'The assessment followed the Penetration Testing Execution Standard (PTES) across 9 deterministic phases, mapping tactical operations to MITRE ATT&CK for Production and OWASP Top 10 classifications.'
     ],
     table: {
       headers: ['Attack Vector', 'MITRE ATT&CK', 'OWASP Top 10', 'Scope Directive'],

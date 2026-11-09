@@ -8,10 +8,10 @@ Canonical design system directives and production blueprints for **Angular v19+ 
 
 ### 1. Dynamic Context-Driven Composition (Astra/Fable Standard)
 - Compose hero stages, section layouts, and interactive surfaces dynamically around the product domain and prompt.
-- Never force a rigid 4-slide hero carousel or bottom-left 10-theme FAB unless requested. Place the brand identity cleanly on the left of the header (`flex items-center justify-between`).
+- Composition, section order, theme count, and navigation pattern come from the 9-field design brief; never reuse a house template. Place the brand identity cleanly on the left of a horizontal header (`flex items-center justify-between`).
 
 ### 2. Adaptive Dark & Light Mode + SSR/Hydration Safety
-- Support both **Dark Mode and Light Mode** via semantic CSS custom properties (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`).
+- Choose the theme strategy from the design brief (single or dual theme) and define semantic color tokens (`--bg-canvas`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`, `--accent-primary`) with WCAG AA contrast.
 - Use `afterNextRender` or `isPlatformBrowser(this.platformId)` before reading `localStorage`.
 
 ### 3. Motion Choreography (`motion` JS API + Signals & `afterNextRender`)

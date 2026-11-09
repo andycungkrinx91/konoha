@@ -77,16 +77,40 @@ function _dispatchFileTool(toolName, args) {
   return annotateWorkflowFileHint(text);
 }
 
+const SKILL_READ_TOOLS = Object.freeze(['get_skill', 'use_skills', 'use_skill']);
+
+function _skillTargetNames(toolName, args) {
+  if (toolName === 'get_skill') return [args.name || ''];
+  const raw = args.skills || args.name || args.skill || args.names;
+  if (Array.isArray(raw)) return raw.map(String);
+  if (typeof raw === 'string') return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
 function _dispatchSkillsTool(toolName, args, agent) {
   if (toolName === 'find_skill' || toolName === 'find_skills') {
     let keyword = args.keyword || args.keywords || args.query || args.Query || '';
     if (Array.isArray(keyword)) keyword = keyword.join(' ');
+    const { authorizeSkillAccess, authorizationDeniedResult } = require('../skill_authorization');
+    const keyDenied = authorizeSkillAccess({ skillName: String(keyword), agentName: agent });
+    if (!keyDenied.authorized) {
+      return JSON.stringify(authorizationDeniedResult(keyDenied, String(keyword)));
+    }
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);
     const compact = Boolean(args.compact);
     const taskId = args.task_id || args.taskId || null;
     const flowHash = args.flow_hash || args.flowHash || null;
     const raw = findSkill(keyword, limit, agent, compact, taskId, flowHash);
     return toolName === 'find_skills' ? _wrapDeprecatedWarning(raw, 'find_skills', 'find_skill') : raw;
+  }
+  if (SKILL_READ_TOOLS.includes(toolName)) {
+    const authz = require('../skill_authorization');
+    for (const skillName of _skillTargetNames(toolName, args)) {
+      const result = authz.authorizeSkillAccess({ skillName, agentName: agent });
+      if (!result.authorized) {
+        return JSON.stringify(authz.authorizationDeniedResult(result, skillName));
+      }
+    }
   }
   if (toolName === 'list_skills') {
     return listSkills(agent, args.fields);
@@ -158,14 +182,16 @@ function _resolveFlowHash(args, taskDir) {
   return flowHash;
 }
 
-function _dispatchAgentDelegation(toolName, args) {
+function _dispatchAgentDelegation(toolName, args, callerIdentity) {
   if (toolName === 'akatsuki') {
     const akatsukiExplicitLab = Boolean(
       args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow
     );
     if (akatsukiExplicitLab) {
       const { dispatchAkatsuki } = require('../workflow/akatsuki/workflows');
-      return dispatchAkatsuki(args);
+      // Caller identity comes from the trusted dispatch context, never from the
+      // requested target: toolName === 'akatsuki' is what was asked for, not who asked.
+      return dispatchAkatsuki({ ...args, agentName: callerIdentity || null });
     }
   }
 
@@ -224,13 +250,6 @@ function _dispatchWorkflowCore(toolName, args, agent) {
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
     return runSannin(prompt, args.task_dir, projPath, sessId, args);
-  }
-  if (toolName === 'workflow_gate_choice' || toolName === 'workflow_gate_response') {
-    const choice = args.choice ?? args.gate_choice ?? args.action ?? args.gate_action;
-    const refinement = args.refinement ?? args.feedback ?? args.notes;
-    const taskDir = args.task_dir || args.taskDir;
-    const { runMcpWorkflow } = require('./workflow');
-    return runMcpWorkflow(taskDir, { choice, refinement });
   }
   if (toolName === 'check_readiness') {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
@@ -308,29 +327,6 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
         logToolCall('sannin', `task_dir=${resolvedTaskDir} fallback=runSannin error=${graphErr.message}`, sanninRes, 'sannin');
       }
       return sanninRes;
-    }
-  }
-
-  if (toolName === 'workflow_gate_choice' || toolName === 'workflow_gate_response') {
-    const choice = args.choice ?? args.gate_choice ?? args.action ?? args.gate_action;
-    const refinement = args.refinement ?? args.feedback ?? args.notes;
-    const taskDir = args.task_dir || args.taskDir;
-    const tokenBudget = args.token_budget || args.tokenBudget;
-    const threadId = args.thread_id || args.threadId || (taskDir ? path.basename(taskDir) : 'default-thread');
-    try {
-      const { sanninWorkflowNext } = require('./workflow');
-      return await sanninWorkflowNext(taskDir, {
-        choice,
-        refinement,
-        tokenBudget,
-        threadId,
-      });
-    } catch (graphErr) {
-      const { runMcpWorkflow } = require('./workflow');
-      if (typeof logToolCall === 'function') {
-        logToolCall('workflow_gate_choice', `task_dir=${taskDir} fallback=runMcpWorkflow error=${graphErr.message}`, '', 'sannin');
-      }
-      return runMcpWorkflow(taskDir, { choice, refinement });
     }
   }
 
@@ -490,7 +486,7 @@ function _executeToolInternal(toolName, args, agent) {
     return _dispatchAkatsukiInit(args);
   }
 
-  const agentRes = _dispatchAgentDelegation(toolName, args);
+  const agentRes = _dispatchAgentDelegation(toolName, args, agent);
   if (agentRes !== null) return agentRes;
 
   const memRes = _dispatchMemory(toolName, args, agent);
@@ -505,8 +501,20 @@ function _executeToolInternal(toolName, args, agent) {
   return JSON.stringify({ error: `Unknown tool: ${toolName}` });
 }
 
+/**
+ * Identity resolution rule: an explicitly supplied agent is authoritative.
+ * Detection only applies when no agent was supplied — a caller cannot borrow
+ * the detected identity (e.g. @akatsuki) by passing a different agent name.
+ */
+function _resolveAgentIdentity(args) {
+  const explicit = args.agent || args.agent_name;
+  if (explicit) return normalizeAgentName(String(explicit));
+  const detected = detectActiveAgent();
+  return detected ? normalizeAgentName(String(detected)) : '';
+}
+
 function executeToolSync(toolName, args = {}) {
-  let agent = (args.agent || args.agent_name || detectActiveAgent() || '').toLowerCase().replace(/_/g, '-');
+  let agent = _resolveAgentIdentity(args);
   const GENIN_BLOCKED_MUTATION_TOOLS = [
     'document_create', 'spreadsheet_create', 'presentation_create',
     'diagram_create', 'animation_export'
@@ -572,8 +580,7 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
 }
 
 async function executeTool(toolName, args = {}) {
-  let agent = args.agent || args.agent_name;
-  if (!agent) agent = detectActiveAgent();
+  const agent = _resolveAgentIdentity(args);
 
   const heavyRes = await _executeHeavyToolAsync(toolName, args, agent);
   if (heavyRes !== null) return heavyRes;

@@ -11,6 +11,8 @@ tags:
   - cve
   - owasp
   - hardening
+mode: red
+requires_lab: true
 ---
 
 # Akatsuki: Red-Team & Blue-Team Security Specialist

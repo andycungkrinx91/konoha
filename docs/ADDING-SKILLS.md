@@ -42,7 +42,10 @@ flowchart TB
     Migrate --> DB["SQLite konoha.db<br/>(skills + skills_fts)"]
     Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
-    DB --> Get["get_skill(canonical name)"]
+    DB --> Authz{"classifySkill(name, tags)"}-->|red · caller @akatsuki| Red["Authorized retrieval<br/>(requires_lab: true)<br/>execution still lab-gated"]
+    Authz -->|red · other caller| Denied["SKILL_AUTHORIZATION_DENIED<br/>body never returned"]
+    Authz -->|blue| Get["get_skill(canonical name)"]
+    Red --> Client
     Get --> Client
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -54,8 +57,21 @@ flowchart TB
     class Developer,Client actorNode;
     class Registry,Files,Templates sourceNode;
     class Migrate processNode;
-    class DB,Find,Get runtimeNode;
+    class DB,Find,Get,Red runtimeNode;
+    classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    class Denied denyNode;
 ```
+
+---
+
+## 🔴 Red Skills (Offensive)
+
+A skill is classified red by `src/skill_authorization.js` when its name matches `RED_SKILL_PATTERN` (`pentest-*`, `patch-diff-exploit-*`), is listed in `RED_SKILLS`, or carries a `red-team` / `pentest` / `offensive` tag.
+
+- Only `@akatsuki` may retrieve or invoke a red skill; every other caller gets `SKILL_AUTHORIZATION_DENIED` at discovery, retrieval, dispatch, delegation, and runtime.
+- Discovery returns metadata with `content: '[REDACTED]'`, never the file body.
+- Red skills run only inside the Akatsuki Lab (`requires_lab: true`). There is no host fallback.
+- Do not add call-site checks — the shared gate already covers all surfaces. See [docs/security/RED-SKILL-INVENTORY.md](security/RED-SKILL-INVENTORY.md).
 
 ---
 

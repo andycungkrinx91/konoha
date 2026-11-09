@@ -20,9 +20,9 @@ async function run() {
       const result = JSON.parse(server.buildFromText('demo-app', 'Premium dashboard', framework, null, { design_variance: 9, motion_intensity: 8, visual_density: 4 }));
       assert.strictEqual(result.status, 'success');
       assert.strictEqual(result.framework, framework);
-      assert.strictEqual(result.archetype, 'dashboard');
+      assert.strictEqual(result.design_brief.fields.length, 9);
       assert.deepStrictEqual(result.taste_dials, { design_variance: 9, motion_intensity: 8, visual_density: 4 });
-      assert.strictEqual(result.design_tokens.hero_autoplay, '6000ms');
+      assert.ok(result.design_brief.inferred_domain_hints.includes('admin_operations'));
       assert.ok(result.taste_skill_audits.includes('em_dash'));
       assert.ok(result.embedded_skill_content);
       assert.ok(result.validation_commands);
@@ -32,14 +32,15 @@ async function run() {
 
     // Text build only adds commerce features for commerce
     const landing = JSON.parse(server.buildFromText('landing', 'A one-page marketing landing page', 'nextjs'));
-    assert.strictEqual(landing.archetype, 'landing');
+    assert.strictEqual(landing.archetype, undefined);
+    assert.strictEqual(landing.design_brief.fields.length, 9);
     const landingDirectives = landing.directives.join(' ');
     assert.strictEqual(landingDirectives.includes('50-item production catalog'), false);
 
     const commerce = JSON.parse(server.buildFromText('store', 'An e-commerce online store with checkout', 'nextjs'));
-    assert.strictEqual(commerce.archetype, 'commerce');
-    assert.ok(commerce.directives.join(' ').includes('50-item production catalog'));
-    console.log('✓ Text build archetype directives passed');
+    assert.ok(commerce.design_brief.inferred_domain_hints.includes('ecommerce_marketplace'));
+    assert.strictEqual(commerce.directives.join(' ').includes('50-item production catalog'), false);
+    console.log('✓ Text build brief-driven directives passed');
 
     // Source contract detects framework files without writing
     const source = path.join(tmp, 'source');

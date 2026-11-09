@@ -352,26 +352,24 @@ async function main() {
 
       // Verify Chunin REA before implementation
       const rea = await performFramerComponentREA({
-        query: 'orbital 3d command deck',
-        archetype: 'dashboard',
+        domainHints: ['admin_operations'],
         targetFramework: fw.id,
         taskDir: path.join(tmpRoot, `rea-${fw.id}`),
         runPlaywrightProbe: true
       });
       assert.strictEqual(rea.status, 'completed');
-      assert.strictEqual(rea.free_and_paid_evaluated, true);
-      assert.ok(rea.components.length >= 2);
+      assert.strictEqual(rea.free_and_paid_evaluated, false, 'Unknown tiers must not be claimed as evaluated');
+      assert.ok(rea.components.length >= 1);
 
       for (const comp of rea.components) {
-        assert.ok(comp.reference_url, 'Chunin REA must include reference_url');
-        assert.ok(comp.observed_interactions, 'Chunin REA must include observed_interactions');
-        assert.ok(comp.animation_behavior, 'Chunin REA must include animation_behavior');
+        assert.ok(comp.marketplace_url, 'Chunin REA must include marketplace_url');
+        assert.strictEqual(comp.observed, null, 'Observations stay null until a real preview URL is navigated');
         assert.strictEqual(comp.motion_architecture.primary_library, fw.expectedMotionLib);
         assert.ok(comp.three_d_rendering_approach.primary_stack.includes(fw.expected3dLib));
         assert.ok(comp.suitable_framework_implementation, 'Chunin REA must include suitable_framework_implementation');
         assert.ok(comp.dependencies_and_versions, 'Chunin REA must include dependencies_and_versions');
         assert.ok(Array.isArray(comp.compatibility_and_limitations) && comp.compatibility_and_limitations.length > 0);
-        assert.ok(comp.evidence_and_recommendations.playwright_live_inspected, 'Playwright live inspection must succeed');
+        assert.strictEqual(comp.evidence_and_recommendations.playwright_live_inspected, false, 'No live inspection may be claimed without a navigated preview');
       }
 
       // Verify clean-room framework adaptation

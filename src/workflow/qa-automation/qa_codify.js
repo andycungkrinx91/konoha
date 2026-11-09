@@ -16,23 +16,38 @@ function getSha256(content) {
 }
 
 function getAgentBrowserCmd() {
+  const resolved = resolveAgentBrowserInvocation();
+  if (!resolved) return null;
+  // Callers spawn this value directly, so only a real executable path qualifies.
+  return resolved.kind === 'path' ? resolved.command : null;
+}
+
+/**
+ * Resolve how to invoke agent-browser.
+ * Returns { kind: 'path', command } for a binary on disk, or
+ * { kind: 'npx', command, args } for the npx fallback — a bare string cannot be
+ * spawned directly (it would ENOENT on the spaces), so the caller must use args.
+ */
+function resolveAgentBrowserInvocation() {
   const isWin = process.platform === 'win32';
   const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
   try {
     const res = isWin
       ? spawnSync(`"${abCmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
       : spawnSync(abCmd, ['--version'], { encoding: 'utf-8' });
-    if (res.status === 0) return abCmd;
+    if (res.status === 0) return { kind: 'path', command: abCmd };
   } catch (_) { /* best effort */ }
 
   const home = os.homedir();
   const candidates = isWin ? [
     path.join(process.env.APPDATA || '', 'npm', 'agent-browser.cmd'),
-    path.join(process.env.LOCALAPPDATA || '', 'pnpm', 'agent-browser.cmd')
+    path.join(process.env.LOCALAPPDATA || '', 'pnpm', 'agent-browser.cmd'),
+    path.join(home, '.konoha', 'tools', 'node_modules', '.bin', 'agent-browser.cmd')
   ] : [
     path.join(home, '.local', 'bin', 'agent-browser'),
     path.join(home, '.npm-global', 'bin', 'agent-browser'),
     path.join(home, '.pnpm-global', 'bin', 'agent-browser'),
+    path.join(home, '.konoha', 'tools', 'node_modules', '.bin', 'agent-browser'),
     '/usr/local/bin/agent-browser',
     '/usr/bin/agent-browser'
   ];
@@ -43,22 +58,44 @@ function getAgentBrowserCmd() {
       const res = isWin
         ? spawnSync(`"${c}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
         : spawnSync(c, ['--version'], { encoding: 'utf-8' });
-      if (res.status === 0) return c;
+      if (res.status === 0) return { kind: 'path', command: c };
     } catch (_) { /* best effort */ }
   }
+
+  // Last resort: the pinned package through npx, verified to actually run.
+  const npxCmd = isWin ? 'npx.cmd' : 'npx';
+  const pinned = ['--yes', 'agent-browser@0.3.1'];
+  try {
+    const res = isWin
+      ? spawnSync(`"${npxCmd}" --yes agent-browser@0.3.1 --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(npxCmd, [...pinned, '--version'], { encoding: 'utf-8' });
+    if (res.status === 0) return { kind: 'npx', command: npxCmd, args: pinned };
+  } catch (_) { /* best effort */ }
+
   return null;
 }
 
 function verifyFlowExecution(rawFlow, flowHash) {
   const isWin = process.platform === 'win32';
-  const abCmd = getAgentBrowserCmd();
-  if (!abCmd) {
-    return { ok: true, verified: false };
+  const invocation = resolveAgentBrowserInvocation();
+  if (!invocation) {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: 'qa_blocked',
+        reason: 'agent-browser unavailable: not installed and no fallback resolved. Install with: npm i -g agent-browser@0.3.1',
+        status: 'error',
+        flow_hash: flowHash,
+        verified: false
+      }
+    };
   }
   try {
+    const batchArgs = [...(invocation.args || []), 'batch', '--bail', '--json'];
     const verifyRes = isWin
-      ? spawnSync(`"${abCmd}" batch --bail --json`, { input: rawFlow, encoding: 'utf-8', shell: true, windowsHide: true })
-      : spawnSync(abCmd, ['batch', '--bail', '--json'], { input: rawFlow, encoding: 'utf-8' });
+      ? spawnSync(`"${invocation.command}" ${batchArgs.join(' ')}`, { input: rawFlow, encoding: 'utf-8', shell: true, windowsHide: true })
+      : spawnSync(invocation.command, batchArgs, { input: rawFlow, encoding: 'utf-8' });
     if (verifyRes.status !== 0) {
       const errMsg = verifyRes.stderr || verifyRes.stdout || 'agent-browser batch exited with non-zero status';
       return {
@@ -276,5 +313,6 @@ module.exports = {
   stripAnsi,
   getSha256,
   getAgentBrowserCmd,
+  resolveAgentBrowserInvocation,
   qaCodify
 };

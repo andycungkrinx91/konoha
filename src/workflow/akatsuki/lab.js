@@ -15,6 +15,8 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { purgeLabDb } = require('./lab_db');
+const KALI_TOOLS_PATH = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'kali_tools.json');
 
 const DEFAULT_LAB_NAME = 'akatsuki-lab';
 const DECLINE_NO_ENGINE = 'Declined: LXC/Docker not installed on this machine.';
@@ -36,23 +38,61 @@ function getRequiredEngine(platform = process.platform) {
 }
 
 /**
+ * Environment for every lab child process (lxc/docker). Pins KONOHA_DB_PATH to
+ * the lab DB so a provision script that ever shells into Konoha cannot reach
+ * the main database. The path guards are the primary boundary; this is
+ * defence in depth.
+ */
+function _labChildEnv() {
+  const { getLabDbPath } = require('./lab_db');
+  return { ...process.env, KONOHA_DB_PATH: getLabDbPath() };
+}
+
+/**
+ * Seed the lab-local Kali catalog from the bundled JSON. Runs at most once per
+ * lab DB: an existing non-empty table is left alone.
+ */
+function _seedLabKaliTools(conn) {
+  const existing = conn.prepare('SELECT COUNT(*) AS count FROM kali_tools').get();
+  if (existing && existing.count > 0) return;
+  let catalog = [];
+  try {
+    catalog = JSON.parse(fs.readFileSync(KALI_TOOLS_PATH, 'utf8'));
+  } catch (_) {
+    return;
+  }
+  if (!Array.isArray(catalog) || catalog.length === 0) return;
+  const insert = conn.prepare(
+    'INSERT OR REPLACE INTO kali_tools (id, slug, name, package, category, description, url) VALUES (?,?,?,?,?,?,?)'
+  );
+  for (const t of catalog) {
+    if (!t || !t.id) continue;
+    insert.run(t.id, t.slug || t.id, t.name || t.slug || t.id, t.package || null,
+      t.category || null, t.description || null, t.url || null);
+  }
+}
+
+/**
  * Default safe command runner using child_process.spawnSync.
  */
 function defaultCommandRunner(cmd, args = [], execOptions = {}) {
   const isWin = (execOptions.platform || process.platform) === 'win32';
   const timeout = execOptions.timeout !== undefined ? execOptions.timeout : 3600000;
+  const env = _labChildEnv();
   if (isWin && /\.cmd$/i.test(cmd)) {
     return spawnSync(`"${cmd}" ${args.join(' ')}`, {
       encoding: 'utf8',
       timeout,
       windowsHide: true,
-      shell: true
+      shell: true,
+      env
     });
   }
   return spawnSync(cmd, args, {
     encoding: 'utf8',
     timeout,
-    windowsHide: true
+    windowsHide: true,
+    env
   });
 }
 
@@ -514,6 +554,8 @@ function teardownLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
       return _formatTeardownFailure(labName, targetEngine, cleanRes);
     }
 
+    try { purgeLabDb(); } catch (_) { /* lab DB purge is best-effort */ }
+
     return {
       cleanup_confirmed: true,
       engine: targetEngine,
@@ -647,6 +689,9 @@ module.exports = {
   validateLabPrerequisites,
   executeInLab,
   teardownLab,
+  purgeLabDb,
+  _seedLabKaliTools,
+  _labChildEnv,
   provisionLab,
   stopLab
 };

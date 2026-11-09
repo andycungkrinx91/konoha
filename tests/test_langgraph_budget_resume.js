@@ -14,6 +14,19 @@ const os = require('os');
 const { StateGraph } = require('@langchain/langgraph');
 const Database = require('../src/sqlite_driver');
 
+// review.js destructures runAislopGate at load time, so the slop gate must be
+// stubbed BEFORE ../src/mcp/langgraph is required. Confidence is re-measured every
+// review pass (it is no longer cached), so scenarios needing a permanently failing
+// gate must control the gate itself rather than seeding status.confidence.
+const dispatchStub = require('../src/mcp/workflow_dispatch');
+const aislopGateController = { mode: 'clean' };
+dispatchStub.runAislopGate = function controlledGate() {
+  if (aislopGateController.mode === 'failing') {
+    return { enforced: true, ok: false, pass: false, score: 80, findings: [{ severity: 'high' }] };
+  }
+  return { enforced: true, ok: true, pass: true, score: 100, findings: [] };
+};
+
 const {
   buildKonohaGraph,
   KonohaCheckpointSaver,
@@ -385,6 +398,7 @@ async function runScenarioSuite() {
       assert.strictEqual(res.circuitOpen, true);
       // Verify unseeded 0-cycle persistent remediation defect loop trips breaker cleanly without throw
       const taskDirRem = createTestSandbox('s8_rem');
+      aislopGateController.mode = 'failing';
       try {
         fs.writeFileSync(path.join(taskDirRem, 'status.json'), JSON.stringify({
           plan: '1. Scaffolding\n2. Implementation',
@@ -408,6 +422,7 @@ async function runScenarioSuite() {
         assert.strictEqual(remRes.remediationCount, 7, 'Must record 7 remediation cycles');
         assert.ok(remRes.error.includes('Circuit breaker tripped'), 'Must report circuit breaker error');
       } finally {
+        aislopGateController.mode = 'clean';
         cleanupSandbox(taskDirRem);
       }
 

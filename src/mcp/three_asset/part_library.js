@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Enterprise Realistic 3D Part Template Library & Detail Part Generator.
+ * Production Realistic 3D Part Template Library & Detail Part Generator.
  * Provides curved, chamfered, high-segment primitives and physical PBR materials.
  */
 
@@ -21,7 +21,7 @@ const PALETTE = {
   N5: '#0f172a'  // Obsidian Black
 };
 
-const ENTERPRISE_MATERIALS = {
+const PRODUCTION_MATERIALS = {
   brushed_titanium: { type: 'physical', color: '#94a3b8', metalness: 0.90, roughness: 0.28, clearcoat: 0.2 },
   anodized_aluminum: { type: 'physical', color: '#38bdf8', metalness: 0.85, roughness: 0.32, clearcoat: 0.3 },
   polished_chrome: { type: 'physical', color: '#f8fafc', metalness: 0.98, roughness: 0.05, clearcoat: 1.0 },
@@ -93,7 +93,7 @@ function coneNode(name, radius, h, ...rest) {
   };
 }
 
-const ENTERPRISE_TEMPLATES = {
+const PRODUCTION_TEMPLATES = {
   'game-character': [
     cylinderNode('pedestal_base', 0.9, 0.95, 0.1, 0, 0.05, 0, PALETTE.N5, [0, 0, 0], 0.9, 0.2),
     capsuleNode('leg_l', 0.12, 0.5, -0.22, 0.4, 0, PALETTE.N4, [0, 0, 0], 0.7, 0.3),
@@ -280,7 +280,7 @@ const ENTERPRISE_TEMPLATES = {
 };
 
 // Backward-compatible alias for existing callers
-const ROBLOX_TEMPLATES = ENTERPRISE_TEMPLATES;
+const ROBLOX_TEMPLATES = PRODUCTION_TEMPLATES;
 
 /**
  * Generate parametric detail parts to pad node count and enrich realism
@@ -314,8 +314,8 @@ function detailParts(targetCount, baseNodes = [], palette = PALETTE) {
 
 module.exports = {
   PALETTE,
-  ENTERPRISE_MATERIALS,
-  ENTERPRISE_TEMPLATES,
+  PRODUCTION_MATERIALS,
+  PRODUCTION_TEMPLATES,
   ROBLOX_TEMPLATES,
   detailParts,
   boxNode,

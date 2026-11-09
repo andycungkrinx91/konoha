@@ -15,7 +15,7 @@ const path = require('path');
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const DRAWIO_FILES = {
   architecture: path.join(ROOT_DIR, 'docs', 'diagrams', 'konoha-architecture.drawio'),
-  enterprise: path.join(ROOT_DIR, 'docs', 'diagrams', 'konoha-enterprise-architecture.drawio')
+  production: path.join(ROOT_DIR, 'docs', 'diagrams', 'konoha-infrastructure-architecture.drawio')
 };
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
@@ -208,8 +208,8 @@ function readDrawioPages(filePath) {
 
 function loadDrawioCorpus() {
   const architecture = readDrawioPages(DRAWIO_FILES.architecture);
-  const enterprise = readDrawioPages(DRAWIO_FILES.enterprise);
-  return { architecture, enterprise };
+  const production = readDrawioPages(DRAWIO_FILES.production);
+  return { architecture, production };
 }
 
 module.exports = { readDrawioPages, loadDrawioCorpus, parseStyle, decodeEntities, plainLabel, DRAWIO_FILES };

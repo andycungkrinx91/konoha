@@ -1,5 +1,7 @@
 'use strict';
 
+const { auditRedSkill } = require('./lab_audit');
+
 /**
  * src/workflow/akatsuki/workflows.js
  * Professional Red-Team and Blue-Team security workflows for Akatsuki.
@@ -269,6 +271,31 @@ function _generateTokubetsuPdfReport(reportParams) {
 }
 
 function _verifyRedTeamPrerequisites(params, options) {
+  const skillAuthz = require('../../skill_authorization');
+  const agentIdentity = options.agentName || options.agent_name || options.agent ||
+    (params && (params.agentName || params.agent_name || params.agent)) || null;
+  // Fail closed: an absent identity is a denial. Only @akatsuki may run red work.
+  const skillAuth = skillAuthz.authorizeSkillAccess({ skillName: 'akatsuki-skill', agentName: agentIdentity });
+  if (!skillAuth.authorized) {
+    auditRedSkill({
+      skillName: 'akatsuki-skill', agentName: agentIdentity,
+      decision: 'denied', code: skillAuth.code, reason: skillAuth.reason,
+      surface: 'runRedTeamWorkflow'
+    }, options);
+    return {
+      earlyExit: true,
+      result: {
+        workflow_type: 'red_team', execution_mode: 'isolated_sandbox', status: 'blocked',
+        authorized: false, scope: params.target || params.scope || 'unassessed',
+        code: skillAuth.code, reason: skillAuth.reason,
+        checks_performed: [], findings: [], evidence_references: [],
+        remediation_status: 'not_applicable', residual_risk: 'unassessed',
+        gate_decision: 'blocked', cleanup_confirmed: true,
+        message: `Red-team operation blocked: ${skillAuth.code} — ${skillAuth.reason}`
+      }
+    };
+  }
+
   if (!isRedTeamEnabled(options)) {
     return {
       earlyExit: true,
@@ -317,7 +344,7 @@ function _verifyRedTeamPrerequisites(params, options) {
     };
   }
 
-  return { earlyExit: false, auth, labCheck };
+  return { earlyExit: false, auth, labCheck, agentIdentity };
 }
 
 function _buildRedTeamResponse(props) {
@@ -377,7 +404,12 @@ function _buildRedTeamResponse(props) {
 function runRedTeamWorkflow(params = {}, options = {}) {
   const prereq = _verifyRedTeamPrerequisites(params, options);
   if (prereq.earlyExit) return prereq.result;
-  const { auth, labCheck } = prereq;
+  const { auth, labCheck, agentIdentity } = prereq;
+
+  auditRedSkill({
+    skillName: 'akatsuki-skill', agentName: agentIdentity,
+    decision: 'allowed', surface: 'runRedTeamWorkflow'
+  }, options);
 
   // Reconnaissance planning & Chunin threat intelligence
   const { buildReconDirective, gatherKnowledge } = require('./recon');
@@ -484,53 +516,7 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   });
 }
 
-function _resolveRedTeamFailReason(rev) {
-  if (rev.tools_blocked && rev.tools_blocked.length > 0) {
-    return `Security gate blocked: Red-team review lacks required sandbox isolation evidence (requested blocked tools: ${rev.tools_blocked.map(t => t.tool).join(', ')}).`;
-  }
-  if (rev.stop_conditions && rev.stop_conditions.length > 0) {
-    return `Security gate blocked: Red-team review lacks required sandbox isolation evidence (stopped due to safety condition: ${rev.stop_conditions.join('; ')}).`;
-  }
-  if (rev.cleanup_confirmed !== true) {
-    return 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (cleanup could not be confirmed).';
-  }
-  return 'Security gate blocked: Red-team review lacks required sandbox isolation evidence (akatsuki-lab on LXC/Docker with network isolation).';
-}
-
-function _evaluateAkatsukiReview(rev) {
-  const critical = rev.critical_count || (rev.findings || []).filter(f => f.severity === 'critical').length;
-  const high = rev.high_count || (rev.findings || []).filter(f => f.severity === 'high').length;
-
-  const isRedTeam = rev.workflow_type === 'red_team';
-  const labValid = !isRedTeam || (
-    rev.lab_name === DEFAULT_LAB_NAME &&
-    rev.network_isolated === true &&
-    rev.host_execution_denied === true &&
-    rev.cleanup_confirmed === true &&
-    (!rev.tools_blocked || rev.tools_blocked.length === 0) &&
-    (!rev.stop_conditions || rev.stop_conditions.length === 0) &&
-    rev.status === 'completed'
-  );
-
-  const passed = rev.gate_decision === 'passed' && critical === 0 && high === 0 && labValid;
-
-  let failReason = 'Akatsuki security review verified clean with required sandbox isolation evidence.';
-  if (isRedTeam && !labValid) {
-    failReason = _resolveRedTeamFailReason(rev);
-  } else if (!passed) {
-    failReason = `Security gate blocked: ${critical} critical, ${high} high findings.`;
-  }
-
-  return {
-    gate: 'akatsuki_security',
-    decision: passed ? 'passed' : 'blocked',
-    passed,
-    critical_count: critical,
-    high_count: high,
-    findings: rev.findings || [],
-    reason: failReason
-  };
-}
+const { evaluateAkatsukiReview: _evaluateAkatsukiReview } = require('./review_gate');
 
 /**
  * Determine if a task touches security-sensitive files or behaviors.
@@ -586,7 +572,7 @@ function runAkatsukiFinalGate(projectPath, status = {}, options = {}) {
 
   // If a manual or executed Akatsuki review already exists in status
   if (status.akatsuki_review && typeof status.akatsuki_review === 'object') {
-    const gateResult = _evaluateAkatsukiReview(status.akatsuki_review);
+    const gateResult = _evaluateAkatsukiReview(status.akatsuki_review, DEFAULT_LAB_NAME);
     status.akatsuki_gate = gateResult;
     return gateResult;
   }
@@ -681,6 +667,7 @@ module.exports = {
   runBlueTeamWorkflow,
   runRedTeamWorkflow,
   runAkatsukiFinalGate,
+  _evaluateAkatsukiReview,
   dispatchAkatsuki,
   isSecurityApplicable,
   CURATED_TOOL_REGISTRY,

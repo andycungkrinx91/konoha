@@ -193,6 +193,7 @@ function testPhasePlanner() {
 
   // 3f: Workflow path preserves undefined flag and auto-opens metasploit in red mode
   const msfWorkflowAuto = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Authorized red team assessment with metasploit',
     authorized: true,
     target: '10.77.77.153',
@@ -212,6 +213,7 @@ function testWorkflowIntegration() {
 
   // 4a: Full authorized assessment with multiple tools using mock tool runner for uninstalled lab tools
   const multiToolRes = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Authorized penetration test across network and web surface',
     authorized: true,
     target: '10.77.77.153',
@@ -249,6 +251,7 @@ function testWorkflowIntegration() {
 
   // 4b: Real container execution with nmap
   const realRes = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Live in-sandbox nmap assessment',
     authorized: true,
     target: '10.77.77.153',
@@ -263,6 +266,7 @@ function testWorkflowIntegration() {
 
   // 4c: Assessment requesting unprofiled tool fails closed
   const blockedToolRes = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Attempt assessment with unprofiled tool',
     authorized: true,
     target: 'localhost:8080',
@@ -276,6 +280,7 @@ function testWorkflowIntegration() {
 
   // 4c: Controlled verification explicit denial enforcement
   const msfNoFlag = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Verify exploitability',
     authorized: true,
     target: 'localhost:8080',
@@ -286,6 +291,7 @@ function testWorkflowIntegration() {
   assert.strictEqual(msfNoFlag.gate_decision, 'blocked');
 
   const msfWithFlag = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Authorized controlled verification',
     authorized: true,
     target: 'localhost:8080',
@@ -298,6 +304,7 @@ function testWorkflowIntegration() {
 
   // 4d: Custom tool profile integration
   const customRes = runRedTeamWorkflow({
+    agentName: 'akatsuki',
     task: 'Test with custom tool',
     authorized: true,
     target: 'localhost:8080',
@@ -375,6 +382,7 @@ async function testAkatsukiCliAndFeatureToggle() {
     assert.strictEqual(isRedTeamEnabled(), false, 'Red-team must be disabled after setRedTeamEnabled(false)');
 
     const disabledRes = runRedTeamWorkflow({
+      agentName: 'akatsuki',
       task: 'Attempt assessment while disabled',
       authorized: true,
       target: 'localhost:8080'
@@ -389,6 +397,7 @@ async function testAkatsukiCliAndFeatureToggle() {
     assert.strictEqual(isRedTeamEnabled(), true, 'Red-team must be enabled after setRedTeamEnabled(true)');
 
     const enabledRes = runRedTeamWorkflow({
+      agentName: 'akatsuki',
       task: 'Authorized assessment while enabled',
       authorized: true,
       target: 'localhost:8080'

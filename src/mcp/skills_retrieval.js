@@ -12,6 +12,7 @@ const {
   MAX_CONTENT_SIZE,
   MAX_MULTI_SKILL_TOTAL_BYTES,
   normalizeLegacySkillName,
+  validateSkillPath,
   contentHash,
   smartTruncate,
   compileSkillDigest,
@@ -21,7 +22,7 @@ const {
   resolveFlowHashFromTask,
   findInMirror,
   logToolCall,
-  isOffensiveSkill
+  denyIfUnauthorized
 } = require('./skills_common');
 const { autoMigrateProjectSkills, querySkillsByKeyword } = require('./skills_search');
 
@@ -176,9 +177,20 @@ function getSkill(name, agentName = null, options = {}) {
   try { autoMigrateProjectSkills(); } catch (_) { /* ignore */ }
 
   const normName = normalizeLegacySkillName(name);
-  if (isOffensiveSkill(normName) && agentName !== 'akatsuki') {
+
+  if (normName !== null && normName !== undefined && normName !== '') {
+    const pathCheck = validateSkillPath(normName);
+    if (pathCheck.error) {
+      const res = JSON.stringify({ error: pathCheck.error, message: `Skill reference '${String(name)}' is not a valid skill path.` });
+      logToolCall('get_skill', String(name), res, agentName);
+      return res;
+    }
+  }
+
+  const denied = denyIfUnauthorized(normName, null, agentName);
+  if (denied) {
     process.stderr.write(`  [Authorization] Denied: Skill '${normName}' requires @akatsuki agent authorization.\n`);
-    const res = JSON.stringify({ error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.` });
+    const res = JSON.stringify(denied);
     logToolCall('get_skill', normName, res, agentName);
     return res;
   }
@@ -258,8 +270,9 @@ function _findSkillInDb(conn, normName) {
 }
 
 function _loadSingleSkill(conn, normName, agentName, allWarnings) {
-  if (isOffensiveSkill(normName) && agentName !== 'akatsuki') {
-    return { status: 'denied', error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.`, source: 'none' };
+  const denied = denyIfUnauthorized(normName, null, agentName);
+  if (denied) {
+    return { status: 'denied', ...denied, source: 'none' };
   }
 
   const contractRow = resolveContractRow(normName);

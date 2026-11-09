@@ -2,7 +2,7 @@
 
 /**
  * Inherited-Model Vision-to-DSL Synthesizer for Konoha 3D Pipeline.
- * Enterprise Realistic PBR contracts guarded by Circuit Breaker.
+ * Production Realistic PBR contracts guarded by Circuit Breaker.
  */
 
 const fs = require('fs');
@@ -57,7 +57,7 @@ You construct complete, production-grade 3D assets strictly adhering to the Kono
 ${skillText}
 === END SKILL SPECIFICATION ===
 
-=== ENTERPRISE & PHOTOREALISTIC 3D STUDIO SPECIFICATION CONTRACT ===
+=== PRODUCTION & PHOTOREALISTIC 3D STUDIO SPECIFICATION CONTRACT ===
 1. OUTPUT: Output ONLY the raw Konoha 3D DSL script or clean JSON scene spec. Never include markdown conversational filler.
 2. GEOMETRY & CURVATURE:
    - Use high-segment curved and chamfered geometries (capsule, lathe, cylinder with radialSegments >= 32, sphere 48x32, torus, roundedBox).

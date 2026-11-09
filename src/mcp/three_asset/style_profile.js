@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Enterprise Realistic 3D Style Profiles, Boundary Normalizer, and 11-Row scoreSpec Quality Gate.
+ * Production Realistic 3D Style Profiles, Boundary Normalizer, and 11-Row scoreSpec Quality Gate.
  * Enforces uniform 3-unit extent, min(y)=0 grounding, micro-chamfer bevels, and physical PBR materials.
  */
 
@@ -9,8 +9,8 @@ const { detailParts } = require('./part_library');
 const { QUALITY_LEVELS, LEGACY_ALIASES } = require('./quality_levels');
 
 const GENERATION_PROFILES = Object.freeze({
-  enterprise_pbr: {
-    name: 'enterprise_pbr',
+  production_pbr: {
+    name: 'production_pbr',
     minParts: 6,
     maxParts: 128,
     metalness: [0.0, 1.0],
@@ -104,12 +104,18 @@ const QUALITY_PRESETS = Object.freeze(
   )
 );
 
-const STYLIZED_PROFILE = GENERATION_PROFILES.enterprise_pbr;
+const STYLIZED_PROFILE = GENERATION_PROFILES.production_pbr;
+
+/** Rows persisted before the 2.2.19 rename still carry the old profile key. */
+const LEGACY_PROFILE_ALIASES = Object.freeze({
+  enterprise_pbr: 'production_pbr'
+});
 
 function resolveProfile(profileName) {
-  if (!profileName) return GENERATION_PROFILES.enterprise_pbr;
+  if (!profileName) return GENERATION_PROFILES.production_pbr;
   const key = String(profileName).toLowerCase();
-  return GENERATION_PROFILES[key] || GENERATION_PROFILES.enterprise_pbr;
+  const resolved = LEGACY_PROFILE_ALIASES[key] || key;
+  return GENERATION_PROFILES[resolved] || GENERATION_PROFILES.production_pbr;
 }
 
 function getNodeBounds(node) {
@@ -171,7 +177,7 @@ function getNodeBounds(node) {
   };
 }
 
-function applyEnterpriseProfile(rawSpec, profileName = 'enterprise_pbr') {
+function applyGenerationProfile(rawSpec, profileName = 'production_pbr') {
   if (!rawSpec || typeof rawSpec !== 'object') return rawSpec;
   const spec = JSON.parse(JSON.stringify(rawSpec));
   const profile = resolveProfile(profileName || spec.profile);
@@ -265,8 +271,7 @@ function applyEnterpriseProfile(rawSpec, profileName = 'enterprise_pbr') {
   return spec;
 }
 
-const applyGenerationProfile = applyEnterpriseProfile;
-const applyStylizedProfile = applyEnterpriseProfile;
+const applyStylizedProfile = applyGenerationProfile;
 
 /**
  * 11-Row scoreSpec Quality Gate
@@ -400,7 +405,6 @@ module.exports = {
   STYLIZED_PROFILE,
   resolveProfile,
   getNodeBounds,
-  applyEnterpriseProfile,
   applyGenerationProfile,
   applyStylizedProfile,
   scoreSpec

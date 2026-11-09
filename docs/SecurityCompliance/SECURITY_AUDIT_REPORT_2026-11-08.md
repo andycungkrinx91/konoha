@@ -78,3 +78,30 @@
 3. **Fail-Closed Gate**:
    - Any backup verification failure or broken symlink immediately aborts execution (`ensureBackupBeforeModify`), leaving original configuration files 100% untouched.
    - Tested and verified across 14 regression scenarios in `tests/test_config_backup_and_append_only.js`.
+
+---
+
+## 6. Workstream F — Cross-Platform Install & Upgrade Integrity Audit
+
+1. **Packaging Integrity**:
+   - The `files` exclusion `!**/PLAN*` matched `src/mcp/langgraph/nodes/plan.js` on case-insensitive filesystems, so every global install failed with `Cannot find module './nodes/plan'`. Exclusions are now extension-scoped (`!**/PLAN.md`, `!**/PLAN*.md`); all 11 LangGraph node modules ship in the tarball.
+   - Regression coverage: `tests/test_install_layout_integrity.js`, `tests/test_pnpm_config_migration.js`.
+2. **Upgrade Fail-Closed Behavior**:
+   - `bin/commands/upgrade.js` previously discarded `executePackageInstall()`'s return value and continued into the post-upgrade lifecycle, reporting success after total package-manager failure. It now exits 1 with `Upgrade aborted: ...` and leaves the installation untouched.
+   - `readInstalledVersion()` no longer substitutes the requested version for the installed one; an unreadable `konoha --version` reports `source: 'unverified'` and fails verification.
+   - Covered by `tests/test_upgrade_failure_reporting.js`.
+3. **Postinstall Containment**:
+   - `bin/postinstall.js` performs no network access, no package installation, and writes nothing under `HOME`; it prints guidance only. Covered by `tests/test_postinstall_contract.js`.
+4. **MCP Argument Boundary**:
+   - `parseToolArguments` returns `{ args, error }`. Malformed non-delegation input yields a JSON-RPC tool error `{ error: 'invalid_arguments', message, tool }` with `isError: true`, and parse failures log the tool name and error — never the raw payload. Delegation tools coerce bare prose to `{ task }`.
+   - Covered by `tests/test_mcp_argument_parsing.js`.
+5. **Skill Path Traversal**:
+   - `validateSkillPath` rejects backslashes, `..`, drive letters, absolute paths, NUL bytes and malformed percent-encoding; `resolveSkillPathWithinRoot` re-verifies containment after `path.resolve`, and `findInMirror` applies it at the filesystem boundary.
+   - Covered by `tests/test_skill_uri_resolution.js`.
+6. **Supply-Chain Configuration Change**:
+   - `package.json#pnpm.auditConfig` and the duplicate `package.json#overrides` were removed (pnpm 12 reads overrides only from `pnpm-workspace.yaml`). `audit.ignore` retains `GHSA-gcqx-w48m-w2h4`.
+   - **CVE-2026-93753 is no longer suppressed** — pnpm 12 has no CVE-level suppression mechanism. This is an accepted, documented reduction in audit suppression scope, not a new vulnerability.
+7. **Verified Scope**:
+   - Linux x64: tarball install, `init`, runtime module resolution and upgrade failure paths executed.
+   - Windows 10/11 and macOS arm64/x64: **not run**. The `EBUSY` in-place upgrade path remains unexercised.
+

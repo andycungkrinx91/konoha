@@ -220,10 +220,14 @@ function buildRecallSnippet(agentName, projectPath, query) {
  * bounded skills, its own soul, and project recall.
  */
 function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSkills = [] } = {}) {
-  const skills = Array.isArray(routedSkills) ? routedSkills.slice(0, MAX_ENVELOPE_SKILLS) : [];
-  const droppedSkills = Array.isArray(routedSkills)
-    ? routedSkills.filter((s) => !skills.includes(s))
-    : [];
+  const skillAuthz = require('../skill_authorization');
+  const isAllowed = (s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized;
+  const permitted = Array.isArray(routedSkills) ? routedSkills.filter(isAllowed) : [];
+  const blocked = Array.isArray(routedSkills) ? routedSkills.filter((s) => !isAllowed(s)) : [];
+  const skills = permitted.slice(0, MAX_ENVELOPE_SKILLS);
+  const droppedSkills = permitted
+    .filter((s) => !skills.includes(s))
+    .concat(blocked);
   const soul = buildSoulSnippet(agentName, projectPath);
   const recall = buildRecallSnippet(agentName, projectPath, prompt);
   const lines = [];
@@ -231,6 +235,9 @@ function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSk
   lines.push(`- Bound skills (${skills.length}/${MAX_ENVELOPE_SKILLS}): ${skills.length > 0 ? skills.map((s) => `\`${s}\``).join(', ') : 'soul-bound defaults only'}`);
   if (droppedSkills.length > 0) {
     lines.push(`- On-demand skills (load with \`konoha.use_skills\` only if needed): ${droppedSkills.map((s) => `\`${s}\``).join(', ')}`);
+  }
+  if (blocked.length > 0) {
+    lines.push(`- Authorization: ${blocked.map((s) => `\`${s}\``).join(', ')} withheld — SKILL_AUTHORIZATION_DENIED (red skills are @akatsuki-only)`);
   }
   lines.push(`- Soul excerpt: ${soul ? soul.replace(/\n+/g, ' | ') : 'unavailable — follow the inlined discipline contract'}`);
   if (recall.length > 0) {

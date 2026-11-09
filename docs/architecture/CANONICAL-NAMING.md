@@ -1,7 +1,7 @@
 # Konoha Architecture Canonical Naming Specification
 
-**Document Version:** 1.1.0 (Konoha v2.2.18)  
-**Date:** 2026-11-04  
+**Document Version:** 1.2.0 (Konoha v2.2.19)  
+**Date:** 2026-11-08  
 **Status:** Authoritative Standard  
 
 ---
@@ -49,11 +49,11 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 - `find_files_clean(directory, pattern, limit)`
 
 #### Skill Intelligence & Retrieval
-- `find_skill(keyword, limit?)` — Canonical skill search (replaces plural alias `find_skills`)
+- `find_skill(keyword, limit?)` — Canonical skill search (`find_skills` remains a registered dispatch alias for the same handler; it is not a separate tool concept)
 - `list_skills(limit?)` — Canonical skill listing
-- `get_skill(name)` — Canonical skill loader
-- `optimize_report(query)` — Canonical skill-to-prompt optimizer
-- `migrate_skills(clean?, rebuild_embeddings?)` — Canonical migration trigger
+- `get_skill(name, section?)` — Canonical skill loader. Subpath URIs resolve as `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>` and `<skill>/references/<file>.md` through one resolver (`_findSubpathInMirror` in `src/mcp/skills_common.js`); no duplicated alias files are written.
+- `optimize_report(keyword?)` — Canonical skill-to-prompt optimizer
+- `migrate_skills(force?, skills_dir?)` — Canonical migration trigger
 
 #### UI & Website Architecture
 - `build_from_source(name, source_dir, framework, taste_dials?)` — Canonical image/source build (replaces `build_with_image_design`)
@@ -133,25 +133,26 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 
 ### 2.3 Workflow Phases & Lifecycle States
 
-The standard 8-phase Konoha workflow is canonical:
+Two naming layers exist and MUST NOT be conflated:
 
-```text
-Phase 1: Route (Sannin)
-    ↓
-Phase 2: Explore (Genin)
-    ↓
-Phase 3: Plan (Kage)
-    ↓
-Phase 4: Research (Chunin)
-    ↓
-Phase 5: Execute (Jonin / Anbu)
-    ↓
-Phase 6: Document (Tokubetsu-Jonin)
-    ↓
-Phase 7: Review (Kage)
-    ↓
-Phase 8: Synthesize (Sannin)
-```
+- **Agent-facing phases** (`src/mcp/workflow_runner.js` and the MCP prompt contract): `route`, `explore`, `plan`, `pending_plan_approval`, `research`, `execute`, `document`, `review`, `pending_human_signoff`, `synthesize`.
+- **Graph nodes** (`src/mcp/langgraph/index.js`): the `node_*` identifiers below are the only canonical graph node names. Any historical `node_route`, `node_explore`, `node_research`, `node_document`, `node_remediation`, `node_synthesize`, `node_fast_track`, `gate_plan_approval`, `gate_delivery_signoff` names are retired and never appear in code.
+
+| Graph Node | Owner | Router / Next |
+|---|---|---|
+| `node_classify` | sannin | `classifyRouter` → `node_error`, `node_budget_exceeded`, `node_dispatch` (direct subagent), `node_complete` (fast track), `node_plan` |
+| `node_plan` | kage | `planRouter` → `node_error`, `node_budget_exceeded`, `__end__` (Gate 1 HITL pause), `node_brief` |
+| `node_brief` | sannin | `briefRouter` → `node_error`, `node_budget_exceeded`, `node_todo` |
+| `node_todo` | sannin | `todoRouter` → `node_error`, `node_budget_exceeded`, `node_dispatch` |
+| `node_dispatch` | sannin | `dispatchRouter` → `node_error`, `node_budget_exceeded`, `node_complete` (`phase === 'done'`), `node_execute` |
+| `node_execute` | jonin / anbu | `executeRouter` → `node_error`, `node_budget_exceeded`, `node_dispatch` (`phase === 'document'`), `node_review` |
+| `node_review` | kage / akatsuki / @advisor | `reviewRouter` → `node_error` (`circuitOpen`), `node_budget_exceeded`, `__end__` (Gate 2 HITL pause), `node_complete` (`gateVerdict === 'pass'`), `node_remediate` (else, fail closed) |
+| `node_remediate` | anbu / jonin | `remediateRouter` → `node_error` (`circuitOpen`), `node_budget_exceeded`, `node_dispatch` |
+| `node_complete` | sannin | `__end__` |
+| `node_budget_exceeded` | governor | `__end__` |
+| `node_error` | governor | `__end__` |
+
+Edge router module: `src/mcp/langgraph/edges/router.js`, exporting `RESUMABLE_NODES` plus `entryRouter` and one router per stateful node. `entryRouter` dispatches `__start__` to `state.resumeNode` when it is in `RESUMABLE_NODES` (`node_classify`, `node_plan`, `node_brief`, `node_todo`, `node_dispatch`, `node_execute`, `node_review`, `node_remediate`, `node_complete`), otherwise to `node_classify`.
 
 #### Canonical Task States:
 - `PENDING`: Task initialized.

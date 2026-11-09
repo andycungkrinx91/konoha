@@ -377,6 +377,8 @@ function _handleGateOptions(options, status, phase, resolvedTaskDir, sdlcManager
   const choiceObj = parseGateChoice(options.choice ?? options.gate_action, options.refinement ?? options.feedback);
   if (!choiceObj) return { phase };
 
+  // 'route' must NOT authorize Gate 1: a routed task has no hitl_gate and no
+  // persisted plan, so approving there would skip review entirely.
   const isGate1 = (status.hitl_gate === 'Gate 1 (Plan Approval)' || status.hitl_gate === 'plan_approval' || status.hitl_gate === 'pending_plan_approval' || phase === 'plan_approval' || phase === 'plan') && !status.plan_approved;
   const isGate2 = (status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' || status.hitl_gate === 'delivery_signoff' || status.hitl_gate === 'pending_human_signoff' || phase === 'delivery_signoff' || phase === 'synthesize' || phase === 'review') && !status.human_signed_off;
 

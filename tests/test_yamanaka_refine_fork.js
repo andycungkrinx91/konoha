@@ -568,7 +568,7 @@ async function runTests() {
         job_id: 'job_orphan', nonce: 'nonce_orphan', source_mode: 'text_to_3d',
         prompt: 'orphan', staging_rel_dir: 'staging/job_orphan_nonce_orphan'
       });
-      conn.prepare("INSERT INTO assets (asset_id, job_id, nonce, display_name, source_mode, profile, quality_preset, domain_archetype, dsl_version, refinement_backend, effective_compute_mode, vertex_count, triangle_count, is_watertight_manifold, pre_blender_score, post_blender_score, asset_status, created_at) VALUES ('asset_orphan','job_orphan','nonce_orphan','orphan','text_to_3d','enterprise_pbr','normal','game-prop','1.0.0','deterministic_only','cpu',10,20,1,90,90,'ready','2026-01-01T00:00:00.000Z')").run();
+      conn.prepare("INSERT INTO assets (asset_id, job_id, nonce, display_name, source_mode, profile, quality_preset, domain_archetype, dsl_version, refinement_backend, effective_compute_mode, vertex_count, triangle_count, is_watertight_manifold, pre_blender_score, post_blender_score, asset_status, created_at) VALUES ('asset_orphan','job_orphan','nonce_orphan','orphan','text_to_3d','production_pbr','normal','game-prop','1.0.0','deterministic_only','cpu',10,20,1,90,90,'ready','2026-01-01T00:00:00.000Z')").run();
       conn.prepare("DELETE FROM generation_jobs WHERE job_id = 'job_orphan'").run();
       const orphanRes = await request(server, 'POST', '/api/v1/3d/assets/asset_orphan/refine', { instruction });
       assert.strictEqual(orphanRes.statusCode, 409, 'missing parent job must be rejected');

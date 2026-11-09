@@ -268,18 +268,37 @@ function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
   return cliDest;
 }
 
-function resolveWebBuildSource(sourceRoot = REPO_ROOT) {
-  const webBuildSrc = path.join(sourceRoot, 'apps', 'web', 'build');
-  if (fileExists(path.join(webBuildSrc, 'handler.js'))) return webBuildSrc;
+function readBuildVersion(dir) {
+  const meta = path.join(dir, 'build-meta.json');
+  if (!fileExists(meta)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(meta, 'utf8')).version || null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveWebBuildSource(sourceRoot = REPO_ROOT, currentVersion = null) {
   const candidates = [
+    path.join(sourceRoot, 'apps', 'web', 'build'),
     path.resolve(__dirname, '..', '..', 'apps', 'web', 'build'),
     path.join(process.cwd(), 'apps', 'web', 'build'),
     path.join(process.cwd(), 'build')
   ];
+  const found = [];
   for (const cand of candidates) {
-    if (fileExists(path.join(cand, 'handler.js'))) return cand;
+    if (!fileExists(path.join(cand, 'handler.js'))) continue;
+    const declared = readBuildVersion(cand);
+    if (declared && currentVersion && declared !== currentVersion) {
+      warn(`Skipping stale Web UI build ${declared} at ${cand} (installing ${currentVersion})`);
+      continue;
+    }
+    found.push(cand);
   }
-  return webBuildSrc;
+  // Every candidate was stale. Returning the default path here would copy the
+  // very artifact we just rejected, so signal "no usable source" and let the
+  // caller fall back to an on-demand build.
+  return found[0] || null;
 }
 
 function _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion) {
@@ -298,7 +317,17 @@ function _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersi
   }
   fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
   fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
-  info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
+
+  // Report the version the artifact tree actually declares, not the one we hoped
+  // for: a source build without build-meta.json has unknown provenance, and a
+  // mismatched stamp must never be printed as the installed version.
+  const installedVersion = readBuildVersion(webBuildDest);
+  if (!installedVersion) {
+    warn(`ERROR: Web UI provenance unknown at ${webBuildDest} (no build-meta.json); reported version ${currentVersion} is unverified.`);
+  } else if (installedVersion !== currentVersion) {
+    warn(`ERROR: Web UI version mismatch at ${webBuildDest}: expected ${currentVersion}, found ${installedVersion}.`);
+  }
+  info(`Pre-built Web UI installed to ${webBuildDest} (v${installedVersion || currentVersion})`);
 }
 
 function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
@@ -333,7 +362,7 @@ function installWebUiRuntime(copyTree, sourceRoot = REPO_ROOT) {
   }
 
   const currentVersion = readPackageVersionSafe(path.join(sourceRoot, 'package.json')) || getCliVersion();
-  const webBuildSrc = resolveWebBuildSource(sourceRoot);
+  const webBuildSrc = resolveWebBuildSource(sourceRoot, currentVersion);
   const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
   const destWebPkg = path.join(webDestDir, 'package.json');
   let destVersion = null;
@@ -342,11 +371,12 @@ function installWebUiRuntime(copyTree, sourceRoot = REPO_ROOT) {
   } catch (_) { /* best-effort */ }
   const isUiOutdated = !destVersion || destVersion !== currentVersion;
 
-  if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
+  if (webBuildSrc && fileExists(path.join(webBuildSrc, 'handler.js'))) {
     if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest) || isUiOutdated) {
       _syncWebBuildOutput(webBuildSrc, webBuildDest, destWebPkg, currentVersion);
     }
   } else if (!fileExists(path.join(webBuildDest, 'handler.js')) || isUiOutdated) {
+    if (!webBuildSrc) warn('No Web UI build matches the installed version; building on demand.');
     buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion);
   }
 }
@@ -550,5 +580,8 @@ module.exports = {
   copyRecursive,
   copyRecursiveIfDifferent,
   installCliRuntime,
-  reconcileGlobalCommand
+  reconcileGlobalCommand,
+  resolveWebBuildSource,
+  readBuildVersion,
+  installWebUiRuntime
 };

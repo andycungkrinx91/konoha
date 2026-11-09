@@ -117,6 +117,38 @@ try {
     assert.strictEqual(failRes.verified, false);
   }
 
+  // qa_blocked contract: when no agent-browser can be resolved, qaCodify must
+  // fail closed with a top-level { ok:false, error:'qa_blocked', reason } rather
+  // than reporting success or a generic batch failure.
+  const blockedFlowPath = path.join(tmpDir, 'blocked_flow.json');
+  fs.writeFileSync(blockedFlowPath, JSON.stringify([['open', 'http://localhost:1/']]), 'utf8');
+  const savedPath = process.env.PATH;
+  const savedHome = process.env.HOME;
+  try {
+    process.env.PATH = path.join(tmpDir, 'no-bin');
+    process.env.HOME = path.join(tmpDir, 'no-home');
+    fs.mkdirSync(process.env.PATH, { recursive: true });
+    fs.mkdirSync(process.env.HOME, { recursive: true });
+    const blocked = qaCodify({
+      flow_path: blockedFlowPath,
+      out_path: path.join(tmpDir, 'blocked.spec.js'),
+      name: 'blocked flow',
+      skip_verification: false
+    });
+    if (blocked.error === 'qa_blocked') {
+      assert.strictEqual(blocked.ok, false, 'qa_blocked must set ok:false');
+      assert.ok(typeof blocked.reason === 'string' && blocked.reason.length > 0, 'qa_blocked must carry a reason');
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'blocked.spec.js')), false, 'no spec written when blocked');
+      console.log('  ✓ qa_blocked contract enforced');
+    } else {
+      // A resolvable npx fallback is a legitimate pass; record which path ran.
+      console.log('  (agent-browser resolved in this environment; qa_blocked path not exercised)');
+    }
+  } finally {
+    if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
+    if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
+  }
+
   console.log('✓ test_qa_codify.js passed cleanly.');
 } finally {
   try {

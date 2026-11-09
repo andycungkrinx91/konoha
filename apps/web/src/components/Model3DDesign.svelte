@@ -22,7 +22,7 @@
   let prompt = $state('Cyberpunk quantum mainframe server terminal with glowing holographic rings');
   let negativePrompt = $state('low poly, distorted, non-manifold, roblox, flat shading');
   let archetype = $state('auto');
-  let profile = $state('enterprise_pbr');
+  let profile = $state('production_pbr');
   let qualityPreset = $state('normal');
   let requestedComputeMode = $state('auto');
   let imagePath = $state(null);
@@ -93,7 +93,7 @@
   };
 
   const PROFILE_LABELS = {
-    enterprise_pbr: 'Enterprise PBR (Dielectric + Metallic + Micro-Bevel)',
+    production_pbr: 'Production PBR (Dielectric + Metallic + Micro-Bevel)',
     realistic: 'Photorealistic Physical (Subsurface + Transmission)',
     premium_stylized: 'Premium Stylized (Vibrant Clearcoat)',
     stylized: 'Stylized Surface Shading',

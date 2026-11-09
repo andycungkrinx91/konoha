@@ -15,7 +15,7 @@ Comprehensive implementation standards for **Angular 20+** (Standalone Component
 ## 🎨 Dynamic Storytelling & Visual Standards (Astra/Fable Direction)
 
 All generated Angular code must follow dynamic, domain-driven composition rather than a rigid boilerplate template:
-1. **Adaptive Dark & Light Mode Palettes**: Support Dark Mode and Light Mode cleanly with semantic CSS variables persisted under `'konoha-theme'`.
+1. **Theme Strategy From The Brief**: Choose single or dual theme from the design brief; define semantic CSS variables and persist any user choice under a project-specific key.
 2. **Bespoke Hero Storytelling**: Compose the hero around the product domain (interactive workbench, kinetic typography stage, editorial split showcase, or 3D preview). Do not force a 4-slide hero carousel or 5 carousels per site unless requested.
 3. **Motion & 3D Spring Choreography**: Use `motion` spring physics (`jonin-skill/motion-angular`) for card elevation, shared layout indicators, dock magnification, and reduced-motion-safe scroll reveals.
 4. **Domain-Scoped Data & Filters**: When building e-commerce or catalog apps, provide rich reactive datasets with search, category filters, and sorting using Angular `computed()`; for SaaS, dashboards, or portfolios, scope data structures to that specific domain.
@@ -115,93 +115,9 @@ All generated Angular code must follow dynamic, domain-driven composition rather
 }
 ```
 
-### 2. `src/app/components/theme-switcher/theme-switcher.component.ts` (Floating 10-Theme Switcher)
-```typescript
-import { Component, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-// Icons: @phosphor-icons/web CSS classes (loaded once in styles.scss) — no icon module imports needed.
+### 2. `theme-switcher.component.ts` (Optional — only when the brief has multiple themes)
 
-interface Theme {
-  id: string;
-  name: string;
-  primary: string;
-  accent: string;
-}
-
-@Component({
-  selector: 'app-theme-switcher',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000] flex flex-col items-start">
-      @if (isOpen()) {
-        <div class="mb-3 p-4 bg-white/90 backdrop-blur-xl border border-zinc-200/80 rounded-2xl shadow-2xl w-64 max-h-96 overflow-y-auto">
-          <div class="flex items-center justify-between mb-3 border-b border-zinc-100 pb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500">Theme Presets</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 font-medium text-zinc-600">10 Light</span>
-          </div>
-          <div class="grid grid-cols-1 gap-1.5">
-            @for (t of themes; track t.id) {
-              <button
-                (click)="selectTheme(t.id)"
-                [class]="'flex items-center justify-between p-2 rounded-xl text-left transition-all ' + (activeTheme() === t.id ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50')"
-              >
-                <div class="flex items-center gap-2.5">
-                  <div
-                    class="w-4 h-4 rounded-full shadow-inner"
-                    [style.background]="'linear-gradient(135deg, ' + t.primary + ', ' + t.accent + ')'"
-                  ></div>
-                  <span class="text-xs text-zinc-800">{{ t.name }}</span>
-                </div>
-                @if (activeTheme() === t.id) {
-                  <i class="ph ph-check" aria-hidden="true" style="font-size:0.875rem;color:#3f3f46"></i>
-                }
-              </button>
-            }
-          </div>
-        </div>
-      }
-      <button
-        (click)="isOpen.set(!isOpen())"
-        aria-label="Toggle theme selector"
-        class="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md border border-zinc-200/80 shadow-lg flex items-center justify-center text-zinc-800 hover:scale-105 active:scale-95 transition-all"
-        style="box-shadow: 0 4px 20px var(--theme-glow)"
-      >
-        <i class="ph ph-palette" aria-hidden="true" style="font-size:1.25rem;color:var(--theme-primary)"></i>
-      </button>
-    </div>
-  `
-})
-export class ThemeSwitcherComponent implements OnInit {
-  themes: Theme[] = [
-    { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
-    { id: 'aurora', name: 'Aurora', primary: '#059669', accent: '#10b981' },
-    { id: 'sunset', name: 'Sunset', primary: '#e11d48', accent: '#f59e0b' },
-    { id: 'ocean', name: 'Ocean', primary: '#0284c7', accent: '#3b82f6' },
-    { id: 'forest', name: 'Forest', primary: '#15803d', accent: '#84cc16' },
-    { id: 'volcano', name: 'Volcano', primary: '#dc2626', accent: '#ea580c' },
-    { id: 'sakura', name: 'Sakura', primary: '#db2777', accent: '#f472b6' },
-    { id: 'cyberpunk', name: 'Cyberpunk', primary: '#7c3aed', accent: '#06b6d4' },
-    { id: 'midnight', name: 'Midnight', primary: '#1e293b', accent: '#64748b' },
-    { id: 'gold', name: 'Gold', primary: '#d97706', accent: '#f59e0b' },
-  ];
-
-  activeTheme = signal('nebula');
-  isOpen = signal(false);
-
-  ngOnInit() {
-    const saved = localStorage.getItem('konoha-theme') || 'nebula';
-    this.activeTheme.set(saved);
-    document.documentElement.setAttribute('data-theme', saved);
-  }
-
-  selectTheme(themeId: string) {
-    this.activeTheme.set(themeId);
-    localStorage.setItem('konoha-theme', themeId);
-    document.documentElement.setAttribute('data-theme', themeId);
-  }
-}
-```
+> Emit a theme control only when the design brief defines more than one theme. Token ids and storage key are project decisions.
 
 ---
 
