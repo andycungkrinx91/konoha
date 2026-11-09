@@ -76,3 +76,26 @@ jobs:
           }
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # A publish step that exits 0 without actually publishing looks exactly
+      # like success. Assert the artifact resolves before calling the run green.
+      - name: Verify the version is resolvable on the registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+
+          for attempt in 1 2 3 4 5 6; do
+            META=$(curl -sS -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${NAME}/${VERSION}")
+            TGZ=$(curl -sS -o /dev/null -I -w '%{http_code}' "https://registry.npmjs.org/${NAME}/-/${NAME}-${VERSION}.tgz")
+            echo "attempt ${attempt}: metadata=${META} tarball=${TGZ}"
+            if [ "$META" = "200" ] && [ "$TGZ" = "200" ]; then
+              echo "${NAME}@${VERSION} is live"
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "::error::${NAME}@${VERSION} did not resolve after publish (metadata=${META:-?}, tarball=${TGZ:-?})"
+          exit 1
