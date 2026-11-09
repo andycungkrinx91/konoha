@@ -30,16 +30,38 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      - name: Check whether this version is already published
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${NAME}/${VERSION}")
+          echo "registry responded ${CODE} for ${NAME}@${VERSION}"
+          if [ "$CODE" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install native build tools
+        if: steps.registry.outputs.published != 'true'
         run: sudo apt-get update && sudo apt-get install -y build-essential python3
 
       - name: Install dependencies
+        if: steps.registry.outputs.published != 'true'
         run: pnpm install --no-frozen-lockfile
 
       - name: Build Web UI bundle
+        if: steps.registry.outputs.published != 'true'
         run: pnpm run build:web
 
+      # Re-running a release tag is routine (workflow fixes, retries). npm
+      # rejects republishing an existing version, so treat that as success
+      # instead of painting an otherwise healthy release red.
       - name: Publish to npm registry via OIDC Trusted Publisher
+        if: steps.registry.outputs.published != 'true'
         run: |
           set -o pipefail
           npm publish --provenance --access public --verbose 2>&1 | tee /tmp/npm_publish.log || {
