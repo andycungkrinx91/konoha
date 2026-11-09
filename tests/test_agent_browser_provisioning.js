@@ -10,13 +10,17 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const {
   PINNED_AB_PACKAGE,
   PINNED_AB_VERSION,
   globalInstallCandidates,
   managedInstallCandidates,
-  resolvePackageManagerBin
+  resolvePackageManagerBin,
+  packageManagerEnv
 } = require('../bin/lib/extension');
 
 console.log('Running test_agent_browser_provisioning.js...');
@@ -115,6 +119,40 @@ try {
   );
 } finally {
   if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
+}
+
+// A system node on PATH must never win over the node running Konoha: a
+// GUI-minimal PATH resolves `env node` to the distro node (v16 here), and npm
+// then emits EBADENGINE for a package requiring >=24. This reproduces that
+// selection bug deterministically, without network access or a real install.
+{
+  const decoyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-decoy-'));
+  fs.writeFileSync(path.join(decoyDir, 'node'), '#!/bin/sh\necho v0.0.0-decoy\n', { mode: 0o755 });
+  const savedPath = process.env.PATH;
+  try {
+    process.env.PATH = [decoyDir, '/usr/bin', '/bin'].join(path.delimiter);
+    const legacy = spawnSync('node', ['--version'], { encoding: 'utf-8', env: { ...process.env } });
+    assert.strictEqual(legacy.stdout.trim(), 'v0.0.0-decoy', 'Precondition: the decoy node must shadow the real one');
+    const fixed = spawnSync('node', ['--version'], { encoding: 'utf-8', env: packageManagerEnv() });
+    assert.strictEqual(fixed.stdout.trim(), process.version, 'packageManagerEnv() must put the running node first');
+  } finally {
+    if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
+  }
+}
+
+// Resolved candidates must keep the rest of PATH intact: lifecycle and runtime
+// tools still need the system directories.
+{
+  const env = packageManagerEnv();
+  const parts = env.PATH.split(path.delimiter);
+  const nodeDir = path.dirname(process.execPath);
+  assert.ok(parts.includes(nodeDir), 'Running node dir must be present in PATH');
+  assert.strictEqual(parts.filter((p) => p === nodeDir).length, 1, 'Node dir must not be duplicated');
+  const inherited = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const entry of inherited) {
+    assert.ok(parts.includes(entry), `pre-existing PATH entry dropped: ${entry}`);
+  }
+  assert.ok(typeof env === 'object' && env !== null, 'Env must be a full environment, not just PATH');
 }
 
 console.log('✓ test_agent_browser_provisioning.js passed cleanly.');

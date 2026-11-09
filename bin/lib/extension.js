@@ -502,5 +502,6 @@ module.exports = {
   globalInstallCandidates,
   resolveInstalledAgentBrowser,
   resolvePackageManagerBin,
+  packageManagerEnv,
   pinnedVersionOf
 };
