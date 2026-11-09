@@ -10,26 +10,52 @@
 const crypto = require('crypto');
 
 const PROFILE_VOCABULARY_MIGRATION_ID = '20261109_001_profile_vocabulary';
-const PROFILE_TABLES = Object.freeze(['generation_jobs', 'assets']);
 const PROFILE_CHECK = /profile TEXT NOT NULL CHECK \(profile IN \([^)]*\)\)/;
 const PROFILE_WIDE =
   "profile TEXT NOT NULL CHECK (profile IN ('production_pbr', 'enterprise_pbr', 'realistic', 'premium_stylized', 'stylized', 'draft'))";
-const STAGE_SUFFIX = '__profile_stage';
-const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// SQLite cannot bind identifiers, so the rebuild statements are written out in
+// full for the two tables this migration knows about. A table outside this map
+// is a whitelist miss and aborts rather than reaching exec.
+const REBUILD_SQL = Object.freeze({
+  generation_jobs: Object.freeze({
+    stage: 'generation_jobs__profile_stage',
+    copyRows: 'INSERT INTO "generation_jobs__profile_stage" SELECT * FROM "generation_jobs";',
+    dropTable: 'DROP TABLE "generation_jobs";',
+    renameTable: 'ALTER TABLE "generation_jobs__profile_stage" RENAME TO "generation_jobs";',
+  }),
+  assets: Object.freeze({
+    stage: 'assets__profile_stage',
+    copyRows: 'INSERT INTO "assets__profile_stage" SELECT * FROM "assets";',
+    dropTable: 'DROP TABLE "assets";',
+    renameTable: 'ALTER TABLE "assets__profile_stage" RENAME TO "assets";',
+  }),
+});
 
-function safeIdent(name) {
-  const value = String(name);
-  if (!SAFE_IDENTIFIER.test(value)) throw new Error('Unsafe SQL identifier: ' + value);
-  return value;
+const PROFILE_TABLES = Object.freeze(Object.keys(REBUILD_SQL));
+
+// createSql is the table's own DDL from sqlite_master and the dependent DDL comes
+// from the same catalog, so both are checked for the exact shapes SQLite emits
+// before any of them reaches exec.
+const CREATE_TABLE_DDL = /^CREATE TABLE /;
+const DEPENDENT_DDL = /^(?:CREATE (?:UNIQUE )?INDEX|CREATE TRIGGER)\b/;
+
+function rebuildTable(conn, step) {
+  const statements = REBUILD_SQL[step.table];
+  if (!CREATE_TABLE_DDL.test(step.createSql)) {
+    throw new Error('[SCHEMA DRIFT]: ' + step.table + ' has no CREATE TABLE DDL');
+  }
+  conn.exec(step.createSql);
+  conn.exec(statements.copyRows);
+  conn.exec(statements.dropTable);
+  conn.exec(statements.renameTable);
 }
 
-// SQLite cannot bind identifiers, so table names are interpolated. Every name
-// passes safeIdent first, which rejects anything outside [A-Za-z0-9_].
-const REBUILD_SQL = Object.freeze({
-  copyRows: (stage, table) => `INSERT INTO ${safeIdent(stage)} SELECT * FROM ${safeIdent(table)};`,
-  dropTable: (table) => `DROP TABLE ${safeIdent(table)};`,
-  renameTable: (stage, table) => `ALTER TABLE ${safeIdent(stage)} RENAME TO ${safeIdent(table)};`,
-});
+function rebuildDependent(conn, dependent) {
+  if (!DEPENDENT_DDL.test(dependent.sql)) {
+    throw new Error('[SCHEMA DRIFT]: unexpected dependent DDL for ' + dependent.tbl_name);
+  }
+  conn.exec(dependent.sql);
+}
 
 function _plan(conn) {
   const plan = [];
@@ -47,7 +73,7 @@ function _plan(conn) {
       throw new Error(`[SCHEMA DRIFT]: ${table} declares ${hits.length} profile constraints, expected one`);
     }
     if (hits[0].includes("'production_pbr'")) continue;
-    const stage = `${table}${STAGE_SUFFIX}`;
+    const { stage } = REBUILD_SQL[table];
     // SQLite stores the name quoted after a rebuild, so accept both spellings.
     const createSql = row.sql
       .replace(PROFILE_CHECK, PROFILE_WIDE)
@@ -58,7 +84,7 @@ function _plan(conn) {
     if (createSql === row.sql) {
       throw new Error(`[SCHEMA DRIFT]: ${table} could not be staged for rebuild`);
     }
-    plan.push({ table, stage, createSql });
+    plan.push({ table, createSql });
   }
   return plan;
 }
@@ -101,16 +127,8 @@ function applyProfileVocabularyMigration(conn) {
   const startMs = Date.now();
   try {
     const rebuild = () => {
-      for (const step of plan) {
-        const statements = [
-          step.createSql,
-          REBUILD_SQL.copyRows(step.stage, step.table),
-          REBUILD_SQL.dropTable(step.table),
-          REBUILD_SQL.renameTable(step.stage, step.table),
-        ];
-        for (const sql of statements) conn.exec(sql);
-      }
-      for (const dependent of dependents) conn.exec(dependent.sql);
+      for (const step of plan) rebuildTable(conn, step);
+      for (const dependent of dependents) rebuildDependent(conn, dependent);
     };
     if (typeof conn.transaction === 'function') {
       conn.transaction(rebuild)();
