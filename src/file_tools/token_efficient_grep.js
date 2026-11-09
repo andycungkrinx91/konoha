@@ -11,36 +11,36 @@ const DEFAULT_MAX_MATCHES = 20;
 const HARD_MAX_MATCHES = 50;
 const MATCH_TRIM = 120;
 
+const GLOB_SPECIAL = new Set(['\\', '.', '+', '^', '$', '(', ')', '{', '}', '|', '[', ']']);
+
+// `**/` means zero or more directories, so `dir/**/*.js` must match `dir/a.js`
+// as well as `dir/sub/a.js`. Compiling it to `.*/` would require at least one
+// separator and silently match nothing one level deep.
+function globToken(pattern, i) {
+  const c = pattern[i];
+  if (c === '*' && pattern[i + 1] === '*') {
+    return pattern[i + 2] === '/' ? ['(?:.*/)?', i + 3] : ['.*', i + 2];
+  }
+  if (c === '*') return ['[^/\\\\]*', i + 1];
+  if (c === '?') return ['[^/\\\\]', i + 1];
+  if (GLOB_SPECIAL.has(c)) return ['\\' + c, i + 1];
+  return [c, i + 1];
+}
+
+function globSource(pattern) {
+  let out = '^';
+  let i = 0;
+  while (i < pattern.length) {
+    const [fragment, next] = globToken(pattern, i);
+    out += fragment;
+    i = next;
+  }
+  return out + '$';
+}
+
 function matchGlob(name, pattern) {
   if (!pattern || pattern === '*' || pattern === '**') return true;
-  let reStr = '^';
-  for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
-    if (c === '*') {
-      if (pattern[i + 1] === '*') {
-        // `**/` means zero or more directories, so `dir/**/*.js` must match
-        // `dir/a.js` as well as `dir/sub/a.js`. Compiling it to `.*/` requires
-        // at least one separator and silently matches nothing one level deep.
-        if (pattern[i + 2] === '/') {
-          reStr += '(?:.*/)?';
-          i += 2;
-        } else {
-          reStr += '.*';
-          i++;
-        }
-      } else {
-        reStr += '[^/\\\\]*';
-      }
-    } else if (c === '?') {
-      reStr += '[^/\\\\]';
-    } else if (['\\', '.', '+', '^', '$', '(', ')', '{', '}', '|', '[', ']'].includes(c)) {
-      reStr += '\\' + c;
-    } else {
-      reStr += c;
-    }
-  }
-  reStr += '$';
-  const re = new RegExp(reStr, 'i');
+  const re = new RegExp(globSource(pattern), 'i');
   return re.test(name) || re.test(name.replace(/\\/g, '/'));
 }
 

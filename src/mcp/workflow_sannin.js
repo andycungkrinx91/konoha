@@ -237,23 +237,30 @@ function _filterAuthorizedSkills(routedSkills, agentName, options = {}) {
   return routedSkills.filter((s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized);
 }
 
-function _resolveRoutedSkills(effPrompt, selectedAgent, options = {}) {
+function _mergeUnique(target, source) {
+  for (const s of source) if (!target.includes(s)) target.push(s);
+  return target;
+}
+
+function _collectRoutedSkills(effPrompt, selectedAgent) {
   const { autoloadSkillsFromPrompt } = require('./memory_reporting');
-  let routedSkills = [];
-  let skillConn = null;
+  const routedSkills = [];
+  let conn = null;
   try {
-    skillConn = getDb();
-    for (const s of autoloadSkillsFromPrompt(effPrompt, skillConn)) {
-      if (!routedSkills.includes(s)) routedSkills.push(s);
-    }
-    const agentRow = skillConn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
+    conn = getDb();
+    _mergeUnique(routedSkills, autoloadSkillsFromPrompt(effPrompt, conn));
+    const agentRow = conn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
     _extractAgentSkills(agentRow, routedSkills);
   } catch (_) { /* ignore */ } finally {
-    if (skillConn) {
-      try { skillConn.close(); } catch (_) { /* best effort */ }
+    if (conn) {
+      try { conn.close(); } catch (_) { /* best effort */ }
     }
   }
-  return _filterAuthorizedSkills(routedSkills, selectedAgent, options);
+  return routedSkills;
+}
+
+function _resolveRoutedSkills(effPrompt, selectedAgent, options = {}) {
+  return _filterAuthorizedSkills(_collectRoutedSkills(effPrompt, selectedAgent), selectedAgent, options);
 }
 
 function _loadAgentDescriptions() {

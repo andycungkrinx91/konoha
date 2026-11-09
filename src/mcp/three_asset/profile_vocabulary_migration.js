@@ -23,6 +23,14 @@ function safeIdent(name) {
   return value;
 }
 
+// SQLite cannot bind identifiers, so table names are interpolated. Every name
+// passes safeIdent first, which rejects anything outside [A-Za-z0-9_].
+const REBUILD_SQL = Object.freeze({
+  copyRows: (stage, table) => `INSERT INTO ${safeIdent(stage)} SELECT * FROM ${safeIdent(table)};`,
+  dropTable: (table) => `DROP TABLE ${safeIdent(table)};`,
+  renameTable: (stage, table) => `ALTER TABLE ${safeIdent(stage)} RENAME TO ${safeIdent(table)};`,
+});
+
 function _plan(conn) {
   const plan = [];
   for (const table of PROFILE_TABLES) {
@@ -94,12 +102,13 @@ function applyProfileVocabularyMigration(conn) {
   try {
     const rebuild = () => {
       for (const step of plan) {
-        const table = safeIdent(step.table);
-        const stage = safeIdent(step.stage);
-        conn.exec(step.createSql);
-        conn.exec(`INSERT INTO ${stage} SELECT * FROM ${table};`);
-        conn.exec(`DROP TABLE ${table};`);
-        conn.exec(`ALTER TABLE ${stage} RENAME TO ${table};`);
+        const statements = [
+          step.createSql,
+          REBUILD_SQL.copyRows(step.stage, step.table),
+          REBUILD_SQL.dropTable(step.table),
+          REBUILD_SQL.renameTable(step.stage, step.table),
+        ];
+        for (const sql of statements) conn.exec(sql);
       }
       for (const dependent of dependents) conn.exec(dependent.sql);
     };

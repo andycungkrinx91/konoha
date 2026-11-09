@@ -396,21 +396,20 @@ function listSkills(agentName = null, fields = null) {
       if (seenNames.has(row.name)) continue;
       seenNames.add(row.name);
       const denied = denyIfUnauthorized(row.name, row.tags, agentName);
-      if (isPathVisible(row.file_path)) {
-        const entry = {};
-        if (effFields.includes('name')) entry.name = row.name;
-        if (effFields.includes('type')) entry.type = row.type;
-        if (effFields.includes('size')) entry.size = row.byte_size;
-        if (effFields.includes('tags')) entry.tags = row.tags;
-        if (effFields.includes('lines')) entry.lines = row.line_count;
-        if (effFields.includes('skill_name')) entry.skill_name = row.skill_name;
-        if (denied) {
-          entry.redacted = true;
-          entry.code = denied.code;
-          entry.requires_lab = true;
-        }
-        skills.push(entry);
+      if (!isPathVisible(row.file_path)) continue;
+      const entry = {};
+      if (effFields.includes('name')) entry.name = row.name;
+      if (effFields.includes('type')) entry.type = row.type;
+      if (effFields.includes('size')) entry.size = row.byte_size;
+      if (effFields.includes('tags')) entry.tags = row.tags;
+      if (effFields.includes('lines')) entry.lines = row.line_count;
+      if (effFields.includes('skill_name')) entry.skill_name = row.skill_name;
+      if (denied) {
+        entry.redacted = true;
+        entry.code = denied.code;
+        entry.requires_lab = true;
       }
+      skills.push(entry);
     }
 
     const res = JSON.stringify({ count: skills.length, skills });

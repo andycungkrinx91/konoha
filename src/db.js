@@ -56,9 +56,9 @@ function _applyConnectionPragmas(db) {
 }
 
 /**
- * Low-level open without legacy-skill migration and without vector extension loading.
- * Used by the akatsuki-lab connector (src/workflow/akatsuki/lab_db.js), which owns
- * its own schema and must never inherit main-DB behaviour.
+ * Low-level open with no legacy-skill migration and no vector extension load.
+ * The akatsuki-lab connector (src/workflow/akatsuki/lab_db.js) owns its own
+ * schema, so it must never inherit main-DB behaviour.
  */
 function openRawConnection(dbPath, options = {}) {
   if (typeof dbPath !== 'string' || !dbPath.trim()) {
