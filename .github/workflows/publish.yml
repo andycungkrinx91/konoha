@@ -57,6 +57,16 @@ jobs:
         if: steps.registry.outputs.published != 'true'
         run: pnpm run build:web
 
+      # Ship the runtime dependency tree inside the tarball. npm ignores a
+      # dependency's own `overrides`, so the only way a global install resolves
+      # a patched transitive version is `bundleDependencies` + a real node_modules.
+      # `pnpm pack` (not `npm pack`) is required: on the default symlink linker
+      # npm packs a `.pnpm`-only tree that fails at runtime with
+      # `Cannot find module 'jszip'`.
+      - name: Pack tarball with bundled runtime dependencies
+        if: steps.registry.outputs.published != 'true'
+        run: pnpm pack
+
       # Re-running a release tag is routine (workflow fixes, retries). npm
       # rejects republishing an existing version, so treat that as success
       # instead of painting an otherwise healthy release red.
@@ -64,11 +74,12 @@ jobs:
         if: steps.registry.outputs.published != 'true'
         run: |
           set -o pipefail
-          npm publish --provenance --access public --verbose 2>&1 | tee /tmp/npm_publish.log || {
+          TGZ="./konoha-mcp-$(node -p "require('./package.json').version").tgz"
+          npm publish "$TGZ" --provenance --access public --verbose 2>&1 | tee /tmp/npm_publish.log || {
             ERR=$(grep -E "npm error|403|404|401|E40|OIDC|Token|Forbidden|previously" /tmp/npm_publish.log | head -n 20 | tr '\n' ' ')
             echo "::error::OIDC Publish failed: $ERR"
             echo "Attempting fallback publish..."
-            npm publish --access public --verbose 2>&1 | tee /tmp/npm_fallback.log || {
+            npm publish "$TGZ" --access public --verbose 2>&1 | tee /tmp/npm_fallback.log || {
               ERR2=$(grep -E "npm error|403|404|401|E40|Forbidden|previously" /tmp/npm_fallback.log | head -n 20 | tr '\n' ' ')
               echo "::error::Fallback Publish failed: $ERR2"
               exit 1

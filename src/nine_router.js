@@ -5,9 +5,9 @@ const os = require('os');
 const { isCommandAvailable } = require('./platform_utils');
 const { probeOpenAiCompatibleEndpoint } = require('./provider_sources');
 
-const DEFAULT_9ROUTER_PORT = 20128;
+const DEFAULT_9ROUTER_PORT = require('./config_access').getConfigValue('nine_router_port');
 const DEFAULT_9ROUTER_HOST = '127.0.0.1';
-const PROBE_TIMEOUT_MS = 1500;
+const PROBE_TIMEOUT_MS = require('./config_access').getConfigValue('probe_timeout_ms', 1500);
 const CACHE_TTL_MS = 5000;
 
 let cachedModels = null;
@@ -29,7 +29,7 @@ function is9RouterInstalled() {
     if (fs.existsSync(claudeSettings)) {
       try {
         const text = fs.readFileSync(claudeSettings, 'utf8');
-        if (text.includes('20128') || text.includes('9router')) return true;
+        if (text.includes(String(DEFAULT_9ROUTER_PORT)) || text.includes('9router')) return true;
       } catch (_) {
         /* ignore unreadable claude settings */
       }
@@ -39,7 +39,7 @@ function is9RouterInstalled() {
     if (fs.existsSync(ompModelsYml)) {
       try {
         const text = fs.readFileSync(ompModelsYml, 'utf8');
-        if (text.includes('20128') || text.includes('9router')) return true;
+        if (text.includes(String(DEFAULT_9ROUTER_PORT)) || text.includes('9router')) return true;
       } catch (_) {
         /* ignore unreadable omp models config */
       }

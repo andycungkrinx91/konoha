@@ -9,7 +9,7 @@ const path = require("path");
 const os = require("os");
 const { spawnSync } = require("child_process");
 
-const { HOME, SKILLS_DB_DIR, MCP_CONFIG_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH } = require("../lib/paths");
+const { HOME, SKILLS_DB_DIR, MCP_CONFIG_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH, UI_PORT } = require("../lib/paths");
 const { C, log, info, warn, success, header } = require("../lib/format");
 const { fileExists } = require("../lib/prompt");
 const { registerHooks, unregisterPermissions } = require("../lib/runtime");
@@ -232,7 +232,7 @@ async function cmdUninstall(args = []) {
 
   try {
     const { cmdUiStop } = require('../lib/ui_commands');
-    await cmdUiStop(['--port=1404']);
+    await cmdUiStop([`--port=${UI_PORT}`]);
   } catch (_) { /* non-fatal best effort */ }
 
   cleanServerFiles();

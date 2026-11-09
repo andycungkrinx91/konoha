@@ -62,22 +62,6 @@ function getPackageFiles(version) {
       }
     },
     {
-      path: 'package-lock.json',
-      check: (c) => {
-        const j = JSON.parse(c);
-        return j.version === version && (!j.packages || !j.packages[''] || j.packages[''].version === version);
-      },
-      bump: (oldV, newV) => {
-        const lock = readJson('package-lock.json');
-        lock.version = newV;
-        if (lock.packages && lock.packages['']) {
-          lock.packages[''].version = newV;
-        }
-        writeJson('package-lock.json', lock);
-        return 2;
-      }
-    },
-    {
       path: 'apps/web/package.json',
       check: (c) => JSON.parse(c).version === version,
       bump: (oldV, newV) => {
@@ -167,7 +151,7 @@ function getDocumentationFiles(version) {
       check: (c) => c.includes(`**Document Version:** ${version}`),
       bump: (oldV, newV) => {
         let n = replaceInFile('docs/architecture/CANONICAL-API.md', new RegExp(`\\*\\*Document Version:\\*\\* ${oldV}`, 'g'), `**Document Version:** ${newV}`);
-        n += replaceInFile('docs/architecture/CANONICAL-API.md', new RegExp(`v${oldV} Complete`, 'g'), `v${newV} Complete`);
+        n += replaceInFile('docs/architecture/CANONICAL-API.md', new RegExp(`v${oldV.replace(/\./g, '\\.')}`, 'g'), `v${newV}`);
         return n;
       }
     },
@@ -176,7 +160,7 @@ function getDocumentationFiles(version) {
       check: (c) => c.includes(`**Document Version:** ${version}`),
       bump: (oldV, newV) => {
         let n = replaceInFile('docs/architecture/CAPABILITY-MAP.md', new RegExp(`\\*\\*Document Version:\\*\\* ${oldV}`, 'g'), `**Document Version:** ${newV}`);
-        n += replaceInFile('docs/architecture/CAPABILITY-MAP.md', new RegExp(`v${oldV} Complete`, 'g'), `v${newV} Complete`);
+        n += replaceInFile('docs/architecture/CAPABILITY-MAP.md', new RegExp(`v${oldV.replace(/\./g, '\\.')}`, 'g'), `v${newV}`);
         return n;
       }
     },

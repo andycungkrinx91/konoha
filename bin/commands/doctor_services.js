@@ -8,14 +8,11 @@ const { fileExists } = require('../../src/platform_utils');
 const {
   HOME,
   DB_PATH,
-  SKILLS_DB_DIR,
   DEFAULT_SKILLS_DIRS,
-  MIGRATE_PATH,
   MCP_CONFIG_PATH,
   GEMINI_MD_PATH,
   FILE_TOOLS_MCP_PATH,
-  MIGRATION_TIMEOUT_MS,
-  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
+  UI_PORT
 } = require('../lib/paths');
 const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
@@ -23,39 +20,24 @@ const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
 const { confirmPrompt } = require('../lib/prompt');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 
-function runMigrateForDir(s, runMigrate) {
-  const skills = detectCustomSkills(s.path);
-  if (skills.length === 0) return false;
-  try {
-    const run = runMigrate(['--skills-dir', s.path, '--skills', ...skills]);
-    return run.status === 0;
-  } catch {
-    return false;
-  }
-}
-
-function executeMigrationRun(skillsDirs) {
-  const safeTimeout = Number.isFinite(Number(MIGRATION_TIMEOUT_MS)) && Number(MIGRATION_TIMEOUT_MS) > 0
-    ? Number(MIGRATION_TIMEOUT_MS)
-    : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
-
-  const runMigrate = (args = []) => spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
-    encoding: 'utf-8',
-    cwd: SKILLS_DB_DIR,
-    timeout: safeTimeout,
-    stdio: 'pipe'
-  });
+async function executeMigrationRun(skillsDirs) {
+  const migrate = require('../../src/migrate');
+  const attempt = async (opts) => {
+    try {
+      const result = await migrate.runMigration(opts);
+      return Boolean(result && result.ok !== false);
+    } catch {
+      return false;
+    }
+  };
 
   for (const s of skillsDirs) {
-    if (runMigrateForDir(s, runMigrate)) return true;
+    const skills = detectCustomSkills(s.path);
+    if (skills.length === 0) continue;
+    if (await attempt({ skillsDir: s.path, skills, rebuildEmbeddings: true })) return true;
   }
 
-  try {
-    const runFallback = runMigrate([]);
-    return runFallback.status === 0;
-  } catch {
-    return false;
-  }
+  return attempt({ rebuildEmbeddings: true });
 }
 
 function readSchemaVersion() {
@@ -68,7 +50,7 @@ function readSchemaVersion() {
   }
 }
 
-function checkDatabaseAndMigrations(context) {
+async function checkDatabaseAndMigrations(context) {
   if (fileExists(DB_PATH)) {
     const { CURRENT_SCHEMA_VERSION } = require('../../src/db_schema');
     const appVersion = require('../../package.json').version;
@@ -92,7 +74,7 @@ function checkDatabaseAndMigrations(context) {
     syncTemplateSkills();
     skillsDirs = detectSkillsDirs();
   }
-  const migrationSuccess = executeMigrationRun(skillsDirs);
+  const migrationSuccess = await executeMigrationRun(skillsDirs);
 
   if (migrationSuccess && fileExists(DB_PATH)) {
     context.record('Database File (konoha.db)', 'REPAIRED', 'Re-created and indexed skills');
@@ -323,12 +305,12 @@ function checkDatabaseGovernance(context) {
 
 async function checkWebUiDaemon(context) {
   try {
-    const uiActive = await checkPortActive(1404);
+    const uiActive = await checkPortActive(UI_PORT);
     const svc = await getServiceStatus();
     if (uiActive) {
-      context.record('Konoha Web UI (http://127.0.0.1:1404/)', 'HEALTHY', `Daemon is active${svc.installed ? ` (${svc.type} service ${svc.active ? 'active' : 'inactive'})` : ''}`);
+      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'HEALTHY', `Daemon is active${svc.installed ? ` (${svc.type} service ${svc.active ? 'active' : 'inactive'})` : ''}`);
     } else {
-      context.record('Konoha Web UI (http://127.0.0.1:1404/)', 'WARNING', 'UI daemon not running (run: konoha ui start or konoha ui service install)');
+      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'WARNING', 'UI daemon not running (run: konoha ui start or konoha ui service install)');
     }
   } catch (_) { /* intentional fallback */ }
 }
@@ -408,7 +390,7 @@ async function checkVpsPreflight(context) {
   context.record('VPS: Akatsuki blue-team gates', akatsukiSkill ? 'PASS' : 'FAIL', akatsukiSkill || 'akatsuki-skill/SKILL.md not found in any client skills dir');
   if (!akatsukiSkill) context.markError();
 
-  const ports = [1404, 1405];
+  const ports = [UI_PORT, UI_PORT + 1];
   // checkPortActive resolves a Promise: filtering on it directly made every port
   // look busy, so the preflight failed on any host.
   const probes = await Promise.all(ports.map((port) => checkPortActive(port)));

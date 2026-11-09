@@ -90,8 +90,9 @@
    - `bin/commands/upgrade.js` previously discarded `executePackageInstall()`'s return value and continued into the post-upgrade lifecycle, reporting success after total package-manager failure. It now exits 1 with `Upgrade aborted: ...` and leaves the installation untouched.
    - `readInstalledVersion()` no longer substitutes the requested version for the installed one; an unreadable `konoha --version` reports `source: 'unverified'` and fails verification.
    - Covered by `tests/test_upgrade_failure_reporting.js`.
-3. **Postinstall Containment**:
-   - `bin/postinstall.js` performs no network access, no package installation, and writes nothing under `HOME`; it prints guidance only. Covered by `tests/test_postinstall_contract.js`.
+3. **Lifecycle Script Containment**:
+   - The guidance shim behind the install-time hook performed no network access, no package installation, and wrote nothing under `HOME` — it printed guidance only. Its manifest entry nevertheless made stock npm abort a global install with `npm error code EALLOWSCRIPTS`, and the script itself was never executed.
+   - **Resolution (2.2.20, 2026-11-10)**: the manifest entry and the shim are both deleted. The package now ships no install-time lifecycle script at all, so the containment property is met structurally rather than by auditing the script's contents. Coverage moved to the install assertions in `docs/QA-TEST-CHECKLIST.md` §1.1b ("No lifecycle script executes on install"); the contract test for the script is removed with the script itself.
 4. **MCP Argument Boundary**:
    - `parseToolArguments` returns `{ args, error }`. Malformed non-delegation input yields a JSON-RPC tool error `{ error: 'invalid_arguments', message, tool }` with `isError: true`, and parse failures log the tool name and error — never the raw payload. Delegation tools coerce bare prose to `{ task }`.
    - Covered by `tests/test_mcp_argument_parsing.js`.
@@ -101,6 +102,7 @@
 6. **Supply-Chain Configuration Change**:
    - `package.json#pnpm.auditConfig` and the duplicate `package.json#overrides` were removed (pnpm 12 reads overrides only from `pnpm-workspace.yaml`). `audit.ignore` retains `GHSA-gcqx-w48m-w2h4`.
    - **CVE-2026-93753 is no longer suppressed** — pnpm 12 has no CVE-level suppression mechanism. This is an accepted, documented reduction in audit suppression scope, not a new vulnerability.
+   - **2.2.20 (2026-11-10) — narrow exception reintroduced**: `package.json#overrides` is back with exactly one entry, `image-size: ">=2.0.3"`, for CVE-2025-71330 / `GHSA-w3rx-r6r6-pgpr` and CVE-2025-71329 / `GHSA-5p2g-fcmc-qvqq` (both HIGH, CVSS 8.7; infinite loops on crafted ICNS/JXL/HEIF input in `image-size < 2.0.3`). npm ignores an installed package's own `overrides`, so this shipped copy is the only stock-npm lever for consumers; `bundleDependencies: ["pptxgenjs"]` makes the patched subtree ship in the tarball. `pnpm-workspace.yaml` keeps its stricter `>=2.0.4` floor. No other override is reintroduced.
 7. **Verified Scope**:
    - Linux x64: tarball install, `init`, runtime module resolution and upgrade failure paths executed.
    - Windows 10/11 and macOS arm64/x64: **not run**. The `EBUSY` in-place upgrade path remains unexercised.

@@ -242,7 +242,7 @@ patchedDependencies:
   cfb@1.2.2: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
   docx@9.14.0: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
   playwright-core@1.64.1: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
-  pptxgenjs@4.0.1: cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783
+  pptxgenjs@4.0.1: b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b
 
 importers:
 
@@ -277,7 +277,7 @@ importers:
         version: 1.64.1
       pptxgenjs:
         specifier: ^4.0.1
-        version: 4.0.1(patch_hash=cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783)
+        version: 4.0.1(patch_hash=b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b)
       three:
         specifier: 0.187.0
         version: 0.187.0
@@ -1701,7 +1701,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  pptxgenjs@4.0.1(patch_hash=cf7b4eecf353ce72d5848107a4d1b608c2169b79a4650cb8c25c424c98466783):
+  pptxgenjs@4.0.1(patch_hash=b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b):
     dependencies:
       '@types/node': 22.20.5
       https: 1.0.0

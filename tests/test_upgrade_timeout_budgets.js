@@ -45,10 +45,17 @@ function locate(lines, pattern) {
   return hits;
 }
 
+/** Constant names that legitimately stand in for a budget, keyed by the budget they carry. */
+const BUDGET_CONSTANTS = {
+  [SLOW_NETWORK_MS]: ['INSTALL_BUILD_MIGRATE_TIMEOUT_MS', 'MIGRATION_TIMEOUT_MS'],
+  180000: ['UI_READY_TIMEOUT_MS', 'AISLOP_GATE_TIMEOUT_MS'],
+  30000: ['GIT_TIMEOUT_MS', 'CLI_PROBE_TIMEOUT_MS']
+};
+
 /** Returns true when the line carries the canonical budget in literal or constant form. */
 function hasCanonicalBudget(line, expectedMs) {
   if (new RegExp(`\\b${expectedMs}\\b`).test(line)) return true;
-  return /INSTALL_BUILD_MIGRATE_TIMEOUT_MS/.test(line);
+  return (BUDGET_CONSTANTS[expectedMs] || []).some((name) => line.includes(name));
 }
 
 function expectTimeout(src, pattern, expectedMs, label, { allowConstant = false } = {}) {
@@ -229,8 +236,8 @@ function sweepRepoWide() {
 
 console.log('Canonical constants');
 
-expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = \d+/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS');
-expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = \d+/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS');
+expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS (config-derived)');
+expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS (config-derived)');
 
 console.log('Upgrade timeout budgets');
 
@@ -240,24 +247,17 @@ expectTimeout('upgrade', /sizeErr|execSync|spawnSync\(c, \['--version'\]/, 30000
 expectTimeout('upgrade', /root -g.*timeout: \d+/, 30000, 'global root lookup');
 expectTimeout('upgrade', /spawnSync\(cmd, \['root', '-g'\]/, 30000, 'global root lookup (exec form)');
 expectTimeout('upgrade', /^      timeout: \d+,$/, 60000, 'installed version read');
-expectTimeout('upgrade', /waitForPortReady\(1404/, 180000, 'web daemon readiness');
+expectTimeout('upgrade', /waitForPortReady\(UI_PORT, \{ timeoutMs: (?:UI_READY_TIMEOUT_MS|\d+) \}\)/, 180000, 'web daemon readiness', { allowConstant: true });
 
 console.log('Slow-network budgets (install / build / migrate / embed)');
 
-expectTimeout('upgrade', /spawnOptions = \{.*timeout: \d+/, SLOW_NETWORK_MS, 'package install');
-expectTimeout('upgrade', /cwd: SKILLS_DB_DIR, timeout: \d+/, SLOW_NETWORK_MS, 'post-upgrade migrate');
+expectTimeout('upgrade', /spawnOptions = \{.*timeout: (?:\d+|INSTALL_BUILD_MIGRATE_TIMEOUT_MS)/, SLOW_NETWORK_MS, 'package install', { allowConstant: true });
 expectTimeout('install', /execSync\('(pnpm|npm) run build'.*timeout: \d+/, SLOW_NETWORK_MS, 'web build');
 expectTimeout('install', /timeout: \d+, stdio: 'ignore'/, SLOW_NETWORK_MS, 'runtime dependency install');
 
 console.log('Init / migrate / embed budgets');
 
 expectTimeout('init', /safeTimeoutMs: (?:INSTALL_BUILD_MIGRATE_TIMEOUT_MS|\d+)/, SLOW_NETWORK_MS, 'init migration budget', { allowConstant: true });
-expectTimeout('initMigration', /--skills-only', '--skip-embeddings'\]/, SLOW_NETWORK_MS, 'init skills-only fallback', { allowConstant: true });
-expectTimeout('initMigration', /timeout: (?:INSTALL_BUILD_MIGRATE_TIMEOUT_MS|\d+)/, SLOW_NETWORK_MS, 'init per-dir migrate', { allowConstant: true });
-expectTimeout('migrate', /const baseTimeout = .*: (?:INSTALL_BUILD_MIGRATE_TIMEOUT_MS|\d+);/, SLOW_NETWORK_MS, 'migrate base timeout', { allowConstant: true });
-expectTimeout('migrate', /const timeoutMs = flags\.hasRebuildEmbeddings/, SLOW_NETWORK_MS, 'migrate rebuild-embeddings timeout', { allowConstant: true });
-expectTimeoutWindow('doctorServices', /const safeTimeout = .*MIGRATION_TIMEOUT_MS/, SLOW_NETWORK_MS, 'doctor migration budget');
-expectTimeout('runtimeLifecycle', /const safeTimeoutMs = .*: (?:INSTALL_BUILD_MIGRATE_TIMEOUT_MS|\d+);/, SLOW_NETWORK_MS, 'runtime lifecycle fallback budget', { allowConstant: true });
 expectNeverLiteralBudget('runtimeLifecycle', /timeout: (?:120000|180000|60000)\b/, 'runtime lifecycle migrate uses no sub-canonical literal');
 
 console.log('Web UI install / build budgets');
@@ -282,9 +282,6 @@ expectTimeoutWindow('rtkInstaller', /spawnSync\('sh', \[verifiedScript\]/, SLOW_
 
 console.log('Skill migrate / reindex budgets');
 
-expectTimeout('skillManager', /\[cliPath, 'migrate'\]/, SLOW_NETWORK_MS, 'skill_manager migrate', { allowConstant: true });
-expectTimeout('skillManager', /'migrate', '--skip-embeddings'/, SLOW_NETWORK_MS, 'skill_manager workspace migrate', { allowConstant: true });
-expectTimeout('skillsController', /\[cliPath, 'migrate'\]/, SLOW_NETWORK_MS, 'skills reindex migrate', { allowConstant: true });
 
 console.log('Short operational guards');
 

@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.19-blue.svg?logo=git&logoColor=white" alt="Release v2.2.19"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.20-blue.svg?logo=git&logoColor=white" alt="Release v2.2.19"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white" alt="Antigravity"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white" alt="Cursor"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white" alt="Claude Code"></a>
@@ -55,7 +55,7 @@
 
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
-* **Latest Release:** [v2.2.19](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
+* **Latest Release:** [v2.2.20](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
 * **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
 
 * **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-infrastructure-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
@@ -402,7 +402,7 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 
 | Mode | Command | What it does |
 |:---|:---|:---|
-| **Persistent global install** | `npm install -g konoha-mcp@latest` | Installs the `konoha` binary on PATH. The package `postinstall` hook only prints guidance — it never runs network calls, installs, or writes to `~` |
+| **Persistent global install** | `npm install -g konoha-mcp@latest` (from a tarball: `npm install -g ./konoha-mcp-<version>.tgz`) | Installs the `konoha` binary on PATH. The package ships no install-time lifecycle script, so the install completes without a script-permission prompt and writes nothing under `~`; runtime setup stays explicit (`konoha init --yes`, or `konoha upgrade` on an existing tree) |
 | **In-place upgrade** | `konoha upgrade` (alias `konoha update`) | Reinstalls the global package with the detected package manager (npm/pnpm/yarn) and re-runs the runtime lifecycle. Exits `1` with `Upgrade aborted` when no package manager can install the target |
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry without a persistent install. Never writes a global package |
 
@@ -447,6 +447,8 @@ npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
 For a headless server, run `konoha doctor --vps` before installing — see [docs/VPS-INSTALL.md](docs/VPS-INSTALL.md).
 
 Pre-install requirement: **Node.js ≥ 24.0.0**. `bin/cli.js` refuses to start on older runtimes and prints `Konoha requires Node.js >= 24.0.0 (found <v>)` before any runtime module loads, because `src/sqlite_driver.js` requires `node:sqlite`.
+
+Dependency security: the package pins `image-size` at `>=2.0.3` and bundles that subtree, closing **CVE-2025-71330** (`GHSA-w3rx-r6r6-pgpr`) and **CVE-2025-71329** (`GHSA-5p2g-fcmc-qvqq`) — both HIGH, CVSS 8.7, infinite loops in the ICNS/JXL/HEIF parsers of `image-size < 2.0.3`. Installs resolve the patched line automatically; no manual override is needed.
 
 > [!IMPORTANT]
 > **Breaking Changes Notice (Post-v2.1.17)**:
@@ -547,13 +549,14 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`, which deletes every chunk first). `konoha init` already embeds; to recover an install made with `--no-embed`, run `konoha migrate` — it indexes only what is missing |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.2.19) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.2.20) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim. If no package manager (npm/pnpm/yarn) or the GitHub fallback can install the target, it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and exits 1 without continuing the lifecycle |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha db <subcommand>` | SQLite disaster recovery & integrity operations (`check [--db <path>]`, `restore [--from <backup>] [--db <path>]`) |
 | `konoha data <subcommand>` | Database maintenance operations (`backup [path]`, `rebuild-fts`, `prune --retention <days>`) |
+| `konoha config <subcommand>` | Read and write `~/.konoha/config.json` (`list`, `get <key>`, `set <key> <value>`, `unset <key>`). `get` prints `value<TAB>[default\|user]`, so a key backed only by shipped defaults still shows its effective value; `--json` returns `{key, value, source}`. 20 defaults live in code (`bin/lib/config_defaults.js`), never in a file, so an upgrade never rewrites your overrides: `install_build_migrate_timeout_ms` (900000), `inference_timeout_ms` (900000), `git_timeout_ms` (30000), `url_timeout_ms` (20000), `ui_ready_timeout_ms` (180000), `notify_dedupe_ttl_ms` (180000), `minimum_confidence` (98), `skill_top_k` (5), `semantic_top_k` (10), `ui_port` (1404), and the remaining ports and polling budgets |
 | `konoha detect-ai <path-file-or-url>` | Website/code AI-fingerprint detector (anonymiz.com-style): scans a site directory, single file, or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
 | `konoha detect-docs <path-or-url>` | Documentation AI-pattern detector: scans markdown/docs for AI-writing clichés, conversational filler, and structural fingerprints |
 | `konoha doctor` | Diagnose environment health, verify `agent-browser` CLI & Chrome binary readiness (reports `QA: BLOCKED` with the resolver reason when unavailable), and automatically repair missing files |
@@ -863,7 +866,7 @@ konoha migrate
 konoha migrate --force
 ```
 
-This updates `skills.db`, refreshes all system instructions, and repairs detected client MCP/rule/subagent integrations automatically. Cursor skill content remains SQLite/Konoha MCP-backed; no `.cursor/skills/` mirror is created.
+This updates `skills.db`, refreshes all system instructions, and repairs detected client MCP/rule/subagent integrations automatically. Skill content stays SQLite/Konoha MCP-backed, while each detected client also receives a filesystem mirror — including `~/.cursor/skills/`.
 
 ---
 

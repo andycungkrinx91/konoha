@@ -144,7 +144,7 @@ async function cmdDoctor(args = []) {
   } else {
     checkAndRepairRuntimeFiles(context);
   }
-  checkDatabaseAndMigrations(context);
+  await checkDatabaseAndMigrations(context);
   if (args.includes('--vps')) await checkVpsPreflight(context);
   checkGeminiAndAgentsConfig(context);
   await checkPromptHookConfig(context, globalSpinner);

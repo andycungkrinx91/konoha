@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.19",
+  "version": "2.2.20",
   "description": "Autonomous multi-agent MCP orchestration platform powered by LangGraph state machines, 8 specialist ninja agents, SQLite FTS5 skill indexing, and per-turn token governors saving 83–98% context across 8 AI coding clients",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -69,6 +69,12 @@
   "publishConfig": {
     "access": "public"
   },
+  "overrides": {
+    "image-size": ">=2.0.3"
+  },
+  "bundleDependencies": [
+    "pptxgenjs"
+  ],
   "resolutions": {
     "array-buffer-byte-length": "npm:@socketregistry/array-buffer-byte-length@1.0.7",
     "arraybuffer.prototype.slice": "npm:@socketregistry/arraybuffer.prototype.slice@1.0.7",
@@ -149,7 +155,7 @@
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",
     "web": "node bin/cli.js web",
-    "postinstall": "node bin/postinstall.js"
+    "pack:tgz": "pnpm pack"
   },
   "os": [
     "linux",

@@ -129,7 +129,7 @@ async function main() {
     ok('T3: cmdInit guards on options.skipUiAutoStart', src.includes('if (!options.skipUiAutoStart)'));
     ok('T3: cmdInit calls ensureUiDaemonAutoStart', /await ensureUiDaemonAutoStart\(\)/.test(src));
     ok('T3: cmdInit early-return (already-installed) path also auto-starts', (src.match(/options\.skipUiAutoStart/g) || []).length >= 2);
-    ok('T3: cmdUpgrade captures uiWasRunning', src.includes('uiWasRunning = await checkPortActive(1404)'));
+    ok('T3: cmdUpgrade captures uiWasRunning', /uiWasRunning = await checkPortActive\(UI_PORT\)/.test(src));
     ok('T3: cmdUpgrade restarts a previously-running daemon', src.includes("await cmdUiRestart(['--no-open'])"));
     ok('T3: cmdUpgrade passes skipUiAutoStart to inner cmdInit', src.includes('skipUiAutoStart: true'));
     ok('T3: pgrep pattern is port-specific', src.includes('ui daemon --port=${port}') || src.includes('ui daemon --port=${stopPort}'));

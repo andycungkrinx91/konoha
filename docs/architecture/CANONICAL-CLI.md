@@ -25,7 +25,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha auth` | `reset` | Reset local Web console administrative password to default (`konohagakure`) |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
-| `konoha config` | `<list|get|set|unset> [key] [val] [--json]` | Manage global Konoha system configuration in `~/.konoha/config.json` |
+| `konoha config` | `<list|get|set|unset> [key] [val] [--json]` | Manage global Konoha system configuration in `~/.konoha/config.json`. `get` prints `value<TAB>[default\|user]`; `--json` returns `{key, value, source}` |
 | `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
 | `konoha detect-ai` | `<target> [--json]` | Scan website URL or project files for AI fingerprints (Human-Built Index) |
 | `konoha detect-docs` | `<target> [--json]` | Scan prose documents or text for AI generation markers (ZeroGPT defense) |
@@ -178,7 +178,7 @@ Three install modes, never blurred:
 
 | Mode | Invocation | Effect |
 |---|---|---|
-| Persistent global install | `npm install -g konoha-mcp@latest` | Installs the CLI and runs `node bin/postinstall.js`, which prints guidance only (no network, no installs, no writes to `HOME`). Runtime setup happens on the next `konoha init --yes`. |
+| Persistent global install | `npm install -g konoha-mcp@latest`, or `npm install -g ./konoha-mcp-<version>.tgz` for a packed tarball | Installs the CLI. The package ships no install-time lifecycle script, so no install hook executes and no script-permission prompt can block the install. Runtime setup happens on the next `konoha init --yes` (or `konoha upgrade` on an existing tree). |
 | In-place upgrade | `konoha upgrade` / `konoha update` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
 | Ephemeral run | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs the CLI without installing it. Never claims to have performed a global install. |
 

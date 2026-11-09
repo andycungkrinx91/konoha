@@ -12,7 +12,9 @@ const fs = require('fs');
 
 const SQLITE_EXPERIMENTAL_WARNING = 'SQLite is an experimental feature';
 const NAMED_PARAMETER = /[:@$]([A-Za-z_][A-Za-z0-9_]*)/g;
-const DEFAULT_BUSY_TIMEOUT_MS = 5000;
+const { getConfigValue } = require('./config_access');
+
+const DEFAULT_BUSY_TIMEOUT_MS = getConfigValue('sqlite_busy_timeout_ms', 5000);
 
 // node:sqlite prints an ExperimentalWarning to stderr when first loaded on
 // Node 24/26. Filter only that warning, only while the module loads, so MCP

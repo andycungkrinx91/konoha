@@ -7,6 +7,13 @@
 
 const crypto = require('crypto');
 
+const { getConfigValue } = require('./config_access');
+
+/** Retrieval widths. Overridable so a large skill set can widen recall without a source edit. */
+const SKILL_TOP_K = getConfigValue('skill_top_k', 5);
+const SKILL_CANDIDATE_K = getConfigValue('skill_candidate_k', 25);
+const SEMANTIC_TOP_K = getConfigValue('semantic_top_k', 10);
+
 const {
   VECTOR_DIMENSION,
   getPlatformTag,
@@ -127,8 +134,8 @@ function getFtsChunkCandidates(conn, query, candidateK) {
 }
 
 async function searchChunksRAG(conn, query, options = {}) {
-  const topK = options.topK || 5;
-  const candidateK = options.candidateK || 25;
+  const topK = options.topK || SKILL_TOP_K;
+  const candidateK = options.candidateK || SKILL_CANDIDATE_K;
   const useRerank = options.rerank !== false;
   if (!query || !query.trim()) return [];
 
@@ -237,7 +244,7 @@ function sortSkillSearchResults(results, cleanQ) {
   });
 }
 
-function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
+function findSkillSemantic(conn, query, topK = SKILL_TOP_K, candidateK = SKILL_CANDIDATE_K) {
   if (!query || !query.trim()) return [];
 
   const ftsSkillNames = searchFtsSkills(conn, query, candidateK);
@@ -402,7 +409,7 @@ function populateHybridSkillResults(conn, topCandidates) {
 }
 
 async function findSkillHybrid(conn, query, options = {}) {
-  const topK = options.topK || options.limit || 10;
+  const topK = options.topK || options.limit || SEMANTIC_TOP_K;
   const candidateK = options.candidateK || 30;
   if (!query || !query.trim()) return loadAllSkillsBrief(conn, topK);
 

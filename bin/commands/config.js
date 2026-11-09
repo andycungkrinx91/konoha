@@ -12,7 +12,17 @@ const { KONOHA } = require('../lib/paths');
 const { C, log, error, success } = require('../lib/format');
 const backupManager = require('../../src/config_backup_manager');
 
-const CONFIG_FILE = path.join(KONOHA, 'config.json');
+// Defaults and the config-file path live in a dependency-free module so
+// bin/lib/paths.js can consume them without a require cycle. `config get`
+// reports where each value came from.
+const {
+  CONFIG_FILE,
+  CONFIG_DEFAULTS,
+  DEFAULT_KEYS,
+  readUserConfig,
+  getConfig,
+  getConfigValue
+} = require('../lib/config_defaults');
 
 const ALLOWED_KEYS = new Set([
   'turn_budget',
@@ -26,6 +36,7 @@ const ALLOWED_KEYS = new Set([
   'telegram_chat_id',
   'default_agent',
   'theme',
+  ...DEFAULT_KEYS,
 ]);
 
 function _validateKey(key, usageHint) {
@@ -43,13 +54,7 @@ function _validateKey(key, usageHint) {
 }
 
 function readConfigFile() {
-  try {
-    if (!fs.existsSync(CONFIG_FILE)) return {};
-    const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch (_) {
-    return {};
-  }
+  return readUserConfig();
 }
 
 function writeConfigFileAtomic(configObj) {
@@ -216,15 +221,15 @@ async function cmdConfig(cmdArgs = []) {
       if (!_validateKey(key, 'konoha config get <key>')) {
         return null;
       }
-      const val = config[key];
+      const resolved = getConfig(key, { config });
       if (jsonOut) {
-        process.stdout.write(JSON.stringify({ key, value: val !== undefined ? val : null }, null, 2) + '\n');
-      } else if (val !== undefined) {
-        log(String(val));
-      } else {
+        process.stdout.write(JSON.stringify(resolved, null, 2) + '\n');
+      } else if (resolved.value === null) {
         log(`  ${C.dim}(unset)${C.reset}`);
+      } else {
+        log(`${resolved.value}\t${C.dim}[${resolved.source}]${C.reset}`);
       }
-      return val;
+      return resolved.value;
     }
 
     case 'set': {
@@ -287,4 +292,7 @@ module.exports = {
   writeConfigFileAtomic,
   ALLOWED_KEYS,
   CONFIG_FILE,
+  CONFIG_DEFAULTS,
+  getConfig,
+  getConfigValue,
 };

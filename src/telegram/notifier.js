@@ -12,6 +12,7 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 }
 
 const configModule = require('./config');
+const { getConfigValue } = require('../config_access');
 
 const CLIENT_NAMES = {
   antigravity: 'Antigravity IDE/CLI',
@@ -272,7 +273,7 @@ const sentNotifications = new Map();
 function isRecentlyNotified(taskId) {
   if (!taskId) return false;
   const lastTime = sentNotifications.get(taskId);
-  return Boolean(lastTime && (Date.now() - lastTime < 180000));
+  return Boolean(lastTime && (Date.now() - lastTime < getConfigValue('notify_dedupe_ttl_ms', 180000)));
 }
 
 /**
@@ -339,8 +340,8 @@ async function notifyKageReviewPassed({
   return sendTaskCompletedNotification({
     title,
     taskId: taskId || `kage_gate_${Date.now()}`,
-    summary: summary || 'Kage Review Gate approved with ≥ 98% confidence and zero AI slop findings.',
-    status: (kageScore >= 98 && slopFindings === 0) ? 'SUCCESS' : 'FAILED',
+    summary: summary || `Kage Review Gate approved with ≥ ${getConfigValue('minimum_confidence', 98)}% confidence and zero AI slop findings.`,
+    status: (kageScore >= getConfigValue('minimum_confidence', 98) && slopFindings === 0) ? 'SUCCESS' : 'FAILED',
     duration: 'Review Passed',
     client: client || 'Antigravity IDE/CLI',
     agent: 'Village Leader Kage',

@@ -138,7 +138,7 @@ index e6728e1fb738b43528069796f2b2bd74ec380313..68bb4986e0f75765351d9c97000ac9b3
 +  },
 +  "dependencies": {
 +    "@types/node": "^22.8.1",
-+    "image-size": "^1.2.1",
++    "image-size": ">=2.0.3",
 +    "jszip": "^3.10.1"
 +  },
 +  "devDependencies": {

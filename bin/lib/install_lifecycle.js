@@ -2,8 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
-const { HOME, SKILLS_DB_DIR, MIGRATE_PATH, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
+const { HOME, SKILLS_DB_DIR } = require('./paths');
 const {
   backupAllDetectedClients,
   verifyBackupIntegrity,
@@ -76,53 +75,50 @@ function runTransactionalDatabaseMigration(options = {}) {
   }
 }
 
-function runEmbedAndMigrationStage(options = {}) {
+async function runEmbedAndMigrationStage(options = {}) {
   const konohaRoot = options.konohaRoot || getKonohaRoot();
-  const migrateScript = fs.existsSync(MIGRATE_PATH)
-    ? MIGRATE_PATH
-    : path.resolve(__dirname, '..', '..', 'src', 'migrate.js');
 
   const dbMig = runTransactionalDatabaseMigration({ konohaRoot });
   if (!dbMig.ok) {
     return { ok: false, stage: 'db_migration', reason: dbMig.reason };
   }
 
-  if (!fs.existsSync(migrateScript)) {
-    return { ok: true, stage: 'embed', skipped: true, dbMigration: dbMig };
-  }
+  const migrate = require('../../src/migrate');
+  const skipEmbeddings = Boolean(options.skipEmbeddings || process.env.KONOHA_SKIP_LIFECYCLE_EMBED === '1');
 
-  const args = [migrateScript];
-  if (options.skillsDir && fs.existsSync(options.skillsDir)) {
-    args.push('--skills-dir', options.skillsDir);
-  }
-  if (options.skipEmbeddings || process.env.KONOHA_SKIP_LIFECYCLE_EMBED === '1') {
-    args.push('--skip-embeddings');
-  } else {
-    args.push('--rebuild-embeddings');
-  }
-
-  const timeoutMs = options.timeoutMs || INSTALL_BUILD_MIGRATE_TIMEOUT_MS || 180000;
-  let res = spawnSync(process.execPath, args, {
-    encoding: 'utf8',
-    cwd: konohaRoot,
-    timeout: timeoutMs,
-    env: { ...process.env, KONOHA_HOME: konohaRoot }
-  });
-
-  if (res.status !== 0 && !args.includes('--skip-embeddings')) {
-    const fallbackArgs = args.filter((a) => a !== '--rebuild-embeddings').concat(['--skip-embeddings']);
-    res = spawnSync(process.execPath, fallbackArgs, {
-      encoding: 'utf8',
-      cwd: konohaRoot,
-      timeout: timeoutMs,
-      env: { ...process.env, KONOHA_HOME: konohaRoot }
+  // Run a second pass without embeddings if the first one fails: on a machine
+  // without the embedding model, indexing is still better than no skills at all.
+  let result;
+  try {
+    result = await migrate.runMigration({
+      skillsDir: options.skillsDir && fs.existsSync(options.skillsDir) ? options.skillsDir : null,
+      rebuildEmbeddings: !skipEmbeddings,
+      skipEmbeddings,
+      timeBudgetSeconds: options.timeBudgetSeconds
     });
+  } catch (err) {
+    return { ok: false, stage: 'embed', reason: err.message, dbMigration: dbMig };
+  }
+
+  if (result && result.ok === false && !skipEmbeddings) {
+    try {
+      result = await migrate.runMigration({
+        skillsDir: options.skillsDir && fs.existsSync(options.skillsDir) ? options.skillsDir : null,
+        skipEmbeddings: true,
+        rebuildEmbeddings: false,
+        timeBudgetSeconds: options.timeBudgetSeconds
+      });
+    } catch (err) {
+      return { ok: false, stage: 'embed', reason: err.message, dbMigration: dbMig };
+    }
   }
 
   return {
-    ok: res.status === 0,
+    ok: Boolean(result && result.ok !== false),
     stage: 'embed',
-    status: res.status,
+    indexed: result ? result.indexed : 0,
+    deferredSkills: result ? (result.deferredSkills || 0) : 0,
+    missingRequired: result ? result.missingRequired : undefined,
     dbMigration: dbMig
   };
 }
@@ -218,7 +214,7 @@ async function runFullInstallationLifecycle(options = {}) {
     stages.push({ stage: 3, name: 'konoha_init', ok: true, konohaRoot });
   }
 
-  const embedResult = runEmbedAndMigrationStage({
+  const embedResult = await runEmbedAndMigrationStage({
     konohaRoot,
     skillsDir: options.skillsDir,
     skipEmbeddings: options.skipEmbeddings

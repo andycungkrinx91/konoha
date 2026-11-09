@@ -122,8 +122,10 @@ async function run() {
     const taskSanninInstr = setupTask(taskRoot, 'sannin_instr');
     const resSanninInstr = JSON.parse(server.runSannin('build a sveltekit landing page component', taskSanninInstr));
     assert.strictEqual(resSanninInstr.status, 'routed');
-    assert.ok(resSanninInstr.instructions.includes('**Selected Agent**: `jonin`'));
-    assert.ok(resSanninInstr.instructions.includes('**Reason**:'));
+    // Assert routing behavior, not template prose: the header is `**Agent**:` and
+    // the decision line is `**Route Decision**:`, both renamed in v2.2.18.
+    assert.ok(resSanninInstr.instructions.includes('**Agent**: `jonin`'), 'routes to jonin');
+    assert.ok(resSanninInstr.instructions.includes('**Route Decision**:'), 'emits a route decision');
     assert.ok(resSanninInstr.instructions.includes('Call `jonin`'));
     assert.ok(resSanninInstr.instructions.includes('konoha.report_from_agent'));
     assert.ok(resSanninInstr.instructions.includes('build a sveltekit landing page component'));

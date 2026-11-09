@@ -67,7 +67,7 @@ konoha init --client=all
 
 | Mode | Command | Notes |
 |:---|:---|:---|
-| **Persistent global install** | `npm install -g konoha-mcp@latest` | The `postinstall` hook is guidance-only (no network, no installs, no `$HOME` writes) |
+| **Persistent global install** | `npm install -g konoha-mcp@latest` | The package ships no install-time lifecycle script, so the install completes without a script-permission prompt and nothing is written under `$HOME`. Runtime setup is explicit: `konoha init --yes` |
 | **In-place upgrade** | `konoha upgrade --yes` | Aborts with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and exit `1` when every installer fails |
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha init --yes` | No persistent install; still writes `~/.konoha` runtime state when `init` runs |
 

@@ -66,9 +66,10 @@ async function run() {
     process.env.KONOHA_SEMANTIC_SEARCH = '0'; // Fast-path migration for unit test
     process.env.KONOHA_UI_AUTOSTART = '0';
 
-    // Must not throw (e.g. TypeError on autoInstallKonohaBridgeExtension)
-    assert.doesNotThrow(() => {
-      ensureAutoSetup(true);
+    // Must not throw (e.g. TypeError on autoInstallKonohaBridgeExtension).
+    // ensureAutoSetup is async since the migrate/embed path went in-process.
+    await assert.doesNotReject(async () => {
+      await ensureAutoSetup(true);
     }, 'ensureAutoSetup must execute cleanly without runtime bridge errors');
 
     console.log('✓ Feedback 3: ensureAutoSetup executes cleanly without manual intervention');

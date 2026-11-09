@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const { SKILLS_DB_DIR } = require("../lib/paths");
+const { SKILLS_DB_DIR, UI_PORT, UI_READY_TIMEOUT_MS, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
 const { C, log, warn, error, header, getCliVersion } = require("../lib/format");
 const { fileExists, confirmPrompt, KonohaProgressBar } = require("../lib/prompt");
 const { reconcileGlobalCommand, purgePackageCaches } = require("../lib/runtime");
@@ -235,7 +235,7 @@ function tryInstallCandidate(pm, args, spawnOptions, isWin = false) {
 }
 
 function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) {
-  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 900000, windowsHide: true };
+  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS, windowsHide: true };
   let lastError = null;
 
   for (const pm of pmCandidates) {
@@ -385,16 +385,14 @@ function syncRuntimeAndMigrate(globalPkgRoot) {
     installCliRuntime({ sourceRoot: globalPkgRoot });
   } catch { /* best-effort */ }
 
-  try {
-    const migratePath = path.join(SKILLS_DB_DIR, 'migrate.js');
-    const fallbackMigrate = path.resolve(__dirname, '..', '..', 'src', 'migrate.js');
-    const effectiveMigrate = fileExists(migratePath) ? migratePath : fallbackMigrate;
-    if (fileExists(effectiveMigrate)) {
-      spawnSync(process.execPath, [effectiveMigrate, '--require-skill', 'genin-skill'], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 900000
-      });
+  return (async () => {
+    try {
+      const result = await require('../../src/migrate').runMigration({ requireSkill: ['genin-skill'] });
+      return { ok: Boolean(result && result.ok !== false), missingRequired: result ? result.missingRequired : undefined };
+    } catch (err) {
+      return { ok: false, reason: err.message };
     }
-  } catch { /* best-effort */ }
+  })();
 }
 
 function deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, mcpChoices) {
@@ -447,7 +445,7 @@ function prepareUpgradeSourceRoot(globalPkgRoot) {
 async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
   if (!injectConfigs) {
     pbar.logStep('Syncing Konoha runtime and SQLite database (no client config injection; use "konoha init --client=<name>" to append client configs)');
-    syncRuntimeAndMigrate(globalPkgRoot);
+    await syncRuntimeAndMigrate(globalPkgRoot);
     return;
   }
   await cmdInit(['--yes'], {
@@ -474,7 +472,7 @@ async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
     return;
   }
   const uiAuto = await ensureUiDaemonAutoStart();
-  if (uiAuto?.started) pbar.logStep('Konoha Web UI daemon auto-started at http://127.0.0.1:1404/');
+  if (uiAuto?.started) pbar.logStep(`Konoha Web UI daemon auto-started at http://127.0.0.1:${UI_PORT}/`);
 }
 
 async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, localVer = '') {
@@ -489,9 +487,9 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, l
     deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop, semble });
     await restartOrAutoStartUiDaemon(pbar, uiWasRunning);
 
-    const portReady = await waitForPortReady(1404, { timeoutMs: 180000 });
+    const portReady = await waitForPortReady(UI_PORT, { timeoutMs: UI_READY_TIMEOUT_MS });
     if (!portReady) {
-      pbar.logStep('Web UI daemon is still warming up; it will answer on port 1404 shortly');
+      pbar.logStep(`Web UI daemon is still warming up; it will answer on port ${UI_PORT} shortly`);
     }
 
     const installed = readInstalledVersion(globalPkgRoot);
@@ -574,7 +572,7 @@ async function cmdUpgrade(args = []) {
   log('');
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
   let uiWasRunning = false;
-  try { uiWasRunning = await checkPortActive(1404); } catch { /* best-effort */ }
+  try { uiWasRunning = await checkPortActive(UI_PORT); } catch { /* best-effort */ }
 
   pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Backing up client configurations & detecting package manager...`);
   try {

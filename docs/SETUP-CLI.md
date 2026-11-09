@@ -67,9 +67,9 @@ Konoha has three distinct modes. They are not interchangeable, and no mode perfo
 
 | Mode | Command | Behavior |
 |:---|:---|:---|
-| **Persistent global install** | `npm install -g konoha-mcp@latest` (or `pnpm add -g konoha-mcp@latest`) | Puts `konoha` on PATH. `package.json#scripts.postinstall` runs `bin/postinstall.js`, which is guidance-only: no network calls, no installs, no writes to `$HOME`. Runtime setup stays explicit (`konoha init --yes`) |
+| **Persistent global install** | `npm install -g konoha-mcp@latest` (or `pnpm add -g konoha-mcp@latest`); from a packed tarball, `npm install -g ./konoha-mcp-<version>.tgz` | Puts `konoha` on PATH. The package ships no install-time lifecycle script, so nothing is prompted for permission and nothing touches `$HOME` at install time. Runtime setup stays explicit (`konoha init --yes`) |
 | **In-place upgrade** | `konoha upgrade` / `konoha update` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
-| **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry. No persistent global install, no `postinstall` side effects |
+| **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry. No persistent global install, no install-script side effects |
 
 `npx i -g konoha-mcp` is **not valid syntax** — `i` is not an `npx` flag. Use the persistent or ephemeral form above.
 
@@ -479,7 +479,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (`2.2.19`) and queries the official npm registry to check if a newer version is available:
+  Displays the installed local version (`2.2.20`) and queries the official npm registry to check if a newer version is available:
   ```bash
   konoha version
   ```

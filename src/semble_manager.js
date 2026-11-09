@@ -221,10 +221,10 @@ function _parseSembleSearchResults(stdout) {
   return results.length > 0 ? results : [{ title: 'Results found', snippet: stdout }];
 }
 
-function searchSemble(query, searchPath = process.cwd(), topK = 5) {
+function searchSemble(query, searchPath = process.cwd(), topK = require('./config_access').getConfigValue('skill_top_k', 5)) {
   if (!query || !query.trim()) return { results: [], query: '' };
   const uvxCmd = getUvxCommand();
-  const k = Math.min(Math.max(parseInt(topK, 10) || 5, 1), 20);
+  const k = Math.min(Math.max(parseInt(topK, 10) || require('./config_access').getConfigValue('skill_top_k', 5), 1), 20);
 
   try {
     const res = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {

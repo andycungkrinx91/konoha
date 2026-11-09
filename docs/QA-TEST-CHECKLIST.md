@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.19). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.20). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -60,8 +60,8 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha update` | `--force`, `--yes` | Alias for `konoha upgrade`; runs the 5-stage non-destructive upgrade lifecycle (`backup -> upgrade -> init --y -> embed -> ui build & restart`). | `PASS` (verified) |
 | `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
 | `konoha upgrade` | `--yes` | Upgrades the global install in place. Verifies the installed version by running `konoha --version`; on total package-manager failure it exits 1 with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and does **not** run the post-upgrade lifecycle. | `PASS` (verified on Linux x64: no-package-manager path exits 1; failure path leaves version unchanged) |
-| `npm install -g konoha-mcp@latest` | - | Persistent global install. `postinstall` prints guidance only (no network, no installs, no writes under `HOME`). | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
-| `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. | `PASS` (documented in `bin/postinstall.js`; string asserted by `tests/test_postinstall_contract.js`) |
+| `npm install -g konoha-mcp@latest` | - | Persistent global install. The package ships no install-time lifecycle script, so nothing runs at install time, nothing touches `HOME`, and no script-permission gate can deny the install. | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
+| `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. No install-script side effects. | `PASS` (verified on Linux x64 with isolated `HOME`) |
 | `agent-browser` provisioning | `konoha init` | Resolution order: global → `~/.konoha/tools` → `npx --yes agent-browser@0.41.2`, each accepted only after `--version` exits 0; installs use `npm`/`pnpm` only with `--ignore-scripts`. Failure prints `QA blocked: <reason>` and `qa_codify` returns `error: qa_blocked`. | `PASS` — `agent-browser@0.41.2` installs and reports `agent-browser 0.41.2` from npm `-g`, `npm --prefix`, and `pnpm --dir` on Linux x64; blocked-path reporting verified separately. |
 | Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
 | macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
@@ -86,7 +86,7 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 | Windows global-root discovery | `runRootCmd` must not append `.cmd` twice | `PASS` (static assertion; execution `BLOCKED` on Windows) |
 | GitHub fallback passes the Windows flag | `tryInstallCandidate(..., isWin)` | `PASS` (static assertion) |
 | Interrupted-upgrade marker: written and cleared | `!pkgInstalled` clears it; verification failure retains it; a fresh confirmed attempt clears it | `PASS` |
-| Postinstall performs no network/installs/HOME writes | spawn with isolated `HOME`, diff the directory | `PASS` |
+| No lifecycle script executes on install | inspect the packed tarball for a `scripts` lifecycle entry; install into an isolated `HOME` and diff the directory | `PASS` — the packed manifest declares no install-time lifecycle hook and the guidance shim it used to invoke is absent from the tarball; `HOME` unchanged |
 | Stale Web UI build is rejected | seed `build-meta.json` with a mismatched version | `PASS` — `Skipping stale Web UI build`, resolves to `null` when every candidate is stale |
 | MCP stdio handshake + JSON-string arguments | pipe `initialize` and `tools/call` into `src/file_tools_mcp.js` | `PASS` — JSON string parsed; malformed input returns `invalid_arguments` with `isError: true` |
 | Skill URI: short and long form resolve | `findInMirror('<skill>/<file>')` and `…/references/<file>` | `PASS` — both resolve to the same `references/` file |
@@ -124,7 +124,7 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 
 ### 1.4 Migration Robustness, Safe Timeouts & Skill RAG Retrieval Invariant (v2.2.3)
 
-- **Safe Timeout Normalization & Zero-NaN Invariant**: `bin/lib/paths.js` exports `MIGRATION_TIMEOUT_MS = 180000` (180s default). `bin/commands/migrate.js`, `bin/commands/init.js`, `bin/commands/doctor.js`, and `bin/lib/runtime.js` implement defensive timeout normalization using `Number.isFinite()`, guaranteeing that `timeoutMs` passed to `spawnSync` is always an unsigned positive integer. This permanently eliminates the Node.js `ERR_OUT_OF_RANGE: Received NaN` crash when executing `konoha migrate --rebuild-embeddings` or `konoha embed`.
+- **Safe Timeout Normalization & Zero-NaN Invariant**: `bin/lib/paths.js` exports `MIGRATION_TIMEOUT_MS` (900000 ms since 2.2.20, resolved from `install_build_migrate_timeout_ms`; it was 180000 in v2.2.3). `bin/commands/migrate.js`, `bin/commands/init.js`, `bin/commands/doctor.js`, and `bin/lib/runtime.js` implement defensive timeout normalization using `Number.isFinite()`, guaranteeing that a subprocess timeout is always an unsigned positive integer. This permanently eliminates the Node.js `ERR_OUT_OF_RANGE: Received NaN` crash when executing `konoha migrate --rebuild-embeddings` or `konoha embed`.
 - **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, all skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first. Local Markdown files (`SKILL.md` and `references/*.md`) serve strictly as secondary fallback mirrors when the database is unavailable or a record is missing.
 - **Workflow Skill Directives**: Sannin router dispatches across all active phases (`explore`, `plan`, `research`, `execute`, `document`) enforce the skill retrieval invariant:
   ```json
@@ -686,7 +686,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ---
 
-## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.19)
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.20)
 
 Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
@@ -746,12 +746,12 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **11. Deterministic Token Metering** | `tests/test_token_sampler.js` | Exact 0.00% parity vs golden corpus; 0 child processes spawned; ~0.04 ms/call | `PASS` (verified 2026-11-02) |
 | **12. Non-Empty Node Updates** | `tests/test_langgraph_budget_resume.js` (S12) | Every node returns a valid dictionary; `graph.invoke` never resolves to `undefined` | `PASS` (verified 2026-11-02) |
 | **13. Forward-Only Execution Trace** | `tests/test_langgraph_budget_resume.js` (S13) | Concatenated trace proves zero duplicate completed nodes and strict forward progression | `PASS` (verified 2026-11-02) |
-| **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes | `PASS` (verified 2026-11-02) |
+| **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes; `get` prints `value<TAB>[default\|user]` and `--json` returns `{key, value, source}`, including the 20 code-backed defaults in `bin/lib/config_defaults.js` | `PASS` (verified 2026-11-02; provenance added 2.2.20) |
 | **15. Deprecated Manifest Aliases** | `tests/test_canonical_api_sync.js` | 47 canonical + 2 deprecated = 49 manifest tools verified with structured deprecation notices | `PASS` (verified 2026-11-02) |
 
 ---
 
-## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.19)
+## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.20)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -791,7 +791,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 
 
-## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.19)
+## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.20)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -822,7 +822,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **24. Repo Lint Gate** | `node scripts/lint.js` | 518 backend files verified with 0 errors and 0 warnings (no numbered comments) | `PASS` (verified 2026-11-03) |
 | **25. Isolated Fresh Install & Upgrade** | `/tmp/konoha-iso` with isolated `HOME` | Six STRICT tables + migration applied, `dcc_mcp_version` column present, `three`/`manifold-3d` linked, worker + creature synthesizer deployed, and removed packages re-linked on the next run | `PASS` (verified 2026-11-03) |
 
-## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.19)
+## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.20)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -863,7 +863,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
   were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
   do not change what those clips depict structurally.
 
-## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.19)
+## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.20)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -935,5 +935,5 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **11. Master E2E Suite & Web UI Playwright Automation** | `qa_e2e_run` -> `tests/e2e/web_ui_e2e.spec.js` & `tests/e2e/auth_login.spec.js` | Runs `sync_skills.js`, `pnpm --dir apps/web run build`, `test_konoha_2_2_18_master.js`, `scripts/lint.js` (729 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy), desktop (1440x900) and mobile (390x844) UI tests; verifies 2-field initial setup, Overview embedded Agent Activity, 6 execution states, spider 180° flip, full-screen modal, mobile-only dock, zero emojis, and hidden Yamanaka/3D Studio menus | `PASS` (verified) |
 | **12. Socket CLI Supply Chain & Zero-Vulnerability Gate** | `tests/test_socket_security_audit.js` & `docs/SecurityCompliance/socket_report_2.2.19_2026-11-08.md` | Verifies `socket fix --all --no-apply-fixes` (0 GHSAs/CVEs), `socket npm audit` (0 vulnerabilities), `pnpm audit` (0 unreviewed CVEs across root and apps/web), direct dependency scores (100% vulnerability score, 0 High, 0 Critical findings), and 0 shell invocations in `src/db_recovery.js` / `src/db_recovery_salvage.js` | `PASS` (verified 2026-11-08) |
 | **13. Fresh Install MCP Connection & Stdio Handshake (Cursor & OMP)** | `tests/test_fresh_install_mcp.js` & `tests/test_mcp_protocol_integrity.js` | Resolves unexpanded `${userHome}` in Cursor project MCP, resolves absolute `uvx` with GUI `env.PATH`, sanitizes stale `/tmp/` launcher paths in OMP, in-process launcher optimization for Node >= 24, and auto-detects installed clients on bare `konoha init` | `PASS` (verified 2026-11-08) |
-| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.19)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
-| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.19)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
+| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.20)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
+| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.20)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |

@@ -162,7 +162,7 @@ AI agent skills treat `SKILL.md` as executable system prompts and procedural ins
 | `VULNERABLE_BINWALK_EXTRACTION` | High | 40 | Legacy `binwalk -eM` or `pip install binwalk` |
 | `VULNERABLE_PYMETASPLOIT3` | High | 40 | `pip install pymetasploit3` |
 | `PERSISTENCE_MECHANISM` | High | 50 | Crontab manipulation, systemd service installation |
-| `UNTRUSTED_LIFECYCLE_SCRIPT` | High | 45 | npm `preinstall` / `postinstall` hooks |
+| `UNTRUSTED_LIFECYCLE_SCRIPT` | High | 45 | npm `preinstall` / install-time lifecycle hooks |
 | `UNRESTRICTED_CHMOD` | Medium | 25 | `chmod 777` or SUID assignment |
 
 ---

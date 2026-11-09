@@ -14,7 +14,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { SKILLS_DB_DIR, SRC_DIR } = require("../lib/paths");
+const { SKILLS_DB_DIR, SRC_DIR, BRIDGE_PORT, GATEWAY_PORT } = require("../lib/paths");
 const {
   C,
   log,
@@ -94,14 +94,14 @@ Usage:
   konoha bridge disable <bridge name>    Disable a bridge configuration
 
 Examples:
-  konoha bridge start                     (Launch standalone bridge proxy on port 19999)
+  konoha bridge start                     (Launch standalone bridge proxy on port ${GATEWAY_PORT})
   konoha bridge create                    (Interactive - choose API Key, then provider)
   konoha bridge status
 
 Provider: OpenAI Compatible (universal - works with all OpenAI-compatible APIs)
   1  OpenAI           - https://api.openai.com/v1
   2  OpenAI Compatible - any OpenAI-compatible API (Ollama, LM Studio, vLLM, ...)
-  3  Antigravity Extension - IDE-owned http://127.0.0.1:1313 (disabled by default)
+  3  Antigravity Extension - IDE-owned http://127.0.0.1:${BRIDGE_PORT} (disabled by default)
  `);
 }
 
@@ -157,9 +157,9 @@ async function cmdBridgeStart() {
   const { spawn } = require('child_process');
   header('Starting Bridge Proxy Gateway Service');
 
-  const gatewayActive = await checkPortActive(19999);
+  const gatewayActive = await checkPortActive(GATEWAY_PORT);
   if (gatewayActive) {
-    warn('Proxy Gateway is already running on port 19999.');
+    warn(`Proxy Gateway is already running on port ${GATEWAY_PORT}.`);
     return;
   }
 
@@ -184,9 +184,9 @@ async function cmdBridgeStart() {
   }
 
   await new Promise((r) => setTimeout(r, 1000));
-  const nowActive = await checkPortActive(19999);
+  const nowActive = await checkPortActive(GATEWAY_PORT);
   if (nowActive) {
-    success('Bridge Proxy Gateway started successfully in background on port 19999.');
+    success(`Bridge Proxy Gateway started successfully in background on port ${GATEWAY_PORT}.`);
   } else {
     warn('Background process spawned. Run "konoha bridge status" to check binding status.');
   }
@@ -214,13 +214,13 @@ async function cmdBridgeStop() {
       const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
       terminatePid(pid);
     }
-    await killProcessOnPort(19999);
+    await killProcessOnPort(GATEWAY_PORT);
     if (fileExists(pidFile)) {
       try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
-    const stillRunning = await checkPortActive(19999);
+    const stillRunning = await checkPortActive(GATEWAY_PORT);
     if (stillRunning) {
-      warn('Port 19999 is still active after stop command.');
+      warn(`Port ${GATEWAY_PORT} is still active after stop command.`);
     } else {
       success('Stopped background bridge proxy gateway services.');
     }
@@ -366,15 +366,15 @@ async function cmdBridgeStatus() {
   const bridges = loadBridges();
   header('Bridge Status Report');
 
-  const gatewayActive = await checkPortActive(19999);
+  const gatewayActive = await checkPortActive(GATEWAY_PORT);
   const rows = [];
   
   rows.push([
     'Proxy Gateway',
-    '19999',
+    String(GATEWAY_PORT),
     'Gateway Router',
     gatewayActive ? 'RUNNING' : 'STOPPED',
-    'http://localhost:19999/v1'
+    `http://localhost:${GATEWAY_PORT}/v1`
   ]);
 
   let activeCount = 0;
@@ -514,9 +514,9 @@ async function cmdBridgeCreate(name) {
   if (providerChoice === '2') {
     const newBridge = {
       name: bridgeName,
-      port: 1313,
+      port: BRIDGE_PORT,
       provider: 'antigravity-extension',
-      targetUrl: 'http://127.0.0.1:1313',
+      targetUrl: `http://127.0.0.1:${BRIDGE_PORT}`,
       enabled: false
     };
     if (bridges.some(b => b.port === newBridge.port)) { error(`Port ${newBridge.port} already in use.`); process.exit(1); }
@@ -526,7 +526,7 @@ async function cmdBridgeCreate(name) {
     }
     log('');
     success(`Bridge "${bridgeName}" created disabled.`);
-    log('  Provider : Antigravity Extension (IDE-owned, port 1313)\n  Enable with: konoha bridge enable ' + bridgeName + '\n');
+    log(`  Provider : Antigravity Extension (IDE-owned, port ${BRIDGE_PORT})\n  Enable with: konoha bridge enable ` + bridgeName + '\n');
     return;
   }
 

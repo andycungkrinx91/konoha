@@ -318,6 +318,46 @@ const CYBER_ROW_PATTERNS = Object.freeze([
 const CYBER_ROW_WHERE = 'file_path LIKE ? OR file_path LIKE ?';
 
 /**
+ * Every directory that can hold a deployed copy of the pack.
+ *
+ * Two different client lists ship today (`DEFAULT_SKILLS_DIRS` in bin/lib/paths
+ * and `getGlobalHarnessSkillTargets` in src/global_skill_sync) and they disagree
+ * — `.opencode/skills` vs `.pi/agent/skills`. Sweeping the union means neither
+ * list can drift into leaving copies behind.
+ */
+function _getResidueDirs() {
+  const home = os.homedir();
+  const dirs = new Set();
+  const add = (dir) => { if (dir) dirs.add(path.resolve(dir)); };
+
+  const assetPath = (skillsDir) =>
+    path.join(skillsDir, PACK_OWNER, 'references', PACK_ASSET_DIR);
+
+  try {
+    // A flat ~/.konoha mirror has no ../bin; try both depths before giving up.
+    let paths = null;
+    for (const candidate of ['../bin/lib/paths', './bin/lib/paths']) {
+      try { paths = require(candidate); break; } catch (_) { /* next layout */ }
+    }
+    if (paths) for (const dir of paths.DEFAULT_SKILLS_DIRS) add(assetPath(dir));
+  } catch (_) { /* bin/ may not exist in an embedded copy */ }
+
+  try {
+    const { getGlobalHarnessSkillTargets } = require('./global_skill_sync');
+    for (const target of getGlobalHarnessSkillTargets(home)) add(assetPath(target.skillsDir));
+  } catch (_) { /* ignore */ }
+
+  add(assetPath(path.join(home, '.konoha', 'skills')));
+  add(getPackDir());
+
+  return Array.from(dirs);
+}
+
+function _hasResidue() {
+  return _getResidueDirs().some((dir) => fs.existsSync(dir));
+}
+
+/**
  * Delete indexed cyber rows and on-disk pack copies. Backs up the DB first.
  *
  * @param {{conn?: object, dbPath?: string, backup?: Function, log?: Function}} [options]
@@ -345,14 +385,8 @@ function remove(options = {}) {
     _recordMigration(conn, 'removed');
   }
 
-  const dirs = [
-    getPackDir(),
-    path.join(os.homedir(), '.konoha', 'skills', 'akatsuki-skill', 'references', PACK_ASSET_DIR),
-    path.join(os.homedir(), '.omp', 'skills', 'akatsuki-skill', 'references', PACK_ASSET_DIR),
-    path.join(os.homedir(), '.agents', 'skills', 'akatsuki-skill', 'references', PACK_ASSET_DIR)
-  ];
   const removedDirs = [];
-  for (const dir of dirs) {
+  for (const dir of _getResidueDirs()) {
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true, force: true });
       removedDirs.push(dir);
@@ -362,6 +396,37 @@ function remove(options = {}) {
   log(`Removed ${removedRows} cyber skill rows and ${removedChunks} chunks.`);
   if (backupPath) log(`Backup: ${backupPath}`);
   return { ok: true, state: 'removed', removedRows, removedChunks, removedDirs, backupPath };
+}
+
+/**
+ * Clean up whatever a pre-2.2.20 install left behind.
+ *
+ * Upgrade and migrate must not leave residue that makes `doctor --vps` fail
+ * forever. Never touches an opted-in pack, and never takes a DB backup unless
+ * there is something to delete.
+ *
+ * @returns {{purged: boolean, removedRows: number, removedChunks: number, removedDirs: string[]}|null}
+ */
+function purgeLegacyResidue(conn = null, options = {}) {
+  if (getState(conn) === 'opted-in') return null;
+
+  let rows = 0;
+  if (conn) {
+    try {
+      rows = conn.prepare(`SELECT COUNT(*) n FROM skills WHERE ${CYBER_ROW_WHERE}`).get(...CYBER_ROW_PATTERNS).n;
+    } catch (_) {
+      rows = 0;
+    }
+  }
+  if (rows === 0 && !_hasResidue()) return null;
+
+  const result = remove({ ...options, conn });
+  return {
+    purged: true,
+    removedRows: result.removedRows,
+    removedChunks: result.removedChunks,
+    removedDirs: result.removedDirs
+  };
 }
 
 /**
@@ -393,6 +458,7 @@ module.exports = {
   getState,
   install,
   remove,
+  purgeLegacyResidue,
   status,
   createTar,
   readTar

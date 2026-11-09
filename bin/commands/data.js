@@ -21,7 +21,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { HOME, DB_PATH } = require("../lib/paths");
+const { DB_PATH, KONOHA } = require("../lib/paths");
 const {
   C,
   log,
@@ -189,7 +189,7 @@ async function cmdDataView() {
 }
 
 function pruneSearxngLogs() {
-  const searxngDir = path.join(HOME, '.konoha', 'searxng');
+  const searxngDir = path.join(KONOHA, 'searxng');
   const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
   let searxngSavedBytes = 0;
   pruneFiles.forEach(f => {

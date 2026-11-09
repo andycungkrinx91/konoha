@@ -2,16 +2,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
 
 const {
   HOME,
   SKILLS_DB_DIR,
   DB_PATH,
   SERVER_PATH,
-  MIGRATE_PATH,
-  MIGRATION_TIMEOUT_MS,
-  INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
   FILE_TOOLS_MCP_PATH,
   MCP_CONFIG_PATH,
   DEFAULT_SKILLS_DIRS,
@@ -287,44 +283,57 @@ function maybeAutoStartUiDaemon(versionChanged) {
   } catch { /* best-effort */ }
 }
 
-function runBootstrapProcess(bootstrapArgs, extraArgs, safeTimeoutMs) {
-  try {
-    let run = spawnSync(process.execPath, [...bootstrapArgs, ...extraArgs], {
-      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: safeTimeoutMs
-    });
-    if (run.status !== 0) {
-      spawnSync(process.execPath, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS
-      });
+function runBootstrapProcess(bootstrapOptions) {
+  const migrate = require('../../src/migrate');
+  const attempt = async (opts) => {
+    try {
+      return await migrate.runMigration(opts);
+    } catch (err) {
+      return { ok: false, reason: err.message };
     }
-    return true;
-  } catch (_) {
+  };
+  return (async () => {
+    let result = await attempt(bootstrapOptions);
+    if (result && result.ok !== false) return true;
+    await attempt({
+      skillsDir: bootstrapOptions.skillsDir,
+      skills: bootstrapOptions.skills,
+      requireSkill: bootstrapOptions.requireSkill,
+      skillsOnly: true,
+      skipEmbeddings: true
+    });
     return false;
-  }
+  })();
 }
 
-function bootstrapSkillsMigration(pkgSkillsDir) {
+async function bootstrapSkillsMigration(pkgSkillsDir) {
   process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
-  const extraArgs = (process.env.KONOHA_SEMANTIC_SEARCH === '0' || process.env.KONOHA_SEMANTIC_SEARCH === 'false') ? ['--skip-embeddings'] : [];
-  const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
-  const safeTimeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
+  const skipEmbeddings = process.env.KONOHA_SEMANTIC_SEARCH === '0' || process.env.KONOHA_SEMANTIC_SEARCH === 'false';
 
   if (fileExists(pkgSkillsDir)) {
     const skills = detectCustomSkills(pkgSkillsDir);
     if (skills.length > 0) {
-      const bootstrapArgs = [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'];
-      if (runBootstrapProcess(bootstrapArgs, extraArgs, safeTimeoutMs)) return;
+      const done = await runBootstrapProcess({
+        skillsDir: pkgSkillsDir,
+        skills,
+        requireSkill: ['genin-skill'],
+        skipEmbeddings,
+        rebuildEmbeddings: !skipEmbeddings
+      });
+      if (done) return;
     }
   }
 
   try {
-    spawnSync(process.execPath, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
-      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: safeTimeoutMs
+    await require('../../src/migrate').runMigration({
+      requireSkill: ['genin-skill'],
+      skipEmbeddings,
+      rebuildEmbeddings: !skipEmbeddings
     });
   } catch (_) { /* best-effort */ }
 }
 
-function ensureAutoSetup(force = false) {
+async function ensureAutoSetup(force = false) {
   const AUTO_SETUP_STATE_PATH = path.join(SKILLS_DB_DIR, '.auto_setup_state.json');
   const cliVer = getCliVersion();
   const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
@@ -351,7 +360,7 @@ function ensureAutoSetup(force = false) {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     }
-    bootstrapSkillsMigration(pkgSkillsDir);
+    await bootstrapSkillsMigration(pkgSkillsDir);
   }
 
   try {

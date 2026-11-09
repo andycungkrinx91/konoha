@@ -157,9 +157,11 @@ async function run() {
     readme.includes('andycungkrinx91.konoha-bridge-master-universal'),
     'README must document master extension path'
   );
+  // konoha init demonstrably creates ~/.cursor/skills, so the README must
+  // document it as a mirror root rather than deny it.
   assert.ok(
-    !/(?:mirrors?|synced from).*\.cursor\/skills|\.cursor\/skills.*(?:mirrored|synced)/i.test(readme),
-    'README must not advertise a Cursor skill mirror'
+    readme.includes('~/.cursor/skills'),
+    'README must document ~/.cursor/skills as a mirror root'
   );
 
   // Check ARCHITECTURE.md

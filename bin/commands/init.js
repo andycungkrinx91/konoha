@@ -18,7 +18,8 @@ const {
   SRC_DIR,
   SKILLS_DB_DIR,
   SERVER_PATH,
-  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
+  UI_PORT
 } = require('../lib/paths');
 const { fileExists, ensureDir } = require('../../src/platform_utils');
 const {
@@ -89,7 +90,7 @@ function cmdInitHelp() {
 }
 
 function recordAutoSetupState() {
-  const marker = path.join(HOME, '.konoha', '.autosetup-done');
+  const marker = path.join(SKILLS_DB_DIR, '.autosetup-done');
   try {
     ensureDir(path.dirname(marker));
     fs.writeFileSync(marker, `${Date.now()}\n`);
@@ -142,7 +143,7 @@ async function autoStartUiDaemonIfRequested(options) {
     try {
       const uiAuto = await ensureUiDaemonAutoStart();
       if (uiAuto?.started) {
-        info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:1404/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
+        info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:${UI_PORT}/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
       }
     } catch { /* intentional fallback */ }
   }
@@ -289,7 +290,7 @@ async function cmdInit(args, options = {}) {
     purgePackageCaches({ silent: true });
     try {
       const { cmdUiStop } = require('../lib/ui_commands');
-      await cmdUiStop(['--port=1404']);
+      await cmdUiStop([`--port=${UI_PORT}`]);
     } catch (_) { /* non-fatal best effort */ }
   }
   drawLogo();
@@ -348,7 +349,7 @@ async function cmdInit(args, options = {}) {
   const skipEmbed = args.includes('--no-embed');
   const migrationArgs = buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed });
 
-  executeInitMigration({
+  await executeInitMigration({
     skillsDirs,
     skills,
     migrationArgs,

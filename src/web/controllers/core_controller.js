@@ -7,7 +7,7 @@ const db = require('../../db');
 const dbBridges = require('../../db_bridges');
 const dbSavings = require('../../db_savings');
 const agentManager = require('../../agent_manager');
-const { SKILLS_DB_DIR } = require('../../../bin/lib/paths');
+const { SKILLS_DB_DIR, GATEWAY_PORT } = require('../../../bin/lib/paths');
 const { killProcessOnPort, checkPortActive } = require('../../platform_utils');
 const { handleBridgesModels, _fetchBridgeModels, _collectBridgeSources } = require('./bridge_models_controller');
 const {
@@ -379,13 +379,13 @@ async function _handleBridges(req, res, pathname, method, broadcastEvent) {
   if (method === 'GET' && pathname === '/api/v1/bridges/status') {
     try {
       const bridges = dbBridges.listBridges();
-      const gatewayRunning = await checkPortActive(19999);
+      const gatewayRunning = await checkPortActive(GATEWAY_PORT);
       const bridgeStatuses = await Promise.all(bridges.map(async (b) => ({
         name: b.name, port: b.port, provider: b.provider, enabled: Boolean(b.enabled),
         target_url: b.target_url, running: await checkPortActive(b.port)
       })));
       const sources = await _collectBridgeSources();
-      return sendJson(res, 200, { router_port: 19999, gateway_running: gatewayRunning, bridges: bridgeStatuses, sources });
+      return sendJson(res, 200, { router_port: GATEWAY_PORT, gateway_running: gatewayRunning, bridges: bridgeStatuses, sources });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
@@ -401,7 +401,7 @@ async function _stopGatewayProcess() {
       try { process.kill(pid, 'SIGTERM'); } catch (_) { /* ignore */ }
     }
   }
-  await killProcessOnPort(19999);
+  await killProcessOnPort(GATEWAY_PORT);
   if (fs.existsSync(pidFile)) {
     try { fs.unlinkSync(pidFile); } catch (_) { /* ignore */ }
   }
@@ -415,13 +415,13 @@ async function _handleGateway(req, res, pathname, sessionToken) {
 
   if (pathname === '/api/v1/bridges/gateway/start') {
     try {
-      if (await checkPortActive(19999)) {
-        return sendJson(res, 200, { status: 'already_running', port: 19999, gateway_running: true });
+      if (await checkPortActive(GATEWAY_PORT)) {
+        return sendJson(res, 200, { status: 'already_running', port: GATEWAY_PORT, gateway_running: true });
       }
       const child = spawnGatewayDaemon();
       await new Promise(r => setTimeout(r, 1200));
-      const nowRunning = await checkPortActive(19999);
-      return sendJson(res, 200, { status: nowRunning ? 'started' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
+      const nowRunning = await checkPortActive(GATEWAY_PORT);
+      return sendJson(res, 200, { status: nowRunning ? 'started' : 'starting', port: GATEWAY_PORT, gateway_running: nowRunning, pid: child.pid });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
@@ -430,13 +430,13 @@ async function _handleGateway(req, res, pathname, sessionToken) {
   if (pathname === '/api/v1/bridges/gateway/stop') {
     try {
       await _stopGatewayProcess();
-      const stillRunning = await checkPortActive(19999);
+      const stillRunning = await checkPortActive(GATEWAY_PORT);
       if (stillRunning) {
-        return sendJson(res, 500, { error: 'Failed to stop bridge proxy gateway: port 19999 remains active', gateway_running: true });
+        return sendJson(res, 500, { error: `Failed to stop bridge proxy gateway: port ${GATEWAY_PORT} remains active`, gateway_running: true });
       }
-      return sendJson(res, 200, { status: 'stopped', port: 19999, gateway_running: false });
+      return sendJson(res, 200, { status: 'stopped', port: GATEWAY_PORT, gateway_running: false });
     } catch (err) {
-      return sendJson(res, 500, { error: err.message, gateway_running: await checkPortActive(19999) });
+      return sendJson(res, 500, { error: err.message, gateway_running: await checkPortActive(GATEWAY_PORT) });
     }
   }
 
@@ -446,8 +446,8 @@ async function _handleGateway(req, res, pathname, sessionToken) {
       await new Promise(r => setTimeout(r, 400));
       const child = spawnGatewayDaemon();
       await new Promise(r => setTimeout(r, 1200));
-      const nowRunning = await checkPortActive(19999);
-      return sendJson(res, 200, { status: nowRunning ? 'running' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
+      const nowRunning = await checkPortActive(GATEWAY_PORT);
+      return sendJson(res, 200, { status: nowRunning ? 'running' : 'starting', port: GATEWAY_PORT, gateway_running: nowRunning, pid: child.pid });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }

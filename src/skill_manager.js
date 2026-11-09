@@ -3,7 +3,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const https = require('https');
-const { spawnSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const skillGuardian = require('./workflow/kage-reviewer/skill_guardian');
 
@@ -57,7 +57,7 @@ const currentCwd = (() => {
   try { return process.cwd(); } catch (_) { return HOME; }
 })();
 const {
-  AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI, INSTALL_BUILD_MIGRATE_TIMEOUT_MS
+  AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
 } = require('../bin/lib/paths');
 
 function getSkillsScanDirs(_targetCwd = null) {
@@ -310,7 +310,7 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
   process.stderr.write(`📦 Installing "${skillName}" from ${normalizedRepo}...\n`);
   const isWin = process.platform === 'win32';
   const execCwd = (options && options.projectRoot) || currentCwd;
-  const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
+  const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
 
   let run = null;
   let pnpmError = null;
@@ -345,14 +345,10 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
   syncAllClientSkills({ projectRoot: execCwd, silent: false });
 
   process.stderr.write('\n🔄 Re-indexing SQLite database and embedding vectors...\n');
-  const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  const migrate = await runAsyncSpawn(resolvedNode, [cliPath, 'migrate', '--skills-dir', path.dirname(verifiedPath)], {
-    cwd: execCwd,
-    env: childEnv
-  });
-  if (migrate.status !== 0) {
-    const migrateErr = (migrate.stderr && migrate.stderr.trim()) || (migrate.stdout && migrate.stdout.trim()) || `Skill migration exited with status ${migrate.status}`;
-    process.stderr.write(`⚠️ Skill migration warning: ${migrateErr}\n`);
+  try {
+    require('./migrate').migrateSingleSkill(skillName, path.dirname(verifiedPath));
+  } catch (migrateErr) {
+    process.stderr.write(`⚠️ Skill migration warning: ${migrateErr.message}\n`);
   }
   try {
     const mcpSkills = require('./mcp/skills');
@@ -412,10 +408,8 @@ Standard Operating Procedures and guidelines for ${skillName}.
     deployUtils.syncCursorSkillsFromAgents({ deployProject: false, projectRoot: execCwd, silent: false });
 
     process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
-    const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-    const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
-    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', env: childEnv, windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
-    if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
+    const result = await require('./migrate').runMigration({});
+    if (result && result.ok === false) throw new Error('Skill migration reported missing required skills');
     return targetDir;
   } else {
     process.stderr.write(`✓ Skill "${skillName}" is already installed locally.\n`);
@@ -492,14 +486,15 @@ function autoMigrateProjectSkills(projectRoot) {
   const foundDirs = candidateDirs.filter(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
   if (foundDirs.length === 0) return { migrated: 0, skills: [], dirs: [] };
 
-  const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
+  const migrateModule = require('./migrate');
+  const { autoDetectSkills } = require('./migrate_helpers');
   let totalMigrated = 0;
   for (const dir of foundDirs) {
     try {
-      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', env: childEnv, windowsHide: true, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
-      if (run.status === 0) {
-        totalMigrated++;
+      // migrateSingleSkill is the synchronous in-process equivalent of the old
+      // `migrate --skills-dir` child process, and it needs no env juggling.
+      for (const skillName of autoDetectSkills(dir)) {
+        if (migrateModule.migrateSingleSkill(skillName, dir) > 0) totalMigrated++;
       }
     } catch { /* intentional best-effort fallback */ }
   }

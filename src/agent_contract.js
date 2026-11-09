@@ -2,7 +2,7 @@
 
 const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
 
-const CONTRACT_VERSION = '2.2.19';
+const CONTRACT_VERSION = '2.2.20';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 

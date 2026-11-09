@@ -6,6 +6,7 @@ const os = require('os');
 const { execSync } = require('child_process');
 const { fileExists, ensureDir, checkPortActive: defaultCheckPortActive } = require('../../src/platform_utils');
 const { C, header, log, info, success, warn, error } = require('./format');
+const { UI_PORT } = require('./paths');
 
 function getSystemdUserServicePath() {
   return path.join(os.homedir(), '.config', 'systemd', 'user', 'konoha-ui.service');
@@ -111,7 +112,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=${nodePath} ${cliPath} ui daemon --port=1404 --host=127.0.0.1
+ExecStart=${nodePath} ${cliPath} ui daemon --port=${UI_PORT} --host=127.0.0.1
 Restart=always
 RestartSec=3s
 Environment=NODE_ENV=production
@@ -130,7 +131,7 @@ WantedBy=default.target
     warn(`systemctl: ${e.message}`);
   }
   success('Konoha Web UI systemd user service installed and started successfully!');
-  info('URL: http://127.0.0.1:1404/');
+  info(`URL: http://127.0.0.1:${UI_PORT}/`);
 }
 
 function installLaunchdService() {
@@ -152,7 +153,7 @@ function installLaunchdService() {
     <string>${cliPath}</string>
     <string>ui</string>
     <string>daemon</string>
-    <string>--port=1404</string>
+    <string>--port=${UI_PORT}</string>
     <string>--host=127.0.0.1</string>
   </array>
   <key>RunAtLoad</key>
@@ -174,7 +175,7 @@ function installLaunchdService() {
     warn(`launchctl load: ${e.message}`);
   }
   success('Konoha Web UI launchd daemon service installed and loaded successfully!');
-  info('URL: http://127.0.0.1:1404/');
+  info(`URL: http://127.0.0.1:${UI_PORT}/`);
 }
 
 function uninstallSystemdService() {
@@ -237,19 +238,19 @@ function handleServiceAction(action, isLinux, isMac) {
 async function renderServiceStatusView(isLinux, isMac, checkPortActive) {
   header('Konoha Web UI OS Daemon Service Status');
   const svc = await getServiceStatus();
-  const portActive = await checkPortActive(1404);
+  const portActive = await checkPortActive(UI_PORT);
   if (!svc.installed) {
     log(`  ${C.dim}○ NOT INSTALLED${C.reset}  OS daemon service unit is not registered.`);
     log(`    Supported platform: ${isLinux ? 'Linux (systemd --user)' : isMac ? 'macOS (launchd)' : process.platform}`);
     log(`    Run ${C.cyan}konoha ui service install${C.reset} to configure automatic startup on boot.`);
-    log(`    Port 1404 listener: ${portActive ? `${C.green}ACTIVE (manual/detached daemon)` : `${C.dim}INACTIVE`}${C.reset}\n`);
+    log(`    Port ${UI_PORT} listener: ${portActive ? `${C.green}ACTIVE (manual/detached daemon)` : `${C.dim}INACTIVE`}${C.reset}\n`);
     return;
   }
   log(`  Platform:     ${svc.type.toUpperCase()}`);
   log(`  Unit File:    ${svc.path}`);
   log(`  State:        ${svc.active ? `${C.green}● ACTIVE (${svc.state})` : `${C.yellow}○ INACTIVE (${svc.state})`}${C.reset}`);
   log(`  Enabled:      ${svc.enabled ? `${C.green}YES (starts automatically on login/boot)` : `${C.yellow}NO`}${C.reset}`);
-  log(`  Web URL:      ${portActive ? `${C.cyan}http://127.0.0.1:1404/ (READY)` : `${C.yellow}PORT 1404 NOT RESPONDING`}${C.reset}\n`);
+  log(`  Web URL:      ${portActive ? `${C.cyan}http://127.0.0.1:${UI_PORT}/ (READY)` : `${C.yellow}PORT ${UI_PORT} NOT RESPONDING`}${C.reset}\n`);
 }
 
 async function cmdUiService(args = [], checkPortActive = defaultCheckPortActive) {

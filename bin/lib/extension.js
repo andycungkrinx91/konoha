@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, spawnSync } = require('child_process');
-const { HOME, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
+const { HOME, INSTALL_BUILD_MIGRATE_TIMEOUT_MS, KONOHA } = require('./paths');
 const { fileExists } = require('./prompt');
 const { log, info, warn, success } = require('./format');
 const { SEMBLE_PACKAGE } = require('../../src/semble_manager');
@@ -303,7 +303,7 @@ const PINNED_AB_VERSION = PINNED_AB_PACKAGE.slice(PINNED_AB_PACKAGE.indexOf('@')
 function resolveInstalledAgentBrowser() {
   const isWin = process.platform === 'win32';
   const bin = isWin ? 'agent-browser.cmd' : 'agent-browser';
-  const managed = path.join(HOME, '.konoha', 'tools', 'node_modules', '.bin', bin);
+  const managed = path.join(KONOHA, 'tools', 'node_modules', '.bin', bin);
   // An existing 0.3.x install is broken on linux-x64, so accept the managed copy
   // only when it reports the pinned version; anything else falls through and
   // triggers a reinstall.
@@ -353,7 +353,7 @@ function pinnedVersionOf(cmd, isWin) {
 }
 
 function tryManagedLocalInstall(isWin, stdioOpt) {
-  const candidates = managedInstallCandidates(path.join(HOME, '.konoha', 'tools'), isWin);
+  const candidates = managedInstallCandidates(path.join(KONOHA, 'tools'), isWin);
   for (const pm of candidates) {
     if (!tryInstallWithPm(pm, isWin, stdioOpt)) continue;
     const resolved = resolveInstalledAgentBrowser();
@@ -398,7 +398,7 @@ function installAgentBrowserDetailed(silent = false) {
 
   // Managed copy first: it needs no global bin directory, so it avoids
   // ERR_PNPM_GLOBAL_BIN_DIR_NOT_IN_PATH and never touches the user's global prefix.
-  const managedCandidates = managedInstallCandidates(path.join(HOME, '.konoha', 'tools'), isWin);
+  const managedCandidates = managedInstallCandidates(path.join(KONOHA, 'tools'), isWin);
   if (managedCandidates.length === 0) {
     attempts.push('no npm or pnpm found on PATH or in the standard install locations');
   } else {

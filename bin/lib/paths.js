@@ -23,6 +23,7 @@
 
 const path = require('path');
 const os = require('os');
+const { getConfigValue } = require('./config_defaults');
 
 
 /** Home directory (~) */
@@ -47,8 +48,12 @@ const SERVER_PATH = path.join(KONOHA, 'server.js');
 /** Migration entry point */
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
 
-/** Migration timeout: 900s (15 minutes) default for FTS5 + neural vector embedding generation */
-const MIGRATION_TIMEOUT_MS = 900000;
+/**
+ * Migration timeout: 900s (15 minutes) default for FTS5 + neural vector
+ * embedding generation. Resolved from `~/.konoha/config.json` so a slow machine
+ * can raise it without editing source.
+ */
+const MIGRATION_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms', 900000);
 
 /**
  * Canonical budget for every install / build / migrate / embed subprocess.
@@ -56,7 +61,19 @@ const MIGRATION_TIMEOUT_MS = 900000;
  * neural vector embedding generation all share a single 15-minute ceiling so no
  * long-running provisioning step can hang the CLI indefinitely.
  */
-const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = 900000;
+const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms', 900000);
+
+/**
+ * Service ports. Overridable from ~/.konoha/config.json so a port collision is a
+ * config change, not a source edit.
+ */
+const UI_PORT = getConfigValue('ui_port', 1404);
+const GATEWAY_PORT = getConfigValue('gateway_port', 19999);
+const BRIDGE_PORT = getConfigValue('bridge_port', 1313);
+const NINE_ROUTER_PORT = getConfigValue('nine_router_port', 20128);
+
+/** How long upgrade waits for the Web UI daemon to answer after a restart. */
+const UI_READY_TIMEOUT_MS = getConfigValue('ui_ready_timeout_ms', 180000);
 
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
@@ -242,6 +259,11 @@ module.exports = {
   MIGRATE_PATH,
   MIGRATION_TIMEOUT_MS,
   INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
+  UI_PORT,
+  GATEWAY_PORT,
+  BRIDGE_PORT,
+  NINE_ROUTER_PORT,
+  UI_READY_TIMEOUT_MS,
   DB_PATH,
   FINGERPRINT_PATH,
   BRIDGES_JSON_PATH,

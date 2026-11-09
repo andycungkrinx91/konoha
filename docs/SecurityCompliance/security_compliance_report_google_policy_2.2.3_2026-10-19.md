@@ -3,8 +3,10 @@
 **Product:** Konoha (`konoha-mcp`) — Multi-Agent MCP Orchestrator & Token-Saving Skills-DB Engine  
 **Version:** 2.2.3  
 **Report Date:** 2026-10-20  
-**Scope:** Deprecated Package Elimination (`inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`), XLSX Engine Modernization (`xlsx-populate`), Global Installation Self-Healing (`bin/postinstall.js`, resilient shims), Package Manifest & Lockfile Synchronization, Universal Polyglot Guardrails (`src/guardrails.js`), Web UI & TUI Cross-Platform Integrity, Playwright E2E Automation, and 100/100 Zero-AI-Slop Compliance.  
+**Scope:** Deprecated Package Elimination (`inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`), XLSX Engine Modernization (`xlsx-populate`), Global Installation Self-Healing (install-time lifecycle hook, resilient shims), Package Manifest & Lockfile Synchronization, Universal Polyglot Guardrails (`src/guardrails.js`), Web UI & TUI Cross-Platform Integrity, Playwright E2E Automation, and 100/100 Zero-AI-Slop Compliance.  
 **Prepared by:** Kage (Village Leader, Security & Architecture Reviewer) & Anbu (Black Ops & Backend Specialist)  
+
+> **Superseded (2.2.20, 2026-11-10):** the install-time lifecycle hook described in this report was removed. The package now declares no lifecycle script; installs rely on an explicit `konoha init --yes` or `konoha upgrade`. Everything else in this report is a 2.2.3 point-in-time snapshot.  
 
 ---
 
@@ -52,7 +54,7 @@ When a user deletes `~/.konoha` and attempts to run `konoha version`, previous v
 **Remediation Applied:**
 1. **Multi-Tier Resilient Shims (`bin/lib/runtime.js`)**: Updated `reconcileGlobalCommand()` to write multi-tier shims that test for the existence of `sourceCli` (`~/.konoha/bin/cli.js`) and gracefully fall back to `packageCli` (the installed package's `bin/cli.js`).
 2. **First-Run Self-Healing (`bin/cli.js`)**: Added a self-healing check in `main()` that immediately detects missing `~/.konoha/bin/cli.js` and calls `installCliRuntime()` and `reconcileGlobalCommand()`, restoring the home cache before executing any subcommand.
-3. **NPM Postinstall Hook (`bin/postinstall.js`, `package.json`)**: Added `"postinstall": "node bin/postinstall.js || true"` so that `npm i -g konoha-mcp` and `pnpm add -g konoha-mcp` automatically populate `~/.konoha` and reconcile global shims at installation time.
+3. **NPM Install-Time Hook (`package.json`)**: Added an install-time lifecycle script so that `npm i -g konoha-mcp` and `pnpm add -g konoha-mcp` automatically populate `~/.konoha` and reconcile global shims at installation time. (Removed again in 2.2.20 — see the superseded note above.)
 
 ---
 

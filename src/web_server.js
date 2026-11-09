@@ -6,7 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const webAuth = require('./auth');
 const deployUtils = require('./deploy_utils');
-const { SKILLS_DB_DIR } = require('../bin/lib/paths');
+const { SKILLS_DB_DIR, UI_PORT } = require('../bin/lib/paths');
 const authController = require('./web/controllers/auth_controller');
 const coreController = require('./web/controllers/core_controller');
 const activityController = require('./web/controllers/activity_controller');
@@ -351,7 +351,7 @@ function _startServer(server, port, host, sessionToken, instance) {
 }
 
 function createWebServer(options = {}) {
-  const port = options.port !== undefined ? options.port : 1404;
+  const port = options.port !== undefined ? options.port : UI_PORT;
   const host = options.host || '127.0.0.1';
   const tokenState = resolveInitialTokenState(options.token, Boolean(options.token));
   const sseClients = new Set();
@@ -451,7 +451,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-  const port = parseInt(process.env.PORT || '1404', 10);
+  const port = parseInt(process.env.PORT || String(UI_PORT), 10);
   const host = process.env.HOST || '127.0.0.1';
   startWebServer({ port, host }).then(({ url }) => {
     process.stdout.write(`[konoha web] Listening on ${url}\n`);

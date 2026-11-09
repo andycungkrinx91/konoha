@@ -36,8 +36,13 @@ check('package.json has no legacy pnpm key', () => {
   assert.strictEqual('pnpm' in pkg, false);
 });
 
-check('package.json has no overrides key (yaml is authoritative)', () => {
-  assert.strictEqual('overrides' in pkg, false);
+check('package.json overrides only duplicates the yaml image-size security pin', () => {
+  const keys = Object.keys(pkg.overrides || {});
+  assert.deepStrictEqual(
+    keys,
+    ['image-size'],
+    'package.json#overrides must stay empty except the documented image-size CVE pin; pnpm-workspace.yaml is authoritative'
+  );
 });
 
 check('packageManager is pinned', () => {

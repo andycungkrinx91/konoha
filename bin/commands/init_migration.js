@@ -1,16 +1,14 @@
 'use strict';
 
 const path = require('path');
-const { spawnSync } = require('child_process');
 const { fileExists } = require('../../src/platform_utils');
 const {
   HOME,
   DB_PATH,
-  SKILLS_DB_DIR,
   MIGRATE_PATH,
   MCP_CONFIG_PATH,
   SERVER_PATH,
-  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
+  UI_PORT
 } = require('../lib/paths');
 const cursorManager = require('../../src/cursor_manager');
 const { C, log, info, warn, error, drawBox, LEAF_THEME, getCliVersion } = require('../lib/format');
@@ -43,58 +41,83 @@ function measureEmbeddingCoverage(dbPath = DB_PATH) {
   }
 }
 
-function runMigrateProcess(args, timeoutMs) {
-  return spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
-    encoding: 'utf-8',
-    cwd: SKILLS_DB_DIR,
-    timeout: timeoutMs
-  });
-}
+async function runMigrationAttempts(migrationArgs, safeTimeoutMs) {
+  const migrate = require('../../src/migrate');
+  const baseOptions = {
+    skillsDir: _argValue(migrationArgs, '--skills-dir'),
+    skills: _argList(migrationArgs, '--skills'),
+    clean: migrationArgs.includes('--clean'),
+    timeBudgetSeconds: Math.floor(safeTimeoutMs / 1000)
+  };
 
-function runMigrationAttempts(migrationArgs, safeTimeoutMs) {
-  let run = runMigrateProcess(migrationArgs, safeTimeoutMs);
-  if (run.status === 0) return run;
+  const attempt = async (opts) => {
+    try {
+      return await migrate.runMigration(opts);
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  };
+
+  let result = await attempt({
+    ...baseOptions,
+    rebuildEmbeddings: !migrationArgs.includes('--skip-embeddings'),
+    skipEmbeddings: migrationArgs.includes('--skip-embeddings')
+  });
+  if (result && result.ok !== false) return { status: 0, result };
 
   // Retry without embeddings only when the first attempt actually asked for them.
   // `--no-embed` already passed --skip-embeddings, so re-running is identical.
   if (!migrationArgs.includes('--skip-embeddings')) {
-    run = runMigrateProcess([...migrationArgs, '--skip-embeddings'], safeTimeoutMs);
-    if (run.status === 0) return run;
+    result = await attempt({ ...baseOptions, skipEmbeddings: true, rebuildEmbeddings: false });
+    if (result && result.ok !== false) return { status: 0, result };
   }
 
-  const skillsOnlyArgs = migrationArgs.filter(a => a !== '--skip-embeddings');
-  const runFallback = runMigrateProcess([...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], INSTALL_BUILD_MIGRATE_TIMEOUT_MS);
-  if (runFallback.status === 0) {
+  const fallback = await attempt({ ...baseOptions, skipEmbeddings: true, skillsOnly: true, rebuildEmbeddings: false });
+  if (fallback && fallback.ok !== false) {
     warn("Reference indexing deferred: subagent skills are ready; references will index on first search or via 'konoha migrate'.");
+    return { status: 0, result: fallback };
   }
-  return runFallback;
+  return { status: 1, result: fallback, stderr: (fallback && fallback.reason) || 'Migration failed' };
 }
 
-function migrateSingleSkillsDir(sDirPath) {
+function _argValue(args, flag) {
+  const idx = args.indexOf(flag);
+  return idx >= 0 && args[idx + 1] ? args[idx + 1] : null;
+}
+
+function _argList(args, flag) {
+  const idx = args.indexOf(flag);
+  if (idx < 0) return [];
+  const out = [];
+  for (let i = idx + 1; i < args.length && !String(args[i]).startsWith('--'); i += 1) out.push(args[i]);
+  return out;
+}
+
+async function migrateSingleSkillsDir(sDirPath) {
   try {
-    spawnSync(process.execPath, [MIGRATE_PATH, '--skills-dir', sDirPath, '--skip-embeddings'], {
-      encoding: 'utf-8',
-      cwd: SKILLS_DB_DIR,
-      timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS
+    await require('../../src/migrate').runMigration({
+      skillsDir: sDirPath,
+      skipEmbeddings: true,
+      rebuildEmbeddings: false
     });
   } catch { /* intentional fallback */ }
 }
 
-function indexPreExistingSkills(skillsDirs, pkgSkillsDir) {
+async function indexPreExistingSkills(skillsDirs, pkgSkillsDir) {
   if (!Array.isArray(skillsDirs)) return;
   for (const sDir of skillsDirs) {
     if (sDir.path && sDir.path !== pkgSkillsDir && fileExists(sDir.path)) {
-      migrateSingleSkillsDir(sDir.path);
+      await migrateSingleSkillsDir(sDir.path);
     }
   }
 }
 
-function executeInitMigration(options) {
+async function executeInitMigration(options) {
   const { skillsDirs, skills, migrationArgs, safeTimeoutMs, python, pkgSkillsDir, spinner } = options;
-  const run = runMigrationAttempts(migrationArgs, safeTimeoutMs);
+  const run = await runMigrationAttempts(migrationArgs, safeTimeoutMs);
 
   if (run.status !== 0) {
-    const detail = run.error ? run.error.message : (run.stderr || run.stdout || 'Migration failed');
+    const detail = run.stderr || 'Migration failed';
     spinner.error(`Failed to initialize skills database: ${detail}`);
     process.exit(1);
   }
@@ -106,7 +129,7 @@ function executeInitMigration(options) {
   }
 
   spinner.success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
-  indexPreExistingSkills(skillsDirs, pkgSkillsDir);
+  await indexPreExistingSkills(skillsDirs, pkgSkillsDir);
 
   try {
     if (!hasCompleteDatabaseSchema()) throw new Error('required SQLite schema is incomplete');
@@ -154,7 +177,7 @@ function renderInitSummary(flags) {
   log(`  1. Restart IDE/CLI:  Restart Antigravity, Cursor${flags.claudeInstalled ? ', Claude Code' : ''}${flags.openCodeInstalled ? ', OpenCode' : ''}${flags.commandCodeInstalled ? ', Command Code' : ''}${flags.codexInstalled ? ', Codex' : ''} to load MCP servers`);
   log(`  2. Test execution:   ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:     ${C.cyan}konoha status${C.reset}`);
-  log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
+  log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:${UI_PORT}/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
   if (flags.skipEmbed) {
     log('');
     warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha migrate${C.reset} to enable semantic skill search.`);

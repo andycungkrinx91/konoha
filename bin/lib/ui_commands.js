@@ -6,7 +6,7 @@ const { spawn, execSync } = require('child_process');
 const http = require('http');
 const deployUtils = require('../../src/deploy_utils');
 const { fileExists } = require('../../src/platform_utils');
-const { SKILLS_DB_DIR } = require('./paths');
+const { SKILLS_DB_DIR, UI_PORT } = require('./paths');
 const { C, header, log, info, success, warn } = require('./format');
 
 const {
@@ -50,7 +50,7 @@ function openUrlInBrowser(targetUrl) {
 
 function uiPidFileForPort(port) {
   const p = parseInt(port, 10);
-  return path.join(SKILLS_DB_DIR, p === 1404 ? 'ui.pid' : `ui-${p}.pid`);
+  return path.join(SKILLS_DB_DIR, p === UI_PORT ? 'ui.pid' : `ui-${p}.pid`);
 }
 
 function checkPortActive(port) {
@@ -96,7 +96,7 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}preview${C.reset}     Preview the production build without installing as background daemon
 
 ${C.bold}OPTIONS${C.reset}
-  ${C.cyan}--port=<n>${C.reset}   Port to bind (default: 1404)
+  ${C.cyan}--port=<n>${C.reset}   Port to bind (default: ${UI_PORT})
   ${C.cyan}--host=<h>${C.reset}   Host to bind (default: 127.0.0.1)
   ${C.cyan}--no-open${C.reset}    Do not automatically open the browser on start
   ${C.cyan}--fg${C.reset}         Run in foreground instead of detached background process
@@ -112,7 +112,7 @@ ${C.bold}EXAMPLES${C.reset}
 }
 
 function parseHostPortOptions(args) {
-  let port = 1404;
+  let port = UI_PORT;
   let host = '127.0.0.1';
   let openBrowser = true;
   let foreground = false;
@@ -165,7 +165,7 @@ async function cmdUiDaemon(args = []) {
 }
 
 async function ensureUiDaemonAutoStart(options = {}) {
-  const port = options.port || 1404;
+  const port = options.port || UI_PORT;
   const host = options.host || '127.0.0.1';
   const silent = Boolean(options.silent);
   const optOut = String(process.env.KONOHA_UI_AUTOSTART || '').trim().toLowerCase();
@@ -298,7 +298,7 @@ async function cmdUiStart(args = []) {
   }
 }
 
-function parseTargetPort(args, defaultPort = 1404) {
+function parseTargetPort(args, defaultPort = UI_PORT) {
   let target = defaultPort;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) target = parseInt(args[++i], 10);
@@ -364,7 +364,7 @@ async function terminatePortListeners(stopPort) {
 }
 
 function stopSystemdIfActive(stopPort) {
-  if (stopPort !== 1404 || !isSystemdAvailable()) return;
+  if (stopPort !== UI_PORT || !isSystemdAvailable()) return;
   try {
     const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
     if (out === 'active') {
@@ -374,7 +374,7 @@ function stopSystemdIfActive(stopPort) {
 }
 
 async function cmdUiStop(args = []) {
-  const stopPort = parseTargetPort(args, 1404);
+  const stopPort = parseTargetPort(args, UI_PORT);
   header('Stopping Konoha Web Configuration UI');
   const pidFile = uiPidFileForPort(stopPort);
   const daemonPattern = `ui daemon --port=${stopPort}`;
@@ -395,7 +395,7 @@ async function cmdUiStop(args = []) {
 }
 
 function restartSystemdIfActive(restartPort) {
-  if (restartPort !== 1404 || !isSystemdAvailable()) return false;
+  if (restartPort !== UI_PORT || !isSystemdAvailable()) return false;
   try {
     const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
     if (out === 'active') {
@@ -410,7 +410,7 @@ function restartSystemdIfActive(restartPort) {
 
 async function cmdUiRestart(args = []) {
   header('Restarting Konoha Web Configuration UI');
-  const restartPort = parseTargetPort(args, 1404);
+  const restartPort = parseTargetPort(args, UI_PORT);
 
   if (restartSystemdIfActive(restartPort)) return;
 
@@ -458,7 +458,7 @@ function fetchUiHealthData(port) {
 }
 
 async function cmdUiStatus(args = []) {
-  const port = parseTargetPort(args, 1404);
+  const port = parseTargetPort(args, UI_PORT);
   header('Konoha Web Configuration UI Status');
   const active = await checkPortActive(port);
   const pidFile = uiPidFileForPort(port);
@@ -540,7 +540,7 @@ ${C.bold}USAGE${C.reset}
   konoha web [options]
 
 ${C.bold}OPTIONS${C.reset}
-  ${C.cyan}--port=<n>${C.reset}   Port to bind (default: 1404)
+  ${C.cyan}--port=<n>${C.reset}   Port to bind (default: ${UI_PORT})
   ${C.cyan}--host=<h>${C.reset}   Host to bind (default: 127.0.0.1)
   ${C.cyan}--no-open${C.reset}    Do not automatically open the browser
   ${C.cyan}--bg${C.reset}         Run as detached background process (default: foreground)

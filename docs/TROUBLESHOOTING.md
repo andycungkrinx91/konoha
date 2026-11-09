@@ -76,7 +76,19 @@ node --version  # Must be >= 24.0.0
 ### ❌ `Runtime not initialized. Run "konoha init --yes" first.`
 
 - **Cause**: the package is installed but `~/.konoha` has no runtime yet. `bin/cli.js` detects `Cannot find module '…/.konoha/…'` and replaces the raw stack with this message.
-- **Fix**: `konoha init --yes`. Full install mode notes: `npm install -g konoha-mcp@latest` posts a guidance-only `postinstall` (no network, no installs, no `$HOME` writes) and does **not** initialize the runtime for you.
+- **Fix**: `konoha init --yes`. Install mode notes: `npm install -g konoha-mcp@latest` (or `npm install -g ./konoha-mcp-<version>.tgz` from a packed tarball) runs no install-time script at all, so it cannot initialize the runtime for you — and it never will.
+
+---
+
+### ❌ `npm error code EALLOWSCRIPTS` during a global install (affected ≤ 2.2.19)
+
+- **Cause**: 2.2.19 and earlier declared an install-time lifecycle script for a guidance-only shim. Stock npm refuses to run lifecycle scripts a package ships unless they are allowlisted, so the install aborted before the CLI was linked. The script itself never executed, and nothing depended on it — it only printed guidance.
+- **Fix**: upgrade to 2.2.20 or later, which ships no lifecycle script at all. Do **not** allowlist lifecycle scripts for this package (no `allowScripts` entry, no npmrc workaround) and do not re-add one; none is needed.
+  ```bash
+  npm install -g konoha-mcp@latest
+  konoha init --yes   # or: konoha upgrade
+  ```
+- **Note**: the gate only fires when a package ships lifecycle scripts; 2.2.20 ships none, so an `EALLOWSCRIPTS` error means the old version is still being resolved.
 
 ---
 
@@ -120,9 +132,10 @@ node --version  # Must be >= 24.0.0
 
 ### ⚠️ `The "pnpm" field in package.json is no longer read` / `ignored: "pnpm.auditConfig"`
 
-- **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and `package.json#overrides` was duplicated dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both keys were removed in 2.2.19.
+- **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and the `package.json#overrides` copy that duplicated the YAML was dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both were removed in 2.2.19.
 - **Current state**: `pnpm-workspace.yaml` carries `overrides` plus `audit:\n  ignore:\n    - "GHSA-gcqx-w48m-w2h4"`. CVE-2026-93753 is **no longer suppressed** — pnpm 12 has no CVE-level suppression, and this is a documented accepted change.
-- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `{"ignore":["GHSA-gcqx-w48m-w2h4"]}`. Do not re-add `package.json#pnpm` or `package.json#overrides`.
+- **2.2.20 exception**: `package.json#overrides` is back for exactly one entry, `image-size: ">=2.0.3"`. npm ignores a dependency's own `overrides`, so the shipped copy is what carries the CVE-2025-71330 / CVE-2025-71329 patch to npm consumers; pnpm still reads its own `>=2.0.4` floor from the YAML. Do not remove it, and do not re-add `package.json#pnpm` or any other override.
+- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `{"ignore":["GHSA-gcqx-w48m-w2h4"]}`.
 
 ---
 
@@ -497,7 +510,11 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **`The value of "timeout" is out of range. It must be an unsigned integer. Received NaN` on `konoha migrate --rebuild-embeddings` (`v2.2.3`)**:
   - **Symptom**: Running `konoha migrate --rebuild-embeddings` or `konoha embed` aborts with `✗ Migration failed: The value of "timeout" is out of range. It must be an unsigned integer. Received NaN` followed by `↯ Migration timed out; run "konoha migrate" again to finish remaining references.`
   - **Reason**: `MIGRATION_TIMEOUT_MS` was omitted from the exports of `bin/lib/paths.js`, evaluating to `undefined` in `bin/commands/migrate.js`. The expression `Math.max(MIGRATION_TIMEOUT_MS, 300000)` produced `NaN`, causing Node.js `child_process.spawnSync` to throw `ERR_OUT_OF_RANGE`.
-  - **Fix**: Resolved in `v2.2.3` by exporting `MIGRATION_TIMEOUT_MS = 180000` from `bin/lib/paths.js` and adding defensive normalization (`Number.isFinite(raw) && raw > 0 ? raw : 180000`) across `migrate.js`, `init.js`, `doctor.js`, and `runtime.js`, allocating 600s for dense vector embedding generation.
+  - **Fix**: Resolved in `v2.2.3` by exporting `MIGRATION_TIMEOUT_MS = 180000` from `bin/lib/paths.js` and adding defensive normalization (`Number.isFinite(raw) && raw > 0 ? raw : 180000`) across `migrate.js`, `init.js`, `doctor.js`, and `runtime.js`, allocating 600s for dense vector embedding generation. The hardcoded 180000 literal is superseded in 2.2.20: `MIGRATION_TIMEOUT_MS` now resolves from `install_build_migrate_timeout_ms` (900000 ms default) through `bin/lib/config_defaults.js`.
+* **`↯ Migration timed out; run "konoha migrate" again to finish remaining references` on a large skill tree**:
+  - **Symptom**: `konoha migrate`, `konoha embed`, or the migrate stage of `konoha upgrade` stops partway and asks to be re-run, even though the surrounding step waited 15 minutes.
+  - **Reason**: the embedding pass inside `src/migrate.js` had its own 300 s cap, independent of the caller's `INSTALL_BUILD_MIGRATE_TIMEOUT_MS` (900000 ms). A caller waiting 900 s still saw the embedding stage truncated at 300 s, so the tail of the reference set was deferred.
+  - **Fix**: in 2.2.20 the pass defaults to 900 s. On a slow or loaded machine, raise it with `KONOHA_MIGRATE_TIME_BUDGET=1800 konoha migrate` (the embedding pass reads that variable directly). `konoha migrate` is resumable: it indexes only what is missing, so re-running continues rather than restarting.
 
 * **Severe Token-Burn on Website & Mockup Build Requests (`build_from_text` / `build_from_source`)**:
   - **Symptom**: A single call to `build_from_text` or `build_from_source` returned over 100 KB (~26,000 tokens), causing context overflow and burning API quotas.

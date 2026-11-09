@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.19  
+**Document Version:** 2.2.20  
 **Date:** 2026-11-04  
-**Status:** Canonical Reference (v2.2.19 Complete)  
+**Status:** Canonical Reference (v2.2.20 Complete)  
 
 ---
 
@@ -399,13 +399,13 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Every fresh install and in-place upgrade works on Windows 10/11, Linux, and macOS, and every failure is reported instead of masked.
 * **Canonical Implementation:** `bin/commands/doctor_runtime.js` (`purgeInvalidRuntimeMirrors`), `bin/commands/upgrade.js` (`readInstalledVersion`, upgrade-pending marker), `bin/lib/runtime_install.js` (`resolveWebBuildSource`, `readBuildVersion`), `bin/lib/extension.js` (`installAgentBrowserDetailed`, `provisionAgentBrowser`), `bin/cli.js` (Node 24 guard, interrupted-upgrade warning, uninitialized-runtime message), `src/deploy_utils.js` (`mirrorReferenceEntrypoints`, `removeNestedSkillDir`), `src/file_tools_mcp.js` (`parseToolArguments`), `src/mcp/skills_common.js` (`validateSkillPath`, `resolveSkillPathWithinRoot`).
-* **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); `postinstall` prints guidance only and performs no network access or runtime setup.
+* **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); the package declares no install-time lifecycle script, so installs perform no network access, no package installation, and no runtime setup (explicit `konoha init --yes`); `overrides.image-size >= 2.0.3` plus `bundleDependencies: ["pptxgenjs"]` ship the CVE-patched `image-size` subtree, and the tarball is produced with `pnpm pack`.
 * **Failure transparency:** an upgrade whose package install fails exits 1 before the post-upgrade lifecycle; version verification never substitutes the requested version for the installed one; a missing agent-browser reports `QA blocked:` in `init` and `{ error: 'qa_blocked' }` from `qa_codify`.
-* **Tests:** `tests/test_install_layout_integrity.js`, `tests/test_mcp_argument_parsing.js`, `tests/test_skill_uri_resolution.js`, `tests/test_pnpm_config_migration.js`, `tests/test_upgrade_failure_reporting.js`, `tests/test_postinstall_contract.js`.
+* **Tests:** `tests/test_install_layout_integrity.js`, `tests/test_mcp_argument_parsing.js`, `tests/test_skill_uri_resolution.js`, `tests/test_pnpm_config_migration.js`, `tests/test_upgrade_failure_reporting.js`.
 
 | Platform | Verified | Evidence |
 |---|---|---|
-| Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. 20 targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, postinstall, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner builds a fresh golden seed and runs 262 suites; it was not run to completion here — the targeted set is the evidence above. |
+| Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. The targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner builds a fresh golden seed and runs 262 suites; it was not run to completion here — the targeted set is the evidence above. |
 | Windows 10/11 | **no — not run** | Requires a Windows runner. The `EBUSY` upgrade-marker path in particular is unexercised. |
 | macOS arm64 / x64 | **no — not run** | Requires macOS runners. Case-sensitivity behavior verified only on Linux. |
 

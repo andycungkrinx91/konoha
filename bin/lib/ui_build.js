@@ -5,7 +5,7 @@ const path = require('path');
 const { spawn, execSync } = require('child_process');
 const deployUtils = require('../../src/deploy_utils');
 const { fileExists } = require('../../src/platform_utils');
-const { SKILLS_DB_DIR, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
+const { SKILLS_DB_DIR, INSTALL_BUILD_MIGRATE_TIMEOUT_MS, UI_PORT } = require('./paths');
 const { getCliVersion } = require('./format');
 const { C, header, log, info, success, warn, error, drawLogo } = require('./format');
 
@@ -127,7 +127,7 @@ async function cmdUiBuild() {
 
 async function cmdUiPreview(args = []) {
   header('Previewing Konoha Web UI Production Build');
-  let port = 1404;
+  let port = UI_PORT;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) port = parseInt(args[++i], 10);
     else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
@@ -166,7 +166,7 @@ function setupForegroundShutdown(srv, resolve) {
 }
 
 async function cmdWebForeground(options = {}) {
-  const port = options.port || Number(process.env.PORT) || 1404;
+  const port = options.port || Number(process.env.PORT) || UI_PORT;
   const host = options.host || process.env.HOST || '127.0.0.1';
   const openBrowser = process.env.KONOHA_DOCKER === '1' ? false : (options.openBrowser !== false);
   const token = options.token || null;

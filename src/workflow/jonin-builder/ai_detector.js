@@ -22,7 +22,9 @@ const path = require('path');
 const MAX_FILES = 1500;
 const MAX_FILE_BYTES = 768 * 1024;
 const MAX_FINDINGS = 50;
-const URL_TIMEOUT_MS = 20000;
+const { getConfigValue } = require('../../config_access');
+
+const URL_TIMEOUT_MS = getConfigValue('url_timeout_ms', 20000);
 const SKIP_DIRS = new Set([
   'node_modules', '.git', '.next', '.svelte-kit', 'dist', 'build',
   'output', '.output', '.nuxt', '.turbo', '.vercel', 'coverage'

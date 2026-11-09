@@ -64,7 +64,9 @@ const ACTIVE_JOB_STAGES = new Set([
 ]);
 
 const LIVE_GLB_POLL_INTERVAL_MS = 150;
-const LIVE_GLB_POLL_TIMEOUT_MS = 15000;
+const { getConfigValue } = require('../../config_access');
+
+const LIVE_GLB_POLL_TIMEOUT_MS = getConfigValue('live_glb_poll_timeout_ms', 15000);
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

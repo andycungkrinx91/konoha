@@ -272,7 +272,7 @@ async function main() {
   // Run background auto-setup exclusively during explicit doctor checks
   if (command === 'doctor') {
     try {
-      ensureAutoSetup();
+      await ensureAutoSetup();
     } catch (_) {
       // Never block CLI on auto-setup failures
     }

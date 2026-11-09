@@ -17,6 +17,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const db = require('./db');
+const { getConfigValue } = require('./config_access');
 const {
   seedAgents: seedAgentsHelper,
   extractTagsFromFrontmatter,
@@ -396,6 +397,16 @@ function _purgeExistingSkills(conn, options) {
 }
 
 async function runMigration(options = {}) {
+  const prevDbPath = DB_PATH;
+  try {
+    return await _runMigration(options);
+  } finally {
+    // Module-level path state must not leak between in-process calls.
+    DB_PATH = prevDbPath;
+  }
+}
+
+async function _runMigration(options = {}) {
   const globalSkillsDir = path.normalize(path.join(os.homedir(), ".agents", "skills"));
   const templateSkillsDir = path.resolve(__dirname, "templates", "skills");
   const srcTemplateSkillsDir = path.resolve(process.cwd(), "src", "templates", "skills");
@@ -437,9 +448,12 @@ async function runMigration(options = {}) {
   // A fresh install embeds 228 skills + references in ~163 s on a laptop, so the
   // old 150 s default truncated the alphabetical tail on every single install.
   // The budget only bounds how long migration may run before deferring the rest;
-  // raise it rather than shrink the work.
-  let timeBudget = 300.0;
-  if (process.env.KONOHA_MIGRATE_TIME_BUDGET) {
+  // it must never be shorter than the caller's own timeout, or the work is
+  // silently truncated while the caller still believes it finished.
+  let timeBudget = getConfigValue('migrate_time_budget_seconds', 900.0);
+  if (options.timeBudgetSeconds) {
+    timeBudget = options.timeBudgetSeconds;
+  } else if (process.env.KONOHA_MIGRATE_TIME_BUDGET) {
     const parsed = parseFloat(process.env.KONOHA_MIGRATE_TIME_BUDGET);
     if (!isNaN(parsed)) timeBudget = parsed;
   }
@@ -460,6 +474,14 @@ async function runMigration(options = {}) {
   seedAgents(conn);
   const soulCount = seedSoulArchetypes(conn);
   log(`  ✓ Seeded ${soulCount} soul archetypes into soul_archetypes (SQLite-first).`);
+
+  // Upgrades from <= 2.2.19 can still carry cyber rows and on-disk copies from a
+  // pack the user already removed. Clean them here so `doctor --vps` stops
+  // failing; an opted-in pack is untouched.
+  try {
+    const purge = require('./cyber_pack').purgeLegacyResidue(conn, { dbPath: DB_PATH });
+    if (purge) log(`  ✓ Purged cyber-pack residue: ${purge.removedRows} rows, ${purge.removedDirs.length} dirs.`);
+  } catch (_) { /* optional cleanup must never break migration */ }
 
   _purgeExistingSkills(conn, options);
 
@@ -488,7 +510,7 @@ async function runMigration(options = {}) {
     if (missingRequired.length) log(`  ✗ Required canonical skills missing: ${missingRequired.join(', ')}`);
     if (remainingLegacy.length) log(`  ✗ Legacy skill rows remain: ${remainingLegacy.join(', ')}`);
     conn.close();
-    process.exit(1);
+    return { ok: false, reason: 'required_skills_missing', missingRequired, remainingLegacy, indexed: total };
   }
 
   _cleanDeletedSkills(conn, options);
@@ -506,6 +528,7 @@ async function runMigration(options = {}) {
   conn.pragma('foreign_keys = ON');
   conn.close();
   log(`\n✅ Migration complete! ${total} entries indexed.`);
+  return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH };
 }
 
 
@@ -525,7 +548,8 @@ async function main() {
     console.log('  --help, -h               Show this help message');
     return;
   }
-  await runMigration(options);
+  const result = await runMigration(options);
+  if (result && result.ok === false) process.exit(1);
 }
 
 if (require.main === module) {

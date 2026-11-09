@@ -5,11 +5,8 @@
  */
 
 
-const { spawnSync } = require("child_process");
-
-const { SKILLS_DB_DIR, MIGRATE_PATH, MIGRATION_TIMEOUT_MS, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
 const { C, log, info, warn, error, success, header } = require("../lib/format");
-const { fileExists } = require("../lib/prompt");
+
 const { moveUnusedSkills, detectSkillsDirs, syncTemplateSkills } = require("../lib/runtime");
 const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
 const agentManager = require("../../src/agent_manager");
@@ -39,27 +36,52 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
-function runMigrationProcess(runArgs, timeoutMs) {
-  let run = spawnSync(process.execPath, runArgs, {
-    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
+/**
+ * Index skills and rebuild the FTS5/vector database.
+ *
+ * Runs in-process: a spawned child node made every failure an opaque status
+ * code, doubled peak memory, and needed a timeout budget the caller could not
+ * actually enforce from the inside.
+ */
+async function runInProcessMigration(options = {}) {
+  const migrate = require('../../src/migrate');
+  return migrate.runMigration({
+    skillsDir: options.skillsDir || null,
+    skillsDirs: options.skillsDirs || [],
+    clean: options.clean || false,
+    rebuildEmbeddings: options.rebuildEmbeddings || false,
+    skipEmbeddings: options.skipEmbeddings || false,
+    skillsOnly: options.skillsOnly || false,
+    timeBudgetSeconds: options.timeBudgetSeconds
   });
-  if (run.status !== 0) {
-    const fallback = [...runArgs.filter(a => a !== '--rebuild-embeddings'), '--skills-only', '--skip-embeddings'];
-    run = spawnSync(process.execPath, fallback, {
-      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
-    });
-  }
-  return run;
 }
 
-function runCustomDirMigration(customDir, cleanArgs, flags, timeoutMs) {
+/**
+ * Keep the historical behaviour: if a full run fails, retry without embeddings
+ * so the skills are at least searchable through FTS5.
+ */
+async function runMigrationWithFallback(options = {}) {
+  const first = await runInProcessMigration(options);
+  if (first && first.ok !== false) return first;
+  return runInProcessMigration({
+    skillsDir: options.skillsDir || null,
+    clean: options.clean || false,
+    skipEmbeddings: true,
+    skillsOnly: true
+  });
+}
+
+async function runCustomDirMigration(customDir, cleanArgs, flags) {
   try {
-    const runArgs = [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir];
-    if (flags.hasRebuildEmbeddings) runArgs.push('--rebuild-embeddings');
-    if (flags.hasSkipEmbeddings) runArgs.push('--skip-embeddings');
-    const run = runMigrationProcess(runArgs, timeoutMs);
-    if (run.status !== 0) throw new Error(run.stderr || run.error?.message || 'Migration failed');
-    log(run.stdout);
+    const result = await runMigrationWithFallback({
+      skillsDir: customDir,
+      clean: cleanArgs.includes('--clean'),
+      rebuildEmbeddings: flags.hasRebuildEmbeddings,
+      skipEmbeddings: flags.hasSkipEmbeddings
+    });
+    if (result && result.ok === false) {
+      throw new Error((result.missingRequired || []).join(', ') || result.reason || 'Migration failed');
+    }
     success('Migration complete!');
   } catch (e) {
     warn(`Migration timed out or partially failed: ${e.message}`);
@@ -67,38 +89,18 @@ function runCustomDirMigration(customDir, cleanArgs, flags, timeoutMs) {
   }
 }
 
-function runAutoDirsMigration(skillsDirs, cleanArgs, flags, timeoutMs) {
-  if (skillsDirs.length === 0) {
-    try {
-      const fallbackArgs = [MIGRATE_PATH, ...cleanArgs];
-      if (flags.hasRebuildEmbeddings) fallbackArgs.push('--rebuild-embeddings');
-      if (flags.hasSkipEmbeddings) fallbackArgs.push('--skip-embeddings');
-      const runFallback = runMigrationProcess(fallbackArgs, timeoutMs);
-      if (runFallback.status !== 0) throw new Error(runFallback.stderr || runFallback.error?.message || 'Migration failed');
-      log(runFallback.stdout);
-      success('Migration complete!');
-    } catch (e) {
-      warn(`Migration timed out or partially failed: ${e.message}`);
-      warn('Run "konoha migrate" again to finish remaining references.');
-    }
-    return;
-  }
-
-  const migrateArgs = [MIGRATE_PATH, ...cleanArgs];
-  if (flags.hasRebuildEmbeddings) migrateArgs.push('--rebuild-embeddings');
-  if (flags.hasSkipEmbeddings) migrateArgs.push('--skip-embeddings');
-  for (const dir of skillsDirs) migrateArgs.push('--skills-dir', dir.path);
-
+async function runAutoDirsMigration(skillsDirs, cleanArgs, flags) {
   try {
-    const run = runMigrationProcess(migrateArgs, timeoutMs);
-    if (run.status === 0) {
-      log(run.stdout);
-      success('Migration complete for all skill directories!');
-    } else {
-      const errMsg = (run.stderr || '').trim() || run.error?.message || `process exited with code ${run.status}`;
-      error(run.error?.code === 'ETIMEDOUT' ? `Migration timed out after ${Math.round(timeoutMs / 1000)}s: ${errMsg}` : `Migration failed: ${errMsg}`);
-      warn('Migration timed out; run "konoha migrate" again to finish remaining references.');
+    const last = await runMigrationWithFallback({
+      skillsDirs: skillsDirs.map((d) => d.path),
+      clean: cleanArgs.includes('--clean'),
+      rebuildEmbeddings: flags.hasRebuildEmbeddings,
+      skipEmbeddings: flags.hasSkipEmbeddings
+    });
+    if (last && last.ok === false) {
+      throw new Error((last.missingRequired || []).join(', ') || last.reason || 'Migration failed');
     }
+    success('Migration complete for all skill directories!');
   } catch (e) {
     error(`Migration failed: ${e.message}`);
   }
@@ -131,20 +133,11 @@ async function cmdMigrate(args = []) {
     process.exit(1);
   }
 
-  if (!fileExists(MIGRATE_PATH)) {
-    error('Migration script not found. Run "konoha init" first.');
-    process.exit(1);
-  }
-
   const hasForce = args.includes('--force');
   const flags = {
     hasRebuildEmbeddings: args.includes('--rebuild-embeddings'),
     hasSkipEmbeddings: args.includes('--skip-embeddings')
   };
-  const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
-  const baseTimeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : INSTALL_BUILD_MIGRATE_TIMEOUT_MS;
-  const timeoutMs = flags.hasRebuildEmbeddings ? Math.max(baseTimeout, INSTALL_BUILD_MIGRATE_TIMEOUT_MS) : baseTimeout;
-
   if (hasForce) {
     info('Pruning unused/unembedded skills to prevent duplicate content...');
     const agents = agentManager.loadAgents();
@@ -156,9 +149,9 @@ async function cmdMigrate(args = []) {
   const customDirIdx = args.indexOf('--skills-dir');
 
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
-    runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags, timeoutMs);
+    await runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags);
   } else {
-    runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags, timeoutMs);
+    await runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags);
   }
 
   syncPostMigrationWorkspaces();

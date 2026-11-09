@@ -268,7 +268,7 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
 
   // Call GetModelResponse with an extended timeout.
   // Large prompts or slow thinking models can take several minutes.
-  const INFERENCE_TIMEOUT_MS = 900000; // 15 minutes
+  const INFERENCE_TIMEOUT_MS = require('../../config_access').getConfigValue('inference_timeout_ms', 900000);
 
   // The JSON GetModelResponse endpoint expects the numeric model enum value
   // (e.g. 1018), NOT the proto-style string ("MODEL_PLACEHOLDER_M18"). Sending

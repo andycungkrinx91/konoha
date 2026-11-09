@@ -98,7 +98,10 @@ describe('Migrate Progressive Fallback & Deferred Indexing', () => {
       fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'init.js'), 'utf-8') +
       (fs.existsSync(path.join(REPO_ROOT, 'bin', 'commands', 'init_migration.js')) ? fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'init_migration.js'), 'utf-8') : '') +
       fs.readFileSync(path.join(REPO_ROOT, 'bin', 'commands', 'migrate.js'), 'utf-8');
-    assert.match(cli, /--skills-only/, 'cli.js must pass --skills-only in final fallback');
+    // The chain moved in-process: the fallback is the `skillsOnly` option, not
+    //    the `--skills-only` argv string it was parsed from.
+    assert.match(cli, /skillsOnly:\s*true/, 'final fallback must pass skillsOnly: true');
+    assert.match(cli, /skipEmbeddings:\s*true/, 'final fallback must pass skipEmbeddings: true');
     assert.match(cli, /Reference indexing deferred/, 'cli.js must warn about deferred references');
     assert.match(cli, /Run "konoha migrate" again to finish remaining references\./, 'cmdMigrate must warn instead of hard-exit on timeout');
     // The unconditional skip-embeddings retry must not be gated on the flag already being present

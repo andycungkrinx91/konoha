@@ -12,7 +12,10 @@ const httpAgent = new http.Agent({
 
 const bridgeModelsCache = new Map();
 const CACHE_TTL_MS = 30000;
-const STREAM_TIMEOUT_MS = 300000;
+const { getConfigValue } = require('../config_access');
+
+/** SSE stream ceiling; overridable from ~/.konoha/config.json. */
+const STREAM_TIMEOUT_MS = getConfigValue('stream_timeout_ms', 300000);
 const STREAM_INACTIVITY_MS = 45000;
 
 function sendJson(res, status, data) {
