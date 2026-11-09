@@ -263,5 +263,47 @@ runTest('I9 a hardlink inside the lab root pointing at the main DB is rejected',
   }
 });
 
+runTest('I10 an unreadable main DB fails closed instead of assuming separation', () => {
+  const saved = process.env.KONOHA_LAB_DB_ROOT;
+  const root = fs.mkdtempSync(path.join(TMP_ROOT, 'i10-lab-'));
+  const realStat = fs.statSync;
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = root;
+    // The lab target must exist, otherwise the guard short-circuits before
+    // comparing inodes and this test would pass for the wrong reason.
+    const target = path.join(root, 'lab.db');
+    fs.writeFileSync(target, 'lab');
+    fs.statSync = function (p, ...rest) {
+      if (String(p).includes(path.basename(MAIN_DB))) {
+        const err = new Error('permission denied');
+        err.code = 'EACCES';
+        throw err;
+      }
+      return realStat.call(fs, p, ...rest);
+    };
+    assert.throws(
+      () => authz.assertLabDbPath(target),
+      (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION,
+      'an unstat-able main DB must reject, not imply a distinct inode'
+    );
+  } finally {
+    fs.statSync = realStat;
+    if (saved === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  // A genuinely absent main DB is not an error: fresh installs must proceed.
+  const saved2 = process.env.KONOHA_LAB_DB_ROOT;
+  const root2 = fs.mkdtempSync(path.join(TMP_ROOT, 'i10b-lab-'));
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = root2;
+    assert.doesNotThrow(() => authz.assertLabDbPath(path.join(root2, 'lab.db')));
+  } finally {
+    if (saved2 === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved2;
+    fs.rmSync(root2, { recursive: true, force: true });
+  }
+});
+
 cleanup();
 console.log(`\n${passed} test cases passed.`);

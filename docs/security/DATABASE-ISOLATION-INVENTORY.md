@@ -86,10 +86,18 @@ Teardown purge is best-effort by construction: a failed unlink leaves the file i
 | I7 | reopen `openLabDb()` keeps `lab_runs` rows, seeds exactly 361 `kali_tools`, main DB unchanged | pass |
 | I8 | with `KONOHA_LAB_DB_ROOT` unset, `getLabDbPath()` is `~/.konoha/akatsuki-lab/lab.db` and `getConnection()` refuses it | pass |
 | I9 | `lab.db` hardlinked to `konoha.db` → `realpathSync` keeps the link name (only `stat().ino` matches) and `openLabDb()` throws `LAB_DB_ISOLATION_VIOLATION` | pass |
+| I10 | `statSync` on the main DB forced to `EACCES` → `assertLabDbPath` throws `LAB_DB_ISOLATION_VIOLATION`; a genuinely absent main DB still passes | pass |
 
 I1 and I2 are not vacuous: `initLab` returns `ok: true` with `status: 'created'` and `provisionLab` returns `ok: true` in the same configuration, so the provisioning path runs to completion while the main DB stays byte-identical. `initLab` does not create `lab.db` — only `openLabDb()` does — which is why I1's byte comparison is the meaningful assertion.
 
 The hardlink guard (`_sharesInodeWithMainDb` in `src/skill_authorization.js`) closes the one alias `fs.realpathSync` cannot see: two names for one inode. It compares `dev`/`ino` against the resolved main DB and returns `false` when either side is absent, so a fresh install is never blocked. Ordinary lab paths are unaffected (I9 asserts `fresh.db` still passes).
+
+Absence is decided narrowly, via `_statOrAbsent`: only `ENOENT`/`ENOTDIR` mean "not there
+yet". Any other `statSync` failure (`EACCES`, `EIO`, `ELOOP`) leaves the separation unproven
+and throws `LAB_DB_ISOLATION_VIOLATION` instead of returning `false`. A catch-all here would
+have silently accepted a lab path merely because the main DB could not be inspected — the
+same fail-open shape as trusting a failed check. I10 pins both halves: forced `EACCES`
+rejects, genuinely absent main DB proceeds.
 
 ## Cross-platform
 

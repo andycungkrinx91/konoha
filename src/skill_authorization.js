@@ -182,19 +182,29 @@ function assertLabDbPath(p) {
  * it would run lab DDL against the main store.
  */
 function _sharesInodeWithMainDb(p) {
-  let target;
-  let main;
-  try {
-    target = fs.statSync(_realizeExistingPrefix(p));
-  } catch (_) {
-    return false; // does not exist yet: no hardlink to detect
-  }
-  try {
-    main = fs.statSync(_realizeExistingPrefix(getMainDbPath()));
-  } catch (_) {
-    return false; // no main DB yet: nothing to alias
-  }
+  const target = _statOrAbsent(_realizeExistingPrefix(p));
+  if (target === null) return false; // does not exist yet: no hardlink to detect
+  const main = _statOrAbsent(_realizeExistingPrefix(getMainDbPath()));
+  if (main === null) return false; // no main DB yet: nothing to alias
   return target.dev === main.dev && target.ino === main.ino;
+}
+
+/**
+ * statSync, but only ENOENT/ENOTDIR mean "absent". Any other failure (EACCES,
+ * EIO, ELOOP) leaves separation unproven, so it fails closed by throwing the
+ * isolation violation rather than letting the caller proceed.
+ */
+function _statOrAbsent(p) {
+  try {
+    return fs.statSync(p);
+  } catch (err) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return null;
+    const violation = new Error(
+      `Lab DB path cannot be stat'ed, isolation unproven: ${p} (${err.code || err.message})`
+    );
+    violation.code = LAB_DB_ISOLATION_VIOLATION;
+    throw violation;
+  }
 }
 
 /**
