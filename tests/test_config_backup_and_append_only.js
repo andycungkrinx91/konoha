@@ -299,6 +299,31 @@ function runTests() {
       }
     }
 
+    // --client=<name> scoping: init must back up only the requested client. Before
+    // this was threaded through, `konoha init --client=omp` swept all 8 clients.
+    const scopedSummary = executePreInstallBackup({
+      home: homeDir,
+      projectRoot: projDir,
+      clients: ['omp']
+    });
+    assert.strictEqual(scopedSummary.ok, true, 'Scoped pre-install backup must succeed');
+    const scopedClients = [...new Set((scopedSummary.backups || []).map((b) => b.client))];
+    assert.deepStrictEqual(scopedClients, ['omp'], `Scoped backup must touch omp only, got ${scopedClients.join(',')}`);
+    assert.ok(scopedSummary.totalBackedUp > 0, 'Scoped backup must still back up the requested client');
+    assert.ok(
+      scopedSummary.totalBackedUp < preInstallSummary.totalBackedUp,
+      'Scoped backup must cover strictly fewer files than the all-client sweep'
+    );
+
+    // An explicit list of several clients backs up exactly those. 'all' stays the
+    // implicit default so upgrade/migrate keep their historical behaviour.
+    const multiSummary = executePreInstallBackup({ home: homeDir, projectRoot: projDir, clients: ['cursor', 'omp'] });
+    assert.deepStrictEqual(
+      [...new Set((multiSummary.backups || []).map((b) => b.client))].sort(),
+      ['cursor', 'omp'],
+      'Multi-client list must back up exactly those clients'
+    );
+
     // Scenario 10 (privacy): formatBackupSummaryLines must never print secret values from settings.json
     const summaryLines = formatBackupSummaryLines(preInstallSummary).join('\n');
     assert.ok(summaryLines.includes('[Backup]'), 'Summary lines must report backup status');

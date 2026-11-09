@@ -529,7 +529,9 @@ function backupClientConfigs(clientsInput, options = {}) {
 }
 
 function backupAllDetectedClients(options = {}) {
-  return backupClientConfigs('all', options);
+  // Callers that know which clients were requested (konoha init --client=omp)
+  // narrow the sweep here; an absent list keeps the historical all-clients sweep.
+  return backupClientConfigs(options.clients || options.client || 'all', options);
 }
 
 function _matchesBackupFilter(meta, targetClients, scopeFilter) {

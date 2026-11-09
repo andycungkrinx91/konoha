@@ -5,6 +5,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const { PINNED_AB_PACKAGE: PINNED_AGENT_BROWSER } = require('../../../bin/lib/extension');
 
 function stripAnsi(str) {
   if (!str || typeof str !== 'string') return '';
@@ -64,10 +65,10 @@ function resolveAgentBrowserInvocation() {
 
   // Last resort: the pinned package through npx, verified to actually run.
   const npxCmd = isWin ? 'npx.cmd' : 'npx';
-  const pinned = ['--yes', 'agent-browser@0.3.1'];
+  const pinned = ['--yes', PINNED_AGENT_BROWSER];
   try {
     const res = isWin
-      ? spawnSync(`"${npxCmd}" --yes agent-browser@0.3.1 --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
+      ? spawnSync(`"${npxCmd}" --yes ${PINNED_AGENT_BROWSER} --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
       : spawnSync(npxCmd, [...pinned, '--version'], { encoding: 'utf-8' });
     if (res.status === 0) return { kind: 'npx', command: npxCmd, args: pinned };
   } catch (_) { /* best effort */ }
@@ -84,7 +85,7 @@ function verifyFlowExecution(rawFlow, flowHash) {
       result: {
         ok: false,
         error: 'qa_blocked',
-        reason: 'agent-browser unavailable: not installed and no fallback resolved. Install with: npm i -g agent-browser@0.3.1',
+        reason: `agent-browser unavailable: not installed and no fallback resolved. Install with: npm i -g ${PINNED_AGENT_BROWSER}`,
         status: 'error',
         flow_hash: flowHash,
         verified: false

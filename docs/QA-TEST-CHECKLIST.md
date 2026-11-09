@@ -62,7 +62,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha upgrade` | `--yes` | Upgrades the global install in place. Verifies the installed version by running `konoha --version`; on total package-manager failure it exits 1 with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and does **not** run the post-upgrade lifecycle. | `PASS` (verified on Linux x64: no-package-manager path exits 1; failure path leaves version unchanged) |
 | `npm install -g konoha-mcp@latest` | - | Persistent global install. `postinstall` prints guidance only (no network, no installs, no writes under `HOME`). | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
 | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. | `PASS` (documented in `bin/postinstall.js`; string asserted by `tests/test_postinstall_contract.js`) |
-| `agent-browser` provisioning | `konoha init` | Resolution order: global → `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, each accepted only after `--version` exits 0. Failure prints `QA blocked: <reason>` and `qa_codify` returns `error: qa_blocked`. | `BLOCKED` on Linux x64 — upstream `agent-browser@0.3.1` publishes no linux-x64 native binary (`Error: No binary found for linux-x64`). Blocked-path reporting verified; browser automation not executed. |
+| `agent-browser` provisioning | `konoha init` | Resolution order: global → `~/.konoha/tools` → `npx --yes agent-browser@0.41.2`, each accepted only after `--version` exits 0; installs use `npm`/`pnpm` only with `--ignore-scripts`. Failure prints `QA blocked: <reason>` and `qa_codify` returns `error: qa_blocked`. | `PASS` — `agent-browser@0.41.2` installs and reports `agent-browser 0.41.2` from npm `-g`, `npm --prefix`, and `pnpm --dir` on Linux x64; blocked-path reporting verified separately. |
 | Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
 | macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
 | `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
@@ -94,7 +94,7 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 | Windows 10/11 end-to-end | native runner | `BLOCKED` — not run |
 | macOS arm64 / x64 end-to-end | native runners | `BLOCKED` — not run |
 | Windows `EBUSY` in-place upgrade | native runner, binary in use during upgrade | `BLOCKED` — not run |
-| agent-browser on Linux x64 | `agent-browser --version` at every resolution tier | `BLOCKED` — upstream `agent-browser@0.3.1` ships no linux-x64 native binary |
+| agent-browser on Linux x64 | `agent-browser --version` at every resolution tier | `PASS` — pinned `0.41.2` ships `agent-browser-linux-x64`; global, `--prefix`, and `--dir` tiers all report `0.41.2` |
 
 ### 1.2 Edge Case & Symlink Handling Verification
 

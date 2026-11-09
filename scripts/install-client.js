@@ -26,7 +26,7 @@ async function installClient(clientName, options = {}) {
   const projectRoot = options.projectRoot || process.cwd();
   const silent = options.silent !== false;
 
-  executePreInstallBackup({ projectRoot });
+  executePreInstallBackup({ projectRoot, clients: norm === 'all' ? null : [norm] });
 
   const results = {};
   const agents = agentManager.loadAgents();

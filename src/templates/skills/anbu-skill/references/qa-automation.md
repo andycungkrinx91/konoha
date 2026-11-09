@@ -46,7 +46,7 @@ Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent
 agent-browser --version   # must exit 0
 ```
 
-Konoha resolves the CLI in this order — global install, managed copy at `~/.konoha/tools`, then `npx --yes agent-browser@0.3.1` — and accepts each only after `--version` succeeds. If none resolve:
+Konoha resolves the CLI in this order — global install, managed copy at `~/.konoha/tools`, then `npx --yes agent-browser@0.41.2` — and accepts each only after `--version` succeeds. If none resolve:
 
 - `konoha init` prints `QA blocked: <reason>` as an actionable warning while the core install still succeeds.
 - `qa_codify` returns `{ "ok": false, "error": "qa_blocked", "reason": "..." }`, because it verifies flows by running `agent-browser batch`.
@@ -55,7 +55,9 @@ Konoha resolves the CLI in this order — global install, managed copy at `~/.ko
 **Report `qa_blocked` as BLOCKED, never as a pass and never as "no bugs found."** A missing browser is an unexecuted test.
 
 > [!WARNING]
-> On Linux x64, `agent-browser@0.3.1` fails with `Error: No binary found for linux-x64` — the npm package does not publish that native binary, so even the `npx` fallback cannot run there. Record QA as BLOCKED with the captured stderr; do not switch to a weaker verification method to manufacture a result.
+> npm or pnpm itself is located by absolute path, not by bare `PATH` lookup: distro packages (`/usr/bin`), Homebrew (`/opt/homebrew/bin`), the standalone pnpm installer (`~/.local/share/pnpm`, `~/Library/pnpm`), Windows MSI/`.exe` installs (`%APPDATA%\npm`, `%ProgramFiles%\nodejs`), nvm version dirs, and the running node's own directory are all probed. This matters on macOS, where a GUI-launched app receives a PATH that contains none of them. The spawn also prepends the current node's directory to `PATH`, so a system npm does not run under an older node and emit `EBADENGINE` warnings.
+
+> A managed copy at `~/.konoha/tools` is only accepted when it reports the pinned version. Pinned `agent-browser@0.41.2` ships native binaries for linux-x64, darwin-arm64/x64, and win32-x64. Record QA as BLOCKED with the captured stderr when the probe fails; do not switch to a weaker verification method to manufacture a result.
 
 
 ## Playwright Overrides for Agent Runs

@@ -48,7 +48,8 @@ const { purgePackageCaches } = require('../lib/runtime_mcp');
 const {
   installUv,
   installAgentBrowserDetailed,
-  refreshSemblePackage
+  refreshSemblePackage,
+  PINNED_AB_PACKAGE
 } = require('../lib/extension');
 const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
@@ -125,7 +126,7 @@ function checkNodeAndToolchains(options, args) {
   if (ab.ok) {
     spinner1c.success(`agent-browser CLI ready (${ab.via}).`);
   } else {
-    spinner1c.warn(`QA blocked: agent-browser unavailable (${ab.reason}). Install with: npm i -g agent-browser@0.3.1`);
+    spinner1c.warn(`QA blocked: agent-browser unavailable (${ab.reason}). Install with: npm i -g ${PINNED_AB_PACKAGE}`);
   }
 
   if (args.includes('--force')) {
@@ -304,7 +305,10 @@ async function cmdInit(args, options = {}) {
   const clientFlags = detectAllClientFlags(args);
   ensureCoreDirectories();
   try {
-    const backupSummary = executePreInstallBackup({ projectRoot: process.cwd() });
+    const backupSummary = executePreInstallBackup({
+      projectRoot: process.cwd(),
+      clients: clientFlags.requestedClients
+    });
     for (const line of (backupSummary.summaryLines || [])) {
       log(`${C.dim}${line}${C.reset}`);
     }

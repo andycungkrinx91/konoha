@@ -32,6 +32,7 @@ function executePreInstallBackup(options = {}) {
     homeDir,
     projectRoot,
     konohaRoot,
+    clients: options.clients || null,
     simulateBackupFailure: options.simulateBackupFailure
   });
 
@@ -180,7 +181,8 @@ async function runFullInstallationLifecycle(options = {}) {
   try {
     backupSummary = executePreInstallBackup({
       homeDir: options.homeDir,
-      projectRoot: options.projectRoot
+      projectRoot: options.projectRoot,
+      clients: options.clients || null
     });
     stages.push({ stage: 1, name: 'backup_configs', ok: true, count: Object.keys(backupSummary.backups || {}).length });
   } catch (err) {
