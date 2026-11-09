@@ -586,7 +586,12 @@ async function cmdDataCheck() {
     const result = checkDatabase(DB_PATH);
     log(`  ${C.bold}Database:${C.reset} ${DB_PATH}`);
     log(`  ${C.bold}Integrity:${C.reset} ${result.ok ? 'OK' : 'DAMAGED'}`);
+    const appVersion = require('../../package.json').version;
     log(`  ${C.bold}Schema:${C.reset} v${result.userVersion} (current v${result.schemaVersion})`);
+    log(`  ${C.bold}App:${C.reset} v${appVersion}`);
+    if (result.userVersion !== result.schemaVersion) {
+      warn(`Schema version ${result.userVersion} does not match the expected v${result.schemaVersion}; run konoha migrate.`);
+    }
     log(`  ${C.bold}Foreign keys:${C.reset} ${result.foreignKeyViolations} violation(s)`);
     log(`  ${C.bold}FTS5:${C.reset} ${result.ftsAvailable ? 'available' : 'missing'}`);
     const backup = findLatestVerifiedBackup(DB_PATH);

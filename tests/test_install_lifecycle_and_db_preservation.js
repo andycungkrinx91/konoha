@@ -48,10 +48,29 @@ function runTests() {
 
       const dbMig = runTransactionalDatabaseMigration({ konohaRoot });
       assert.strictEqual(dbMig.ok, true);
-      assert.ok(dbMig.schemaVersion >= 2218, 'Database schema version must be updated transactionally');
+      assert.strictEqual(
+        dbMig.schemaVersion,
+        dbMig.expectedSchemaVersion,
+        'user_version must equal the schema version, not the app version'
+      );
+      assert.notStrictEqual(
+        dbMig.schemaVersion,
+        2218,
+        'user_version must never be pinned to the 2.2.18 app version'
+      );
+      assert.match(dbMig.appVersion, /^\d+\.\d+\.\d+$/, 'app version is reported separately');
 
-      // Verify upgrade/reinstall/bare init never auto-injects client configs or copies template mirror skills
-      assert.strictEqual(syncTemplateSkills(), 0, 'syncTemplateSkills must be a no-op (no template mirror skill injection)');
+      // syncTemplateSkills is a real sync, not a no-op; run it against a throwaway
+      // home so the assertion never depends on (or mutates) the developer's $HOME.
+      const syncHome = path.join(tmpBase, 'sync-home');
+      fs.mkdirSync(syncHome, { recursive: true });
+      const synced = syncTemplateSkills({ home: syncHome });
+      assert.ok(synced > 0, 'syncTemplateSkills must install template skills into the target home');
+      assert.ok(
+        fs.existsSync(path.join(syncHome, '.pi', 'agent', 'skills')),
+        'template skills must land under the target home, never the real one'
+      );
+
       return collectUpgradeChoices(['--yes']).then((choices) => {
         assert.strictEqual(choices.injectConfigs, false, 'Upgrade must never auto-inject client configs (require explicit konoha init --client=<name>)');
         console.log('PASS: test_install_lifecycle_and_db_preservation.js');

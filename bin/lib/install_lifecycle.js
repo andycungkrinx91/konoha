@@ -47,20 +47,29 @@ function executePreInstallBackup(options = {}) {
   return backupSummary;
 }
 
+/**
+ * Bring the database to the current schema. `PRAGMA user_version` tracks the
+ * schema only; the app version lives in package.json and must never be written
+ * here, or a schema bump and a release bump become indistinguishable.
+ */
 function runTransactionalDatabaseMigration(options = {}) {
   const konohaRoot = options.konohaRoot || getKonohaRoot();
   fs.mkdirSync(konohaRoot, { recursive: true });
   try {
     const db = require('../../src/db');
+    const { CURRENT_SCHEMA_VERSION } = require('../../src/db_schema');
     const conn = db.getDb();
+    db.setupSchema(conn);
     const versionRow = conn.prepare('PRAGMA user_version').get();
-    const currentVersion = versionRow ? (versionRow.user_version || 0) : 0;
-    const TARGET_SCHEMA_VERSION = 2218;
-    if (currentVersion < TARGET_SCHEMA_VERSION) {
-      conn.exec('PRAGMA user_version = 2218;');
-    }
+    const schemaVersion = versionRow ? (versionRow.user_version || 0) : 0;
     try { conn.close(); } catch (_) { /* ignore */ }
-    return { ok: true, schemaVersion: Math.max(currentVersion, TARGET_SCHEMA_VERSION), dbPath: db.DB_PATH };
+    return {
+      ok: true,
+      schemaVersion,
+      expectedSchemaVersion: CURRENT_SCHEMA_VERSION,
+      appVersion: require('../../package.json').version,
+      dbPath: db.DB_PATH
+    };
   } catch (err) {
     return { ok: false, reason: err.message };
   }
