@@ -1,0 +1,83 @@
+name: Release Assets
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to attach assets to (e.g. v2.2.19)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  cyber-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+
+      - name: Restore cyber pack source from history
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACK_PATH='src/templates/skills/akatsuki-skill/references/anthropic-cybersecurity-skills-assets'
+          if [ -d "$PACK_PATH" ]; then
+            echo "Pack source present in working tree."
+            exit 0
+          fi
+          # The pack is deliberately untracked since 2.2.19 so clones never ship
+          # offensive material. Recover it into a scratch dir (git archive does
+          # not touch the index, unlike checkout) to keep the asset reproducible.
+          REMOVAL=$(git log --format=%H -1 --diff-filter=D -- "$PACK_PATH")
+          if [ -z "$REMOVAL" ]; then
+            echo "::error::Cannot locate the commit that removed $PACK_PATH"
+            exit 1
+          fi
+          SCRATCH="$RUNNER_TEMP/pack-source"
+          mkdir -p "$SCRATCH"
+          git archive "${REMOVAL}^" -- "$PACK_PATH" | tar -x -C "$SCRATCH"
+          echo "PACK_SOURCE=$SCRATCH/$PACK_PATH" >> "$GITHUB_ENV"
+          echo "restored files: $(find "$SCRATCH/$PACK_PATH" -type f | wc -l)"
+
+      - name: Build cyber pack
+        run: |
+          set -euo pipefail
+          node scripts/build_cyber_pack.js --source "${PACK_SOURCE:-src/templates/skills/akatsuki-skill/references/anthropic-cybersecurity-skills-assets}"
+
+      - name: Verify manifest checksum
+        run: |
+          node -e "
+          const fs=require('fs'),crypto=require('crypto');
+          const m=JSON.parse(fs.readFileSync('dist/manifest.json','utf8'));
+          const got=crypto.createHash('sha256').update(fs.readFileSync('dist/akatsuki-cyber-pack-'+m.version+'.tar.zst')).digest('hex');
+          if(got!==m.sha256) throw new Error('checksum mismatch: '+got+' != '+m.sha256);
+          console.log('sha256',m.sha256,'skills',m.skill_count,'files',m.file_count);
+          "
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Konoha $TAG" \
+              --notes "Cyber pack opt-in asset for $TAG. See docs/VPS-INSTALL.md." \
+              --verify-tag
+          fi
+          gh release upload "$TAG" \
+            dist/akatsuki-cyber-pack-*.tar.zst \
+            dist/manifest.json \
+            --clobber

@@ -32,7 +32,11 @@ function argValue(args, flag) {
 
 function collectFiles(root, prefix = '') {
   const out = [];
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+  // Sorted so the archive bytes (and therefore the published sha256) are
+  // identical on every rebuild; readdir order is filesystem-dependent.
+  const entries = fs.readdirSync(root, { withFileTypes: true })
+    .sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+  for (const entry of entries) {
     if (entry.name === '.git' || entry.name === 'node_modules') continue;
     const full = path.join(root, entry.name);
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;

@@ -93,6 +93,8 @@ function _octal(value, width) {
   return value.toString(8).padStart(width - 1, '0') + '\0';
 }
 
+const TAR_MTIME = 0;
+
 function _header(name, size, typeflag) {
   const buf = Buffer.alloc(512, 0);
   buf.write(name.slice(0, 100), 0, 'utf8');
@@ -100,7 +102,9 @@ function _header(name, size, typeflag) {
   buf.write(_octal(0, 8), 108, 'ascii');
   buf.write(_octal(0, 8), 116, 'ascii');
   buf.write(_octal(size, 12), 124, 'ascii');
-  buf.write(_octal(Math.floor(Date.now() / 1000), 12), 136, 'ascii');
+  // Fixed mtime: mtime is metadata, not content. Embedding Date.now() makes
+  // the archive hash differ per build and breaks published-sha256 verification.
+  buf.write(_octal(TAR_MTIME, 12), 136, 'ascii');
   buf.write('        ', 148, 'ascii');
   buf.write(typeflag, 156, 'ascii');
   buf.write('ustar\0', 257, 'ascii');
