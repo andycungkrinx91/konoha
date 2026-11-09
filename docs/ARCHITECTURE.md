@@ -209,6 +209,37 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
 
 ---
 
+## 🛡️ Cyber Pack: Opt-In Boundary and Lab Placement
+
+The 817-skill cybersecurity library is **not part of the default install**. It is a
+release asset, owned by exactly one skill, and it lives outside the main database.
+
+| Concern | Location | Owner |
+| :--- | :--- | :--- |
+| Pack archive | release asset `akatsuki-cyber-pack-<version>.tar.zst` + `manifest.json` | release pipeline |
+| Extracted files | `~/.konoha/akatsuki-lab/cyber-pack/` | `akatsuki-skill` |
+| Consent record | `~/.konoha/akatsuki-lab/cyber-pack/consent.json` | `src/cyber_pack.js` |
+| Indexed rows | main DB `skills` / `skill_chunks`, `skill_name = 'akatsuki-skill'` | `src/migrate_references.js` |
+| Lab execution records | `~/.konoha/akatsuki-lab/lab.db` | `src/workflow/akatsuki/lab_db.js` |
+
+**Boundary rules.**
+
+1. `src/cyber_pack.js` exports `PACK_OWNER = 'akatsuki-skill'`. `src/migrate_references.js`
+   refuses to index the pack under any other skill, so a full `konoha migrate` cannot
+   re-attribute those rows to `anbu-skill` the way pre-2.2.19 releases did.
+2. `install` requires `--confirm` and a sha256 match against `manifest.json` before
+   extraction. A mismatch aborts with nothing written.
+3. Installing over a pre-2.2.19 database snapshots it to `~/.konoha/backups/` and
+   purges cyber rows whose `skill_name` is not `PACK_OWNER`. The purge is scoped by
+   pack path, so unrelated skills are untouched.
+4. `konoha doctor --vps` fails while pack files or foreign cyber rows remain;
+   `--clean-cyber-pack` is the repair path and also backs up first.
+5. Red execution stays gated independently of the pack: `src/skill_authorization.js`
+   classifies `akatsuki-skill` and its `@global-*` / `@proj-*` / `<ref>` forms as red,
+   and only `@akatsuki` may invoke them, inside the lab DB.
+
+---
+
 ## 🌐 Universal Polyglot & Multi-Framework Architecture
 
 Konoha is completely unconstrained and polyglot by design. It natively supports **all programming languages** (TypeScript, JavaScript, Python, Go, Rust, C/C++, Java/Kotlin, PHP, Ruby, C#, Elixir, Zig, Shell) and **all frameworks** across web, backend, mobile, desktop, and cloud infrastructure with automated RTK toolchains.

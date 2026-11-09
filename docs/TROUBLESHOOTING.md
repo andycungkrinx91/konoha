@@ -573,6 +573,25 @@ konoha migrate
 
 ---
 
+### 🛡️ VPS Provider False Positive (malware / offensive-tooling alert)
+
+- **Symptom**: a VPS provider suspends or flags the host after installing Konoha, citing offensive security tooling or "cyber attack" files.
+- **Reason**: releases before 2.2.19 shipped an 817-skill cybersecurity library inside the package and indexed it under the backend/DevOps skill. Backend work does not need offensive tooling, so the default install looked like a penetration-testing kit to scanners.
+- **2.2.19+ behaviour**: the library is not shipped and not indexed. A fresh install contains 0 pack files and 0 cyber rows; `@anbu` handles backend, bugfix, and DevOps, and escalates security work to `@akatsuki`.
+- **Verify**:
+  ```bash
+  konoha doctor --vps
+  ```
+  Every check must print `PASS`. `cyber rows` is the one that flags a pre-2.2.19 install.
+- **Fix (upgrade path)**: the library is opt-in and red-only. Install it deliberately with `konoha akatsuki cyber-pack install --confirm`, or purge legacy rows from an older install with:
+  ```bash
+  konoha doctor --clean-cyber-pack
+  ```
+  `--clean-cyber-pack` snapshots the database to `~/.konoha/backups/` before deleting anything and prints the exact row/chunk counts removed. `--restore-anbu` restores the ANBU skill itself and never restores the pack.
+- **Report a new false positive**: include the provider's exact alert text, the flagged absolute paths, and `konoha doctor --vps` output. See [VPS-INSTALL.md](VPS-INSTALL.md).
+
+---
+
 ### 🧪 Checking the MCP Server Manually
 
 **konoha MCP (Node):**

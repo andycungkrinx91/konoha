@@ -51,7 +51,7 @@ Alerts reported on v2.1.6:
 
 ### 2.2 Root Cause Analysis
 The underlying root cause of both `gptSecurity` and `gptAnomaly` was the packaging manifest:
-1. `src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets` is a 72.7 MB submodule reference containing 817 offensive cybersecurity skills (exploits, C2 configs, Mimikatz patterns, Metasploit references, etc.) across 9,793 files.
+1. In the 2.1.7 tree, the 72.7 MB submodule reference `anthropic-cybersecurity-skills-assets` lived under the backend skill's `references/` directory (that layout is superseded — see the note at the top of this report) and contained 817 offensive cybersecurity skills (exploits, C2 configs, Mimikatz patterns, Metasploit references, etc.) across 9,793 files.
 2. Because `package.json` had `"files": ["src/", ".agents/", ...]`, npm bundled all 9,793 files into the distribution tarball (17.8 MB tarball).
 3. Socket's AI engine ingests every file in published npm packages. In any 9,793-file archive of offensive security references, heuristic and LLM scanners will continuously find patterns that trigger `gptSecurity` and `gptAnomaly`.
 4. These reference files are purely intended for local development research and are completely non-essential to the runtime execution of Konoha MCP server.
