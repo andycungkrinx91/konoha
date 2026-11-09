@@ -22,11 +22,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # zstdCompressSync needs Node >= 22.15, so pin the runtime. The cache is
+      # disabled because v5 auto-enables package-manager caching from the
+      # lockfile, which makes the action resolve pnpm before it exists.
       - name: Set up Node.js 24
         uses: actions/setup-node@v5
         with:
           node-version: '24.x'
-
+          package-manager-cache: false
       - name: Restore cyber pack source from history
         shell: bash
         run: |
