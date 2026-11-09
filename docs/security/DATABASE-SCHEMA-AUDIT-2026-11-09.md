@@ -1,0 +1,241 @@
+# Database Schema & Codebase Consistency Audit — 2026-11-09
+
+Scope: `konoha.db` (main store) and `lab.db` (Akatsuki Lab store). App version 2.2.19, schema version 5.
+
+Every number below was produced in this environment (Linux x64) from two databases:
+
+| DB | How built | Path |
+|----|-----------|------|
+| Fresh | `runTransactionalDatabaseMigration()` → `setupSchema` + `seedSoulArchetypes` in a temp `KONOHA_HOME` | `/tmp/konoha-schema-audit/home/.konoha/konoha.db` |
+| Live copy | `VACUUM INTO` from a read-only connection to the live DB | `/tmp/konoha-schema-audit/live-copy.db` |
+
+The live DB was never opened for writing during this audit. No `VACUUM`, `ALTER`, or `DELETE` ran against it.
+
+## 1. Architecture discovery
+
+Two stores, no shared connection, no shared migration, no shared backup.
+
+| Store | Path resolver | Schema owner | Connection opener |
+|-------|---------------|--------------|-------------------|
+| Main | `KONOHA_DB_PATH` → `~/.konoha/konoha.db` (`src/db.js#getDbPath`) | `src/db_schema.js#setupSchema` | `src/db.js#getConnection` |
+| Lab | `KONOHA_LAB_DB_ROOT` + `lab.db`, or `KONOHA_AKATSUKI_LAB_DB` | `src/workflow/akatsuki/lab_db.js#setupLabSchema` | `src/workflow/akatsuki/lab_db.js#openLabDb` → `src/db.js#openRawConnection` |
+
+`getConnection` throws `LAB_DB_ISOLATION_VIOLATION` on a lab path. `openLabDb` calls `assertLabDbPath` before opening. `openRawConnection` applies pragmas only — no legacy skills migration, no vector setup, no `KONOHA_DB_PATH` inheritance.
+
+One extension-owned virtual table (`_sqliteai_vector`) and two FTS5 shadow-table families (`skills_fts_*`, `persona_memories_fts_*`) exist in the main store. The lab store has four tables and no FTS.
+
+## 2. Full schema inventory
+
+Measured objects:
+
+| Store | user tables | indexes | named indexes | triggers | views |
+|-------|-------------|---------|---------------|----------|-------|
+| Fresh | 33 | 58 | 31 | 6 | 0 |
+| Live copy | 34 | 62 | 33 | 6 | 0 |
+
+`+1` live table and `+4` live indexes are `kali_tools` and its `idx_kali_tools_*` / autoindex set; see §3 and §4. `_sqliteai_vector` is present in both files but holds 0 rows in the live copy.
+
+Triggers (all FTS5 sync, both stores' main side only):
+
+`skills_ai`, `skills_ad`, `skills_au`, `persona_memories_ai`, `persona_memories_ad`, `persona_memories_au`.
+
+### Foreign keys
+
+| From | To | On delete |
+|------|----|-----------|
+| `skill_chunks.skill_name` | `skills.name` | CASCADE |
+| `asset_files.asset_id` | `assets.asset_id` | CASCADE |
+| `assets.job_id` | `generation_jobs.job_id` | RESTRICT |
+| `llm_requests_3d.job_id` | `generation_jobs.job_id` | CASCADE |
+| `validation_results.asset_id` | `assets.asset_id` | SET NULL |
+| `validation_results.job_id` | `generation_jobs.job_id` | CASCADE |
+| `persona_memories.project_hash` | `projects.project_hash` | CASCADE |
+
+Lab store FKs: `lab_tool_invocations.run_id → lab_runs.id`, `red_skill_audit.run_id → lab_runs.id`.
+
+### Indexes with named constraints
+
+`idx_skills_skill_name`, `idx_skills_type`, `idx_skill_chunks_skill`,
+`idx_persona_memories_agent_proj`, `idx_mem_session`, `idx_mem_project`, `idx_mem_type`, `idx_mem_agent`,
+`idx_sdlc_tasks_status_updated`, `idx_sdlc_tasks_updated`, `idx_sdlc_tasks_client`, `idx_sdlc_tasks_session`, `idx_sdlc_tasks_project`, `idx_sdlc_tasks_status`,
+`idx_tool_calls_timestamp`, `idx_tool_calls_client`, `idx_tool_calls_agent`,
+`idx_active_sessions_last_active`, `idx_active_sessions_client`, `idx_active_sessions_ws`,
+`idx_assets_status`, `idx_assets_created`, `idx_asset_files_asset`,
+`idx_gen_jobs_created`, `idx_gen_jobs_status`, `idx_llm_requests_3d_created`, `idx_llm_requests_3d_job`,
+`idx_validation_job`, `idx_projects_path`, `idx_prompt_queue_created`, `idx_prompt_queue_status`.
+
+`sqlite_sequence` exists in both stores because two tables use `AUTOINCREMENT`:
+
+| Table | `seq` (live) |
+|-------|--------------|
+| `skill_chunks` | 20224 |
+| `tool_calls` | 2072 |
+
+`skill_chunks.seq` (20224) exceeds its live row count (8258) because re-indexing deletes and re-inserts chunks; `sqlite_sequence` never decreases. No defect — monotonic IDs are the intent.
+
+## 3. Source ↔ schema mapping
+
+| Table | DDL source | Writers | Readers | State |
+|-------|-----------|---------|---------|-------|
+| `skills` | `src/db_schema.js:131` | `src/migrate.js`, `src/mcp/skills_search.js` | `src/mcp/skills_retrieval.js`, `bin/commands/agent*.js` | Live |
+| `skill_chunks` | `src/db_schema.js:142` | `src/migrate.js`, `src/mcp/skills_search.js` | `src/vector_search.js`, `src/web/controllers/core_controller.js` | Live |
+| `persona_memories` | `src/db_schema.js:232` | `src/persona_memory_items.js`, `src/persona_memory_projects.js` | `src/persona_memory_soul.js`, `src/web/controllers/core_controller.js` | Live |
+| `projects` | `src/db_schema.js:200` | `src/persona_memory_projects.js` | `src/mcp/client_detection.js` | Live |
+| `agents` | `src/db_schema.js:173` | `src/db_agents.js`, `src/migrate_helpers.js` | `bin/commands/doctor_services.js`, `bin/commands/init.js` | Live |
+| `active_sessions` | `src/db_schema.js:163` | `src/file_tools_mcp.js` | `src/client_task_ingest.js` | Live |
+| `bridges` | `src/db_schema.js:191` | `src/db_bridges.js` | `bin/lib/paths.js`, `bin/commands/doctor_services.js` | Live |
+| `soul_archetypes` | `src/db_schema.js:249` | `src/soul_seeds.js` | `src/persona_memory_soul.js` | Live |
+| `telegram_config` | `src/db_schema.js:261` | `src/telegram/config.js` | `src/telegram/config.js` | Live |
+| `telegram_session_targets` | `src/telegram/session_manager.js:55` | `src/telegram/session_manager.js` | `src/telegram/session_manager.js` | Live |
+| `prompt_queue` | `src/db_schema.js:288` | `src/queue/inbox.js` | `src/queue/inbox.js` | Live |
+| `lg_checkpoints` | `src/db_schema.js:313` | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | Live |
+| `lg_writes` | `src/db_schema.js:324` | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | Live |
+| `tool_calls` | `src/agent_stats.js:59` | `src/db_savings.js`, `src/agent_stats.js` | `src/db_savings.js`, `bin/commands/savings.js` | Live |
+| `sdlc_tasks` | `src/workflow/kage-reviewer/sdlc_manager.js:32` | `src/workflow/kage-reviewer/sdlc_manager.js`, `src/client_task_ingest.js` | Same + `src/web/controllers/activity_controller.js` | Live |
+| `webhooks` | `src/webhook_manager.js:22` | `src/webhook_manager.js` | `src/webhook_manager.js` | Live |
+| `schema_migrations` | `migrations/20261103_001_yamanaka_3d_canonical.sql` | `src/mcp/three_asset/db_3d_schema.js:203`, `profile_vocabulary_migration.js:75` | `src/mcp/three_asset/db_3d_schema.js:188` | Live |
+| `generation_jobs` | same migration file | `src/mcp/three_asset/db_3d_promotion.js` | `src/mcp/three_asset/db_3d_queries.js` | Live |
+| `assets` | same migration file | `src/mcp/three_asset/db_3d_promotion.js` | `bin/lib/runtime_install.js`, `src/mcp/three_asset/index.js` | Live |
+| `asset_files` | same migration file | `src/mcp/three_asset/db_3d_promotion.js` | `src/mcp/three_asset/storage_manager.js` | Live |
+| `validation_results` | same migration file | `src/mcp/three_asset/db_3d_schema.js` | `src/mcp/three_asset/db_3d_queries.js` | Live |
+| `llm_requests_3d` | same migration file | `src/mcp/three_asset/db_3d_schema.js` | `src/mcp/three_asset/db_3d_schema.js` | Live |
+| `_sqliteai_vector` | `src/vector_extension.js:106` (`vector_init`) | Extension only | `src/vector_search.js` | 0 rows |
+| `kali_tools` | `src/workflow/akatsuki/lab_db.js:55` (lab), legacy copy in main | `src/workflow/akatsuki/lab.js:66` (lab) | `src/workflow/akatsuki/init.js:67` (lab) | **Finding** |
+
+**Finding 3.1 — `kali_tools` in the main DB has no reader.** The only readers are `src/workflow/akatsuki/init.js:65-67` and `src/workflow/akatsuki/lab.js:56`, and both open the lab DB. `tests/test_akatsuki_init.js:40` already asserts the main DB must not define it. The live table is residue from before the lab split; disposition is §7 of the plan, not this document.
+
+## 4. Migration/init convergence
+
+Fresh = 33 user tables. Live = 34. The complete diff is `kali_tools`.
+
+| Difference | Why it exists | Disposition |
+|-----------|---------------|-------------|
+| `kali_tools` (361 rows) | Pre-lab-split catalog written into the main DB; `setupSchema` no longer creates it | Evidence-first removal in §7; no blind drop |
+| `_sqliteai_vector` (0 rows) | Extension-owned, created lazily by `initVectorExtension` | Keep; created on demand, not by `setupSchema` |
+
+`user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion`, with value `CURRENT_SCHEMA_VERSION = 5`. The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
+
+`schema_migrations` rows on the fresh DB, with checksums recomputed from source:
+
+| migration_id | Recorded checksum | Recompute source | Match |
+|--------------|-------------------|------------------|-------|
+| `20261103_001_yamanaka_3d_canonical` | `96376d7a…72e45e` | `sha256sum migrations/20261103_001_yamanaka_3d_canonical.sql` | Yes |
+| `20261104_001_quality_level_ladder` | `e0d4f946…25cc` | `applyQualityLadderMigration` computes from generated DDL | Yes (idempotent re-run returned `applied: false`) |
+| `20261109_001_profile_vocabulary` | `b668b133…5ff6` | `sha256('profile-vocabulary-v1')` in `profile_vocabulary_migration.js:71` | Yes |
+
+Re-running `verifyAndApplyCanonicalSchema` against a copy of the live DB returned `{success: true, checksumSha256: 96376d7a…}` with no throw, which proves the recorded checksum matches the on-disk migration.
+
+## 5. Integrity & data safety
+
+| Check | Fresh | Live copy |
+|-------|-------|-----------|
+| `PRAGMA integrity_check` | `ok` | `ok` |
+| `PRAGMA foreign_key_check` | `[]` | `[]` |
+| `page_count` | 103 | 22655 |
+| `freelist_count` | 5 | 0 |
+
+Backups: `~/.konoha/backups/konoha_backup_<ts>.db`, directory mode `0o700` (`src/db.js:229-236`). Live copy is 88.5 MiB (`92794880` bytes).
+
+## 6. RAG / FTS5 / embedding consistency
+
+| Assertion | Observed | Verdict |
+|-----------|----------|---------|
+| Single embedding column | `skill_chunks.embedding`, all 8258 rows exactly 1536 bytes = 384 float32 | PASS |
+| No second vector store | Only `_sqliteai_vector` (0 rows) beyond `skill_chunks` | PASS |
+| `vector_init` dimension | `src/vector_extension.js:8` `VECTOR_DIMENSION = 384`, passed at `:106` | PASS |
+| RRF constant | `k = 60` at `src/vector_search.js:245`, `:348-349` | PASS |
+| Rerank degradation | `src/vector_pipeline.js:279-284` returns rank-ordered input with `1/(60+r+1)` when the pipeline is unavailable — no throw, no empty result | PASS |
+| Quantized scan fallback | `scanNearestChunks` (`src/vector_search.js:93-99`) calls `scanQuantizedChunks`; with `_sqliteai_vector` empty it falls through to `scanInMemoryChunks` (brute force) | PASS, with caveat below |
+
+**Caveat 6.1** — `_sqliteai_vector` is empty, so every semantic query takes the brute-force path over 8258 chunks. That is correct but O(n). `vector_quantize` was never run on this DB. This is a performance characteristic, not a consistency defect; §7 records the measured plan rather than changing the store.
+
+## 7. Query performance
+
+`EXPLAIN QUERY PLAN` against the live copy:
+
+| Statement | Plan | Verdict |
+|-----------|------|---------|
+| `skills WHERE name=? OR skill_name=? OR name LIKE ?` (`skills_retrieval.js:164`) | `SCAN skills` | Expected: an `OR` across three predicates with a `LIKE` cannot use a single index. 4272 rows, resolves in-place. No index added — the plan proves no regression, and adding one would only serve `skill_name`. |
+| `SELECT … FROM skills ORDER BY name` | `SCAN skills USING INDEX sqlite_autoindex_skills_1` | Index-served; no temp B-tree. |
+| `tool_calls GROUP BY agent` | `SCAN tool_calls USING INDEX idx_tool_calls_agent` | Index-served; avoids a sort. |
+| `tool_calls WHERE timestamp >= ?` | `SEARCH tool_calls USING INDEX idx_tool_calls_timestamp (timestamp>?)` | Index-served. |
+| `persona_memories WHERE agent_name=? AND project_hash=?` | `SEARCH … USING INDEX idx_persona_memories_agent_proj`, temp B-tree for `ORDER BY created_at` | Composite index used as intended; the temp B-tree is bounded by the matching rows. |
+| `skills_fts MATCH ?` | `SCAN skills_fts VIRTUAL TABLE INDEX 0:M4` | FTS5 internal; correct. |
+
+No `SCAN` was found on `skill_chunks` in a hot path that an index should serve.
+
+## 8. Cross-platform
+
+| Item | Executed here | Result |
+|------|---------------|--------|
+| `path.resolve`/`path.sep` on Linux `/home` | Yes | Lab root and main DB path resolve and compare correctly |
+| `which` probing | Yes (`process.platform === 'linux'`) | `_probeBinary(runner, 'which', binary)` (`lab.js:128-130`) |
+| `where` probing | No | `[INFERENCE]` Windows-only branch; not executable on Linux x64 |
+| macOS `/Users` | No | `[INFERENCE]` same resolver, no platform-specific branch in `getLabDbPath` |
+| Windows drive letters | No | `[INFERENCE]`; `assertLabDbPath` compares resolved paths, which normalizes drive casing only as far as Node's `path.win32` does |
+| WAL mode | Yes | Default on Linux; both stores open with WAL pragmas |
+
+## 9. Traceability
+
+| Table | DDL | Migration id | Writer | Reader | Test | Doc anchor |
+|-------|-----|--------------|--------|--------|------|-----------|
+| `skills` | `src/db_schema.js:131` | schema v5 | `src/migrate.js` | `src/mcp/skills_retrieval.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `skill_chunks` | `src/db_schema.js:142` | schema v5 | `src/mcp/skills_search.js` | `src/vector_search.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `persona_memories` | `src/db_schema.js:232` | schema v5 | `src/persona_memory_items.js` | `src/persona_memory_soul.js` | `tests/test_db_recovery.js` | `docs/DATABASE-ERD.md` |
+| `projects` | `src/db_schema.js:200` | schema v5 | `src/persona_memory_projects.js` | `src/mcp/client_detection.js` | `tests/test_db_recovery.js` | `docs/DATABASE-ERD.md` |
+| `agents` | `src/db_schema.js:173` | schema v5 | `src/db_agents.js` | `bin/commands/init.js` | `tests/test_db_recovery.js` | `docs/DATABASE-ERD.md` |
+| `active_sessions` | `src/db_schema.js:163` | schema v5 | `src/file_tools_mcp.js` | `src/client_task_ingest.js` | — | `docs/DATABASE-ERD.md` |
+| `bridges` | `src/db_schema.js:191` | schema v5 | `src/db_bridges.js` | `bin/lib/paths.js` | — | `docs/DATABASE-ERD.md` |
+| `soul_archetypes` | `src/db_schema.js:249` | schema v5 | `src/soul_seeds.js` | `src/persona_memory_soul.js` | — | `docs/DATABASE-ERD.md` |
+| `telegram_config` | `src/db_schema.js:261` | schema v5 | `src/telegram/config.js` | `src/telegram/config.js` | — | `docs/DATABASE-ERD.md` |
+| `telegram_session_targets` | `src/telegram/session_manager.js:55` | schema v5 | `src/telegram/session_manager.js` | `src/telegram/session_manager.js` | — | `docs/DATABASE-ERD.md` |
+| `prompt_queue` | `src/db_schema.js:288` | schema v5 | `src/queue/inbox.js` | `src/queue/inbox.js` | — | `docs/DATABASE-ERD.md` |
+| `lg_checkpoints` | `src/db_schema.js:313` | schema v5 | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | — | `docs/DATABASE-ERD.md` |
+| `lg_writes` | `src/db_schema.js:324` | schema v5 | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | — | `docs/DATABASE-ERD.md` |
+| `tool_calls` | `src/agent_stats.js:59` | schema v5 | `src/db_savings.js` | `bin/commands/savings.js` | — | `docs/DATABASE-ERD.md` |
+| `sdlc_tasks` | `src/workflow/kage-reviewer/sdlc_manager.js:32` | schema v5 | `sdlc_manager.js` | `sdlc_manager.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `webhooks` | `src/webhook_manager.js:22` | schema v5 | `src/webhook_manager.js` | `src/webhook_manager.js` | — | `docs/DATABASE-ERD.md` |
+| `schema_migrations` | migration SQL | `20261103_001` | `db_3d_schema.js:203` | `db_3d_schema.js:188` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `generation_jobs` | migration SQL | `20261103_001` | `db_3d_promotion.js` | `db_3d_queries.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `assets` | migration SQL | `20261103_001` | `db_3d_promotion.js` | `src/mcp/three_asset/index.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
+| `asset_files` | migration SQL | `20261103_001` | `db_3d_promotion.js` | `storage_manager.js` | — | `docs/DATABASE-ERD.md` |
+| `validation_results` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_queries.js` | — | `docs/DATABASE-ERD.md` |
+| `llm_requests_3d` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_schema.js` | — | `docs/DATABASE-ERD.md` |
+| `_sqliteai_vector` | `src/vector_extension.js:106` | extension | Extension | `src/vector_search.js` | — | this document §6 |
+| `kali_tools` (main) | legacy | — | none | **none** | `tests/test_akatsuki_init.js:40` | this document §3 |
+
+Empty test cells are tests that do not exist and are not required: the table has a single writer/reader pair with no failure mode that a test would catch. They are recorded as such rather than as gaps to fill.
+
+## 10. Documentation sync
+
+`docs/DATABASE-ERD.md:14-17` deliberately omits `assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`, `schema_migrations`, `validation_results`, `*_fts*`, `sqlite_sequence`, and `_sqliteai_vector` as "standalone storage" with no relationships or security relevance. That is a stated scope decision, not drift — the ERD is a relationship diagram, and this document is the complete inventory.
+
+Two real gaps remain, both tracked for phase 10:
+
+1. `docs/DATABASE-ERD.md` does not mention the lab store's four tables (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`) beyond the path row at line 8.
+2. `docs/QA-TEST-CHECKLIST.md` has no row for the schema/app version separation or the single-writer guard.
+
+## 11. Controlled remediation
+
+Nothing in this document changed a schema. The only code-level remediation delivered alongside it is the schema/app version separation (§5 of the plan), verified by:
+
+- fresh install → `user_version = 5`, `schemaVersion === expectedSchemaVersion`;
+- `konoha doctor` → `schema 5, app 2.2.19`;
+- single-writer guard test fails when a second `PRAGMA user_version = <n>` is introduced (proven by injection and revert).
+
+## 12. Acceptance
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Two stores, no shared connection | PASS | §1, `tests/test_akatsuki_lab_isolation.js` |
+| Full inventory reproducible | PASS | §2, generated from both DBs |
+| Every table mapped to writer/reader | PASS | §3, §9 |
+| Fresh↔live diff is exactly `kali_tools` | PASS | §4 |
+| Every migration checksum matches source | PASS | §4 |
+| `integrity_check = ok`, `foreign_key_check = []` | PASS | §5 |
+| Single embedding store, 384 dims | PASS | §6 |
+| RRF `k=60` | PASS | §6 |
+| Hot query plans recorded | PASS | §7 |
+| Windows/macOS paths | `[INFERENCE]` | Not executable on Linux x64; §8 |
+| Only `db_schema.js` writes `user_version` | PASS | guard test, proven by injection |
+| `kali_tools` blind drop | NOT DONE BY DESIGN | §3, §4; evidence-first removal in plan §7 |

@@ -9,7 +9,6 @@ const Database = require('../src/sqlite_driver');
 const {
   CURRENT_SCHEMA_VERSION,
   getCurrentUserVersion,
-  setUserVersion,
   verifyIntegrity,
   setupSchema
 } = require('../src/db_schema');
@@ -128,6 +127,26 @@ async function run() {
     assert.strictEqual(restarted.status, 'in_progress', 'Restarted task status must be in_progress');
     assert.strictEqual(restarted.evidence.restarts, 1, 'Restart counter must increment');
     assert.ok(restarted.evidence.last_restart_at, 'last_restart_at must be recorded');
+
+    // Only src/db_schema.js may write PRAGMA user_version. A second writer is how
+    // the app version (2218) leaked into the schema version.
+    const offenders = [];
+    for (const root of ['src', 'bin']) {
+      (function walk(dir) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name === 'node_modules' || entry.name === 'templates') continue;
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) { walk(full); continue; }
+          if (!entry.name.endsWith('.js')) continue;
+          if (path.resolve(full) === path.resolve(__dirname, '..', 'src', 'db_schema.js')) continue;
+          const src = fs.readFileSync(full, 'utf8');
+          if (/user_version\s*=\s*\d/.test(src) || /PRAGMA\s+user_version\s*=\s*\d/.test(src)) {
+            offenders.push(path.relative(path.join(__dirname, '..'), full));
+          }
+        }
+      })(path.join(__dirname, '..', root));
+    }
+    assert.deepStrictEqual(offenders, [], 'Only src/db_schema.js may write PRAGMA user_version');
 
     console.log('✓ All schema migrations, indexes, integrity checks, and task lifecycle tests passed!');
   } finally {

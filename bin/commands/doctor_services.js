@@ -57,9 +57,32 @@ function executeMigrationRun(skillsDirs) {
   }
 }
 
+function readSchemaVersion() {
+  const Database = require('../../src/sqlite_driver');
+  const conn = new Database(DB_PATH, { readOnly: true });
+  try {
+    return Object.values(conn.prepare('PRAGMA user_version').get())[0];
+  } finally {
+    conn.close();
+  }
+}
+
 function checkDatabaseAndMigrations(context) {
   if (fileExists(DB_PATH)) {
-    context.record('Database File (konoha.db)', 'HEALTHY', 'Database file is present');
+    const { CURRENT_SCHEMA_VERSION } = require('../../src/db_schema');
+    const appVersion = require('../../package.json').version;
+    let detail = `schema ${CURRENT_SCHEMA_VERSION}, app ${appVersion}`;
+    try {
+      const actual = readSchemaVersion();
+      if (actual !== CURRENT_SCHEMA_VERSION) {
+        detail = `schema ${actual} (expected ${CURRENT_SCHEMA_VERSION}), app ${appVersion} — run konoha migrate`;
+        context.record('Database File (konoha.db)', 'WARN', detail);
+        return;
+      }
+    } catch (err) {
+      detail += ` (schema unreadable: ${err.message})`;
+    }
+    context.record('Database File (konoha.db)', 'HEALTHY', detail);
     return;
   }
 
