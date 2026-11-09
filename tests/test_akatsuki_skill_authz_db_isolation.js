@@ -600,5 +600,63 @@ runTest('G35 existing-file-only open refuses to create, including paths with ? a
   assert.strictEqual(fs.existsSync(ghostParent), false, 'a denied existing-only open must not create the parent chain');
 });
 
+runTest('G36 lab DB creation under a lab root that does not exist yet is allowed', () => {
+  const freshRoot = path.join(TMP_ROOT, 'never-created-lab');
+  const saved = process.env.KONOHA_LAB_DB_ROOT;
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = freshRoot;
+    assert.strictEqual(fs.existsSync(freshRoot), false);
+    assert.strictEqual(authz.isLabDbPath(path.join(freshRoot, 'lab.db')), true);
+    assert.doesNotThrow(() => authz.assertLabDbPath(path.join(freshRoot, 'lab.db')));
+    assert.doesNotThrow(() => authz.assertLabDbPath(path.join(freshRoot, 'nested', 'lab.db')));
+    assert.throws(() => authz.assertLabDbPath(path.join(freshRoot, '..', 'main.db')));
+  } finally {
+    if (saved === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved;
+  }
+});
+
+runTest('G37 a symlink inside the lab root pointing at the main DB is rejected', () => {
+  const saved = process.env.KONOHA_LAB_DB_ROOT;
+  const labRoot = fs.mkdtempSync(path.join(TMP_ROOT, 'symlink-lab-'));
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = labRoot;
+    fs.writeFileSync(path.join(TMP_ROOT, 'outside.db'), 'x');
+    fs.symlinkSync(path.join(TMP_ROOT, 'outside.db'), path.join(labRoot, 'escape.db'));
+    fs.symlinkSync(TMP_ROOT, path.join(labRoot, 'escape-dir'));
+    assert.strictEqual(authz.isLabDbPath(path.join(labRoot, 'escape.db')), true, 'lexical check alone accepts it');
+    assert.throws(() => authz.assertLabDbPath(path.join(labRoot, 'escape.db')), (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION);
+    assert.throws(() => authz.assertLabDbPath(path.join(labRoot, 'escape-dir', 'x.db')), (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION);
+    assert.doesNotThrow(() => authz.assertLabDbPath(path.join(labRoot, 'real.db')));
+  } finally {
+    if (saved === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved;
+  }
+});
+
+runTest('G38 a dangling symlink inside the lab root is rejected, not treated as a new directory', () => {
+  const saved = process.env.KONOHA_LAB_DB_ROOT;
+  const labRoot = fs.mkdtempSync(path.join(TMP_ROOT, 'dangling-lab-'));
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = labRoot;
+    const link = path.join(labRoot, 'dangling');
+    fs.symlinkSync(path.join(TMP_ROOT, 'does-not-exist'), link);
+    // existsSync is false here; lstatSync sees it, so the guard must fail closed.
+    assert.strictEqual(fs.existsSync(link), false, 'dangling link must be invisible to existsSync');
+    assert.strictEqual(authz.isLabDbPath(path.join(link, 'lab.db')), true, 'lexical check alone accepts it');
+    assert.throws(
+      () => authz.assertLabDbPath(path.join(link, 'lab.db')),
+      (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION
+    );
+    assert.throws(
+      () => authz.assertLabDbPath(link),
+      (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION
+    );
+  } finally {
+    if (saved === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved;
+  }
+});
+
 cleanup();
 console.log(`\n${testsPassed} test cases passed.`);

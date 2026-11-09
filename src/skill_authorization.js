@@ -1,16 +1,12 @@
 /**
- * Skill authorization tiers + DB path guards.
- *
- * Single source of truth for red-skill classification, the fail-closed
- * authorization gate used by every discovery / retrieval / selection /
- * dispatch / delegation / runtime call site, and the main-vs-lab DB path
- * boundary.
- *
- * No env var, option, or parameter may bypass red-skill authorization.
+ * Red-skill classification, the fail-closed authorization gate, and the
+ * main-vs-lab DB path boundary. No env var, option, or parameter may bypass
+ * red-skill authorization.
  */
 
 'use strict';
 
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { normalizeAgentName } = require('./canonical_agents');
@@ -19,6 +15,11 @@ const SKILL_AUTHORIZATION_DENIED = 'SKILL_AUTHORIZATION_DENIED';
 const LAB_DB_ISOLATION_VIOLATION = 'LAB_DB_ISOLATION_VIOLATION';
 
 const RED_SKILLS = Object.freeze(new Set(['akatsuki-skill']));
+// Roots match on a boundary so namespaced/derived rows stay red:
+//   akatsuki-skill, akatsuki-skill/<ref>, akatsuki-skill@global-<harness>,
+//   akatsuki-skill@proj-<hash>, akatsuki-skill-fixture
+const RED_SKILL_ROOTS = Object.freeze(['akatsuki-skill']);
+const RED_SKILL_ROOT_PATTERN = /^(?:akatsuki-skill)(?:[-_/@]|$)/;
 const RED_MODE_AGENTS = Object.freeze(new Set(['akatsuki']));
 const RED_SKILL_PREFIXES = Object.freeze(['pentest', 'patch-diff-exploit']);
 const RED_SKILL_PATTERN = /^(?:pentest|patch-diff-exploit)(?:[-_/]|$)/;
@@ -48,6 +49,8 @@ function classifySkill(skillName, tags) {
 
   let red = false;
   if (normalized && RED_SKILLS.has(normalized)) {
+    red = true;
+  } else if (normalized && RED_SKILL_ROOT_PATTERN.test(normalized)) {
     red = true;
   } else if (normalized && RED_SKILL_PATTERN.test(normalized)) {
     red = true;
@@ -165,7 +168,7 @@ function isLabDbPath(p) {
 }
 
 function assertLabDbPath(p) {
-  if (isLabDbPath(p)) return;
+  if (isLabDbPath(p) && !_escapesViaSymlink(p)) return;
   const err = new Error(
     `Lab DB writes are restricted to ${getLabDbDir()}; got ${p}.`
   );
@@ -173,10 +176,66 @@ function assertLabDbPath(p) {
   throw err;
 }
 
+/**
+ * True when p, resolved through the longest existing prefix, leaves the lab
+ * root. A symlink inside the lab root pointing at the main DB would otherwise
+ * satisfy the lexical containment check.
+ */
+function _escapesViaSymlink(p) {
+  const realTarget = _realizeExistingPrefix(p);
+  if (realTarget === _realizeExistingPrefix(getMainDbPath())) return true;
+  const realRoot = _realizeExistingPrefix(getLabDbDir());
+  if (realTarget === realRoot) return true;
+  const rel = path.relative(realRoot, realTarget);
+  if (!rel || path.isAbsolute(rel)) return true;
+  return rel === '..' || rel.startsWith(`..${path.sep}`);
+}
+
+/**
+ * Resolve symlinks on the longest existing prefix of p and re-append the
+ * components that do not exist yet, so a lab root that has never been created
+ * still compares correctly. Uses lstat so a dangling symlink counts as
+ * existing; an unresolvable prefix fails closed instead of being treated as
+ * an ordinary new directory.
+ */
+function _realizeExistingPrefix(p) {
+  const resolved = path.resolve(p);
+  const missing = [];
+  let probe = resolved;
+  for (;;) {
+    if (_lexists(probe)) break;
+    const parent = path.dirname(probe);
+    if (parent === probe) return resolved;
+    missing.unshift(path.basename(probe));
+    probe = parent;
+  }
+  let real;
+  try {
+    real = fs.realpathSync(probe);
+  } catch (err) {
+    const violation = new Error(
+      `Lab DB path cannot be resolved (dangling symlink or unreadable prefix): ${probe} (${err.code || err.message})`
+    );
+    violation.code = LAB_DB_ISOLATION_VIOLATION;
+    throw violation;
+  }
+  return missing.length ? path.join(real, ...missing) : real;
+}
+
+function _lexists(p) {
+  try {
+    fs.lstatSync(p);
+    return true;
+  } catch (err) {
+    return err.code !== 'ENOENT' && err.code !== 'ENOTDIR';
+  }
+}
+
 module.exports = {
   SKILL_AUTHORIZATION_DENIED,
   LAB_DB_ISOLATION_VIOLATION,
   RED_SKILLS,
+  RED_SKILL_ROOTS,
   RED_MODE_AGENTS,
   RED_SKILL_PREFIXES,
   RED_SKILL_TAGS,

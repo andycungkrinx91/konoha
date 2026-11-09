@@ -26,6 +26,24 @@ const {
 } = require('./skills_common');
 const { autoMigrateProjectSkills, querySkillsByKeyword } = require('./skills_search');
 
+/**
+ * Re-check authorization against the *resolved* row, not just the requested
+ * string. Suffixed/namespaced rows (`akatsuki-skill@global-omp`,
+ * `akatsuki-skill/<ref>`) and rows whose own tags are red must deny even when
+ * the client asked for a name the pre-resolution check saw as blue.
+ *
+ * @returns {null|object} denial payload, or null when allowed
+ */
+function denyResolvedRow(row, agentName) {
+  if (!row) return null;
+  const candidates = [row.skill_name, row.name].filter((n) => typeof n === 'string' && n.trim());
+  for (const candidate of candidates) {
+    const denied = denyIfUnauthorized(candidate, row.tags, agentName);
+    if (denied) return denied;
+  }
+  return null;
+}
+
 function _sliceSectionContent(rawSections, requestedSection) {
   if (requestedSection) {
     const reqLower = requestedSection.toLowerCase().replace(/^#+/, '').trim();
@@ -215,6 +233,14 @@ function getSkill(name, agentName = null, options = {}) {
       return res;
     }
 
+    const resolvedDenied = denyResolvedRow(row, agentName);
+    if (resolvedDenied) {
+      process.stderr.write(`  [Authorization] Denied after resolution: '${normName}' is red.\n`);
+      const res = JSON.stringify(resolvedDenied);
+      logToolCall('get_skill', normName, res, agentName);
+      return res;
+    }
+
     process.stderr.write(`  → Retrieved ${row.name} (${row.byte_size} bytes)\n`);
     const { finalContent, truncated, remainingSections, hash } = _truncateSkillContent(row.content || '', normName, tokenBudget, requestedSection);
 
@@ -282,6 +308,10 @@ function _loadSingleSkill(conn, normName, agentName, allWarnings) {
 
   const row = _findSkillInDb(conn, normName);
   if (row?.content) {
+    const resolvedDenied = denyResolvedRow(row, agentName);
+    if (resolvedDenied) {
+      return { status: 'denied', ...resolvedDenied, source: 'none' };
+    }
     process.stderr.write(`  → [use_skills] Retrieved '${normName}' from database (${row.byte_size || row.content.length} bytes)\n`);
     return { content: row.content, skillType: row.type || 'skill', source: 'sqlite_fts5', warning: null };
   }
