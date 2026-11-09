@@ -166,13 +166,22 @@ inside the package and were indexed under `anbu-skill`, a backend/DevOps skill.
 | Test | Result |
 |---|---|
 | `test_vps_safe_install.js` | PASS |
-| `test_cyber_pack_opt_in.js` | PASS — `absent → 817 → removed`, backup recorded, legacy foreign rows purged |
+| `test_cyber_pack_opt_in.js` | PASS — `absent → 817 → removed`, backup recorded, legacy foreign rows purged, **and purge aborts when the pre-delete snapshot fails** |
 | `test_anthropic_cybersecurity_skills.js` | PASS |
 | `test_anbu_intact.js` | PASS |
 | `test_schema_traceability.js` | PASS |
 
 Repair path proven on a copy: `RUN1 rows=3268 chunks=7442 backup=true`, `RUN2 rows=0
 state=removed`, `LEFT=0`.
+
+**Snapshot failure is fail-closed.** `_purgeForeignRows` calls `backupDatabase`
+before any `DELETE`. `backupDatabase` runs `VACUUM INTO`, which throws on an
+unwritable target, so a failed snapshot propagates and no row is removed. This is now
+asserted, not merely ordered: `assertLegacyRowsPurged` stubs `db.backupDatabase` to
+throw and asserts (a) the install propagates the error and (b) the foreign row is still
+present. Proven non-vacuous by injecting a swallowed `catch` around the snapshot — the
+assertion `Install must propagate a backup failure instead of purging` fired — then
+reverting.
 
 **Attribution fix.** The 817 skills were credited to the backend skill in `README.md` and in
 the 2.1.7 compliance report. README clauses are corrected. The dated 2.1.7 report is

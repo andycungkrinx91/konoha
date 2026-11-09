@@ -145,6 +145,34 @@ async function assertLegacyRowsPurged() {
     .get('legacy-probe-anbu').n;
   backup.close();
   assert.strictEqual(preserved, 1, 'Backup must contain the row before the purge');
+
+  // The purge is destructive: it must abort when the pre-delete snapshot fails,
+  // never delete rows it could not back up.
+  const dbMod = require('../src/db');
+  const realBackup = dbMod.backupDatabase;
+  const probePath = `${cyberPack.getPackDir()}/skills/legacy-probe2/SKILL.md`;
+  insert.run('legacy-probe2-anbu', 'legacy-probe2-anbu', 'reference', null, '# Legacy 2', probePath, 10, 1);
+  conn
+    .prepare('UPDATE skills SET skill_name = ?, file_path = ? WHERE name = ?')
+    .run('anbu-skill', probePath, 'legacy-probe2-anbu');
+  assert.strictEqual(cyberRowCount('anbu-skill'), 1, 'Second probe row must land under anbu-skill');
+
+  dbMod.backupDatabase = () => { throw new Error('simulated backup failure'); };
+  let aborted = false;
+  try {
+    await cyberPack.install({ confirm: true, archivePath, manifestPath, version, conn, log: () => {} });
+  } catch (err) {
+    aborted = /simulated backup failure/.test(err.message);
+  } finally {
+    dbMod.backupDatabase = realBackup;
+  }
+  assert.ok(aborted, 'Install must propagate a backup failure instead of purging');
+  assert.strictEqual(
+    cyberRowCount('anbu-skill'),
+    1,
+    'A failed backup must leave the foreign rows intact'
+  );
+  conn.prepare('DELETE FROM skills WHERE name IN (?, ?)').run('legacy-probe-anbu', 'legacy-probe2-anbu');
 }
 
 async function runTests() {
