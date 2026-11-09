@@ -6,6 +6,13 @@
 **Scope:** Remediation of Socket Supply Chain security score on published npm package `konoha-mcp@2.1.7`. Elimination of Socket AI alerts (`gptSecurity` and `gptAnomaly`) by excluding non-runtime offensive cybersecurity assets (`anthropic-cybersecurity-skills-assets`) from the distribution tarball via package manifest rules and `.npmignore`. Preservation of the Strict Skill Protection Invariant across local disk and Git, 100/100 Zero-AI-Slop gate, and 100% automated test suite passing across all 104 test suites.  
 **Prepared by:** Kage (Village Leader, Security & Architecture Reviewer) & Anbu (Black Ops & Backend Specialist)  
 
+> **Superseded layout as of 2.2.19.** This report is a dated 2.1.7 artifact and is
+> accurate for the tree it describes, where the 817-skill library sat under
+> `anbu-skill/references`. Since 2.2.19 the library is not shipped at all: it is an
+> explicit opt-in release asset owned by `akatsuki-skill`
+> (`konoha akatsuki cyber-pack install --confirm`), and a fresh install indexes zero
+> cyber rows. The attribution below is historical, not current.
+
 ---
 
 ## 1. Executive Summary

@@ -66,6 +66,12 @@ release, verifies the sha256, and extracts to
 `~/.konoha/akatsuki-lab/cyber-pack/`. `migrate` indexes 817 skills under
 `akatsuki-skill` only.
 
+Upgrading an install that predates 2.2.19: those releases indexed the pack under
+every skill that walked it, so `anbu-skill` can hold thousands of cyber rows.
+`install` snapshots the database (`~/.konoha/backups/`) and purges any cyber row
+not owned by `akatsuki-skill`; the command reports how many it removed. `konoha
+doctor --vps` fails while such rows remain, so the purge is the repair path.
+
 `--confirm` is mandatory. Without it the command prints the consent text and
 exits non-zero without touching the network.
 
@@ -116,7 +122,7 @@ Both are idempotent. `--clean-cyber-pack` never restores the pack.
 | `pnpm: command not found` | pnpm missing | `npm i -g pnpm` |
 | `ENOSPC` during `init` | < 2 GiB free | Free space or set `KONOHA_HOME` to a larger volume |
 | `EACCES` on `~/.konoha` | `$HOME` not writable | Fix ownership |
-| Port 1404/1405 in use | Another service bound | Stop it or set `KONOHA_PORT` |
+| Port 1404/1405 in use | Another service bound | Stop the conflicting service; `bin/lib/ui_service.js` hardcodes 1404 for the web UI, and the MCP server takes `--port` |
 | `Cyber pack checksum mismatch` | Corrupt or tampered archive | Re-download; do not bypass |
 | `CYBER_PACK_CONFIRM_REQUIRED` | Missing `--confirm` | Re-run with `--confirm` after reading the consent text |
 | `LAB_DB_ISOLATION_VIOLATION` | Lab DB path aliases the main DB | Remove the symlink/hardlink; use the default lab path |

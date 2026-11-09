@@ -249,9 +249,51 @@ async function install(options = {}) {
   );
   fs.writeFileSync(getManifestPath(), JSON.stringify(manifest, null, 2), { mode: 0o600 });
 
+  const purge = _purgeForeignRows(options.conn, options.dbPath, log);
   if (options.conn) _recordMigration(options.conn, manifest.sha256);
   log(`Cyber pack ${version} installed to ${getPackDir()}`);
-  return { ok: true, state: 'opted-in', version, sha256: manifest.sha256, packDir: getPackDir() };
+  return {
+    ok: true,
+    state: 'opted-in',
+    version,
+    sha256: manifest.sha256,
+    packDir: getPackDir(),
+    purgedRows: purge ? purge.purgedRows : 0,
+    purgeBackupPath: purge ? purge.backupPath : null
+  };
+}
+
+/**
+ * Installs before 2.2.19 indexed the pack under every skill that walked it, so
+ * `anbu-skill` can hold thousands of cyber rows. The pack is opt-in and red-only;
+ * drop any cyber row attributed to another owner on install.
+ *
+ * @returns {{purgedRows: number, purgedChunks: number, backupPath: string}|null}
+ *   null when there is nothing to purge; a backup is taken only when there is.
+ */
+function _purgeForeignRows(conn, dbPath = null, log = () => {}) {
+  if (!conn) return null;
+  const foreign = conn
+    .prepare(`SELECT name FROM skills WHERE (${CYBER_ROW_WHERE}) AND skill_name <> ?`)
+    .all(...CYBER_ROW_PATTERNS, PACK_OWNER)
+    .map((r) => r.name);
+  if (foreign.length === 0) return null;
+
+  // Destructive: snapshot first, same as remove().
+  const backupPath = require('./db').backupDatabase(null, dbPath || null).targetPath;
+  log(`Backed up ${backupPath} before purging legacy cyber rows`);
+
+  // skill_chunks.skill_name references skills(name), so chunks are children of
+  // the row name, not of the owner inventory name.
+  const delChunks = conn.prepare('DELETE FROM skill_chunks WHERE skill_name = ?');
+  const delSkill = conn.prepare('DELETE FROM skills WHERE name = ?');
+  let chunks = 0;
+  conn.transaction(() => {
+    for (const name of foreign) chunks += delChunks.run(name).changes;
+    for (const name of foreign) delSkill.run(name);
+  })();
+  log(`Purged ${foreign.length} legacy cyber rows (${chunks} chunks) not owned by ${PACK_OWNER}`);
+  return { purgedRows: foreign.length, purgedChunks: chunks, backupPath };
 }
 
 function _recordMigration(conn, checksum) {
@@ -260,6 +302,9 @@ function _recordMigration(conn, checksum) {
      VALUES (?, ?, ?, ?)`
   ).run(MIGRATION_ID, checksum, new Date().toISOString(), 0);
 }
+
+// The pack belongs to the red identity alone. Migrations and purges both key on this.
+const PACK_OWNER = 'akatsuki-skill';
 
 // Two layouts exist: the legacy in-repo asset dir and the opt-in pack dir.
 const CYBER_ROW_PATTERNS = Object.freeze([
@@ -284,14 +329,14 @@ function remove(options = {}) {
     const db = require('./db');
     backupPath = db.backupDatabase(null, options.dbPath || null).targetPath;
     const names = conn
-      .prepare(`SELECT DISTINCT skill_name FROM skills WHERE ${CYBER_ROW_WHERE}`)
+      .prepare(`SELECT name FROM skills WHERE ${CYBER_ROW_WHERE}`)
       .all(...CYBER_ROW_PATTERNS)
-      .map((r) => r.skill_name);
+      .map((r) => r.name);
     const delChunks = conn.prepare('DELETE FROM skill_chunks WHERE skill_name = ?');
-    const delSkills = conn.prepare(`DELETE FROM skills WHERE ${CYBER_ROW_WHERE}`);
+    const delSkill = conn.prepare('DELETE FROM skills WHERE name = ?');
     conn.transaction(() => {
       for (const name of names) removedChunks += delChunks.run(name).changes;
-      removedRows = delSkills.run(...CYBER_ROW_PATTERNS).changes;
+      for (const name of names) removedRows += delSkill.run(name).changes;
     })();
     _recordMigration(conn, 'removed');
   }
@@ -332,6 +377,7 @@ function status(conn = null) {
 }
 
 module.exports = {
+  PACK_OWNER,
   PACK_DIR_NAME,
   PACK_ASSET_DIR,
   MIGRATION_ID,

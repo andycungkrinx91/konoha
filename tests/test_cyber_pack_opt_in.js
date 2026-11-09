@@ -11,6 +11,7 @@
 'use strict';
 
 const assert = require('assert');
+const Database = require('node:sqlite').DatabaseSync;
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -109,6 +110,43 @@ async function assertLifecycle() {
   assert.strictEqual(cyberPack.getState(conn), 'removed', 'Second remove must keep the removed state');
 }
 
+/**
+ * Pre-2.2.19 installs indexed the pack under every skill that walked it. An
+ * upgrade install must drop those rows, or acceptance §9 ("0 under anbu-skill")
+ * never holds for an existing install.
+ */
+async function assertLegacyRowsPurged() {
+  const insert = conn.prepare(
+    'INSERT OR REPLACE INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+  const legacyPath = `${cyberPack.getPackDir()}/skills/legacy-probe/SKILL.md`;
+  insert.run('legacy-probe-anbu', 'legacy-probe-anbu', 'reference', null, '# Legacy', legacyPath, 8, 1);
+  conn
+    .prepare('UPDATE skills SET skill_name = ?, file_path = ? WHERE name = ?')
+    .run('anbu-skill', legacyPath, 'legacy-probe-anbu');
+  assert.strictEqual(cyberRowCount('anbu-skill'), 1, 'Probe row must land under anbu-skill');
+
+  const reinstalled = await cyberPack.install({
+    confirm: true,
+    archivePath,
+    manifestPath,
+    version,
+    conn,
+    log: () => {}
+  });
+  assert.strictEqual(reinstalled.purgedRows, 1, 'Reinstall must purge the foreign row');
+  assert.strictEqual(cyberRowCount('anbu-skill'), 0, 'ANBU must hold no cyber rows after install');
+
+  assert.ok(reinstalled.purgeBackupPath, 'Purge must record a backup path');
+  assert.ok(fs.existsSync(reinstalled.purgeBackupPath), 'Purge backup must exist on disk');
+  const backup = new Database(reinstalled.purgeBackupPath, { readOnly: true });
+  const preserved = backup
+    .prepare('SELECT COUNT(*) n FROM skills WHERE name = ?')
+    .get('legacy-probe-anbu').n;
+  backup.close();
+  assert.strictEqual(preserved, 1, 'Backup must contain the row before the purge');
+}
+
 async function runTests() {
   console.log('Running test_cyber_pack_opt_in.js...');
 
@@ -123,10 +161,11 @@ async function runTests() {
   await assertConsentRequired();
   await assertChecksumRejected();
   await assertLifecycle();
+  await assertLegacyRowsPurged();
 
   conn.close();
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  console.log('✓ Cyber pack opt-in lifecycle verified: absent -> 817 -> removed, backup recorded.');
+  console.log('✓ Cyber pack opt-in lifecycle verified: absent -> 817 -> removed, backup recorded, legacy foreign rows purged.');
   process.exit(0);
 }
 
