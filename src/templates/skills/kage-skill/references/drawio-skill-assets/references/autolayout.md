@@ -13,8 +13,8 @@ Requires Graphviz `dot` on PATH:
 ```bash
 # macOS
 brew install graphviz
-# Debian/Ubuntu
-sudo apt install graphviz
+# Debian/Ubuntu (install as the operator; agents run unprivileged)
+apt install graphviz
 ```
 
 The script exits with a clear message if `dot` is missing — fall back to hand-placed coordinates in that case.

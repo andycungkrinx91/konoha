@@ -51,11 +51,8 @@ Bun is a batteries-included JavaScript/TypeScript runtime that replaces Node.js,
 
 #### 1. Install Bun
 ```bash
-# macOS / Linux
-curl -fsSL https://bun.sh/install | bash
-
-# Windows (PowerShell)
-powershell -c "irm bun.sh/install.ps1 | iex"
+# macOS / Linux / Windows
+npm install -g bun
 
 # Verify installation
 bun --version
@@ -152,11 +149,8 @@ Bun adalah runtime JavaScript/TypeScript serba ada yang menggantikan Node.js, np
 
 #### 1. Instal Bun
 ```bash
-# Windows (PowerShell)
-powershell -c "irm bun.sh/install.ps1 | iex"
-
-# macOS / Linux
-curl -fsSL https://bun.sh/install | bash
+# macOS / Linux / Windows
+npm install -g bun
 
 # Verifikasi instalasi
 bun --version

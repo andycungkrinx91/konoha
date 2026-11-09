@@ -114,11 +114,26 @@ function runLint() {
   console.log('====================================================');
   if (errorCount === 0) {
     console.log(`✔ Linting completed: ${files.length} files verified with 0 errors and 0 warnings.`);
-    process.exit(0);
+    process.exit(runPrivilegedPatternAudit());
   } else {
     console.error(`✖ Linting failed: ${errorCount} error(s) across ${failedFiles.length} file(s).`);
     process.exit(1);
   }
+}
+
+/** Blue-skill privileged-pattern policy gate; returns an exit code. */
+function runPrivilegedPatternAudit() {
+  const { audit } = require('./audit_skill_privileged_patterns');
+  const { scanned, violations } = audit();
+  if (violations.length === 0) {
+    console.log(`✔ ${scanned} blue skill files carry no instructional privileged patterns.`);
+    return 0;
+  }
+  console.error(`✖ ${violations.length} instructional privileged pattern(s) in blue skills:`);
+  for (const v of violations) {
+    console.error(`  ${v.file}:${v.line} [${v.pattern}] ${v.text}`);
+  }
+  return 1;
 }
 
 if (require.main === module) {
