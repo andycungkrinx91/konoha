@@ -148,6 +148,20 @@ async function run() {
     }
     assert.deepStrictEqual(offenders, [], 'Only src/db_schema.js may write PRAGMA user_version');
 
+    // §7: the base schema must never grow lab tables. kali_tools is lab-only by
+    // design; live DBs that still carry it are handled by an operator-run,
+    // evidence-backed removal (docs/security/DB-KALI-TOOLS-PROVENANCE.md).
+    const freshCheck = new Database(freshDbPath, { readonly: true });
+    const freshTables = freshCheck
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .all().map(r => r.name);
+    freshCheck.close();
+    assert.strictEqual(freshTables.length, 33, `fresh setupSchema must produce exactly 33 tables, got ${freshTables.length}`);
+    for (const labTable of ['kali_tools', 'lab_runs', 'lab_tool_invocations', 'red_skill_audit']) {
+      assert.ok(!freshTables.includes(labTable), `fresh schema must not define lab table ${labTable}`);
+    }
+    assert.ok(!freshTables.includes('_sqliteai_vector'), '_sqliteai_vector is extension-owned runtime state, not base DDL');
+
     console.log('✓ All schema migrations, indexes, integrity checks, and task lifecycle tests passed!');
   } finally {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
