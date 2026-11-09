@@ -319,6 +319,79 @@ async function cmdAkatsukiTools(args = []) {
 }
 
 /**
+ * `konoha akatsuki cyber-pack [status|install|remove]`
+ *
+ * Opt-in red-team pack. Never fetched or indexed without explicit consent.
+ *
+ * @param {string[]} subArgs
+ */
+async function cmdAkatsukiCyberPack(subArgs = []) {
+  const action = subArgs[0] ? subArgs[0].toLowerCase() : 'status';
+  const cyberPack = require('../../src/cyber_pack');
+  const db = require('../../src/db');
+
+  let conn = null;
+  try {
+    conn = db.getConnection(null, false);
+  } catch (_) {
+    conn = null;
+  }
+
+  try {
+    if (action === 'status') {
+      const status = cyberPack.status(conn);
+      log('');
+      header('AKATSUKI CYBER PACK');
+      log(`  ${C.bold}State:${C.reset}      ${status.state}`);
+      log(`  ${C.bold}Indexed:${C.reset}    ${status.rows} skills`);
+      log(`  ${C.bold}Pack dir:${C.reset}   ${status.packDir}`);
+      log(`  ${C.bold}Consent:${C.reset}    ${status.consent}`);
+      log('');
+      if (status.state !== 'opted-in') {
+        info('Opt in with: konoha akatsuki cyber-pack install --confirm');
+      }
+      log('');
+      return;
+    }
+
+    if (action === 'install') {
+      const confirm = subArgs.includes('--confirm');
+      log('');
+      log(`  ${C.yellow}${cyberPack.CONSENT_TEXT}${C.reset}`);
+      log('');
+      const result = await cyberPack.install({
+        confirm,
+        conn,
+        archivePath: _argValue(subArgs, '--archive'),
+        manifestPath: _argValue(subArgs, '--manifest'),
+        version: _argValue(subArgs, '--version'),
+        log: (msg) => log(`  ${C.green}✓${C.reset} ${msg}`)
+      });
+      success(`Cyber pack ${result.version} installed. Run "konoha migrate" to index it.`);
+      log('');
+      return;
+    }
+
+    if (action === 'remove') {
+      const result = cyberPack.remove({ conn, log: (msg) => log(`  ${C.cyan}•${C.reset} ${msg}`) });
+      success(`Cyber pack removed (${result.removedRows} rows, ${result.removedChunks} chunks).`);
+      log('');
+      return;
+    }
+
+    error(`Unknown cyber-pack action "${action}". Supported: status, install --confirm, remove`);
+    process.exitCode = 1;
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
+function _argValue(args, flag) {
+  const idx = args.indexOf(flag);
+  return idx >= 0 && args[idx + 1] ? args[idx + 1] : null;
+}
+
+/**
  * Print help for konoha akatsuki.
  */
 function cmdAkatsukiHelp() {
@@ -336,10 +409,12 @@ ${C.bold}Subcommands:${C.reset}
   ${C.cyan}disable${C.reset}                         Alias for "mode blue" (stop sandbox and fail-closed)
   ${C.cyan}redteam enable${C.reset}                  Alias for "mode red"
   ${C.cyan}redteam disable${C.reset}                 Alias for "mode blue"
+  ${C.cyan}cyber-pack [status|install|remove]${C.reset} Opt-in red-team skill pack (never bundled; requires --confirm)
 
 ${C.bold}Security Policy:${C.reset}
   Red-Team execution is strictly confined to the ${C.bold}akatsuki-lab${C.reset} container.
   Direct host execution is strictly denied.
+  The cyber pack is opt-in, fetched from a signed release asset, and indexed only after consent.
   Toggles and modes are CLI/TUI exclusive and hidden from the Web UI.
 `);
 }
@@ -395,6 +470,11 @@ async function cmdAkatsuki(args = []) {
       cmdAkatsukiToggle('disable');
       break;
 
+    case 'cyber-pack':
+    case 'cyberpack':
+      await cmdAkatsukiCyberPack(args.slice(1));
+      break;
+
     case 'help':
     case '--help':
     case '-h':
@@ -415,5 +495,6 @@ module.exports = {
   cmdAkatsukiToggle,
   cmdAkatsukiMode,
   cmdAkatsukiEnv,
+  cmdAkatsukiCyberPack,
   cmdAkatsukiHelp
 };

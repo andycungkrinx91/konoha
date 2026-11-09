@@ -22,13 +22,14 @@ const { startSpinner, checkPython } = require('../lib/prompt');
 const { getUvxCommand } = require('../lib/extension');
 const { SERVER_PATH } = require('../lib/paths');
 const { cmdTest } = require('./test');
-const { checkAndRepairRuntimeFiles } = require('./doctor_runtime');
+const { checkAndRepairRuntimeFiles, cleanCyberPack, restoreAnbu } = require('./doctor_runtime');
 const { checkAndRepairClientConfigs } = require('./doctor_clients');
 const {
   checkDatabaseAndMigrations,
   checkGeminiAndAgentsConfig,
   checkPromptHookConfig,
-  checkGovernanceAndServices
+  checkGovernanceAndServices,
+  checkVpsPreflight
 } = require('./doctor_services');
 
 function cmdDoctorHelp() {
@@ -40,8 +41,12 @@ function cmdDoctorHelp() {
   all runtime scripts, configurations, and AI client bridges are healthy.
 
   Options:
-    -h, --help       Show this help message
-    -y, --yes        Auto-approve all repair prompts (non-interactive)
+    -h, --help           Show this help message
+    -y, --yes            Auto-approve all repair prompts (non-interactive)
+    --vps                Run the VPS preflight group (PASS/FAIL per check)
+    --clean-cyber-pack   Remove the opt-in cyber pack: DB backup, rows, on-disk copies
+    --restore-anbu       Re-copy the ANBU skill and re-sync its templates
+                         (never restores the cyber pack)
 
   Run this command whenever you encounter issues with AI agents or tools.
   `);
@@ -132,8 +137,15 @@ async function cmdDoctor(args = []) {
   };
 
   checkNodeEnvironment(context);
-  checkAndRepairRuntimeFiles(context);
+  if (args.includes('--clean-cyber-pack')) {
+    cleanCyberPack(context);
+  } else if (args.includes('--restore-anbu')) {
+    restoreAnbu(context);
+  } else {
+    checkAndRepairRuntimeFiles(context);
+  }
   checkDatabaseAndMigrations(context);
+  if (args.includes('--vps')) await checkVpsPreflight(context);
   checkGeminiAndAgentsConfig(context);
   await checkPromptHookConfig(context, globalSpinner);
 

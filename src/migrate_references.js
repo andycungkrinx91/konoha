@@ -13,9 +13,33 @@ function defaultStderrLog(...args) {
   process.stderr.write(args.map(a => (typeof a === 'object' && a !== null) ? JSON.stringify(a) : String(a)).join(' ') + '\n');
 }
 
+/**
+ * Resolve the cyber skills source directory.
+ *
+ * The pack is opt-in and lives outside the repo. Consent on disk is the only
+ * gate: a leftover in-repo copy is never indexed on its own.
+ *
+ * @param {string} refsDir skill references directory (unused when opted in)
+ * @returns {string|null} skills directory, or null when not opted in
+ */
+function resolveCyberSkillsDir(refsDir) {
+  const cyberPack = require('./cyber_pack');
+  if (cyberPack.getState() !== 'opted-in') return null;
+  const optInDir = cyberPack.getSkillsDir();
+  if (fs.existsSync(optInDir) && fs.statSync(optInDir).isDirectory()) return optInDir;
+  // Legacy layout: pack extracted next to the skill's own references.
+  const legacyDir = path.join(refsDir, "anthropic-cybersecurity-skills-assets", "skills");
+  return fs.existsSync(legacyDir) && fs.statSync(legacyDir).isDirectory() ? legacyDir : null;
+}
+
+// The pack belongs to the red identity only. Without this guard a full
+// `konoha migrate` would attribute all 817 rows to every skill it walks.
+const CYBER_PACK_OWNER = 'akatsuki-skill';
+
 function _migrateCyberSkills(conn, refsDir, skillName, skillsOnly, log = defaultStderrLog) {
-  const cyberSkillsDir = path.join(refsDir, "anthropic-cybersecurity-skills-assets", "skills");
-  if (skillsOnly || !fs.existsSync(cyberSkillsDir) || !fs.statSync(cyberSkillsDir).isDirectory()) {
+  if (skillName !== CYBER_PACK_OWNER) return 0;
+  const cyberSkillsDir = resolveCyberSkillsDir(refsDir);
+  if (skillsOnly || !cyberSkillsDir) {
     return 0;
   }
   const subSkills = fs.readdirSync(cyberSkillsDir).sort();

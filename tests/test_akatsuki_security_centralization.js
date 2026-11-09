@@ -110,10 +110,16 @@ async function runAkatsukiTests() {
   assert.ok(!fs.existsSync(path.join(anbuRefDir, 'anthropic-cybersecurity-skills.md')), 'anbu references must NOT contain cyber skill markdown');
   assert.ok(!fs.existsSync(path.join(anbuRefDir, 'autonomous-red-teamer.md')), 'anbu references must NOT contain autonomous-red-teamer');
 
-  // Verify akatsuki references contain the assets
+  // Verify akatsuki references contain the assets — but the pack is opt-in and
+  // is no longer tracked in git, so this half only runs for a local checkout
+  // that still has it (or an extracted pack).
   const akatsukiRefDir = path.resolve(__dirname, '..', 'src', 'templates', 'skills', 'akatsuki-skill', 'references');
-  assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'anthropic-cybersecurity-skills-assets')), 'akatsuki references must contain cyber assets');
-  assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'anthropic-cybersecurity-skills.md')), 'akatsuki references must contain cyber markdown');
+  const packInRepo = fs.existsSync(path.join(akatsukiRefDir, 'anthropic-cybersecurity-skills-assets'));
+  if (packInRepo) {
+    assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'anthropic-cybersecurity-skills.md')), 'akatsuki references must contain cyber markdown');
+  } else {
+    console.log('  ⏭ cyber pack not in repo (opt-in): skipping in-repo asset assertions');
+  }
   assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'autonomous-red-teamer.md')), 'akatsuki references must contain autonomous-red-teamer');
   assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'skill-guardian.md')), 'akatsuki references must contain skill-guardian');
   assert.ok(fs.existsSync(path.join(akatsukiRefDir, 'blue-team-defense.md')), 'akatsuki references must contain blue-team-defense');

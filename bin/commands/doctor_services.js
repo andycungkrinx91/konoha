@@ -9,6 +9,7 @@ const {
   HOME,
   DB_PATH,
   SKILLS_DB_DIR,
+  DEFAULT_SKILLS_DIRS,
   MIGRATE_PATH,
   MCP_CONFIG_PATH,
   GEMINI_MD_PATH,
@@ -337,9 +338,89 @@ async function checkGovernanceAndServices(context) {
   await checkWebUiDaemon(context);
 }
 
+/**
+ * VPS preflight: the checks a hosting provider's scanner and a fresh box care
+ * about. Every row is PASS/FAIL; any FAIL marks the run errored.
+ *
+ * @param {object} context doctor context (record/markError)
+ */
+async function checkVpsPreflight(context) {
+
+  const cyberPack = require('../../src/cyber_pack');
+
+  const major = parseInt(process.version.slice(1).split('.')[0], 10);
+  context.record('VPS: Node.js', major >= 24 ? 'PASS' : 'FAIL', `${process.version} (need >= 24)`);
+  if (major < 24) context.markError();
+
+  const pnpm = spawnSync('pnpm', ['--version'], { encoding: 'utf8' });
+  const pnpmOk = pnpm.status === 0;
+  context.record('VPS: pnpm', pnpmOk ? 'PASS' : 'FAIL', pnpmOk ? pnpm.stdout.trim() : 'pnpm not found on PATH');
+  if (!pnpmOk) context.markError();
+
+  let freeGb = 0;
+  try {
+    const stat = fs.statfsSync(HOME);
+    freeGb = (stat.bavail * stat.bsize) / 1024 ** 3;
+  } catch (_) { /* statfs unsupported */ }
+  const diskOk = freeGb >= 2;
+  context.record('VPS: Disk', diskOk ? 'PASS' : 'FAIL', `${freeGb.toFixed(1)} GiB free at ${HOME} (need >= 2)`);
+  if (!diskOk) context.markError();
+
+  let writable = false;
+  try {
+    fs.accessSync(HOME, fs.constants.W_OK);
+    writable = true;
+  } catch (_) { /* not writable */ }
+  context.record('VPS: ~/.konoha writable', writable ? 'PASS' : 'FAIL', HOME);
+  if (!writable) context.markError();
+
+  let state = 'absent';
+  let rows = 0;
+  try {
+    const db = require('../../src/db');
+    const conn = db.getConnection(null, false);
+    try {
+      const status = cyberPack.status(conn);
+      state = status.state;
+      rows = status.rows;
+    } finally {
+      conn.close();
+    }
+  } catch (_) { /* DB absent: treat as clean */ }
+  const packClean = state !== 'opted-in' && rows === 0;
+  context.record('VPS: Cyber pack absent', packClean ? 'PASS' : 'FAIL', `state ${state}, ${rows} indexed rows`);
+  if (!packClean) context.markError();
+
+  // Skills deploy into client dirs (~/.omp/agent/skills, ~/.claude/skills, ...),
+  // not ~/.konoha/skills. Any client dir carrying the skill counts as present.
+  const skillPresent = (name) => {
+    for (const dir of DEFAULT_SKILLS_DIRS) {
+      if (fileExists(path.join(dir, name, 'SKILL.md'))) return path.join(dir, name, 'SKILL.md');
+    }
+    return null;
+  };
+
+  const anbuSkill = skillPresent('anbu-skill');
+  context.record('VPS: ANBU skill present', anbuSkill ? 'PASS' : 'FAIL', anbuSkill || 'anbu-skill/SKILL.md not found in any client skills dir');
+  if (!anbuSkill) context.markError();
+
+  const akatsukiSkill = skillPresent('akatsuki-skill');
+  context.record('VPS: Akatsuki blue-team gates', akatsukiSkill ? 'PASS' : 'FAIL', akatsukiSkill || 'akatsuki-skill/SKILL.md not found in any client skills dir');
+  if (!akatsukiSkill) context.markError();
+
+  const ports = [1404, 1405];
+  // checkPortActive resolves a Promise: filtering on it directly made every port
+  // look busy, so the preflight failed on any host.
+  const probes = await Promise.all(ports.map((port) => checkPortActive(port)));
+  const busy = ports.filter((_, i) => probes[i]);
+  context.record('VPS: Ports free', busy.length === 0 ? 'PASS' : 'FAIL', busy.length ? `in use: ${busy.join(', ')}` : ports.join(', '));
+  if (busy.length > 0) context.markError();
+}
+
 module.exports = {
   checkDatabaseAndMigrations,
   checkGeminiAndAgentsConfig,
   checkPromptHookConfig,
-  checkGovernanceAndServices
+  checkGovernanceAndServices,
+  checkVpsPreflight
 };

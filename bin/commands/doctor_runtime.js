@@ -195,8 +195,66 @@ function checkAndRepairRuntimeFiles(context) {
   testAndRepairFileToolsSmoke(context);
 }
 
+/**
+ * `konoha doctor --clean-cyber-pack`
+ *
+ * Removes the opt-in cyber pack from an existing install: DB backup, indexed
+ * rows, on-disk copies, then state `removed`. Idempotent.
+ */
+function cleanCyberPack(context) {
+  const cyberPack = require('../../src/cyber_pack');
+  const db = require('../../src/db');
+  let conn = null;
+  try {
+    conn = db.getConnection(null, false);
+    const before = cyberPack.status(conn);
+    if (before.state === 'removed' && before.rows === 0) {
+      context.record('Cyber pack', 'HEALTHY', 'already clean');
+      return;
+    }
+    const result = cyberPack.remove({ conn });
+    context.record(
+      'Cyber pack',
+      'REPAIRED',
+      `removed ${result.removedRows} rows, ${result.removedChunks} chunks, ${result.removedDirs.length} dirs; backup ${result.backupPath}`
+    );
+    context.incrementRepairs();
+  } catch (e) {
+    context.record('Cyber pack', 'FAILED', e.message);
+    context.markError();
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
+/**
+ * `konoha doctor --restore-anbu`
+ *
+ * Re-copies the ANBU skill template and its agents.yaml row. Never restores the
+ * cyber pack.
+ */
+function restoreAnbu(context) {
+  const { syncTemplateSkills } = require('../lib/runtime_lifecycle');
+  const anbuSrc = path.join(SRC_DIR, 'templates', 'skills', 'anbu-skill');
+  if (!fileExists(anbuSrc)) {
+    context.record('ANBU skill', 'FAILED', `Template missing: ${anbuSrc}`);
+    context.markError();
+    return;
+  }
+  try {
+    const synced = syncTemplateSkills();
+    context.record('ANBU skill', 'REPAIRED', `Re-synced ${synced} skill file(s) from package templates`);
+    context.incrementRepairs();
+  } catch (e) {
+    context.record('ANBU skill', 'FAILED', e.message);
+    context.markError();
+  }
+}
+
 module.exports = {
   checkAndRepairFile,
   checkAndRepairRuntimeFiles,
-  purgeInvalidRuntimeMirrors
+  purgeInvalidRuntimeMirrors,
+  cleanCyberPack,
+  restoreAnbu
 };

@@ -30,7 +30,7 @@
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot"></a>
   <br>
   <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white" alt="Crypto Vault"></a>
-  <a href="README.md"><img src="https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white" alt="Cybersecurity"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Cybersecurity-Opt--In%20Pack%20(MITRE)-red?logo=kalilinux&logoColor=white" alt="Cybersecurity"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white" alt="Zero AI Slop"></a>
   <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.18-blue?logo=googlecloud&logoColor=white" alt="Security Policy"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Tests-194%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white" alt="Tests"></a>
@@ -195,7 +195,7 @@ flowchart TB
 | | **♠ Anbu Backend & DevOps** | `anbu-skill` | Backend dev, bug fixes, DevOps, container orchestration, QA automation (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
 | | **▫ Chunin Intel** | `chunin-skill` | Zero-API-key web research (SearXNG + Wikipedia OpenSearch, `rtk` compressed) | ✅ `ACTIVE` |
 | | **⬡ Tokubetsu-Jonin** | `tokubetsu-jonin-skill` | Technical documentation, API specs, runbooks, Office deliverables (`i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
-| | **☠ Akatsuki Security** | `akatsuki-skill` | BlackOps security successor: Blue-Team host gates (SAST, CVE, Skill Guardian) + isolated Red-Team lab (`akatsuki-lab`, 817 security skills, `i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
+| | **☠ Akatsuki Security** | `akatsuki-skill` | BlackOps security successor: Blue-Team host gates (SAST, CVE, Skill Guardian) + isolated Red-Team lab (`akatsuki-lab`; the 817-skill pack is opt-in, `i-have-adhd` + `antislop*`) | ✅ `ACTIVE` |
 | | **❖ Yamanaka 3D** | `yamanaka-skill` | Generative 3D synthesis, manifold gate, Blender refinement (Web UI menu hidden in `v2.2.18`) | ✅ `ACTIVE` |
 | | **Parallel Git Worktree Isolation** | `src/mcp/worktree_isolation.js` | Concurrent worker subagents run in isolated git worktrees (`~/.konoha/tmp/worktrees/...`) | ✅ `ACTIVE` |
 | | **Real-Time Idle `@advisor` Guard** | `src/workflow/kage-reviewer/advisor_monitor.js` | `0 tokens` when clean; `≤ 1,000 tokens/turn` on-the-fly `[ADVISOR_INTERRUPT]` correction | ✅ `ACTIVE` |
@@ -226,7 +226,7 @@ flowchart TB
 | | **AES-256-GCM Crypto Vault** | `src/crypto_vault.js` | AEAD authenticated encryption at rest for tokens & credentials | ✅ `ACTIVE` |
 | | **PBKDF2 Key Derivation** | `src/crypto_vault.js` | 100,000 SHA-256 iterations with host-fingerprint salt | ✅ `ACTIVE` |
 | | **Zero Plaintext Secrets Invariant**| Whole repo | Automatic masking (`12345***:***abcd`) across APIs, logs, and TUI | ✅ `ACTIVE` |
-| | **Offensive Red-Teaming Skills** | `anbu-skill` | 817 Anthropic cybersecurity skills & MITRE ATT&CK techniques | ✅ `ACTIVE` |
+| | **Opt-In Red-Teaming Pack** | `akatsuki-skill` (opt-in) | 817 Anthropic cybersecurity skills & MITRE ATT&CK techniques, fetched from a sha256-verified release asset — never bundled | ⚙️ `OPT-IN` |
 | **Cross-Client Ecosystem** | **8 Supported Coding Clients** | `src/mcp_clients_manager.js`, `src/agent_manager.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP | ✅ `ACTIVE` |
 | | **Hermetic Session Isolation** | `src/db.js` | Composite PK `(client, workspace_root, session_id)` with `project_hash` preventing cross-session leakage | ✅ `ACTIVE` |
 
@@ -259,7 +259,7 @@ flowchart TB
 | **Hallucinated Passes, Worker Drift & Merge Conflicts** | Sequential execution bottlenecks, worker agents drifting off-spec or overwriting each other's files, and fake-green test claims. | **Parallel Git Worktrees, Real-Time Idle `@advisor` (`≤ 1k tok/turn`) & Kage 98% Gate**: Independent steps run concurrently in isolated git worktrees; idle `@advisor` interrupts drift on the fly (`0 tokens` when clean); Kage enforces `100/100` aislop + `≥ 98%` confidence. | Genuine parallel multi-agent execution with mechanical drift prevention and zero file collisions. |
 | **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Prompt Queue**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
 | **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens and bot tokens in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & credentials. |
-| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu/Akatsuki Ops**: Integrated MITRE ATT&CK techniques, penetration testing in isolated `akatsuki-lab`, exploit analysis, container hardening, and adversarial defense gates. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
+| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **ANBU Backend/DevOps Hygiene + Opt-In Akatsuki Red Team**: ANBU ships backend, bug-fix, and DevOps security hygiene with escalation to `@akatsuki`; the 817-skill MITRE ATT&CK pack is an explicit opt-in (`konoha akatsuki cyber-pack install --confirm`) run in the isolated `akatsuki-lab`. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
 | **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (retired file-based IPC), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Post-Approval Compaction**: In-memory argument passing, native IDE/CLI TODO & walkthrough sync (`< 3 KB`), and automatic `< 1,500B` context compaction after Gate 1 approval. | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
 | **Fragmented IDE Configuration & Invasive Overwrites** | Destructive `--force --yes` installers that clobber existing user MCP configs or dump duplicate template skill mirrors into repositories. | **Explicit Append-Only `--client` Provisioning & Backup/Restore**: `konoha init --client=<cursor\|claude\|opencode\|omp\|codex\|pi\|antigravity\|commandcode\|all>` appends safely into global/project configs with timestamped backups. | Non-destructive setup across all 8 premier AI coding environments (IDE & CLI). |
 
@@ -441,6 +441,8 @@ Or run directly without global installation via `npm exec` / `pnpm dlx`:
 npm exec --yes --package=konoha-mcp@latest -- konoha init --yes
 # or: pnpm dlx konoha-mcp init --yes
 ```
+
+For a headless server, run `konoha doctor --vps` before installing — see [docs/VPS-INSTALL.md](docs/VPS-INSTALL.md).
 
 Pre-install requirement: **Node.js ≥ 24.0.0**. `bin/cli.js` refuses to start on older runtimes and prints `Konoha requires Node.js >= 24.0.0 (found <v>)` before any runtime module loads, because `src/sqlite_driver.js` requires `node:sqlite`.
 

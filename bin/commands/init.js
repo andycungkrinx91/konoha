@@ -80,6 +80,8 @@ function cmdInitHelp() {
     --client=<name>          Append Konoha config into specific client (cursor, claude, opencode, omp, codex, pi, antigravity, commandcode, all)
     --project                Also create/append project-level client configuration in current directory
     --no-project             Skip project-level configuration updates
+    --with-red-team          Opt in to the cyber pack (offensive/dual-use reference
+                             material; fetched from a release asset, sha256-verified)
   `);
 }
 
@@ -378,10 +380,35 @@ async function cmdInit(args, options = {}) {
   }
 
   renderInitSummary(clientFlags);
+  if (args.includes('--with-red-team')) {
+    await installCyberPackAfterInit();
+  }
   if (!options.skipUiAutoStart) {
     await autoStartUiDaemonIfRequested(options);
   }
   recordAutoSetupState();
+}
+
+/**
+ * `konoha init --with-red-team`: the only init path that touches the pack.
+ * Consent is explicit on the command line, so `--confirm` is implied.
+ */
+async function installCyberPackAfterInit() {
+  const cyberPack = require('../../src/cyber_pack');
+  const db = require('../../src/db');
+  header('🔴 Opting In To The Cyber Pack');
+  log(`  ${C.yellow}${cyberPack.CONSENT_TEXT}${C.reset}\n`);
+  let conn = null;
+  try {
+    conn = db.getConnection(null, false);
+    const result = await cyberPack.install({ confirm: true, conn, log: (m) => log(`  ${C.green}✓${C.reset} ${m}`) });
+    success(`Cyber pack ${result.version} installed. Run "konoha migrate" to index it.`);
+  } catch (e) {
+    error(`Cyber pack install failed: ${e.message}`);
+    process.exitCode = 1;
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
 }
 
 module.exports = {

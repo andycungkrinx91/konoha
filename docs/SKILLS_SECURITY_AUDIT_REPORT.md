@@ -5,6 +5,14 @@
 **Target Repository**: `konoha`  
 **Classification**: Engineering Security Audit & Release Gate Verification  
 
+> **Scope change as of 2.2.19**: the 817-skill library
+> (`anthropic-cybersecurity-skills-assets`) is no longer shipped in the repository
+> or the npm tarball. It is an explicit opt-in release asset
+> (`konoha akatsuki cyber-pack install --confirm`), indexed under
+> `akatsuki-skill` only. Findings below that describe those files remain accurate
+> for the pack's contents; they no longer describe a default install. See
+> [VPS-INSTALL.md](VPS-INSTALL.md).
+
 ---
 
 ## 1. Executive Summary & Audit Context
