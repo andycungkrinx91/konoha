@@ -168,12 +168,33 @@ function isLabDbPath(p) {
 }
 
 function assertLabDbPath(p) {
-  if (isLabDbPath(p) && !_escapesViaSymlink(p)) return;
+  if (isLabDbPath(p) && !_escapesViaSymlink(p) && !_sharesInodeWithMainDb(p)) return;
   const err = new Error(
     `Lab DB writes are restricted to ${getLabDbDir()}; got ${p}.`
   );
   err.code = LAB_DB_ISOLATION_VIOLATION;
   throw err;
+}
+
+/**
+ * True when p is a hardlink to the main DB. realpath resolves symlinks but not
+ * hardlinks, so a lab-root path can be a second name for the same inode; opening
+ * it would run lab DDL against the main store.
+ */
+function _sharesInodeWithMainDb(p) {
+  let target;
+  let main;
+  try {
+    target = fs.statSync(_realizeExistingPrefix(p));
+  } catch (_) {
+    return false; // does not exist yet: no hardlink to detect
+  }
+  try {
+    main = fs.statSync(_realizeExistingPrefix(getMainDbPath()));
+  } catch (_) {
+    return false; // no main DB yet: nothing to alias
+  }
+  return target.dev === main.dev && target.ino === main.ino;
 }
 
 /**

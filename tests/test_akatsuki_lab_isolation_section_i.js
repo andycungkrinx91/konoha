@@ -239,5 +239,29 @@ runTest('I8 real boundary: default lab path, and getConnection refuses it', () =
   }
 });
 
+runTest('I9 a hardlink inside the lab root pointing at the main DB is rejected', () => {
+  const saved = process.env.KONOHA_LAB_DB_ROOT;
+  const root = fs.mkdtempSync(path.join(TMP_ROOT, 'i9-lab-'));
+  try {
+    process.env.KONOHA_LAB_DB_ROOT = root;
+    const link = path.join(root, 'lab.db');
+    fs.linkSync(MAIN_DB, link);
+    // realpath cannot see a hardlink: the link keeps its own path and only the
+    // inode identifies it as the main DB.
+    assert.notStrictEqual(fs.realpathSync(link), fs.realpathSync(MAIN_DB), 'realpath keeps the hardlink name');
+    assert.strictEqual(fs.statSync(link).ino, fs.statSync(MAIN_DB).ino);
+    assert.throws(
+      () => labDb.openLabDb(),
+      (err) => err.code === authz.LAB_DB_ISOLATION_VIOLATION,
+      'openLabDb must refuse a hardlink to the main DB'
+    );
+    assert.doesNotThrow(() => authz.assertLabDbPath(path.join(root, 'fresh.db')), 'an ordinary lab path must still pass');
+  } finally {
+    if (saved === undefined) delete process.env.KONOHA_LAB_DB_ROOT;
+    else process.env.KONOHA_LAB_DB_ROOT = saved;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 cleanup();
 console.log(`\n${passed} test cases passed.`);
