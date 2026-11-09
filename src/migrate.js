@@ -434,7 +434,11 @@ async function runMigration(options = {}) {
     return a.name.localeCompare(b.name);
   });
 
-  let timeBudget = 150.0;
+  // A fresh install embeds 228 skills + references in ~163 s on a laptop, so the
+  // old 150 s default truncated the alphabetical tail on every single install.
+  // The budget only bounds how long migration may run before deferring the rest;
+  // raise it rather than shrink the work.
+  let timeBudget = 300.0;
   if (process.env.KONOHA_MIGRATE_TIME_BUDGET) {
     const parsed = parseFloat(process.env.KONOHA_MIGRATE_TIME_BUDGET);
     if (!isNaN(parsed)) timeBudget = parsed;

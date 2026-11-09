@@ -16,6 +16,33 @@ const cursorManager = require('../../src/cursor_manager');
 const { C, log, info, warn, error, drawBox, LEAF_THEME, getCliVersion } = require('../lib/format');
 const { verifySkillDatabaseContract, hasCompleteDatabaseSchema } = require('../lib/runtime_lifecycle');
 
+/**
+ * Count skills that still have no vector chunks.
+ *
+ * backfillAllEmbeddings stops at its time budget and leaves the alphabetical tail
+ * unembedded without saying so. Instead of plumbing an outcome flag through three
+ * layers, measure the database after the fact: the query is the ground truth and
+ * also covers the case where the migration fell back to --skip-embeddings.
+ *
+ * Returns null when the database cannot be read (e.g. --no-project dry paths).
+ */
+function measureEmbeddingCoverage(dbPath = DB_PATH) {
+  let conn;
+  try {
+    const Database = require('../../src/sqlite_driver');
+    conn = new Database(dbPath, { readOnly: true });
+    const q = (where) => conn.prepare(
+      `SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0
+         AND ${where} AND NOT EXISTS (SELECT 1 FROM skill_chunks k WHERE k.skill_name = s.name)`
+    ).get().n;
+    return { canonicalPending: q("s.type = 'skill'"), referencePending: q("s.type <> 'skill'") };
+  } catch (_) {
+    return null;
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
 function runMigrateProcess(args, timeoutMs) {
   return spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
     encoding: 'utf-8',
@@ -130,12 +157,20 @@ function renderInitSummary(flags) {
   log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
   if (flags.skipEmbed) {
     log('');
-    warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha embed${C.reset} to enable semantic skill search.`);
+    warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha migrate${C.reset} to enable semantic skill search.`);
+  } else if (flags.embedCoverage && (flags.embedCoverage.canonicalPending || flags.embedCoverage.referencePending)) {
+    // Backfill stops at its time budget; say so rather than implying full coverage.
+    // `konoha migrate` resumes incrementally — `konoha embed` would wipe and redo all chunks.
+    const { canonicalPending, referencePending } = flags.embedCoverage;
+    log('');
+    warn(`Embedding pass incomplete: ${canonicalPending} skill(s) and ${referencePending} reference doc(s) still pending.`);
+    log(`  Run ${C.cyan}konoha migrate${C.reset} again to finish indexing the remainder.`);
   }
   log('');
 }
 
 module.exports = {
   executeInitMigration,
+  measureEmbeddingCoverage,
   renderInitSummary
 };

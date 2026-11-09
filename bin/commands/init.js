@@ -54,7 +54,7 @@ const {
 const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
-const { executeInitMigration, renderInitSummary } = require('./init_migration');
+const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
 const {
   executePreInstallBackup,
   runTransactionalDatabaseMigration
@@ -386,7 +386,8 @@ async function cmdInit(args, options = {}) {
     }
   }
 
-  renderInitSummary({ ...clientFlags, skipEmbed });
+  const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();
+  renderInitSummary({ ...clientFlags, skipEmbed, embedCoverage });
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }

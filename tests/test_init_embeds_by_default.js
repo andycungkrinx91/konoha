@@ -33,4 +33,31 @@ assert.strictEqual(def.indexOf('--skip-embeddings'), -1);
 
 for (const arg of def) assert.strictEqual(typeof arg, 'string', 'every migration arg must be a string');
 
+// Coverage measurement must distinguish "nothing embedded" from "canonical done,
+// references pending": the backfill stops at its time budget mid-alphabet.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { measureEmbeddingCoverage } = require('../bin/commands/init_migration');
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'initcov-'));
+const Database = require('../src/sqlite_driver');
+const dbPath = path.join(tmp, 'konoha.db');
+const db = new Database(dbPath);
+db.exec(`CREATE TABLE skills (name TEXT PRIMARY KEY, type TEXT, content TEXT, file_path TEXT);
+         CREATE TABLE skill_chunks (skill_name TEXT, chunk_index INTEGER, chunk_text TEXT, embedding BLOB);`);
+const ins = db.prepare('INSERT INTO skills (name,type,content,file_path) VALUES (?,?,?,?)');
+ins.run('anbu-skill', 'skill', 'body', '/p');
+ins.run('kage-skill', 'skill', 'body', '/p');
+ins.run('anbu-skill/references/x', 'reference', 'body', '/p');
+db.prepare('INSERT INTO skill_chunks VALUES (?,?,?,?)').run('anbu-skill', 0, 'c', Buffer.alloc(4));
+
+const cov = measureEmbeddingCoverage(dbPath);
+db.close();
+assert.deepStrictEqual(cov, { canonicalPending: 1, referencePending: 1 },
+  'coverage must count unembedded canonical skills and references separately');
+assert.strictEqual(measureEmbeddingCoverage(path.join(tmp, 'absent.db')), null,
+  'unreadable database must report null, not a false all-clear');
+fs.rmSync(tmp, { recursive: true, force: true });
+
 console.log('\u2713 test_init_embeds_by_default.js passed cleanly.');
