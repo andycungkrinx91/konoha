@@ -544,7 +544,7 @@ Once installed, the following CLI commands are available:
 | `konoha akatsuki <subcommand>` | Akatsuki security controls: `status`, `mode [blue|red]` (automated lab setup), `env [docker|lxc]` |
 | `konoha migrate` | Re-index/migrate skills database into SQLite FTS5 (supports `--clean`, `--rebuild-embeddings`, `--skip-embeddings`, `--skills-dir`) |
 | `konoha reinstall` | Force clean re-installation and configuration replacement (implies `--force`) |
-| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`). `konoha init` already embeds; use this after bulk skill changes or with `--no-embed` installs |
+| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`, which deletes every chunk first). `konoha init` already embeds; to recover an install made with `--no-embed`, run `konoha migrate` — it indexes only what is missing |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.2.19) and check for updates from npm registry |

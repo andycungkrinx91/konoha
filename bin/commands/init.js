@@ -84,7 +84,7 @@ function cmdInitHelp() {
     --with-red-team          Opt in to the cyber pack (offensive/dual-use reference
                              material; fetched from a release asset, sha256-verified)
     --no-embed               Skip vector embedding of skills (search stays keyword-only
-                             until you run "konoha embed")
+                             until you run "konoha migrate")
   `);
 }
 

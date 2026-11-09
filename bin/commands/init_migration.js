@@ -164,7 +164,8 @@ function renderInitSummary(flags) {
     const { canonicalPending, referencePending } = flags.embedCoverage;
     log('');
     warn(`Embedding pass incomplete: ${canonicalPending} skill(s) and ${referencePending} reference doc(s) still pending.`);
-    log(`  Run ${C.cyan}konoha migrate${C.reset} again to finish indexing the remainder.`);
+    log(`  Run ${C.cyan}konoha migrate${C.reset} again to finish the remainder; on a slow machine raise`);
+    log(`  the budget so it can finish in one pass: ${C.cyan}KONOHA_MIGRATE_TIME_BUDGET=900 konoha migrate${C.reset}`);
   }
   log('');
 }
