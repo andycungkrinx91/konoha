@@ -125,6 +125,24 @@ Fresh = 33 user tables. Live = 34. The complete diff is `kali_tools`.
 
 Re-running `verifyAndApplyCanonicalSchema` against a copy of the live DB returned `{success: true, checksumSha256: 96376d7a…}` with no throw, which proves the recorded checksum matches the on-disk migration.
 
+### Pass 2 — re-measured after remediation (phases 3, 5, 6, 7)
+
+Re-run after the schema/app version split, the isolation hardening, and the cyber-pack removal from the repository.
+
+| Metric | Fresh (`KONOHA_HOME` temp) | Live copy (`VACUUM INTO`) |
+|--------|---------------------------|---------------------------|
+| user tables | 33 | 34 |
+| named indexes | 31 | 33 |
+| autoindexes | 27 | 29 |
+| triggers | 6 | 6 |
+| `user_version` | 5 | 5 |
+| `integrity_check` | ok | ok |
+| `foreign_key_check` rows | 0 | 0 |
+
+`ONLY_FRESH` is empty; `ONLY_LIVE` is `kali_tools`. Both differ from pass 1 by zero tables — removing 3,672 pack files from git and gating `_migrateCyberSkills` did not touch DDL, which is the expected result: the pack was content, not schema.
+
+Live still holds 3,268 legacy cyber rows written before the opt-in gate. They are inert (no consent file, no pack on disk) and `konoha doctor --clean-cyber-pack` deletes them after taking a backup; measured on a `VACUUM INTO` copy: 3,268 rows and 48 chunks removed, backup written, 0 rows remaining. The live DB on this machine was not modified.
+
 ## 5. Integrity & data safety
 
 | Check | Fresh | Live copy |
@@ -210,10 +228,10 @@ Empty test cells are tests that do not exist and are not required: the table has
 
 `docs/DATABASE-ERD.md:14-17` deliberately omits `assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`, `schema_migrations`, `validation_results`, `*_fts*`, `sqlite_sequence`, and `_sqliteai_vector` as "standalone storage" with no relationships or security relevance. That is a stated scope decision, not drift — the ERD is a relationship diagram, and this document is the complete inventory.
 
-Two real gaps remain, both tracked for phase 10:
+Both gaps identified in pass 1 are closed:
 
-1. `docs/DATABASE-ERD.md` does not mention the lab store's four tables (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`) beyond the path row at line 8.
-2. `docs/QA-TEST-CHECKLIST.md` has no row for the schema/app version separation or the single-writer guard.
+1. `docs/DATABASE-ERD.md` §"Akatsuki Lab DB" diagrams all four lab tables (`lab_runs`, `lab_tool_invocations`, `red_skill_audit`, `kali_tools`) with their columns and the `run_id` relationships. The pass-1 note was stale — it read only the path row at line 8.
+2. `docs/QA-TEST-CHECKLIST.md` §1.3 now carries rows for `test_schema_migrations_and_lifecycle.js` (single-writer guard, 33-table shape), `test_schema_traceability.js`, `test_vps_safe_install.js`, `test_cyber_pack_opt_in.js`, and `test_anbu_intact.js`.
 
 ## 11. Controlled remediation
 
@@ -238,4 +256,7 @@ Nothing in this document changed a schema. The only code-level remediation deliv
 | Hot query plans recorded | PASS | §7 |
 | Windows/macOS paths | `[INFERENCE]` | Not executable on Linux x64; §8 |
 | Only `db_schema.js` writes `user_version` | PASS | guard test, proven by injection |
+| Post-remediation schema unchanged (no DDL from pack removal) | PASS | §4 pass 2: same 33-table fresh shape |
+| Fresh schema cannot acquire `kali_tools` | PASS | `tests/test_schema_traceability.js`, `tests/test_schema_migrations_and_lifecycle.js` |
+| Every declared table appears in this document | PASS | `tests/test_schema_traceability.js` |
 | `kali_tools` blind drop | NOT DONE BY DESIGN | §3, §4; evidence-first removal in plan §7 |
