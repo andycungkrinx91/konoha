@@ -655,7 +655,7 @@ Authoritative verification matrix for the Konoha v2.2.15 SDLC runner cutover: st
 | **4. Full 184 JS Test Suite Audit** | `tests/run_all.js` (all 184 test suites) | Executed full 184 test suites via 4-shard parallel runner with clean golden-seed isolation; 184 passed, 0 failed (Shard 1: 46/46, Shard 2: 46/46, Shard 3: 46/46, Shard 4: 46/46) | `PASS` (184/184 verified 2026-11-01) |
 | **5. Web UI Playwright E2E Suite** | `npx playwright test -c apps/web/playwright.config.js` | All E2E test specs passed (auth_login, routes_load, theme_picker_flow, akatsuki_tools_flow, alerts_and_dialogs, detector_flow, hybrid_search) | `PASS` (verified 2026-11-01) |
 | **6. Zero-AI-Slop & Linter Gate** | `rtk npx aislop scan --changes` & `rtk node scripts/lint.js` | 100/100 Healthy · 0 errors · 0 warnings · 0 fixable; 452 files linted cleanly | `PASS` (verified 2026-11-01) |
-| **7. Architecture Diagram & Asset Sync** | `tests/test_diagram_sync.js`, `tests/test_documentation_diagrams.js`, `tests/test_all_assets_webp.js` | All 36 Draw.io pages (18 per file), Mermaid companions, and 33 Animated WebP assets verified with 0 collisions | `PASS` (verified 2026-11-01) |
+| **7. Architecture Diagram & Asset Sync** | `tests/test_diagram_sync.js`, `tests/test_documentation_diagrams.js`, `tests/test_all_assets_webp.js` | All 36 Draw.io pages (18 per file), Mermaid companions, and 33 Animated WebP assets verified with 0 collisions | `PASS` (verified 2026-11-01; counts re-verified 2026-11-10) |
 | **8. Code File Budget & Zero Slop** | All modified source files | Strictly <= 700 lines per source file; zero numbered slop comments (`// 1.`, `## 1.`) | `PASS` (verified 2026-11-01) |
 
 ---
