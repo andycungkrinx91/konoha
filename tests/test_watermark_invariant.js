@@ -5,8 +5,8 @@
  * tests/test_watermark_invariant.js — Verifies watermark branding invariants across the codebase.
  *
  * Guarantees:
- * 1. The only permitted watermark is "Build by Konoha shadow ninja with coffee by Andy Setiyawan".
- * 2. Zero legacy bare "Build by Konoha" watermarks exist in src/, bin/, or apps/.
+ * 1. The only permitted watermark is "Build by konoha" (commit 7c562259 shortened it).
+ * 2. Zero legacy long-form watermarks survive in src/, bin/, or apps/.
  * 3. First-party binary assets contain zero AI model watermark markers.
  */
 
@@ -18,7 +18,8 @@ const cp = require('child_process');
 console.log('Running test_watermark_invariant: verifying branding and watermark invariants...');
 
 const ROOT = path.resolve(__dirname, '..');
-const EXPECTED_WATERMARK = 'Build by Konoha shadow ninja with coffee by Andy Setiyawan';
+const EXPECTED_WATERMARK = 'Build by konoha';
+const RETIRED_WATERMARK = 'Build by Konoha shadow ninja with coffee by Andy Setiyawan';
 
 // Verify build_spec.js and build_spec_common.js define the exact expected watermark
 const buildSpec = fs.readFileSync(path.join(ROOT, 'src', 'mcp', 'build_spec.js'), 'utf8');
@@ -80,7 +81,7 @@ for (const dir of checkDirs) {
 
   scanForBare(fullPath);
 }
-console.log('✓ Zero bare "Build by Konoha" watermarks in src/, bin/, or apps/');
+console.log('✓ Zero retired long-form watermarks in src/, bin/, or apps/');
 
 // Verify first-party image binary assets contain zero AI model watermarks
 const assetFiles = fs.readdirSync(path.join(ROOT, 'assets')).filter(f => /\.(webp|png|jpg|jpeg)$/.test(f));

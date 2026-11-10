@@ -244,11 +244,19 @@ function _mergeUnique(target, source) {
 
 function _collectRoutedSkills(effPrompt, selectedAgent) {
   const { autoloadSkillsFromPrompt } = require('./memory_reporting');
+  const { authorizeSkillAccess } = require('../skill_authorization');
   const routedSkills = [];
   let conn = null;
   try {
     conn = getDb();
-    _mergeUnique(routedSkills, autoloadSkillsFromPrompt(effPrompt, conn));
+    // Prompt autoload matches across the whole skill table, so it can surface a
+    // red (akatsuki-only) skill for a prompt like "trace the auth flow". Keep
+    // only skills this agent may use; the agent's own bindings are added below
+    // and are authorized separately by the route boundary.
+    const autoLoaded = autoloadSkillsFromPrompt(effPrompt, conn).filter(
+      (skillName) => authorizeSkillAccess({ skillName, agentName: selectedAgent }).authorized
+    );
+    _mergeUnique(routedSkills, autoLoaded);
     const agentRow = conn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
     _extractAgentSkills(agentRow, routedSkills);
   } catch (_) { /* ignore */ } finally {

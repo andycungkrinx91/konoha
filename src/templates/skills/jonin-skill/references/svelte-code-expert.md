@@ -727,7 +727,7 @@ All generated Svelte code must conform to the following baseline visual standard
 2. **Theme Control**: Optional. Render a switcher only when more than one theme exists, persisted under a project-specific key.
 3. **Optional 3D Hero**: Only when the brief calls for a banner. Perspective depth, max tilt, autoplay timing, thumbnails, keyboard controls, touch fallback, and reduced-motion behavior are project decisions.
 4. **Accessible Interaction**: Use SvelteKit-native routing, semantic controls, focus states, `aria-pressed` where applicable, and teardown for timers, listeners, observers, and animation frames.
-5. **Footer Watermark**: Add `Build by Konoha shadow ninja with coffee by Andy Setiyawan` when the selected build contract requires the Konoha shell.
+5. **Footer Watermark**: Add `Build by konoha` when the selected build contract requires the Konoha shell.
 
 ## Development Guidelines
 

@@ -107,7 +107,90 @@ function check() {
   );
   console.log('  ok   no stale npm lockfile');
 
+  checkCvePayloads();
+
   console.log('All image-size override checks passed');
+}
+
+/**
+ * CVE regression payloads. A version floor proves only that the resolver picked
+ * a fixed package; these prove the fixed parser actually terminates on the
+ * inputs the CVEs weaponized.
+ *
+ * Each payload runs in a child process with a hard timeout: a genuine infinite
+ * loop never returns, so an in-process wall-clock assertion would hang the
+ * suite instead of failing it. `execFileSync` turns the hang into an error.
+ */
+function checkCvePayloads() {
+  const { execFileSync } = require('child_process');
+  const TIMEOUT_MS = 15000;
+
+  // CVE-2025-71330 (ICNS): a zero-length icon entry made the offset never
+  // advance -> unbounded loop. These bytes pass validate() so they reach that
+  // loop; a fixture rejected earlier would prove nothing.
+  const ICNS_ZERO_ENTRY = 'aWNucwAAABBJQ09OAAAAAA==';
+  // CVE-2025-71329 (JXL/HEIF): malformed container boxes caused an overlong
+  // allocation/loop. Both fixtures carry a valid signature so calculate() runs.
+  const JXL_NO_CODESTREAM = 'AAAADEpYTCAAAAAAAAAAFGZ0eXBqeGwgAAAAAAAAAAA=';
+  const HEIF_NO_IPCO = 'AAAAFGZ0eXBoZWljAAAAAAAAAAA=';
+
+  const script = `
+    const path = require('path');
+    const pptxDir = path.dirname(require.resolve('pptxgenjs'));
+    const { imageSize } = require(require.resolve('image-size', { paths: [pptxDir] }));
+    const cases = ${JSON.stringify([
+      ['ICNS zero-length entry', ICNS_ZERO_ENTRY],
+      ['JXL header without codestream', JXL_NO_CODESTREAM],
+      ['HEIF ftyp without ipco box', HEIF_NO_IPCO]
+    ])};
+    const out = [];
+    for (const [label, b64] of cases) {
+      let threw = false;
+      let detail = '';
+      try {
+        imageSize(Buffer.from(b64, 'base64'));
+        detail = 'parsed';
+      } catch (e) {
+        threw = true;
+        detail = e.message;
+      }
+      out.push({ label, threw, detail });
+    }
+    process.stdout.write(JSON.stringify(out));
+  `;
+
+  let raw;
+  try {
+    raw = execFileSync(process.execPath, ['-e', script], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: TIMEOUT_MS
+    });
+  } catch (err) {
+    if (err.code === 'ETIMEDOUT' || err.signal) {
+      assert.fail(`image-size CVE payloads hung (${TIMEOUT_MS}ms timeout) — regression to vulnerable behavior`);
+    }
+    assert.fail(`image-size CVE payload probe failed: ${err.message}`);
+  }
+
+  let results;
+  try {
+    results = JSON.parse(raw);
+  } catch (_) {
+    assert.fail(`image-size CVE payload probe produced unparseable output: ${raw}`);
+  }
+
+  for (const r of results) {
+    assert.ok(r.threw, `${r.label} must be rejected by image-size >= 2.0.3 (got: ${r.detail})`);
+    // image-size reports a validate() miss as "unsupported file type". Such a
+    // payload never entered the vulnerable parser, so passing on it proves
+    // nothing about the CVE.
+    assert.ok(
+      !/unsupported file type/i.test(r.detail),
+      `${r.label} was rejected by signature detection, not the parser — fixture is wrong (${r.detail})`
+    );
+  }
+  console.log(`  ok   ICNS/JXL/HEIF CVE payloads rejected without hanging (${results.length} cases)`);
 }
 
 async function checkPptxStillWorks() {

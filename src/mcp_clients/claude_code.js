@@ -135,80 +135,90 @@ function _ensureAislopMcpServer(config) {
   return false;
 }
 
+function _applyClaudePermissionGrants(config, grants) {
+  if (!config.permissions) config.permissions = {};
+  const allowRaw = config.permissions.allow;
+  config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
+
+  const invalidRules = [
+    'mcp:konoha:*',
+    'mcp:semble:*',
+    'rtk',
+    'rtk *',
+    'rtk*',
+    'command(rtk *)',
+    'command(rtk)',
+    'command(*)',
+    'mcp(*)',
+    'Bash(*)',
+    'Bash(rtk *)',
+    'Bash(rtk:*)',
+    'Bash(konoha *)',
+    '*'
+  ];
+  let updated = _cleanInvalidRules(config.permissions.allow, invalidRules);
+  if (_appendMissing(config.permissions.allow, grants)) updated = true;
+
+  const autoApproveGrants = [
+    ...buildClientToolGrants('mcp__'),
+    ...buildClientToolGrants(''),
+    ...buildBareToolGrants(),
+    'Bash(rtk)',
+    'Bash(rtk:*)',
+    'Bash(rtk *)',
+    'Bash(konoha)',
+    'Bash(konoha *)',
+    'rtk',
+    'rtk *',
+    'konoha',
+    'konoha *'
+  ];
+  if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
+    config.autoApprove = autoApproveGrants;
+    updated = true;
+  } else if (_appendMissing(config.autoApprove, autoApproveGrants)) {
+    updated = true;
+  }
+
+  const defaultAllowedTools = [
+    ...buildClientToolGrants('mcp__'),
+    'Bash'
+  ];
+  if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
+    config.allowedTools = defaultAllowedTools;
+    updated = true;
+  }
+
+  if (_ensureAislopMcpServer(config)) updated = true;
+
+  return updated;
+}
+
 function registerClaudeCodePermissions(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
-  const targetSettings = (opts && opts.settingsPath) ||
+  const primarySettings = (opts && opts.settingsPath) ||
     (opts && opts.home ? path.join(opts.home, '.claude', 'settings.json') : CLAUDE_SETTINGS);
+  const settingsTargets = [primarySettings];
+  if (!opts.settingsPath && CLAUDE_SETTINGS && CLAUDE_SETTINGS !== primarySettings) {
+    settingsTargets.push(CLAUDE_SETTINGS);
+  }
   const grants = [
     ...buildClientToolGrants('mcp__'),
     'Bash(rtk)',
     'Bash(konoha)'
   ];
 
-  return mergeJsonFile(
-    targetSettings,
-    (config) => {
-      if (!config.permissions) config.permissions = {};
-      const allowRaw = config.permissions.allow;
-      config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
-
-      const invalidRules = [
-        'mcp:konoha:*',
-        'mcp:semble:*',
-        'rtk',
-        'rtk *',
-        'rtk*',
-        'command(rtk *)',
-        'command(rtk)',
-        'command(*)',
-        'mcp(*)',
-        'Bash(*)',
-        'Bash(rtk *)',
-        'Bash(rtk:*)',
-        'Bash(konoha *)',
-        '*'
-      ];
-      let updated = _cleanInvalidRules(config.permissions.allow, invalidRules);
-      if (_appendMissing(config.permissions.allow, grants)) updated = true;
-
-      const autoApproveGrants = [
-        ...buildClientToolGrants('mcp__'),
-        ...buildClientToolGrants(''),
-        ...buildBareToolGrants(),
-        'Bash(rtk)',
-        'Bash(rtk:*)',
-        'Bash(rtk *)',
-        'Bash(konoha)',
-        'Bash(konoha *)',
-        'rtk',
-        'rtk *',
-        'konoha',
-        'konoha *'
-      ];
-      if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
-        config.autoApprove = autoApproveGrants;
-        updated = true;
-      } else if (_appendMissing(config.autoApprove, autoApproveGrants)) {
-        updated = true;
-      }
-
-      const defaultAllowedTools = [
-        ...buildClientToolGrants('mcp__'),
-        'Bash'
-      ];
-      if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
-        config.allowedTools = defaultAllowedTools;
-        updated = true;
-      }
-
-      if (_ensureAislopMcpServer(config)) updated = true;
-
-      return updated;
-    },
-    isSilent,
-    { client: 'claude', ...opts }
-  );
+  let result = false;
+  for (const targetSettings of settingsTargets) {
+    result = mergeJsonFile(
+      targetSettings,
+      (config) => _applyClaudePermissionGrants(config, grants),
+      isSilent,
+      { client: 'claude', ...opts }
+    );
+  }
+  return result;
 }
 
 function registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {

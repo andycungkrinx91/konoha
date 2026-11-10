@@ -462,7 +462,7 @@ export function HeroBanner({ slides, autoplayMs = 6000 }: { slides: SlideItem[];
 - [ ] Banner or hero treatment matches the brief (no default carousel, no default slide count).
 - [ ] Dataset size and filters follow the brief's real content (no filler catalog).
 - [ ] All interactive SVG icons strictly imported from `@phosphor-icons/react` (zero emojis in UI).
-- [ ] `Build by Konoha shadow ninja with coffee by Andy Setiyawan` watermark included in footer.
+- [ ] `Build by konoha` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
 ---

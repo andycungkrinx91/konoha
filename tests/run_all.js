@@ -9,6 +9,29 @@ const os = require('os');
 const { spawnSync, spawn } = require('child_process');
 
 let goldenSeedInfo = null;
+const SEED_SOURCE_ROOT = path.join(__dirname, '..');
+
+function sourceFingerprint(root) {
+  // Version alone is not enough: the seed embeds a byte-copy of the CLI tree, so
+  // any edit between seed creation and reuse makes test_runtime_mirror_parity
+  // report phantom divergence. Hash the tree that is actually under test.
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256');
+  const walk = (dir) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) {
+        hash.update(path.relative(root, full));
+        try { hash.update(fs.readFileSync(full)); } catch { /* unreadable file, name still counts */ }
+      }
+    }
+  };
+  for (const sub of ['src', 'bin', 'scripts']) walk(path.join(root, sub));
+  return hash.digest('hex');
+}
 
 function getGoldenSeed() {
   if (goldenSeedInfo) return goldenSeedInfo;
@@ -19,7 +42,10 @@ function getGoldenSeed() {
       const stateFile = path.join(existingSeed, '.konoha', '.auto_setup_state.json');
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-        if (state && state.version === require('../package.json').version) {
+        if (state &&
+            state.version === require('../package.json').version &&
+            state.sourceFingerprint === sourceFingerprint(SEED_SOURCE_ROOT) &&
+            state.copiedFingerprint === sourceFingerprint(path.join(existingSeed, '.konoha'))) {
           goldenSeedInfo = { dir: existingSeed, isTemp: false };
           return goldenSeedInfo;
         }
@@ -42,7 +68,22 @@ function getGoldenSeed() {
     timeout: 1800000
   });
   goldenSeedInfo = { dir: seedDir, isTemp: true };
+  stampSourceFingerprint(seedDir);
   return goldenSeedInfo;
+}
+
+function stampSourceFingerprint(seedDir) {
+  try {
+    const stateFile = path.join(seedDir, '.konoha', '.auto_setup_state.json');
+    const state = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {};
+    // sourceFingerprint: the repo tree this seed was built from.
+    // copiedFingerprint: the tree the seed actually wrote, so a partial or
+    // externally-modified seed cannot be blessed as current.
+    const copied = path.join(seedDir, '.konoha');
+    state.sourceFingerprint = sourceFingerprint(SEED_SOURCE_ROOT);
+    state.copiedFingerprint = sourceFingerprint(copied);
+    fs.writeFileSync(stateFile, JSON.stringify(state), 'utf8');
+  } catch { /* a missing stamp only costs one extra seed rebuild */ }
 }
 
 function createSuiteSnapshot(name) {
