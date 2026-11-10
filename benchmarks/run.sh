@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One benchmark run = one cold agent session on a clean worktree at HEAD.
 # Usage: BENCH_MODEL=<model-id> benchmarks/run.sh <task_id> <baseline|konoha> <run_number>
-# Token counts are never read from Konoha; they come from the client's
-# provider-reported `usage` block in log.json.
+# Token counts are never read from Konoha; they come from the client CLI's
+# reported `modelUsage` block (or `usage` fallback) in log.json.
 set -euo pipefail
 
 TASK_ID=${1:?task id, e.g. 3}
