@@ -88,6 +88,145 @@ function flow(name, fn) {
   }
 }
 
+/**
+ * Flow 2 — seed a 2.2.19 install, then drive the real `konoha upgrade` at the
+ * packed tarball. Asserts the reported installed version and, separately, what
+ * a fresh shell resolves through PATH — the 2.2.19 false-success defect.
+ */
+function upgradeFlow(packed) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_upg_'));
+  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_upg_g_'));
+  const packedVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+  try {
+    sh('npm', ['install', '-g', '--prefix', prefix, 'konoha-mcp@2.2.19', '--no-audit', '--no-fund', '--loglevel=error'], {
+      cwd: prefix, env: { ...process.env, npm_config_allow_scripts: '' }
+    });
+  } catch (_) {
+    console.log('  note: registry 2.2.19 install failed; seeding from local pack instead');
+    installGlobal(packed.path, prefix);
+  }
+  const oldCli = path.join(prefix, 'bin', 'konoha');
+  sh(oldCli, ['init', '--yes'], { cwd: home, env: sandboxEnv(home) });
+  const before = dbStats(home);
+
+  // The upgrade must be driven by the CURRENT CLI: KONOHA_UPGRADE_TARGET is
+  // itself a 2.2.20 feature, so an old build would ignore it and reach for
+  // the registry. The point of the flow is that the package on disk is
+  // replaced and the database migrated by the real command.
+  const cli = path.join(ROOT, 'bin', 'cli.js');
+  const upgradeOut = sh(process.execPath, [cli, 'upgrade', '--yes'], {
+    cwd: home,
+    env: {
+      ...sandboxEnv(home),
+      KONOHA_UPGRADE_TARGET: packed.path,
+      // The upgrade shells out to `npm install -g` without `--prefix`, so the
+      // destination comes from npm's own configuration. Pin it to this flow's
+      // prefix, otherwise the install lands in the developer's global tree and
+      // PATH keeps resolving the seeded 2.2.19 — a mismatch the verification
+      // gate correctly rejects, but one this flow never intended to create.
+      npm_config_prefix: prefix,
+      PNPM_HOME: path.join(prefix, 'bin'),
+      // The stale-PATH case is exercised separately below; here PATH must
+      // expose the freshly installed binary.
+      PATH: `${path.join(prefix, 'bin')}${path.delimiter}${process.env.PATH}`
+    }
+  });
+  const after = dbStats(home);
+  console.log(`  before: ${JSON.stringify(before)}`);
+  console.log(`  after:  ${JSON.stringify(after)}`);
+
+  const installedLine = (upgradeOut.match(/Installed Version:\s*v?(\d+\.\d+\.\d+)/) || [])[1];
+  if (installedLine !== packedVersion) {
+    throw new Error(`upgrade reported Installed Version ${installedLine || '(none)'}, expected ${packedVersion}`);
+  }
+
+  // Fresh-shell read: the binary a new terminal would get via PATH, not the
+  // one the upgrade process used. This is the 2.2.19 false-success check.
+  const freshShellEnv = {
+    ...sandboxEnv(home),
+    PATH: `${path.join(prefix, 'bin')}${path.delimiter}${process.env.PATH}`
+  };
+  const resolved = sh('sh', ['-c', 'command -v konoha'], { env: freshShellEnv }).trim();
+  if (resolved !== path.join(prefix, 'bin', 'konoha')) {
+    throw new Error(`PATH resolves konoha to ${resolved || '(nothing)'}, expected the upgrade prefix`);
+  }
+  const versionOut = sh(resolved, ['version'], { cwd: home, env: freshShellEnv });
+  const freshVersion = (versionOut.match(/Current Version:\s*v?(\d+\.\d+\.\d+)/) || [])[1];
+  if (freshVersion !== packedVersion) {
+    throw new Error(`fresh shell reports v${freshVersion || '?'}, expected ${packedVersion}`);
+  }
+
+  if (!(after.skills >= before.skills)) throw new Error('upgrade lost skills');
+  if (!(after.user_version >= before.user_version)) throw new Error('upgrade downgraded schema');
+  if (after.cyber_rows !== 0) throw new Error(`cyber rows survived upgrade: ${after.cyber_rows}`);
+  fs.rmSync(home, { recursive: true, force: true });
+  fs.rmSync(prefix, { recursive: true, force: true });
+  return { before, after, freshVersion };
+}
+
+/**
+ * Flow 2b — PATH resolves `konoha` to a copy the upgrade did not replace. The
+ * command must exit non-zero, name the failure, and never print a success
+ * banner.
+ */
+function stalePathFlow(packed) {
+  if (process.env.KONOHA_SKIP_STALE_PATH === '1') {
+    console.log('  SKIPPED (KONOHA_SKIP_STALE_PATH=1)');
+    return { skipped: true };
+  }
+  const isWin = process.platform === 'win32';
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_stale_'));
+  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_stale_g_'));
+  const staleDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_stale_path_'));
+  try {
+    installGlobal(packed.path, prefix);
+    const cli = path.join(prefix, 'bin', 'konoha');
+    sh(cli, ['init', '--yes'], { cwd: home, env: sandboxEnv(home) });
+
+    // A shim that always reports the pre-upgrade version, first on PATH.
+    const staleShim = path.join(staleDir, isWin ? 'konoha.cmd' : 'konoha');
+    fs.writeFileSync(
+      staleShim,
+      isWin
+        ? `@echo off\r\n"${process.execPath}" -e "console.log('Current Version: 2.2.19')"\r\n`
+        : `#!/bin/sh\nexec "${process.execPath}" -e "console.log('Current Version: 2.2.19')"\n`
+    );
+    if (!isWin) fs.chmodSync(staleShim, 0o755);
+
+    let exitCode = 0;
+    let output = '';
+    try {
+      output = sh(cli, ['upgrade', '--yes'], {
+        cwd: home,
+        env: {
+          ...sandboxEnv(home),
+          KONOHA_UPGRADE_TARGET: packed.path,
+          // Keep the install inside this flow's prefix: without it the upgrade
+          // writes to the developer's global tree, and the case would still
+          // fail while testing the wrong thing.
+          npm_config_prefix: prefix,
+          PNPM_HOME: path.join(prefix, 'bin'),
+          PATH: `${staleDir}${path.delimiter}${process.env.PATH}`
+        }
+      });
+    } catch (err) {
+      exitCode = err.status || 1;
+      output = `${err.stdout || ''}${err.stderr || ''}`;
+    }
+
+    if (exitCode === 0) throw new Error('upgrade reported success while PATH still showed the old version');
+    if (!/Upgrade verification failed/.test(output)) {
+      throw new Error(`upgrade failed without the verification message: ${output.slice(-400)}`);
+    }
+    if (/successfully upgraded/.test(output)) {
+      throw new Error('upgrade printed a success banner despite failing verification');
+    }
+    return { exitCode };
+  } finally {
+    for (const dir of [home, prefix, staleDir]) fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function main() {
   const results = [];
   const packed = packOnce();
@@ -110,32 +249,12 @@ function main() {
       return { stats };
     }));
 
-    // Flow 2 — install 2.2.19, then upgrade over it.
-    results.push(flow('2.2.19 -> local upgrade', () => {
-      const home = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_upg_'));
-      const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_upg_g_'));
-      // Seed with the published 2.2.19 (or the local pack if the registry denies).
-      try {
-        sh('npm', ['install', '-g', '--prefix', prefix, 'konoha-mcp@2.2.19', '--no-audit', '--no-fund', '--loglevel=error'], {
-          cwd: prefix, env: { ...process.env, npm_config_allow_scripts: '' }
-        });
-      } catch (_) {
-        console.log('  note: registry 2.2.19 install failed; seeding from local pack instead');
-        installGlobal(packed.path, prefix);
-      }
-      const cli = path.join(prefix, 'bin', 'konoha');
-      sh(cli, ['init', '--yes'], { cwd: home, env: sandboxEnv(home) });
-      const before = dbStats(home);
-      installGlobal(packed.path, prefix);
-      const after = dbStats(home);
-      console.log(`  before: ${JSON.stringify(before)}`);
-      console.log(`  after:  ${JSON.stringify(after)}`);
-      if (!(after.skills >= before.skills)) throw new Error('upgrade lost skills');
-      if (!(after.user_version >= before.user_version)) throw new Error('upgrade downgraded schema');
-      fs.rmSync(home, { recursive: true, force: true });
-      fs.rmSync(prefix, { recursive: true, force: true });
-      return { before, after };
-    }));
+    // Flow 2 — install 2.2.19, then run the real `konoha upgrade` over it.
+    results.push(flow('2.2.19 -> real upgrade', () => upgradeFlow(packed)));
+
+    // Flow 2b — the upgrade must refuse to report success when PATH resolves to
+    // a copy the install did not replace.
+    results.push(flow('stale PATH fails loudly', () => stalePathFlow(packed)));
 
     // Flow 3 — reinstall is idempotent.
     results.push(flow('idempotent reinstall', () => {

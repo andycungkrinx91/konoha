@@ -8,7 +8,8 @@ const { spawnSync } = require('child_process');
 const {
   HOME,
   SKILLS_DB_DIR,
-  SRC_DIR
+  SRC_DIR,
+  INSTALL_BUILD_MIGRATE_TIMEOUT_MS
 } = require('./paths');
 const { fileExists, ensureDir, copyFile } = require('./prompt');
 const { info, warn, getCliVersion } = require('./format');
@@ -337,9 +338,9 @@ function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
     const { execSync } = require('child_process');
     info(`Building Web UI v${currentVersion} during runtime initialization...`);
     try {
-      execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 900000 });
+      execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     } catch (_) {
-      execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 900000 });
+      execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
     const builtOutput = path.join(sourceDir, 'build');
     if (fileExists(path.join(builtOutput, 'handler.js')) && path.resolve(builtOutput) !== path.resolve(webBuildDest)) {
@@ -392,10 +393,10 @@ function installMissingDependencies(deps) {
     try {
       const res = isWin
         ? spawnSync(`"${pm.cmd}" ${pm.args.join(' ')}`, {
-            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 900000, stdio: 'ignore', shell: true, windowsHide: true, env: childEnv
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS, stdio: 'ignore', shell: true, windowsHide: true, env: childEnv
           })
         : spawnSync(pm.cmd, pm.args, {
-            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: 900000, stdio: 'ignore', env: childEnv
+            cwd: SKILLS_DB_DIR, encoding: 'utf-8', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS, stdio: 'ignore', env: childEnv
           });
       if (res.status === 0 && listMissingDependencies(path.join(SKILLS_DB_DIR, 'node_modules'), deps).length === 0) return true;
     } catch { /* best-effort package manager fallback */ }

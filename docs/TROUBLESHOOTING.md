@@ -105,6 +105,20 @@ node --version  # Must be >= 24.0.0
 
 ---
 
+### ❌ `Upgrade verification failed: PATH 'konoha' reports v<old> but the installed package is v<new>.`
+
+- **Cause**: the package install succeeded, but the `konoha` a shell would run is a different copy — a `~/.local/bin/konoha` shim, a pnpm or nvm shim, or another `bin` dir earlier on `PATH`. 2.2.19 printed "successfully upgraded" in this state while `konoha version` still reported the old version.
+- **Behavior**: 2.2.20 and later exit `1` and name the winning path under `PATH resolves 'konoha' to:` instead of reporting a version it never confirmed. The same failure fires when nothing named `konoha` is on `PATH` after the install, or when the resolved binary prints no `Current Version:` line.
+- **Fix**: find the shadowing copy and remove or update it, then re-run:
+  ```bash
+  which -a konoha        # every copy, in PATH order; the first one wins
+  npm install -g konoha-mcp@latest
+  konoha upgrade --yes
+  ```
+  If the first entry is a shim you maintain, repoint it at the npm-installed CLI. Do not "fix" this by reordering `PATH` permanently — the next shell will just shadow it again.
+
+---
+
 ### ❌ MCP tool returns `{"error":"invalid_arguments","message":"...","tool":"..."}`
 
 - **Cause**: the `arguments` value could not be parsed into a JSON object, and the tool is not a delegation tool. Konoha returns a JSON-RPC *tool* error (`isError: true`) instead of a transport error so the client shows exactly what failed.

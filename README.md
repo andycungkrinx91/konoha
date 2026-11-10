@@ -403,7 +403,7 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 | Mode | Command | What it does |
 |:---|:---|:---|
 | **Persistent global install** | `npm install -g konoha-mcp@latest` (from a tarball: `npm install -g ./konoha-mcp-<version>.tgz`) | Installs the `konoha` binary on PATH. The package ships no install-time lifecycle script, so the install completes without a script-permission prompt and writes nothing under `~`; runtime setup stays explicit (`konoha init --yes`, or `konoha upgrade` on an existing tree) |
-| **In-place upgrade** | `konoha upgrade` (alias `konoha update`) | Reinstalls the global package with the detected package manager (npm/pnpm/yarn) and re-runs the runtime lifecycle. Exits `1` with `Upgrade aborted` when no package manager can install the target |
+| **In-place upgrade** | `konoha upgrade` (alias `konoha update`) | Reinstalls the global package with the detected package manager (npm/pnpm/yarn) and re-runs the runtime lifecycle. Exits `1` with `Upgrade aborted` when no package manager can install the target, and exits `1` with `Upgrade verification failed` when the `konoha` a fresh shell resolves still reports a different version (a `~/.local/bin` shim or stale nvm shim ahead of the npm prefix); the message names the offending path and the recovery command |
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry without a persistent install. Never writes a global package |
 
 `npx i -g konoha-mcp` is not valid syntax — use one of the three forms above.

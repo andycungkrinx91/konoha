@@ -252,8 +252,8 @@ expectTimeout('upgrade', /waitForPortReady\(UI_PORT, \{ timeoutMs: (?:UI_READY_T
 console.log('Slow-network budgets (install / build / migrate / embed)');
 
 expectTimeout('upgrade', /spawnOptions = \{.*timeout: (?:\d+|INSTALL_BUILD_MIGRATE_TIMEOUT_MS)/, SLOW_NETWORK_MS, 'package install', { allowConstant: true });
-expectTimeout('install', /execSync\('(pnpm|npm) run build'.*timeout: \d+/, SLOW_NETWORK_MS, 'web build');
-expectTimeout('install', /timeout: \d+, stdio: 'ignore'/, SLOW_NETWORK_MS, 'runtime dependency install');
+expectTimeout('install', /execSync\('(pnpm|npm) run build'.*timeout: (?:\d+|INSTALL_BUILD_MIGRATE_TIMEOUT_MS)/, SLOW_NETWORK_MS, 'web build', { allowConstant: true });
+expectTimeout('install', /timeout: (?:\d+|INSTALL_BUILD_MIGRATE_TIMEOUT_MS), stdio: 'ignore'/, SLOW_NETWORK_MS, 'runtime dependency install', { allowConstant: true });
 
 console.log('Init / migrate / embed budgets');
 

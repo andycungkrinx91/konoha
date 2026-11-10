@@ -19,6 +19,7 @@ const { cmdInit } = require("./init");
 const { checkPortActive } = require("./bridge");
 const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
 const { cmdUiBuild } = require("../lib/ui_build");
+const { assertPathVersionMatches, resolveUpgradeTargetOverride } = require("../lib/upgrade_verify");
 
 
 function parseSemver(v) {
@@ -242,10 +243,19 @@ function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) 
     const result = tryInstallCandidate(pm, pm.args, spawnOptions, isWin);
     if (result.success) {
       pbar.stopPulse();
-      pbar.logStep(`Konoha installed from npm registry via ${pm.name}`);
+      pbar.logStep(`Konoha installed via ${pm.name}`);
       return true;
     }
     lastError = result.error;
+  }
+
+  // A local tarball has no registry counterpart and no GitHub tag to fall back
+  // to; rewriting it into a git URL would install something the caller never
+  // asked for. Report the package-manager failure instead.
+  if (pkgTarget.endsWith('.tgz')) {
+    pbar.stopPulse();
+    pbar.logStep(lastError ? `Package manager note (${lastError})` : 'Package manager could not install the local tarball');
+    return false;
   }
 
   const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
@@ -475,7 +485,7 @@ async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
   if (uiAuto?.started) pbar.logStep(`Konoha Web UI daemon auto-started at http://127.0.0.1:${UI_PORT}/`);
 }
 
-async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, localVer = '') {
+async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, isWin = process.platform === 'win32') {
   const { injectConfigs = false, rtk = true, aislop = true, semble = true } = choices;
   const cleanTarget = String(targetTag || '').replace(/^v/, '');
   const globalPkgRoot = locateGlobalPackageRoot(process.platform === 'win32', cleanTarget);
@@ -512,14 +522,19 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, l
       process.exit(1);
     }
 
+    // The package on disk reports the new version, but the `konoha` a shell will
+    // actually run may still be an older copy (a ~/.local/bin shim ahead of the
+    // npm prefix, a stale nvm shim). Reporting success there is the 2.2.19
+    // false-success defect, so spawn the PATH-resolved binary and gate on it.
+    // The pre-upgrade version (`localVer`) is only diagnostic context; whether
+    // the upgrade worked is decided by what PATH now reports.
+    assertPathVersionMatches(installed.version, cleanTarget, isWin);
+
     pbar.finish(`Konoha has been successfully upgraded to v${installed.version}!`);
     log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}v${installed.version}${C.reset}`);
+    log(`  ⚡ ${C.bold}Verified Version:${C.reset}  ${C.green}v${installed.version}${C.reset} (fresh shell match)`);
     log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
 
-    const old = String(localVer || '').replace(/^v/, '');
-    if (installed.version === old && cleanTarget !== old) {
-      warn(`Reported version still v${old} — the new package may not be on PATH yet; open a new shell and run "konoha --version"`);
-    }
     clearUpgradePendingMarker();
   } catch (err) {
     pbar.stopPulse();
@@ -590,14 +605,16 @@ async function cmdUpgrade(args = []) {
   purgePackageCaches({ silent: true });
 
   const localVer = getCliVersion();
-  const { targetVer, targetTag } = await resolveTargetVersion(localVer);
+  const override = resolveUpgradeTargetOverride();
+  const { targetVer, targetTag } = override || await resolveTargetVersion(localVer);
   const cleanTarget = targetVer.replace(/^v/, '');
-  const pkgTarget = `konoha-mcp@${cleanTarget}`;
+  const pkgTarget = override ? override.tarballPath : `konoha-mcp@${cleanTarget}`;
 
   const pmCandidates = buildPackageManagerCandidates(pkgTarget, isWin);
-  pbar.logStep(`Target: ${C.green}konoha-mcp@${cleanTarget}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
+  pbar.logStep(`Target: ${C.green}${pkgTarget}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
 
-  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching konoha-mcp@${cleanTarget} from npm registry via ${pmCandidates[0].name}...`);
+  const sourceLabel = override ? 'local tarball' : 'npm registry';
+  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching ${pkgTarget} from ${sourceLabel} via ${pmCandidates[0].name}...`);
   pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and installing Konoha package via ${pmCandidates[0].name}...`);
 
   if (isWin) writeUpgradePendingMarker(cleanTarget);
@@ -617,7 +634,7 @@ async function cmdUpgrade(args = []) {
     process.exit(1);
   }
 
-  await runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices, localVer);
+  await runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices, isWin);
 }
 
 const UPGRADE_PENDING_MARKER = path.join(SKILLS_DB_DIR, '.upgrade_pending.json');

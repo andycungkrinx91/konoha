@@ -75,6 +75,20 @@ function check() {
     assert.strictEqual(resolved.trim(), '1500', 'UI_PORT must read the user override');
     console.log('  ok   override reaches bin/lib/paths');
 
+    // The install build/migrate ceiling must come from config too: 2.2.19
+    // hardcoded 900000 in four places, so a slow proxy could not be accommodated.
+    run(['config', 'set', 'install_build_migrate_timeout_ms', '1800000'], env);
+    const timeout = execFileSync(process.execPath, ['-e',
+      "process.stdout.write(String(require('./bin/lib/paths').INSTALL_BUILD_MIGRATE_TIMEOUT_MS))"
+    ], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...env } });
+    assert.strictEqual(timeout.trim(), '1800000', 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS must read the user override');
+    const runtimeInstall = fs.readFileSync(path.join(ROOT, 'bin', 'lib', 'runtime_install.js'), 'utf8');
+    assert.ok(
+      !/timeout:\s*900000\b/.test(runtimeInstall),
+      'bin/lib/runtime_install.js must not hardcode a 900000 ms timeout'
+    );
+    console.log('  ok   install build/migrate timeout comes from config');
+
     // getConfigValue falls back only for keys with no default.
     assert.strictEqual(getConfigValue('definitely_not_a_key', 42), 42);
     assert.strictEqual(getConfigValue('ui_port'), CONFIG_DEFAULTS.ui_port);
