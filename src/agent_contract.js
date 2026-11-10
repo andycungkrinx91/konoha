@@ -234,9 +234,23 @@ ${roleLabel} on ${clientLabel}. Mandatory every turn.
 ${prohibited ? `${prohibited}\n` : ''}${CONTRACT_END}`;
 }
 
+// Number the top-level contract rules at render time so plans cite a stable
+// ordinal without a hand-maintained duplicate list drifting from this source.
+// Applied only to the on-demand contract: the injected client blocks and the
+// SHA-pinned prohibited-action block stay byte-identical.
+function numberRules(text) {
+  let ordinal = 0;
+  return String(text).replace(/^- \*\*/gm, () => `${++ordinal}. **`);
+}
+
+function countRules(text) {
+  return (String(text).match(/^\d+\. \*\*/gm) || []).length;
+}
+
 function getClientContract(client = 'generic', options = {}) {
   const role = (options && options.role) ? options.role : 'main agent';
-  const mainContract = buildAgentContract({ client, role });
+  const mainContract = numberRules(buildAgentContract({ client, role }));
+  const ruleCount = countRules(mainContract);
   let agentsList = [];
   try {
     const db = require('./db');
@@ -261,7 +275,8 @@ function getClientContract(client = 'generic', options = {}) {
 
   return `# Konoha Multi-Agent System & Full Runtime Specification\n\n` +
     `Client: ${CLIENT_LABELS[client] || client}\n` +
-    `Version: ${CONTRACT_VERSION}\n\n` +
+    `Version: ${CONTRACT_VERSION}\n` +
+    `Runtime rules: ${ruleCount} (numbered below; count is derived, never hardcoded)\n\n` +
     `## Ninja Team Roster\n\n${roster}\n\n` +
     `${mainContract}\n`;
 }

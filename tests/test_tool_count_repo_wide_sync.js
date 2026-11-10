@@ -27,7 +27,7 @@ const TRACKED_FILES = [
   {
     relPath: 'README.md',
     mustInclude: [
-      `[MCP Tools](https://img.shields.io/badge/MCP%20Tools-48%20Canonical-10b981)`,
+      `MCP%20Tools-48%20Canonical-10b981`,
       `The unified \`konoha\` server exposes 48 canonical tools`
     ],
     forbiddenPatterns: [

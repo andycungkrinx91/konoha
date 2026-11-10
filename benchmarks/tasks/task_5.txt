@@ -1,1 +1,0 @@
-Add a CSV export to the `/savings` page. Requirement: one button that downloads the current `by_tool` rows as CSV with the columns `tool,calls,tokens_saved`, built from the already-fetched `/api/v1/savings` payload. No new endpoint, no new dependency. Follow the Svelte 5 runes style already used in `apps/web/src/components/Savings.svelte`.

@@ -1,1 +1,0 @@
-Refactor `src/mcp/workflow_gates.js` so each gate phase lives in its own file under `src/mcp/`, without changing behavior. Every existing test must still pass unchanged.
