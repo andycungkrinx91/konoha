@@ -2,7 +2,8 @@
 
 Canonical envelope for every human <-> agent message on every Konoha harness client
 (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP), and for
-every agent <-> agent handoff. One shape, parsed the same way everywhere.
+every agent <-> agent handoff. One shape, read the same way everywhere: the
+dispatching agent parses it, no tool does.
 
 Source of truth for `konoha.get_skill('konoha/task-format')`. The file lives at
 `src/templates/skills/konoha/references/task-format.md` and ships to all client skill
@@ -78,11 +79,11 @@ into the task.
 
 ## Cross-client invariants
 
-- Headings, numbering, and section order are fixed. A client that renders the envelope
-  keeps all three, whatever its formatting layer does underneath.
-- Subagents receive the envelope in structured MCP arguments and reply with the
-  outbound envelope. A reply that reads like a report but skips the headings is
-  incomplete and gets sent back.
+- Headings, numbering, and section order are fixed. Rendering may change the
+  formatting layer, never those three.
+- Subagents receive the envelope in structured MCP arguments and are asked to reply
+  with the outbound envelope. A reply that reads like a report but skips the headings
+  is treated as incomplete and the missing sections are requested.
 - Long-running work streams progress inside `**Result`. It does not open a second
   narrative channel.
 

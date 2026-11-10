@@ -5,7 +5,7 @@
  *
  * Verifies that on-disk client instruction files (AGENTS.md, CLAUDE.md, GEMINI.md,
  * .cursorrules, .cursor/rules/konoha.mdc, .omp/agent/AGENTS.md, .codex/AGENTS.md)
- * are lightweight (< 1.6KB), saving > 90% of file I/O tokens on cold start, while
+ * are lightweight (< 1800 bytes), saving > 90% of file I/O tokens on cold start, while
  * preserving complete contract retrieval on-demand via konoha.get_skill.
  */
 
@@ -15,12 +15,13 @@ const path = require('path');
 const contract = require('../src/agent_contract');
 const deploy = require('../src/agent_deployer');
 const { getSkill } = require('../src/mcp/skills');
+const { getCanonicalAgentNames } = require('../src/canonical_agents');
 
 const ROOT = path.resolve(__dirname, '..');
 
 console.log('Running test_lightweight_contracts.js...');
 
-// Verify on-disk file sizes (< 2KB)
+// Verify on-disk file sizes (< 1800 bytes)
 const filesToCheck = [
   'AGENTS.md',
   'GEMINI.md',
@@ -48,13 +49,14 @@ for (const relPath of filesToCheck) {
     validation.ok,
     `${relPath} failed contract validation: ${validation.missing.join(', ')}`
   );
-  console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1.6KB) and contract validated`);
+  console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1800 bytes) and contract validated`);
 }
 
 // GEMINI.md is deploy-managed: it must equal what the generator would write, or the
 // next project deploy silently overwrites the hand-edited bytes.
-const roster = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka']
-  .map((name) => ({ name }));
+// Roster comes from the canonical source the deploy path renders when no user
+// agents.yaml overrides exist, so an agent added there cannot drift past this test.
+const roster = getCanonicalAgentNames().map((name) => ({ name }));
 const generatedGemini = `<!-- KONOHA-START -->\n${deploy.generateGeminiMd(roster).trim()}\n<!-- KONOHA-END -->\n`;
 assert.strictEqual(
   fs.readFileSync(path.join(ROOT, 'GEMINI.md'), 'utf8'),

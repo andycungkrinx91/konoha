@@ -29,7 +29,7 @@ fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Demo skill\n\nBody for the 
 fs.writeFileSync(path.join(refsDir, 'alpha.md'), 'alpha reference body\n');
 
 const conn = setupDb();
-const row = (name) => conn.prepare('SELECT name, file_path, byte_size FROM skills WHERE name = ?').get(name);
+const row = (name) => conn.prepare('SELECT name, file_path, byte_size, content FROM skills WHERE name = ?').get(name);
 const migrate = () => migrateSingleSkill('demo', skillsRoot, conn);
 
 migrate();
@@ -39,6 +39,18 @@ assert.strictEqual(
   Buffer.byteLength(optimizeContent('alpha reference body\n'), 'utf8'),
   'indexed size must match the optimized file'
 );
+
+
+// An edit that keeps the byte length must still re-index; size alone is not identity.
+fs.writeFileSync(path.join(refsDir, 'alpha.md'), 'alpha reference BODY\n');
+migrate();
+assert.strictEqual(
+  row('demo/alpha').content,
+  optimizeContent('alpha reference BODY\n'),
+  'a same-length edit must still be re-indexed'
+);
+fs.writeFileSync(path.join(refsDir, 'alpha.md'), 'alpha reference body\n');
+migrate();
 
 fs.writeFileSync(path.join(refsDir, 'beta.md'), 'beta reference body\n');
 migrate();

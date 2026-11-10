@@ -199,18 +199,18 @@ function _referenceFilesOnDisk(skillDir) {
 // rows live deeper and must not count as stale, nor be pruned, from this dir.
 function _directReferenceRows(conn, skillDir, prefix) {
   const dirs = new Set([skillDir, path.join(skillDir, "references")]);
-  return conn.prepare("SELECT name, file_path, byte_size FROM skills WHERE skill_name = ?").all(prefix)
+  return conn.prepare("SELECT name, file_path, content FROM skills WHERE skill_name = ?").all(prefix)
     .filter((row) => row.file_path && dirs.has(path.dirname(row.file_path)));
 }
 
+// Stored content, not byte size: an edit that keeps the length must still re-index.
 function _refsStale(conn, skillDir, prefix) {
   const rows = _directReferenceRows(conn, skillDir, prefix);
   if (rows.some((row) => !fs.existsSync(row.file_path))) return true;
-  const indexedSize = new Map(rows.map((row) => [row.name, row.byte_size]));
-  return _referenceFilesOnDisk(skillDir).some((file) => {
-    const key = `${prefix}/${path.basename(file, ".md")}`;
-    return indexedSize.get(key) !== Buffer.byteLength(optimizeContent(fs.readFileSync(file, "utf8")), "utf8");
-  });
+  const indexed = new Map(rows.map((row) => [row.name, row.content]));
+  return _referenceFilesOnDisk(skillDir).some(
+    (file) => indexed.get(`${prefix}/${path.basename(file, ".md")}`) !== optimizeContent(fs.readFileSync(file, "utf8"))
+  );
 }
 
 function _pruneOrphanReferences(conn, skillDir, prefix) {
