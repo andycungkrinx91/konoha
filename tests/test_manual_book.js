@@ -81,7 +81,7 @@ const { renderHtml, pageHeader, pageFooter, THEME } = require('../scripts/build_
 
 // Documentation style contract: one canonical 4-colour gradient theme, slate text,
 // tinted tables, no dark hexes.
-assert.deepStrictEqual(THEME, ['#E8453C', '#F08A24', '#8BCB4A', '#3A8DDE'], 'PDF theme must be red, orange, green, blue');
+assert.deepStrictEqual(THEME, ['#F08A24', '#8A4FD0', '#3A8DDE', '#8BCB4A'], 'PDF theme must be orange, purple, blue, green');
 
 const html = renderHtml(manual);
 for (const hex of [...THEME, '#64748B', '#F1F5F9', '#CBD5E1', '#E2E8F0', '#F8FAFC']) {

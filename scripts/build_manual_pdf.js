@@ -41,7 +41,7 @@ const ORGANISATION = 'Konoha documentation';
 const SOURCE_DATE_EPOCH = Number(process.env.SOURCE_DATE_EPOCH || 1794268800);
 
 // 4-base-colour gradient theme: red, orange, green, blue.
-const THEME = ['#E8453C', '#F08A24', '#8BCB4A', '#3A8DDE'];
+const THEME = ['#F08A24', '#8A4FD0', '#3A8DDE', '#8BCB4A'];
 
 const SLATE = '#64748B';
 const SANS = "Inter, 'Liberation Sans', 'Helvetica Neue', 'Open Sans', Arial, sans-serif";
@@ -68,8 +68,8 @@ const CSS = `
   .cover .subtitle { font-size: 14pt; line-height: 20pt; margin: 0 0 6mm; font-weight: 400; }
   .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 8mm; }
   .cover .hero { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; margin: 6mm 0; }
-  .cover .hero img { width: 95mm; height: 95mm; }
-  .cover .detail { margin-top: auto; margin-bottom: 3em; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
+  .cover .hero img { width: 120mm; height: 120mm; }
+  .cover .detail { margin-top: auto; margin-bottom: 5em; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
   .cover .detail .row { overflow: hidden; font-size: 10.2pt; line-height: 16.2pt; margin-bottom: 2.4mm; }
   .cover .detail .row:last-child { margin-bottom: 0; }
   .cover .detail .swatch { float: left; width: 4.5mm; height: 4.5mm; border-radius: 1mm; margin: 1mm 3mm 0 0; }
@@ -78,12 +78,12 @@ const CSS = `
   h1 { font-size: 23pt; line-height: 28pt; margin: 0 0 5mm; padding-top: 2mm; color: ${SLATE}; font-weight: 700; }
   h2 {
     font-size: 16pt; line-height: 21.5pt; color: ${SLATE}; font-weight: 700;
-    margin: 9mm 0 4.5mm; padding-bottom: 3mm;
+    margin: 3mm 0 2mm; padding-bottom: 2mm;
     border-bottom: 2.5px solid transparent;
     border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1;
     page-break-after: avoid; break-after: avoid;
   }
-  h2.chapter { page-break-before: always; margin-top: 0; padding-top: 5mm; margin-bottom: 5mm; }
+  h2.chapter { page-break-before: always; margin-top: 0; padding-top: 0; margin-bottom: 2.5mm; }
   h2.chapter:first-of-type { page-break-before: auto; }
   h3 {
     font-size: 12.5pt; line-height: 17pt; color: ${SLATE}; font-weight: 700;
@@ -101,25 +101,37 @@ const CSS = `
   ul, ol { padding-left: 6mm; margin: 2.5mm 0 4.5mm; }
   code {
     font-family: ${MONO}; font-size: 0.86em; font-weight: 600;
-    background: #F1F5F9; color: ${SLATE};
+    background-color: #F1F5F9;
+    background-image: linear-gradient(135deg, #E4ECFB 0%, #F3E8FB 25%, #FDF4E7 55%, #FFFFFF 100%);
+    color: ${SLATE};
     padding: 0.2mm 1.2mm; border: 1px solid #CBD5E1; border-radius: 0.8mm;
     -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   pre {
-    background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[0]};
+    background-color: #F8FAFC;
+    background-image: linear-gradient(135deg, #E7F5DE 0%, #E4ECFB 18%, #F3E8FB 38%, #FDF4E7 62%, #FFFFFF 100%);
+    border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[0]};
     border-radius: 0 1.5mm 1.5mm 0;
     padding: 2.5mm 3.5mm; margin: 4mm 0 5mm; overflow-wrap: anywhere; white-space: pre-wrap;
     page-break-inside: avoid; break-inside: avoid; font-size: 9pt; line-height: 13.4pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   pre code { background: none; border: none; padding: 0; font-size: 1em; font-weight: 400; }
   table {
     border-collapse: collapse; width: 100%; margin: 3mm 0 5.5mm; font-size: 9.4pt; line-height: 13.5pt;
-    border-top: 2.5px solid ${THEME[3]};
   }
   thead { display: table-header-group; }
   tr { page-break-inside: avoid; break-inside: avoid; }
   th, td { border: 1px solid #E2E8F0; padding: 1.8mm 2.4mm; text-align: left; vertical-align: top; }
-  th { background: #F1F5F9; border-color: #CBD5E1; font-weight: 700; color: ${SLATE}; }
+  thead, thead tr {
+    background: linear-gradient(90deg, ${THEME.join(', ')});
+  }
+  thead th {
+    background: transparent;
+    color: #FFFFFF; font-weight: 700;
+    border: 1px solid #FFFFFF;
+  }
   tbody tr:nth-child(even) td { background: #F8FAFC; }
   blockquote {
     margin: 4mm 0 5mm; padding: 2.5mm 3.5mm; background: #F8FAFC;
