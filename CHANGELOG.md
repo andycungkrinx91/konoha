@@ -1,5 +1,8 @@
 ## [2.2.20] - 2026-11-10
 
+- License: MIT → Apache License 2.0. Konoha is now licensed under the Apache License 2.0: permissive use (including commercial and proprietary), with an explicit patent grant, a requirement to mark modified files, and a NOTICE file for attributions. See LICENSE, NOTICE, and the License section in README.md. Versions up to v2.2.19 remain available under MIT.
+
+
 ### Security
 
 - **`image-size` infinite-loop CVEs closed (`package.json`, `patches/pptxgenjs@4.0.1.patch`)**: CVE-2025-71330 / GHSA-w3rx-r6r6-pgpr and CVE-2025-71329 / GHSA-5p2g-fcmc-qvqq (HIGH, CVSS 8.7) affect `image-size < 2.0.3`; a crafted ICNS, JXL, or HEIF header loops the event loop forever. `pptxgenjs@4.0.1` declares `^1.2.1`, so a published 2.2.19 tarball resolved the vulnerable line on every consumer install.

@@ -30,7 +30,7 @@
     "sdlc"
   ],
   "author": "Andy Setiyawan | The shadow ninja with coffee (https://www.linkedin.com/in/andy-setiyawan-452396170/)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bin": {
     "konoha": "bin/cli.js"
   },
