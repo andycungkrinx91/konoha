@@ -43,15 +43,16 @@ for t in 1 2 3 4 5; do
 done
 ```
 
-Each run creates its own throwaway worktree under `$TMPDIR` from HEAD, resets it, and
-removes it afterwards; your working tree is never touched. To reuse one instead, set
-`BENCH_WORKTREE` to an existing registered worktree of this repo (the harness refuses any
-other path). Output goes to
-`benchmarks/runs/<date>/task_<n>_<mode>_run<r>/`:
+Each run creates its own throwaway worktree under `$TMPDIR` from HEAD and removes it on
+exit, including on failure or Ctrl-C; your working tree is never reset or cleaned. Output
+goes to `benchmarks/runs/<date>/task_<n>_<mode>_run<r>/`:
 
 ```
-prompt.txt     log.json     stderr.txt     meta.txt     diff_stat.txt     diff.patch
+prompt.txt  log.json  stderr.txt  meta.txt  status.txt  diff_stat.txt  diff.patch
 ```
+
+`diff.patch` is `git diff --cached` after `git add -A`, so files the agent created appear
+as new-file hunks instead of vanishing with the worktree.
 
 ## Aggregate
 

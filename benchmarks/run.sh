@@ -18,21 +18,13 @@ OUT="$OUT_ROOT/$(date +%F)/task_${TASK_ID}_${MODE}_run${RUN}"
 [ -f "$TASK_FILE" ] || { echo "missing $TASK_FILE" >&2; exit 2; }
 [ "$MODE" = baseline ] || [ "$MODE" = konoha ] || { echo "mode must be baseline or konoha" >&2; exit 2; }
 
-# Reset happens in a worktree the harness owns, never in the caller's tree.
-# Default: a unique throwaway worktree per run, removed afterwards.
-# BENCH_WORKTREE must already be a registered worktree of this repo, or we abort.
-OWN_WORKTREE=0
-if [ -n "${BENCH_WORKTREE:-}" ]; then
-  git -C "$ROOT" worktree list --porcelain | grep -qx "worktree $BENCH_WORKTREE" \
-    || { echo "refusing: BENCH_WORKTREE=$BENCH_WORKTREE is not a worktree of $ROOT" >&2; exit 2; }
-  WORK=$BENCH_WORKTREE
-else
-  WORK=$(mktemp -d "${TMPDIR:-/tmp}/konoha-bench-XXXXXX")
-  rmdir "$WORK"
-  git -C "$ROOT" worktree add -f "$WORK" HEAD >/dev/null 2>&1 \
-    || { echo "cannot create worktree at $WORK" >&2; exit 2; }
-  OWN_WORKTREE=1
-fi
+# Every run gets its own throwaway worktree at HEAD, removed on exit (success,
+# failure, or Ctrl-C). The caller's tree is never reset or cleaned.
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/konoha-bench-XXXXXX")
+rmdir "$WORK"
+git -C "$ROOT" worktree add -f "$WORK" HEAD >/dev/null 2>&1 \
+  || { echo "cannot create worktree at $WORK" >&2; exit 2; }
+trap 'git -C "$ROOT" worktree remove --force "$WORK" >/dev/null 2>&1 || true' EXIT
 git -C "$WORK" reset --hard -q HEAD
 git -C "$WORK" clean -fdq
 
@@ -58,9 +50,11 @@ END=$(date +%s)
 printf 'task=%s\nmode=%s\nrun=%s\nmodel=%s\ngit_sha=%s\nduration_seconds=%s\nclaude_exit=%s\n' \
   "$TASK_ID" "$MODE" "$RUN" "$BENCH_MODEL" "$(git -C "$ROOT" rev-parse HEAD)" "$((END - START))" "$EXIT" \
   > "$OUT/meta.txt"
-git -C "$WORK" diff --stat > "$OUT/diff_stat.txt"
-git -C "$WORK" diff > "$OUT/diff.patch"
-
-if [ "$OWN_WORKTREE" = 1 ]; then git -C "$ROOT" worktree remove --force "$WORK"; fi
+# Stage everything so new (untracked) files appear in the patch; the worktree is
+# throwaway, so mutating its index is safe.
+git -C "$WORK" add -A
+git -C "$WORK" status --short > "$OUT/status.txt"
+git -C "$WORK" diff --cached --stat > "$OUT/diff_stat.txt"
+git -C "$WORK" diff --cached > "$OUT/diff.patch"
 
 echo "-> $OUT"
