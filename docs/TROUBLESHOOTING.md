@@ -594,6 +594,15 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 ---
 
+### 🔐 Web UI login offers the default passphrase instead of first-run setup (fixed in 2.2.20; affects ≤ 2.2.19)
+
+- **Symptom**: The login card shows two tabs ("Passphrase Sign-In" selected by default, plus "First-Run Setup"), a `default passphrase (konohagakure)` badge, and a hint line naming the default value. Clicking "First-Run Setup" and submitting it in 2.2.19 or earlier returns `401 Unauthorized` from a real browser.
+- **Reason**: `apps/web/src/components/Login.svelte` defaulted `isSetupMode` to `false` and rendered the provisioning constant, so the sign-in form was the landing view and the default value was displayed. `POST /api/v1/auth/setup-password` was also not reachable by an unauthenticated browser request (the API auth middleware rejected it before the controller).
+- **Fix**: The landing view is now chosen from `GET /api/v1/auth/status` (`is_bootstrap: true` ⇒ two-field set-new-password form only) and the default value is no longer rendered anywhere; `setup-password` is reachable from the browser with the required `X-Konoha-Web-Token` CSRF header while bootstrap is active. The bootstrap session gate and the default credential itself are unchanged.
+- **Recovery**: On 2.2.20+ set the new password on the login page and sign in with it. If the account is locked out, run `konoha auth reset` to restore the bootstrap credential (`is_bootstrap: true`) and reload the page — the setup form returns.
+
+---
+
 ### 🗄️ Database Corruption
 
 If the SQLite database becomes corrupted, remove it and rebuild the index:

@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { resetAuthToCustomPassword } from './auth_helper.js';
+
+const CUSTOM_PASSWORD = 'secure-shinobi-2026!';
 
 const THEMES = [
   'chidori',
@@ -33,11 +36,8 @@ function calculateContrastRatio(rgb1, rgb2) {
 test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () => {
   test.setTimeout(90000);
 
-  test.beforeEach(async () => {
-    const authFile = process.env.KONOHA_AUTH_FILE || '/tmp/konoha_test_web_auth.json';
-    if (fs.existsSync(authFile)) {
-      try { fs.unlinkSync(authFile); } catch (_) {}
-    }
+  test.beforeEach(async ({ page }) => {
+    await resetAuthToCustomPassword(page);
   });
 
   test("All 10 themes in Light and Dark mode on Login Page: clean white background, contrast, palette wiring, 20 screenshots", async ({ page }) => {
@@ -217,8 +217,8 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
     // Verify UI is interactive again: click password input and type
     const passwordInput = page.locator("#login-password");
     await passwordInput.click();
-    await passwordInput.fill("konohagakure");
-    await expect(passwordInput).toHaveValue("konohagakure");
+    await passwordInput.fill(CUSTOM_PASSWORD);
+    await expect(passwordInput).toHaveValue(CUSTOM_PASSWORD);
 
     expect(pageErrors).toEqual([]);
   });
@@ -235,12 +235,12 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
 
     await expect(page.getByText("Invalid password")).toBeVisible({ timeout: 6000 });
 
-    // Submit bootstrap credential
-    await passwordInput.fill("konohagakure");
+    // Submit the established credential
+    await passwordInput.fill(CUSTOM_PASSWORD);
     await page.getByRole("button", { name: "Login" }).click();
 
-    // Successfully unlocks and displays password change modal or dashboard
-    await expect(page.getByText("Set Permanent Password").or(page.getByText("Mission Control Dashboard"))).toBeVisible({ timeout: 12000 });
+    // Successfully unlocks the dashboard
+    await expect(page.getByText("Mission Control Dashboard")).toBeVisible({ timeout: 12000 });
 
     expect(pageErrors).toEqual([]);
   });

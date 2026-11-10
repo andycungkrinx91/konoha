@@ -20,6 +20,7 @@ function createAuthState() {
   if (typeof window !== 'undefined') {
     window.addEventListener('konoha:session-expired', () => {
       resetSession();
+      checkAuth();
     });
   }
 
@@ -81,6 +82,7 @@ function createAuthState() {
     const result = await apiResetPassword(currentPassword);
     if (result && result.ok) {
       resetSession();
+      await checkAuth();
     }
     return result;
   }

@@ -1,16 +1,18 @@
 import { test, expect } from '@playwright/test';
+import { resetAuthToCustomPassword } from './auth_helper.js';
 
 const BASE_URL = 'http://127.0.0.1:4173';
-const BOOTSTRAP_PASS = process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure';
+const CUSTOM_PASS = 'secure-shinobi-2026!';
 
 test.describe('Internal Link & Route Integrity Crawler', () => {
   test('Crawl all navigation links, assert 200/307 status and 0 dead links', async ({ page }) => {
     test.setTimeout(120000);
     // Authenticate
+    await resetAuthToCustomPassword(page);
     await page.goto(BASE_URL);
     const input = page.locator('input[type="password"], input[type="text"]').first();
     if (await input.isVisible()) {
-      await input.fill(BOOTSTRAP_PASS);
+      await input.fill(CUSTOM_PASS);
       await page.locator('button[type="submit"]').click();
       await page.waitForTimeout(3200);
     }

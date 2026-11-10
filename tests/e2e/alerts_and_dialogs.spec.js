@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { loginAndUnlock } from './auth_helper.js';
+import { loginAndUnlock, resetAuthToCustomPassword } from './auth_helper.js';
 
 const BASE_URL = 'http://127.0.0.1:4173';
 
 test.describe('Alerting, Toast, Confirm & Form Dialog System', () => {
   test('Login Page: Feedback on empty, wrong passphrase, and enter submit', async ({ page }) => {
+    await resetAuthToCustomPassword(page);
     await page.goto(BASE_URL);
     // Empty passphrase validation
     const submitBtn = page.locator('button[type="submit"]');

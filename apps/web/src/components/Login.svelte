@@ -10,12 +10,9 @@
   const PHASE_IMPACT_MS = 1400;
   const PHASE_REVEAL_MS = 2100;
   const TIMELINE_MS = 3000;
-  // Provisioning hint only — authentication and the policy decision stay server-side.
-  const DEFAULT_BOOTSTRAP_HINT = 'konohagakure';
 
   let password = $state('');
   let showPassword = $state(false);
-  let isSetupMode = $state(false);
   let setupNewPassword = $state('');
   let setupConfirmPassword = $state('');
   let showSetupPasswords = $state(false);
@@ -32,9 +29,6 @@
     }
     if (setupNewPassword.length < 8) {
       return { valid: false, message: `New password needs ${8 - setupNewPassword.length} more character(s).` };
-    }
-    if (setupNewPassword === DEFAULT_BOOTSTRAP_HINT) {
-      return { valid: false, message: 'Cannot set password to the default bootstrap credential.' };
     }
     if (setupConfirmPassword && setupNewPassword !== setupConfirmPassword) {
       return { valid: false, message: 'New password and confirmation do not match.' };
@@ -61,7 +55,6 @@
       authPhase = 'success';
       setupNewPassword = '';
       setupConfirmPassword = '';
-      isSetupMode = false;
       successMessage = 'Initial administrator password configured. Sign in with your new passphrase.';
       toast.success(successMessage);
     } catch (err) {
@@ -76,6 +69,7 @@
   let tiltX = $state(0);
   let tiltY = $state(0);
   let passwordInputEl = $state(null);
+  let setupPasswordEl = $state(null);
   let authAttempt = 0; // invalidates superseded submissions/animations
 
   const phaseLabel = $derived(
@@ -210,7 +204,7 @@
     const onMotionChange = (ev) => { reducedMotion = ev.matches; };
     motionQuery?.addEventListener?.('change', onMotionChange);
 
-    passwordInputEl?.focus();
+    (setupPasswordEl ?? passwordInputEl)?.focus();
 
     return () => {
       motionQuery?.removeEventListener?.('change', onMotionChange);
@@ -281,29 +275,6 @@
       {/if}
 
       {#if authState.isBootstrap}
-        <div class="mb-4 flex items-center justify-between gap-2 p-1 rounded-[4px] border" style="border-color: var(--theme-border); background: color-mix(in srgb, var(--theme-bg) 60%, transparent);">
-          <button
-            type="button"
-            data-testid="first-run-login-tab"
-            onclick={() => { isSetupMode = false; errorMessage = ''; }}
-            class="flex-1 py-1.5 px-2.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer"
-            style={!isSetupMode ? 'background: var(--theme-4gradient); color: #ffffff;' : 'color: var(--theme-text-secondary);'}
-          >
-            Passphrase Sign-In
-          </button>
-          <button
-            type="button"
-            data-testid="first-run-setup-toggle"
-            onclick={() => { isSetupMode = true; errorMessage = ''; }}
-            class="flex-1 py-1.5 px-2.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer"
-            style={isSetupMode ? 'background: var(--theme-4gradient); color: #ffffff;' : 'color: var(--theme-text-secondary);'}
-          >
-            First-Run Setup (2 Fields)
-          </button>
-        </div>
-      {/if}
-
-      {#if isSetupMode && authState.isBootstrap}
         <form onsubmit={handleInitialSetupSubmit} class="space-y-4" data-testid="first-run-setup-form" novalidate>
           <div>
             <label for="setup-new-password" class="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style="color: var(--theme-text-secondary);">
@@ -313,6 +284,7 @@
               <input
                 id="setup-new-password"
                 name="newPassword"
+                bind:this={setupPasswordEl}
                 type={showSetupPasswords ? 'text' : 'password'}
                 bind:value={setupNewPassword}
                 oninput={() => { if (errorMessage) errorMessage = ''; }}
@@ -380,21 +352,12 @@
             <label for="login-password" class="text-[11px] font-bold lowercase tracking-wider" style="color: var(--theme-text-secondary);">
               passphrase
             </label>
-            {#if authState.isBootstrap}
-              <span
-                class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-[3px] badge-3d-subtle lowercase select-none"
-                title="default passphrase: {DEFAULT_BOOTSTRAP_HINT}"
-              >
-                default passphrase (konohagakure)
-              </span>
-            {:else}
-              <span
-                class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-[3px] badge-3d-subtle lowercase select-none"
-                title="custom hardened passphrase active"
-              >
-                passphrase protected
-              </span>
-            {/if}
+            <span
+              class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-[3px] badge-3d-subtle lowercase select-none"
+              title="custom hardened passphrase active"
+            >
+              passphrase protected
+            </span>
           </div>
 
           <div class="relative">
@@ -408,7 +371,6 @@
               disabled={isSubmitting}
               required
               aria-invalid={errorMessage ? 'true' : undefined}
-              aria-describedby={authState.isBootstrap ? 'login-bootstrap-hint' : undefined}
               class="w-full pl-4 pr-11 py-3 rounded-[3px] text-sm font-mono border transition-all placeholder:text-slate-500 login-field-effect input-theme"
               style="
                 background-color: var(--color-surface, #ffffff);
@@ -440,12 +402,6 @@
               {/if}
             </button>
           </div>
-
-          {#if authState.isBootstrap}
-            <p id="login-bootstrap-hint" class="text-[11px] mt-1.5 flex items-center justify-between" style="color: var(--theme-text-secondary);">
-              <span>fresh install: default passphrase is <span class="font-mono font-bold" style="color: var(--theme-focus);">{DEFAULT_BOOTSTRAP_HINT}</span></span>
-            </p>
-          {/if}
         </div>
 
         <button

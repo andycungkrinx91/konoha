@@ -133,30 +133,17 @@ test.describe('Konoha Web UI End-to-End Suite', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
 
-    // Verify First-Run 2-Field Setup toggle on Login screen
-    const setupToggle = page.getByTestId('first-run-setup-toggle');
-    if (await setupToggle.isVisible()) {
-      await setupToggle.click();
-      await expect(page.locator('#setup-new-password')).toBeVisible();
-      await expect(page.locator('#setup-confirm-password')).toBeVisible();
-      await expect(page.locator('#login-password')).toHaveCount(0);
-      await page.getByTestId('first-run-login-tab').click();
-    }
+    // Verify the first-run setup form is the landing view with no default value shown
+    await expect(page.getByTestId('first-run-setup-form')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#login-password')).toHaveCount(0);
+    await expect(page.getByTestId('first-run-setup-toggle')).toHaveCount(0);
 
-    await page.fill('#login-password', 'konohagakure');
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    await expect(page.getByRole('heading', { name: 'Mandatory Password Change' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#current-password')).toHaveCount(0);
-    await expect(page.locator('#new-password')).toBeVisible();
-    await expect(page.locator('#confirm-password')).toBeVisible();
-
-    await page.fill('#new-password', 'shinobi-production-2026!');
-    await page.fill('#confirm-password', 'shinobi-production-2026!');
-    await page.getByRole('button', { name: 'Update & Continue to Dashboard' }).click();
+    await page.fill('#setup-new-password', 'secure-shinobi-2026!');
+    await page.fill('#setup-confirm-password', 'secure-shinobi-2026!');
+    await page.getByRole('button', { name: 'Initialize Password' }).click();
 
     await expect(page.locator('#login-password')).toBeVisible({ timeout: 10000 });
-    await page.fill('#login-password', 'shinobi-production-2026!');
+    await page.fill('#login-password', 'secure-shinobi-2026!');
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page.getByText('Mission Control Dashboard')).toBeVisible({ timeout: 10000 });
 

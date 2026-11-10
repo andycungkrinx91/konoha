@@ -86,7 +86,9 @@ function _verifyApiAuthentication(req, pathname, method, ctx) {
     }
   }
 
-  const isPublicApi = ['/api/v1/health', '/api/v1/csrf', '/api/v1/token', '/api/v1/auth/login', '/api/v1/auth/status', '/api/v1/auth/session'].includes(pathname);
+  // setup-password is the only credential write reachable without a session; it is a
+  // no-op (403) unless is_bootstrap is true (src/auth.js#setupInitialPassword).
+  const isPublicApi = ['/api/v1/health', '/api/v1/csrf', '/api/v1/token', '/api/v1/auth/login', '/api/v1/auth/status', '/api/v1/auth/session', '/api/v1/auth/setup-password'].includes(pathname);
   if (!pathname.startsWith('/api/v1/') || isPublicApi) return { ok: true };
 
   const sessionId = getClientSessionId(req);
@@ -371,7 +373,7 @@ function createWebServer(options = {}) {
     return svelteKitHandler;
   }
 
-  let serverVersion = '2.2.19';
+  let serverVersion = '2.2.20';
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     if (pkg && pkg.version) serverVersion = pkg.version;

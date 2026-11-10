@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 
+const CUSTOM_PASSWORD = 'secure-shinobi-2026!';
+
 test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => {
   test.beforeEach(async () => {
     const authFile = process.env.KONOHA_AUTH_FILE || '/tmp/konoha_test_web_auth.json';
@@ -9,23 +11,33 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     }
   });
 
-  test("Complete login, animation, mandatory change modal, and logout flow", async ({ page }) => {
+  test("First-run setup lands first, then login, animation, and logout flow", async ({ page }) => {
     test.setTimeout(60000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
-    // Visit root - unauthenticated user lands on Cyberpunk Login page
+    // Visit root - bootstrap is active, so the set-new-password form is the only form
     await page.goto("http://127.0.0.1:4173/");
-
-    // Verify Cyberpunk Login UI elements
     await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
-    const tag = page.getByText("default passphrase (konohagakure)");
+    await expect(page.getByTestId("first-run-setup-form")).toBeVisible();
+    await expect(page.locator("#login-password")).toHaveCount(0);
+    await expect(page.getByText("default passphrase")).toHaveCount(0);
+    await expect(page.getByTestId("first-run-login-tab")).toHaveCount(0);
+
+    // Complete first-run setup with the two strict fields
+    await page.locator("#setup-new-password").fill(CUSTOM_PASSWORD);
+    await page.locator("#setup-confirm-password").fill(CUSTOM_PASSWORD);
+    await page.getByRole("button", { name: "Initialize Password" }).click();
+
+    // Sign-in form replaces the setup form once the server clears is_bootstrap
+    await expect(page.locator("#login-password")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#setup-new-password")).toHaveCount(0);
+    const tag = page.getByText("passphrase protected");
     await expect(tag).toBeVisible();
     const tagTransform = await tag.evaluate(el => window.getComputedStyle(el).textTransform);
     expect(tagTransform).toBe("lowercase");
 
     const passwordInput = page.locator("#login-password");
-    await expect(passwordInput).toBeVisible();
     const radius = await passwordInput.evaluate(el => window.getComputedStyle(el).borderRadius);
     expect(radius).toBe("3px");
 
@@ -62,37 +74,14 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     // Verify error feedback
     await expect(page.getByText("Invalid password")).toBeVisible({ timeout: 6000 });
 
-    // Test login with bootstrap credential 'konohagakure' and 3s animation
+    // Test login with the freshly established credential and the 3s animation
     await expect(page.getByRole("button", { name: "Login" })).toBeEnabled({ timeout: 5000 });
-    await passwordInput.fill("konohagakure");
+    await passwordInput.fill(CUSTOM_PASSWORD);
     await page.getByRole("button", { name: "Login" }).click();
 
     // Verify 3s animation phase indicator or authenticating state appears
     await expect(page.getByText(/Charging chakra core|Authenticating/i).first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#login-password")).toBeDisabled();
-
-    // Verify Mandatory Password Change Modal appears
-    await expect(page.getByRole("heading", { name: "Mandatory Password Change" })).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText("The initial bootstrap password (konohagakure) is currently active")).toBeVisible();
-
-    // Verify Escape cannot dismiss mandatory password change modal
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "Mandatory Password Change" })).toBeVisible();
-
-    // Complete initial password setup with strictly two fields (New Password and Confirm Password)
-    await expect(page.locator("#current-password")).toHaveCount(0);
-    const newPassInput = page.locator("#new-password");
-    const confirmPassInput = page.locator("#confirm-password");
-    await newPassInput.fill("secure-shinobi-2026!");
-    await confirmPassInput.fill("secure-shinobi-2026!");
-
-    await page.getByRole("button", { name: "Update & Continue to Dashboard" }).click();
-
-    // Auto-kickout to login page with session invalidated (Feedback 3)
-    await expect(page.locator("#login-password")).toBeVisible({ timeout: 10000 });
-    // Log in with the newly established secure credential
-    await page.locator("#login-password").fill("secure-shinobi-2026!");
-    await page.getByRole("button", { name: "Login" }).click();
 
     // Verify dashboard is unlocked and revealed
     await expect(page.getByText("Mission Control Dashboard")).toBeVisible({ timeout: 10000 });
@@ -126,8 +115,8 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto("http://127.0.0.1:4173/");
     await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
-    const passwordInput = page.locator("#login-password");
-    await expect(passwordInput).toBeVisible();
+    const setupInput = page.locator("#setup-new-password");
+    await expect(setupInput).toBeVisible();
     const isReduced = await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     expect(isReduced).toBe(true);
   });

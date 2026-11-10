@@ -1,4 +1,24 @@
 import { expect } from '@playwright/test';
+import fs from 'fs';
+
+const E2E_BASE_URL = 'http://127.0.0.1:4173';
+
+// Deletes the auth store and hardens it with a known password through the same
+// bootstrap path the login page uses, so specs can exercise the sign-in form
+// regardless of what a previous spec left behind.
+export async function resetAuthToCustomPassword(page, password = 'secure-shinobi-2026!') {
+  const authFile = process.env.KONOHA_AUTH_FILE || '/tmp/konoha_test_web_auth.json';
+  try {
+    if (fs.existsSync(authFile)) fs.unlinkSync(authFile);
+  } catch (_) { /* fresh bootstrap is also valid */ }
+
+  const { token } = await (await page.request.get(`${E2E_BASE_URL}/api/v1/csrf`)).json();
+  const res = await page.request.post(`${E2E_BASE_URL}/api/v1/auth/setup-password`, {
+    headers: { 'x-konoha-web-token': token },
+    data: { new_password: password, confirm_password: password }
+  });
+  if (!res.ok()) throw new Error(`resetAuthToCustomPassword failed: ${res.status()} ${await res.text()}`);
+}
 
 export async function loginAndUnlock(page) {
   let isBootstrap = true;
