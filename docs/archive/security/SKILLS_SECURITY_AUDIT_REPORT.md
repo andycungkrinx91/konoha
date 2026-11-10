@@ -11,7 +11,7 @@
 > (`konoha akatsuki cyber-pack install --confirm`), indexed under
 > `akatsuki-skill` only. Findings below that describe those files remain accurate
 > for the pack's contents; they no longer describe a default install. See
-> [VPS-INSTALL.md](VPS-INSTALL.md).
+> [VPS-INSTALL.md](../../VPS-INSTALL.md).
 
 ---
 

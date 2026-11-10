@@ -69,7 +69,7 @@ All production dependencies, dev tooling, and transitive packages have been insp
 
 ## 4. Benign Operational Capability Verification
 
-In accordance with [`socket.yml`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/socket.yml), capability rules that reflect normal, expected JavaScript operations are configured so that benign runtime behaviors are not misclassified as vulnerabilities:
+In accordance with [`socket.yml`](../../../socket.yml), capability rules that reflect normal, expected JavaScript operations are configured so that benign runtime behaviors are not misclassified as vulnerabilities:
 
 1. **`envVars: false`**:
    - Allows `@bufbuild/protobuf` to read `process.env.BUF_BIGINT_DISABLE` to support older Node.js engines safely without BigInt exceptions.
