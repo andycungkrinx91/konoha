@@ -2,7 +2,7 @@
 
 Independent A/B measurement of whether Konoha reduces token spend without losing quality.
 Konoha never judges itself: token counts come from the client CLI's provider-reported
-`usage` block, and quality is scored by a third-party model using
+`modelUsage` block (falling back to `usage`, so subagent calls are counted), and quality is scored by a third-party model using
 [`judge_prompt.md`](judge_prompt.md).
 
 ## Design
@@ -18,8 +18,9 @@ Konoha never judges itself: token counts come from the client CLI's provider-rep
 
 5 tasks x 2 modes x 3 runs = 30 runs. Report the **median** per task, never the mean.
 
-Tokens counted per run: `usage.input_tokens + usage.output_tokens +
-usage.cache_read_input_tokens + usage.cache_creation_input_tokens`.
+Tokens counted per run: sum across `modelUsage.*` (`inputTokens + outputTokens +
+cacheReadInputTokens + cacheCreationInputTokens`), falling back to `usage.*` when
+`modelUsage` is absent, so subagent turns are never excluded.
 Cache reads are included because they are billed context.
 
 ## Prerequisites
@@ -97,7 +98,7 @@ Task 2 asserts a real observable gap: the write is wrapped in `catch (_) {}`
 ## Validity rules
 
 1. Same client, same model, same task text, same start commit. Only activation differs.
-2. No self-reporting: tokens come from the provider `usage` block, never from Konoha.
+2. No self-reporting: tokens come from the provider `modelUsage`/`usage` block, never from Konoha.
 3. Three runs per cell, median reported.
 4. Failed runs are published, not retried into a nicer number. A run with
    `claude_exit != 0` or an empty diff is still a data point.

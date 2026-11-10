@@ -2,7 +2,7 @@
 'use strict';
 
 // Aggregates benchmarks/runs/**/log.json into results.csv plus a per-task
-// median table. Tokens come from the client CLI's provider-reported `usage`;
+// median table. Tokens come from the client CLI's provider-reported `modelUsage` (falling back to `usage`);
 // nothing here trusts Konoha's own accounting.
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +16,22 @@ function parseRunDir(name) {
 }
 
 function tokens(log) {
-  const u = log && log.usage;
+  if (!log) return null;
+  // If modelUsage is available, it aggregates tokens across the main session AND
+  // all subagents spawned via Agent/Task tools. If absent, fall back to log.usage.
+  const mu = log.modelUsage;
+  if (mu && typeof mu === 'object' && Object.keys(mu).length > 0) {
+    let input = 0, output = 0, cacheRead = 0, cacheCreate = 0;
+    for (const m of Object.values(mu)) {
+      input += m.inputTokens || 0;
+      output += m.outputTokens || 0;
+      cacheRead += m.cacheReadInputTokens || 0;
+      cacheCreate += m.cacheCreationInputTokens || 0;
+    }
+    return { input, output, cache_read: cacheRead, cache_create: cacheCreate,
+      total: input + output + cacheRead + cacheCreate };
+  }
+  const u = log.usage;
   if (!u) return null;
   const input = u.input_tokens || 0;
   const output = u.output_tokens || 0;
@@ -114,6 +129,9 @@ function selfTest() {
   assert.strictEqual(parseRunDir('task_3_run2'), null);
   assert.deepStrictEqual(tokens({ usage: { input_tokens: 10, output_tokens: 5,
     cache_read_input_tokens: 100, cache_creation_input_tokens: 7 } }),
+  { input: 10, output: 5, cache_read: 100, cache_create: 7, total: 122 });
+  assert.deepStrictEqual(tokens({ modelUsage: { 'm1': { inputTokens: 10, outputTokens: 5,
+    cacheReadInputTokens: 100, cacheCreationInputTokens: 7 } } }),
   { input: 10, output: 5, cache_read: 100, cache_create: 7, total: 122 });
   assert.strictEqual(tokens({}), null);
   const rows = [
