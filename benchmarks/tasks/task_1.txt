@@ -1,0 +1,1 @@
+Explain the folder structure of `apps/web/src/` and the dependencies between its files. Output markdown. Every claim must cite `file:line`.

@@ -1,0 +1,1 @@
+`konoha task list` (`bin/commands/task.js`) has no machine-readable output. Add a `--json` flag that prints the same records as valid JSON on stdout with no human formatting or color codes. Follow the existing CLI conventions in that file. Add a test.
