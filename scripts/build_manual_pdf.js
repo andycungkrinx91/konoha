@@ -68,8 +68,8 @@ const CSS = `
   .cover .subtitle { font-size: 14pt; line-height: 20pt; margin: 0 0 6mm; font-weight: 400; }
   .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 8mm; }
   .cover .hero { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; margin: 6mm 0; }
-  .cover .hero img { width: 120mm; height: 120mm; }
-  .cover .detail { margin-top: auto; margin-bottom: 5em; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
+  .cover .hero img { width: 140mm; height: 140mm; }
+  .cover .detail { margin-top: auto; margin-bottom: 0; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
   .cover .detail .row { overflow: hidden; font-size: 10.2pt; line-height: 16.2pt; margin-bottom: 2.4mm; }
   .cover .detail .row:last-child { margin-bottom: 0; }
   .cover .detail .swatch { float: left; width: 4.5mm; height: 4.5mm; border-radius: 1mm; margin: 1mm 3mm 0 0; }
@@ -77,13 +77,13 @@ const CSS = `
   .cover .detail .value { overflow: hidden; color: ${SLATE}; }
   h1 { font-size: 23pt; line-height: 28pt; margin: 0 0 5mm; padding-top: 2mm; color: ${SLATE}; font-weight: 700; }
   h2 {
-    font-size: 16pt; line-height: 21.5pt; color: ${SLATE}; font-weight: 700;
-    margin: 3mm 0 2mm; padding-bottom: 2mm;
+    font-size: 17pt; line-height: 23pt; color: ${SLATE}; font-weight: 700;
+    margin: 4mm 0 2.5mm; padding-bottom: 2mm;
     border-bottom: 2.5px solid transparent;
     border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1;
     page-break-after: avoid; break-after: avoid;
   }
-  h2.chapter { page-break-before: always; margin-top: 0; padding-top: 0; margin-bottom: 2.5mm; }
+  h2.chapter { page-break-before: always; margin-top: 0; padding-top: 0; margin-bottom: 3mm; }
   h2.chapter:first-of-type { page-break-before: auto; }
   h3 {
     font-size: 12.5pt; line-height: 17pt; color: ${SLATE}; font-weight: 700;
@@ -101,7 +101,7 @@ const CSS = `
   ul, ol { padding-left: 6mm; margin: 2.5mm 0 4.5mm; }
   code {
     font-family: ${MONO}; font-size: 0.86em; font-weight: 600;
-    background-color: #F1F5F9;
+    background-color: #E4ECFB;
     background-image: linear-gradient(135deg, #E4ECFB 0%, #F3E8FB 25%, #FDF4E7 55%, #FFFFFF 100%);
     color: ${SLATE};
     padding: 0.2mm 1.2mm; border: 1px solid #CBD5E1; border-radius: 0.8mm;
@@ -109,7 +109,7 @@ const CSS = `
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   pre {
-    background-color: #F8FAFC;
+    background-color: #E7F5DE;
     background-image: linear-gradient(135deg, #E7F5DE 0%, #E4ECFB 18%, #F3E8FB 38%, #FDF4E7 62%, #FFFFFF 100%);
     border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[0]};
     border-radius: 0 1.5mm 1.5mm 0;
@@ -132,7 +132,7 @@ const CSS = `
     color: #FFFFFF; font-weight: 700;
     border: 1px solid #FFFFFF;
   }
-  tbody tr:nth-child(even) td { background: #F8FAFC; }
+  tbody tr:nth-child(even) td { background: #F1F5F9; }
   blockquote {
     margin: 4mm 0 5mm; padding: 2.5mm 3.5mm; background: #F8FAFC;
     border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[2]};
@@ -174,7 +174,7 @@ function renderHtml(markdown) {
   <h1>Konoha — Operator's Manual</h1>
   <p class="subtitle">Version ${VERSION} · local working tree · five surfaces, one process</p>
   <div class="accent-bar"></div>
-  <div class="hero"><img src="${LOGO_DATA_URI}" alt="Konoha logo" width="359" height="359"></div>
+  <div class="hero"><img src="${LOGO_DATA_URI}" alt="Konoha logo" width="529" height="529"></div>
   <div class="detail">
     <div class="row"><span class="swatch" style="background:${THEME[0]}"></span><span class="label">Document</span><span class="value">Konoha ${VERSION} operator's manual</span></div>
     <div class="row"><span class="swatch" style="background:${THEME[1]}"></span><span class="label">Scope</span><span class="value">Install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, diagnostics, security</span></div>
