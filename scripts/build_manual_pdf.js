@@ -67,10 +67,9 @@ const CSS = `
   .cover h1 { font-size: 38pt; line-height: 42pt; color: ${SLATE}; font-weight: 700; border: 0; padding: 0; margin: 0 0 4mm; letter-spacing: -0.01em; }
   .cover .subtitle { font-size: 14pt; line-height: 20pt; margin: 0 0 6mm; font-weight: 400; }
   .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 8mm; }
-  .cover .hero { display: block; text-align: center; margin: 0 0 6mm; }
-  .cover .hero img { width: 62mm; height: 62mm; }
-  .cover .hero-ring { display: inline-block; padding: 4mm; border-radius: 50%; border: 1.5px solid #E2E8F0; background: #F8FAFC; }
-  .cover .detail { margin-top: auto; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
+  .cover .hero { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; margin: 6mm 0; }
+  .cover .hero img { width: 95mm; height: 95mm; }
+  .cover .detail { margin-top: auto; margin-bottom: 3em; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
   .cover .detail .row { overflow: hidden; font-size: 10.2pt; line-height: 16.2pt; margin-bottom: 2.4mm; }
   .cover .detail .row:last-child { margin-bottom: 0; }
   .cover .detail .swatch { float: left; width: 4.5mm; height: 4.5mm; border-radius: 1mm; margin: 1mm 3mm 0 0; }
@@ -163,7 +162,7 @@ function renderHtml(markdown) {
   <h1>Konoha — Operator's Manual</h1>
   <p class="subtitle">Version ${VERSION} · local working tree · five surfaces, one process</p>
   <div class="accent-bar"></div>
-  <div class="hero"><span class="hero-ring"><img src="${LOGO_DATA_URI}" alt="Konoha logo" width="234" height="234"></span></div>
+  <div class="hero"><img src="${LOGO_DATA_URI}" alt="Konoha logo" width="359" height="359"></div>
   <div class="detail">
     <div class="row"><span class="swatch" style="background:${THEME[0]}"></span><span class="label">Document</span><span class="value">Konoha ${VERSION} operator's manual</span></div>
     <div class="row"><span class="swatch" style="background:${THEME[1]}"></span><span class="label">Scope</span><span class="value">Install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, diagnostics, security</span></div>
