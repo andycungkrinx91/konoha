@@ -147,8 +147,8 @@ function deleteWebhook(id) {
   return res.changes > 0;
 }
 
-let _pkgVer = '2.2.19';
-try { _pkgVer = require('../package.json').version || '2.2.19'; } catch { /* intentional best-effort fallback: delivery is fire-and-forget */ }
+let _pkgVer = '2.2.20';
+try { _pkgVer = require('../package.json').version || '2.2.20'; } catch { /* intentional best-effort fallback: delivery is fire-and-forget */ }
 
 function _buildWebhookHeaders(webhook) {
   const headers = {

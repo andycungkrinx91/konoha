@@ -235,7 +235,7 @@ Host clients select the underlying model; Konoha defines scope and role boundari
 
 ### Supported coding clients: 8 clients
 
-All rows verified on Linux x64 only for this release line; macOS/Windows were not executed for 2.2.19.
+All rows verified on Linux x64 only for this release line; macOS/Windows were not executed for 2.2.19/2.2.20.
 
 | Client | MCP config path | Guardrail |
 |:---|:---|:---|
@@ -252,7 +252,7 @@ RTK rules deploy alongside (`~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`,
 
 ### What gets installed
 
-`~/.konoha/` holds the runtime (`file_tools_mcp.js`, `server.js`, `migrate.js`, `vector_search.js`, `bridge/`, `konoha.db` with `agents`, `bridges`, `sdlc_tasks` tables). Client configs are appended, never clobbered; every write takes a timestamped backup (`konoha config backup --client=all`, `konoha config restore --client=<name>`).
+`~/.konoha/` holds the runtime (`file_tools_mcp.js`, `server.js`, `migrate.js`, `vector_search.js`, `bridge/`, `konoha.db` with `agents`, `bridges`, `sdlc_tasks` tables). Client configs are appended, never clobbered; every write takes a timestamped backup (`konoha config backup --client=all`, `konoha config restore --client=<name>`). Skill mirror roots include `~/.agents/skills`, `~/.cursor/skills`, `~/.claude/skills`, `~/.omp/agent/skills`, and `~/.codex/skills`.
 
 Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <backup|rebuild-fts|prune>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|stop|restart|status|open>`, `konoha web` (port 1404).
 

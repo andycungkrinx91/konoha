@@ -23,7 +23,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.19.
+Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.20.
 
 | OS | Node.js 24+ Install | Cursor Setup |
 |----|-----------------|--------------|

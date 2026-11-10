@@ -108,11 +108,10 @@ function getDocumentationFiles(version) {
   return [
     {
       path: 'README.md',
-      check: (c) => c.includes(`Release-v${version}-blue`) && c.includes(`[v${version}](CHANGELOG.md)`),
+      check: (c) => c.includes(`Release-v${version}-blue`) && c.includes(`alt="Release v${version}"`),
       bump: (oldV, newV) => {
         let n = replaceInFile('README.md', new RegExp(`Release-v${oldV}-blue`, 'g'), `Release-v${newV}-blue`);
-        n += replaceInFile('README.md', new RegExp(`\\[v${oldV}\\]\\(CHANGELOG\\.md\\)`, 'g'), `[v${newV}](CHANGELOG.md)`);
-        n += replaceInFile('README.md', new RegExp(`\\(${oldV}\\) and check for updates`, 'g'), `(${newV}) and check for updates`);
+        n += replaceInFile('README.md', new RegExp(`alt="Release v${oldV}"`, 'g'), `alt="Release v${newV}"`);
         return n;
       }
     },

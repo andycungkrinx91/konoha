@@ -1306,8 +1306,8 @@ Two behaviours to know before relying on it:
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler's fallback version string is `2.2.19` when the
-server version is unset. A correctly deployed 2.2.20 server reports `2.2.20`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.20`) when
+the server version is unset. A correctly deployed 2.2.20 server reports `2.2.20`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 

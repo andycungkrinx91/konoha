@@ -7,8 +7,8 @@
  * - uv and uvx detection, fallback paths, and installation
  * - Semble package refresh
  * - agent-browser CLI installation and discovery
- * - Antigravity IDE detection and Konoha Bridge extension lifecycle
- *   (Strictly scoped to Antigravity IDE only; never installed into Cursor, VS Code, etc.)
+ * - Antigravity IDE detection and obsolete bridge registry cleanup
+ *   (The konoha-bridge VSIX lifecycle was removed in v2.2.1; only stale registry keys are pruned.)
  */
 
 const fs = require('fs');

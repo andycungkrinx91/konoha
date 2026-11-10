@@ -8,9 +8,9 @@ const { roundCorners } = require('./flow_path_geometry');
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.19';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.20';
   } catch (_) {
-    return '2.2.19';
+    return '2.2.20';
   }
 })();
 
