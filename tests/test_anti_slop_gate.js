@@ -57,7 +57,7 @@ async function run() {
     { const stx = JSON.parse(fs.readFileSync(path.join(tmpDir, 'status.json'), 'utf8')); const did = stx.current_dispatch && stx.current_dispatch.id; if (did) server.reportFromAgent('kage', 'Kage review submitted', 'completed', null, null, null, null, tmpDir, did, ['review executed, exit 0']); }
 
     const res1 = JSON.parse(server.runMcpWorkflow(tmpDir));
-    // Default-on remediation loop (PLAN_NATIVE_SDLC §2.4): actual findings must
+    // Default-on remediation loop (PLAN_NATIVE_SDLC Section 2.4): actual findings must
     // dispatch a slop-fix remediation task instead of returning blocked.
     assert.strictEqual(res1.status, 'remediation', 'Non-zero ai_slop_findings must dispatch the remediation loop (default-on).');
     assert.strictEqual(res1.phase, 'execute');

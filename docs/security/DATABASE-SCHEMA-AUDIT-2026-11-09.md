@@ -33,7 +33,7 @@ Measured objects:
 | Fresh | 33 | 58 | 31 | 6 | 0 |
 | Live copy | 34 | 62 | 33 | 6 | 0 |
 
-`+1` live table and `+4` live indexes are `kali_tools` and its `idx_kali_tools_*` / autoindex set; see §3 and §4. `_sqliteai_vector` is present in both files but holds 0 rows in the live copy.
+`+1` live table and `+4` live indexes are `kali_tools` and its `idx_kali_tools_*` / autoindex set; see Section 3 and Section 4. `_sqliteai_vector` is present in both files but holds 0 rows in the live copy.
 
 Triggers (all FTS5 sync, both stores' main side only):
 
@@ -102,7 +102,7 @@ Lab store FKs: `lab_tool_invocations.run_id → lab_runs.id`, `red_skill_audit.r
 | `_sqliteai_vector` | `src/vector_extension.js:106` (`vector_init`) | Extension only | `src/vector_search.js` | 0 rows |
 | `kali_tools` | `src/workflow/akatsuki/lab_db.js:55` (lab), legacy copy in main | `src/workflow/akatsuki/lab.js:66` (lab) | `src/workflow/akatsuki/init.js:67` (lab) | **Finding** |
 
-**Finding 3.1 — `kali_tools` in the main DB has no reader.** The only readers are `src/workflow/akatsuki/init.js:65-67` and `src/workflow/akatsuki/lab.js:56`, and both open the lab DB. `tests/test_akatsuki_init.js:40` already asserts the main DB must not define it. The live table is residue from before the lab split; disposition is §7 of the plan, not this document.
+**Finding 3.1 — `kali_tools` in the main DB has no reader.** The only readers are `src/workflow/akatsuki/init.js:65-67` and `src/workflow/akatsuki/lab.js:56`, and both open the lab DB. `tests/test_akatsuki_init.js:40` already asserts the main DB must not define it. The live table is residue from before the lab split; disposition is Section 7 of the plan, not this document.
 
 ## 4. Migration/init convergence
 
@@ -110,7 +110,7 @@ Fresh = 33 user tables. Live = 34. The complete diff is `kali_tools`.
 
 | Difference | Why it exists | Disposition |
 |-----------|---------------|-------------|
-| `kali_tools` (361 rows) | Pre-lab-split catalog written into the main DB; `setupSchema` no longer creates it | Evidence-first removal in §7; no blind drop |
+| `kali_tools` (361 rows) | Pre-lab-split catalog written into the main DB; `setupSchema` no longer creates it | Evidence-first removal in Section 7; no blind drop |
 | `_sqliteai_vector` (0 rows) | Extension-owned, created lazily by `initVectorExtension` | Keep; created on demand, not by `setupSchema` |
 
 `user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion`, with value `CURRENT_SCHEMA_VERSION = 5`. The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
@@ -165,7 +165,7 @@ Backups: `~/.konoha/backups/konoha_backup_<ts>.db`, directory mode `0o700` (`src
 | Rerank degradation | `src/vector_pipeline.js:279-284` returns rank-ordered input with `1/(60+r+1)` when the pipeline is unavailable — no throw, no empty result | PASS |
 | Quantized scan fallback | `scanNearestChunks` (`src/vector_search.js:93-99`) calls `scanQuantizedChunks`; with `_sqliteai_vector` empty it falls through to `scanInMemoryChunks` (brute force) | PASS, with caveat below |
 
-**Caveat 6.1** — `_sqliteai_vector` is empty, so every semantic query takes the brute-force path over 8258 chunks. That is correct but O(n). `vector_quantize` was never run on this DB. This is a performance characteristic, not a consistency defect; §7 records the measured plan rather than changing the store.
+**Caveat 6.1** — `_sqliteai_vector` is empty, so every semantic query takes the brute-force path over 8258 chunks. That is correct but O(n). `vector_quantize` was never run on this DB. This is a performance characteristic, not a consistency defect; Section 7 records the measured plan rather than changing the store.
 
 ## 7. Query performance
 
@@ -219,8 +219,8 @@ No `SCAN` was found on `skill_chunks` in a hot path that an index should serve.
 | `asset_files` | migration SQL | `20261103_001` | `db_3d_promotion.js` | `storage_manager.js` | — | `docs/DATABASE-ERD.md` |
 | `validation_results` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_queries.js` | — | `docs/DATABASE-ERD.md` |
 | `llm_requests_3d` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_schema.js` | — | `docs/DATABASE-ERD.md` |
-| `_sqliteai_vector` | `src/vector_extension.js:106` | extension | Extension | `src/vector_search.js` | — | this document §6 |
-| `kali_tools` (main) | legacy | — | none | **none** | `tests/test_akatsuki_init.js:40` | this document §3 |
+| `_sqliteai_vector` | `src/vector_extension.js:106` | extension | Extension | `src/vector_search.js` | — | this document Section 6 |
+| `kali_tools` (main) | legacy | — | none | **none** | `tests/test_akatsuki_init.js:40` | this document Section 3 |
 
 Empty test cells are tests that do not exist and are not required: the table has a single writer/reader pair with no failure mode that a test would catch. They are recorded as such rather than as gaps to fill.
 
@@ -230,12 +230,12 @@ Empty test cells are tests that do not exist and are not required: the table has
 
 Both gaps identified in pass 1 are closed:
 
-1. `docs/DATABASE-ERD.md` §"Akatsuki Lab DB" diagrams all four lab tables (`lab_runs`, `lab_tool_invocations`, `red_skill_audit`, `kali_tools`) with their columns and the `run_id` relationships. The pass-1 note was stale — it read only the path row at line 8.
-2. `docs/QA-TEST-CHECKLIST.md` §1.3 now carries rows for `test_schema_migrations_and_lifecycle.js` (single-writer guard, 33-table shape), `test_schema_traceability.js`, `test_vps_safe_install.js`, `test_cyber_pack_opt_in.js`, and `test_anbu_intact.js`.
+1. `docs/DATABASE-ERD.md` Section "Akatsuki Lab DB" diagrams all four lab tables (`lab_runs`, `lab_tool_invocations`, `red_skill_audit`, `kali_tools`) with their columns and the `run_id` relationships. The pass-1 note was stale — it read only the path row at line 8.
+2. `docs/QA-TEST-CHECKLIST.md` Section 1.3 now carries rows for `test_schema_migrations_and_lifecycle.js` (single-writer guard, 33-table shape), `test_schema_traceability.js`, `test_vps_safe_install.js`, `test_cyber_pack_opt_in.js`, and `test_anbu_intact.js`.
 
 ## 11. Controlled remediation
 
-Nothing in this document changed a schema. The only code-level remediation delivered alongside it is the schema/app version separation (§5 of the plan), verified by:
+Nothing in this document changed a schema. The only code-level remediation delivered alongside it is the schema/app version separation (Section 5 of the plan), verified by:
 
 - fresh install → `user_version = 5`, `schemaVersion === expectedSchemaVersion`;
 - `konoha doctor` → `schema 5, app 2.2.19`;
@@ -245,18 +245,18 @@ Nothing in this document changed a schema. The only code-level remediation deliv
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| Two stores, no shared connection | PASS | §1, `tests/test_akatsuki_lab_isolation.js` |
-| Full inventory reproducible | PASS | §2, generated from both DBs |
-| Every table mapped to writer/reader | PASS | §3, §9 |
-| Fresh↔live diff is exactly `kali_tools` | PASS | §4 |
-| Every migration checksum matches source | PASS | §4 |
-| `integrity_check = ok`, `foreign_key_check = []` | PASS | §5 |
-| Single embedding store, 384 dims | PASS | §6 |
-| RRF `k=60` | PASS | §6 |
-| Hot query plans recorded | PASS | §7 |
-| Windows/macOS paths | `[INFERENCE]` | Not executable on Linux x64; §8 |
+| Two stores, no shared connection | PASS | Section 1, `tests/test_akatsuki_lab_isolation.js` |
+| Full inventory reproducible | PASS | Section 2, generated from both DBs |
+| Every table mapped to writer/reader | PASS | Section 3, Section 9 |
+| Fresh↔live diff is exactly `kali_tools` | PASS | Section 4 |
+| Every migration checksum matches source | PASS | Section 4 |
+| `integrity_check = ok`, `foreign_key_check = []` | PASS | Section 5 |
+| Single embedding store, 384 dims | PASS | Section 6 |
+| RRF `k=60` | PASS | Section 6 |
+| Hot query plans recorded | PASS | Section 7 |
+| Windows/macOS paths | `[INFERENCE]` | Not executable on Linux x64; Section 8 |
 | Only `db_schema.js` writes `user_version` | PASS | guard test, proven by injection |
-| Post-remediation schema unchanged (no DDL from pack removal) | PASS | §4 pass 2: same 33-table fresh shape |
+| Post-remediation schema unchanged (no DDL from pack removal) | PASS | Section 4 pass 2: same 33-table fresh shape |
 | Fresh schema cannot acquire `kali_tools` | PASS | `tests/test_schema_traceability.js`, `tests/test_schema_migrations_and_lifecycle.js` |
 | Every declared table appears in this document | PASS | `tests/test_schema_traceability.js` |
-| `kali_tools` blind drop | NOT DONE BY DESIGN | §3, §4; evidence-first removal in plan §7 |
+| `kali_tools` blind drop | NOT DONE BY DESIGN | Section 3, Section 4; evidence-first removal in plan Section 7 |

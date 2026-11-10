@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.20-blue.svg?logo=git&logoColor=white" alt="Release v2.2.19"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/releases"><img src="https://img.shields.io/github/downloads/andycungkrinx91/konoha/total?logo=github&logoColor=white" alt="GitHub total downloads"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white" alt="Antigravity"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white" alt="Cursor"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white" alt="Claude Code"></a>
@@ -409,7 +410,7 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 
 `npx i -g konoha-mcp` is not valid syntax — use one of the three forms above.
 
-The [Operator's Manual](docs/MANUAL.md) is the long form of this section: requirements per OS, the non-root Linux path, a real first-run transcript (166.82 s, nine skill roots, 17 skills), and the password change the Web UI demands before the first session. Because 2.2.20 is not on the registry yet, [§2.6](docs/MANUAL.md#26-installing-220-from-source) installs it from a packed tarball; the registry commands above stay valid for 2.2.19.
+The [Operator's Manual](docs/MANUAL.md) is the long form of this section: requirements per OS, the non-root Linux path, a real first-run transcript (166.82 s, nine skill roots, 17 skills), and the password change the Web UI demands before the first session. Because 2.2.20 is not on the registry yet, [Section 2.6](docs/MANUAL.md#26-installing-220-from-source) installs it from a packed tarball; the registry commands above stay valid for 2.2.19.
 
 ### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 

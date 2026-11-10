@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Plan §3 — Lab DB ↔ main DB physical isolation, section I (I1–I8).
+ * Plan Section 3 - Lab DB ↔ main DB physical isolation, section I (I1–I8).
  *
  * Every case runs on throwaway roots: KONOHA_DB_PATH and KONOHA_LAB_DB_ROOT
  * point at mkdtemp dirs, so a mistake here cannot touch a real install.

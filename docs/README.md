@@ -12,7 +12,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
 | `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.20 |
 | `architecture/gaps` | [architecture/ARCHITECTURAL-GAPS.md](architecture/ARCHITECTURAL-GAPS.md) | Open architectural gaps and their remediation order |
-| `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; §11.4 is the evidence for the 83–98% context-saving claim |
+| `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; Section 11.4 is the evidence for the 83–98% context-saving claim |
 | `workflows/diagrams` | [ALL-WORKFLOW-DIAGRAMS.md](ALL-WORKFLOW-DIAGRAMS.md) | End-to-end Mermaid flows for every workflow |
 
 ## Security

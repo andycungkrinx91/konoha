@@ -47,7 +47,7 @@ function assertCanonicalTableList() {
     `Fresh setupSchema must produce exactly ${RAW_TABLE_COUNT} tables, got ${all.length}: ${all.join(', ')}`
   );
   // FTS5 shadows and `_sqliteai_vector` are extension-owned runtime state
-  // created on connection open, not base DDL (plan §7.6).
+  // created on connection open, not base DDL (plan Section 7.6).
   const declared = all.filter(
     (t) => !/_fts_(data|idx|config|docsize|content)$/.test(t) && t !== '_sqliteai_vector'
   );

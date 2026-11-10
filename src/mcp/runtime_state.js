@@ -1,7 +1,7 @@
 /**
  * src/mcp/runtime_state.js — Shared runtime state and path visibility utilities.
  * 
- * CRITICAL INVARIANT (PLAN_REFACTOR.md §2):
+ * CRITICAL INVARIANT (PLAN_REFACTOR.md Section 2):
  * No module may ever export a mutable primitive by value.
  * WORKSPACE_ROOT and ACTIVE_CLIENT are kept strictly private inside this module closure.
  * Access is permitted ONLY via getWorkspaceRoot/setWorkspaceRoot and getActiveClient/setActiveClient.

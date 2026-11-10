@@ -35,6 +35,7 @@ const { version: VERSION, author: AUTHOR } = (() => {
   return { version: pkg.version, author: 'Andy Setiyawan' };
 })();
 
+const LOGO_DATA_URI = `data:image/webp;base64,${fs.readFileSync(path.join(ROOT, 'assets', 'konoha_logo_kyubi.webp')).toString('base64')}`;
 const SUBJECT = `Konoha ${VERSION} operator's manual`;
 const ORGANISATION = 'Konoha documentation';
 const SOURCE_DATE_EPOCH = Number(process.env.SOURCE_DATE_EPOCH || 1794268800);
@@ -61,20 +62,20 @@ const CSS = `
     font-weight: 400;
   }
   .cover { display: flex; flex-direction: column; min-height: 245mm; page-break-after: always; padding-top: 6mm; }
-  .cover .top-band { overflow: hidden; border-radius: 2px; margin: 0 0 9mm; }
+  .cover .top-band { overflow: hidden; border-radius: 2px; margin: 0 0 8mm; }
   .cover .kicker { font-size: 11pt; line-height: 14pt; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: ${THEME[0]}; margin: 0 0 4mm; }
   .cover h1 { font-size: 38pt; line-height: 42pt; color: ${SLATE}; font-weight: 700; border: 0; padding: 0; margin: 0 0 4mm; letter-spacing: -0.01em; }
   .cover .subtitle { font-size: 14pt; line-height: 20pt; margin: 0 0 6mm; font-weight: 400; }
-  .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 10mm; }
-  .cover .art { position: relative; height: 92mm; margin: 0 0 8mm; width: 100%; }
-  .cover .art i {
-    position: absolute; display: block; border: 3px solid; transform: rotate(45deg);
-    border-radius: 2.5mm;
-  }
-  .cover .meta { margin-top: auto; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 2mm; padding: 5mm 6mm; font-size: 10.2pt; line-height: 16.2pt; }
-  .cover .meta div { margin-bottom: 1.8mm; }
-  .cover .meta div:last-child { margin-bottom: 0; }
-  .cover .meta span { display: inline-block; min-width: 38mm; font-weight: 700; color: ${SLATE}; }
+  .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 8mm; }
+  .cover .hero { display: block; text-align: center; margin: 0 0 6mm; }
+  .cover .hero img { width: 62mm; height: 62mm; }
+  .cover .hero-ring { display: inline-block; padding: 4mm; border-radius: 50%; border: 1.5px solid #E2E8F0; background: #F8FAFC; }
+  .cover .detail { margin-top: auto; border-top: 4px solid transparent; border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1; padding-top: 5mm; }
+  .cover .detail .row { overflow: hidden; font-size: 10.2pt; line-height: 16.2pt; margin-bottom: 2.4mm; }
+  .cover .detail .row:last-child { margin-bottom: 0; }
+  .cover .detail .swatch { float: left; width: 4.5mm; height: 4.5mm; border-radius: 1mm; margin: 1mm 3mm 0 0; }
+  .cover .detail .label { float: left; width: 36mm; font-weight: 700; color: ${SLATE}; }
+  .cover .detail .value { overflow: hidden; color: ${SLATE}; }
   h1 { font-size: 23pt; line-height: 28pt; margin: 0 0 5mm; padding-top: 2mm; color: ${SLATE}; font-weight: 700; }
   h2 {
     font-size: 16pt; line-height: 21.5pt; color: ${SLATE}; font-weight: 700;
@@ -162,18 +163,12 @@ function renderHtml(markdown) {
   <h1>Konoha — Operator's Manual</h1>
   <p class="subtitle">Version ${VERSION} · local working tree · five surfaces, one process</p>
   <div class="accent-bar"></div>
-  <div class="art">
-    <i style="left:9%;top:14%;width:48mm;height:48mm;border-color:${THEME[0]};background:#FEF2F2"></i>
-    <i style="left:23%;top:38%;width:46mm;height:46mm;border-color:${THEME[1]};background:#FFF7ED"></i>
-    <i style="left:44%;top:14%;width:40mm;height:40mm;border-color:${THEME[2]};background:#F7FEE7"></i>
-    <i style="left:58%;top:40%;width:52mm;height:52mm;border-color:${THEME[3]};background:#EFF6FF"></i>
-    <i style="left:78%;top:16%;width:28mm;height:28mm;border-color:${THEME[0]};background:#FEF2F2"></i>
-  </div>
-  <div class="meta">
-    <div><span>Document</span>Konoha ${VERSION} operator's manual</div>
-    <div><span>Scope</span>Install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, diagnostics, security</div>
-    <div><span>Version of record</span>${VERSION}, working tree at the commit named in §16.6</div>
-    <div><span>Author</span>${AUTHOR}</div>
+  <div class="hero"><span class="hero-ring"><img src="${LOGO_DATA_URI}" alt="Konoha logo" width="234" height="234"></span></div>
+  <div class="detail">
+    <div class="row"><span class="swatch" style="background:${THEME[0]}"></span><span class="label">Document</span><span class="value">Konoha ${VERSION} operator's manual</span></div>
+    <div class="row"><span class="swatch" style="background:${THEME[1]}"></span><span class="label">Scope</span><span class="value">Install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, diagnostics, security</span></div>
+    <div class="row"><span class="swatch" style="background:${THEME[2]}"></span><span class="label">Version of record</span><span class="value">v${VERSION}</span></div>
+    <div class="row"><span class="swatch" style="background:${THEME[3]}"></span><span class="label">Author</span><span class="value">${AUTHOR}</span></div>
   </div>
 </header>`;
   return `<!doctype html>

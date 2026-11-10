@@ -1,6 +1,6 @@
 # `kali_tools` — provenance audit and disposition
 
-Plan reference: §7. Audit scope: the `kali_tools` table observed in the developer's
+Plan reference: Section 7. Audit scope: the `kali_tools` table observed in the developer's
 live `~/.konoha/konoha.db`. **No live database was modified by this audit.**
 
 ## 1. Evidence base
@@ -61,12 +61,12 @@ set equality in both directions:
 - in catalog, missing from live: **0**
 - in live, absent from catalog: **0**
 
-Disposition branch from plan §7.4 is therefore **(a): identical to the JSON**. No local
+Disposition branch from plan Section 7.4 is therefore **(a): identical to the JSON**. No local
 additions exist, so nothing is user data and nothing needs migrating to the lab DB.
 
 ## 4. Disposition
 
-**Not executed, by design.** Plan §7 states "do not schedule a drop", and §7.4's deletion
+**Not executed, by design.** Plan Section 7 states "do not schedule a drop", and Section 7.4's deletion
 procedure is conditional on explicit authorisation. This audit stops at the evidence boundary:
 
 - The lab DB already holds a complete, field-identical 361-row catalog, seeded on every

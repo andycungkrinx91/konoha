@@ -2,7 +2,7 @@
 /**
  * src/mcp/client_detection.js — Active client, agent, and session detection.
  * 
- * CRITICAL INVARIANT (PLAN_REFACTOR.md §2):
+ * CRITICAL INVARIANT (PLAN_REFACTOR.md Section 2):
  * Reads runtime state via getWorkspaceRoot() and getActiveClient().
  * Never exports or imports mutable state by value.
  */

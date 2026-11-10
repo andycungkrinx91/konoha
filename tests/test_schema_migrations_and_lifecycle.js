@@ -148,7 +148,7 @@ async function run() {
     }
     assert.deepStrictEqual(offenders, [], 'Only src/db_schema.js may write PRAGMA user_version');
 
-    // §7: the base schema must never grow lab tables. kali_tools is lab-only by
+    // Section 7: the base schema must never grow lab tables. kali_tools is lab-only by
     // design; live DBs that still carry it are handled by an operator-run,
     // evidence-backed removal (docs/security/DB-KALI-TOOLS-PROVENANCE.md).
     const freshCheck = new Database(freshDbPath, { readonly: true });

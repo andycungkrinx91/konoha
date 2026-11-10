@@ -279,7 +279,7 @@ function kageScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KAGE FINAL REVIEW GATE',
-      subtitle: `PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v${PKG_VERSION}`,
+      subtitle: `PLAN_NATIVE_SDLC Section 2.4 - hard-mandatory delivery gate · v${PKG_VERSION}`,
       badge: 'ZERO-AI-SLOP PRE-GATE',
       badgeAccent: THEME.amber,
       footer: 'aislop_scan → anti-slop rules → result / fixing · remediation loop ≤7 cycles · sannin synthesizes on APPROVED',

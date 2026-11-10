@@ -72,7 +72,7 @@ All emit graph JSON → `autolayout.py`.
 
 ## 4. Live infrastructure → diagram (actually running)
 
-The **actual** counterpart to §3 — see `references/live-infra.md`.
+The **actual** counterpart to Section 3 - see `references/live-infra.md`.
 
 - **`tfstate.py`** — `terraform show -json | tfstate.py -` → deployed resources (provider-agnostic; expands `count`/`for_each`).
 - **`dockerimports.py`** — `docker inspect $(docker ps -q) | dockerimports.py -` → running containers + networks + volumes.
@@ -80,7 +80,7 @@ The **actual** counterpart to §3 — see `references/live-infra.md`.
 
 ## 5. Compare & evolve
 
-- **`drawiodiff.py`** — diff two `.drawio` (or two live snapshots) → colour-coded graph (added=green, removed=red, changed=orange). Pairs with §4 for drift.
+- **`drawiodiff.py`** — diff two `.drawio` (or two live snapshots) → colour-coded graph (added=green, removed=red, changed=orange). Pairs with Section 4 for drift.
 - **`timelapse.py`** — re-run an extractor across git history → a self-contained HTML player of how the architecture grew.
 - **`heatmap.py`** — recolour any `.drawio` by a metrics file (CSV/JSON): each node shaded low→high on a gradient by its value (`--palette`, optional `--size`, auto legend). Turns a static architecture into a cost / latency / traffic / error-rate heat map.
 - **`buildup.py`** — reveal ONE diagram's cells in dependency order (topological over its edges) → self-contained HTML player (embedded PNG frames, play/pause/step/scrub); optional `--gif`. Needs the draw.io CLI.

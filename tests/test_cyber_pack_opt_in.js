@@ -112,7 +112,7 @@ async function assertLifecycle() {
 
 /**
  * Pre-2.2.19 installs indexed the pack under every skill that walked it. An
- * upgrade install must drop those rows, or acceptance §9 ("0 under anbu-skill")
+ * upgrade install must drop those rows, or acceptance Section 9 ("0 under anbu-skill")
  * never holds for an existing install.
  */
 async function assertLegacyRowsPurged() {

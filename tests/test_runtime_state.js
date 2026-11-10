@@ -2,7 +2,7 @@
 "use strict";
 
 /**
- * tests/test_runtime_state.js — Regression test for runtime_state getter/setter contract (PLAN_REFACTOR.md §2).
+ * tests/test_runtime_state.js — Regression test for runtime_state getter/setter contract (PLAN_REFACTOR.md Section 2).
  */
 
 const assert = require("assert");
