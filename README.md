@@ -242,6 +242,7 @@ flowchart TB
 * [Claude Code Setup Guide](docs/SETUP-MCP-CLIENTS.md)
 * [SearXNG Multi-Source Search](docs/SETUP-SEARXNG.md)
 * [Adding Skills from skills.sh](docs/ADDING-SKILLS.md)
+* [Operator's Manual — 2.2.20](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf))
 * [Token Savings Benchmarks](docs/BENCHMARK.md)
 * [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 * [System Architecture](docs/ARCHITECTURE.md)
@@ -407,6 +408,8 @@ Transient subagent scratch state (`status.json`, `plan.md`, `findings.md`, `fina
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry without a persistent install. Never writes a global package |
 
 `npx i -g konoha-mcp` is not valid syntax — use one of the three forms above.
+
+The [Operator's Manual](docs/MANUAL.md) is the long form of this section: requirements per OS, the non-root Linux path, a real first-run transcript (166.82 s, nine skill roots, 17 skills), and the password change the Web UI demands before the first session. Because 2.2.20 is not on the registry yet, [§2.6](docs/MANUAL.md#26-installing-220-from-source) installs it from a packed tarball; the registry commands above stay valid for 2.2.19.
 
 ### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 

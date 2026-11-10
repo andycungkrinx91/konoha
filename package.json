@@ -155,6 +155,7 @@
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",
     "web": "node bin/cli.js web",
+    "manual:pdf": "node scripts/build_manual_pdf.js",
     "pack:tgz": "pnpm pack"
   },
   "os": [
@@ -178,7 +179,8 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1"
+    "@playwright/test": "^1.64.1",
+    "marked": "18.2.0"
   },
   "packageManager": "pnpm@12.16.1"
 }

@@ -53,6 +53,7 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 | `qa/test-matrix` | [QA-TEST-CHECKLIST.md](QA-TEST-CHECKLIST.md) | Verification checklist per subsystem |
 | `metrics/benchmark` | [BENCHMARK.md](BENCHMARK.md) | Generated token-savings report; edit only via `scripts/generate_benchmark.js` |
 | `ops/troubleshooting` | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom to cause to fix |
+| `manual/operators` | [MANUAL.md](MANUAL.md) and [MANUAL.pdf](MANUAL.pdf) | The whole product for 2.2.20 in reading order: install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, agents, token economy, diagnostics, troubleshooting, security, appendix |
 
 ## Assets
 
@@ -66,6 +67,6 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 ## Conventions
 
 - Live documents only. Dated audit reports, superseded guides, and completed reviews live in `docs/archive/`.
-- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1417), `QA-TEST-CHECKLIST.md` (939), `ARCHITECTURE.md` (918), `TROUBLESHOOTING.md` (814) — catalogs and checklists whose splitting would fragment embeds or break anchors.
+- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1417), `QA-TEST-CHECKLIST.md` (939), `ARCHITECTURE.md` (918), `TROUBLESHOOTING.md` (814), `MANUAL.md` (1655) — catalogs and checklists whose splitting would fragment embeds or break anchors, and a manual whose chapter order is the render order of the PDF.
 - Every internal link resolves; `tests/test_docs_currency.js` walks `README.md` and `docs/**`, and `tests/test_docs_index.js` asserts this index matches the filesystem.
 - `BENCHMARK.md` is generated. `node scripts/generate_benchmark.js --check` fails on manual edits.

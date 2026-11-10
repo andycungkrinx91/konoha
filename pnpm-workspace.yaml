@@ -87,3 +87,6 @@ patchedDependencies:
 audit:
   ignore:
     - "GHSA-gcqx-w48m-w2h4"
+
+minimumReleaseAgeExclude:
+  - marked@18.2.0
