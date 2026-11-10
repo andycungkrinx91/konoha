@@ -44,6 +44,11 @@ verifiable rules exist. No rule here is invented.
 25. Release governance: on branch `master`, all discovered tests pass before release commits.
 26. Token savings telemetry preservation: never modify or disrupt the token savings telemetry flow logic (`src/tools_savings_logger.js`); baseline bytes are dynamically computed from the actual `SUM(byte_size)` of retrieved skill candidates in SQLite FTS5.
 
+## Message Format
+
+Every human and agent message uses `konoha/task-format`: `**Feedback` / `**Task` /
+`**Rules` inbound, `**Result` / `**Evidence` / `**Blockers` / `**Next` outbound.
+
 ## Note
 
 A numbered rendering of the live runtime contract (e.g. N rules from

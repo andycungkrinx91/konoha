@@ -276,7 +276,8 @@ function getClientContract(client = 'generic', options = {}) {
   return `# Konoha Multi-Agent System & Full Runtime Specification\n\n` +
     `Client: ${CLIENT_LABELS[client] || client}\n` +
     `Version: ${CONTRACT_VERSION}\n` +
-    `Runtime rules: ${ruleCount} (numbered below; count is derived, never hardcoded)\n\n` +
+    `Runtime rules: ${ruleCount} (numbered below; count is derived, never hardcoded)\n` +
+    `Message format: **Feedback / **Task / **Rules in; **Result / **Evidence / **Blockers / **Next out (\`konoha.get_skill('konoha/task-format')\`).\n\n` +
     `## Ninja Team Roster\n\n${roster}\n\n` +
     `${mainContract}\n`;
 }

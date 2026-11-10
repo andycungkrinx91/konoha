@@ -13,6 +13,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const contract = require('../src/agent_contract');
+const deploy = require('../src/agent_deployer');
 const { getSkill } = require('../src/mcp/skills');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -50,6 +51,17 @@ for (const relPath of filesToCheck) {
   console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1.6KB) and contract validated`);
 }
 
+// GEMINI.md is deploy-managed: it must equal what the generator would write, or the
+// next project deploy silently overwrites the hand-edited bytes.
+const roster = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka']
+  .map((name) => ({ name }));
+const generatedGemini = `<!-- KONOHA-START -->\n${deploy.generateGeminiMd(roster).trim()}\n<!-- KONOHA-END -->\n`;
+assert.strictEqual(
+  fs.readFileSync(path.join(ROOT, 'GEMINI.md'), 'utf8'),
+  generatedGemini,
+  'GEMINI.md must match generateGeminiMd output so deploy stays idempotent'
+);
+
 // Verify on-demand full contract retrieval via get_skill
 const contractSkillJson = getSkill('konoha/contract');
 assert.ok(contractSkillJson, 'get_skill("konoha/contract") must return result');
@@ -61,5 +73,23 @@ assert.ok(contractSkill.content.includes('Konoha runtime contract'), 'Must inclu
 assert.ok(contractSkill.content.includes('Ninja Team Roster'), 'Must include ninja team roster');
 assert.ok(contractSkill.content.includes('Dual-Track Execution Engine'), 'Must include pipeline engine spec');
 console.log(`  ✓ On-demand full contract retrieval verified (${contractSkill.content.length} chars)`);
+
+// Verify the standard message envelope ships with the canonical skill references
+const formatPath = path.join(ROOT, 'src', 'templates', 'skills', 'konoha', 'references', 'task-format.md');
+assert.ok(fs.existsSync(formatPath), 'konoha/task-format reference must exist');
+const formatText = fs.readFileSync(formatPath, 'utf8');
+for (const heading of ['**Feedback', '**Task', '**Rules', '**Result', '**Evidence', '**Blockers', '**Next']) {
+  const line = new RegExp(`^${heading.replace(/\*/g, '\\*')}$`, 'm');
+  assert.ok(line.test(formatText), `task-format must define ${heading} as a bare canonical line`);
+  assert.ok(!formatText.includes(`${heading}**`), `task-format must not close ${heading} with asterisks`);
+}
+assert.ok(/konoha\/contract/.test(formatText), 'task-format must delegate canonical rules to konoha/contract');
+for (const client of ['cursor', 'claude', 'antigravity', 'codex']) {
+  assert.ok(
+    contract.getClientContract(client).includes('Message format: **Feedback'),
+    `full contract must advertise the message format for ${client}`
+  );
+}
+console.log('  ✓ Standard message envelope present and advertised');
 
 console.log('\nAll lightweight contract tests passed cleanly!');

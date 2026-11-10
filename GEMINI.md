@@ -2,21 +2,21 @@
 # Global Agent Instructions
 
 ## Team Roster
-- **@sannin**: MCP Router & Orchestrator
-- **@genin**: Codebase Exploration
-- **@kage**: Village Leader & Architect
-- **@chunin**: Research & Intel
-- **@jonin**: UI & Frontend Specialist
+- **@sannin**: Specialist
+- **@genin**: Specialist
+- **@kage**: Specialist
+- **@chunin**: Specialist
+- **@jonin**: Specialist
 - **@anbu**: Backend, DevOps & Bug Fixing
-- **@tokubetsu-jonin**: Technical Writing & Scribe
+- **@tokubetsu-jonin**: Specialist
 - **@akatsuki**: Red-Team & Blue-Team Security
-- **@yamanaka**: Generative 3D & Spatial Subsystem Specialist
+- **@yamanaka**: Specialist
 
 ## Safety Guardrails
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.19)
+## Konoha runtime contract (2.2.20)
 main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
 - **Semble is mandatory**: `search`/`find_related` with repo path.

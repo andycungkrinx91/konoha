@@ -170,6 +170,60 @@ function _migrateSkillMd(conn, skillDir, skillName, skillsDir = SKILLS_DIR) {
   return { count: 1, rowName, unchanged: false };
 }
 
+// SKILL.md hashes alone cannot detect a reference file that was added or edited,
+// so an unchanged SKILL.md still triggers the reference pass when any indexed
+// reference is missing, changed size, or no longer exists on disk.
+const _ROOT_REF_EXCLUDES = new Set(["skill.md", "readme.md", "license.md", "changelog.md"]);
+
+// SKILL.md hashes alone cannot detect a reference file that was added or edited,
+// so an unchanged SKILL.md still triggers the reference pass when any indexed
+// reference is missing, changed size, or no longer exists on disk.
+// Pruning and staleness are scoped to the rows this skill dir owns: rows indexed from
+// another mirror under the same prefix belong to that mirror and must survive.
+function _referenceFilesOnDisk(skillDir) {
+  const files = [];
+  const refsDir = path.join(skillDir, "references");
+  if (fs.existsSync(refsDir) && fs.statSync(refsDir).isDirectory()) {
+    for (const file of fs.readdirSync(refsDir)) {
+      if (file.endsWith(".md")) files.push(path.join(refsDir, file));
+    }
+  }
+  for (const file of fs.readdirSync(skillDir)) {
+    if (file.endsWith(".md") && !_ROOT_REF_EXCLUDES.has(file.toLowerCase())) files.push(path.join(skillDir, file));
+  }
+  return files;
+}
+
+// Rows written by _migrateReferences and _migrateRootReferences are the only ones
+// whose file_path sits directly in <skill>/ or <skill>/references/; nested skill-pack
+// rows live deeper and must not count as stale, nor be pruned, from this dir.
+function _directReferenceRows(conn, skillDir, prefix) {
+  const dirs = new Set([skillDir, path.join(skillDir, "references")]);
+  return conn.prepare("SELECT name, file_path, byte_size FROM skills WHERE skill_name = ?").all(prefix)
+    .filter((row) => row.file_path && dirs.has(path.dirname(row.file_path)));
+}
+
+function _refsStale(conn, skillDir, prefix) {
+  const rows = _directReferenceRows(conn, skillDir, prefix);
+  if (rows.some((row) => !fs.existsSync(row.file_path))) return true;
+  const indexedSize = new Map(rows.map((row) => [row.name, row.byte_size]));
+  return _referenceFilesOnDisk(skillDir).some((file) => {
+    const key = `${prefix}/${path.basename(file, ".md")}`;
+    return indexedSize.get(key) !== Buffer.byteLength(optimizeContent(fs.readFileSync(file, "utf8")), "utf8");
+  });
+}
+
+function _pruneOrphanReferences(conn, skillDir, prefix) {
+  const orphans = _directReferenceRows(conn, skillDir, prefix).filter((row) => !fs.existsSync(row.file_path));
+  for (const row of orphans) {
+    try {
+      conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(row.name);
+    } catch (_) { /* intentional best-effort fallback */ }
+    conn.prepare("DELETE FROM skills WHERE name = ?").run(row.name);
+  }
+  return orphans.length;
+}
+
 function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DIR) {
   if (isEmbeddedReference(skillName) && !isCanonicalSkill(skillName)) {
     log(`  ⏭ Skill '${skillName}' is already an embedded reference in a ninja skill (skipped standalone indexing)`);
@@ -189,7 +243,8 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
   const mdRes = _migrateSkillMd(conn, skillDir, skillName, skillsDir);
   let count = mdRes.count;
   const effectivePrefix = mdRes.rowName || skillName;
-  if (!mdRes.unchanged) {
+  if (!mdRes.unchanged || (!skillsOnly && _refsStale(conn, skillDir, effectivePrefix))) {
+    if (!skillsOnly) _pruneOrphanReferences(conn, skillDir, effectivePrefix);
     count += _migrateReferences(conn, skillDir, effectivePrefix, skillsOnly, log);
     count += _migrateRootReferences(conn, skillDir, effectivePrefix, skillsOnly, log);
   }
@@ -566,6 +621,7 @@ module.exports = {
   migrateSingleSkill,
   migrate_skills,
   optimizeContent,
+  _refsStale,
   extractTagsFromFrontmatter,
   extractTagsFromFilename,
   shieldPromptInjection,
