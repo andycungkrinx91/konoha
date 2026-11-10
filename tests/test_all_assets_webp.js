@@ -5,8 +5,9 @@
  * tests/test_all_assets_webp.js
  *
  * Verifies that:
- * 1. All 32 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
- *    (19 of them are drawio-derived: one per drawio tab, see docs/diagrams/README.md).
+ * 1. All 33 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
+ *    (19 of them are drawio-derived projections, 1 is the Tokubetsu-Jonin-only Anbu workflow,
+ *    13 are client demos; see docs/diagrams/README.md).
  * 2. Zero legacy .gif files remain in `assets/`.
  * 3. Every .webp file passes `validateAnimatedWebP` binary structural verification.
  * 4. Active Markdown files (README.md, docs) contain ZERO broken .gif image embeds.

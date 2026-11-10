@@ -58,7 +58,7 @@
 * **Latest Release:** [v2.2.20](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
 * **Current Security Posture:** [v2.2.20 Ingress, Auth & Queue Controls](docs/SECURITY.md) - newest external audit: [v2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md)
 
-* **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-infrastructure-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
+* **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-infrastructure-architecture.drawio` with 18 tabs, where `19 Authenticated Local Web UI & Ingress Queue` replaces the architecture file's page 15). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
 
 ### 📐 Mermaid Diagram: Skill Resolution & Token-Bounded Retrieval
 
@@ -115,7 +115,7 @@ flowchart TB
 
 ### ✧ Diagram Gallery
 
-One featured workflow, with the full 19-tab catalogue plus the Anbu DB disaster-recovery workflow linked below:
+One featured workflow, with the full 20-diagram catalogue (19 Draw.io-projected canvases plus the Anbu DB disaster-recovery workflow) linked below:
 
 <p align="center">
   <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
