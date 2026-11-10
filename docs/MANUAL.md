@@ -10,9 +10,7 @@
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME` |
 | Audience | developers installing and operating Konoha on their own machine |
 
-Everything in this manual was executed against a fresh 2.2.20 installation in a throwaway `HOME`. Where a claim
-comes from reading code rather than running it, the section says so. Where a command could not be exercised, the
-section says why and what evidence replaced it.
+Every command in this manual ran against a clean 2.2.20 installation. Whenever a statement rests on source inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names the exact file, line, and substitute evidence.
 
 Because 2.2.20 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
@@ -119,8 +117,7 @@ Nine roots, seventeen skills each — visible with `konoha status`.
 | `~/.agents/` | harness-neutral skills and `agents.yaml` |
 | systemd user unit / launchd agent | optional boot-time daemon for the Web UI, created only by `konoha ui service install`; absent on a default install |
 
-Nothing leaves the machine. The only network calls are the ones you trigger: registry lookups, web search, Telegram,
-and the two auxiliary MCP servers pulling their own packages.
+All state stays on your machine. Outbound network traffic occurs only when you explicitly trigger registry lookups, web searches, Telegram alerts, or initial package downloads for auxiliary MCP servers.
 
 ### 1.5 What this manual does not cover
 
@@ -205,9 +202,7 @@ automatically (6.5).
 
 ### 2.5 Windows
 
-The code contains Windows-specific paths: `npm.cmd root -g` is probed with `shell: true, windowsHide: true` when
-`process.platform === 'win32'` (`src/deploy_utils.js:48`). A default global install lands in `%APPDATA%\npm`, which is
-on `PATH` for the installing user, so no prefix change is normally needed:
+Windows path handling lives in `src/deploy_utils.js:48`. When `process.platform === 'win32'`, Konoha probes `npm.cmd root -g` with `shell: true, windowsHide: true`, and standard global installs land directly in `%APPDATA%\npm` on the user's default `PATH`:
 
 ```powershell
 node -v
@@ -324,9 +319,7 @@ The flow, as observed against the running server:
 | Login | `POST /api/v1/auth/login` with `{"password":"konohagakure"}` | `200`, body includes `"is_bootstrap":true,"requires_password_change":true` |
 | Forced change | `POST /api/v1/auth/change-password` | the only API reachable while the bootstrap flag is set |
 
-While bootstrap mode is active, the server gates every route except login, logout, and change-password
-(`src/web_server.js:103`). The cookie session and CSRF token have a 12-hour lifetime (43,200,000 ms). `GET /` before
-login answers `307` — a redirect to the login page, not the dashboard.
+Bootstrap mode locks down almost the entire HTTP surface (`src/web_server.js:103`). Until you set a custom password, every endpoint except login, logout, and change-password is blocked, unauthenticated `GET /` requests return a `307` login redirect, and cookies expire after 12 hours (43,200,000 ms).
 
 Change the password immediately after the first login. `konohagakure` is public knowledge; it protects nothing.
 
@@ -336,8 +329,7 @@ Change the password immediately after the first login. `konohagakure` is public 
 konoha status
 ```
 
-Expected: the database is reported healthy, nine skill roots are listed, and each shows seventeen skills. If a root
-is missing, that harness was not installed at `init` time — re-run `konoha init --client=<name>`.
+Expect a healthy database report across nine skill roots. Each root should list all seventeen seeded skills; if any client root is missing because its harness arrived later, run `konoha init --client=<name>` to register it.
 
 ```bash
 konoha test
@@ -372,12 +364,9 @@ akatsuki-skill/red-team-offensive      (type: reference)
 konoha                                 (type: skill — the runtime contract itself)
 ```
 
-The same corpus is chunked for retrieval: 3,421 rows in `skill_chunks`, indexed by FTS5 (`skills_fts`) with vector
-embeddings alongside. That is why search answers in milliseconds and why `init` spends most of its two and a half
-minutes here.
+Retrieval operates over 3,421 pre-split rows in `skill_chunks`. Indexing those chunks in both FTS5 (`skills_fts`) and the vector table lets queries finish in milliseconds, though building the embeddings accounts for most of `init`'s two-and-a-half-minute runtime.
 
-Every skill is also a directory on disk in each harness skill root, so a harness that reads Markdown directly still
-sees a normal skills folder even if it ignores MCP.
+Plain Markdown mirrors also remain on disk. Because each harness skill root receives standard skill folders during setup, harnesses that read local files directly still function even when MCP is disabled.
 
 ### 4.2 Agents
 
@@ -395,9 +384,7 @@ Konoha ships nine agent definitions, seeded into the `agents` table and mirrored
 | `akatsuki` | red-team and blue-team security work |
 | `yamanaka` | generative 3D |
 
-Each agent carries its own skill (for example `jonin-skill`), and its prompt is composed from the skill plus the
-shared "soul" archetype (`soul_archetypes`, nine rows). The design intent is a stable prompt prefix that a model
-provider can cache; the measurements in chapter 11 are mostly a consequence of that.
+Every subagent pairs a dedicated skill with a shared archetype. Specifically, Konoha combines the agent's primary skill (such as `jonin-skill`) with its row in `soul_archetypes` to form a deterministic prompt prefix that upstream model providers can cache across turns, driving the savings measured in chapter 11.
 
 ### 4.3 Workflows and human gates
 
@@ -439,9 +426,7 @@ Konoha writes configuration at two levels:
 - **Project** — files inside a repository (`.cursor/`, `AGENTS.md`, `.mcp.json` depending on harness), created by
   `konoha init --project` or by the `project` command family.
 
-The `projects` table tracks which repositories have been registered and what was written where, so a later refresh
-can update without guessing. Use global scope for a machine-wide install and project scope when a repository needs
-different rules from the rest of your work.
+Registered repositories are tracked inside the `projects` table. Recording every written file path allows later refreshes to update existing rules cleanly, so you can rely on global scope by default and reserve project scope for repositories with custom policies.
 
 ### 4.6 Memory
 
@@ -483,8 +468,7 @@ Each has its own entry in chapter 5.
 
 ## 5. CLI reference
 
-`konoha help` prints the banner, the command catalog and a beginner quick-start. `konoha <command> --help` works for
-most commands; two exceptions are noted in 5.9.
+Running `konoha help` displays the CLI banner and command catalog. Most individual subcommands also accept `konoha <command> --help` for usage flags, apart from the two exceptions documented in section 5.9 (`tui` and `doctor`).
 
 Global options, valid anywhere: `--force` (clean re-installation, used with `init`), `--skills-dir <path>` and
 `--clean` (used with `migrate`).
@@ -629,9 +613,7 @@ the CLI equivalent of dispatching multiple subagents at once; each branch must s
 
 ### 5.9 Two help commands that do not print help
 
-`konoha tui --help` launches the TUI instead of printing a help page. `konoha doctor --help` runs the full doctor —
-which includes installing the Web UI and migrating skills. Both are recorded as defects in 13.4 and 13.5; avoid
-appending `--help` to those two commands.
+Two subcommands ignore the `--help` flag completely. Invoking `konoha tui --help` opens the interactive TUI immediately, while `konoha doctor --help` triggers a full diagnostic and repair run that migrates skills and unpacks the Web UI (recorded as defects D4 and D5).
 
 ### 5.10 `upgrade` and `uninstall`
 
@@ -714,13 +696,11 @@ the skill itself.
 
 ### 6.5 `--help` is a trap here
 
-`konoha tui --help` **launches the TUI**. There is no help page for this command (13.4). Use `konoha help` for the
-catalog and this chapter for the keys.
+Passing `--help` to `konoha tui` opens the interface immediately. Because no dedicated help screen exists for this subcommand (defect D4), run `konoha help` when you only want the top-level command summary.
 
 ## 7. Web UI
 
-The local console is a SvelteKit single-page app, prebuilt and served by the Node server on port 1404. It is the
-management surface for everything the CLI does, plus telemetry views the CLI does not print.
+Port 1404 serves a prebuilt SvelteKit single-page console. Beyond exposing the same configuration controls as the CLI, the browser interface charts historical token telemetry, live subagent activity, and vector chunk coverage.
 
 ### 7.1 Starting and reaching it
 
@@ -759,8 +739,7 @@ agent state changing without a manual refresh.
 | `/settings` | Settings & Auth | password change, port, preferences |
 | `/skill` | (detail view) | one skill: content, references, byte and line counts |
 
-Logout is a menu action, not a route: `/logout` posts the session away and locks the console. There is no idle
-timeout — the browser session lives until you log out or the 12-hour cookie expires.
+Logging out is triggered from the sidebar menu. Posting to `/logout` clears the active session immediately; otherwise, the console stays unlocked without an idle timeout until the 12-hour cookie expires.
 
 `/3d`, `/3d/setup` and `/3d/maker` exist in the build but are hidden: `SHOW_3D_STUDIO_MENU = false`
 (`apps/web/src/routes/+layout.svelte:54`). The APIs remain; the menu does not. Out of scope for this manual.
@@ -828,8 +807,7 @@ konoha telegram stop-poller
 | `--transport` | `polling` is the only accepted value today |
 | `--enable` / `--disable` | set the enabled flag in the same call |
 
-`disable` also stops the poller. `start-poller` and `stop-poller` control inbound listening independently of the
-enabled flag, so you can keep outbound alerts while inbound is down.
+Running `disable` also halts the background poller. By contrast, `start-poller` and `stop-poller` toggle inbound message listening independently, letting you keep outbound task notifications active while inbound commands stay off.
 
 ### 8.2 What `status` tells you
 
@@ -853,8 +831,7 @@ Settings live in the `telegram_config` table, one row (`id = 1`), not in environ
 `.env` file. The bot token and the webhook secret are encrypted with the local vault before storage
 (`src/telegram/config.js:55-56`, `vault.encryptSecret`). Reading the database therefore does not reveal the token.
 
-Treat the token as a credential anyway: anyone holding it controls the bot. If it leaks, revoke it in BotFather and
-re-run `konoha telegram config --token <new>`.
+Guard the BotFather token like any production secret. Anyone who obtains it can impersonate your bot, so revoke leaked tokens in BotFather immediately and run `konoha telegram config --token <new>`.
 
 ### 8.4 One-way versus two-way
 
@@ -872,10 +849,7 @@ stops both directions.
 
 ### 8.5 Where the messages come from
 
-Notifications are emitted by the workflow runner at task state changes: plan ready, gate pending, task finished,
-validation failed. `webhook` (5.1) is the generic cousin for HTTP endpoints; Telegram is a specialised client for the
-same events. `docs/TELEGRAM_INTEGRATION_GUIDE.md` carries the longer form of this material, including the pairing
-flow for `/remote` in the Web UI.
+Task state transitions drive every outbound alert. Whenever a plan finishes, a gate blocks for approval, or validation fails, the workflow runner emits an event that can feed both generic HTTP webhooks (5.1) and Telegram (`docs/TELEGRAM_INTEGRATION_GUIDE.md` covers `/remote` pairing).
 
 ## 9. Harnesses
 
@@ -901,9 +875,7 @@ duplication is deliberate: each client must work with no network and no cross-re
 
 ### 9.2 The shared corpus
 
-`~/.agents/` is the canonical copy. `agents.yaml` (25.8 KB after init) declares the nine agents and their skills; the
-`skills/` tree holds the seeds; `rules/` holds the per-client rule fragments. `konoha init` copies from
-`~/.konoha/src/templates` into this directory and then embeds the result into SQLite.
+The canonical agent corpus lives under `~/.agents/`. Inside that directory, `agents.yaml` (25.8 KB after init) declares the nine subagents, `skills/` stores the Markdown seeds, and `rules/` holds client fragments copied from `~/.konoha/src/templates` before SQLite indexing.
 
 `~/.agents/.upgraded_v1.1.1` is a migration marker. Do not delete it; without it a later upgrade re-runs a migration
 that is already applied.
@@ -940,11 +912,7 @@ The Web UI `/clients` route shows the same registration data without running dia
 konoha init --client=codex
 ```
 
-Client selection is additive. Passing one name writes only that client; `--client=all` refreshes every one;
-`CI=true` makes the whole call non-interactive without `--yes`. Every file that gets rewritten is first copied to
-`~/.konoha/backups/configs/<client>/global/<timestamp>-<sha>-<file>.bak`, and the leftovers you see in a home
-directory — `mcp.json.back`, `CLAUDE.md.back`, `config.toml.bak` — are the same mechanism with an earlier naming
-scheme. They are safe to delete once you have confirmed the new config works.
+Selecting a single client updates only that target harness. Passing `--client=all` refreshes every detected harness, `CI=true` forces non-interactive execution without `--yes`, and every modified file is backed up under `~/.konoha/backups/configs/<client>/global/<timestamp>-<sha>-<file>.bak` (older `.back` siblings in `$HOME` come from earlier installers). Remove those older `.back` files once the updated configuration is verified.
 
 ### 9.5 Project-level versus global
 
@@ -995,8 +963,7 @@ uninstall asymmetry.
 
 ### 10.2 Transport and protocol
 
-There is no MCP SDK in the dependency chain. `src/mcp/protocol.js` implements JSON-RPC 2.0 over stdio with
-`readline`, one line per message:
+Konoha ships without an external MCP SDK. Instead, `src/mcp/protocol.js` speaks newline-delimited JSON-RPC 2.0 directly over standard input and output through Node's built-in `readline` module, handling four core methods:
 
 | Method | Behaviour |
 |---|---|
@@ -1059,15 +1026,11 @@ flowchart LR
 `node:sqlite` from Node 24, no native module to compile. WAL mode, 33 tables in a fresh install, and three storage
 patterns you will meet:
 
-- **Tables** for state: `skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`,
-  `sdlc_tasks`, `tool_calls`, `telegram_config`.
-- **FTS5** for lexical retrieval over skill chunks (3,421 chunks from the seed corpus in a fresh install).
-- **Vectors** for semantic retrieval: 384 dimensions from IBM Granite 97M multilingual ONNX, with a MiniLM
-  cross-encoder pass for reranking. Controlled by `KONOHA_SEMANTIC_SEARCH` (default `1`); set `0` to run FTS5-only and
-  skip model download entirely.
+- **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
+- **FTS5 (`skills_fts`)** — lexical index over all 3,421 seeded skill chunks
+- **Vector index** — 384-dimensional IBM Granite 97M multilingual ONNX embeddings with MiniLM cross-encoder reranking (`KONOHA_SEMANTIC_SEARCH=1` by default, or `0` for FTS5-only mode)
 
-Rebuild the whole index with `konoha embed`, which is sugar for `konoha migrate --rebuild-embeddings`. `--skip-embeddings`
-does the reverse and is the fastest way to get a working install on a metered connection.
+Run `konoha embed` (an alias for `konoha migrate --rebuild-embeddings`) to regenerate vectors from scratch, or pass `--skip-embeddings` during migration when installing over a metered connection.
 
 ### 10.6 Process model
 
@@ -1130,14 +1093,9 @@ Without a TTY this is the only form that works; in a TTY `konoha agent models` o
 
 ### 11.4 Routing
 
-`sannin` is the router. Given a task it matches `delegateWhen` and `delegationKeywords`, picks one agent, and returns a
-structured delegation — task, context, constraints, skills. The spawn is lazy: `lazy_subagent.js` builds a directive
-instead of starting a process, which is why a router call costs a prompt, not a session.
+Task routing starts with the `sannin` orchestrator. Given a prompt, `sannin` matches `delegateWhen` and `delegationKeywords` to select the target specialist, and `lazy_subagent.js` returns a lightweight Markdown directive — task, context, constraints, and attached skills — rather than spawning a child OS process.
 
-The manifest exposes one tool per agent — `sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`,
-`tokubetsu_jonin`, `genin` — plus `report_from_agent` to write a result back into the task ledger. Calling one of these
-is the only supported way to delegate; there is no CLI equivalent for a single agent beyond
-`konoha run-agent --agents <list>`.
+Nine specialist tools appear in the MCP manifest (`sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`, `tokubetsu_jonin`, `genin`) alongside `report_from_agent` for recording task outcomes in the ledger. Outside MCP, the only shell entry point that dispatches subagents directly is `konoha run-agent --agents <list>`.
 
 ### 11.5 Editing an agent
 
@@ -1154,8 +1112,7 @@ YAML is what the next command reads, and the database catches up on the next sav
 
 ### 11.6 What a delegation looks like on the wire
 
-Konoha does not spawn processes. `buildSpawnDirective` returns a Markdown instruction telling the *current client* how
-to start a subagent, with a client-specific tool call and a CLI fallback:
+Subagent dispatch never forks background daemon processes. Instead, `buildSpawnDirective` returns a Markdown instruction tailored to the calling harness, pairing the native subagent tool call with a CLI fallback:
 
 | Client | Tool call it emits |
 |---|---|
@@ -1263,12 +1220,9 @@ range across those paths.
 
 Three mechanisms, in order of contribution:
 
-1. **Skill retrieval replaces loading.** The client asks for skills by intent; SQLite returns matching chunks instead of
-   the agent ingesting the whole library.
-2. **Bounded file tools replace whole-file reads.** `read_file_head`, `read_file_range`, `get_file_structure` and
-   `token_efficient_grep` truncate by contract.
-3. **Structured delegation replaces transcribed context.** A spawn directive carries a task and a skill list, not the
-   conversation.
+1. **On-demand skill retrieval** — the harness queries SQLite for matching chunks by intent instead of loading the entire skill library into the system prompt.
+2. **Bounded file tools** — `read_file_head`, `read_file_range`, `get_file_structure`, and `token_efficient_grep` enforce line and match caps by contract.
+3. **Structured delegation** — subagent directives pass a scoped task and skill list rather than replaying the full conversation transcript.
 
 Nothing in that list depends on the model or the client. What changes per client is only whether the client honours the
 instruction (11.6).
@@ -1296,7 +1250,7 @@ Three commands answer three different questions. Use them in this order.
 
 ### 13.1 `konoha test`
 
-A smoke matrix over the protocol, not a unit test run. Live output, 15 checks, all `OK`, 3.60 s:
+`konoha test` runs a 15-check protocol smoke matrix against the live MCP server rather than unit tests (measured at 3.60 s, all `OK`):
 
 ```
 ⚡ Initialize: OK            ⚡ Read File Head: OK
@@ -1313,10 +1267,8 @@ A smoke matrix over the protocol, not a unit test run. Live output, 15 checks, a
 
 It then runs the repository's own JavaScript suites and prints `All tests passed`. Two things to read carefully:
 
-- `Total indexed: undefined entries` is a formatting defect in the `list_skills` summary (recorded, D2). The call itself
-  succeeded; the count string is broken.
-- If the JS suite line is missing entirely, you ran `test` outside a checkout. The MCP matrix still ran; the suite step
-  had nothing to load.
+- `Total indexed: undefined entries` is a known display bug in the `list_skills` summary line (defect D2); the underlying RPC call succeeded.
+- Running `konoha test` outside a git checkout skips the JavaScript test files while still executing all 15 MCP protocol checks.
 
 `konoha test` is the command to run after any upgrade, and the one to paste into a bug report.
 
@@ -1457,13 +1409,11 @@ of `konoha doctor`.
 
 ### 14.6 Reporting a defect
 
-Include `konoha version`, `konoha test` output, and the failing command verbatim. The `test` matrix alone distinguishes a
-protocol failure from a client failure in most cases.
+Attach three outputs to any bug report. Specifically, include the verbatim output of `konoha version`, `konoha test`, and the failing command so maintainers can separate MCP protocol failures from harness-side configuration issues.
 
 ## 15. Security model
 
-Konoha runs as you, on your machine, and its security posture follows from that. This chapter states the boundary
-honestly, including where it does not exist.
+Konoha executes with your local user account privileges, and its security model reflects that boundary directly, including where isolation does not exist.
 
 ### 15.1 Trust boundary
 
@@ -1522,8 +1472,7 @@ another person can reach, and change it on first login.
 The vault key is the root of that encryption: whoever reads `.vault_key` and the database can decrypt the Telegram
 credentials. Back up the key with the database, or lose the ability to restore either.
 
-Masked values never overwrite stored secrets: a config write that passes a value containing `...` or `***` is treated as
-the masked display form and the existing secret is kept.
+Masked display strings never overwrite stored credentials: if a configuration update passes a value containing `***` or an ellipsis, the writer preserves the existing secret unchanged.
 
 ### 15.5 Backups contain credentials
 

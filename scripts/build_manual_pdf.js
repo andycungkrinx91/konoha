@@ -5,13 +5,13 @@
  * scripts/build_manual_pdf.js — renders docs/MANUAL.md to docs/MANUAL.pdf.
  *
  * Implements the tokubetsu-jonin PDF contract (src/templates/skills/tokubetsu-jonin-skill/references/pdf.md):
- * strict light mode (#FFFFFF page, #64748B typography), one canonical 4-base-colour
- * gradient theme (T14), executive tables, tinted callouts, dynamic "Page X of Y"
+ * strict light mode (#FFFFFF page, #64748B typography), a 4-base-colour gradient
+ * theme (red, orange, green, blue), executive tables, tinted callouts, dynamic "Page X of Y"
  * pagination, and generator metadata scrubbed from the finished file.
  *
  * Offline by construction: no remote stylesheet, no web font. Inter is preferred and
- * falls back to Liberation Sans / Arial, which Chromium embeds as subsets, so the PDF
- * reads correctly on a machine that has never seen this repository.
+ * falls back to Lato / Open Sans / Liberation Sans / Arial, which Chromium embeds as
+ * subsets, so the PDF reads correctly on a machine that has never seen this repository.
  *
  * Usage:
  *   node scripts/build_manual_pdf.js            # write docs/MANUAL.pdf
@@ -37,80 +37,115 @@ const { version: VERSION, author: AUTHOR } = (() => {
 
 const SUBJECT = `Konoha ${VERSION} operator's manual`;
 const ORGANISATION = 'Konoha documentation';
+const SOURCE_DATE_EPOCH = Number(process.env.SOURCE_DATE_EPOCH || 1794268800);
 
-// T14 of the 20 canonical themes: purple, blue, teal, green.
-const THEME = ['#8A4FD0', '#3A8DDE', '#17B3A3', '#8BCB4A'];
+// 4-base-colour gradient theme: red, orange, green, blue.
+const THEME = ['#E8453C', '#F08A24', '#8BCB4A', '#3A8DDE'];
 
 const SLATE = '#64748B';
-const SANS = "Inter, 'Helvetica Neue', 'Liberation Sans', Arial, sans-serif";
-const MONO = "'DejaVu Sans Mono', 'Liberation Mono', monospace";
+const SANS = "Inter, 'Liberation Sans', 'Helvetica Neue', 'Open Sans', Arial, sans-serif";
+const MONO = "'Liberation Mono', 'DejaVu Sans Mono', monospace";
 
 const ribbon = (height) =>
   THEME.map((colour) => `<span style="float:left;display:block;width:25%;height:${height};background:${colour}"></span>`).join('');
 
 const CSS = `
   @page { size: A4; margin: 20mm 18mm 22mm; }
-  html { font-size: 10.5pt; }
+  html { font-size: 10.8pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
     font-family: ${SANS};
     color: ${SLATE};
     background: #FFFFFF;
-    line-height: 15pt;
+    line-height: 15.6pt;
     margin: 0;
+    font-weight: 400;
   }
-  .cover { display: flex; flex-direction: column; min-height: 245mm; page-break-after: always; }
-  .cover-rule { height: 4px; border-radius: 2px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 12mm; }
-  .cover h1 { font-size: 26pt; line-height: 30pt; color: ${SLATE}; border: 0; padding: 0; margin: 0 0 2mm; }
-  .cover .subtitle { font-size: 12pt; line-height: 17pt; margin: 0 0 6mm; }
-  .cover .art { position: relative; height: 118mm; margin: 4mm 0 0; }
-  .cover .art i { position: absolute; display: block; border: 1.4px solid; transform: rotate(45deg); }
-  .cover .meta { margin-top: auto; border-top: 1px solid #CBD5E1; padding-top: 4mm; font-size: 9pt; line-height: 14pt; }
-  .cover .meta span { display: inline-block; min-width: 34mm; color: ${SLATE}; opacity: 0.72; }
-  h1 { font-size: 22pt; line-height: 27pt; margin: 0 0 4mm; color: ${SLATE}; }
+  .cover { display: flex; flex-direction: column; min-height: 245mm; page-break-after: always; padding-top: 6mm; }
+  .cover .top-band { overflow: hidden; border-radius: 2px; margin: 0 0 9mm; }
+  .cover .kicker { font-size: 11pt; line-height: 14pt; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: ${THEME[0]}; margin: 0 0 4mm; }
+  .cover h1 { font-size: 38pt; line-height: 42pt; color: ${SLATE}; font-weight: 700; border: 0; padding: 0; margin: 0 0 4mm; letter-spacing: -0.01em; }
+  .cover .subtitle { font-size: 14pt; line-height: 20pt; margin: 0 0 6mm; font-weight: 400; }
+  .cover .accent-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, ${THEME.join(', ')}); margin-bottom: 10mm; }
+  .cover .art { position: relative; height: 92mm; margin: 0 0 8mm; width: 100%; }
+  .cover .art i {
+    position: absolute; display: block; border: 3px solid; transform: rotate(45deg);
+    border-radius: 2.5mm;
+  }
+  .cover .meta { margin-top: auto; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 2mm; padding: 5mm 6mm; font-size: 10.2pt; line-height: 16.2pt; }
+  .cover .meta div { margin-bottom: 1.8mm; }
+  .cover .meta div:last-child { margin-bottom: 0; }
+  .cover .meta span { display: inline-block; min-width: 38mm; font-weight: 700; color: ${SLATE}; }
+  h1 { font-size: 23pt; line-height: 28pt; margin: 0 0 5mm; padding-top: 2mm; color: ${SLATE}; font-weight: 700; }
   h2 {
-    font-size: 16pt; line-height: 21pt; color: ${SLATE};
-    margin: 0 0 4mm; padding-bottom: 2.5mm;
-    border-bottom: 2px solid ${THEME[1]};
-    page-break-before: always; page-break-after: avoid;
+    font-size: 16pt; line-height: 21.5pt; color: ${SLATE}; font-weight: 700;
+    margin: 9mm 0 4.5mm; padding-bottom: 3mm;
+    border-bottom: 2.5px solid transparent;
+    border-image: linear-gradient(90deg, ${THEME.join(', ')}) 1;
+    page-break-after: avoid; break-after: avoid;
   }
-  h3 { font-size: 12.5pt; line-height: 17pt; color: ${SLATE}; margin: 7mm 0 2mm; page-break-after: avoid; }
-  h4 { font-size: 10.5pt; color: ${SLATE}; margin: 5mm 0 2mm; page-break-after: avoid; }
-  p, li { orphans: 3; widows: 3; }
-  ul, ol { padding-left: 6mm; }
-  code { font-family: ${MONO}; font-size: 0.88em; background: #F1F5F9; padding: 0 1mm; border-radius: 1mm; }
+  h2.chapter { page-break-before: always; margin-top: 0; padding-top: 5mm; margin-bottom: 5mm; }
+  h2.chapter:first-of-type { page-break-before: auto; }
+  h3 {
+    font-size: 12.5pt; line-height: 17pt; color: ${SLATE}; font-weight: 700;
+    margin: 6mm 0 2.5mm; padding-left: 2.5mm;
+    border-left: 3.5px solid ${THEME[1]};
+    page-break-after: avoid; break-after: avoid;
+  }
+  h4 {
+    font-size: 10.8pt; line-height: 15pt; color: ${SLATE}; font-weight: 700;
+    margin: 4.5mm 0 2mm; page-break-after: avoid; break-after: avoid;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  p { margin: 0 0 3.2mm; orphans: 3; widows: 3; }
+  li { margin-bottom: 1.8mm; orphans: 3; widows: 3; }
+  ul, ol { padding-left: 6mm; margin: 2.5mm 0 4.5mm; }
+  code {
+    font-family: ${MONO}; font-size: 0.86em; font-weight: 600;
+    background: #F1F5F9; color: ${SLATE};
+    padding: 0.2mm 1.2mm; border: 1px solid #CBD5E1; border-radius: 0.8mm;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
   pre {
-    background: #F8FAFC; border-left: 3px solid ${THEME[0]};
-    padding: 2.5mm 3mm; margin: 3mm 0; overflow-wrap: anywhere; white-space: pre-wrap;
-    page-break-inside: avoid; font-size: 8.5pt; line-height: 13pt;
+    background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[0]};
+    border-radius: 0 1.5mm 1.5mm 0;
+    padding: 2.5mm 3.5mm; margin: 4mm 0 5mm; overflow-wrap: anywhere; white-space: pre-wrap;
+    page-break-inside: avoid; break-inside: avoid; font-size: 9pt; line-height: 13.4pt;
   }
-  pre code { background: none; padding: 0; font-size: 1em; }
-  table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9pt; page-break-inside: avoid; }
-  th, td { border: 1px solid #E2E8F0; padding: 1.6mm 2mm; text-align: left; vertical-align: top; }
-  th { background: #F1F5F9; border-color: #CBD5E1; font-weight: 600; }
+  pre code { background: none; border: none; padding: 0; font-size: 1em; font-weight: 400; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 3mm 0 5.5mm; font-size: 9.4pt; line-height: 13.5pt;
+    border-top: 2.5px solid ${THEME[3]};
+  }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; break-inside: avoid; }
+  th, td { border: 1px solid #E2E8F0; padding: 1.8mm 2.4mm; text-align: left; vertical-align: top; }
+  th { background: #F1F5F9; border-color: #CBD5E1; font-weight: 700; color: ${SLATE}; }
   tbody tr:nth-child(even) td { background: #F8FAFC; }
   blockquote {
-    margin: 3mm 0; padding: 2mm 3mm 2mm 4mm; background: #F8FAFC;
-    border-left: 3px solid ${THEME[2]};
+    margin: 4mm 0 5mm; padding: 2.5mm 3.5mm; background: #F8FAFC;
+    border: 1px solid #E2E8F0; border-left: 3.5px solid ${THEME[2]};
+    border-radius: 0 1.5mm 1.5mm 0;
   }
   blockquote p { margin: 0; }
-  a { color: ${THEME[1]}; text-decoration: none; border-bottom: 1px solid #CBD5E1; }
-  hr { border: none; border-top: 1px solid #E2E8F0; margin: 5mm 0; }
-  strong { color: ${SLATE}; }
+  a { color: ${THEME[3]}; text-decoration: none; border-bottom: 1px solid #CBD5E1; }
+  hr { border: none; border-top: 1px solid #E2E8F0; margin: 7mm 0; }
+  strong, b { font-weight: 700; color: ${SLATE}; }
 `;
 
-// Chromium lays header/footer templates out in a shrink-to-fit box, so the root
-// element needs an explicit width; without it the left and right halves collide.
+// Chromium lays header/footer templates out in a shrink-to-fit box without CSS
+// background preservation unless print-color-adjust:exact and explicit box/span
+// styles are declared.
 function pageHeader() {
-  return `<div style="width:100%;box-sizing:border-box;padding:0 18mm;font-family:${SANS};font-size:8pt;color:${SLATE}">
-  <div style="width:100%;overflow:hidden"><span style="float:left">Konoha ${VERSION} \u00b7 Operator's Manual</span><span style="float:right">${ORGANISATION}</span></div>
-  <div style="width:100%;overflow:hidden;margin-top:1mm">${ribbon('2px')}</div>
+  return `<div style="width:100%;box-sizing:border-box;padding:0 18mm;font-family:${SANS};font-size:8.5pt;color:${SLATE};-webkit-print-color-adjust:exact;print-color-adjust:exact">
+  <div style="width:100%;overflow:hidden"><span style="float:left;font-weight:700;color:${SLATE}">Konoha ${VERSION} \u00b7 Operator's Manual</span><span style="float:right;color:${SLATE}">${ORGANISATION}</span></div>
+  <div style="width:100%;overflow:hidden;margin-top:1.2mm">${ribbon('3px')}</div>
 </div>`;
 }
 
 function pageFooter() {
-  return `<div style="width:100%;box-sizing:border-box;padding:0 18mm;font-family:${SANS};font-size:8pt;color:${SLATE}">
-  <div style="width:100%;overflow:hidden">${ribbon('2px')}</div>
-  <div style="width:100%;overflow:hidden;margin-top:1.5mm"><span style="float:left">Konoha ${VERSION} \u00b7 generated from docs/MANUAL.md</span><span style="float:right;font-weight:700">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>
+  return `<div style="width:100%;box-sizing:border-box;padding:0 18mm;font-family:${SANS};font-size:8.5pt;color:${SLATE};-webkit-print-color-adjust:exact;print-color-adjust:exact">
+  <div style="width:100%;overflow:hidden">${ribbon('3px')}</div>
+  <div style="width:100%;overflow:hidden;margin-top:1.5mm"><span style="float:left;color:${SLATE}">Konoha ${VERSION} \u00b7 docs/MANUAL.md</span><span style="float:right;font-weight:700;color:${SLATE}">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>
 </div>`;
 }
 
@@ -118,18 +153,21 @@ function renderHtml(markdown) {
   marked.setOptions({ gfm: true, breaks: false });
   // The cover already carries the manual title, so the markdown H1 is dropped from the
   // rendered body instead of appearing a second time above the front matter.
-  const body = marked.parse(markdown.replace(/^#\s+Konoha[^\n]*\n+/, ''));
+  let body = marked.parse(markdown.replace(/^#\s+Konoha[^\n]*\n+/, ''));
+  body = body.replace(/<h2>(\d+\.\s+[^<]+)<\/h2>/g, '<h2 class="chapter">$1</h2>');
   const cover = `
 <header class="cover">
-  <div class="cover-rule"></div>
+  <div class="top-band">${ribbon('5px')}</div>
+  <p class="kicker">Konoha &middot; Operator Edition</p>
   <h1>Konoha — Operator's Manual</h1>
   <p class="subtitle">Version ${VERSION} · local working tree · five surfaces, one process</p>
+  <div class="accent-bar"></div>
   <div class="art">
-    <i style="left:4mm;top:6mm;width:58mm;height:58mm;border-color:rgba(138,79,208,.34)"></i>
-    <i style="left:30mm;top:34mm;width:58mm;height:58mm;border-color:rgba(58,141,222,.30)"></i>
-    <i style="left:78mm;top:14mm;width:44mm;height:44mm;border-color:rgba(23,179,163,.32)"></i>
-    <i style="left:112mm;top:52mm;width:66mm;height:66mm;border-color:rgba(139,203,74,.26)"></i>
-    <i style="left:150mm;top:24mm;width:30mm;height:30mm;border-color:rgba(138,79,208,.22)"></i>
+    <i style="left:9%;top:14%;width:48mm;height:48mm;border-color:${THEME[0]};background:#FEF2F2"></i>
+    <i style="left:23%;top:38%;width:46mm;height:46mm;border-color:${THEME[1]};background:#FFF7ED"></i>
+    <i style="left:44%;top:14%;width:40mm;height:40mm;border-color:${THEME[2]};background:#F7FEE7"></i>
+    <i style="left:58%;top:40%;width:52mm;height:52mm;border-color:${THEME[3]};background:#EFF6FF"></i>
+    <i style="left:78%;top:16%;width:28mm;height:28mm;border-color:${THEME[0]};background:#FEF2F2"></i>
   </div>
   <div class="meta">
     <div><span>Document</span>Konoha ${VERSION} operator's manual</div>
@@ -166,28 +204,73 @@ function pdfHexString(text) {
 }
 
 // ghostscript and Chromium both stamp generator strings into the Info dictionary and
-// the XMP packet, and ghostscript ignores a pdfmark /Producer. Each literal is therefore
-// overwritten in place afterwards with the organisation name, padded or truncated to the
-// original byte length so every cross-reference offset and stream length stays valid.
+// the XMP packet, and ghostscript ignores a pdfmark /Producer. Each literal and
+// non-deterministic date/UUID/trailer ID is therefore overwritten in place with fixed
+// byte widths so every cross-reference offset stays valid and repeated builds match bit-for-bit.
 const GENERATOR_TAGS = [/GPL Ghostscript [\d.]+/g, /Skia\/PDF m\d+/g, /Chromium/g];
 
-function scrubGeneratorTags(buffer) {
+function formatUtcDates(epochSeconds) {
+  const d = new Date(epochSeconds * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = d.getUTCFullYear();
+  const m = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const hh = pad(d.getUTCHours());
+  const mm = pad(d.getUTCMinutes());
+  const ss = pad(d.getUTCSeconds());
+  return {
+    isoZ: `${y}-${m}-${day}T${hh}:${mm}:${ss}Z`,
+    isoOffset: `${y}-${m}-${day}T${hh}:${mm}:${ss}+00:00`,
+    pdfZ: `D:${y}${m}${day}${hh}${mm}${ss}Z`,
+    pdfOffset: `D:${y}${m}${day}${hh}${mm}${ss}+00'00'`
+  };
+}
+
+function scrubGeneratorTags(buffer, markdown) {
   const out = Buffer.from(buffer);
-  const text = out.toString("latin1");
+  const text = out.toString('latin1');
   for (const pattern of GENERATOR_TAGS) {
     for (const match of text.matchAll(pattern)) {
       const width = match[0].length;
       const value = ORGANISATION.length >= width
         ? ORGANISATION.slice(0, width)
-        : ORGANISATION + " ".repeat(width - ORGANISATION.length);
-      out.write(value, match.index, "latin1");
+        : ORGANISATION + ' '.repeat(width - ORGANISATION.length);
+      out.write(value, match.index, 'latin1');
     }
   }
+
+  const hash = sha256(Buffer.from(markdown || '', 'utf8'));
+  const uuid = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+  const trailerId = hash.slice(0, 32).toUpperCase();
+  const dates = formatUtcDates(SOURCE_DATE_EPOCH);
+
+  for (const match of text.matchAll(/<(xmp:(?:ModifyDate|CreateDate))>([^<]+)<\/\1>/g)) {
+    const replacement = match[2].length === dates.isoZ.length
+      ? dates.isoZ
+      : (match[2].length === dates.isoOffset.length ? dates.isoOffset : null);
+    if (replacement) out.write(`<${match[1]}>${replacement}</${match[1]}>`, match.index, 'latin1');
+  }
+  for (const match of text.matchAll(/xapMM:DocumentID='uuid:[^']+'/g)) {
+    const val = `xapMM:DocumentID='uuid:${uuid}'`;
+    if (val.length === match[0].length) out.write(val, match.index, 'latin1');
+  }
+  for (const match of text.matchAll(/\/(CreationDate|ModDate)\((D:[^)]+)\)/g)) {
+    const replacement = match[2].length === dates.pdfZ.length
+      ? dates.pdfZ
+      : (match[2].length === dates.pdfOffset.length ? dates.pdfOffset : null);
+    if (replacement) out.write(`/${match[1]}(${replacement})`, match.index, 'latin1');
+  }
+  for (const match of text.matchAll(/\/ID\s*\[<[0-9A-Fa-f]{32}><[0-9A-Fa-f]{32}>\]/g)) {
+    const val = `/ID [<${trailerId}><${trailerId}>]`;
+    if (val.length === match[0].length) out.write(val, match.index, 'latin1');
+  }
+
   return out;
 }
 
-function scrubMetadata(inputPath) {
-  const temp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-manual-')), 'scrubbed.pdf');
+function scrubMetadata(inputPath, markdown) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-manual-'));
+  const temp = path.join(tmpDir, 'scrubbed.pdf');
   const pdfmark = [
     `[ /Title ${pdfHexString(`Konoha — Operator's Manual ${VERSION}`)}`,
     `/Author ${pdfHexString(AUTHOR)}`,
@@ -199,25 +282,35 @@ function scrubMetadata(inputPath) {
     `/Producer (${ORGANISATION})`,
     '/DOCINFO pdfmark'
   ].join(' ');
-  const result = spawnSync(
-    'gs',
-    ['-q', '-dNOPAUSE', '-dBATCH', '-sDEVICE=pdfwrite', '-dPDFSETTINGS=/prepress',
-      `-sOutputFile=${temp}`, '-f', inputPath, '-c', pdfmark],
-    { encoding: 'utf8', timeout: 180000 }
-  );
-  if (result.error || result.status !== 0) {
-    throw new Error(
-      `ghostscript metadata scrub failed (${result.error ? result.error.message : result.stderr.trim()}); ` +
-      'install ghostscript or ship the PDF with the generator tag intact'
+  try {
+    const result = spawnSync(
+      'gs',
+      ['-q', '-dNOPAUSE', '-dBATCH', '-sDEVICE=pdfwrite', '-dPDFSETTINGS=/prepress',
+        `-sOutputFile=${temp}`, '-f', inputPath, '-c', pdfmark],
+      {
+        encoding: 'utf8',
+        timeout: 180000,
+        env: { ...process.env, TZ: 'UTC', SOURCE_DATE_EPOCH: String(SOURCE_DATE_EPOCH) }
+      }
     );
+    if (result.error || result.status !== 0) {
+      throw new Error(
+        `ghostscript metadata scrub failed (${result.error ? result.error.message : result.stderr.trim()}); ` +
+        'install ghostscript or ship the PDF with the generator tag intact'
+      );
+    }
+    return scrubGeneratorTags(fs.readFileSync(temp), markdown);
+  } finally {
+    if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-  return scrubGeneratorTags(fs.readFileSync(temp));
 }
 
 async function render() {
   const markdown = fs.readFileSync(MANUAL, 'utf8');
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-raw-'));
+  const rawPath = path.join(tmpDir, 'raw.pdf');
   try {
     const page = await browser.newPage();
     await page.setContent(renderHtml(markdown), { waitUntil: 'load' });
@@ -230,11 +323,12 @@ async function render() {
       footerTemplate: pageFooter(),
       margin: { top: '20mm', right: '18mm', bottom: '22mm', left: '18mm' }
     });
-    fs.writeFileSync(PDF, buffer);
-    const scrubbed = scrubMetadata(PDF);
+    fs.writeFileSync(rawPath, buffer);
+    const scrubbed = scrubMetadata(rawPath, markdown);
     fs.writeFileSync(PDF, scrubbed);
     return { buffer: scrubbed, markdown };
   } finally {
+    if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
     await browser.close();
   }
 }

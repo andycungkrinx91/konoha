@@ -11,13 +11,14 @@
  *   4. docs/MANUAL.pdf exists, is a real PDF, and is newer than the Markdown that produced it.
  *   5. When pdftotext is installed, the PDF text carries every chapter title (a stale or
  *      truncated render fails here even if its mtime was refreshed).
- *   6. The generated HTML obeys the documentation style contract: canonical T14 palette,
+ *   6. The generated HTML obeys the documentation style contract: 4-colour gradient palette,
  *      slate body text, no dark hexes, Inter-first stack with a Liberation Sans fallback.
  *   7. When pdfinfo/pdffonts are installed, the shipped PDF names no generator, embeds every
  *      font, and stamps "Page X of Y" exactly once per page.
  */
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -59,6 +60,11 @@ assert.ok(
   fs.statSync(PDF_PATH).mtimeMs + 1000 >= fs.statSync(MANUAL_PATH).mtimeMs,
   'docs/MANUAL.pdf is older than docs/MANUAL.md; rebuild it'
 );
+const expectedTrailerId = crypto.createHash('sha256').update(manual).digest('hex').slice(0, 32).toUpperCase();
+assert.ok(
+  pdf.includes(`/ID [<${expectedTrailerId}><${expectedTrailerId}>]`),
+  'PDF trailer ID must derive deterministically from docs/MANUAL.md'
+);
 
 const pdftotext = spawnSync('pdftotext', [PDF_PATH, '-'], { encoding: 'utf8', timeout: 30000 });
 if (!pdftotext.error && pdftotext.status === 0 && pdftotext.stdout) {
@@ -75,7 +81,7 @@ const { renderHtml, pageHeader, pageFooter, THEME } = require('../scripts/build_
 
 // Documentation style contract: one canonical 4-colour gradient theme, slate text,
 // tinted tables, no dark hexes.
-assert.deepStrictEqual(THEME, ['#8A4FD0', '#3A8DDE', '#17B3A3', '#8BCB4A'], 'PDF theme must be canonical T14');
+assert.deepStrictEqual(THEME, ['#E8453C', '#F08A24', '#8BCB4A', '#3A8DDE'], 'PDF theme must be red, orange, green, blue');
 
 const html = renderHtml(manual);
 for (const hex of [...THEME, '#64748B', '#F1F5F9', '#CBD5E1', '#E2E8F0', '#F8FAFC']) {
@@ -89,6 +95,8 @@ const chrome = pageHeader() + pageFooter();
 assert.ok(chrome.includes('class="pageNumber"') && chrome.includes('class="totalPages"'), 'PDF must stamp Page X of Y');
 assert.strictEqual((chrome.match(/width:100%;box-sizing:border-box/g) || []).length, 2, 'page header/footer need an explicitly sized root box');
 assert.ok(chrome.includes(THEME[0]) && chrome.includes(THEME[3]), 'header/footer ribbon must carry the theme colours');
+assert.ok(chrome.includes('print-color-adjust:exact'), 'header/footer must preserve exact print colours');
+assert.ok(chrome.includes('color:#64748B'), 'header/footer text must explicitly enforce slate colour');
 assert.strictEqual(
   (html.match(/Operator's Manual<\/h1>/g) || []).length,
   1,
