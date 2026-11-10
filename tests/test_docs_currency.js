@@ -13,7 +13,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const DOC_DIR = path.join(ROOT_DIR, 'docs');
 const SRC_DIR = path.join(ROOT_DIR, 'src');
 
-const REQUIRED_DOCS = [
+const LIVE_DOCS = [
   'README.md',
   'docs/ARCHITECTURE.md',
   'docs/BENCHMARK.md',
@@ -28,41 +28,46 @@ const REQUIRED_DOCS = [
   'docs/QA-TEST-CHECKLIST.md',
   'docs/diagrams/README.md',
   'docs/diagrams/konoha-architecture.drawio',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-27.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.2_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.3_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.4_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.5_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.6_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.7_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.8_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.9_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.10_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.11_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.12_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.13_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.14_2026-10-08.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.15_2026-10-08.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.16_2026-10-08.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.18_2026-10-15.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.0_2026-10-18.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.1_2026-10-19.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.2_2026-10-19.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.3_2026-10-19.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.10_2026-10-27.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.11_2026-10-28.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.12_2026-10-29.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.13_2026-10-29.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.14_2026-10-30.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.15_2026-10-30.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.16_2026-11-01.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.2.17_2026-11-01.md',
   'docs/TELEGRAM_INTEGRATION_GUIDE.md'
+];
+
+// Archived compliance reports stay under test as history. They resolve against
+// docs/archive/security-compliance/ because the live tree keeps only the current record.
+const LEGACY_DOCS = [
+  'security_compliance_report_google_policy_2.0.0_2026-08-27.md',
+  'security_compliance_report_google_policy_2.0.1_2026-09-25.md',
+  'security_compliance_report_google_policy_2.0.2_2026-10-02.md',
+  'security_compliance_report_google_policy_2.1.0_2026-10-06.md',
+  'security_compliance_report_google_policy_2.1.1_2026-10-06.md',
+  'security_compliance_report_google_policy_2.1.2_2026-10-06.md',
+  'security_compliance_report_google_policy_2.1.3_2026-10-06.md',
+  'security_compliance_report_google_policy_2.1.4_2026-10-06.md',
+  'security_compliance_report_google_policy_2.1.5_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.6_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.7_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.8_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.9_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.10_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.11_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.12_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.13_2026-10-07.md',
+  'security_compliance_report_google_policy_2.1.14_2026-10-08.md',
+  'security_compliance_report_google_policy_2.1.15_2026-10-08.md',
+  'security_compliance_report_google_policy_2.1.16_2026-10-08.md',
+  'security_compliance_report_google_policy_2.1.17_2026-10-08.md',
+  'security_compliance_report_google_policy_2.1.18_2026-10-15.md',
+  'security_compliance_report_google_policy_2.2.0_2026-10-18.md',
+  'security_compliance_report_google_policy_2.2.1_2026-10-19.md',
+  'security_compliance_report_google_policy_2.2.2_2026-10-19.md',
+  'security_compliance_report_google_policy_2.2.3_2026-10-19.md',
+  'security_compliance_report_google_policy_2.2.10_2026-10-27.md',
+  'security_compliance_report_google_policy_2.2.11_2026-10-28.md',
+  'security_compliance_report_google_policy_2.2.12_2026-10-29.md',
+  'security_compliance_report_google_policy_2.2.13_2026-10-29.md',
+  'security_compliance_report_google_policy_2.2.14_2026-10-30.md',
+  'security_compliance_report_google_policy_2.2.15_2026-10-30.md',
+  'security_compliance_report_google_policy_2.2.16_2026-11-01.md',
+  'security_compliance_report_google_policy_2.2.17_2026-11-01.md'
 ];
 
 function checkLocalLinks() {
@@ -144,7 +149,11 @@ async function run() {
   assert.ok(!actualFileTools.includes('search_file'), 'search_file must not be in file tools router');
 
   // Check required docs
-  const missingDocs = REQUIRED_DOCS.filter(d => !fs.existsSync(path.join(ROOT_DIR, d)));
+  const legacyDocDir = path.join(DOC_DIR, 'archive', 'security-compliance');
+  const missingDocs = [
+    ...LIVE_DOCS.filter(d => !fs.existsSync(path.join(ROOT_DIR, d))),
+    ...LEGACY_DOCS.filter(f => !fs.existsSync(path.join(legacyDocDir, f))).map(f => `archive/security-compliance/${f}`)
+  ];
   assert.strictEqual(missingDocs.length, 0, `Missing required docs: ${missingDocs.join(', ')}`);
 
   // Check local links

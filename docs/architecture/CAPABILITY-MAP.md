@@ -158,7 +158,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
 * **Tests:** `tests/test_sdlc_dor.js`, `tests/test_sdlc_tasks.js`, `tests/test_anti_slop_gate.js`, `tests/test_ai_detector.js`, `tests/test_docs_ai_detector.js`.
-* **Documentation:** `docs/ARCHITECTURE.md`, `docs/SecurityCompliance/`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/README.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`.
 * **Dependencies:** `node:sqlite`, `aislop` CLI.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
@@ -361,7 +361,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Complete eradication of unmaintained `hash-js@1.1.7` in favor of Cure53-audited `@noble/hashes@^2.4.0` and native `node:crypto`.
   - Socket.dev policy configuration (`urlStrings: false`, `gptSecurity: false`, `gptAnomaly: false`).
 * **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`.
-* **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md`, `CHANGELOG.md`.
+* **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`, `CHANGELOG.md`.
 
 ---
 

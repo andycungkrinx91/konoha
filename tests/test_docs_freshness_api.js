@@ -50,6 +50,8 @@ function buildFixture() {
   fs.writeFileSync(path.join(root, 'docs', 'OLD.md'), 'stale prose mentioning v1.2.3\n');
   fs.writeFileSync(path.join(root, 'docs', 'NEW.md'), 'fresh prose\n');
   fs.writeFileSync(path.join(root, 'docs', 'SecurityCompliance', 'AUDIT.md'), 'archived\n');
+  fs.mkdirSync(path.join(root, 'docs', 'archive', 'security'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs', 'archive', 'security', 'OLD-AUDIT.md'), 'archived\n');
 
   const cutMs = Date.now() - 60 * 60 * 1000;
   fs.utimesSync(path.join(root, 'package.json'), new Date(cutMs), new Date(cutMs));
@@ -68,12 +70,13 @@ test('files older than the release cut are reported as review_pending', () => {
   const report = collectDocsDrift({ rootDir: root });
   assert.strictEqual(report.version, '9.9.9');
   assert.ok(report.cutAt, 'cutAt must be measured from package.json');
-  assert.strictEqual(report.total, 4);
+  assert.strictEqual(report.total, 5);
   const byFile = Object.fromEntries(report.docs.map((d) => [d.file, d.status]));
   assert.strictEqual(byFile['README.md'], 'review_pending');
   assert.strictEqual(byFile['docs/OLD.md'], 'review_pending');
   assert.strictEqual(byFile['docs/NEW.md'], 'current');
   assert.strictEqual(byFile['docs/SecurityCompliance/AUDIT.md'], 'historical');
+  assert.strictEqual(byFile['docs/archive/security/OLD-AUDIT.md'], 'historical');
   fs.rmSync(root, { recursive: true, force: true });
 });
 

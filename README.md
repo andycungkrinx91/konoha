@@ -29,10 +29,10 @@
   <a href="docs/SETUP-SEARXNG.md"><img src="https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white" alt="SearXNG"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot"></a>
   <br>
-  <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white" alt="Crypto Vault"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white" alt="Crypto Vault"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Cybersecurity-Opt--In%20Pack%20(MITRE)-red?logo=kalilinux&logoColor=white" alt="Cybersecurity"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white" alt="Zero AI Slop"></a>
-  <a href="docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md"><img src="https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.18-blue?logo=googlecloud&logoColor=white" alt="Security Policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Compliance-v2.2.20%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security Policy"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Tests-194%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white" alt="License: MIT"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Buy Me A Coffee"></a>
@@ -56,7 +56,7 @@
 <h2 id="-flagship-demos--workflow-previews">📸 Previews &amp; Workflow Architecture</h2>
 
 * **Latest Release:** [v2.2.20](CHANGELOG.md) — Compact `use_skills` (`≤ 6,400B`), parallel git worktree execution, real-time idle `@advisor` (`≤ 1,000 tok/turn`), native walkthrough/TODO sync, post-approval context compaction, dynamic Jonin frontend engine, and append-only `--client` installation.
-* **Latest Security Compliance:** [Google Policy Compliance v2.2.18 — Audited & Certified (2026-11-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)
+* **Current Security Posture:** [v2.2.20 Ingress, Auth & Queue Controls](docs/SECURITY.md) - newest external audit: [v2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md)
 
 * **Reading the diagrams:** Every workflow canvas below is backed by the canonical Draw.io architecture files (`docs/diagrams/konoha-architecture.drawio` with 18 tabs plus `docs/diagrams/konoha-infrastructure-architecture.drawio` with 19 tabs including `19 Authenticated Local Web UI & Ingress Queue`). Thirteen tabs are projected directly from Draw.io XML to 2400×1632 animated WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`), while the 7 multi-card operational workflow diagrams (`konoha-orchestration-flow.webp` at 2400×1350, `konoha-jonin-flow.webp`, `konoha-kage-gate.webp`, `konoha-qa-flow.webp`, `konoha-telegram-flow.webp`, `konoha-akatsuki-flow.webp`, and `konoha-anbu-flow.webp` at 2400×1520) are rendered via Playwright + FFmpeg (`scripts/generate_tokubetsu_flow_webp.js`) with step-by-step sub-bullet checklists synchronized 100% with their corresponding Draw.io tabs. Both `tests/test_flow_diagram_style_lock.js` (`data-cell` coverage 19/19) and `tests/test_all_assets_webp.js` (33/33 `.webp` assets) verify structural and visual parity.
 
@@ -1087,6 +1087,8 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 
 ## 📖 Documentation & Guides Index
 
+Live inventory of every document in `docs/`: **[docs/README.md](docs/README.md)**.
+
 | Guide / Reference | Scope & Content | Key Subsystems Covered |
 |:---|:---|:---|
 | **[System Architecture](docs/ARCHITECTURE.md)** | Full architectural breakdown, layers, and data flows | MCP tools runtime, SQLite schemas, vector indexing |
@@ -1097,7 +1099,7 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 | **[QA Automation Architecture](docs/QA-AUTOMATION.md)** | Playwright E2E compiler and self-healing test loop | `qa_codify`, `qa_e2e_run`, token-efficient flows |
 | **[SearXNG Search Setup](docs/SETUP-SEARXNG.md)** | Zero-API-key privacy search engine deployment | Chunin research agent, Docker Compose, JSON API |
 | **[LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md)** | Multi-provider proxy router on port 19999 | Local model multiplexing, sidecar integration |
-| **[Security Compliance Report](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.18_2026-11-04.md)** | Certified policy compliance and threat analysis | Google Policy v2.2.18 audit, AES-256 vault |
+| **[Security Architecture & Controls](docs/SECURITY.md)** | v2.2.20 ingress, auth, and queue hardening | Token isolation, Argon2id sessions, current audit record in `docs/SecurityCompliance/`, older reports in `docs/archive/security-compliance/` |
 
 ---
 

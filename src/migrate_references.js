@@ -168,7 +168,7 @@ function _collectDocFiles(dirPath, prefix = '') {
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const ent of entries) {
-      if (ent.name.startsWith('.') || ent.name === 'SecurityCompliance' || ent.name === 'templates' || ent.name === 'node_modules') continue;
+      if (ent.name.startsWith('.') || ent.name === 'SecurityCompliance' || ent.name === 'archive' || ent.name === 'templates' || ent.name === 'node_modules') continue;
       const fullPath = path.join(dirPath, ent.name);
       if (ent.isDirectory()) {
         results.push(..._collectDocFiles(fullPath, `${prefix}${ent.name}-`));

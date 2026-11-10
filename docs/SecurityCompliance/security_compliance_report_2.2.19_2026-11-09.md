@@ -202,7 +202,7 @@ dated report now covered by that note.
 | `docs/ARCHITECTURE.md` | New "Cyber Pack: Opt-In Boundary and Lab Placement" section with the ownership table |
 | `CHANGELOG.md` | 2.2.19 entry |
 | `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md` | This report |
-| `docs/SecurityCompliance/…2.1.7…md` | Scope note plus the root-cause sentence reworded so the dated claim survives without asserting current attribution |
+| `docs/archive/security-compliance/security_compliance_report_google_policy_2.1.7_2026-10-07.md` | Scope note plus the root-cause sentence reworded so the dated claim survives without asserting current attribution |
 
 The §6.6 criterion `grep -rn "817" README.md docs/ src/templates/skills/ | grep -i anbu`
 now returns **zero rows**; the historical report keeps its dated finding while the

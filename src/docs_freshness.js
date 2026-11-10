@@ -15,7 +15,7 @@ const path = require('path');
  */
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const HISTORICAL_PREFIXES = ['docs/SecurityCompliance/', 'docs/TOKEN-BASELINE.md'];
+const HISTORICAL_PREFIXES = ['docs/archive/', 'docs/SecurityCompliance/', 'docs/architecture/TOKEN-BASELINE.md'];
 const MAX_FILES = 400;
 
 function _readPackage(root) {
