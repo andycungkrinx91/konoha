@@ -25,9 +25,20 @@ const fs = require('fs');
 const QA_ROOT = path.join(os.tmpdir(), `konoha-qa-web3d-${Date.now()}`);
 fs.mkdirSync(QA_ROOT, { recursive: true });
 
+// Model discovery reads the host's agent configs, so pin HOME to a seeded
+// directory. Otherwise the suite passes on a laptop that has a model configured
+// and fails in a clean container, which says nothing about the endpoint.
+const TEST_HOME = path.join(QA_ROOT, 'home');
+fs.mkdirSync(path.join(TEST_HOME, '.codex'), { recursive: true });
+fs.writeFileSync(path.join(TEST_HOME, '.codex', 'config.toml'), 'model = "test/sandbox-model"\n');
+process.env.HOME = TEST_HOME;
+
 const testDbPath = path.join(QA_ROOT, 'test_web.db');
 process.env.KONOHA_DB_PATH = testDbPath;
 process.env.KONOHA_3D_OUTPUT_DIR = path.join(QA_ROOT, '3d-output');
+// The install endpoint would otherwise download Blender from the internet. This suite
+// tests the HTTP surface, so the host must never shell out or fetch.
+process.env.KONOHA_BLENDER_DISABLED = '1';
 
 const { getConnection, setupSchema } = require('../src/db');
 const { handleWebServerRequest } = require('../src/web_server');

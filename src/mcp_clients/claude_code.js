@@ -48,9 +48,8 @@ function deployClaudeCodeRtkRule(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
-  if (!isRtkInstalled()) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
+  // The rule template is static, so it deploys with or without `rtk` on PATH;
+  // `rtk init` only enriches it and stays best-effort.
   const dest = path.join(home, '.claude', 'rules', 'rtk.md');
   const src = resolveRtkRuleTemplate();
   if (!src || src === dest) {

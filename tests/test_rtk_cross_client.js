@@ -21,8 +21,14 @@ async function run() {
   const { getRtkCommand, isRtkInstalled } = require('../src/platform_utils');
   const rtkCmd = getRtkCommand();
   const installed = isRtkInstalled();
-  assert.ok(installed && rtkCmd, 'RTK must be detected');
-  console.log('✓ RTK binary detection passed:', rtkCmd);
+  if (!installed) {
+    // `rtk` is a third-party binary CI cannot install. Rule deployment below is a static
+    // template copy that does not need it, so only the detection assertion is skipped.
+    console.log('skip: RTK binary detection (rtk is not installed on this host)');
+  } else {
+    assert.ok(rtkCmd, 'RTK is installed but getRtkCommand() returned null');
+    console.log('✓ RTK binary detection passed:', rtkCmd);
+  }
 
   // Antigravity RTK deployment
   const { deployAntigravityRtkRule } = require('../src/antigravity_manager');
@@ -37,8 +43,14 @@ async function run() {
   const r1 = deployClaudeCodeRtkRule(true);
   const r2 = initRtkHook(true);
   assert.ok(r1 && r1.ok, 'Claude Code RTK deployment failed');
-  assert.ok(r2 && r2.ok, 'Claude Code RTK hook init failed');
   assert.ok(fs.existsSync(path.join(HOME, '.claude', 'rules', 'rtk.md')));
+  // `rtk init` is the one step that genuinely needs the binary; it must report
+  // that rather than claim a success it did not perform.
+  if (installed) {
+    assert.ok(r2 && r2.ok, 'Claude Code RTK hook init failed');
+  } else {
+    assert.strictEqual(r2 && r2.reason, 'rtk-not-installed');
+  }
   console.log('✓ Claude Code RTK deployment passed');
 
   // Cursor RTK deployment

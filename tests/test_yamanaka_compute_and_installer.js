@@ -122,7 +122,11 @@ try {
     requestedComputeMode: 'gpu',
     requestedGpuBackend: 'CUDA'
   });
-  assert.strictEqual(pinnedConfig.gpu_backend, 'CUDA', 'the pin must reach the worker as gpu_backend');
+  assert.strictEqual(
+    pinnedConfig.gpu_backend,
+    resolveStageCompute('gpu', { preferredBackend: 'CUDA' }).backend,
+    'the pin must reach the worker as gpu_backend (degrading to CPU on a CPU-only host)'
+  );
   assert.strictEqual(pinnedConfig.requested_gpu_backend, 'CUDA', 'the pin travels as requested_gpu_backend');
   const unpinnedConfig = buildWorkerConfig({
     baseGlbPath: '/tmp/base.glb',

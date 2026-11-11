@@ -554,22 +554,22 @@ async function executeLiveAgenticBlenderSession(options) {
   );
 
   if (!circuit.allowRequest()) {
-    return { success: false, mode: 'circuit_open', refinement_backend: 'deterministic_only', actions: [], error: 'Circuit breaker for dcc-mcp-blender is OPEN' };
+    return { success: false, mode: 'circuit_open', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'Circuit breaker for dcc-mcp-blender is OPEN' };
   }
   if (!fs.existsSync(baseGlbPath)) {
     circuit.recordFailure();
-    return { success: false, mode: 'missing_base_glb', refinement_backend: 'deterministic_only', actions: [], error: `Base GLB missing at ${baseGlbPath}` };
+    return { success: false, mode: 'missing_base_glb', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: `Base GLB missing at ${baseGlbPath}` };
   }
 
   const blenderBin = findInstalledBlenderBinary();
   if (!blenderBin && !durableRefinementRequired) {
     // A caller that does not require durable Blender refinement (a refine fork whose geometry
     // is already the patched spec) keeps the deterministic mesh instead of failing the run.
-    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], error: 'No Blender executable found on this host' };
+    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'No Blender executable found on this host' };
   }
   if (!blenderBin) {
     circuit.recordFailure();
-    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], error: 'No Blender executable found on this host' };
+    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'No Blender executable found on this host' };
   }
 
   fs.mkdirSync(intermediateDir, { recursive: true });

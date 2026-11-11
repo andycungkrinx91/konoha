@@ -32,9 +32,6 @@ const {
 } = require('./common');
 
 function deployCommandCodeRtkRule(silent = true) {
-  if (!isRtkInstalled()) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
   const src = resolveRtkRuleTemplate();
   if (!src) {
     return { ok: false, reason: 'rtk-rule-template-missing' };

@@ -136,7 +136,13 @@ async function runTests() {
     }, config);
 
     assert.strictEqual(lowBudgetRes.budgetExceeded, true, 'Workflow must halt when tokens exceed budget');
-    assert.ok(lowBudgetRes.tokensUsed > 50, 'Tokens used should exceed 50');
+    // `tokensUsed` is only the last node's delta, so it can sit below the ceiling
+    // while the accumulated turn total is what tripped it. The turn total is the
+    // number the halt decision is made on, so that is the one to pin.
+    assert.ok(
+      lowBudgetRes.status.turn_tokens_used >= 50,
+      `turn tokens must reach the 50-token ceiling, got ${lowBudgetRes.status.turn_tokens_used}`
+    );
     assert.strictEqual(lowBudgetRes.status.budget_exceeded, true);
 
     // Resume with higher token ceiling (16k)

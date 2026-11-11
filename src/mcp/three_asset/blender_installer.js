@@ -369,6 +369,29 @@ async function fetchText(url, timeoutMs = 20000) {
   return res.text();
 }
 
+async function fetchTextOrNull(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status} while fetching ${url}`);
+  return res.text();
+}
+
+async function resolveExpectedDigest(archive) {
+  // Blender publishes one sidecar per version listing `digest  filename` for every
+  // archive; older series publish a per-file sidecar instead. Try both, and treat a
+  // missing sidecar as unsigned rather than failing an otherwise valid download.
+  const versionWide = await fetchTextOrNull(archive.versionSha256Url);
+  if (versionWide) {
+    const line = versionWide.split('\n')
+      .map((l) => l.trim().split(/\s+/))
+      .find((parts) => parts[1] === archive.filename);
+    if (line) return line[0].toLowerCase();
+  }
+  const perFile = await fetchTextOrNull(archive.sha256Url);
+  if (!perFile) return null;
+  return perFile.trim().split(/\s+/)[0].toLowerCase() || null;
+}
+
 async function resolveLatestBlenderRelease() {
   if (cache.blenderVersion.value && Date.now() - cache.blenderVersion.at < VERSION_CACHE_TTL_MS) {
     return cache.blenderVersion.value;
@@ -407,7 +430,8 @@ function pickArchiveForPlatform(release, env) {
   return {
     ...match,
     url: new URL(match.filename, new URL(release.series, BLENDER_RELEASE_INDEX)).toString(),
-    sha256Url: new URL(`${match.filename}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString()
+    sha256Url: new URL(`${match.filename}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString(),
+    versionSha256Url: new URL(`blender-${match.version}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString()
   };
 }
 
@@ -433,6 +457,12 @@ async function installBlender(options = {}) {
   fs.mkdirSync(getToolchainDir(), { recursive: true });
   const destDir = path.join(getToolchainDir(), 'downloads');
   fs.mkdirSync(destDir, { recursive: true });
+  // Blender publishes a `.sha256` sidecar for some archives but not all, so resolve
+  // the digest before pulling hundreds of megabytes and treat a 404 as "unsigned".
+  const expected = await resolveExpectedDigest(archive);
+  if (!expected) {
+    onProgress({ percent: 45, stage: 'Verifying Integrity', detail: 'No published SHA256 digest for this archive' });
+  }
   const archivePath = path.join(destDir, archive.filename);
   const res = await fetch(archive.url, { signal: AbortSignal.timeout(600000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} downloading ${archive.url}`);
@@ -440,7 +470,6 @@ async function installBlender(options = {}) {
   fs.writeFileSync(archivePath, buffer);
 
   onProgress({ percent: 70, stage: 'Verifying Integrity', detail: 'Checking published SHA256 digest' });
-  const expected = (await fetchText(archive.sha256Url)).trim().split(/\s+/)[0].toLowerCase();
   const actual = require('crypto').createHash('sha256').update(buffer).digest('hex');
   if (expected && expected !== actual) {
     fs.rmSync(archivePath, { force: true });
@@ -540,6 +569,14 @@ async function installDccMcpBlender(options = {}) {
 }
 
 async function installAllTools(options = {}) {
+  // A disabled host must never shell out, so it must never download either. Report
+  // the current toolchain instead of failing on an install it was told not to run.
+  if (blenderDisabled()) {
+    if (typeof options.onProgress === 'function') {
+      options.onProgress('Blender disabled on this host; skipping toolchain install.');
+    }
+    return getToolchainStatus();
+  }
   await installBlender(options);
   await installDccMcpBlender(options);
   return getToolchainStatus();

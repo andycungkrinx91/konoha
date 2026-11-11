@@ -202,6 +202,10 @@ async function executeLiveRefinement({ jobId }) {
 }
 
 async function runTests() {
+  // Blender-dependent assertions are gated on a real install: a runner without
+  // Blender legitimately produces the deterministic mesh only.
+  const { getBlenderStatus } = require('../src/mcp/three_asset/blender_installer');
+  const blenderStatus = getBlenderStatus();
   // Build and compile graph
   console.log('\n--- 1. Testing LangGraph StateGraph Construction ---');
   const graph = buildYamanaka3DGraph();
@@ -244,12 +248,19 @@ async function runTests() {
     if (!current || act.step_number === 1) actionPasses.push([act]);
     else current.push(act);
   }
-  for (const passActions of actionPasses) {
-    const stepIds = new Set(passActions.map((act) => act.step_id));
-    assert.strictEqual(stepIds.size, passActions.length, 'Each agentic step must be streamed exactly once per refinement pass');
-    assert.strictEqual(passActions.length, 6, 'Every refinement pass must stream all 6 agentic actions');
+  if (blenderStatus.installed) {
+    for (const passActions of actionPasses) {
+      const stepIds = new Set(passActions.map((act) => act.step_id));
+      assert.strictEqual(stepIds.size, passActions.length, 'Each agentic step must be streamed exactly once per refinement pass');
+      assert.strictEqual(passActions.length, 6, 'Every refinement pass must stream all 6 agentic actions');
+    }
+    assert.ok(actionPasses.length >= 1, 'At least one refinement pass must be streamed');
+  } else {
+    // A CPU-only runner has no Blender, so the deterministic mesh is the whole run.
+    // Fabricating agentic steps it never executed is the defect this guards.
+    assert.strictEqual(actionPasses.length, 0, 'Without Blender no agentic step may be streamed');
+    console.log('  · Blender unavailable: agentic streaming asserted absent.');
   }
-  assert.ok(actionPasses.length >= 1, 'At least one refinement pass must be streamed');
   const baseMeshReady = streamedActions.find((act) => act.event === 'base_mesh_ready');
   assert.ok(baseMeshReady, 'Must emit base_mesh_ready once the base GLB is exported for live viewport hot-reload');
   assert.strictEqual(baseMeshReady.live_glb_ready, true);
@@ -491,8 +502,6 @@ async function runTests() {
     resolveExpectedSteps,
     TOTAL_AGENT_STEPS
   } = require('../src/mcp/three_asset/blender_refiner');
-  const { getBlenderStatus } = require('../src/mcp/three_asset/blender_installer');
-  const blenderStatus = getBlenderStatus();
 
   const tally = createStepTally();
   assert.strictEqual(tally.claim({ step_id: 'step_1_workspace_import' }), true);
