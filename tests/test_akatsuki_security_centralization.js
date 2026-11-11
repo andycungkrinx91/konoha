@@ -32,6 +32,16 @@ const {
 } = require('../src/workflow/akatsuki/workflows');
 const { workflowReviewApproved } = require('../src/mcp/workflow_dispatch');
 
+// Red-team workflows refuse to run without an installed container engine, and CI
+// runners have neither LXC nor Docker. The allowed path injects a mocked lab instead
+// of depending on the host. `running: false` keeps tool execution on the simulated path.
+const MOCK_LAB_OPTS = {
+  engine: 'docker',
+  runner: () => ({ status: 0, stdout: '/usr/bin/docker', stderr: '' }),
+  mockLabStatus: { exists: true, running: false, network_isolated: true, details: 'mocked lab' },
+  mockCleanupResult: { cleanup_confirmed: true, engine: 'docker', message: 'mocked cleanup' }
+};
+
 async function runAkatsukiTests() {
   console.log('Running test_akatsuki_security_centralization.js...\n');
 
@@ -163,7 +173,7 @@ async function runAkatsukiTests() {
     task: 'Conduct authorized penetration test on auth routes',
     authorized: true,
     target: 'localhost:8080'
-  });
+  }, { ...MOCK_LAB_OPTS });
   assert.strictEqual(authResult.status, 'completed', 'Authorized test must complete');
   assert.strictEqual(authResult.authorized, true, 'authorized must be true');
   assert.strictEqual(authResult.gate_decision, 'passed', 'gate_decision must pass when clean');

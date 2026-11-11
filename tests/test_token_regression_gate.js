@@ -6,17 +6,29 @@ require('./helpers/isolate_db');
 /**
  * tests/test_token_regression_gate.js — Enforces token budgets and regression thresholds
  * across tool schemas, memory payloads, and task artifacts.
- * 
- * Mandated by PLAN-PHASE2.md Problem 5.
+ *
+ * Tokenisation uses gpt-tokenizer's cl100k_base — the same vocabulary tiktoken used —
+ * so the budgets below are unchanged while the check runs on any host with Node.
  */
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { encode } = require('gpt-tokenizer');
 
 const ROOT = path.resolve(__dirname, '..');
 const BASELINE_DOC = path.join(ROOT, 'docs', 'architecture', 'TOKEN-BASELINE.md');
+
+// Thresholds with +10% regression margin
+const LIMIT_SEMBLE = 550;
+const LIMIT_AISLOP = 350;
+const LIMIT_QUERY_PERSONA = 200;
+const LIMIT_LIST_PERSONA = 350;
+const LIMIT_QUERY_PROJECT = 400;
+
+const tokenCount = (text) => encode(String(text)).length;
 
 console.log('Running test_token_regression_gate.js...');
 
@@ -26,35 +38,33 @@ const baselineText = fs.readFileSync(BASELINE_DOC, 'utf-8');
 assert(baselineText.includes('Semble MCP'), 'TOKEN-BASELINE.md must document Semble MCP');
 assert(baselineText.includes('Aislop MCP'), 'TOKEN-BASELINE.md must document Aislop MCP');
 
-// Run tiktoken threshold check via python3
-const pyScript = `
-import json, os, glob, subprocess, tiktoken
-enc = tiktoken.get_encoding("cl100k_base")
+// Schemas — the catalog only exists on a host where Antigravity is deployed.
+const schemaRoot = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'mcp');
+const readSchemaPayload = (serverName) => {
+  const dir = path.join(schemaRoot, serverName);
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir).filter((name) => name.endsWith('.json')).sort();
+  if (files.length === 0) return null;
+  const parsed = files.map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8')));
+  return JSON.stringify(parsed);
+};
 
-base = os.path.expanduser("~/.gemini/antigravity-cli/mcp")
+const sembleSchemas = readSchemaPayload('semble');
+if (sembleSchemas) {
+  const tokens = tokenCount(sembleSchemas);
+  assert(tokens <= LIMIT_SEMBLE, `Semble schema regressed: ${tokens} > ${LIMIT_SEMBLE}`);
+  console.log(`  ✓ Semble MCP schema tokens: ${tokens} <= ${LIMIT_SEMBLE}`);
+}
 
-# Thresholds with +10% regression margin
-LIMIT_SEMBLE = 550
-LIMIT_AISLOP = 350
-LIMIT_QUERY_PERSONA = 200
-LIMIT_LIST_PERSONA = 350
-LIMIT_QUERY_PROJECT = 400
+const aislopSchemas = readSchemaPayload('aislop');
+if (aislopSchemas) {
+  const tokens = tokenCount(aislopSchemas);
+  assert(tokens <= LIMIT_AISLOP, `Aislop schema regressed: ${tokens} > ${LIMIT_AISLOP}`);
+  console.log(`  ✓ Aislop MCP schema tokens: ${tokens} <= ${LIMIT_AISLOP}`);
+}
 
-# 1. Schemas
-s_files = sorted(glob.glob(os.path.join(base, "semble", "*.json")))
-if s_files:
-    s_toks = len(enc.encode(json.dumps([json.load(open(f)) for f in s_files], separators=(',', ':'))))
-    assert s_toks <= LIMIT_SEMBLE, f"Semble schema regressed: {s_toks} > {LIMIT_SEMBLE}"
-    print(f"  ✓ Semble MCP schema tokens: {s_toks} <= {LIMIT_SEMBLE}")
-
-a_files = sorted(glob.glob(os.path.join(base, "aislop", "*.json")))
-if a_files:
-    a_toks = len(enc.encode(json.dumps([json.load(open(f)) for f in a_files], separators=(',', ':'))))
-    assert a_toks <= LIMIT_AISLOP, f"Aislop schema regressed: {a_toks} > {LIMIT_AISLOP}"
-    print(f"  ✓ Aislop MCP schema tokens: {a_toks} <= {LIMIT_AISLOP}")
-
-# 2. Memory Tools
-node_cmd = """
+// Memory tools
+const memoryProbe = `
 const { executeToolSync } = require('./src/mcp/tool_dispatch');
 const qp = executeToolSync('query_persona_memory', { query: 'test' }, 'sannin');
 const lp = executeToolSync('list_persona_memories', {}, 'sannin');
@@ -64,28 +74,34 @@ console.log(JSON.stringify({
   lp: typeof lp === 'string' ? lp : JSON.stringify(lp),
   qproj: typeof qproj === 'string' ? qproj : JSON.stringify(qproj)
 }));
-"""
-proc = subprocess.run(["node", "-e", node_cmd], cwd="${ROOT}", capture_output=True, text=True)
-if proc.returncode == 0 and proc.stdout.strip():
-    res = json.loads(proc.stdout)
-    qp_toks = len(enc.encode(res['qp']))
-    lp_toks = len(enc.encode(res['lp']))
-    qproj_toks = len(enc.encode(res['qproj']))
-
-    assert qp_toks <= LIMIT_QUERY_PERSONA, f"query_persona_memory regressed: {qp_toks} > {LIMIT_QUERY_PERSONA}"
-    assert lp_toks <= LIMIT_LIST_PERSONA, f"list_persona_memories regressed: {lp_toks} > {LIMIT_LIST_PERSONA}"
-    assert qproj_toks <= LIMIT_QUERY_PROJECT, f"query_project_memory regressed: {qproj_toks} > {LIMIT_QUERY_PROJECT}"
-
-    print(f"  ✓ query_persona_memory payload: {qp_toks} <= {LIMIT_QUERY_PERSONA}")
-    print(f"  ✓ list_persona_memories payload: {lp_toks} <= {LIMIT_LIST_PERSONA}")
-    print(f"  ✓ query_project_memory payload: {qproj_toks} <= {LIMIT_QUERY_PROJECT}")
 `;
 
-const res = spawnSync('python3', ['-c', pyScript], { encoding: 'utf-8', cwd: ROOT });
-if (res.status !== 0) {
-  console.error(res.stderr || res.stdout);
+const probe = spawnSync(process.execPath, ['-e', memoryProbe], { encoding: 'utf-8', cwd: ROOT });
+if (probe.status !== 0) {
+  console.error(probe.stderr || probe.stdout);
   process.exit(1);
 }
+const payloads = JSON.parse(probe.stdout.trim().split('\n').pop());
 
-process.stdout.write(res.stdout);
+const queryPersonaTokens = tokenCount(payloads.qp);
+assert(
+  queryPersonaTokens <= LIMIT_QUERY_PERSONA,
+  `query_persona_memory regressed: ${queryPersonaTokens} > ${LIMIT_QUERY_PERSONA}`
+);
+console.log(`  ✓ query_persona_memory payload: ${queryPersonaTokens} <= ${LIMIT_QUERY_PERSONA}`);
+
+const listPersonaTokens = tokenCount(payloads.lp);
+assert(
+  listPersonaTokens <= LIMIT_LIST_PERSONA,
+  `list_persona_memories regressed: ${listPersonaTokens} > ${LIMIT_LIST_PERSONA}`
+);
+console.log(`  ✓ list_persona_memories payload: ${listPersonaTokens} <= ${LIMIT_LIST_PERSONA}`);
+
+const queryProjectTokens = tokenCount(payloads.qproj);
+assert(
+  queryProjectTokens <= LIMIT_QUERY_PROJECT,
+  `query_project_memory regressed: ${queryProjectTokens} > ${LIMIT_QUERY_PROJECT}`
+);
+console.log(`  ✓ query_project_memory payload: ${queryProjectTokens} <= ${LIMIT_QUERY_PROJECT}`);
+
 console.log('✓ All token regression gates passed within established budgets cleanly!');
