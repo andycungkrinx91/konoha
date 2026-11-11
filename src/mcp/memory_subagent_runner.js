@@ -14,13 +14,19 @@ const { getResolvedTaskDir } = require('./workflow_common');
 const { buildSpawnDirective } = require('./lazy_subagent');
 
 function getMainModel() {
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     const row1 = conn.prepare('SELECT model_tier FROM agents WHERE name = ?').get('sannin');
     if (row1 && row1.model_tier) return row1.model_tier;
     const row2 = conn.prepare('SELECT model_tier FROM agents WHERE name = ?').get('kage');
     if (row2 && row2.model_tier) return row2.model_tier;
   } catch (_) { /* ignore */ }
+  finally {
+    // Windows keeps the database file locked while a handle is open, which makes
+    // temp-dir teardown fail with EPERM. Every getDb() handle is closed here.
+    try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
+  }
   return 'Gemini 3.1 Pro (High)';
 }
 
@@ -584,11 +590,15 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     } catch (_) { /* ignore */ }
   }
   if (skillsList.length === 0 && instructions) {
+    let conn = null;
     try {
-      const conn = getDb();
+      conn = getDb();
       const auto = autoloadSkillsFromPrompt(instructions, conn);
       if (auto.length > 0) skillsList = auto;
     } catch (_) { /* ignore */ }
+    finally {
+      try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
+    }
   }
 
   if (dbAgentName === 'jonin') {

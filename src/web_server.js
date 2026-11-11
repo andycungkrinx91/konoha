@@ -427,15 +427,21 @@ function createWebServer(options = {}) {
 }
 
 function recoverAbandonedGenerationJobs() {
+  let conn = null;
   try {
     const { getConnection } = require('./db');
     const { recoverOrphanedJobs } = require('./mcp/three_asset/storage_manager');
-    const recovered = recoverOrphanedJobs(getConnection());
+    conn = getConnection();
+    const recovered = recoverOrphanedJobs(conn);
     if (recovered.length > 0) {
       process.stdout.write(`[konoha web] Recovered ${recovered.length} abandoned 3D generation job(s): ${recovered.join(', ')}\n`);
     }
   } catch (err) {
     process.stderr.write(`[konoha web] 3D job recovery skipped: ${err.message}\n`);
+  } finally {
+    // Windows locks the database file while a handle is open, so callers that
+    // delete their temp directory afterwards fail with EPERM. Release it here.
+    try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
   }
 }
 

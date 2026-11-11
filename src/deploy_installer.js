@@ -408,7 +408,11 @@ function cleanKonohaRuntimeDir(options = {}) {
   const vacuumDb = options.vacuumDatabase !== false;
 
   const result = { purgedFiles: 0, reclaimedBytes: 0, errors: [], details: [] };
-  if (!target || target === '/' || target === HOME || target === path.resolve(HOME, '..')) {
+  // Compare against the real filesystem root rather than a literal '/': on
+  // Windows path.resolve('/') yields the current drive root, so a POSIX-only
+  // check lets 'C:\\' through.
+  const fsRoot = path.parse(target).root;
+  if (!target || target === fsRoot || target === HOME || target === path.resolve(HOME, '..')) {
     throw new Error(`Refusing to clean unsafe directory: ${target}`);
   }
   if (target === src) {
