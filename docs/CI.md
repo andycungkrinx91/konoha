@@ -151,7 +151,11 @@ expectation, and no `continue-on-error` was added anywhere.
   export fell back to a static PNG and the default-format assertion failed. The
   probe is now `ffmpeg -hide_banner -encoders` matched against `libwebp_anim` and
   `gif`, and the workflow provisions an ffmpeg build carrying `libwebp_anim` and
-  verifies the encoder before the suite runs.
+  verifies the encoder before the suite runs. On macOS that provisioning first
+  ran `brew install ffmpeg`, and homebrew-core's `ffmpeg` formula is configured
+  without `--enable-libwebp`, so the binary it installed still had no
+  `libwebp_anim` encoder; the step installs `ffmpeg-full` instead and appends its
+  keg-only bin directory to `PATH`.
 - **pnpm resolution (test_agent_browser_provisioning)** — superseded. That suite
   and the `agent-browser` provisioning chain it exercised are deleted; QA now runs
   on the target project's own Playwright, so there is no CLI to resolve and no

@@ -77,9 +77,9 @@ jobs:
 
       # tests/test_document_animation_webp.js asserts the animated WebP export,
       # which needs an ffmpeg build with the `libwebp_anim` encoder. The macOS
-      # and Windows images ship builds that may lack it, and the module falls
-      # back to a static PNG without it, so provision one explicitly and keep
-      # the runner's ffmpeg when it already qualifies.
+      # image ships no ffmpeg at all and the Windows image's build may lack the
+      # encoder; the module falls back to a static PNG without it, so provision
+      # one explicitly and keep the runner's ffmpeg when it already qualifies.
       - name: Ensure ffmpeg with libwebp (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -88,9 +88,18 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
+      # homebrew-core `ffmpeg` is built without --enable-libwebp, so installing
+      # it yields a binary with no `libwebp_anim` encoder. `ffmpeg-full` is the
+      # variant that enables libwebp, and it is keg_only (:versioned_formula), so
+      # its bin dir has to be appended to PATH explicitly.
       - name: Ensure ffmpeg with libwebp (macOS)
         if: matrix.os == 'macos-latest'
-        run: ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim || brew install ffmpeg
+        run: |
+          if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
+            exit 0
+          fi
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
 
       - name: Ensure ffmpeg with libwebp (Windows)
         if: matrix.os == 'windows-latest'
