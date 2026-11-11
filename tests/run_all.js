@@ -207,11 +207,20 @@ const concurrencyArg = process.argv.find(a => a.startsWith('--concurrency='));
 const concurrency = concurrencyArg ? parseInt(concurrencyArg.split('=')[1], 10) : 4;
 const shardArg = process.argv.find(a => a.startsWith('--shard='));
 const filterArg = process.argv.slice(2).find(a => !a.startsWith('--'));
+// Comma-separated filename substrings to skip. Local CI mirrors that cannot run a
+// subsystem (no GPU, no Blender, no Windows guest driver) set this instead of
+// deleting suites, so the GitHub workflow keeps covering them.
+const excludePatterns = (process.env.KONOHA_TEST_EXCLUDE || '')
+  .split(',')
+  .map(p => p.trim().toLowerCase())
+  .filter(Boolean);
+const isExcluded = f => excludePatterns.some(p => f.toLowerCase().includes(p));
 
 let jsTests = files.filter(f =>
   (f.endsWith('.test.js') || f.startsWith('test_') || f.startsWith('verify_')) &&
   f.endsWith('.js') &&
   f !== 'run_all.js' &&
+  !isExcluded(f) &&
   (!filterArg || f.toLowerCase().includes(filterArg.toLowerCase()))
 ).sort();
 
@@ -232,6 +241,12 @@ console.log('====================================================');
 console.log('       KONOHA JAVASCRIPT TEST SUITE RUNNER          ');
 console.log('====================================================');
 console.log(`Discovered ${jsTests.length} JS test suites${includePython ? ` and ${pyTests.length} Python suites` : ''} (${isParallel ? `parallel mode, concurrency ${concurrency}` : 'sequential mode'}).\n`);
+if (excludePatterns.length > 0) {
+  const skipped = files.filter(f => f.startsWith('test_') && f.endsWith('.js') && isExcluded(f)).sort();
+  console.log(`Excluded via KONOHA_TEST_EXCLUDE (${excludePatterns.join(',')}): ${skipped.length} suite(s)`);
+  for (const s of skipped) console.log(`  - ${s}`);
+  console.log('');
+}
 
 let passed = 0;
 let failed = 0;
