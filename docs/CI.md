@@ -242,7 +242,9 @@ amd64-specific failure; it makes arm64 hosts pay emulation on every step.
 
 Fidelity limits, read before trusting a green local run:
 
-- `catthehacker/ubuntu:act-latest` is Ubuntu 22.04-based; GitHub `ubuntu-latest` is 24.04.
+- `catthehacker/ubuntu:act-latest` tracks Ubuntu 26.04 "resolute" (verified in
+  `/etc/apt/sources.list.d/ubuntu.sources`); GitHub `ubuntu-latest` is 24.04. A distro-only
+  failure is a fidelity gap, not a suite defect — reproduce it on GitHub before chasing it.
 - Windows and macOS matrix legs are **not** covered locally; they remain GitHub-only.
   That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
   on unresolvable platform images, not on a real defect.
@@ -252,6 +254,37 @@ Fidelity limits, read before trusting a green local run:
   `act-latest` image provides it; the micro image does not.
 - act copies the repo into the container instead of bind-mounting it, so a run leaves the
   working tree clean (`git status --porcelain` unchanged). Do not add `--bind`.
+
+### When `Install Playwright browsers` dies on apt
+
+Symptom, in the `--with-deps` step:
+
+```
+Temporary failure resolving 'azure.archive.ubuntu.com'
+E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/f/fonts-ipafont/...
+E: Unable to fetch some archives
+Failed to install browsers
+Error: Installation process exited with code: 100
+```
+
+That is the container's DNS or the apt mirror, not the suite: Playwright shells out to
+`apt-get`, so nothing in this repo can retry it. The image's `/etc/resolv.conf` inherits the
+Docker daemon's resolver list; a dead entry (`10.0.0.2` on a host whose network moved) costs
+20 s per lookup and drops the rest on timeout. Check and fix it outside the repo:
+
+```bash
+docker run --rm catthehacker/ubuntu:act-latest getent hosts archive.ubuntu.com   # 20 s or FAIL = bad resolver
+docker run --rm --dns 1.1.1.1 catthehacker/ubuntu:act-latest getent hosts archive.ubuntu.com  # < 1 s = resolver is the cause
+```
+
+Then pin a working resolver for act in `~/.config/act/actrc` (a project `.actrc` may not set
+`--container-options`, act warns and ignores it):
+
+```
+--container-options --dns=1.1.1.1
+```
+
+Re-run `pnpm ci:act`. Add `--pull=false` once the image is local to skip the manifest fetch.
 
 ## Container sandbox (rule 12)
 

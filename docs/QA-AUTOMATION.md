@@ -227,6 +227,14 @@ Every test and lint entry point in `package.json` is routed through `scripts/rtk
 - `KONOHA_RTK_DISABLE=1` bypasses wrapping for debugging; `KONOHA_RTK_CMD=/path/to/rtk` pins a specific binary.
 - Child exit codes are propagated verbatim, so the wrapper never hides a failing suite.
 
+Installing RTK itself, per platform:
+
+```bash
+winget install rtk-ai.rtk                                             # Windows
+brew install rtk                                                      # macOS
+cargo install --git https://github.com/rtk-ai/rtk                     # Linux (needs a Rust toolchain)
+```
+
 Measured on a 400-line noisy suite fixture (`tests/fixtures/rtk_exec_noisy.js`): 29,513 B of raw stdout becomes 352 B through `rtk test`, and a fixture exiting 5 still exits 5. Note that the plain `rtk <cmd>` proxy does **not** shrink piped stdout — compression comes from the `test` and `err` subcommands, which is why the wrapper selects them explicitly instead of prefixing `rtk` blindly.
 
 Isolation contract:
