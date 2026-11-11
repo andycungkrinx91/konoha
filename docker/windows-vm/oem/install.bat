@@ -22,5 +22,17 @@ powershell -NoProfile -Command "Expand-Archive -Force C:\OEM\ffmpeg.zip C:\ffmpe
 REM --- pnpm 12.16.1 (pnpm/action-setup@v6.1.1) ---
 call "C:\Program Files\nodejs\npm.cmd" install -g pnpm@12.16.1 >> "%LOG%" 2>&1
 
-echo ==== provisioning done %DATE% %TIME% ==== >> "%LOG%"
+REM A fresh process would see these on PATH; this one does not, so probe absolute
+REM paths. The marker lets run-ci.cmd fail fast instead of dying on a missing command.
+set FAILED=
+if not exist "C:\Program Files\nodejs\node.exe" set FAILED=1
+if not exist "%APPDATA%\npm\pnpm.cmd" set FAILED=1
+if not exist "C:\Program Files\Git\cmd\git.exe" set FAILED=1
+if not exist "C:\ffmpeg\bin\ffmpeg.exe" set FAILED=1
+if defined FAILED (
+  echo ==== provisioning INCOMPLETE %DATE% %TIME% ==== >> "%LOG%"
+) else (
+  echo ok> C:\OEM\provision.ok
+  echo ==== provisioning done %DATE% %TIME% ==== >> "%LOG%"
+)
 endlocal

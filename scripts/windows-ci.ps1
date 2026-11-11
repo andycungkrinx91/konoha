@@ -43,6 +43,14 @@ function Invoke-Step {
 
 Write-Host "Source: $Source`nWork:   $Work`nLog:    $log"
 
+# The guest is provisioned once, during install (C:\OEM\install.bat). Without the
+# marker every later step fails on a missing command, which reads like a suite defect.
+if (-not (Test-Path 'C:\OEM\provision.ok')) {
+  Write-Host 'Guest provisioning did not complete - see C:\OEM\provision.log' -ForegroundColor Red
+  Stop-Transcript | Out-Null
+  exit 1
+}
+
 # --- Checkout: mirror the working tree, keep node_modules and the guest disk out. ---
 Write-Host "`n=== Checkout (robocopy) ===" -ForegroundColor Cyan
 robocopy $Source $Work /MIR /R:2 /W:1 /NFL /NDL /NJH /NP /XD node_modules .konoha logs
