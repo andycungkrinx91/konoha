@@ -351,7 +351,7 @@ flowchart TD
     Step3 --> FidelityRule
     FidelityRule --> Step4["Step 4: Implementation (♦ Jonin)<br/>• Replicate source layout pixel-for-pixel<br/>• Framework-native component tree"]
 
-    Step4 --> Step5["Step 5: Visual Verification (`agent-browser`)<br/>• Local rendering screenshot capture<br/>• Side-by-side design match audit"]
+    Step4 --> Step5["Step 5: Visual Verification (Playwright)<br/>• Local rendering screenshot capture<br/>• Side-by-side design match audit"]
 
     Step5 --> Step6["Step 6: Framework Build Validation<br/>• pnpm run build &amp; lint pass cleanly<br/>• 0 Errors, 0 Warnings"]
 
@@ -471,7 +471,7 @@ config:
 ---
 flowchart LR
     Start["QA Task Ingestion"] --> S1["1. Test Discovery<br/>(Check tests/ &amp; prevent duplicates)"]
-    S1 --> S2["2. Flow Recording<br/>(agent-browser captures JSON steps)"]
+    S1 --> S2["2. Flow Recording<br/>(Playwright captures JSON steps)"]
     S2 --> S3["3. Test Codification<br/>(qa_codify compiles Playwright spec)"]
     S3 --> S4["4. Headless Execution<br/>(qa_e2e_run runs Playwright test)"]
     S4 --> S5["5. Evidence Capping<br/>(Clean exit 0 &amp; output &lt; 2,000 chars)"]

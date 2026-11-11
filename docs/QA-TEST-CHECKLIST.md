@@ -2,7 +2,7 @@
 
 Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.20). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
-2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
+2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
 ---
 
@@ -27,7 +27,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
 | `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
 | `konoha detect-ai` | `<path>`, `--json` | Scans target codebase or single file against 32 AI fingerprint heuristics, returning Human-Built Index (0–100) and confidence verdict. | `PASS` (verified) |
-| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, agent-browser, cargo, rtk), SQLite integrity, 8-client coverage (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP), 3D toolchain rows (Blender LTS, dcc-mcp-blender, Three.js, Manifold-3D), and auto-repairs discrepancies. | `PASS` (verified) |
+| `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, cargo, rtk), SQLite integrity, 8-client coverage (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP), 3D toolchain rows (Blender LTS, dcc-mcp-blender, Three.js, Manifold-3D), and auto-repairs discrepancies. | `PASS` (verified) |
 | `konoha clean` | (maintenance) | Deletes transient test databases, debug logs, dangling scratch workspaces, and temporary test artifacts from `/tmp/` and `~/.konoha/tmp/`. | `PASS` (verified) |
 | `konoha skill list` | - | Lists all custom and canonical skills across active agent directories with path and description. | `PASS` (verified) |
 | `konoha skill search` | `<query>` | Queries public skill registry (skills.sh) for matching extensions. | `PASS` (verified) |
@@ -62,7 +62,6 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha upgrade` | `--yes` | Upgrades the global install in place. Verifies the installed version by running `konoha --version`; on total package-manager failure it exits 1 with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and does **not** run the post-upgrade lifecycle. | `PASS` (verified on Linux x64: no-package-manager path exits 1; failure path leaves version unchanged) |
 | `npm install -g konoha-mcp@latest` | - | Persistent global install. The package ships no install-time lifecycle script, so nothing runs at install time, nothing touches `HOME`, and no script-permission gate can deny the install. | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
 | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. No install-script side effects. | `PASS` (verified on Linux x64 with isolated `HOME`) |
-| `agent-browser` provisioning | `konoha init` | Resolution order: global → `~/.konoha/tools` → `npx --yes agent-browser@0.41.2`, each accepted only after `--version` exits 0; installs use `npm`/`pnpm` only with `--ignore-scripts`. Failure prints `QA blocked: <reason>` and `qa_codify` returns `error: qa_blocked`. | `PASS` — `agent-browser@0.41.2` installs and reports `agent-browser 0.41.2` from npm `-g`, `npm --prefix`, and `pnpm --dir` on Linux x64; blocked-path reporting verified separately. |
 | Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
 | macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
 | `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
@@ -94,7 +93,6 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 | Windows 10/11 end-to-end | native runner | `BLOCKED` — not run |
 | macOS arm64 / x64 end-to-end | native runners | `BLOCKED` — not run |
 | Windows `EBUSY` in-place upgrade | native runner, binary in use during upgrade | `BLOCKED` — not run |
-| agent-browser on Linux x64 | `agent-browser --version` at every resolution tier | `PASS` — pinned `0.41.2` ships `agent-browser-linux-x64`; global, `--prefix`, and `--dir` tiers all report `0.41.2` |
 
 ### 1.2 Edge Case & Symlink Handling Verification
 
@@ -140,20 +138,19 @@ The Konoha Web UI (`apps/web`) provides real-time observability and configuratio
 
 ### 2.0 QA Prerequisites: `qa_blocked`
 
-QA hard-requires `agent-browser` for exploration, but the core install does not. Before running any Section 2 item:
+QA hard-requires Playwright, but the core install does not. Konoha never ships or pins its own copy — it shells out to the target project's runner. Before running any Section 2 item:
 
 ```bash
-agent-browser --version   # must exit 0
+pnpm exec playwright --version   # must exit 0
+pnpm exec playwright install chromium   # first run only
 ```
-
-Konoha resolves the CLI as global → `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, accepting each only after `--version` succeeds.
 
 | Situation | `konoha init` | `qa_codify` | `qa_e2e_run` |
 |---|---|---|---|
-| Browser resolves | `agent-browser CLI ready (<via>)` | runs | runs |
-| Nothing resolves | `QA blocked: <reason>` (core install still succeeds) | `{ ok: false, error: 'qa_blocked', reason }` | **still runs** (Playwright, no `agent-browser` dependency) |
+| Playwright resolves | unaffected | runs | runs |
+| Nothing resolves | unaffected (core install always succeeds) | `{ ok: false, error: 'qa_blocked', reason: 'playwright-not-installed', fix }` | same reason, before any test runs |
 
-**A blocked browser is `BLOCKED`, never `PASS` and never "no bugs found."** On Linux x64 the pinned `agent-browser@0.3.1` currently fails with `Error: No binary found for linux-x64` at every resolution tier, so Section 2 exploration items are BLOCKED on that platform while `qa_e2e_run` remains usable.
+**A blocked browser is `BLOCKED`, never `PASS` and never "no bugs found."** Never install Playwright globally or via `npx`: a second copy diverges from the project's pinned browser build and fails with version-skew errors that look like product bugs.
 
 ### 2.1 E2E Playwright Automation Architecture
 
@@ -178,7 +175,7 @@ flowchart TD
     W2 --> W3["SQLite Database (~/.konoha/konoha.db)"]
     W2 --> W4["MCP Middleware & Proxy Gateway (port 19999)"]
     T1["Playwright Test Suite (tests/e2e/web-ui.spec.js)"] --> W1
-    T2["agent-browser Autonomous QA Loop"] --> W1
+    T2["Playwright Autonomous QA Loop"] --> W1
     T1 --> R1["Zero-AI-Slop & Assertion Report"]
     T2 --> R1
 
@@ -233,11 +230,8 @@ node tests/test_all_assets_webp.js
 # 5. Run Web UI Playwright E2E suite (12 spec suites, 46 tests, isolated auth under /tmp/)
 pnpm --dir apps/web run test:e2e
 
-# 6. Run agent-browser manual verification pass
-agent-browser open http://127.0.0.1:4173/
-agent-browser type "@e5" "konohagakure"
-agent-browser click "@e4"
-agent-browser close
+# 6. Run flow-file verification pass (explore → qa_codify → qa_e2e_run)
+pnpm exec playwright test tests/e2e/theme_picker_flow.spec.js
 
 # 7. Run Zero-AI-Slop Quality Gate Scan (enforces 100/100 clean score)
 npx aislop scan --changes
@@ -599,8 +593,8 @@ sleep 2
 
 # Run Playwright automated suites
 npx playwright test tests/e2e/auth_login.spec.js tests/e2e/routes_load.spec.js
-# Execute agent-browser flow verification across 17 routes
-node tests/e2e/agent_browser_sweep.js --port=${PORT}
+# Codify and re-run the recorded flows
+npx playwright test tests/e2e/theme_picker_flow.spec.js tests/e2e/routes_load.spec.js
 
 kill $WEB_PID
 ```

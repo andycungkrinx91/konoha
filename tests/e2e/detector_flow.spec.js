@@ -1,7 +1,7 @@
 /**
  * Generated from: detector_flow.json
  * Flow SHA256: 08e144d1d0de518e973f7a9fdd9ae92b1a13162786b6228666fd3fb7ba87b2f6
- * Verified with agent-browser batch (exit 0)
+ * Verified with Playwright (exit 0)
  * Edit the flow file and regenerate, or remove this header to take ownership.
  */
 

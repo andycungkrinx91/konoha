@@ -135,12 +135,12 @@ node --version  # Must be >= 24.0.0
 
 ---
 
-### ⚠️ `QA blocked: agent-browser unavailable (...)` during `konoha init`
+### ⚠️ `qa_blocked` / `playwright-not-installed` during QA
 
-- **Cause**: `agent-browser` is a **hard requirement for QA only**. `init` resolves it in order: global install → managed `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, verifying each with `--version`. If none works, core install still succeeds and this actionable warning is recorded so `konoha doctor` shows `QA: BLOCKED`.
-- **Linux note**: `agent-browser@0.3.1` publishes **no linux-x64 native binary** (`Error: No binary found for linux-x64`), so QA stays blocked on Linux x64 regardless of install method. Do not treat this as a broken install — every non-QA feature works.
-- **Effect**: `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason }`; `qa_e2e_run` remains usable for Playwright suites that do not shell out to `agent-browser`.
-- **Fix (where a native binary exists)**: `npm i -g agent-browser@0.3.1`, then `agent-browser install` (`--with-deps` on Linux only).
+- **Cause**: Playwright is a **hard requirement for QA only**, and Konoha does not ship its own copy for QA. `qa_codify` and `qa_e2e_run` both shell out to the target project's runner (`pnpm exec playwright`), so the project must resolve Playwright and have its browser binary installed.
+- **Effect**: `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason: 'playwright-not-installed', fix: 'pnpm exec playwright install chromium' }` and emits no spec. `qa_e2e_run` returns the same reason before running any test. Every non-QA feature keeps working — this never blocks `konoha init`, `upgrade`, or `doctor`.
+- **Fix**: in the target project, run `pnpm add -D @playwright/test` (if absent) then `pnpm exec playwright install chromium`. On Linux CI images add `--with-deps` for the shared libraries.
+- **Do not** install Playwright globally or via `npx`: a second copy diverges from the project's pinned browser build and fails with version-skew errors that look like product bugs.
 
 ---
 

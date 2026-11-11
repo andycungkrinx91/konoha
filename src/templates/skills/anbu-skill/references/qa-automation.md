@@ -1,11 +1,11 @@
 ---
 name: qa-automation
-description: Token-efficient QA automation workflow with agent-browser and Playwright Test. Use for E2E testing, browser testing, UI bug reproduction, creating flow files, codifying Playwright tests, and running deterministic regression suites.
+description: Token-efficient QA automation workflow with Playwright. Use for E2E testing, browser testing, UI bug reproduction, creating flow files, codifying Playwright tests, and running deterministic regression suites.
 ---
 
-# QA Automation (agent-browser + Playwright)
+# QA Automation (Playwright)
 
-Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent-browser`, codify deterministically to Playwright Test, and re-run for zero LLM browsing tokens.
+Token-efficient QA automation owned by **Anbu**. Explore once with a scoped Playwright script, codify deterministically to Playwright Test, and re-run for zero LLM browsing tokens.
 
 > [!NOTE]
 > Architecture and diagrams are documented in [`docs/QA-AUTOMATION.md`](docs/QA-AUTOMATION.md).
@@ -14,24 +14,24 @@ Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent
 
 | Stage | Tool | Cost | Purpose |
 |---|---|---|---|
-| **Explore** | `agent-browser` | LLM tokens | Discovery, interactive scoped accessibility snapshots, console/error capture. |
+| **Explore** | Throwaway Playwright script | LLM tokens | Discovery, scoped accessibility snapshots, console/error capture. |
 | **Codify** | `qa_codify` | Zero LLM | Deterministic converter from verified flow JSON to Playwright spec. |
 | **Execute / Re-run** | `qa_e2e_run` | Zero LLM | Headless Playwright execution with compact summary and unique `run_id`. |
 
 ## Token Rules & Budgets
 
-- **Scoped Snapshots**: Always use `snapshot -i -c` (interactive + compact). Scope with `-s "<selector>"` or `-d <depth>`. Never bare `snapshot`.
-- **Differential Inspection**: Use `diff snapshot` or specific state queries (`get text`, `is visible`, `wait --text`) instead of repeated full snapshots. Max 1 full snapshot per page.
+- **Scoped Snapshots**: `page.locator(scope).ariaSnapshot()` only. Pass a container selector and guard it with `count()`; fall back to `body` when the container is absent, never `html`.
+- **Differential Inspection**: Re-query a specific locator (`textContent`, `isVisible`, `waitFor`) instead of taking a second full snapshot. Max 1 snapshot per page.
 - **Budget Limits**: Max 2 screenshots per finding (`~/.konoha/tmp/qa/`, JPEG q60). Max 15 actions per area without findings. Max output capped at 4000 chars.
-- **Batch Sequences**: Execute multi-step commands via `agent-browser batch --bail --json`.
-- **State Persistence**: Authenticate once, persist via `state save` under `~/.konoha/tmp/qa/state/` with `AGENT_BROWSER_ENCRYPTION_KEY`.
+- **Batch Sequences**: Drive the whole sequence in one script run; launch the browser once, not once per step.
+- **State Persistence**: Authenticate once, persist with `context.storageState({ path: '~/.konoha/tmp/qa/state/auth.json' })`, reuse via `browser.newContext({ storageState })`.
 
 ## Evidence Contract & No Fake Green
 
 | Claim | Required Verification Evidence |
 |---|---|
 | Route / Selector exists | Genin Semble citation with exact `file:line`. |
-| Flow verified | `agent-browser batch --bail --json` exit code 0 on flow hash. |
+| Flow verified | `qa_codify` compile + Playwright run exit code 0 on the flow hash. |
 | Bug confirmed | RED `qa_e2e_run` summary carrying unique `run_id`. |
 | Bug resolved | GREEN `qa_e2e_run` summary on identical test file and hash. |
 | Clean scope | Report as `none found in <scope>, <N> actions` (never "bug-free"). |
@@ -40,25 +40,19 @@ Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent
 
 ## Prerequisite Check: `qa_blocked`
 
-`agent-browser` is a hard requirement for QA, not for the core install. Before starting any exploration, confirm the CLI actually runs:
+Playwright is a hard requirement for QA, not for the core install. Before starting any exploration, confirm it resolves from the target project:
 
 ```bash
-agent-browser --version   # must exit 0
+pnpm exec playwright --version   # must exit 0
+pnpm exec playwright install chromium   # browsers, when the probe says the binary is missing
 ```
 
-Konoha resolves the CLI in this order — global install, managed copy at `~/.konoha/tools`, then `npx --yes agent-browser@0.41.2` — and accepts each only after `--version` succeeds. If none resolve:
-
-- `konoha init` prints `QA blocked: <reason>` as an actionable warning while the core install still succeeds.
-- `qa_codify` returns `{ "ok": false, "error": "qa_blocked", "reason": "..." }`, because it verifies flows by running `agent-browser batch`.
-- **`qa_e2e_run` does not depend on `agent-browser`** — it shells out to Playwright Test directly, so it still runs. It is not a substitute for exploration, and a green suite does not prove a flow was ever explored.
-
-**Report `qa_blocked` as BLOCKED, never as a pass and never as "no bugs found."** A missing browser is an unexecuted test.
+- `qa_codify` returns `{ "ok": false, "error": "qa_blocked", "reason": "playwright-not-installed", "fix": "pnpm exec playwright install chromium" }` when no Playwright project resolves above the output path. It never emits a spec it could not run.
+- `qa_e2e_run` shells out to Playwright Test directly, so it shares the same prerequisite.
+- **A missing browser is an unexecuted test.** Report `qa_blocked` as BLOCKED, never as a pass and never as "no bugs found".
 
 > [!WARNING]
-> npm or pnpm itself is located by absolute path, not by bare `PATH` lookup: distro packages (`/usr/bin`), Homebrew (`/opt/homebrew/bin`), the standalone pnpm installer (`~/.local/share/pnpm`, `~/Library/pnpm`), Windows MSI/`.exe` installs (`%APPDATA%\npm`, `%ProgramFiles%\nodejs`), nvm version dirs, and the running node's own directory are all probed. This matters on macOS, where a GUI-launched app receives a PATH that contains none of them. The spawn also prepends the current node's directory to `PATH`, so a system npm does not run under an older node and emit `EBADENGINE` warnings.
-
-> A managed copy at `~/.konoha/tools` is only accepted when it reports the pinned version. Pinned `agent-browser@0.41.2` ships native binaries for linux-x64, darwin-arm64/x64, and win32-x64. Record QA as BLOCKED with the captured stderr when the probe fails; do not switch to a weaker verification method to manufacture a result.
-
+> Playwright is invoked through the project's own package manager (`pnpm exec playwright`), so the target project owns the version, the browser cache, and `PLAYWRIGHT_BROWSERS_PATH`. Do not reach for a global CLI or `npx`: a second install diverges from the project's pinned browser build and produces version-skew failures that look like product bugs.
 
 ## Playwright Overrides for Agent Runs
 
@@ -71,10 +65,10 @@ Konoha resolves the CLI in this order — global install, managed copy at `~/.ko
 
 ## 6-Step QA Execution Loop
 
-1. **Explore**: Probe target routes using Genin `file:line` references and scoped snapshots (`snapshot -i -c -s`).
+1. **Explore**: Probe target routes using Genin `file:line` references and a throwaway Playwright script with scoped `ariaSnapshot()`.
 2. **Record Flow**: Write `<test-dir>/e2e/flows/<name>.json` using semantic locators (`find role|label|text|testid`).
-3. **Verify Flow**: Execute `agent-browser batch --bail --json < flow.json` to guarantee repeatability.
-4. **Codify & Prove Red**: Call `qa_codify` to emit Playwright spec, run `qa_e2e_run` to prove failure (RED).
+3. **Verify Flow**: `qa_codify` compiles the flow, runs the compiled spec, and deletes it on exit 0.
+4. **Codify & Prove Red**: Keep the emitted Playwright spec, run `qa_e2e_run` to prove failure (RED).
 5. **Fix & Prove Green**: Anbu fixes backend/API issues; Jonin fixes UI code. Anbu re-runs `qa_e2e_run` to prove pass (GREEN).
 6. **Scan & Report**: Run `aislop_scan`, generate report using `qa-automation-assets/references/report-template.md`, and record `run_id` in SDLC task evidence.
 
@@ -85,4 +79,3 @@ Konoha resolves the CLI in this order — global install, managed copy at `~/.ko
 - **Deliverables Protected**: Deliverables (`<test-dir>/e2e/flows/`, specs, and `reports/`) are permanently tracked and never ignored or pruned.
 - **Evidence Persistence**: Failure traces and screenshots (up to 5) are copied into `~/.konoha/tmp/qa/<run_id>/artifacts/` to preserve evidence across project runs.
 - **Retention**: Old run folders are automatically pruned keeping newest N runs (default 20, overridable via `KONOHA_QA_RETENTION_COUNT`). Runs linked to open SDLC tasks are protected from pruning; if evidence lookup is unavailable, runs younger than 7 days are preserved.
-

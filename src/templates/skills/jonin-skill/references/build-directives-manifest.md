@@ -56,7 +56,7 @@ Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operationa
 ## Build-mode boundary (Three Independent Creation Modes)
 
 1. **Build from Image (`build_from_source` with image mockups)**: Preserves exact source composition, spatial hierarchy, lighting, materials, depth layers, typography, color tokens, and interactive states; adds only non-structural, reduced-motion-safe polish. Do not inject unrequested carousels, dialogs, or theme switchers absent from the mockup.
-2. **Build from Text (`build_from_text`)**: Begins with mandatory online reference research (`konoha.web_search` / `agent-browser` / Playwright) inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline** to synthesize an original creative direction, brief-derived token system, and 3D motion-art language before coding.
+2. **Build from Text (`build_from_text`)**: Begins with mandatory online reference research (`konoha.web_search` / Playwright) inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline** to synthesize an original creative direction, brief-derived token system, and 3D motion-art language before coding.
 3. **Build from Source Website (`build_from_source` with live URL or multi-file source)**: Performs multi-route browser inspection (routes, subpages, navigation flows, interactive states, responsive breakpoints, scroll/hover choreography, design tokens) and reconstructs the application cleanly in **Next.js, Nuxt, SvelteKit, or Angular**.
 
 

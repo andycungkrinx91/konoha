@@ -123,7 +123,7 @@ Read this before "fixing" the install, migrate, or upgrade path. Each row alread
 | Transitive `image-size` | Trust the lockfile | `overrides.image-size >= 2.0.3`, `bundleDependencies`, `pnpm pack` (npm `pack` / global install drop bundled deps) |
 | Install-script shim | Add `postinstall` back | no install scripts; `tests/test_global_install.js` |
 | PATH-blind upgrade report | Compare the package root with itself | `bin/lib/upgrade_verify.js` |
-| Doc-level pins | Let docs drift from code | `bin/lib/extension.js#PINNED_AB_PACKAGE` (`agent-browser@0.41.2`), asserted by `tests/test_agent_browser_provisioning.js` |
+| Doc-level pins | Let docs drift from code | `PROMPT_CEILING_BYTES` (`src/mcp/memory_subagent_runner.js`), asserted independently by `tests/test_remediation_contract.js` |
 | Over-claiming the token ceiling | Quote 8192 as the harness budget | `token_guard.js` bounds Konoha's internal LangGraph payload only |
 | Cyber-pack residue survives upgrade | Ship an upgrade that leaves legacy rows/on-disk copies and only `doctor --clean-cyber-pack` can remove them | `purgeLegacyResidue` runs from `src/migrate.js`; explicit opt-in is never destroyed; `tests/test_upgrade_cyber_pack_purge.js` |
 

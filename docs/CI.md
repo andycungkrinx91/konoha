@@ -139,10 +139,37 @@ expectation, and no `continue-on-error` was added anywhere.
   process with `DOMException [TimeoutError]`. Diagnostics is synchronous by
   design, so `blender_installer` now exports a cache-only
   `getCachedDccMcpVersion()` and doctor starts no network request.
+- **Red-team suite (test_akatsuki_tool_registry)** — every workflow call went in
+  without sandbox options, so `_verifyRedTeamPrerequisites` →
+  `validateLabPrerequisites` declined with `DECLINE_NO_ENGINE` on runners that
+  have neither LXC nor Docker, and the assertions read `tools_blocked` off a
+  blocked result. The suite now injects a mocked engine, runner, lab status and
+  cleanup result the way `test_akatsuki_init` does, so it asserts the planner and
+  the gate instead of the host.
+- **Animated WebP (test_document_animation_webp)** — the encoder probe ran
+  `spawnSync('which', ['ffmpeg'])`, which does not exist on Windows, so every
+  export fell back to a static PNG and the default-format assertion failed. The
+  probe is now `ffmpeg -hide_banner -encoders` matched against `libwebp_anim` and
+  `gif`, and the workflow provisions an ffmpeg build carrying `libwebp_anim` and
+  verifies the encoder before the suite runs.
+- **pnpm resolution (test_agent_browser_provisioning)** — superseded. That suite
+  and the `agent-browser` provisioning chain it exercised are deleted; QA now runs
+  on the target project's own Playwright, so there is no CLI to resolve and no
+  package-manager search path to get wrong. See `CHANGELOG.md` `[Unreleased]`.
+- **Cursor rtk rule (test_fresh_install_cross_platform_sync)** —
+  `deployCursorRtkRule` returned early with `rtk-not-installed` before copying the
+  rule template, so `~/.cursor/rules/rtk.mdc` never landed on a machine without
+  the `rtk` binary even though the template is static. Only the `rtk init`
+  enrichment is conditional now.
+- **Lightweight contracts (test_lightweight_contracts)** — the suite asserted
+  sizes of `~/.cursor`, `~/.codex` and `~/.omp` files inside the checkout, but
+  those are git-ignored per-machine output of `konoha init`. It now deploys the
+  artifacts into a temp `HOME` and measures them there, and asserts the `<1800`
+  byte budget on `buildLightweightContract({ client })` for every client.
 
-The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host
-with neither LXC nor Docker; that suite skips gracefully and is not a workflow
-concern.
+The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host with
+neither LXC nor Docker. That is product behavior, so the suite supplies a mocked
+engine instead of weakening the gate.
 
 ## How to read a failure
 

@@ -13,7 +13,7 @@ When building from static image mockups (`.png`, `.jpg`, `.webp`, `.svg`) or des
 ## 2. Build from Text (`build_from_text` — Creative Synthesis & Reference Discovery)
 
 When generating a fresh application or landing experience from a text prompt:
-- **Mandatory Online Reference Research**: Conduct live reference research (`konoha.web_search` / `agent-browser` / Playwright) inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline** before writing code.
+- **Mandatory Online Reference Research**: Conduct live reference research (`konoha.web_search` / Playwright) inspired by **Framer, Linear, Lusion, Igloo, Darkstar, Unseen, Monolith, Diagram, Raycast, and Spline** before writing code.
 - **Original Creative Direction & 3D Motion-Art Language**: Synthesize a bespoke visual identity, asymmetric grid architecture (`grid-cols-12`), semantic Dark & Light Mode token palette, and spring-physics 3D motion choreography tailored to the user's domain.
 - **Brand & Quality Invariants**: Enforce `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer text, `min-h-[100dvh]` viewport stability, Phosphor SVG iconography, and zero emojis.
 

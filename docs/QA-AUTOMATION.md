@@ -1,20 +1,22 @@
 # QA Automation Architecture & Token-Efficient Workflow
 
-The **QA Automation Workflow** integrates `agent-browser` and Playwright Test into Konoha's 8-phase SDLC architecture, owned end-to-end by **Anbu**. It guarantees bounded token consumption, zero AI slop, and verifiable tool evidence across all automated test loops.
+The **QA Automation Workflow** integrates Playwright into Konoha's 8-phase SDLC architecture, owned end-to-end by **Anbu**. It guarantees bounded token consumption, zero AI slop, and verifiable tool evidence across all automated test loops.
 
 ## Core Philosophy
 
 Browsing web applications using LLMs is expensive in token consumption. Re-running a known test scenario should cost **zero LLM tokens**.
 
-1. **Explore once** with `agent-browser` (small, scoped snapshots; captures console & network errors).
-2. **Save working steps** as a *flow file* (`.json` array of semantic `agent-browser` commands).
-3. **Codify automatically** via `qa_codify` into a deterministic Playwright test (zero LLM involved).
+1. **Explore once** with a throwaway Playwright script (scoped `locator().ariaSnapshot()`; captures console & network errors).
+2. **Save working steps** as a *flow file* (`.json` array of semantic commands).
+3. **Codify automatically** via `qa_codify` into a deterministic Playwright test, compiled and run once before it is emitted (zero LLM involved).
 4. **Run and re-run with Playwright** via `qa_e2e_run` with compact, capped summaries (zero LLM browsing).
 
 > [!IMPORTANT]
-> **Prerequisite: a working `agent-browser`.** Verify with `agent-browser --version` before step 1. Konoha resolves it as global → `~/.konoha/tools` → `npx --yes agent-browser@0.41.2`, accepting each only after `--version` exits 0. When none resolve, `konoha init` prints `QA blocked: <reason>` (the core install still succeeds) and `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason }`. `qa_e2e_run` drives Playwright directly and still runs, but it never proves a flow was explored. Record a blocked browser as **BLOCKED**.
+> **Prerequisite: Playwright in the target project.** Verify with `pnpm exec playwright --version` before step 1. Playwright is a hard requirement for QA only — it is already a runtime dependency of Konoha, so the core install never fails on it. The target project owns the version, the browser cache, and `PLAYWRIGHT_BROWSERS_PATH`; install browsers once with `pnpm exec playwright install chromium`.
 >
-> The pin lives in `bin/lib/extension.js` (`PINNED_AB_PACKAGE`, `PINNED_AB_VERSION`); change it there and keep this line in sync. `tests/test_agent_browser_provisioning.js` asserts the pair. The old linux-x64 "No binary found" failure does not apply to the current pin.
+> When no Playwright project resolves above the output path, `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason: 'playwright-not-installed', fix: 'pnpm exec playwright install chromium' }` and emits no spec. `qa_e2e_run` shells out to the same runner and shares the prerequisite. Record a blocked browser as **BLOCKED**, never as a pass.
+>
+> There is no pinned CLI and no global resolution chain: a second Playwright install diverges from the project's pinned browser build and produces version-skew failures that look like product bugs.
 
 ```mermaid
 ---
@@ -38,7 +40,7 @@ config:
     wrappingWidth: 350
 ---
 flowchart LR
-    A["Explore<br/>(agent-browser, tokens)"] --> B["Flow File<br/>(JSON)"]
+    A["Explore<br/>(Playwright, tokens)"] --> B["Flow File<br/>(JSON)"]
     B --> C["Codify<br/>(no LLM)"]
     C --> D["Playwright Run<br/>(no LLM browsing)"]
     D -. "only on failure:<br/>small, escalating triage" .-> A
@@ -85,8 +87,8 @@ flowchart TD
   P4 --> Q1
 
   subgraph P5["5 Execute: QA loop, Anbu owns all evidence"]
-    Q1["Anbu: explore with scoped snapshots"] --> Q2["Anbu: write flow file"]
-    Q2 --> QV{"batch --bail passes?"}
+    Q1["Anbu: explore with scoped ariaSnapshot"] --> Q2["Anbu: write flow file"]
+    Q2 --> QV{"spec verify passes?"}
     QV -- no --> Q2
     QV -- yes --> Q3["Anbu: qa_codify + qa_e2e_run = RED"]
     Q3 --> QF{"Where is the bug?"}
@@ -117,12 +119,12 @@ flowchart TD
 
 | Operation | Strategy | Rationale |
 |---|---|---|
-| **Snapshot Scoping** | `snapshot -i -c` (interactive + compact), scoped via `-s` or `-d` | Minimizes accessibility tree size; excludes static structural nodes. |
-| **Differential Inspection** | `diff snapshot` or targeted queries (`get text`, `is visible`, `wait --text`) | Avoids reloading the entire accessibility tree into context. |
+| **Snapshot Scoping** | `page.locator(scope).ariaSnapshot()`; guard the selector with `count()` and fall back to `body`, never `html` | Minimizes accessibility tree size; excludes static structural nodes without timing out on absent containers. |
+| **Differential Inspection** | Re-query a locator (`textContent`, `isVisible`, `waitFor`) instead of a second snapshot | Avoids reloading the entire accessibility tree into context. |
 | **Visual Evidence** | Max 2 screenshots per finding (`~/.konoha/tmp/qa/`, JPEG q60) | Prevents image token bloat. |
-| **Batch Execution** | `agent-browser batch --bail --json` | Single round-trip execution for sequential commands. |
-| **State Persistence** | Auth state stored under `~/.konoha/tmp/qa/state/` with encryption key | Reuses session cookies instead of repeating login flows. |
-| **Output Cap** | Max 4,000 characters globally via `--max-output` | Prevents runaway page output flooding LLM context. |
+| **Batch Execution** | One script run, one `chromium.launch()` | Single round-trip execution for sequential commands. |
+| **State Persistence** | `context.storageState({ path: '~/.konoha/tmp/qa/state/auth.json' })`, replayed via `browser.newContext({ storageState })` | Reuses session cookies instead of repeating login flows. |
+| **Output Cap** | Max 4,000 characters per interaction; max 15 actions per area without findings | Prevents runaway page output flooding LLM context. |
 
 ---
 
@@ -133,7 +135,7 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 | Claim | Required Verification Evidence |
 |---|---|
 | Route / Selector exists | Genin cites exact `file:line` from Semble codebase exploration. |
-| Flow works | `agent-browser batch --bail --json` exit 0 on that flow file hash. |
+| Flow works | `qa_codify` compile + Playwright run exit 0 on that flow file hash. |
 | Bug confirmed | RED `qa_e2e_run` summary with unique `run_id` for the codified spec. |
 | Bug fixed | GREEN `qa_e2e_run` summary with unique `run_id` on the same test spec. |
 | Clean scope | Documented as `none found in <scope>, <N> actions` (never "bug-free"). |
@@ -160,7 +162,7 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 ### 1. `qa_codify`
 - **Signature**: `qa_codify(flow_path, out_path, name, lang?, skip_verification?)`
 - **Access**: Granted to **Anbu** only.
-- **Verification Gate**: Executes `agent-browser batch --bail --json` on flow stdin before emitting test code. Fails immediately if any step fails.
+- **Verification Gate**: Compiles the flow to `.konoha-verify-<flowHash12>.spec.js` next to `out_path`, runs it with the project's Playwright, and deletes it on exit 0. A failing step returns `{ ok: false, error: 'flow-failed' }` with trimmed reporter output and emits no test code.
 - **Lint Guard**: Rejects transient `@e` refs and forbidden test directives (`skip`, `fixme`, `pause`, sleeps).
 
 ### 2. `qa_e2e_run`
@@ -177,9 +179,6 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 | Inspection Method | Raw Characters | Estimated Tokens | Reduction vs Bare |
 |---|---|---|---|
-| Bare DOM / Snapshot | 5,420 chars | ~1,355 tokens | Baseline (0%) |
-| Compact Snapshot (`snapshot -i -c`) | 1,180 chars | ~295 tokens | **78.2% reduction** |
-| Scoped Snapshot (`snapshot -i -c -s "#detect-target"`) | 210 chars | ~52 tokens | **96.1% reduction** |
 | Raw Playwright JSON Report | 8,420 chars | ~2,105 tokens | Baseline (0%) |
 | `qa_e2e_run` Compact Summary | 275 chars | ~68 tokens | **96.7% reduction** |
 | Subsequent Playwright Re-runs | 0 tokens | 0 tokens | **100% reduction** |
@@ -194,7 +193,7 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 |---|---|---|
 | `~/.konoha/tmp/qa/<run_id>/` | `qa_e2e_run`: `report.json`, copied failure traces (`trace-*.zip`) and screenshots (`screenshot-*.png`) | Outside the project. Pruned by retention. |
 | `~/.konoha/tmp/qa/projects/<hash>/` | `qa_e2e_run`: Playwright working directory, including artifacts and `.last-run.json` | Outside the project. Stable per project hash. Never pruned by retention. |
-| `~/.konoha/tmp/qa/state/` | `agent-browser`: Saved authentication state | Outside the project. Never pruned. |
+| `~/.konoha/tmp/qa/state/` | Exploration scripts: `context.storageState()` snapshots | Outside the project. Never pruned. |
 | `test-results/`, `playwright-report/`, `blob-report/`, `playwright/.cache/` | Playwright defaults (if triggered directly by user or manual run) | Ephemeral. Ignored via managed `.gitignore` block. |
 | `<test-dir>/e2e/flows/`, specs, `reports/` | `qa_codify`, Anbu | **Deliverables. Version-controlled. Never ignored, never pruned.** |
 

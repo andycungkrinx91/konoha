@@ -139,7 +139,7 @@ The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/`
 | Windows 10/11 | **NOT RUN** |
 | macOS arm64 / x64 | **NOT RUN** |
 
-`agent-browser@0.3.1` publishes no linux-x64 native binary (`Error: No binary found for linux-x64`), so QA automation reports `QA blocked:` on Linux instead of pretending to work. Do not describe it as functional there.
+QA automation resolves Playwright from the target project (`pnpm exec playwright`). When no Playwright project resolves, `qa_codify` reports `qa_blocked` with `reason: 'playwright-not-installed'` and the exact fix command instead of emitting a spec it cannot run. Do not describe QA as functional without that resolution.
 
 ---
 
@@ -344,7 +344,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 18. **Architectural Modularization & Strict Zero-Exclusions Gate (v2.0.2)**:
    - Extracted 1,068 lines of UI CLI commands into `bin/lib/ui_commands.js` to preserve the < 9,000 lines complexity threshold. Enforces strict zero-exclusions across application code — `aislop-ignore` and config suppressions are strictly forbidden on codebase files, mandating root-cause architectural resolution.
 19. **QA Automation Workflow & Bounded Browser Loop (v2.1.0)**:
-   - Integrates deterministic `agent-browser` + Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
+   - Integrates deterministic Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
 20. **13-Page Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
    - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
 21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13 - v2.1.14)**:
@@ -574,7 +574,7 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
    - **SQLite FTS5 & Neural Vector Primary Authority (`src/mcp/skills.js`)**: Enforced SQLite FTS5 and dense neural vector RAG as the single primary authority for all skill lookups across all IDE clients. On-disk markdown mirrors serve strictly as fallbacks when SQLite is unavailable.
    - **Universal Workspace Synchronization (`src/agent_manager.js`, `bin/commands/project.js`, `init.js`, `migrate.js`)**: `deployProjectWorkspace` is universally triggered upon `konoha project add <path>`, `konoha migrate`, `konoha embed`, and `konoha init`. Automatically synchronizes all ninja rules, contracts, and MCP server declarations across Cursor, Gemini/Antigravity, Claude Code, Command Code, Codex, and OMP.
    - **Consumer Ignore Injection & Core Repository Exclusion**: `deployProjectWorkspace` automatically injects managed `.gitignore` and `.dockerignore` blocks (`## Start Konoha config+skill ... ## End Konoha config+skill` with `.agents/plugins/`, `.aislop/`, `.aislopignore`, `.claude.json`, `.claude/`, `.codex/`, `.commandcode/`, `.cursor/`, `.cursorrules`, `.gemini/`, `.omp/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) into consumer project workspaces. Defensively excludes the Konoha engine repository root via `isTargetKonohaRepo` so core configs (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.claude.json`, `.commandcode/mcp.json`) remain tracked in version control.
-   - **End-to-End Test Automation Matrix**: 100% test pass rate across 12 Playwright specs (46 test scenarios) and live `agent-browser` (v0.27.0) automation verifying Web UI, chat interactions, theme switches, and mobile dock responsiveness.
+   - **End-to-End Test Automation Matrix**: 100% test pass rate across 12 Playwright specs (46 test scenarios) and live Playwright automation verifying Web UI, chat interactions, theme switches, and mobile dock responsiveness.
 
 12. **Unified Deterministic Prompt Architecture (< 8 KB), Lightweight Contracts (< 1.2 KB) & Alphabetized CLI Governance (v2.2.4)**:
    - **Single Deterministic Token-Bounded Prompt Architecture (`src/mcp/memory_reporting.js`)**: Eradicated legacy Turn 2 auto-compaction branching (`isAutoCompact`). Every turn (Turn 1, Turn 2, Turn 3, ...) generates a unified, token-bounded prompt format strictly < 8,000 bytes (< 8 KB, ~1,800 tokens) with 100% prefix determinism ($T_1 == T_2 == T_3$) for maximum provider KV prompt caching. Dynamic task inputs are placed strictly at the prompt suffix (`## TASK INSTRUCTIONS`).

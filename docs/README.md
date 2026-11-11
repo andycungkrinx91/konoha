@@ -49,7 +49,7 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 | `integration/telegram` | [TELEGRAM_INTEGRATION_GUIDE.md](TELEGRAM_INTEGRATION_GUIDE.md) | Dual-mode bot setup and inbound prompting |
 | `integration/llm-bridge` | [LLM-BRIDGE-GATEWAY.md](LLM-BRIDGE-GATEWAY.md) | Multi-provider proxy router on port 19999 |
 | `skills/authoring` | [ADDING-SKILLS.md](ADDING-SKILLS.md) | Importing skills from skills.sh |
-| `qa/harness` | [QA-AUTOMATION.md](QA-AUTOMATION.md) | Token-efficient QA workflow and agent-browser usage |
+| `qa/harness` | [QA-AUTOMATION.md](QA-AUTOMATION.md) | Token-efficient QA workflow and Playwright usage |
 | `qa/test-matrix` | [QA-TEST-CHECKLIST.md](QA-TEST-CHECKLIST.md) | Verification checklist per subsystem |
 | `metrics/benchmark` | [BENCHMARK.md](BENCHMARK.md) | Generated token-savings report; edit only via `scripts/generate_benchmark.js` |
 | `ops/troubleshooting` | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom to cause to fix |
