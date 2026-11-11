@@ -274,7 +274,6 @@ expectTimeout('extension', /ExecutionPolicy Bypass -File.*timeout:/, SLOW_NETWOR
 expectTimeout('extension', /winget install.*timeout:/, SLOW_NETWORK_MS, 'uv install (winget fallback)', { allowConstant: true });
 expectTimeout('extension', /install\.sh.*timeout:/, SLOW_NETWORK_MS, 'uv install (posix download)', { allowConstant: true });
 expectTimeout('extension', /execSync\(`sh "\$\{scriptPath\}"`.*timeout:/, SLOW_NETWORK_MS, 'uv install (posix script)', { allowConstant: true });
-expectTimeoutWindow('extension', /const installRes = isWin/, SLOW_NETWORK_MS, 'agent-browser install');
 expectTimeoutWindow('rtkInstaller', /spawnSync\(cargo, \['install'/, SLOW_NETWORK_MS, 'rtk cargo install');
 expectTimeoutWindow('rtkInstaller', /spawnSync\(cargo, \['install'/, SLOW_NETWORK_MS, 'rtk cargo install (fallback)');
 expectTimeoutWindow('rtkInstaller', /spawnSync\('brew', \['install'/, SLOW_NETWORK_MS, 'rtk brew install');

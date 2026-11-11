@@ -10,8 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
-const { stripAnsi, getSha256, getAgentBrowserCmd, qaCodify } = require('./qa_codify');
+const { stripAnsi, getSha256, qaCodify } = require('./qa_codify');
+const { resolveTargetProjectDir, playwrightExec } = require('./qa_runner');
 const {
   ensureQaGitignore,
   getProjectOutputDirs,
@@ -101,15 +101,6 @@ function capSummaryPayload(result, displayedFailures) {
   }
 }
 
-function executePlaywright(resolvedProject, options) {
-  const { pwArgs, reportPath } = options;
-  const testEnv = { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath };
-  const isWin = process.platform === 'win32';
-  return isWin
-    ? spawnSync(`pnpm.cmd ${pwArgs.join(' ')}`, { cwd: resolvedProject, env: testEnv, encoding: 'utf-8', shell: true, windowsHide: true })
-    : spawnSync('pnpm', pwArgs, { cwd: resolvedProject, env: testEnv, encoding: 'utf-8' });
-}
-
 function extractJsonFromStdout(stdout, reportPath) {
   if (!stdout) return null;
   const rawOut = stdout.trim();
@@ -134,20 +125,8 @@ function parseTestReport(reportPath, testRun) {
   return extractJsonFromStdout(testRun ? testRun.stdout : null, reportPath);
 }
 
-function resolveTargetProjectDir(projectPath) {
-  let resolved = path.resolve(projectPath);
-  const hasRootConfig = fs.existsSync(path.join(resolved, 'playwright.config.js')) || fs.existsSync(path.join(resolved, 'playwright.config.ts'));
-  if (!hasRootConfig && fs.existsSync(path.join(resolved, 'apps/web/playwright.config.js'))) {
-    resolved = path.join(resolved, 'apps/web');
-  }
-  return resolved;
-}
-
 function runPlaywrightSuite(resolvedProject, projectOutput, reportPath, args) {
-  const isWin = process.platform === 'win32';
-  const checkRes = isWin
-    ? spawnSync('pnpm.cmd exec playwright --version', { cwd: resolvedProject, encoding: 'utf-8', shell: true, windowsHide: true })
-    : spawnSync('pnpm', ['exec', 'playwright', '--version'], { cwd: resolvedProject, encoding: 'utf-8' });
+  const checkRes = playwrightExec(resolvedProject, ['exec', 'playwright', '--version']);
   if (checkRes.status !== 0) {
     return { ok: false, error: 'Playwright not found or not installed in project.', fix: 'pnpm exec playwright install chromium' };
   }
@@ -156,7 +135,7 @@ function runPlaywrightSuite(resolvedProject, projectOutput, reportPath, args) {
   if (args.lastFailed) pwArgs.push('--last-failed');
   if (args.maxFailures !== null && args.maxFailures > 0) pwArgs.push(`--max-failures=${args.maxFailures}`);
 
-  const testRun = executePlaywright(resolvedProject, { pwArgs, reportPath });
+  const testRun = playwrightExec(resolvedProject, pwArgs, { PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath });
   const reportJson = parseTestReport(reportPath, testRun);
   if (!reportJson) {
     const errText = stripAnsi(testRun.stderr || testRun.stdout || 'Test execution failed').slice(0, 500);
@@ -215,6 +194,14 @@ function qaE2eRun(args = {}) {
   }
   const reportJson = pwRes.reportJson;
 
+  // A report carrying top-level errors means Playwright aborted before running a
+  // single test. Reporting that as passed would be a fake green.
+  const globalErrors = Array.isArray(reportJson.errors) ? reportJson.errors : [];
+  if (globalErrors.length > 0) {
+    const detail = stripAnsi(globalErrors.map((e) => (e && e.message) || String(e)).join('\n')).slice(0, 500);
+    return { status: 'error', run_id: runId, report_path: reportPath, error: 'Playwright aborted before running any test', detail };
+  }
+
   const state = { fileHashes: {}, totals: { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, durationMs: 0 }, failureEntries: [], flakyNames: [] };
   processReportSuites(reportJson, resolvedProject, state);
   copyFailureEvidence(state.failureEntries, qaTmpDir);
@@ -249,6 +236,5 @@ module.exports = {
   copyFailureEvidence,
   runQaRetention,
   stripAnsi,
-  getSha256,
-  getAgentBrowserCmd
+  getSha256
 };

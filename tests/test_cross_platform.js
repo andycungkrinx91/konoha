@@ -106,13 +106,6 @@ async function run() {
   assert.strictEqual(safe, false);
   console.log('✓ Extension unauthorized simulation passed');
 
-  // Agent-browser resolution
-  const cmdWin = true ? 'agent-browser.cmd' : 'agent-browser';
-  assert.ok(cmdWin.includes('agent-browser'));
-  const cmdUnix = false ? 'agent-browser.cmd' : 'agent-browser';
-  assert.strictEqual(cmdUnix, 'agent-browser');
-  console.log('✓ Agent-browser cross-platform resolution passed');
-
   console.log('\nAll test_cross_platform tests passed!');
 }
 

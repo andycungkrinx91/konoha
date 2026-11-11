@@ -48,9 +48,7 @@ const {
 const { purgePackageCaches } = require('../lib/runtime_mcp');
 const {
   installUv,
-  installAgentBrowserDetailed,
-  refreshSemblePackage,
-  PINNED_AB_PACKAGE
+  refreshSemblePackage
 } = require('../lib/extension');
 const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
@@ -121,15 +119,6 @@ function checkNodeAndToolchains(options, args) {
     }
   } else {
     spinner1b.success('uv installed successfully.');
-  }
-
-  const spinner1c = startSpinner('Checking agent-browser CLI...');
-  let ab = installAgentBrowserDetailed(true);
-  if (!ab.ok) ab = installAgentBrowserDetailed(false);
-  if (ab.ok) {
-    spinner1c.success(`agent-browser CLI ready (${ab.via}).`);
-  } else {
-    spinner1c.warn(`QA blocked: agent-browser unavailable (${ab.reason}). Install with: npm i -g ${PINNED_AB_PACKAGE}`);
   }
 
   if (args.includes('--force')) {

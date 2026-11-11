@@ -46,7 +46,6 @@ Diagnosing environment requirements and auto-repairing missing components...
     │ Claude Code (~/.claude.json)                       │ HEALTHY    │ konoha and semble active & allowed                              │
     │ OpenCode (~/.opencode/config.json)                 │ HEALTHY    │ konoha and semble active                                        │
     │ Command Code (~/.commandcode/mcp.json)             │ HEALTHY    │ konoha and semble active                                        │
-    │ agent-browser CLI                                  │ WARNING    │ Missing agent-browser (recommended for design match comparison) │
     └────────────────────────────────────────────────────┴────────────┴─────────────────────────────────────────────────────────────────┘
 
 ┌────────────── 🩺 Doctor Summary ──────────────┐

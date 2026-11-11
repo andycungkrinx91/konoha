@@ -117,9 +117,9 @@ try {
     assert.strictEqual(failRes.verified, false);
   }
 
-  // qa_blocked contract: when no agent-browser can be resolved, qaCodify must
-  // fail closed with a top-level { ok:false, error:'qa_blocked', reason } rather
-  // than reporting success or a generic batch failure.
+  // qa_blocked contract: when no Playwright project can be resolved, qaCodify
+  // must fail closed with a top-level { ok:false, error:'qa_blocked', reason }
+  // rather than reporting success or a generic run failure.
   const blockedFlowPath = path.join(tmpDir, 'blocked_flow.json');
   fs.writeFileSync(blockedFlowPath, JSON.stringify([['open', 'http://localhost:1/']]), 'utf8');
   const savedPath = process.env.PATH;
@@ -129,21 +129,19 @@ try {
     process.env.HOME = path.join(tmpDir, 'no-home');
     fs.mkdirSync(process.env.PATH, { recursive: true });
     fs.mkdirSync(process.env.HOME, { recursive: true });
+    // A directory with no playwright.config.js and no package.json anywhere above
+    // it cannot host a Playwright run, so verification must refuse to guess.
     const blocked = qaCodify({
       flow_path: blockedFlowPath,
       out_path: path.join(tmpDir, 'blocked.spec.js'),
       name: 'blocked flow',
       skip_verification: false
     });
-    if (blocked.error === 'qa_blocked') {
-      assert.strictEqual(blocked.ok, false, 'qa_blocked must set ok:false');
-      assert.ok(typeof blocked.reason === 'string' && blocked.reason.length > 0, 'qa_blocked must carry a reason');
-      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'blocked.spec.js')), false, 'no spec written when blocked');
-      console.log('  ✓ qa_blocked contract enforced');
-    } else {
-      // A resolvable npx fallback is a legitimate pass; record which path ran.
-      console.log('  (agent-browser resolved in this environment; qa_blocked path not exercised)');
-    }
+    assert.strictEqual(blocked.error, 'qa_blocked', 'verification without a Playwright project must fail closed');
+    assert.strictEqual(blocked.ok, false, 'qa_blocked must set ok:false');
+    assert.ok(typeof blocked.reason === 'string' && blocked.reason.length > 0, 'qa_blocked must carry a reason');
+    assert.strictEqual(fs.existsSync(path.join(tmpDir, 'blocked.spec.js')), false, 'no spec written when blocked');
+    console.log('  ✓ qa_blocked contract enforced');
   } finally {
     if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
     if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
