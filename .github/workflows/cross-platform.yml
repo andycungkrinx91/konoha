@@ -1,0 +1,83 @@
+name: Cross-Platform
+
+# Runs the repo checks on all three supported OSes for every push to master and
+# every pull request. The publish and release-assets workflows stay tag-only on
+# ubuntu-latest; this workflow owns push/PR verification and never publishes.
+#
+# Known state (see docs/CI.md): the `pnpm test` step is currently red on all
+# three OSes because the test harness itself is blocked by ERR_FS_CP_EINVAL
+# (tests/run_all.js:100, pre-existing since 2.2.18; fixed by PR #6, unmerged).
+# That failure is surfaced honestly here — the test step has no
+# `continue-on-error`. The workflow turns green once the harness fix lands.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-platform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} (Node 24, pnpm 12.16.1)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    strategy:
+      # One OS failing must not cancel the others — the per-OS signal is the point.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Setup reused exactly from .github/workflows/publish.yml.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # Full suite via tests/run_all.js. Parallel mode is the harness's own
+      # feature (KONOHA_TEST_PARALLEL=1, concurrency 4, with a sequential pool
+      # for suites that must run alone); sequential would take hours.
+      # No continue-on-error: a failing suite must turn the workflow red.
+      - name: Test (full suite)
+        env:
+          KONOHA_TEST_PARALLEL: '1'
+        timeout-minutes: 240
+        run: pnpm test
+
+      # Fresh-install smoke test, invoking the CLI entry point directly
+      # (bin: konoha -> bin/cli.js) so no global install or PATH resolution is
+      # involved on any OS. --no-project mirrors the release review's verified
+      # fresh-install command and keeps init from dirtying the checkout.
+      # `konoha doctor` is deliberately not in this smoke test: it runs its
+      # full self-test whenever repairs occur, which duplicates the suite
+      # above. See docs/CI.md.
+      - name: Fresh-install smoke test
+        timeout-minutes: 30
+        env:
+          HOME: ${{ runner.temp }}/konoha-smoke-home
+          USERPROFILE: ${{ runner.temp }}/konoha-smoke-home
+        run: |
+          node bin/cli.js init --yes --no-project
+          node bin/cli.js migrate
+          node bin/cli.js version

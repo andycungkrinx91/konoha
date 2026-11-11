@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Added
+
+- **Cross-platform CI (`.github/workflows/cross-platform.yml`, `docs/CI.md`)**: the repo checks (`pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm test`, fresh-install smoke test) now run on ubuntu, Windows, and macOS for every push to `master` and every pull request (Node 24, pnpm 12.16.1; setup reused from `publish.yml`). The `pnpm test` step is currently red on all three OSes because the test harness itself is blocked by `ERR_FS_CP_EINVAL` (fixed by PR #6, unmerged) — the workflow surfaces that failure honestly instead of hiding it. README workflow-status badge added.
+
 ## [2.2.20] - 2026-11-10
 
 - License: MIT → Apache License 2.0. Konoha is now licensed under the Apache License 2.0: permissive use (including commercial and proprietary), with an explicit patent grant, a requirement to mark modified files, and a NOTICE file for attributions. See LICENSE, NOTICE, and the License section in README.md. Versions up to v2.2.19 remain available under MIT.
