@@ -19,6 +19,7 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 };
 
 const readline = require("readline");
+const { startStdioOrphanGuard, startDaemonOrphanGuard } = require("./mcp_orphan_guard");
 
 process.on("unhandledRejection", (reason) => {
   try {
@@ -632,8 +633,10 @@ function setupStdioMcpListener(handles) {
     input: process.stdin,
     crlfDelay: Infinity,
   });
+  const orphanGuard = startStdioOrphanGuard();
 
   rl.on("close", () => {
+    orphanGuard.stop();
     if (handles.pollInterval) clearInterval(handles.pollInterval);
     if (handles.watcher) handles.watcher.close();
     try {
@@ -644,6 +647,7 @@ function setupStdioMcpListener(handles) {
   });
 
   rl.on("line", (line) => {
+    orphanGuard.noteActivity();
     const trimmed = line.trim();
     if (!trimmed) return;
     try {
@@ -660,6 +664,7 @@ function main() {
   let handles = { pollInterval: null, watcher: null };
   if (process.env.KONOHA_DAEMON === 'true') {
     handles = startDaemonBackgroundServices();
+    startDaemonOrphanGuard();
   } else {
     setupStdioMcpListener(handles);
   }
