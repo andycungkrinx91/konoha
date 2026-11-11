@@ -4,11 +4,12 @@ name: Cross-Platform
 # every pull request. The publish and release-assets workflows stay tag-only on
 # ubuntu-latest; this workflow owns push/PR verification and never publishes.
 #
-# Known state (see docs/CI.md): the `pnpm test` step is currently red on all
-# three OSes because the test harness itself is blocked by ERR_FS_CP_EINVAL
-# (tests/run_all.js:100, pre-existing since 2.2.18; fixed by PR #6, unmerged).
-# That failure is surfaced honestly here — the test step has no
-# `continue-on-error`. The workflow turns green once the harness fix lands.
+# Known state (see docs/CI.md): baseline is master 513669d3 (PR #4 re-init
+# purge + PR #6 harness seed-copy fix merged). The old ERR_FS_CP_EINVAL block
+# at tests/run_all.js:100 is dissolved — the harness runs every suite. Bare
+# runners still lack the host's ~/.cache/ms-playwright and apps/web/build
+# output, so this workflow provisions both before `pnpm test`. The test step
+# has no `continue-on-error`: a failing suite turns the workflow red.
 
 on:
   push:
@@ -37,9 +38,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # Setup reused exactly from .github/workflows/publish.yml.
+      # Setup mirrors .github/workflows/publish.yml except pnpm/action-setup is
+      # v6.1.1 here (verified tag) for non-interactive pnpm 12 handling.
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.1
         with:
           run_install: false
 
@@ -52,6 +54,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Bare runners have no browser cache. The harness forwards
+      # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js:130), defaulting to
+      # ~/.cache/ms-playwright — so install to the shared runner.temp path
+      # and export the same path for the test step.
+      - name: Install Playwright browsers (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright browsers (Windows/macOS)
+        if: matrix.os != 'ubuntu-latest'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        run: pnpm exec playwright install chromium
+
+      # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
+      # tests/test_manifest_invariants.js:72 requires apps/web/build/index.js.
+      - name: Build web
+        run: pnpm --filter konoha-web build
+
       - name: Lint
         run: pnpm lint
 
@@ -62,6 +85,7 @@ jobs:
       - name: Test (full suite)
         env:
           KONOHA_TEST_PARALLEL: '1'
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         timeout-minutes: 240
         run: pnpm test
 
