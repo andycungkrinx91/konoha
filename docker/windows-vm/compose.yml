@@ -1,0 +1,42 @@
+# Local Windows VM for reproducing the `windows-latest` CI leg.
+#
+# A full Windows guest under QEMU/KVM (dockur/windows) — NOT a Windows container.
+# Windows containers share the Windows kernel and cannot run on a Linux Docker
+# daemon. Prerequisites: Docker, /dev/kvm, >= 8 GB free RAM, >= 80 GB free disk.
+#
+#   docker compose -f docker/windows-vm/compose.yml up -d
+#   docker compose -f docker/windows-vm/compose.yml logs -f
+#
+# Web viewer: http://127.0.0.1:8006   RDP: 127.0.0.1:3390 (user Docker)
+# The repo root is mounted read/write as /shared -> drive Z: in the guest, so
+# Z:\ is the checkout and run logs land in Z:\docker\windows-vm\logs.
+services:
+  windows:
+    image: docker.io/dockurr/windows
+    container_name: konoha-windows-vm
+    environment:
+      VERSION: "11"
+      RAM_SIZE: "8G"
+      CPU_CORES: "4"
+      DISK_SIZE: "64G"
+      USERNAME: "Docker"
+      PASSWORD: "${WINDOWS_VM_PASSWORD:-konohagakure}"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "127.0.0.1:8006:8006"
+      - "127.0.0.1:3390:3389/tcp"
+      - "127.0.0.1:3390:3389/udp"
+    volumes:
+      # Guest disk lives outside the checkout: the guest must never be able to
+      # reach its own qcow2 through Z:.
+      - "${WINDOWS_VM_STORAGE:-${HOME}/.cache/konoha-windows-vm/storage}:/storage"
+      - "../..:/shared"
+      # Provisioning hook: dockur copies /oem into C:\OEM and runs install.bat
+      # during the final install step (Node 24, Git, ffmpeg, pnpm).
+      - "./oem:/oem"
+    stop_grace_period: 2m
+    restart: "no"

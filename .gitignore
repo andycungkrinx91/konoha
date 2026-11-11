@@ -139,3 +139,6 @@ apps/web/test-results/
 tmp/
 vendor/
 !vendor/sqlite-vector/**
+
+# Local Windows VM run logs (docker/windows-vm)
+docker/windows-vm/logs/
