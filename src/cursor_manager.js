@@ -28,23 +28,23 @@ const CURSOR_RTK_RULE_SRC = path.join(__dirname, 'templates', 'rules', 'rtk.mdc'
 
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
 
-// isRtkInstalled is imported from platform_utils
-
 function deployCursorRtkRule(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
   const targetRulesDir = path.join(home, '.cursor', 'rules');
 
+  // The rule template is static, so it deploys with or without `rtk` on PATH;
+  // `rtk init` only enriches it and stays best-effort.
   const rtkCmd = getRtkCommand();
-  if (!rtkCmd) return { ok: false, reason: 'rtk-not-installed' };
-  try {
-    spawnSync(rtkCmd, ['init', '-g', '--agent', 'cursor', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', windowsHide: true
-    });
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  if (rtkCmd) {
+    try {
+      spawnSync(rtkCmd, ['init', '-g', '--agent', 'cursor', '--auto-patch', '--trust-filters'], {
+        encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', windowsHide: true
+      });
+    } catch { /* best-effort enrichment: never crash the CLI/MCP runtime */ }
+  }
   if (!fileExists(CURSOR_RTK_RULE_SRC)) return { ok: false, reason: 'rtk-rule-template-missing' };
-
   ensureDir(targetRulesDir);
   const dest = path.join(targetRulesDir, 'rtk.mdc');
   try {

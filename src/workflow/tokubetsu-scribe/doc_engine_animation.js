@@ -119,13 +119,21 @@ function _encodeGifWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames) {
   return null;
 }
 
+// `which` does not exist on Windows, and `ffmpeg` alone can lack libwebp_anim.
+// Probe the binary itself and ask it about the encoder instead of the OS.
+function _ffmpegHasEncoder(encoder) {
+  const res = spawnSync('ffmpeg', ['-hide_banner', '-encoders'], { encoding: 'utf8', windowsHide: true });
+  if (res.error || res.status !== 0 || !res.stdout) return false;
+  return res.stdout.includes(encoder);
+}
+
 function _tryEncodeAnimation(targetFormat, tmpFramesDir, fps, outputPath, totalFrames) {
-  const checkFfmpeg = spawnSync('which', ['ffmpeg']);
-  if (checkFfmpeg.status !== 0) return null;
   if (targetFormat === 'webp') {
+    if (!_ffmpegHasEncoder('libwebp_anim')) return null;
     return _encodeWebpWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames);
   }
   if (targetFormat === 'gif') {
+    if (!_ffmpegHasEncoder('gif')) return null;
     return _encodeGifWithFfmpeg(tmpFramesDir, fps, outputPath, totalFrames);
   }
   return null;

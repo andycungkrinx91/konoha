@@ -75,6 +75,34 @@ jobs:
       - name: Build web
         run: pnpm --filter konoha-web build
 
+      # tests/test_document_animation_webp.js asserts the animated WebP export,
+      # which needs an ffmpeg build with the `libwebp_anim` encoder. The macOS
+      # and Windows images ship builds that may lack it, and the module falls
+      # back to a static PNG without it, so provision one explicitly and keep
+      # the runner's ffmpeg when it already qualifies.
+      - name: Ensure ffmpeg with libwebp (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+      - name: Ensure ffmpeg with libwebp (macOS)
+        if: matrix.os == 'macos-latest'
+        run: ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim || brew install ffmpeg
+
+      - name: Ensure ffmpeg with libwebp (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $hasEncoder = $false
+          try { $hasEncoder = ((ffmpeg -hide_banner -encoders 2>$null) -match 'libwebp_anim').Count -gt 0 } catch { $hasEncoder = $false }
+          if (-not $hasEncoder) { choco install ffmpeg -y --no-progress }
+
+      - name: Verify ffmpeg webp encoder
+        run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"
+
       - name: Lint
         run: pnpm lint
 
