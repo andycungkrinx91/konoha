@@ -165,6 +165,15 @@ Gate 1 (`pending_plan_approval`): compact-and-approve, or reject/regenerate with
 Nine phases, two human gates, five quality gates. Every request enters through the Sannin router, fans out to specialist agents, and exits only through the gates. Full text flow with all 18 workflows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md).
 
 ```mermaid
+---
+title: Konoha Master System Architecture
+config:
+  theme: base
+  themeVariables:
+    fontFamily: 'Inter, system-ui, sans-serif'
+  flowchart:
+    wrappingWidth: 380
+---
 flowchart TB
     UserPrompt["End User / Client Prompt"] --> Clients["8 Supported Coding Environments"]
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js StateGraph Router)"]
@@ -173,6 +182,48 @@ flowchart TB
     Sannin --> NinjaTeam["9 Specialist Ninja Subagents<br/>sannin genin chunin jonin anbu<br/>tokubetsu-jonin kage akatsuki yamanaka"]
     NinjaTeam --> QualityGate["Verification and Quality Enforcement<br/>DoR Gate - Slop Gate 100/100 - Socket Gate - Kage 98-pct Gate"]
     QualityGate --> Delivery["Final Delivery and User Response"]
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+```
+
+```mermaid
+---
+title: Konoha Skill Retrieval via Konoha MCP and Semble MCP
+config:
+  theme: base
+  themeVariables:
+    fontFamily: 'Inter, system-ui, sans-serif'
+  flowchart:
+    wrappingWidth: 380
+---
+flowchart LR
+    Task["Task prompt"] --> Sannin["sannin router"]
+    Sannin --> KonohaMCP["Konoha MCP skill lookup"]
+    KonohaMCP --> GeninSkill["genin-skill baseline scan"]
+    Sannin --> SembleMCP["Semble MCP code search"]
+    KonohaMCP <--> SQLiteFTS5[("SQLite FTS5 skill index")]
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+```
+
+```mermaid
+---
+title: Konoha Delegation Handoff from Triage to Kage Review
+config:
+  theme: base
+  themeVariables:
+    fontFamily: 'Inter, system-ui, sans-serif'
+  flowchart:
+    wrappingWidth: 380
+---
+flowchart TB
+    Prompt["User request"] --> Router["sannin triage"]
+    Router --> Activate["use_skills activation<br/>(Konoha MCP get_skill)"]
+    Activate --> Worker["Specialist subagent<br/>genin chunin jonin anbu<br/>tokubetsu-jonin akatsuki yamanaka"]
+    Router --> SembleMCP["Semble MCP code search"]
+    Worker --> Evidence["report_from_agent<br/>validation evidence"]
+    Evidence --> KageGate["kage review<br/>98-pct confidence gate"]
+    KageGate --> Delivery["Delivery"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
@@ -199,6 +250,7 @@ Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools a
 ### MCP tools: 48 canonical, 50 manifest entries
 
 `src/mcp_tool_manifest.json` lists 50 entries: 48 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
+The unified `konoha` server exposes 48 canonical tools over MCP; Semble adds `search`/`find_related` and aislop adds scan/fix hygiene.
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
@@ -258,10 +310,11 @@ RTK rules deploy alongside (`~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`,
 Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <backup|rebuild-fts|prune>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|stop|restart|status|open>`, `konoha web` (port 1404).
 
 Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<agent>` wrappers; 27 legacy CLI aliases removed (canonical `konoha task|data|skill|agent|status` enforced); `konoha data prune` deletes immediately with no auto-backup. Full list in [CHANGELOG.md](CHANGELOG.md).
+`konoha embed` rebuilds vector embeddings (embed implies `--rebuild-embeddings`); `konoha reinstall` wipes and replaces configuration (reinstall implies `--force`).
 
 ### Bridge router and Web UI
 
-- Bridge router on port `19999`: one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
+- Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; Antigravity IDE syncs it into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
 - Web UI on port `1404` (`konoha web`, `konoha ui`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
 - Telegram: one-way completion notifications plus two-way remote prompting (`/run`, `/session`, `/status`, `/savings`, per-agent dispatch). Setup: [docs/TELEGRAM_INTEGRATION_GUIDE.md](docs/TELEGRAM_INTEGRATION_GUIDE.md).
 - SearXNG zero-API-key search for Chunin: [docs/SETUP-SEARXNG.md](docs/SETUP-SEARXNG.md).

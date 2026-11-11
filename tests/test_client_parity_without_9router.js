@@ -92,13 +92,20 @@ test('Claude Code registration is identical with and without 9router', () => {
   assert.equal(present.out.setupOk, true, `9router-present setup failed: ${present.out.setupReason}`);
 
   // Same MCP servers, same konoha entry — no 9router dependency either way.
-  // Each mode runs in its own sandbox HOME, so the absolute install paths inside
-  // the stdio entry are expected to differ; normalize them before comparing so
-  // the assertion is about 9router dependence, not about tmpdir names.
+  // Each mode runs in its own sandbox HOME and its own controlled PATH (MODE A
+  // shims PATH to hide the 9router binary), and the product deliberately bakes
+  // the launching PATH into the stdio entry so a GUI-launched client can find
+  // node. That baked string is therefore expected to differ between the two
+  // modes and is masked here; a 9router reference anywhere in the artifact is
+  // still caught by rawHasRouter/settingsHasRouter below.
   const normalize = (block, home) => {
     if (!block) return block;
     const json = JSON.stringify(block).split(home).join('<HOME>');
-    return JSON.parse(json);
+    const parsed = JSON.parse(json);
+    if (parsed.env && typeof parsed.env.PATH === 'string') {
+      parsed.env.PATH = '<PATH>';
+    }
+    return parsed;
   };
 
   assert.deepEqual(absent.out.servers, present.out.servers, 'mcpServers differ between modes');

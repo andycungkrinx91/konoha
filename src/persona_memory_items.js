@@ -157,7 +157,14 @@ function appendSessionFilter(options) {
     ? ` AND ${col}project_hash = ?`
     : ` AND (${col}project_hash = '' OR ${col}project_hash IS NULL)`;
   const projectParams = pHash ? [pHash] : [];
-  if (allSessions) return { clause: projectBoundary, params: projectParams };
+  // allSessions without a project scope means "everything", matching
+  // listMemories; applying the unscoped-project boundary here would hide every
+  // project-bound row instead.
+  if (allSessions) {
+    return pHash
+      ? { clause: projectBoundary, params: projectParams }
+      : { clause: '', params: [] };
+  }
   const sid = String(sessionId).trim();
   if (explicitSession) {
     if (pHash && !strictSession) {

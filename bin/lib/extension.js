@@ -321,7 +321,7 @@ function resolveInstalledAgentBrowser() {
  */
 function managedInstallCandidates(prefix, isWin) {
   // The Windows path build joins args into one shell string, so a HOME containing
-  // spaces (common: C:\Users\First Last) would split the flag and install to the
+  // spaces (common in Windows profiles) would split the flag and install to the
   // wrong directory. Quote it for the shell form only.
   const prefixArg = isWin ? `"${prefix}"` : prefix;
   return [

@@ -19,9 +19,9 @@ const {
   getServedSkillsSet,
   searchMirrorSkills,
   logToolCall,
+  isSkillRowVisible,
   denyIfUnauthorized
 } = require('./skills_common');
-const { isPathVisible } = require('./runtime_state');
 const { shieldPromptInjection } = require('../migrate');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || require('os').homedir();
@@ -249,11 +249,11 @@ function _collectVisibleRows(rows, agentName, limit) {
   const visible = [];
   for (const row of rows) {
     if (denyIfUnauthorized(row.name, row.tags, agentName)) {
-      if (isPathVisible(row.file_path) && visible.length < limit) visible.push(_redactedRow(row));
+      if (isSkillRowVisible(row) && visible.length < limit) visible.push(_redactedRow(row));
       if (visible.length >= limit) break;
       continue;
     }
-    if (isPathVisible(row.file_path)) visible.push(row);
+    if (isSkillRowVisible(row)) visible.push(row);
     if (visible.length >= limit) break;
   }
   return visible;
@@ -396,7 +396,7 @@ function listSkills(agentName = null, fields = null) {
       if (seenNames.has(row.name)) continue;
       seenNames.add(row.name);
       const denied = denyIfUnauthorized(row.name, row.tags, agentName);
-      if (!isPathVisible(row.file_path)) continue;
+      if (!isSkillRowVisible(row)) continue;
       const entry = {};
       if (effFields.includes('name')) entry.name = row.name;
       if (effFields.includes('type')) entry.type = row.type;

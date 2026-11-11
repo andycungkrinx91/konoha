@@ -120,7 +120,6 @@ async function dispatchCoreCommand(cmd, cmdArgs) {
       await cmdVersion(cmdArgs);
       return true;
     case 'upgrade':
-    case 'update':
       await cmdUpgrade(cmdArgs);
       return true;
     case 'db': {

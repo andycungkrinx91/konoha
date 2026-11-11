@@ -42,6 +42,7 @@ const allowedRootDeps = [
   'gpt-tokenizer',
   'three',
   'manifold-3d',
+  'marked',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {

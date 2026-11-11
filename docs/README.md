@@ -53,6 +53,7 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 | `qa/test-matrix` | [QA-TEST-CHECKLIST.md](QA-TEST-CHECKLIST.md) | Verification checklist per subsystem |
 | `metrics/benchmark` | [BENCHMARK.md](BENCHMARK.md) | Generated token-savings report; edit only via `scripts/generate_benchmark.js` |
 | `ops/troubleshooting` | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom to cause to fix |
+| `ops/ci` | [CI.md](CI.md) | Cross-platform workflow, browser provisioning, engine capability split |
 | `manual/operators` | [MANUAL.md](MANUAL.md) and [MANUAL.pdf](MANUAL.pdf) | The whole product for 2.2.20 in reading order: install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, agents, token economy, diagnostics, troubleshooting, security, appendix |
 
 ## Assets
