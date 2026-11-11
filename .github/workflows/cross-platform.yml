@@ -93,6 +93,10 @@ jobs:
       # (bin: konoha -> bin/cli.js) so no global install or PATH resolution is
       # involved on any OS. --no-project mirrors the release review's verified
       # fresh-install command and keeps init from dirtying the checkout.
+      # `migrate --skip-embeddings` keeps this gate about the CLI, not about
+      # Hugging Face uptime: embedding coverage is asserted by the suite above,
+      # while an unbounded model download here would make a network hiccup look
+      # like a broken cross-platform install.
       # `konoha doctor` is deliberately not in this smoke test: it runs its
       # full self-test whenever repairs occur, which duplicates the suite
       # above. See docs/CI.md.
@@ -103,5 +107,5 @@ jobs:
           USERPROFILE: ${{ runner.temp }}/konoha-smoke-home
         run: |
           node bin/cli.js init --yes --no-project
-          node bin/cli.js migrate
+          node bin/cli.js migrate --skip-embeddings
           node bin/cli.js version
