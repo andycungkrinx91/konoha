@@ -33,24 +33,54 @@ function sourceFingerprint(root) {
   return hash.digest('hex');
 }
 
+// A seed is only reusable when the init actually finished: the state file must
+// carry a version, and the artifacts every suite depends on must exist.
+const SEED_SENTINELS = [
+  ['.konoha', 'konoha.db'],
+  ['.konoha', 'server.js'],
+  ['.konoha', '.auto_setup_state.json'],
+  ['.konoha', '.autosetup-done'],
+  ['.agents', 'skills', 'konoha', 'SKILL.md']
+];
+
+function seedIsComplete(dir) {
+  return SEED_SENTINELS.every((parts) => fs.existsSync(path.join(dir, ...parts)));
+}
+
+function seedIsCurrent(dir) {
+  if (!seedIsComplete(dir)) return false;
+  try {
+    const state = JSON.parse(fs.readFileSync(path.join(dir, '.konoha', '.auto_setup_state.json'), 'utf8'));
+    return Boolean(state) &&
+      state.version === require('../package.json').version &&
+      state.sourceFingerprint === sourceFingerprint(SEED_SOURCE_ROOT) &&
+      state.copiedFingerprint === sourceFingerprint(path.join(dir, '.konoha'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function candidateSeeds() {
+  let names = [];
+  try { names = fs.readdirSync(os.tmpdir()); } catch { return []; }
+  return names
+    .filter((n) => n.startsWith('konoha_golden_seed'))
+    .map((n) => path.join(os.tmpdir(), n))
+    .filter((dir) => {
+      try { return fs.statSync(dir).isDirectory(); } catch { return false; }
+    })
+    .sort((a, b) => {
+      try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; }
+    });
+}
+
 function getGoldenSeed() {
   if (goldenSeedInfo) return goldenSeedInfo;
-  const existingSeed = path.join(os.tmpdir(), 'konoha_golden_seed');
-  if (fs.existsSync(path.join(existingSeed, '.konoha', 'konoha.db')) &&
-      fs.existsSync(path.join(existingSeed, '.konoha', 'server.js'))) {
-    try {
-      const stateFile = path.join(existingSeed, '.konoha', '.auto_setup_state.json');
-      if (fs.existsSync(stateFile)) {
-        const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-        if (state &&
-            state.version === require('../package.json').version &&
-            state.sourceFingerprint === sourceFingerprint(SEED_SOURCE_ROOT) &&
-            state.copiedFingerprint === sourceFingerprint(path.join(existingSeed, '.konoha'))) {
-          goldenSeedInfo = { dir: existingSeed, isTemp: false };
-          return goldenSeedInfo;
-        }
-      }
-    } catch (_) {}
+  for (const dir of candidateSeeds()) {
+    if (seedIsCurrent(dir)) {
+      goldenSeedInfo = { dir, isTemp: false };
+      return goldenSeedInfo;
+    }
   }
   const seedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
   const env = {
@@ -80,6 +110,9 @@ function stampSourceFingerprint(seedDir) {
     // copiedFingerprint: the tree the seed actually wrote, so a partial or
     // externally-modified seed cannot be blessed as current.
     const copied = path.join(seedDir, '.konoha');
+    // The init may skip ensureAutoSetup, leaving no state file behind; the seed
+    // is still valid, but only if the version is stamped here as well.
+    state.version = require('../package.json').version;
     state.sourceFingerprint = sourceFingerprint(SEED_SOURCE_ROOT);
     state.copiedFingerprint = sourceFingerprint(copied);
     fs.writeFileSync(stateFile, JSON.stringify(state), 'utf8');

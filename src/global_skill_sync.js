@@ -162,16 +162,66 @@ function syncSingleManagedResource(params, manifest, options = {}) {
     return { action: 'unchanged', path: absDest, client: meta.client };
   }
 
+  // Ownership beats line-indexing. When the deployed file still hashes to what
+  // Konoha last wrote, no user edit exists; when the manifest records the whole
+  // resource as Konoha-owned with no user keys, the user owns nothing either way.
+  // Both cases let the template win wholesale; the line-indexed merge below is
+  // only for files the user genuinely co-owns.
+  const konohaOwnsWholeResource = Boolean(existingRecord) &&
+    existingRecord.created_by_konoha === true &&
+    Array.isArray(existingRecord.owned_keys) && existingRecord.owned_keys.length === 0 &&
+    Array.isArray(existingRecord.owned_sections) &&
+    existingRecord.owned_sections.includes('WHOLE_SKILL_RESOURCE');
+  if (existingRecord && (existingRecord.latest_sha256 === currentSha256 || konohaOwnsWholeResource)) {
+    const backupRes = backupConfigFile(absDest, { ...options, client: meta.client, scope: 'global' });
+    fs.writeFileSync(absDest, templateContent, 'utf8');
+    const refreshedRecord = manifest.files[absDest] || existingRecord || { backups: [] };
+    if (backupRes && backupRes.backupPath) {
+      refreshedRecord.latest_backup = backupRes.backupPath;
+      if (!Array.isArray(refreshedRecord.backups)) refreshedRecord.backups = [];
+      if (!refreshedRecord.backups.includes(backupRes.backupPath)) {
+        refreshedRecord.backups.push(backupRes.backupPath);
+      }
+    }
+    refreshedRecord.client = meta.client;
+    refreshedRecord.scope = 'global';
+    refreshedRecord.created_by_konoha = true;
+    refreshedRecord.konoha_baseline_sha256 = templateSha256;
+    refreshedRecord.latest_sha256 = templateSha256;
+    refreshedRecord.updated_at = new Date().toISOString();
+    manifest.files[absDest] = refreshedRecord;
+    return { action: 'patched', path: absDest, client: meta.client, hunksApplied: 0, wholesale: true };
+  }
+
   let baselineText = null;
+  // A 3-way baseline is only valid if it is the exact content Konoha recorded as
+  // the baseline; a drifted backup would make the merge delete the wrong lines.
+  let baselineUntrusted = false;
   if (existingRecord && existingRecord.latest_backup && fs.existsSync(existingRecord.latest_backup)) {
     try {
-      baselineText = fs.readFileSync(existingRecord.latest_backup, 'utf8');
+      const backupText = fs.readFileSync(existingRecord.latest_backup, 'utf8');
+      if (!existingRecord.konoha_baseline_sha256 || computeSha256(backupText) === existingRecord.konoha_baseline_sha256) {
+        baselineText = backupText;
+      } else {
+        baselineUntrusted = true;
+      }
     } catch (_) {
       baselineText = null;
     }
   }
   if (!baselineText && existingRecord && existingRecord.konoha_baseline_sha256 === currentSha256) {
     baselineText = currentContent;
+  }
+
+  // No trustworthy baseline means the merge cannot tell a user edit from an
+  // upgrade, so preserve the user's file instead of overwriting it.
+  if (!baselineText && baselineUntrusted) {
+    return {
+      action: 'conflict_preserved',
+      path: absDest,
+      client: meta.client,
+      reason: 'Recorded baseline backup no longer matches konoha_baseline_sha256; preserving user file untouched.'
+    };
   }
 
   const patchResult = applyTargetedTextPatch(currentContent, baselineText, templateContent);

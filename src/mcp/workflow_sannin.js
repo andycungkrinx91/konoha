@@ -338,9 +338,8 @@ function _buildInstructionText(ctx) {
   if (ctx.selectedAgent === 'jonin' || /\b(website|web\s*app|landing\s*page|frontend|storefront|portfolio|dashboard|scaffold.*ui)\b/i.test(ctx.effPrompt)) {
     buildGuidance = (
       '\n\n### ⚡ Website Scaffolding\n' +
-      '- Text build: Call `konoha.build_from_text(name, description, framework)` FIRST.\n' +
-      '- Mockup build: Call `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
-      '- Pass directives to `jonin`. Implement complete site with inline README and clean validation.'
+      '- Text: `konoha.build_from_text(name, description, framework)` FIRST; mockup: `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
+      '- Pass directives to `jonin`; ship the complete site with inline README and clean validation.'
     );
   }
 
@@ -370,9 +369,8 @@ function _buildInstructionText(ctx) {
     ? `\n\n${ctx.parallelSpawnDirective}`
     : (ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '');
   return (
-    `**Agent**: \`${ctx.selectedAgent}\` | **Track**: \`${ctx.executionTrack}\`\n` +
+    `**Agent**: \`${ctx.selectedAgent}\`\n` +
     routeLine +
-    `**Flow**: \`${ctx.flowHash}\` | **Task ID**: \`${ctx.taskId}\` | **Dir**: \`${ctx.resolvedTaskDir}\`\n` +
     `**Task**: ${ctx.effPrompt}` +
     spawnBlock +
     executionBlock +
