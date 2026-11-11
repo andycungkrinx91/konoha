@@ -563,7 +563,24 @@ Authoritative verification matrix for the Konoha v2.2.15 release, verifying offi
   - Safety mandates across all subagents: Never run destructive commands (`rm -rf`, `DROP`, `git reset`), never view `.env*`, never `git push` or `npm publish`.
 - **8-Client Integration Parity**: `@akatsuki` registered across all 8 clients: `src/mcp_clients/claude_code.js`, `src/codex_manager.js`, `src/antigravity_manager.js`, `src/cursor_bootstrap.js`, `src/mcp/client_detection.js`, `src/hook-base.js`, and `src/telegram/poller.js`.
 
-### 27.3 Repeatable Isolated Test Procedure (/tmp Sandbox)
+### 27.3 Repeatable Isolated Test Procedure (Container Sandbox)
+
+The default gate. Runs install, lint, the full suite, and the fresh-install smoke inside a
+container; the host working tree, `$HOME`, and `/tmp` are untouched.
+
+```bash
+pnpm test:sandbox              # install + lint + full suite + smoke
+pnpm test:sandbox -- --lint    # fast path
+pnpm test:sandbox -- --no-build
+```
+
+The repo is bind-mounted read-only at `/src` and copied to `/work` inside the container, so
+`node_modules` is reinstalled from the lockfile and never shared with the host. Details and
+the volume reset commands: [Container sandbox](CI.md#container-sandbox-rule-12).
+
+#### Host fallback (no Docker)
+
+The host fallback is for machines without Docker; it is not the default gate.
 
 ```bash
 # 1. Scaffolding isolated sandbox environment

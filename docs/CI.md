@@ -165,6 +165,31 @@ expectation, and no `continue-on-error` was added anywhere.
   rule template, so `~/.cursor/rules/rtk.mdc` never landed on a machine without
   the `rtk` binary even though the template is static. Only the `rtk init`
   enrichment is conditional now.
+- **Claude rtk rule (test_fresh_install_cross_platform_sync)** — same bug as the Cursor
+  one, one client later: `deployClaudeCodeRtkRule` returned `rtk-not-installed` before
+  copying the static template, so `~/.claude/rules/rtk.md` only existed on hosts that
+  already had `rtk` on `PATH`. The same gate sat in the Codex, OpenCode, OMP and
+  CommandCode deploy paths. The container sandbox has no `rtk`, which is what surfaced
+  it: the templates now deploy unconditionally, and only the `rtk init` enrichment stays
+  conditional. `test_rtk_cross_client` asserted `initRtkHook()` succeeds with no binary on
+  `PATH`; it now asserts the `rtk-not-installed` reason instead.
+- **3D model catalog (test_yamanaka_web_api)** — the suite asserted a non-null
+  `client_default_model` without controlling where discovery looks. `discoverClientModels`
+  reads the host's `~/.codex`, `~/.claude`, `~/.cursor` and similar configs, so the
+  assertion held on a laptop that had a client configured and failed on any clean runner.
+  The suite now pins `HOME` to a temp directory with one seeded `.codex/config.toml`, so
+  the endpoint is asserted against a known catalog instead of the developer's machine.
+- **Blender archive digest (test_yamanaka_compute_and_installer)** — Blender 5.3
+  publishes a single `blender-<version>.sha256` sidecar listing every archive, not the
+  per-file `<archive>.sha256` the installer fetched, so the install aborted with
+  `HTTP 404` before the download. `resolveExpectedDigest` reads the version-wide sidecar
+  and falls back to the per-file one; a missing sidecar is reported as unsigned rather
+  than failing an otherwise valid archive.
+- **Agentic session failure shape (test_yamanaka_compute_and_installer)** — the early
+  failure returns in `executeLiveAgenticBlenderSession` (`circuit_open`,
+  `missing_base_glb`, `blender_missing`) carried `actions: []` but no `steps_executed`,
+  so a caller reading the step count got `undefined`. The suite only reaches those paths
+  on a host without Blender, which is every CI runner. They now report `steps_executed: 0`.
 - **Lightweight contracts (test_lightweight_contracts)** — the suite asserted
   sizes of `~/.cursor`, `~/.codex` and `~/.omp` files inside the checkout, but
   those are git-ignored per-machine output of `konoha init`. It now deploys the
@@ -227,6 +252,45 @@ Fidelity limits, read before trusting a green local run:
   `act-latest` image provides it; the micro image does not.
 - act copies the repo into the container instead of bind-mounting it, so a run leaves the
   working tree clean (`git status --porcelain` unchanged). Do not add `--bind`.
+
+## Container sandbox (rule 12)
+
+The suite mutates `HOME`, `/tmp`, the Konoha database, and `node_modules`. Running it on the
+host leaks that state between runs, which is how "passes locally, fails in CI" starts. The
+sandbox runs the same commands inside a container instead:
+
+```bash
+pnpm test:sandbox            # install + lint + full suite + fresh-install smoke
+pnpm test:sandbox -- --lint  # fast path: install + lint only
+pnpm test:sandbox -- --no-build   # reuse the last built image
+```
+
+What it guarantees:
+
+- The repo is bind-mounted **read-only** at `/src`; the entrypoint copies it to `/work`,
+  excluding `.git`, `node_modules`, and `apps/web/build`. Host `node_modules` never enters
+  the image, and no container file can land in the working tree.
+- `HOME`, `KONOHA_DB_PATH`, and the pnpm store are container-local. The harness's
+  `mkdtemp` sandboxes land in the container's `/tmp`, so the host `/tmp` and the real
+  `$HOME` stay clean. The Playwright browsers live in a named volume, but
+  `playwright install --with-deps` runs on every start because the OS libraries it
+  installs are container-local — the browser download itself is skipped.
+- `KONOHA_TEST_SANDBOX=1` is set, which keeps `reconcileGlobalCommand()` from writing a
+  global shim inside the container.
+- The image asserts `ffmpeg` exposes `libwebp_anim` at build time, the same invariant the
+  workflow checks. Debian bookworm's `ffmpeg` has it today; if that ever changes, the
+  build fails loudly and the fix is adding the deb-multimedia repo to
+  `docker/sandbox.Dockerfile`.
+
+Resetting the caches:
+
+```bash
+docker volume rm konoha-sandbox-pnpm-store konoha-sandbox-ms-playwright
+```
+
+CI does not call this: the GitHub runner is already a clean room, and running the sandbox
+there would need Docker-in-Docker. Both paths share one environment contract — Node 24,
+pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
 
 ## Trust rule
 

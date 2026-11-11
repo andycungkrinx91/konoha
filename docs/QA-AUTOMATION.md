@@ -249,3 +249,9 @@ Isolation contract:
      ```bash
      HOME=$(mktemp -d) KONOHA_TEST_SANDBOX=1 node tests/test_web_ui.js
      ```
+   - The default gate is the container sandbox, which needs no manual HOME juggling:
+     ```bash
+     pnpm test:sandbox            # full suite, container-local HOME and /tmp
+     pnpm test:sandbox -- --lint  # fast path
+     ```
+     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is the fallback for machines without Docker.
