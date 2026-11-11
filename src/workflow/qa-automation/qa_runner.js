@@ -38,7 +38,7 @@ function localPlaywrightBin(resolvedProject) {
  */
 function playwrightExec(resolvedProject, args, extraEnv) {
   const localBin = path.join(resolvedProject, 'node_modules', '.bin');
-  const env = { ...process.env, ...(extraEnv || {}) };
+  const env = { ...process.env, ...extraEnv };
   env.PATH = localBin + path.delimiter + (env.PATH || '');
   const isWin = process.platform === 'win32';
   return isWin
