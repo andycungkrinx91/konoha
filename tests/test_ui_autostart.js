@@ -14,6 +14,7 @@
 require('./helpers/isolate_db');
 
 const fs = require('fs');
+const http = require('http');
 const net = require('net');
 const path = require('path');
 const os = require('os');
@@ -55,6 +56,31 @@ function portActive(port) {
     sock.on('error', () => resolve(false));
     sock.on('timeout', () => { sock.destroy(); resolve(false); });
   });
+}
+
+function fetchPageHtml(port, pathname) {
+  const maxRedirects = 5;
+  const getOnce = (target) => new Promise((resolve) => {
+    const req = http.get({ host: '127.0.0.1', port, path: target, timeout: 5000 }, (res) => {
+      let raw = '';
+      res.on('data', (c) => { raw += c; });
+      res.on('end', () => resolve({ status: res.statusCode, location: res.headers.location, body: raw }));
+    });
+    req.on('error', () => resolve({ status: 0, location: null, body: '' }));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, location: null, body: '' }); });
+  });
+  return (async () => {
+    let target = pathname;
+    for (let i = 0; i < maxRedirects; i++) {
+      const r = await getOnce(target);
+      if ((r.status === 301 || r.status === 302 || r.status === 303 || r.status === 307 || r.status === 308) && r.location) {
+        target = r.location.startsWith('/') ? r.location : `/${r.location}`;
+        continue;
+      }
+      return r.body;
+    }
+    return '';
+  })();
 }
 
 async function waitFor(fn, timeoutMs, everyMs = 150) {
@@ -194,6 +220,83 @@ async function main() {
         // Wait for the child's shutdown handler to release the port.
         await waitFor(() => portActive(port).then((a) => !a), 8000);
         // Restore the production ui.pid exactly as it was.
+        try {
+          if (pidBackup !== null) fs.writeFileSync(UI_PID_FILE, pidBackup);
+          else if (fs.existsSync(UI_PID_FILE)) fs.unlinkSync(UI_PID_FILE);
+        } catch (_) { /* best-effort restore */ }
+      }
+    }
+  }
+
+  // T5: re-init restarts a running UI daemon (fix/stale-ui-after-upgrade).
+  // After `npm install -g` + `konoha init --yes`, the runtime mirror was
+  // refreshed but the old daemon kept serving the old build from memory
+  // (in-process cached SvelteKit handler) because init's auto-start was a
+  // no-op when the port was already active. The init auto-start path must
+  // now restart a running daemon.
+  {
+    const initCmdPath = path.resolve(__dirname, '..', 'bin', 'commands', 'init.js');
+    const initSrc = fs.existsSync(initCmdPath) ? fs.readFileSync(initCmdPath, 'utf8') : '';
+    ok('T5: init auto-start restarts a running daemon', initSrc.includes('await cmdUiRestart(') && initSrc.includes('checkPortActive(port)'));
+    let initCmd = null;
+    try { initCmd = require(initCmdPath); } catch (_) { initCmd = null; }
+    ok('T5: init exports autoStartUiDaemonIfRequested', initCmd !== null && typeof initCmd.autoStartUiDaemonIfRequested === 'function');
+    const upSrc = fs.readFileSync(path.resolve(__dirname, '..', 'bin', 'commands', 'upgrade.js'), 'utf8');
+    ok('T5: upgrade still restarts a previously-running daemon', upSrc.includes("await cmdUiRestart(['--no-open'])"));
+  }
+
+  // T5b: behavioral — a real daemon is restarted by the init auto-start hook,
+  // and the restarted daemon serves the installed build.
+  {
+    const buildCandidates = [
+      path.join(os.homedir(), '.konoha', 'apps', 'web', 'build', 'handler.js'),
+      path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js'),
+    ];
+    if (!buildCandidates.some((p) => fs.existsSync(p))) {
+      console.log('  ⚠ T5 skipped: no web UI build present (run "konoha ui build" to enable)');
+    } else if (process.platform === 'win32' && !process.env.KONOHA_TEST_UI_SPAWN) {
+      console.log('  ⚠ T5 skipped on win32 (set KONOHA_TEST_UI_SPAWN=1 to force)');
+    } else {
+      const port = await freePort();
+      const UI_PID_FILE = uiPidFileForPort(port);
+      const pidBackup = fs.existsSync(UI_PID_FILE) ? fs.readFileSync(UI_PID_FILE) : null;
+      let oldPid = null;
+      let newPid = null;
+      try {
+        const started = await cli.ensureUiDaemonAutoStart({ port });
+        ok('T5: daemon starts on free port', !!(started && started.started), JSON.stringify(started));
+        const active = await waitFor(() => portActive(port), 40000);
+        ok('T5: daemon listens before re-init hook', active);
+        if (fs.existsSync(UI_PID_FILE)) oldPid = parseInt(fs.readFileSync(UI_PID_FILE, 'utf8').trim(), 10);
+        ok('T5: daemon pid recorded', Number.isFinite(oldPid) && oldPid > 0 && pidAlive(oldPid));
+        const initCmd = require(path.resolve(__dirname, '..', 'bin', 'commands', 'init.js'));
+        const hookFn = initCmd && typeof initCmd.autoStartUiDaemonIfRequested === 'function'
+          ? initCmd.autoStartUiDaemonIfRequested
+          : null;
+        if (hookFn) await hookFn({ port });
+        const restarted = await waitFor(() => {
+          if (!fs.existsSync(UI_PID_FILE)) return false;
+          const p = parseInt(fs.readFileSync(UI_PID_FILE, 'utf8').trim(), 10);
+          return Number.isFinite(p) && p > 0 && p !== oldPid && pidAlive(p);
+        }, 40000);
+        ok('T5: re-init hook restarts the running daemon (pid changes)', restarted,
+          hookFn ? `pid file still ${oldPid}` : 'autoStartUiDaemonIfRequested not exported');
+        if (fs.existsSync(UI_PID_FILE)) newPid = parseInt(fs.readFileSync(UI_PID_FILE, 'utf8').trim(), 10);
+        const healthy = await waitFor(() => portActive(port), 40000);
+        ok('T5: restarted daemon answers on the port', healthy);
+        const afterHtml = await fetchPageHtml(port, '/');
+        const refs = [...new Set([...afterHtml.matchAll(/_app\/immutable\/[^"' ]+/g)].map((m) => m[0]))];
+        const clientDir = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'client');
+        const missing = refs.filter((r) => !fs.existsSync(path.join(clientDir, r)));
+        ok('T5: served login page references the installed build', refs.length > 0 && missing.length === 0,
+          refs.length === 0 ? 'no immutable refs in served page' : `missing: ${missing.slice(0, 3).join(', ')}`);
+      } finally {
+        const pidToKill = Number.isFinite(newPid) && newPid > 0 ? newPid : oldPid;
+        if (Number.isFinite(pidToKill) && pidToKill > 0) {
+          try { process.kill(pidToKill, 'SIGTERM'); } catch (_) { /* already gone */ }
+          await waitFor(() => !pidAlive(pidToKill), 8000);
+        }
+        await waitFor(() => portActive(port).then((a) => !a), 8000);
         try {
           if (pidBackup !== null) fs.writeFileSync(UI_PID_FILE, pidBackup);
           else if (fs.existsSync(UI_PID_FILE)) fs.unlinkSync(UI_PID_FILE);
