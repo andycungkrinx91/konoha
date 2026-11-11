@@ -146,6 +146,7 @@
     "test": "node scripts/rtk_exec.js node tests/run_all.js",
     "test:e2e": "node scripts/rtk_exec.js pnpm --dir apps/web run test:e2e",
     "test:parallel": "node scripts/rtk_exec.js node tests/run_all.js --parallel",
+    "ci:act": "act -j test --matrix os:ubuntu-latest",
     "test:mcp": "node scripts/rtk_exec.js node tests/test_mcp_protocol.js && node scripts/rtk_exec.js node tests/test_mcp_e2e.js",
     "test:workflow": "node scripts/rtk_exec.js node tests/test_workflow_gates.js && node scripts/rtk_exec.js node tests/test_workflow_loop.js",
     "test:jonin": "node scripts/rtk_exec.js node tests/test_build_workflows.js && node scripts/rtk_exec.js node tests/test_taste_skill_jonin.js && node scripts/rtk_exec.js node tests/test_jonin_universal_design.js",

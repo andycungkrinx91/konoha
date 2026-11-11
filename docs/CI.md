@@ -192,6 +192,42 @@ CLI command that exited non-zero.
   branch. Pushing an empty commit re-runs it; prefer re-running failed jobs from
   the run page instead.
 
+## Local parity with act
+
+`act` runs the workflow on the dev machine, so a red step is visible before the push.
+
+```bash
+go install github.com/nektos/act@v0.2.97
+export PATH="$(go env GOPATH)/bin:$PATH"
+act --version                 # act version 0.2.97
+
+pnpm ci:act                   # full ubuntu job: install -> lint -> test -> smoke
+act -j test --matrix os:ubuntu-latest -n   # dry run: validates workflow syntax, creates no container
+```
+
+`.actrc` pins the runner image, so no flags are needed:
+
+```
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+The image is multi-arch, so act uses the host architecture and an arm64 machine runs
+arm64 natively. Add `--container-architecture linux/amd64` only to reproduce an
+amd64-specific failure; it makes arm64 hosts pay emulation on every step.
+
+Fidelity limits, read before trusting a green local run:
+
+- `catthehacker/ubuntu:act-latest` is Ubuntu 22.04-based; GitHub `ubuntu-latest` is 24.04.
+- Windows and macOS matrix legs are **not** covered locally; they remain GitHub-only.
+  That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
+  on unresolvable platform images, not on a real defect.
+- `runner.temp` maps to the act container's `/tmp`, so `PLAYWRIGHT_BROWSERS_PATH` resolves
+  inside the container.
+- The workflow's ffmpeg and Playwright `--with-deps` steps need `sudo`. The medium
+  `act-latest` image provides it; the micro image does not.
+- act copies the repo into the container instead of bind-mounting it, so a run leaves the
+  working tree clean (`git status --porcelain` unchanged). Do not add `--bind`.
+
 ## Trust rule
 
 This workflow is only trusted once it has been seen **both green and red**. A red
