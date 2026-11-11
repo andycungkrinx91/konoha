@@ -260,7 +260,47 @@ async function handleExistingInstallation(clientFlags, args, options) {
     return false;
   }
   await refreshExistingInstallation(clientFlags, options);
+  // An existing install can still carry pre-2.2.20 residue (e.g. the 817
+  // legacy cyber-pack rows from issue #2). `refreshExistingInstallation`
+  // only refreshes runtime files and client configs — it never migrates
+  // the database — so re-running `init --yes` after an upgrade silently
+  // kept the old state. Run the same in-process migration `konoha
+  // migrate` runs, so the purge and re-index happen here too. The purge
+  // itself backs the database up first (see purgeLegacyResidue).
+  await migrateExistingInstallation({ skipEmbeddings: args.includes('--no-embed') });
   return true;
+}
+
+/**
+ * Run the `konoha migrate` migration in-process on an existing install.
+ * Same fallback shape as bin/commands/migrate.js: full run first, then a
+ * no-embeddings retry so skills are at least searchable through FTS5.
+ * A failed migration is reported but does not fail the refresh — the user
+ * can always run `konoha migrate` to finish it.
+ */
+async function migrateExistingInstallation(options = {}) {
+  try {
+    const { runMigration } = require('../../src/migrate');
+    header('📊 Migrating existing installation');
+    let result = await runMigration({
+      skillsDir: options.skillsDir || null,
+      skipEmbeddings: Boolean(options.skipEmbeddings),
+      timeBudgetSeconds: options.timeBudgetSeconds
+    });
+    if (result && result.ok === false) {
+      result = await runMigration({
+        skillsDir: options.skillsDir || null,
+        skipEmbeddings: true,
+        skillsOnly: true,
+        timeBudgetSeconds: options.timeBudgetSeconds
+      });
+    }
+    if (result && result.ok === false) {
+      warn(`Migration did not complete (${result.reason || (result.missingRequired || []).join(', ') || 'unknown reason'}). Run "konoha migrate" to finish it.`);
+    }
+  } catch (err) {
+    warn(`Migration failed: ${err.message}. Run "konoha migrate" to finish it.`);
+  }
 }
 
 async function promptInitializationConsent(args) {
@@ -426,5 +466,7 @@ module.exports = {
   cmdInit,
   cmdInitHelp,
   detectAllClientFlags,
-  buildInitMigrationArgs
+  buildInitMigrationArgs,
+  handleExistingInstallation,
+  migrateExistingInstallation
 };

@@ -119,20 +119,39 @@ function stampSourceFingerprint(seedDir) {
   } catch { /* a missing stamp only costs one extra seed rebuild */ }
 }
 
+function copySeedDir(seedDir, suiteHome) {
+  // `cp -a` preserves ownership, which fails with EPERM in sandboxes where
+  // the seed files' uid/gid cannot be reproduced ("failed to preserve
+  // ownership ... Operation not permitted"). Dropping ownership preservation
+  // keeps the copy identical in content. The plain `cp -a` attempts stay in
+  // the chain for systems without GNU --no-preserve (macOS/BSD cp rejects
+  // the flag) and for environments where chown works.
+  // `fs.cpSync` stays last: it is the only fallback when no `cp` exists
+  // (Windows), and it only works on a fresh destination — a previous
+  // partial copy leaves `.konoha/node_modules` as a symlink into the repo
+  // tree, which cpSync resolves and then refuses to copy into itself
+  // (ERR_FS_CP_EINVAL). The `cp -r` step below succeeds in exactly that
+  // state, so cpSync is only reached when `cp` itself is unavailable.
+  const src = `${seedDir}/.`;
+  const dest = `${suiteHome}/`;
+  const attempts = [
+    ['cp', '-a', '--reflink=auto', '--no-preserve=ownership', src, dest],
+    ['cp', '-a', '--no-preserve=ownership', src, dest],
+    ['cp', '-a', src, dest],
+    ['cp', '-r', '--no-preserve=ownership', src, dest],
+    ['cp', '-r', src, dest],
+  ];
+  for (const args of attempts) {
+    const res = spawnSync(args[0], args.slice(1), { encoding: 'utf-8' });
+    if (res.status === 0 && !res.error) return;
+  }
+  fs.cpSync(seedDir, suiteHome, { recursive: true });
+}
+
 function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
-  const res1 = spawnSync('cp', ['-a', '--reflink=auto', `${seed.dir}/.`, `${suiteHome}/`], {
-    encoding: 'utf-8'
-  });
-  if (res1.status !== 0 || res1.error) {
-    const res2 = spawnSync('cp', ['-a', `${seed.dir}/.`, `${suiteHome}/`], {
-      encoding: 'utf-8'
-    });
-    if (res2.status !== 0 || res2.error) {
-      fs.cpSync(seed.dir, suiteHome, { recursive: true });
-    }
-  }
+  copySeedDir(seed.dir, suiteHome);
 
   const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');
   const existingNodePath = process.env.NODE_PATH || '';
