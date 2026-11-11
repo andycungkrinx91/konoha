@@ -464,6 +464,14 @@ function installVersion(release) {
   return release ? release.version : null;
 }
 
+// Cache-only read for synchronous callers (doctor): never starts a network fetch,
+// so a slow PyPI cannot leave a floating promise whose rejection kills the process.
+function getCachedDccMcpVersion() {
+  if (process.env.KONOHA_DCC_MCP_VERSION) return process.env.KONOHA_DCC_MCP_VERSION;
+  if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
+  return null;
+}
+
 async function resolveLatestDccMcpVersion() {
   if (process.env.KONOHA_DCC_MCP_VERSION) return process.env.KONOHA_DCC_MCP_VERSION;
   if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
@@ -552,6 +560,7 @@ module.exports = {
   probeManifoldWasm,
   resolveLatestBlenderRelease,
   resolveLatestDccMcpVersion,
+  getCachedDccMcpVersion,
   installBlender,
   installDccMcpBlender,
   installAllTools

@@ -84,3 +84,19 @@ assert.strictEqual(compatRows.length, 5, 'record3DChecks must emit 5 rows');
 console.log('✓ Backward compatibility of record3DChecks verified');
 
 console.log('All test_doctor_3d_isolation assertions passed cleanly!');
+
+// Diagnostics must never start a network request: a floating promise here used to
+// outlive the suite and kill the process with an unhandled AbortSignal.timeout.
+const realFetch = globalThis.fetch;
+let fetchCalls = 0;
+globalThis.fetch = (...args) => {
+  fetchCalls += 1;
+  return realFetch(...args);
+};
+try {
+  record3DChecks(() => {});
+} finally {
+  globalThis.fetch = realFetch;
+}
+assert.strictEqual(fetchCalls, 0, 'check3DToolchain must not start any network request');
+console.log('✓ Diagnostics start no network request');
