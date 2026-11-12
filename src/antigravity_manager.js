@@ -128,15 +128,21 @@ function deployAntigravityRtkRule(silent = true, options = {}) {
   ];
 
   let deployed = 0;
+  const errors = [];
   for (const dest of targets) {
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(src, dest);
       deployed++;
-    } catch (_) { /* ignore */ }
+    } catch (err) {
+      // A silent failure here hides a broken client rule from every caller.
+      errors.push({ dest, error: err && err.message ? err.message : String(err) });
+    }
   }
   if (!isSilent && deployed > 0) process.stderr.write(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)\n`);
-  return { ok: deployed > 0, deployed };
+  const result = { ok: deployed > 0, deployed };
+  if (errors.length) result.errors = errors;
+  return result;
 }
 
 function _updateSembleAuxiliarySchemas(sembleDir) {

@@ -245,7 +245,8 @@ Fidelity limits, read before trusting a green local run:
 - `catthehacker/ubuntu:act-latest` tracks Ubuntu 26.04 "resolute" (verified in
   `/etc/apt/sources.list.d/ubuntu.sources`); GitHub `ubuntu-latest` is 24.04. A distro-only
   failure is a fidelity gap, not a suite defect — reproduce it on GitHub before chasing it.
-- Windows and macOS matrix legs are **not** covered locally; they remain GitHub-only.
+- Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own
+  local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
   That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
   on unresolvable platform images, not on a real defect.
 - `runner.temp` maps to the act container's `/tmp`, so `PLAYWRIGHT_BROWSERS_PATH` resolves
@@ -254,6 +255,9 @@ Fidelity limits, read before trusting a green local run:
   `act-latest` image provides it; the micro image does not.
 - act copies the repo into the container instead of bind-mounting it, so a run leaves the
   working tree clean (`git status --porcelain` unchanged). Do not add `--bind`.
+
+A full local run of this leg (284 suites) passed on 2026-11-11, so a red ubuntu step now
+means a real regression rather than a harness or resolver problem.
 
 ### When `Install Playwright browsers` dies on apt
 
@@ -324,6 +328,150 @@ docker volume rm konoha-sandbox-pnpm-store konoha-sandbox-ms-playwright
 CI does not call this: the GitHub runner is already a clean room, and running the sandbox
 there would need Docker-in-Docker. Both paths share one environment contract — Node 24,
 pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
+
+## Local Windows VM
+
+`act` covers the ubuntu leg only. Windows containers are not an option on a Linux Docker
+daemon (they share the Windows kernel and fail with *image operating system "windows" cannot
+be used on this platform*), so the Windows leg runs in a full guest under QEMU/KVM via
+[dockur/windows](https://github.com/dockur/windows).
+
+Prerequisites: Docker, `/dev/kvm` readable and writable by the invoking user, ~8 GB free
+RAM while the guest runs, and ~80 GB free disk (7.9 GB ISO + 64 GB sparse disk).
+
+```bash
+docker compose -f docker/windows-vm/compose.yml up -d
+docker compose -f docker/windows-vm/compose.yml logs -f   # install progress, ~15-25 min first boot
+docker compose -f docker/windows-vm/compose.yml down     # guest keeps its disk
+```
+
+- Viewer: <http://127.0.0.1:8006>. RDP: `127.0.0.1:3390`, user `Docker`. Both ports bind to
+  loopback only — the guest is never reachable from the LAN.
+- `VERSION: "11"` (Windows 11 Pro) is the interactive default, chosen over the exact
+  `windows-latest` image (Server 2025) for desktop tooling. The job steps, Node/pnpm
+  versions, and suite are identical; only the OS edition differs. Set `VERSION: "2025"` to
+  match the runner exactly when chasing an OS-edition-specific failure.
+- The guest disk lives in `~/.cache/konoha-windows-vm/storage` (override with
+  `WINDOWS_VM_STORAGE`), never in the checkout.
+- dockur lowers `RAM_SIZE` when the host cannot spare it and says so in the log
+  (`your configured RAM_SIZE of 8 GB is too high ... adjusted`). The guest then installs
+  and tests in 3 GB, which is slower but works; close other memory hogs for a clean run.
+- `docker/windows-vm/oem/install.bat` runs once during the final install step and provisions
+  what the runner image provides: Node 24, pnpm 12.16.1, Git for Windows, and an ffmpeg
+  build with `libwebp_anim`. Its log is `C:\OEM\provision.log`; it writes
+  `C:\OEM\provision.ok` only when every tool landed. The OEM script is baked into the
+  setup media at install time, so editing it does not change an existing guest —
+  `run-ci.cmd` therefore re-runs it from the share whenever the marker is missing, and
+  fails with the log path only if that retry still does not produce one.
+
+dockur copies the whole `docker/windows-vm/oem/` folder to `C:\OEM` when it builds the
+setup media, so the launcher is available both on the share and inside the guest:
+
+```cmd
+C:\OEM\run-ci.cmd
+Z:\docker\windows-vm\oem\run-ci.cmd
+```
+
+Prefer the share copy: it is the one you can edit without rebuilding the VM.
+
+`Z:` is a per-logon SMB mapping and is gone after every guest reboot, so `run-ci.cmd`
+probes for it and refuses with a mapping hint instead of failing halfway through a step.
+`launch.bat` is the double-click wrapper: it maps `Z:` first and then calls `run-ci.cmd`
+with the arguments it was given.
+
+Once a run is green through the earlier steps, re-testing a handful of suites should not
+cost another full `windows-ci.ps1` pass. `retest.cmd` re-mirrors the share and runs only
+the suites you name, writing `docker/windows-vm/logs/retest.log`:
+
+```cmd
+pushd \\host.lan\Data\docker\windows-vm\oem
+retest.cmd test_queue_worker.js test_subagent_delegation_integrity.js
+```
+
+`scripts/windows-ci.ps1` robocopies the shared checkout to `C:\konoha` (pnpm's store links
+and file watching do not work on a Windows network share), then runs install → Playwright
+browsers → web build → ffmpeg assert → lint → full suite → fresh-install smoke, with the
+same env the workflow sets. Each step's exit code is recorded and the script exits non-zero
+if any failed; the transcript lands in `docker/windows-vm/logs/` on the host.
+
+Operational notes for the local Windows leg:
+
+- PowerShell block-buffers a piped child's stdout, so a step prints nothing until it flushes.
+  Judge liveness from the VM (CPU, guest clock across two screenshots), never from log size.
+- A transcript is named `windows-ci-<stamp>.log` from a fresh `Get-Date` per invocation, and
+  `Start-Transcript -Force` truncates it, so a new filename does mean a new run. Runs are
+  also failed if the script never reaches its last step (`run interrupted before completion`
+  in the summary), so a Ctrl-C cannot be mistaken for a pass.
+- The first suite run in a fresh guest builds the golden seed with a full `konoha init`, which
+  takes roughly 20 minutes on this VM versus ~3.5 minutes on Linux; later runs reuse it.
+  `tests/run_all.js` logs `[SEED] Building golden seed …` and either
+  `[SEED] Golden seed ready (Ns)` or a `[SEED] init did not produce a complete seed in Ns`
+  error, so the phase is visible instead of looking like a hang.
+- `pnpm test` on Windows can emit `NativeCommandError` lines from `pnpm.ps1` when
+  `scripts/rtk_exec.js` reports RTK unavailable. They are noise — the step's real signal is
+  the exit code and the final `Test Summary` line.
+- Playwright's CDN download needs `PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT`; the default 30 s
+  socket timeout is routinely exceeded on this link. `scripts/windows-ci.ps1` sets 180 s.
+- A step can look hung while the product has already finished: `execSync`'s `timeout` kills
+  the `cmd.exe` wrapper, not its grandchildren, so a stray `winget` keeps the step's stdout
+  pipe open and `Tee-Object` waits for EOF forever. Run 7 stalled this way right after `init`
+  printed its summary. `bin/lib/extension.js` now runs the `winget` fallback with
+  `stdio: 'ignore'`; if a step ever stalls with a frozen log, check `Get-Process winget` in
+  the guest before suspecting the suite.
+- The same download also drops with `read ECONNRESET` mid-transfer on this link. Playwright
+  retries it in-process, so a couple of `ECONNRESET` lines can still end in a successful
+  step; only the step's exit code decides.
+- When the guest link is bad enough that the browser install never completes, fetch the
+  archives on the host and let the script copy them in. Playwright unpacks a win64 build to
+  `<dir>/chrome-win64/` (or `<dir>/chrome-headless-shell-win64/`) and marks it with
+  `INSTALLATION_COMPLETE` and `DEPENDENCIES_VALIDATED`; reproduce that layout under a
+  plain directory in the share and the install step becomes a no-op.
+- `playwright install chromium` needs three artifacts, and skipping any one of them sends
+  the step back to the network. Stage all three:
+
+  ```sh
+  rev=1248; ver=156.0.8078.4          # from the "Downloading ..." lines in the step log
+  base=https://cdn.playwright.dev
+
+  fetch() {  # fetch <url> <dest-dir> <inner-dir>
+    curl -fsSL "$1" -o /tmp/pw.zip
+    mkdir -p ".tmp-playwright/$2"
+    unzip -q -o /tmp/pw.zip -d ".tmp-playwright/$2"
+    touch ".tmp-playwright/$2/"{INSTALLATION_COMPLETE,DEPENDENCIES_VALIDATED}
+  }
+
+  fetch "$base/builds/cft/$ver/win64/chrome-win64.zip" \
+        "chromium-$rev" chromium
+  fetch "$base/builds/cft/$ver/win64/chrome-headless-shell-win64.zip" \
+        "chromium_headless_shell-$rev" chromium_headless_shell
+  fetch "$base/dbazure/download/playwright/builds/ffmpeg/1013/ffmpeg-win64.zip" \
+        ffmpeg-1013 ffmpeg
+  ```
+
+  The `chromium_headless_shell-*` and `ffmpeg-1013` downloads are easy to miss: they appear
+  only after `chromium-*` is satisfied, so a half-staged share looks like it works and then
+  fails on the next artifact.
+
+  `.tmp-playwright/` is gitignored, and `scripts/windows-ci.ps1` only imports it when the
+  directory holds something, so an empty share still exercises the real network path.
+- Abort a run with `taskkill /F /T /IM node.exe` (and `powershell.exe`) in the guest, or
+  with `docker/windows-vm/oem/kill-ci.cmd` after a fresh share mapping — a newly written
+  host file is invisible through the guest's stale SMB directory cache, so the `.cmd` only
+  resolves once the share has been remapped or the session restarted. Closing the console
+  window or pressing Ctrl-C leaves the PowerShell step and its `node` children running:
+  they keep writing to `C:\konoha`, and the next launch then fails with `EPERM` on
+  `.svelte-kit/output` because two runs delete each other's build directory.
+
+Coverage gaps, by design:
+
+- Yamanaka 3D workflow suites are skipped locally via `KONOHA_TEST_EXCLUDE=test_yamanaka_`.
+  The runner banner lists every skipped file, so the log states exactly what was not
+  covered. They still run on GitHub Actions and nothing is deleted from the repo.
+- The F42 Akatsuki lab declines to run in the guest: `src/workflow/akatsuki/lab.js` requires
+  Docker on Windows, and the guest has no Docker. That is a fail-closed decline, not a suite
+  failure.
+- `tests/e2e/*.spec.js` are not part of `pnpm test` (`tests/run_all.js` reads the directory
+  non-recursively), so the local mirror does not run them either — same as CI.
 
 ## Trust rule
 

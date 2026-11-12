@@ -19,7 +19,9 @@ const {
   SKILLS_DB_DIR,
   SERVER_PATH,
   INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
-  UI_PORT
+  UI_PORT,
+  BRIDGE_PORT,
+  GATEWAY_PORT
 } = require('../lib/paths');
 const { fileExists, ensureDir } = require('../../src/platform_utils');
 const {
@@ -150,9 +152,9 @@ async function refreshExistingInstallation(flags, options) {
   installCliRuntime();
 
   try {
-    const bridge1313Active = await checkPortActive(1313);
-    const bridge19999Active = await checkPortActive(19999);
-    if (!bridge1313Active || !bridge19999Active) await cmdBridgeStart();
+    const bridgeActive = await checkPortActive(BRIDGE_PORT);
+    const gatewayActive = await checkPortActive(GATEWAY_PORT);
+    if (!bridgeActive || !gatewayActive) await cmdBridgeStart();
   } catch { /* intentional fallback */ }
 
   try {

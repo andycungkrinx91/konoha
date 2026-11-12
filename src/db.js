@@ -83,7 +83,16 @@ function openRawConnection(dbPath, options = {}) {
 }
 
 function getConnection(dbPath = null, loadVector = true) {
-  const targetPath = path.normalize(dbPath !== null ? dbPath : currentDbPath);
+  const rawPath = dbPath !== null ? dbPath : currentDbPath;
+  // ':memory:' is a SQLite sentinel, not a filesystem path. path.normalize turns it
+  // into '.\:memory:' on win32, which then opens a real file and fails.
+  if (rawPath === ':memory:') {
+    const memDb = new Database(':memory:');
+    _applyConnectionPragmas(memDb);
+    if (loadVector) _loadVectorSearchExtension(memDb);
+    return memDb;
+  }
+  const targetPath = path.normalize(rawPath);
 
   if (require('./skill_authorization').isLabDbPath(targetPath)) {
     const err = new Error('Use lab_db.openLabDb() for lab paths.');

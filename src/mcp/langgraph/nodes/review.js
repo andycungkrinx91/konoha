@@ -206,6 +206,8 @@ async function reviewNode(state) {
       confidence,
       akatsukiPassed,
       gateVerdict: 'remediate',
+      hitlPending: false,
+      hitlStage: null,
     };
     return finalizeNodeResult(state, payload, 'node_remediate', {
       source: { verdict: 'remediate', confidence, slopFindings, akatsukiPassed },

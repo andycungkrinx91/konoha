@@ -411,13 +411,22 @@ async function processTask(task) {
         return;
       }
     }
-    const userShell = (process.env.SHELL && fs.existsSync(process.env.SHELL))
-      ? process.env.SHELL
-      : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh');
+    // Windows has no /bin/sh; cmd.exe is the only shell guaranteed present.
+    const userShell = process.platform === 'win32'
+      ? (process.env.ComSpec || 'cmd.exe')
+      : ((process.env.SHELL && fs.existsSync(process.env.SHELL))
+        ? process.env.SHELL
+        : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh'));
+    const shellArgs = process.platform === 'win32' ? ['/d', '/s', '/c', `"${cmd}"`] : ['-c', cmd];
 
     const opEnv = Object.assign(sanitizeExecutionEnv(), { SHELL: userShell });
+    // cmd.exe needs windowsVerbatimArguments + an outer-quoted command, the same
+    // contract Node's exec() uses. Without it libuv re-quotes the argument and
+    // commands containing quotes arrive mangled and fail.
+    const spawnOpts = { cwd: execCwd, timeout: 30 * 60 * 1000, maxBuffer: 5 * 1024 * 1024, env: opEnv };
+    if (process.platform === 'win32') spawnOpts.windowsVerbatimArguments = true;
     return new Promise((resolve) => {
-      execFile(userShell, ['-c', cmd], { cwd: execCwd, timeout: 30 * 60 * 1000, maxBuffer: 5 * 1024 * 1024, env: opEnv }, async (err, stdout, stderr) => {
+      execFile(userShell, shellArgs, spawnOpts, async (err, stdout, stderr) => {
         const duration = formatDuration(Date.now() - startTime);
         const output = (stdout || stderr || (err ? err.message : '')).trim();
         const isSuccess = !err;

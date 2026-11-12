@@ -77,7 +77,10 @@ function _auditDependencies(projectPath, findings, evidenceReferences, recordSca
 }
 
 function runBlueTeamWorkflow(params = {}, options = {}) {
-  const projectPath = params.project_path || options.project_path || process.cwd();
+  // runAkatsukiFinalGate passes `projectPath` (camelCase); other callers pass
+  // `project_path`. Reading only the snake_case key silently audited process.cwd()
+  // instead of the requested repository.
+  const projectPath = params.projectPath || params.project_path || options.projectPath || options.project_path || process.cwd();
   const checksPerformed = [
     'repository_perimeter_and_asset_inventory',
     'skill_guardian_perimeter_audit',

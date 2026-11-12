@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync, execSync } = require('child_process');
 const {
@@ -411,8 +412,24 @@ function cleanKonohaRuntimeDir(options = {}) {
   // Compare against the real filesystem root rather than a literal '/': on
   // Windows path.resolve('/') yields the current drive root, so a POSIX-only
   // check lets 'C:\\' through.
-  const fsRoot = path.parse(target).root;
-  if (!target || target === fsRoot || target === HOME || target === path.resolve(HOME, '..')) {
+  // Compare canonicalized forms: callers may hand us os.homedir(), which reads
+  // USERPROFILE on Windows and can differ from HOME by case or by '/' vs '\'.
+  // A raw string compare lets such a caller purge the user's home directory.
+  const canonical = (p) => {
+    const resolved = path.resolve(p);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  const fsRoot = canonical(path.parse(target).root);
+  const targetKey = canonical(target);
+  // HOME is env-first; os.homedir() reads USERPROFILE on Windows and $HOME on
+  // POSIX, so the two can name different directories. Reject both, plus the
+  // parent of HOME, so no caller can hand us a real profile to purge.
+  const unsafeRoots = new Set([
+    canonical(HOME),
+    canonical(path.resolve(HOME, '..')),
+    canonical(os.homedir()),
+  ]);
+  if (!target || targetKey === fsRoot || unsafeRoots.has(targetKey)) {
     throw new Error(`Refusing to clean unsafe directory: ${target}`);
   }
   if (target === src) {

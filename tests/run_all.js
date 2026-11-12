@@ -33,12 +33,13 @@ function sourceFingerprint(root) {
   return hash.digest('hex');
 }
 
-// A seed is only reusable when the init actually finished: the state file must
-// carry a version, and the artifacts every suite depends on must exist.
+// A seed is only reusable when the init actually finished: every artifact the
+// suites depend on must exist. `.auto_setup_state.json` is deliberately absent
+// here: only `konoha doctor` runs ensureAutoSetup() (bin/cli.js), so `init
+// --yes` never writes it and requiring it forces a full rebuild every run.
 const SEED_SENTINELS = [
   ['.konoha', 'konoha.db'],
   ['.konoha', 'server.js'],
-  ['.konoha', '.auto_setup_state.json'],
   ['.konoha', '.autosetup-done'],
   ['.agents', 'skills', 'konoha', 'SKILL.md']
 ];
@@ -83,22 +84,38 @@ function getGoldenSeed() {
     }
   }
   const seedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
+  // The init is silent for minutes on slow filesystems; without this line a
+  // stalled seed build looks identical to a hung runner.
+  console.log(`[SEED] Building golden seed in ${seedDir} (first-run init, can take several minutes) ...`);
+  const seedStart = Date.now();
   const env = {
     ...process.env,
     HOME: seedDir,
+    // os.homedir() reads USERPROFILE on win32 and ignores HOME, so a suite that
+    // calls it would escape the sandbox and touch the real profile.
+    USERPROFILE: seedDir,
     KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
     KONOHA_UI_AUTOSTART: '0',
     KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
   };
-  spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
+  const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
     cwd: seedDir,
     env,
     encoding: 'utf-8',
     // First-run initialization on a clean HOME can take several minutes
-    timeout: 1800000
+    timeout: 3600000
   });
-  goldenSeedInfo = { dir: seedDir, isTemp: true };
+  const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
+  if (!seedIsComplete(seedDir)) {
+    // A partial seed is rejected by seedIsCurrent anyway; failing here points
+    // at the init instead of surfacing as 279 identical suite failures.
+    throw new Error(`[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}). ${(res.stderr || '').trim().split('\n').slice(-5).join(' | ')}`);
+  }
+  // Stamped after the check: `konoha init` never writes this state file (see
+  // SEED_SENTINELS), so the seed's own freshness record is created here.
   stampSourceFingerprint(seedDir);
+  console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
+  goldenSeedInfo = { dir: seedDir, isTemp: true };
   return goldenSeedInfo;
 }
 
@@ -176,6 +193,9 @@ function createSuiteSnapshot(name) {
   const env = {
     ...process.env,
     HOME: suiteHome,
+    // Mirrors the seed env: without this, os.homedir() on win32 resolves to the
+    // real profile while the product reads HOME, so paths diverge mid-suite.
+    USERPROFILE: suiteHome,
     KONOHA_DB_PATH: path.join(suiteHome, '.konoha', 'konoha.db'),
     KONOHA_UI_AUTOSTART: '0',
     PYTHONUSERBASE: process.env.PYTHONUSERBASE || realUserBase,
@@ -260,8 +280,7 @@ function runSuiteSync(cmd, args, name) {
   try {
     const res = spawnSync(cmd, args, {
       encoding: 'utf-8',
-      env: snapshot.env,
-      shell: process.platform === 'win32'
+      env: snapshot.env
     });
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     if (res.status === 0) {
@@ -284,13 +303,16 @@ function runSuiteAsync(cmd, args, name) {
     const start = Date.now();
     const snapshot = createSuiteSnapshot(name);
     const child = spawn(cmd, args, {
-      env: snapshot.env,
-      shell: process.platform === 'win32'
+      env: snapshot.env
     });
     let out = '';
     let err = '';
     let settled = false;
-    const suiteTimeoutMs = name.includes('yamanaka') ? 900000 : 300000;
+    // Suites that do full install/migration work are orders of magnitude slower
+    // in a VM than on a dev host; a flat cap kills them mid-flight. One cap for
+    // every suite: a slow suite that hangs is caught by the run's own deadline,
+    // and a per-suite split only ever mislabels the next slow suite.
+    const suiteTimeoutMs = Number(process.env.KONOHA_TEST_TIMEOUT) || 3600000;
     const timer = setTimeout(() => {
       if (!settled) {
         err += `\n[TIMEOUT] Suite ${name} timed out after ${suiteTimeoutMs / 1000}s and was terminated.`;
@@ -300,7 +322,8 @@ function runSuiteAsync(cmd, args, name) {
 
     child.stdout.on('data', d => out += d);
     child.stderr.on('data', d => err += d);
-    child.on('close', (status) => {
+    const settle = (status) => {
+      if (settled) return;
       settled = true;
       clearTimeout(timer);
       snapshot.cleanup();
@@ -316,6 +339,15 @@ function runSuiteAsync(cmd, args, name) {
         failList.push(name);
       }
       resolve();
+    };
+
+    child.on('close', status => settle(status));
+    // A spawn failure (missing exec, EACCES) emits 'error' and never 'close';
+    // without this listener the suite would sit until the timeout and then
+    // wait forever on a promise that can no longer settle.
+    child.on('error', (e) => {
+      err += `\n[SPAWN ERROR] ${e && e.message ? e.message : e}`;
+      settle(1);
     });
   });
 }

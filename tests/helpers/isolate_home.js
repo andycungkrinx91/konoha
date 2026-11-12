@@ -39,7 +39,7 @@ function isolateHome() {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
       }
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   };
 }
