@@ -32,6 +32,9 @@ const TEST_HOME = path.join(QA_ROOT, 'home');
 fs.mkdirSync(path.join(TEST_HOME, '.codex'), { recursive: true });
 fs.writeFileSync(path.join(TEST_HOME, '.codex', 'config.toml'), 'model = "test/sandbox-model"\n');
 process.env.HOME = TEST_HOME;
+// win32 `os.homedir()` ignores HOME and reads USERPROFILE, so pin both or the
+// discovery below reads the runner's real profile and finds no client model.
+process.env.USERPROFILE = TEST_HOME;
 
 const testDbPath = path.join(QA_ROOT, 'test_web.db');
 process.env.KONOHA_DB_PATH = testDbPath;

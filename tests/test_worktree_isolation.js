@@ -167,11 +167,27 @@ async function run() {
       }
       assert.notStrictEqual(payloads[0].worktree_path, payloads[1].worktree_path);
       assert.notStrictEqual(payloads[0].branch, payloads[1].branch);
-      const list = git(repo, ['worktree', 'list', '--porcelain']).out;
-      // git emits forward slashes even on win32, so compare normalized forms.
-      const listNorm = list.split(path.sep).join('/');
+      // Compare canonical paths, not spellings: git on win32 re-spells the
+      // path it recorded (8.3 short names expand to long ones), so a byte
+      // comparison fails on a registered worktree. realpathSync.native resolves
+      // both sides to the same form.
+      const listedWorktrees = git(repo, ['worktree', 'list', '--porcelain']).out
+        .split('\n')
+        .filter((line) => line.startsWith('worktree '))
+        .map((line) => line.slice('worktree '.length).trim());
+      const canonical = (target) => {
+        try {
+          return fs.realpathSync.native(target);
+        } catch (_) {
+          return path.resolve(target);
+        }
+      };
+      const listedCanonical = listedWorktrees.map(canonical);
       for (const p of payloads) {
-        assert.ok(listNorm.includes(p.worktree_path.split(path.sep).join('/')), `worktree list missing ${p.worktree_path}`);
+        assert.ok(
+          listedCanonical.includes(canonical(p.worktree_path)),
+          `worktree list missing ${p.worktree_path} (listed: ${listedWorktrees.join(', ')})`
+        );
       }
       console.log('✓ (b) parallel dispatch creates one worktree + branch per member');
     }
