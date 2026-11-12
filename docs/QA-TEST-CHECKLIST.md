@@ -213,6 +213,16 @@ flowchart TD
 
 Execute the automated test suites using the following commands:
 
+The outer gate is the whole repository suite inside the container sandbox; it never runs on the host:
+
+```bash
+pnpm test:sandbox              # build konoha-sandbox:local, then install + lint + 286 suites + fresh-install smoke
+pnpm test:sandbox -- --lint    # fast path: lint only
+pnpm test:sandbox -- --no-build
+```
+
+Then the targeted checks:
+
 ```bash
 # 1. Run MCP protocol and unit tests
 node bin/cli.js test
@@ -227,7 +237,7 @@ node tests/test_documentation_diagrams.js
 # 4. Run all 33 Canonical WebP asset validations (13 workflow demos + 19 Draw.io projections + 1 Tokubetsu-Jonin-only workflow)
 node tests/test_all_assets_webp.js
 
-# 5. Run Web UI Playwright E2E suite (12 spec suites, 46 tests, isolated auth under /tmp/)
+# 5. Run the Web UI Playwright E2E suites (isolated auth under /tmp/)
 pnpm --dir apps/web run test:e2e
 
 # 6. Run flow-file verification pass (explore → qa_codify → qa_e2e_run)
@@ -757,7 +767,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **11. Deterministic Token Metering** | `tests/test_token_sampler.js` | Exact 0.00% parity vs golden corpus; 0 child processes spawned; ~0.04 ms/call | `PASS` (verified 2026-11-02) |
 | **12. Non-Empty Node Updates** | `tests/test_langgraph_budget_resume.js` (S12) | Every node returns a valid dictionary; `graph.invoke` never resolves to `undefined` | `PASS` (verified 2026-11-02) |
 | **13. Forward-Only Execution Trace** | `tests/test_langgraph_budget_resume.js` (S13) | Concatenated trace proves zero duplicate completed nodes and strict forward progression | `PASS` (verified 2026-11-02) |
-| **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes; `get` prints `value<TAB>[default\|user]` and `--json` returns `{key, value, source}`, including the 20 code-backed defaults in `bin/lib/config_defaults.js` | `PASS` (verified 2026-11-02; provenance added 2.2.20) |
+| **14. Canonical CLI Config Command** | `tests/test_cli_config.js` | `konoha config` (`list`, `get`, `set`, `unset`) verified with allowlist and atomic writes; `get` prints `value<TAB>[default\|user]` and `--json` returns `{key, value, source}`, including the code-backed defaults in `bin/lib/config_defaults.js` (71 keys as of 2.2.20) | `PASS` (verified 2026-11-02; provenance added 2.2.20) |
 | **15. Deprecated Manifest Aliases** | `tests/test_canonical_api_sync.js` | 47 canonical + 2 deprecated = 49 manifest tools verified with structured deprecation notices | `PASS` (verified 2026-11-02) |
 
 ---
@@ -948,3 +958,30 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **13. Fresh Install MCP Connection & Stdio Handshake (Cursor & OMP)** | `tests/test_fresh_install_mcp.js` & `tests/test_mcp_protocol_integrity.js` | Resolves unexpanded `${userHome}` in Cursor project MCP, resolves absolute `uvx` with GUI `env.PATH`, sanitizes stale `/tmp/` launcher paths in OMP, in-process launcher optimization for Node >= 24, and auto-detects installed clients on bare `konoha init` | `PASS` (verified 2026-11-08) |
 | **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.20)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
 | **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.20)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
+
+## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.20)
+
+GitHub Actions run `43160159738` failed on five macOS legs and five Windows VM legs. Each failure was reproduced locally — a symlinked `HOME`/`TMPDIR` for the macOS path class, the dockur Windows guest for the rest — and fixed at its cause; no assertion was relaxed.
+
+A later `windows-latest` leg then failed row 5's *precondition* — `AssertionError: T2 orphaned server is running` at `tests/test_mcp_orphan_guard.js:123` — after T1 had already passed. Windows does not reparent children, so `process.ppid === 1` never becomes true there: the parent-death path that T2 exercises cannot exist on Windows, and the spawned server had already exited on stdin EOF. T2 is now POSIX-only, the suite prints why it skipped, and the Windows exit path stays the idle budget, proven behaviourally by T1 and at unit level by T5.
+
+| # | Benchmark / Test Suite | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. macOS Canonicalization: build source allowlist** | `tests/test_build_workflows.js` | `resolveBuildSourceDir` accepts a source under `~/.konoha` when `HOME` is a symlink (`/var` → `/private/var`) and still rejects a directory outside both allowlist roots | `PASS` (verified) |
+| **2. macOS Canonicalization: project hash parity** | `tests/test_db_foreign_keys_and_fts.js`, `tests/test_session_sandbox_isolation.js` | Test expectations derive the project hash through `computeProjectHash` instead of a hand-rolled string; two distinct sandbox projects assert distinct hashes | `PASS` (verified 6/6) |
+| **3. Socket CLI output parsing** | `tests/test_socket_security_audit.js` | `firstJsonValue` extracts the first balanced JSON object from mixed stdout/stderr across 6 output shapes | `PASS` (verified) |
+| **4. Blender `.dmg` on macOS** | `tests/test_yamanaka_compute_and_installer.js`, `tests/test_doctor_3d_isolation.js` | The `.dmg` branch reports `manual-install-required` before any download; `installAllTools` isolates components and returns per-component `errors[]`; diagnostics starts no fetch | `PASS` (verified) |
+| **5. Orphan guard: stdio and daemon self-exit** | `tests/test_mcp_orphan_guard.js` | T1: a stdio server whose stdin never closes exits on the idle budget. T2: a server orphaned by a dying parent (`ppid === 1`) exits on the parent-death poll — POSIX only, because Windows does not reparent, so T2 skips there and the idle budget is the Windows exit (T1/T5). T3/T4: a daemon exits when a newer live daemon takes `bridge.pid`, and at startup when another live daemon already owns it. T5: the idle budget fires with no activity | `PASS` (5/5 on Linux, 3.35 s) |
+| **6. UI daemon restart on re-init** | `tests/test_ui_autostart.js` | Opt-out honoured, port-scoped stop, graceful port release, and a real daemon restart on a free port where the served page references only assets present in the installed build | `PASS` (verified 37/37) |
+| **7. Full suite on merged tree** | `tests/run_all.js` | Every discovered suite passes with 0 failed on the `ci/cross-platform` tree carrying parts A/B; the merged tree (with `origin/master`) is re-run through `scripts/sandbox.js` before commit | `PASS` (pre-merge tree via `act`, 1360.7 s; merged tree via `pnpm test:sandbox`, 286 suites, 0 failed, 2026-11-12) |
+| **8. Config centralization & provenance** | `tests/test_config_centralization.js` | Every consumer reads through `getConfigValue`; `konoha config get` reports `value<TAB>[default|user]` and `--json` returns `{key, value, source}`; the 71-key surface matches `CONFIG_DEFAULTS` | `PASS` (31.1 s) |
+| **9. Container sandbox gate** | `tests/test_sandbox_guard.js` | The gate refuses to run without a reachable Docker daemon, keeps host working tree and `HOME` untouched, reuses named volumes, and never reports green when it did not execute | `PASS` (9.7 s) |
+| **10. Re-init migration purge** | `tests/test_reinit_migration_purge.js` | Re-running `konoha init` over an existing runtime runs the migration pass and removes the legacy cyber-pack rows and files | `PASS` (29.6 s) |
+| **11. Konoha-owned stale skill overwrite** | `tests/test_global_skill_sync_8_clients.js` | A file recorded `created_by_konoha` with the whole resource owned and no user keys is replaced wholesale; a user-edited file is preserved; a three-way merge whose baseline sha no longer matches is refused | `PASS` (7.1 s) |
+| **12. Windows SQLite handle release** | `tests/test_e2e_install_upgrade_reinstall.js`, `tests/test_{cursor,claude,commandcode,opencode}_attribution.js`, `tests/test_clean_reinstall.js` | Install/upgrade/reinstall and attribution paths delete their temp directories after the connection is closed; `cleanKonohaRuntimeDir` compares against `path.parse(target).root` instead of `/` | `PASS` (64.4 s, 6.7–11.4 s, 11.4 s) |
+| **13. SDLC triage payload budget** | `tests/test_sannin_router.js`, `tests/test_web_sdlc_api.js` | `runSannin` omits the duplicated `Flow`/`Task ID`/`Dir` header fields and keeps the website-scaffolding block to one line per build mode, so the payload stays inside the 3 KB contract | `PASS` (28.4 s, 38.7 s) |
+| **15. Windows leg: worktree list path spelling** | `tests/test_worktree_isolation.js` | `git worktree list --porcelain` re-spells the path it recorded on win32 (the 8.3 `RUNNER~1` short name expands to the long profile path), so a byte comparison against the dispatched path fails on a registered worktree; both sides are now resolved with `fs.realpathSync.native` before the membership check, and the failure message prints what git actually listed | `PASS` (local) |
+| **16. Windows leg: 3D model discovery HOME** | `tests/test_yamanaka_web_api.js` | win32 `os.homedir()` ignores `HOME` and reads `USERPROFILE`, so the pinned seeded config was never read and `client_default_model` came back `null`; the suite now pins both | `PASS` (local) |
+| **17. Playwright Web UI e2e suite** | `tests/e2e/*.spec.js` via `pnpm --dir apps/web run test:e2e` | 18 spec files, 59 tests on a clean auth store: docs index asserts the mirror contract instead of a pinned row count, the `/agents` roster gets a hydration budget, and the rasengan transition waits for the shared WebGL scene before the theme click | `PASS` (59/59, 19.9 min, 2026-11-12) |
+
+| **14. Playwright QA codify/run path** | `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`, `tests/test_qa_tool_permissions.js` | Flow JSON compiles to a throwaway `.konoha-verify-*.spec.js`, runs once with the target project's Playwright, is deleted in `finally`, and a missing browser reports `qa_blocked` with `playwright-not-installed` | `PASS` (40.3 s, 26.6 s, 27.0 s) |

@@ -1,4 +1,4 @@
-# 🍃 Konoha 9-Ninja Specialist Roster, Parallel Worktree Isolation & Operational Boundaries (v2.2.18)
+# 🍃 Konoha 9-Ninja Specialist Roster, Parallel Worktree Isolation & Operational Boundaries (v2.2.20)
 
 Technical reference on the 9-agent roster (`@sannin` router + 8 spawnable specialists), parallel git worktree contracts, strict tool permission matrices, compact skill loading (`use_skills`), and ADHD/anti-slop discipline.
 
@@ -18,7 +18,7 @@ Technical reference on the 9-agent roster (`@sannin` router + 8 spawnable specia
 | **@anbu** | Backend, DevOps & Bug Fixing | Server architecture, database/API hardening, DevOps, bug repairs, minimal safe changes. | **Active Mutating** (Write, edit, `aislop_fix`) |
 | **@tokubetsu-jonin** | Technical Writing & Scribe | Publication-grade documentation, DOCX, PDF, XLSX, PPTX, Draw.io/SVG diagrams, animated WebP (< 3.0% AI detection). | **Document & Docs Engines** |
 | **@akatsuki** | Security Specialist | Red-team penetration testing in Docker/LXC (`mode: red`), blue-team defensive security auditing (`mode: blue`). | **Sandboxed Offensive & Defensive** |
-| **@yamanaka** | Generative 3D Specialist | Autonomous 3D asset synthesis, Manifold-3D geometry validation, live Blender refinement (Web UI menu hidden in `v2.2.18`). | **3D & Spatial Pipeline** |
+| **@yamanaka** | Generative 3D Specialist | Autonomous 3D asset synthesis, Manifold-3D geometry validation, live Blender refinement (the Web UI 3D Studio menu is hidden). | **3D & Spatial Pipeline** |
 
 ---
 

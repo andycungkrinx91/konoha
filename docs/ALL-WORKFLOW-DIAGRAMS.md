@@ -13,7 +13,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 5. [Workflow 4: Mockup / Design Image Build Pipeline (`build_from_source`)](#5-workflow-4-mockup--design-image-build-pipeline-build_from_source)
 6. [Workflow 5: Two-Step Zero-AI-Slop Pre-Gate & Autonomous Remediation Loop](#6-workflow-5-two-step-zero-ai-slop-pre-gate--autonomous-remediation-loop)
 7. [Workflow 6: QA Automation & Token-Efficient E2E Validation Flow](#7-workflow-6-qa-automation--token-efficient-e2e-validation-flow)
-8. [Workflow 7: Skills Lifecycle, SQLite FTS5 & Cross-Client 5-Tree Synchronization](#8-workflow-7-skills-lifecycle-sqlite-fts5--cross-client-5-tree-synchronization)
+8. [Workflow 7: Skills Lifecycle, SQLite FTS5 & Cross-Client Skill Deployment](#8-workflow-7-skills-lifecycle-sqlite-fts5--cross-client-skill-deployment)
 9. [Workflow 8: Local LLM Proxy Bridge Gateway & Sidecar Binary RPC](#9-workflow-8-local-llm-proxy-bridge-gateway--sidecar-binary-rpc)
 10. [Workflow 9: Socket.dev Supply Chain Security Gate & Policy Evaluation](#10-workflow-9-socketdev-supply-chain-security-gate--policy-evaluation)
 11. [Workflow 10: Kage Reviewer 98% Minimum Confidence Delivery Gate](#11-workflow-10-kage-reviewer-98-minimum-confidence-delivery-gate)
@@ -489,7 +489,7 @@ flowchart LR
 
 ---
 
-## 8. Workflow 7: Skills Lifecycle, SQLite FTS5 & Cross-Client 5-Tree Synchronization
+## 8. Workflow 7: Skills Lifecycle, SQLite FTS5 & Cross-Client Skill Deployment
 
 ```mermaid
 ---
@@ -516,15 +516,13 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    SourceTree["Canonical Source of Truth<br/>`.agents/skills/` (15 Canonical Skills + Embedded References)"] --> SyncScript["Additive Mirror Synchronization<br/>`node scripts/sync_skills.js`"]
+    SourceTree["Canonical Source of Truth<br/>`src/templates/skills/` (17 Canonical Skills + Embedded References)"] --> SyncScript["Additive Mirror Synchronization<br/>`node scripts/sync_skills.js`"]
 
-    subgraph MirrorTrees ["Cross-Client 6-Tree Repository Mirrors"]
-        M1["src/templates/skills/"]
-        M2[".cursor/skills/"]
-        M3[".gemini/skills/"]
-        M4[".commandcode/skills/"]
-        M5[".claude/skills/"]
-        M6[".omp/skills/"]
+    subgraph MirrorTrees ["Deployed Skill Roots (repository mirror trees are pruned)"]
+        M1["~/.agents/skills/ (harness-neutral, gitignored as a deployed mirror)"]
+        M2["~/.cursor  ~/.gemini  ~/.gemini/antigravity-cli"]
+        M3["~/.commandcode  ~/.claude  ~/.opencode"]
+        M4["~/.config/opencode  ~/.codex  ~/.omp/agent  ~/.pi/agent"]
     end
 
     SyncScript --> MirrorTrees
@@ -559,7 +557,7 @@ flowchart TB
     classDef queryNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
 
     class SourceTree,SyncScript sourceNode;
-    class M1,M2,M3,M4,M5,M6 mirrorNode;
+    class M1,M2,M3,M4 mirrorNode;
     class FTS5Migrate,SQLiteDB dbNode;
     class Find,Load,AC1,AC2,AC3 queryNode;
 ```

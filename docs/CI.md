@@ -179,6 +179,17 @@ expectation, and no `continue-on-error` was added anywhere.
   assertion held on a laptop that had a client configured and failed on any clean runner.
   The suite now pins `HOME` to a temp directory with one seeded `.codex/config.toml`, so
   the endpoint is asserted against a known catalog instead of the developer's machine.
+  Pinning `HOME` alone was still not enough on Windows: `os.homedir()` reads
+  `USERPROFILE` there and ignores `HOME`, so the seeded config was never opened and
+  `client_default_model` came back `null`. Both variables are pinned now.
+- **Worktree list spelling (test_worktree_isolation)** — the suite matched the
+  dispatched worktree path against `git worktree list --porcelain` with a
+  separator-normalized substring test. On win32 git re-spells the recorded path, so
+  the 8.3 `RUNNER~1` short name in
+  `C:\Users\RUNNER~1\AppData\Local\Temp\konoha-worktrees\...` did not appear in
+  the listing as written and the assertion failed for a worktree git had registered
+  correctly. Both sides now resolve through `fs.realpathSync.native` before comparing,
+  and the message prints the paths git actually listed.
 - **Blender archive digest (test_yamanaka_compute_and_installer)** — Blender 5.3
   publishes a single `blender-<version>.sha256` sidecar listing every archive, not the
   per-file `<archive>.sha256` the installer fetched, so the install aborted with
@@ -249,6 +260,20 @@ Fidelity limits, read before trusting a green local run:
   local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
   That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
   on unresolvable platform images, not on a real defect.
+- The macOS leg is the one with no local equivalent, so reproduce a macOS-only failure by
+  reasoning about what differs, not by rerunning Linux. The class that has actually bitten
+  this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`,
+  which is a symlink to `/private/var/folders/...`. Any code that string-compares a
+  resolved path against an unresolved root, or hashes a path string as a cache key, behaves
+  differently there. APFS is also case-insensitive by default. To exercise that locally:
+
+  ```bash
+  R=$(mktemp -d) && mkdir -p "$R/real" && ln -s "$R/real" "$R/link"
+  HOME="$R/link" USERPROFILE="$R/link" node tests/<suite>.js
+  ```
+
+  Passing on Linux does not prove a macOS path bug fixed; the symlinked-`HOME` run is the
+  cheap proxy, and a GitHub macOS run is the only real confirmation.
 - `runner.temp` maps to the act container's `/tmp`, so `PLAYWRIGHT_BROWSERS_PATH` resolves
   inside the container.
 - The workflow's ffmpeg and Playwright `--with-deps` steps need `sudo`. The medium
@@ -256,8 +281,11 @@ Fidelity limits, read before trusting a green local run:
 - act copies the repo into the container instead of bind-mounting it, so a run leaves the
   working tree clean (`git status --porcelain` unchanged). Do not add `--bind`.
 
-A full local run of this leg (284 suites) passed on 2026-11-11, so a red ubuntu step now
-means a real regression rather than a harness or resolver problem.
+A full local run of this leg passed on 2026-11-11 with 284 suites discovered, so a red ubuntu
+step now means a real regression rather than a harness or resolver problem. The runner
+discovers `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js`, so the count moves as
+suites are added; the current tree discovers 286, all green in the container sandbox on
+2026-11-12.
 
 ### When `Install Playwright browsers` dies on apt
 

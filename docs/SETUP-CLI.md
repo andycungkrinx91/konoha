@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.20.
+Status: **Linux x64 verified on this host.** Windows 10/11 and macOS are exercised by `.github/workflows/cross-platform.yml` (install, lint, full suite, fresh-install smoke) on `windows-latest` and `macos-latest`; `scripts/windows-ci.ps1` reproduces the Windows job locally in a VM. macOS defects surfaced by that matrix are fixed but can only be re-confirmed by a GitHub run — there is no local macOS host.
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|

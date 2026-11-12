@@ -54,6 +54,7 @@ konoha web --port 1404 --no-open
 - **Linux (systemd)**: Run `konoha ui service install` to register a `systemd --user` unit (`konoha-ui.service`) for automatic background launch on login/boot and automatic restarts.
 - **macOS (launchd)**: Run `konoha ui service install` to generate a `launchd` LaunchAgent plist (`com.konoha.ui.plist`) for automatic system startup.
 - **Port Isolation**: All daemon lifecycle commands (`start`, `stop`, `restart`, `status`) support `--port=<num>` scoping — stopping or restarting a daemon on a custom port never interrupts daemons running on port 1404 or other ports.
+- **Re-init refreshes a running daemon**: the daemon holds the SvelteKit handler in memory, so it keeps serving the build it loaded at startup. `konoha init --yes` therefore restarts a daemon that is already listening instead of reporting "already started", which is what made `npm install -g konoha-mcp` followed by `init` serve the previous UI. `KONOHA_UI_AUTOSTART=0` suppresses *starting* a daemon, not refreshing one; to skip both, `konoha ui stop` first.
 
 ---
 
@@ -106,7 +107,8 @@ konoha web
 - **Interactive Command Bottom Dock (`BottomDock.svelte`)**:
   - Floating bottom dock with Gaussian spring magnification, active route pill transitions, and one-tap navigation across `Dashboard`, `Agent Activity`, `Ninja Agents`, `Skills & Vectors`, `SDLC Tasks`, `Token Savings`, and `Client IDEs`.
 - **Hidden Yamanaka & 3D Studio Menu Flag (`SHOW_3D_STUDIO_MENU = false`)**:
-  - In v2.2.18, the Yamanaka and 3D Studio sidebar menu items remain hidden by default while preserving the underlying `/3d/setup` and `/3d/maker` routes and backend APIs intact.
+  - The Yamanaka and 3D Studio sidebar menu items are hidden by default (`SHOW_3D_STUDIO_MENU = false`, unchanged since v2.2.18) while the underlying `/3d/setup` and `/3d/maker` routes and backend APIs stay intact.
+  - `POST /api/3d/install-tools` returns `{ success, components, updated_status, errors, logs }`. Components install independently, so one that the platform cannot support does not cancel the others; a failed component appears in `errors[]` as `{ component, error }` and `success` is `false`. On macOS, Blender is published only as a `.dmg`, which the installer does not mount: it reports `Manual Install Required` with `brew install --cask blender` before any download, and `dcc-mcp-blender` still installs.
 
 ### 2. 🌉 Bridges Screen (`Bridges.svelte`)
 - View all configured local LLM proxy bridges and gateway ports.

@@ -9,7 +9,7 @@ the index is the cache. If `get_skill` returns anything different, re-run
 
 Assembled from three verified sources: the 11 rules in the user's 17-section
 template (Section 14, "in particular"), the 7 rules in the `AGENTS.md`
-runtime contract block, and the 7 Cardinal Maintenance Invariants in
+runtime contract block, and the 20 Cardinal Maintenance Invariants in
 `src/templates/skills/konoha/SKILL.md` — with 6 documented merges (aislop
 gate, 700-line limit, Konoha mandatory, Semble mandatory, RTK mandatory,
 Zero-AI-Slop & Kage Gate). The count is 26 because that is how many distinct
@@ -36,12 +36,12 @@ verifiable rules exist. No rule here is invented.
 17. @advisor review: delivery needs @advisor approval.
 18. Zero-AI-Slop & Kage Gate: 100/100 score and ≥98% confidence gate before delivery, with `ai_slop_clean: true` and zero security findings.
 19. Global-only, append-only client configs: never write `.omp`, `.codex`, `.cursor`, `.claude`, `.agents`, or `.gitignore` rules (such as `/PLAN.md`) into user project directories; all client configs live under the user home with automatic date-stamped backups and syntax-aware append-only merging. Konoha never deletes external `agents/` or `conversations/` directories.
-20. Ownership-aware skill sync: all 17 canonical skills (plus cross-framework Motion references and `SOUL.md`) are synchronized across all 8 client global skill directories; fresh installs skip pre-existing user files, upgrades apply targeted line diff-and-patch while preserving user customizations.
+20. Ownership-aware skill sync: all 17 canonical skills (plus their references and `SOUL.md`) are synchronized from `src/templates/skills` across the ten global skill directories of the eight supported clients; fresh installs skip pre-existing user files, upgrades apply targeted line diff-and-patch while preserving user customizations, and a file recorded as `created_by_konoha` with no user keys is replaced wholesale.
 21. Scoped execution: hooks and tool blockers activate only inside Konoha-managed contexts (`/konoha <prompt>` or `/<subagent-name> <prompt>`). External skills are indexed in-place into the SQLite Project Knowledge RAG with strict project isolation.
 22. Extension isolation: the obsolete `andycungkrinx91.konoha-bridge-master-universal` extension directory is eliminated; all IDEs use direct MCP configuration.
 23. Draw.io zero-collision rule: never introduce overlapping cells or bounding-box collisions in Draw.io diagram pages (`tests/test_diagram_sync.js`).
-24. Single-source version synchronization: keep all 19 managed repository targets strictly synchronized via `scripts/bump_version.js`.
-25. Release governance: on branch `master`, all discovered tests pass before release commits.
+24. Single-source version synchronization: keep all 18 managed repository targets strictly synchronized via `scripts/bump_version.js`.
+25. Release governance: on branch `master`, all discovered tests pass before release commits. The gate is `pnpm test:sandbox` (install, lint, full suite, and fresh-install smoke inside `konoha-sandbox:local`), so a green run does not depend on the developer's host `HOME`.
 26. Token savings telemetry preservation: never modify or disrupt the token savings telemetry flow logic (`src/tools_savings_logger.js`); baseline bytes are dynamically computed from the actual `SUM(byte_size)` of retrieved skill candidates in SQLite FTS5.
 
 ## Message Format

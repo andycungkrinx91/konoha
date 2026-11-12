@@ -217,7 +217,7 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 ## Test Suite Runner & Isolation Contract (G-01, G-17)
 
-Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation.
+Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the suites excluded by `KONOHA_TEST_EXCLUDE`, so a new suite is discovered without editing a list.
 
 Every test and lint entry point in `package.json` is routed through `scripts/rtk_exec.js`, so suite output reaches the orchestrating model as a failure-focused summary instead of thousands of raw lines:
 
@@ -240,12 +240,13 @@ Measured on a 400-line noisy suite fixture (`tests/fixtures/rtk_exec_noisy.js`):
 Isolation contract:
 
 1. **Golden Seed & Snapshot Isolation (G-01)**:
-   - The runner initializes or reuses a seeded template environment (`/tmp/konoha_golden_seed` containing pre-configured `konoha.db` and runtime files).
-   - Before launching each test suite, the runner creates a dedicated, ephemeral snapshot directory (`/tmp/konoha_suite_*`) via `cp -a --reflink=auto`.
+   - The runner initializes or reuses a seeded template environment (`$TMPDIR/konoha_golden_seed_*`, holding a pre-configured `konoha.db` and runtime files, built once with `init --yes` under a scratch `HOME`). A candidate seed is reused only when it is complete, its recorded version matches `package.json`, its source fingerprint matches the current `src/`/`bin/` tree, and its copied fingerprint still matches the seed itself — so a stale seed from a previous build is rebuilt instead of silently tested.
+   - Before launching each test suite, the runner creates a dedicated, ephemeral snapshot directory (`$TMPDIR/konoha_suite_*`) via `cp -a --reflink=auto --no-preserve=ownership`. The ownership flag matters inside containers, where the seed was written by a different uid and a preserved ownership would make the copy unwritable.
    - Each suite process is executed with isolated environment overrides:
      - `HOME`: points to the ephemeral suite snapshot directory.
+     - `USERPROFILE`: the same directory. `os.homedir()` reads `USERPROFILE` on win32 and ignores `HOME`, so without it a suite that calls `os.homedir()` escapes the sandbox while the product reads `HOME` — the two then disagree mid-suite.
      - `KONOHA_DB_PATH`: points to `$HOME/.konoha/konoha.db`.
-     - `KONOHA_UI_AUTOSTART`: set to `'0'` by default (omitted only for autostart-specific suites).
+     - `KONOHA_UI_AUTOSTART`: set to `'0'` by default. `tests/test_ui_autostart.js` is the exception — the runner deletes the variable for that suite, because the suite asserts that autostart *happens* and that `'0'` suppresses it.
      - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
      - `KONOHA_TEST_SANDBOX`: set to `'1'`.
    - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.

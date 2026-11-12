@@ -1,4 +1,4 @@
-# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.18)
+# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.20)
 
 Technical specification of the Konoha MCP Server architecture, 48 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
 
@@ -45,11 +45,11 @@ All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 t
 
 - **stdio**: Primary low-latency JSON-RPC transport for local IDE/CLI clients (Cursor, Claude Code, Antigravity, OpenCode, Command Code, Codex, Pi, OMP).
 - **SSE (Server-Sent Events)**: Web UI streaming events and real-time log dispatching.
-- **WebSocket (`port 1404`)**: Real-time bidirectional telemetry, status streaming, and remote client coordination. Note: In `v2.2.18`, the Yamanaka 3D Studio menu in the Web UI is hidden (`SHOW_3D_STUDIO_MENU = false`) and 3D controllers are lazy-loaded on demand with zero idle memory overhead.
+- **WebSocket (`port 1404`)**: Real-time bidirectional telemetry, status streaming, and remote client coordination. Note: the Yamanaka 3D Studio menu in the Web UI is hidden (`SHOW_3D_STUDIO_MENU = false`) and 3D controllers are lazy-loaded on demand with zero idle memory overhead.
 
 ---
 
-## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.18`)
+## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.20`)
 
 When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), `@jonin` executes a dynamic, context-driven design architecture across all supported frameworks (**Next.js, SvelteKit, Nuxt, Angular**):
 

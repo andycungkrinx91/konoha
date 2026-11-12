@@ -84,7 +84,7 @@ node bin/cli.js init --client=all
 
 - **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
 - **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
-- **Platform:** Linux x64 verified. macOS and Windows (native and WSL) are supported targets but were not executed for 2.2.19/2.2.20; see [docs/SETUP-CLI.md](docs/SETUP-CLI.md).
+- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml); see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
 - **Search:** Semble via `uvx` for semantic code search; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
 
 The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
@@ -288,7 +288,7 @@ Host clients select the underlying model; Konoha defines scope and role boundari
 
 ### Supported coding clients: 8 clients
 
-All rows verified on Linux x64 only for this release line; macOS/Windows were not executed for 2.2.19/2.2.20.
+Paths below were exercised on Linux x64. The same registration and MCP handshake suites run on `windows-latest` and `macos-latest` in CI, where `%APPDATA%` and `~/Library/Application Support` take the place of `~/.config`.
 
 | Client | MCP config path | Guardrail |
 |:---|:---|:---|
@@ -345,7 +345,7 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change (`rtk node tests/run_all.js` for the full suite, `rtk aislop scan --changes` for the slop gate, `rtk node scripts/sync_canonical_api.js --check` for tool sync). Keep changes local — do not push, tag, or publish without explicit instruction.
+Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then the gate before you hand it over: `pnpm test:sandbox` runs install, lint, the full suite, and the fresh-install smoke inside `konoha-sandbox:local`, leaving your host `HOME` and `node_modules` alone; `pnpm test` is the same runner without isolation; `pnpm ci:act` replays the CI workflow locally. Per-change checks are `rtk node tests/run_all.js` for the suite, `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
 
 ## Support
 
