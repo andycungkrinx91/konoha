@@ -41,7 +41,7 @@ verifiable rules exist. No rule here is invented.
 22. Extension isolation: the obsolete `andycungkrinx91.konoha-bridge-master-universal` extension directory is eliminated; all IDEs use direct MCP configuration.
 23. Draw.io zero-collision rule: never introduce overlapping cells or bounding-box collisions in Draw.io diagram pages (`tests/test_diagram_sync.js`).
 24. Single-source version synchronization: keep all 18 managed repository targets strictly synchronized via `scripts/bump_version.js`.
-25. Release governance: on branch `master`, all discovered tests pass before release commits. The gate is `pnpm test:sandbox` (install, lint, full suite, and fresh-install smoke inside `konoha-sandbox:local`), so a green run does not depend on the developer's host `HOME`.
+25. Release governance: on branch `master`, all discovered tests pass before release commits. The gate is `pnpm test:sandbox` (install, lint, full suite, and fresh-install smoke inside `konoha-sandbox:local`), so a green run does not depend on the developer's host `HOME`. It runs on Docker by default and on Apple's `container` via `KONOHA_SANDBOX_RUNTIME=container`; an engine that is missing or stopped exits non-zero instead of falling back.
 26. Token savings telemetry preservation: never modify or disrupt the token savings telemetry flow logic (`src/tools_savings_logger.js`); baseline bytes are dynamically computed from the actual `SUM(byte_size)` of retrieved skill candidates in SQLite FTS5.
 
 ## Message Format

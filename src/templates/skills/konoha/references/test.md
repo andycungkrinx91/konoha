@@ -9,6 +9,7 @@ Operational runbook and testing matrix for verifying Konoha `v2.2.20` core engin
 | Gate | Command | Scope |
 |---|---|---|
 | **Container sandbox (default)** | `pnpm test:sandbox` | Builds `konoha-sandbox:local` and runs install, lint, the full suite, and the fresh-install smoke inside it. The host `HOME`, `/tmp`, `node_modules`, and working tree are untouched. `--lint` is the fast path, `--no-build` reuses the last image. |
+| **Container sandbox on macOS** | `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` | Same image and mounts through [apple/container](https://github.com/apple/container), no Docker Desktop needed (Apple silicon, macOS 26, `container system start`). Each instance is a 1 GiB VM, so the run passes `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides). Still a Linux guest: `/var` → `/private/var`, case-insensitive APFS, and the `.dmg` branch only surface in a native `pnpm test`. |
 | **Full suite on the host** | `pnpm test` | Same runner without isolation; only meaningful when the host is already clean. |
 | **Workflow locally** | `pnpm ci:act` | `act -j test --matrix os:ubuntu-latest` against `.github/workflows/cross-platform.yml`, image pinned in `.actrc`. |
 
