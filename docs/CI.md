@@ -75,11 +75,11 @@ per-OS numbers above are job durations, not run durations. The cap has not been 
 on this repository; if a run looks slower than the sum of its steps, read the queue time
 before reading it as a regression.
 
-| OS | Target | Modelled shard work | Fixed cost | Verdict |
+| OS | Target | Slowest shard (Linux, measured) | Fixed cost | Verdict |
 | --- | --- | --- | --- | --- |
-| ubuntu-latest | < 10 min | 175 s | unmeasured | modelled headroom is large; confirm on the first run |
-| macos-latest | < 20 min | 175 s | unmeasured × macOS factor | unverified |
-| windows-latest | < 40 min | 175 s | unmeasured × Windows factor | unverified |
+| ubuntu-latest | < 10 min | 175 s | unmeasured | headroom is large; confirm on the first run |
+| macos-latest | < 20 min | 175 s × macOS factor | unmeasured | unverified |
+| windows-latest | < 40 min | 175 s × Windows factor | unmeasured | unverified |
 
 Why the count is uniform rather than smaller on macOS and Windows: their multipliers
 are unmeasured, and Windows is the platform this work exists for. Sizing it down on the
