@@ -210,9 +210,10 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification limit, stated plainly: **this manual's 2.2.20 evidence was collected on Linux x86_64 only.** The Windows
-commands above follow the package's own code paths and standard npm behaviour, but they were not executed for this
-edition. Treat Windows as supported-but-unverified here, and confirm with `konoha status` after installing.
+Verification scope, stated plainly: **this manual's 2.2.20 evidence comes from Linux x86_64 on a host, plus Windows
+inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
+physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
+report anything that differs.
 
 What does back those two platforms is the CI matrix, not this manual: `.github/workflows/cross-platform.yml` runs the
 install, lint, suite, and fresh-install smoke step on `windows-latest` and `macos-latest` for every push and pull
@@ -1444,9 +1445,10 @@ directory into any of those locations.
 
 ### 14.5 Windows
 
-Installation is documented for Windows but not verified by the maintainer on a real host, and path handling differs from
-POSIX (`src/deploy_utils.js:48`). Treat a Windows failure as likely rather than surprising, and report it with the output
-of `konoha doctor`.
+Installation is verified in the dockur/QEMU Windows VM and by the `windows-latest` CI leg, not on physical Windows
+hardware or on Docker Desktop for Windows, and path handling differs from POSIX (`src/deploy_utils.js:48`). A failure
+outside those two environments is a plausible new find rather than a surprise; report it with the output of
+`konoha doctor`.
 
 ### 14.6 Reporting a defect
 
