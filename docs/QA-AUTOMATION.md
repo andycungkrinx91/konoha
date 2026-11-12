@@ -239,6 +239,14 @@ Measured on a 400-line noisy suite fixture (`tests/fixtures/rtk_exec_noisy.js`):
 
 Isolation contract:
 
+Three different things in this repo are called a sandbox. They do not nest, and a green run in one proves nothing about the others:
+
+| Layer | Mechanism | What it isolates | Not what |
+|---|---|---|---|
+| **Container gate** | `pnpm test:sandbox` → `docker/sandbox.Dockerfile` (or `KONOHA_SANDBOX_RUNTIME=container`) | The whole host from `pnpm lint` + `pnpm test` + fresh-install smoke: read-only `/src`, container `HOME`, pnpm store and Playwright cache in named volumes | Not the `apps/web` e2e specs, and not the QA tools |
+| **Runner + guard** | `tests/run_all.js` env overrides, plus `assertSandbox()` from `tests/helpers/sandbox_guard.js` | `HOME`/`USERPROFILE`/`KONOHA_DB_PATH` per suite, and refusal to run a mutating suite against the real `$HOME` | Not a container: it protects files, not the process or network |
+| **QA tool** | `qa_e2e_run` / `qa_codify` shelling out to the target project's `pnpm exec playwright` | Nothing but the auth file and the rate limiter — the project runs on the host as-is | Not the container gate; a project with no Playwright reports `qa_blocked` instead of being containerized |
+
 1. **Golden Seed & Snapshot Isolation (G-01)**:
    - The runner initializes or reuses a seeded template environment (`$TMPDIR/konoha_golden_seed_*`, holding a pre-configured `konoha.db` and runtime files, built once with `init --yes` under a scratch `HOME`). A candidate seed is reused only when it is complete, its recorded version matches `package.json`, its source fingerprint matches the current `src/`/`bin/` tree, and its copied fingerprint still matches the seed itself — so a stale seed from a previous build is rebuilt instead of silently tested.
    - Before launching each test suite, the runner creates a dedicated, ephemeral snapshot directory (`$TMPDIR/konoha_suite_*`) via `cp -a --reflink=auto --no-preserve=ownership`. The ownership flag matters inside containers, where the seed was written by a different uid and a preserved ownership would make the copy unwritable.
