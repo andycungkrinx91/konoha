@@ -54,10 +54,51 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
+      # is copied from. It is content-addressed by the same tree hash the
+      # harness validates (tests/run_all.js sourceFingerprint over src, bin and
+      # scripts), so a hit is provably the seed this commit needs and a miss
+      # rebuilds it. Building it costs ~4 minutes on every OS and used to land
+      # inside whichever suite started first, blocking all workers.
+      - name: Restore golden seed
+        id: seed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+
+      - name: Build golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        env:
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
+        run: node tests/run_all.js --seed-only
+
+      # Saved explicitly rather than through the action's post-step: the post
+      # step skips on a red job, and a suite failure would otherwise re-pay the
+      # seed build on every subsequent run. continue-on-error because the key is
+      # content-addressed: two jobs that miss together build the same seed, and
+      # the loser's save is refused as already-present. That is a cache
+      # optimisation failing, not a check failing.
+      - name: Save golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+
       # Bare runners have no browser cache. The harness forwards
-      # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js:130), defaulting to
+      # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js), defaulting to
       # ~/.cache/ms-playwright — so install to the shared runner.temp path
-      # and export the same path for the test step.
+      # and export the same path for the test step. The cache keeps the
+      # ~120 MB chromium download off every run; the install step still runs
+      # because Linux also needs the apt-side system libraries.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install Playwright browsers (Linux)
         if: matrix.os == 'ubuntu-latest'
         env:
@@ -122,6 +163,7 @@ jobs:
       - name: Test (full suite)
         env:
           KONOHA_TEST_PARALLEL: '1'
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         timeout-minutes: 240
         run: pnpm test

@@ -12,21 +12,62 @@ Each OS runs the same job (Node 24, pnpm 12.16.1, setup reused exactly from
 `publish.yml`):
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm lint`
-3. `pnpm test` — the full suite via `tests/run_all.js`, in the harness's own parallel
-   mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4). No `continue-on-error`: a failing
-   suite turns the workflow red.
-4. Fresh-install smoke test — `node bin/cli.js init --yes --no-project`, then
+2. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
+   --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
+3. `pnpm lint`
+4. `pnpm test` — the full suite via `tests/run_all.js`, in the harness's own parallel
+   mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing the restored seed. No
+   `continue-on-error`: a failing suite turns the workflow red.
+5. Fresh-install smoke test — `node bin/cli.js init --yes --no-project`, then
    `node bin/cli.js migrate --skip-embeddings`, then `node bin/cli.js version`, with a
    throwaway `HOME`/`USERPROFILE`. The CLI entry point is invoked directly (`bin:
    konoha -> bin/cli.js`) so no global install or PATH resolution is involved.
    `--skip-embeddings` keeps the gate about the CLI: embedding coverage is asserted
-   by step 3, and an unbounded Hugging Face download here would turn a network
+   by step 4, and an unbounded Hugging Face download here would turn a network
    hiccup into a fake cross-platform failure.
 
 `fail-fast` is off: one OS failing never cancels the other two, so every run reports
 a per-OS result. A `concurrency` group cancels superseded runs on the same branch.
 Permissions are `contents: read` only.
+
+## Golden seed cache
+
+Every suite runs against a throwaway copy of one golden seed — a full `konoha init`
+HOME. Building it is the single most expensive fixed cost in the job, and it used to be
+paid by whichever suite started first while the other three workers sat idle:
+
+| Leg | Seed build, cold |
+| --- | --- |
+| Linux (16-core host, measured) | 241 s |
+| Windows (VM, measured) | 262 s |
+
+The workflow now builds the seed in its own step and caches it:
+
+- Key: `konoha-seed-<os>-<hashFiles(package.json, pnpm-lock.yaml, src/**, bin/**, scripts/**)>`.
+  That is exactly the tree `tests/run_all.js` stamps into `.auto_setup_state.json`
+  (`sourceFingerprint`), so a cache hit is provably a seed this commit accepts; anything
+  else is a miss and rebuilds.
+- `KONOHA_SEED_DIR` names the restored directory. When set it is authoritative: the
+  harness will not fall back to an unrelated seed in the temp dir, so a cache miss
+  cannot silently reuse stale state and leave the cache path empty.
+- `--seed-only` builds the seed and exits, so the cache step does not also run the suite.
+  The suite step logs `[SEED] Seed check: Ns` before the first suite, which is how you
+  tell a cache hit from a rebuild in the job log.
+- Save is explicit (`actions/cache/save`) rather than the restore action's post-step:
+  the post-step is skipped on a red job, and a failing suite would otherwise re-pay the
+  build on every following run.
+- A `KONOHA_SEED_DIR` that points at a non-empty directory which is not a seed is
+  refused with a non-zero exit, not deleted — the guard is what makes it safe to hand a
+  cache path to a process that may decide to rebuild.
+
+Cache hit measured at 0.4 s versus 241 s to rebuild. Cached size is roughly 400 MB per
+OS against the 10 GB per-repo cache budget.
+
+`.konoha/node_modules` inside the seed is a link to the checkout's `node_modules`. `cp -a`
+preserves it in one syscall, but Windows has no `cp`, and `fs.cpSync` cannot recreate a
+symlink without a privilege the runner does not have — it walks the ~36k-file tree
+instead, once per suite. The harness therefore excludes that one path from the `cpSync`
+fallback and rebuilds it as a junction (unprivileged on Windows) after the copy.
 
 ## Audit history — run 42951648986 (branch 08ae0d0b vs master 513669d3)
 
@@ -284,8 +325,8 @@ Fidelity limits, read before trusting a green local run:
 A full local run of this leg passed on 2026-11-11 with 284 suites discovered, so a red ubuntu
 step now means a real regression rather than a harness or resolver problem. The runner
 discovers `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js`, so the count moves as
-suites are added; the current tree discovers 287, all green in the container sandbox on
-2026-11-12.
+suites are added; the tree that was green in the container sandbox on 2026-11-12
+discovered 287, and the seed-cache contract suite added since makes the current tree 288.
 
 ### When `Install Playwright browsers` dies on apt
 
@@ -500,9 +541,10 @@ Operational notes for the local Windows leg:
   `Start-Transcript -Force` truncates it, so a new filename does mean a new run. Runs are
   also failed if the script never reaches its last step (`run interrupted before completion`
   in the summary), so a Ctrl-C cannot be mistaken for a pass.
-- The first suite run in a fresh guest builds the golden seed with a full `konoha init`, which
-  takes roughly 20 minutes on this VM versus ~3.5 minutes on Linux; later runs reuse it.
-  `tests/run_all.js` logs `[SEED] Building golden seed …` and either
+- The first suite run in a fresh guest builds the golden seed with a full `konoha init`,
+  which took 262 s on this VM in the run that measured it — the "20 minutes" in earlier
+  notes was the whole step, not the init. Point `KONOHA_SEED_DIR` at a prepared seed to
+  skip it entirely. `tests/run_all.js` logs `[SEED] Building golden seed …` and either
   `[SEED] Golden seed ready (Ns)` or a `[SEED] init did not produce a complete seed in Ns`
   error, so the phase is visible instead of looking like a hang.
 - `pnpm test` on Windows can emit `NativeCommandError` lines from `pnpm.ps1` when

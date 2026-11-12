@@ -61,10 +61,14 @@ function seedIsCurrent(dir) {
   }
 }
 
+// CI restores a persistent seed from a cache and points KONOHA_SEED_DIR at it.
+// That directory is checked first so a cache hit never depends on tmpdir naming.
+const EXPLICIT_SEED_DIR = process.env.KONOHA_SEED_DIR ? path.resolve(process.env.KONOHA_SEED_DIR) : null;
+
 function candidateSeeds() {
   let names = [];
-  try { names = fs.readdirSync(os.tmpdir()); } catch { return []; }
-  return names
+  try { names = fs.readdirSync(os.tmpdir()); } catch { names = []; }
+  const scanned = names
     .filter((n) => n.startsWith('konoha_golden_seed'))
     .map((n) => path.join(os.tmpdir(), n))
     .filter((dir) => {
@@ -73,17 +77,53 @@ function candidateSeeds() {
     .sort((a, b) => {
       try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; }
     });
+  // When CI names the seed directory it is the only candidate: silently reusing
+  // an unrelated tmpdir seed would leave the cached path empty and pay the
+  // rebuild again on the next run.
+  return EXPLICIT_SEED_DIR ? [EXPLICIT_SEED_DIR] : scanned;
+}
+
+function prepareExplicitSeedDir() {
+  // Only a directory this runner owns is ever wiped: an empty one (cache miss)
+  // or a complete-but-stale seed. Anything else is refused rather than deleted.
+  if (!EXPLICIT_SEED_DIR) return fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
+  if (fs.existsSync(EXPLICIT_SEED_DIR)) {
+    if (!seedIsComplete(EXPLICIT_SEED_DIR) && fs.readdirSync(EXPLICIT_SEED_DIR).length > 0) {
+      throw new Error(`[SEED] KONOHA_SEED_DIR=${EXPLICIT_SEED_DIR} is neither empty nor a seed directory; refusing to overwrite it.`);
+    }
+    fs.rmSync(EXPLICIT_SEED_DIR, { recursive: true, force: true });
+  }
+  fs.mkdirSync(EXPLICIT_SEED_DIR, { recursive: true });
+  return EXPLICIT_SEED_DIR;
+}
+
+// `.konoha/node_modules` is a link into the checkout's node_modules, and it is
+// the one thing in the seed a cache round-trip can mangle: tar either drops it
+// or materializes the whole tree, which would then be copied into every suite
+// snapshot. Re-point it at the checkout before the seed is used.
+function ensureSeedNodeModules(seedDir) {
+  const link = path.join(seedDir, '.konoha', 'node_modules');
+  const target = path.join(__dirname, '..', 'node_modules');
+  if (!fs.existsSync(target)) return;
+  let stat = null;
+  try { stat = fs.lstatSync(link); } catch { /* absent */ }
+  if (stat && stat.isSymbolicLink()) {
+    try { if (fs.realpathSync(link) === fs.realpathSync(target)) return; } catch { /* dangling */ }
+  }
+  if (stat) fs.rmSync(link, { recursive: true, force: true });
+  fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
 }
 
 function getGoldenSeed() {
   if (goldenSeedInfo) return goldenSeedInfo;
   for (const dir of candidateSeeds()) {
     if (seedIsCurrent(dir)) {
-      goldenSeedInfo = { dir, isTemp: false };
+      ensureSeedNodeModules(dir);
+      goldenSeedInfo = { dir };
       return goldenSeedInfo;
     }
   }
-  const seedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
+  const seedDir = prepareExplicitSeedDir();
   // The init is silent for minutes on slow filesystems; without this line a
   // stalled seed build looks identical to a hung runner.
   console.log(`[SEED] Building golden seed in ${seedDir} (first-run init, can take several minutes) ...`);
@@ -115,7 +155,7 @@ function getGoldenSeed() {
   // SEED_SENTINELS), so the seed's own freshness record is created here.
   stampSourceFingerprint(seedDir);
   console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
-  goldenSeedInfo = { dir: seedDir, isTemp: true };
+  goldenSeedInfo = { dir: seedDir };
   return goldenSeedInfo;
 }
 
@@ -160,9 +200,26 @@ function copySeedDir(seedDir, suiteHome) {
   ];
   for (const args of attempts) {
     const res = spawnSync(args[0], args.slice(1), { encoding: 'utf-8' });
-    if (res.status === 0 && !res.error) return;
+    if (res.status === 0 && !res.error) {
+      ensureSeedNodeModules(suiteHome);
+      return;
+    }
   }
-  fs.cpSync(seedDir, suiteHome, { recursive: true });
+  // `cp -a` preserves `.konoha/node_modules` as a link in one syscall; cpSync
+  // has to resolve or recreate it, and on Windows recreating a symlink needs a
+  // privilege the runner does not have — so it walks the ~36k-file
+  // node_modules tree instead. That walk, once per suite with four suites
+  // running, is the bulk of a Windows run. Copy everything else and rebuild
+  // the link as a junction (unprivileged on Windows) afterwards.
+  const linkDir = path.join('.konoha', 'node_modules');
+  fs.cpSync(seedDir, suiteHome, {
+    recursive: true,
+    filter: (from) => {
+      const rel = path.relative(seedDir, from);
+      return rel !== linkDir && !rel.startsWith(`${linkDir}${path.sep}`);
+    }
+  });
+  ensureSeedNodeModules(suiteHome);
 }
 
 function createSuiteSnapshot(name) {
@@ -219,6 +276,14 @@ function createSuiteSnapshot(name) {
   };
 }
 
+// CI builds the seed in its own step so the ~4 minute first-run init is cached
+// across runs instead of landing inside whichever suite happens to start first.
+if (process.argv.includes('--seed-only')) {
+  const seed = getGoldenSeed();
+  console.log(`[SEED] ${seed.dir}`);
+  process.exit(0);
+}
+
 const testsDir = __dirname;
 const files = fs.readdirSync(testsDir);
 const includePython = process.argv.includes('--include-python');
@@ -271,12 +336,27 @@ if (excludePatterns.length > 0) {
 let passed = 0;
 let failed = 0;
 const failList = [];
+// Build or validate the seed once, before any suite is scheduled. Left to the
+// first suite it blocks the event loop for minutes (spawnSync) while the other
+// workers sit parked, and its cost is attributed to whatever suite won the race.
+const seedWarmStart = Date.now();
+try {
+  getGoldenSeed();
+} catch (err) {
+  // The guard in prepareExplicitSeedDir throws rather than deleting a directory
+  // it did not create; surface it as a failed run, not a stack trace mid-suite.
+  console.error(err.message);
+  process.exit(1);
+}
+console.log(`[SEED] Seed check: ${((Date.now() - seedWarmStart) / 1000).toFixed(1)}s\n`);
 const startTime = Date.now();
 
 function runSuiteSync(cmd, args, name) {
   process.stdout.write(`[SUITE] Running: ${name} ... `);
-  const start = Date.now();
   const snapshot = createSuiteSnapshot(name);
+  // Timed from after the snapshot: the ~400 MB seed copy is harness overhead,
+  // and charging it to the suite made a 2 s suite report as minutes.
+  const start = Date.now();
   try {
     const res = spawnSync(cmd, args, {
       encoding: 'utf-8',
@@ -300,8 +380,8 @@ function runSuiteSync(cmd, args, name) {
 
 function runSuiteAsync(cmd, args, name) {
   return new Promise((resolve) => {
-    const start = Date.now();
     const snapshot = createSuiteSnapshot(name);
+    const start = Date.now();
     const child = spawn(cmd, args, {
       env: snapshot.env
     });
