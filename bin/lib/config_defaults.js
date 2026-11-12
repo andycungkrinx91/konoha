@@ -52,6 +52,10 @@ const CONFIG_DEFAULTS = Object.freeze({
   live_glb_poll_timeout_ms: 15000,
   ui_ready_timeout_ms: 180000,
   notify_dedupe_ttl_ms: 180000,
+  // mcp server orphan guard (src/mcp_orphan_guard.js)
+  mcp_orphan_parent_poll_ms: 30000,
+  mcp_stdio_idle_timeout_ms: 14400000,
+  mcp_daemon_superseded_poll_ms: 30000,
   // budgets / thresholds
   minimum_confidence: 98,
   skill_top_k: 5,

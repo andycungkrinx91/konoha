@@ -52,7 +52,7 @@ const {
   installUv,
   refreshSemblePackage
 } = require('../lib/extension');
-const { checkPortActive, ensureUiDaemonAutoStart } = require('../lib/ui_commands');
+const { checkPortActive, ensureUiDaemonAutoStart, cmdUiRestart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
@@ -129,15 +129,37 @@ function checkNodeAndToolchains(options, args) {
   }
 }
 
-async function autoStartUiDaemonIfRequested(options) {
-  if (!options.skipUiAutoStart) {
-    try {
-      const uiAuto = await ensureUiDaemonAutoStart();
-      if (uiAuto?.started) {
-        info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:${UI_PORT}/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
-      }
-    } catch { /* intentional fallback */ }
+async function restartUiDaemonForRefresh(port) {
+  info('Restarting Konoha Web UI daemon to load the refreshed runtime...');
+  try {
+    await cmdUiRestart(['--no-open', `--port=${port}`]);
+  } catch (err) {
+    warn(`Web UI daemon restart failed (${err ? err.message : 'unknown error'}); the running UI may still serve the previous build. Run "konoha ui restart" to refresh it.`);
   }
+}
+
+async function autoStartUiDaemonIfRequested(options) {
+  if (options && options.skipUiAutoStart) return;
+  try {
+    const port = (options && options.port) || UI_PORT;
+    // A reinstall/refresh replaces the runtime mirror under a running
+    // daemon, but the daemon serves the build it loaded at startup (the
+    // SvelteKit handler is cached in-process), so the old build stays
+    // served until the process restarts. ensureUiDaemonAutoStart() alone
+    // is a no-op when the port is already active, which left the stale
+    // UI served after `npm install -g` + `konoha init --yes`. Restart a
+    // running daemon so it loads the refreshed runtime; otherwise start
+    // it as before. Restarting a running daemon is not auto-starting
+    // one, so the KONOHA_UI_AUTOSTART opt-out does not apply here.
+    if (await checkPortActive(port)) {
+      await restartUiDaemonForRefresh(port);
+      return;
+    }
+    const uiAuto = await ensureUiDaemonAutoStart({ port });
+    if (uiAuto?.started) {
+      info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:${port}/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
+    }
+  } catch { /* intentional fallback */ }
 }
 
 async function refreshExistingInstallation(flags, options) {
@@ -470,5 +492,6 @@ module.exports = {
   detectAllClientFlags,
   buildInitMigrationArgs,
   handleExistingInstallation,
-  migrateExistingInstallation
+  migrateExistingInstallation,
+  autoStartUiDaemonIfRequested
 };
