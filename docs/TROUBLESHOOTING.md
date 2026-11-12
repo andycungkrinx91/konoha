@@ -142,6 +142,7 @@ node --version  # Must be >= 24.0.0
 - **`Sandbox failed. Host working tree untouched; volumes kept for the next run.`**: a suite inside the container failed. Read the suite output above that line. The host `HOME`, `/tmp`, and working tree are unchanged, so nothing leaked out of the sandbox.
 - **A stale pnpm store or Playwright browser set**: the two named volumes outlive the container. Reset them with `docker volume rm konoha-sandbox-pnpm-store konoha-sandbox-ms-playwright`; the next run repopulates them. Do not prune every volume on the machine.
 - **Fast path**: `pnpm test:sandbox -- --lint` skips the suite, and `--no-build` reuses the existing image when only test files changed.
+- **On Apple-silicon macOS without Docker Desktop**: `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [Apple's `container`](https://github.com/apple/container). `The container CLI is not installed` means the signed package is missing; `The container runtime is not reachable` means `container system start` has not run since boot. Its volumes are named identically and are reset with `container volume delete <name>`; the run gets `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides) because each `container` instance is a VM capped at 1 GiB. It is still a Linux guest — macOS host semantics only surface in a native `pnpm test`.
 
 ---
 

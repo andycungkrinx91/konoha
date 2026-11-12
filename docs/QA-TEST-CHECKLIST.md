@@ -219,6 +219,7 @@ The outer gate is the whole repository suite inside the container sandbox; it ne
 pnpm test:sandbox              # build konoha-sandbox:local, then install + lint + 286 suites + fresh-install smoke
 pnpm test:sandbox -- --lint    # fast path: lint only
 pnpm test:sandbox -- --no-build
+KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox   # Apple-silicon macOS: apple/container instead of Docker
 ```
 
 Then the targeted checks:

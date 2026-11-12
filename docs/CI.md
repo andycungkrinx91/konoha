@@ -389,6 +389,39 @@ Each `container` run is a VM capped at 1 GiB by default, so the script passes
 container inherits the daemon VM's memory. Both paths share one environment contract — Node 24,
 pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
 
+## Local macOS
+
+The `macos-latest` leg has two steps a plain `pnpm test` does not cover, and both are the
+kind that only fail on a fresh Mac: the web build (`apps/web/build` is gitignored but
+`tests/test_manifest_invariants.js` requires `index.js`) and an `ffmpeg` that exposes
+`libwebp_anim` (Homebrew's `ffmpeg` is built without `--enable-libwebp`; `ffmpeg-full` is
+the keg-only variant that has it). Replay the leg in order:
+
+```bash
+pnpm install --frozen-lockfile
+PLAYWRIGHT_BROWSERS_PATH="$TMPDIR/ms-playwright" pnpm exec playwright install chromium
+pnpm --filter konoha-web build
+brew install ffmpeg-full                      # skip if `ffmpeg -encoders | grep libwebp_anim` matches
+export PATH="$(brew --prefix ffmpeg-full)/bin:$PATH"
+node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout?.includes('libwebp_anim'))process.exit(1);console.log('ffmpeg exposes libwebp_anim')"
+pnpm lint
+KONOHA_TEST_PARALLEL=1 PLAYWRIGHT_BROWSERS_PATH="$TMPDIR/ms-playwright" pnpm test
+```
+
+Then the fresh-install smoke with an isolated home, exactly as the workflow runs it:
+
+```bash
+export HOME="$TMPDIR/konoha-smoke-home" USERPROFILE="$HOME"
+node bin/cli.js init --yes --no-project
+node bin/cli.js migrate --skip-embeddings
+node bin/cli.js version
+```
+
+The suite is the part that finds macOS host semantics — `/var/folders/...` resolving to
+`/private/var/...`, case-insensitive APFS, the `.dmg` Blender branch. Run it natively. The
+[container sandbox](#on-macos-container-versus-the-native-run) is the complement, not a
+substitute: it reproduces the clean room on the same machine without Docker Desktop.
+
 ## Local Windows VM
 
 `act` covers the ubuntu leg only. Windows containers are not an option on a Linux Docker
