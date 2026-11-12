@@ -74,7 +74,25 @@ if (candidates.length === 0) {
   const seconds = (Date.now() - started) / 1000;
   const reuseOut = `${reuse.stdout || ''}${reuse.stderr || ''}`;
   check('reuses a valid explicit seed', reuse.status === 0, `exit ${reuse.status}`);
-  check('reports the cached path', (reuse.stdout || '').includes(seedDir), (reuse.stdout || '').trim());
+  // Compare resolved paths, not spellings. CI passes "${{ runner.temp }}/konoha_golden_seed",
+  // which on Windows arrives as D:\a\_temp/konoha_golden_seed and is echoed back with
+  // native separators; a substring test on that spelling fails on a path that is correct.
+  const reportedPaths = (reuse.stdout || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('[SEED] ') && !line.startsWith('[SEED] Building'))
+    .map((line) => line.slice('[SEED] '.length).trim());
+  // NTFS is case-insensitive, so a drive letter or path segment that differs in case
+  // is the same directory; everywhere else the comparison stays exact.
+  const samePath = (a, b) =>
+    process.platform === 'win32'
+      ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase()
+      : path.resolve(a) === path.resolve(b);
+  check(
+    'reports the cached path',
+    reportedPaths.some((reported) => samePath(reported, seedDir)),
+    reportedPaths.join(' | ') || (reuse.stdout || '').trim()
+  );
   if (reuseOut.includes('[SEED] Building')) {
     // A seed built for a different src/bin/scripts tree is supposed to rebuild;
     // that is the freshness rule working, not reuse failing. Timing it would
