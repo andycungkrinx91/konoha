@@ -302,6 +302,10 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
     await loginAndUnlock(page);
     await page.goto("http://127.0.0.1:4173/dashboard");
 
+    // selectTheme() drives the supernova through the shared WebGL scene, so the
+    // click is a no-op until that scene exists; wait for it instead of racing init.
+    await page.waitForFunction(() => Boolean(window.backgroundScene?.instance), { timeout: 15000 });
+
     // Open theme switcher modal
     const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
     await themeFab.click();

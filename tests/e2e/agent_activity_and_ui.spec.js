@@ -11,8 +11,10 @@ test.describe('Konoha v2.2.18 Agent Activity Spider, Bottom Dock & Hidden Menus'
     await expect(sidebar.getByText('Yamanaka 3D Studio')).toHaveCount(0);
     await expect(sidebar.getByText('3D Model Maker')).toHaveCount(0);
 
-    // Verify Bottom Dock is mounted and interactive
+    // Bottom Dock is mobile-only by design (`lg:hidden`): hidden at desktop width, mounted below `lg`
     const dock = page.getByTestId('konoha-bottom-dock');
+    await expect(dock).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 844 });
     await expect(dock).toBeVisible();
     const dockActivityBtn = page.getByTestId('dock-item-activity');
     await expect(dockActivityBtn).toBeVisible();
@@ -20,6 +22,7 @@ test.describe('Konoha v2.2.18 Agent Activity Spider, Bottom Dock & Hidden Menus'
     // Navigate to Agent Activity via Bottom Dock
     await dockActivityBtn.click();
     await expect(page).toHaveURL(/\/activity$/);
+    await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.getByTestId('agent-activity-page')).toBeVisible();
 
     // Verify Spider SVG & live nodes render
@@ -65,7 +68,8 @@ test.describe('Konoha v2.2.18 Agent Activity Spider, Bottom Dock & Hidden Menus'
 
     // Verify Yamanaka is also hidden on the Ninja Agents page while @sannin and @kage are visible
     await page.goto('http://127.0.0.1:4173/agents');
-    await expect(page.getByText('@sannin').first()).toBeVisible();
+    // /agents hydrates its roster from the API, so the first paint is the empty shell.
+    await expect(page.getByText('@sannin').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('@kage').first()).toBeVisible();
     await expect(page.getByText('@yamanaka')).toHaveCount(0);
   });
