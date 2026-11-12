@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.20.
+Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.21.
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|

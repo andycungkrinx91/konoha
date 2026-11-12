@@ -690,7 +690,7 @@
       <root>
 <mxCell id="0" />
 <mxCell id="1" parent="0" />
-<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.20)" vertex="1">
+<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.21)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
 <mxCell id="p8-input" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="User Prompt / Resume" vertex="1">

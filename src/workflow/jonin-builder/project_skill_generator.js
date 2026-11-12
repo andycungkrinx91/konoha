@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Konoha Jonin Project Frontend Maintenance Skill Generator (`v2.2.20`)
+ * Konoha Jonin Project Frontend Maintenance Skill Generator (`v2.2.21`)
  * Automatically generates or updates `<project_path>/.agents/skills/<project-slug>-frontend-maintenance/SKILL.md`
  * after frontend generation and indexes it into `konoha.db` (`skills`, `skills_fts`, `skill_chunks`)
  * scoped to the project's `project_hash:<hash>`.

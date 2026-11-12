@@ -1,18 +1,22 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.20**
+**Version of record: 2.2.21**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.20 |
-| Code reference | working tree at commit `fb15212a` (`ci/cross-platform`), `package.json` version `2.2.20` |
+| Manual version | 2.2.21 |
+| Code reference | tag `v2.2.21` (`master`), `package.json` version `2.2.21` |
 | Distribution status | **unpublished** — npm `konoha-mcp` latest is 2.2.19; the latest GitHub release is v2.2.19 |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
-Every command in this manual ran against a clean 2.2.20 installation. Whenever a statement rests on source inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names the exact file, line, and substitute evidence.
+The command transcripts in this manual were collected against a clean 2.2.20 installation, which is the same operator
+surface; 2.2.21 adds the cross-platform, configuration, and QA-automation work recorded in `CHANGELOG.md`, and its full
+suite passes (`docs/CI.md`), but the transcripts below were not re-run for the bump. Whenever a statement rests on source
+inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
+the exact file, line, and substitute evidence.
 
-Because 2.2.20 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.21 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -121,9 +125,9 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 
 ### 1.5 What this manual does not cover
 
-- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.20.
+- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.21.
 - 3D asset generation (Yamanaka) beyond its CLI surface.
-- Anything released after 2.2.20.
+- Anything released after 2.2.21.
 - Fixes for defects found during verification. Chapter 13 records the defects; the manual documents behaviour as it
   is, not as it should be.
 
@@ -136,13 +140,13 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 | Node.js | **>= 24.0.0** (hard `engines` gate) | everything | `node -v` |
 | npm | any version bundled with Node 24 | installing the package, launching the `aislop` server via `npx` | `npm -v` |
 | `uv` / `uvx` | current | the `semble` MCP server (its launcher is `uvx`) | `uvx --version` |
-| git | any | installing 2.2.20 from source | `git --version` |
+| git | any | installing 2.2.21 from source | `git --version` |
 | disk | ~600 MB free | 386 MB installed package + 193 MB `~/.konoha` after `init` | `df -h ~` |
 
-Measured on a clean 2.2.20 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
+Measured on a clean 2.2.21 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
 is the SQLite database), packed tarball **114.3 MB**.
 
-Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.20.
+Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.21.
 
 ### 2.2 The install rule
 
@@ -158,7 +162,7 @@ npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.20 specifically neither form works from the registry: `konoha-mcp@2.2.20` is not published — only `2.2.19` is.
+For 2.2.21 specifically neither form works from the registry: `konoha-mcp@2.2.21` is not published — only `2.2.19` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -184,7 +188,7 @@ install with `sudo`. This manual's verification install used an isolated `HOME` 
 is the same mechanism without touching an existing npm setup:
 
 ```bash
-HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.20.tgz
+HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.21.tgz
 # added 39 packages in 12s
 # /tmp/knh/prefix/bin/konoha -> ../lib/node_modules/konoha-mcp/bin/cli.js
 ```
@@ -210,7 +214,7 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification scope, stated plainly: **this manual's 2.2.20 evidence comes from Linux x86_64 on a host, plus Windows
+Verification scope, stated plainly: **this manual's 2.2.21 evidence comes from Linux x86_64 on a host, plus Windows
 inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
@@ -220,22 +224,22 @@ install, lint, suite, and fresh-install smoke step on `windows-latest` and `maco
 request, and `scripts/windows-ci.ps1` reproduces the Windows job in a local VM. The macOS leg is GitHub-only, so a
 macOS-specific defect is confirmed there rather than locally (see `docs/CI.md`).
 
-### 2.6 Installing 2.2.20 from source
+### 2.6 Installing 2.2.21 from source
 
-The published registry stops at 2.2.19, so 2.2.20 must be built and installed locally. From a clone:
+The published registry stops at 2.2.19, so 2.2.21 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
-git checkout <commit or tag>          # the 2.2.20 tree used here: fb15212a
-npm pack                              # produces konoha-mcp-2.2.20.tgz, ~114 MB
-npm install -g ./konoha-mcp-2.2.20.tgz
-konoha version                        # Current Version: 2.2.20
+git checkout v2.2.21                  # the tree this manual describes
+npm pack                              # produces konoha-mcp-2.2.21.tgz, ~114 MB
+npm install -g ./konoha-mcp-2.2.21.tgz
+konoha version                        # Current Version: 2.2.21
 ```
 
 `npm pack` uses the package's own `files` list (27 entries) and bundles `pptxgenjs`, which is why the tarball is large
 and why an offline `npm install -g` of the tarball works without a further fetch.
 
-`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.20, and aborts without touching the
+`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.21, and aborts without touching the
 existing install (12.1 documents the exact output).
 
 ### 2.7 Verify the install
@@ -250,7 +254,7 @@ konoha test          # exercises the MCP tool surface end to end
 `All tests passed`.
 
 One caveat about `konoha version`: it also performs a registry freshness check, and on an unpublished build the
-message "You are already running the latest version" is misleading — 2.2.20 is newer than the registry, not equal to
+message "You are already running the latest version" is misleading — 2.2.21 is newer than the registry, not equal to
 it. Do not use it as proof of freshness (13.1).
 
 ## 3. First run
@@ -362,7 +366,7 @@ Eight ideas carry the rest of this manual. Each maps to a table in `~/.konoha/ko
 A **skill** is a named, versioned set of instructions. A **reference** is a document that belongs to a skill — the
 material the skill points at when it needs detail.
 
-A fresh 2.2.20 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
+A fresh 2.2.21 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
 References are addressed hierarchically, `<skill>/<reference>`:
 
 ```
@@ -406,6 +410,18 @@ Multi-step work runs as a workflow with two mandatory human checkpoints:
 Gates fail closed: an agent cannot approve its own plan, and routing a task is explicitly not authorisation to pass
 Gate 1 (`src/mcp/workflow_runner.js:380`). If a harness cannot render the prompt, the workflow stops rather than
 proceeding.
+
+**The gate is a picker, not a numbered list.** Each gate payload carries a `picker` block naming the control the active
+harness actually has. OMP gets a native `ask` call and Claude Code gets `AskUserQuestion`, both built from the gate's own
+options. Every other harness gets `transport: web_picker` with a loopback URL to `/api/v1/hitl/picker`, which serves a
+self-contained HTML form — one card per option plus a custom-instruction field — that posts its own verdict to
+`/api/v1/hitl/verdict`. No tool name is invented for a harness that has no question tool, because a call to a
+non-existent tool fails at runtime; those harnesses get the form instead. Both routes authenticate with a per-gate
+signature — an HMAC of the task directory keyed by the session token — because a human opening a link has no cookie jar,
+and handing them the master token would put it in every transcript. The signature is scoped to one directory, so one
+gate's link cannot approve another, and the page only renders for a task directory that actually holds a `status.json`.
+Every transport lands on `sannin({ task_dir, choice, refinement })`, the same resume path a typed reply takes, so a harness
+that ignores the picker loses the control but cannot bypass the gate.
 
 Each workflow gets a task directory:
 
@@ -1016,7 +1032,7 @@ That is why a tool can exist, appear in `tools/list`, and still fail with a mess
 | `src/file_tools/` | 7 | 36 KB | bounded read/grep/info |
 | `src/queue/` | 2 | 23 KB | ingest queue for client tasks |
 
-Sizes are from a 2.2.20 checkout and are here to set expectations, not as a contract.
+Sizes are from a 2.2.21 checkout and are here to set expectations, not as a contract.
 
 ```mermaid
 flowchart LR
@@ -1113,7 +1129,7 @@ konoha agent models config kage --model <model-id>
 ```
 
 Without a TTY this is the only form that works; in a TTY `konoha agent models` opens a picker. Two rough edges exist in
-2.2.20 and are recorded rather than worked around:
+2.2.21 and are recorded rather than worked around:
 
 - `konoha agent models --help` tries to resolve `--help` as an agent name and prints `✗ Subagent "@--help" not found.`
 - model changes apply to the database record; a client already running with a fixed model is not retargeted mid-session.
@@ -1327,19 +1343,19 @@ Two behaviours to know before relying on it:
 `GET /api/v1/health` is public — the only data surface reachable before login.
 
 ```
-{"status":"healthy","version":"2.2.20","uptime":7703,"node":"v24.22.2","platform":"linux"}
+{"status":"healthy","version":"2.2.21","uptime":7703,"node":"v24.22.2","platform":"linux"}
 ```
 
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.20`) when
-the server version is unset. A correctly deployed 2.2.20 server reports `2.2.20`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.21`) when
+the server version is unset. A correctly deployed 2.2.21 server reports `2.2.21`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 
 ```bash
-konoha version              # 2.2.20 — trusts the local tree, not the registry
+konoha version              # 2.2.21 — trusts the local tree, not the registry
 konoha status               # per-client registration and skill counts
 konoha test                 # protocol + file tools + suites
 konoha doctor               # config and file repairs
@@ -1357,7 +1373,7 @@ client: 9.6.
 ```bash
 pnpm test:sandbox             # install + lint + full suite + fresh-install smoke
 pnpm test:sandbox -- --lint   # fast path: install + lint only
-pnpm test                     # the same runner without isolation
+pnpm test                     # refuses on a workstation; the guard is the sandbox
 pnpm ci:act                   # replay the CI checks job locally (lint + smoke)
 ```
 
@@ -1368,7 +1384,7 @@ container system start                                  # once per boot
 KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox
 ```
 
-That still runs a **Linux** guest, so it reproduces the clean room but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Those need the native run (`pnpm test`) as well. Details in `docs/CI.md`.
+That still runs a **Linux** guest, so it reproduces the clean room but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. There is no host fallback: the suite refuses to start outside a sandbox, so macOS-native behaviour is covered by the `macos-latest` leg. Details in `docs/CI.md`.
 
 The runner discovers every `tests/test_*.js` (plus `*.test.js` and `verify_*.js`), builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at the copy — `USERPROFILE` matters because `os.homedir()` ignores `HOME` on Windows. A suite that needs your real `~/.konoha` is a defect in the suite. Details and the isolation contract are in `docs/QA-AUTOMATION.md` and `docs/CI.md`.
 
@@ -1379,10 +1395,10 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | Symptom | Cause | Fix |
 |---|---|---|
 | `You are already running the latest version` on a newer checkout | the check compares against the npm registry, and your build is ahead of it | nothing to fix; compare `package.json` to the registry instead |
-| `Couldn't find any versions for "konoha-mcp" that matches "2.2.20"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.20` still works from a local tarball |
+| `Couldn't find any versions for "konoha-mcp" that matches "2.2.21"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.21` still works from a local tarball |
 | `konoha` not on `PATH` after global install | prefix directory not exported | add the prefix's `bin` to `PATH`; verify with `command -v konoha` |
 | `~/.konoha/bin/konoha` is a dangling symlink | older installer left the link after the target moved | remove the link, run `konoha reinstall` |
-| `Total indexed: undefined entries` | 2.2.20 formatting defect in the `list_skills` summary | ignore; the call succeeded |
+| `Total indexed: undefined entries` | 2.2.21 formatting defect in the `list_skills` summary | ignore; the call succeeded |
 | `konoha doctor --help` starts a full run | argument parsing treats `--help` as no-op (D5) | expect a run; use 13.2 to interpret output |
 | Antigravity shows `NOT INSTALLED` in doctor but works | doctor reads `~/.gemini/config/mcp_config.json`, init writes `~/.gemini/antigravity-ide/mcp_config.json` | check the file init actually wrote (D11) |
 | Client shows no tools, `status` healthy | client caches the tool list per process | restart the client |
@@ -1397,17 +1413,17 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 
 ### 14.1 Upgrade that refuses to run
 
-Observed on 2.2.20, upgrade aborts before touching anything and prints:
+Observed on 2.2.21, upgrade aborts before touching anything and prints:
 
 ```
-Couldn't find any versions for "konoha-mcp" that matches "2.2.20"
+Couldn't find any versions for "konoha-mcp" that matches "2.2.21"
 ```
 
 Cause: the version you are running is not published, so the registry lookup resolves nothing. The command is fail-closed —
 configs were already backed up, nothing was modified — which is why the recovery is simply to install the exact version:
 
 ```bash
-npm install -g konoha-mcp@2.2.20
+npm install -g konoha-mcp@2.2.21
 konoha version
 ```
 
@@ -1538,7 +1554,7 @@ session, and reproducing them here would mean reproducing your data. That is a d
 
 ### 15.7 Scope
 
-This is an operator's description of the mechanisms in 2.2.20, not a security audit. The audit artefact for the release
+This is an operator's description of the mechanisms in 2.2.21, not a security audit. The audit artefact for the release
 lives in `docs/SecurityCompliance/`, and the interesting findings there concern dependencies rather than this design.
 
 ## 16. Appendix
@@ -1616,7 +1632,7 @@ Inspect and change with `konoha config list`, `konoha config get <key>`, `konoha
 
 ### 16.4 Defect register
 
-Observed in 2.2.20, recorded rather than fixed. None blocks normal operation.
+Observed in 2.2.21, recorded rather than fixed. None blocks normal operation.
 
 | ID | Defect |
 |---|---|
@@ -1650,9 +1666,9 @@ Observed in 2.2.20, recorded rather than fixed. None blocks normal operation.
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.20** as present at commit `fb15212a` on `ci/cross-platform`, which is ahead of tag `v2.2.20`
-and one patch ahead of the newest npm release (`2.2.19`) at the time of writing. Live evidence throughout was produced on
-Linux against a fresh global install under a scratch prefix.
+This manual describes **2.2.21** as tagged at `v2.2.21` on `master`, one patch ahead of the newest npm release
+(`2.2.19`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
+scratch prefix, on the 2.2.20 tree; 2.2.21's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:
 

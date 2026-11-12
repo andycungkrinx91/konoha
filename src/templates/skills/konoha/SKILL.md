@@ -11,7 +11,7 @@ tags:
   - fts5
 ---
 
-# 🍃 Konoha Maintenance & Engineering Skill (v2.2.20)
+# 🍃 Konoha Maintenance & Engineering Skill (v2.2.21)
 
 Core operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-agent coordination server.
 
@@ -48,7 +48,7 @@ Konoha serves ALL 48 canonical tools through standard MCP protocols across 8 sup
 5. **Single-Source Version Synchronization**: Keep all 18 managed repository targets strictly synchronized via `scripts/bump_version.js`. The manifest is the source of truth — read the count from `rtk node scripts/bump_version.js --check`, never hardcode it in prose or code. `src/templates/skills/konoha/SKILL.md` is not a managed target, so this skill's own title is edited by hand.
 6. **Release Governance**: When maintaining or updating Konoha on branch `master`, ensure all discovered tests pass before release commits.
 7. **Token Savings Flow Logic Preservation Invariant**: Never modify or disrupt the token savings telemetry flow logic. In `src/tools_savings_logger.js`, baseline bytes for `find_skill` / `find_skills` are dynamically computed from the actual `SUM(byte_size)` of retrieved skill candidates in SQLite FTS5 matching, authentically reflecting 83%–98% context savings.
-8. **Schema Version Is Not the App Version**: `src/db_schema.js` owns `CURRENT_SCHEMA_VERSION` (5 today), the shipped `PRAGMA user_version` write, and the canonical 33-table list. Never reintroduce a version-derived schema constant — a `TARGET_SCHEMA_VERSION = 2218` once shipped and was removed in 2.2.18. `konoha doctor` reports `schema 5` and `app 2.2.20` separately and warns on drift; `tests/test_schema_migrations_and_lifecycle.js` fails if a second writer appears or the table count moves.
+8. **Schema Version Is Not the App Version**: `src/db_schema.js` owns `CURRENT_SCHEMA_VERSION` (5 today), the shipped `PRAGMA user_version` write, and the canonical 33-table list. Never reintroduce a version-derived schema constant — a `TARGET_SCHEMA_VERSION = 2218` once shipped and was removed in 2.2.18. `konoha doctor` reports `schema 5` and `app 2.2.21` separately and warns on drift; `tests/test_schema_migrations_and_lifecycle.js` fails if a second writer appears or the table count moves.
 9. **Red-Skill Isolation Fails Closed**: `src/skill_authorization.js` classifies a skill by exact canonical name → `RED_SKILL_ROOT_PATTERN` (`^(?:akatsuki-skill)(?:[-_/@]|$)`) → legacy pattern → tags, and `src/mcp/skills_retrieval.js` resolves the row before authorizing it. Lab databases are rejected when they alias the main DB (same path, symlink, dangling symlink, hardlink), and any `stat` error other than `ENOENT`/`ENOTDIR` raises `LAB_DB_ISOLATION_VIOLATION` (`src/db.js`). Never widen those predicates "to be tolerant": this gate is what stops offensive tooling loading outside the sandbox.
 10. **Cyber Pack Is Opt-In, Never Bundled**: the pack is downloaded only via `konoha akatsuki cyber-pack install --confirm`, sha256-verified, extracted under `~/.konoha/akatsuki-lab/cyber-pack/`, and indexed as `akatsuki-skill` references. `src/cyber_pack.js#remove` must keep using the deduped union of `bin/lib/paths.js#DEFAULT_SKILLS_DIRS` and `src/global_skill_sync.js#getGlobalHarnessSkillTargets`; the two lists still differ (the search list keeps the legacy `~/.opencode/skills`), and hardcoding either one is the bug that left copies behind.
 11. **Migration Runs In-Process**: every caller awaits `runMigration({...})` from `src/migrate` — `bin/lib/install_lifecycle.js`, `bin/lib/runtime_lifecycle.js`, `bin/commands/migrate.js`, `bin/commands/upgrade.js`, `bin/commands/init_migration.js`, `bin/commands/doctor_services.js`, `src/skill_manager.js`, `src/web/controllers/skills_controller.js`. Never restore `spawnSync(process.execPath, [...migrate.js...])`: it hid every failure behind `status !== 0`. Success returns `{ ok: true, indexed, deferredSkills, dbPath }`; incomplete required skills return `{ ok: false, reason: 'required_skills_missing', missingRequired, remainingLegacy }`. Only `main()` exits the process.
@@ -110,13 +110,13 @@ rtk npx aislop scan --changes
 
 ---
 
-## 📜 Change History That Constrains Maintenance (v2.2.17 → v2.2.20)
+## 📜 Change History That Constrains Maintenance (v2.2.17 → v2.2.21)
 
 Read this before "fixing" the install, migrate, or upgrade path. Each row already shipped as a bug once.
 
 | Trap | Do not | Guard |
 |---|---|---|
-| Schema/version conflation | Derive `user_version` from the app version | `src/db_schema.js` is the only writer; `konoha doctor` prints `schema 5, app 2.2.20` |
+| Schema/version conflation | Derive `user_version` from the app version | `src/db_schema.js` is the only writer; `konoha doctor` prints `schema 5, app 2.2.21` |
 | Shelling out to migration | `spawnSync(process.execPath, [...migrate.js...])` and trust `status === 0` | in-process `runMigration()`, `tests/test_install_migrate_embed_functions.js` |
 | Silent budget truncation | Cap the embedding pass below the caller's timeout | `migrate_time_budget_seconds` 900 / `install_build_migrate_timeout_ms` 900000 |
 | `konoha embed` as a recovery hint | Recommend it for partial coverage | it implies `--rebuild-embeddings` → `DELETE FROM skill_chunks` then re-embeds everything (`src/vector_search.js:515`). Recovery is `konoha migrate` |

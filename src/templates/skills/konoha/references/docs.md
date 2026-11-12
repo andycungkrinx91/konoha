@@ -1,6 +1,6 @@
-# 🍃 Konoha Documentation Maintenance Standard (v2.2.20)
+# 🍃 Konoha Documentation Maintenance Standard (v2.2.21)
 
-Guidelines and requirements for authoring, updating, and synchronizing Konoha `v2.2.20` documentation, compliance records, Draw.io diagrams, and visual assets.
+Guidelines and requirements for authoring, updating, and synchronizing Konoha `v2.2.21` documentation, compliance records, Draw.io diagrams, and visual assets.
 
 ---
 
@@ -11,7 +11,7 @@ Every topic has exactly one live document. `docs/README.md` is the live index: o
 - `CHANGELOG.md`: Authoritative chronological release notes following Keep a Changelog format.
 - `docs/README.md`: Live index of every current document, grouped by topic keys (architecture, security, setup, data, assets, conventions). It is the only place the document set is enumerated — never restate the count elsewhere, it drifts.
 - `docs/ARCHITECTURE.md`: Technical architecture specification, LangGraph StateGraph engine, Real-Time Idle `@advisor` (`<= 1,000 tokens/turn`), Per-Agent Git Worktree isolation, MCP transports, and dynamic website builder specs.
-- `docs/SECURITY.md`: Current security architecture, ingress controls, and auth model for `v2.2.20`.
+- `docs/SECURITY.md`: Current security architecture, ingress controls, and auth model for `v2.2.21`.
 - `docs/ALL-WORKFLOW-DIAGRAMS.md`: Comprehensive Mermaid diagram catalog of all system workflows.
 - `docs/QA-TEST-CHECKLIST.md`: Full QA testing matrices, manual verification procedures, and release verification checklists.
 - `docs/MANUAL.md` + `docs/MANUAL.pdf`: The operator's manual. The PDF is generated (`node scripts/build_manual_pdf.js`), never hand-edited, and must be newer than the Markdown it was built from (`tests/test_manual_book.js`).
