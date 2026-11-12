@@ -12,7 +12,9 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const HOME = os.homedir();
+// HOME first: os.homedir() reads USERPROFILE on win32 and would point at the
+// real profile while the deployment code writes under HOME.
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
 async function run() {
   console.log('Running test_rtk_cross_client tests...');
@@ -33,8 +35,12 @@ async function run() {
   // Antigravity RTK deployment
   const { deployAntigravityRtkRule } = require('../src/antigravity_manager');
   const resAgy = deployAntigravityRtkRule(true);
-  assert.ok(resAgy && resAgy.ok, 'Antigravity RTK deployment failed');
-  assert.ok(fs.existsSync(path.join(HOME, '.gemini', 'antigravity-cli', 'rules', 'rtk.md')));
+  assert.ok(resAgy && resAgy.ok, 'Antigravity RTK deployment failed: ' + JSON.stringify(resAgy));
+  const agyCliRule = path.join(HOME, '.gemini', 'antigravity-cli', 'rules', 'rtk.md');
+  assert.ok(
+    fs.existsSync(agyCliRule),
+    `Antigravity CLI rule missing at ${agyCliRule} (deployed=${resAgy.deployed}, HOME=${HOME})`
+  );
   assert.ok(fs.existsSync(path.join(HOME, '.gemini', 'antigravity-ide', 'rules', 'rtk.md')));
   console.log('✓ Antigravity RTK deployment passed');
 

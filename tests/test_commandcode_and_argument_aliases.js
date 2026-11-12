@@ -104,10 +104,15 @@ async function run() {
   ];
 
   for (const cmdArgs of commandsToTest) {
+    // stdin ignored: a help flag must never sit waiting on a pipe. Suites that
+    // pipe stdin hang forever when one command prompts instead of printing help.
+    // The timeout keeps a real hang naming the offending command instead of the
+    // whole suite dying at the runner cap.
     const out = execFileSync('node', [CLI_PATH, ...cmdArgs], {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60000
     });
     assert.ok(out.length > 20, `Command 'konoha ${cmdArgs.join(' ')}' returned empty output`);
   }

@@ -6,6 +6,10 @@ const os = require('os');
 const path = require('path');
 
 const HOME = os.homedir();
+// getMirrorRoots prefers $HOME over os.homedir(); on win32 the runner sets HOME for
+// the suite sandbox while os.homedir() still reports USERPROFILE. Assert against the
+// same resolution the implementation uses.
+const MIRROR_HOME = process.env.HOME || process.env.USERPROFILE || HOME;
 
 function fileExists(p) { try { return fs.existsSync(p); } catch { return false; } }
 
@@ -134,8 +138,8 @@ test('skills_common.getMirrorRoots prioritizes canonical ~/.agents/skills read r
   if (!Array.isArray(roots) || roots.length === 0) {
     throw new Error(`Expected at least 1 mirror root, got ${JSON.stringify(roots)}`);
   }
-  if (roots[0] !== path.join(HOME, '.agents', 'skills')) {
-    throw new Error(`First mirror root must be ${path.join(HOME, '.agents', 'skills')}, got ${roots[0]}`);
+  if (roots[0] !== path.join(MIRROR_HOME, '.agents', 'skills')) {
+    throw new Error(`First mirror root must be ${path.join(MIRROR_HOME, '.agents', 'skills')}, got ${roots[0]}`);
   }
   // Workspace mirrors must never leak into read fallback
   const cwd = process.cwd();

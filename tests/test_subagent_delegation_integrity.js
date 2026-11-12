@@ -103,7 +103,31 @@ test('review still reaches Gate 2 when every task genuinely completed', async ()
   });
 
   const res = await reviewNode({ taskDir, threadId: 'H', client: 'claudecode' });
-  assert.equal(res.hitlStage, 'gate2', 'completed work must still reach delivery sign-off');
+  // The review verdict depends on the host (aislop availability, repo contents,
+  // advisor context), so a bare "expected gate2" does not say which gate rejected
+  // the delivery. Report every input to the verdict plus the persisted gate record.
+  let akatsukiReview = null;
+  try {
+    akatsukiReview = JSON.parse(fs.readFileSync(path.join(taskDir, 'akatsuki_review.json'), 'utf8'));
+  } catch (_) {
+    akatsukiReview = null;
+  }
+  const verdictDiag = {
+    phase: res.phase,
+    gateVerdict: res.gateVerdict,
+    confidence: res.confidence,
+    akatsukiPassed: res.akatsukiPassed,
+    remediationReason: res.status && res.status.remediation_reason,
+    aislopGate: res.status && res.status.aislop_gate,
+    akatsukiDecision: akatsukiReview && (akatsukiReview.decision || akatsukiReview.gate_decision),
+    akatsukiFindings: akatsukiReview && akatsukiReview.findings,
+    advisorViolations: res.status && res.status.advisor_review && res.status.advisor_review.violations,
+  };
+  assert.equal(
+    res.hitlStage,
+    'gate2',
+    `completed work must still reach delivery sign-off (${JSON.stringify(verdictDiag)})`
+  );
   assert.equal(res.gateVerdict, 'pending_signoff');
 });
 

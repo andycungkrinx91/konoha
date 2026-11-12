@@ -168,7 +168,11 @@ async function run() {
       assert.notStrictEqual(payloads[0].worktree_path, payloads[1].worktree_path);
       assert.notStrictEqual(payloads[0].branch, payloads[1].branch);
       const list = git(repo, ['worktree', 'list', '--porcelain']).out;
-      assert.ok(list.includes(payloads[0].worktree_path) && list.includes(payloads[1].worktree_path));
+      // git emits forward slashes even on win32, so compare normalized forms.
+      const listNorm = list.split(path.sep).join('/');
+      for (const p of payloads) {
+        assert.ok(listNorm.includes(p.worktree_path.split(path.sep).join('/')), `worktree list missing ${p.worktree_path}`);
+      }
       console.log('✓ (b) parallel dispatch creates one worktree + branch per member');
     }
 

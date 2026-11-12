@@ -125,8 +125,9 @@ test('returns null when transcript is not under .system_generated/logs/', () => 
 });
 
 test('returns the brain dir for valid .system_generated/logs/<file> path', () => {
+  // posix join: the implementation splits on '/', so a win32 backslash path is not a valid input.
   const brainDir = '/home/x/brain/abc-123';
-  const tp = path.join(brainDir, '.system_generated', 'logs', 'transcript.jsonl');
+  const tp = path.posix.join(brainDir, '.system_generated', 'logs', 'transcript.jsonl');
   assert.strictEqual(hookBase.brainDirFromTranscript(tp), brainDir);
 });
 

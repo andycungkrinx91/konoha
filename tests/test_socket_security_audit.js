@@ -11,14 +11,25 @@ const { execFileSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+const IS_WIN = process.platform === 'win32';
+
+// On win32 npx/npm/pnpm are .cmd shims, and Node refuses to spawn those without a
+// shell, so execFileSync('npx', ...) fails with ENOENT on Windows only. Build the
+// command line ourselves and hand it to cmd.exe; elsewhere spawn the binary directly.
+function spawnArgs(command, args, options) {
+  if (!IS_WIN) return [command, args, options];
+  const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
+  return [`${quote(command)} ${args.map(quote).join(' ')}`, undefined, { ...options, shell: true }];
+}
+
 function runCommand(command, args, cwd = REPO_ROOT, envOverride = {}) {
   try {
-    return execFileSync(command, args, {
+    return execFileSync(...spawnArgs(command, args, {
       cwd,
       encoding: 'utf8',
       timeout: 180000,
       env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ...envOverride }
-    });
+    }));
   } catch (err) {
     if (err.stdout || err.stderr) return `${err.stdout || ''}${err.stderr || ''}`;
     throw err;
@@ -105,12 +116,12 @@ function localScanTarget() {
       overrides: pkg.overrides || {}
     }, null, 2)
   );
-  const lock = execFileSync('npm', ['install', '--package-lock-only', '--silent'], {
+  const lock = execFileSync(...spawnArgs('npm', ['install', '--package-lock-only', '--silent'], {
     cwd: tmp,
     encoding: 'utf8',
     timeout: 300000,
     env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
-  });
+  }));
   void lock;
   return tmp;
 }

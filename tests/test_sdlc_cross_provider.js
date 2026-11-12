@@ -119,7 +119,7 @@ async function run() {
     // Doctor SDLC Checks
     conn.close();
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 
   // Test doctor output in active env

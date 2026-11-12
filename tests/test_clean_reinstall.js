@@ -22,7 +22,7 @@ const os = require('os');
 const path = require('path');
 
 const { cleanKonohaRuntimeDir, mirrorSkillsDirectory, syncCursorSkillsFromAgents } = require('../src/deploy_utils');
-const { SRC_DIR } = require('../bin/lib/paths');
+const { SRC_DIR, HOME: KONOHA_HOME } = require('../bin/lib/paths');
 
 function runTest() {
   console.log('\n--- Testing Clean Reinstallation & Runtime Directory Sanitization ---');
@@ -144,7 +144,7 @@ function runTest() {
       'Must reject root directory'
     );
     assert.throws(
-      () => cleanKonohaRuntimeDir({ targetDir: os.homedir() }),
+      () => cleanKonohaRuntimeDir({ targetDir: KONOHA_HOME }),
       /Refusing to clean unsafe directory/,
       'Must reject user HOME directory'
     );

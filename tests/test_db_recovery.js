@@ -150,15 +150,30 @@ console.log('6. Verifying shell metacharacter immunity, spaces, quotes, Unicode,
   const dir = fs.mkdtempSync(path.join(TMP_DIR, 'shell_meta_'));
   const markerFile = path.join(dir, 'pwned_marker');
 
-  const weirdNames = [
-    `db_$(touch "${markerFile}").db`,
-    `db_\`touch "${markerFile}"\`.db`,
-    `db_"; touch "${markerFile}" #.db`,
-    `db_| touch "${markerFile}" &.db`,
-    'my "quoted" & spaced database.db',
-    '東京_データベース_2026.db',
-    '-leading-hyphen-db.db'
-  ];
+  // POSIX names use shell substitution. NTFS forbids < > : " / \ | ? * so only the
+  // legal-yet-dangerous metacharacters (% ^ & ! ( )) can be probed on Windows.
+  const weirdNames = process.platform === 'win32'
+    ? [
+        'db_%USERNAME%_expansion.db',
+        'db_& echo pwned &.db',
+        'db_&& pwned &&.db',
+        'db_^ echo pwned ^&.db',
+        'db_!pwned!.db',
+        'db_(pwned).db',
+        "db_'quoted' & spaced.db",
+        'spaced  database.db',
+        '東京_データベース_2026.db',
+        '-leading-hyphen-db.db'
+      ]
+    : [
+        `db_$(touch "${markerFile}").db`,
+        `db_\`touch "${markerFile}"\`.db`,
+        `db_"; touch "${markerFile}" #.db`,
+        `db_| touch "${markerFile}" &.db`,
+        'my "quoted" & spaced database.db',
+        '東京_データベース_2026.db',
+        '-leading-hyphen-db.db'
+      ];
 
   for (const fileName of weirdNames) {
     const dbFile = path.join(dir, fileName);

@@ -195,7 +195,7 @@ async function testReinstallAndRepair(sandboxDir) {
   // Verify that paths.js and cli launcher use dynamic user paths
   const paths = require('../bin/lib/paths');
   assert.ok(paths.FILE_TOOLS_LAUNCHER_JS, 'FILE_TOOLS_LAUNCHER_JS must be exported');
-  assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
+  assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(process.env.HOME || process.env.USERPROFILE || os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
   console.log('  ✓ Launcher paths resolve dynamically to user environment without hardcoded paths');
 
   // Verify clean reinstallation sanitizes ~/.konoha stale artifacts

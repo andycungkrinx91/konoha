@@ -18,7 +18,7 @@ try {
   // Child script runner to invoke saveOrUpdateProject or saveMemory concurrently
   const childScriptPath = path.join(tmpDir, 'child_runner.js');
   const childScriptContent = `
-    const { saveOrUpdateProject, saveMemory } = require('${path.resolve(__dirname, '../src/persona_memory')}');
+    const { saveOrUpdateProject, saveMemory } = require(${JSON.stringify(path.resolve(__dirname, '../src/persona_memory'))});
     const [action, dbPath, arg1, arg2] = process.argv.slice(2);
 
     if (action === 'project') {

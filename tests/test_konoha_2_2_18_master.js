@@ -33,8 +33,15 @@ const { spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+const TEMPLATE_SKILLS_DIR = path.join(REPO_ROOT, 'src', 'templates', 'skills');
+
 async function testTokenSavingsBenchmark() {
   const geninSkills = ['genin-skill', 'i-have-adhd', 'antislop', 'antislop-human', 'antislop-code'];
+  // `use_skills` answers from konoha.db. A fresh HOME (the runner's per-suite
+  // sandbox) has an empty skills table, so an unindexed call returns a tiny
+  // "not_found" blob that scores as ~99% savings — a fake pass that hides a
+  // broken bundle. Index the template skills the measurement reads first.
+  require('../src/migrate').migrate_skills({ skills_dir: TEMPLATE_SKILLS_DIR });
   let rawBytes = 0;
   for (const s of geninSkills) {
     const p = path.join(REPO_ROOT, 'src', 'templates', 'skills', s, 'SKILL.md');
@@ -50,6 +57,8 @@ async function testTokenSavingsBenchmark() {
   }));
   const compactBytes1 = Buffer.byteLength(res1, 'utf8');
   const savingsPct1 = ((rawBytes - compactBytes1) / rawBytes) * 100;
+  const parsed1 = JSON.parse(res1);
+  assert.strictEqual(parsed1.status, 'success', `use_skills must resolve the benchmark bundle: ${JSON.stringify(parsed1.skills || parsed1.warnings || [])}`);
   assert.ok(compactBytes1 <= 4200, `Expected compact response <= 4200B, got ${compactBytes1}B`);
   assert.ok(savingsPct1 >= 83 && savingsPct1 <= 99, `Expected 83%-98% token savings, got ${savingsPct1.toFixed(2)}%`);
 
@@ -145,7 +154,28 @@ async function testOrchestrationDirectAndParallel() {
   assert.strictEqual(directStep1.invocationMode, 'direct_subagent');
   assert.strictEqual(directStep1.directSubagent, 'genin');
   assert.strictEqual(directStep1.mandatoryKageReview, true);
-  assert.strictEqual(directStep1.phase, 'done');
+  // `phase` here is the outcome of the auto-signoff branch: a direct subagent
+  // invocation is supposed to complete without a Gate 2 prompt. When it does not,
+  // the only way to tell why is to report every input that branch reads.
+  assert.strictEqual(
+    directStep1.phase,
+    'done',
+    `direct subagent run must complete without Gate 2 (${JSON.stringify({
+      resultPhase: directStep1.phase,
+      hitlStage: directStep1.hitlStage,
+      gateVerdict: directStep1.gateVerdict,
+      invocationMode: directStep1.invocationMode,
+      statusInvocationMode: directStatus.invocation_mode,
+      statusPhase: directStatus.phase,
+      humanSignedOff: directStatus.human_signed_off,
+      autoSignoff: directStatus.auto_signoff,
+      confidence: directStatus.confidence,
+      aislopGate: directStatus.aislop_gate,
+      akatsukiGate: directStatus.akatsuki_gate,
+      remediationReason: directStatus.remediation_reason,
+      advisorViolations: directStatus.advisor_review && directStatus.advisor_review.violations,
+    })})`
+  );
   assert.ok(directStatus.advisor_audit_log.length >= 2, 'Advisor lifecycle telemetry must be recorded');
 
   const parDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_par_'));

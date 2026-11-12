@@ -596,7 +596,12 @@ runTest('G34 traversal out of the lab root is rejected', () => {
 
 runTest('G35 existing-file-only open refuses to create, including paths with ? and #', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-fileonly-'));
-  for (const name of ['plain.db', 'with space.db', 'with#hash.db', 'with?query.db']) {
+  // '?' is illegal in NTFS names and ':' would too, so the URI-special-character
+  // cases only apply where the filesystem accepts them.
+  const names = process.platform === 'win32'
+    ? ['plain.db', 'with space.db', 'with#hash.db', '[brackets].db']
+    : ['plain.db', 'with space.db', 'with#hash.db', 'with?query.db'];
+  for (const name of names) {
     const p = path.join(dir, name);
     assert.throws(() => dbModule.openRawConnection(p, { fileMustExist: true }), name);
     assert.strictEqual(fs.existsSync(p), false, `${name} must not be created`);

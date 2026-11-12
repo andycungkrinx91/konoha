@@ -25,7 +25,7 @@ const {
   assertPathVersionMatches
 } = require('../bin/lib/upgrade_verify');
 
-function plantShim(dir, version, isWin = false) {
+function plantShim(dir, version, isWin = process.platform === 'win32') {
   const name = isWin ? 'konoha.cmd' : 'konoha';
   const file = path.join(dir, name);
   fs.writeFileSync(

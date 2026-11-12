@@ -236,8 +236,20 @@ function sweepRepoWide() {
 
 console.log('Canonical constants');
 
-expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS (config-derived)');
-expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS (config-derived)');
+expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms'\)/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS (config-derived)', { allowConstant: true });
+expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms'\)/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS (config-derived)', { allowConstant: true });
+
+checks += 1;
+{
+  const defaults = require(path.join(ROOT, 'bin', 'lib', 'config_defaults'));
+  const declared = defaults.CONFIG_DEFAULTS.install_build_migrate_timeout_ms;
+  if (declared !== SLOW_NETWORK_MS) {
+    failures += 1;
+    console.error(`  FAIL CONFIG_DEFAULTS.install_build_migrate_timeout_ms = ${declared}, expected ${SLOW_NETWORK_MS}`);
+  } else {
+    console.log(`  ok   CONFIG_DEFAULTS.install_build_migrate_timeout_ms = ${SLOW_NETWORK_MS}`);
+  }
+}
 
 console.log('Upgrade timeout budgets');
 

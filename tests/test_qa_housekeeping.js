@@ -46,7 +46,11 @@ try {
   // 1 getProjectOutputDirs creates directory under ~/.konoha/tmp/qa/projects/<hash>/artifacts
   const outDirs = getProjectOutputDirs(gitProject);
   assert.ok(fs.existsSync(outDirs.artifactsDir));
-  assert.ok(outDirs.artifactsDir.includes('.konoha/tmp/qa/projects/'));
+  const qaRoot = path.join(process.env.HOME || process.env.USERPROFILE || os.homedir(), '.konoha', 'tmp', 'qa', 'projects');
+  assert.ok(
+    outDirs.artifactsDir.startsWith(qaRoot),
+    `artifactsDir ${outDirs.artifactsDir} must live under ${qaRoot}`
+  );
   assert.ok(outDirs.artifactsDir.endsWith('artifacts'));
 
   // 2 Failure evidence copying

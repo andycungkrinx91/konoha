@@ -82,6 +82,11 @@ Reference instructions for project ops deployment.
   });
 
   test('2. Synchronizes skills exclusively to ~/.agents/skills without polluting client directories', () => {
+    // syncAllClientSkills only mirrors into ~/.agents/skills when ~/.agents already
+    // exists, so a bare sandbox HOME (or a fresh Windows profile) would report 0
+    // targets. Test 3 creates it, but test order must not be load-bearing.
+    const agentsDir = path.join(os.homedir(), '.agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
     const res = skillManager.syncAllClientSkills({ projectRoot: tmpProjectDir, silent: true });
     assert.strictEqual(res.synced, 1, 'Expected exactly 1 target (~/.agents/skills), got ' + res.synced);
     assert.deepStrictEqual(res.targets, [path.join(os.homedir(), '.agents', 'skills')]);

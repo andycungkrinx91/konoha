@@ -118,7 +118,7 @@ check('glob with no matches still reports zero rather than throwing', () => {
   assert.strictEqual(grepCount('**/*.tsx'), 0);
 });
 
-fs.rmSync(path.dirname(tempDb), { recursive: true, force: true });
+fs.rmSync(path.dirname(tempDb), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
 console.log(failures === 0 ? '\nmcp argument parsing: OK' : `\nmcp argument parsing: ${failures} failure(s)`);
 process.exit(failures === 0 ? 0 : 1);
