@@ -26,11 +26,13 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
 `test` — eight shards per OS, `KONOHA_TEST_SHARD=<shard>/8`:
 
 1. `pnpm install --frozen-lockfile`
-2. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
+2. `pnpm --filter konoha-web build` — before the seed, because `konoha init` builds the
+   UI on demand when no build of the current version exists; with the repo build
+   present the seed copies it instead of running a second SvelteKit build.
+3. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
    --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
-3. Playwright browsers (cached), `pnpm --filter konoha-web build`, and the ffmpeg
-   `libwebp_anim` check.
-4. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the
+4. Playwright browsers (cached) and the ffmpeg `libwebp_anim` check.
+5. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the
    harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing
    the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
 
@@ -48,11 +50,12 @@ wall clock in total, every shard green, and the slowest single shard took 175 s
 (`[SHARD] 5/8`, 35 suites). In CI the shards run on eight runners, so the wall clock for
 the step is the slowest shard, not the sum.
 
-The split pays for itself beyond the per-job limit. One job running the 288-suite tree
-through the same harness took 1720 s; the gate tree is that minus the six Yamanaka
-suites, 338 s of measured suite time. Summed shards come to 941 s against that ~1380 s,
-because each shard gets its own four workers and its own short tail instead of queueing
-behind the whole list.
+The split pays for itself beyond the per-job limit. One job running the whole discovered
+list through this harness took 1720 s (288 suites: 285 passed, 3 failed — the run that
+motivated this work). The gate tree is that list minus the six Yamanaka suites, which
+carry 338 s of measured suite time, so one job over the gate tree is roughly 1380 s.
+The eight shards summed to 941 s, because each gets its own four workers and its own
+short tail instead of queueing behind the whole list.
 
 That is why the count is 8. The pre-implementation model — round-robin over the measured
 per-suite durations, 4 greedy workers per shard — predicted a worst shard of 240 s at
@@ -61,9 +64,16 @@ in under it; the model was conservative because those per-suite durations were t
 under contention.
 
 The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
-measured on a runner, and it is what decides the verdict on a cold cache. Locally those steps are fast (a seed cache hit is 0.4 s, the web
-build is seconds), but a hosted runner is slower and the seed restore pulls ~400 MB out
-of the cache. Treat it as a minute or two, not as a number.
+measured on a runner, and it is what decides the verdict on a cold cache. Locally those
+steps are fast (a seed cache hit is 0.4 s, the web build is seconds), but a hosted runner
+is slower and the seed restore pulls ~400 MB out of the cache. Treat it as a minute or
+two, not as a number.
+
+A run is 3 `checks` jobs plus 24 shard jobs. A plan capped at 20 concurrent jobs therefore
+queues the surplus, and a queued job's wall clock includes the wait — so on such a plan the
+per-OS numbers above are job durations, not run durations. The cap has not been observed
+on this repository; if a run looks slower than the sum of its steps, read the queue time
+before reading it as a regression.
 
 | OS | Target | Modelled shard work | Fixed cost | Verdict |
 | --- | --- | --- | --- | --- |

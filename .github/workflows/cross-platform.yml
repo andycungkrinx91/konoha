@@ -92,13 +92,13 @@ jobs:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
       fail-fast: false
-      # Eight shards on every OS. Measured suite work is 6245 s and one job over
-      # this tree measured 1720 s, far outside the 600 s Linux budget;
-      # round-robin assignment of the 281 measured durations predicted a worst
-      # shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured 175 s. Uniform
-      # rather than per-OS because the macOS and Windows multipliers are
-      # unmeasured, and Windows is the platform this work exists for — sizing it
-      # down on the strength of a number nobody has taken would be guesswork.
+      # Eight shards on every OS. One job over the whole discovered list measured
+      # 1720 s, far outside the 600 s Linux budget. The gate tree's 281 measured
+      # durations sum to 6245 s, and round-robin assignment of them predicted a
+      # worst shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured
+      # 175 s. Uniform rather than per-OS because the macOS and Windows
+      # multipliers are unmeasured, and Windows is the platform this work exists
+      # for — sizing it down on a number nobody has taken would be guesswork.
       # Fewer shards would only save runner minutes, which is not the constraint.
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -120,6 +120,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
+      # tests/test_manifest_invariants.js:72 requires apps/web/build/index.js.
+      # Built before the seed on purpose: `konoha init` builds the UI on demand
+      # when no build of the current version exists, and resolveWebBuildSource()
+      # prefers apps/web/build when there is one. Without this step first the seed
+      # build runs a second full SvelteKit build instead of copying this one.
+      - name: Build web
+        run: pnpm --filter konoha-web build
 
       # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
       # is copied from. It is content-addressed by the same tree hash the
@@ -177,11 +186,6 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         run: pnpm exec playwright install chromium
-
-      # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
-      # tests/test_manifest_invariants.js:72 requires apps/web/build/index.js.
-      - name: Build web
-        run: pnpm --filter konoha-web build
 
       # tests/test_document_animation_webp.js asserts the animated WebP export,
       # which needs an ffmpeg build with the `libwebp_anim` encoder. The macOS
