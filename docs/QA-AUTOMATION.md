@@ -217,7 +217,7 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 ## Test Suite Runner & Isolation Contract (G-01, G-17)
 
-Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the suites excluded by `KONOHA_TEST_EXCLUDE`, so a new suite is discovered without editing a list.
+Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the unreleased `tests/test_yamanaka_*.js` suites (named in the run banner; still runnable by passing one as the filter), so a new suite is discovered without editing a list.
 
 Every test and lint entry point in `package.json` is routed through `scripts/rtk_exec.js`, so suite output reaches the orchestrating model as a failure-focused summary instead of thousands of raw lines:
 
@@ -259,6 +259,7 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
      - `KONOHA_TEST_SANDBOX`: set to `'1'`.
    - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.
+   - The suite list can be split across machines with `--shard=I/N` or `KONOHA_TEST_SHARD=I/N`. Assignment is round-robin over the discovered order (`tests/helpers/shard.js`), so the shards partition the list exactly once and need no duration data; a selector that does not parse or whose index is out of range exits 2 instead of silently running everything, and a shard that selects no suite exits 2 instead of reporting an empty run as passing.
 
 2. **Standalone Guard for Mutating Test Suites (G-17)**:
    - Mutating test suites (`test_web_ui.js`, `test_official_agent_protection.js`, `test_telegram_session_manager.js`, `test_telegram_integration.js`) invoke `assertSandbox()` from `tests/helpers/sandbox_guard.js` at entry.

@@ -8,27 +8,96 @@ checks on **ubuntu-latest, windows-latest, and macos-latest** for every push to
 publishes anything — the tag-only `publish.yml` and `release-assets.yml` workflows
 still own releases.
 
-Each OS runs the same job (Node 24, pnpm 12.16.1, setup reused exactly from
-`publish.yml`):
+There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
+`publish.yml`).
+
+`checks` — cheap, once per OS, no seed and no Playwright browsers:
 
 1. `pnpm install --frozen-lockfile`
-2. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
-   --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
-3. `pnpm lint`
-4. `pnpm test` — the full suite via `tests/run_all.js`, in the harness's own parallel
-   mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing the restored seed. No
-   `continue-on-error`: a failing suite turns the workflow red.
-5. Fresh-install smoke test — `node bin/cli.js init --yes --no-project`, then
+2. `pnpm lint`
+3. Fresh-install smoke test — `node bin/cli.js init --yes --no-project`, then
    `node bin/cli.js migrate --skip-embeddings`, then `node bin/cli.js version`, with a
    throwaway `HOME`/`USERPROFILE`. The CLI entry point is invoked directly (`bin:
    konoha -> bin/cli.js`) so no global install or PATH resolution is involved.
    `--skip-embeddings` keeps the gate about the CLI: embedding coverage is asserted
-   by step 4, and an unbounded Hugging Face download here would turn a network
-   hiccup into a fake cross-platform failure.
+   by the suite job, and an unbounded Hugging Face download here would turn a
+   network hiccup into a fake cross-platform failure.
 
-`fail-fast` is off: one OS failing never cancels the other two, so every run reports
-a per-OS result. A `concurrency` group cancels superseded runs on the same branch.
-Permissions are `contents: read` only.
+`test` — eight shards per OS, `KONOHA_TEST_SHARD=<shard>/8`:
+
+1. `pnpm install --frozen-lockfile`
+2. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
+   --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
+3. Playwright browsers (cached), `pnpm --filter konoha-web build`, and the ffmpeg
+   `libwebp_anim` check.
+4. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the
+   harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing
+   the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
+
+`fail-fast` is off: one OS or shard failing never cancels the others, so every run
+reports a per-OS, per-shard result. A `concurrency` group cancels superseded runs on
+the same branch. Permissions are `contents: read` only.
+
+## Duration budget
+
+Targets, wall clock per run: ubuntu < 10 min, macOS < 20 min, Windows < 40 min.
+
+Only one of the two terms in that budget has been measured. Suite work has, on this
+repo's 16-core host with a warm seed: the eight shards run back to back took 941 s of
+wall clock in total, every shard green, and the slowest single shard took 175 s
+(`[SHARD] 5/8`, 35 suites). In CI the shards run on eight runners, so the wall clock for
+the step is the slowest shard, not the sum.
+
+The split pays for itself beyond the per-job limit. One job running the 288-suite tree
+through the same harness took 1720 s; the gate tree is that minus the six Yamanaka
+suites, 338 s of measured suite time. Summed shards come to 941 s against that ~1380 s,
+because each shard gets its own four workers and its own short tail instead of queueing
+behind the whole list.
+
+That is why the count is 8. The pre-implementation model — round-robin over the measured
+per-suite durations, 4 greedy workers per shard — predicted a worst shard of 240 s at
+N=8, 316 s at N=6 and 406 s at N=4, from 6245 s of gate suite time. The measurement came
+in under it; the model was conservative because those per-suite durations were taken
+under contention.
+
+The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
+measured on a runner, and it is what decides the verdict on a cold cache. Locally those steps are fast (a seed cache hit is 0.4 s, the web
+build is seconds), but a hosted runner is slower and the seed restore pulls ~400 MB out
+of the cache. Treat it as a minute or two, not as a number.
+
+| OS | Target | Modelled shard work | Fixed cost | Verdict |
+| --- | --- | --- | --- | --- |
+| ubuntu-latest | < 10 min | 175 s | unmeasured | modelled headroom is large; confirm on the first run |
+| macos-latest | < 20 min | 175 s | unmeasured × macOS factor | unverified |
+| windows-latest | < 40 min | 175 s | unmeasured × Windows factor | unverified |
+
+Why the count is uniform rather than smaller on macOS and Windows: their multipliers
+are unmeasured, and Windows is the platform this work exists for. Sizing it down on the
+strength of a number nobody has taken would be guesswork, and the only cost of the
+larger count is runner minutes, which is not the constraint.
+
+**A cache miss adds the seed build to every shard.** The seed is content-addressed by
+`src`/`bin`/`scripts`, so a PR touching any of them misses, and each shard pays its own
+~241 s build — in parallel, so wall clock grows by that much once rather than 8 times.
+Removing it needs the seed to stop depending on `src`, which it does not yet.
+
+Sharding is round-robin over the alphabetically discovered list
+(`tests/helpers/shard.js`), not contiguous chunks: discovery order is alphabetical and
+the slow suites are not spread evenly through it, so contiguous slices hand one shard
+most of the long ones. Round-robin needs no duration data, so a fresh checkout shards
+identically to the machine that measured it.
+
+Two properties are enforced at runtime, because both used to fail open — a run could go
+green having executed nothing:
+
+- A `--shard` / `KONOHA_TEST_SHARD` value that does not parse, or whose index is out of
+  range, exits 2 with the reason. It used to be ignored and the full suite ran.
+- A shard that selects zero suites exits 2 and says so. It used to exit 0.
+
+That the eight shards partition the suite list exactly once is asserted in
+`tests/test_test_sharding.js`, together with the size balance and both refusal paths
+above (the refusals are checked by spawning the real harness, so a helper that is
+correct but unused would not pass).
 
 ## Golden seed cache
 
@@ -256,11 +325,16 @@ engine instead of weakening the gate.
 ## How to read a failure
 
 Open the failed run from the Checks tab of the pull request (or Actions →
-Cross-Platform), pick the failed OS job, and expand the failed step. The step names
-are the checklist: Install dependencies, Lint, Test (full suite), Fresh-install
-smoke test. A failure in `Test (full suite)` names the failing suite file; the
-harness log shows the first failing assertion. A failure in the smoke test names the
-CLI command that exited non-zero.
+Cross-Platform), pick the failed job, and expand the failed step. Job names carry the
+OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/8`.
+
+- `checks`: Install dependencies, Lint, Fresh-install smoke test. A lint failure names
+  the file and rule; a smoke-test failure names the CLI command that exited non-zero.
+- `shard <n>/8`: the setup steps (seed, Playwright, web build, ffmpeg) then
+  `Test (shard)`. A failure there names the failing suite file and the harness log
+  shows the first failing assertion. The first line of that step's log,
+  `[SHARD] <n>/8: <k> of <total> suites`, says what this shard was responsible for,
+  which is what distinguishes "this suite broke" from "this shard got the wrong list".
 
 ## How to re-run
 
@@ -279,8 +353,9 @@ go install github.com/nektos/act@v0.2.97
 export PATH="$(go env GOPATH)/bin:$PATH"
 act --version                 # act version 0.2.97
 
-pnpm ci:act                   # full ubuntu job: install -> lint -> test -> smoke
-act -j test --matrix os:ubuntu-latest -n   # dry run: validates workflow syntax, creates no container
+pnpm ci:act                   # ubuntu checks job: lint + fresh-install smoke
+pnpm ci:act:shard             # ubuntu suite job, shard 1 of 8 (the long one)
+act -W .github/workflows/cross-platform.yml --matrix os:ubuntu-latest -n   # dry run
 ```
 
 `.actrc` pins the runner image, so no flags are needed:
@@ -302,6 +377,9 @@ Fidelity limits, read before trusting a green local run:
   local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
   That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
   on unresolvable platform images, not on a real defect.
+- `ci:act` runs only the `checks` job: it is the cheap half. `ci:act:shard` runs one suite
+  shard, which pulls the seed, the browsers and the web build and is the slow half — pick
+  the shard with `--matrix shard:<n>`.
 - The macOS leg is the one with no local equivalent, so reproduce a macOS-only failure by
   reasoning about what differs, not by rerunning Linux. The class that has actually bitten
   this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`,
@@ -327,7 +405,8 @@ A full local run of this leg passed on 2026-11-11 with 284 suites discovered, so
 step now means a real regression rather than a harness or resolver problem. The runner
 discovers `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js`, so the count moves as
 suites are added; the tree that was green in the container sandbox on 2026-11-12
-discovered 287, and the seed-cache contract suite added since makes the current tree 288.
+discovered 287; the seed-cache contract suite and the sharding suite added since, minus the
+six unreleased Yamanaka suites now held back, make the current tree 283.
 
 ### When `Install Playwright browsers` dies on apt
 
@@ -607,9 +686,11 @@ Operational notes for the local Windows leg:
 
 Coverage gaps, by design:
 
-- Yamanaka 3D workflow suites are skipped locally via `KONOHA_TEST_EXCLUDE=test_yamanaka_`.
-  The runner banner lists every skipped file, so the log states exactly what was not
-  covered. They still run on GitHub Actions and nothing is deleted from the repo.
+- The six `tests/test_yamanaka_*.js` suites are not run anywhere: Yamanaka 3D is
+  unreleased, so its suites are not part of the gate on this guest, on GitHub Actions,
+  or in `pnpm test`. The harness names every one it held back in the run banner, so the
+  log states what was not covered, and naming a suite on the command line still runs it:
+  `node tests/run_all.js test_yamanaka_langgraph_pipeline`. Nothing is deleted.
 - The F42 Akatsuki lab declines to run in the guest: `src/workflow/akatsuki/lab.js` requires
   Docker on Windows, and the guest has no Docker. That is a fail-closed decline, not a suite
   failure.

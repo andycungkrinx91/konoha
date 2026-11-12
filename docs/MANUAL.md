@@ -1358,7 +1358,7 @@ client: 9.6.
 pnpm test:sandbox             # install + lint + full suite + fresh-install smoke
 pnpm test:sandbox -- --lint   # fast path: install + lint only
 pnpm test                     # the same runner without isolation
-pnpm ci:act                   # replay the CI workflow locally with act
+pnpm ci:act                   # replay the CI checks job locally (lint + smoke)
 ```
 
 The sandbox engine is Docker. On an Apple-silicon Mac running macOS 26 you can point the same image at [Apple's `container`](https://github.com/apple/container) instead of Docker Desktop:
