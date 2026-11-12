@@ -1,6 +1,6 @@
 # Konoha diagrams
 
-`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains eighteen pages covering every logical diagram embedded in the README and documentation, including the 3D subsystem (Yamanaka pipeline), multi-agent orchestration, and production security gates. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
+`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains eighteen pages covering every logical diagram embedded in the README and documentation, including the 3D subsystem (Yamanaka pipeline), multi-agent orchestration, and production security gates. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review, except page 08 in the README, which embeds `assets/konoha-orchestration-flow.webp` — the animation generated from that page — so the diagram a reader sees there cannot drift from the drawio source.
 
 **Format policy:** Draw.io owns editable geometry, page layout, and presentation routing. Mermaid owns Markdown-native rendering. The two formats must keep the same semantic nodes, relationships, titles, and implementation anchors; their visual layouts may differ.
 

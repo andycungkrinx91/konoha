@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.20-blue.svg?logo=git&logoColor=white" alt="Release v2.2.20"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.21-blue.svg?logo=git&logoColor=white" alt="Release v2.2.21"></a>
   <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml/badge.svg" alt="Cross-platform CI"></a>
   <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?logo=npm&logoColor=white" alt="npm total downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
@@ -21,7 +21,7 @@
   <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7" alt="8 supported clients"></a>
   <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
   <br>
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.20%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.21%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram remote"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
@@ -164,27 +164,7 @@ Gate 1 (`pending_plan_approval`): compact-and-approve, or reject/regenerate with
 
 Nine phases, two human gates, five quality gates. Every request enters through the Sannin router, fans out to specialist agents, and exits only through the gates. Full text flow with all 18 workflows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md).
 
-```mermaid
----
-title: Konoha Master System Architecture
-config:
-  theme: base
-  themeVariables:
-    fontFamily: 'Inter, system-ui, sans-serif'
-  flowchart:
-    wrappingWidth: 380
----
-flowchart TB
-    UserPrompt["End User / Client Prompt"] --> Clients["8 Supported Coding Environments"]
-    Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js StateGraph Router)"]
-    Orchestrator --> Sannin["Sannin MCP Router<br/>(Prompt Triage and Delegation)"]
-    Sannin <--> SQLiteDB[("Unified SQLite DB<br/>(FTS5 Skill Retrieval)")]
-    Sannin --> NinjaTeam["9 Specialist Ninja Subagents<br/>sannin genin chunin jonin anbu<br/>tokubetsu-jonin kage akatsuki yamanaka"]
-    NinjaTeam --> QualityGate["Verification and Quality Enforcement<br/>DoR Gate - Slop Gate 100/100 - Socket Gate - Kage 98-pct Gate"]
-    QualityGate --> Delivery["Final Delivery and User Response"]
-
-    linkStyle default stroke:#334155,stroke-width:2px;
-```
+<img src="assets/konoha-orchestration-flow.webp" alt="Konoha orchestrator task artifact flow: user prompt into the LangGraph.js StateGraph orchestrator, six dispatch steps with Konoha and Semble lookups, the Akatsuki security gate, and the final response" width="100%">
 
 ```mermaid
 ---
@@ -334,8 +314,8 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 | [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
 | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
 | [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.20 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.20 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
+| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.21 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
+| [Security Architecture](docs/SECURITY.md) | v2.2.21 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
 | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
 | [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
 | [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |
