@@ -73,7 +73,7 @@ async function run() {
   assert.strictEqual(g1.status, 'pending_plan_approval');
   assert.strictEqual(toDisplayStatus(g1.status), 'Pending Gate 1');
   const fakeStatus2 = { task_id: 'task_yolo', tasks: [], plan_approved: true };
-  const g2 = JSON.parse(buildGate2Prompt(fakeStatus2, tmpDir, 'task_yolo', 99, 'report'));
+  const g2 = JSON.parse(buildGate2Prompt(fakeStatus2, tmpDir, 'task_yolo', { confidence: 99, report: 'report' }));
   assert.strictEqual(g2.status, 'pending_human_signoff');
   assert.strictEqual(toDisplayStatus(g2.status), 'Pending Gate 2');
   console.log('✓ YOLO mode still pauses authoritatively at both gates');

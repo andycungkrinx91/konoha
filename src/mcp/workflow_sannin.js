@@ -454,7 +454,7 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
 
   const res = isGate1
     ? buildGate1Prompt(status, resolvedTaskDir, taskId, status.plan)
-    : buildGate2Prompt(status, resolvedTaskDir, taskId, status.confidence || 100, status.report);
+    : buildGate2Prompt(status, resolvedTaskDir, taskId, { confidence: status.confidence || 100, report: status.report });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
   return res;
 }

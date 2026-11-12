@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.20)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.21)
 
 ## 1. Overview & Threat Model
 
@@ -14,6 +14,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
   1. Successful `POST /api/v1/auth/login`
   2. Successful `POST /api/v1/auth/pin`
   3. Loopback authenticated `GET /api/v1/csrf` or `GET /api/v1/token`
+- **Gate Capabilities, Not the Master Token**: the HITL picker routes (`/api/v1/hitl/picker`, `/api/v1/hitl/verdict`) are the only `/api/v1/` paths exempt from the session-cookie and CSRF-header checks, and they enforce their own control: an HMAC-SHA256 signature of the task directory, keyed by the persisted session token and compared in constant time. The signature is scoped to one directory (a link for one gate cannot approve another), never contains the token, and the page is served `Referrer-Policy: no-referrer` with `Cache-Control: no-store` so the capability does not leak through a referrer or a shared cache.
 - **Health Metadata Gating**: `GET /api/v1/health` returns only minimal status (`status: "healthy"`, `version`, `uptime`) to unauthenticated callers. Internal system details (ports, host, database paths, agent counts, Node runtime) are restricted to authenticated sessions.
 
 ### 2.2 Request Body Size Limits
@@ -127,7 +128,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.20)
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.21)
 
 ### 11.1 Bridge Request Budget
 - **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.

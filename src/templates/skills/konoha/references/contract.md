@@ -32,7 +32,7 @@ verifiable rules exist. No rule here is invented.
 13. Semble is mandatory for repository code search (`semble.search`, `semble.find_related`, with repo path).
 14. RTK is mandatory for shell commands: always prefix with `rtk <command>`.
 15. Resume safety: restore the Konoha / Semble / RTK workflow on session resume.
-16. HITL Gates: Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) render the picker on EVERY client and submit the human's reply verbatim via `sannin({ task_dir, choice, refinement })`. Fail closed, never bypass.
+16. HITL Gates: Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) render the picker on EVERY client and submit the human's reply verbatim via `sannin({ task_dir, choice, refinement })`. The gate payload's `picker` block names the control: `transport: native_tool` → call `picker.tool` with `picker.call` (OMP `ask`, [CC] `AskUserQuestion`); `transport: web_picker` → surface `picker.url`, an HTML form that posts the verdict itself over a per-gate signed link. Printing a numbered list for the human to retype is the text fallback, never the picker. Fail closed, never bypass.
 17. @advisor review: delivery needs @advisor approval.
 18. Zero-AI-Slop & Kage Gate: 100/100 score and ≥98% confidence gate before delivery, with `ai_slop_clean: true` and zero security findings.
 19. Global-only, append-only client configs: never write `.omp`, `.codex`, `.cursor`, `.claude`, `.agents`, or `.gitignore` rules (such as `/PLAN.md`) into user project directories; all client configs live under the user home with automatic date-stamped backups and syntax-aware append-only merging. Konoha never deletes external `agents/` or `conversations/` directories.

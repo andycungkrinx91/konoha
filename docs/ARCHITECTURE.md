@@ -137,7 +137,7 @@ The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/`
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **VERIFIED** on this host (install, `init`, runtime module load, upgrade failure paths) and in the container sandbox (`pnpm test:sandbox`, 287 suites, 0 failed, 2026-11-12) |
+| Linux x64 | **VERIFIED** on this host (install, `init`, runtime module load, upgrade failure paths) and in the container sandbox (`pnpm test:sandbox`, every discovered suite, 0 failed, 2026-11-12) |
 | Windows 11 x64 | **VERIFIED** in the local dockur VM (`docker/windows-vm/`, `scripts/windows-ci.ps1` mirrors the `windows-latest` job step for step) and on GitHub Actions `windows-latest` |
 | macOS arm64 | **PARTIAL**: GitHub Actions `macos-latest` runs the full job; the platform-specific defects it exposed (path canonicalization under `/var` → `/private/var`, case-insensitive APFS, `.dmg` Blender) are fixed and covered by a symlinked-`HOME` local proxy. `docs/CI.md` now spells out the native replay of that leg and the `container`-engine sandbox that runs the clean room on the same machine without Docker Desktop, but no local macOS host has run either, so a regression there is confirmed only by a GitHub run. |
 
@@ -163,7 +163,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.20), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.21), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -612,6 +612,17 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
      - Calculated confidence score $\ge 98.0\%$.
      - Autonomous Remediation Loop to Anbu/Jonin if security or slop findings emerge (bounded by circuit breaker `slop_cycles <= 7`).
    - `pending_human_signoff` (Gate 2): Authoritative pre-delivery human signoff; choice 1 finalizes delivery, choice 2 loops back for remediation.
+
+   **Gate presentation is a picker, not prose.** Every gate payload carries a `picker` block naming the control the active
+   harness actually has (`src/mcp/hitl_picker.js`). Harnesses with a structured-question tool get `transport: native_tool` plus the
+   exact call to make (OMP `ask`, `[CC]` `AskUserQuestion`); every other harness gets `transport: web_picker` with a loopback URL to
+   `/api/v1/hitl/picker`, an HTML form of option cards and a custom-instruction field that posts to `/api/v1/hitl/verdict`. That
+   endpoint resolves the verdict through `runSannin`, the same resume path as a typed reply, so a click and a message land in one
+   place. Both routes authenticate with a per-gate capability signature — an HMAC of the task directory keyed by the persisted
+   session token — because the human opening the link has no cookie jar for it and handing them the master token would put it in
+   every transcript and gate payload. The signature is scoped to one directory, so one gate's link cannot approve another; the page
+   is served `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and the verdict route only accepts a directory that
+   actually holds a `status.json`. A harness that ignores the picker still cannot bypass the gate — it just loses the control.
    - `synthesize` (`sannin`): Generates `final_report.md`, updates root container to `completed` in `sdlc_tasks`, purges transient scratch files.
 
 2. **Core Operational Invariants**:

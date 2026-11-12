@@ -480,7 +480,7 @@ function handleDeliverySignoffOrFinish(options) {
       });
     } catch (_) { /* ignore */ }
 
-    const promptRes = buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, reportPath);
+    const promptRes = buildGate2Prompt(status, resolvedTaskDir, rootId, { confidence: confidenceVal, report: reportPath });
     return { response: promptRes };
   }
 

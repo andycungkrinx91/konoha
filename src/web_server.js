@@ -13,6 +13,7 @@ const coreController = require('./web/controllers/core_controller');
 const activityController = require('./web/controllers/activity_controller');
 const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
+const hitlController = require('./web/controllers/hitl_controller');
 const servicesController = require('./web/controllers/services_controller');
 let _model3DController = null;
 let _model3DRefineController = null;
@@ -77,8 +78,13 @@ function _isHostAllowed(hostWithoutPort) {
   return false;
 }
 
+// The HITL picker is a capability URL a human opens from a link: no cookie jar,
+// no CSRF header. Its controller verifies a per-gate HMAC signature instead, so
+// the route is exempt from both checks here and enforces its own.
+const CAPABILITY_ROUTES = new Set(['/api/v1/hitl/picker', '/api/v1/hitl/verdict']);
+
 function _verifyApiAuthentication(req, pathname, method, ctx) {
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/') && !CAPABILITY_ROUTES.has(pathname)) {
     if (pathname !== '/api/v1/auth/login' && pathname !== '/api/v1/auth/logout') {
       const tokenHeader = req.headers['x-konoha-web-token'];
       if (!tokenHeader || !isValidSessionToken(tokenHeader, ctx)) {
@@ -97,6 +103,8 @@ function _verifyApiAuthentication(req, pathname, method, ctx) {
   const hasMasterToken = isValidSessionToken(req.headers['x-konoha-web-token'], ctx);
   const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
   const isBrowser = isBrowserClient(req);
+
+  if (CAPABILITY_ROUTES.has(pathname)) return { ok: true };
 
   if (isBrowser && !session) return { ok: false, status: 401, error: 'Unauthorized: Authentication required', requires_login: true };
   if (!isBrowser && !isLoopback && !hasMasterToken && !session) return { ok: false, status: 401, error: 'Unauthorized: Authentication required', requires_login: true };
@@ -150,6 +158,7 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   if (await activityController.handleActivityRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await skillsController.handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+  if (await hitlController.handleHitlRoutes(req, res, ctx, route)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (pathname.startsWith('/api/v1/3d') || pathname.startsWith('/api/v1/model3d')) {
     if (await getModel3DController().handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
@@ -374,7 +383,7 @@ function createWebServer(options = {}) {
     return svelteKitHandler;
   }
 
-  let serverVersion = '2.2.20';
+  let serverVersion = '2.2.21';
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     if (pkg && pkg.version) serverVersion = pkg.version;

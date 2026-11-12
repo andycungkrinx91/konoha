@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.20  
+**Document Version:** 2.2.21  
 **Date:** 2026-11-04  
-**Status:** Canonical Reference (v2.2.20 Complete)  
+**Status:** Canonical Reference (v2.2.21 Complete)  
 
 ---
 
@@ -153,7 +153,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
   - CLI: `konoha task`, `konoha detect-ai <path-file-or-url>`, `konoha detect-docs <path-or-url>`.
-  - Web API: `/api/v1/sdlc`.
+  - Web API: `/api/v1/sdlc`, plus the HITL gate picker (`GET /api/v1/hitl/picker?task_dir=…&sig=…`, `POST /api/v1/hitl/verdict`), which renders each gate's options as a form, authenticates the link with a per-gate HMAC capability signature, and resumes through `sannin`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
@@ -369,7 +369,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.20** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.21** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.

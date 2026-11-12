@@ -45,7 +45,7 @@ test('sannin schema accepts gate verdicts (choice + refinement)', () => {
 
 test('both gates render "Input your own choice" as a selectable label', () => {
   const g1 = JSON.parse(gates.buildGate1Prompt({}, '/tmp/t', 'T1', 'plan'));
-  const g2 = JSON.parse(gates.buildGate2Prompt({}, '/tmp/t', 'T1', 99, 'report'));
+  const g2 = JSON.parse(gates.buildGate2Prompt({}, '/tmp/t', 'T1', { confidence: 99, report: 'report' }));
 
   for (const [name, payload] of [['Gate 1', g1], ['Gate 2', g2]]) {
     const choices = payload.interactive_prompt.choices;
