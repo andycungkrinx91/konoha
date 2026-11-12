@@ -28,13 +28,17 @@ const RUNTIMES = {
     bin: 'docker',
     probe: ['info'],
     startHint: 'Start Docker Desktop or the docker service.',
-    installHint: 'Install Docker Desktop or the docker package.'
+    installHint: 'Install Docker Desktop or the docker package.',
+    runArgs: () => []
   },
   container: {
     bin: 'container',
     probe: ['system', 'status'],
     startHint: 'Start the container services with: container system start',
-    installHint: 'Install it from https://github.com/apple/container/releases (Apple silicon, macOS 26).'
+    installHint: 'Install it from https://github.com/apple/container/releases (Apple silicon, macOS 26).',
+    // Every container is a VM capped at 1 GiB by default; the suite runs four
+    // workers plus Chromium, so it needs more. Docker inherits the daemon VM.
+    runArgs: (env) => ['--memory', env.KONOHA_SANDBOX_MEMORY || '4g']
   }
 };
 
@@ -51,7 +55,7 @@ function sandboxPlan(runtime, options = {}) {
   }
 
   steps.push([
-    'run', '--rm',
+    'run', '--rm', ...spec.runArgs(options.env || process.env),
     '-v', `${root}:/src:ro`,
     '-v', `${VOLUMES[0]}:/pnpm-store`,
     '-v', `${VOLUMES[1]}:/ms-playwright`,

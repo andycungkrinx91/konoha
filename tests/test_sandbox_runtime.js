@@ -23,8 +23,22 @@ assert.deepStrictEqual(apple.probe, ['system', 'status'], 'container is alive wh
 assert.ok(/container system start/.test(apple.startHint), 'container hint must name the start command');
 assert.ok(/apple\/container\/releases/.test(apple.installHint), 'a missing CLI must point at the installer');
 
-assert.deepStrictEqual(apple.steps, docker.steps, 'one image, one entrypoint, one argument list');
 assert.deepStrictEqual(Object.keys(RUNTIMES).sort(), ['container', 'docker']);
+
+// One image, one entrypoint, one argument list: the only argv difference is the
+// container VM's memory floor, because every `container` VM defaults to 1 GiB.
+const stripMemory = (args) => {
+  const copy = [...args];
+  const at = copy.indexOf('--memory');
+  if (at !== -1) copy.splice(at, 2);
+  return copy;
+};
+assert.deepStrictEqual(stripMemory(apple.steps[1]), docker.steps[1], 'mounts, env, and mode are identical');
+assert.strictEqual(apple.steps[1][apple.steps[1].indexOf('--memory') + 1], '4g');
+assert.ok(!docker.steps[1].includes('--memory'), 'Docker inherits the daemon VM; no per-run cap');
+
+const bigger = sandboxPlan('container', { repoRoot: root, env: { KONOHA_SANDBOX_MEMORY: '16g' } });
+assert.strictEqual(bigger.steps[1][bigger.steps[1].indexOf('--memory') + 1], '16g', 'a host may raise the cap');
 
 const [buildArgs, runArgs] = docker.steps;
 assert.deepStrictEqual(buildArgs, ['build', '-f', 'docker/sandbox.Dockerfile', '-t', 'konoha-sandbox:local', '.']);

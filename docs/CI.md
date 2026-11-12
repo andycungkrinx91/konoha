@@ -381,7 +381,12 @@ KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox   # clean room, no Docker Des
 Prerequisites for the second: macOS 26 on Apple silicon, the signed installer from the
 [release page](https://github.com/apple/container/releases), and
 `container system start` once per boot. Named volumes are created on first use and are
-never pruned automatically; `container volume list` shows them. Both paths share one environment contract — Node 24,
+never pruned automatically; `container volume list` shows them.
+
+Each `container` run is a VM capped at 1 GiB by default, so the script passes
+`--memory 4g` for the suite's four workers plus Chromium; raise it with
+`KONOHA_SANDBOX_MEMORY=16g` on a larger host. Docker needs no such flag because a
+container inherits the daemon VM's memory. Both paths share one environment contract — Node 24,
 pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
 
 ## Local Windows VM
