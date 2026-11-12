@@ -154,9 +154,15 @@ function resolveBuildSourceDir(sourceDir) {
   try { realResolved = fs.realpathSync(resolved); } catch (_) { /* intentional fallback */ }
   try { realWorkspace = fs.realpathSync(workspace); } catch (_) { /* intentional fallback */ }
 
+  // `~/.konoha` can itself sit behind a symlink (macOS resolves `/var` to
+  // `/private/var`), while `realResolved` is already canonical — so the allowed
+  // root has to be canonicalised too or every scratch dir under it is rejected.
+  let realKonohaDir = path.resolve(KONOHA_DIR);
+  try { realKonohaDir = fs.realpathSync(realKonohaDir); } catch (_) { /* intentional fallback */ }
+
   const isWin = process.platform === 'win32';
   const norm = p => (isWin ? p.toLowerCase() : p);
-  const allowedRoots = [norm(realWorkspace), norm(path.resolve(KONOHA_DIR))];
+  const allowedRoots = [norm(realWorkspace), norm(realKonohaDir)];
   const isAllowed = allowedRoots.some(root => {
     const r = norm(realResolved);
     return r === root || r.startsWith(root + path.sep);

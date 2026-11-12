@@ -455,6 +455,16 @@ async function installBlender(options = {}) {
   if (!archive) {
     throw new Error(`No Blender ${release.version} archive published for ${env.key}`);
   }
+  // macOS is only published as a .dmg, which cannot be extracted with tar. Report the
+  // supported install path instead of pulling hundreds of megabytes we cannot unpack.
+  if (archive.ext === 'dmg') {
+    onProgress({
+      percent: 40,
+      stage: 'Manual Install Required',
+      detail: `Blender ${release.version} ships as a .dmg; install it with \`brew install --cask blender\``
+    });
+    return { success: false, version: null, path: null, reused: false, reason: 'manual-install-required' };
+  }
   onProgress({ percent: 40, stage: 'Downloading Blender LTS', detail: `Fetching ${archive.filename}` });
 
   fs.mkdirSync(getToolchainDir(), { recursive: true });
@@ -482,8 +492,7 @@ async function installBlender(options = {}) {
   onProgress({ percent: 85, stage: 'Extracting Package', detail: `Extracting into ${getToolchainDir()}/blender` });
   const extractDir = path.join(getToolchainDir(), 'blender');
   fs.mkdirSync(extractDir, { recursive: true });
-  const flag = archive.ext === 'zip' ? '-xf' : (archive.ext === 'dmg' ? null : '-xJf');
-  if (!flag) throw new Error('macOS .dmg installs must be mounted manually or installed via brew');
+  const flag = archive.ext === 'zip' ? '-xf' : '-xJf';
   const tar = spawnSync('tar', [flag, archivePath, '-C', extractDir], { encoding: 'utf8', timeout: 600000 });
   if (tar.status !== 0) throw new Error(`Extraction failed: ${(tar.stderr || '').slice(0, 300)}`);
 
@@ -582,9 +591,21 @@ async function installAllTools(options = {}) {
     }
     return getToolchainStatus();
   }
-  await installBlender(options);
-  await installDccMcpBlender(options);
-  return getToolchainStatus();
+  // Components install independently, and some platforms cannot install one of them at
+  // all (macOS Blender is a .dmg). A single unsupported component must not abort the
+  // others nor surface as an exception — the caller gets the failure in `errors`.
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => null;
+  const errors = [];
+  for (const [component, install] of [['blender', installBlender], ['dcc_mcp', installDccMcpBlender]]) {
+    try {
+      await install(options);
+    } catch (err) {
+      const message = (err && err.message) || String(err);
+      errors.push({ component, error: message });
+      onProgress({ percent: 0, stage: 'Failed', detail: `${component}: ${message}` });
+    }
+  }
+  return { ...getToolchainStatus(), errors };
 }
 
 module.exports = {

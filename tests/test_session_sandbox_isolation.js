@@ -19,13 +19,13 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 
 const cd = require('../src/mcp/client_detection');
 const runtimeState = require('../src/mcp/runtime_state');
 const { getResolvedTaskDir, runSannin } = require('../src/mcp/workflow');
 const { executeTool } = require('../src/mcp/tool_dispatch');
 const persona = require('../src/persona_memory');
+const { computeProjectHash } = require('../src/persona_memory_projects');
 const sdlc = require('../src/workflow/kage-reviewer/sdlc_manager');
 
 async function run() {
@@ -52,8 +52,12 @@ async function run() {
     assert.ok(tmpA.includes(sessA), `tmpA (${tmpA}) must contain sessA (${sessA})`);
     assert.ok(tmpB.includes(sessB), `tmpB (${tmpB}) must contain sessB (${sessB})`);
 
-    const hashA = crypto.createHash('sha256').update(projA).digest('hex').slice(0, 12);
-    const hashB = crypto.createHash('sha256').update(projB).digest('hex').slice(0, 12);
+    // getKonohaTmpRoot hashes the canonical project path, so the expectation has to
+    // come from the same key function: on macOS os.tmpdir() is a symlink into
+    // /private/var and a raw-path digest would never appear in the sandbox name.
+    const hashA = computeProjectHash(projA);
+    const hashB = computeProjectHash(projB);
+    assert.notStrictEqual(hashA, hashB, 'Distinct projects must hash differently');
     assert.ok(tmpA.includes(hashA), `tmpA (${tmpA}) must contain project A hash (${hashA})`);
     assert.ok(tmpB.includes(hashB), `tmpB (${tmpB}) must contain project B hash (${hashB})`);
     console.log('✓ Tmp root directory isolation verified');

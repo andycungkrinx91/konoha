@@ -36,16 +36,42 @@ function runCommand(command, args, cwd = REPO_ROOT, envOverride = {}) {
   }
 }
 
+// `npx socket ... --json` can append a banner or a second document to stdout, so the
+// whole buffer is not one JSON value. Scan for the first balanced object and parse that.
+function firstJsonValue(text) {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, i + 1));
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function verifySocketFixAudit() {
   console.log('[Socket Audit] Running `socket fix --all --no-apply-fixes --json`...');
   const stdout = runCommand('npx', ['socket', 'fix', '--all', '--no-apply-fixes', '--json']);
-  let parsed = null;
-  try {
-    parsed = JSON.parse(stdout.trim());
-  } catch (_) {
-    const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-  }
+  const parsed = firstJsonValue(stdout);
   if (!parsed) {
     console.log('✓ Socket fix completed (non-JSON response or offline notice)');
     return;
@@ -201,7 +227,8 @@ function verifyDirectDependencyScores() {
   for (const dep of criticalPackages) {
     try {
       const stdout = runCommand('npx', ['socket', 'package', 'score', 'npm', dep, '--json']);
-      const res = JSON.parse(stdout.trim());
+      const res = firstJsonValue(stdout);
+      assert.ok(res, `Score query must emit JSON for ${dep}: ${stdout.slice(0, 300)}`);
       // Sandboxed HOME hides the Socket login config; the CLI then answers ok:false with an
       // auth message instead of a score. That is a proven CLI/account limit, not a finding.
       if (res.ok !== true && isAuthLimited(res)) {

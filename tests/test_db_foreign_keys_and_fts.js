@@ -9,6 +9,7 @@ const { execFileSync } = require('child_process');
 const Database = require('../src/sqlite_driver');
 const db = require('../src/db');
 const personaMemory = require('../src/persona_memory');
+const { computeProjectHash } = require('../src/persona_memory_projects');
 
 test('Batch 2: SQLite driver enforces foreign_keys = ON by default', (t) => {
   const memDb = new Database(':memory:');
@@ -55,7 +56,10 @@ test('Batch 2: direct SQL DELETE on projects cascades to persona_memories and pe
       db_path: testDbPath
     });
 
-    const projectRow = conn.prepare("SELECT * FROM projects WHERE project_path = ?").get(testProject);
+    // `projects` is keyed by project_hash over the canonical path; on hosts where
+    // the temp dir sits behind a symlink (macOS `/var` -> `/private/var`) the raw
+    // spelling never matches project_path.
+    const projectRow = conn.prepare("SELECT * FROM projects WHERE project_hash = ?").get(computeProjectHash(testProject));
     assert.ok(projectRow, 'Project must exist');
     const pHash = projectRow.project_hash;
 
