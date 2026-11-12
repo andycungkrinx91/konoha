@@ -4,6 +4,7 @@
 # Windows containers share the Windows kernel and cannot run on a Linux Docker
 # daemon. Prerequisites: Docker, /dev/kvm, >= 8 GB free RAM, >= 80 GB free disk.
 #
+#   printf 'WINDOWS_VM_PASSWORD=%s\n' '<credential>' > docker/windows-vm/.env
 #   docker compose -f docker/windows-vm/compose.yml up -d
 #   docker compose -f docker/windows-vm/compose.yml logs -f
 #
@@ -20,7 +21,12 @@ services:
       CPU_CORES: "4"
       DISK_SIZE: "64G"
       USERNAME: "Docker"
-      PASSWORD: "${WINDOWS_VM_PASSWORD:-konohagakure}"
+    env_file:
+      # Guest credential lives in an untracked file, never in this committed
+      # manifest. Create docker/windows-vm/.env containing
+      # WINDOWS_VM_PASSWORD=<value> before the first `compose up`.
+      - path: .env
+        required: true
     devices:
       - /dev/kvm
       - /dev/net/tun

@@ -433,10 +433,15 @@ Prerequisites: Docker, `/dev/kvm` readable and writable by the invoking user, ~8
 RAM while the guest runs, and ~80 GB free disk (7.9 GB ISO + 64 GB sparse disk).
 
 ```bash
+printf 'WINDOWS_VM_PASSWORD=%s\n' '<guest-credential>' > docker/windows-vm/.env   # untracked
 docker compose -f docker/windows-vm/compose.yml up -d
 docker compose -f docker/windows-vm/compose.yml logs -f   # install progress, ~15-25 min first boot
 docker compose -f docker/windows-vm/compose.yml down     # guest keeps its disk
 ```
+
+`compose.yml` carries no credential: it reads `docker/windows-vm/.env` (gitignored) with
+`required: true`, so `docker compose` fails closed with a clear message when that file is
+missing. The value only gates RDP/console login to the local guest.
 
 - Viewer: <http://127.0.0.1:8006>. RDP: `127.0.0.1:3390`, user `Docker`. Both ports bind to
   loopback only — the guest is never reachable from the LAN.
