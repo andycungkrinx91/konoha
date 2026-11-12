@@ -91,10 +91,10 @@ Anbu automatically detects and enforces idiomatic polyglot toolchains wrapped wi
 4. **Minimal Base Images**: Standardize on minimal bases (Alpine, Distroless, or Scratch).
 5. **Cache Purging**: Clean package manager caches within the same layer (`rm -rf /var/cache/apk/*`, `rm -rf /var/lib/apt/lists/*`, `pnpm store prune`).
 
-### SOP 8: QA Automation (agent-browser + Playwright)
-1. Confirm `agent-browser --version` exits 0 before exploring. If it does not, QA is **BLOCKED** — report `QA blocked: <reason>` and do not substitute a weaker check or claim the scope is clean.
-2. Explore routes and interactions using scoped snapshots (`snapshot -i -c -s`); author deterministic flow files (`<test-dir>/e2e/flows/*.json`).
-3. Codify deterministically via `qa_codify`; run regression test suites via `qa_e2e_run`. `qa_codify` returns `{ error: 'qa_blocked' }` when no browser resolves; `qa_e2e_run` uses Playwright directly and still runs.
+### SOP 8: QA Automation (Playwright)
+1. Confirm Playwright resolves before exploring: `pnpm exec playwright --version` must exit 0. If it does not, QA is **BLOCKED** — report `QA blocked: <reason>` and do not substitute a weaker check or claim the scope is clean.
+2. Explore routes and interactions with a throwaway Playwright script using scoped `locator(scope).ariaSnapshot()`; author deterministic flow files (`<test-dir>/e2e/flows/*.json`).
+3. Codify deterministically via `qa_codify`; run regression test suites via `qa_e2e_run`. `qa_codify` compiles the flow, runs it with project Playwright, and returns `{ error: 'qa_blocked', reason: 'playwright-not-installed' }` when Playwright cannot be resolved.
 4. Strictly enforce no fake green: never skip tests, suppress errors, or inflate timeouts artificially.
 
 ---

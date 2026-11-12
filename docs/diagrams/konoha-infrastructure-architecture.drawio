@@ -690,7 +690,7 @@
       <root>
 <mxCell id="0" />
 <mxCell id="1" parent="0" />
-<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.20)" vertex="1">
+<mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.21)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
 <mxCell id="p8-input" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="User Prompt / Resume" vertex="1">
@@ -928,7 +928,7 @@
 <mxCell id="p12-stg2" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 2: GitHub Release&#10;Spawn add/install &amp; pulse timer" vertex="1">
                     <mxGeometry height="60" width="250" x="360" y="240" as="geometry" />
                 </mxCell>
-<mxCell id="p12-stg3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 3: Dependencies&#10;Node.js, uv, agent-browser" vertex="1">
+<mxCell id="p12-stg3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 3: Dependencies&#10;Node.js, uv, Playwright" vertex="1">
                     <mxGeometry height="60" width="240" x="680" y="240" as="geometry" />
                 </mxCell>
 <mxCell id="p12-stg4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Stage 4: MCP Runtime&#10;Additive sync (zero pruning)" vertex="1">
@@ -1389,7 +1389,7 @@
                 <mxCell id="p17-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="17 Yamanaka Image-to-3D Asset Pipeline" vertex="1">
                     <mxGeometry height="30" width="800" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p17-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Blender 5.2.2 headless build · geometry_quality weld / UV / finalize · Three.js IBL preview · local artifact store (Runtime state graph: see Page 18 LangGraph.js Orchestration Runtime)" vertex="1">
+                <mxCell id="p17-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Blender LTS headless build · geometry_quality weld / UV / finalize · Three.js IBL preview · local artifact store (Runtime state graph: see Page 18 LangGraph.js Orchestration Runtime)" vertex="1">
                     <mxGeometry height="20" width="1300" x="40" y="50" as="geometry" />
                 </mxCell>
                 <mxCell id="p17-request" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;agent=host;" value="build_from_source / build_from_text&#10;prompt + quality level" vertex="1">
@@ -1401,7 +1401,7 @@
                 <mxCell id="p17-spec" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#4C1D95;fontStyle=1;shadow=0;agent=yamanaka;" value="Spec Synthesis + Richness Floor&#10;enrichSynthesizedSpec" vertex="1">
                     <mxGeometry height="110" width="240" x="700" y="280" as="geometry" />
                 </mxCell>
-                <mxCell id="p17-blender" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFBEB;strokeColor=#D97706;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=yamanaka;" value="Blender 5.2.2 Headless Build&#10;geometry_quality: weld · UV · finalize" vertex="1">
+                <mxCell id="p17-blender" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFFBEB;strokeColor=#D97706;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=yamanaka;" value="Blender LTS Headless Build&#10;geometry_quality: weld · UV · finalize" vertex="1">
                     <mxGeometry height="110" width="240" x="1020" y="280" as="geometry" />
                 </mxCell>
                 <mxCell id="p17-preview" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#ECFDF5;strokeColor=#059669;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#064E3B;fontStyle=1;shadow=0;agent=yamanaka;" value="Preview Render&#10;Three.js + PMREM IBL" vertex="1">

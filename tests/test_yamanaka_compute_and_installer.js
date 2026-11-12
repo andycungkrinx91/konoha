@@ -122,7 +122,11 @@ try {
     requestedComputeMode: 'gpu',
     requestedGpuBackend: 'CUDA'
   });
-  assert.strictEqual(pinnedConfig.gpu_backend, 'CUDA', 'the pin must reach the worker as gpu_backend');
+  assert.strictEqual(
+    pinnedConfig.gpu_backend,
+    resolveStageCompute('gpu', { preferredBackend: 'CUDA' }).backend,
+    'the pin must reach the worker as gpu_backend (degrading to CPU on a CPU-only host)'
+  );
   assert.strictEqual(pinnedConfig.requested_gpu_backend, 'CUDA', 'the pin travels as requested_gpu_backend');
   const unpinnedConfig = buildWorkerConfig({
     baseGlbPath: '/tmp/base.glb',
@@ -172,11 +176,18 @@ try {
         console.log(`  · Blender release index unreachable (offline): ${err.message}`);
       }
     }
-    await installAllTools({
+    const installRes = await installAllTools({
       onProgress: (p) => progressLogs.push(p)
     });
     assert.ok(progressLogs.length >= 3, 'Installation must emit progress milestones');
-    console.log('  ✓ installAllTools executed with progress reporting.');
+    // Installers report a platform limitation by returning success:false, so a
+    // swallowed result would report a failed toolchain as clean. Every entry the
+    // aggregator does report must name the component and why it failed.
+    for (const entry of installRes.errors || []) {
+      assert.ok(['blender', 'dcc_mcp'].includes(entry.component), `unexpected error component: ${entry.component}`);
+      assert.ok(typeof entry.error === 'string' && entry.error.length > 0, 'error entries must carry a reason');
+    }
+    console.log(`  ✓ installAllTools executed with progress reporting (${(installRes.errors || []).length} component error(s)).`);
 
     // --- 3. 6-Step Live Agentic Blender Session (real Blender when installed) ---
     console.log('\n--- 3. Testing 6-Step Live Agentic Blender Streaming ---');

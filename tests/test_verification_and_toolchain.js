@@ -17,10 +17,12 @@ test('Batch 4: package.json defines mandatory build, lint, start, and test scrip
 
 test('Batch 4: npm run lint executes successfully with 0 errors across backend codebase', (t) => {
   const rootDir = path.resolve(__dirname, '..');
+  // Full-tree lint takes ~90 s on a Linux host and noticeably longer in a VM,
+  // so 30 s could never pass. Cap generously but finite to catch a true hang.
   const res = spawnSync(process.execPath, ['scripts/lint.js'], {
     cwd: rootDir,
     encoding: 'utf8',
-    timeout: 30000
+    timeout: 600000
   });
 
   assert.strictEqual(res.status, 0, `Linter must exit with 0:\n${res.stderr || res.stdout}`);

@@ -23,7 +23,7 @@ const authz = require('./skill_authorization');
 const PACK_DIR_NAME = 'cyber-pack';
 const PACK_ASSET_DIR = 'anthropic-cybersecurity-skills-assets';
 const MIGRATION_ID = 'cyber_pack';
-const RELEASE_BASE = 'https://github.com/andycungkrinx91/konoha/releases/download';
+const RELEASE_BASE = require('./config_access').getConfigValue('konoha_release_base_url');
 
 const CONSENT_TEXT = [
   'The cyber pack contains offensive and dual-use red-team reference material.',

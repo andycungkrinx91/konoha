@@ -106,11 +106,13 @@ async function _handleInstallTools(req, res) {
 
     const installRes = await installAllTools({ onProgress });
     const updatedStatus = getToolchainStatus();
+    const errors = installRes.errors || [];
 
     return sendJson(res, 200, {
-      success: true,
+      success: errors.length === 0,
       components: installRes.components,
       updated_status: updatedStatus,
+      errors,
       logs
     });
   } catch (err) {

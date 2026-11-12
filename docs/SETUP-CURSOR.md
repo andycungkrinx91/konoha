@@ -1,6 +1,6 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v2.2.20** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and nine ninja subagents work across all environments.
+Konoha **v2.2.21** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and nine ninja subagents work across all environments.
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 
@@ -23,7 +23,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.20.
+Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.21.
 
 | OS | Node.js 24+ Install | Cursor Setup |
 |----|-----------------|--------------|

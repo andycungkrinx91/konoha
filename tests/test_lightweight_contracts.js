@@ -3,17 +3,25 @@
 /**
  * test_lightweight_contracts.js
  *
- * Verifies that on-disk client instruction files (AGENTS.md, CLAUDE.md, GEMINI.md,
+ * Verifies that client instruction files (AGENTS.md, CLAUDE.md, GEMINI.md,
  * .cursorrules, .cursor/rules/konoha.mdc, .omp/agent/AGENTS.md, .codex/AGENTS.md)
  * are lightweight (< 1800 bytes), saving > 90% of file I/O tokens on cold start, while
  * preserving complete contract retrieval on-demand via konoha.get_skill.
+ *
+ * Tracked files are checked in the checkout. Client artifacts are git-ignored output of
+ * `konoha init`, so they are generated into a temp HOME through the real deployers and
+ * measured there — a clean checkout has no .cursor/, .omp/ or .codex/ tree.
  */
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const contract = require('../src/agent_contract');
 const deploy = require('../src/agent_deployer');
+const cursorManager = require('../src/cursor_manager');
+const codexManager = require('../src/codex_manager');
+const ompManager = require('../src/omp_manager');
 const { getSkill } = require('../src/mcp/skills');
 const { getCanonicalAgentNames } = require('../src/canonical_agents');
 
@@ -21,35 +29,34 @@ const ROOT = path.resolve(__dirname, '..');
 
 console.log('Running test_lightweight_contracts.js...');
 
-// Verify on-disk file sizes (< 1800 bytes)
-const filesToCheck = [
-  'AGENTS.md',
-  'GEMINI.md',
-  'CLAUDE.md',
-  '.cursorrules',
-  path.join('.cursor', 'rules', 'konoha.mdc'),
-  path.join('.omp', 'agent', 'AGENTS.md'),
-  path.join('.omp', 'AGENTS.md'),
-  path.join('.codex', 'AGENTS.md'),
-  path.join('src', 'templates', 'AGENTS.md'),
-  path.join('src', 'templates', 'GEMINI.md')
-];
-
-for (const relPath of filesToCheck) {
-  const fullPath = path.join(ROOT, relPath);
-  assert.ok(fs.existsSync(fullPath), `${relPath} must exist on disk`);
-  const content = fs.readFileSync(fullPath, 'utf8');
+function assertLightweight(label, content) {
   const byteSize = Buffer.byteLength(content, 'utf8');
   assert.ok(
     byteSize < 1800,
-    `${relPath} must be lightweight (< 1.8 KB / 1800 bytes), found ${byteSize} bytes`
+    `${label} must be lightweight (< 1.8 KB / 1800 bytes), found ${byteSize} bytes`
   );
   const validation = contract.validateContractText(content);
   assert.ok(
     validation.ok,
-    `${relPath} failed contract validation: ${validation.missing.join(', ')}`
+    `${label} failed contract validation: ${validation.missing.join(', ')}`
   );
-  console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1800 bytes) and contract validated`);
+  console.log(`  ✓ ${label}: ${byteSize} bytes (< 1800 bytes) and contract validated`);
+}
+
+// Tracked instruction files, committed to the repo.
+const trackedFiles = [
+  'AGENTS.md',
+  'GEMINI.md',
+  'CLAUDE.md',
+  '.cursorrules',
+  path.join('src', 'templates', 'AGENTS.md'),
+  path.join('src', 'templates', 'GEMINI.md')
+];
+
+for (const relPath of trackedFiles) {
+  const fullPath = path.join(ROOT, relPath);
+  assert.ok(fs.existsSync(fullPath), `${relPath} must exist on disk`);
+  assertLightweight(relPath, fs.readFileSync(fullPath, 'utf8'));
 }
 
 // GEMINI.md is deploy-managed: it must equal what the generator would write, or the
@@ -63,6 +70,59 @@ assert.strictEqual(
   generatedGemini,
   'GEMINI.md must match generateGeminiMd output so deploy stays idempotent'
 );
+
+// Generated client artifacts live in git-ignored trees, so build them in a temp HOME
+// through the same deployers `konoha init` runs and measure the result there.
+const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-lightweight-'));
+try {
+  const generatedArtifacts = [
+    {
+      label: path.join('.cursor', 'rules', 'konoha.mdc'),
+      write: () => assert.ok(cursorManager.deployCursorGlobalRule(roster, { home: tmpHome }), 'cursor rule deploy must succeed')
+    },
+    {
+      label: path.join('.codex', 'AGENTS.md'),
+      write: () => codexManager.writeCodexInstructions(deploy.generateAgentsMd(roster, 'codex'), { home: tmpHome })
+    }
+  ];
+
+  for (const artifact of generatedArtifacts) {
+    artifact.write();
+    const fullPath = path.join(tmpHome, artifact.label);
+    assert.ok(fs.existsSync(fullPath), `${artifact.label} must be written by the deployer`);
+    assertLightweight(artifact.label, fs.readFileSync(fullPath, 'utf8'));
+  }
+
+  // OMP's file also carries the pinned `## Konoha Workflow Mandate (OMP)` section
+  // (test_omp_manager.js asserts it), so its size is not a lightweight-contract
+  // property. What must hold is that the deploy is idempotent and the contract
+  // block it wraps is itself lightweight.
+  const ompDeploy = ompManager.deployOmpContract({ home: tmpHome });
+  assert.ok(ompDeploy.ok, 'OMP contract deploy must succeed');
+  assert.strictEqual(ompDeploy.changed, true, 'OMP contract must be written on a fresh HOME');
+  const ompPath = path.join(tmpHome, '.omp', 'agent', 'AGENTS.md');
+  const ompContent = fs.readFileSync(ompPath, 'utf8');
+  assert.ok(contract.validateContractText(ompContent).ok, 'OMP contract must validate');
+  assert.match(ompContent, /## Konoha Workflow Mandate \(OMP\) — MANDATORY/, 'OMP file must carry the workflow mandate');
+  assert.strictEqual(
+    ompManager.deployOmpContract({ home: tmpHome }).changed,
+    false,
+    'OMP contract deploy must be idempotent'
+  );
+  console.log(`  ✓ ${path.join('.omp', 'agent', 'AGENTS.md')}: deployed, validated, idempotent`);
+} finally {
+  fs.rmSync(tmpHome, { recursive: true, force: true });
+}
+
+// The lightweight contract is what replaces on-disk rules on cold start, so its own
+// size is the invariant every client must satisfy.
+for (const client of ['cursor', 'codex', 'omp', 'claude', 'antigravity']) {
+  const block = contract.buildLightweightContract({ client });
+  const byteSize = Buffer.byteLength(block, 'utf8');
+  assert.ok(byteSize < 1800, `lightweight contract for ${client} must be < 1800 bytes, found ${byteSize}`);
+  assert.ok(contract.validateContractText(block).ok, `lightweight contract for ${client} must validate`);
+}
+console.log('  ✓ lightweight contract block is < 1800 bytes for every client');
 
 // Verify on-demand full contract retrieval via get_skill
 const contractSkillJson = getSkill('konoha/contract');

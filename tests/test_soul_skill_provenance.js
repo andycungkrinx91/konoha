@@ -78,7 +78,7 @@ async function run() {
   fs.writeFileSync(path.join(staleAgentsDir, 'agents.yaml'), staleYaml);
   const staleDb = freshDbPath('staleroster');
   const mergedSkills = JSON.parse(execFileSync(process.execPath, ['-e',
-    "const {loadAgents}=require('/home/andycungkrinx/experiment/portofolio/data/konoha/src/agent_manager.js');" +
+    `const {loadAgents}=require(${JSON.stringify(path.join(__dirname, '..', 'src', 'agent_manager.js'))});` +
     "const a=loadAgents(true,true).find(x=>x.name==='akatsuki');" +
     "console.log(JSON.stringify(a?a.skills:[]));"
   ], {

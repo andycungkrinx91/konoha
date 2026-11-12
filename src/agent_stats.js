@@ -98,16 +98,21 @@ function getAgentStats(targetDbPath = dbPath) {
     return results;
   } catch (e) {
     return { error: e.message };
+  } finally {
+    // Windows keeps the database file locked while a handle is open, so a
+    // caller that deletes its temp directory fails with EPERM. Always release.
+    try { conn.close(); } catch (_) { /* best-effort */ }
   }
 }
 
 function pruneAgentStats(agentToPrune, targetDbPath = dbPath) {
+  let conn = null;
   try {
     if (!fs.existsSync(targetDbPath)) {
       return { error: `Database not found at ${targetDbPath}` };
     }
     const norm = normalizeAgentName(agentToPrune);
-    const conn = getDb(targetDbPath);
+    conn = getDb(targetDbPath);
     const info = conn.prepare(`
       DELETE FROM tool_calls
       WHERE LOWER(agent) = LOWER(?)
@@ -118,6 +123,8 @@ function pruneAgentStats(agentToPrune, targetDbPath = dbPath) {
     return { success: true, deleted_count: info.changes };
   } catch (e) {
     return { error: e.message };
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
   }
 }
 

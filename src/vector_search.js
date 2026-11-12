@@ -10,9 +10,9 @@ const crypto = require('crypto');
 const { getConfigValue } = require('./config_access');
 
 /** Retrieval widths. Overridable so a large skill set can widen recall without a source edit. */
-const SKILL_TOP_K = getConfigValue('skill_top_k', 5);
-const SKILL_CANDIDATE_K = getConfigValue('skill_candidate_k', 25);
-const SEMANTIC_TOP_K = getConfigValue('semantic_top_k', 10);
+const SKILL_TOP_K = getConfigValue('skill_top_k');
+const SKILL_CANDIDATE_K = getConfigValue('skill_candidate_k');
+const SEMANTIC_TOP_K = getConfigValue('semantic_top_k');
 
 const {
   VECTOR_DIMENSION,
@@ -474,7 +474,7 @@ async function resolveChunkEmbedding(conn, chunkText, localCache) {
   blob = Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
   const inferMs = Date.now() - tInferStart;
 
-  const envPace = parseInt(process.env.KONOHA_EMBED_PACE_MS || '0', 10);
+  const envPace = parseInt(process.env.KONOHA_EMBED_PACE_MS || '', 10) || getConfigValue('embed_pace_ms');
   const sleepMs = envPace > 0 ? envPace : Math.max(Math.round(inferMs * 1.25) + 15, 35);
   await new Promise(resolve => setTimeout(resolve, sleepMs));
   return blob;

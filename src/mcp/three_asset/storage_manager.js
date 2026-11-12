@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -12,7 +13,8 @@ const { promoteAssetTransaction, updateJobStage } = require('./db_3d_schema');
  */
 function getOutputRoot(overrideDir = null) {
   if (overrideDir) return path.resolve(overrideDir);
-  if (process.env.KONOHA_3D_OUTPUT_DIR) return path.resolve(process.env.KONOHA_3D_OUTPUT_DIR);
+  const configured = getConfigValue('three_d_output_dir') || process.env.KONOHA_3D_OUTPUT_DIR;
+  if (configured) return path.resolve(configured);
   const konohaHome = process.env.KONOHA_HOME || path.join(os.homedir(), '.konoha');
   return path.join(konohaHome, '3d-output');
 }

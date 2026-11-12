@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { getConfigValue } = require('./config_access');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
@@ -158,7 +159,7 @@ function _handleRegistryResponse(res, resolve, reject) {
 // Search skills on skills.sh registry API
 function searchRegistry(query) {
   return new Promise((resolve, reject) => {
-    const registryBase = process.env.KONOHA_SKILLS_REGISTRY_URL || 'https://skills.sh/api/search';
+    const registryBase = process.env.KONOHA_SKILLS_REGISTRY_URL || getConfigValue('skills_registry_url');
     const url = `${registryBase}?q=${encodeURIComponent(query)}`;
     const req = https.get(url, { headers: { 'User-Agent': 'konoha-cli' }, timeout: 8000 }, (res) => {
       _handleRegistryResponse(res, resolve, reject);
@@ -257,7 +258,7 @@ function runInteractiveSearch(query) {
         }
 
         const selected = limitedResults[num - 1];
-        const repoUrl = `https://github.com/${selected.source}`;
+        const repoUrl = `${getConfigValue('github_url')}/${selected.source}`;
         const skillName = selected.skillId || selected.name;
 
         try {
@@ -300,7 +301,7 @@ async function addSkillDirect(repoUrl, skillName, options = {}) {
   let normalizedRepo = (repoUrl || '').trim();
   if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://') && !normalizedRepo.startsWith('file://')) {
     if (normalizedRepo.includes('/') && !normalizedRepo.includes(' ')) {
-      normalizedRepo = `https://github.com/${normalizedRepo}`;
+      normalizedRepo = `${getConfigValue('github_url')}/${normalizedRepo}`;
     }
   }
   validateInputs(normalizedRepo, skillName);
@@ -377,7 +378,7 @@ async function addSkill(nameOrUrl, optionalName, options = {}) {
     const results = await searchRegistry(skillName);
     const found = results && results.find(item => (item.skillId === skillName || item.name === skillName));
     if (found && found.source) {
-      const repoUrl = `https://github.com/${found.source}`;
+      const repoUrl = `${getConfigValue('github_url')}/${found.source}`;
       process.stderr.write(`📦 Found skill in registry: ${repoUrl}\n`);
       return addSkillDirect(repoUrl, skillName, options);
     }

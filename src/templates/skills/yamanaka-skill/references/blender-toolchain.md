@@ -11,8 +11,16 @@
   newest release series and archive for the host platform, then verifies the published `.sha256` before extracting
   into `~/.konoha/toolchains/blender/`.
 
+- macOS publishes Blender only as a `.dmg`, which the installer cannot mount. `installBlender()` reports the
+  `Manual Install Required` stage and returns `{ success: false, reason: 'manual-install-required' }` instead of
+  downloading an archive it cannot unpack; `installAllTools()` turns any returned `success: false` into an
+  `errors[]` entry (`{ component, error }`) exactly as it does a thrown error, so `/3d/setup` answers
+  `success: false` rather than reporting a toolchain that was never installed.
+
 ## dcc-mcp-blender Installation & Verification
-- `installDccMcpBlender()` resolves the current release from PyPI (`https://pypi.org/pypi/dcc-mcp-blender/json`)
+- `installDccMcpBlender()` requires a working Blender: with none detected it returns
+  `{ success: false, error: 'Blender must be installed first' }` and installs nothing.
+- Otherwise it resolves the current release from PyPI (`https://pypi.org/pypi/dcc-mcp-blender/json`)
   unless `KONOHA_DCC_MCP_VERSION` overrides it.
 - Installation runs inside the detected Blender binary and targets
   `bpy.utils.user_resource('SCRIPTS', path='addons')/modules`, so it also works when Blender is installed on a

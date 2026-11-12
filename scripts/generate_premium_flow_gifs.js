@@ -374,7 +374,7 @@ function qaScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, 1200, 760, {
       title: 'ANBU QA AUTOMATION WORKFLOW',
-      subtitle: `agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v${PKG_VERSION}`,
+      subtitle: `Playwright scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v${PKG_VERSION}`,
       badge: 'QA AUTOMATION PIPELINE',
       badgeAccent: THEME.emerald,
       footer: 'token-efficient browser QA · Playwright compilation · isolated preview port · 0 slop · Anbu owner',

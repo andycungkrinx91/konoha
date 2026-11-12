@@ -26,14 +26,20 @@ test('Batch 3: backupDatabase creates a valid, online SQLite snapshot using VACU
     assert.strictEqual(result.targetPath, path.resolve(backupDbPath));
     assert.ok(fs.existsSync(backupDbPath), 'Backup file must exist on disk');
     assert.ok(result.sizeBytes > 0, 'Backup file size must be > 0');
-    assert.strictEqual(fs.statSync(backupDbPath).mode & 0o777, 0o600, 'Explicit backup file mode must be 0600');
+    if (process.platform !== 'win32') {
+      assert.strictEqual(fs.statSync(backupDbPath).mode & 0o777, 0o600, 'Explicit backup file mode must be 0600');
+    }
 
     // Verify default backup directory mode (0700) and default backup file mode (0600)
     const defaultResult = db.backupDatabase(null, srcDbPath);
     const defaultDirStat = fs.statSync(path.dirname(defaultResult.targetPath));
     const defaultFileStat = fs.statSync(defaultResult.targetPath);
-    assert.strictEqual(defaultDirStat.mode & 0o777, 0o700, 'Default backup directory mode must be 0700');
-    assert.strictEqual(defaultFileStat.mode & 0o777, 0o600, 'Default backup file mode must be 0600');
+    // Windows has no POSIX mode bits: chmod is a no-op there and stat always
+    // reports 0666/0777. The hardening is only observable on POSIX.
+    if (process.platform !== 'win32') {
+      assert.strictEqual(defaultDirStat.mode & 0o777, 0o700, 'Default backup directory mode must be 0700');
+      assert.strictEqual(defaultFileStat.mode & 0o777, 0o600, 'Default backup file mode must be 0600');
+    }
 
     // Verify backup database is readable and contains identical data
     const backupConn = db.getConnection(backupDbPath);

@@ -8,6 +8,11 @@ const os = require('os');
 
 const agentManager = require('../src/agent_manager');
 const agentContract = require('../src/agent_contract');
+const { uvxAvailable } = require('./helpers/uvx_available');
+
+// The Cursor writer only registers `semble` when `uvx` resolves, so a host
+// without uvx legitimately produces a two-server config for that client alone.
+const UVX = uvxAvailable();
 
 const testRoot = path.join(os.tmpdir(), `konoha-test-bootstrap-${Date.now()}`);
 fs.mkdirSync(testRoot, { recursive: true });
@@ -91,7 +96,11 @@ for (const client of CLIENTS) {
   assert.ok(fs.existsSync(mcpPath), `MCP config must exist at ${mcpPath}`);
   const mcpContent = fs.readFileSync(mcpPath, 'utf8');
   assert.match(mcpContent, /konoha/, `Client ${client} must declare konoha server`);
-  assert.match(mcpContent, /semble/, `Client ${client} must declare semble server`);
+  if (client !== 'cursor' || UVX) {
+    assert.match(mcpContent, /semble/, `Client ${client} must declare semble server`);
+  } else {
+    console.log(`  · Client ${client}: uvx absent, semble entry intentionally omitted.`);
+  }
   assert.match(mcpContent, /aislop/, `Client ${client} must declare aislop server`);
 
   assert.ok(fs.existsSync(contractPath), `Contract must exist at ${contractPath}`);

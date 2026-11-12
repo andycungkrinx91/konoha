@@ -80,7 +80,7 @@ function _checkDeliverySignoff(status, resolvedTaskDir, _sdlcConfig, sdlcManager
     return res;
   }
 
-  const res = buildGate2Prompt(status, resolvedTaskDir, rootId, status.confidence || 100, status.report);
+  const res = buildGate2Prompt(status, resolvedTaskDir, rootId, { confidence: status.confidence || 100, report: status.report });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
   return res;
 }

@@ -9,10 +9,10 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const { SKILLS_DB_DIR, UI_PORT, UI_READY_TIMEOUT_MS, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
+const { getConfigValue } = require("../lib/config_defaults");
 const { C, log, warn, error, header, getCliVersion } = require("../lib/format");
 const { fileExists, confirmPrompt, KonohaProgressBar } = require("../lib/prompt");
 const { reconcileGlobalCommand, purgePackageCaches } = require("../lib/runtime");
-const { installAgentBrowser } = require("../lib/extension");
 const { cmdUiRestart, ensureUiDaemonAutoStart, waitForPortReady } = require("../lib/ui_commands");
 const { collectUpgradeChoices } = require("../lib/upgrade_prompts");
 const { cmdInit } = require("./init");
@@ -103,19 +103,19 @@ function readCachedVersion(cachePath) {
 async function collectCandidateTags() {
   const candidateTags = new Set();
   try {
-    const npmLatest = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp/latest');
+    const npmLatest = await fetchJsonUrl(`${getConfigValue('npm_registry_url')}/konoha-mcp/latest`);
     if (npmLatest?.version) candidateTags.add(npmLatest.version);
   } catch { /* fallback */ }
   if (candidateTags.size > 0) return candidateTags;
 
   try {
-    const npmPkg = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp');
+    const npmPkg = await fetchJsonUrl(`${getConfigValue('npm_registry_url')}/konoha-mcp`);
     if (npmPkg?.['dist-tags']?.latest) candidateTags.add(npmPkg['dist-tags'].latest);
   } catch { /* fallback */ }
   if (candidateTags.size > 0) return candidateTags;
 
   try {
-    const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
+    const releases = await getGithubData(`${getConfigValue('github_api_url')}/repos/andycungkrinx91/konoha/releases`);
     const releaseList = Array.isArray(releases) ? releases : [];
     for (const r of releaseList) {
       if (r?.tag_name) candidateTags.add(r.tag_name);
@@ -422,12 +422,6 @@ function deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, mcpChoices) {
       registerMcp(python, true, mcpChoices);
     } catch { /* best-effort */ }
   }
-
-  pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
-  pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
-  try { installAgentBrowser(true); } catch { /* best-effort */ }
-  pbar.stopPulse();
-  pbar.logStep('Browser automation tools verified');
 
   try {
     const { installCliRuntime } = require('../lib/runtime');

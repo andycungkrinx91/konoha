@@ -2,6 +2,7 @@
 'use strict';
 
 const http = require('http');
+const { getConfigValue } = require('../config_access');
 
 const {
   bridgeModelsCache,
@@ -116,7 +117,7 @@ function listenGatewayServer(server, boundPort) {
   });
 }
 
-async function startGateway(activeBridges, port = 19999) {
+async function startGateway(activeBridges, port = getConfigValue('gateway_port')) {
   if (gatewayServer) {
     await stopGateway();
   }

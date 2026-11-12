@@ -13,13 +13,15 @@ const { is9RouterInstalled, discover9RouterModels, get9RouterStatus, DEFAULT_9RO
 const { discoverClientModels } = require('../../web/controllers/common');
 const { getConnection } = require('../../db');
 const { parseYaml } = require('../../yaml_utils');
+const { getConfigValue } = require('../../config_access');
 
-const REQUESTED_9ROUTER_HOSTS = /(?:9router|:20128)/i;
+const REQUESTED_9ROUTER_HOSTS = new RegExp(`(?:9router|:${getConfigValue('nine_router_port')})`, 'i');
 const PROVIDER_PREFIX = /^(?:9router[/-])+/i;
 const EFFORT_SUFFIX = /:(?:none|low|medium|high|max|auto|xhigh|thinking)$/i;
 
 function resolve9RouterBaseUrl() {
-  if (process.env.KONOHA_9ROUTER_URL) return process.env.KONOHA_9ROUTER_URL.replace(/\/+$/, '');
+  const configuredUrl = process.env.KONOHA_9ROUTER_URL || getConfigValue('nine_router_url');
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, '');
   const clientCfg = readClientProviderCredentials();
   const configured = clientCfg.providers['9router'];
   if (configured && configured.baseUrl) return configured.baseUrl.replace(/\/+$/, '');
@@ -106,7 +108,7 @@ function readOpencodeConfig(homeDir, providers) {
 function is9RouterProvider(id, entry) {
   if (!entry) return false;
   if (/^9router/i.test(String(id))) return true;
-  return /9router|:20128/i.test(String(entry.baseUrl || ''));
+  return REQUESTED_9ROUTER_HOSTS.test(String(entry.baseUrl || ''));
 }
 
 function readClientProviderCredentials(homeDir = os.homedir()) {
@@ -114,27 +116,27 @@ function readClientProviderCredentials(homeDir = os.homedir()) {
   const preferredModels = [];
 
   if (process.env.KONOHA_3D_MODEL) {
-    const norm = normalizeModelId(process.env.KONOHA_3D_MODEL);
+    const norm = normalizeModelId(process.env.KONOHA_3D_MODEL || getConfigValue('three_d_model'));
     if (norm) preferredModels.push(norm);
   }
 
   if (process.env.KONOHA_9ROUTER_API_KEY || process.env.KONOHA_9ROUTER_URL) {
     providers['9router'] = {
-      baseUrl: process.env.KONOHA_9ROUTER_URL || `http://${DEFAULT_9ROUTER_HOST}:${process.env.KONOHA_9ROUTER_PORT || DEFAULT_9ROUTER_PORT}/v1`,
-      apiKey: process.env.KONOHA_9ROUTER_API_KEY || '',
+      baseUrl: process.env.KONOHA_9ROUTER_URL || getConfigValue('nine_router_url') || `http://${DEFAULT_9ROUTER_HOST}:${process.env.KONOHA_9ROUTER_PORT || DEFAULT_9ROUTER_PORT}/v1`,
+      apiKey: process.env.KONOHA_9ROUTER_API_KEY || getConfigValue('nine_router_api_key') || '',
       source: 'env'
     };
   }
   if (process.env.OPENAI_API_KEY) {
     providers.openai = {
-      baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+      baseUrl: process.env.OPENAI_BASE_URL || getConfigValue('openai_base_url'),
       apiKey: process.env.OPENAI_API_KEY,
       source: 'env'
     };
   }
   if (process.env.ANTHROPIC_API_KEY) {
     providers.anthropic = {
-      baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1',
+      baseUrl: process.env.ANTHROPIC_BASE_URL || getConfigValue('anthropic_base_url'),
       apiKey: process.env.ANTHROPIC_API_KEY,
       source: 'env'
     };
@@ -183,8 +185,9 @@ function resolveInherited3DModel(options = {}) {
     return options.model.trim();
   }
 
-  if (process.env.KONOHA_3D_MODEL && process.env.KONOHA_3D_MODEL.trim() !== '') {
-    return process.env.KONOHA_3D_MODEL.trim();
+  const configuredModel = process.env.KONOHA_3D_MODEL || getConfigValue('three_d_model');
+  if (configuredModel && configuredModel.trim() !== '') {
+    return configuredModel.trim();
   }
 
   try {
@@ -366,7 +369,7 @@ function resolveChatTargets(options = {}) {
   const routerTargets = [];
   if (is9RouterInstalled() || process.env.KONOHA_9ROUTER_URL || /^9router/i.test(resolvedModel || '')) {
     const base = resolve9RouterBaseUrl();
-    const routerKey = credentials.providers['9router']?.apiKey || process.env.KONOHA_9ROUTER_API_KEY || '';
+    const routerKey = credentials.providers['9router']?.apiKey || process.env.KONOHA_9ROUTER_API_KEY || getConfigValue('nine_router_api_key') || '';
     for (const modelId of candidateModelsFor('9router', credentials, resolvedModel)) {
       routerTargets.push({
         kind: '9router',

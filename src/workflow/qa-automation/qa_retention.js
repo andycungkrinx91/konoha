@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -12,7 +13,10 @@ function ensureQaGitignore(_projectPath) {
 function getProjectOutputDirs(projectPath) {
   const resolved = path.resolve(projectPath);
   const projectHash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
-  const baseQaDir = path.join(os.homedir(), '.konoha', 'tmp', 'qa');
+  // HOME first: os.homedir() reads USERPROFILE on win32 and would diverge from
+  // the rest of the process (bin/lib/paths.js resolves HOME the same way).
+  const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  const baseQaDir = path.join(HOME, '.konoha', 'tmp', 'qa');
   const projectQaDir = path.join(baseQaDir, 'projects', projectHash);
 
   const rel = path.relative(baseQaDir, projectQaDir);
@@ -160,7 +164,7 @@ function runQaRetention(currentRunId, options = {}) {
 
   const maxCount = options.maxCount !== undefined 
     ? options.maxCount 
-    : parseInt(process.env.KONOHA_QA_RETENTION_COUNT || '20', 10);
+    : parseInt(process.env.KONOHA_QA_RETENTION_COUNT || '', 10) || getConfigValue('qa_retention_count');
 
   const { available: lookupAvailable, protectedRunIds } = getProtectedRunContext(options);
   const runFolders = discoverRunFolders(baseQaDir);

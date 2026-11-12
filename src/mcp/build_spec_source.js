@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('../config_access');
 const path = require('path');
 const crypto = require('crypto');
 const { getDb } = require('../db');
@@ -317,7 +318,7 @@ function buildFromSource(name, sourceDir, framework, options = {}) {
     mode: 'build_from_source',
     creation_mode: (detectedImages.length > 0 && detectedSources.length === 0) ? 'build_from_image' : 'build_from_source',
     creation_modes_supported: ['build_from_image', 'build_from_text', 'build_from_source'],
-    component_discovery_source: 'https://www.framer.com/marketplace/components/',
+    component_discovery_source: getConfigValue('framer_marketplace_url'),
     chunin_playwright_rea_required: true,
     chunin_rea_findings: {
       target_framework: frameworkSpec.canonical,
@@ -334,7 +335,7 @@ function buildFromSource(name, sourceDir, framework, options = {}) {
     source_fidelity: true,
     premium_effects_policy: 'Only preserve or enhance effects explicitly present in source; do not inject generic themes, catalogs, carousels, dialogs, or sections.',
     design_tokens: { perspective: '1200px', tilt_max: '12deg', transition: '300ms', entrance: '500ms', hero_content_entrance: '600ms' },
-    taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || 'https://www.tasteskill.dev/guide',
+    taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || getConfigValue('taste_skill_docs_url'),
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
     detected_images: detectedImages,
     detected_sources: detectedSources,

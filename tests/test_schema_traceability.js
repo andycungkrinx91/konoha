@@ -16,10 +16,11 @@ const os = require('os');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const AUDIT_DOC = path.join(REPO_ROOT, 'docs', 'security', 'DATABASE-SCHEMA-AUDIT-2026-11-09.md');
-// 24 declared tables + 8 FTS5 shadow tables + `_sqliteai_vector` (extension
-// runtime state). Matches the phase-6 assertion in
-// tests/test_schema_migrations_and_lifecycle.js.
-const RAW_TABLE_COUNT = 33;
+// 24 declared tables + 8 FTS5 shadow tables. `_sqliteai_vector` and
+// `sqlite_%` are runtime-owned and platform-dependent (`_sqliteai_vector` only
+// exists where the vector extension loads), so neither counts. Matches the
+// phase-6 assertion in tests/test_schema_migrations_and_lifecycle.js.
+const RAW_TABLE_COUNT = 32;
 const DECLARED_TABLE_COUNT = 24;
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-trace-test-'));
@@ -36,7 +37,10 @@ function freshTables() {
   return conn
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
     .all()
-    .map((r) => r.name);
+    .map((r) => r.name)
+    // Extension-owned runtime state: present only where the vector extension
+    // loads, so it must not participate in the canonical base-DDL count.
+    .filter((name) => name !== '_sqliteai_vector');
 }
 
 function assertCanonicalTableList() {

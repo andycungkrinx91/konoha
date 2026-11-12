@@ -27,6 +27,17 @@ const {
 } = require('../src/workflow/akatsuki/workflows');
 const { cmdAkatsuki } = require('../bin/commands/akatsuki');
 
+// Red-team workflows refuse to run without an installed container engine. CI runners
+// have neither LXC nor Docker, so every workflow call injects a mocked lab instead of
+// depending on the host. `running: false` keeps tool execution on the built-in
+// simulated path, which is what `mockToolExecutor` already asserts against.
+const SANDBOX_OPTS = {
+  engine: 'docker',
+  runner: () => ({ status: 0, stdout: '/usr/bin/docker', stderr: '' }),
+  mockLabStatus: { exists: true, running: false, network_isolated: true, details: 'mocked lab' },
+  mockCleanupResult: { cleanup_confirmed: true, engine: 'docker', message: 'mocked cleanup' }
+};
+
 function testCuratedToolRegistry() {
   console.log('1. Verifying Curated Tool Registry...');
 
@@ -199,7 +210,8 @@ function testPhasePlanner() {
     target: '10.77.77.153',
     tools: ['metasploit']
   }, {
-    mockToolExecutor: () => ({ status: 0, stdout: 'verified', stderr: '' })
+    mockToolExecutor: () => ({ status: 0, stdout: 'verified', stderr: '' }),
+    ...SANDBOX_OPTS
   });
   assert.strictEqual(msfWorkflowAuto.tools_blocked.length, 0);
   assert.strictEqual(msfWorkflowAuto.status, 'completed');
@@ -223,7 +235,8 @@ function testWorkflowIntegration() {
       status: 0,
       stdout: `Tool ${toolId} in phase ${phase} command ${cmdArgs[0]} executed successfully`,
       stderr: ''
-    })
+    }),
+    ...SANDBOX_OPTS
   });
   assert.strictEqual(multiToolRes.status, 'completed');
   assert.strictEqual(multiToolRes.gate_decision, 'passed');
@@ -249,14 +262,14 @@ function testWorkflowIntegration() {
   assert.ok(cmdSample.evidence_reference, 'Command record must include evidence_reference');
   assert.ok(cmdSample.timestamp, 'Command record must include timestamp');
 
-  // 4b: Real container execution with nmap
+  // 4b: Sandboxed nmap phase planned and reported against the mocked lab
   const realRes = runRedTeamWorkflow({
     agentName: 'akatsuki',
     task: 'Live in-sandbox nmap assessment',
     authorized: true,
     target: '10.77.77.153',
     tools: ['nmap']
-  });
+  }, { ...SANDBOX_OPTS });
   assert.strictEqual(realRes.status, 'completed');
   assert.strictEqual(realRes.gate_decision, 'passed');
   const assetPhase = realRes.phases.find(p => p.phase === 'asset_discovery');
@@ -271,7 +284,7 @@ function testWorkflowIntegration() {
     authorized: true,
     target: 'localhost:8080',
     tools: ['nmap', 'unprofiled_shadow_scanner']
-  });
+  }, { ...SANDBOX_OPTS });
   assert.strictEqual(blockedToolRes.status, 'blocked');
   assert.strictEqual(blockedToolRes.gate_decision, 'blocked');
   assert.strictEqual(blockedToolRes.tools_blocked.length, 1);
@@ -286,7 +299,7 @@ function testWorkflowIntegration() {
     target: 'localhost:8080',
     tools: ['metasploit'],
     allow_controlled_exploit_verification: false
-  });
+  }, { ...SANDBOX_OPTS });
   assert.strictEqual(msfNoFlag.status, 'blocked');
   assert.strictEqual(msfNoFlag.gate_decision, 'blocked');
 
@@ -297,7 +310,7 @@ function testWorkflowIntegration() {
     target: 'localhost:8080',
     tools: ['metasploit'],
     allow_controlled_exploit_verification: true
-  });
+  }, { ...SANDBOX_OPTS });
   assert.strictEqual(msfWithFlag.status, 'completed');
   assert.strictEqual(msfWithFlag.gate_decision, 'passed');
   assert.strictEqual(msfWithFlag.tools_blocked.length, 0);
@@ -320,7 +333,7 @@ function testWorkflowIntegration() {
       timeout_ms: 20000,
       cleanup_steps: ['pkill -f api_auditor || true']
     }]
-  });
+  }, { ...SANDBOX_OPTS });
   assert.strictEqual(customRes.status, 'completed');
   assert.strictEqual(customRes.gate_decision, 'passed');
   assert.strictEqual(customRes.tools_available.includes('custom_api_auditor'), true);
@@ -386,7 +399,7 @@ async function testAkatsukiCliAndFeatureToggle() {
       task: 'Attempt assessment while disabled',
       authorized: true,
       target: 'localhost:8080'
-    });
+    }, { ...SANDBOX_OPTS });
     assert.strictEqual(disabledRes.status, 'blocked');
     assert.strictEqual(disabledRes.authorized, false);
     assert.strictEqual(disabledRes.gate_decision, 'blocked');
@@ -401,7 +414,7 @@ async function testAkatsukiCliAndFeatureToggle() {
       task: 'Authorized assessment while enabled',
       authorized: true,
       target: 'localhost:8080'
-    });
+    }, { ...SANDBOX_OPTS });
     assert.strictEqual(enabledRes.status, 'completed');
     assert.strictEqual(enabledRes.authorized, true);
     assert.strictEqual(enabledRes.gate_decision, 'passed');

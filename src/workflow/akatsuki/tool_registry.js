@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const { CURATED_TOOL_REGISTRY } = require('./tool_profiles');
@@ -52,8 +53,9 @@ let _cachedCustomTools = null;
 let _cachedCustomToolsMtime = 0;
 
 function getCustomToolsPath() {
-  return process.env.KONOHA_CUSTOM_TOOLS_PATH
-    ? path.normalize(process.env.KONOHA_CUSTOM_TOOLS_PATH)
+  const custom = process.env.KONOHA_CUSTOM_TOOLS_PATH || getConfigValue('custom_tools_path');
+  return custom
+    ? path.normalize(custom)
     : path.join(os.homedir(), '.konoha', 'akatsuki_custom_tools.json');
 }
 

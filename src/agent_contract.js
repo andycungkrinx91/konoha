@@ -2,7 +2,7 @@
 
 const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
 
-const CONTRACT_VERSION = '2.2.20';
+const CONTRACT_VERSION = '2.2.21';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 
@@ -44,17 +44,9 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
 - **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
 - **Authoritative Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
   - **Uniform rendering on EVERY client**: Antigravity, Claude Code, Cursor, Codex, OMP, OpenCode, CommandCode, Gemini CLI and the CLI/TUI all render gates identically. Render whatever the gate response returns; never suppress, summarize away, or auto-answer it.
-  - **Interactive option picker (not number lookup)**: Render the gate's \`interactive_prompt\` as a pick-one list where the LABEL is what the human enters. The human replies with the option text or its number; never ask them to "enter the number of the option".
-  - **Gate 1 (Plan Approval)**: Execution blocks unconditionally after Phase 1 until the human approves the plan. When receiving \`pending_plan_approval\`, STOP tool chaining and present exactly:
-    1. Compact and approve
-    2. Reject and Regenerate PLAN
-    3. Input your own choice
-    Option 3 accepts free text, e.g. \`Input your own choice: use Postgres instead of SQLite\`, and routes it as refinement guidance so Kage regenerates the plan.
-  - **Gate 2 (Delivery Sign-Off)**: Delivery blocks unconditionally after Phase 8 until explicit human sign-off. When receiving \`pending_human_signoff\`, STOP tool chaining and present exactly:
-    1. Compact and approve
-    2. Remediation
-    3. Input your own choice
-    Option 3 accepts free text and routes it as the remediation brief dispatched to Anbu/Jonin.
+  - **Interactive option picker (not number lookup)**: every gate payload carries a \`picker\` block naming the control this harness has. \`transport: native_tool\` → call the named tool with \`picker.call\` (OMP: \`ask\`; [CC]: \`AskUserQuestion\`). \`transport: web_picker\` → surface \`picker.url\`; it serves a real HTML form (option cards + custom-instruction field) that posts the verdict itself. Never print a numbered list and ask the human to retype a label; that is the text fallback, not the picker. Every transport submits through \`sannin({ task_dir, choice, refinement })\`, so a harness that ignores the picker still cannot bypass the gate.
+  - **Gate 1 (Plan Approval)**: Execution blocks unconditionally after Phase 1 until the human approves the plan. When receiving \`pending_plan_approval\`, STOP tool chaining and render the picker with exactly these options: \`Compact and approve\`, \`Reject and Regenerate PLAN\`, \`Input your own choice\`. The third accepts free text, e.g. \`Input your own choice: use Postgres instead of SQLite\`, and routes it as refinement guidance so Kage regenerates the plan.
+  - **Gate 2 (Delivery Sign-Off)**: Delivery blocks unconditionally after Phase 8 until explicit human sign-off. When receiving \`pending_human_signoff\`, STOP tool chaining and render the picker with exactly these options: \`Compact and approve\`, \`Remediation\`, \`Input your own choice\`. The third accepts free text and routes it as the remediation brief dispatched to Anbu/Jonin.
   - **Submit the verdict**: pass the human's answer back verbatim via \`sannin({ task_dir, choice: <option label | number | free text>, refinement: <notes> })\`. A custom answer may be sent as \`choice: "Input your own choice"\` together with \`refinement: "<text>"\`. Raw free text is also accepted and treated as a custom choice. NEVER discard or renumber the human's answer.
   - Blanket auto-approvals, autonomous settings, and client YOLO flags NEVER auto-advance or bypass Gate 1 or Gate 2.
   - If approval transport (such as Telegram or external notify) is unavailable or fails, gates fail closed and remain strictly paused awaiting operator verdict.

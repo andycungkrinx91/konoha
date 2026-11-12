@@ -7,7 +7,9 @@ const db = require('../db');
 const { getDb } = db;
 const {
   HOME,
-  AGENTS_DIR
+  AGENTS_DIR,
+  isPathVisible,
+  isIdeInstallationDir
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 
@@ -25,6 +27,27 @@ const OFFENSIVE_SKILL_PREFIXES = skillAuthz.RED_SKILL_PREFIXES;
  */
 function isOffensiveSkill(skillName, tags = '') {
   return skillAuthz.classifySkill(skillName, tags).red;
+}
+
+/**
+ * Registry-row visibility.
+ *
+ * `isPathVisible` is a filesystem-discovery guard: it stops one project's
+ * skill directory leaking into another project's scan (see
+ * tests/test_project_rag_and_external_skills.js). Rows in the `skills` table
+ * are not discovered at read time — they were inserted by migration, which is
+ * an explicit registration. Filtering them by path made every registered skill
+ * whose `file_path` is a legacy install layout, a placeholder, or a project
+ * outside the active workspace read as "not found" while the row was present.
+ * Registered rows are therefore served as registered; only IDE-bundled content
+ * stays hidden.
+ */
+function isSkillRowVisible(row) {
+  if (!row) return false;
+  const filePath = row.file_path;
+  if (!filePath) return true;
+  if (isPathVisible(filePath)) return true;
+  return !isIdeInstallationDir(filePath);
 }
 
 /**
@@ -583,6 +606,7 @@ module.exports = {
   searchMirrorSkills,
   logToolCall,
   isOffensiveSkill,
+  isSkillRowVisible,
   denyIfUnauthorized,
   OFFENSIVE_SKILL_PREFIXES
 };

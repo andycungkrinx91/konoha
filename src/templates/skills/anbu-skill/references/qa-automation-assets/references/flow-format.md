@@ -1,6 +1,6 @@
 # QA Flow File Format & Codify Mapping
 
-A flow file is a plain JSON array of `agent-browser` commands. It serves as the executable reproduction, the verification contract, and the deterministic input for `qa_codify`.
+A flow file is a plain JSON array of browser commands. It serves as the executable reproduction, the verification contract, and the deterministic input for `qa_codify`, which compiles it to Playwright and runs it.
 
 ## File Format
 
@@ -46,3 +46,7 @@ Stored under `<test-dir>/e2e/flows/<name>.json`:
 1. **Transient Refs Forbidden**: Any command containing `@e1`, `@e2`, etc. is rejected with an error. Flows must use semantic locators (`find role|label|text|testid`).
 2. **Exploration Only Commands**: `snapshot`, `screenshot`, `console`, `errors`, `network` are stripped during codification.
 3. **No Slop or Fake Green**: Generated tests must never contain `test.skip`, `test.fixme`, `.only`, `page.pause()`, or arbitrary `sleep` calls.
+
+### Verification
+
+`qa_codify` writes the compiled spec next to `out_path` as `.konoha-verify-<flowHash12>.spec.js`, runs it with the project's Playwright, and deletes it on exit 0. A non-zero run returns `{ ok: false, error: 'flow-failed' }` with the trimmed reporter output; no Playwright project above `out_path` returns `{ ok: false, error: 'qa_blocked', reason: 'playwright-not-installed' }`.

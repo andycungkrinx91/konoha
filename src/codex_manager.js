@@ -23,7 +23,6 @@ const {
   ensureDir,
   isCommandAvailable,
   fileExistsCached,
-  getRtkCommand,
   isRtkInstalled,
   normalizeCommand
 } = require('./platform_utils');
@@ -467,11 +466,7 @@ function deployCodexRules(silent = true, options = {}) {
 }
 
 function deployCodexRtkRule(silent = true) {
-  const rtkCmd = getRtkCommand();
-  if (!rtkCmd) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
-
+  // The rule template is static, so it deploys with or without `rtk` on PATH.
   // Note: rtk init has no codex agent support; the rule is deployed via
   // copyFileSync below instead of `rtk init`.
 

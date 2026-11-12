@@ -81,7 +81,11 @@ function run() {
     assert.ok(fs.existsSync(path.join(tempRoot, '.cursor', 'rules', 'rtk.mdc')), 'Must have ~/.cursor/rules/rtk.mdc');
     const cursorCfg = JSON.parse(fs.readFileSync(cursorMcpPath, 'utf8'));
     assert.ok(cursorCfg.mcpServers.konoha, 'Cursor must configure konoha');
-    assert.ok(cursorCfg.mcpServers.semble, 'Cursor must configure semble');
+    // Cursor only registers semble when uvx is actually installed (buildMcpServers gates
+    // on `uvx --version`), so a host without uvx legitimately emits no semble entry.
+    const uvxBin = require(path.join(ROOT, 'src', 'semble_manager')).resolveUvxExecutablePath();
+    const uvxAvailable = require('child_process').spawnSync(uvxBin, ['--version'], { stdio: 'ignore', windowsHide: true }).status === 0;
+    if (uvxAvailable) assert.ok(cursorCfg.mcpServers.semble, 'Cursor must configure semble when uvx is installed');
     assert.ok(cursorCfg.mcpServers.aislop, 'Cursor must configure aislop');
 
     // Claude Code

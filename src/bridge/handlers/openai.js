@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
+const { getConfigValue } = require('../../config_access');
 const {
   log,
   verboseLog,
@@ -73,7 +74,7 @@ async function handleOpenAiDirect(ctx, req, res, messages, ...rest) {
     } else if (requestUrl) {
       requestUrl = requestUrl + '/v1/chat/completions';
     } else {
-      requestUrl = 'https://api.openai.com/v1/chat/completions';
+      requestUrl = `${getConfigValue('openai_base_url')}/chat/completions`;
     }
 
     const headers = { 'Content-Type': 'application/json' };
@@ -166,7 +167,7 @@ function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
   } else if (requestUrl) {
     requestUrl = requestUrl + '/v1/chat/completions';
   } else {
-    requestUrl = 'https://api.openai.com/v1/chat/completions';
+    requestUrl = `${getConfigValue('openai_base_url')}/chat/completions`;
   }
 
   const headers = { 'Content-Type': 'application/json' };

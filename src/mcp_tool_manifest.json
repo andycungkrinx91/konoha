@@ -1616,7 +1616,7 @@
     },
     {
       "name": "qa_codify",
-      "description": "Deterministically compiles and codifies an agent-browser flow JSON file into a Playwright test specification after verifying it via agent-browser batch.",
+      "description": "Deterministically compiles a flow JSON file into a Playwright test specification after verifying it with the project's Playwright runner.",
       "inputSchema": {
         "type": "object",
         "properties": {

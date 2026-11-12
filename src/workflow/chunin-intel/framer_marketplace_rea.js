@@ -8,8 +8,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { getConfigValue } = require('../../config_access');
 
-const FRAMER_MARKETPLACE_URL = 'https://www.framer.com/marketplace/components/';
+const FRAMER_MARKETPLACE_URL = getConfigValue('framer_marketplace_url');
 
 const RESPONSIVE_VIEWPORTS = [
   { id: 'mobile', width: 375, height: 812 },

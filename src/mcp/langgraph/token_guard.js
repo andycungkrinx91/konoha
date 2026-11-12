@@ -1,13 +1,14 @@
 'use strict';
 
 const { countTiktoken } = require('../../token_sampler');
+const { getConfigValue } = require('../../config_access');
 
 const ALLOWED_CEILINGS = [8192, 16384, 32768, 65536];
 
 function normalizeTokenBudget(budget) {
   const candidate = budget != null ? Number(budget) : null;
   const envBudget = process.env.KONOHA_TURN_BUDGET ? Number(process.env.KONOHA_TURN_BUDGET) : null;
-  const b = candidate || envBudget || 8192;
+  const b = candidate || envBudget || getConfigValue('turn_budget', 8192);
 
   if (isNaN(b) || b <= 0) return 8192;
   if (b <= 100) return b;

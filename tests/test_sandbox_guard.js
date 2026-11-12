@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { evaluateSandboxGuard } = require('./helpers/sandbox_guard');
+const { evaluateSandboxGuard, evaluateMaintenanceGuard } = require('./helpers/sandbox_guard');
 
 // Test 1: Real HOME without sandbox marker refuses
 const res1 = evaluateSandboxGuard(
@@ -33,5 +33,28 @@ assert.strictEqual(
 // Test 4: Missing realHome edge case
 const res4 = evaluateSandboxGuard({ HOME: '/tmp/test' }, null);
 assert.strictEqual(typeof res4.allowed, 'boolean');
+
+// Maintenance guard: the suite runs in the container or on an ephemeral CI
+// runner, never on a developer host. RTK is a shell wrapper, so it is absent
+// from this decision by construction — the same env decides either way.
+assert.strictEqual(evaluateMaintenanceGuard({ KONOHA_SANDBOX_CONTAINER: '1' }).allowed, true);
+assert.strictEqual(evaluateMaintenanceGuard({ CI: 'true' }).allowed, true);
+assert.strictEqual(
+  evaluateMaintenanceGuard({ KONOHA_SANDBOX_CONTAINER: '1', CI: 'true' }).mode,
+  'container',
+  'the container marker wins when both are present'
+);
+assert.strictEqual(evaluateMaintenanceGuard({}).allowed, false, 'a bare host env must refuse');
+assert.strictEqual(evaluateMaintenanceGuard({ HOME: '/tmp/x' }).allowed, false, 'an isolated HOME is not the sandbox');
+assert.match(
+  evaluateMaintenanceGuard({}).reason,
+  /pnpm test:sandbox/,
+  'the refusal must name the accepted command'
+);
+assert.match(
+  evaluateMaintenanceGuard({}).reason,
+  /rtk node tests\/run_all\.js` refuses identically/,
+  'the refusal must state that RTK does not lift it'
+);
 
 console.log('test_sandbox_guard: PASS');

@@ -177,7 +177,9 @@ function renderInitSummary(flags) {
   log(`  1. Restart IDE/CLI:  Restart Antigravity, Cursor${flags.claudeInstalled ? ', Claude Code' : ''}${flags.openCodeInstalled ? ', OpenCode' : ''}${flags.commandCodeInstalled ? ', Command Code' : ''}${flags.codexInstalled ? ', Codex' : ''} to load MCP servers`);
   log(`  2. Test execution:   ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:     ${C.cyan}konoha status${C.reset}`);
-  log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:${UI_PORT}/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
+  // Autostart runs after this summary, so the line cannot claim an outcome. Run 7's guest
+  // log read "(auto-started)" as proof a daemon existed and sent the diagnosis the wrong way.
+  log(`  4. Web UI:           ${C.cyan}http://127.0.0.1:${UI_PORT}/${C.reset} ${C.dim}(konoha ui start|stop|restart)${C.reset}`);
   if (flags.skipEmbed) {
     log('');
     warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha migrate${C.reset} to enable semantic skill search.`);

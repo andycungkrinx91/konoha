@@ -13,7 +13,7 @@ const http = require('http');
 const { getConfigValue } = require('./config_access');
 
 /** Probe ceiling for OpenAI-compatible endpoints; overridable from ~/.konoha/config.json. */
-const PROBE_TIMEOUT_MS = getConfigValue('probe_timeout_ms', 1500);
+const PROBE_TIMEOUT_MS = getConfigValue('probe_timeout_ms');
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
 function isLoopbackHost(host) {

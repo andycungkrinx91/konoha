@@ -78,15 +78,12 @@ async function run() {
 
     // ── 3. Feedback 5: Telegram Session Manager Dynamic OMP Detection ───────────
     console.log('Testing Feedback 5: Telegram session manager dynamic OMP detection...');
-    // Seed hermetic OMP session fixture for current workspace so test passes under any $HOME
+    // Seed hermetic OMP session fixture for current workspace so test passes under any $HOME.
+    // The directory key comes from the product helper so the fixture can never drift
+    // from findOmpSessionForWorkspace().
+    const HOME = process.env.HOME || process.env.USERPROFILE || require('os').homedir();
     const testCwd = path.normalize(process.cwd());
-    const ompCandidates = [];
-    if (testCwd.startsWith(require('os').homedir())) {
-      const rel = path.relative(require('os').homedir(), testCwd);
-      ompCandidates.push('-' + rel.replace(/\//g, '-'));
-    }
-    ompCandidates.push('-' + testCwd.replace(/^\//, '').replace(/\//g, '-'));
-    const ompDir = path.join(require('os').homedir(), '.omp', 'agent', 'sessions', ompCandidates[0]);
+    const ompDir = path.join(HOME, '.omp', 'agent', 'sessions', sessionManager.ompSessionKey(testCwd));
     fs.mkdirSync(ompDir, { recursive: true });
     const fixtureJsonl = path.join(ompDir, 'session-test-hermetic.jsonl');
     fs.writeFileSync(fixtureJsonl, '{"timestamp": ' + Date.now() + ', "role": "user"}\n', 'utf8');
@@ -159,7 +156,7 @@ async function run() {
     const ompServers = ompManager.buildOmpMcpServers();
     assert.strictEqual(ompServers.konoha.env.ACTIVE_CLIENT, 'omp');
     assert.strictEqual(ompServers.konoha.env.KONOHA_CLIENT, 'omp');
-    assert.strictEqual(ompManager.getOmpConfigPath().endsWith('.omp/agent/mcp.json'), true);
+    assert.strictEqual(ompManager.getOmpConfigPath().endsWith(path.join('.omp', 'agent', 'mcp.json')), true);
     console.log('✓ OMP MCP isolation and environment flags verified');
 
     // ── 6. Feedback 8: Active Sidebar Badge Neon Styling ───────────────────────

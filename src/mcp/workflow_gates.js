@@ -4,6 +4,20 @@ const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
 const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
 const { setSessionTurn, getSessionKey } = require('./client_detection');
+const { buildPickerBinding } = require('./hitl_picker');
+// Layout-invariant: `src/mcp` is mirrored flat into `~/.konoha/mcp`, where
+// `../../bin` escapes to `~/bin` and does not exist.
+const { getConfigValue } = require('../config_access');
+const UI_PORT = getConfigValue('ui_port');
+
+/**
+ * Loopback base for the picker page. The page lives under `/api/v1/`, so it
+ * inherits the API's token check instead of being an unauthenticated page
+ * that can approve work.
+ */
+function options_baseUrl() {
+  return `http://127.0.0.1:${UI_PORT}`;
+}
 
 function compactPostApprovalContext(resolvedTaskDir, status = {}, options = {}) {
   const preBytes = Buffer.byteLength(JSON.stringify({
@@ -107,8 +121,23 @@ function buildPromptPayload({
   };
 }
 
-function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, status, resolvedTaskDir, taskId, message, promptPayload }) {
+function _resolvePickerClient(options = {}) {
+  if (options.client) return options.client;
+  try {
+    const { getActiveClient } = require('./runtime_state');
+    const active = typeof getActiveClient === 'function' ? getActiveClient() : null;
+    if (active) return active;
+  } catch (_) { /* detection is best-effort; the binding falls back to web_picker */ }
+  return null;
+}
+
+function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, status, resolvedTaskDir, taskId, message, promptPayload, client }) {
   const syncBundle = syncTodoAndWalkthrough(status, { taskDir: resolvedTaskDir });
+  const picker = buildPickerBinding(promptPayload, {
+    client: _resolvePickerClient({ client }),
+    taskDir: resolvedTaskDir,
+    baseUrl: options_baseUrl()
+  });
   return JSON.stringify({
     ...baseFields,
     hitl_gate: gateName,
@@ -123,6 +152,7 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
     task_id: taskId,
     message,
     interactive_prompt: promptPayload,
+    picker,
     todos: syncBundle.todos,
     walkthrough_steps: syncBundle.walkthrough_steps,
     client_todo_directive: syncBundle.client_todo_directive,
@@ -130,7 +160,7 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
   });
 }
 
-function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
+function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent, options = {}) {
   const planText = planContent || status.plan || '';
   const choices = [...GATE1_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
@@ -170,11 +200,13 @@ function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent) {
 
   return _serializeHitlPromptEnvelope(
     { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, tasks: status.tasks || [] },
-    { stage: 'gate1', gateName: 'Gate 1 (Plan Approval)', choices, status, resolvedTaskDir, taskId: rootTaskId, message, promptPayload }
+    { stage: 'gate1', gateName: 'Gate 1 (Plan Approval)', choices, status, resolvedTaskDir, taskId: rootTaskId, message, promptPayload, client: options.client }
   );
 }
 
-function buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, reportPath) {
+function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
+  const confidenceVal = options.confidence !== undefined ? options.confidence : 100;
+  const reportPath = options.report;
   const finalReport = reportPath || status?.report || '';
   const choices = [...GATE2_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
@@ -214,7 +246,7 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, confidenceVal, report
 
   return _serializeHitlPromptEnvelope(
     { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport },
-    { stage: 'gate2', gateName: 'Gate 2 (Delivery Sign-Off)', choices, status, resolvedTaskDir, taskId: rootId, message, promptPayload }
+    { stage: 'gate2', gateName: 'Gate 2 (Delivery Sign-Off)', choices, status, resolvedTaskDir, taskId: rootId, message, promptPayload, client: options.client }
   );
 }
 

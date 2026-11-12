@@ -104,6 +104,12 @@ async function run() {
     sdlc.setProjectSdlcConfig(projPath, { review_mode: 'cross-provider' }, testDbPath);
     const updatedConfig = sdlc.getProjectSdlcConfig(projPath, testDbPath);
     assert.strictEqual(updatedConfig.review_mode, 'cross-provider');
+    // The projects table keys on the canonical path, so a different spelling of
+    // the same directory must reach the same row. Matching the caller's raw text
+    // silently misses wherever resolve rewrites it — win32 drive letters, "./",
+    // relative paths — and the write then lands on a row nobody reads.
+    const aliasConfig = sdlc.getProjectSdlcConfig('/path/to/my/./project', testDbPath);
+    assert.strictEqual(aliasConfig.review_mode, 'cross-provider');
     console.log('✓ Project SDLC review_mode persistence passed');
 
     // CLI: konoha project set review-mode
@@ -119,7 +125,11 @@ async function run() {
     // Doctor SDLC Checks
     conn.close();
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // Windows refuses to remove a file another handle still has open, and the OS
+    // reaps its temp dir anyway; a stuck cleanup must not read as a test failure.
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (_) { /* best-effort */ }
   }
 
   // Test doctor output in active env

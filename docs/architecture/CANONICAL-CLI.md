@@ -32,7 +32,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha doctor` | - | Run self-healing diagnostics on environment and configurations |
 | `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
 | `konoha help` | `[-h] [--help]` | Show interactive educational help menu |
-| `konoha init` | `[--yes] [--force] [--python <path>] [--silent]` | Initialize MCP servers, database tables, and configure detected coding clients |
+| `konoha init` | `[-y\|--yes] [--force] [--client=<name>] [--project] [--no-project] [--with-red-team] [--no-embed]` | Initialize MCP servers, database tables, and configure detected coding clients; re-running it also runs the migration pass (which purges the legacy opt-in cyber pack) and restarts a UI daemon already holding the port |
 | `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
 | `konoha mode` | `[hitl|safe|yolo|autonomous] [options]` | Switch HITL gate mode vs YOLO intent per project workspace |
 | `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants (including `hitl_mode`) |

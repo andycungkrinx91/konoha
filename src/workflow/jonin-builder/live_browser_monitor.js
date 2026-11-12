@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Konoha Jonin Live Browser Monitor & Interactive Motion/3D Quality Gate (`v2.2.20`)
+ * Konoha Jonin Live Browser Monitor & Interactive Motion/3D Quality Gate (`v2.2.21`)
  * - Polls dev server readiness (`http://localhost:<port>`)
  * - Auto-opens visible system browser (`xdg-open`, `open`, `cmd /c start`) when `autoOpen !== false && !process.env.CI`
  * - Verifies `<meta name="generator" content="Build by konoha">` and footer text `Build by konoha`
@@ -43,7 +43,7 @@ function fetchHtmlPage(url, timeoutMs = 4000) {
       const client = parsed.protocol === 'https:' ? https : http;
       const req = client.get(
         url,
-        { timeout: timeoutMs, headers: { 'User-Agent': 'Konoha-Jonin-LiveMonitor/2.2.20' } },
+        { timeout: timeoutMs, headers: { 'User-Agent': 'Konoha-Jonin-LiveMonitor/2.2.21' } },
         (res) => _collectHttpResponse(res, resolve)
       );
       req.on('timeout', () => {

@@ -32,15 +32,24 @@ function runSandboxed(script, { hide9Router }) {
   let nodeBin = process.execPath;
 
   if (hide9Router) {
-    // Shim dir exposing node + claude but deliberately NOT 9router, so the
-    // global npm install is invisible to isCommandAvailable('9router').
+    // Shim dir exposing only node, so the global 9router install is invisible to
+    // isCommandAvailable('9router'). The claude binary is not needed: the probe passes
+    // skipDetection, so the emitted config rather than host detection is what is measured.
     const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-shim-'));
-    fs.symlinkSync(process.execPath, path.join(shim, 'node'));
-    const claudeBin = spawnSync('which', ['claude'], { encoding: 'utf-8' }).stdout.trim();
-    if (!claudeBin) throw new Error('claude CLI not available; cannot run parity test');
-    fs.symlinkSync(claudeBin, path.join(shim, 'claude'));
-    envPath = `${shim}:/usr/local/bin:/usr/bin:/bin`;
-    nodeBin = path.join(shim, 'node');
+    // ponytail: copy node when symlinks are unavailable (Windows needs a
+    // privilege for file symlinks). One ~100MB copy per run is cheaper than a
+    // native shim executable; switch to a launcher stub if this ever gets hot.
+    const shimNode = path.join(shim, process.platform === 'win32' ? 'node.exe' : 'node');
+    try {
+      fs.symlinkSync(process.execPath, shimNode);
+    } catch (_) {
+      fs.copyFileSync(process.execPath, shimNode);
+    }
+    const basePath = process.platform === 'win32'
+      ? [process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32') : 'C:\\Windows\\System32']
+      : ['/usr/local/bin', '/usr/bin', '/bin'];
+    envPath = [shim, ...basePath].join(path.delimiter);
+    nodeBin = shimNode;
   }
 
   const res = spawnSync(nodeBin, ['-e', script, home], {
@@ -62,7 +71,7 @@ const HOME = process.argv[1];
 const nineRouter = require(${JSON.stringify(NINE_ROUTER)});
 const claude = require(${JSON.stringify(CLAUDE_CODE)});
 const installed = nineRouter.is9RouterInstalled();
-const setup = claude.ensureClaudeCodeSetup({ home: HOME });
+const setup = claude.ensureClaudeCodeSetup({ home: HOME, skipDetection: true });
 const cfgPath = path.join(HOME, '.claude.json');
 const raw = fs.existsSync(cfgPath) ? fs.readFileSync(cfgPath, 'utf8') : '';
 const cfg = raw ? JSON.parse(raw) : {};
@@ -79,7 +88,12 @@ process.stdout.write(JSON.stringify({
 }) + '\\n');
 `;
 
-test('Claude Code registration is identical with and without 9router', () => {
+const nineRouterInstalled = require(NINE_ROUTER).is9RouterInstalled();
+// The comparison needs a host where 9router is genuinely installed to establish the
+// present-mode control. CI runners have no 9router, so the suite names that precondition.
+test('Claude Code registration is identical with and without 9router', {
+  skip: nineRouterInstalled ? false : '9router is not installed on this host'
+}, () => {
   const absent = runSandboxed(PROBE, { hide9Router: true });
   const present = runSandboxed(PROBE, { hide9Router: false });
 
@@ -92,13 +106,20 @@ test('Claude Code registration is identical with and without 9router', () => {
   assert.equal(present.out.setupOk, true, `9router-present setup failed: ${present.out.setupReason}`);
 
   // Same MCP servers, same konoha entry — no 9router dependency either way.
-  // Each mode runs in its own sandbox HOME, so the absolute install paths inside
-  // the stdio entry are expected to differ; normalize them before comparing so
-  // the assertion is about 9router dependence, not about tmpdir names.
+  // Each mode runs in its own sandbox HOME and its own controlled PATH (MODE A
+  // shims PATH to hide the 9router binary), and the product deliberately bakes
+  // the launching PATH into the stdio entry so a GUI-launched client can find
+  // node. That baked string is therefore expected to differ between the two
+  // modes and is masked here; a 9router reference anywhere in the artifact is
+  // still caught by rawHasRouter/settingsHasRouter below.
   const normalize = (block, home) => {
     if (!block) return block;
     const json = JSON.stringify(block).split(home).join('<HOME>');
-    return JSON.parse(json);
+    const parsed = JSON.parse(json);
+    if (parsed.env && typeof parsed.env.PATH === 'string') {
+      parsed.env.PATH = '<PATH>';
+    }
+    return parsed;
   };
 
   assert.deepEqual(absent.out.servers, present.out.servers, 'mcpServers differ between modes');

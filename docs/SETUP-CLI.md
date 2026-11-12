@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.20.
+Status: **Linux x64 verified on this host.** Windows 10/11 and macOS are exercised by `.github/workflows/cross-platform.yml` (install, lint, full suite, fresh-install smoke) on `windows-latest` and `macos-latest`; `scripts/windows-ci.ps1` reproduces the Windows job locally in a VM. macOS defects surfaced by that matrix are fixed but can only be re-confirmed by a GitHub run — there is no local macOS host.
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -479,7 +479,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (`2.2.20`) and queries the official npm registry to check if a newer version is available:
+  Displays the installed local version (`2.2.21`) and queries the official npm registry to check if a newer version is available:
   ```bash
   konoha version
   ```

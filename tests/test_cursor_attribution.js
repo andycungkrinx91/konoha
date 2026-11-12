@@ -5,15 +5,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+// Match src/mcp/runtime_state.js:14 (HOME first) rather than os.homedir().
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 require('./helpers/isolate_db');
 const db = require('../src/db');
 const agentStats = require('../src/agent_stats');
 
-const SERVER = fs.existsSync(path.join(os.homedir(), '.konoha', 'server.js'))
-  ? path.join(os.homedir(), '.konoha', 'server.js')
+const SERVER = fs.existsSync(path.join(HOME, '.konoha', 'server.js'))
+  ? path.join(HOME, '.konoha', 'server.js')
   : path.join(__dirname, '..', 'src', 'server.js');
-const DB = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
-const PROJECTS = path.join(os.homedir(), '.cursor', 'projects');
+const DB = process.env.KONOHA_DB_PATH || path.join(HOME, '.konoha', 'konoha.db');
+const PROJECTS = path.join(HOME, '.cursor', 'projects');
 
 const REGISTERED = new Set(['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin']);
 

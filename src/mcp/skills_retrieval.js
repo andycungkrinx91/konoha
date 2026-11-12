@@ -6,9 +6,6 @@ const db = require('../db');
 const { getDb } = db;
 const { shieldPromptInjection } = require('../migrate');
 const {
-  isPathVisible
-} = require('./runtime_state');
-const {
   MAX_CONTENT_SIZE,
   MAX_MULTI_SKILL_TOTAL_BYTES,
   normalizeLegacySkillName,
@@ -22,6 +19,7 @@ const {
   resolveFlowHashFromTask,
   findInMirror,
   logToolCall,
+  isSkillRowVisible,
   denyIfUnauthorized
 } = require('./skills_common');
 const { autoMigrateProjectSkills, querySkillsByKeyword } = require('./skills_search');
@@ -141,7 +139,7 @@ function loadSkillFromMirrorFallback(normName) {
 function _selectVisibleSkillCandidate(candidates) {
   let fallbackGlobal = null;
   for (const cand of candidates) {
-    if (!isPathVisible(cand.file_path)) continue;
+    if (!isSkillRowVisible(cand)) continue;
     if (cand.tags && cand.tags.includes('scope:project')) {
       cand.source_provenance = 'sqlite_fts5';
       return cand;
@@ -226,7 +224,7 @@ function getSkill(name, agentName = null, options = {}) {
   try { conn = getDb(); } catch (_) { conn = null; }
   try {
     const row = resolveSkillRow(conn, normName);
-    if (!row || (row.source_provenance !== 'runtime_contract' && !isPathVisible(row.file_path))) {
+    if (!row || !isSkillRowVisible(row)) {
       process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);
       const res = JSON.stringify({ error: `Skill '${normName}' not found. Use list_skills or find_skill to discover available skills.` });
       logToolCall('get_skill', normName, res, agentName);
@@ -288,7 +286,7 @@ function _findSkillInDb(conn, normName) {
     if (!row) {
       row = conn.prepare('SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path FROM skills WHERE name LIKE ? LIMIT 1').get(`%/${normName}`);
     }
-    return (row && isPathVisible(row.file_path)) ? row : null;
+    return isSkillRowVisible(row) ? row : null;
   } catch (dbErr) {
     process.stderr.write(`[mcp konoha] DB lookup error for '${normName}': ${dbErr.message}\n`);
     return null;
@@ -531,7 +529,7 @@ function optimizeReport(keyword = null, agentName = null) {
       LIMIT 20
     `).all();
 
-    const visibleRows = rows.filter(r => isPathVisible(r.file_path));
+    const visibleRows = rows.filter(r => isSkillRowVisible(r));
     const reports = [];
 
     for (const row of visibleRows) {

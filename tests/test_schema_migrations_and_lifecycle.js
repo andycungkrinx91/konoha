@@ -154,9 +154,12 @@ async function run() {
     const freshCheck = new Database(freshDbPath, { readonly: true });
     const freshTables = freshCheck
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-      .all().map(r => r.name);
+      .all().map(r => r.name)
+      // sqlite_% and _sqliteai_vector are runtime-owned; the vector table only
+      // exists where the extension loads, so it cannot be part of a fixed count.
+      .filter(n => !n.startsWith('sqlite_') && n !== '_sqliteai_vector');
     freshCheck.close();
-    assert.strictEqual(freshTables.length, 33, `fresh setupSchema must produce exactly 33 tables, got ${freshTables.length}`);
+    assert.strictEqual(freshTables.length, 32, `fresh setupSchema must produce exactly 32 base tables, got ${freshTables.length}`);
     for (const labTable of ['kali_tools', 'lab_runs', 'lab_tool_invocations', 'red_skill_audit']) {
       assert.ok(!freshTables.includes(labTable), `fresh schema must not define lab table ${labTable}`);
     }

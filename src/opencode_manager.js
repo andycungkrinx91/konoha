@@ -436,18 +436,18 @@ function deployOpenCodeRules(silent = true, options = {}) {
 }
 
 function deployOpenCodeRtkRule(silent = true) {
+  // The rule template is static; `rtk init` only enriches it and stays best-effort.
   const rtkCmd = getRtkCommand();
-  if (!rtkCmd) {
-    return { ok: false, reason: 'rtk-not-installed' };
+  if (rtkCmd) {
+    try {
+      spawnSync(rtkCmd, ['init', '-g', '--opencode', '--auto-patch', '--trust-filters'], {
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: silent ? 'ignore' : 'inherit',
+        windowsHide: true
+      });
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  try {
-    spawnSync(rtkCmd, ['init', '-g', '--opencode', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit',
-      windowsHide: true
-    });
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const { resolveRtkRuleTemplate } = require('./mcp_clients/common');
   let src = resolveRtkRuleTemplate();
   if (!src || !fileExists(src)) {

@@ -135,12 +135,23 @@ node --version  # Must be >= 24.0.0
 
 ---
 
-### ⚠️ `QA blocked: agent-browser unavailable (...)` during `konoha init`
+### ⚠️ `pnpm test:sandbox` refuses to run or fails immediately
 
-- **Cause**: `agent-browser` is a **hard requirement for QA only**. `init` resolves it in order: global install → managed `~/.konoha/tools` → `npx --yes agent-browser@0.3.1`, verifying each with `--version`. If none works, core install still succeeds and this actionable warning is recorded so `konoha doctor` shows `QA: BLOCKED`.
-- **Linux note**: `agent-browser@0.3.1` publishes **no linux-x64 native binary** (`Error: No binary found for linux-x64`), so QA stays blocked on Linux x64 regardless of install method. Do not treat this as a broken install — every non-QA feature works.
-- **Effect**: `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason }`; `qa_e2e_run` remains usable for Playwright suites that do not shell out to `agent-browser`.
-- **Fix (where a native binary exists)**: `npm i -g agent-browser@0.3.1`, then `agent-browser install` (`--with-deps` on Linux only).
+- **Cause**: the gate needs a reachable Docker daemon; it builds `konoha-sandbox:local` from `docker/sandbox.Dockerfile` and runs the suite with the repository bind-mounted read-only at `/src`.
+- **`Docker daemon is not reachable. Start Docker Desktop or the docker service.`**: Docker is not running or the CLI cannot talk to it. Start it, then re-run. The script never falls back to running the suite on the host — a host run would pass while the container path stays broken.
+- **`Sandbox failed. Host working tree untouched; volumes kept for the next run.`**: a suite inside the container failed. Read the suite output above that line. The host `HOME`, `/tmp`, and working tree are unchanged, so nothing leaked out of the sandbox.
+- **A stale pnpm store or Playwright browser set**: the two named volumes outlive the container. Reset them with `docker volume rm konoha-sandbox-pnpm-store konoha-sandbox-ms-playwright`; the next run repopulates them. Do not prune every volume on the machine.
+- **Fast path**: `pnpm test:sandbox -- --lint` skips the suite, and `--no-build` reuses the existing image when only test files changed.
+- **On Apple-silicon macOS without Docker Desktop**: `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [Apple's `container`](https://github.com/apple/container). `The container CLI is not installed` means the signed package is missing; `The container runtime is not reachable` means `container system start` has not run since boot. Its volumes are named identically and are reset with `container volume delete <name>`; the run gets `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides) because each `container` instance is a VM capped at 1 GiB. It is still a Linux guest — macOS host semantics only surface in a native `pnpm test`.
+
+---
+
+### ⚠️ `qa_blocked` / `playwright-not-installed` during QA
+
+- **Cause**: Playwright is a **hard requirement for QA only**, and Konoha does not ship its own copy for QA. `qa_codify` and `qa_e2e_run` both shell out to the target project's runner (`pnpm exec playwright`), so the project must resolve Playwright and have its browser binary installed.
+- **Effect**: `qa_codify` returns `{ ok: false, error: 'qa_blocked', reason: 'playwright-not-installed', fix: 'pnpm exec playwright install chromium' }` and emits no spec. `qa_e2e_run` returns the same reason before running any test. Every non-QA feature keeps working — this never blocks `konoha init`, `upgrade`, or `doctor`.
+- **Fix**: in the target project, run `pnpm add -D @playwright/test` (if absent) then `pnpm exec playwright install chromium`. On Linux CI images add `--with-deps` for the shared libraries.
+- **Do not** install Playwright globally or via `npx`: a second copy diverges from the project's pinned browser build and fails with version-skew errors that look like product bugs.
 
 ---
 
@@ -471,6 +482,28 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 ---
 
+### 🍎 macOS-Specific Issues
+
+* **`~/.konoha` paths that work on Linux fail on macOS**: `os.tmpdir()`, `os.homedir()`, and any caller-supplied path may
+  resolve through `/var` → `/private/var`, and APFS is case-insensitive by default. Two paths that name the same
+  directory can differ as strings, so a containment check (`startsWith(allowedRoot)`) rejects a legitimate path and a
+  cache key derived from the string misses.
+  - **Symptom**: `build_from_source` returns `Source directory outside workspace: <path>`, or a sandbox test reports two
+    identical project hashes for different projects.
+  - **Fix**: resolve real paths before comparing — `src/mcp/build_spec_common.js` applies `fs.realpathSync` to both the
+    workspace and `~/.konoha` before building `allowedRoots`. Anything comparing `HOME`-derived paths must do the same.
+* **Blender toolchain install stops at `Manual Install Required`**: Blender publishes macOS builds only as a `.dmg`,
+  which the installer does not mount. This is reported, not swallowed: the progress stage is `Manual Install Required`
+  with `brew install --cask blender` in its detail, `installBlender` returns `{ success: false, reason:
+  'manual-install-required' }`, and `installAllTools` pushes that reason into `errors[]` so `/3d/setup` returns
+  `success: false` instead of a clean report. `dcc-mcp-blender` does not install alongside it — `installDccMcpBlender`
+  requires a working Blender and reports `Blender must be installed first`.
+  - **Fix**: `brew install --cask blender`, then re-run the toolchain check from `/3d/setup` or `konoha doctor`.
+* **`EACCES` on `~/.konoha` after a GUI install**: a daemon started from a terminal inherits that shell's TCC grants, so
+  the same command may succeed in Terminal and fail from a launch agent. Check with `ls -leO@ ~/.konoha`.
+
+---
+
 ### 💻 Windows-Specific Issues
 
 * **Paths**: Windows uses backslashes. The installer handles this automatically, but if you're manually editing `mcp_config.json`, use forward slashes or double backslashes:
@@ -571,6 +604,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Running `pi` in a project with `.agents/skills` prints `[Skill conflicts]` collisions between global user skills (`~/.agents/skills`) and project local skills (`.agents/skills`).
   - **Reason**: Pi scans both global and local skill directories; identical mirror copies on disk have different physical file paths, causing Pi to log collision diagnostics.
   - **Fix**: Resolved in `v2.0.0-beta.7` by updating `konoha-blocker.ts` in `~/.pi/agent/extensions/` to monkeypatch `DefaultResourceLoader.prototype.getSkills` and `updateSkillsFromPaths`, filtering out benign collision diagnostics while keeping all skills fully accessible.
+* **Orphaned `konoha` MCP servers pile up in `ps` (`v2.2.20`)**:
+  - **Symptom**: `ps aux | grep file_tools_launcher` shows several `konoha` MCP processes, each holding over a gigabyte, after switching clients or restarting an IDE.
+  - **Reason**: the server's only exit was the stdio `readline` `close` event. A client that dies without closing its stdin (inherited stdio, or another process holding the pipe write end) left the server running with no client behind it; daemon mode had no exit at all, so one accumulated per `init` or gateway restart.
+  - **Fix**: resolved in `2.2.20` by `src/mcp_orphan_guard.js`. The stdio server exits when its parent disappears (`ppid` becomes 1, polled every `mcp_orphan_parent_poll_ms` = 30 s) or after `mcp_stdio_idle_timeout_ms` = 4 h with no request line; the bridge daemon exits when a newer live daemon claims `bridge.pid` (`mcp_daemon_superseded_poll_ms` = 30 s). Windows does not reparent children, so the idle budget is the safety net there. Killing the leftovers manually is still safe: `konoha clean` prunes dead PIDs.
+* **Web UI keeps serving the previous build after `npm install -g` + `konoha init` (`v2.2.20`)**:
+  - **Symptom**: The runtime under `~/.konoha` is current (`konoha version` is right), but the browser still loads the old UI, and `/` references asset hashes that no longer exist on disk.
+  - **Reason**: the daemon caches the SvelteKit handler in-process at startup. `init` treated an active port as "already started" and skipped the restart, so the old build stayed in memory.
+  - **Fix**: resolved in `2.2.20` — `bin/commands/init.js#autoStartUiDaemonIfRequested` restarts a daemon that is already listening on the port. Manually: `konoha ui restart`. `KONOHA_UI_AUTOSTART=0` suppresses starting a daemon, not refreshing a running one.
 * **Web UI Port 1404 Process Duplication or Warnings on New Terminal Tabs (`v2.0.0-beta.7`)**:
   - **Symptom**: Opening new terminal tabs or running `konoha ui start` when already running shows `warn` warnings or leaves orphaned daemon processes in `ps aux`.
   - **Reason**: `cmdUiStart` logged active instances as warnings instead of informational status, and dead PID files were not cleaned up if processes exited abruptly.

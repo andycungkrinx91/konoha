@@ -237,7 +237,7 @@ async function sendTelegramMessage(text, options = {}) {
     return { ok: false, error: 'Telegram chat_id is not configured' };
   }
 
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const url = `${getConfigValue('telegram_api_url')}/bot${token}/sendMessage`;
   const body = {
     chat_id: targetChatId,
     text: text
@@ -273,7 +273,7 @@ const sentNotifications = new Map();
 function isRecentlyNotified(taskId) {
   if (!taskId) return false;
   const lastTime = sentNotifications.get(taskId);
-  return Boolean(lastTime && (Date.now() - lastTime < getConfigValue('notify_dedupe_ttl_ms', 180000)));
+  return Boolean(lastTime && (Date.now() - lastTime < getConfigValue('notify_dedupe_ttl_ms')));
 }
 
 /**
@@ -340,8 +340,8 @@ async function notifyKageReviewPassed({
   return sendTaskCompletedNotification({
     title,
     taskId: taskId || `kage_gate_${Date.now()}`,
-    summary: summary || `Kage Review Gate approved with ≥ ${getConfigValue('minimum_confidence', 98)}% confidence and zero AI slop findings.`,
-    status: (kageScore >= getConfigValue('minimum_confidence', 98) && slopFindings === 0) ? 'SUCCESS' : 'FAILED',
+    summary: summary || `Kage Review Gate approved with ≥ ${getConfigValue('minimum_confidence')}% confidence and zero AI slop findings.`,
+    status: (kageScore >= getConfigValue('minimum_confidence') && slopFindings === 0) ? 'SUCCESS' : 'FAILED',
     duration: 'Review Passed',
     client: client || 'Antigravity IDE/CLI',
     agent: 'Village Leader Kage',
@@ -359,7 +359,7 @@ async function answerCallbackQuery(callbackQueryId, text = '', options = {}) {
   const config = configModule.getTelegramConfig();
   const token = options.bot_token || config.bot_token;
   if (!token || !callbackQueryId) return { ok: false };
-  const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+  const url = `${getConfigValue('telegram_api_url')}/bot${token}/answerCallbackQuery`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -380,7 +380,7 @@ async function editMessageText(chatId, messageId, text, options = {}) {
   const config = configModule.getTelegramConfig();
   const token = options.bot_token || config.bot_token;
   if (!token || !chatId || !messageId) return { ok: false };
-  const url = `https://api.telegram.org/bot${token}/editMessageText`;
+  const url = `${getConfigValue('telegram_api_url')}/bot${token}/editMessageText`;
   try {
     const body = {
       chat_id: chatId,

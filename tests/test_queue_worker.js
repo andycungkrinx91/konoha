@@ -70,7 +70,11 @@ async function run() {
 
     const conn = dbModule.getConnection();
     const finishedTask1 = conn.prepare('SELECT * FROM prompt_queue WHERE id = ?').get(task1.id);
-    assert.strictEqual(finishedTask1.status, 'completed', 'Task must be completed');
+    assert.strictEqual(
+      finishedTask1.status,
+      'completed',
+      `Task must be completed (shell output: ${finishedTask1.result_summary})`
+    );
     assert.ok(finishedTask1.result_summary.includes('autonomous execution success'), 'Result summary must have output');
     assert.strictEqual(capturedNotifications.length, 1, '1 completion notification sent');
     assert.strictEqual(capturedNotifications[0].status, 'SUCCESS', 'Notification reports SUCCESS');

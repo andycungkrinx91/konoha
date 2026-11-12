@@ -104,13 +104,27 @@ function linkOrCopyModuleTree(nodeModulesPath, sourceRoot = REPO_ROOT) {
   const rootNodeModules = path.join(sourceRoot, 'node_modules');
   if (!fileExists(rootNodeModules)) return;
   if (!fileExists(nodeModulesPath)) {
-    try {
-      fs.symlinkSync(rootNodeModules, nodeModulesPath, process.platform === 'win32' ? 'junction' : 'dir');
-      return;
-    } catch {
-      copyRecursiveIfDifferent(rootNodeModules, nodeModulesPath);
-      return;
+    // Link first (instant, no 459 MB copy). A failed link must never fall through
+    // to a copy silently: on a network share or a locked-down box the copy can
+    // take minutes and, if it also fails, the caller sees "deps missing" and runs
+    // a full package-manager install instead. Each layer reports why it failed.
+    const linkErrors = [];
+    for (const type of ['junction', 'dir']) {
+      try {
+        fs.symlinkSync(rootNodeModules, nodeModulesPath, type);
+        return;
+      } catch (err) {
+        linkErrors.push(`${type}: ${err.code || err.message}`);
+      }
     }
+    try {
+      fs.cpSync(rootNodeModules, nodeModulesPath, { recursive: true, dereference: true });
+      return;
+    } catch (err) {
+      linkErrors.push(`copy: ${err.code || err.message}`);
+    }
+    warn(`Could not materialize node_modules at ${nodeModulesPath} (${linkErrors.join('; ')})`);
+    return;
   }
   const deps = readDeclaredDependencies(path.join(sourceRoot, 'package.json'));
   const webNodeModules = path.join(sourceRoot, 'apps', 'web', 'node_modules');

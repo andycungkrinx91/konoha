@@ -142,7 +142,10 @@ test('real RTK compresses noisy suite output and keeps the exit code', () => {
 test('wrapper file stays inside the line budget and stays executable', () => {
   const lines = fs.readFileSync(WRAPPER, 'utf8').split('\n').length;
   assert.ok(lines <= 700, `scripts/rtk_exec.js is ${lines} lines`);
-  assert.ok(fs.statSync(WRAPPER).mode & 0o100, 'scripts/rtk_exec.js must stay executable');
+  // NTFS carries no POSIX mode bits, so the exec bit is only meaningful on POSIX.
+  if (process.platform !== 'win32') {
+    assert.ok(fs.statSync(WRAPPER).mode & 0o100, 'scripts/rtk_exec.js must stay executable');
+  }
 });
 
 let passed = 0;

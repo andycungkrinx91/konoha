@@ -195,7 +195,7 @@ async function testReinstallAndRepair(sandboxDir) {
   // Verify that paths.js and cli launcher use dynamic user paths
   const paths = require('../bin/lib/paths');
   assert.ok(paths.FILE_TOOLS_LAUNCHER_JS, 'FILE_TOOLS_LAUNCHER_JS must be exported');
-  assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
+  assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(process.env.HOME || process.env.USERPROFILE || os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
   console.log('  ✓ Launcher paths resolve dynamically to user environment without hardcoded paths');
 
   // Verify clean reinstallation sanitizes ~/.konoha stale artifacts
@@ -281,7 +281,7 @@ async function testWorkflowTokenBurnPrevention() {
   assert.ok(sourcePayloadLen < 25000, `build_from_source payload must be < 25KB, got ${sourcePayloadLen}`);
   console.log(`  ✓ build_from_source payload is compact (${sourcePayloadLen} bytes, < 25KB, verified 80% reduction)`);
 
-  // runSannin triage payload size (< 2KB)
+  // runSannin triage payload size (< 3KB)
   const sanninRes = JSON.parse(runSannin('Build modern reactive ecommerce shop with products catalog'));
   assert.ok(['jonin', 'anbu', 'sannin'].includes(sanninRes.selected_agent));
   assert.ok(JSON.stringify(sanninRes).length < 3000, `runSannin payload must be < 3KB, got ${JSON.stringify(sanninRes).length}`);

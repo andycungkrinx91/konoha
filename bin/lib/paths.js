@@ -53,7 +53,7 @@ const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
  * embedding generation. Resolved from `~/.konoha/config.json` so a slow machine
  * can raise it without editing source.
  */
-const MIGRATION_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms', 900000);
+const MIGRATION_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms');
 
 /**
  * Canonical budget for every install / build / migrate / embed subprocess.
@@ -61,19 +61,19 @@ const MIGRATION_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms', 
  * neural vector embedding generation all share a single 15-minute ceiling so no
  * long-running provisioning step can hang the CLI indefinitely.
  */
-const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms', 900000);
+const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue('install_build_migrate_timeout_ms');
 
 /**
  * Service ports. Overridable from ~/.konoha/config.json so a port collision is a
  * config change, not a source edit.
  */
-const UI_PORT = getConfigValue('ui_port', 1404);
-const GATEWAY_PORT = getConfigValue('gateway_port', 19999);
-const BRIDGE_PORT = getConfigValue('bridge_port', 1313);
-const NINE_ROUTER_PORT = getConfigValue('nine_router_port', 20128);
+const UI_PORT = getConfigValue('ui_port');
+const GATEWAY_PORT = getConfigValue('gateway_port');
+const BRIDGE_PORT = getConfigValue('bridge_port');
+const NINE_ROUTER_PORT = getConfigValue('nine_router_port');
 
 /** How long upgrade waits for the Web UI daemon to answer after a restart. */
-const UI_READY_TIMEOUT_MS = getConfigValue('ui_ready_timeout_ms', 180000);
+const UI_READY_TIMEOUT_MS = getConfigValue('ui_ready_timeout_ms');
 
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
@@ -162,6 +162,9 @@ const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.opencode', 'skills'),
   path.join(HOME, '.codex', 'skills'),
   path.join(HOME, '.omp', 'agent', 'skills'),
+  // Written by getGlobalHarnessSkillTargets, so `konoha status` must count it or
+  // a fresh install reports one root fewer than `konoha init` just mirrored.
+  path.join(HOME, '.pi', 'agent', 'skills'),
 ];
 
 /** Antigravity agent deployment targets */

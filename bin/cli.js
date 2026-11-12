@@ -20,6 +20,19 @@ if (!Number.isFinite(nodeMajor) || nodeMajor < REQUIRED_NODE_MAJOR) {
 }
 
 
+// Seed process.env from ~/.konoha/config.json before any module captures a
+// value at load time. Explicit environment variables still win.
+(() => {
+  try {
+    const { applyConfigEnv } = require('./lib/config_defaults');
+    let decrypt;
+    try {
+      decrypt = require('../src/crypto_vault').decryptSecret;
+    } catch (_) { /* vault unavailable: encrypted values stay unseeded */ }
+    applyConfigEnv({ decrypt });
+  } catch (_) { /* config is optional; never block the CLI */ }
+})();
+
 /**
  * bin/cli.js — Konoha command-line interface.
  *
@@ -120,7 +133,6 @@ async function dispatchCoreCommand(cmd, cmdArgs) {
       await cmdVersion(cmdArgs);
       return true;
     case 'upgrade':
-    case 'update':
       await cmdUpgrade(cmdArgs);
       return true;
     case 'db': {
@@ -269,8 +281,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Run background auto-setup exclusively during explicit doctor checks
-  if (command === 'doctor') {
+  // Run background auto-setup exclusively during explicit doctor checks.
+  // `doctor --help` must print help, not run a full runtime install first.
+  const wantsHelp = args.some(a => a === 'help' || a === '--help' || a === '-h');
+  if (command === 'doctor' && !wantsHelp) {
     try {
       await ensureAutoSetup();
     } catch (_) {

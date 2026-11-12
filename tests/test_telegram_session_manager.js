@@ -246,10 +246,10 @@ async function run() {
     assert.strictEqual(errMissingDir.success, false, 'Rejects nonexistent directory');
     assert.ok(errMissingDir.error.includes('Directory does not exist'), 'Returns nonexistent error');
 
-    const errTmp = sessionManager.createSession('chat_999', 'agy', '/tmp');
-    assert.strictEqual(errTmp.success, false, 'Rejects /tmp workspace');
+    const errTmp = sessionManager.createSession('chat_999', 'agy', os.tmpdir());
+    assert.strictEqual(errTmp.success, false, 'Rejects tmpdir workspace');
 
-    const errHome = sessionManager.createSession('chat_999', 'agy', os.homedir());
+    const errHome = sessionManager.createSession('chat_999', 'agy', process.env.HOME || process.env.USERPROFILE || os.homedir());
     assert.strictEqual(errHome.success, false, 'Rejects $HOME workspace');
 
     // Verify formatSessionList now reflects creation command

@@ -14,13 +14,19 @@ const { getResolvedTaskDir } = require('./workflow_common');
 const { buildSpawnDirective } = require('./lazy_subagent');
 
 function getMainModel() {
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     const row1 = conn.prepare('SELECT model_tier FROM agents WHERE name = ?').get('sannin');
     if (row1 && row1.model_tier) return row1.model_tier;
     const row2 = conn.prepare('SELECT model_tier FROM agents WHERE name = ?').get('kage');
     if (row2 && row2.model_tier) return row2.model_tier;
   } catch (_) { /* ignore */ }
+  finally {
+    // Windows keeps the database file locked while a handle is open, which makes
+    // temp-dir teardown fail with EPERM. Every getDb() handle is closed here.
+    try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
+  }
   return 'Gemini 3.1 Pro (High)';
 }
 
@@ -313,14 +319,13 @@ function _buildTasteSkillBlock(tasteDials) {
   const motDial = dials.motion_intensity !== undefined ? dials.motion_intensity : 7;
   const densDial = dials.visual_density !== undefined ? dials.visual_density : 6;
   return (
-    '### Design Brief & Anti-Template Directives:\n' +
+    '### Taste-Skill Design Engine: Design Brief & Anti-Template Directives:\n' +
     '- Author the 9-field design brief (product, industry, audience, primary_objective, user_outcome, information_architecture, interactions, visual_identity, technical_constraints) before any layout or palette decision.\n' +
     `- Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10 (exploration breadth, not a house style)\n` +
-    '- Derive art direction, IA, navigation pattern, theme strategy, and motion from the brief. Commerce/SaaS/catalog/cart/pricing/testimonial sections only when the brief requires them.\n' +
-    '- Chunin research: query by the brief domain and objective; reject visually strong references whose domain does not match.\n' +
-    '- Anti-Template Gate before delivery: every section maps to a brief objective; no recycled layout; motion justified; responsive plan for 375/768/1440.\n' +
-    '- Anti-Slop: zero generic AI-purple gradients, zero boilerplate sections, zero emojis (Phosphor or inline SVG only).\n' +
-    '- Branding & QA: `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer, live browser monitor, tests. pnpm only, zero errors/warnings, `rtk aislop scan --changes`.\n'
+    '- Derive art direction, IA, navigation, theme, and motion from the brief; commerce/SaaS/catalog sections only when the brief requires them.\n' +
+    '- Anti-Template Gate: every section maps to a brief objective; no recycled layout; justified motion; responsive 375/768/1440.\n' +
+    '- Anti-Slop: zero AI-purple gradients, zero boilerplate sections, zero emojis (Phosphor or inline SVG).\n' +
+    '- Branding & QA: `<meta name="generator" content="Build by konoha">`, visible `Build by konoha` footer, pnpm only, zero errors/warnings, `rtk aislop scan --changes`.\n'
   );
 }
 
@@ -493,14 +498,6 @@ function _parseTaskOptions(task, context, constraints, rest) {
 }
 
 function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
-  const basePersonalityBlock = (
-    '## Base Personality: High Effort + Instruct Style\n\n' +
-    '- Strictly NO conversational filler (FORBIDDEN: "Hmmmm", "Let me check", "Wait - but", "let me").\n' +
-    '- Lead with direct action and verified evidence. Start immediately with action or factual result.\n' +
-    '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code.\n' +
-    '- Zero hallucination, errors, warnings, AI slop: target accuracy 95%-100%, cost efficiency 83%-98%.\n' +
-    '- MANDATORY TOOL & SKILL PARITY: Always discover skills via konoha.find_skill and activate with konoha.use_skills or konoha.get_skill.\n\n'
-  );
   const dualBoundaryAnchor = (
     '## Critical Invariants & Non-Negotiables (Dual-Boundary Anchor)\n\n' +
     '- STRICT FACTUAL TRUTH: Never fabricate test results or simulated tool outputs.\n' +
@@ -528,7 +525,7 @@ function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
     '6. Run `rtk aislop scan --changes`; zero findings required.\n' +
     '7. When complete, report results and validation evidence via `report_from_agent`, followed by mandatory `@kage` review before final delivery.\n\n'
   );
-  return `${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}`;
+  return `${dualBoundaryAnchor}${executionProtocol}`;
 }
 
 function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
@@ -593,11 +590,15 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     } catch (_) { /* ignore */ }
   }
   if (skillsList.length === 0 && instructions) {
+    let conn = null;
     try {
-      const conn = getDb();
+      conn = getDb();
       const auto = autoloadSkillsFromPrompt(instructions, conn);
       if (auto.length > 0) skillsList = auto;
     } catch (_) { /* ignore */ }
+    finally {
+      try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
+    }
   }
 
   if (dbAgentName === 'jonin') {

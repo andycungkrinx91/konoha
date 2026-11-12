@@ -21,7 +21,7 @@ const qaRefPath = path.join(canonicalSkillDir, 'references', 'qa-automation.md')
 // Verify anbu-skill/SKILL.md has SOP 8 and Domain Routing row
 assert.ok(fs.existsSync(anbuSkillPath), 'anbu-skill/SKILL.md must exist in canonical templates');
 const skillContent = fs.readFileSync(anbuSkillPath, 'utf8');
-assert.ok(skillContent.includes('## SOP 8: QA Automation (agent-browser + Playwright)'), 'SKILL.md must include SOP 8 section');
+assert.ok(skillContent.includes('## SOP 8: QA Automation (Playwright)'), 'SKILL.md must include SOP 8 section');
 assert.ok(skillContent.includes('anbu-skill/qa-automation'), 'SKILL.md must include anbu-skill/qa-automation reference in SOP 8 or routing');
 assert.ok(skillContent.includes('| QA, E2E, regression, UI bug reproduction, browser testing, flow file, Playwright test | `anbu-skill/qa-automation` |'), 'Domain Routing table must route QA requests to anbu-skill/qa-automation');
 

@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.20.
+Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.21.
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -156,7 +156,7 @@ To maintain stability and enforce security, the Antigravity system implements th
 > * **konoha MCP**: Use `find_skill(keyword)` to search for relevant skill content on-demand. Use `get_skill(name)` for full content when previews are truncated. Use `list_skills()` to see all available skills. **NEVER load SKILL.md files directly from disk** — always use the `konoha` MCP tools.
 > * **Semble Semantic Search (default)**: Konoha replaces grep/glob/find with **semble** (`search`, `find_related`) for semantic codebase discovery. Do not use built-in grep/glob tools or shell `grep`/`rg`/`find` — use semble first (`rg` only if semble MCP is unavailable).
 > * **konoha MCP (token-efficient reads)**: After semble locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
-> * **Agent-Browser CLI (QA only)**: Use `agent-browser` (or `npx --yes agent-browser@0.3.1`) to interact with live web pages, submit forms, take screenshots, inspect elements, and run visual end-to-end verifications. This is a **hard requirement for QA only** — `konoha init` reports `QA blocked: agent-browser unavailable (...)` and `qa_codify` returns `error: 'qa_blocked'` when it cannot run. On Linux x64 `agent-browser@0.3.1` publishes no native binary, so QA stays blocked there; all non-QA features work normally.
+> * **Playwright (QA only)**: Drive live web pages with a throwaway Playwright script (scoped `locator().ariaSnapshot()`, console/network error capture) for exploration, then codify flows through `qa_codify` and run them through `qa_e2e_run`. Playwright is a **hard requirement for QA only**, resolved from the target project via `pnpm exec playwright` — when it is missing, `qa_codify` returns `{ error: 'qa_blocked', reason: 'playwright-not-installed' }` with the fix command. Every non-QA feature works without it.
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
 > * **Hard Guardrail Enforcement (v2.0.2)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha/semble MCP tools.

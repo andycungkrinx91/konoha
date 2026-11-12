@@ -8,12 +8,13 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
-const BLENDER_RELEASE_INDEX = process.env.KONOHA_BLENDER_RELEASE_INDEX || 'https://download.blender.org/release/';
-const DCC_MCP_PYPI_URL = 'https://pypi.org/pypi/dcc-mcp-blender/json';
+const BLENDER_RELEASE_INDEX = process.env.KONOHA_BLENDER_RELEASE_INDEX || getConfigValue('blender_release_index');
+const DCC_MCP_PYPI_URL = getConfigValue('dcc_mcp_pypi_url');
 const VERSION_CACHE_TTL_MS = 5 * 60 * 1000;
 const DCC_STATUS_TTL_MS = 30 * 1000;
 
@@ -25,7 +26,8 @@ const cache = {
 };
 
 function getToolchainDir() {
-  if (process.env.KONOHA_TOOLCHAIN_DIR) return path.resolve(process.env.KONOHA_TOOLCHAIN_DIR);
+  const configured = process.env.KONOHA_TOOLCHAIN_DIR || getConfigValue('toolchain_dir');
+  if (configured) return path.resolve(configured);
   const konohaHome = process.env.KONOHA_HOME || path.join(os.homedir(), '.konoha');
   return path.join(konohaHome, 'toolchains');
 }
@@ -108,7 +110,8 @@ function findInstalledBlenderBinaries() {
   if (blenderDisabled()) return [];
   const env = detectSystemEnvironment();
   const candidates = [];
-  if (process.env.KONOHA_BLENDER_BIN) candidates.push(process.env.KONOHA_BLENDER_BIN);
+  const configuredBin = process.env.KONOHA_BLENDER_BIN || getConfigValue('blender_bin');
+  if (configuredBin) candidates.push(configuredBin);
   candidates.push(...scanToolchainBinaries(env.platform));
   if (env.platform === 'darwin') candidates.push('/Applications/Blender.app/Contents/MacOS/Blender');
   if (env.platform === 'win32') candidates.push(...scanWindowsZipInstalls());
@@ -369,6 +372,29 @@ async function fetchText(url, timeoutMs = 20000) {
   return res.text();
 }
 
+async function fetchTextOrNull(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status} while fetching ${url}`);
+  return res.text();
+}
+
+async function resolveExpectedDigest(archive) {
+  // Blender publishes one sidecar per version listing `digest  filename` for every
+  // archive; older series publish a per-file sidecar instead. Try both, and treat a
+  // missing sidecar as unsigned rather than failing an otherwise valid download.
+  const versionWide = await fetchTextOrNull(archive.versionSha256Url);
+  if (versionWide) {
+    const line = versionWide.split('\n')
+      .map((l) => l.trim().split(/\s+/))
+      .find((parts) => parts[1] === archive.filename);
+    if (line) return line[0].toLowerCase();
+  }
+  const perFile = await fetchTextOrNull(archive.sha256Url);
+  if (!perFile) return null;
+  return perFile.trim().split(/\s+/)[0].toLowerCase() || null;
+}
+
 async function resolveLatestBlenderRelease() {
   if (cache.blenderVersion.value && Date.now() - cache.blenderVersion.at < VERSION_CACHE_TTL_MS) {
     return cache.blenderVersion.value;
@@ -407,7 +433,8 @@ function pickArchiveForPlatform(release, env) {
   return {
     ...match,
     url: new URL(match.filename, new URL(release.series, BLENDER_RELEASE_INDEX)).toString(),
-    sha256Url: new URL(`${match.filename}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString()
+    sha256Url: new URL(`${match.filename}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString(),
+    versionSha256Url: new URL(`blender-${match.version}.sha256`, new URL(release.series, BLENDER_RELEASE_INDEX)).toString()
   };
 }
 
@@ -428,11 +455,27 @@ async function installBlender(options = {}) {
   if (!archive) {
     throw new Error(`No Blender ${release.version} archive published for ${env.key}`);
   }
+  // macOS is only published as a .dmg, which cannot be extracted with tar. Report the
+  // supported install path instead of pulling hundreds of megabytes we cannot unpack.
+  if (archive.ext === 'dmg') {
+    onProgress({
+      percent: 40,
+      stage: 'Manual Install Required',
+      detail: `Blender ${release.version} ships as a .dmg; install it with \`brew install --cask blender\``
+    });
+    return { success: false, version: null, path: null, reused: false, reason: 'manual-install-required' };
+  }
   onProgress({ percent: 40, stage: 'Downloading Blender LTS', detail: `Fetching ${archive.filename}` });
 
   fs.mkdirSync(getToolchainDir(), { recursive: true });
   const destDir = path.join(getToolchainDir(), 'downloads');
   fs.mkdirSync(destDir, { recursive: true });
+  // Blender publishes a `.sha256` sidecar for some archives but not all, so resolve
+  // the digest before pulling hundreds of megabytes and treat a 404 as "unsigned".
+  const expected = await resolveExpectedDigest(archive);
+  if (!expected) {
+    onProgress({ percent: 45, stage: 'Verifying Integrity', detail: 'No published SHA256 digest for this archive' });
+  }
   const archivePath = path.join(destDir, archive.filename);
   const res = await fetch(archive.url, { signal: AbortSignal.timeout(600000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} downloading ${archive.url}`);
@@ -440,7 +483,6 @@ async function installBlender(options = {}) {
   fs.writeFileSync(archivePath, buffer);
 
   onProgress({ percent: 70, stage: 'Verifying Integrity', detail: 'Checking published SHA256 digest' });
-  const expected = (await fetchText(archive.sha256Url)).trim().split(/\s+/)[0].toLowerCase();
   const actual = require('crypto').createHash('sha256').update(buffer).digest('hex');
   if (expected && expected !== actual) {
     fs.rmSync(archivePath, { force: true });
@@ -450,8 +492,7 @@ async function installBlender(options = {}) {
   onProgress({ percent: 85, stage: 'Extracting Package', detail: `Extracting into ${getToolchainDir()}/blender` });
   const extractDir = path.join(getToolchainDir(), 'blender');
   fs.mkdirSync(extractDir, { recursive: true });
-  const flag = archive.ext === 'zip' ? '-xf' : (archive.ext === 'dmg' ? null : '-xJf');
-  if (!flag) throw new Error('macOS .dmg installs must be mounted manually or installed via brew');
+  const flag = archive.ext === 'zip' ? '-xf' : '-xJf';
   const tar = spawnSync('tar', [flag, archivePath, '-C', extractDir], { encoding: 'utf8', timeout: 600000 });
   if (tar.status !== 0) throw new Error(`Extraction failed: ${(tar.stderr || '').slice(0, 300)}`);
 
@@ -464,8 +505,18 @@ function installVersion(release) {
   return release ? release.version : null;
 }
 
+// Cache-only read for synchronous callers (doctor): never starts a network fetch,
+// so a slow PyPI cannot leave a floating promise whose rejection kills the process.
+function getCachedDccMcpVersion() {
+  const pinned = process.env.KONOHA_DCC_MCP_VERSION || getConfigValue('dcc_mcp_version');
+  if (pinned) return pinned;
+  if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
+  return null;
+}
+
 async function resolveLatestDccMcpVersion() {
-  if (process.env.KONOHA_DCC_MCP_VERSION) return process.env.KONOHA_DCC_MCP_VERSION;
+  const pinned = process.env.KONOHA_DCC_MCP_VERSION || getConfigValue('dcc_mcp_version');
+  if (pinned) return pinned;
   if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
   const data = JSON.parse(await fetchText(DCC_MCP_PYPI_URL));
   const version = data && data.info && data.info.version;
@@ -532,9 +583,34 @@ async function installDccMcpBlender(options = {}) {
 }
 
 async function installAllTools(options = {}) {
-  await installBlender(options);
-  await installDccMcpBlender(options);
-  return getToolchainStatus();
+  // A disabled host must never shell out, so it must never download either. Report
+  // the current toolchain instead of failing on an install it was told not to run.
+  if (blenderDisabled()) {
+    if (typeof options.onProgress === 'function') {
+      options.onProgress('Blender disabled on this host; skipping toolchain install.');
+    }
+    return getToolchainStatus();
+  }
+  // Components install independently, and some platforms cannot install one of them at
+  // all (macOS Blender is a .dmg). A single unsupported component must not abort the
+  // others nor surface as an exception — the caller gets the failure in `errors`.
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => null;
+  const errors = [];
+  const fail = (component, message) => {
+    errors.push({ component, error: message });
+    onProgress({ percent: 0, stage: 'Failed', detail: `${component}: ${message}` });
+  };
+  for (const [component, install] of [['blender', installBlender], ['dcc_mcp', installDccMcpBlender]]) {
+    try {
+      // The installers report a platform limitation by returning `success: false`,
+      // not by throwing, so a discarded result would report the whole install clean.
+      const res = await install(options);
+      if (res && res.success === false) fail(component, res.reason || res.error || 'install failed');
+    } catch (err) {
+      fail(component, (err && err.message) || String(err));
+    }
+  }
+  return { ...getToolchainStatus(), errors };
 }
 
 module.exports = {
@@ -552,6 +628,7 @@ module.exports = {
   probeManifoldWasm,
   resolveLatestBlenderRelease,
   resolveLatestDccMcpVersion,
+  getCachedDccMcpVersion,
   installBlender,
   installDccMcpBlender,
   installAllTools

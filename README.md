@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.20-blue.svg?logo=git&logoColor=white" alt="Release v2.2.20"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.21-blue.svg?logo=git&logoColor=white" alt="Release v2.2.21"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml/badge.svg" alt="Cross-platform CI"></a>
   <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?logo=npm&logoColor=white" alt="npm total downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
   <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
@@ -20,7 +21,7 @@
   <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7" alt="8 supported clients"></a>
   <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
   <br>
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.20%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.21%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram remote"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
@@ -83,7 +84,7 @@ node bin/cli.js init --client=all
 
 - **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
 - **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
-- **Platform:** Linux x64 verified. macOS and Windows (native and WSL) are supported targets but were not executed for 2.2.19/2.2.20; see [docs/SETUP-CLI.md](docs/SETUP-CLI.md).
+- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml); see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
 - **Search:** Semble via `uvx` for semantic code search; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
 
 The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
@@ -163,15 +164,46 @@ Gate 1 (`pending_plan_approval`): compact-and-approve, or reject/regenerate with
 
 Nine phases, two human gates, five quality gates. Every request enters through the Sannin router, fans out to specialist agents, and exits only through the gates. Full text flow with all 18 workflows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md).
 
+<img src="assets/konoha-orchestration-flow.webp" alt="Konoha orchestrator task artifact flow: user prompt into the LangGraph.js StateGraph orchestrator, six dispatch steps with Konoha and Semble lookups, the Akatsuki security gate, and the final response" width="100%">
+
 ```mermaid
+---
+title: Konoha Skill Retrieval via Konoha MCP and Semble MCP
+config:
+  theme: base
+  themeVariables:
+    fontFamily: 'Inter, system-ui, sans-serif'
+  flowchart:
+    wrappingWidth: 380
+---
+flowchart LR
+    Task["Task prompt"] --> Sannin["sannin router"]
+    Sannin --> KonohaMCP["Konoha MCP skill lookup"]
+    KonohaMCP --> GeninSkill["genin-skill baseline scan"]
+    Sannin --> SembleMCP["Semble MCP code search"]
+    KonohaMCP <--> SQLiteFTS5[("SQLite FTS5 skill index")]
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+```
+
+```mermaid
+---
+title: Konoha Delegation Handoff from Triage to Kage Review
+config:
+  theme: base
+  themeVariables:
+    fontFamily: 'Inter, system-ui, sans-serif'
+  flowchart:
+    wrappingWidth: 380
+---
 flowchart TB
-    UserPrompt["End User / Client Prompt"] --> Clients["8 Supported Coding Environments"]
-    Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js StateGraph Router)"]
-    Orchestrator --> Sannin["Sannin MCP Router<br/>(Prompt Triage and Delegation)"]
-    Sannin <--> SQLiteDB[("Unified SQLite DB<br/>(FTS5 Skill Retrieval)")]
-    Sannin --> NinjaTeam["9 Specialist Ninja Subagents<br/>sannin genin chunin jonin anbu<br/>tokubetsu-jonin kage akatsuki yamanaka"]
-    NinjaTeam --> QualityGate["Verification and Quality Enforcement<br/>DoR Gate - Slop Gate 100/100 - Socket Gate - Kage 98-pct Gate"]
-    QualityGate --> Delivery["Final Delivery and User Response"]
+    Prompt["User request"] --> Router["sannin triage"]
+    Router --> Activate["use_skills activation<br/>(Konoha MCP get_skill)"]
+    Activate --> Worker["Specialist subagent<br/>genin chunin jonin anbu<br/>tokubetsu-jonin akatsuki yamanaka"]
+    Router --> SembleMCP["Semble MCP code search"]
+    Worker --> Evidence["report_from_agent<br/>validation evidence"]
+    Evidence --> KageGate["kage review<br/>98-pct confidence gate"]
+    KageGate --> Delivery["Delivery"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
@@ -198,6 +230,7 @@ Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools a
 ### MCP tools: 48 canonical, 50 manifest entries
 
 `src/mcp_tool_manifest.json` lists 50 entries: 48 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
+The unified `konoha` server exposes 48 canonical tools over MCP; Semble adds `search`/`find_related` and aislop adds scan/fix hygiene.
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
@@ -235,7 +268,7 @@ Host clients select the underlying model; Konoha defines scope and role boundari
 
 ### Supported coding clients: 8 clients
 
-All rows verified on Linux x64 only for this release line; macOS/Windows were not executed for 2.2.19/2.2.20.
+Paths below were exercised on Linux x64. The same registration and MCP handshake suites run on `windows-latest` and `macos-latest` in CI, where `%APPDATA%` and `~/Library/Application Support` take the place of `~/.config`.
 
 | Client | MCP config path | Guardrail |
 |:---|:---|:---|
@@ -257,10 +290,11 @@ RTK rules deploy alongside (`~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`,
 Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <backup|rebuild-fts|prune>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|stop|restart|status|open>`, `konoha web` (port 1404).
 
 Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<agent>` wrappers; 27 legacy CLI aliases removed (canonical `konoha task|data|skill|agent|status` enforced); `konoha data prune` deletes immediately with no auto-backup. Full list in [CHANGELOG.md](CHANGELOG.md).
+`konoha embed` rebuilds vector embeddings (embed implies `--rebuild-embeddings`); `konoha reinstall` wipes and replaces configuration (reinstall implies `--force`).
 
 ### Bridge router and Web UI
 
-- Bridge router on port `19999`: one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
+- Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; Antigravity IDE syncs it into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
 - Web UI on port `1404` (`konoha web`, `konoha ui`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
 - Telegram: one-way completion notifications plus two-way remote prompting (`/run`, `/session`, `/status`, `/savings`, per-agent dispatch). Setup: [docs/TELEGRAM_INTEGRATION_GUIDE.md](docs/TELEGRAM_INTEGRATION_GUIDE.md).
 - SearXNG zero-API-key search for Chunin: [docs/SETUP-SEARXNG.md](docs/SETUP-SEARXNG.md).
@@ -280,8 +314,8 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 | [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
 | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
 | [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.20 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.20 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
+| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.21 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
+| [Security Architecture](docs/SECURITY.md) | v2.2.21 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
 | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
 | [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
 | [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |
@@ -291,7 +325,7 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change (`rtk node tests/run_all.js` for the full suite, `rtk aislop scan --changes` for the slop gate, `rtk node scripts/sync_canonical_api.js --check` for tool sync). Keep changes local — do not push, tag, or publish without explicit instruction.
+Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then the gate before you hand it over: `pnpm test:sandbox` runs install, lint, the full suite, and the fresh-install smoke inside `konoha-sandbox:local`, leaving your host `HOME` and `node_modules` alone (on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container` runs the same image through [Apple's `container`](https://github.com/apple/container) instead of Docker Desktop); `pnpm test` is the same runner without isolation; `pnpm ci:act` replays the CI workflow locally. Per-change checks are `rtk node tests/run_all.js` for the suite, `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
 
 ## Support
 

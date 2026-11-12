@@ -106,7 +106,10 @@ function scanForPattern(dir, pattern, allowlist = []) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
-    if (allowlist.some((al) => full.includes(al))) continue;
+    // Allowlist entries are forward-slash literals; win32 paths use backslashes,
+    // so compare a normalized form or no entry ever matches.
+    const normalized = full.split(path.sep).join('/');
+    if (allowlist.some((al) => normalized.includes(al))) continue;
     if (entry.isDirectory()) {
       scanForPattern(full, pattern, allowlist);
     } else if (entry.name.endsWith('.js') || entry.name.endsWith('.json')) {

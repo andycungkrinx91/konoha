@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.20  
+**Document Version:** 2.2.21  
 **Date:** 2026-11-04  
-**Status:** Canonical Reference (v2.2.20 Complete)  
+**Status:** Canonical Reference (v2.2.21 Complete)  
 
 ---
 
@@ -153,7 +153,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
   - CLI: `konoha task`, `konoha detect-ai <path-file-or-url>`, `konoha detect-docs <path-or-url>`.
-  - Web API: `/api/v1/sdlc`.
+  - Web API: `/api/v1/sdlc`, plus the HITL gate picker (`GET /api/v1/hitl/picker?task_dir=…&sig=…`, `POST /api/v1/hitl/verdict`), which renders each gate's options as a form, authenticates the link with a per-gate HMAC capability signature, and resumes through `sannin`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
@@ -369,7 +369,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.18** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.21** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.
@@ -400,19 +400,19 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Every fresh install and in-place upgrade works on Windows 10/11, Linux, and macOS, and every failure is reported instead of masked.
 * **Canonical Implementation:** `bin/commands/doctor_runtime.js` (`purgeInvalidRuntimeMirrors`), `bin/commands/upgrade.js` (`readInstalledVersion`, upgrade-pending marker), `bin/lib/runtime_install.js` (`resolveWebBuildSource`, `readBuildVersion`), `bin/lib/extension.js` (`installAgentBrowserDetailed`, `provisionAgentBrowser`), `bin/cli.js` (Node 24 guard, interrupted-upgrade warning, uninitialized-runtime message), `src/deploy_utils.js` (`mirrorReferenceEntrypoints`, `removeNestedSkillDir`), `src/file_tools_mcp.js` (`parseToolArguments`), `src/mcp/skills_common.js` (`validateSkillPath`, `resolveSkillPathWithinRoot`).
 * **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); the package declares no install-time lifecycle script, so installs perform no network access, no package installation, and no runtime setup (explicit `konoha init --yes`); `overrides.image-size >= 2.0.3` plus `bundleDependencies: ["pptxgenjs"]` ship the CVE-patched `image-size` subtree, and the tarball is produced with `pnpm pack`.
-* **Failure transparency:** an upgrade whose package install fails exits 1 before the post-upgrade lifecycle; version verification never substitutes the requested version for the installed one; a missing agent-browser reports `QA blocked:` in `init` and `{ error: 'qa_blocked' }` from `qa_codify`.
+* **Failure transparency:** an upgrade whose package install fails exits 1 before the post-upgrade lifecycle; version verification never substitutes the requested version for the installed one; a missing Playwright reports `{ error: 'qa_blocked' }` from `qa_codify`.
 * **Tests:** `tests/test_install_layout_integrity.js`, `tests/test_mcp_argument_parsing.js`, `tests/test_skill_uri_resolution.js`, `tests/test_pnpm_config_migration.js`, `tests/test_upgrade_failure_reporting.js`.
 
 | Platform | Verified | Evidence |
 |---|---|---|
-| Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. The targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner builds a fresh golden seed and runs 262 suites; it was not run to completion here — the targeted set is the evidence above. |
-| Windows 10/11 | **no — not run** | Requires a Windows runner. The `EBUSY` upgrade-marker path in particular is unexercised. |
-| macOS arm64 / x64 | **no — not run** | Requires macOS runners. Case-sensitivity behavior verified only on Linux. |
+| Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. The targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner has since completed end to end in the container sandbox (`pnpm test:sandbox`): 284 suites, 0 failed, on 2026-11-11. |
+| Windows 11 x64 | **yes** (2026-11-12) | `docker/windows-vm/` (dockur/QEMU guest, native NTFS checkout at `C:\konoha`) runs `scripts/windows-ci.ps1`, which mirrors the `windows-latest` job step for step: install, Playwright browsers, web build, ffmpeg `libwebp_anim` assert, lint, full suite, fresh-install smoke (`init --yes --no-project`, `migrate --skip-embeddings`, `version`). The `windows-latest` leg runs the same steps in `.github/workflows/cross-platform.yml`. The upgrade-pending marker is covered by `tests/test_upgrade_failure_reporting.js`, which runs on both; a real locked-file `EBUSY` was not reproduced. |
+| macOS arm64 | **partial** | The `macos-latest` leg runs the full job, and the defects it exposed were fixed at their causes (allowlist canonicalization under `/var` → `/private/var`, case-insensitive APFS, `.dmg`-only Blender → `manual-install-required`). No macOS host was available, so those fixes are backed by a symlinked-`HOME` proxy locally and confirmed only by a GitHub run; no green macOS run has been observed here. |
 
 `bin/cli.js#isUninitializedRuntimeError` is defence in depth: unit-tested against runtime-root, forward-slash, third-party and relative module errors, but no shipped command was observed to reach it — commands run against an empty `~/.konoha` already exit cleanly without leaking a stack. Keep the classifier; do not treat it as a user-visible guarantee.
 
 Do not mark a platform verified from static tests; update this table only after a real run on that OS.
 
-**Known unrelated failures (pre-existing, not introduced by 2.2.19 install work):** `tests/test_canonical_skills_and_embedded_refs.js` asserts 16 canonical skills while the working tree defines 17 (`src/canonical_skills.js` was already modified before this work), and `tests/test_fresh_install_cross_platform_sync.js` asserts `getMirrorRoots()` includes `.agents/skills` after clearing `HOME` — it fails on both an isolated and the real `HOME`, and `getMirrorRoots`/`canonical_skills` were not touched by this change. `tests/test_runtime_mirror_parity.js` compares the repo against the live `~/.konoha` mirror and fails while the mirror predates these edits; it passes (SKIP) under an isolated `HOME` and re-converges after `konoha doctor`/`init` re-syncs.
+**Formerly-listed failures, now closed:** an earlier revision of this page listed three suites as pre-existing failures. All three pass in the current tree — `tests/test_canonical_skills_and_embedded_refs.js` (asserts the 17 names in `src/canonical_skills.js`), `tests/test_fresh_install_cross_platform_sync.js` (resolves `.agents/skills` after `HOME` is cleared), and `tests/test_runtime_mirror_parity.js` (skips under an isolated `HOME` and re-converges after `konoha doctor`/`init`). The sandbox suite run records all three as PASS.
 
 ---

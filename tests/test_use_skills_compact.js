@@ -19,7 +19,9 @@ async function runTests() {
   assert.strictEqual(isDisciplineSkillName('antislop-human'), true);
   assert.strictEqual(isDisciplineSkillName('genin-skill'), false);
 
-  const workerAgents = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka'];
+  // i-have-adhd is wired to the six output-discipline agents only (sannin, kage,
+  // and yamanaka deliberately excluded); see tests/test_i_have_adhd_skill.js.
+  const workerAgents = ['genin', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki'];
   for (const agentName of workerAgents) {
     const def = getCanonicalAgent(agentName);
     assert.ok(def, `Missing canonical agent definition for ${agentName}`);

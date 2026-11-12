@@ -10,6 +10,7 @@ const os = require('os');
 const fs = require('fs');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const { getConfigValue } = require('./config_access');
 const { isRtkInstalled } = require('./platform_utils');
 
 // Known trusted SHA-256 hashes for upstream RTK installer script to guarantee supply-chain integrity
@@ -49,7 +50,7 @@ function refreshRtk(silent = true) {
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
-    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
+    const result = spawnSync(cargo, ['install', '--git', getConfigValue('rtk_install_url'), '--locked'], {
       encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
@@ -83,7 +84,7 @@ function _tryCargoInstallRtk(silent, cargo) {
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return false;
-    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
+    const result = spawnSync(cargo, ['install', '--git', getConfigValue('rtk_install_url'), '--locked'], {
       encoding: 'utf-8', timeout: 900000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     return result.status === 0;
@@ -120,7 +121,7 @@ function ensureRtkInstalled(silent = true) {
 
   if (process.platform !== 'win32') {
     const verifiedScript = _downloadAndVerifyInstallerScript(
-      'https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh',
+      getConfigValue('rtk_install_script_url'),
       silent
     );
     if (verifiedScript && _executeVerifiedInstallScript(verifiedScript, silent)) {

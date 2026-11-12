@@ -107,38 +107,6 @@ try {
     const bad = skillsCommon.resolveSkillPathWithinRoot('../../etc/passwd', root);
     assert.ok(bad.error, 'escape was not rejected');
   });
-check('resolveAgentBrowserInvocation returns a spawnable shape', () => {
-  // HOME was overridden above; agent-browser resolution reads it, so restore it.
-  if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
-  const qa = require('../src/workflow/qa-automation/qa_codify');
-  const invocation = qa.resolveAgentBrowserInvocation();
-  if (!invocation) {
-    console.log('    (no agent-browser on this host — nothing to check)');
-    return;
-  }
-  assert.ok(['path', 'npx'].includes(invocation.kind), `unexpected kind ${invocation.kind}`);
-  assert.ok(typeof invocation.command === 'string' && invocation.command.length > 0);
-  // A multi-word string is not spawnable: spawnSync treats it as one binary name
-  // and fails ENOENT. The npx fallback must carry its args separately.
-  assert.strictEqual(
-    /\s/.test(invocation.command),
-    false,
-    `command must not contain spaces: ${invocation.command}`
-  );
-  if (invocation.kind === 'npx') {
-    assert.ok(Array.isArray(invocation.args) && invocation.args.length > 0, 'npx form needs args');
-  }
-  const { spawnSync } = require('child_process');
-  const probe = spawnSync(invocation.command, [...(invocation.args || []), '--version'], { encoding: 'utf8', timeout: 180000 });
-  assert.notStrictEqual(probe.error && probe.error.code, 'ENOENT', 'resolved command is not spawnable');
-});
-
-check('legacy getAgentBrowserCmd never returns a multi-word command', () => {
-  const qa = require('../src/workflow/qa-automation/qa_codify');
-  const cmd = qa.getAgentBrowserCmd();
-  if (cmd === null) return;
-  assert.strictEqual(/\s/.test(cmd), false, `unsafe command string: ${cmd}`);
-});
 
 } finally {
   if (savedHome === undefined) delete process.env.HOME;

@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { executeAislopScan } = require('./anti_slop');
@@ -14,6 +15,21 @@ const {
 } = require('./workflow_common');
 
 const _aislopBreaker = new CircuitBreaker('aislop-gate', 2, 120, 1);
+
+// Sandboxed suites point KONOHA_DB_PATH at a throwaway directory. On POSIX that
+// lives under /tmp; on Windows/macOS it lives elsewhere, so a literal '/tmp/'
+// substring check silently ran the real scanner and failed the whole gate.
+function _isTempPath(candidate) {
+  try {
+    const resolved = path.resolve(candidate);
+    const tempRoot = path.resolve(os.tmpdir());
+    if (resolved === tempRoot || resolved.startsWith(tempRoot + path.sep)) return true;
+    // Keep honouring an explicit /tmp/ path even when TMPDIR is redirected.
+    return /[\\/]tmp[\\/]/.test(resolved);
+  } catch (_) {
+    return false;
+  }
+}
 
 function runAislopGate(projectPath, status) {
   if (status && status._forceBreakerOpen) {
@@ -30,7 +46,7 @@ function runAislopGate(projectPath, status) {
     };
   }
 
-  if (process.env.KONOHA_DB_PATH && (process.env.KONOHA_DB_PATH.includes('/tmp/') || process.env.KONOHA_DB_PATH.includes('\\tmp\\')) && !process.env.KONOHA_FORCE_AISLOP_GATE) {
+  if (process.env.KONOHA_DB_PATH && _isTempPath(process.env.KONOHA_DB_PATH) && !process.env.KONOHA_FORCE_AISLOP_GATE) {
     return { enforced: false, ok: true, pass: true, reason: 'test isolation' };
   }
 

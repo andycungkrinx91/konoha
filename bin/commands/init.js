@@ -19,7 +19,9 @@ const {
   SKILLS_DB_DIR,
   SERVER_PATH,
   INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
-  UI_PORT
+  UI_PORT,
+  BRIDGE_PORT,
+  GATEWAY_PORT
 } = require('../lib/paths');
 const { fileExists, ensureDir } = require('../../src/platform_utils');
 const {
@@ -48,9 +50,7 @@ const {
 const { purgePackageCaches } = require('../lib/runtime_mcp');
 const {
   installUv,
-  installAgentBrowserDetailed,
-  refreshSemblePackage,
-  PINNED_AB_PACKAGE
+  refreshSemblePackage
 } = require('../lib/extension');
 const { checkPortActive, ensureUiDaemonAutoStart, cmdUiRestart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
@@ -123,15 +123,6 @@ function checkNodeAndToolchains(options, args) {
     spinner1b.success('uv installed successfully.');
   }
 
-  const spinner1c = startSpinner('Checking agent-browser CLI...');
-  let ab = installAgentBrowserDetailed(true);
-  if (!ab.ok) ab = installAgentBrowserDetailed(false);
-  if (ab.ok) {
-    spinner1c.success(`agent-browser CLI ready (${ab.via}).`);
-  } else {
-    spinner1c.warn(`QA blocked: agent-browser unavailable (${ab.reason}). Install with: npm i -g ${PINNED_AB_PACKAGE}`);
-  }
-
   if (args.includes('--force')) {
     const sembleRefresh = refreshSemblePackage(true);
     if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
@@ -183,9 +174,9 @@ async function refreshExistingInstallation(flags, options) {
   installCliRuntime();
 
   try {
-    const bridge1313Active = await checkPortActive(1313);
-    const bridge19999Active = await checkPortActive(19999);
-    if (!bridge1313Active || !bridge19999Active) await cmdBridgeStart();
+    const bridgeActive = await checkPortActive(BRIDGE_PORT);
+    const gatewayActive = await checkPortActive(GATEWAY_PORT);
+    if (!bridgeActive || !gatewayActive) await cmdBridgeStart();
   } catch { /* intentional fallback */ }
 
   try {

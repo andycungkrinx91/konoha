@@ -51,7 +51,9 @@ function testMigrationCreatesRuntimeSchema() {
 function testAgentImportAndBulkImport() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-agent-import-test-'));
   try {
-    const env = { ...process.env, HOME: tmp };
+    // src/db_agents.js resolves its YAML paths via os.homedir(), which on win32
+    // reads USERPROFILE and ignores HOME; both must point at the sandbox.
+    const env = { ...process.env, HOME: tmp, USERPROFILE: tmp };
     const agentsDir = path.join(tmp, '.agents');
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.writeFileSync(

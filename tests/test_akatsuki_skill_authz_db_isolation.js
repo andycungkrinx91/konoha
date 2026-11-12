@@ -79,6 +79,16 @@ const toolDispatch = require('../src/mcp/tool_dispatch');
 const { buildSpawnDirective, buildParallelSpawnDirective } = require('../src/mcp/lazy_subagent');
 const { runRedTeamWorkflow } = require('../src/workflow/akatsuki/workflows');
 
+// Red-team workflows refuse to run without an installed container engine, and CI
+// runners have neither LXC nor Docker. The allowed path injects a mocked lab instead
+// of depending on the host. `running: false` keeps tool execution on the simulated path.
+const MOCK_LAB_OPTS = {
+  engine: 'docker',
+  runner: () => ({ status: 0, stdout: '/usr/bin/docker', stderr: '' }),
+  mockLabStatus: { exists: true, running: false, network_isolated: true, details: 'mocked lab' },
+  mockCleanupResult: { cleanup_confirmed: true, engine: 'docker', message: 'mocked cleanup' }
+};
+
 const ALL_AGENTS = ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'yamanaka'];
 const RED_SKILL = 'akatsuki-skill';
 
@@ -538,7 +548,7 @@ runTest('F42 an allowed red workflow audits the identity the gate resolved, not 
   try {
     const res = runRedTeamWorkflow(
       { task: 'authorized: true target: 127.0.0.1', authorized: true, target: '127.0.0.1' },
-      { agentName: 'akatsuki', redteam_enabled: true, platform: 'linux', labConn, skip_container_exec: true }
+      { agentName: 'akatsuki', redteam_enabled: true, platform: 'linux', labConn, skip_container_exec: true, ...MOCK_LAB_OPTS }
     );
     assert.strictEqual(res.status, 'completed');
     const row = labConn.prepare("SELECT agent_name, decision, surface FROM red_skill_audit WHERE decision = 'allowed' ORDER BY id DESC LIMIT 1").get();
@@ -586,7 +596,12 @@ runTest('G34 traversal out of the lab root is rejected', () => {
 
 runTest('G35 existing-file-only open refuses to create, including paths with ? and #', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-fileonly-'));
-  for (const name of ['plain.db', 'with space.db', 'with#hash.db', 'with?query.db']) {
+  // '?' is illegal in NTFS names and ':' would too, so the URI-special-character
+  // cases only apply where the filesystem accepts them.
+  const names = process.platform === 'win32'
+    ? ['plain.db', 'with space.db', 'with#hash.db', '[brackets].db']
+    : ['plain.db', 'with space.db', 'with#hash.db', 'with?query.db'];
+  for (const name of names) {
     const p = path.join(dir, name);
     assert.throws(() => dbModule.openRawConnection(p, { fileMustExist: true }), name);
     assert.strictEqual(fs.existsSync(p), false, `${name} must not be created`);

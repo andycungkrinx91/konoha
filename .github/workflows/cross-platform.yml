@@ -1,0 +1,240 @@
+name: Cross-Platform
+
+# Runs the repo checks on all three supported OSes for every push to master and
+# every pull request. The publish and release-assets workflows stay tag-only on
+# ubuntu-latest; this workflow owns push/PR verification and never publishes.
+#
+# Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
+# macos < 20 min, windows < 40 min. The suite is the only term large enough to
+# matter, so it is split across shards on separate runners — one runner cannot
+# be made fast enough by tuning. Shard counts are set from the measured suite
+# work per platform; see the Duration budget table for the arithmetic.
+#
+# The test step has no `continue-on-error`: a failing suite turns the workflow
+# red. Sharding cannot hide a failure, because each shard must run a non-empty
+# subset (tests/run_all.js exits 2 on an empty one) and the shards partition the
+# discovered suite list exactly once.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-platform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lint and the fresh-install smoke test are per-OS, not per-shard: repeating
+  # them in every shard would multiply the cost without shortening the run.
+  # They need no seed, no Playwright browsers and no web build, so this job is
+  # short and does not compete with the shards for the seed cache.
+  checks:
+    name: ${{ matrix.os }} checks
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Setup mirrors .github/workflows/publish.yml except pnpm/action-setup is
+      # v6.1.1 here (verified tag) for non-interactive pnpm 12 handling.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # Fresh-install smoke test, invoking the CLI entry point directly
+      # (bin: konoha -> bin/cli.js) so no global install or PATH resolution is
+      # involved on any OS. --no-project mirrors the release review's verified
+      # fresh-install command and keeps init from dirtying the checkout.
+      # `migrate --skip-embeddings` keeps this gate about the CLI, not about
+      # Hugging Face uptime: embedding coverage is asserted by the suite, while
+      # an unbounded model download here would make a network hiccup look like a
+      # broken cross-platform install.
+      # `konoha doctor` is deliberately not in this smoke test: it runs its full
+      # self-test whenever repairs occur, which duplicates the suite.
+      - name: Fresh-install smoke test
+        timeout-minutes: 30
+        env:
+          HOME: ${{ runner.temp }}/konoha-smoke-home
+          USERPROFILE: ${{ runner.temp }}/konoha-smoke-home
+        run: |
+          node bin/cli.js init --yes --no-project
+          node bin/cli.js migrate --skip-embeddings
+          node bin/cli.js version
+
+  test:
+    name: ${{ matrix.os }} shard ${{ matrix.shard }}/8
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      # One shard failing must not cancel the others — the per-shard signal is
+      # what says which suite broke.
+      fail-fast: false
+      # Eight shards on every OS. One job over the whole discovered list measured
+      # 1720 s, far outside the 600 s Linux budget. The gate tree's 281 measured
+      # durations sum to 6245 s, and round-robin assignment of them predicted a
+      # worst shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured
+      # 175 s. Uniform rather than per-OS because the macOS and Windows
+      # multipliers are unmeasured, and Windows is the platform this work exists
+      # for — sizing it down on a number nobody has taken would be guesswork.
+      # Fewer shards would only save runner minutes, which is not the constraint.
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
+      # tests/test_manifest_invariants.js:72 requires apps/web/build/index.js.
+      # Built before the seed on purpose: `konoha init` builds the UI on demand
+      # when no build of the current version exists, and resolveWebBuildSource()
+      # prefers apps/web/build when there is one. Without this step first the seed
+      # build runs a second full SvelteKit build instead of copying this one.
+      - name: Build web
+        run: pnpm --filter konoha-web build
+
+      # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
+      # is copied from. It is content-addressed by the same tree hash the
+      # harness validates (tests/run_all.js sourceFingerprint over src, bin and
+      # scripts), so a hit is provably the seed this commit needs and a miss
+      # rebuilds it. Building it costs ~4 minutes on every OS and used to land
+      # inside whichever suite started first, blocking all workers.
+      - name: Restore golden seed
+        id: seed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+
+      - name: Build golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        env:
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
+        run: node tests/run_all.js --seed-only
+
+      # Saved explicitly rather than through the action's post-step: the post
+      # step skips on a red job, and a suite failure would otherwise re-pay the
+      # seed build on every subsequent run. continue-on-error because the key is
+      # content-addressed: several shards can miss together and build the same
+      # seed, and the losers' saves are refused as already-present. That is a
+      # cache optimisation failing, not a check failing.
+      - name: Save golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+
+      # Bare runners have no browser cache. The harness forwards
+      # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js), defaulting to
+      # ~/.cache/ms-playwright — so install to the shared runner.temp path
+      # and export the same path for the test step. The cache keeps the
+      # ~120 MB chromium download off every run; the install step still runs
+      # because Linux also needs the apt-side system libraries.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browsers (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright browsers (Windows/macOS)
+        if: matrix.os != 'ubuntu-latest'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        run: pnpm exec playwright install chromium
+
+      # tests/test_document_animation_webp.js asserts the animated WebP export,
+      # which needs an ffmpeg build with the `libwebp_anim` encoder. The macOS
+      # image ships no ffmpeg at all and the Windows image's build may lack the
+      # encoder; the module falls back to a static PNG without it, so provision
+      # one explicitly and keep the runner's ffmpeg when it already qualifies.
+      - name: Ensure ffmpeg with libwebp (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+      # homebrew-core `ffmpeg` is built without --enable-libwebp, so installing
+      # it yields a binary with no `libwebp_anim` encoder. `ffmpeg-full` is the
+      # variant that enables libwebp, and it is keg_only (:versioned_formula), so
+      # its bin dir has to be appended to PATH explicitly.
+      - name: Ensure ffmpeg with libwebp (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
+            exit 0
+          fi
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
+
+      - name: Ensure ffmpeg with libwebp (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $hasEncoder = $false
+          try { $hasEncoder = ((ffmpeg -hide_banner -encoders 2>$null) -match 'libwebp_anim').Count -gt 0 } catch { $hasEncoder = $false }
+          if (-not $hasEncoder) { choco install ffmpeg -y --no-progress }
+
+      - name: Verify ffmpeg webp encoder
+        run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"
+
+      # Full suite via tests/run_all.js, split into the shard this job owns.
+      # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
+      # concurrency 4, with a sequential pool for suites that must run alone).
+      # KONOHA_TEST_SHARD is I/N; the harness refuses an empty shard rather than
+      # reporting it green.
+      # No continue-on-error: a failing suite must turn the workflow red.
+      - name: Test (shard)
+        env:
+          KONOHA_TEST_PARALLEL: '1'
+          KONOHA_TEST_SHARD: ${{ matrix.shard }}/8
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        timeout-minutes: 90
+        run: pnpm test

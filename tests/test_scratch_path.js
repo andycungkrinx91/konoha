@@ -30,7 +30,8 @@ async function run() {
     console.log('✓ Default task dir lives outside workspace passed');
 
     // Default task dir lives under konoha tmp
-    const expectedRoot = path.join(os.homedir(), '.konoha', 'tmp');
+    const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
+    const expectedRoot = path.join(HOME, '.konoha', 'tmp');
     assert.ok(
       td1.startsWith(expectedRoot) || td1.startsWith(path.join(os.tmpdir(), 'konoha-')) || td1.startsWith('/tmp/konoha-'),
       `task_dir ${td1} should be under ~/.konoha/tmp or tmp fallback`

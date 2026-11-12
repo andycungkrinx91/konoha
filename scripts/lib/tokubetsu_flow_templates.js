@@ -8,9 +8,9 @@ const { roundCorners } = require('./flow_path_geometry');
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.20';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.21';
   } catch (_) {
-    return '2.2.20';
+    return '2.2.21';
   }
 })();
 
@@ -447,10 +447,10 @@ function generateQaHtml() {
 
   const header = renderHeader(W, 'TOKEN-PRESERVING QA AUTOMATION WORKFLOW', `LangGraph execute_node · Deterministic Codification, E2E & DB Recovery Verification · v${PKG_VERSION}`, { text: 'TOKEN PRESERVATION', col: C.azure });
   const roster = stdRoster('anbu', C.amber);
-  const footer = renderFooter(W, H, 'LangGraph execute_node · agent-browser + Playwright E2E · 3D viewport & GLB/PNG checks · konoha db check/restore · npx aislop 100/100 · ≤20 runs');
+  const footer = renderFooter(W, H, 'LangGraph execute_node · Playwright E2E · 3D viewport & GLB/PNG checks · konoha db check/restore · npx aislop 100/100 · ≤20 runs');
 
   const cards = [
-    renderCard([50, 125, 190, 68], C.azure, '1. EXPLORE', 'agent-browser · Genin recon', 'genin'),
+    renderCard([50, 125, 190, 68], C.azure, '1. EXPLORE', 'Playwright · Genin recon', 'genin'),
     renderCard([280, 125, 190, 68], C.teal, '2. FLOW FILE', 'declarative command JSON', 'anbu'),
     renderCard([510, 125, 190, 68], C.violet, '3. CODIFY', 'qa_codify (0 LLM tokens)', 'anbu'),
     renderCard([740, 125, 200, 68], C.amber, '4. HEADLESS EXEC', 'qa_e2e_run · 3D & DB check', 'anbu'),

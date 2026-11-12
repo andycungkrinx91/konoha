@@ -10,8 +10,10 @@
  * guard (src/mcp_orphan_guard.js) adds two more exits, proven here:
  * - T1 (behavioral): a stdio server whose stdin never closes exits on the
  *   idle timeout.
- * - T2 (behavioral): a stdio server whose parent dies (reparented to init,
- *   PPID 1) exits on the parent-death poll — even though stdin never closes.
+ * - T2 (behavioral, POSIX only): a stdio server whose parent dies
+ *   (reparented to init, PPID 1) exits on the parent-death poll — even though
+ *   stdin never closes. Skipped on Windows, which does not reparent, so the
+ *   documented Windows exit there is the idle budget (T1/T5).
  * - T3 (unit): a daemon whose bridge.pid is taken over by a newer live
  *   daemon exits as superseded.
  * - T4 (unit): a daemon that starts while a different live daemon already
@@ -26,6 +28,7 @@
 const assert = require('assert');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 
@@ -90,12 +93,18 @@ async function main() {
   }
 
   // T2: stdio server orphaned by a dying parent (PPID 1) exits on the
-  // parent-death poll, even though stdin never closes.
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-orphan-'));
-  try {
-    const helperPath = path.join(tmp, 'spawn_and_exit.js');
-    const pidFile = path.join(tmp, 'server.pid');
-    fs.writeFileSync(helperPath, `'use strict';
+  // parent-death poll, even though stdin never closes. POSIX only: Windows
+  // does not reparent children, so `process.ppid === 1` never becomes true
+  // there and the guard's documented Windows exit is the idle budget, which
+  // T1 and T5 already cover.
+  if (process.platform === 'win32') {
+    console.log('  - T2 skipped: Windows does not reparent, so no parent-death path exists there (T1/T5 cover the idle budget)');
+  } else {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-orphan-'));
+    try {
+      const helperPath = path.join(tmp, 'spawn_and_exit.js');
+      const pidFile = path.join(tmp, 'server.pid');
+      fs.writeFileSync(helperPath, `'use strict';
 const { spawn } = require('child_process');
 const fs = require('fs');
 const child = spawn(process.execPath, [process.argv[2]], {
@@ -106,33 +115,45 @@ fs.writeFileSync(process.argv[3], String(child.pid));
 child.unref();
 process.exit(0);
 `);
-    // The test holds the write end of this pipe, so the server's inherited
-    // stdin never reaches EOF — the readline "close" exit cannot fire.
-    const parent = spawn(process.execPath, [helperPath, SERVER_PATH, pidFile], {
-      stdio: ['pipe', 'ignore', 'ignore'],
-      env: Object.assign({}, process.env, {
-        KONOHA_DAEMON: 'false',
-        KONOHA_MCP_ORPHAN_POLL_MS: '200',
-        KONOHA_MCP_STDIO_IDLE_MS: '600000'
-      })
-    });
-    try {
-      const gotPid = await waitFor(() => fs.existsSync(pidFile), 15000);
-      assert.ok(gotPid, 'T2 helper recorded the server pid');
-      const serverPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-      assert.ok(pidAlive(serverPid), 'T2 orphaned server is running');
-      const exited = await waitFor(() => !pidAlive(serverPid), 20000);
-      ok('T2: orphaned stdio server (parent dead, PPID 1) exits', exited);
-    } finally {
-      try { parent.kill('SIGKILL'); } catch (_) { /* already gone */ }
-      try { parent.stdin.destroy(); } catch (_) { /* ignore */ }
-      if (fs.existsSync(pidFile)) {
-        const p = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-        if (pidAlive(p)) { try { process.kill(p, 'SIGKILL'); } catch (_) { /* ignore */ } }
+      // The helper exits right after spawning the server, and an exiting process
+      // closes every pipe write end it owns — a `pipe` stdin would therefore hit
+      // EOF in milliseconds and the readline "close" exit would end the server
+      // before the parent-death poll is ever credited. Hand the server a socket
+      // this test process keeps open instead: stdin never reaches EOF, so the
+      // only remaining exit path is the orphan guard.
+      const holder = net.createServer();
+      await new Promise((resolve) => holder.listen(0, '127.0.0.1', resolve));
+      const serverEnd = new Promise((resolve) => holder.once('connection', resolve));
+      const peer = net.connect(holder.address().port, '127.0.0.1');
+      const stdinSocket = await serverEnd;
+      const parent = spawn(process.execPath, [helperPath, SERVER_PATH, pidFile], {
+        stdio: [stdinSocket, 'ignore', 'ignore'],
+        env: Object.assign({}, process.env, {
+          KONOHA_DAEMON: 'false',
+          KONOHA_MCP_ORPHAN_POLL_MS: '200',
+          KONOHA_MCP_STDIO_IDLE_MS: '600000'
+        })
+      });
+      try {
+        const gotPid = await waitFor(() => fs.existsSync(pidFile), 15000);
+        assert.ok(gotPid, 'T2 helper recorded the server pid');
+        const serverPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+        assert.ok(pidAlive(serverPid), 'T2 orphaned server is running');
+        const exited = await waitFor(() => !pidAlive(serverPid), 20000);
+        ok('T2: orphaned stdio server (parent dead, PPID 1) exits', exited);
+      } finally {
+        try { parent.kill('SIGKILL'); } catch (_) { /* already gone */ }
+        try { peer.destroy(); } catch (_) { /* ignore */ }
+        try { stdinSocket.destroy(); } catch (_) { /* ignore */ }
+        try { holder.close(); } catch (_) { /* ignore */ }
+        if (fs.existsSync(pidFile)) {
+          const p = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+          if (pidAlive(p)) { try { process.kill(p, 'SIGKILL'); } catch (_) { /* ignore */ } }
+        }
       }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
   }
 
   // T3/T4/T5: unit-level guard checks (no server spawn, temp pid file).

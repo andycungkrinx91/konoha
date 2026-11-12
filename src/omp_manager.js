@@ -25,8 +25,7 @@ const {
   fileExists,
   ensureDir,
   isCommandAvailable,
-  fileExistsCached,
-  isRtkInstalled
+  fileExistsCached
 } = require('./platform_utils');
 
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
@@ -263,10 +262,6 @@ function deployOmpRtkRule(options = {}) {
   const silent = options.silent !== false;
   const targetDir = options.targetDir || (options.home ? path.join(options.home, '.omp', 'rules') : path.join(OMP_DIR, 'rules'));
   const targetFile = path.join(targetDir, 'rtk.md');
-
-  if (!isRtkInstalled()) {
-    return { ok: false, reason: 'rtk-not-installed' };
-  }
 
   try {
     ensureDir(targetDir);

@@ -1,6 +1,5 @@
 'use strict';
 
-const { spawnSync } = require('child_process');
 const cursorManager = require('../../src/cursor_manager');
 const mcpClientsManager = require('../../src/mcp_clients_manager');
 const opencodeManager = require('../../src/opencode_manager');
@@ -10,7 +9,7 @@ const ompManager = require('../../src/omp_manager');
 const antigravityManager = require('../../src/antigravity_manager');
 const agentManager = require('../../src/agent_manager');
 const deployUtils = require('../../src/deploy_utils');
-const { installAgentBrowser, getAgentBrowserCommand, getUvxCommand } = require('../lib/extension');
+const { getUvxCommand } = require('../lib/extension');
 const { checkPython } = require('../lib/runtime_lifecycle');
 const { SERVER_PATH } = require('../lib/paths');
 
@@ -232,52 +231,6 @@ function check3DReadiness(context) {
   }
 }
 
-function inspectBrowserDoctor(agentBrowserCmd) {
-  try {
-    const isWin = process.platform === 'win32';
-    const docRes = isWin
-      ? spawnSync(`"${agentBrowserCmd}" doctor --offline --quick`, { encoding: 'utf-8', shell: true, windowsHide: true })
-      : spawnSync(agentBrowserCmd, ['doctor', '--offline', '--quick'], { encoding: 'utf-8' });
-    if (docRes.status === 0 && (docRes.stdout.includes('Google Chrome') || docRes.stdout.includes('Chromium'))) {
-      return ' (Chrome ready)';
-    }
-  } catch { /* intentional fallback */ }
-  return '';
-}
-
-function tryInstallAgentBrowserCli(context) {
-  try {
-    const repaired = installAgentBrowser(true);
-    const agentBrowserCmd = getAgentBrowserCommand();
-    if (repaired && agentBrowserCmd) {
-      context.record('agent-browser CLI', 'REPAIRED', 'Auto-installed agent-browser CLI');
-      context.incrementRepairs();
-      return;
-    }
-  } catch { /* intentional fallback */ }
-  context.record('agent-browser CLI', 'WARNING', 'Missing agent-browser (run: pnpm add -g agent-browser && agent-browser install)');
-}
-
-function checkAgentBrowserClient(context) {
-  const agentBrowserCmd = getAgentBrowserCommand();
-  if (!agentBrowserCmd) {
-    tryInstallAgentBrowserCli(context);
-    return;
-  }
-
-  let agentBrowserVersion = '';
-  try {
-    const isWin = process.platform === 'win32';
-    const abVerRes = isWin
-      ? spawnSync(`"${agentBrowserCmd}" --version`, { encoding: 'utf-8', shell: true, windowsHide: true })
-      : spawnSync(agentBrowserCmd, ['--version'], { encoding: 'utf-8' });
-    if (abVerRes.status === 0) agentBrowserVersion = abVerRes.stdout.trim();
-  } catch { /* intentional fallback */ }
-
-  const chromeDetail = inspectBrowserDoctor(agentBrowserCmd);
-  context.record('agent-browser CLI', 'ACTIVE', `${agentBrowserVersion || 'Installed'}${chromeDetail}`);
-}
-
 function checkAndRepairClientConfigs(clientOptions, context) {
   try {
     deployUtils.ensureGlobalGitExcludes();
@@ -290,7 +243,6 @@ function checkAndRepairClientConfigs(clientOptions, context) {
   checkPiClient(context);
   checkOmpClient(context);
   checkAntigravityClient(context);
-  checkAgentBrowserClient(context);
   check3DReadiness(context);
 }
 

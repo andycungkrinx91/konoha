@@ -115,7 +115,9 @@ async function run() {
     console.log('✓ PATCH /api/v1/sdlc/config CSRF gate passed');
 
     // PATCH /api/v1/sdlc/config — persist and read back (unique temp project path to avoid touching real config)
-    const testProject = `/tmp/konoha-sdlc-test-${Date.now()}`;
+    // os.tmpdir() rather than a /tmp literal: on win32 '/tmp' resolves to C:\tmp
+    // and the stored project_path no longer matches the queried string.
+    const testProject = path.join(os.tmpdir(), `konoha-sdlc-test-${Date.now()}`);
     const patchRes = await request(
       { ...base, path: '/api/v1/sdlc/config', method: 'PATCH', headers: authHeaders },
       { project_path: testProject, dor_mode: 'enforced', review_mode: 'cross-provider' }

@@ -1,4 +1,5 @@
 'use strict';
+const { getConfigValue } = require('../../config_access');
 
 /**
  * Shared Chromium Launcher & Interception Utilities
@@ -41,7 +42,7 @@ async function launchChromium(options = {}) {
   _ensurePlaywrightBrowsersPath();
 
   const playwright = getPlaywright();
-  const chromePath = process.env.KONOHA_CHROME_PATH || null;
+  const chromePath = process.env.KONOHA_CHROME_PATH || getConfigValue('chrome_path') || null;
   const extraArgs = Array.isArray(options.extraArgs) ? options.extraArgs : [];
 
   const baseArgs = [

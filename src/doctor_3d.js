@@ -160,9 +160,9 @@ function check3DToolchain(record, autoRepair = false) {
     let latestPyPi = null;
     try {
       const installer = require('./mcp/three_asset/blender_installer');
-      latestPyPi = installer.resolveLatestDccMcpVersion ? installer.resolveLatestDccMcpVersion() : null;
+      latestPyPi = installer.getCachedDccMcpVersion ? installer.getCachedDccMcpVersion() : null;
     } catch (_) {
-      // resolveLatestDccMcpVersion unavailable
+      // getCachedDccMcpVersion unavailable
     }
     record('3D DCC-MCP Bridge', 'WARNING', `dcc-mcp-blender not installed${latestPyPi ? ` (latest PyPI: ${latestPyPi})` : ''}`);
   }

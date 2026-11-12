@@ -236,8 +236,20 @@ function sweepRepoWide() {
 
 console.log('Canonical constants');
 
-expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS (config-derived)');
-expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms', \d+\)/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS (config-derived)');
+expectTimeout('paths', /const MIGRATION_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms'\)/, SLOW_NETWORK_MS, 'MIGRATION_TIMEOUT_MS (config-derived)', { allowConstant: true });
+expectTimeout('paths', /const INSTALL_BUILD_MIGRATE_TIMEOUT_MS = getConfigValue\('install_build_migrate_timeout_ms'\)/, SLOW_NETWORK_MS, 'INSTALL_BUILD_MIGRATE_TIMEOUT_MS (config-derived)', { allowConstant: true });
+
+checks += 1;
+{
+  const defaults = require(path.join(ROOT, 'bin', 'lib', 'config_defaults'));
+  const declared = defaults.CONFIG_DEFAULTS.install_build_migrate_timeout_ms;
+  if (declared !== SLOW_NETWORK_MS) {
+    failures += 1;
+    console.error(`  FAIL CONFIG_DEFAULTS.install_build_migrate_timeout_ms = ${declared}, expected ${SLOW_NETWORK_MS}`);
+  } else {
+    console.log(`  ok   CONFIG_DEFAULTS.install_build_migrate_timeout_ms = ${SLOW_NETWORK_MS}`);
+  }
+}
 
 console.log('Upgrade timeout budgets');
 
@@ -274,7 +286,6 @@ expectTimeout('extension', /ExecutionPolicy Bypass -File.*timeout:/, SLOW_NETWOR
 expectTimeout('extension', /winget install.*timeout:/, SLOW_NETWORK_MS, 'uv install (winget fallback)', { allowConstant: true });
 expectTimeout('extension', /install\.sh.*timeout:/, SLOW_NETWORK_MS, 'uv install (posix download)', { allowConstant: true });
 expectTimeout('extension', /execSync\(`sh "\$\{scriptPath\}"`.*timeout:/, SLOW_NETWORK_MS, 'uv install (posix script)', { allowConstant: true });
-expectTimeoutWindow('extension', /const installRes = isWin/, SLOW_NETWORK_MS, 'agent-browser install');
 expectTimeoutWindow('rtkInstaller', /spawnSync\(cargo, \['install'/, SLOW_NETWORK_MS, 'rtk cargo install');
 expectTimeoutWindow('rtkInstaller', /spawnSync\(cargo, \['install'/, SLOW_NETWORK_MS, 'rtk cargo install (fallback)');
 expectTimeoutWindow('rtkInstaller', /spawnSync\('brew', \['install'/, SLOW_NETWORK_MS, 'rtk brew install');

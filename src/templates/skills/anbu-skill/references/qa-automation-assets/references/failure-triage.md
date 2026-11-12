@@ -17,12 +17,17 @@ Re-run only the failing test with narrow filtering:
 ## Level 3: Targeted Browser Reproduction (Scoped Tokens)
 
 If the failure cannot be explained by code and error snippets:
-- Reproduce the failing step using `agent-browser`:
-  ```bash
-  agent-browser open "<url>"
-  agent-browser snapshot -i -c -s "#failing-component"
-  agent-browser errors
-  agent-browser console
+- Reproduce the failing step with a throwaway Playwright script under `~/.konoha/tmp/qa/`:
+  ```js
+  const { chromium } = require('playwright');
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+  page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text()); });
+  page.on('requestfailed', (r) => console.log('REQFAIL', r.url(), r.failure()?.errorText));
+  await page.goto(url);
+  console.log(await page.locator('#failing-component').ariaSnapshot());
+  await browser.close();
   ```
 - Check for uncaught runtime exceptions or network API failures.
 

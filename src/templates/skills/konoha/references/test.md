@@ -1,14 +1,42 @@
-# 🍃 Konoha QA Testing & Verification SOPs (v2.2.18)
+# 🍃 Konoha QA Testing & Verification SOPs (v2.2.21)
 
-Operational runbook and testing matrix for verifying Konoha `v2.2.18` core engines, compact `use_skills`, parallel subagent spawning, Real-Time Idle `@advisor`, HITL post-approval compaction, Jonin dynamic frontend builder, Draw.io diagrams, and animated WebP assets.
+Operational runbook and testing matrix for verifying Konoha `v2.2.21` core engines, compact `use_skills`, parallel subagent spawning, Real-Time Idle `@advisor`, HITL post-approval compaction, Jonin dynamic frontend builder, Draw.io diagrams, and animated WebP assets.
 
 ---
 
-## 🧪 Comprehensive QA Verification Matrix (`v2.2.18`)
+## ▶️ How to Run
+
+| Gate | Command | Scope |
+|---|---|---|
+| **Container sandbox (mandatory on Linux)** | `pnpm test:sandbox` | Builds `konoha-sandbox:local` and runs install, lint, the full suite, and the fresh-install smoke inside it. The host `HOME`, `/tmp`, `node_modules`, and working tree are untouched. `--lint` is the fast path, `--no-build` reuses the last image. |
+| **Container sandbox on macOS** | `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` | Same image and mounts through [apple/container](https://github.com/apple/container), no Docker Desktop needed (Apple silicon, macOS 26, `container system start`). Each instance is a 1 GiB VM, so the run passes `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides). Still a Linux guest: `/var` → `/private/var`, case-insensitive APFS, and the `.dmg` branch do not surface here, and there is no host fallback — macOS-native behaviour is covered by the `macos-latest` CI leg. |
+| **Full suite on the host** | refused | `tests/run_all.js` exits 1 before discovery unless `KONOHA_SANDBOX_CONTAINER=1` or `CI=true` is set. `rtk node tests/run_all.js` refuses identically — the guard reads the process environment, and RTK only rewrites argv. A single file by path still runs and is still not evidence. |
+| **Workflow locally** | `pnpm ci:act` / `pnpm ci:act:shard` | `act` against `.github/workflows/cross-platform.yml`, image pinned in `.actrc`. `ci:act` runs the `checks` job (lint + smoke); `ci:act:shard` runs one suite shard, the slow half. |
+
+`tests/run_all.js` auto-discovers every `tests/test_*.js`, builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at that copy, so a suite never reads the developer's real config. A suite that needs the developer's environment is a defect in the suite, not a reason to relax it.
+
+### The guard is enforced in-process, not by convention
+
+`tests/run_all.js` calls `assertMaintenanceSandbox()` before it discovers a single suite. It refuses
+unless the process carries `KONOHA_SANDBOX_CONTAINER=1` (set by `scripts/sandbox.js` on the container
+argv) or runs on an ephemeral CI runner (`CI=true`). A host invocation exits 1 with the accepted
+command named, so a maintenance run cannot half-execute against the developer's `~/.konoha`.
+
+`rtk` does not lift the guard: it rewrites argv, and the check reads this process's environment. `rtk
+node tests/run_all.js` refuses exactly like `node tests/run_all.js`. Pointing `HOME` at a temp directory
+does not lift it either — an isolated `HOME` is what the runner already gives each suite, not evidence
+that the run is sandboxed. `tests/test_sandbox_guard.js` and `tests/test_runner_isolation.js` pin all
+three properties.
+
+Linux, macOS, and Windows all go through the container. A host has a real `konoha` installed globally, a populated `~/.konoha`, and a client config; the sandbox mount is read-only, `HOME` is container-local, and `KONOHA_TEST_SANDBOX=1` stops `reconcileGlobalCommand()` from writing a shim, so a maintenance run cannot modify the install a developer actually uses. macOS keeps a second native pass because the container is a Linux guest and cannot reproduce APFS or `/var` canonicalization.
+
+---
+
+## 🧪 Comprehensive QA Verification Matrix (`v2.2.21`)
 
 | Verification Target | Command | Expected Pass Criteria |
 |---|---|---|
-| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 19/19 managed repository targets strictly verified at `v2.2.18`. |
+| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 18/18 managed repository targets strictly verified at `v2.2.21`. |
 | **Compact `use_skills` & Discipline Skills** | `rtk node tests/test_use_skills_compact.js` | 5-skill bundle `<= 6,400 bytes` (`genin=5093B`, `dedup=2818B`, `anbu=5239B`), all 8 specialists retain `i-have-adhd` & `antislop`. |
 | **8 Subagents Spawn, Parallel & `/konoha`** | `rtk node tests/test_langgraph_parallel_and_konoha.js` | All 8 specialists spawn across all 8 clients, `@sannin` router-only, parallel workstreams & `/konoha` LangGraph routing verified. |
 | **Real-Time Idle `@advisor` (`<= 1k` tok)** | `rtk node tests/test_advisor_realtime_monitor.js` | `0 tokens` when idle (`IDLE_OK`), `<= 1,000 tokens` cap, `evict_stale_results: true`, `INTERRUPT_CORRECTION` on drift/breach. |
@@ -18,9 +46,11 @@ Operational runbook and testing matrix for verifying Konoha `v2.2.18` core engin
 | **E2E Install, Upgrade & Token Bounds** | `rtk node tests/test_e2e_install_upgrade_reinstall.js` | Fresh install, upgrade, reinstall, and bounded payloads (`runSannin < 3KB`, `build_from_text < 25KB`) pass with 100% parity. |
 | **Documentation Currency** | `rtk node tests/test_docs_currency.js` | Zero drift between exported code symbols and markdown documents. |
 | **Draw.io Diagram Collisions** | `rtk node tests/test_diagram_sync.js` | All 18 drawio pages verified with strictly **0 geometric collisions** (0 penetrations, 0 crossings, 0 overlaps). |
-| **Animated WebP Assets** | `rtk node tests/test_all_assets_webp.js` | All 33 WebPs valid, 0 legacy `.gif` files, 27 markdown files with 0 broken embeds. |
+| **Animated WebP Assets** | `rtk node tests/test_all_assets_webp.js` | All 33 WebPs valid, 0 legacy `.gif` files, 107 active markdown files with 0 broken embeds. |
 | **Backend Static Linter** | `rtk node scripts/lint.js` | All JavaScript/Svelte files verified under 700 lines with **0 errors and 0 warnings**. |
 | **Zero-AI-Slop Code Hygiene** | `rtk npx aislop scan --changes` | Score **100 / 100 Healthy**, 0 errors, 0 warnings, 0 fixable. |
+| **MCP Orphan Guard** | `rtk node tests/test_mcp_orphan_guard.js` | 5/5 on POSIX: a reparented stdio server exits on the `ppid === 1` poll (T2), a superseded daemon exits on `bridge.pid` takeover (T3), a daemon starting behind a live owner exits (T4), and the idle budget exits a silent server (T1, T5). Windows never reparents, so T2 prints a skip there and the idle budget is the Windows exit (T1/T5 still run). |
+| **UI Daemon Re-Init Refresh** | `rtk node tests/test_ui_autostart.js` | 37/37 with an initialized `HOME`: opt-out honoured, port-scoped stop, graceful release, and a real restart serving only assets present in the installed build. Needs `~/.konoha/server.js` + `konoha.db`; `tests/run_all.js` supplies them via its golden seed. |
 
 ---
 

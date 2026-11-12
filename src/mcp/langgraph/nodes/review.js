@@ -206,6 +206,8 @@ async function reviewNode(state) {
       confidence,
       akatsukiPassed,
       gateVerdict: 'remediate',
+      hitlPending: false,
+      hitlStage: null,
     };
     return finalizeNodeResult(state, payload, 'node_remediate', {
       source: { verdict: 'remediate', confidence, slopFindings, akatsukiPassed },
@@ -251,7 +253,7 @@ async function reviewNode(state) {
   status.hitl_gate = 'pending_human_signoff';
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
-  const prompt = buildGate2Prompt(status, taskDir, rootId, confidence, status.report);
+  const prompt = buildGate2Prompt(status, taskDir, rootId, { confidence, report: status.report });
   const payload = {
     status,
     phase: 'review',

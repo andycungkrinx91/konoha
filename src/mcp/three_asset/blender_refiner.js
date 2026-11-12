@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -167,7 +168,7 @@ function buildWorkerConfig(options) {
     output_size: inspection.output_size,
     inspection,
     patches: Array.isArray(options.patches) ? options.patches : [],
-    cycles_samples: options.cyclesSamples || (process.env.KONOHA_CYCLES_SAMPLES ? parseInt(process.env.KONOHA_CYCLES_SAMPLES, 10) : 64),
+    cycles_samples: options.cyclesSamples || parseInt(process.env.KONOHA_CYCLES_SAMPLES || '', 10) || getConfigValue('cycles_samples'),
     mirror_x: Boolean(options.mirrorX ?? (spec && spec.symmetry && spec.symmetry.mirror_x)),
     metaballs: organic && Boolean(options.metaballs ?? (spec && spec.organic && spec.organic.metaballs)),
     enable_pbr: options.enablePbr !== false
@@ -554,22 +555,22 @@ async function executeLiveAgenticBlenderSession(options) {
   );
 
   if (!circuit.allowRequest()) {
-    return { success: false, mode: 'circuit_open', refinement_backend: 'deterministic_only', actions: [], error: 'Circuit breaker for dcc-mcp-blender is OPEN' };
+    return { success: false, mode: 'circuit_open', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'Circuit breaker for dcc-mcp-blender is OPEN' };
   }
   if (!fs.existsSync(baseGlbPath)) {
     circuit.recordFailure();
-    return { success: false, mode: 'missing_base_glb', refinement_backend: 'deterministic_only', actions: [], error: `Base GLB missing at ${baseGlbPath}` };
+    return { success: false, mode: 'missing_base_glb', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: `Base GLB missing at ${baseGlbPath}` };
   }
 
   const blenderBin = findInstalledBlenderBinary();
   if (!blenderBin && !durableRefinementRequired) {
     // A caller that does not require durable Blender refinement (a refine fork whose geometry
     // is already the patched spec) keeps the deterministic mesh instead of failing the run.
-    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], error: 'No Blender executable found on this host' };
+    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'No Blender executable found on this host' };
   }
   if (!blenderBin) {
     circuit.recordFailure();
-    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], error: 'No Blender executable found on this host' };
+    return { success: false, mode: 'blender_missing', refinement_backend: 'deterministic_only', actions: [], steps_executed: 0, error: 'No Blender executable found on this host' };
   }
 
   fs.mkdirSync(intermediateDir, { recursive: true });

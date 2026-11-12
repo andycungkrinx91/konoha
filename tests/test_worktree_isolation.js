@@ -167,8 +167,28 @@ async function run() {
       }
       assert.notStrictEqual(payloads[0].worktree_path, payloads[1].worktree_path);
       assert.notStrictEqual(payloads[0].branch, payloads[1].branch);
-      const list = git(repo, ['worktree', 'list', '--porcelain']).out;
-      assert.ok(list.includes(payloads[0].worktree_path) && list.includes(payloads[1].worktree_path));
+      // Compare canonical paths, not spellings: git on win32 re-spells the
+      // path it recorded (8.3 short names expand to long ones), so a byte
+      // comparison fails on a registered worktree. realpathSync.native resolves
+      // both sides to the same form.
+      const listedWorktrees = git(repo, ['worktree', 'list', '--porcelain']).out
+        .split('\n')
+        .filter((line) => line.startsWith('worktree '))
+        .map((line) => line.slice('worktree '.length).trim());
+      const canonical = (target) => {
+        try {
+          return fs.realpathSync.native(target);
+        } catch (_) {
+          return path.resolve(target);
+        }
+      };
+      const listedCanonical = listedWorktrees.map(canonical);
+      for (const p of payloads) {
+        assert.ok(
+          listedCanonical.includes(canonical(p.worktree_path)),
+          `worktree list missing ${p.worktree_path} (listed: ${listedWorktrees.join(', ')})`
+        );
+      }
       console.log('✓ (b) parallel dispatch creates one worktree + branch per member');
     }
 
@@ -363,7 +383,8 @@ async function run() {
       assert.ok(real.aborted && real.aborted.attempted && real.aborted.ok, 'production path must run merge --abort');
       assert.strictEqual(fs.existsSync(path.join(repo, '.git', 'MERGE_HEAD')), false, 'no merge may stay in progress');
       assert.strictEqual(git(repo, ['status', '--porcelain']).out, '', 'main worktree must be clean after abort');
-      assert.strictEqual(fs.readFileSync(path.join(repo, 'lib.js'), 'utf8'), 'module.exports = "from-main";\n');
+      // Content is what the assertion is about; the checkout's EOL policy is not.
+      assert.strictEqual(fs.readFileSync(path.join(repo, 'lib.js'), 'utf8').replace(/\r\n/g, '\n'), 'module.exports = "from-main";\n');
       assert.ok(branchExists(repo, created.branch));
       assert.ok(fs.existsSync(created.worktree_path));
       console.log('✓ (g) control: conflict stays MERGING without abort; production path aborts cleanly');

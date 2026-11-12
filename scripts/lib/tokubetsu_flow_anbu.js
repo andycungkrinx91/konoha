@@ -188,7 +188,7 @@ function generateAnbuHtml() {
   const footer = renderFooter(
     W,
     H,
-    'v2.2.20: konoha db check / konoha db restore · checkIntegrity + detectCorruption (header magic, size floor) · damaged DB archived before any write · constrained node:sqlite salvage'
+    'v2.2.21: konoha db check / konoha db restore · checkIntegrity + detectCorruption (header magic, size floor) · damaged DB archived before any write · constrained node:sqlite salvage'
   );
 
   const lanes = [

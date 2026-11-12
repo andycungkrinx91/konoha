@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.20",
+  "version": "2.2.21",
   "description": "Autonomous multi-agent MCP orchestration platform powered by LangGraph state machines, 8 specialist ninja agents, SQLite FTS5 skill indexing, and per-turn token governors saving 83–98% context across 8 AI coding clients",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -146,6 +146,9 @@
     "test": "node scripts/rtk_exec.js node tests/run_all.js",
     "test:e2e": "node scripts/rtk_exec.js pnpm --dir apps/web run test:e2e",
     "test:parallel": "node scripts/rtk_exec.js node tests/run_all.js --parallel",
+    "ci:act": "act -W .github/workflows/cross-platform.yml -j checks --matrix os:ubuntu-latest",
+    "ci:act:shard": "act -W .github/workflows/cross-platform.yml -j test --matrix os:ubuntu-latest --matrix shard:1",
+    "test:sandbox": "node scripts/rtk_exec.js node scripts/sandbox.js",
     "test:mcp": "node scripts/rtk_exec.js node tests/test_mcp_protocol.js && node scripts/rtk_exec.js node tests/test_mcp_e2e.js",
     "test:workflow": "node scripts/rtk_exec.js node tests/test_workflow_gates.js && node scripts/rtk_exec.js node tests/test_workflow_loop.js",
     "test:jonin": "node scripts/rtk_exec.js node tests/test_build_workflows.js && node scripts/rtk_exec.js node tests/test_taste_skill_jonin.js && node scripts/rtk_exec.js node tests/test_jonin_universal_design.js",
@@ -172,6 +175,7 @@
     "gpt-tokenizer": "4.1.0",
     "hash-wasm": "^4.12.0",
     "manifold-3d": "3.2.1",
+    "marked": "18.2.0",
     "playwright": "^1.64.1",
     "pptxgenjs": "^4.0.1",
     "three": "0.187.0",
@@ -179,8 +183,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
-    "marked": "18.2.0"
+    "@playwright/test": "^1.64.1"
   },
   "packageManager": "pnpm@12.16.1"
 }

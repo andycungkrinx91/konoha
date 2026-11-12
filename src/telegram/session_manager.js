@@ -40,11 +40,27 @@ const CANONICAL_CLIENT_MAP = {
 };
 
 const IGNORED_CLIENTS = new Set(['unattributed', 'unknown', 'default']);
+// os.homedir() reads USERPROFILE on win32 and ignores HOME, so every home-derived
+// path here would diverge from the rest of the process (src/mcp/runtime_state.js
+// resolves HOME first for the same reason).
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const IGNORED_PATHS = [
-  os.homedir(),
-  path.join(os.homedir(), '.konoha'),
+  HOME,
+  path.join(HOME, '.konoha'),
   path.normalize(os.tmpdir())
 ];
+
+/**
+ * OMP flattens a workspace path into a session directory name by replacing every
+ * separator with '-'. A Windows drive letter contributes a ':' which is an
+ * illegal NTFS filename character, so it is flattened with the separators.
+ */
+function _ompSessionKey(target) {
+  const flattened = path.normalize(target)
+    .replace(/^[\\/]+/, '')
+    .replace(/[:\\/]+/g, '-');
+  return `-${flattened}`;
+}
 
 /**
  * Ensure telegram_session_targets table exists in database.
@@ -139,13 +155,13 @@ function findOmpSessionForWorkspace(wsPath) {
   if (!wsPath || typeof wsPath !== 'string') return null;
   const norm = path.normalize(wsPath);
   const candidates = [];
-  if (norm.startsWith(os.homedir())) {
-    const rel = path.relative(os.homedir(), norm);
-    candidates.push('-' + rel.replace(/\//g, '-'));
+  if (norm.startsWith(HOME)) {
+    const rel = path.relative(HOME, norm);
+    candidates.push(_ompSessionKey(rel));
   }
-  candidates.push('-' + norm.replace(/^\//, '').replace(/\//g, '-'));
+  candidates.push(_ompSessionKey(norm));
 
-  const baseDir = path.join(os.homedir(), '.omp', 'agent', 'sessions');
+  const baseDir = path.join(HOME, '.omp', 'agent', 'sessions');
   if (!fs.existsSync(baseDir)) return null;
 
   for (const cand of candidates) {
@@ -159,9 +175,9 @@ function findOmpSessionForWorkspace(wsPath) {
 
 function _getAntigravityBrainDir(sessionId) {
   if (!sessionId || sessionId === 'default') return null;
-  const brainCli = path.join(os.homedir(), '.gemini/antigravity-cli/brain', sessionId);
+  const brainCli = path.join(HOME, '.gemini/antigravity-cli/brain', sessionId);
   if (fs.existsSync(brainCli)) return brainCli;
-  const brainIde = path.join(os.homedir(), '.gemini/antigravity-ide/brain', sessionId);
+  const brainIde = path.join(HOME, '.gemini/antigravity-ide/brain', sessionId);
   if (fs.existsSync(brainIde)) return brainIde;
   return null;
 }
@@ -533,5 +549,6 @@ module.exports = {
   createSession,
   deleteSession,
   formatSessionList,
-  formatTimeAgo
+  formatTimeAgo,
+  ompSessionKey: _ompSessionKey
 };

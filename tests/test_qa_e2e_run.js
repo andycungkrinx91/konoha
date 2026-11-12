@@ -93,6 +93,19 @@ process.exit(1);
   const jsonOutput = JSON.stringify(result);
   assert.ok(jsonOutput.length <= 2000, `Output must stay under 2,000 characters (actual: ${jsonOutput.length})`);
 
+  // A report carrying top-level errors means Playwright never ran a test:
+  // that is an error, not a pass, even when the totals look empty-but-clean.
+  const aborted = qaE2eRun({
+    project_path: tmpDir,
+    mock_report: {
+      config: { testDir: 'tests/e2e' },
+      suites: [],
+      errors: [{ message: 'Error: http://127.0.0.1:4173 is already used' }]
+    }
+  });
+  assert.strictEqual(aborted.status, 'error', 'A report with top-level errors must not report passed');
+  assert.ok(aborted.run_id && aborted.run_id.startsWith('qa-'), 'Aborted run must still carry a run_id');
+
   console.log('✓ test_qa_e2e_run.js passed cleanly.');
 } finally {
   try {
