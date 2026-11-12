@@ -1916,6 +1916,158 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "code_index",
+      "description": "Index a repository into the native code-intelligence store. Incremental by content hash: unchanged files are skipped. Writes only to the Konoha DB, never to the analyzed repo.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "max_files": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_search",
+      "description": "Full-text search over indexed code chunks. Returns ranked snippets with file paths and line ranges. Sets degraded=true when FTS5 is unavailable and a LIKE scan was used.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_symbol",
+      "description": "Look up symbol definitions by exact name. Sets ambiguous=true when more than one file defines the name.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_context",
+      "description": "Return indexed source text for a file, optionally limited to a line range.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          },
+          "start_line": {
+            "type": "number",
+            "minimum": 1
+          },
+          "end_line": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_impact",
+      "description": "Reverse reachability: which symbols reference the named symbol, transitively, up to a bounded depth.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          },
+          "max_depth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "max_nodes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_status",
+      "description": "List indexed repository roots with file, symbol, and chunk counts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "code_remove",
+      "description": "Delete a repository root and all of its indexed rows.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Repository root. Defaults to the current working directory."
+          }
+        },
+        "additionalProperties": false
+      }
     }
   ]
 }

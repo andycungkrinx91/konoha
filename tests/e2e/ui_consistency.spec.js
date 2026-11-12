@@ -11,7 +11,7 @@ const STANDARD_ROUTES = [
   '/persona',
   '/context',
   '/search',
-  '/semble',
+  '/code',
   '/detector',
   '/tasks',
   '/doctor',

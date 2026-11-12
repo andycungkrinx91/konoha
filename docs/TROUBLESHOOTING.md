@@ -224,7 +224,7 @@ konoha init --yes
    rtk cat ~/.cursor/mcp.json
    ```
 
-2. Verify `konoha` and `semble` entries are present (installed by `konoha init` or `konoha doctor --yes`).
+2. Verify `konoha` and `aislop` entries are present (installed by `konoha init` or `konoha doctor --yes`).
 
 3. Run the bootstrap hook manually (must exit 0):
    ```bash
@@ -275,8 +275,8 @@ The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an 
    # Linux/macOS
    grep -A 20 mcpServers ~/.claude.json
    ```
-2. Verify both `konoha` and `semble` entries are present (installed by `konoha init` when `claude` CLI is detected).
-3. Run `/mcp` inside a Claude Code session — should list `konoha` and `semble` as connected servers.
+2. Verify both `konoha` and `aislop` entries are present (installed by `konoha init` when the CLI is detected).
+3. Run `/mcp` inside a Claude Code session — should list `konoha` and `aislop` as connected servers.
 4. If missing, run `konoha doctor --yes` to auto-repair the `~/.claude.json` registration.
 5. Restart Claude Code to pick up the new MCP config.
 
@@ -326,7 +326,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **48 canonical tools**.
+   Expected: JSON listing **55 canonical tools**.
 
 5. **Restart Cursor** after repair.
 
@@ -340,7 +340,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ### 🤖 Codex MCP Configuration Not Detected
 
-1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]`, `[mcp_servers.semble]`, and `[mcp_servers.aislop]`:
+1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]` and `[mcp_servers.aislop]`:
    ```bash
    rtk cat ~/.codex/config.toml
    ```
@@ -439,7 +439,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 48 canonical tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 55 canonical tools.
 - **If it persists**: re-run `konoha init --client=pi` (or `konoha init --client=all`), fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
@@ -627,7 +627,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Fragmented Savings Telemetry in TUI & UI (`v2.0.0-beta.7`)**:
   - **Symptom**: Running `konoha savings` displayed cluttered per-client provider invocation tables that distracted from visual token reduction metrics.
   - **Reason**: Legacy provider breakdown tables duplicated client stats rather than aggregating into the core token optimization metric.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to the measured skill-library baseline (baseline shown as unavailable when nothing is indexed) and Unified live metric from Konoha MCP + Semble Semantic Engine.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to the measured skill-library baseline (baseline shown as unavailable when nothing is indexed) and the unified live metric derived from Konoha MCP tool-call telemetry.
 * **Definition-of-Readiness (DoR) Gate Blocks Dispatch**:
   - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
   - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.
@@ -803,7 +803,7 @@ Settings Warning
 ```
 **Cause:** Claude Code requires permission rules to follow the `mcp__<server>__*` schema (double underscores) and does not permit colon wildcards (`mcp:konoha:*`) or bare command wildcards (`rtk *`).
 
-**Fix:** Run `konoha doctor --yes` or `node bin/cli.js init --yes --force`. Konoha automatically prunes legacy invalid entries and writes valid syntax (`mcp__konoha__*`, `mcp__semble__*`, `Bash(...)`).
+**Fix:** Run `konoha doctor --yes` or `node bin/cli.js init --yes --force`. Konoha automatically prunes legacy invalid entries and writes valid syntax (`mcp__konoha__*`, `mcp__aislop__*`, `Bash(...)`).
 
 ---
 

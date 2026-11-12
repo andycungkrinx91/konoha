@@ -574,7 +574,7 @@
           <div class="flex flex-wrap items-center gap-4">
             <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-1);"></span>Ninja Agent</span>
             <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-success);"></span>Client Harness</span>
-            <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-3);"></span>MCP / Semble Tool</span>
+            <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-3);"></span>MCP Tool Call</span>
           </div>
           <div class="font-mono font-bold" data-testid="spider-flip-status">
             Spider Orientation: {isSpiderFlipped ? 'INVERTED (180°)' : 'UPRIGHT (0°)'} · Flips: {spiderFlipCount}

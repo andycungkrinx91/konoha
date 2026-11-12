@@ -263,6 +263,64 @@ function syncSingleManagedResource(params, manifest, options = {}) {
   };
 }
 
+/** True when an existing SOUL.md already carries the managed block markers. */
+function _isBlockManagedSoul(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8').includes('<!-- KONOHA-START -->');
+  } catch (_) {
+    return false;
+  }
+}
+
+function _tallyAction(stats, res) {
+  if (res.action === 'installed') stats.installed++;
+  else if (res.action === 'patched') stats.patched++;
+  else if (res.action === 'unchanged') stats.unchanged++;
+  else if (res.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
+  else if (res.action === 'conflict_preserved') stats.conflicts.push(res);
+}
+
+function _syncSkillFiles(target, canonicalFiles, manifest, ctx) {
+  for (const item of canonicalFiles) {
+    const res = syncSingleManagedResource(
+      {
+        destPath: path.join(target.skillsDir, item.relPath),
+        templateContent: item.content,
+        templateSha256: item.sha256,
+        meta: { client: target.client, topSkill: item.topSkill, sha256: item.sha256 }
+      },
+      manifest,
+      ctx.options
+    );
+    _tallyAction(ctx.stats, res);
+  }
+}
+
+/**
+ * SOUL.md is block-managed by deploy_utils.syncSoulAcrossClients, which
+ * preserves everything the user wrote outside the KONOHA-START/END markers.
+ * Writing the plain template here would strip those markers and make the two
+ * writers overwrite each other on every install.
+ */
+function _syncSoul(target, soul, manifest, ctx) {
+  if (!target.soulPath || !soul.content) return;
+  if (_isBlockManagedSoul(target.soulPath)) {
+    ctx.stats.unchanged++;
+    return;
+  }
+  const res = syncSingleManagedResource(
+    {
+      destPath: target.soulPath,
+      templateContent: soul.content,
+      templateSha256: soul.sha256,
+      meta: { client: target.client, topSkill: 'konoha', sha256: soul.sha256 }
+    },
+    manifest,
+    ctx.options
+  );
+  _tallyAction(ctx.stats, res);
+}
+
 function syncAllGlobalClientSkills(options = {}) {
   const home = getHomeDir(options);
   const templatesRoot = resolveCanonicalTemplatesRoot(options.templatesRoot);
@@ -287,52 +345,15 @@ function syncAllGlobalClientSkills(options = {}) {
     : null;
 
   const soulSrcPath = path.resolve(templatesRoot, '..', 'SOUL.md');
-  const hasSoulTemplate = fs.existsSync(soulSrcPath);
-  const soulContent = hasSoulTemplate ? fs.readFileSync(soulSrcPath, 'utf8') : null;
-  const soulSha256 = soulContent ? computeSha256(soulContent) : null;
+  const soulContent = fs.existsSync(soulSrcPath) ? fs.readFileSync(soulSrcPath, 'utf8') : null;
+  const soul = { content: soulContent, sha256: soulContent ? computeSha256(soulContent) : null };
+  const ctx = { stats, options: { ...options, home } };
 
   for (const target of targets) {
     if (requestedClients && !requestedClients.has(target.client)) continue;
-    if (!stats.clientsSynced.includes(target.client)) {
-      stats.clientsSynced.push(target.client);
-    }
-
-    for (const item of canonicalFiles) {
-      const destFile = path.join(target.skillsDir, item.relPath);
-      const res = syncSingleManagedResource(
-        {
-          destPath: destFile,
-          templateContent: item.content,
-          templateSha256: item.sha256,
-          meta: { client: target.client, topSkill: item.topSkill, sha256: item.sha256 }
-        },
-        manifest,
-        { ...options, home }
-      );
-      if (res.action === 'installed') stats.installed++;
-      else if (res.action === 'patched') stats.patched++;
-      else if (res.action === 'unchanged') stats.unchanged++;
-      else if (res.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
-      else if (res.action === 'conflict_preserved') stats.conflicts.push(res);
-    }
-
-    if (target.soulPath && soulContent && soulSha256) {
-      const soulRes = syncSingleManagedResource(
-        {
-          destPath: target.soulPath,
-          templateContent: soulContent,
-          templateSha256: soulSha256,
-          meta: { client: target.client, topSkill: 'konoha', sha256: soulSha256 }
-        },
-        manifest,
-        { ...options, home }
-      );
-      if (soulRes.action === 'installed') stats.installed++;
-      else if (soulRes.action === 'patched') stats.patched++;
-      else if (soulRes.action === 'unchanged') stats.unchanged++;
-      else if (soulRes.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
-      else if (soulRes.action === 'conflict_preserved') stats.conflicts.push(soulRes);
-    }
+    if (!stats.clientsSynced.includes(target.client)) stats.clientsSynced.push(target.client);
+    _syncSkillFiles(target, canonicalFiles, manifest, ctx);
+    _syncSoul(target, soul, manifest, ctx);
   }
 
   saveOwnershipManifest(manifest, { ...options, home });

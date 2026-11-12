@@ -216,7 +216,8 @@ function syncRuntimeSubdirectories(srcDir, destDir) {
     { src: 'file_tools', dest: FILE_TOOLS_PY_DIR },
     { src: 'mcp', dest: path.join(destDir, 'mcp') },
     { src: 'workflow', dest: path.join(destDir, 'workflow') },
-    { src: 'bridge', dest: path.join(destDir, 'bridge') }
+    { src: 'bridge', dest: path.join(destDir, 'bridge') },
+    { src: 'code_intel', dest: path.join(destDir, 'code_intel') }
   ];
   for (const item of subdirs) {
     const fullSrc = path.join(srcDir, item.src);
@@ -442,7 +443,7 @@ function cleanKonohaRuntimeDir(options = {}) {
 
   cleanTmpScratchEntries(path.join(target, 'tmp'), result);
 
-  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'file_tools', 'mcp', 'src', '.agents', 'tmp', 'workflow', 'patches', 'docs']);
+  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'code_intel', 'file_tools', 'mcp', 'src', '.agents', 'tmp', 'workflow', 'patches', 'docs']);
   const preserveFiles = new Set(['konoha.db', 'konoha.db-wal', 'konoha.db-shm', 'package.json', 'pnpm-lock.yaml', 'web_token', 'bridges.json', 'konoha-bridge.json', '.python_cmd', '.node_exec_path', '.deploy-fingerprint', '.gitignore']);
 
   let entries = [];

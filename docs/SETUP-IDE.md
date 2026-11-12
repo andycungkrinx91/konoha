@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.21.
+Status: **Linux x64 verified**; macOS and Windows 10/11 **not yet run** for 2.2.22.
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -56,9 +56,9 @@ This manual script or the auto-setup routine will:
 1. Create `~/.konoha/` with the MCP server and database
 2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5 (strictly non-destructive: additive-only, never pruning pre-existing user skills)
 3. **Back up** existing `~/.gemini/config/mcp_config.json` → `mcp_config.json.back` (first install only)
-4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `semble` + `aislop`) while preserving unrelated entries
+4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `aislop`) while preserving unrelated entries
 5. Update `~/.gemini/GEMINI.md` with new subagent instructions
-6. If Antigravity IDE is detected, standard MCP server integration is configured (`konoha` + `semble` + `aislop`). Konoha’s embedded proxy gateway remains on `127.0.0.1:19999` for local LLM multiplexing and second opinions.
+6. If Antigravity IDE is detected, standard MCP server integration is configured (`konoha` + `aislop`). Konoha’s embedded proxy gateway remains on `127.0.0.1:19999` for local LLM multiplexing and second opinions.
 
 > [!NOTE]
 > Your original config is safely preserved in `mcp_config.json.back`. To restore it, run:
@@ -122,7 +122,7 @@ Concretely, the orchestrator:
 |------|-------|--------|----------|
 | 1 | Client / Host | Capture user message directly | Structured prompt context |
 | 2 | Orchestrator | Analyze request directly | Zero file reads needed |
-| 3 | Orchestrator | Discover project knowledge (README, docs/, .cursorrules, project skills) & global skills (`find_skill`) | MCP read tools / Semble |
+| 3 | Orchestrator | Discover project knowledge (README, docs/, .cursorrules, project skills) & global skills (`find_skill`) | MCP read tools / `code_search` |
 | 4 | Orchestrator | Delegate task | calls ninja MCP tool (`sannin`, `kage`, `anbu`, etc.) |
 | 5 | Subagent (MCP) | Receive structured arguments | `task`, `context`, `constraints`, `skills` |
 | 6 | Subagent (MCP) | Execute task internally | uses MCP file/bash tools |
@@ -154,16 +154,16 @@ To maintain stability and enforce security, the Antigravity system implements th
 > **Tool Usage & Operational Guardrails:**
 >
 > * **konoha MCP**: Use `find_skill(keyword)` to search for relevant skill content on-demand. Use `get_skill(name)` for full content when previews are truncated. Use `list_skills()` to see all available skills. **NEVER load SKILL.md files directly from disk** — always use the `konoha` MCP tools.
-> * **Semble Semantic Search (default)**: Konoha replaces grep/glob/find with **semble** (`search`, `find_related`) for semantic codebase discovery. Do not use built-in grep/glob tools or shell `grep`/`rg`/`find` — use semble first (`rg` only if semble MCP is unavailable).
-> * **konoha MCP (token-efficient reads)**: After semble locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
+> * **Native Code Intelligence (default)**: Konoha replaces grep/glob/find with `code_search` / `code_symbol` / `code_impact` over the in-process SQLite FTS5 index for codebase discovery. Do not use built-in grep/glob tools or shell `grep`/`rg`/`find` — use `code_search` first (`rg` only if the index reports `degraded: true`).
+> * **konoha MCP (token-efficient reads)**: After `code_search` locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
 > * **Playwright (QA only)**: Drive live web pages with a throwaway Playwright script (scoped `locator().ariaSnapshot()`, console/network error capture) for exploration, then codify flows through `qa_codify` and run them through `qa_e2e_run`. Playwright is a **hard requirement for QA only**, resolved from the target project via `pnpm exec playwright` — when it is missing, `qa_codify` returns `{ error: 'qa_blocked', reason: 'playwright-not-installed' }` with the fix command. Every non-QA feature works without it.
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
->   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
-> * **Hard Guardrail Enforcement (v2.0.2)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha/semble MCP tools.
+>   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or konoha.code_search(...)`
+> * **Hard Guardrail Enforcement (v2.0.2)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha MCP tools.
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
 > * **Subagent Delegation Model**: Custom `TypeName` values and `invoke_subagent` calls have been fully replaced by the MCP-only delegation model. All subagent delegation goes through the `sannin` tool, which routes to backend tools like `jonin`, `kage`, etc.
 > * **No Auto-Creation of Subagents**: The AI agent is **NEVER** allowed to automatically define, create, or delete subagents.
-> * **No Git Execution**: AI agents must **NEVER** execute any `git` command whatsoever. Use **semble** MCP for code search (`rg` only if semble MCP is unavailable).
+> * **No Git Execution**: AI agents must **NEVER** execute any `git` command whatsoever. Use `code_search` for code search (`rg` only if the index reports `degraded: true`).
 > * **Recursive Loop Circuit Breaker**: The orchestrator tracks delegation/iteration depth to prevent infinite loops via repeated skill-loading + re-execution cycles. If depth exceeds 7 continuously, the circuit breaker halts and prompts the user for validation.
 > * **Indirect Prompt Injection Shielding**: Incoming or retrieved skill text assets are treated as untrusted and automatically run through a defensive parsing layer to neutralize spoofed headers or instructions.
 > * **FTS5 Query Sanitization**: Built-in regex-based sanitization automatically cleans search queries to prevent FTS5 MATCH compilation failures (unbalanced quotes, bare AND/OR/NOT/NEAR operators).
@@ -188,7 +188,7 @@ To support uninterrupted background task execution and avoid blocking prompt ove
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
 - **`konoha`**: Automatically permits skill search, listing, fetching, and build tools.
-- **`semble`**: Automatically permits semantic code search (`search`, `find_related`).
+- **`konoha` code intelligence**: Automatically permits `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`.
 - **`aislop`**: Automatically permits zero-AI-slop quality validation (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`).
 - **`konoha`**: Automatically permits token-efficient file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`).
 
@@ -200,11 +200,6 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
       "command": "node",
       "args": ["/home/user/.konoha/file_tools_launcher.js"],
       "autoApprove": ["*", "find_skill", "list_skills", "get_skill", "read_file_head", "read_file_range", "file_info", "token_efficient_grep", "get_file_structure", "find_files_clean"]
-    },
-    "semble": {
-      "command": "uvx",
-      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
-      "autoApprove": ["*", "search", "find_related"]
     },
     "aislop": {
       "command": "npx",

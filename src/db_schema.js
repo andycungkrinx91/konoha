@@ -1,8 +1,9 @@
 'use strict';
 
 const fs = require('fs');
+const { CODE_INTELLIGENCE_DDL, CODE_INTELLIGENCE_FTS_DDL } = require('./code_intel/ddl');
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 function getCurrentUserVersion(conn) {
   try {
@@ -118,6 +119,37 @@ function _backfillActiveSessionsProjectHash(conn) {
       if (ph) updateStmt.run(ph, r.rowid);
     }
   } catch (_) { /* intentional best-effort fallback */ }
+}
+
+
+/**
+ * Applies the v6 code-intelligence schema atomically.
+ *
+ * Uses SAVEPOINT rather than BEGIN IMMEDIATE: `setupSchema` is called from
+ * several entry points (`src/db.js`, `src/migrate.js`, `bin/lib/install_lifecycle.js`)
+ * and at least one of them may already hold a transaction. SAVEPOINT is atomic
+ * on its own and also nests correctly, so one code path covers both cases.
+ */
+function _applyCodeIntelligenceMigration(conn, backupDatabaseFn) {
+  if (getCurrentUserVersion(conn) >= 6) return;
+  _tryBackupBeforeMigration(conn, backupDatabaseFn);
+  const ftsSupported = hasFts5Support(conn);
+  conn.exec('SAVEPOINT konoha_code_intel_v6');
+  try {
+    conn.exec(CODE_INTELLIGENCE_DDL);
+    if (ftsSupported) conn.exec(CODE_INTELLIGENCE_FTS_DDL);
+    const violations = conn.prepare('PRAGMA foreign_key_check').all();
+    if (violations.length > 0) {
+      throw new Error(`${violations.length} foreign key violation(s) introduced by the v6 migration`);
+    }
+    conn.exec('RELEASE konoha_code_intel_v6');
+  } catch (err) {
+    try {
+      conn.exec('ROLLBACK TO konoha_code_intel_v6');
+      conn.exec('RELEASE konoha_code_intel_v6');
+    } catch (_) { /* intentional best-effort fallback */ }
+    throw new Error(`CODE_INTEL_MIGRATION_FAILED: ${err.message}`);
+  }
 }
 
 function setupSchema(conn, backupDatabaseFn = null) {
@@ -563,8 +595,21 @@ function setupSchema(conn, backupDatabaseFn = null) {
     }
   }
 
+  // Migration v6: native code intelligence index.
+  _applyCodeIntelligenceMigration(conn, backupDatabaseFn);
+
   setUserVersion(conn, CURRENT_SCHEMA_VERSION);
-  verifyIntegrity(conn);
+
+  // Integrity is a hard gate: a migration that produced a corrupt file must
+  // fail loudly here rather than surface as a mystery error on first query.
+  if (!verifyIntegrity(conn)) {
+    let detail = 'unknown';
+    try {
+      const row = conn.prepare('PRAGMA integrity_check').get();
+      detail = String(row ? (row.integrity_check !== undefined ? row.integrity_check : Object.values(row)[0]) : 'no result');
+    } catch (_) { /* intentional best-effort fallback */ }
+    throw new Error(`SCHEMA INTEGRITY FAILURE: PRAGMA integrity_check returned '${detail}'`);
+  }
 
   return conn;
 }
@@ -602,7 +647,8 @@ function validateCanonicalSchema(conn) {
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
       'schema_migrations', 'generation_jobs', 'assets',
-      'asset_files', 'validation_results', 'llm_requests_3d'
+      'asset_files', 'validation_results', 'llm_requests_3d',
+      'code_index_roots', 'code_files', 'code_symbols', 'code_refs', 'code_chunks'
     ];
     for (const req of requiredTables) {
       if (!tables.has(req)) {

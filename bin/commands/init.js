@@ -48,10 +48,7 @@ const {
   copyIfDifferent
 } = require('../lib/runtime_install');
 const { purgePackageCaches } = require('../lib/runtime_mcp');
-const {
-  installUv,
-  refreshSemblePackage
-} = require('../lib/extension');
+const { installUv } = require('../lib/extension');
 const { checkPortActive, ensureUiDaemonAutoStart, cmdUiRestart } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
@@ -72,7 +69,7 @@ function cmdInitHelp() {
   3. Copies runtime and migration files.
   4. Discovers skills directories (~/.agents/skills).
   5. Seeds canonical subagent skills and builds their vector embeddings (~/.konoha/konoha.db).
-  6. Registers Konoha & Semble MCP tools with your AI coding assistants.
+  6. Registers Konoha & Aislop MCP tools with your AI coding assistants.
   7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
   Options:
@@ -117,16 +114,12 @@ function checkNodeAndToolchains(options, args) {
       uvInstalled = true;
       spinner1b.success('uv is available on PATH.');
     } catch (err) {
-      spinner1b.warn(`uv not found (${err.message || 'not on PATH'}) — semble MCP will install lazily on first use.`);
+      spinner1b.warn(`uv not found (${err.message || 'not on PATH'}) — aislop MCP will install lazily on first use.`);
     }
   } else {
     spinner1b.success('uv installed successfully.');
   }
 
-  if (args.includes('--force')) {
-    const sembleRefresh = refreshSemblePackage(true);
-    if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
-  }
 }
 
 async function restartUiDaemonForRefresh(port) {

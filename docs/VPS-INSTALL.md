@@ -79,7 +79,7 @@ Offline install from a local archive:
 
 ```bash
 konoha akatsuki cyber-pack install --confirm \
-  --archive ./akatsuki-cyber-pack-2.2.21.tar.zst \
+  --archive ./akatsuki-cyber-pack-2.2.22.tar.zst \
   --manifest ./manifest.json
 ```
 

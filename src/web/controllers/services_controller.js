@@ -5,7 +5,7 @@ const path = require('path');
 const os = require('os');
 const doctor = require('../../doctor');
 const dbSavings = require('../../db_savings');
-const sembleManager = require('../../semble_manager');
+const codeIntelTools = require('../../code_intel/tools');
 const db = require('../../db');
 const {
   sendJson,
@@ -88,108 +88,49 @@ function _handleDocsDrift(res, pathname, method) {
   }
 }
 
-function _parseNumericTokens(val) {
-  if (typeof val === 'number') return val;
-  if (!val || typeof val !== 'string') return 0;
-  const clean = val.replace(/^[~ ]+/, '').replace(/\s*tokens?$/i, '').trim();
-  const match = clean.match(/^(\d+\.?\d*)([kKmMbB])?$/);
-  if (!match) return parseFloat(clean) || 0;
-  const num = parseFloat(match[1]);
-  const unit = (match[2] || '').toLowerCase();
-  if (unit === 'b') return Math.round(num * 1e9);
-  if (unit === 'm') return Math.round(num * 1e6);
-  if (unit === 'k') return Math.round(num * 1e3);
-  return Math.round(num);
-}
-
-function _parseNumericCalls(val) {
-  if (typeof val === 'number') return val;
-  if (!val || typeof val !== 'string') return 0;
-  const clean = val.trim();
-  const match = clean.match(/^(\d+\.?\d*)([kKmM])?$/);
-  if (!match) return parseInt(clean, 10) || 0;
-  const num = parseFloat(match[1]);
-  const unit = (match[2] || '').toLowerCase();
-  if (unit === 'm') return Math.round(num * 1e6);
-  if (unit === 'k') return Math.round(num * 1e3);
-  return Math.round(num);
-}
-
-function _calcCombinedPeriod(dbStats, sCalls, sTokens, sPct) {
-  const dbCalls = dbStats?.calls || 0;
-  const dbTokens = dbStats?.tokens || 0;
-  const dbBytes = dbStats?.bytes || 0;
-  const dbTotalBytes = dbStats?.total_bytes || 0;
-  const sSavedBytes = sTokens * 4;
-  const sTotalBytes = (sPct > 0 && sTokens > 0)
-    ? Math.round(sSavedBytes / (sPct / 100))
-    : (dbTotalBytes > 0 ? dbTotalBytes : 0);
-  const combCalls = dbCalls + sCalls;
-  const combTokens = dbTokens + sTokens;
-  const combBytes = dbBytes + sSavedBytes;
-  const combTotalBytes = dbTotalBytes + (sPct > 0 ? sTotalBytes : 0);
-  const combPct = combTotalBytes > 0 ? Math.round((combBytes / combTotalBytes) * 100) : (dbStats?.pct || 0);
-  return { calls: combCalls, tokens: combTokens, bytes: combBytes, pct: combPct };
-}
-
-function _buildSavingsResponse(report, semble) {
-  const parsePct = (val) => (typeof val === 'number' && !isNaN(val)) ? val : (parseInt(val, 10) || 0);
-  const today = { ...report.today, pct_saved: typeof report.today?.pct === 'number' ? report.today.pct : 0, tokens_saved_bytes: report.today?.bytes ?? 0, tokens_saved_approx: report.today?.tokens ?? 0 };
-  const last7Days = { ...report.last7days, pct_saved: typeof report.last7days?.pct === 'number' ? report.last7days.pct : 0, tokens_saved_bytes: report.last7days?.bytes ?? 0, tokens_saved_approx: report.last7days?.tokens ?? 0 };
-  const allTime = { ...report.alltime, pct_saved: typeof report.alltime?.pct === 'number' ? report.alltime.pct : 0, tokens_saved_bytes: report.alltime?.bytes ?? 0, tokens_saved_approx: report.alltime?.tokens ?? 0 };
-
-  const sTodayCalls = _parseNumericCalls(semble.today?.calls);
-  const sTodayTokens = _parseNumericTokens(semble.today?.tokens_saved);
-  const sTodayPct = parsePct(semble.today?.ratio_pct ?? semble.today?.pct);
-  const sLast7Calls = _parseNumericCalls(semble.last_7_days?.calls ?? semble['7days']?.calls ?? semble.last7days?.calls);
-  const sLast7Tokens = _parseNumericTokens(semble.last_7_days?.tokens_saved ?? semble['7days']?.tokens_saved ?? semble.last7days?.tokens_saved);
-  const sLast7Pct = parsePct(semble.last_7_days?.ratio_pct ?? semble['7days']?.pct ?? semble.last7days?.pct);
-  const sAllTimeCalls = _parseNumericCalls(semble.all_time?.calls ?? semble.all?.calls ?? semble.alltime?.calls);
-  const sAllTimeTokens = _parseNumericTokens(semble.all_time?.tokens_saved ?? semble.all?.tokens_saved ?? semble.alltime?.tokens_saved);
-  const sAllTimePct = parsePct(semble.all_time?.ratio_pct ?? semble.all?.pct ?? semble.alltime?.pct);
-
-  const combinedToday = _calcCombinedPeriod(today, sTodayCalls, sTodayTokens, sTodayPct);
-  const combinedLast7Days = _calcCombinedPeriod(last7Days, sLast7Calls, sLast7Tokens, sLast7Pct);
-  const combinedAllTime = _calcCombinedPeriod(allTime, sAllTimeCalls, sAllTimeTokens, sAllTimePct);
-  const avgPct = combinedToday.pct > 0 ? combinedToday.pct : (combinedLast7Days.pct > 0 ? combinedLast7Days.pct : combinedAllTime.pct);
-
-  const combined = { today: combinedToday, last_7_days: combinedLast7Days, last7days: combinedLast7Days, all_time: combinedAllTime, alltime: combinedAllTime, avg_pct: avgPct };
-  return { ...report, today, last7days: last7Days, last_7_days: last7Days, alltime: allTime, all_time: allTime, semble, combined };
+function _buildSavingsResponse(report) {
+  const pct = (v) => (typeof v === 'number' && !isNaN(v)) ? v : (parseInt(v, 10) || 0);
+  const shape = (stats) => ({
+    ...stats,
+    pct_saved: pct(stats?.pct),
+    tokens_saved_bytes: stats?.bytes ?? 0,
+    tokens_saved_approx: stats?.tokens ?? 0
+  });
+  const today = shape(report.today);
+  const last7Days = shape(report.last7days);
+  const allTime = shape(report.alltime);
+  const avgPct = today.pct_saved || last7Days.pct_saved || allTime.pct_saved;
+  const combined = {
+    today, last_7_days: last7Days, last7days: last7Days,
+    all_time: allTime, alltime: allTime, avg_pct: avgPct
+  };
+  return { ...report, today, last7days: last7Days, last_7_days: last7Days, alltime: allTime, all_time: allTime, combined };
 }
 
 function _handleSavings(res, pathname, method) {
   if (method !== 'GET' || pathname !== '/api/v1/savings') return false;
   try {
-    const report = dbSavings.getSavingsReport();
-    const semble = sembleManager.getSembleSavings();
-    return sendJson(res, 200, _buildSavingsResponse(report, semble));
+    return sendJson(res, 200, _buildSavingsResponse(dbSavings.getSavingsReport()));
   } catch (err) {
     return sendJson(res, 500, { error: err.message });
   }
 }
 
-async function _handleSemble(req, res, pathname, method) {
-  if (method === 'GET' && pathname === '/api/v1/semble') {
+async function _handleCodeIntel(req, res, pathname, method) {
+  if (method === 'GET' && pathname === '/api/v1/code/status') {
     try {
-      return sendJson(res, 200, sembleManager.getSembleStatus());
+      return sendJson(res, 200, codeIntelTools.code_status({}));
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
   }
-  if (method === 'GET' && pathname === '/api/v1/semble/savings') {
-    try {
-      return sendJson(res, 200, sembleManager.getSembleSavings());
-    } catch (err) {
-      return sendJson(res, 500, { error: err.message });
-    }
-  }
-  if (method === 'POST' && pathname === '/api/v1/semble/search') {
+  if (method === 'POST' && pathname === '/api/v1/code/search') {
     try {
       const body = await parseBody(req);
-      const query = (body.query || body.q || '').trim();
-      const repo = body.repo || body.path || process.cwd();
+      const query = String(body.query || body.q || '').trim();
+      if (!query) return sendJson(res, 400, { error: 'query is required' });
       const limit = parseInt(body.limit || 10, 10);
-      return sendJson(res, 200, sembleManager.searchSemble(query, repo, limit));
+      return sendJson(res, 200, codeIntelTools.code_search({ query, root: body.root || body.repo, limit }));
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
@@ -486,8 +427,8 @@ async function handleServicesRoutes(req, res, ctx, parsedUrl, ...rest) {
   const savingsRes = _handleSavings(res, pathname, method);
   if (savingsRes !== false) return savingsRes;
 
-  const sembleRes = await _handleSemble(req, res, pathname, method);
-  if (sembleRes !== false) return sembleRes;
+  const codeIntelRes = await _handleCodeIntel(req, res, pathname, method);
+  if (codeIntelRes !== false) return codeIntelRes;
 
   const searchRes = await _handleSearch(req, res, pathname, method);
   if (searchRes !== false) return searchRes;

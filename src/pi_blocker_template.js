@@ -6,7 +6,7 @@ function buildPiBlockerExtensionSource() {
   const guardrailSource = JSON.stringify(buildGuardrailCheckerSource());
   return [
     '// Konoha native-tool blocker for Pi (auto-managed by konoha pi_manager).',
-    '// Blocks the native read tool (bounded file tools / semble instead) and',
+    '// Blocks the native read tool (bounded file tools / code_search instead) and',
     '// enforces the konoha command guardrails on bash tool calls.',
     '// Removal: run konoha uninstall for Pi, or delete this file.',
     'import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";',
@@ -43,7 +43,7 @@ function buildPiBlockerExtensionSource() {
     '  "MANDATORY RULE VIOLATION: Using the built-in/native read tool is STRICTLY FORBIDDEN! " +',
     '  "You MUST use the konoha MCP bounded file tools " +',
     '  "(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) " +',
-    '  "or the semble MCP (search / find_related) for codebase reading and search instead.";',
+    '  "or the konoha code_search tool for codebase discovery instead.";',
     '',
     'const GUARDRAIL_CHECKER_SOURCE = ' + guardrailSource + ';',
     'const checkCommandGuardrails: (command: string) => { category: string; reason: string } | null =',

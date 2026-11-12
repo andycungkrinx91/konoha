@@ -1,22 +1,22 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.21**
+**Version of record: 2.2.22**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.21 |
-| Code reference | tag `v2.2.21` (`master`), `package.json` version `2.2.21` |
+| Manual version | 2.2.22 |
+| Code reference | tag `v2.2.22` (`master`), `package.json` version `2.2.22` |
 | Distribution status | **unpublished** — npm `konoha-mcp` latest is 2.2.19; the latest GitHub release is v2.2.19 |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
 The command transcripts in this manual were collected against a clean 2.2.20 installation, which is the same operator
-surface; 2.2.21 adds the cross-platform, configuration, and QA-automation work recorded in `CHANGELOG.md`, and its full
+surface; 2.2.22 adds the cross-platform, configuration, and QA-automation work recorded in `CHANGELOG.md`, and its full
 suite passes (`docs/CI.md`), but the transcripts below were not re-run for the bump. Whenever a statement rests on source
 inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
 the exact file, line, and substitute evidence.
 
-Because 2.2.21 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.22 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -66,21 +66,20 @@ the section a task needs. Measured on the shipped skill set, cold-start client i
 `docs/architecture/TOKEN-BASELINE.md`, metric 7 and metric 2). Chapter 11 breaks the numbers down and explains what
 the "83–98%" figure in the CLI banner actually covers.
 
-### 1.2 The three MCP servers
+### 1.2 The two MCP servers
 
-`konoha init` writes three stdio MCP servers into each harness config:
+`konoha init` writes two stdio MCP servers into each harness config. Code search is no longer an external server: `konoha` indexes repositories into its own SQLite FTS5 tables and serves `code_search`, `code_symbol`, `code_context`, and `code_impact` in-process.
 
 | Server | Launched as | Role |
 |---|---|---|
 | `konoha` | the installed `konoha` binary | skills, subagents, workflows, bounded file tools, docs artefact generation |
-| `semble` | `uvx --from semble[mcp]@latest semble --content all` | instant code search (`search`, `find_related`) |
 | `aislop` | `npx -y --prefer-offline -p aislop@latest aislop-mcp` | zero-AI-slop scanning (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`) |
 
-The `konoha` server exposes 48 canonical tools with 2 deprecated aliases hidden from dispatch — 50 manifest entries in
+The `konoha` server exposes 55 canonical tools with 2 deprecated aliases hidden from dispatch — 57 manifest entries in
 total (`src/file_tools_router.js`, locked by `tests/test_canonical_api_sync.js`). Chapter 10 lists them by group.
 
-`uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `semble` server cannot start
-without it. The `aislop` server needs no install — `npx` fetches it on first use.
+`uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `aislop` server prefers it. The
+`aislop` server needs no install — `npx` fetches it on first use.
 
 ### 1.3 The eight harnesses
 
@@ -125,9 +124,9 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 
 ### 1.5 What this manual does not cover
 
-- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.21.
+- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.22.
 - 3D asset generation (Yamanaka) beyond its CLI surface.
-- Anything released after 2.2.21.
+- Anything released after 2.2.22.
 - Fixes for defects found during verification. Chapter 13 records the defects; the manual documents behaviour as it
   is, not as it should be.
 
@@ -139,14 +138,14 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 |---|---|---|---|
 | Node.js | **>= 24.0.0** (hard `engines` gate) | everything | `node -v` |
 | npm | any version bundled with Node 24 | installing the package, launching the `aislop` server via `npx` | `npm -v` |
-| `uv` / `uvx` | current | the `semble` MCP server (its launcher is `uvx`) | `uvx --version` |
-| git | any | installing 2.2.21 from source | `git --version` |
+| `uv` / `uvx` | current | optional; the `aislop` server prefers `uvx` when present | `uvx --version` |
+| git | any | installing 2.2.22 from source | `git --version` |
 | disk | ~600 MB free | 386 MB installed package + 193 MB `~/.konoha` after `init` | `df -h ~` |
 
-Measured on a clean 2.2.21 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
+Measured on a clean 2.2.22 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
 is the SQLite database), packed tarball **114.3 MB**.
 
-Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.21.
+Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.22.
 
 ### 2.2 The install rule
 
@@ -162,7 +161,7 @@ npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.21 specifically neither form works from the registry: `konoha-mcp@2.2.21` is not published — only `2.2.19` is.
+For 2.2.22 specifically neither form works from the registry: `konoha-mcp@2.2.22` is not published — only `2.2.19` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -188,7 +187,7 @@ install with `sudo`. This manual's verification install used an isolated `HOME` 
 is the same mechanism without touching an existing npm setup:
 
 ```bash
-HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.21.tgz
+HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.22.tgz
 # added 39 packages in 12s
 # /tmp/knh/prefix/bin/konoha -> ../lib/node_modules/konoha-mcp/bin/cli.js
 ```
@@ -214,7 +213,7 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification scope, stated plainly: **this manual's 2.2.21 evidence comes from Linux x86_64 on a host, plus Windows
+Verification scope, stated plainly: **this manual's 2.2.22 evidence comes from Linux x86_64 on a host, plus Windows
 inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
@@ -224,22 +223,22 @@ install, lint, suite, and fresh-install smoke step on `windows-latest` and `maco
 request, and `scripts/windows-ci.ps1` reproduces the Windows job in a local VM. The macOS leg is GitHub-only, so a
 macOS-specific defect is confirmed there rather than locally (see `docs/CI.md`).
 
-### 2.6 Installing 2.2.21 from source
+### 2.6 Installing 2.2.22 from source
 
-The published registry stops at 2.2.19, so 2.2.21 must be built and installed locally. From a clone:
+The published registry stops at 2.2.19, so 2.2.22 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
-git checkout v2.2.21                  # the tree this manual describes
-npm pack                              # produces konoha-mcp-2.2.21.tgz, ~114 MB
-npm install -g ./konoha-mcp-2.2.21.tgz
-konoha version                        # Current Version: 2.2.21
+git checkout v2.2.22                  # the tree this manual describes
+npm pack                              # produces konoha-mcp-2.2.22.tgz, ~114 MB
+npm install -g ./konoha-mcp-2.2.22.tgz
+konoha version                        # Current Version: 2.2.22
 ```
 
 `npm pack` uses the package's own `files` list (27 entries) and bundles `pptxgenjs`, which is why the tarball is large
 and why an offline `npm install -g` of the tarball works without a further fetch.
 
-`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.21, and aborts without touching the
+`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.22, and aborts without touching the
 existing install (12.1 documents the exact output).
 
 ### 2.7 Verify the install
@@ -254,7 +253,7 @@ konoha test          # exercises the MCP tool surface end to end
 `All tests passed`.
 
 One caveat about `konoha version`: it also performs a registry freshness check, and on an unpublished build the
-message "You are already running the latest version" is misleading — 2.2.21 is newer than the registry, not equal to
+message "You are already running the latest version" is misleading — 2.2.22 is newer than the registry, not equal to
 it. Do not use it as proof of freshness (13.1).
 
 ## 3. First run
@@ -268,7 +267,7 @@ The installer performs seven steps, in its own words:
 3. Copies runtime and migration files.
 4. Discovers skills directories (`~/.agents/skills`).
 5. Seeds canonical subagent skills and builds their vector embeddings (`~/.konoha/konoha.db`).
-6. Registers Konoha and Semble MCP tools with your AI coding assistants.
+6. Registers Konoha and Aislop MCP tools with your AI coding assistants.
 7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
 Step 5 is the slow one on first run: embedding the seeded skill corpus into SQLite is most of the wall time.
@@ -366,7 +365,7 @@ Eight ideas carry the rest of this manual. Each maps to a table in `~/.konoha/ko
 A **skill** is a named, versioned set of instructions. A **reference** is a document that belongs to a skill — the
 material the skill points at when it needs detail.
 
-A fresh 2.2.21 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
+A fresh 2.2.22 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
 References are addressed hierarchically, `<skill>/<reference>`:
 
 ```
@@ -760,7 +759,7 @@ agent state changing without a manual refresh.
 | `/persona` | Persona & Memory | per-agent memories, searchable |
 | `/context` | Workspace Context | per-project invariants and stacked detection |
 | `/search` | Web Search (SearXNG) | keyless web search from the browser |
-| `/semble` | Semble MCP | semantic code search over a repository path |
+| `/code` | Code Intelligence | native SQLite FTS5 code search over a repository path |
 | `/detector` | AI Detector (Web & Docs) | scan a site or document for AI fingerprints |
 | `/tasks` | SDLC Tasks | workflow tasks, gate state, readiness |
 | `/doctor` | Health & Doctor | diagnostics, the same checks as `konoha doctor` |
@@ -951,14 +950,13 @@ do not want modified — including this one, which is why this manual's own veri
 
 ### 9.6 The MCP servers
 
-`konoha status` reports two registrations per client — `konoha` and `semble`. Claude Code's `~/.claude.json`
-additionally carries `aislop`, and Antigravity receives 50 tool schemas under `~/.gemini/antigravity-cli/mcp/konoha/`.
-Those three play different roles:
+`konoha status` reports two registrations per client — `konoha` and `aislop`. [CC]'s `~/.claude.json`
+carries both, and Antigravity receives 57 tool schemas under `~/.gemini/antigravity-cli/mcp/konoha/`.
+They play different roles:
 
 | Server | Role |
 |---|---|
 | `konoha` | agents, skills, task dirs, file tools, documents, diagrams |
-| `semble` | semantic code search over a repository path |
 | `aislop` | lint and AI-slop scoring, called by the review gate |
 
 If a client shows fewer than expected, the missing entry failed its own binary check during install; `konoha status`
@@ -1005,8 +1003,8 @@ Calls before `initialize` are rejected with JSON-RPC error `-32002`. Supported p
 `src/mcp_tool_manifest.json`: `2024-11-05`, `2024-10-07`, `2025-03-26`, `2025-11-25`, `2025-06-18`, plus `0.1.0` and
 `1.0.0`.
 
-The manifest declares 50 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
-**48**. Both retired names still resolve if an old prompt calls them.
+The manifest declares 57 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
+**55**. Both retired names still resolve if an old prompt calls them.
 
 ### 10.3 Dispatch
 
@@ -1032,7 +1030,7 @@ That is why a tool can exist, appear in `tools/list`, and still fail with a mess
 | `src/file_tools/` | 7 | 36 KB | bounded read/grep/info |
 | `src/queue/` | 2 | 23 KB | ingest queue for client tasks |
 
-Sizes are from a 2.2.21 checkout and are here to set expectations, not as a contract.
+Sizes are from a 2.2.22 checkout and are here to set expectations, not as a contract.
 
 ```mermaid
 flowchart LR
@@ -1052,7 +1050,7 @@ flowchart LR
 
 ### 10.5 Data layer
 
-`node:sqlite` from Node 24, no native module to compile. WAL mode, 33 tables in a fresh install, and three storage
+`node:sqlite` from Node 24, no native module to compile. WAL mode, 42 tables in a fresh install, and three storage
 patterns you will meet:
 
 - **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
@@ -1129,7 +1127,7 @@ konoha agent models config kage --model <model-id>
 ```
 
 Without a TTY this is the only form that works; in a TTY `konoha agent models` opens a picker. Two rough edges exist in
-2.2.21 and are recorded rather than worked around:
+2.2.22 and are recorded rather than worked around:
 
 - `konoha agent models --help` tries to resolve `--help` as an agent name and prints `✗ Subagent "@--help" not found.`
 - model changes apply to the database record; a client already running with a fixed model is not retargeted mid-session.
@@ -1238,12 +1236,9 @@ konoha savings
 | Konoha MCP Savings | calls, bytes, percent, tokens per period |
 | By Call Type | which tools carried the saving (top 10) |
 | Tiktoken Accuracy | bytes-per-token health check for the estimator |
-| Semble | separate tool; `unverified by Konoha` until it has telemetry |
-| Combined Total | both sources side by side |
 
-The combined block deliberately does not blend ratios across sources: Konoha's ratio is measured from `tool_calls`, Semble's
-is external. On a fresh install Semble reports `CLI not available or no telemetry recorded yet`, and the combined total is
-just the Konoha line.
+Every ratio comes from `tool_calls`, so the numbers are measured rather than estimated. Code search savings are part of
+the `code_search` / `code_symbol` / `code_context` rows — there is no second, unverified source to reconcile.
 
 ### 12.4 The numbers worth quoting
 
@@ -1322,7 +1317,7 @@ Doctor checks, in order:
 | Group | What it verifies | Repair |
 |---|---|---|
 | Runtime files | 13 scripts in `~/.konoha` (`db.js`, `vector_search.js`, `server.js`, `migrate.js`, `db_stats.js`, `db_savings.js`, `agent_stats.js`, `prompt_hook.js`, `antigravity_subagent_hook.js`, `file_tools_mcp.js`, `file_tools_router.js`, `file_tools_launcher.js`, `platform_utils.js`) plus `konoha.db` | restores from package templates |
-| MCP config | `mcp_config.json` parses and registers `konoha`, `semble`, `aislop` | re-registers via the Antigravity manager |
+| MCP config | `mcp_config.json` parses and registers `konoha`, `aislop` | re-registers via the Antigravity manager |
 | Client integrations | `GEMINI.md`, `agents.yaml`, Cursor, Claude Code, Command Code, OpenCode, Codex, OMP, Antigravity, Pi | reports only |
 | 3D toolchain | the Yamanaka toolchain: Blender binary, `dcc-mcp-blender`, Three.js, Manifold-3D | reports only; install from `/3d/setup`, which installs each component independently and returns per-component errors |
 | RTK | `rtk` binary on `PATH` | reports only |
@@ -1343,19 +1338,19 @@ Two behaviours to know before relying on it:
 `GET /api/v1/health` is public — the only data surface reachable before login.
 
 ```
-{"status":"healthy","version":"2.2.21","uptime":7703,"node":"v24.22.2","platform":"linux"}
+{"status":"healthy","version":"2.2.22","uptime":7703,"node":"v24.22.2","platform":"linux"}
 ```
 
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.21`) when
-the server version is unset. A correctly deployed 2.2.21 server reports `2.2.21`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.22`) when
+the server version is unset. A correctly deployed 2.2.22 server reports `2.2.22`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 
 ```bash
-konoha version              # 2.2.21 — trusts the local tree, not the registry
+konoha version              # 2.2.22 — trusts the local tree, not the registry
 konoha status               # per-client registration and skill counts
 konoha test                 # protocol + file tools + suites
 konoha doctor               # config and file repairs
@@ -1395,15 +1390,15 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | Symptom | Cause | Fix |
 |---|---|---|
 | `You are already running the latest version` on a newer checkout | the check compares against the npm registry, and your build is ahead of it | nothing to fix; compare `package.json` to the registry instead |
-| `Couldn't find any versions for "konoha-mcp" that matches "2.2.21"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.21` still works from a local tarball |
+| `Couldn't find any versions for "konoha-mcp" that matches "2.2.22"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.22` still works from a local tarball |
 | `konoha` not on `PATH` after global install | prefix directory not exported | add the prefix's `bin` to `PATH`; verify with `command -v konoha` |
 | `~/.konoha/bin/konoha` is a dangling symlink | older installer left the link after the target moved | remove the link, run `konoha reinstall` |
-| `Total indexed: undefined entries` | 2.2.21 formatting defect in the `list_skills` summary | ignore; the call succeeded |
+| `Total indexed: undefined entries` | 2.2.22 formatting defect in the `list_skills` summary | ignore; the call succeeded |
 | `konoha doctor --help` starts a full run | argument parsing treats `--help` as no-op (D5) | expect a run; use 13.2 to interpret output |
 | Antigravity shows `NOT INSTALLED` in doctor but works | doctor reads `~/.gemini/config/mcp_config.json`, init writes `~/.gemini/antigravity-ide/mcp_config.json` | check the file init actually wrote (D11) |
 | Client shows no tools, `status` healthy | client caches the tool list per process | restart the client |
 | `Server is not initialized` (`-32002`) | a call arrived before `initialize` | restart the client; a raw JSON-RPC probe must send `initialize` first |
-| `semble` tools missing right after init | `uv` was not on `PATH`, so install deferred | install `uv` and reconnect; it installs lazily on first use |
+| `code_search` returns `degraded: true` | this SQLite build lacks FTS5 | upgrade Node to >= 24; the fallback `LIKE` scan still answers, just slower |
 | Embedding generation stalls or burns bandwidth | first run downloads ONNX models | `konoha migrate --skip-embeddings`, or `KONOHA_SEMANTIC_SEARCH=0` |
 | `EACCES` on global install | installing into a root-owned prefix | use a user-owned prefix, never `sudo` |
 | Web UI unreachable | different port configured or process died | read `ui_port` from `~/.konoha/config.json`; `curl 127.0.0.1:<port>/api/v1/health` |
@@ -1413,17 +1408,17 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 
 ### 14.1 Upgrade that refuses to run
 
-Observed on 2.2.21, upgrade aborts before touching anything and prints:
+Observed on 2.2.22, upgrade aborts before touching anything and prints:
 
 ```
-Couldn't find any versions for "konoha-mcp" that matches "2.2.21"
+Couldn't find any versions for "konoha-mcp" that matches "2.2.22"
 ```
 
 Cause: the version you are running is not published, so the registry lookup resolves nothing. The command is fail-closed —
 configs were already backed up, nothing was modified — which is why the recovery is simply to install the exact version:
 
 ```bash
-npm install -g konoha-mcp@2.2.21
+npm install -g konoha-mcp@2.2.22
 konoha version
 ```
 
@@ -1554,7 +1549,7 @@ session, and reproducing them here would mean reproducing your data. That is a d
 
 ### 15.7 Scope
 
-This is an operator's description of the mechanisms in 2.2.21, not a security audit. The audit artefact for the release
+This is an operator's description of the mechanisms in 2.2.22, not a security audit. The audit artefact for the release
 lives in `docs/SecurityCompliance/`, and the interesting findings there concern dependencies rather than this design.
 
 ## 16. Appendix
@@ -1564,7 +1559,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 33 tables |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 42 tables |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |
@@ -1632,7 +1627,7 @@ Inspect and change with `konoha config list`, `konoha config get <key>`, `konoha
 
 ### 16.4 Defect register
 
-Observed in 2.2.21, recorded rather than fixed. None blocks normal operation.
+Observed in 2.2.22, recorded rather than fixed. None blocks normal operation.
 
 | ID | Defect |
 |---|---|
@@ -1666,9 +1661,9 @@ Observed in 2.2.21, recorded rather than fixed. None blocks normal operation.
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.21** as tagged at `v2.2.21` on `master`, one patch ahead of the newest npm release
+This manual describes **2.2.22** as tagged at `v2.2.22` on `master`, one patch ahead of the newest npm release
 (`2.2.19`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
-scratch prefix, on the 2.2.20 tree; 2.2.21's own evidence is the full suite and the CI matrix (`docs/CI.md`).
+scratch prefix, on the 2.2.20 tree; 2.2.22's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:
 

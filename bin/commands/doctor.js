@@ -19,7 +19,6 @@ const {
   FIRE_THEME
 } = require('../lib/format');
 const { startSpinner, checkPython } = require('../lib/prompt');
-const { getUvxCommand } = require('../lib/extension');
 const { SERVER_PATH } = require('../lib/paths');
 const { cmdTest } = require('./test');
 const { checkAndRepairRuntimeFiles, cleanCyberPack, restoreAnbu } = require('./doctor_runtime');
@@ -152,7 +151,6 @@ async function cmdDoctor(args = []) {
   const clientRepairOptions = {
     pythonCmd: checkPython() || 'python3',
     serverPath: SERVER_PATH,
-    uvxCmd: getUvxCommand(),
     agents: agentManager.loadAgents(),
     projectRoot: path.resolve(process.cwd()),
     deployProject: false,

@@ -134,7 +134,7 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 
 | Claim | Required Verification Evidence |
 |---|---|
-| Route / Selector exists | Genin cites exact `file:line` from Semble codebase exploration. |
+| Route / Selector exists | Genin cites exact `file:line` from native code-search exploration. |
 | Flow works | `qa_codify` compile + Playwright run exit 0 on that flow file hash. |
 | Bug confirmed | RED `qa_e2e_run` summary with unique `run_id` for the codified spec. |
 | Bug fixed | GREEN `qa_e2e_run` summary with unique `run_id` on the same test spec. |

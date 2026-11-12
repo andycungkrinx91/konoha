@@ -9,7 +9,7 @@
  *
  * Permission Grants Reference:
  * mcp__konoha__*
- * mcp__semble__*
+ * mcp__aislop__*
  * Shell(rtk *)
  */
 

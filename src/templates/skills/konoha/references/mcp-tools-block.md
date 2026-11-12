@@ -3,14 +3,15 @@
 Every official Konoha subagent must follow this contract on every new, resumed, and follow-up session.
 
 - **Konoha is mandatory**: use `mcp__konoha__find_skill` and `mcp__konoha__get_skill` for skill discovery/loading and Konoha bounded file tools for file operations.
-- **Semble is mandatory**: use `mcp__semble__search` and `mcp__semble__find_related` for all project codebase discovery. Always pass the absolute repository path.
+- **Code intelligence is mandatory**: use `mcp__konoha__code_search`, `mcp__konoha__code_symbol`, and `mcp__konoha__code_impact` for all project codebase discovery. Always pass the absolute repository `root`; run `code_index` first.
 - **RTK is mandatory for commands**: prefix shell commands with `rtk` when the binary is installed. If unavailable, report the warning and use the approved client fallback without claiming RTK was used.
-- **Resume safety**: on every new or resumed session, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before acting.
+- **Resume safety**: on every new or resumed session, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/RTK workflow before acting.
 
 | Tool Name | Description |
 |-----------|-------------|
-| `mcp__semble__search` | Project source code search (default for any codebase lookup) |
-| `mcp__semble__find_related` | Symbol / codepath discovery (default for tracing callsites) |
+| `mcp__konoha__code_search` | Project source code search (default for any codebase lookup) |
+| `mcp__konoha__code_symbol` | Symbol definition lookup |
+| `mcp__konoha__code_impact` | Callers / blast radius (default for tracing callsites) |
 | `mcp__konoha__find_skill` | Discover skill reference names from the prompt |
 | `mcp__konoha__get_skill` | Load a skill's full content after discovery |
 | `mcp__konoha__list_skills` | Browse available skills |
@@ -29,6 +30,6 @@ Every official Konoha subagent must follow this contract on every new, resumed, 
 
 ### Strict Tool Boundaries
 
-- Codebase search → `mcp__semble__search` / `mcp__semble__find_related`.
+- Codebase search → `mcp__konoha__code_search` / `code_symbol` / `code_impact`.
 - Skill lookup and bounded file reads → `mcp__konoha__*` tools.
-- Shell output → `rtk <command>` when installed; never bypass Semble or Konoha with native search/read tools.
+- Shell output → `rtk <command>` when installed; never bypass the Konoha code tools or bounded file tools with native search/read tools.

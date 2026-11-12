@@ -72,7 +72,7 @@ procedure is conditional on explicit authorisation. This audit stops at the evid
 - The lab DB already holds a complete, field-identical 361-row catalog, seeded on every
   `openLabDb()` when the table is empty.
 - No code path reads the main-DB table.
-- A fresh `setupSchema` does not create it (33 tables, verified; see
+- A fresh `setupSchema` does not create it (42 tables, verified; see
   `tests/test_schema_migrations_and_lifecycle.js`).
 - The only remaining occurrence is in the developer's live file.
 

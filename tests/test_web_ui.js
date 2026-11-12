@@ -235,30 +235,35 @@ async function run() {
     assert.ok(savings.data.today);
     console.log('✓ GET /api/v1/savings passed');
 
-    // 6b. Semble endpoints
-    const sembleStatus = await request({ hostname: '127.0.0.1', port, path: '/api/v1/semble', method: 'GET' });
-    assert.strictEqual(sembleStatus.status, 200);
-    assert.strictEqual(sembleStatus.data.name, 'Semble MCP');
-    console.log('✓ GET /api/v1/semble passed');
+    // 6b. Native code intelligence endpoints. Index a small real root first so
+    // the search assertion proves the endpoint answers, not just that it returns 200.
+    const codeIntel = require('../src/code_intel/tools');
+    const codeRoot = require('path').resolve(__dirname, '..', 'src', 'code_intel');
+    const indexed = codeIntel.code_index({ root: codeRoot });
+    assert.ok(indexed.files > 0, 'code index must record files');
 
-    const sembleSavings = await request({ hostname: '127.0.0.1', port, path: '/api/v1/semble/savings', method: 'GET' });
-    assert.strictEqual(sembleSavings.status, 200);
-    assert.ok(sembleSavings.data.today);
-    console.log('✓ GET /api/v1/semble/savings passed');
+    const codeStatus = await request({ hostname: '127.0.0.1', port, path: '/api/v1/code/status', method: 'GET' });
+    assert.strictEqual(codeStatus.status, 200);
+    assert.ok(Array.isArray(codeStatus.data.roots), 'code status must list indexed roots');
+    assert.ok(codeStatus.data.roots.some((r) => r.root === codeRoot), 'code status must report the indexed root');
+    assert.strictEqual(typeof codeStatus.data.fts_available, 'boolean');
+    console.log('✓ GET /api/v1/code/status passed');
 
-    const sembleSearch = await request({
+    const codeSearch = await request({
       hostname: '127.0.0.1',
       port,
-      path: '/api/v1/semble/search',
+      path: '/api/v1/code/search',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Konoha-Web-Token': token
       }
-    }, { query: 'find_skills', limit: 3 });
-    assert.strictEqual(sembleSearch.status, 200);
-    assert.ok(Array.isArray(sembleSearch.data.results));
-    console.log('✓ POST /api/v1/semble/search passed');
+    }, { query: 'indexRepository', root: codeRoot, limit: 3 });
+    assert.strictEqual(codeSearch.status, 200);
+    assert.ok(Array.isArray(codeSearch.data.hits) && codeSearch.data.hits.length > 0, 'code search must return hits');
+    assert.strictEqual(typeof codeSearch.data.hits[0].path, 'string');
+    assert.ok(Array.isArray(codeSearch.data.hits[0].lines), 'each hit must carry its line range');
+    console.log('✓ POST /api/v1/code/search passed');
 
     // 6c. SearXNG Web Search endpoints
     const searchStatus = await request({ hostname: '127.0.0.1', port, path: '/api/v1/search/status', method: 'GET' });

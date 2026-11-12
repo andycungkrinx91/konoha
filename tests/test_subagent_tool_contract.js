@@ -7,8 +7,8 @@ const ROOT = path.join(__dirname, '..');
 const contract = require(path.join(ROOT, 'src/mcp/subagent_tool_contract'));
 const { buildSubagentMcpBlock } = require(path.join(ROOT, 'src/mcp/memory_subagent_runner'));
 
-const attachedStatus = { mcpKonoha: true, mcpSemble: true, mcpAislop: true };
-const detachedStatus = { mcpKonoha: false, mcpSemble: false, mcpAislop: false };
+const attachedStatus = { mcpKonoha: true, mcpAislop: true };
+const detachedStatus = { mcpKonoha: false, mcpAislop: false };
 
 function runCase(name, fn) {
   try {

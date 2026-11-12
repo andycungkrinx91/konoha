@@ -4,7 +4,7 @@
  *
  * Denies:
  * 1. define_subagent / invoke_subagent (must use MCP tools instead)
- * 2. Native file/search tools (must use konoha/semble MCP instead)
+ * 2. Native file/search tools (must use konoha MCP instead)
  * 3. Shell commands that violate the shared guardrails (read-bypass,
  *    destructive commands, git safety, secret protection)
  *
@@ -48,7 +48,7 @@ function _checkRunCommandViolation(rawArgs) {
   if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
     return {
       category: 'read-bypass',
-      reason: `Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'semble' MCP (search, find_related) for code search instead of shell commands. Prefix safe read/search commands with 'rtk' to run them anyway.`
+      reason: `Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'code_search' for code search instead of shell commands. Prefix safe read/search commands with 'rtk' to run them anyway.`
     };
   }
   return null;
@@ -111,7 +111,7 @@ async function main() {
     if (FORBIDDEN_TOOLS.includes(name)) {
       respond({
         decision: 'deny',
-        reason: `Konoha Enforcement: Native tool '${name}' is DISABLED inside Konoha-managed workflows. You MUST use 'konoha' MCP (for bounded file reads/skills) and 'semble' MCP (for codebase search) instead.`,
+        reason: `Konoha Enforcement: Native tool '${name}' is DISABLED inside Konoha-managed workflows. You MUST use 'konoha' MCP (for bounded file reads/skills and code_search) instead.`,
       });
       return;
     }

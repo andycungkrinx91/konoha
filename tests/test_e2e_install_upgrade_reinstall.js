@@ -74,7 +74,7 @@ async function testFreshInstall(sandboxDir) {
   for (const client of allClients) {
     const mainContract = agentContract.buildMainAgentContract(client);
     assert.ok(mainContract.includes('Konoha is mandatory'), `${client} contract must include Konoha is mandatory`);
-    assert.ok(mainContract.includes('Semble is mandatory'), `${client} contract must include Semble is mandatory`);
+    assert.ok(mainContract.includes('Code intelligence is mandatory'), `${client} contract must include Code intelligence is mandatory`);
     assert.ok(mainContract.includes('RTK is mandatory'), `${client} contract must include RTK is mandatory`);
     assert.ok(mainContract.includes('Zero-AI-Slop & Kage Gate'), `${client} contract must include Zero-AI-Slop & Kage Gate`);
     assert.ok(mainContract.includes('On-Demand Full Contract'), `${client} contract must include On-Demand Full Contract`);

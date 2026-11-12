@@ -61,9 +61,10 @@ flowchart TB
     subgraph CoreMCP ["Konoha MCP & Storage Foundation"]
         SanninRouter["✧ Sannin MCP Router<br/>(Prompt Triage &amp; Delegation)"]
         SQLiteDB[("Unified SQLite DB<br/>~/.konoha/konoha.db<br/>(FTS5 · WAL Mode · busy_timeout=5000)")]
-        SembleSearch["Semble MCP Server<br/>(Project Code Search &amp; Symbol Index)"]
+        CodeIntel["Native Code Intelligence<br/>(code_search · code_symbol · code_impact · FTS5 index)"]
         AislopScanner["Aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene)"]
         SanninRouter <--> SQLiteDB
+        CodeIntel <--> SQLiteDB
     end
 
     Orchestrator --> CoreMCP
@@ -104,7 +105,7 @@ flowchart TB
     classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
 
     class UserPrompt,Clients,Orchestrator,Delivery clientNode;
-    class SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcpNode;
+    class SanninRouter,SQLiteDB,CodeIntel,AislopScanner mcpNode;
     class Sannin,Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu,Akatsuki,Yamanaka agentNode;
     class DoRGate,AkatsukiSecurityGate,SlopGate,SocketGate,ConfidenceGate gateNode;
 ```

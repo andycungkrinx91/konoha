@@ -383,7 +383,7 @@ function createWebServer(options = {}) {
     return svelteKitHandler;
   }
 
-  let serverVersion = '2.2.21';
+  let serverVersion = '2.2.22';
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     if (pkg && pkg.version) serverVersion = pkg.version;

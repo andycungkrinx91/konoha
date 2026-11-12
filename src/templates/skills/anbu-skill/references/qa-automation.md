@@ -30,7 +30,7 @@ Token-efficient QA automation owned by **Anbu**. Explore once with a scoped Play
 
 | Claim | Required Verification Evidence |
 |---|---|
-| Route / Selector exists | Genin Semble citation with exact `file:line`. |
+| Route / Selector exists | Genin `code_search` citation with exact `file:line`. |
 | Flow verified | `qa_codify` compile + Playwright run exit code 0 on the flow hash. |
 | Bug confirmed | RED `qa_e2e_run` summary carrying unique `run_id`. |
 | Bug resolved | GREEN `qa_e2e_run` summary on identical test file and hash. |

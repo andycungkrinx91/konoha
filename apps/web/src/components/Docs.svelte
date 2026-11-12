@@ -51,9 +51,9 @@
       detail: 'Canonical skill discovery, bounded file I/O, 8-ninja subagent dispatch, AI-fingerprint detectors, and native document engines across all 8 clients.'
     },
     {
-      name: 'semble',
-      tools: 'search, find_related',
-      detail: 'Semantic codebase search. Always called with the absolute repository path — replaces raw grep/glob for code discovery.'
+      name: 'native code intelligence',
+      tools: 'code_index, code_search, code_symbol, code_context, code_impact, code_status, code_remove',
+      detail: 'In-process symbol-aware index over the Konoha SQLite database (FTS5). No external server, no Python runtime, no network.'
     },
     {
       name: 'aislop',
@@ -85,7 +85,7 @@
     { method: 'POST', path: '/api/v1/sdlc/check-readiness', desc: 'Definition-of-Readiness check for task text' },
     { method: 'POST', path: '/api/v1/sdlc/tasks/reconcile', desc: 'Reconcile tasks against active filesystem and Git state' },
     { method: 'GET', path: '/api/v1/sdlc/config', desc: 'Project SDLC config (dor_mode, review_mode)' },
-    { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha + Semble combined)' },
+    { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha FTS5 tool calls)' },
     { method: 'GET', path: '/api/v1/telegram/config', desc: 'Telegram bot settings (AES-256 encrypted at rest, masked)' },
     { method: 'POST', path: '/api/v1/telegram/config', desc: 'Update Telegram bot token, chat ID, mode & secret' },
     { method: 'POST', path: '/api/v1/telegram/test', desc: 'Send test notification message to configured Telegram chat' },
@@ -95,8 +95,8 @@
     { method: 'POST', path: '/api/v1/queue/prompts', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
     { method: 'GET', path: '/api/v1/webhooks', desc: 'List registered outbound notification webhooks' },
     { method: 'POST', path: '/api/v1/webhooks', desc: 'Create a new outbound webhook notification target' },
-    { method: 'GET', path: '/api/v1/semble', desc: 'Semble MCP status' },
-    { method: 'POST', path: '/api/v1/semble/search', desc: 'Semantic code search proxy' },
+    { method: 'GET', path: '/api/v1/code/status', desc: 'Code intelligence index status per indexed root' },
+    { method: 'POST', path: '/api/v1/code/search', desc: 'Symbol-aware code search over the local FTS5 index' },
     { method: 'GET', path: '/api/v1/search/status', desc: 'SearXNG search engine status' },
     { method: 'POST', path: '/api/v1/search', desc: 'Zero-API-key web search' },
     { method: 'GET', path: '/api/v1/doctor', desc: 'Environment health diagnostics' },
@@ -599,7 +599,7 @@
       <section id="clients" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Client Setup</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Use the Clients screen to configure or remove MCP wiring per client. The runtime contract (Konoha + Semble + aislop,
+          Use the Clients screen to configure or remove MCP wiring per client. The runtime contract (Konoha + aislop,
           RTK shell filtering, guardrails) is injected into every client's agent instructions.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

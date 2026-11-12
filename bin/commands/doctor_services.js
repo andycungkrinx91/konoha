@@ -16,7 +16,7 @@ const {
 } = require('../lib/paths');
 const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
+const { AISLOP_PACKAGE } = require('../../src/uvx_runtime');
 const { confirmPrompt } = require('../lib/prompt');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 
@@ -86,17 +86,15 @@ async function checkDatabaseAndMigrations(context) {
 }
 
 function verifyMcpConfigContent(config, nodeCmd) {
-  const expectedSembleArgs = ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'];
   const expectedAislopArgs = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   const servers = config.mcpServers || {};
-  const sembleOk = servers['semble'] && JSON.stringify(servers['semble'].args || []) === JSON.stringify(expectedSembleArgs);
   const aislopOk = servers['aislop'] && JSON.stringify(servers['aislop'].args || []) === JSON.stringify(expectedAislopArgs);
   const konohaServer = servers['konoha'];
   const konohaOk = konohaServer &&
     konohaServer.args &&
     (konohaServer.args[0] === FILE_TOOLS_MCP_PATH || konohaServer.args[0] === path.join(HOME, '.konoha', 'file_tools_launcher.js')) &&
     (konohaServer.command === nodeCmd || konohaServer.command === 'node');
-  return Boolean(sembleOk && konohaOk && aislopOk);
+  return Boolean(konohaOk && aislopOk);
 }
 
 function checkMcpConfiguration(context) {
@@ -109,13 +107,13 @@ function checkMcpConfiguration(context) {
   }
 
   if (mcpHealthy) {
-    context.record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
+    context.record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha and aislop are active');
     return;
   }
 
   try {
     registerMcp();
-    context.record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+    context.record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and aislop in config');
     context.incrementRepairs();
   } catch (e) {
     context.record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);

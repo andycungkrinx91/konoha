@@ -30,7 +30,7 @@ $env:PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT = '180000'
 $env:CI = 'true'
 # The guest cannot reach astral.sh, and the winget fallback blocks indefinitely instead
 # of failing: run 7 sat in the fresh-install smoke step for hours with no verdict.
-# uv is only needed for the semble MCP, which the smoke test does not exercise.
+# uv is only needed for the aislop MCP, which the smoke test does not exercise.
 $env:KONOHA_SKIP_UV_INSTALL = '1'
 
 # Provisioning writes PATH to the registry, which a shell that was already open never

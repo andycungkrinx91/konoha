@@ -4,21 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const os = require('os');
-const { spawn, spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 const { ensureCursorSetup } = require('../src/cursor_manager');
 const { ensureOmpSetup, buildOmpMcpServers } = require('../src/omp_manager');
-const { resolveUvxExecutablePath } = require('../src/semble_manager');
 const { FILE_TOOLS_LAUNCHER_JS, SERVER_PATH } = require('../bin/lib/paths');
-
-// The Semble MCP entry is capability-gated on `uvx`: cursor_manager omits it when
-// uvx is absent, so a machine without uvx legitimately has no semble block.
-function uvxAvailable() {
-  try {
-    const cmd = resolveUvxExecutablePath('uvx') || 'uvx';
-    return spawnSync(cmd, ['--version'], { stdio: 'ignore', timeout: 5000, windowsHide: true }).status === 0;
-  } catch (_) { return false; }
-}
 
 async function runMcpStdioHandshake(command, args, env) {
   return new Promise((resolve, reject) => {
@@ -126,14 +116,7 @@ async function runSuite() {
     );
     assert.ok(cursorGlobalData.mcpServers.konoha.env?.PATH, 'Cursor konoha must have env.PATH');
 
-    const haveUvx = uvxAvailable();
-    if (haveUvx) {
-      assert.ok(cursorGlobalData.mcpServers.semble, 'Cursor global config must contain semble');
-      assert.ok(cursorGlobalData.mcpServers.semble.command, 'Semble command must exist');
-      assert.ok(cursorGlobalData.mcpServers.semble.env?.PATH, 'Cursor semble must have env.PATH');
-    } else {
-      assert.ok(!cursorGlobalData.mcpServers.semble, 'Semble entry must be omitted when uvx is unavailable');
-    }
+    assert.ok(!cursorGlobalData.mcpServers.semble, 'Cursor must not register the retired semble server');
 
     const cursorProjMcp = path.join(projectDir, '.cursor', 'mcp.json');
     assert.strictEqual(fs.existsSync(cursorProjMcp), true, 'Cursor project mcp.json must exist');
@@ -167,10 +150,7 @@ async function runSuite() {
     );
     assert.ok(ompGlobalData.mcpServers.konoha.env?.PATH, 'OMP konoha must have env.PATH');
 
-    // OMP always emits semble (src/omp_manager.js), unlike cursor which gates on
-    // a working uvx, so these stay unconditional.
-    assert.ok(ompGlobalData.mcpServers.semble, 'OMP config must contain semble');
-    assert.ok(ompGlobalData.mcpServers.semble.env?.PATH, 'OMP semble must have env.PATH');
+    assert.ok(!ompGlobalData.mcpServers.semble, 'OMP must not register the retired semble server');
 
     /* Stdio JSON-RPC Handshake verification */
     const targetLauncher = fs.existsSync(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;

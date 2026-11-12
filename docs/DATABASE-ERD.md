@@ -11,7 +11,7 @@ Two physically separate SQLite files. Nothing joins across them, and no write pa
 
 ## Main DB
 
-Sixteen tables appear below — those with relationships or security relevance. The
+Twenty-one tables appear below — those with relationships or security relevance. The
 remaining main tables (`assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`,
 `schema_migrations`, `validation_results`) and SQLite's own `*_fts*`, `sqlite_sequence`,
 and `_sqliteai_vector` bookkeeping tables are omitted as standalone storage.
@@ -22,6 +22,11 @@ erDiagram
     skills ||--o{ skill_chunks : "skill_name = name"
     projects ||--o{ persona_memories : "project_hash"
     projects ||..o{ active_sessions : "project_hash (logical)"
+    code_index_roots ||--o{ code_files : "root_hash"
+    code_files ||--o{ code_symbols : "file_id"
+    code_files ||--o{ code_refs : "file_id"
+    code_files ||--o{ code_chunks : "file_id"
+    code_symbols ||..o{ code_refs : "target_symbol_id (SET NULL)"
 
     agents {
         TEXT name PK
@@ -227,9 +232,72 @@ erDiagram
         TEXT type
         BLOB value
     }
+
+    code_index_roots {
+        TEXT root_hash PK
+        TEXT root_path UK
+        TEXT head_sha
+        TEXT status
+        INTEGER file_count
+        INTEGER symbol_count
+        INTEGER chunk_count
+        TEXT indexed_at
+        TEXT updated_at
+        TEXT error
+    }
+
+    code_files {
+        INTEGER id PK
+        TEXT root_hash FK
+        TEXT rel_path UK
+        TEXT language
+        INTEGER byte_size
+        INTEGER line_count
+        TEXT content_hash
+        TEXT indexed_at
+    }
+
+    code_symbols {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER file_id FK
+        TEXT name UK
+        TEXT kind UK
+        TEXT parent_name
+        INTEGER start_line UK
+        INTEGER end_line
+        TEXT signature
+        TEXT language
+    }
+
+    code_refs {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER file_id FK
+        TEXT target_name
+        INTEGER target_symbol_id FK
+        TEXT kind
+        INTEGER line
+    }
+
+    code_chunks {
+        INTEGER id PK
+        TEXT root_hash
+        INTEGER file_id FK
+        TEXT rel_path
+        TEXT language
+        INTEGER chunk_index UK
+        INTEGER start_line
+        INTEGER end_line
+        TEXT body
+        BLOB embedding
+        TEXT embedding_model
+    }
 ```
 
-Declared foreign keys are `skill_chunks.skill_name → skills.name` and `persona_memories.project_hash → projects.project_hash`. Dotted relations are logical joins with no constraint.
+Declared foreign keys are `skill_chunks.skill_name → skills.name`, `persona_memories.project_hash → projects.project_hash`, and every `code_*` child row to its parent. Dotted relations are logical joins with no constraint.
+
+The five `code_*` tables are the native code-intelligence index (schema v6). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` is `ON DELETE SET NULL` on purpose: a reference whose definition was removed stays in the graph as an unresolved name rather than disappearing. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step. `code_chunks.embedding` stays `NULL` until a real embedding model is available — hash-derived vectors are never written there.
 
 `lg_writes` is keyed on `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`; it references `lg_checkpoints` logically, not by a declared foreign key.
 

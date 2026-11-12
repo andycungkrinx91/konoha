@@ -19,7 +19,7 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Tokubets
 In the Konoha workflow, Tokubetsu-Jonin handles the documentation and artifact generation phase after execution tasks complete. The agent produces production-grade documentation, spreadsheets, decks, and diagrams, which are then evaluated by Kage during the mandatory confidence gate before Sannin synthesis. Documentation completion alone never authorizes delivery.
 
 > [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT use `code_search` for finding or locating skills, as it indexes project code only and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `code_search` for skills.
 
 ---
 

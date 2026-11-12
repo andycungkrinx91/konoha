@@ -34,7 +34,7 @@ flowchart TB
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
         KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
-        SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
+        CodeIntel["Native Code Intelligence Engine<br/>(code_search · code_symbol · code_context · code_impact)<br/>in-process SQLite FTS5 symbol index"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
         subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
@@ -43,6 +43,7 @@ flowchart TB
         end
         
         KonohaMCP <--> PersistenceLayer
+        CodeIntel <--> PersistenceLayer
     end
 
     subgraph Specialists ["Specialized Subagents (Sannin Router)"]
@@ -64,7 +65,6 @@ flowchart TB
     end
 
     Orchestrator --> KonohaMCP
-    Orchestrator --> SembleMCP
     KonohaMCP --> Sannin
     Sannin --> Specialists
     Specialists --> UniversalInvariants
@@ -81,18 +81,18 @@ flowchart TB
     classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
 
     class User,Clients,Orchestrator clientNode;
-    class KonohaMCP,SembleMCP,AislopMCP,SQLiteDB,VectorEngine mcpNode;
+    class KonohaMCP,CodeIntel,AislopMCP,SQLiteDB,VectorEngine mcpNode;
     class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki,Yamanaka agentNode;
     class Archetypes,Invariants,SSRSafety invNode;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (55 Canonical Tools)
 
-`TOOL_HANDLERS` in `src/file_tools_router.js` registers **50** dispatch keys; `listToolSchemas()` advertises **48**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
+`TOOL_HANDLERS` in `src/file_tools_router.js` registers **57** dispatch keys; `listToolSchemas()` advertises **55**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
 
-| Tool Category | Registered Tools (48 Total) | Description |
+| Tool Category | Registered Tools (55 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. The plural `find_skills` is a hidden dispatch alias for `find_skill`. |
@@ -106,6 +106,7 @@ flowchart TB
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
 | **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
+| **Code Intelligence (7)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove` | Native SQLite FTS5 code index: `code_index` walks a repository read-only, `code_search` ranks BM25 hits with definitions first, `code_symbol` resolves definitions, `code_context` returns indexed source, `code_impact` walks reverse dependencies, `code_status` lists indexed roots, `code_remove` drops one. No external process, no vector database, no writes to the analyzed repository. |
 
 
 ### 🧭 Canonical Roster & Runtime Surfaces (v2.2.19)
@@ -163,7 +164,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.21), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 6` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -315,7 +316,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 8 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev, OMP), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (48 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (55 tools) and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -391,8 +392,8 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Cleans sidebar section headers (`OPRATION & DIAGNOSTICS`) with explicit left-margin alignment (`ml-1`, `text-left`, `justify-start`) and replaces hardcoded dashboard header placeholders with dynamic active section and route name breadcrumbs.
    - Adds responsive mobile menu sidebar toggle on the far left of the mobile header (`lg:hidden`) with slide-out drawer navigation and backdrop dismissal, cleanly eliminating bottom dock clutter, and permanently embeds author attribution: `Created by Andy Setiyawan` with verified profile link in the sidebar footer.
 35. **OMP Client Architecture & Workflow Contract (v2.2.0)**:
-   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `uvx`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
-   - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient Semble codebase search.
+   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
+   - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient native codebase search.
    - Enforces host-native advisor review continuity (`reviewMode: agent-end`) executed cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
    - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
 36. **Proxy Gateway Process Lifecycle, Savings Telemetry Performance & Prompt Token Optimization (v2.1.18)**:
@@ -400,7 +401,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Incremental Transcript Cache & Dynamic Savings Telemetry**: Refactored `calculateAllModelTokens()` with `{ mtime, size }` persistent transcript caching (`~/.konoha/transcript_cache.json`) and in-memory TTL, slashing execution time from 9.35s to < 30ms. Replaced the static 15,000-byte baseline fallback in `find_skill` with dynamic `SUM(byte_size)` candidate metrics and cleaned legacy database normalizations, allowing savings ratios to accurately fluctuate between 83% and 98% based on real payload sizes.
    - **Prompt Token Optimization**: Decoupled canonical agent skills from raw database reference expansion in `src/agent_manager.js`, keeping agent prompts strictly scoped to top-level canonical skills. Emits concise on-demand discovery instructions in generated subagents and rules, shrinking `AGENTS.md`, `.cursorrules`, and subagent markdowns by > 85% (> 35,000 tokens saved per turn).
 37. **Console Content Width, PageHero Shell & Post-Login Form Field Harmonization (v2.1.18)**:
-   - **Authoritative Shared Width & Gutter Tokens**: Implemented `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), and `--content-gutter-mobile: 1rem` (16px) in `apps/web/src/app.css`. Applied uniformly through `.console-content-container` in `apps/web/src/routes/+layout.svelte` to all standard console routes (`/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/semble`, `/detector`, `/tasks`, `/doctor`, `/settings`), centering with symmetric margins to the right of the sidebar.
+   - **Authoritative Shared Width & Gutter Tokens**: Implemented `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), and `--content-gutter-mobile: 1rem` (16px) in `apps/web/src/app.css`. Applied uniformly through `.console-content-container` in `apps/web/src/routes/+layout.svelte` to all standard console routes (`/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/code`, `/detector`, `/tasks`, `/doctor`, `/settings`), centering with symmetric margins to the right of the sidebar.
    - **Explicit Route Layout Exceptions**: Preserved `/dashboard` and `/docs` as explicit exceptions via `isCustomLayoutRoute` in `+layout.svelte`, retaining their full content stage width and custom scrolling behavior.
    - **Unified PageHero Component**: Created reusable `apps/web/src/components/PageHero.svelte` implementing the measured `/remote` reference hero (`glass-card-3d rounded-[5px] p-8 border`, 3D gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast typography, and responsive badge/actions/stats snippets) across all standard routes and `/docs`.
    - **Post-Login Form Field Styling**: Applied `.login-field-effect` across all post-login form inputs, selects, and textareas, matching `Login.svelte` reference (`rounded-[3px]`, `background-color: var(--color-surface)`, `border: 1px solid var(--theme-border-strong)`, and travelling neon focus border sweep with ambient glow).
@@ -570,7 +571,7 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
    - **Telegram 2-Way Interactive Approvals**: Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot. Supports `/approval list` and `/approval <id>`. Enforces strict mutual exclusion between 1-way and 2-way modes to eliminate duplicate notifications. Broadcasts completion alerts across all clients.
    - **Complete Elimination of File-Based IPC**: Zero usage of `prompt.md`, `delegate.md`, or `result.md`. Task inputs are ingested from `<USER_REQUEST>` / `sdlc_tasks.description`, dispatches pass structured tool arguments, and results are reported directly via `konoha.report_from_agent`.
    - **Dynamic Polyglot Stack Detector (`src/mcp/stack_detector.js`)**: Inspects workspace manifests and dynamically selects native ecosystem commands across Node/TS, Python, Go, Rust, PHP, and Java.
-   - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `semble.search`.
+   - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `konoha.code_search`.
 
 11. **Hardened Runtime, Universal Project Sync & SQLite Primary Skill Authority (v2.2.3)**:
    - **Migration Timeout & NaN Crash Prevention (`bin/lib/paths.js`, `bin/commands/migrate.js`)**: Increased baseline migration timeout to 180s (3 minutes) to accommodate large SQLite FTS5 re-indexing and neural vector embedding generation across multi-core systems. Hardened `MIGRATION_TIMEOUT_MS` resolution against `NaN` crashes using defensive `Number.isFinite()` normalization. Superseded in 2.2.20 — see invariant 39: the budget is 900s from centralized config, and the embedding pass honors it.
@@ -599,7 +600,7 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
 
 1. **State Transitions & Agent Routing**:
    - `route` (`sannin`): Definition-of-Readiness check (`checkReadiness`), execution classification (`fast_track` direct execution vs `full_sdlc` 8-phase DAG), root task registration in SQLite `sdlc_tasks`, isolated scratch workspace creation (`scratch/tasks/<task_id>/`).
-   - `explore` (`genin`): Read-only codebase reconnaissance, AST/symbol exploration via `semble.search` and `konoha.read_file_range`, dependency boundary mapping; produces `findings.md`. Zero code modifications.
+   - `explore` (`genin`): Read-only codebase reconnaissance, AST/symbol exploration via `konoha.code_search` / `code_symbol` and `konoha.read_file_range`, dependency boundary mapping; produces `findings.md`. Zero code modifications.
    - `plan` (`kage`): Decomposition of `findings.md` into decoupled `- [agent]: task` items, determination of `needs_research` flag, subtask persistence in `sdlc_tasks`.
    - `pending_plan_approval` (Gate 1): Authoritative HITL gate pausing execution; choice 1 approves execution, choice 2 requests plan refinement/regeneration.
    - `research` (`chunin`): Executed conditionally when `needs_research == true`; real-time documentation retrieval and factual evidence gathering; produces `research_evidence.md`.
@@ -630,7 +631,7 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
    - **Structured MCP Communication**: Strict elimination of disk-based IPC (`prompt.md`, `delegate.md`, `result.md`). Communication passes through structured tool arguments and `konoha.report_from_agent`.
    - **Session Sandbox Isolation (Decision A)**: Episodic memories are strictly scoped to the active session (`session_id`). Cross-session visibility requires explicit opt-in (`allSessions: true`).
    - **Deterministic Token Budget**: Single unified prompt format (< 8 KB, ~1,800 tokens) with prefix determinism ($T_1 == T_2 == T_3$) for KV cache optimization.
-   - **RTK Boundary Guardrails**: Prohibits raw file cat/grep commands, enforcing `konoha.read_file_range` and `semble.search`.
+   - **RTK Boundary Guardrails**: Prohibits raw file cat/grep commands, enforcing `konoha.read_file_range` and `konoha.code_search`.
 
 ---
 
@@ -757,7 +758,7 @@ LangGraph.js provides native parallel branch execution through the `Send` API an
    - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
 3. **Architectural Implementation (v2.2.18)**:
    - **STATUS: ACTIVE IN v2.2.18 (`src/mcp/langgraph/`)**.
-   - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
+   - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, aislop, and RTK.
 
 ---
 

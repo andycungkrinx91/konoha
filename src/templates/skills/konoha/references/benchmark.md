@@ -1,10 +1,10 @@
-# 🍃 Konoha Token Economy & Benchmark Standards (v2.2.21)
+# 🍃 Konoha Token Economy & Benchmark Standards (v2.2.22)
 
 Technical reference on Konoha's token economy, compact multi-skill digests (`use_skills`), Real-Time Idle `@advisor` budget (`<= 1,000 tokens/turn`), dynamic baseline savings calculations, SQLite FTS5 benchmark metrics, and KV-cache prefix optimization.
 
 ---
 
-## 📉 Context Token Economy & Savings Architecture (`v2.2.21`)
+## 📉 Context Token Economy & Savings Architecture (`v2.2.22`)
 
 Konoha delivers an authentic **83%–98% token reduction** across all 8 supported AI coding clients:
 1. **Compact Multi-Skill Digest (`use_skills` <= 6,400 Bytes / <= 1,600 Tokens)**:

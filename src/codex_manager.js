@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { spawnSync } = require('child_process');
 const { getCanonicalAgentNames } = require('./canonical_agents');
 
@@ -138,7 +138,7 @@ function writeCodexConfig(content, options = {}) {
       client: 'codex',
       scope: 'global',
       format: 'toml',
-      ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.semble]', '[mcp_servers.aislop]']
+      ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.aislop]', '[mcp_servers.semble]']
     }, options);
   } catch (_) { /* best-effort */ }
 }
@@ -172,7 +172,6 @@ function getKonohaToolNames() {
 
 const KONOHA_TOOLS = getKonohaToolNames();
 
-const SEMBLE_TOOLS = ['search', 'find_related'];
 const AISLOP_TOOLS = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 
 function _filterExistingCodexToml(existingToml) {
@@ -252,7 +251,7 @@ function _resolveAislopCommand(npxExecutable) {
 }
 
 function _buildCodexMcpSection(cfg) {
-  const { pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines } = cfg;
+  const { pythonExecutable, serverEntryPoint, npxExecutable, userFeatureLines } = cfg;
   const tomlStr = (v) => `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   const normPython = normalizeCommand(pythonExecutable);
   const konohaArgs = [...normPython.prefixArgs, serverEntryPoint];
@@ -278,17 +277,8 @@ function _buildCodexMcpSection(cfg) {
   const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
-  const sembleBlock = [
-    '[mcp_servers.semble]',
-    `command = ${tomlStr(uvxExecutable)}`,
-    `args = ["--from", "${SEMBLE_PACKAGE}", "semble", "--content", "all"]`,
-    'startup_timeout_sec = 30', 'tool_timeout_sec = 60', 'default_tools_approval_mode = "auto"'
-  ].join('\n');
-  const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
-
   return [
     konohaBlock, '', konohaToolBlocks,
-    '', sembleBlock, '', sembleToolBlocks,
     '', aislopBlock, '', aislopToolBlocks, '', featuresBlock
   ].join('\n');
 }
@@ -297,7 +287,7 @@ function _buildCodexMcpSection(cfg) {
  * Codex subagent tool parity.
  *
  * The main agent is governed by `[mcp_servers.<srv>.tools.<tool>]
- * approval_mode = "auto"` (konoha/semble/aislop, every canonical tool named
+ * approval_mode = "auto"` (konoha/aislop, every canonical tool named
  * explicitly — see _buildCodexMcpSection). A Codex `[agents.*]` subagent does
  * NOT automatically inherit those per-tool tables. This repo documents only
  * the server-level `[mcp_servers.*]` form, so no invented per-agent tool table
@@ -307,7 +297,6 @@ function _buildCodexMcpSection(cfg) {
  */
 function _buildCodexAgentApprovalKeys() {
   assertNoWildcardGrants(KONOHA_TOOLS, 'codex konoha tool names');
-  assertNoWildcardGrants(SEMBLE_TOOLS, 'codex semble tool names');
   assertNoWildcardGrants(AISLOP_TOOLS, 'codex aislop tool names');
   return 'approval_mode = "auto"';
 }
@@ -352,17 +341,17 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
 }
 
 /**
- * Injects or replaces [mcp_servers.konoha], [mcp_servers.semble], and [mcp_servers.aislop] in TOML content.
+ * Injects or replaces [mcp_servers.konoha] and [mcp_servers.aislop] in TOML content,
+ * and strips the legacy [mcp_servers.semble] block an older Konoha wrote.
  */
-function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
+function updateCodexTomlMcp(existingToml, pythonCmd, serverPath) {
   const pythonExecutable = pythonCmd || 'python3';
   const serverEntryPoint = serverPath || SERVER_PATH;
-  const uvxExecutable = uvxCmd || 'uvx';
   const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
   const { cleaned, userOwnedAgentNames, userFeatureLines } = _filterExistingCodexToml(existingToml);
   const mcpSection = _buildCodexMcpSection({
-    pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines
+    pythonExecutable, serverEntryPoint, npxExecutable, userFeatureLines
   });
   const agentBlocks = _buildCodexAgentBlocks(userOwnedAgentNames);
 
@@ -378,31 +367,18 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
 // MCP Server Registration
 
-function _resolveUvxPath(uvxCmd) {
-  let resolvedUvx = uvxCmd || 'uvx';
-  try {
-    const whichCmd = process.platform === 'win32' ? 'where.exe' : 'which';
-    const whichUvx = spawnSync(whichCmd, [resolvedUvx], { encoding: 'utf-8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
-      return whichUvx.stdout.trim().split('\n')[0].trim();
-    }
-  } catch { /* best-effort */ }
-  return resolvedUvx;
-}
-
-function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerCodexMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
   }
   try {
     const existing = readCodexConfig(options);
-    const resolvedUvx = _resolveUvxPath(uvxCmd);
-    const updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
+    const updated = updateCodexTomlMcp(existing, pythonCmd, serverPath);
     writeCodexConfig(updated, options);
 
     if (!silent) {
-      process.stderr.write('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml\n');
+      process.stderr.write('  ✓ Codex MCP servers configured (konoha, aislop) in config.toml\n');
     }
 
     return { ok: true };
@@ -497,7 +473,6 @@ function getCodexStatus() {
     configExists: fileExists(CODEX_CONFIG),
     configPath: CODEX_CONFIG,
     mcpKonoha: false,
-    mcpSemble: false,
     rtkRuleDeployed: fileExists(CODEX_RTK_RULE)
   };
 
@@ -506,7 +481,6 @@ function getCodexStatus() {
       const content = readCodexConfig();
       const parsed = parseCodexToml(content);
       status.mcpKonoha = !!(parsed.mcp_servers && parsed.mcp_servers['konoha']);
-      status.mcpSemble = !!(parsed.mcp_servers && parsed.mcp_servers['semble']);
       status.mcpAislop = !!(parsed.mcp_servers && parsed.mcp_servers['aislop']);
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
@@ -556,7 +530,6 @@ function ensureCodexSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     silent = true,
     force = false,
     skipDetection = false
@@ -580,7 +553,7 @@ function ensureCodexSetup(options = {}) {
     return { ok: false, reason: 'konoha-server-not-installed' };
   }
 
-  const mcpResult = registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, options);
+  const mcpResult = registerCodexMcp(targetCmd, launcherJs, silent, options);
   if (!mcpResult.ok) {
     return { ok: false, reason: mcpResult.reason || 'codex-mcp-registration-failed' };
   }
@@ -591,7 +564,7 @@ function ensureCodexSetup(options = {}) {
   const projectRoot = options.projectRoot || null;
   const projToml = projectRoot ? path.join(projectRoot, '.codex', 'config.toml') : null;
   if (projToml && (options.appendProject || (options.deployProject && fileExists(projToml)))) {
-    registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, { ...options, configPath: projToml });
+    registerCodexMcp(targetCmd, launcherJs, silent, { ...options, configPath: projToml });
   }
 
   return { ok: true, contractRule, rtkRule };

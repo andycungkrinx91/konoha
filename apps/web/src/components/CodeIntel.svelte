@@ -5,7 +5,6 @@
   import PageHero from "./PageHero.svelte";
 
   let status = $state(null);
-  let savings = $state(null);
   let loading = $state(true);
   let error = $state("");
 
@@ -15,16 +14,11 @@
   let searchResults = $state(null);
   let searchError = $state("");
 
-  async function loadSembleData() {
+  async function loadStatus() {
     loading = true;
     error = "";
     try {
-      const [statusRes, savingsRes] = await Promise.all([
-        api.get("/api/v1/semble"),
-        api.get("/api/v1/semble/savings")
-      ]);
-      status = statusRes;
-      savings = savingsRes;
+      status = await api.get("/api/v1/code/status");
     } catch (err) {
       error = err.message;
     } finally {
@@ -39,11 +33,10 @@
     searchError = "";
     searchResults = null;
     try {
-      const res = await api.post("/api/v1/semble/search", {
+      searchResults = await api.post("/api/v1/code/search", {
         query: searchQuery.trim(),
         limit: searchLimit
       });
-      searchResults = res;
     } catch (err) {
       searchError = err.message;
       toast.error("Search failed: " + err.message);
@@ -52,33 +45,34 @@
     }
   }
 
-  onMount(loadSembleData);
+  const indexedRoot = $derived(status?.roots?.find((r) => r.status === "ready") ?? status?.roots?.[0] ?? null);
+
+  onMount(loadStatus);
 </script>
 
 <div class="space-y-8 w-full">
   {#snippet heroBadgeIcon()}
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
     </svg>
   {/snippet}
 
   {#snippet heroStats()}
     <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
-      <div class="text-xs font-bold theme-text-secondary">Saved All-Time</div>
-      <div class="text-xl font-black text-[var(--theme-success)]">{savings ? savings.total_saved : "—"}</div>
+      <div class="text-xs font-bold theme-text-secondary">Indexed Files</div>
+      <div class="text-xl font-black text-[var(--theme-success)]">{indexedRoot ? indexedRoot.files : "—"}</div>
     </div>
     <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold theme-text-secondary">Engine Type</div>
-      <div class="text-xl font-black text-[var(--theme-info)]">Neural + FTS</div>
+      <div class="text-xl font-black text-[var(--theme-info)]">SQLite FTS5</div>
     </div>
   {/snippet}
 
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <PageHero
-    title="Semble MCP Engine"
-    badgeText="Default Codebase Discovery Server"
+    title="Native Code Intelligence"
+    badgeText="Built-in Index · No External Server"
     badgeIcon={heroBadgeIcon}
-    description="AI-powered semantic code search powered by MinishLab. Understands code intent, symbols, and architecture while burning ~98% fewer context tokens than legacy grep and file dumps."
+    description="Symbol-aware code search over the local SQLite index. Lexed in-process, stored in the Konoha database, and queried with FTS5 — no Python runtime, no sidecar MCP server, no network round trip."
     stats={heroStats}
   />
 
@@ -88,71 +82,53 @@
     </div>
   {/if}
 
-  <!-- Metrics Grid with 3D Glass Cards -->
-  {#if savings}
+  {#if !loading && status && (!status.roots || status.roots.length === 0)}
+    <div class="p-4 rounded-2xl border theme-border theme-bg-surface text-xs font-semibold theme-text-secondary">
+      No repository indexed yet. Run <code class="font-mono">code_index</code> from any MCP client to build the index.
+    </div>
+  {/if}
+
+  {#if indexedRoot}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
       <div class="glass-card-3d p-6 rounded-2xl border">
         <div class="flex items-center justify-between mb-3 text-xs font-bold theme-text-secondary uppercase tracking-wider">
-          <span>Today Savings</span>
-          <span class="px-2 py-0.5 rounded-full badge-status badge-status-success font-mono font-bold">99%</span>
+          <span>Files</span>
+          <span class="px-2 py-0.5 rounded-full badge-status badge-status-success font-mono font-bold">{indexedRoot.status}</span>
         </div>
-        <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.today?.tokens_saved ?? '—'}</div>
-        <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
-          <span>{savings.today?.calls ?? 0} search queries</span>
-          <span class="text-status-success font-bold">Optimal context</span>
-        </div>
-        <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-status-success-soft rounded-full" style="width: 99%"></div>
-        </div>
+        <div class="text-3xl font-black theme-text tracking-tight mb-1">{indexedRoot.files}</div>
+        <div class="text-xs font-semibold theme-text-secondary break-all">{indexedRoot.root}</div>
       </div>
 
       <div class="glass-card-3d p-6 rounded-2xl border">
         <div class="flex items-center justify-between mb-3 text-xs font-bold theme-text-secondary uppercase tracking-wider">
-          <span>Last 7 Days</span>
-          <span class="px-2 py-0.5 rounded-full badge-status badge-status-info font-mono font-bold">99%</span>
+          <span>Symbols</span>
         </div>
-        <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.last_7_days?.tokens_saved ?? '—'}</div>
-        <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
-          <span>{savings.last_7_days?.calls ?? 0} searches</span>
-          <span class="text-status-info font-bold">Consistently ~99%</span>
-        </div>
-        <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-status-info rounded-full" style="width: 99%"></div>
-        </div>
+        <div class="text-3xl font-black theme-text tracking-tight mb-1">{indexedRoot.symbols}</div>
+        <div class="text-xs font-semibold theme-text-secondary">functions, classes, types, methods</div>
       </div>
 
       <div class="glass-card-3d p-6 rounded-2xl border">
         <div class="flex items-center justify-between mb-3 text-xs font-bold theme-text-secondary uppercase tracking-wider">
-          <span>Total Reduction</span>
-          <span class="px-2 py-0.5 rounded-full badge-status badge-status-info font-mono font-bold">{savings.total_saved_pct ?? 0}%</span>
+          <span>Chunks</span>
         </div>
-        <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.total_saved ?? '—'}</div>
-        <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
-          <span>{savings.total_calls ?? 0} total queries</span>
-          <span class="text-action-primary font-bold">Net Saved</span>
-        </div>
-        <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-action-primary rounded-full" style="width: {savings.total_saved_pct ?? 0}%"></div>
-        </div>
+        <div class="text-3xl font-black theme-text tracking-tight mb-1">{indexedRoot.chunks}</div>
+        <div class="text-xs font-semibold theme-text-secondary">indexed {indexedRoot.indexed_at ?? "—"}</div>
       </div>
     </div>
   {/if}
 
-  <!-- Interactive Search Playground in 3D Glass Card -->
   <div class="glass-card-3d rounded-3xl p-6 lg:p-8 border space-y-6">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-lg font-black theme-text">
-          Semble Search Playground
-        </h3>
+        <h3 class="text-lg font-black theme-text">Index Search Playground</h3>
         <p class="text-xs font-semibold theme-text-secondary mt-0.5">
-          Execute real-time semantic neural queries against the active project repository.
+          Query the local FTS5 index. Results are definition-first, then by relevance.
         </p>
       </div>
       {#if status}
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {(status.available ?? status.configured) ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
-          <span class="w-1.5 h-1.5 rounded-full {(status.available ?? status.configured) ? 'bg-status-success-soft' : 'bg-status-danger-soft'}"></span>
-          {(status.available ?? status.configured) ? "Engine Online" : "Engine Offline"}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {status.fts_available ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
+          <span class="w-1.5 h-1.5 rounded-full {status.fts_available ? 'bg-status-success-soft' : 'bg-status-danger-soft'}"></span>
+          {status.fts_available ? "FTS5 Online" : "FTS5 Unavailable"}
         </span>
       {/if}
     </div>
@@ -162,7 +138,7 @@
         <input
           type="text"
           bind:value={searchQuery}
-          placeholder="Describe symbol, bug, or feature (e.g. CSRF token validation logic)..."
+          placeholder="Symbol or phrase (e.g. csrf token validation)"
           class="w-full pl-10 pr-4 py-3 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect"
         />
         <svg class="w-4 h-4 absolute left-3.5 top-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -190,27 +166,31 @@
       </div>
     </form>
 
-    <!-- Search Results Display -->
+    {#if searchError}
+      <div class="p-3 rounded-xl border badge-status badge-status-danger text-xs font-semibold">{searchError}</div>
+    {/if}
+
     {#if searchResults}
       <div class="space-y-4 pt-4 border-t theme-border">
         <div class="flex items-center justify-between text-xs">
           <span class="font-bold theme-text-secondary">
-            Found {searchResults.results ? searchResults.results.length : 0} semantic matches for "{searchQuery}"
+            {searchResults.total ?? 0} matches for "{searchQuery}"
           </span>
+          {#if searchResults.degraded}
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-warning">degraded: no FTS5</span>
+          {/if}
         </div>
 
         <div class="space-y-3">
-          {#each searchResults.results || [] as r}
+          {#each searchResults.hits || [] as r}
             <div class="p-4 rounded-2xl border theme-border theme-bg-surface space-y-2 hover:border-status-info-soft transition-colors">
               <div class="flex items-center justify-between">
-                <span class="font-mono text-xs font-bold text-action-primary break-all">
-                  {r.file_path}
-                </span>
+                <span class="font-mono text-xs font-bold text-action-primary break-all">{r.path}</span>
                 <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">
-                  L{r.start_line}-{r.end_line} • Score: {r.score ? r.score.toFixed(3) : "—"}
+                  L{r.lines?.[0]}-{r.lines?.[1]} • {r.language}
                 </span>
               </div>
-              <pre class="text-[11px] font-mono p-3 rounded-xl theme-bg-muted border theme-border theme-text overflow-x-auto whitespace-pre-wrap">{r.content}</pre>
+              <pre class="text-[11px] font-mono p-3 rounded-xl theme-bg-muted border theme-border theme-text overflow-x-auto whitespace-pre-wrap">{r.snippet}</pre>
             </div>
           {/each}
         </div>

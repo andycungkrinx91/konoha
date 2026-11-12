@@ -136,28 +136,28 @@ function printClientOverview(statuses) {
   log(`  ${C.bold}${applyGradient('1. 🔌 MCP Clients Configuration', RASENGAN_THEME)}${C.reset}`);
   log(`  Auto-setup bridges Konoha directly into IDE and CLI configuration files.\n`);
 
-  printClientStatusRow('Antigravity IDE / CLI', '~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb && agyStatus.mcpSemble, agyStatus.mcpConfigExists);
-  printClientStatusRow('Cursor IDE / CLI', '~/.cursor/mcp.json', cursorStatus.mcpKonoha && cursorStatus.mcpSemble, cursorStatus.mcpGlobal, cursorManager.isCursorInstalled());
-  printClientStatusRow('Claude Code CLI', '~/.claude.json', claudeStatus.mcpKonoha && claudeStatus.mcpSemble, claudeStatus.globalConfig, claudeStatus.installed);
-  printClientStatusRow('OpenCode IDE', '~/.config/opencode/opencode.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
-  printClientStatusRow('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha && cmdStatus.mcpSemble, cmdStatus.globalConfig, cmdStatus.installed);
-  printClientStatusRow('Codex IDE / CLI', '~/.codex/config.toml', codexStatus.mcpKonoha && codexStatus.mcpSemble, codexStatus.configExists, codexStatus.installed);
+  printClientStatusRow('Antigravity IDE / CLI', '~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb, agyStatus.mcpConfigExists);
+  printClientStatusRow('Cursor IDE / CLI', '~/.cursor/mcp.json', cursorStatus.mcpKonoha, cursorStatus.mcpGlobal, cursorManager.isCursorInstalled());
+  printClientStatusRow('Claude Code CLI', '~/.claude.json', claudeStatus.mcpKonoha, claudeStatus.globalConfig, claudeStatus.installed);
+  printClientStatusRow('OpenCode IDE', '~/.config/opencode/opencode.json', openCodeStatus.mcpKonoha, openCodeStatus.configExists, openCodeStatus.installed);
+  printClientStatusRow('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha, cmdStatus.globalConfig, cmdStatus.installed);
+  printClientStatusRow('Codex IDE / CLI', '~/.codex/config.toml', codexStatus.mcpKonoha, codexStatus.configExists, codexStatus.installed);
   const piStatus = piManager.getPiStatus();
   printClientStatusRow('Pi (pi.dev)', '~/.pi/agent/mcp.json', piStatus.mcpKonoha && piStatus.adapterInstalled && piStatus.rtkRuleDeployed, piStatus.adapterInstalled, piStatus.installed);
   const ompStatus = ompManager.getOmpStatus();
-  printClientStatusRow('OMP Agent', '~/.omp/agent/mcp.json', ompStatus.mcpKonoha && ompStatus.mcpSemble, ompStatus.configExists, ompStatus.installed);
+  printClientStatusRow('OMP Agent', '~/.omp/agent/mcp.json', ompStatus.mcpKonoha, ompStatus.configExists, ompStatus.installed);
 }
 
 function printIdeDetailsSection(agyStatus, cursorStatus, claudeStatus) {
   sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
-  drawIntegrationRow('~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb && agyStatus.mcpSemble, agyStatus.mcpConfigExists ? 'konoha + semble' : 'not configured', NINJA_THEME);
+  drawIntegrationRow('~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb, agyStatus.mcpConfigExists ? 'konoha + aislop' : 'not configured', NINJA_THEME);
   drawIntegrationRow('Antigravity MCP schemas', agyStatus.schemasCount >= 7, `${agyStatus.schemasCount} in ~/.gemini/antigravity-cli/mcp/konoha/`, NINJA_THEME);
   drawIntegrationRow('Sanitize Hook config', agyStatus.hasHooks, agyStatus.hasHooks ? 'sanitize hooks active' : 'hooks missing', NINJA_THEME);
   drawIntegrationRow('RTK (Token Killer)', agyStatus.rtkInstalled, agyStatus.rtkInstalled ? 'rtk binary available — rules deployed to antigravity-cli/ide' : 'RTK not installed', NINJA_THEME);
 
   if (cursorManager.isCursorInstalled()) {
     sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
-    drawIntegrationRow('~/.cursor/mcp.json', cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble, cursorStatus.mcpGlobal ? 'konoha + semble' : 'not configured', NINJA_THEME);
+    drawIntegrationRow('~/.cursor/mcp.json', cursorStatus.mcpSkillsDb, cursorStatus.mcpGlobal ? 'konoha + aislop' : 'not configured', NINJA_THEME);
     drawIntegrationRow('Cursor skills', cursorStatus.skillsGlobal > 0, `${cursorStatus.skillsGlobal} indexed from ~/.agents/skills/; Cursor uses Konoha MCP content`, NINJA_THEME);
     drawIntegrationRow('CLI permissions', cursorStatus.cliPermissions, cursorStatus.cliPermissions ? 'MCP auto-allow configured' : 'run konoha init', NINJA_THEME);
     drawIntegrationRow('sessionStart hook', cursorStatus.hooks, cursorStatus.hooks ? 'auto-bootstrap on session' : 'not registered', NINJA_THEME);
@@ -168,8 +168,8 @@ function printIdeDetailsSection(agyStatus, cursorStatus, claudeStatus) {
 
   if (claudeStatus.installed) {
     sectionTitle('Claude Code Integrations:', NINJA_THEME);
-    const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.permissionsAllowed;
-    drawIntegrationRow('~/.claude.json', claudeOk, claudeStatus.permissionsAllowed ? 'konoha + semble' : 'konoha + semble (permissions missing)', NINJA_THEME);
+    const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.permissionsAllowed;
+    drawIntegrationRow('~/.claude.json', claudeOk, claudeStatus.permissionsAllowed ? 'konoha + aislop' : 'konoha + aislop (permissions missing)', NINJA_THEME);
     drawIntegrationRow('RTK (Token Killer)', claudeStatus.rtkInstalled && claudeStatus.rtkRuleDeployed, claudeStatus.rtkInstalled ? (claudeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.claude/rules/' : 'rtk rule not deployed') : 'RTK not installed', NINJA_THEME);
   } else {
     log(`\n  ${applyGradient('Claude Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
@@ -180,34 +180,34 @@ function printRemainingClientsSection() {
   const openCodeDetails = opencodeManager.getOpenCodeStatus();
   if (openCodeDetails.installed) {
     sectionTitle('OpenCode Integrations:', NINJA_THEME);
-    drawIntegrationRow(openCodeDetails.configPath || '~/.config/opencode/opencode.json', openCodeDetails.mcpKonoha && openCodeDetails.mcpSemble, 'konoha + semble', NINJA_THEME);
+    drawIntegrationRow(openCodeDetails.configPath || '~/.config/opencode/opencode.json', openCodeDetails.mcpKonoha, 'konoha + aislop', NINJA_THEME);
     drawIntegrationRow('RTK (Token Killer)', openCodeDetails.rtkRuleDeployed, openCodeDetails.rtkRuleDeployed ? 'rtk rule deployed to ~/.config/opencode/rules/' : 'rtk rule not deployed', NINJA_THEME);
   }
 
   const cmdCodeStatus = mcpClientsManager.getCommandCodeStatus();
   if (cmdCodeStatus.installed) {
     sectionTitle('Command Code Integrations:', NINJA_THEME);
-    drawIntegrationRow('~/.commandcode/mcp.json', cmdCodeStatus.mcpKonoha && cmdCodeStatus.mcpSemble, 'konoha + semble', NINJA_THEME);
+    drawIntegrationRow('~/.commandcode/mcp.json', cmdCodeStatus.mcpKonoha, 'konoha + aislop', NINJA_THEME);
     drawIntegrationRow('RTK (Token Killer)', cmdCodeStatus.rtkRuleDeployed, cmdCodeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.commandcode/rules/' : 'rtk rule not deployed', NINJA_THEME);
   }
 
   const codexDetails = codexManager.getCodexStatus();
   if (codexDetails.installed) {
     sectionTitle('Codex Integrations:', NINJA_THEME);
-    drawIntegrationRow(codexDetails.configPath || '~/.codex/config.toml', codexDetails.mcpKonoha && codexDetails.mcpSemble, 'konoha + semble', NINJA_THEME);
+    drawIntegrationRow(codexDetails.configPath || '~/.codex/config.toml', codexDetails.mcpKonoha, 'konoha + aislop', NINJA_THEME);
     drawIntegrationRow('RTK (Token Killer)', codexDetails.rtkRuleDeployed, codexDetails.rtkRuleDeployed ? 'rtk rule deployed to ~/.codex/rules/' : 'rtk rule not deployed', NINJA_THEME);
   }
 
   const piDetails = piManager.getPiStatus();
   if (piDetails.installed) {
     sectionTitle('Pi (pi.dev) Integrations:', NINJA_THEME);
-    drawIntegrationRow(piDetails.configPath || '~/.pi/agent/mcp.json', piDetails.mcpKonoha && piDetails.mcpSemble, 'konoha + semble', NINJA_THEME);
+    drawIntegrationRow(piDetails.configPath || '~/.pi/agent/mcp.json', piDetails.mcpKonoha, 'konoha + aislop', NINJA_THEME);
   }
 
   const ompDetails = ompManager.getOmpStatus();
   if (ompDetails.installed) {
     sectionTitle('OMP Integrations:', NINJA_THEME);
-    drawIntegrationRow(ompDetails.configPath || '~/.omp/agent/mcp.json', ompDetails.mcpKonoha && ompDetails.mcpSemble, 'konoha + semble', NINJA_THEME);
+    drawIntegrationRow(ompDetails.configPath || '~/.omp/agent/mcp.json', ompDetails.mcpKonoha, 'konoha + aislop', NINJA_THEME);
     drawIntegrationRow('Konoha Contract', ompDetails.contractDeployed, ompDetails.contractDeployed ? 'contract deployed to ~/.omp/agent/AGENTS.md' : 'contract not deployed', NINJA_THEME);
   }
 

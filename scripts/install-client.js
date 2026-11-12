@@ -14,14 +14,13 @@ const codexManager = require('../src/codex_manager');
 const piManager = require('../src/pi_manager');
 const ompManager = require('../src/omp_manager');
 const agentManager = require('../src/agent_manager');
-const { getUvxCommand, detectPythonOrDefault } = require('../src/platform_utils');
+const { detectPythonOrDefault } = require('../src/platform_utils');
 const { SERVER_PATH, FILE_TOOLS_LAUNCHER_JS } = require('../bin/lib/paths');
 const { executePreInstallBackup } = require('../bin/lib/install_lifecycle');
 
 async function installClient(clientName, options = {}) {
   const norm = String(clientName || '').toLowerCase().trim();
   const python = options.python || detectPythonOrDefault();
-  const uvxCmd = options.uvxCmd || getUvxCommand();
   const serverPath = options.serverPath || SERVER_PATH;
   const projectRoot = options.projectRoot || process.cwd();
   const silent = options.silent !== false;
@@ -48,7 +47,6 @@ async function installClient(clientName, options = {}) {
     results.cursor = cursorManager.ensureCursorSetup({
       pythonCmd: python,
       serverPath,
-      uvxCmd,
       agents,
       projectRoot,
       deployProject,
@@ -61,7 +59,6 @@ async function installClient(clientName, options = {}) {
     results.claude = mcpClientsManager.ensureClaudeCodeSetup({
       pythonCmd: python,
       serverPath,
-      uvxCmd,
       ruleContent: agentManager.generateClaudeCodeMd(agents),
       silent,
       agents,
@@ -76,7 +73,6 @@ async function installClient(clientName, options = {}) {
   const commonSetupOpts = {
     pythonCmd: python,
     serverPath,
-    uvxCmd,
     projectRoot,
     deployProject,
     appendProject,
@@ -105,7 +101,6 @@ async function installClient(clientName, options = {}) {
     results.omp = ompManager.ensureOmpSetup({
       nodeCmd: process.execPath,
       launcherPath: FILE_TOOLS_LAUNCHER_JS,
-      uvxCmd,
       projectRoot,
       deployProject,
       appendProject,

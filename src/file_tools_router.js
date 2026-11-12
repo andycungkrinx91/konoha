@@ -33,6 +33,7 @@ const { fileInfo: fileInfoWorker } = require('./file_tools/file_info');
 const { tokenEfficientGrep: tokenEfficientGrepWorker } = require('./file_tools/token_efficient_grep');
 const { getFileStructure: getFileStructureWorker } = require('./file_tools/get_file_structure');
 const { findFilesClean: findFilesCleanWorker } = require('./file_tools/find_files_clean');
+const CODE_INTEL_TOOLS = require('./code_intel/tools');
 
 // Allow paths under the Konoha install directory (~/\.konoha/).
 // This ensures the MCP server can work on workspace-internal paths
@@ -478,6 +479,13 @@ const TOOL_HANDLERS = {
   get_resolved_task_dir: (args) => runNodeSkillTool('get_resolved_task_dir', args),
   check_readiness: (args) => runNodeSkillTool('check_readiness', args),
   get_task_evidence: (args) => runNodeSkillTool('get_task_evidence', args),
+  code_index: (args) => CODE_INTEL_TOOLS.code_index(args),
+  code_search: (args) => CODE_INTEL_TOOLS.code_search(args),
+  code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol(args),
+  code_context: (args) => CODE_INTEL_TOOLS.code_context(args),
+  code_impact: (args) => CODE_INTEL_TOOLS.code_impact(args),
+  code_status: (args) => CODE_INTEL_TOOLS.code_status(args),
+  code_remove: (args) => CODE_INTEL_TOOLS.code_remove(args),
   get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
   website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args),
   docs_ai_detector: (args) => runNodeSkillTool('docs_ai_detector', args),

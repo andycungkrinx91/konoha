@@ -2,7 +2,7 @@
  * Test Suite: schema traceability.
  *
  * Every table a fresh `setupSchema` creates must be documented in the audit
- * traceability table, and the canonical table list must stay at 33. Guards
+ * traceability table, and the canonical table list must stay at 30 declared tables. Guards
  * against a table appearing in code with no audit row, and against the audit
  * drifting from the DDL.
  */
@@ -16,12 +16,12 @@ const os = require('os');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const AUDIT_DOC = path.join(REPO_ROOT, 'docs', 'security', 'DATABASE-SCHEMA-AUDIT-2026-11-09.md');
-// 24 declared tables + 8 FTS5 shadow tables. `_sqliteai_vector` and
+// 30 declared tables + 12 FTS5 shadow tables. `_sqliteai_vector` and
 // `sqlite_%` are runtime-owned and platform-dependent (`_sqliteai_vector` only
 // exists where the vector extension loads), so neither counts. Matches the
 // phase-6 assertion in tests/test_schema_migrations_and_lifecycle.js.
-const RAW_TABLE_COUNT = 32;
-const DECLARED_TABLE_COUNT = 24;
+const RAW_TABLE_COUNT = 42;
+const DECLARED_TABLE_COUNT = 30;
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-trace-test-'));
 process.env.HOME = tmpRoot;

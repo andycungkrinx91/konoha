@@ -101,7 +101,7 @@ konoha web
 - **Live GPU Telemetry Card**: Hardware probe via `src/gpu_telemetry.js` (10 s TTL) reporting GPU model name, utilization percentage, VRAM usage/capacity, and temperature across NVIDIA (`nvidia-smi`), AMD ROCm (`rocm-smi`), Apple Silicon (`system_profiler`), or Windows WMI; displays `CPU compute only` (`no_data`) when no GPU probe responds.
 - **Live Agent Activity & Spider Network (`/activity` under `Overview`)**:
   - Powered by `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) and real-time Server-Sent Events (`/api/v1/events`).
-  - Interactive neural spider topology mapping connected client harnesses (8), active ninja agents, SDLC task boundaries, and MCP/Semble tool invocations.
+  - Interactive neural spider topology mapping connected client harnesses (8), active ninja agents, SDLC task boundaries, and MCP tool invocations.
   - **180-Degree Chakra Inversion Flip**: Clicking the kinetic spider core or the `Flip Spider` toolbar control triggers a smooth 180-degree spring flip animation while preserving all graph state and resuming autonomous patrol afterward.
   - **Viewport & Inspection Controls**: Smooth zoom (`50%`–`260%`), drag pan, `Reset View`, node inspection drawer with live token savings and query telemetry, and an **Accessible Table** view for `prefers-reduced-motion` and screen readers.
 - **Interactive Command Bottom Dock (`BottomDock.svelte`)**:
@@ -150,7 +150,7 @@ konoha web
 - Click any skill to open an interactive modal with full markdown preview.
 
 ### 5. 📊 Token Savings Screen (`Savings.svelte`)
-- **Unified Live Token Savings Metric**: Visual Savings (Tokens & Thought Reasoning) relative to the measured corpus baseline, plus the unified live metric from Konoha MCP + Semble Semantic Engine. Fragmented Client Provider Breakdown has been removed for a clean, unified counter across all 8 supported clients. Percentages are data-derived; when no measurement exists the UI shows `no_data` (`—`) instead of a floor.
+- **Unified Live Token Savings Metric**: Visual Savings (Tokens & Thought Reasoning) relative to the measured corpus baseline, computed from Konoha MCP tool-call telemetry. Fragmented Client Provider Breakdown has been removed for a clean, unified counter across all 8 supported clients. Percentages are data-derived; when no measurement exists the UI shows `no_data` (`—`) instead of a floor.
 - Real-time token reduction telemetry:
   - Today Bytes Saved
   - Last 7 Days Bytes Saved
@@ -196,7 +196,7 @@ konoha web
 - **Collapsible Submenu Accordion**: Sidebar navigation sections (`Overview`, `Clients & Finance`, `Tools & Integrations`, `Configuration`, `Operations`, `Resources`) feature interactive collapsible accordions that reveal sub-menus on click with smooth transitions and animated chevron indicators.
 - **Collapsible Sidebar (Open/Close Toggle)**: Dedicated desktop sidebar toggle button (`[ ⇤ ]` / `[ ◨ ]`) in both sidebar brand header and top main header, allowing the central content stage to expand to 100% full screen width for maximum center workspace.
 - **Mobile Menu Sidebar Toggle & Drawer Navigation**: In mobile view (`< lg`), the header renders a dedicated sidebar menu toggle button on the far left (`aria-label="Toggle mobile menu sidebar"`). Clicking it opens an accessible slide-out mobile drawer (`w-64 fixed inset-y-0 left-0 z-50 shadow-2xl`) with backdrop dismissal, providing comprehensive navigation access across all 15 screens.
-- **Footer Author Attribution Link**: The sidebar status footer embeds a permanent author attribution: `Created by Andy Setiyawan` with a high-contrast link to `https://www.linkedin.com/in/andy-setiyawan-452396170/` directly under SQLite FTS5 + Semble Localhost metrics.
+- **Footer Author Attribution Link**: The sidebar status footer embeds a permanent author attribution: `Created by Andy Setiyawan` with a high-contrast link to `https://www.linkedin.com/in/andy-setiyawan-452396170/` directly under the SQLite FTS5 status metrics.
 - **Universal 5px Card Border-Radius Invariant**: Strict 5px border-radius (`border-radius: 5px !important`) enforced across ALL cards (`.glass-card-3d`, `.theme-card`, `.card`, `[class*="card"]`, modals, and metric tiles).
 - **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows adapted to both Light Mode and Dark Mode.
 - **Authentic Rasengan Theme Switcher FAB**: Universal floating circular FAB button in the bottom-right corner (`fixed bottom-6 right-6 z-[100]`) featuring an authentic spinning SVG Rasengan with orbiting electric lightning bolts outside the rasengan orb, multi-stop radial gradient chakra containment orb, rapid clockwise and counter-clockwise swirling spiral filaments, and a pulsing energy core (all palette-driven via `var(--color-primary)` / `var(--color-accent)`).

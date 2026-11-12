@@ -11,7 +11,7 @@ Assembled from three verified sources: the 11 rules in the user's 17-section
 template (Section 14, "in particular"), the 7 rules in the `AGENTS.md`
 runtime contract block, and the 20 Cardinal Maintenance Invariants in
 `src/templates/skills/konoha/SKILL.md` — with 6 documented merges (aislop
-gate, 700-line limit, Konoha mandatory, Semble mandatory, RTK mandatory,
+gate, 700-line limit, Konoha mandatory, code intelligence mandatory, RTK mandatory,
 Zero-AI-Slop & Kage Gate). The count is 26 because that is how many distinct
 verifiable rules exist. No rule here is invented.
 
@@ -29,9 +29,9 @@ verifiable rules exist. No rule here is invented.
 10. SecurityCompliance must match actual implementation.
 11. Local commit author: `andycungkrinx91 <andy.silva270114@gmail.com>`.
 12. Konoha is mandatory: use bounded file tools and Konoha skill lookup (`find_skill`, `get_skill`); no raw `cat`/`grep`.
-13. Semble is mandatory for repository code search (`semble.search`, `semble.find_related`, with repo path).
+13. `code_search` is mandatory for repository code search (`code_search`, `code_symbol`, with absolute repo root).
 14. RTK is mandatory for shell commands: always prefix with `rtk <command>`.
-15. Resume safety: restore the Konoha / Semble / RTK workflow on session resume.
+15. Resume safety: restore the Konoha / `code_search` / RTK workflow on session resume.
 16. HITL Gates: Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) render the picker on EVERY client and submit the human's reply verbatim via `sannin({ task_dir, choice, refinement })`. The gate payload's `picker` block names the control: `transport: native_tool` → call `picker.tool` with `picker.call` (OMP `ask`, [CC] `AskUserQuestion`); `transport: web_picker` → surface `picker.url`, an HTML form that posts the verdict itself over a per-gate signed link. Printing a numbered list for the human to retype is the text fallback, never the picker. Fail closed, never bypass.
 17. @advisor review: delivery needs @advisor approval.
 18. Zero-AI-Slop & Kage Gate: 100/100 score and ≥98% confidence gate before delivery, with `ai_slop_clean: true` and zero security findings.

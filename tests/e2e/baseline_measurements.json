@@ -141,20 +141,6 @@
         "padding": null
       }
     },
-    "/semble": {
-      "route": "/semble",
-      "main": null,
-      "container": {
-        "rect": null,
-        "padding": null,
-        "margin": null
-      },
-      "hero": {
-        "rect": null,
-        "border": "undefined undefined undefined",
-        "padding": null
-      }
-    },
     "/detector": {
       "route": "/detector",
       "main": null,
@@ -280,11 +266,6 @@
         "left": null,
         "right": null
       },
-      "/semble": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
       "/detector": {
         "width": null,
         "left": null,
@@ -358,11 +339,6 @@
         "right": null
       },
       "/search": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
-      "/semble": {
         "width": null,
         "left": null,
         "right": null
@@ -444,11 +420,6 @@
         "left": null,
         "right": null
       },
-      "/semble": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
       "/detector": {
         "width": null,
         "left": null,
@@ -522,11 +493,6 @@
         "right": null
       },
       "/search": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
-      "/semble": {
         "width": null,
         "left": null,
         "right": null
@@ -608,11 +574,6 @@
         "left": null,
         "right": null
       },
-      "/semble": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
       "/detector": {
         "width": null,
         "left": null,
@@ -686,11 +647,6 @@
         "right": null
       },
       "/search": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
-      "/semble": {
         "width": null,
         "left": null,
         "right": null
@@ -772,11 +728,6 @@
         "left": null,
         "right": null
       },
-      "/semble": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
       "/detector": {
         "width": null,
         "left": null,
@@ -850,11 +801,6 @@
         "right": null
       },
       "/search": {
-        "width": null,
-        "left": null,
-        "right": null
-      },
-      "/semble": {
         "width": null,
         "left": null,
         "right": null

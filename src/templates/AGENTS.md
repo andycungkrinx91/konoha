@@ -15,12 +15,12 @@
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.21)
+## Konoha runtime contract (2.2.22)
 main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
-- **Semble is mandatory**: `search`/`find_related` with repo path.
+- **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact` with absolute repo root.
 - **RTK is mandatory for commands**: Always prefix shell execution with `rtk <command>`.
-- **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
+- **Resume safety**: Restore Konoha/RTK workflow on session resume.
 - **HITL Gates**: Gate 1 (`pending_plan_approval`) prompt 1. Compact and approve / 2. Reject+Regenerate PLAN; Gate 2 (`pending_human_signoff`) 1. Compact and approve / 2. Remediation. Fail closed, never bypass.
 - **@advisor Review**: delivery needs @advisor approval.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.

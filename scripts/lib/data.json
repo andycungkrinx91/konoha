@@ -127,7 +127,7 @@
      "[green]🧪 Konoha Verification & Full Test Suite Runner[/green]",
      "[muted]========================================================================[/muted]",
      "  [green]✓[/green] MCP Server Initialization        : [green]PASS[/green] (Node.js JSON-RPC 2.0 Pure Runtime)",
-     "  [green]✓[/green] Tool Registration (48 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
+     "  [green]✓[/green] Tool Registration (55 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
      "  [green]✓[/green] SQLite FTS5 Full-Text Search      : [green]PASS[/green] (Query latency: 0.82ms)",
      "  [green]✓[/green] Subagent Inline MCP Execution     : [green]PASS[/green] (7/7 ninjas executable)",
      "  [green]✓[/green] 7-Client Contract Validation     : [green]PASS[/green] (Antigravity/Cursor/Claude/Open/Cmd/Codex/Pi)",
@@ -168,11 +168,11 @@
    "assets/konoha-version.png": {
     "title": "konoha version — check version & git updates",
     "cmd": "konoha version",
-    "badge": "RELEASE v2.2.21",
+    "badge": "RELEASE v2.2.22",
     "lines": [
      "[green]✨ Konoha Version Inspector[/green]",
      "[muted]========================================================================[/muted]",
-     "  • [bold]Installed Version[/bold]   : [cyan]v2.2.21 (cross-client unified)[/cyan]",
+     "  • [bold]Installed Version[/bold]   : [cyan]v2.2.22 (cross-client unified)[/cyan]",
      "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
      "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
      "  • [bold]Runtime Mode[/bold]        : [green]Pure Node.js (Single-Runtime)[/green]",
@@ -193,7 +193,7 @@
      "[muted]========================================================================[/muted]",
      "  › Fetching latest release manifest from GitHub...",
      "  › Installing latest package via pnpm...",
-     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.2.21[/cyan]",
+     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.2.22[/cyan]",
      "",
      "  › Re-syncing SQLite FTS5 database schemas...",
      "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -204,7 +204,7 @@
      "    [green]✓ Command Code updated[/green]",
      "    [green]✓ Codex IDE / CLI updated[/green]",
      "",
-     "[green]✨ Konoha successfully upgraded to v2.2.21! All clients re-synced.[/green]"
+     "[green]✨ Konoha successfully upgraded to v2.2.22! All clients re-synced.[/green]"
     ]
    },
    "assets/konoha-savings.png": {
@@ -225,7 +225,7 @@
      "",
      "[bold]Token Reduction Drivers:[/bold]",
      "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
-     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  2. [cyan]Native Code Intelligence [/cyan] : SQLite FTS5 symbol search vs whole-repo greps (~98% savings)",
      "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
     ]
    },
@@ -603,7 +603,7 @@
      "",
      "[bold]Reduction Architecture Breakdown:[/bold]",
      "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
-     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  2. [cyan]Native Code Intelligence [/cyan] : SQLite FTS5 symbol search vs whole-repo greps (~98% savings)",
      "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
     ]
    }
@@ -756,7 +756,7 @@
     "cmd": "konoha savings",
     "badge": "83-98% TOKEN SAVINGS",
     "lines": [
-     "[green]🏆 Unified Live Token Savings Dashboard (Konoha MCP + Semble Engine)[/green]",
+     "[green]🏆 Unified Live Token Savings Dashboard (Konoha MCP + Native Code Intelligence)[/green]",
      "[muted]========================================================================================[/muted]",
      "",
      "  ┌────────────────────────────── Combined Savings Metric ───────────────────────────────┐",
@@ -770,7 +770,7 @@
      "",
      "[bold]Primary Token Optimization Drivers:[/bold]",
      "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
-     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  2. [cyan]Native Code Intelligence [/cyan] : SQLite FTS5 symbol search vs whole-repo greps (~98% savings)",
      "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
     ]
    }
@@ -1045,7 +1045,7 @@
      "bin/cli.js",
      "version"
     ],
-    "RELEASE v2.2.21"
+    "RELEASE v2.2.22"
    ],
    [
     "assets/konoha-upgrade.png",
@@ -1904,7 +1904,7 @@
      "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
      "",
      "● konoha/read_file_head(path=\"package.json\", max_lines=20)",
-     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.2.21)",
+     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.2.22)",
      "",
      "  [◎ kage & @advisor] active. Final Review Gate: PASSED (100% confidence)",
      "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
@@ -1946,7 +1946,7 @@
     "http://127.0.0.1:1404/",
     "01_home.png",
     "http://127.0.0.1:1404/ • Village Overview",
-    "KONOHA WEB • v2.2.21",
+    "KONOHA WEB • v2.2.22",
     2200
    ],
    [

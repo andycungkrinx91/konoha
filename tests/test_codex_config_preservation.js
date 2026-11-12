@@ -35,7 +35,7 @@ try {
   fs.writeFileSync(configPath, initialUserToml, 'utf-8');
 
   // Trigger Codex MCP registration / rewrite
-  const result = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
+  const result = codexManager.registerCodexMcp('python3', '/path/to/server.js', true);
   assert.strictEqual(result.ok, true, 'registerCodexMcp must return ok');
 
   // Verify that .bak backup was created byte-for-byte before rewriting
@@ -82,7 +82,7 @@ try {
   // Test D3: Second rewrite keeps the FIRST backup
   // Make a modification to config.toml before 2nd rewrite
   fs.appendFileSync(configPath, '\nsecond_edit = true\n', 'utf-8');
-  const result2 = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
+  const result2 = codexManager.registerCodexMcp('python3', '/path/to/server.js', true);
   assert.strictEqual(result2.ok, true, 'Second registerCodexMcp must return ok');
 
   const bakContentAfterSecond = fs.readFileSync(bakPath, 'utf-8');
@@ -101,7 +101,7 @@ try {
   );
 
   // 3rd rewrite with custom agent in yaml
-  const result3 = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
+  const result3 = codexManager.registerCodexMcp('python3', '/path/to/server.js', true);
   assert.strictEqual(result3.ok, true, 'Third registerCodexMcp must return ok');
 
   const contentAfterThird = fs.readFileSync(configPath, 'utf-8');

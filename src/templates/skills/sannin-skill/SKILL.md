@@ -90,13 +90,13 @@ For structured non-website engineering tasks, execute through the 8 canonical ph
 
 ### SOP 2: Multi-Turn Conversation & Session Resume
 1. Upon session resume or follow-up turn, re-read the latest user context and operational requirements.
-2. Inspect the current workspace state using `semble.search` and bounded file tools.
+2. Inspect the current workspace state using `code_search` and bounded file tools.
 3. Formulate fresh task instructions with updated context. NEVER skip subagent delegation on session resume.
 4. Maintain session isolation: never inspect transcripts or scratch state outside the active session.
 
 ### SOP 3: Project Knowledge & Skills Discovery
 1. Before delegating, check for project-local rules and knowledge (`README.md`, `CONTRIBUTING.md`, `.cursorrules`, `docs/`, `.agents/skills/`).
-2. Discover skills exclusively via `konoha.find_skill` or `konoha.get_skill`. Never use `semble` for skill lookups.
+2. Discover skills exclusively via `konoha.find_skill` or `konoha.get_skill`. Never use `code_search` for skill lookups.
 3. Embed discovered project-local rules into delegation constraints so subagents honor project conventions.
 
 ### SOP 4: Remediation Loop & Circuit Breaker
@@ -114,4 +114,4 @@ For structured non-website engineering tasks, execute through the 8 canonical ph
 - **Strict No-Push / No-Release Invariant**: NEVER execute `git push`, `npm publish`, `pnpm publish`, `yarn publish`, or trigger remote releases. All changes remain strictly local.
 - **Secret Protection Invariant**: NEVER view, print, dump, or commit secrets, `.env*`, `secrets.yaml`, `*.pem`, `*.key`, `id_rsa`, or API credentials. Always redact secret values.
 - **RTK Boundary**: Execute shell commands wrapped with `rtk <command>`. Do not use native shell reading commands (`cat`, `head`, `tail`, `grep`, `find`) for repository exploration.
-- **Token Hygiene**: Bounded file tools only (`read_file_range` $\le 500$ lines). Always scope code search via `semble.search`.
+- **Token Hygiene**: Bounded file tools only (`read_file_range` $\le 500$ lines). Always scope code search via `code_search`.

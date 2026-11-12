@@ -145,25 +145,6 @@ function deployAntigravityRtkRule(silent = true, options = {}) {
   return result;
 }
 
-function _updateSembleAuxiliarySchemas(sembleDir) {
-  const searchJson = path.join(sembleDir, 'search.json');
-  const findRelatedJson = path.join(sembleDir, 'find_related.json');
-  if (!fs.existsSync(searchJson) || !fs.existsSync(findRelatedJson)) return;
-  try {
-    const s1 = JSON.parse(fs.readFileSync(searchJson, 'utf8'));
-    const s2 = JSON.parse(fs.readFileSync(findRelatedJson, 'utf8'));
-    s1.description = 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.';
-    if (s1.parameters?.properties?.max_snippet_lines) s1.parameters.properties.max_snippet_lines.description = 'Lines of source to include per result (default: 10, 0: location only).';
-    if (s1.parameters?.properties?.repo) s1.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
-    fs.writeFileSync(searchJson, JSON.stringify(s1, null, 2) + '\n', 'utf8');
-
-    s2.description = 'Find code similar to a known location. Pass file_path and line from prior search result.';
-    if (s2.parameters?.properties?.max_snippet_lines) s2.parameters.properties.max_snippet_lines.description = 'Lines of source per result (default: 10, 0: location only).';
-    if (s2.parameters?.properties?.repo) s2.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
-    fs.writeFileSync(findRelatedJson, JSON.stringify(s2, null, 2) + '\n', 'utf8');
-  } catch { /* intentional best-effort fallback */ }
-}
-
 function _updateAislopAuxiliarySchemas(aislopDir) {
   const files = {
     'aislop_scan.json': { desc: 'Scan project with aislop engines. Returns 0-100 score and top findings.', param: 'path', paramDesc: 'Project directory path.' },
@@ -235,7 +216,6 @@ function ensureAntigravityMcpSchemas(options = {}) {
   }
 
   _writeManifestAllSchemas(schemaDir);
-  _updateSembleAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "semble"));
   _updateAislopAuxiliarySchemas(path.join(home, ".gemini", "antigravity-cli", "mcp", "aislop"));
   return { ok: true, schemaDir };
 }
@@ -245,13 +225,12 @@ function getAntigravityStatus() {
   const hooksPath = path.join(HOME, '.gemini', 'config', 'hooks.json');
   const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
 
-  let mcpConfigExists = fs.existsSync(mcpConfigPath), mcpSkillsDb = false, mcpSemble = false, mcpAislop = false;
+  let mcpConfigExists = fs.existsSync(mcpConfigPath), mcpSkillsDb = false, mcpAislop = false;
   if (mcpConfigExists) {
     try {
       const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
       if (config.mcpServers) {
         mcpSkillsDb = !!config.mcpServers.konoha;
-        mcpSemble = !!config.mcpServers.semble;
         mcpAislop = !!config.mcpServers.aislop;
       }
     } catch { /* ignore */ }
@@ -286,7 +265,7 @@ function getAntigravityStatus() {
     } catch { /* ignore */ }
   }
 
-  return { mcpConfigExists, mcpSkillsDb, mcpSemble, mcpAislop, hasHooks, agentsCount, schemasCount, rtkInstalled: isRtkInstalled() };
+  return { mcpConfigExists, mcpSkillsDb, mcpAislop, hasHooks, agentsCount, schemasCount, rtkInstalled: isRtkInstalled() };
 }
 
 function _loadAntigravitySettingsSafe(sPath) {
@@ -359,7 +338,6 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
     const safeAutoApprove = [
       ...konohaToolGrants,
       ...kTools.map(t => 'konoha/' + t), ...kTools.map(t => 'konoha:' + t), ...kTools,
-      'mcp(semble/search)', 'mcp(semble/find_related)', 'semble/search', 'semble/find_related', 'search', 'find_related',
       'mcp(aislop/aislop_scan)', 'mcp(aislop/aislop_fix)', 'mcp(aislop/aislop_why)', 'mcp(aislop/aislop_baseline)',
       'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline',
       'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline',
@@ -388,7 +366,7 @@ function _updateSingleAntigravitySettings(sPath, requiredGrants, konohaToolGrant
 function _normalizeServerAutoApprove(srv, serverName) {
   let modified = false;
   const canonical = serverName === 'konoha' ? [...(KONOHA_CANONICAL_TOOLS || [])]
-    : (serverName === 'semble' ? ['search', 'find_related'] : ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline']);
+    : ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 
   if (Array.isArray(srv.autoApprove)) {
     const starIdx = srv.autoApprove.indexOf('*');
@@ -415,7 +393,7 @@ function _updateSingleMcpConfigAutoApproves(mPath, options = {}) {
     const mConfig = JSON.parse(fs.readFileSync(mPath, 'utf8')) || {};
     if (!mConfig.mcpServers) return;
     let mModified = false;
-    for (const serverName of ['konoha', 'semble', 'aislop']) {
+    for (const serverName of ['konoha', 'aislop']) {
       const srv = mConfig.mcpServers[serverName];
       if (srv && _normalizeServerAutoApprove(srv, serverName)) mModified = true;
     }
@@ -440,12 +418,11 @@ function ensureAntigravityPermissions(silent = true, options = {}) {
     'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'prompt_hook.js') + '")',
     'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'antigravity_subagent_hook.js') + '")',
     'command("' + process.execPath + '" "' + path.join(home, '.konoha', 'antigravity_tool_sanitize_hook.js') + '")',
-    'mcp(semble/search)', 'mcp(semble/find_related)', 'mcp(semble/*)',
     'mcp(aislop/aislop_scan)', 'mcp(aislop/aislop_fix)', 'mcp(aislop/aislop_why)', 'mcp(aislop/aislop_baseline)', 'mcp(aislop/*)',
     ...konohaToolGrants,
     'mcp(konoha/find_skills)', 'mcp(konoha/optimize_report)', 'mcp(konoha/build_with_image_design)',
-    'mcp(skills-db/*)', 'mcp(konoha-files/*)', 'mcp(konoha/*)', 'mcp__konoha__*', 'mcp__semble__*', 'mcp__aislop__*',
-    'mcp:konoha:*', 'mcp:semble:*', 'mcp:aislop:*', 'rtk', 'rtk *', 'konoha', 'konoha *'
+    'mcp(skills-db/*)', 'mcp(konoha-files/*)', 'mcp(konoha/*)', 'mcp__konoha__*', 'mcp__aislop__*',
+    'mcp:konoha:*', 'mcp:aislop:*', 'rtk', 'rtk *', 'konoha', 'konoha *'
   ];
 
   const settingsPaths = [
@@ -486,7 +463,7 @@ function _removeAntigravityMcpServers(mcpConfigPath, silent) {
     const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
     if (!config?.mcpServers) return;
     let changed = false;
-    for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
+    for (const name of ['konoha', 'aislop', 'skills-db', 'semble']) {
       if (config.mcpServers[name]) {
         delete config.mcpServers[name];
         changed = true;

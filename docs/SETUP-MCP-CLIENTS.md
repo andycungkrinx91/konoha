@@ -1,9 +1,9 @@
 
-Konoha registers **konoha**, **semble**, and **aislop** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. **You never need to manually run `cp -r` to protect your existing global `settings.json` before installing or updating Konoha.** Before modifying any configuration during fresh install, upgrade, update, reinstall, `--force` setup, or migration, Konoha automatically backs up global and project-level client configs (including every client's global `settings.json`, `mcp.json`, `config.toml`, `agents.yaml`, and rule files) to `~/.konoha/backups/configs/<client>/<scope>/` with atomic writes, restrictive permissions (`0600`), and SHA-256 + syntax verification, aborting fail-closed if backup verification fails. Konoha then applies syntax-aware append-only merging and records ownership in `~/.konoha/backups/ownership_manifest.json` so existing user settings, hooks, `agents/`, and `conversations/` directories are strictly preserved.
+Konoha registers **konoha** and **aislop** for every supported client detected during `konoha init`. Code search is in-process (SQLite FTS5 inside the `konoha` server), so there is no third MCP server to register. Missing optional clients are skipped without failing installation.
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
-| **Antigravity CLI/IDE** | MCP setup when detected; operates via standard MCP configuration (`konoha`, `semble`, `aislop`) with local OpenAI proxy gateway on port 19999 | `~/.gemini/config/mcp_config.json`; embedded gateway on `127.0.0.1:19999` |
+| **Antigravity CLI/IDE** | MCP setup when detected; operates via standard MCP configuration (`konoha`, `aislop`) with local [OI] proxy gateway on port 19999 | `~/.gemini/config/mcp_config.json`; embedded gateway on `127.0.0.1:19999` |
 | **Cursor** | When detected | `~/.cursor/mcp.json` and project `.cursor/mcp.json` |
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
@@ -132,12 +132,12 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
-- `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`, `mcp__aislop__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
+- `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__aislop__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
 - `~/.claude/CLAUDE.md` → Global orchestrator instructions.
 - `~/.claude/agents/` → Nine official ninja subagents; the host client controls model selection.
 - `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
 
-**Verify:** `/mcp` in Claude Code session — should show `konoha`, `semble`, and `aislop`.
+**Verify:** `/mcp` in Claude Code session — should show `konoha` and `aislop`.
 
 **Model Selection:** The host client selects the active model. Konoha does not inject model fields into client configuration.
 
@@ -149,10 +149,10 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.commandcode/mcp.json` → `mcpServers` (all projects on this machine).
-- `~/.commandcode/rules/konoha.md` → main-agent Konoha + Semble + RTK contract.
+- `~/.commandcode/rules/konoha.md` → main-agent Konoha + RTK contract.
 - `~/.commandcode/rules/rtk.md` when RTK is installed.
 
-**Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha`, `semble`, and `aislop`.
+**Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha` and `aislop`.
 
 ---
 
@@ -162,10 +162,10 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.config/opencode/opencode.json` → `mcp` (all projects on this machine) with strict OpenCode V1 `"permission"` rules schema (`read: "allow"`, `edit: "allow"`, `bash: "allow"`, `task: "allow"`, etc.), avoiding V2 `"permissions"` or root `"autoApprove"` properties that fail OpenCode v1.18+ validation.
-- `~/.config/opencode/AGENTS.md` → global Konoha + Semble contract.
+- `~/.config/opencode/AGENTS.md` → global Konoha contract.
 - `~/.config/opencode/rules/rtk.md` when RTK is installed; OpenCode has no supported RTK hook.
 
-**Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha`, `semble`, and `aislop` active.
+**Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha` and `aislop` active.
 
 > **Configuration Preservation & Backup**:
 > When configuring `~/.config/opencode/opencode.json`, Konoha automatically creates a backup at `~/.config/opencode/opencode.json.bak` before making changes. The backup is created only if it does not already exist, permanently preserving the developer's original pre-setup configuration.
@@ -178,7 +178,7 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.codex/config.toml` → `[mcp_servers]` (all projects on this machine).
-- `~/.codex/AGENTS.md` → global Konoha + Semble contract.
+- `~/.codex/AGENTS.md` → global Konoha contract.
 - `~/.codex/rules/rtk.md` when RTK is installed.
 
 **Config format (TOML):**
@@ -187,9 +187,6 @@ konoha doctor --yes
 command = "node"
 args = ["/home/<user>/.konoha/file_tools_launcher.js"]
 
-[mcp_servers.semble]
-command = "uvx"
-args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
 
 [mcp_servers.aislop]
 command = "npx"
@@ -209,7 +206,7 @@ approval_mode = "auto"
 approval_mode = "auto"
 ```
 
-**Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha`, `semble`, and `aislop`.
+**Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha` and `aislop`.
 
 > **Configuration Preservation & Backup**:
 > When configuring `~/.codex/config.toml`, Konoha automatically creates a backup at `~/.codex/config.toml.bak` before making changes. The backup is created only if it does not already exist, preserving the pristine original configuration across multiple setup runs. Any user-defined custom agent tables (`[agents.<custom>]`) and top-level user settings are preserved byte-for-byte, and custom subagents from `~/.agents/agents.yaml` are written without duplicating tables.
@@ -223,7 +220,7 @@ approval_mode = "auto"
 **Requires**: The `pi-mcp-adapter` extension package. Konoha adds `npm:pi-mcp-adapter` to `~/.pi/agent/settings.json` automatically during setup (existing packages are preserved). Restart Pi after setup so the adapter loads.
 
 **Writes:**
-- `~/.pi/agent/mcp.json` → `mcpServers` (Pi-owned global override; user-configured servers are preserved, and Konoha only merges its own `konoha`, `semble`, and `aislop` entries).
+- `~/.pi/agent/mcp.json` → `mcpServers` (Pi-owned global override; user-configured servers are preserved, and Konoha only merges its own `konoha` and `aislop` entries).
 - `~/.pi/agent/settings.json` → adds `npm:pi-mcp-adapter` to `packages` when missing.
 - `~/.pi/agent/extensions/rtk.ts` → official RTK TypeScript extension (via `rtk init -g --agent pi`, when the `rtk` binary is installed).
 
@@ -235,10 +232,6 @@ approval_mode = "auto"
       "command": "node",
       "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
       "env": { "ACTIVE_CLIENT": "pi", "KONOHA_CLIENT": "pi", "KONOHA_SEMANTIC_SEARCH": "1" }
-    },
-    "semble": {
-      "command": "uvx",
-      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
     },
     "aislop": {
       "command": "npx",
@@ -253,7 +246,7 @@ approval_mode = "auto"
 - Konoha only writes the Pi-owned global override layer; it never touches shared configs (`~/.config/mcp/mcp.json`, `~/.agents/mcp.json`) or project files (`.mcp.json`, `.pi/mcp.json`).
 - `konoha uninstall` removes only the Konoha-owned server entries and leaves the adapter and any user servers intact.
 
-**Verify:** Run `pi list` (should show `pi-mcp-adapter`), inspect `~/.pi/agent/mcp.json`, then run `/mcp` inside a Pi session — should show `konoha`, `semble`, and `aislop`.
+**Verify:** Run `pi list` (should show `pi-mcp-adapter`), inspect `~/.pi/agent/mcp.json`, then run `/mcp` inside a Pi session — should show `konoha` and `aislop`.
 
 ---
 
@@ -261,7 +254,7 @@ approval_mode = "auto"
 
 `konoha init` configures OMP automatically when detected:
 
-- `~/.omp/agent/mcp.json` → `mcpServers` (merges `konoha`, `semble`, and `aislop` entries while preserving existing servers).
+- `~/.omp/agent/mcp.json` → `mcpServers` (merges `konoha` and `aislop` entries while preserving existing servers).
 - `~/.omp/agent/AGENTS.md` → Deploys Konoha runtime contract and OMP workflow mandate.
 
 **Config format (JSON):**
@@ -275,10 +268,6 @@ approval_mode = "auto"
       "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
       "env": { "ACTIVE_CLIENT": "omp", "KONOHA_CLIENT": "omp", "KONOHA_SEMANTIC_SEARCH": "1" }
     },
-    "semble": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
     },
     "aislop": {
       "type": "stdio",
@@ -291,19 +280,19 @@ approval_mode = "auto"
 
 **Notes:**
 - Configures valid OMP plugin schema (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`) and explicit stdio transport (`"type": "stdio"`) required by OMP's strict MCP validator.
-- OMP agents auto-enable and auto-use Konoha MCP tools (`konoha.find_skill`, `konoha.get_skill`, `semble.search`) at the start of every new session.
+- OMP agents auto-enable and auto-use Konoha MCP tools (`konoha.find_skill`, `konoha.get_skill`, `konoha.code_search`) at the start of every new session.
 - Bounded file tools are enforced through `file_tools_launcher.js` with active client identification as `omp`.
 - Native OMP advisor review (`reviewMode: agent-end`) runs cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
 - `konoha uninstall` cleanly strips only the Konoha block from `~/.omp/agent/AGENTS.md` and removes Konoha server entries from `mcp.json`.
 
-**Verify:** Check `~/.omp/agent/mcp.json` for `konoha` and `semble` entries, and check `~/.omp/agent/AGENTS.md` for the Konoha contract block.
+**Verify:** Check `~/.omp/agent/mcp.json` for `konoha` and `aislop` entries, and check `~/.omp/agent/AGENTS.md` for the Konoha contract block.
 
 ---
 
 ## Agent workflow (all clients)
 
 1. `konoha` `find_skill` for skills
-2. `semble` `search` / `find_related` for code
+2. `konoha` `code_search` / `code_symbol` / `code_impact` for code
 3. `konoha` for bounded file reads
 4. `aislop` `aislop_scan` / `aislop_fix` / `aislop_why` for zero-AI-slop validation and code quality
 5. The embedded Konoha Bridge Router runs in-process inside the `konoha` MCP server on `127.0.0.1:19999`. The optional Antigravity IDE extension is separate and serves `127.0.0.1:1313`; it is never started by Konoha as a standalone process. Local clients do not send API keys to the aggregate router.
@@ -311,7 +300,7 @@ approval_mode = "auto"
 
 In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 
-**Cursor note:** Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Cursor agents load skill **content** through `konoha.find_skill`/`konoha.get_skill` and use `semble` for code search.
+**Cursor note:** Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Cursor agents load skill **content** through `konoha.find_skill`/`konoha.get_skill` and use `konoha.code_search` for code search.
 
 ---
 

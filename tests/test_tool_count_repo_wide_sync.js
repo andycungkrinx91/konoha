@@ -3,7 +3,7 @@
 
 /**
  * tests/test_tool_count_repo_wide_sync.js — Verifies that EVERY file across the repository
- * stating a Konoha tool count matches the live schema count (35 tools) without drift.
+ * stating a Konoha tool count matches the live schema count (55 tools) without drift.
  * 
  * Enforced by PLAN-RECONCILE-3.md to prevent narrow regression guards.
  */
@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, '..');
 const liveSchemas = listToolSchemas();
 const liveCount = liveSchemas.length;
 
-assert.strictEqual(liveCount, 48, `Live canonical tool count must be exactly 48, found ${liveCount}`);
+assert.strictEqual(liveCount, 55, `Live canonical tool count must be exactly 55, found ${liveCount}`);
 const liveToolNames = new Set(liveSchemas.map(t => t.name));
 
 // Tracked files and their expected assertions
@@ -27,18 +27,18 @@ const TRACKED_FILES = [
   {
     relPath: 'README.md',
     mustInclude: [
-      `MCP%20Tools-48%20Canonical-10b981`,
-      `The unified \`konoha\` server exposes 48 canonical tools`
+      `MCP%20Tools-55%20Canonical-10b981`,
+      `The unified \`konoha\` server exposes 55 canonical tools`
     ],
     forbiddenPatterns: [
-      /\b(?:46|45|43|42|40|39|38|37|35|33)\s+tools?\b/i
+      /\b(?:48|46|45|43|42|40|39|38|37|35|33)\s+tools?\b/i
     ]
   },
   {
     relPath: 'docs/ARCHITECTURE.md',
     mustInclude: [
-      `## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)`,
-      `across \`konoha\` (48 tools)`
+      `## 🛠️ Canonical Konoha MCP Tools Matrix (55 Canonical Tools)`,
+      `across \`konoha\` (55 tools)`
     ],
     forbiddenPatterns: [
       /across\s+`konoha`\s+\((?:46|45|43|42|40|39|38|37|35|33)\s+tools\)/i,
@@ -49,7 +49,7 @@ const TRACKED_FILES = [
   {
     relPath: 'docs/architecture/CANONICAL-API.md',
     mustInclude: [
-      `All tools (48 active) are served through the \`konoha\` MCP server`
+      `All tools (55 active) are served through the \`konoha\` MCP server`
     ],
     forbiddenPatterns: [
       /\bAll\s+tools\s+\((?:46|45|43|42|40|39|38|37|35|33)\s+active\)/i
@@ -58,8 +58,8 @@ const TRACKED_FILES = [
   {
     relPath: 'docs/architecture/TOKEN-BASELINE.md',
     mustInclude: [
-      `48 Konoha + 2 Semble + 4 Aislop`,
-      `exactly 48 canonical tools`
+      `48 Konoha + 2 external + 4 Aislop (pre-code-intelligence roster`,
+      `exactly 55 canonical tools`
     ],
     forbiddenPatterns: [
       /\bbetween\s+33\s+and\s+38\b/i,
@@ -74,8 +74,8 @@ const TRACKED_FILES = [
   {
     relPath: 'docs/TROUBLESHOOTING.md',
     mustInclude: [
-      `serves all 48 canonical tools`,
-      `JSON listing **48 canonical tools**`
+      `serves all 55 canonical tools`,
+      `JSON listing **55 canonical tools**`
     ],
     forbiddenPatterns: [
       /serves\s+all\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i,
@@ -85,7 +85,7 @@ const TRACKED_FILES = [
   {
     relPath: 'src/pi_manager.js',
     mustInclude: [
-      `serves all 48 canonical tools through`
+      `serves all 55 canonical tools through`
     ],
     forbiddenPatterns: [
       /serves\s+ALL\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i
@@ -100,8 +100,8 @@ const TRACKED_FILES = [
       : '~/.agents/skills/konoha/SKILL.md',
     optional: true,
     mustInclude: [
-      `All 48 canonical MCP tools`,
-      `serves ALL 48 canonical tools`
+      `All 55 canonical MCP tools`,
+      `serves ALL 55 canonical tools`
     ],
     forbiddenPatterns: [
       /All\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
@@ -111,8 +111,8 @@ const TRACKED_FILES = [
   {
     relPath: 'src/templates/skills/konoha/SKILL.md',
     mustInclude: [
-      `All 48 canonical MCP tools`,
-      `serves ALL 48 canonical tools`
+      `All 55 canonical MCP tools`,
+      `serves ALL 55 canonical tools`
     ],
     forbiddenPatterns: [
       /All\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
@@ -122,7 +122,7 @@ const TRACKED_FILES = [
   {
     relPath: 'scripts/generate_premium_flow_gifs.js',
     mustInclude: [
-      `48 canonical MCP tools · 8 coding clients`
+      `55 canonical MCP tools · 8 coding clients`
     ],
     forbiddenPatterns: [
       /\b(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
@@ -131,7 +131,7 @@ const TRACKED_FILES = [
   {
     relPath: 'scripts/lib/data.json',
     mustInclude: [
-      `Tool Registration (48 Tools)`
+      `Tool Registration (55 Tools)`
     ],
     forbiddenPatterns: [
       /Tool\s+Registration\s+\((?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+Tools\)/i

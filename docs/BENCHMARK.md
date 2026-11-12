@@ -17,9 +17,9 @@ This prevents high-volume, low-payload operational subagents from skewing the co
 
 | Period | Total Calls | Cumulative Bytes Saved | Tokens Saved (~/4) | Byte-Weighted Reduction |
 |:---|:---:|:---:|:---:|:---:|
-| **Today** | 547 | ~12.69 MB | ~3.33M tokens | **87%** |
-| **Last 7 Days** | 1,323 | ~20.22 MB | ~5.30M tokens | **82%** |
-| **All Time** | 1,323 | ~20.22 MB | ~5.30M tokens | **82%** |
+| **Today** | 106 | ~1.10 MB | ~0.29M tokens | **76%** |
+| **Last 7 Days** | 106 | ~1.10 MB | ~0.29M tokens | **76%** |
+| **All Time** | 106 | ~1.10 MB | ~0.29M tokens | **76%** |
 
 ---
 
@@ -29,21 +29,12 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 
 | # | Call Type | Calls | Baseline (MB) | Returned (MB) | Saved (MB) | Avg Base (KB) | Avg Ret (KB) | % Saved | Category Characterization |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `read_file_range` | 645 | 12.99 MB | 2.37 MB | 10.65 MB | 20.63 KB | 3.76 KB | **82%** | Core bounded retrieval (83%–98% headline) |
-| 2 | `token_efficient_grep` | 293 | 5.06 MB | 0.24 MB | 4.82 MB | 17.67 KB | 0.83 KB | **95.3%** | Aggressive context pruning (> 98% reduction) |
-| 3 | `read_file_head` | 144 | 1.63 MB | 0.67 MB | 0.98 MB | 11.58 KB | 4.77 KB | **60.3%** | Core bounded retrieval (83%–98% headline) |
-| 4 | `find_files_clean` | 47 | 0.43 MB | 0.11 MB | 0.32 MB | 9.29 KB | 2.38 KB | **74.4%** | Aggressive context pruning (> 98% reduction) |
-| 5 | `file_info` | 43 | 2.14 MB | 0.01 MB | 2.13 MB | 50.99 KB | 0.22 KB | **99.6%** | Aggressive context pruning (> 98% reduction) |
-| 6 | `anbu` | 34 | 0.28 MB | 0.28 MB | 0 MB | 8.3 KB | 8.3 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 7 | `sannin` | 33 | 0.07 MB | 0.07 MB | 0 MB | 2.09 KB | 2.09 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 8 | `use_skills` | 22 | 0.33 MB | 0.33 MB | 0 MB | 15.36 KB | 15.36 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 9 | `get_skill` | 19 | 0.19 MB | 0.18 MB | 0.01 MB | 9.98 KB | 9.69 KB | **2.9%** | Bounded section delivery & audit (55%–82%) |
-| 10 | `find_skill` | 18 | 1.31 MB | 0.02 MB | 1.29 MB | 74.62 KB | 1.2 KB | **98.4%** | Core bounded retrieval (83%–98% headline) |
-| 11 | `jonin` | 10 | 0.08 MB | 0.08 MB | 0 MB | 8.54 KB | 8.54 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 12 | `web_search` | 9 | 0.01 MB | 0.01 MB | 0 MB | 0.76 KB | 0.76 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 13 | `chunin` | 4 | 0.03 MB | 0.03 MB | 0 MB | 8.13 KB | 8.13 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 14 | `yamanaka` | 1 | 0.01 MB | 0.01 MB | 0 MB | 7.85 KB | 7.85 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 15 | `get_file_structure` | 1 | 0.03 MB | 0 MB | 0.02 MB | 26.13 KB | 1.29 KB | **95%** | Aggressive context pruning (> 98% reduction) |
+| 1 | `read_file_range` | 54 | 0.89 MB | 0.2 MB | 0.7 MB | 16.89 KB | 3.7 KB | **78.1%** | Core bounded retrieval (83%–98% headline) |
+| 2 | `read_file_head` | 45 | 0.28 MB | 0.14 MB | 0.14 MB | 6.4 KB | 3.14 KB | **50.9%** | Core bounded retrieval (83%–98% headline) |
+| 3 | `sannin` | 3 | 0.01 MB | 0.01 MB | 0 MB | 2.01 KB | 2.01 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 4 | `find_files_clean` | 2 | 0.09 MB | 0 MB | 0.09 MB | 46.22 KB | 1.33 KB | **97.1%** | Aggressive context pruning (> 98% reduction) |
+| 5 | `token_efficient_grep` | 1 | 0.08 MB | 0 MB | 0.08 MB | 86.96 KB | 2.22 KB | **97.4%** | Aggressive context pruning (> 98% reduction) |
+| 6 | `get_file_structure` | 1 | 0.1 MB | 0 MB | 0.09 MB | 97.66 KB | 0.42 KB | **99.6%** | Aggressive context pruning (> 98% reduction) |
 
 ### Precise Headline Scoping
 - **Core Bounded Retrieval (83%–98%)**: Primary file reading and skill search (`read_file_range` at ~94%, `find_skill` at ~86%, `read_file_head` at ~88%) operate strictly within the headline 83%–98% range.
@@ -61,23 +52,24 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 - **Transcript Cross-Check**: Empirical verification against `transcript.jsonl` (e.g. Step 3388) demonstrates that the text payload recorded in `tool_calls` (1,243 bytes) matches the prompt-injected transcript text (1,240 bytes) within **3 bytes (99.8% exact fidelity)**, with an 81-byte outer invocation timestamp header added by the CLI harness.
 
 ### B. Live Tiktoken (`cl100k_base`) Sampling vs. `/4` Heuristic
-- **Observed Byte-to-Token Ratio**: **4.073 bytes/token** across live JSON, markdown, and JavaScript source code payloads.
-- **Heuristic Divergence**: **±1.82%** relative to exact `cl100k_base` tokenization.
+- **Observed Byte-to-Token Ratio**: **4.078 bytes/token** across live JSON, markdown, and JavaScript source code payloads.
+- **Heuristic Divergence**: **±1.91%** relative to exact `cl100k_base` tokenization.
 - **Telemetry Status**: **HEALTHY** (mechanically verified by `src/token_sampler.js`).
 
 ---
 
-## 3. 🔍 Semble (Semantic Code Search) Savings
+## 3. 🔍 Native Code Intelligence (SQLite FTS5) Savings
 
-Semble provides semantic vector search and line-range previews, replacing direct full-repository context dumps:
+`code_search` serves ranked, bounded snippets from Konoha's own SQLite FTS5 index instead of dumping whole files or the repository:
 
-| Period | Search Queries | Cumulative Tokens Saved | Average Reduction |
-|:---|:---:|:---:|:---:|
-| **Today** | 72 | **~4.7M tokens** | 99% |
-| **Last 7 Days** | 261 | **~12.3M tokens** | 99% |
-| **All Time** | 3,200 | **~158.4M tokens** | 98% |
+| Surface | Hard Bound | Worst-Case Payload |
+|:---|:---|:---:|
+| Snippet per hit | 40 lines / 2,000 chars | ~500 tokens |
+| Hits per query | 20 | ~10,000 tokens |
+| `code_context` chunk | 2,000 chars | ~500 tokens |
+| Indexed file | 1 MiB / 20,000 files per root | — |
 
-*Source: `uvx --from semble[mcp]@latest semble savings` (3.2k queries, 98% efficiency).*
+*Source: `src/code_intel/config.js` (`SEARCH_MAX_HITS`, `SEARCH_SNIPPET_MAX_CHARS`, `CHUNK_MAX_CHARS`, `MAX_FILE_BYTES`, `MAX_FILES_PER_ROOT`). No external process, no network round trip.*
 
 ---
 
@@ -87,7 +79,7 @@ Shell commands executed through the `rtk` wrapper are actively filtered, strippe
 
 | Scope | Commands Executed | Input Tokens | Output Tokens | Tokens Saved | Net Token Reduction |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Current Project (konoha)** | 29,223 | 4.01M | 2.70M | 1.31M | **32.6%** |
+| **Current Project (konoha)** | 68,197 | 10.63M | 7.54M | 3.10M | **29.1%** |
 | **Global Machine History** | 14,951 | 18.60M | 9.69M | 11.01M | **59.2%** |
 
 ### Command-Specific Empirical Reduction Distribution
@@ -110,23 +102,23 @@ Konoha's single-process Node.js runtime and in-process SQLite driver eliminate t
 ### 📊 Process Memory Footprint
 | Metric | Resident Size (MB) | Characterization |
 |:---|:---:|:---|
-| **Resident Set Size (RSS)** | **97.3 MB** | Total process memory including runtime, shared libraries, and SQLite |
-| **V8 Heap Allocated** | **38.7 MB** | V8 memory committed by Node.js runtime |
-| **V8 Heap Used** | **23.5 MB** | Active working JavaScript objects (agents, router, session caches) |
+| **Resident Set Size (RSS)** | **86.6 MB** | Total process memory including runtime, shared libraries, and SQLite |
+| **V8 Heap Allocated** | **37.3 MB** | V8 memory committed by Node.js runtime |
+| **V8 Heap Used** | **19.7 MB** | Active working JavaScript objects (agents, router, session caches) |
 | **External Buffer Memory** | **2.1 MB** | Native buffers and SQLite prepared statement handles |
 
 ### ⚡ Subsystem Execution Throughput & Latency
 | Subsystem & Operation | Sample Set | Throughput | Mean Latency | Characterization |
 |:---|:---:|:---:|:---:|:---|
-| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **1,713 queries/sec** | **0.58 ms** | In-process relational + BM25 ranking |
-| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **26,174 ops/sec** | **0.038 ms** | Authenticated GMAC encryption at rest |
+| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **2,207 queries/sec** | **0.45 ms** | In-process relational + BM25 ranking |
+| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **29,725 ops/sec** | **0.034 ms** | Authenticated GMAC encryption at rest |
 | **MCP Tool Dispatch** (Bounded File Read) | 500 ops | **2,820 calls/sec** | **0.35 ms** | Zero-copy slice with boundary token caps |
 | **Web Server API Health & Metrics** | 1,000 ops | **4,150 req/sec** | **0.24 ms** | In-memory cached system metrics endpoint |
 
 ### ⚖️ Architectural Efficiency Comparison
 | Architecture | Active Process Count | Memory per Agent | Cold Start Latency | Communication Overhead |
 |:---|:---:|:---:|:---:|:---:|
-| **Konoha MCP Village (v2.2.21)** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |
+| **Konoha MCP Village (v2.2.22)** | **1 unified daemon** | **~8.4 MB / persona** | **< 45 ms** | Zero IPC serialization (in-process) |
 | Multi-Process Microservices | 7+ separate runtimes | ~65–120 MB / agent | ~850–2,400 ms | HTTP/gRPC network loopback serialization |
 | Containerized Agent Swarms | 7+ Docker containers | ~250–500 MB / agent | ~3,000–8,000 ms | Bridge network, overlay FS, container daemon |
 
@@ -142,9 +134,9 @@ The repository measures retrieval savings through database telemetry (`tool_call
 
 | Check | Command | Expected Result |
 |---|---|---|
-| Full Test Suite | `pnpm test:sandbox` (or `rtk node tests/run_all.js` on the host) | 100% of discovered suites pass — every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` |
+| Full Test Suite | `rtk node tests/run_all.js` | 100% test suites pass (every `tests/test_*.js`, auto-discovered) |
 | Zero-AI-Slop Gate | `rtk aislop scan --changes` | 100/100 Healthy, 0 errors, 0 warnings |
-| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 48 tools in sync) |
+| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 55 tools in sync) |
 | Benchmark Sync | `rtk node scripts/generate_benchmark.js --check` | Exit 0 (structure & telemetry in sync) |
 
 ---

@@ -4,9 +4,6 @@
  * bin/commands/savings.js — Token Savings Telemetry & Combined Metric Reporting.
  */
 
-const path = require("path");
-const { spawnSync } = require("child_process");
-
 const { DB_PATH } = require("../lib/paths");
 const {
   C,
@@ -23,7 +20,6 @@ const {
 } = require("../lib/format");
 
 const { fileExists } = require("../lib/prompt");
-const { getUvxCommand } = require("../lib/extension");
 
 function cmdSavingsHelp() {
   log(`
@@ -161,103 +157,21 @@ function printMcpSavingsSection() {
   }
 }
 
-function parseSembleLines(lines, state) {
-  const SEMBLE_REGEX = /^(Today|Last\s+7\s+days|All\s+time)\s+(\d+\.?\d*)([kKmM]?)(?:\s+(?:calls|searches?))?\s+(?:~?)(\d+\.?\d*)([kKmM]?)\s+tokens(?:\s+\((\d+)%\))?(?:.*?(\d+)%)?/i;
-  for (const line of lines) {
-    const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
-    if (!cleanLine) continue;
-    const match = cleanLine.match(SEMBLE_REGEX);
-    if (!match) continue;
-
-    const period = match[1];
-    const rawCalls = parseFloat(match[2]);
-    const callUnit = (match[3] || '').toLowerCase();
-    const rawTokens = parseFloat(match[4]);
-    const tokenUnit = (match[5] || '').toLowerCase();
-    const pct = parseInt(match[6], 10) || parseInt(match[7], 10) || 0;
-
-    const calls = callUnit === 'm' ? Math.round(rawCalls * 1000000) : (callUnit === 'k' ? Math.round(rawCalls * 1000) : Math.round(rawCalls));
-    const tokens = tokenUnit === 'm' ? Math.round(rawTokens * 1000000) : (tokenUnit === 'k' ? Math.round(rawTokens * 1000) : Math.round(rawTokens));
-
-    if (period.startsWith('Today')) {
-      state.todayCalls = calls; state.todayTokens = tokens; state.todayPct = pct;
-    } else if (period.startsWith('Last')) {
-      state.last7DaysCalls = calls; state.last7DaysTokens = tokens; state.last7DaysPct = pct;
-    } else {
-      state.allTimeCalls = calls; state.allTimeTokens = tokens; state.allTimePct = pct;
-    }
-  }
-}
-
-function fetchSembleSavings() {
-  log(`  ${C.bold}${applyGradient('2. 🔍 Semble (Semantic Code Search) Savings', RASENGAN_THEME)}${C.reset}`);
-  log(`     ${C.dim}Fetching from Semble tool cli...${C.reset}\n`);
-
-  const state = {
-    todayCalls: 0, todayTokens: 0, todayPct: 0,
-    last7DaysCalls: 0, last7DaysTokens: 0, last7DaysPct: 0,
-    allTimeCalls: 0, allTimeTokens: 0, allTimePct: 0
-  };
-
-  try {
-    const isWin = process.platform === 'win32';
-    const uvxCmd = getUvxCommand();
-    let sembleCmd = isWin ? 'semble.exe' : 'semble';
-    if (uvxCmd && uvxCmd !== 'uvx' && uvxCmd !== 'uvx.exe') {
-      const companionSemble = path.join(path.dirname(uvxCmd), isWin ? 'semble.exe' : 'semble');
-      if (fileExists(companionSemble)) sembleCmd = companionSemble;
-    }
-
-    const spawnOpts = {
-      encoding: 'utf-8',
-      timeout: 3000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    };
-
-    let runSemble = null;
-    try {
-      runSemble = spawnSync(sembleCmd, ['savings'], spawnOpts);
-    } catch { /* non-fatal */ }
-
-    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      try {
-        runSemble = spawnSync(uvxCmd, ['semble', 'savings'], spawnOpts);
-      } catch { /* non-fatal */ }
-    }
-
-    if (!runSemble || runSemble.status !== 0 || !runSemble.stdout || !runSemble.stdout.includes('Semble Token Savings')) {
-      log(`     ${C.dim}Semble CLI not available or no telemetry recorded yet.${C.reset}\n`);
-      return state;
-    }
-
-    const sembleOutput = runSemble.stdout;
-    log(sembleOutput.split('\n').map(l => '    ' + l).join('\n'));
-    parseSembleLines(sembleOutput.split('\n'), state);
-  } catch (e) {
-    log(`     ${C.yellow}⚠${C.reset} Could not fetch Semble savings: ${e.message}`);
-  }
-  return state;
-}
-
 function fmtPct(value) {
   if (value === null || value === undefined) return C.dim + 'no data' + C.reset;
   return C.green + Math.round(value) + '%' + C.reset;
 }
 
-function printCombinedSavings(semble) {
-  header('🏆 Combined Total Savings');
+function printCombinedSavings() {
+  header('🏆 Total Savings');
   log('');
 
   const combinedSummaryLines = [
-    `${C.bold}Konoha MCP Today:${C.reset}       ${String(global.skillsDbTodayCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbTodayTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbTodayPct)}`,
-    `${C.bold}Konoha MCP Last 7 Days:${C.reset} ${String(global.skillsDbLast7DaysCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbLast7DaysTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbLast7DaysPct)}`,
-    `${C.bold}Konoha MCP All Time:${C.reset}    ${String(global.skillsDbAllTimeCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbAllTimeTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbAllTimePct)}`,
-    '─',
-    `${C.dim}Semble (separate tool, unverified by Konoha):${C.reset} today ${fmtPct(semble.todayPct)} · 7d ${fmtPct(semble.last7DaysPct)} · all ${fmtPct(semble.allTimePct)}`,
-    `${C.dim}Totals above combine both sources; the per-source ratios are not blended.${C.reset}`,
+    `${C.bold}Today:${C.reset}       ${String(global.skillsDbTodayCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbTodayTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbTodayPct)}`,
+    `${C.bold}Last 7 Days:${C.reset} ${String(global.skillsDbLast7DaysCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbLast7DaysTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbLast7DaysPct)}`,
+    `${C.bold}All Time:${C.reset}    ${String(global.skillsDbAllTimeCalls || 0).padStart(5)} calls   ~${C.bold}${formatTokensComb(global.skillsDbAllTimeTokens || 0).padEnd(7)}${C.reset} tokens   ${fmtPct(global.skillsDbAllTimePct)}`
   ];
-  drawBox('Combined Savings Metric', combinedSummaryLines, FIRE_THEME);
+  drawBox('Total Savings Metric', combinedSummaryLines, FIRE_THEME);
   log('');
 }
 
@@ -270,8 +184,7 @@ async function cmdSavings(args = []) {
   header('📊 Token Savings Report');
 
   printMcpSavingsSection();
-  const semble = fetchSembleSavings();
-  printCombinedSavings(semble);
+  printCombinedSavings();
 }
 
 module.exports = {

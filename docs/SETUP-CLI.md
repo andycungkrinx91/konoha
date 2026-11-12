@@ -143,7 +143,7 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `konoha`, `semble`, and `aislop` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
+You should see `konoha` and `aislop` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains both entries (run `konoha doctor --yes` to repair).
 
 ### Windows PowerShell Alternative
 ```powershell
@@ -370,7 +370,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```bash
   konoha savings
   ```
-  Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
+  Retrieves and displays token savings metrics (Today, 7 days, All time) from the `konoha` FTS5 telemetry database, helping developers track overall efficiency.
 
 ### AI Fingerprint Detection (Website & Documents) (v2.0.2)
 
@@ -479,7 +479,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (`2.2.21`) and queries the official npm registry to check if a newer version is available:
+  Displays the installed local version (`2.2.22`) and queries the official npm registry to check if a newer version is available:
   ```bash
   konoha version
   ```
@@ -533,9 +533,8 @@ The installer registers whitelisted command prefixes in `~/.gemini/antigravity-c
 This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
 
 ### 2. Tool Auto-Approvals
-The installer registers tool auto-approval settings for the `konoha`, `semble`, and `aislop` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+The installer registers tool auto-approval settings for the `konoha` and `aislop` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
 - **`konoha`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
-- **`semble`**: Auto-approves `search` and `find_related`.
 - **`aislop`**: Auto-approves `aislop_scan`, `aislop_fix`, `aislop_why`, and `aislop_baseline`.
 - **`konoha`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
 

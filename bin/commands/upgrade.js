@@ -480,7 +480,7 @@ async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
 }
 
 async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, isWin = process.platform === 'win32') {
-  const { injectConfigs = false, rtk = true, aislop = true, semble = true } = choices;
+  const { injectConfigs = false, rtk = true, aislop = true } = choices;
   const cleanTarget = String(targetTag || '').replace(/^v/, '');
   const globalPkgRoot = locateGlobalPackageRoot(process.platform === 'win32', cleanTarget);
   prepareUpgradeSourceRoot(globalPkgRoot);
@@ -488,7 +488,7 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, i
   pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
   try {
     await runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot);
-    deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop, semble });
+    deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop });
     await restartOrAutoStartUiDaemon(pbar, uiWasRunning);
 
     const portReady = await waitForPortReady(UI_PORT, { timeoutMs: UI_READY_TIMEOUT_MS });

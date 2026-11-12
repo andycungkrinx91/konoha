@@ -1,3 +1,39 @@
+## [2.2.22] - 2026-11-13
+
+### Added
+
+- **Code search is now in-process, so the external `semble` MCP server is gone (`src/code_intel/`, `src/mcp_tool_manifest.json`, `src/file_tools_router.js`)**: seven tools — `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove` — serve symbol search, enclosing context, and reverse-dependency traversal from a SQLite FTS5 index inside the main Konoha database, honoring `KONOHA_DB_PATH` like every other subsystem. The manifest goes from 50 to 57 entries and the canonical roster from 48 to 55. The parser (`src/code_intel/parser.js`) is a zero-dependency lexer: tree-sitter would have meant node-gyp, three-OS prebuilds, and a download at install time, which the no-auto-install rule forbids; a regex-only scanner cannot bound symbol ranges. `code_search` ranks definitions first, then BM25, and caps every snippet at 40 lines / 2,000 chars and every result set at 20 hits, so a query cannot dump a file into the agent's context. When the SQLite build lacks FTS5 the search falls back to a `LIKE` scan and reports `degraded: true` rather than pretending.
+
+- **Schema v6 (`src/code_intel/ddl.js`, `src/db_schema.js`)**: five ordinary tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`) plus the `code_chunks_fts` virtual table and its four shadows, so the raw table count moves 32 → 42 and the declared count 24 → 30. The migration is a `SAVEPOINT` (not `BEGIN IMMEDIATE`, because `setupSchema` may already hold a transaction), backs the database up first, rolls back and rethrows `CODE_INTEL_MIGRATION_FAILED` on any error, runs `PRAGMA foreign_key_check`, and is a no-op on a database already at version 6. Only `setUserVersion` writes `PRAGMA user_version`.
+
+- **The dashboard gained `/code` (`apps/web/src/components/CodeIntel.svelte`, `apps/web/src/routes/code/+page.svelte`, `src/web/controllers/services_controller.js`)**: `GET /api/v1/code/status` reports the indexed roots and whether FTS5 is available, and `POST /api/v1/code/search` runs a query against a named root, so the UI keeps a working search surface after `/semble` was retired.
+
+### Changed
+
+- **`uvx` resolution lives in one module (`src/uvx_runtime.js`, ten callers)**: `AISLOP_PACKAGE` and `resolveUvxExecutablePath` were the only parts of `src/semble_manager.js` anything still needed; they moved to a dedicated module so the manager could be deleted outright instead of kept as a shell around two functions.
+
+- **The `uvxCmd` plumbing is deleted, not left inert (`src/*_manager.js`, `src/mcp_clients/`, `bin/lib/`, `scripts/install-client.js`)**: the parameter existed only to build the Semble server command. It threaded through `registerCursorMcp`, `registerCodexMcp`, `registerOpenCodeMcp`, `registerPiMcp`, `registerClaudeCode*`, `registerCommandCode*`, `updateCodexTomlMcp`, `buildMcpServers`, and `buildStdioMcpServers`, none of which read it. `buildMcpServers()` now takes no arguments at all — the Aislop entry uses `npx` and the Konoha entry comes from `deployUtils.buildKonohaFilesMcpEntry`. `_resolveUvxPath` and `getUvxCommand` had no remaining callers and are gone.
+
+- **Stale Semble entries are still cleaned, even though nothing writes them (`src/cursor_bootstrap.js`, `src/config_merger.js`, `src/opencode_manager.js`, `src/pi_manager.js`, `bin/lib/runtime_mcp.js`, `src/codex_manager.js`)**: install and uninstall paths keep their `delete config.mcpServers['semble']` / `owned_sections` / removal-grant entries, so a config written by an older Konoha is purged on the next run. Dropping the producer without dropping the cleaner would have stranded the stale server in every upgraded install.
+
+### Removed
+
+- **The `semble` MCP server, its manager, and its tests**: `src/semble_manager.js`, the `semble` entry in every client config builder, the `mcp__semble__*` permission grants, the Semble sections of `konoha doctor`, `konoha status`, `konoha savings`, and the `/semble` dashboard route. The savings report is now a single stream read from `tool_calls`; the combined-total arithmetic that reconciled two sources is gone with the second source.
+
+### Fixed
+
+- **A flat-deployed install could not load the router (`src/deploy_installer.js`)**: `src/file_tools_router.js` requires `./code_intel/tools`, but the flat runtime copy only enumerates known subdirectories, so the deployed `konoha` server died with `Cannot find module './code_intel/tools'` on the first tool call. `code_intel` is now in both `subdirs` and `preserveDirs`; `tests/test_fresh_install_mcp.js` performs a real stdio handshake and discovers 55 tools.
+
+- **`verifyIntegrity` was computed and ignored (`src/db_schema.js`)**: the integrity probe ran but nothing acted on a failure, so a corrupted database migrated anyway and failed later at an unrelated call site. It is now a hard gate that aborts `setupSchema` with the failing table names.
+
+- **The SOUL.md fan-out could overwrite a file Konoha did not write (`src/deploy_utils.js`, `src/global_skill_sync.js`)**: syncing ten client targets used a blind copy, so a user's own `SOUL.md` — or a client's native one — was replaced wholesale. Konoha now owns a delimited block inside the file, appends it when absent, and leaves the rest of the document alone; `global_skill_sync` skips a file that already carries the block. `copyIfDifferent` gained an opt-in `{ strategy: 'backup' }` that writes a one-time `.konoha-backup` beside the target.
+
+- **`[CC]` agent files that Konoha did not generate were deleted (`src/mcp_clients/claude_code.js`)**: cleanup removed every file matching the agent glob, including agents a user wrote by hand. A file is now only pruned when it carries the `generated_by: konoha` frontmatter key; anything else is reported as a conflict and left in place.
+
+### Documentation
+
+- **The Semble surface is removed from the live docs and the generated benchmark (`README.md`, `docs/ARCHITECTURE.md`, `docs/MANUAL.md`, `docs/BENCHMARK.md`, `docs/SETUP-*.md`, `docs/TROUBLESHOOTING.md`, `docs/QA-TEST-CHECKLIST.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`, `docs/diagrams/*.drawio`, `src/templates/**`, `.agents/skills/konoha/**`)**: every install instruction now registers two servers, `konoha` and `aislop`. Benchmark §3 reports the bounds `src/code_intel/config.js` actually enforces instead of the query counts the Semble table carried. `docs/architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md` is kept as the audit record of the code as it stood before this change, and `docs/archive/**` is untouched.
+
 ## [2.2.21] - 2026-11-12
 
 ### Added

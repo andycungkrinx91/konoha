@@ -28,11 +28,11 @@ const {
   fileExistsCached
 } = require('./platform_utils');
 
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
 const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
 
-const KONOHA_SERVER_KEYS = ['konoha', 'semble', 'aislop'];
+const KONOHA_SERVER_KEYS = ['konoha', 'aislop'];
 const CONTRACT_START_MARKER = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END_MARKER = '<!-- KONOHA-CONTRACT-END -->';
 const OMP_MANDATE_HEADING = '## Konoha Workflow Mandate (OMP) — MANDATORY';
@@ -79,7 +79,7 @@ function buildOmpWorkflowAddendum() {
   return `
 ## Konoha Workflow Mandate (OMP) — MANDATORY
 
-- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`semble.search\`) as primary execution tools.
+- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.code_search\`) as primary execution tools.
 - **Advisor Preservation**: OMP's built-in advisor review (\`reviewMode: agent-end\`) must always run after all Konoha multi-agent workflows, subagent delegations, and Kage review gates finish cleanly. Never abort the turn early or bypass advisor post-review.
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
@@ -96,7 +96,7 @@ function buildOmpWorkflowAddendum() {
   - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\`), \`"build"\` (\`pnpm run build\`), and \`"start"\` (\`pnpm run start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
   - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 - **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills; duplicate-skill warnings are automatically filtered by konoha-blocker; prefer the Konoha MCP path.
-- **Code search via Semble**: use \`semble.search\` / \`semble.find_related\` with the absolute repository path — never native grep/glob/find for codebase discovery.
+- **Code search via \`code_search\`**: index the repository once with \`code_index\`, then use \`code_search\` / \`code_symbol\` / \`code_impact\` — never native grep/glob/find for codebase discovery.
 - **Bounded file tools**: use \`konoha.read_file_head\`, \`read_file_range\`, \`file_info\`, \`get_file_structure\`, \`find_files_clean\`, \`token_efficient_grep\` instead of native read/grep when scanning the repository.
 - **Workflow artifacts** (\`plan.md\`, \`findings.md\`, \`final_docs.md\`, \`kage_review.json\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 98\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
@@ -119,7 +119,6 @@ function buildOmpMcpServers(options = {}) {
     launcherPath = fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;
   }
   const npxCmd = isWin ? 'npx.cmd' : 'npx';
-  const resolvedUvx = resolveUvxExecutablePath ? (resolveUvxExecutablePath(options.uvxCmd) || options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx')) : (options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx'));
 
   const home = options.home || HOME;
   const localBin = path.join(home, '.local', 'bin');
@@ -139,22 +138,6 @@ function buildOmpMcpServers(options = {}) {
         PATH: clientPathEnv
       },
       autoApprove: KONOHA_CANONICAL_TOOLS ? [...KONOHA_CANONICAL_TOOLS] : [],
-      auto_approve: true
-    },
-    semble: {
-      type: 'stdio',
-      command: resolvedUvx,
-      args: [
-        '--from',
-        SEMBLE_PACKAGE,
-        'semble',
-        '--content',
-        'all'
-      ],
-      env: {
-        PATH: clientPathEnv
-      },
-      autoApprove: ['search', 'find_related'],
       auto_approve: true
     },
     aislop: {
@@ -372,7 +355,6 @@ function getOmpStatus() {
   const installed = isOmpInstalled();
   const configPath = getOmpConfigPath();
   let mcpKonoha = false;
-  let mcpSemble = false;
   let mcpAislop = false;
   let contractDeployed = false;
   let rtkRuleDeployed = false;
@@ -391,7 +373,6 @@ function getOmpStatus() {
     const config = readJsonSafe(configPath);
     if (config && config.mcpServers) {
       mcpKonoha = !!config.mcpServers['konoha'];
-      mcpSemble = !!config.mcpServers['semble'];
       mcpAislop = !!config.mcpServers['aislop'];
     }
   }
@@ -413,7 +394,6 @@ function getOmpStatus() {
     configured: mcpKonoha,
     configExists: fileExists(configPath),
     mcpKonoha,
-    mcpSemble,
     mcpAislop,
     contractDeployed,
     rtkRuleDeployed,

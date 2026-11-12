@@ -11,7 +11,7 @@ const sampleAgent = {
   delegationKeywords: 'trace flows',
   constraints: 'read-only',
   skills: ['genin-skill', 'genin-skill/code-exploration'],
-  instructions: 'Use Konoha MCP to load the assigned skill and use Semble for code search.'
+  instructions: 'Use Konoha MCP to load the assigned skill and use code_search for code search.'
 };
 
 const agentManager = require('../src/agent_manager');
@@ -58,13 +58,12 @@ for (const content of [
 const mcpServers = clients.buildStdioMcpServers({
   pythonCmd: 'python3',
   serverPath: '/tmp/konoha-server.py',
-  uvxCmd: 'uvx',
 });
-assert.ok(mcpServers.semble, 'Claude Code and Command Code MCP builder must include Semble');
+assert.strictEqual(mcpServers.semble, undefined, 'Claude Code and Command Code MCP builder must not register the retired semble server');
 if (mcpServers.konoha) {
   assert.ok(mcpServers.konoha, 'Konoha MCP entry must be present when file tools are installed');
 }
 assert.match(opencodeSource, /config\.mcp\[['"]konoha['"]\]/, 'OpenCode must register Konoha MCP');
-assert.match(opencodeSource, /config\.mcp\[['"]semble['"]\]/, 'OpenCode must register Semble MCP');
+assert.match(opencodeSource, /delete config\.mcp\[['"]semble['"]\]/, 'OpenCode must strip the retired semble MCP entry');
 
 console.log('Client skill-loading contract passed for Antigravity, Cursor, Claude Code, OpenCode, and Command Code.');

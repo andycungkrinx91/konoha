@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.21",
+  "version": "2.2.22",
   "description": "Autonomous multi-agent MCP orchestration platform powered by LangGraph state machines, 8 specialist ninja agents, SQLite FTS5 skill indexing, and per-turn token governors saving 83–98% context across 8 AI coding clients",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",

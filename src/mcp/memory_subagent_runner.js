@@ -128,8 +128,6 @@ function buildSubagentMcpBlock(client = null, agentName = null, options = {}) {
   // below directs usage. Only hard safety mandates remain enforced.
   const catalog = _loadManifestToolCatalog();
   const tools = catalog.map((name) => `- \`mcp__konoha__${name}\``);
-  tools.push('- `mcp__semble__search`');
-  tools.push('- `mcp__semble__find_related`');
   tools.push('- `mcp__aislop__aislop_scan`');
   tools.push('- `mcp__aislop__aislop_why`');
   if (['jonin', 'anbu'].includes(normAgent)) {
@@ -217,10 +215,10 @@ function cleanRedundantPersonaText(text) {
   return text
     .replace(/Base personality: High Effort \+ Instruct Style —[^.]+\./gi, '')
     .replace(/and adhere strictly to base personality:[^.]+\./gi, '')
-    .replace(/Call konoha\.find_skill for skills\.[\s\S]*?(?=Call the semble|\. [A-Z]|$)/gi, '')
-    .replace(/Call the semble MCP tools \(search\/find_related\) directly for codebase search\. Do NOT mix them\.?/gi, '')
-    .replace(/Do NOT call `?semble`? tools[^.]+\./gi, '')
-    .replace(/NEVER use `?semble`? search for skills\.?/gi, '')
+    .replace(/Call konoha\.find_skill for skills\.[\s\S]*?(?=Call the code_search|\. [A-Z]|$)/gi, '')
+    .replace(/Call the code_search tools? \(code_search\/code_symbol\) directly for codebase search\. Do NOT mix them\.?/gi, '')
+    .replace(/Do NOT call `?code_search`? tools[^.]+./gi, '')
+    .replace(/NEVER use `?code_search`? for skills\.?/gi, '')
     .replace(/NEVER use grep, glob, find[^.]+\./gi, '')
     .replace(/Always use `?konoha`? MCP tools[^.]+\./gi, '')
     .replace(/\s*\.\s*\./g, '.')
@@ -505,7 +503,7 @@ function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
     '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
     '- PRESERVE PROXY GATEWAY: Never modify or disable local OpenAI proxy gateway (port 19999).\n' +
     '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools. Never use shell cat/head/grep.\n' +
-    '- SEMBLE IS MANDATORY: Use `mcp__semble__search` and `mcp__semble__find_related` with absolute repo path.\n' +
+    '- CODE INTELLIGENCE IS MANDATORY: Use `mcp__konoha__code_search`, `code_symbol`, and `code_impact` with the absolute repo root.\n' +
     '- RTK IS MANDATORY: Prefix shell and test runs with `rtk <command>`; fetch web pages with `rtk curl <url>`, never bare curl, wget, or raw fetch.\n' +
     '- SOUL ARCHETYPE MANDATORY: Strictly embody your ninja soul archetype behavior directives, voice, and tenets.\n' +
     (RESEARCH_AGENTS.has(dbAgentName) ? buildResearchFetchRule(dbAgentName) : '') +
@@ -517,7 +515,7 @@ function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
     `You are ${dbAgentName}. The payload below is the subagent contract the caller must hand to the spawned \`${dbAgentName}\` subagent; the caller must not execute it.\n\n` +
     '## Execution Protocol\n\n' +
     `0. Mandatory Skills Activation: Before taking actions, Spawn \`konoha.use_skills(skills=${JSON.stringify(skillsList)}${flowHash ? `, flow_hash="${flowHash}"` : ''})\` to load and bind references.\n` +
-    '1. Search with Semble and prefix shell commands with `rtk` (see anchor).\n' +
+    '1. Search with konoha code_search and prefix shell commands with `rtk` (see anchor).\n' +
     `2. Embody the ${dbAgentName} soul; no filler or ungrounded claims.\n` +
     (dbAgentName === 'genin' ? '3. Genin Strict Read-Only Mode: Strictly explore and inspect. Never create, edit, overwrite, or delete files.\n' : '3. Context Preservation: Preserve all intermediate context, architectural boundaries, and constraints. Never omit context in execution.\n') +
     '4. Execute the task directly as described in TASK INSTRUCTIONS below, inside the spawned subagent.\n' +

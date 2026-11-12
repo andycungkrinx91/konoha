@@ -1,12 +1,12 @@
-# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.21)
+# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.22)
 
-Technical specification of the Konoha MCP Server architecture, 48 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
+Technical specification of the Konoha MCP Server architecture, 55 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
 
 ---
 
 ## 🏛️ System Architecture Overview
 
-Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 48 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
+Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 55 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `~/.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`, `~/.claude/settings.json`)
@@ -20,7 +20,7 @@ Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi
 
 ## 🛠️ Canonical MCP Tools & Server Boundaries
 
-All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 total in manifest) are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`:
+All 55 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 57 total in manifest) are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`:
 
 | Category | Tools | Primary Purpose |
 |---|---|---|
@@ -34,8 +34,8 @@ All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 t
 | **Memory & Context** | `get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, `get_soul` | Project invariants, flow-bounded persona memories, and soul archetypes. |
 
 ### Strict Tool Boundaries
-1. **Repository Code Search**: ALWAYS use Semble MCP (`semble.search`, `semble.find_related`) with absolute repository path. NEVER use native grep/find/cat or Konoha skill tools for code exploration.
-2. **Skill Discovery**: ALWAYS use Konoha MCP (`konoha.find_skill`, `konoha.get_skill`, `konoha.use_skills`). NEVER search for skills with Semble.
+1. **Repository Code Search**: ALWAYS use the native code intelligence tools (`code_search`, `code_symbol`, `code_impact`) with the absolute repository root. NEVER use native grep/find/cat or Konoha skill tools for code exploration.
+2. **Skill Discovery**: ALWAYS use Konoha MCP (`konoha.find_skill`, `konoha.get_skill`, `konoha.use_skills`). NEVER search for skills with `code_search`.
 3. **File Inspection**: ALWAYS use Konoha bounded tools (`read_file_range`, `read_file_head`, `token_efficient_grep`). Never execute raw shell `cat` or `grep`.
 4. **Shell Execution**: ALWAYS prefix shell commands with `rtk <command>`.
 
@@ -49,7 +49,7 @@ All 48 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 50 t
 
 ---
 
-## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.21`)
+## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.22`)
 
 When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), `@jonin` executes a dynamic, context-driven design architecture across all supported frameworks (**Next.js, SvelteKit, Nuxt, Angular**):
 

@@ -26,9 +26,8 @@ function _resolveCanonicalTools() {
  */
 const fs = require('fs');
 const path = require('path');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const os = require('os');
-const { spawnSync } = require('child_process');
 
 const HOME = os.homedir();
 // Self-contained: derive paths from HOME rather than importing bin/lib/paths.
@@ -42,7 +41,7 @@ const CURSOR_RTK_RULE = path.join(CURSOR_DIR, 'rules', 'rtk.mdc');
 const CONTRACT_MARKER = 'KONOHA-CONTRACT-START';
 const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
 const agentContract = fileExists(contractPath) ? require(contractPath) : null;
-const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.21';
+const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.22';
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -50,55 +49,6 @@ function fileExists(p) {
 
 function ensureDir(d) {
   if (!fileExists(d)) fs.mkdirSync(d, { recursive: true });
-}
-
-function checkPython() {
-  for (const cmd of ['python3', 'python']) {
-    try {
-      const r = spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
-      if (r.status === 0) return cmd;
-    } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
-  }
-  return 'python3';
-}
-
-function getUvx() {
-  const isWin = process.platform === 'win32';
-  const binName = isWin ? 'uvx.exe' : 'uvx';
-  const candidateDirs = [
-    path.join(HOME, '.local', 'bin'),
-    path.join(HOME, '.cargo', 'bin'),
-    isWin ? path.join(process.env.LOCALAPPDATA || '', 'Programs', 'uv') : '/usr/local/bin',
-    '/usr/bin'
-  ];
-  for (const dir of candidateDirs) {
-    if (!dir) continue;
-    const full = path.join(dir, binName);
-    if (fileExists(full)) {
-      try {
-        const r = spawnSync(full, ['--version'], { stdio: 'ignore', timeout: 2000, windowsHide: true });
-        if (r.status === 0) return full;
-      } catch (_) { /* continue */ }
-    }
-  }
-  try {
-    const whichCmd = isWin ? 'where.exe' : 'which';
-    const res = spawnSync(whichCmd, [binName], { encoding: 'utf-8', timeout: 2000, windowsHide: true });
-    if (res.status === 0 && res.stdout) {
-      const resolved = res.stdout.trim().split(/\r?\n/)[0].trim();
-      if (resolved && fileExists(resolved)) return resolved;
-    }
-  } catch (_) { /* intentional fallback */ }
-  return isWin ? 'uvx.exe' : 'uvx';
-}
-
-function isUvxUsable() {
-  try {
-    const uvx = getUvx();
-    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, windowsHide: true });
-    return r.status === 0;
-  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
-  return false;
 }
 
 function _buildClientPathEnv(nodeCmd) {
@@ -155,9 +105,12 @@ function registerMcp() {
     delete config.mcpServers['konoha-files'];
     updated = true;
   }
+  if (config.mcpServers['semble']) {
+    delete config.mcpServers['semble'];
+    updated = true;
+  }
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const uvxUsable = isUvxUsable();
   let canonicalKonohaTools = _resolveCanonicalTools();
   if (!canonicalKonohaTools || !canonicalKonohaTools.length) {
     canonicalKonohaTools = [
@@ -177,16 +130,6 @@ function registerMcp() {
     ];
   }
   const servers = {
-    ...(uvxUsable ? {
-      semble: {
-        type: 'stdio',
-        command: getUvx(),
-        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-        env: { PATH: _buildClientPathEnv(null) },
-        autoApprove: ['search', 'find_related'],
-        auto_approve: true
-      }
-    } : {}),
     aislop: {
       type: 'stdio',
       command: npxCmd,
@@ -245,8 +188,7 @@ async function main() {
       process.exit(0);
     }
 
-    const python = checkPython();
-    registerMcp(python);
+    registerMcp();
     ensureDir(path.dirname(CURSOR_RULE));
     const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
     const agentContract = fileExists(contractPath) ? require(contractPath) : null;
