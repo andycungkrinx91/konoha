@@ -268,9 +268,10 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      ```bash
      HOME=$(mktemp -d) KONOHA_TEST_SANDBOX=1 node tests/test_web_ui.js
      ```
-   - The default gate is the container sandbox, which needs no manual HOME juggling:
+   - The gate is the container sandbox, on every OS, and it needs no manual HOME juggling:
      ```bash
      pnpm test:sandbox            # full suite, container-local HOME and /tmp
      pnpm test:sandbox -- --lint  # fast path
      ```
-     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is the fallback for machines with neither engine; on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
+     Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `pnpm test` on the host now refuses to start: `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and exits 1 unless `KONOHA_SANDBOX_CONTAINER=1` or `CI=true` is set, so the only way to run the suite is `pnpm test:sandbox`. The check reads the process environment, so `rtk node tests/run_all.js` refuses identically. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible and is still not evidence — it inherits the machine's `~/.konoha`, its global `konoha` shim, and its client config, so a green run there says nothing about a clean machine.
+     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is for a single mutating suite, not for the runner: `tests/run_all.js` refuses a host run outright, so there is no host fallback for the full suite. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.

@@ -63,7 +63,49 @@ function assertSandbox(env = process.env, realHome = null, marker = 'KONOHA_TEST
   }
 }
 
+/**
+ * Repo-maintenance guard.
+ *
+ * The Konoha suite mutates HOME, the Konoha database, `node_modules`, and the
+ * working tree. A developer machine also carries a real global `konoha`, a
+ * populated `~/.konoha`, and a client config the harness would inherit, so a
+ * host run is not evidence about the tree under test — it is evidence about
+ * that machine. Maintenance runs are therefore accepted only inside the
+ * container sandbox (`pnpm test:sandbox`) or on an ephemeral CI runner.
+ *
+ * The decision is made in this process, from this process's environment, so a
+ * shell wrapper cannot lift it: `rtk node tests/run_all.js` refuses exactly
+ * like `node tests/run_all.js`, because RTK rewrites argv, not this check.
+ */
+const CONTAINER_MARKER = 'KONOHA_SANDBOX_CONTAINER';
+
+function evaluateMaintenanceGuard(env = process.env) {
+  if (env && env[CONTAINER_MARKER] === '1') return { allowed: true, mode: 'container' };
+  if (env && env.CI === 'true') return { allowed: true, mode: 'ci' };
+  return {
+    allowed: false,
+    mode: 'host',
+    reason:
+      'Refusing to run the Konoha maintenance suite on the host. The gate is the container sandbox: ' +
+      '`pnpm test:sandbox` (Docker by default; `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` on macOS). ' +
+      'RTK does not lift this: the guard is evaluated inside this process, so `rtk node tests/run_all.js` refuses identically.'
+  };
+}
+
+function assertMaintenanceSandbox(env = process.env) {
+  const result = evaluateMaintenanceGuard(env);
+  if (!result.allowed) {
+    console.error(result.reason);
+    if (typeof process !== 'undefined' && process.exit) {
+      process.exit(1);
+    }
+  }
+  return result;
+}
+
 module.exports = {
   evaluateSandboxGuard,
-  assertSandbox
+  assertSandbox,
+  evaluateMaintenanceGuard,
+  assertMaintenanceSandbox
 };

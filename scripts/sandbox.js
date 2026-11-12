@@ -61,6 +61,7 @@ function sandboxPlan(runtime, options = {}) {
     '-v', `${VOLUMES[1]}:/ms-playwright`,
     '-e', 'HOME=/tmp/konoha-home',
     '-e', 'KONOHA_TEST_SANDBOX=1',
+    '-e', 'KONOHA_SANDBOX_CONTAINER=1',
     '-e', 'KONOHA_TEST_PARALLEL=1',
     '-e', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
     IMAGE, mode

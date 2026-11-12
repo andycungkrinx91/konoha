@@ -8,6 +8,11 @@ const path = require('path');
 const os = require('os');
 const { spawnSync, spawn } = require('child_process');
 
+// Maintenance runs are container-only. This executes before discovery so a host
+// invocation refuses instead of half-running the suite against the developer's
+// real HOME, global konoha shim, and ~/.konoha.
+require('./helpers/sandbox_guard').assertMaintenanceSandbox();
+
 let goldenSeedInfo = null;
 const SEED_SOURCE_ROOT = path.join(__dirname, '..');
 

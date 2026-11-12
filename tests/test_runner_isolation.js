@@ -14,6 +14,14 @@ assert.notStrictEqual(process.env.HOME, realHome, 'HOME must not match the real 
 // Assert KONOHA_TEST_SANDBOX === '1'
 assert.strictEqual(process.env.KONOHA_TEST_SANDBOX, '1', 'KONOHA_TEST_SANDBOX must be 1');
 
+// The suite is maintenance-gated: container sandbox or ephemeral CI runner.
+const { evaluateMaintenanceGuard } = require('./helpers/sandbox_guard');
+assert.strictEqual(
+  evaluateMaintenanceGuard().allowed,
+  true,
+  'the runner must be inside the maintenance sandbox (container or ephemeral CI)'
+);
+
 // Assert DB path ends in konoha.db
 assert.ok(process.env.KONOHA_DB_PATH, 'KONOHA_DB_PATH must be set');
 assert.ok(process.env.KONOHA_DB_PATH.endsWith('konoha.db'), 'KONOHA_DB_PATH must end with konoha.db');

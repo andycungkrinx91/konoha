@@ -510,6 +510,18 @@ pnpm test:sandbox -- --lint  # fast path: install + lint only
 pnpm test:sandbox -- --no-build   # reuse the last built image
 ```
 
+**This is the gate on Linux, not an option.** A developer machine usually has a real
+`konoha` installed globally, a populated `~/.konoha`, and a client config the harness would
+otherwise inherit; the sandbox keeps all three out of the run, and a green result then means
+the same thing on every OS. The suite refuses to start on a host at all — see the guard below — so
+`pnpm test:sandbox` is the only way to run it; `docs/QA-AUTOMATION.md` states which gate each command is.
+
+The guard is code, not a convention: `tests/run_all.js` calls `assertMaintenanceSandbox()` before
+discovery and exits 1 unless `KONOHA_SANDBOX_CONTAINER=1` (set by `scripts/sandbox.js`) or `CI=true`
+(an ephemeral runner) is present. It reads this process's environment, so `rtk node tests/run_all.js`
+refuses exactly like `node tests/run_all.js` — RTK rewrites argv and cannot reach the decision. Setting
+`HOME` to a temp directory is not a substitute either; the runner already does that per suite.
+
 The engine is Docker by default. `KONOHA_SANDBOX_RUNTIME=container` (or
 `--runtime container`) runs the same image and the same argv through
 [Apple's `container`](https://github.com/apple/container) instead, which is how a Mac
@@ -551,12 +563,17 @@ assertion — but it cannot reproduce macOS host behaviour. Path canonicalizatio
 (`/var` → `/private/var`), case-insensitive APFS, and the `.dmg` Blender branch only surface
 when the suite runs natively on macOS, which is what the `macos-latest` CI leg does.
 
-So a Mac needs both, and neither is a substitute for the other:
+So the macOS host semantics come from the `macos-latest` leg, and the clean room comes from
+either engine locally:
 
 ```bash
-pnpm test                              # native: the macOS semantics CI asserts
 KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox   # clean room, no Docker Desktop
+pnpm test:sandbox                                    # the same, on Docker Desktop
 ```
+
+A bare `pnpm test` on a Mac workstation is refused by the maintenance guard like on any other
+host. `CI=true pnpm test` is the ephemeral-runner path the `macos-latest` leg uses, not a local
+convenience: it deliberately skips the clean room, so a green result there is not the gate.
 
 Prerequisites for the second: macOS 26 on Apple silicon, the signed installer from the
 [release page](https://github.com/apple/container/releases), and
@@ -571,8 +588,8 @@ pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
 
 ## Local macOS
 
-The `macos-latest` leg has two steps a plain `pnpm test` does not cover, and both are the
-kind that only fail on a fresh Mac: the web build (`apps/web/build` is gitignored but
+The `macos-latest` leg has two steps a `pnpm test:sandbox` run on this host does not cover, and
+both are the kind that only fail on a fresh Mac: the web build (`apps/web/build` is gitignored but
 `tests/test_manifest_invariants.js` requires `index.js`) and an `ffmpeg` that exposes
 `libwebp_anim` (Homebrew's `ffmpeg` is built without `--enable-libwebp`; `ffmpeg-full` is
 the keg-only variant that has it). Replay the leg in order:
@@ -598,9 +615,11 @@ node bin/cli.js version
 ```
 
 The suite is the part that finds macOS host semantics — `/var/folders/...` resolving to
-`/private/var/...`, case-insensitive APFS, the `.dmg` Blender branch. Run it natively. The
-[container sandbox](#on-macos-container-versus-the-native-run) is the complement, not a
-substitute: it reproduces the clean room on the same machine without Docker Desktop.
+`/private/var/...`, case-insensitive APFS, the `.dmg` Blender branch. Those only appear in the
+`macos-latest` leg, which runs with `CI=true` on an ephemeral runner; replay it with
+`CI=true` here, understanding that this bypasses the clean room rather than reproducing the
+gate. The [container sandbox](#on-macos-container-versus-the-native-run) is the clean room, and
+the two answer different questions.
 
 ## Local Windows VM
 

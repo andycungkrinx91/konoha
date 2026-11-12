@@ -1,6 +1,6 @@
-# 🍃 Konoha QA Testing & Verification SOPs (v2.2.20)
+# 🍃 Konoha QA Testing & Verification SOPs (v2.2.21)
 
-Operational runbook and testing matrix for verifying Konoha `v2.2.20` core engines, compact `use_skills`, parallel subagent spawning, Real-Time Idle `@advisor`, HITL post-approval compaction, Jonin dynamic frontend builder, Draw.io diagrams, and animated WebP assets.
+Operational runbook and testing matrix for verifying Konoha `v2.2.21` core engines, compact `use_skills`, parallel subagent spawning, Real-Time Idle `@advisor`, HITL post-approval compaction, Jonin dynamic frontend builder, Draw.io diagrams, and animated WebP assets.
 
 ---
 
@@ -8,20 +8,35 @@ Operational runbook and testing matrix for verifying Konoha `v2.2.20` core engin
 
 | Gate | Command | Scope |
 |---|---|---|
-| **Container sandbox (default)** | `pnpm test:sandbox` | Builds `konoha-sandbox:local` and runs install, lint, the full suite, and the fresh-install smoke inside it. The host `HOME`, `/tmp`, `node_modules`, and working tree are untouched. `--lint` is the fast path, `--no-build` reuses the last image. |
-| **Container sandbox on macOS** | `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` | Same image and mounts through [apple/container](https://github.com/apple/container), no Docker Desktop needed (Apple silicon, macOS 26, `container system start`). Each instance is a 1 GiB VM, so the run passes `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides). Still a Linux guest: `/var` → `/private/var`, case-insensitive APFS, and the `.dmg` branch only surface in a native `pnpm test`. |
-| **Full suite on the host** | `pnpm test` | Same runner without isolation; only meaningful when the host is already clean. |
+| **Container sandbox (mandatory on Linux)** | `pnpm test:sandbox` | Builds `konoha-sandbox:local` and runs install, lint, the full suite, and the fresh-install smoke inside it. The host `HOME`, `/tmp`, `node_modules`, and working tree are untouched. `--lint` is the fast path, `--no-build` reuses the last image. |
+| **Container sandbox on macOS** | `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` | Same image and mounts through [apple/container](https://github.com/apple/container), no Docker Desktop needed (Apple silicon, macOS 26, `container system start`). Each instance is a 1 GiB VM, so the run passes `--memory 4g` (`KONOHA_SANDBOX_MEMORY` overrides). Still a Linux guest: `/var` → `/private/var`, case-insensitive APFS, and the `.dmg` branch do not surface here, and there is no host fallback — macOS-native behaviour is covered by the `macos-latest` CI leg. |
+| **Full suite on the host** | refused | `tests/run_all.js` exits 1 before discovery unless `KONOHA_SANDBOX_CONTAINER=1` or `CI=true` is set. `rtk node tests/run_all.js` refuses identically — the guard reads the process environment, and RTK only rewrites argv. A single file by path still runs and is still not evidence. |
 | **Workflow locally** | `pnpm ci:act` / `pnpm ci:act:shard` | `act` against `.github/workflows/cross-platform.yml`, image pinned in `.actrc`. `ci:act` runs the `checks` job (lint + smoke); `ci:act:shard` runs one suite shard, the slow half. |
 
 `tests/run_all.js` auto-discovers every `tests/test_*.js`, builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at that copy, so a suite never reads the developer's real config. A suite that needs the developer's environment is a defect in the suite, not a reason to relax it.
 
+### The guard is enforced in-process, not by convention
+
+`tests/run_all.js` calls `assertMaintenanceSandbox()` before it discovers a single suite. It refuses
+unless the process carries `KONOHA_SANDBOX_CONTAINER=1` (set by `scripts/sandbox.js` on the container
+argv) or runs on an ephemeral CI runner (`CI=true`). A host invocation exits 1 with the accepted
+command named, so a maintenance run cannot half-execute against the developer's `~/.konoha`.
+
+`rtk` does not lift the guard: it rewrites argv, and the check reads this process's environment. `rtk
+node tests/run_all.js` refuses exactly like `node tests/run_all.js`. Pointing `HOME` at a temp directory
+does not lift it either — an isolated `HOME` is what the runner already gives each suite, not evidence
+that the run is sandboxed. `tests/test_sandbox_guard.js` and `tests/test_runner_isolation.js` pin all
+three properties.
+
+Linux, macOS, and Windows all go through the container. A host has a real `konoha` installed globally, a populated `~/.konoha`, and a client config; the sandbox mount is read-only, `HOME` is container-local, and `KONOHA_TEST_SANDBOX=1` stops `reconcileGlobalCommand()` from writing a shim, so a maintenance run cannot modify the install a developer actually uses. macOS keeps a second native pass because the container is a Linux guest and cannot reproduce APFS or `/var` canonicalization.
+
 ---
 
-## 🧪 Comprehensive QA Verification Matrix (`v2.2.20`)
+## 🧪 Comprehensive QA Verification Matrix (`v2.2.21`)
 
 | Verification Target | Command | Expected Pass Criteria |
 |---|---|---|
-| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 18/18 managed repository targets strictly verified at `v2.2.20`. |
+| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 18/18 managed repository targets strictly verified at `v2.2.21`. |
 | **Compact `use_skills` & Discipline Skills** | `rtk node tests/test_use_skills_compact.js` | 5-skill bundle `<= 6,400 bytes` (`genin=5093B`, `dedup=2818B`, `anbu=5239B`), all 8 specialists retain `i-have-adhd` & `antislop`. |
 | **8 Subagents Spawn, Parallel & `/konoha`** | `rtk node tests/test_langgraph_parallel_and_konoha.js` | All 8 specialists spawn across all 8 clients, `@sannin` router-only, parallel workstreams & `/konoha` LangGraph routing verified. |
 | **Real-Time Idle `@advisor` (`<= 1k` tok)** | `rtk node tests/test_advisor_realtime_monitor.js` | `0 tokens` when idle (`IDLE_OK`), `<= 1,000 tokens` cap, `evict_stale_results: true`, `INTERRUPT_CORRECTION` on drift/breach. |
