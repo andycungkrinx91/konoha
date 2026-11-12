@@ -22,6 +22,10 @@ Start-Transcript -Path $log -Force | Out-Null
 # the runner prints this list into the transcript.
 $env:KONOHA_TEST_EXCLUDE = 'test_yamanaka_'
 $env:KONOHA_TEST_PARALLEL = '1'
+# Mirror the CI seed cache. Outside C:\konoha so the repo mirror does not wipe it;
+# the harness rebuilds it when the source fingerprint moves and refuses to touch a
+# directory it does not recognise.
+$env:KONOHA_SEED_DIR = 'C:\konoha-seed'
 $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\ms-playwright'
 # Playwright gives each download 30s by default. A hosted runner reaches the CDN in a
 # few seconds; this guest's egress does not, and the install aborts mid-download.

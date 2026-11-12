@@ -276,10 +276,21 @@ function createSuiteSnapshot(name) {
   };
 }
 
+// The guard in prepareExplicitSeedDir throws rather than deleting a directory it
+// did not create; report that as a failed run, not a stack trace mid-suite.
+function warmSeed() {
+  try {
+    return getGoldenSeed();
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+}
+
 // CI builds the seed in its own step so the ~4 minute first-run init is cached
 // across runs instead of landing inside whichever suite happens to start first.
 if (process.argv.includes('--seed-only')) {
-  const seed = getGoldenSeed();
+  const seed = warmSeed();
   console.log(`[SEED] ${seed.dir}`);
   process.exit(0);
 }
@@ -340,14 +351,7 @@ const failList = [];
 // first suite it blocks the event loop for minutes (spawnSync) while the other
 // workers sit parked, and its cost is attributed to whatever suite won the race.
 const seedWarmStart = Date.now();
-try {
-  getGoldenSeed();
-} catch (err) {
-  // The guard in prepareExplicitSeedDir throws rather than deleting a directory
-  // it did not create; surface it as a failed run, not a stack trace mid-suite.
-  console.error(err.message);
-  process.exit(1);
-}
+warmSeed();
 console.log(`[SEED] Seed check: ${((Date.now() - seedWarmStart) / 1000).toFixed(1)}s\n`);
 const startTime = Date.now();
 

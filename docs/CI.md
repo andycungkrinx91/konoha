@@ -531,7 +531,9 @@ retest.cmd test_queue_worker.js test_subagent_delegation_integrity.js
 and file watching do not work on a Windows network share), then runs install → Playwright
 browsers → web build → ffmpeg assert → lint → full suite → fresh-install smoke, with the
 same env the workflow sets. Each step's exit code is recorded and the script exits non-zero
-if any failed; the transcript lands in `docker/windows-vm/logs/` on the host.
+if any failed; the transcript lands in `docker/windows-vm/logs/` on the host. It also points
+`KONOHA_SEED_DIR` at `C:\konoha-seed`, mirroring the CI cache: outside the repo mirror so a
+re-run reuses the ~4 minute seed instead of rebuilding it.
 
 Operational notes for the local Windows leg:
 
