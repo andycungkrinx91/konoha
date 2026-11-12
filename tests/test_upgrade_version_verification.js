@@ -119,13 +119,18 @@ function main() {
     });
     console.log('  empty PATH yields a null probe with an error');
 
-    // A binary that prints no version line is not silently accepted.
+    // A binary that prints no version line is not silently accepted. The shim has
+    // to be executable on the host, so Windows gets the .cmd form.
     const muteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_vv_m_'));
+    const isWin = process.platform === 'win32';
+    const muteShim = path.join(muteDir, isWin ? 'konoha.cmd' : 'konoha');
     fs.writeFileSync(
-      path.join(muteDir, 'konoha'),
-      `#!/bin/sh\nexec "${process.execPath}" -e "console.log('Update available! Latest: 9.9.9')\"\n`
+      muteShim,
+      isWin
+        ? `@echo off\r\n"${process.execPath}" -e "console.log('Update available! Latest: 9.9.9')"\r\n`
+        : `#!/bin/sh\nexec "${process.execPath}" -e "console.log('Update available! Latest: 9.9.9')"\n`
     );
-    fs.chmodSync(path.join(muteDir, 'konoha'), 0o755);
+    if (!isWin) fs.chmodSync(muteShim, 0o755);
     withEnv({ PATH: muteDir }, () => {
       const probe = readPathKonohaVersion();
       assert.strictEqual(probe.version, null, 'must not read the registry version as the local one');

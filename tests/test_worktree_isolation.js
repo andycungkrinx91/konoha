@@ -367,7 +367,8 @@ async function run() {
       assert.ok(real.aborted && real.aborted.attempted && real.aborted.ok, 'production path must run merge --abort');
       assert.strictEqual(fs.existsSync(path.join(repo, '.git', 'MERGE_HEAD')), false, 'no merge may stay in progress');
       assert.strictEqual(git(repo, ['status', '--porcelain']).out, '', 'main worktree must be clean after abort');
-      assert.strictEqual(fs.readFileSync(path.join(repo, 'lib.js'), 'utf8'), 'module.exports = "from-main";\n');
+      // Content is what the assertion is about; the checkout's EOL policy is not.
+      assert.strictEqual(fs.readFileSync(path.join(repo, 'lib.js'), 'utf8').replace(/\r\n/g, '\n'), 'module.exports = "from-main";\n');
       assert.ok(branchExists(repo, created.branch));
       assert.ok(fs.existsSync(created.worktree_path));
       console.log('✓ (g) control: conflict stays MERGING without abort; production path aborts cleanly');

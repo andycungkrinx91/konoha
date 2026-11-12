@@ -118,7 +118,13 @@ check('glob with no matches still reports zero rather than throwing', () => {
   assert.strictEqual(grepCount('**/*.tsx'), 0);
 });
 
-fs.rmSync(path.dirname(tempDb), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+// Release the sqlite handle before deleting its directory: Windows refuses to
+// remove a file that is still open, and the handle is what kept this teardown
+// green on Linux and red on the guest leg.
+try { require('../src/db').getConnection().close(); } catch (_) { /* never opened */ }
+try {
+  fs.rmSync(path.dirname(tempDb), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+} catch (_) { /* best-effort: the OS temp dir is reaped anyway */ }
 
 console.log(failures === 0 ? '\nmcp argument parsing: OK' : `\nmcp argument parsing: ${failures} failure(s)`);
 process.exit(failures === 0 ? 0 : 1);
