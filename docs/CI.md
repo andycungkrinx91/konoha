@@ -330,6 +330,13 @@ pnpm test:sandbox -- --lint  # fast path: install + lint only
 pnpm test:sandbox -- --no-build   # reuse the last built image
 ```
 
+The engine is Docker by default. `KONOHA_SANDBOX_RUNTIME=container` (or
+`--runtime container`) runs the same image and the same argv through
+[Apple's `container`](https://github.com/apple/container) instead, which is how a Mac
+runs this gate without Docker Desktop; `tests/test_sandbox_runtime.js` pins both plans.
+The two are never substituted for each other silently — an unreachable engine exits 1
+with the command that fixes it, and an uninstalled one names its installer.
+
 What it guarantees:
 
 - The repo is bind-mounted **read-only** at `/src`; the entrypoint copies it to `/work`,
@@ -354,7 +361,27 @@ docker volume rm konoha-sandbox-pnpm-store konoha-sandbox-ms-playwright
 ```
 
 CI does not call this: the GitHub runner is already a clean room, and running the sandbox
-there would need Docker-in-Docker. Both paths share one environment contract — Node 24,
+there would need Docker-in-Docker.
+
+### On macOS: `container` versus the native run
+
+`container` boots a **Linux** guest on Apple silicon, so it reproduces this gate — the
+read-only bind mount, the container-local `HOME`, the arm64 image build, the `libwebp_anim`
+assertion — but it cannot reproduce macOS host behaviour. Path canonicalization
+(`/var` → `/private/var`), case-insensitive APFS, and the `.dmg` Blender branch only surface
+when the suite runs natively on macOS, which is what the `macos-latest` CI leg does.
+
+So a Mac needs both, and neither is a substitute for the other:
+
+```bash
+pnpm test                              # native: the macOS semantics CI asserts
+KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox   # clean room, no Docker Desktop
+```
+
+Prerequisites for the second: macOS 26 on Apple silicon, the signed installer from the
+[release page](https://github.com/apple/container/releases), and
+`container system start` once per boot. Named volumes are created on first use and are
+never pruned automatically; `container volume list` shows them. Both paths share one environment contract — Node 24,
 pnpm 12.16.1, `PLAYWRIGHT_BROWSERS_PATH`, and ffmpeg with `libwebp_anim`.
 
 ## Local Windows VM

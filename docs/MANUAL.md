@@ -1361,6 +1361,15 @@ pnpm test                     # the same runner without isolation
 pnpm ci:act                   # replay the CI workflow locally with act
 ```
 
+The sandbox engine is Docker. On an Apple-silicon Mac running macOS 26 you can point the same image at [Apple's `container`](https://github.com/apple/container) instead of Docker Desktop:
+
+```bash
+container system start                                  # once per boot
+KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox
+```
+
+That still runs a **Linux** guest, so it reproduces the clean room but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Those need the native run (`pnpm test`) as well. Details in `docs/CI.md`.
+
 The runner discovers every `tests/test_*.js` (plus `*.test.js` and `verify_*.js`), builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at the copy — `USERPROFILE` matters because `os.homedir()` ignores `HOME` on Windows. A suite that needs your real `~/.konoha` is a defect in the suite. Details and the isolation contract are in `docs/QA-AUTOMATION.md` and `docs/CI.md`.
 
 ## 14. Troubleshooting

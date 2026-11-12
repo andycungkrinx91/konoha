@@ -345,7 +345,7 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then the gate before you hand it over: `pnpm test:sandbox` runs install, lint, the full suite, and the fresh-install smoke inside `konoha-sandbox:local`, leaving your host `HOME` and `node_modules` alone; `pnpm test` is the same runner without isolation; `pnpm ci:act` replays the CI workflow locally. Per-change checks are `rtk node tests/run_all.js` for the suite, `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
+Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then the gate before you hand it over: `pnpm test:sandbox` runs install, lint, the full suite, and the fresh-install smoke inside `konoha-sandbox:local`, leaving your host `HOME` and `node_modules` alone (on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container` runs the same image through [Apple's `container`](https://github.com/apple/container) instead of Docker Desktop); `pnpm test` is the same runner without isolation; `pnpm ci:act` replays the CI workflow locally. Per-change checks are `rtk node tests/run_all.js` for the suite, `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
 
 ## Support
 
