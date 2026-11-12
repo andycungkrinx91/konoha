@@ -27,10 +27,55 @@ function load() {
 
 const configDefaults = load();
 
+/**
+ * `applyConfigEnv` for server processes: decrypts `enc:v1:` values through the
+ * local vault so a `konoha config set openai_api_key` reaches code that reads
+ * `process.env.OPENAI_API_KEY` directly. The vault require stays lazy — it
+ * reaches `./db`, which requires this module's caller chain.
+ */
+function applyConfigEnv(options = {}) {
+  let decrypt = options.decrypt;
+  if (!decrypt) {
+    try {
+      decrypt = require('./crypto_vault').decryptSecret;
+    } catch (err) {
+      // Vault unavailable: encrypted values stay unseeded rather than failing
+      // process startup. Surfaced so the cause is not silent.
+      process.emitWarning(`konoha: config secrets not seeded (${err.message})`, 'KonohaConfigWarning');
+    }
+  }
+  return configDefaults.applyConfigEnv({ ...options, decrypt });
+}
+
+/**
+ * `getConfigValue` that transparently decrypts `enc:v1:` values, so a secret set
+ * through `konoha config set` is usable without every caller knowing about the
+ * vault. Non-encrypted values pass straight through.
+ */
+function getConfigValue(key, fallback = undefined) {
+  const value = configDefaults.getConfigValue(key, fallback);
+  if (typeof value !== 'string' || !configDefaults.isEncryptedValue(value)) return value;
+  let decrypted;
+  try {
+    decrypted = require('./crypto_vault').decryptSecret(value);
+  } catch (err) {
+    // A ciphertext we cannot decrypt is a real fault; surface it, then use the
+    // caller's declared fallback.
+    process.emitWarning(`konoha: cannot decrypt config key "${key}" (${err.message})`, 'KonohaConfigWarning');
+    decrypted = fallback;
+  }
+  return decrypted;
+}
+
 module.exports = {
   CONFIG_DEFAULTS: configDefaults.CONFIG_DEFAULTS,
   DEFAULT_KEYS: configDefaults.DEFAULT_KEYS,
-  getConfigValue: configDefaults.getConfigValue,
+  SECRET_KEYS: configDefaults.SECRET_KEYS,
+  ENV_ALIASES: configDefaults.ENV_ALIASES,
+  ALLOWED_KEYS: configDefaults.ALLOWED_KEYS,
+  getConfigValue,
   getConfig: configDefaults.getConfig,
-  readUserConfig: configDefaults.readUserConfig
+  readUserConfig: configDefaults.readUserConfig,
+  applyConfigEnv,
+  isEncryptedValue: configDefaults.isEncryptedValue
 };

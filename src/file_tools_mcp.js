@@ -20,6 +20,12 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const readline = require("readline");
 
+// Seed process.env from ~/.konoha/config.json before any module captures a
+// value at load time. Explicit environment variables still win.
+try {
+  require("./config_access").applyConfigEnv();
+} catch (_) { /* intentional best-effort fallback: config is optional */ }
+
 process.on("unhandledRejection", (reason) => {
   try {
     process.stderr.write(`[mcp konoha] unhandledRejection: ${reason && reason.stack ? reason.stack : reason}\n`);
@@ -49,6 +55,9 @@ const devPaths = (() => {
   try { return require("../bin/lib/paths"); } catch { return null; }
 })();
 const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'konoha.db');
+const _cfgValue = require("./config_access").getConfigValue;
+const bridgePort = devPaths ? devPaths.BRIDGE_PORT : _cfgValue('bridge_port');
+const gatewayPort = devPaths ? devPaths.GATEWAY_PORT : _cfgValue('gateway_port');
 
 let router;
 try {
@@ -402,7 +411,7 @@ function loadBridgesFromMcp() {
     }
     return existing.map((b) => {
       if (b.provider === 'antigravity-extension' && !b.targetUrl) {
-        b.targetUrl = 'http://127.0.0.1:1313';
+        b.targetUrl = `http://127.0.0.1:${bridgePort}`;
       }
       return b;
     });
@@ -480,7 +489,7 @@ async function startExternalBridgeServer(b, activeBridges, createContext, startS
 
 async function syncExternalBridges(externalBridges, activeBridges, createContext, startServer) {
   for (const b of externalBridges) {
-    const port = b.port || 1313;
+    const port = b.port || bridgePort;
     const existing = activeBridges.get(b.name);
     if (existing?.ctx && !existing.external) continue;
 
@@ -611,7 +620,7 @@ function startDaemonBackgroundServices() {
   syncBridges()
     .then(() => {
       const { startGateway } = require("./bridge/gateway");
-      return startGateway(activeBridges, 19999);
+      return startGateway(activeBridges, gatewayPort);
     })
     .catch((err) => {
       process.stderr.write(`[bridge] Initial sync / gateway failed: ${err.message}\n`);

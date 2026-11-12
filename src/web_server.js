@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const { getConfigValue } = require('./config_access');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -220,8 +221,8 @@ async function handleWebServerRequest(req, res, ctx) {
 }
 
 const TOKEN_FILE_NAME = 'web_token';
-const TOKEN_ROTATION_TTL_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_TTL_MS || '', 10) || (12 * 60 * 60 * 1000);
-const TOKEN_GRACE_WINDOW_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_GRACE_MS || '', 10) || (5 * 60 * 1000);
+const TOKEN_ROTATION_TTL_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_TTL_MS || '', 10) || getConfigValue('web_token_ttl_ms');
+const TOKEN_GRACE_WINDOW_MS = Number.parseInt(process.env.KONOHA_WEB_TOKEN_GRACE_MS || '', 10) || getConfigValue('web_token_grace_ms');
 
 function getTokenFilePath() {
   return path.join(SKILLS_DB_DIR, TOKEN_FILE_NAME);

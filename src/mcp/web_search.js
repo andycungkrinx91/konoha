@@ -11,6 +11,7 @@ const { KONOHA_DIR } = require('./runtime_state');
 const { detectActiveAgent } = require('./client_detection');
 const { logToolCall } = require('./skills');
 const { globalCircuitRegistry } = require('../circuit_breaker');
+const { getConfigValue } = require('../config_access');
 
 const searxngDir = path.join(KONOHA_DIR, 'searxng');
 const instancesCachePath = path.join(searxngDir, 'instances_cache.json');
@@ -18,10 +19,10 @@ const bestInstancePath = path.join(searxngDir, 'best_instance.json');
 const searchLogPath = path.join(searxngDir, 'search.log');
 
 const PUBLIC_SEARCH_ENDPOINTS = Object.freeze({
-  instancesFeed: process.env.KONOHA_SEARXNG_INSTANCES_URL || 'https://searx.space/data/instances.json',
+  instancesFeed: getConfigValue('searxng_instances_url'),
   mockSearx: 'https://searx.local/',
-  wikipediaArticle: (q) => `https://en.wikipedia.org/wiki/${encodeURIComponent(q)}`,
-  duckduckgoQuery: (q) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+  wikipediaArticle: (q) => `${new URL(getConfigValue('wikipedia_url')).origin}/wiki/${encodeURIComponent(q)}`,
+  duckduckgoQuery: (q) => `${getConfigValue('duckduckgo_site_url')}?q=${encodeURIComponent(q)}`,
   searxQuery: (q) => `https://searx.local/search?q=${encodeURIComponent(q)}`
 });
 
@@ -141,7 +142,7 @@ async function resolveBestInstance(candidates) {
   if (_isDeterministicMockEligible()) {
     return PUBLIC_SEARCH_ENDPOINTS.mockSearx;
   }
-  const customSearx = process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL;
+  const customSearx = getConfigValue('searxng_url') || process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL;
   if (customSearx && customSearx.trim()) {
     return customSearx.trim().replace(/\/+$/, '') + '/';
   }
@@ -225,7 +226,7 @@ function _parseDdgResultBlock(b) {
   const title = titleM[2].replace(/<[^>]+>/g, '').trim();
   const snippet = snippetM ? snippetM[1].replace(/<[^>]+>/g, '').trim() : '';
   try {
-    const parsed = new URL(rawUrl, process.env.KONOHA_DUCKDUCKGO_URL || 'https://duckduckgo.com');
+    const parsed = new URL(rawUrl, getConfigValue('duckduckgo_url'));
     rawUrl = parsed.searchParams.get('uddg') || rawUrl;
   } catch (_) { /* ignore */ }
   return { title, url: rawUrl, snippet, source: 'DuckDuckGo' };
@@ -236,7 +237,7 @@ async function queryDuckDuckGo(q, num) {
     logSearchActivity('DuckDuckGo HTML', q, 1);
     return _getDeterministicMockResults(q, 'duckduckgo', num);
   }
-  const ddgBase = process.env.KONOHA_DUCKDUCKGO_URL || 'https://html.duckduckgo.com/html/';
+  const ddgBase = getConfigValue('duckduckgo_url');
   const url = `${ddgBase}?q=${encodeURIComponent(q)}`;
   try {
     const resp = await fetchWithTimeout(url, {
@@ -263,7 +264,7 @@ async function queryDuckDuckGo(q, num) {
 
 async function queryStartpage(q, num) {
   try {
-    const startpageBase = process.env.KONOHA_STARTPAGE_URL || 'https://www.startpage.com/sp/search';
+    const startpageBase = getConfigValue('startpage_url');
     const resp = await fetchWithTimeout(startpageBase, {
       method: 'POST',
       headers: {
@@ -319,7 +320,7 @@ async function queryWikipedia(q, num) {
   }
   try {
     const terms = q.split(/\s+/).filter(Boolean);
-    const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';
+    const wikiBase = getConfigValue('wikipedia_url');
     for (let i = 0; i < Math.min(3, terms.length); i++) {
       const term = terms.slice(0, terms.length - i).join(' ');
       if (term.trim().length < 3) continue;

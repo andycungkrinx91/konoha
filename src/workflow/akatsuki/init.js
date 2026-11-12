@@ -9,6 +9,7 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const {
@@ -31,8 +32,9 @@ const {
 const KALI_TOOLS_PATH = path.join(__dirname, '..', '..', 'templates', 'akatsuki_lab', 'kali_tools.json');
 
 function getCustomToolsPath() {
-  return process.env.KONOHA_CUSTOM_TOOLS_PATH
-    ? path.normalize(process.env.KONOHA_CUSTOM_TOOLS_PATH)
+  const custom = process.env.KONOHA_CUSTOM_TOOLS_PATH || getConfigValue('custom_tools_path');
+  return custom
+    ? path.normalize(custom)
     : path.join(os.homedir(), '.konoha', 'akatsuki_custom_tools.json');
 }
 

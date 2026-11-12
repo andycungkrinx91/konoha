@@ -8,12 +8,13 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
-const BLENDER_RELEASE_INDEX = process.env.KONOHA_BLENDER_RELEASE_INDEX || 'https://download.blender.org/release/';
-const DCC_MCP_PYPI_URL = 'https://pypi.org/pypi/dcc-mcp-blender/json';
+const BLENDER_RELEASE_INDEX = process.env.KONOHA_BLENDER_RELEASE_INDEX || getConfigValue('blender_release_index');
+const DCC_MCP_PYPI_URL = getConfigValue('dcc_mcp_pypi_url');
 const VERSION_CACHE_TTL_MS = 5 * 60 * 1000;
 const DCC_STATUS_TTL_MS = 30 * 1000;
 
@@ -25,7 +26,8 @@ const cache = {
 };
 
 function getToolchainDir() {
-  if (process.env.KONOHA_TOOLCHAIN_DIR) return path.resolve(process.env.KONOHA_TOOLCHAIN_DIR);
+  const configured = process.env.KONOHA_TOOLCHAIN_DIR || getConfigValue('toolchain_dir');
+  if (configured) return path.resolve(configured);
   const konohaHome = process.env.KONOHA_HOME || path.join(os.homedir(), '.konoha');
   return path.join(konohaHome, 'toolchains');
 }
@@ -108,7 +110,8 @@ function findInstalledBlenderBinaries() {
   if (blenderDisabled()) return [];
   const env = detectSystemEnvironment();
   const candidates = [];
-  if (process.env.KONOHA_BLENDER_BIN) candidates.push(process.env.KONOHA_BLENDER_BIN);
+  const configuredBin = process.env.KONOHA_BLENDER_BIN || getConfigValue('blender_bin');
+  if (configuredBin) candidates.push(configuredBin);
   candidates.push(...scanToolchainBinaries(env.platform));
   if (env.platform === 'darwin') candidates.push('/Applications/Blender.app/Contents/MacOS/Blender');
   if (env.platform === 'win32') candidates.push(...scanWindowsZipInstalls());
@@ -496,13 +499,15 @@ function installVersion(release) {
 // Cache-only read for synchronous callers (doctor): never starts a network fetch,
 // so a slow PyPI cannot leave a floating promise whose rejection kills the process.
 function getCachedDccMcpVersion() {
-  if (process.env.KONOHA_DCC_MCP_VERSION) return process.env.KONOHA_DCC_MCP_VERSION;
+  const pinned = process.env.KONOHA_DCC_MCP_VERSION || getConfigValue('dcc_mcp_version');
+  if (pinned) return pinned;
   if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
   return null;
 }
 
 async function resolveLatestDccMcpVersion() {
-  if (process.env.KONOHA_DCC_MCP_VERSION) return process.env.KONOHA_DCC_MCP_VERSION;
+  const pinned = process.env.KONOHA_DCC_MCP_VERSION || getConfigValue('dcc_mcp_version');
+  if (pinned) return pinned;
   if (cache.dccLatest.value && Date.now() - cache.dccLatest.at < VERSION_CACHE_TTL_MS) return cache.dccLatest.value;
   const data = JSON.parse(await fetchText(DCC_MCP_PYPI_URL));
   const version = data && data.info && data.info.version;

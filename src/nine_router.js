@@ -7,7 +7,7 @@ const { probeOpenAiCompatibleEndpoint } = require('./provider_sources');
 
 const DEFAULT_9ROUTER_PORT = require('./config_access').getConfigValue('nine_router_port');
 const DEFAULT_9ROUTER_HOST = '127.0.0.1';
-const PROBE_TIMEOUT_MS = require('./config_access').getConfigValue('probe_timeout_ms', 1500);
+const PROBE_TIMEOUT_MS = require('./config_access').getConfigValue('probe_timeout_ms');
 const CACHE_TTL_MS = 5000;
 
 let cachedModels = null;
@@ -173,11 +173,12 @@ async function get9RouterStatus(port = DEFAULT_9ROUTER_PORT) {
  * OpenAI-compatible /v1/models + /v1/chat/completions contract, so no extra
  * adapter is required. These are local services and carry no credentials.
  */
+const _cfg = require('./config_access').getConfigValue;
 const COMPATIBLE_SOURCES = [
-  { id: 'ollama', label: 'Ollama', host: DEFAULT_9ROUTER_HOST, port: 11434, provider: 'openai-compatible' },
-  { id: 'lmstudio', label: 'LM Studio', host: DEFAULT_9ROUTER_HOST, port: 1234, provider: 'openai-compatible' },
-  { id: 'vllm', label: 'vLLM', host: DEFAULT_9ROUTER_HOST, port: 8000, provider: 'openai-compatible' },
-  { id: 'llamacpp', label: 'llama.cpp', host: DEFAULT_9ROUTER_HOST, port: 8080, provider: 'openai-compatible' }
+  { id: 'ollama', label: 'Ollama', host: DEFAULT_9ROUTER_HOST, port: _cfg('ollama_port'), provider: 'openai-compatible' },
+  { id: 'lmstudio', label: 'LM Studio', host: DEFAULT_9ROUTER_HOST, port: _cfg('lmstudio_port'), provider: 'openai-compatible' },
+  { id: 'vllm', label: 'vLLM', host: DEFAULT_9ROUTER_HOST, port: _cfg('vllm_port'), provider: 'openai-compatible' },
+  { id: 'llamacpp', label: 'llama.cpp', host: DEFAULT_9ROUTER_HOST, port: _cfg('llamacpp_port'), provider: 'openai-compatible' }
 ];
 
 function toNineRouterSource(model) {

@@ -18,26 +18,20 @@ const backupManager = require('../../src/config_backup_manager');
 const {
   CONFIG_FILE,
   CONFIG_DEFAULTS,
-  DEFAULT_KEYS,
+  SECRET_KEYS,
+  ALLOWED_KEYS: ALLOWED_KEY_LIST,
   readUserConfig,
   getConfig,
-  getConfigValue
+  getConfigValue,
+  isEncryptedValue
 } = require('../lib/config_defaults');
 
-const ALLOWED_KEYS = new Set([
-  'turn_budget',
-  'token_budget',
-  'hitl_mode',
-  'auto_signoff',
-  'log_level',
-  'active_client',
-  'searxng_url',
-  'telegram_token',
-  'telegram_chat_id',
-  'default_agent',
-  'theme',
-  ...DEFAULT_KEYS,
-]);
+const cryptoVault = require('../../src/crypto_vault');
+
+// The allowlist is the loader's key set — one place declares what config.json
+// accepts, so a new key cannot exist in code yet be rejected by the CLI.
+const ALLOWED_KEYS = new Set(ALLOWED_KEY_LIST);
+const SECRET_KEY_SET = new Set(SECRET_KEYS);
 
 function _validateKey(key, usageHint) {
   if (!key) {
@@ -61,7 +55,23 @@ function writeConfigFileAtomic(configObj) {
   fs.mkdirSync(KONOHA, { recursive: true });
   const tmpFile = path.join(KONOHA, `config.json.tmp.${process.pid}.${Date.now()}`);
   fs.writeFileSync(tmpFile, JSON.stringify(configObj, null, 2) + '\n', 'utf8');
+  // config.json can hold credentials: keep it owner-only whenever one is present.
+  const hasSecret = Object.entries(configObj).some(
+    ([k, v]) => SECRET_KEY_SET.has(k) || isEncryptedValue(v)
+  );
+  if (hasSecret) fs.chmodSync(tmpFile, 0o600);
   fs.renameSync(tmpFile, CONFIG_FILE);
+}
+
+/** Non-JSON output masks credentials; `--json` stays raw for scripts. */
+function displayValue(key, value) {
+  if (value === null || value === undefined) return value;
+  if (!SECRET_KEY_SET.has(key) && !isEncryptedValue(value)) return value;
+  try {
+    return cryptoVault.maskSecret(String(value));
+  } catch (_) {
+    return '***';
+  }
 }
 
 function parseValue(val) {
@@ -211,7 +221,7 @@ async function cmdConfig(cmdArgs = []) {
         log(`  ${C.dim}(no configuration keys set)${C.reset}`);
       } else {
         for (const [k, v] of entries) {
-          log(`    ${C.cyan}${k}${C.reset}: ${JSON.stringify(v)}`);
+          log(`    ${C.cyan}${k}${C.reset}: ${JSON.stringify(displayValue(k, v))}`);
         }
       }
       return config;
@@ -227,7 +237,7 @@ async function cmdConfig(cmdArgs = []) {
       } else if (resolved.value === null) {
         log(`  ${C.dim}(unset)${C.reset}`);
       } else {
-        log(`${resolved.value}\t${C.dim}[${resolved.source}]${C.reset}`);
+        log(`${displayValue(key, resolved.value)}\t${C.dim}[${resolved.source}]${C.reset}`);
       }
       return resolved.value;
     }
@@ -243,13 +253,25 @@ async function cmdConfig(cmdArgs = []) {
         process.exitCode = 1;
         return null;
       }
-      const parsed = parseValue(value);
-      config[key] = parsed;
+      // Credentials keep their literal string: parseValue would mangle a
+      // numeric-looking token, and the vault wants plaintext to encrypt.
+      const parsed = SECRET_KEY_SET.has(key) ? value : parseValue(value);
+      let stored = parsed;
+      if (SECRET_KEY_SET.has(key) && parsed !== '') {
+        try {
+          stored = cryptoVault.encryptSecret(String(parsed));
+        } catch (err) {
+          error(`Cannot encrypt "${key}": ${err.message}`);
+          process.exitCode = 1;
+          return null;
+        }
+      }
+      config[key] = stored;
       writeConfigFileAtomic(config);
       if (jsonOut) {
         process.stdout.write(JSON.stringify({ status: 'ok', key, value: parsed }, null, 2) + '\n');
       } else {
-        success(`Configuration updated: ${key} = ${JSON.stringify(parsed)}`);
+        success(`Configuration updated: ${key} = ${JSON.stringify(displayValue(key, stored))}`);
       }
       return { key, value: parsed };
     }

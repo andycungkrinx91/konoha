@@ -19,8 +19,8 @@ const WORKFLOW_PHASES = Object.freeze([
 const HITL_GATES = Object.freeze(['plan_approval', 'delivery_signoff']);
 const { getConfigValue } = require('../config_access');
 
-const AISLOP_GATE_TIMEOUT_MS = getConfigValue('aislop_gate_timeout_ms', 180000);
-const MINIMUM_CONFIDENCE = getConfigValue('minimum_confidence', 98);
+const AISLOP_GATE_TIMEOUT_MS = getConfigValue('aislop_gate_timeout_ms');
+const MINIMUM_CONFIDENCE = getConfigValue('minimum_confidence');
 
 const VALIDATION_EVIDENCE_PATTERN = new RegExp(
   '(exit(?:ed)?(?:\\s+with)?(?:\\s+code)?\\s*[:=]?\\s*0\\b' +

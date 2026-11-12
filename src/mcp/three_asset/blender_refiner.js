@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('../../config_access');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -167,7 +168,7 @@ function buildWorkerConfig(options) {
     output_size: inspection.output_size,
     inspection,
     patches: Array.isArray(options.patches) ? options.patches : [],
-    cycles_samples: options.cyclesSamples || (process.env.KONOHA_CYCLES_SAMPLES ? parseInt(process.env.KONOHA_CYCLES_SAMPLES, 10) : 64),
+    cycles_samples: options.cyclesSamples || parseInt(process.env.KONOHA_CYCLES_SAMPLES || '', 10) || getConfigValue('cycles_samples'),
     mirror_x: Boolean(options.mirrorX ?? (spec && spec.symmetry && spec.symmetry.mirror_x)),
     metaballs: organic && Boolean(options.metaballs ?? (spec && spec.organic && spec.organic.metaballs)),
     enable_pbr: options.enablePbr !== false

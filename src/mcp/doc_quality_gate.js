@@ -15,11 +15,12 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('../config_access');
 const path = require('path');
 const { detectDocsAi } = require('../workflow/kage-reviewer/docs_ai_detector');
 const { detectWebsiteAi } = require('../workflow/jonin-builder/ai_detector');
 
-const MAX_GATE_ATTEMPTS = parseInt(process.env.KONOHA_DOC_GATE_MAX_ATTEMPTS || '3', 10);
+const MAX_GATE_ATTEMPTS = parseInt(process.env.KONOHA_DOC_GATE_MAX_ATTEMPTS || '', 10) || getConfigValue('doc_gate_max_attempts');
 const GATE_THRESHOLD = 3.0; // strictly below 3.0%
 
 /**

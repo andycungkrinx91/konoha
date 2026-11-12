@@ -28,7 +28,7 @@ const BRANCH_PREFIX = 'konoha/agent/';
 const FLAG_ENV = 'KONOHA_WORKTREE_ISOLATION';
 const { getConfigValue } = require('../config_access');
 
-const GIT_TIMEOUT_MS = getConfigValue('git_timeout_ms', 30000);
+const GIT_TIMEOUT_MS = getConfigValue('git_timeout_ms');
 const MAX_DIRTY_PATHS_REPORTED = 20;
 
 const SUPPORTED_SYNTAX = Object.freeze({

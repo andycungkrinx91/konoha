@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { autoMigrateProjectSkills } = require('../../mcp/skills_search');
 const { computeProjectHash } = require('../../persona_memory_projects');
+const { getConfigValue } = require('../../config_access');
 
 function toProjectSlug(nameOrPath) {
   const base = path.basename(String(nameOrPath || 'web-app').trim());
@@ -83,7 +84,7 @@ function buildFrontendMaintenanceSkillMarkdown(options = {}) {
     : [
       {
         component_name: 'Framer Marketplace Adapted Surface',
-        marketplace_url: 'https://www.framer.com/marketplace/components/',
+        marketplace_url: getConfigValue('framer_marketplace_url'),
         pricing_tier: 'free+paid-preview-rea',
         licensing_mode: 'native_clean_room_recreation',
         target_framework: framework
@@ -107,7 +108,7 @@ function buildFrontendMaintenanceSkillMarkdown(options = {}) {
     '',
     '## Framer Marketplace Component Provenance (Chunin REA -> Jonin Native)',
     ...provenanceList.map((p) => (
-      `- **${p.component_name || p.component_id || 'Component'}**: Source \`${p.marketplace_url || 'https://www.framer.com/marketplace/components/'}\` | Tier: \`${p.pricing_tier || 'free'}\` | Mode: \`${p.licensing_mode || 'native_clean_room_recreation'}\` | Framework: \`${p.target_framework || framework}\` (No iframe injection; no protected source extraction)`
+      `- **${p.component_name || p.component_id || 'Component'}**: Source \`${p.marketplace_url || getConfigValue('framer_marketplace_url')}\` | Tier: \`${p.pricing_tier || 'free'}\` | Mode: \`${p.licensing_mode || 'native_clean_room_recreation'}\` | Framework: \`${p.target_framework || framework}\` (No iframe injection; no protected source extraction)`
     )),
     '',
     '## Discovered Routes',

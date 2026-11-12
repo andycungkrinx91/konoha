@@ -5,6 +5,7 @@
  * Long-polls Telegram getUpdates and queues authorized prompts/tasks for autonomous worker execution.
  */
 
+const { getConfigValue } = require('../config_access');
 const configModule = require('./config');
 const { toDisplayStatus } = require('../mcp/gate_status');
 const inboxModule = require('../queue/inbox');
@@ -486,7 +487,7 @@ async function handleMessage(msg) {
  * Execute a single poll request.
  */
 async function pollOnce(token, timeout = 30) {
-  const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${currentOffset}&timeout=${timeout}`;
+  const url = `${getConfigValue('telegram_api_url')}/bot${token}/getUpdates?offset=${currentOffset}&timeout=${timeout}`;
   try {
     const res = await fetch(url, {
       method: 'GET',

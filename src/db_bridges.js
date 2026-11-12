@@ -5,6 +5,7 @@
  */
 
 const fs = require('fs');
+const { getConfigValue } = require('./config_access');
 const path = require('path');
 const os = require('os');
 const { URL } = require('url');
@@ -14,8 +15,8 @@ const vault = require('./crypto_vault');
 const BRIDGES_JSON_PATH = path.normalize(path.join(os.homedir(), '.konoha', 'bridges.json'));
 const DEFAULT_BRIDGES = [];
 const EXTERNAL_ANTIGRAVITY_PROVIDER = 'antigravity-extension';
-const EXTERNAL_ANTIGRAVITY_PORT = 1313;
-const EXTERNAL_ANTIGRAVITY_URL = 'http://127.0.0.1:1313';
+const EXTERNAL_ANTIGRAVITY_PORT = getConfigValue('bridge_port');
+const EXTERNAL_ANTIGRAVITY_URL = `http://127.0.0.1:${EXTERNAL_ANTIGRAVITY_PORT}`;
 
 function getDbConnection(dbPath = null) {
   const target = dbPath !== null ? dbPath : db.DB_PATH;

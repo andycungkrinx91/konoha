@@ -15,6 +15,7 @@ const path = require('path');
 const os = require('os');
 const { execSync, spawnSync } = require('child_process');
 const { HOME, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
+const { getConfigValue } = require('./config_defaults');
 const { fileExists } = require('./prompt');
 const { log, info, warn, success } = require('./format');
 const { SEMBLE_PACKAGE } = require('../../src/semble_manager');
@@ -24,13 +25,17 @@ const PINNED_UV_VERSION = '0.9.5';
 function installUvWindows(tmpDir, stdioOpt, silent) {
   const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.ps1`);
   try {
-    execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
+    execSync(`powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '${getConfigValue('uv_install_url')}/${PINNED_UV_VERSION}/install.ps1' -OutFile '${scriptPath}'"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
       execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
   } catch (psErr) {
     if (!silent) warn(`PowerShell uv installer failed: ${psErr.message}. Falling back to winget if available.`);
-    execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
+    // Never inherit: winget outlives the timeout kill on Windows and keeps writing its
+    // progress spinner into the inherited pipe, so a caller that reads us through a pipe
+    // (CI tee) never sees EOF and the step hangs with no further output. Run 7 did exactly
+    // that for hours after init had already printed its summary.
+    execSync(`winget install --id astral-sh.uv --version ${PINNED_UV_VERSION} -e --source winget`, { stdio: 'ignore', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS, windowsHide: true });
   } finally {
     try { fs.rmSync(scriptPath, { force: true }); } catch (_) { /* best effort cleanup */ }
   }
@@ -39,7 +44,7 @@ function installUvWindows(tmpDir, stdioOpt, silent) {
 function installUvPosix(tmpDir, stdioOpt) {
   const scriptPath = path.join(tmpDir, `uv-install-${Date.now()}.sh`);
   try {
-    execSync(`curl -LsSf "https://astral.sh/uv/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
+    execSync(`curl -LsSf "${getConfigValue('uv_install_url')}/${PINNED_UV_VERSION}/install.sh" -o "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     if (fs.existsSync(scriptPath) && fs.statSync(scriptPath).size > 0) {
       execSync(`sh "${scriptPath}"`, { stdio: stdioOpt, timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
@@ -53,6 +58,10 @@ function installUv(silent = false) {
     execSync('uv --version', { stdio: 'ignore' });
     return true;
   } catch { /* intentional best-effort fallback */ }
+
+  // The download and the winget fallback both need egress that a sandboxed CI guest
+  // does not have; there the attempt blocks the whole run instead of failing fast.
+  if (process.env.KONOHA_SKIP_UV_INSTALL === '1') return false;
 
   if (!silent) info(`Attempting to install pinned "uv" v${PINNED_UV_VERSION} for Semble MCP...`);
   try {

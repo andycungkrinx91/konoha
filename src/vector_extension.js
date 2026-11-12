@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('./config_access');
 const path = require('path');
 const os = require('os');
 
@@ -46,7 +47,7 @@ function getPlatformAssetInfo(sys = process.platform, mArch = process.arch) {
 }
 
 function getVendorDir() {
-  const custom = process.env.KONOHA_SQLITE_VEC_DIR;
+  const custom = process.env.KONOHA_SQLITE_VEC_DIR || getConfigValue('sqlite_vec_dir');
   if (custom && fs.existsSync(custom)) {
     return path.resolve(custom);
   }

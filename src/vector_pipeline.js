@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('./config_access');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -71,7 +72,7 @@ async function getEmbedPipeline() {
     env.localModelPath = cacheDir;
     const modelSub = path.join(cacheDir, EMBED_MODEL_REPO);
     const hasLocalModel = fs.existsSync(modelSub);
-    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '1', 10);
+    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '', 10) || getConfigValue('onnx_threads');
     if (env.backends?.onnx?.wasm) {
       env.backends.onnx.wasm.numThreads = onnxThreads;
     }
@@ -121,7 +122,7 @@ async function getRerankPipeline() {
     env.localModelPath = cacheDir;
     const modelSub = path.join(cacheDir, RERANK_MODEL_REPO);
     const hasLocalModel = fs.existsSync(modelSub);
-    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '1', 10);
+    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '', 10) || getConfigValue('onnx_threads');
     if (env.backends?.onnx?.wasm) {
       env.backends.onnx.wasm.numThreads = onnxThreads;
     }

@@ -15,12 +15,13 @@
  * large afterwards loses anything, and then the marker says exactly how much.
  */
 
-const DEFAULT_MAX_TOOL_OUTPUT_CHARS = 24000;
+const { compressWebOutput } = require('./web_content');
+const { getConfigValue } = require('../config_access');
+
+const DEFAULT_MAX_TOOL_OUTPUT_CHARS = getConfigValue('bridge_max_tool_output_chars');
 const MARKER_RESERVE_CHARS = 320;
 const MIN_JSON_LENGTH = 512;
 const JSON_HEADS = new Set(['{', '[']);
-
-const { compressWebOutput } = require('./web_content');
 
 function resolveMaxToolOutputChars(options = {}) {
   const override = options.maxToolOutputChars;

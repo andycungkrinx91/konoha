@@ -8,6 +8,7 @@
 'use strict';
 
 const fs = require('fs');
+const { getConfigValue } = require('./config_access');
 const path = require('path');
 const crypto = require('crypto');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
@@ -16,7 +17,7 @@ function getAuthConfigPath() {
   return process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
 }
 // Session lifetime (24 hours by default); overridable for isolated test fixtures.
-const DEFAULT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const DEFAULT_SESSION_TTL_MS = getConfigValue('session_ttl_ms');
 const SESSION_TTL_MS = (() => {
   const override = Number.parseInt(process.env.KONOHA_SESSION_TTL_MS || '', 10);
   return Number.isFinite(override) && override > 0 ? override : DEFAULT_SESSION_TTL_MS;

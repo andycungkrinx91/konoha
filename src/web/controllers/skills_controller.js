@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const db = require('../../db');
+const { getConfigValue } = require('../../config_access');
 const {
   sendJson,
   parseBody,
@@ -110,7 +111,7 @@ async function _handleInstallSkill(req, res, broadcastEvent) {
     if (!nameOrUrl) return sendJson(res, 400, { error: 'Missing skill name or repository URL.' });
 
     if (repoUrl && !repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://') && !repoUrl.startsWith('file://')) {
-      if (repoUrl.includes('/') && !repoUrl.includes(' ')) repoUrl = `https://github.com/${repoUrl}`;
+      if (repoUrl.includes('/') && !repoUrl.includes(' ')) repoUrl = `${getConfigValue('github_url')}/${repoUrl}`;
     }
 
     const skillManager = require('../../skill_manager');

@@ -505,7 +505,7 @@ async function _runMigration(options = {}) {
   // The budget only bounds how long migration may run before deferring the rest;
   // it must never be shorter than the caller's own timeout, or the work is
   // silently truncated while the caller still believes it finished.
-  let timeBudget = getConfigValue('migrate_time_budget_seconds', 900.0);
+  let timeBudget = getConfigValue('migrate_time_budget_seconds');
   if (options.timeBudgetSeconds) {
     timeBudget = options.timeBudgetSeconds;
   } else if (process.env.KONOHA_MIGRATE_TIME_BUDGET) {

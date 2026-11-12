@@ -15,6 +15,10 @@
 
 'use strict';
 
+// Seed process.env from ~/.konoha/config.json before any module captures a
+// value at load time. Explicit environment variables still win.
+require('./config_access').applyConfigEnv();
+
 const db = require('./db');
 const { getDb } = db;
 

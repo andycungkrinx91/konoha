@@ -1,6 +1,7 @@
 'use strict';
 
 const { getDb } = require('../db');
+const { getConfigValue } = require('../config_access');
 const { getAgentSkills, logToolCall } = require('./skills');
 const {
   BUILD_FRAMEWORKS,
@@ -157,10 +158,10 @@ function buildFromText(name, description, framework, options = {}) {
     creation_mode: 'build_from_text',
     creation_modes_supported: ['build_from_image', 'build_from_text', 'build_from_source'],
     online_reference_research_required: true,
-    component_discovery_source: 'https://www.framer.com/marketplace/components/',
+    component_discovery_source: getConfigValue('framer_marketplace_url'),
     chunin_playwright_rea_required: true,
     chunin_rea_findings: {
-      discovery_source: 'https://www.framer.com/marketplace/components/',
+      discovery_source: getConfigValue('framer_marketplace_url'),
       target_framework: motion3dBlueprint.framework,
       motion_library: motion3dBlueprint.motion_architecture.primary_library,
       motion_primitives: motion3dBlueprint.motion_architecture.primitives,
@@ -176,7 +177,7 @@ function buildFromText(name, description, framework, options = {}) {
     },
     description,
     design_brief: buildDesignBrief(name, description),
-    taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || 'https://www.tasteskill.dev/guide',
+    taste_skill_source: process.env.KONOHA_TASTE_SKILL_DOCS || getConfigValue('taste_skill_docs_url'),
     taste_skill_read: 'Reference Taste-Skill craft notes after the design brief is authored; they are a checklist, not the design source.',
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
     design_tokens: {
