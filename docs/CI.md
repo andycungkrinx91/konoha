@@ -40,6 +40,24 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
 reports a per-OS, per-shard result. A `concurrency` group cancels superseded runs on
 the same branch. Permissions are `contents: read` only.
 
+### Ubuntu leg and distro compatibility
+
+The Linux leg follows `ubuntu-latest`, which migrated to Ubuntu 26.04 in September 2026.
+That is safe for this repo because nothing in the dependency graph is compiled against
+the host: the four `.node` artifacts under `node_modules` are prebuilt `linux-x64-gnu`
+napi binaries (rolldown, lightningcss ×2, Tailwind's oxide) published against an older
+glibc, and a binary built against an older glibc runs on a newer one. Playwright 1.64.1
+maps `ubuntu26.04` explicitly, so `playwright install --with-deps` resolves the right
+apt set rather than guessing. Every external command the suites spawn — `git`, `ffmpeg`,
+`python3`, `unzip`, `tar`, poppler's `pdfinfo`/`pdftotext`/`pdffonts` — ships in the
+runner image on 22.04, 24.04 and 26.04 alike.
+
+The compatibility direction matters: green on 26.04 does not prove a developer machine
+on 22.04. It holds today because no addon is compiled at install time; the day one is,
+its artifact would require the runner's glibc and break older hosts. If 22.04 support
+ever becomes a promise, add one unsharded `ubuntu-22.04` leg rather than a ninth shard
+per release — a run is already 27 jobs against a 20-job plan cap.
+
 ## Duration budget
 
 Targets, wall clock per run: ubuntu < 10 min, macOS < 20 min, Windows < 40 min.
@@ -381,8 +399,12 @@ amd64-specific failure; it makes arm64 hosts pay emulation on every step.
 Fidelity limits, read before trusting a green local run:
 
 - `catthehacker/ubuntu:act-latest` tracks Ubuntu 26.04 "resolute" (verified in
-  `/etc/apt/sources.list.d/ubuntu.sources`); GitHub `ubuntu-latest` is 24.04. A distro-only
-  failure is a fidelity gap, not a suite defect — reproduce it on GitHub before chasing it.
+  `/etc/apt/sources.list.d/ubuntu.sources`), and `ubuntu-latest` has since migrated to
+  26.04 too, so the distro now matches rather than lags. That is not the same as matching
+  the runner image: `catthehacker` is a plain Ubuntu with a runner bolted on, not the
+  ~20 GB image GitHub maintains, so a tool GitHub preinstalls can still be missing
+  locally. A distro-only failure is a fidelity gap, not a suite defect — reproduce it on
+  GitHub before chasing it.
 - Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own
   local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
   That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
