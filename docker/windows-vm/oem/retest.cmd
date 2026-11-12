@@ -25,10 +25,22 @@ set CI=true
 set LOG=Z:\docker\windows-vm\logs\retest.log
 if exist %LOG% del %LOG%
 
+rem Delayed expansion: everything inside the loop below is assigned and read in
+rem the same block, and %VAR% would be expanded once at parse time — the exit code
+rem line then reported the pre-loop value and every failure looked green.
+setlocal enabledelayedexpansion
 for %%S in (%*) do (
   echo ==== %%S ==== >> %LOG%
+  rem Suites assert their own preconditions, and several refuse to run against a
+  rem real profile. run_all.js gives each suite a throwaway HOME; mirror that here
+  rem or the retest reports a guard message as if it were a failure.
+  set "SUITE_HOME=%TEMP%\konoha-retest-%%~nS"
+  if exist "!SUITE_HOME!" rd /s /q "!SUITE_HOME!" >nul 2>&1
+  mkdir "!SUITE_HOME!" >nul 2>&1
+  set "HOME=!SUITE_HOME!"
+  set "USERPROFILE=!SUITE_HOME!"
   node tests\%%S >> %LOG% 2>&1
-  echo ---- exit %ERRORLEVEL% ---- >> %LOG%
+  echo ---- exit !ERRORLEVEL! ---- >> %LOG%
 )
 echo Done. See %LOG%
 type %LOG%

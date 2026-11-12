@@ -510,6 +510,18 @@ function recordSlopResult(id, slopResult, slopCycles = null, dbPath = null) {
 
 // Project SDLC Settings
 
+// The projects table keys rows by a canonicalized path (path.resolve plus a
+// realpath when the directory exists). Matching on the raw argument therefore
+// never finds the row on win32, where resolve prefixes a drive letter, and on
+// any platform where the caller passed a relative or symlinked path. Derive the
+// same keys the writer stored instead of comparing the caller's spelling.
+function projectLookupKeys(projectPath) {
+  return {
+    hash: personaMemory.computeProjectHash(projectPath),
+    canonical: path.resolve(projectPath)
+  };
+}
+
 function getProjectSdlcConfig(projectPath, dbPath = null) {
   const envHitl = process.env.KONOHA_HITL_MODE;
   const envAdvisor = process.env.KONOHA_ADVISOR_MODE;
@@ -524,11 +536,12 @@ function getProjectSdlcConfig(projectPath, dbPath = null) {
   }
   const conn = getDbConn(dbPath);
   try {
+    const keys = projectLookupKeys(projectPath);
     const row = conn.prepare(`
       SELECT dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects
-      WHERE project_path = ? OR project_hash = ?
+      WHERE project_hash = ? OR project_path = ?
       LIMIT 1
-    `).get(projectPath, projectPath);
+    `).get(keys.hash, keys.canonical);
 
     return {
       dor_mode: row && row.dor_mode ? row.dor_mode : 'advisory',
@@ -558,10 +571,12 @@ function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null
   }
   const conn = getDbConn(dbPath);
   try {
-    let row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+    const keys = projectLookupKeys(projectPath);
+    const selectRow = 'SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_hash = ? OR project_path = ?';
+    let row = conn.prepare(selectRow).get(keys.hash, keys.canonical);
     if (!row) {
       personaMemory.saveOrUpdateProject(projectPath, '', null, dbPath || db.DB_PATH);
-      row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+      row = conn.prepare(selectRow).get(keys.hash, keys.canonical);
     }
 
     const updates = [];

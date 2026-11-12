@@ -104,6 +104,12 @@ async function run() {
     sdlc.setProjectSdlcConfig(projPath, { review_mode: 'cross-provider' }, testDbPath);
     const updatedConfig = sdlc.getProjectSdlcConfig(projPath, testDbPath);
     assert.strictEqual(updatedConfig.review_mode, 'cross-provider');
+    // The projects table keys on the canonical path, so a different spelling of
+    // the same directory must reach the same row. Matching the caller's raw text
+    // silently misses wherever resolve rewrites it — win32 drive letters, "./",
+    // relative paths — and the write then lands on a row nobody reads.
+    const aliasConfig = sdlc.getProjectSdlcConfig('/path/to/my/./project', testDbPath);
+    assert.strictEqual(aliasConfig.review_mode, 'cross-provider');
     console.log('✓ Project SDLC review_mode persistence passed');
 
     // CLI: konoha project set review-mode
