@@ -1383,7 +1383,7 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | `EACCES` on global install | installing into a root-owned prefix | use a user-owned prefix, never `sudo` |
 | Web UI unreachable | different port configured or process died | read `ui_port` from `~/.konoha/config.json`; `curl 127.0.0.1:<port>/api/v1/health` |
 | Web UI serves an old build after `init` | the daemon cached the previous handler at startup | `konoha ui restart`; `init` now does this for you |
-| 3D toolchain install ends at stage `Manual Install Required` on macOS | Blender is published there only as a `.dmg`, which the installer does not mount | `brew install --cask blender`, then re-run the toolchain check; the other components still install |
+| 3D toolchain install ends at stage `Manual Install Required` on macOS | Blender is published there only as a `.dmg`, which the installer does not mount | `brew install --cask blender`, then re-run the toolchain check; `dcc-mcp-blender` needs a working Blender, so it reports `Blender must be installed first` until then, and both failures appear in the response's `errors[]` |
 | Web UI redirects `307` to the gate | unauthenticated request, by design | log in; first run uses the bootstrap password |
 
 ### 14.1 Upgrade that refuses to run
