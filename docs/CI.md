@@ -64,10 +64,11 @@ Cache hit measured at 0.4 s versus 241 s to rebuild. Cached size is roughly 400 
 OS against the 10 GB per-repo cache budget.
 
 `.konoha/node_modules` inside the seed is a link to the checkout's `node_modules`. `cp -a`
-preserves it in one syscall, but Windows has no `cp`, and `fs.cpSync` cannot recreate a
-symlink without a privilege the runner does not have — it walks the ~36k-file tree
-instead, once per suite. The harness therefore excludes that one path from the `cpSync`
-fallback and rebuilds it as a junction (unprivileged on Windows) after the copy.
+preserves it in one syscall; Windows has no `cp`, and `fs.cpSync` would have to recreate the
+symlink, which there needs Developer Mode or elevation. When that fails the walk covers the
+whole dependency tree — ~21k files, ~400 MB — once per suite. The harness therefore excludes
+that one path from the `cpSync` fallback and rebuilds it as a junction, which needs no
+privilege on Windows, after the copy.
 
 ## Audit history — run 42951648986 (branch 08ae0d0b vs master 513669d3)
 

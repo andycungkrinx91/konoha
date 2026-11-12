@@ -205,12 +205,11 @@ function copySeedDir(seedDir, suiteHome) {
       return;
     }
   }
-  // `cp -a` preserves `.konoha/node_modules` as a link in one syscall; cpSync
-  // has to resolve or recreate it, and on Windows recreating a symlink needs a
-  // privilege the runner does not have — so it walks the ~36k-file
-  // node_modules tree instead. That walk, once per suite with four suites
-  // running, is the bulk of a Windows run. Copy everything else and rebuild
-  // the link as a junction (unprivileged on Windows) afterwards.
+  // `cp -a` preserves `.konoha/node_modules` as a link in one syscall. The
+  // fallback cannot rely on that: recreating a symlink on Windows needs
+  // Developer Mode or elevation, and when it fails the walk covers the whole
+  // dependency tree (~21k files, ~400 MB) once per suite. Copy everything else
+  // and rebuild the link as a junction, which needs no privilege on Windows.
   const linkDir = path.join('.konoha', 'node_modules');
   fs.cpSync(seedDir, suiteHome, {
     recursive: true,
