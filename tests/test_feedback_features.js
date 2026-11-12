@@ -156,7 +156,7 @@ async function run() {
     const ompServers = ompManager.buildOmpMcpServers();
     assert.strictEqual(ompServers.konoha.env.ACTIVE_CLIENT, 'omp');
     assert.strictEqual(ompServers.konoha.env.KONOHA_CLIENT, 'omp');
-    assert.strictEqual(ompManager.getOmpConfigPath().endsWith('.omp/agent/mcp.json'), true);
+    assert.strictEqual(ompManager.getOmpConfigPath().endsWith(path.join('.omp', 'agent', 'mcp.json')), true);
     console.log('✓ OMP MCP isolation and environment flags verified');
 
     // ── 6. Feedback 8: Active Sidebar Badge Neon Styling ───────────────────────
