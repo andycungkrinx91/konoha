@@ -137,7 +137,7 @@ The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/`
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **VERIFIED** on this host (install, `init`, runtime module load, upgrade failure paths) and in the container sandbox (`pnpm test:sandbox`, 286 suites, 0 failed, 2026-11-12) |
+| Linux x64 | **VERIFIED** on this host (install, `init`, runtime module load, upgrade failure paths) and in the container sandbox (`pnpm test:sandbox`, 287 suites, 0 failed, 2026-11-12) |
 | Windows 11 x64 | **VERIFIED** in the local dockur VM (`docker/windows-vm/`, `scripts/windows-ci.ps1` mirrors the `windows-latest` job step for step) and on GitHub Actions `windows-latest` |
 | macOS arm64 | **PARTIAL**: GitHub Actions `macos-latest` runs the full job; the platform-specific defects it exposed (path canonicalization under `/var` → `/private/var`, case-insensitive APFS, `.dmg` Blender) are fixed and covered by a symlinked-`HOME` local proxy. `docs/CI.md` now spells out the native replay of that leg and the `container`-engine sandbox that runs the clean room on the same machine without Docker Desktop, but no local macOS host has run either, so a regression there is confirmed only by a GitHub run. |
 

@@ -284,7 +284,7 @@ Fidelity limits, read before trusting a green local run:
 A full local run of this leg passed on 2026-11-11 with 284 suites discovered, so a red ubuntu
 step now means a real regression rather than a harness or resolver problem. The runner
 discovers `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js`, so the count moves as
-suites are added; the current tree discovers 286, all green in the container sandbox on
+suites are added; the current tree discovers 287, all green in the container sandbox on
 2026-11-12.
 
 ### When `Install Playwright browsers` dies on apt
