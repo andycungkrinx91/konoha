@@ -95,9 +95,9 @@ before reading it as a regression.
 
 | OS | Target | Slowest shard (Linux, measured) | Fixed cost | Verdict |
 | --- | --- | --- | --- | --- |
-| ubuntu-latest | < 10 min | 175 s | unmeasured | headroom is large; confirm on the first run |
-| macos-latest | < 20 min | 175 s × macOS factor | unmeasured | unverified |
-| windows-latest | < 40 min | 175 s × Windows factor | unmeasured | unverified |
+| ubuntu-latest | < 10 min | 175 s (measured) | unmeasured | headroom is large; confirm on the first run |
+| macos-latest | < 20 min | unverified | unmeasured | unverified |
+| windows-latest | < 40 min | 1013 s (shard 8, measured) | unmeasured | under target if fixed cost stays small; one shard observed |
 
 Why the count is uniform rather than smaller on macOS and Windows: their multipliers
 are unmeasured, and Windows is the platform this work exists for. Sizing it down on the
@@ -126,6 +126,33 @@ That the eight shards partition the suite list exactly once is asserted in
 `tests/test_test_sharding.js`, together with the size balance and both refusal paths
 above (the refusals are checked by spawning the real harness, so a helper that is
 correct but unused would not pass).
+
+## The Windows leg, first measurement
+
+One real `windows-latest` run of shard 8 (`35 of 283 suites`, warm seed, `[SEED] Seed check:
+0.2s`) reported **2681 s of summed suite time and 1013 s of wall clock**, against 811 s and
+103.7 s for the same suites on this host. That is 3.3x on suite work and 9.8x on the shard.
+
+The slowdown is not uniform and it is not explained by subprocess count: correlating each
+suite's spawn calls against its Windows/Linux ratio gives r = 0.05, so "suites that shell out
+are the slow ones" is not a usable model. The spread runs from 0.26x (`test_workflow_loop.js`,
+faster on Windows) to 15.7x (`test_all_assets_webp.js`). The fastest suites cluster at
+29-32 s on Windows against 3-25 s on Linux, which looks like a per-suite floor rather than
+scaled work; what produces it has not been identified, and guessing at it would be worse than
+leaving it open.
+
+At most 343 s of the 1013 s is outside every reported number: 2681/4 = 670 s is what the
+durations imply for four workers, and the rest is work no suite is charged for. Some of it is
+unavoidable tail, but the bulk is the seed snapshot — the timer starts after
+`createSuiteSnapshot()`, so the ~400 MB copy is harness overhead. Windows has no `cp`, so
+`copySeedDir` falls through to `fs.cpSync` and copies ~8k files per suite, 35 times per shard.
+A single-threaded `cpSync` of that tree measured 10.2 s on the local Windows VM; four of them
+competing for one disk is the plausible shape of the rest, but that is inference, not a
+measurement taken under CI's concurrency.
+
+Two things follow. Shard 8 is not known to be the worst Windows shard — only one has been
+observed — so do not rebalance on it. And 1013 s of suite work still sits under the 40-minute
+target with room for a cold seed, but the headroom is smaller than the Linux numbers suggest.
 
 ## Golden seed cache
 
