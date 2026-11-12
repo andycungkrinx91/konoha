@@ -263,4 +263,4 @@ Isolation contract:
      pnpm test:sandbox            # full suite, container-local HOME and /tmp
      pnpm test:sandbox -- --lint  # fast path
      ```
-     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is the fallback for machines without Docker.
+     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is the fallback for machines with neither engine; on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
