@@ -493,9 +493,10 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
     workspace and `~/.konoha` before building `allowedRoots`. Anything comparing `HOME`-derived paths must do the same.
 * **Blender toolchain install stops at `Manual Install Required`**: Blender publishes macOS builds only as a `.dmg`,
   which the installer does not mount. This is reported, not swallowed: the progress stage is `Manual Install Required`
-  with `brew install --cask blender` in its detail, the component returns `{ success: false, reason:
-  'manual-install-required' }` (a returned status, not a thrown error, so it does not appear in `errors[]`), and
-  `dcc-mcp-blender` still installs.
+  with `brew install --cask blender` in its detail, `installBlender` returns `{ success: false, reason:
+  'manual-install-required' }`, and `installAllTools` pushes that reason into `errors[]` so `/3d/setup` returns
+  `success: false` instead of a clean report. `dcc-mcp-blender` does not install alongside it — `installDccMcpBlender`
+  requires a working Blender and reports `Blender must be installed first`.
   - **Fix**: `brew install --cask blender`, then re-run the toolchain check from `/3d/setup` or `konoha doctor`.
 * **`EACCES` on `~/.konoha` after a GUI install**: a daemon started from a terminal inherits that shell's TCC grants, so
   the same command may succeed in Terminal and fail from a launch agent. Check with `ls -leO@ ~/.konoha`.

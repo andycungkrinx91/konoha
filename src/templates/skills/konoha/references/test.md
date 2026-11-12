@@ -33,7 +33,7 @@ Operational runbook and testing matrix for verifying Konoha `v2.2.20` core engin
 | **Animated WebP Assets** | `rtk node tests/test_all_assets_webp.js` | All 33 WebPs valid, 0 legacy `.gif` files, 107 active markdown files with 0 broken embeds. |
 | **Backend Static Linter** | `rtk node scripts/lint.js` | All JavaScript/Svelte files verified under 700 lines with **0 errors and 0 warnings**. |
 | **Zero-AI-Slop Code Hygiene** | `rtk npx aislop scan --changes` | Score **100 / 100 Healthy**, 0 errors, 0 warnings, 0 fixable. |
-| **MCP Orphan Guard** | `rtk node tests/test_mcp_orphan_guard.js` | 5/5 on POSIX: reparented stdio server exits on the `ppid === 1` poll, idle budget exits an unattended server, superseded daemon exits on `bridge.pid` takeover, a live parent keeps the server alive, activity resets the idle timer. Windows never reparents, so T2 prints a skip there and the idle budget is the Windows exit (T1/T5 still run). |
+| **MCP Orphan Guard** | `rtk node tests/test_mcp_orphan_guard.js` | 5/5 on POSIX: a reparented stdio server exits on the `ppid === 1` poll (T2), a superseded daemon exits on `bridge.pid` takeover (T3), a daemon starting behind a live owner exits (T4), and the idle budget exits a silent server (T1, T5). Windows never reparents, so T2 prints a skip there and the idle budget is the Windows exit (T1/T5 still run). |
 | **UI Daemon Re-Init Refresh** | `rtk node tests/test_ui_autostart.js` | 37/37 with an initialized `HOME`: opt-out honoured, port-scoped stop, graceful release, and a real restart serving only assets present in the installed build. Needs `~/.konoha/server.js` + `konoha.db`; `tests/run_all.js` supplies them via its golden seed. |
 
 ---

@@ -162,6 +162,9 @@ const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.opencode', 'skills'),
   path.join(HOME, '.codex', 'skills'),
   path.join(HOME, '.omp', 'agent', 'skills'),
+  // Written by getGlobalHarnessSkillTargets, so `konoha status` must count it or
+  // a fresh install reports one root fewer than `konoha init` just mirrored.
+  path.join(HOME, '.pi', 'agent', 'skills'),
 ];
 
 /** Antigravity agent deployment targets */

@@ -596,13 +596,18 @@ async function installAllTools(options = {}) {
   // others nor surface as an exception — the caller gets the failure in `errors`.
   const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => null;
   const errors = [];
+  const fail = (component, message) => {
+    errors.push({ component, error: message });
+    onProgress({ percent: 0, stage: 'Failed', detail: `${component}: ${message}` });
+  };
   for (const [component, install] of [['blender', installBlender], ['dcc_mcp', installDccMcpBlender]]) {
     try {
-      await install(options);
+      // The installers report a platform limitation by returning `success: false`,
+      // not by throwing, so a discarded result would report the whole install clean.
+      const res = await install(options);
+      if (res && res.success === false) fail(component, res.reason || res.error || 'install failed');
     } catch (err) {
-      const message = (err && err.message) || String(err);
-      errors.push({ component, error: message });
-      onProgress({ percent: 0, stage: 'Failed', detail: `${component}: ${message}` });
+      fail(component, (err && err.message) || String(err));
     }
   }
   return { ...getToolchainStatus(), errors };
