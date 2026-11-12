@@ -18,9 +18,6 @@ $log = Join-Path $LogDir ("windows-ci-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HH
 $stepLog = [IO.Path]::ChangeExtension($log, '.steps.log')
 Start-Transcript -Path $log -Force | Out-Null
 
-# Suites this guest cannot run. Kept in the repo and still run on GitHub Actions;
-# the runner prints this list into the transcript.
-$env:KONOHA_TEST_EXCLUDE = 'test_yamanaka_'
 $env:KONOHA_TEST_PARALLEL = '1'
 # Mirror the CI seed cache. Outside C:\konoha so the repo mirror does not wipe it;
 # the harness rebuilds it when the source fingerprint moves and refuses to touch a
@@ -215,7 +212,10 @@ Invoke-Step 'Verify ffmpeg webp encoder' {
 }
 
 Invoke-Step 'Lint' { pnpm lint }
-Invoke-Step 'Test (full suite, Yamanaka excluded)' { pnpm test }
+# CI splits the suite over 8 shards per OS; this guest runs all of it in one pass so a
+# local run still covers every suite. Set KONOHA_TEST_SHARD before invoking the script
+# to reproduce a single CI shard instead.
+Invoke-Step 'Test (full suite)' { pnpm test }
 
 Invoke-Step 'Fresh-install smoke test' {
   $smokeHome = Join-Path $env:SystemDrive 'konoha-smoke-home'
@@ -239,8 +239,7 @@ $completed = $true
 Pop-Location
 
 Write-Host "`n================ SUMMARY ================"
-Write-Host "Excluded suites (not run on this guest): $env:KONOHA_TEST_EXCLUDE"
-Write-Host "See the run banner above for the exact file list."
+Write-Host 'See the run banner above for the suites the harness held back.'
 if (-not $completed) { $failures.Add('run interrupted before completion') }
 if ($failures.Count -eq 0) {
   Write-Host 'WINDOWS-CI RESULT: PASS'

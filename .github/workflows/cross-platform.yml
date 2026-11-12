@@ -4,12 +4,16 @@ name: Cross-Platform
 # every pull request. The publish and release-assets workflows stay tag-only on
 # ubuntu-latest; this workflow owns push/PR verification and never publishes.
 #
-# Known state (see docs/CI.md): baseline is master 513669d3 (PR #4 re-init
-# purge + PR #6 harness seed-copy fix merged). The old ERR_FS_CP_EINVAL block
-# at tests/run_all.js:100 is dissolved — the harness runs every suite. Bare
-# runners still lack the host's ~/.cache/ms-playwright and apps/web/build
-# output, so this workflow provisions both before `pnpm test`. The test step
-# has no `continue-on-error`: a failing suite turns the workflow red.
+# Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
+# macos < 20 min, windows < 40 min. The suite is the only term large enough to
+# matter, so it is split across shards on separate runners — one runner cannot
+# be made fast enough by tuning. Shard counts are set from the measured suite
+# work per platform; see the Duration budget table for the arithmetic.
+#
+# The test step has no `continue-on-error`: a failing suite turns the workflow
+# red. Sharding cannot hide a failure, because each shard must run a non-empty
+# subset (tests/run_all.js exits 2 on an empty one) and the shards partition the
+# discovered suite list exactly once.
 
 on:
   push:
@@ -25,12 +29,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: ${{ matrix.os }} (Node 24, pnpm 12.16.1)
+  # Lint and the fresh-install smoke test are per-OS, not per-shard: repeating
+  # them in every shard would multiply the cost without shortening the run.
+  # They need no seed, no Playwright browsers and no web build, so this job is
+  # short and does not compete with the shards for the seed cache.
+  checks:
+    name: ${{ matrix.os }} checks
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 300
+    timeout-minutes: 60
     strategy:
-      # One OS failing must not cancel the others — the per-OS signal is the point.
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -40,6 +47,66 @@ jobs:
 
       # Setup mirrors .github/workflows/publish.yml except pnpm/action-setup is
       # v6.1.1 here (verified tag) for non-interactive pnpm 12 handling.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # Fresh-install smoke test, invoking the CLI entry point directly
+      # (bin: konoha -> bin/cli.js) so no global install or PATH resolution is
+      # involved on any OS. --no-project mirrors the release review's verified
+      # fresh-install command and keeps init from dirtying the checkout.
+      # `migrate --skip-embeddings` keeps this gate about the CLI, not about
+      # Hugging Face uptime: embedding coverage is asserted by the suite, while
+      # an unbounded model download here would make a network hiccup look like a
+      # broken cross-platform install.
+      # `konoha doctor` is deliberately not in this smoke test: it runs its full
+      # self-test whenever repairs occur, which duplicates the suite.
+      - name: Fresh-install smoke test
+        timeout-minutes: 30
+        env:
+          HOME: ${{ runner.temp }}/konoha-smoke-home
+          USERPROFILE: ${{ runner.temp }}/konoha-smoke-home
+        run: |
+          node bin/cli.js init --yes --no-project
+          node bin/cli.js migrate --skip-embeddings
+          node bin/cli.js version
+
+  test:
+    name: ${{ matrix.os }} shard ${{ matrix.shard }}/8
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      # One shard failing must not cancel the others — the per-shard signal is
+      # what says which suite broke.
+      fail-fast: false
+      # Eight shards on every OS. Measured suite work is 6245 s and one job over
+      # this tree measured 1720 s, far outside the 600 s Linux budget;
+      # round-robin assignment of the 281 measured durations predicted a worst
+      # shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured 175 s. Uniform
+      # rather than per-OS because the macOS and Windows multipliers are
+      # unmeasured, and Windows is the platform this work exists for — sizing it
+      # down on the strength of a number nobody has taken would be guesswork.
+      # Fewer shards would only save runner minutes, which is not the constraint.
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
       - name: Install pnpm
         uses: pnpm/action-setup@v6.1.1
         with:
@@ -76,9 +143,9 @@ jobs:
       # Saved explicitly rather than through the action's post-step: the post
       # step skips on a red job, and a suite failure would otherwise re-pay the
       # seed build on every subsequent run. continue-on-error because the key is
-      # content-addressed: two jobs that miss together build the same seed, and
-      # the loser's save is refused as already-present. That is a cache
-      # optimisation failing, not a check failing.
+      # content-addressed: several shards can miss together and build the same
+      # seed, and the losers' saves are refused as already-present. That is a
+      # cache optimisation failing, not a check failing.
       - name: Save golden seed
         if: steps.seed-cache.outputs.cache-hit != 'true'
         continue-on-error: true
@@ -153,38 +220,17 @@ jobs:
       - name: Verify ffmpeg webp encoder
         run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"
 
-      - name: Lint
-        run: pnpm lint
-
-      # Full suite via tests/run_all.js. Parallel mode is the harness's own
-      # feature (KONOHA_TEST_PARALLEL=1, concurrency 4, with a sequential pool
-      # for suites that must run alone); sequential would take hours.
+      # Full suite via tests/run_all.js, split into the shard this job owns.
+      # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
+      # concurrency 4, with a sequential pool for suites that must run alone).
+      # KONOHA_TEST_SHARD is I/N; the harness refuses an empty shard rather than
+      # reporting it green.
       # No continue-on-error: a failing suite must turn the workflow red.
-      - name: Test (full suite)
+      - name: Test (shard)
         env:
           KONOHA_TEST_PARALLEL: '1'
+          KONOHA_TEST_SHARD: ${{ matrix.shard }}/8
           KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        timeout-minutes: 240
+        timeout-minutes: 90
         run: pnpm test
-
-      # Fresh-install smoke test, invoking the CLI entry point directly
-      # (bin: konoha -> bin/cli.js) so no global install or PATH resolution is
-      # involved on any OS. --no-project mirrors the release review's verified
-      # fresh-install command and keeps init from dirtying the checkout.
-      # `migrate --skip-embeddings` keeps this gate about the CLI, not about
-      # Hugging Face uptime: embedding coverage is asserted by the suite above,
-      # while an unbounded model download here would make a network hiccup look
-      # like a broken cross-platform install.
-      # `konoha doctor` is deliberately not in this smoke test: it runs its
-      # full self-test whenever repairs occur, which duplicates the suite
-      # above. See docs/CI.md.
-      - name: Fresh-install smoke test
-        timeout-minutes: 30
-        env:
-          HOME: ${{ runner.temp }}/konoha-smoke-home
-          USERPROFILE: ${{ runner.temp }}/konoha-smoke-home
-        run: |
-          node bin/cli.js init --yes --no-project
-          node bin/cli.js migrate --skip-embeddings
-          node bin/cli.js version
