@@ -153,10 +153,6 @@ if (require.main === module) {
       }
       process.exit(0);
     }
-    try {
-      const { ensureUiDaemonAutoStart } = require('../bin/cli');
-      ensureUiDaemonAutoStart({ silent: true }).catch(() => {});
-    } catch (_) { /* intentional best-effort fallback: UI auto-start must never block MCP server initialization */ }
     await main();
   })();
 }

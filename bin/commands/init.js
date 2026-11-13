@@ -28,7 +28,6 @@ const {
   C,
   header,
   log,
-  info,
   success,
   warn,
   error,
@@ -49,7 +48,7 @@ const {
 } = require('../lib/runtime_install');
 const { purgePackageCaches } = require('../lib/runtime_mcp');
 const { installUv } = require('../lib/extension');
-const { checkPortActive, ensureUiDaemonAutoStart, cmdUiRestart } = require('../lib/ui_commands');
+const { checkPortActive } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
@@ -94,7 +93,7 @@ function recordAutoSetupState() {
   } catch { /* best-effort */ }
 }
 
-function checkNodeAndToolchains(options, args) {
+function checkNodeAndToolchains(options) {
   if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Node.js environment...');
   const spinner1 = startSpinner('Checking Node.js environment...');
   const nodeVersion = process.version;
@@ -120,39 +119,6 @@ function checkNodeAndToolchains(options, args) {
     spinner1b.success('uv installed successfully.');
   }
 
-}
-
-async function restartUiDaemonForRefresh(port) {
-  info('Restarting Konoha Web UI daemon to load the refreshed runtime...');
-  try {
-    await cmdUiRestart(['--no-open', `--port=${port}`]);
-  } catch (err) {
-    warn(`Web UI daemon restart failed (${err ? err.message : 'unknown error'}); the running UI may still serve the previous build. Run "konoha ui restart" to refresh it.`);
-  }
-}
-
-async function autoStartUiDaemonIfRequested(options) {
-  if (options && options.skipUiAutoStart) return;
-  try {
-    const port = (options && options.port) || UI_PORT;
-    // A reinstall/refresh replaces the runtime mirror under a running
-    // daemon, but the daemon serves the build it loaded at startup (the
-    // SvelteKit handler is cached in-process), so the old build stays
-    // served until the process restarts. ensureUiDaemonAutoStart() alone
-    // is a no-op when the port is already active, which left the stale
-    // UI served after `npm install -g` + `konoha init --yes`. Restart a
-    // running daemon so it loads the refreshed runtime; otherwise start
-    // it as before. Restarting a running daemon is not auto-starting
-    // one, so the KONOHA_UI_AUTOSTART opt-out does not apply here.
-    if (await checkPortActive(port)) {
-      await restartUiDaemonForRefresh(port);
-      return;
-    }
-    const uiAuto = await ensureUiDaemonAutoStart({ port });
-    if (uiAuto?.started) {
-      info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:${port}/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
-    }
-  } catch { /* intentional fallback */ }
 }
 
 async function refreshExistingInstallation(flags, options) {
@@ -201,7 +167,6 @@ async function refreshExistingInstallation(flags, options) {
 
   success('Integrations refreshed.');
 
-  await autoStartUiDaemonIfRequested(options);
   recordAutoSetupState();
 }
 
@@ -366,7 +331,7 @@ async function cmdInit(args, options = {}) {
     error(`Configuration backup verification failed: ${backupErr.message}`);
     process.exit(1);
   }
-  checkNodeAndToolchains(options, args);
+  checkNodeAndToolchains(options);
   const python = checkPython() || 'node';
   clientFlags.python = python;
 
@@ -438,9 +403,6 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }
-  if (!options.skipUiAutoStart) {
-    await autoStartUiDaemonIfRequested(options);
-  }
   recordAutoSetupState();
 }
 
@@ -485,6 +447,5 @@ module.exports = {
   detectAllClientFlags,
   buildInitMigrationArgs,
   handleExistingInstallation,
-  migrateExistingInstallation,
-  autoStartUiDaemonIfRequested
+  migrateExistingInstallation
 };

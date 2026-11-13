@@ -255,7 +255,6 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      - `HOME`: points to the ephemeral suite snapshot directory.
      - `USERPROFILE`: the same directory. `os.homedir()` reads `USERPROFILE` on win32 and ignores `HOME`, so without it a suite that calls `os.homedir()` escapes the sandbox while the product reads `HOME` — the two then disagree mid-suite.
      - `KONOHA_DB_PATH`: points to `$HOME/.konoha/konoha.db`.
-     - `KONOHA_UI_AUTOSTART`: set to `'0'` by default. `tests/test_ui_autostart.js` is the exception — the runner deletes the variable for that suite, because the suite asserts that autostart *happens* and that `'0'` suppresses it.
      - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
      - `KONOHA_TEST_SANDBOX`: set to `'1'`.
    - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.

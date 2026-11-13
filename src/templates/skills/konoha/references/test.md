@@ -50,7 +50,7 @@ Linux, macOS, and Windows all go through the container. A host has a real `konoh
 | **Backend Static Linter** | `rtk node scripts/lint.js` | All JavaScript/Svelte files verified under 700 lines with **0 errors and 0 warnings**. |
 | **Zero-AI-Slop Code Hygiene** | `rtk npx aislop scan --changes` | Score **100 / 100 Healthy**, 0 errors, 0 warnings, 0 fixable. |
 | **MCP Orphan Guard** | `rtk node tests/test_mcp_orphan_guard.js` | 5/5 on POSIX: a reparented stdio server exits on the `ppid === 1` poll (T2), a superseded daemon exits on `bridge.pid` takeover (T3), a daemon starting behind a live owner exits (T4), and the idle budget exits a silent server (T1, T5). Windows never reparents, so T2 prints a skip there and the idle budget is the Windows exit (T1/T5 still run). |
-| **UI Daemon Re-Init Refresh** | `rtk node tests/test_ui_autostart.js` | 37/37 with an initialized `HOME`: opt-out honoured, port-scoped stop, graceful release, and a real restart serving only assets present in the installed build. Needs `~/.konoha/server.js` + `konoha.db`; `tests/run_all.js` supplies them via its golden seed. |
+| **Web UI Manual-Only + Single Instance** | `rtk node tests/test_ui_manual_only.js` | 29/29: the dispatcher exposes only `start`/`build`, no module in the init/upgrade/bootstrap path references autostart, and a second `start` on a live port exits non-zero with `already running`. Needs no seeded `HOME`. |
 
 ---
 

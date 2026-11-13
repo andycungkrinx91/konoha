@@ -331,7 +331,7 @@ async function _loadSvelteKitModule(handlerPath) {
 }
 
 function _onServerError(err, res) {
-  process.stderr.write(`[konoha web] Unhandled error: ${err.message}\n`);
+  process.stderr.write(`[konoha ui] Unhandled error: ${err.message}\n`);
   if (!res.headersSent) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal Server Error' }));
@@ -444,10 +444,10 @@ function recoverAbandonedGenerationJobs() {
     conn = getConnection();
     const recovered = recoverOrphanedJobs(conn);
     if (recovered.length > 0) {
-      process.stdout.write(`[konoha web] Recovered ${recovered.length} abandoned 3D generation job(s): ${recovered.join(', ')}\n`);
+      process.stdout.write(`[konoha ui] Recovered ${recovered.length} abandoned 3D generation job(s): ${recovered.join(', ')}\n`);
     }
   } catch (err) {
-    process.stderr.write(`[konoha web] 3D job recovery skipped: ${err.message}\n`);
+    process.stderr.write(`[konoha ui] 3D job recovery skipped: ${err.message}\n`);
   } finally {
     // Windows locks the database file while a handle is open, so callers that
     // delete their temp directory afterwards fail with EPERM. Release it here.
@@ -472,9 +472,9 @@ if (require.main === module) {
   const port = parseInt(process.env.PORT || String(UI_PORT), 10);
   const host = process.env.HOST || '127.0.0.1';
   startWebServer({ port, host }).then(({ url }) => {
-    process.stdout.write(`[konoha web] Listening on ${url}\n`);
+    process.stdout.write(`[konoha ui] Listening on ${url}\n`);
   }).catch(err => {
-    process.stderr.write(`[konoha web] Failed to start: ${err.message}\n`);
+    process.stderr.write(`[konoha ui] Failed to start: ${err.message}\n`);
     process.exit(1);
   });
 }

@@ -308,7 +308,7 @@ async function checkWebUiDaemon(context) {
     if (uiActive) {
       context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'HEALTHY', `Daemon is active${svc.installed ? ` (${svc.type} service ${svc.active ? 'active' : 'inactive'})` : ''}`);
     } else {
-      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'WARNING', 'UI daemon not running (run: konoha ui start or konoha ui service install)');
+      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'WARNING', 'Web UI not running (run: konoha ui start or konoha service install)');
     }
   } catch (_) { /* intentional fallback */ }
 }

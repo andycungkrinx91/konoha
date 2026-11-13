@@ -355,18 +355,43 @@ async function run() {
     console.log('✓ Server stopped');
   }
 
-  // Test CLI daemon commands
-  const { execSync } = require('child_process');
+  // Test CLI commands: `konoha ui start` serves in the foreground and blocks.
+  const { execSync, spawn } = require('child_process');
   const cliPath = require('path').join(__dirname, '..', 'bin', 'cli.js');
-  
-  execSync(`node "${cliPath}" ui start --port=1405 --no-open`, { stdio: 'pipe' });
-  const statusOut = execSync(`node "${cliPath}" ui status --port=1405`, { stdio: 'pipe' }).toString();
-  assert.ok(statusOut.includes('RUNNING') || statusOut.includes('1405'), 'UI status must report running');
+  const fgPort = 1405;
 
-  execSync(`node "${cliPath}" ui stop --port=1405`, { stdio: 'pipe' });
-  const stoppedOut = execSync(`node "${cliPath}" ui status --port=1405`, { stdio: 'pipe' }).toString();
-  assert.ok(stoppedOut.includes('STOPPED'), 'UI status must report stopped');
-  console.log('✓ CLI ui start/status/stop commands passed');
+  const probePort = () => new Promise((resolve) => {
+    const socket = require('net').connect(fgPort, '127.0.0.1');
+    socket.once('connect', () => { socket.destroy(); resolve(true); });
+    socket.once('error', () => resolve(false));
+  });
+
+  const fgChild = spawn(process.execPath, [cliPath, 'ui', 'start', `--port=${fgPort}`, '--no-open'], { stdio: 'ignore' });
+  try {
+    const deadline = Date.now() + 60000;
+    let serving = false;
+    while (Date.now() < deadline && !serving) {
+      await new Promise(r => setTimeout(r, 250));
+      serving = await probePort();
+    }
+    assert.ok(serving, 'konoha ui start must serve the UI in the foreground');
+    assert.strictEqual(fgChild.exitCode, null, 'konoha ui start must keep blocking while it serves');
+
+    // A second start on the live port must refuse, not run a duplicate server.
+    const { spawnSync } = require('child_process');
+    const dup = spawnSync(process.execPath, [cliPath, 'ui', 'start', `--port=${fgPort}`, '--no-open'],
+      { encoding: 'utf8', timeout: 30000 });
+    assert.notStrictEqual(dup.status, 0, 'a second ui start on a live port must exit non-zero');
+    assert.match(`${dup.stdout}${dup.stderr}`, /already running/i,
+      'a second ui start must say the UI is already running');
+
+    const helpOut = execSync(`node "${cliPath}" ui status`, { stdio: 'pipe' }).toString();
+    assert.ok(!/RUNNING/.test(helpOut), 'ui status must no longer be a subcommand');
+  } finally {
+    fgChild.kill('SIGTERM');
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  console.log('✓ CLI ui start serves in the foreground, blocks, and refuses a duplicate');
 
   // Test CLI build command
   execSync(`node "${cliPath}" ui build`, { stdio: 'pipe' });

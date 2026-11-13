@@ -6,7 +6,7 @@
  * Reports:
  * - Core runtime files (server.js, migrate.js, konoha.db, mcp_config.json)
  * - SQLite database metrics (total skills, FTS index, size)
- * - Web UI daemon process status and bound port
+ * - Web UI listener status and bound port
  * - Client integrations (Antigravity, Cursor, Claude Code, Command Code, OpenCode, Codex)
  * - Scanned skills directories
  */

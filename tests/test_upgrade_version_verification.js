@@ -139,6 +139,30 @@ function main() {
     fs.rmSync(muteDir, { recursive: true, force: true });
     console.log('  unlabelled output is rejected, not guessed');
 
+    // The Debian defect: the banner prints a registry version before the local
+    // one, and the old regex took the first semver in the output, so an upgrade
+    // that replaced nothing still "verified" as the new target.
+    const pkgRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_vv_pkg_'));
+    fs.mkdirSync(path.join(pkgRoot, 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(pkgRoot, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.20' }));
+    fs.writeFileSync(path.join(pkgRoot, 'bin', 'cli.js'), [
+      "process.stdout.write('  Update available! Latest: 2.2.22\\n');",
+      "process.stdout.write('  Current Version:  2.2.20\\n');"
+    ].join('\n'));
+    {
+      const { readInstalledVersion } = require('../bin/commands/upgrade');
+      const installed = readInstalledVersion(pkgRoot);
+      assert.strictEqual(installed.source, 'installed');
+      assert.strictEqual(
+        installed.version,
+        '2.2.20',
+        'must read the Current Version line, not the registry version printed above it'
+      );
+      assert.notStrictEqual(installed.version, '2.2.22', 'the target must not be inferred from the banner');
+    }
+    fs.rmSync(pkgRoot, { recursive: true, force: true });
+    console.log('  installed version comes from the labelled line, not the registry hint');
+
     console.log('PASS test_upgrade_version_verification');
   } finally {
     for (const dir of [a, b, empty]) fs.rmSync(dir, { recursive: true, force: true });

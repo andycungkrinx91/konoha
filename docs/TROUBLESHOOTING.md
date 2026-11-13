@@ -631,11 +631,11 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Web UI keeps serving the previous build after `npm install -g` + `konoha init` (`v2.2.20`)**:
   - **Symptom**: The runtime under `~/.konoha` is current (`konoha version` is right), but the browser still loads the old UI, and `/` references asset hashes that no longer exist on disk.
   - **Reason**: the daemon caches the SvelteKit handler in-process at startup. `init` treated an active port as "already started" and skipped the restart, so the old build stayed in memory.
-  - **Fix**: resolved in `2.2.20` — `bin/commands/init.js#autoStartUiDaemonIfRequested` restarts a daemon that is already listening on the port. Manually: `konoha ui restart`. `KONOHA_UI_AUTOSTART=0` suppresses starting a daemon, not refreshing a running one.
+  - **Fix**: Ctrl+C the terminal and run `konoha ui start` again. The server caches the SvelteKit handler at startup, so nothing short of a restart picks up a new bundle. `init` and `upgrade` never start or restart it.
 * **Web UI Port 1404 Process Duplication or Warnings on New Terminal Tabs (`v2.0.0-beta.7`)**:
   - **Symptom**: Opening new terminal tabs or running `konoha ui start` when already running shows `warn` warnings or leaves orphaned daemon processes in `ps aux`.
   - **Reason**: `cmdUiStart` logged active instances as warnings instead of informational status, and dead PID files were not cleaned up if processes exited abruptly.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by reporting active servers cleanly via `info()`, pruning dead PID files, adding single-instance daemon process deduplication before spawn, handling `SIGHUP` in `cmdUiDaemon`, and ensuring `cmdUiStop` unconditionally cleans all orphaned daemons via `pkill -f "cli.js ui daemon"`.
+  - **Fix**: `konoha ui start` probes the port before binding and exits 1 with `already running` when a listener is present, so a duplicate cannot start. `cmdUiStop` prunes dead PID files and cleans orphaned listeners.
 * **SDLC Task Delivery Deadlock in Long-Running Persistent Sessions (`v2.0.0-beta.7`)**:
   - **Symptom**: Sannin routes a task, execution succeeds, but the Kage delivery review gate returns `status: "blocked"` with `Kage review did not approve all completed tasks` even though all current tasks passed validation.
   - **Reason**: The SDLC task completion check in `workflowReviewApproved` queried `listTasks({ sessionId })` across the entire session table. In persistent clients (Antigravity CLI/IDE with a long-lived conversation ID), leftover or unverified tasks from earlier prompts in that same session falsely blocked the active workflow from completing.
@@ -853,16 +853,16 @@ If running `get_file_structure` with `{"dir_path": "."}` on Windows outputs IDE 
 
 1. **Port 1404 Already in Use**:
    - **Symptom**: `EADDRINUSE 127.0.0.1:1404` when executing `konoha ui start`.
-   - **Fix**: Run `konoha ui restart` or `konoha ui stop`. On Windows, the stop handler executes process tree cleanup via `taskkill /F /T /PID`, releases port 1404, and cleans up port-scoped PID files under `~/.konoha/ui/`.
+   - **Fix**: The server runs in the terminal that started it, so Ctrl+C there releases the port. If the terminal is gone, `konoha ui start` will tell you the port is busy; find the owner with `lsof -i :1404` (Linux/macOS) or `netstat -ano | findstr :1404` (Windows) and stop it. `konoha init --force` and `konoha uninstall` also stop a listener they own.
    - Alternatively, bind to a custom port: `konoha ui start --port 1500`.
 
 2. **UI Daemon Fails to Start or Exits Immediately**:
-   - Check status and PID: `konoha ui status`.
+   - Check whether the port answers: `curl 127.0.0.1:1404/api/v1/health`.
    - Check daemon logs: `~/.konoha/ui/daemon-1404.log`.
    - Rebuild pre-built assets if missing: `konoha ui build`.
 
 3. **Browser Does Not Launch Automatically**:
-   - Run `konoha ui open` or navigate manually to `http://127.0.0.1:1404/`.
+   - Navigate to `http://127.0.0.1:1404/` manually; `konoha ui start` opens it unless `--no-open` is passed.
    - On Windows, detached daemon execution uses `cmd.exe /c start ""` with `windowsHide: true`.
 
 ---

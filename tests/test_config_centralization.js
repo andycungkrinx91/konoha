@@ -24,7 +24,7 @@ const { CONFIG_DEFAULTS, DEFAULT_KEYS, getConfigValue } = require('../bin/lib/co
 function run(args, env = {}) {
   return execFileSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env, KONOHA_UI_AUTOSTART: '0', KONOHA_SEMANTIC_SEARCH: '0' },
+    env: { ...process.env, ...env, KONOHA_SEMANTIC_SEARCH: '0' },
     timeout: 60000
   });
 }

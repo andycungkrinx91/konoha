@@ -220,18 +220,15 @@ Invoke-Step 'Test (full suite)' { pnpm test }
 Invoke-Step 'Fresh-install smoke test' {
   $smokeHome = Join-Path $env:SystemDrive 'konoha-smoke-home'
   Remove-Item -Recurse -Force $smokeHome -ErrorAction SilentlyContinue
-  $saved = @{ HOME = $env:HOME; USERPROFILE = $env:USERPROFILE; KONOHA_UI_AUTOSTART = $env:KONOHA_UI_AUTOSTART }
+  $saved = @{ HOME = $env:HOME; USERPROFILE = $env:USERPROFILE }
   $env:HOME = $smokeHome
   $env:USERPROFILE = $smokeHome
-  # The smoke test proves install + migrate + version; a web UI daemon adds a detached
-  # process and a 90 s port wait for no coverage.
-  $env:KONOHA_UI_AUTOSTART = '0'
+  # The smoke test proves install + migrate + version; nothing in init starts the web UI.
   node bin/cli.js init --yes --no-project
   if ($LASTEXITCODE -eq 0) { node bin/cli.js migrate --skip-embeddings }
   if ($LASTEXITCODE -eq 0) { node bin/cli.js version }
   $env:HOME = $saved.HOME
   $env:USERPROFILE = $saved.USERPROFILE
-  $env:KONOHA_UI_AUTOSTART = $saved.KONOHA_UI_AUTOSTART
 }
 
 $completed = $true

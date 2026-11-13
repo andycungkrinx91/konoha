@@ -118,7 +118,7 @@ Ten roots, seventeen skills each — visible with `konoha status`.
 | `~/.konoha/backups/` | timestamped, SHA-256-verified copies of harness configs taken before every write |
 | `~/.konoha/tmp/<harness>/<session>/` | per-task working directories: `plan.md`, `findings.md`, `kage_review.json`, prompts |
 | `~/.agents/` | harness-neutral skills and `agents.yaml` |
-| systemd user unit / launchd agent | optional boot-time daemon for the Web UI, created only by `konoha ui service install`; absent on a default install |
+| systemd user unit / launchd agent | optional boot-time daemon for the Web UI, created only by `konoha service install`; absent on a default install |
 
 All state stays on your machine. Outbound network traffic occurs only when you explicitly trigger registry lookups, web searches, Telegram alerts, or initial package downloads for auxiliary MCP servers.
 
@@ -200,7 +200,7 @@ Identical to Linux, with one difference in packaging: Apple Silicon and Intel bo
 no native build step, so no Xcode command line tools are required. If npm's default prefix (`/usr/local` or
 `/opt/homebrew`) is not writable, use the same `npm config set prefix "$HOME/.local"` pattern.
 
-The Web UI daemon option uses launchd instead of systemd; `konoha ui service install` selects the platform
+The Web UI service option uses launchd instead of systemd; `konoha service install` selects the platform
 automatically (6.5).
 
 ### 2.5 Windows
@@ -272,7 +272,7 @@ The installer performs seven steps, in its own words:
 
 Step 5 is the slow one on first run: embedding the seeded skill corpus into SQLite is most of the wall time.
 
-Re-running `init` on an existing install does the same work against the runtime it finds, plus two things that only matter the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind, and it restarts a running Web UI daemon so the build it serves is the one just installed. `KONOHA_UI_AUTOSTART=0` suppresses starting a daemon; it does not suppress refreshing one that is already up.
+Re-running `init` on an existing install does the same work against the runtime it finds, plus one thing that only matters the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind. It never starts or restarts the Web UI — that is `konoha ui start`, always by hand.
 
 ### 3.2 Options
 
@@ -594,29 +594,28 @@ authoritative".
 ### 5.6 `ui` and `service`
 
 ```bash
-konoha ui start
-konoha ui status
-konoha ui stop
-konoha ui restart
-konoha ui service install        # optional boot-time daemon
-konoha ui service status
+konoha ui start                  # foreground; Ctrl+C stops it
+konoha ui build                  # compile the SvelteKit bundle
+konoha service install           # optional boot-time OS service
+konoha service status
 ```
 
-`ui` and `web` are the same command. Port defaults to 1404 and follows the `ui_port` config value. Observed service
-status on a working install with no OS daemon registered:
+Port defaults to 1404 and follows the `ui_port` config value. `konoha ui` has exactly two subcommands, `start` and
+`build`: the server runs in the foreground and the terminal owns its lifetime. A second `start` on a port that is
+already listening exits 1 rather than running a duplicate.
+Observed `konoha service status` on a working install with no OS service registered:
 
 ```
 ○ NOT INSTALLED  OS daemon service unit is not registered.
   Supported platform: Linux (systemd --user)
-  Port 1404 listener: ACTIVE (manual/detached daemon)
+  Port 1404 listener: ACTIVE (started by `konoha ui start`)
 ```
 
-That combination is normal: the UI can be running detached while no boot-time unit exists.
+That combination is normal: the UI can be running manually while no boot-time unit exists.
 
-The daemon serves the SvelteKit handler it loaded at startup, so replacing the runtime under it does not change what it
-serves. `konoha init --yes` therefore restarts a daemon that is already listening on the port instead of treating it as
-"already started" — otherwise `npm install -g konoha-mcp` followed by `init` left the previous build being served.
-`KONOHA_UI_AUTOSTART=0` only suppresses *starting* a daemon; a running one is still restarted.
+The server holds the SvelteKit handler in memory, so replacing the runtime under it does not change what it serves.
+After `konoha ui build` or an upgrade, Ctrl+C and `konoha ui start` again. Nothing starts it implicitly — not `init`,
+not `upgrade`.
 
 ### 5.7 `savings`, `search`, `clean`
 
@@ -734,11 +733,11 @@ Port 1404 serves a prebuilt SvelteKit single-page console. Beyond exposing the s
 
 ```bash
 konoha ui start
-konoha ui status
+konoha ui build
 ```
 
-`konoha init` starts it for you. `http://127.0.0.1:1404/` binds to loopback only; there is no remote exposure
-without a bridge or tunnel (chapter 10 covers `/remote` and Telegram).
+Nothing starts it for you: run `konoha ui start` in a terminal and leave it running. `http://127.0.0.1:1404/` binds to
+loopback only; there is no remote exposure without a bridge or tunnel (chapter 10 covers `/remote` and Telegram).
 
 Before login, `GET /` answers `307` — a redirect to the login page, not an empty dashboard. The app also polls a
 health endpoint every 10 seconds and holds an SSE connection for live updates, so a running UI shows database and
@@ -1402,7 +1401,7 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | Embedding generation stalls or burns bandwidth | first run downloads ONNX models | `konoha migrate --skip-embeddings`, or `KONOHA_SEMANTIC_SEARCH=0` |
 | `EACCES` on global install | installing into a root-owned prefix | use a user-owned prefix, never `sudo` |
 | Web UI unreachable | different port configured or process died | read `ui_port` from `~/.konoha/config.json`; `curl 127.0.0.1:<port>/api/v1/health` |
-| Web UI serves an old build after `init` | the daemon cached the previous handler at startup | `konoha ui restart`; `init` now does this for you |
+| Web UI serves an old build after `konoha ui build` | the server cached the previous handler at startup | Ctrl+C the terminal, then `konoha ui start` again |
 | 3D toolchain install ends at stage `Manual Install Required` on macOS | Blender is published there only as a `.dmg`, which the installer does not mount | `brew install --cask blender`, then re-run the toolchain check; `dcc-mcp-blender` needs a working Blender, so it reports `Blender must be installed first` until then, and both failures appear in the response's `errors[]` |
 | Web UI redirects `307` to the gate | unauthenticated request, by design | log in; first run uses the bootstrap password |
 
@@ -1574,7 +1573,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 
 ### 16.2 Configuration keys
 
-`~/.konoha/config.json`, read at call time (no caching), so `konoha config set` takes effect immediately. The 71 keys
+`~/.konoha/config.json`, read at call time (no caching), so `konoha config set` takes effect immediately. The 70 keys
 declared in `bin/lib/config_defaults.js` are the compiled defaults; the table lists the ones you are likely to tune.
 `konoha config list` prints only the keys actually present in the file — a key you never set still reads its default
 from code, and `konoha config get <key>` shows which of the two answered.
@@ -1592,7 +1591,6 @@ from code, and `konoha config get <key>` shows which of the two answered.
 | `git_timeout_ms` | `30000` | git operations |
 | `url_timeout_ms` | `20000` | URL probes |
 | `probe_timeout_ms` | `1500` | liveness probe |
-| `ui_ready_timeout_ms` | `180000` | Web UI startup wait |
 | `aislop_gate_timeout_ms` | `180000` | anti-slop scan |
 | `live_glb_poll_timeout_ms` | `15000` | 3D live preview |
 | `sqlite_busy_timeout_ms` | `5000` | lock wait |
@@ -1619,7 +1617,6 @@ Inspect and change with `konoha config list`, `konoha config get <key>`, `konoha
 | `KONOHA_DISABLE_RATE_LIMIT` | `1` disables login lockout — tests only |
 | `KONOHA_MASTER_KEY` | vault key override, scrypt-stretched |
 | `KONOHA_SEMANTIC_SEARCH` | `0` disables vector search, leaving FTS5 |
-| `KONOHA_UI_AUTOSTART` | `0` stops `konoha init` from starting a UI daemon; an already-running daemon is still restarted so it serves the refreshed build |
 | `KONOHA_HOME` | alternate runtime root |
 | `KONOHA_CLIENT` | forces client identity for setup paths |
 | `NODE_ENV` | `test` disables rate limiting |

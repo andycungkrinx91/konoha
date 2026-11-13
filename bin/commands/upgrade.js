@@ -8,17 +8,14 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const { SKILLS_DB_DIR, UI_PORT, UI_READY_TIMEOUT_MS, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
+const { SKILLS_DB_DIR, UI_PORT, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require("../lib/paths");
 const { getConfigValue } = require("../lib/config_defaults");
 const { C, log, warn, error, header, getCliVersion } = require("../lib/format");
 const { fileExists, confirmPrompt, KonohaProgressBar } = require("../lib/prompt");
 const { reconcileGlobalCommand, purgePackageCaches } = require("../lib/runtime");
-const { cmdUiRestart, ensureUiDaemonAutoStart, waitForPortReady } = require("../lib/ui_commands");
 const { collectUpgradeChoices } = require("../lib/upgrade_prompts");
 const { cmdInit } = require("./init");
-const { checkPortActive } = require("./bridge");
 const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
-const { cmdUiBuild } = require("../lib/ui_build");
 const { assertPathVersionMatches, resolveUpgradeTargetOverride } = require("../lib/upgrade_verify");
 
 
@@ -222,31 +219,44 @@ function buildPackageManagerCandidates(pkgTarget, isWin) {
   return pmCandidates;
 }
 
+// A root-owned global prefix (`/usr/lib/node_modules`, `/usr/bin`) makes the
+// package manager fail with EACCES on the final rename. That is a distinct
+// failure from "package not found", and the recovery differs: it needs sudo or
+// a user-writable prefix, not a different package name.
+const PERMISSION_DENIED_RE = /EACCES|EPERM|permission denied|operation not permitted|access is denied/i;
+
 function tryInstallCandidate(pm, args, spawnOptions, isWin = false) {
   try {
     const res = isWin
       ? spawnSync(`"${pm.cmd}" ${args.join(' ')}`, { stdio: spawnOptions.stdio, timeout: spawnOptions.timeout, shell: true, windowsHide: true })
       : spawnSync(pm.cmd, args, spawnOptions);
     if (res.status === 0) return { success: true };
+    const raw = `${res.stderr || ''}${res.stdout || ''}`;
     const errOut = (res.stderr || res.stdout || '').toString().trim();
-    return { success: false, error: errOut ? errOut.split('\n').pop() : `exit status ${res.status}` };
+    return {
+      success: false,
+      error: errOut ? errOut.split('\n').pop() : `exit status ${res.status}`,
+      permissionDenied: PERMISSION_DENIED_RE.test(raw)
+    };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err.message, permissionDenied: PERMISSION_DENIED_RE.test(err.message) };
   }
 }
 
 function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) {
   const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS, windowsHide: true };
   let lastError = null;
+  let permissionDenied = false;
 
   for (const pm of pmCandidates) {
     const result = tryInstallCandidate(pm, pm.args, spawnOptions, isWin);
     if (result.success) {
       pbar.stopPulse();
       pbar.logStep(`Konoha installed via ${pm.name}`);
-      return true;
+      return { ok: true };
     }
     lastError = result.error;
+    permissionDenied = permissionDenied || Boolean(result.permissionDenied);
   }
 
   // A local tarball has no registry counterpart and no GitHub tag to fall back
@@ -255,7 +265,7 @@ function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) 
   if (pkgTarget.endsWith('.tgz')) {
     pbar.stopPulse();
     pbar.logStep(lastError ? `Package manager note (${lastError})` : 'Package manager could not install the local tarball');
-    return false;
+    return { ok: false, error: lastError, permissionDenied };
   }
 
   const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
@@ -265,13 +275,14 @@ function executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar) 
     if (result.success) {
       pbar.stopPulse();
       pbar.logStep(`Konoha ${targetTag} installed from GitHub fallback via ${pm.name}`);
-      return true;
+      return { ok: true };
     }
+    permissionDenied = permissionDenied || Boolean(result.permissionDenied);
   }
 
   pbar.stopPulse();
   pbar.logStep(lastError ? `Package manager note (${lastError}); synchronizing local runtime files` : 'Package manager step completed; synchronizing local runtime files');
-  return false;
+  return { ok: false, error: lastError, permissionDenied };
 }
 
 function readCandidateFromPkgDir(pkgDir) {
@@ -374,9 +385,9 @@ function readInstalledVersion(preferredRoot = null) {
     });
 
     if (res.status === 0 && res.stdout) {
-      const match = res.stdout.match(/\d+\.\d+\.\d+/);
+      const match = res.stdout.match(/Current Version:\s*v?(\d+\.\d+\.\d+)/) || res.stdout.match(/\d+\.\d+\.\d+/);
       if (match) {
-        return { version: match[0], source: 'installed' };
+        return { version: match[1] || match[0], source: 'installed' };
       }
     }
     return {
@@ -453,7 +464,6 @@ async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
     return;
   }
   await cmdInit(['--yes'], {
-    skipUiAutoStart: true,
     onProgress: (stepNum, stepTitle, stepDetail) => {
       const stageNum = Math.min(6, 2 + stepNum);
       pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
@@ -462,24 +472,7 @@ async function runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot) {
   });
 }
 
-async function restartOrAutoStartUiDaemon(pbar, uiWasRunning) {
-  try {
-    const installedHandler = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build', 'handler.js');
-    if (!fileExists(installedHandler)) {
-      pbar.logStep('Building Konoha Web UI bundle...');
-      await cmdUiBuild();
-    }
-  } catch { /* best-effort */ }
-  if (uiWasRunning) {
-    pbar.logStep('Restarting Konoha Web UI daemon to load the upgraded runtime...');
-    await cmdUiRestart(['--no-open']);
-    return;
-  }
-  const uiAuto = await ensureUiDaemonAutoStart();
-  if (uiAuto?.started) pbar.logStep(`Konoha Web UI daemon auto-started at http://127.0.0.1:${UI_PORT}/`);
-}
-
-async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, isWin = process.platform === 'win32') {
+async function runPostUpgradeInit(pbar, targetTag, choices = {}, isWin = process.platform === 'win32') {
   const { injectConfigs = false, rtk = true, aislop = true } = choices;
   const cleanTarget = String(targetTag || '').replace(/^v/, '');
   const globalPkgRoot = locateGlobalPackageRoot(process.platform === 'win32', cleanTarget);
@@ -489,12 +482,7 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, i
   try {
     await runInitOrSyncStep(pbar, injectConfigs, globalPkgRoot);
     deployOptionalRtkAndRepairShims(pbar, rtk, globalPkgRoot, { aislop });
-    await restartOrAutoStartUiDaemon(pbar, uiWasRunning);
-
-    const portReady = await waitForPortReady(UI_PORT, { timeoutMs: UI_READY_TIMEOUT_MS });
-    if (!portReady) {
-      pbar.logStep(`Web UI daemon is still warming up; it will answer on port ${UI_PORT} shortly`);
-    }
+    pbar.logStep(`Web UI bundle is ready; run "konoha ui start" to serve it on port ${UI_PORT}`);
 
     const installed = readInstalledVersion(globalPkgRoot);
 
@@ -513,6 +501,21 @@ async function runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices = {}, i
       error('  Run "konoha --version" to confirm. If it still reports the previous');
       error(`  version, re-run "konoha upgrade --yes" or install directly:`);
       error(`    npm install -g konoha-mcp@${cleanTarget}`);
+      process.exit(1);
+    }
+
+    // A package manager can exit 0 without replacing anything: a prefix it cannot
+    // write, a store hit, a reinstall that resolved to the already-installed copy.
+    // Reporting that as success is the Debian defect where the banner printed the
+    // version the user already had. The target is the only acceptable answer.
+    if (installed.version !== cleanTarget) {
+      pbar.stopPulse();
+      error(`Upgrade verification failed: the installed package reports v${installed.version}, but v${cleanTarget} was requested.`);
+      error(`  Package root: ${globalPkgRoot}`);
+      error('  The package manager exited successfully without replacing the package.');
+      error('  Recovery:');
+      error(`    npm install -g konoha-mcp@${cleanTarget}`);
+      error('    konoha upgrade --yes');
       process.exit(1);
     }
 
@@ -580,8 +583,6 @@ async function cmdUpgrade(args = []) {
 
   log('');
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
-  let uiWasRunning = false;
-  try { uiWasRunning = await checkPortActive(UI_PORT); } catch { /* best-effort */ }
 
   pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Backing up client configurations & detecting package manager...`);
   try {
@@ -613,8 +614,8 @@ async function cmdUpgrade(args = []) {
 
   if (isWin) writeUpgradePendingMarker(cleanTarget);
 
-  const pkgInstalled = executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
-  if (!pkgInstalled) {
+  const pkgInstall = executePackageInstall(pmCandidates, pkgTarget, targetTag, isWin, pbar);
+  if (!pkgInstall.ok) {
     // Every package manager and the GitHub fallback failed. Continuing would run
     // the post-upgrade lifecycle against the old package and then report success.
     // Clear the marker: this is a clean, reported failure, not an interrupted one.
@@ -622,13 +623,27 @@ async function cmdUpgrade(args = []) {
     pbar.stopPulse();
     error(`Upgrade aborted: no package manager could install ${pkgTarget}.`);
     error('  Your existing installation and configuration were not modified.');
-    error('  Recovery: install directly, then re-run this command:');
-    error(`    npm install -g ${pkgTarget}`);
-    error('    konoha upgrade --yes');
+    if (pkgInstall.permissionDenied) {
+      const globalRoot = locateGlobalPackageRoot(isWin, cleanTarget);
+      error('');
+      error('  Cause: the global npm prefix is not writable by this user, so the');
+      error('  package manager could not replace the installed files.');
+      if (globalRoot) error(`  Global prefix: ${globalRoot}`);
+      error('  Recovery (pick one):');
+      error(`    sudo npm install -g ${pkgTarget}`);
+      error('    # or install into a user-owned prefix and put it first on PATH:');
+      error(`    npm config set prefix "$HOME/.local" && npm install -g ${pkgTarget}`);
+      error(`  Then re-run: konoha upgrade --yes`);
+    } else {
+      if (pkgInstall.error) error(`  Last error: ${pkgInstall.error}`);
+      error('  Recovery: install directly, then re-run this command:');
+      error(`    npm install -g ${pkgTarget}`);
+      error('    konoha upgrade --yes');
+    }
     process.exit(1);
   }
 
-  await runPostUpgradeInit(pbar, targetTag, uiWasRunning, choices, isWin);
+  await runPostUpgradeInit(pbar, targetTag, choices, isWin);
 }
 
 const UPGRADE_PENDING_MARKER = path.join(SKILLS_DB_DIR, '.upgrade_pending.json');
@@ -672,6 +687,7 @@ module.exports = {
   cmdUpgradeHelp,
   locateGlobalPackageRoot,
   readInstalledVersion,
+  executePackageInstall,
   parseSemver,
   semverCompare,
   fetchJsonUrl,

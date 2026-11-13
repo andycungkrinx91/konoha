@@ -53,8 +53,7 @@ function sandboxEnv(home) {
     HOME: home,
     USERPROFILE: home,
     KONOHA_DB_PATH: path.join(home, '.konoha', 'konoha.db'),
-    CI: 'true',
-    KONOHA_UI_AUTOSTART: '0'
+    CI: 'true'
   };
 }
 

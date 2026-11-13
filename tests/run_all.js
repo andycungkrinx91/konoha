@@ -143,7 +143,6 @@ function getGoldenSeed() {
     // calls it would escape the sandbox and touch the real profile.
     USERPROFILE: seedDir,
     KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
-    KONOHA_UI_AUTOSTART: '0',
     KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
   };
   const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
@@ -261,16 +260,11 @@ function createSuiteSnapshot(name) {
     // real profile while the product reads HOME, so paths diverge mid-suite.
     USERPROFILE: suiteHome,
     KONOHA_DB_PATH: path.join(suiteHome, '.konoha', 'konoha.db'),
-    KONOHA_UI_AUTOSTART: '0',
     PYTHONUSERBASE: process.env.PYTHONUSERBASE || realUserBase,
     PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || realPlaywrightPath,
     KONOHA_TEST_SANDBOX: '1',
     NODE_PATH: suiteNodePath
   };
-
-  if (name === 'test_ui_autostart.js') {
-    delete env.KONOHA_UI_AUTOSTART;
-  }
 
   return {
     home: suiteHome,

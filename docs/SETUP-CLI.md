@@ -392,46 +392,26 @@ Scan websites and Production documents for AI generation markers, generator foot
 
 Konoha provides an optional local browser-based management dashboard powered by SvelteKit 3 and Tailwind CSS v4 on `127.0.0.1:1404`:
 
-- **Start Background Daemon (Cross-Platform)**:
+- **Start in the foreground**:
   ```bash
   konoha ui start
   ```
-  Launches the detached background daemon. On Windows, runs with `windowsHide: true` (no intrusive cmd popup), polls port 1404 up to 30 attempts, and opens the default browser automatically.
-- **Check Status & PID**:
-  ```bash
-  konoha ui status
-  ```
-- **Restart Daemon**:
-  ```bash
-  konoha ui restart
-  ```
-- **Stop Daemon**:
-  ```bash
-  konoha ui stop
-  ```
-  Cleanly terminates the daemon process tree (`taskkill /F /T` on Windows, `SIGBREAK`/`SIGTERM` handling, and socket teardown).
-- **Run in Foreground**:
-  ```bash
-  konoha ui start --foreground
-  # or
-  konoha web
-  ```
-- **Build & Preview from Source**:
+  Runs the server in the foreground and blocks the terminal. Press `Ctrl+C` to stop. The default browser opens automatically unless `--no-open` is passed.
+- **Build from source**:
   ```bash
   konoha ui build
-  konoha ui preview
   ```
-- **Open in Browser**:
+  Compiles the production SvelteKit bundle into `apps/web/build/` and refreshes the installed runtime copy under `~/.konoha/apps/web/build`.
+- **Options**: `--port=<n>` (default `1404`), `--host=<h>` (default `127.0.0.1`), `--no-open`.
+
+`konoha ui` has exactly these two subcommands. Nothing starts the UI implicitly — not `init`, not `upgrade`. A second `konoha ui start` on a port that is already listening exits 1 with `already running`; press Ctrl+C in the owning terminal first. For a boot-time instance use `konoha service`.
+
+- **Register the boot-time OS service** (systemd on Linux, launchd on macOS):
   ```bash
-  konoha ui open
-  ```
-- **Register OS Background Service (systemd / launchd)**:
-  ```bash
-  konoha ui service install
-  konoha ui service status
-  konoha ui service restart
-  konoha ui service stop
-  konoha ui service uninstall
+  konoha service install
+  konoha service status
+  konoha service restart
+  konoha service uninstall
   ```
 
 ### LLM Bridge Router (`konoha bridge`)

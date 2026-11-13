@@ -12,56 +12,51 @@ It provides a modern visual interface for configuration and monitoring tasks tha
 
 ## 🚀 Quick Start (Optional Web UI)
 
-The Web UI is **completely optional**. Konoha functions 100% independently from CLI and MCP tools without the UI running. When you want a visual dashboard, manage it using the `konoha ui` daemon commands:
+The Web UI is **completely optional**. Konoha functions 100% independently from CLI and MCP tools without the UI running. `konoha ui` exposes exactly two subcommands: `start` and `build`.
 
-### Background Service Mode (Recommended)
+### Foreground Mode
 
 ```bash
-# Start the Web UI daemon in background (binds 127.0.0.1:1404 and opens browser)
+# Run in the foreground; the terminal is blocked until Ctrl+C
 konoha ui start
 
-# Check current status, port, PID, and health metrics
-konoha ui status
+# Custom port, headless (no browser popup)
+konoha ui start --port 1404 --no-open
 
-# Restart the Web UI server
-konoha ui restart
-
-# Reset Web UI password to default bootstrap credential ('konohagakure')
-konoha auth reset
-
-# Stop the background Web UI daemon
-konoha ui stop
+# Rebuild the SvelteKit bundle into apps/web/build
+konoha ui build
 ```
 
-### Foreground / Ephemeral Mode
+### Single Instance
 
-You can also run the Web UI directly in the foreground:
+A second `konoha ui start` on a port that is already listening exits 1 with `Konoha Web UI is already running on …`.
+Press Ctrl+C in the owning terminal before starting another. There is no background mode to race with: the only
+persistent surface is the OS service below.
+
+### Optional Boot-Time Service
 
 ```bash
-# Run in foreground (press Ctrl+C to exit)
-konoha ui start --foreground
-# or
-konoha web
-
-# Custom port or headless server mode (no browser popup)
-konoha ui start --port 1404 --no-open
-konoha web --port 1404 --no-open
+konoha service install     # systemd --user on Linux, launchd on macOS
+konoha service status
+konoha service uninstall
 ```
 
-### Cross-Platform Daemon Management (Windows, Linux, macOS)
+`konoha service install` registers a `systemd --user` unit (`konoha-ui.service`) or a `launchd` LaunchAgent
+(`com.konoha.ui.plist`) so the dashboard survives logout and restarts on failure.
 
-- **Windows**: `konoha ui start` runs as a completely detached background daemon using `windowsHide: true` without flashing visible command prompt windows. Default port 1404 polling waits up to 30 attempts to ensure reliable startup. On `konoha ui stop`, process trees are cleanly cleaned up using `taskkill /F /T /PID`, with PowerShell `-Unique` connection ownership kill and `netstat -ano` fallback. Supports Windows `SIGBREAK` for graceful shutdown.
-- **Linux (systemd)**: Run `konoha ui service install` to register a `systemd --user` unit (`konoha-ui.service`) for automatic background launch on login/boot and automatic restarts.
-- **macOS (launchd)**: Run `konoha ui service install` to generate a `launchd` LaunchAgent plist (`com.konoha.ui.plist`) for automatic system startup.
-- **Port Isolation**: All daemon lifecycle commands (`start`, `stop`, `restart`, `status`) support `--port=<num>` scoping — stopping or restarting a daemon on a custom port never interrupts daemons running on port 1404 or other ports.
-- **Re-init refreshes a running daemon**: the daemon holds the SvelteKit handler in memory, so it keeps serving the build it loaded at startup. `konoha init --yes` therefore restarts a daemon that is already listening instead of reporting "already started", which is what made `npm install -g konoha-mcp` followed by `init` serve the previous UI. `KONOHA_UI_AUTOSTART=0` suppresses *starting* a daemon, not refreshing one; to skip both, `konoha ui stop` first.
+### Lifecycle Notes
+
+- **Port 1404 binds to loopback only.** Use `--port=<num>` to pick a different port.
+- **The server holds the SvelteKit handler in memory**, so it keeps serving the build it loaded at startup. After
+  `konoha ui build` (or an upgrade), Ctrl+C and `konoha ui start` again to serve the new bundle.
+- **Stopping**: the terminal owns the process; Ctrl+C. If the terminal is gone, find the listener with `lsof -i :1404` and stop it, or run `konoha init --force`.
 
 ---
 
 ## 🛡️ Architecture & Security Model
 
 ```
-konoha web
+konoha ui start
    │
    ├── Embedded API Server (src/web_server.js)
    │     ├── Bound to 127.0.0.1:1404 (Localhost only)
@@ -86,7 +81,7 @@ konoha web
 - **Bootstrap Password Gating**: On first run `src/auth.js` provisions the bootstrap credential `konohagakure` (provisioning input only — never compared in the browser or echoed by the API) and persists only its encrypted verifier to `~/.konoha/web_auth.json` (mode `0600`). While `GET /api/v1/auth/status` reports `is_bootstrap: true` the login page renders only the two-field set-new-password form — the sign-in form is not shown and the default value is never displayed. `POST /api/v1/auth/setup-password` is reachable from the browser only with the required `X-Konoha-Web-Token` CSRF header and returns `403` once `is_bootstrap` is false. Sessions created from the bootstrap credential are gated (`403 requires_password_change`) until the password change is persisted; `/api/v1/auth/change-password` requires the current password and clears the flag only after the new verifier is durably written (in place + `fsync`, mode `0600`). Failed changes never clear the flag.
 - **Credential Store Fail-Closed**: A present-but-unreadable or malformed `web_auth.json` never silently reinstalls the bootstrap credential; login returns `401`/`500`-class failures without leaking internals.
 - **Authorized Password Reset & Session Invalidation**: Changing passwords or resetting to default from `/settings` requires valid current password authentication. Upon password update or reset, all active sessions are immediately invalidated (`destroyAllSessions()`) and the user is securely returned to the login screen.
-- **Emergency CLI Password Reset**: If locked out, `konoha auth reset` (alias `konoha auth reset-password`) atomically restores `web_auth.json` to the default bootstrap credential (`konohagakure`) with `is_bootstrap: true` and purges existing sessions without requiring an active web session. `konoha auth reset` is the only registered CLI reset form — `konoha web reset-password` is not a command.
+- **Emergency CLI Password Reset**: If locked out, `konoha auth reset` atomically restores `web_auth.json` to the default bootstrap credential (`konohagakure`) with `is_bootstrap: true` and purges existing sessions without requiring an active web session.
 - **SSE-Driven Data Refresh**: Upon successful authentication updates, the server broadcasts `auth_state_changed` over Server-Sent Events, enabling the web console to re-synchronize metrics in the background without manual browser refreshes.
 - **Rate-Limiting Protection**: Repeated invalid login attempts trigger IP-based throttling (HTTP 429 lockout after repeated failures) to protect against brute-force attacks.
 - **CSRF Token Invariant**: Every session generates a secure random token passed via the `X-Konoha-Web-Token` header for all state-changing mutations (`POST`, `PUT`, `PATCH`, `DELETE`). Requests missing or with an invalid token are rejected with HTTP 403 Forbidden.

@@ -379,7 +379,7 @@ function destroyAllSessions() {
 /**
  * Unconditionally reset auth credentials to default bootstrap password ('konohagakure')
  * and flag is_bootstrap = true.
- * Used by CLI (`konoha web reset-password`) and emergency recovery without requiring an active session.
+ * Used by CLI (`konoha auth reset`) and emergency recovery without requiring an active session.
  */
 function resetAuthToDefault() {
   const defaultBootstrap = resolveBootstrapPassword();

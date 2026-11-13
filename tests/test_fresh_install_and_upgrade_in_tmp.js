@@ -43,12 +43,10 @@ async function run() {
   const origHome = process.env.HOME;
   const origAuth = process.env.KONOHA_AUTH_FILE;
   const origDb = process.env.KONOHA_DB_PATH;
-  const origUiAuto = process.env.KONOHA_UI_AUTOSTART;
 
   process.env.HOME = tempHome;
   delete process.env.KONOHA_AUTH_FILE;
   process.env.KONOHA_DB_PATH = path.join(tempHome, '.konoha', 'konoha.db');
-  process.env.KONOHA_UI_AUTOSTART = '0';
   process.env.KONOHA_SEMANTIC_SEARCH = '0'; // Fast-path migration for unit test
 
   let srv = null;
@@ -144,7 +142,6 @@ async function run() {
     process.env.HOME = origHome;
     if (origAuth) process.env.KONOHA_AUTH_FILE = origAuth; else delete process.env.KONOHA_AUTH_FILE;
     if (origDb) process.env.KONOHA_DB_PATH = origDb; else delete process.env.KONOHA_DB_PATH;
-    if (origUiAuto) process.env.KONOHA_UI_AUTOSTART = origUiAuto; else delete process.env.KONOHA_UI_AUTOSTART;
     delete process.env.KONOHA_SEMANTIC_SEARCH;
     try { fs.rmSync(tempHome, { recursive: true, force: true }); } catch (_) {}
   }

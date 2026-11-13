@@ -126,8 +126,7 @@ Command names below come from `bin/cli.js` dispatch. See `docs/architecture/CANO
 * `konoha tui` (runs `agent list --tui`)
 * `konoha help` (`--help`, `-h`)
 * `konoha search <query>`
-* `konoha ui {start|stop|restart|status|daemon|build|preview|open|service}`
-* `konoha web` (foreground `ui start`)
+* `konoha ui {start|build}`
 * `konoha service {...}`
 * `konoha auth reset`
 * `konoha bridge {list|status|create|enable|disable|delete|start|stop|restart|models}`

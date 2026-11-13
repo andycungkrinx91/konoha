@@ -105,8 +105,8 @@ check('a fresh confirmed attempt clears a stale marker', () => {
 
 check('install result is checked before the post-upgrade lifecycle', () => {
   const src = fs.readFileSync(path.join(ROOT, 'bin', 'commands', 'upgrade.js'), 'utf8');
-  const match = src.match(/const pkgInstalled = executePackageInstall\([^)]*\);\s*if \(!pkgInstalled\) \{([\s\S]*?)\n {2}\}/);
-  assert.ok(match, 'no `if (!pkgInstalled)` guard found around the install call');
+  const match = src.match(/const pkgInstall = executePackageInstall\([^)]*\);\s*if \(!pkgInstall\.ok\) \{([\s\S]*?)\n {2}\}/);
+  assert.ok(match, 'no `if (!pkgInstall.ok)` guard found around the install call');
   assert.match(match[1], /process\.exit\(1\)/, 'guard does not abort the upgrade');
   assert.match(match[1], /Upgrade aborted/, 'guard lacks an actionable message');
 });
@@ -114,7 +114,7 @@ check('install result is checked before the post-upgrade lifecycle', () => {
 check('upgrade-pending marker is written before install on Windows only', () => {
   const src = fs.readFileSync(path.join(ROOT, 'bin', 'commands', 'upgrade.js'), 'utf8');
   const markerIdx = src.indexOf('if (isWin) writeUpgradePendingMarker(cleanTarget);');
-  const installIdx = src.indexOf('const pkgInstalled = executePackageInstall');
+  const installIdx = src.indexOf('const pkgInstall = executePackageInstall');
   assert.ok(markerIdx > -1, 'marker write missing');
   assert.ok(markerIdx < installIdx, 'marker must be written before the install');
 });
@@ -146,7 +146,7 @@ check('clean install failure clears the marker; verification failure keeps it', 
   // marker must go. A verification failure may mean a partially replaced
   // runtime, so the recovery warning is retained for the next CLI start.
   const src = fs.readFileSync(path.join(ROOT, 'bin', 'commands', 'upgrade.js'), 'utf8');
-  const installFail = src.match(/if \(!pkgInstalled\) \{([\s\S]*?)process\.exit\(1\)/);
+  const installFail = src.match(/if \(!pkgInstall\.ok\) \{([\s\S]*?)process\.exit\(1\)/);
   assert.ok(installFail, 'install failure block not found');
   assert.match(installFail[1], /clearUpgradePendingMarker\(\)/, 'install failure leaves marker behind');
   const verifyFail = src.match(/if \(installed\.source === 'unverified'[\s\S]*?process\.exit\(1\)/);
@@ -156,6 +156,35 @@ check('clean install failure clears the marker; verification failure keeps it', 
     false,
     'verification failure must retain the marker'
   );
+});
+
+check('a root-owned global prefix is reported as a permission failure', () => {
+  // npm on a system prefix retires /usr/lib/node_modules/<pkg> and then fails
+  // renaming /usr/bin/konoha with EACCES. Generic "no package manager could
+  // install" text sends the user hunting for a registry problem, so the failure
+  // must carry the permission flag and name sudo / a user prefix as recovery.
+  const mod = require('../bin/commands/upgrade.js');
+  assert.strictEqual(typeof mod.executePackageInstall, 'function');
+  const pbar = { stopPulse() {}, logStep() {} };
+  const result = mod.executePackageInstall(
+    [{
+      name: 'npm',
+      cmd: process.execPath,
+      args: ['-e', "console.error(\"npm error code EACCES\nnpm error Error: EACCES: permission denied, rename '/usr/bin/konoha' -> '/usr/bin/.konoha-qVbEiRw5'\"); process.exit(1)"]
+    }],
+    'konoha-mcp@9.9.9.tgz',
+    'v9.9.9',
+    false,
+    pbar
+  );
+  assert.strictEqual(result.ok, false, 'install reported success');
+  assert.strictEqual(result.permissionDenied, true, 'EACCES was not detected');
+
+  const src = fs.readFileSync(path.join(ROOT, 'bin', 'commands', 'upgrade.js'), 'utf8');
+  const block = src.match(/if \(pkgInstall\.permissionDenied\) \{([\s\S]*?)\n {4}\}/);
+  assert.ok(block, 'no permission-specific remediation block');
+  assert.match(block[1], /sudo npm install -g/, 'recovery omits the sudo install');
+  assert.match(block[1], /npm config set prefix/, 'recovery omits the user-owned prefix');
 });
 
 fs.rmSync(tempHome, { recursive: true, force: true });

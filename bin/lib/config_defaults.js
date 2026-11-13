@@ -50,7 +50,6 @@ const CONFIG_DEFAULTS = Object.freeze({
   probe_timeout_ms: 1500,
   aislop_gate_timeout_ms: 180000,
   live_glb_poll_timeout_ms: 15000,
-  ui_ready_timeout_ms: 180000,
   notify_dedupe_ttl_ms: 180000,
   // mcp server orphan guard (src/mcp_orphan_guard.js)
   mcp_orphan_parent_poll_ms: 30000,

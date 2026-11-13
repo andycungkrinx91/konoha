@@ -78,10 +78,9 @@ async function getServiceStatus() {
 
 function cmdUiServiceHelp() {
   log(`
-${C.cyan}konoha ui service${C.reset} — Manage Konoha Web UI as an operating system background daemon service
+${C.cyan}konoha service${C.reset} — Manage the Konoha Web UI as an operating-system background service
 
 ${C.bold}USAGE${C.reset}
-  konoha ui service <subcommand> [options]
   konoha service <subcommand> [options]
 
 ${C.bold}SUBCOMMANDS${C.reset}
@@ -93,10 +92,10 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}restart${C.reset}     Restart the OS daemon service
 
 ${C.bold}EXAMPLES${C.reset}
-  konoha ui service install
-  konoha ui service status
-  konoha ui service restart
-  konoha ui service uninstall
+  konoha service install
+  konoha service status
+  konoha service restart
+  konoha service uninstall
 `);
 }
 
@@ -112,11 +111,10 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=${nodePath} ${cliPath} ui daemon --port=${UI_PORT} --host=127.0.0.1
+ExecStart=${nodePath} ${cliPath} ui start --port=${UI_PORT} --host=127.0.0.1 --no-open
 Restart=always
 RestartSec=3s
 Environment=NODE_ENV=production
-Environment=KONOHA_UI_DAEMON=true
 
 [Install]
 WantedBy=default.target
@@ -152,9 +150,10 @@ function installLaunchdService() {
     <string>${nodePath}</string>
     <string>${cliPath}</string>
     <string>ui</string>
-    <string>daemon</string>
+    <string>start</string>
     <string>--port=${UI_PORT}</string>
     <string>--host=127.0.0.1</string>
+    <string>--no-open</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -242,7 +241,7 @@ async function renderServiceStatusView(isLinux, isMac, checkPortActive) {
   if (!svc.installed) {
     log(`  ${C.dim}○ NOT INSTALLED${C.reset}  OS daemon service unit is not registered.`);
     log(`    Supported platform: ${isLinux ? 'Linux (systemd --user)' : isMac ? 'macOS (launchd)' : process.platform}`);
-    log(`    Run ${C.cyan}konoha ui service install${C.reset} to configure automatic startup on boot.`);
+    log(`    Run ${C.cyan}konoha service install${C.reset} to configure automatic startup on boot.`);
     log(`    Port ${UI_PORT} listener: ${portActive ? `${C.green}ACTIVE (manual/detached daemon)` : `${C.dim}INACTIVE`}${C.reset}\n`);
     return;
   }
@@ -294,7 +293,7 @@ async function cmdUiService(args = [], checkPortActive = defaultCheckPortActive)
   }
 
   error(`Unknown service subcommand: ${subcommand}`);
-  log(`Run ${C.cyan}konoha ui service help${C.reset} for usage.`);
+  log(`Run ${C.cyan}konoha service help${C.reset} for usage.`);
   process.exit(1);
 }
 

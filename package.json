@@ -142,7 +142,7 @@
   "scripts": {
     "build": "node bin/cli.js ui build",
     "lint": "node scripts/rtk_exec.js node scripts/lint.js",
-    "start": "node bin/cli.js web",
+    "start": "node bin/cli.js ui start",
     "test": "node scripts/rtk_exec.js node tests/run_all.js",
     "test:e2e": "node scripts/rtk_exec.js pnpm --dir apps/web run test:e2e",
     "test:parallel": "node scripts/rtk_exec.js node tests/run_all.js --parallel",
@@ -157,7 +157,6 @@
     "check": "pnpm --dir apps/web run check",
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",
-    "web": "node bin/cli.js web",
     "manual:pdf": "node scripts/build_manual_pdf.js",
     "pack:tgz": "pnpm pack"
   },
