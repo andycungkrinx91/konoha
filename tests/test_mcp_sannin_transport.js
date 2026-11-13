@@ -98,7 +98,11 @@ run()
   .then(() => {
     try { db.close(); } catch (_) { /* already closed */ }
     process.env = savedEnv;
-    for (const dir of [home, workspace, dbDir]) fs.rmSync(dir, { recursive: true, force: true });
+    // Windows keeps the SQLite handle open past db.close(), so teardown is best-effort:
+    // the assertions above already decided the exit code. Matches the sibling suites.
+    for (const dir of [home, workspace, dbDir]) {
+      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch (_) { /* locked until exit */ }
+    }
     process.exit(0);
   })
   .catch((err) => {
