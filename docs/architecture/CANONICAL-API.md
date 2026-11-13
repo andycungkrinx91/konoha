@@ -43,7 +43,7 @@ All tools (55 active) are served through the `konoha` MCP server over stdio JSON
 | `save_project_context` | `project_path?: string, context_summary: string, tech_stack?: object` | Save project invariants. | Save confirmation JSON |
 | `query_project_memory` | `query?: string, project_path?: string, agent_name?: string, memory_type?: string, limit?: number` | Query project-scoped memories. | JSON match list |
 | `web_search` | `query: string, num_results?: number, search_depth?: string` | Search the web with fallback providers. | Search result JSON with citations |
-| `migrate_skills` | `force?: boolean, skills?: array, skills_dir?: string` | Re-index skills into SQLite FTS5. | Migration summary JSON |
+| `migrate_skills` | `force?: boolean, skills?: array, skills_dir?: string` | Re-index skills into SQLite FTS5 for ranked search and reranking. Optional: `find_skill`, `get_skill`, and `list_skills` already read the project skill tree alongside the database. | Migration summary JSON |
 | `save_persona_memory` | `agent_name: string, content: string, title?: string, memory_type?: string, tags?: string, importance?: number` | Save a persona memory. | Record ID confirmation |
 | `query_persona_memory` | `agent_name: string, query?: string, memory_type?: string, limit?: number` | Query persona memories. | Matched persona records JSON |
 | `list_persona_memories` | `agent_name?: string, memory_type?: string, limit?: number` | List persona memories. | Persona record list JSON |

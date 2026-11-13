@@ -17,12 +17,15 @@ NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.2.22)
 main agent on Antigravity IDE/CLI. Mandatory every turn.
-- **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
-- **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact` with absolute repo root.
-- **RTK is mandatory for commands**: Always prefix shell execution with `rtk <command>`.
-- **Resume safety**: Restore Konoha/RTK workflow on session resume.
-- **HITL Gates**: Gate 1 (`pending_plan_approval`) prompt 1. Compact and approve / 2. Reject+Regenerate PLAN; Gate 2 (`pending_human_signoff`) 1. Compact and approve / 2. Remediation. Fail closed, never bypass.
-- **@advisor Review**: delivery needs @advisor approval.
-- **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
-- **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.
+- **Konoha is mandatory**: `find_skill`/`get_skill`; no raw cat/grep.
+- **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact`, absolute root.
+- **Project skills are additive**: `.agents/skills` + skill DB; project rules outside markers preserved.
+- **Cross-platform e2e is mandatory**: Linux, Windows, macOS all pass.
+- **RTK is mandatory**: prefix shell commands with `rtk`.
+- **Resume safety**: restore the Konoha/RTK workflow.
+- **HITL gates**: picker on every client; reply via `sannin({task_dir,choice,refinement})`; fail closed.
+- **Worktree/@advisor guard**: stay in `owned_files`; idle `@advisor` interrupts drift.
+- **@advisor review**: delivery needs approval.
+- **Zero-AI-Slop & Kage gate**: 100/100 + ≥98% confidence.
+- **Full contract**: `get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->

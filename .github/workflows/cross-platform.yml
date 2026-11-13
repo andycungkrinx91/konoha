@@ -25,6 +25,12 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+  # Nightly cross-platform run. Push-only triggers miss the regressions that
+  # matter most here: a runner image change, a dependency that resolves
+  # differently on another OS, or a Windows/macOS-only path bug that no PR
+  # touches. The cron run is the standing proof that every platform passes.
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read

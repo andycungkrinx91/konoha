@@ -95,7 +95,7 @@ node bin/cli.js init --client=all
 
 - **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
 - **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
-- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml); see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
+- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml) on every push, pull request, tag, manual dispatch, and nightly at 02:00 UTC; see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
 - **Search:** native code intelligence over the same SQLite file (`code_search`, `code_symbol`, `code_impact`) — no Python, no `uvx`, no extra service; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
 
 The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
@@ -245,7 +245,7 @@ The unified `konoha` server exposes 55 canonical tools over MCP, including the s
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
-Retrieval tools: `find_skill`, `get_skill`, `use_skills` (single `<= 8,000 B`, multi `<= 4,800 B` total), `list_skills`, `optimize_report`, `migrate_skills`, project and persona memory tools (`get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`).
+Retrieval tools: `find_skill`, `get_skill`, `use_skills` (single `<= 8,000 B`, multi `<= 4,800 B` total), `list_skills`, `optimize_report`, `migrate_skills`, project and persona memory tools (`get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`). Lookups read the project's own skill tree (`.agents/skills` and sixteen sibling locations) alongside the SQLite index, so an unmigrated project skill still resolves and `migrate_skills` is an optimisation rather than a prerequisite.
 
 File tools: `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`.
 

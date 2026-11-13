@@ -38,8 +38,9 @@ flowchart TB
     Developer["Developer"] --> Registry["skills.sh<br/>(Git repository)"]
     Registry --> Files["Workspace or Home<br/>.agents/skills/&lt;name&gt;"]
     Templates["src/templates/skills"] --> Files
-    Files --> Migrate["konoha migrate<br/>(non-destructive)"]
+    Files --> Migrate["konoha migrate<br/>(optional · adds ranking)"]
     Migrate --> DB["SQLite konoha.db<br/>(skills + skills_fts)"]
+    Files -.->|"read first · works unmigrated"| Find
     Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
     DB --> Authz{"classifySkill(name, tags)"}-->|red · caller @akatsuki| Red["Authorized retrieval<br/>(requires_lab: true)<br/>execution still lab-gated"]
@@ -105,7 +106,8 @@ konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 > - `.agents/skills/` = same relative path on all platforms
 
 ### Step 3: Run the Migration (Optional)
-If the database does not automatically sync or if you manually copied skill files, run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
+
+A skill dropped into `.agents/skills/` is already discoverable: `find_skill`, `list_skills`, and `get_skill` read the project tree directly (`getSkillReadRoots()` in `src/mcp/skills_common.js`), merging those rows with the database on every lookup. Migration is what adds ranked FTS5 search and ONNX reranking:
 
 ```bash
 konoha migrate

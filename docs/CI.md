@@ -4,9 +4,13 @@
 
 The `Cross-Platform` workflow (`.github/workflows/cross-platform.yml`) runs the repo
 checks on **ubuntu-latest, windows-latest, and macos-latest** for every push to
-`master`, every pull request, every `v*` tag, and on manual dispatch
-(`workflow_dispatch`). It never publishes anything — the tag-only `publish.yml` and
-`release-assets.yml` workflows still own releases.
+`master`, every pull request, every `v*` tag, on manual dispatch
+(`workflow_dispatch`), and nightly at 02:00 UTC (`schedule`). The nightly run exists
+because a push-only trigger cannot catch a regression introduced by a runner image
+change or a dependency that resolves differently on one OS, and because
+cross-platform verification is a project rule, not an optional extra. It never
+publishes anything — the tag-only `publish.yml` and `release-assets.yml` workflows
+still own releases.
 
 Tag pushes are included so a release carries its own verdict rather than inheriting
 whatever `master` last produced: the README CI badge is pinned to the release tag

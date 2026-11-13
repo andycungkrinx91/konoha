@@ -44,14 +44,14 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.1 Skill Discovery & Neural Retrieval
 
 * **Purpose:** Resolve, search, rank, and load relevant skills and reference SOPs for agent execution.
-* **Canonical Implementation:** `src/mcp/skills.js`, `src/vector_search.js`, `src/db.js`.
+* **Canonical Implementation:** `src/mcp/skills.js`, `src/mcp/skills_common.js`, `src/mcp/skills_search.js`, `src/vector_search.js`, `src/db.js`.
 * **Entry Points:**
   - MCP Tools: `find_skill(keyword, limit?)`, `list_skills(limit?)`, `get_skill(name)`, `optimize_report(query)`.
   - CLI: `konoha migrate`, `konoha embed`, `konoha skill list`.
 * **Consumers:** Sannin router, all 9 specialist subagents, external MCP clients.
-* **Storage:** SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`), ONNX embeddings in `assets/models/`.
+* **Storage:** Two sources, merged on every lookup. (1) The project's own tree — `.agents/skills` plus sixteen sibling locations from `PROJECT_SKILL_SUBDIRS`, resolved by `getProjectSkillRoots()`; (2) SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`) with ONNX embeddings in `assets/models/`. The database is an accelerator, not a prerequisite: an unmigrated project skill still resolves through `find_skill`, `get_skill`, and `list_skills`, and `migrate_skills` adds ranked search and reranking rather than access.
 * **Configuration:** `~/.konoha/mcp_config.json`, embedding model config in `src/vector_search.js`.
-* **Tests:** `tests/test_skill_resolution.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
+* **Tests:** `tests/test_skill_resolution.js`, `tests/test_project_skills_dual_source.js`, `tests/test_skill_uri_resolution.js`, `tests/test_no_filesystem_mirrors.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/ADDING-SKILLS.md`.
 * **Dependencies:** `node:sqlite`, `@huggingface/transformers`, `tar`.
 * **Token Optimization (ADR-0004):** Snippet-first search responses (~150 chars clean text vs 500 chars raw markdown, -32.3% payload reduction), intra-session search deduplication (`[LOADED]` badge on repeats, -38.4% reduction), and token-budgeted/section-targeted retrieval in `get_skill` (-87.1% reduction). See `docs/architecture/TOKEN-BASELINE.md`.

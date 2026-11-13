@@ -17,6 +17,7 @@ const {
   contentHash,
   extractSnippet,
   getServedSkillsSet,
+  getProjectSkillRoots,
   searchMirrorSkills,
   logToolCall,
   isSkillRowVisible,
@@ -259,6 +260,30 @@ function _collectVisibleRows(rows, agentName, limit) {
   return visible;
 }
 
+// Project skills are merged with the database rows on every lookup instead of
+// only when the database returns nothing. An unmigrated or just-edited project
+// skill therefore stays discoverable, and the database can never shadow the
+// project's own skill tree.
+function _appendProjectSkillFallbacks(normKeyword, limit, agentName, visibleRows) {
+  if (visibleRows.length >= limit) return;
+  const projectRoots = getProjectSkillRoots();
+  if (projectRoots.length === 0) return;
+  const seen = new Set();
+  for (const row of visibleRows) {
+    seen.add(row.name);
+    if (row.skill_name) seen.add(row.skill_name);
+  }
+  const rows = searchMirrorSkills(normKeyword, limit, { roots: projectRoots, exclude: seen });
+  for (const row of rows) {
+    if (visibleRows.length >= limit) break;
+    if (denyIfUnauthorized(row.name, row.tags, agentName)) {
+      visibleRows.push(_redactedRow(row));
+      continue;
+    }
+    visibleRows.push(row);
+  }
+}
+
 function _appendMirrorFallbacks(normKeyword, limit, agentName, visibleRows) {
   if (visibleRows.length > 0) return;
   const mirrorRows = searchMirrorSkills(normKeyword, limit);
@@ -337,6 +362,7 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, ...res
     const rows = _fetchCandidateSkillRows(conn, normKeyword, limit);
     _sortSkillRows(rows, normKeyword);
     const visibleRows = _collectVisibleRows(rows, agentName, limit);
+    _appendProjectSkillFallbacks(normKeyword, limit, agentName, visibleRows);
     _appendMirrorFallbacks(normKeyword, limit, agentName, visibleRows);
 
     if (visibleRows.length === 0) {
@@ -386,8 +412,16 @@ function listSkills(agentName = null, fields = null) {
       } catch (_) { rows = []; }
     }
 
+    // Project skills are always listed next to the indexed ones, not only when the
+    // database comes back empty: an unmigrated project skill must still appear.
+    const projectRows = searchMirrorSkills('', 100, {
+      allowEmpty: true,
+      roots: getProjectSkillRoots(),
+      exclude: (rows || []).map(r => r.name)
+    });
+    if (projectRows.length > 0) rows = [...(rows || []), ...projectRows];
     if (!rows || rows.length === 0) {
-      rows = searchMirrorSkills('', 100);
+      rows = searchMirrorSkills('', 100, { allowEmpty: true });
     }
 
     const skills = [];

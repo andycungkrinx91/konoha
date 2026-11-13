@@ -173,6 +173,15 @@ All database interactions across the entire Konoha codebase are consolidated und
    - **Foreign Key Cascade Integrity**: Enforces `ON DELETE CASCADE` from `projects` to `persona_memories` with `PRAGMA foreign_keys = ON`, eliminating orphaned records.
 5. **Akatsuki Lab Segregation**: The Kali catalog and all lab execution records live in a separate file (`~/.konoha/akatsuki-lab/lab.db`) opened only through `src/workflow/akatsuki/lab_db.js#openLabDb`. `getConnection()` throws `LAB_DB_ISOLATION_VIOLATION` for any lab path, and `openRawConnection(path)` skips the main schema, migration, and vector setup. The lab store has four tables (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`) and is purged on confirmed teardown. See `docs/security/DATABASE-ISOLATION-INVENTORY.md` and the schema diagram in `docs/DATABASE-ERD.md`.
 
+### 🔎 Skill Resolution: Project Tree First, Database Second
+
+The SQLite index is an **accelerator over the project's skill tree, not a replacement for it**. Every lookup reads both sources and merges the result, so a skill that was never migrated is still discoverable and loadable.
+
+- **Read roots**: `getSkillReadRoots()` in `src/mcp/skills_common.js` returns the project's own skill directories first — `.agents/skills` and sixteen sibling locations (`PROJECT_SKILL_SUBDIRS`) — then the canonical client mirrors from `getMirrorRoots()`. A root is skipped when it resolves to `HOME` or to an IDE installation directory, so an editor's bundled resources are never mistaken for project skills.
+- **Merge points**: `findSkill` and `listSkills` in `src/mcp/skills_search.js` append project-tree rows after the database rows, de-duplicated on skill name, and `getSkill` in `src/mcp/skills_retrieval.js` falls back to the tree when the row is absent. Authorization still gates the result — an agent that may not read a skill does not see it from either source.
+- **What `migrate_skills` buys**: ranked FTS5 search, ONNX reranking, and token-budgeted `get_skill` output. It is an optimisation, not a prerequisite. `KONOHA_DB_PATH` pointing at an unopenable file degrades to tree-only reads rather than failing the lookup; `tests/test_project_skills_dual_source.js` asserts exactly that path.
+- **Project rules are additive too**: text a project wrote into `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` outside the `<!-- KONOHA-CONTRACT-START/END -->` markers survives re-deployment verbatim (`injectManagedConfig` in `src/agent_deployer.js`).
+
 ---
 
 ## 🧠 Hybrid Vector Search & Multilingual Retrieval (`src/vector_search.js`)

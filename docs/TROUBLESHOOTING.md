@@ -288,13 +288,13 @@ Full walkthrough: [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
 ### 📂 Working in the Konoha repo — skill not found
 
-Project-local skills live in `.agents/skills/` (including `konoha-maintenance`). After `git pull`, run:
+Project-local skills live in `.agents/skills/` (including `konoha-maintenance`). Lookup reads that tree directly, so a fresh clone resolves project skills before any migration. After `git pull`:
 
 ```bash
 konoha migrate
 ```
 
-Then agents should use `find_skill("konoha maintenance")` instead of reading `SKILL.md` directly. Confirm indexing with `konoha status` (expect `konoha` skill in the list).
+Run it to pick up ranked FTS5 search and reranking; it is not required for the skill to be found. Then agents should use `find_skill("konoha maintenance")` instead of reading `SKILL.md` directly. Confirm indexing with `konoha status` (expect `konoha` skill in the list). If `status` reports zero entries but `find_skill` still returns the skill, that is the dual-source path working as designed, not a fault.
 
 ---
 
@@ -496,7 +496,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 **Fix:**
 1. Run `konoha doctor --yes` to repair MCP and generated rules.
-2. Run `konoha migrate` after adding or editing a skill.
+2. Run `konoha migrate` after adding or editing a skill, to refresh the FTS5 index. An unmigrated skill still resolves from `.agents/skills`, so this step buys ranking rather than access.
 3. Verify the session calls `konoha.find_skill` and `konoha.get_skill`; do not create a filesystem mirror.
 4. On Cursor session start: `cursor_bootstrap.js` self-heals MCP, generated rules, and RTK state (fail-open).
 

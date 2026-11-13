@@ -220,8 +220,10 @@ report anything that differs.
 
 What does back those two platforms is the CI matrix, not this manual: `.github/workflows/cross-platform.yml` runs the
 install, lint, suite, and fresh-install smoke step on `windows-latest` and `macos-latest` for every push and pull
-request, and `scripts/windows-ci.ps1` reproduces the Windows job in a local VM. The macOS leg is GitHub-only, so a
-macOS-specific defect is confirmed there rather than locally (see `docs/CI.md`).
+request, on manual dispatch, and nightly at 02:00 UTC, and `scripts/windows-ci.ps1` reproduces the Windows job in a
+local VM. The nightly run exists because a runner-image change or an OS-specific dependency resolution can break a
+platform without any push. The macOS leg is GitHub-only, so a macOS-specific defect is confirmed there rather than
+locally (see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.22 from source
 

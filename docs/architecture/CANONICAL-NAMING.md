@@ -53,7 +53,7 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 - `list_skills(limit?)` — Canonical skill listing
 - `get_skill(name, section?)` — Canonical skill loader. Subpath URIs resolve as `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>` and `<skill>/references/<file>.md` through one resolver (`_findSubpathInMirror` in `src/mcp/skills_common.js`); no duplicated alias files are written.
 - `optimize_report(keyword?)` — Canonical skill-to-prompt optimizer
-- `migrate_skills(force?, skills_dir?)` — Canonical migration trigger
+- `migrate_skills(force?, skills_dir?)` — Canonical migration trigger. Optional accelerator: skill lookup reads the project tree (`.agents/skills` and sixteen siblings) alongside the database, so an unmigrated skill still resolves.
 
 #### UI & Website Architecture
 - `build_from_source(name, source_dir, framework, taste_dials?)` — Canonical image/source build (replaces `build_with_image_design`)
