@@ -446,19 +446,9 @@ Fidelity limits, read before trusting a green local run:
   ~20 GB image GitHub maintains, so a tool GitHub preinstalls can still be missing
   locally. A distro-only failure is a fidelity gap, not a suite defect — reproduce it on
   GitHub before chasing it.
-- Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own
-  local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
-  That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
-  on unresolvable platform images, not on a real defect.
-- `ci:act` runs only the `checks` job: it is the cheap half. `ci:act:shard` runs one suite
-  shard, which pulls the seed, the browsers and the web build and is the slow half — pick
-  the shard with `--matrix shard:<n>`.
-- The macOS leg is the one with no local equivalent, so reproduce a macOS-only failure by
-  reasoning about what differs, not by rerunning Linux. The class that has actually bitten
-  this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`,
-  which is a symlink to `/private/var/folders/...`. Any code that string-compares a
-  resolved path against an unresolved root, or hashes a path string as a cache key, behaves
-  differently there. APFS is also case-insensitive by default. To exercise that locally:
+- Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own local VM mirror (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd`, see "Local Windows VM" below); on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the clean-room gate via Apple `container` while native `CI=true pnpm test` (or the symlinked-`HOME` proxy on Linux) exercises macOS host semantics (see "Local macOS" below). That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail on unresolvable platform images in act, not on a real defect.
+- `ci:act` runs only the `checks` job: it is the cheap half. `ci:act:shard` runs one suite shard, which pulls the seed, the browsers and the web build and is the slow half — pick the shard with `--matrix shard:<n>`.
+- Reproducing a macOS-only failure on Linux (before reaching `macos-latest` or a real Mac): reason about what differs rather than rerunning Linux blindly. The class that has actually bitten this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`, which is a symlink to `/private/var/folders/...`. Any code that string-compares a resolved path against an unresolved root, or hashes a path string as a cache key, behaves differently there. APFS is also case-insensitive by default. To exercise that locally on Linux:
 
   ```bash
   R=$(mktemp -d) && mkdir -p "$R/real" && ln -s "$R/real" "$R/link"
@@ -519,9 +509,10 @@ host leaks that state between runs, which is how "passes locally, fails in CI" s
 sandbox runs the same commands inside a container instead:
 
 ```bash
-pnpm test:sandbox            # install + lint + full suite + fresh-install smoke
-pnpm test:sandbox -- --lint  # fast path: install + lint only
-pnpm test:sandbox -- --no-build   # reuse the last built image
+pnpm test:sandbox               # install + lint + full suite + fresh-install smoke
+pnpm test:sandbox -- --lint     # fast path: install + lint only
+pnpm test:sandbox -- --no-build # reuse the last built image
+pnpm test:sandbox -- --shard=1/8 # run a single CI shard inside the container
 ```
 
 **This is the gate on Linux, not an option.** A developer machine usually has a real

@@ -22,7 +22,7 @@ verifiable rules exist. No rule here is invented.
 3. `.omp/plans` must not be committed.
 4. Official Konoha skills must match the actual codebase.
 5. Manual documentation, diagrams, and asset review is mandatory.
-6. Cross-platform compatibility must be verified.
+6. Cross-platform compatibility across all 3 local CI test environments must be verified: (1) Linux (`pnpm test:sandbox [-- --shard=I/8]` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu `act`), (2) Windows (`docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` via `dockur/windows`), and (3) macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` + `macos-latest` CI).
 7. Aislop gate: shipped code must pass `rtk npx aislop scan --changes` with score 100/100 Healthy, 0 errors, 0 warnings.
 8. Maximum 700 lines per file/script (`.js`, `.py`, `.svelte`; enforced by `scripts/lint.js`).
 9. Local Socket CLI checks are mandatory after dependency changes.

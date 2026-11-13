@@ -1,6 +1,7 @@
 const assert = require('assert');
+const http = require('http');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 function findPiResourceLoaderChunk() {
   const fs = require('fs');
@@ -73,6 +74,31 @@ function findPiResourceLoaderChunk() {
   return null;
 }
 
+function isPortUp(port) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: '127.0.0.1', port, path: '/', timeout: 800 }, (res) => { res.resume(); resolve(true); });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+async function waitForPort(port, want, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await isPortUp(port)) === want) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
+
+function waitForExit(child, timeoutMs) {
+  if (child.exitCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    child.once('exit', () => { clearTimeout(timer); resolve(true); });
+  });
+}
+
 async function run() {
   console.log('1. Testing Pi resource loader diagnostics...');
   try {
@@ -94,26 +120,45 @@ async function run() {
     console.warn('○ Pi resource loader test skipped or encountered: ' + err.message);
   }
 
-  console.log('2. Testing Konoha UI start & duplicate start behavior...');
+  console.log('2. Testing Konoha UI start & duplicate start guard...');
   const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
-  // Dedicated test port: a bare default-port start/stop here would kill a
-  // production daemon already serving on 1404.
+  // Dedicated test port: a bare default-port start here would collide with a
+  // production server already serving on 1404.
   const testPort = 1406;
-  const start1 = spawnSync(process.execPath || 'node', [cliPath, 'ui', 'start', '--no-open', `--port=${testPort}`], { encoding: 'utf8' });
-  assert.strictEqual(start1.status, 0, 'Start 1 failed: ' + (start1.stderr || start1.stdout));
-  assert(start1.stdout.includes('started successfully') || start1.stdout.includes('already active'));
+  assert.strictEqual(await isPortUp(testPort), false, `port ${testPort} is already serving before the test started`);
 
-  const start2 = spawnSync(process.execPath || 'node', [cliPath, 'ui', 'start', '--no-open', `--port=${testPort}`], { encoding: 'utf8' });
-  assert.strictEqual(start2.status, 0, 'Start 2 failed: ' + (start2.stderr || start2.stdout));
-  assert(start2.stdout.includes('already active'), 'Should report already active cleanly');
-  assert(!start2.stdout.includes('WARN') && !start2.stderr.includes('WARN'), 'Must not emit warning');
-  console.log('✓ Konoha UI duplicate start returns clean info without warning.');
+  // `ui start` serves in the foreground by design (there is no daemon mode and
+  // no `ui stop` anymore), so it must be spawned and awaited — a spawnSync here
+  // would block on the running server instead of returning.
+  const server = spawn(process.execPath || 'node', [cliPath, 'ui', 'start', '--no-open', `--port=${testPort}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let serverOut = '';
+  server.stdout.on('data', (d) => { serverOut += d; });
+  server.stderr.on('data', (d) => { serverOut += d; });
 
-  console.log('3. Testing Konoha UI stop...');
-  const stop = spawnSync(process.execPath || 'node', [cliPath, 'ui', 'stop', `--port=${testPort}`], { encoding: 'utf8' });
-  assert.strictEqual(stop.status, 0, 'Stop failed: ' + (stop.stderr || stop.stdout));
-  assert(stop.stdout.includes('stopped successfully'));
-  console.log('✓ Konoha UI stopped cleanly.');
+  try {
+    assert.ok(await waitForPort(testPort, true, 30000), 'Web UI never started serving on ' + testPort);
+    assert(/Web UI ready at:/.test(serverOut), 'Start did not print its ready banner: ' + serverOut.slice(-400));
+
+    const dup = spawnSync(process.execPath || 'node', [cliPath, 'ui', 'start', '--no-open', `--port=${testPort}`], {
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+    assert.strictEqual(dup.status, 1, 'A second start must refuse instead of binding twice: ' + (dup.stdout || '') + (dup.stderr || ''));
+    const dupOut = `${dup.stdout || ''}${dup.stderr || ''}`;
+    assert(dupOut.includes(`already running on http://127.0.0.1:${testPort}/`), 'Second start must point at the running instance: ' + dupOut);
+    assert(!/WARN/.test(dupOut), 'Must not emit a warning');
+    console.log('✓ Konoha UI refuses a second instance and names the running one.');
+  } finally {
+    server.kill('SIGTERM');
+    // The shutdown notice races the port release, so the asserted contract is
+    // the behaviour: the process exits on its own and frees its port.
+    assert.ok(await waitForExit(server, 20000), 'SIGTERM must shut the UI process down');
+    assert.ok(await waitForPort(testPort, false, 20000), 'Port ' + testPort + ' still serving after shutdown');
+    assert.strictEqual(await isPortUp(testPort), false, 'Port ' + testPort + ' still accepting connections after shutdown');
+    console.log('✓ Konoha UI shuts down on SIGTERM and releases its port.');
+  }
 
   console.log('✅ ALL PI & UI DAEMON TESTS PASSED!');
 }

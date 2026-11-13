@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const { chromium } = require('playwright');
 const { validateAnimatedWebP } = require('../src/workflow/tokubetsu-scribe/document_engine');
 
@@ -31,23 +31,33 @@ async function ensureWebServer() {
     });
     if (res.status === 200) {
       console.log('✓ Web UI server is already active on port 1404.');
-      return true;
+      return { proc: null };
     }
   } catch (_e) {
     /* fall through and launch */
   }
 
   console.log('▶ Launching Konoha Web UI on port 1404...');
-  const res = spawnSync(
+  const proc = spawn(
     'node',
     [path.join(ROOT_DIR, 'bin', 'cli.js'), 'ui', 'start', '--port', '1404', '--no-open'],
-    { stdio: 'inherit', cwd: ROOT_DIR }
+    { stdio: 'ignore', cwd: ROOT_DIR }
   );
-  if (res.status !== 0) {
-    throw new Error('Failed to launch Konoha Web UI server');
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    try {
+      const res = await fetch('http://127.0.0.1:1404/api/v1/health', {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (res.status === 200) {
+        return { proc };
+      }
+    } catch (_e) {
+      /* waiting for startup */
+    }
   }
-  await new Promise((r) => setTimeout(r, 2000));
-  return true;
+  try { proc.kill('SIGTERM'); } catch (_) { /* ignore */ }
+  throw new Error('Failed to launch Konoha Web UI server on port 1404');
 }
 
 function buildCompositeHtml(dataUri, urlDisplay, badgeText) {
@@ -284,14 +294,14 @@ async function main() {
   console.log('   SvelteKit + Svelte 5 + Sharingan Dark Mode / 10 Themes ');
   console.log('==========================================================');
 
-  await ensureWebServer();
+  const { proc: serverProc } = await ensureWebServer();
 
   // Reset web auth to guarantee known password
   spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
 
   console.log('▶ Launching Chromium with viewport 1280x800...');
   const browser = await chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
+    ...(fs.existsSync('/usr/bin/google-chrome') ? { executablePath: '/usr/bin/google-chrome' } : {}),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
@@ -303,9 +313,10 @@ async function main() {
     const pages = [
       ['http://127.0.0.1:1404/', '00_login.png', 'http://127.0.0.1:1404/ • Cyberpunk Login Gateway', 'PASSPHRASE AUTH • 10-THEMES', 2800],
       ['http://127.0.0.1:1404/dashboard', '01_dashboard.png', 'http://127.0.0.1:1404/dashboard • Mission Control', 'CPU · MEMORY · DISK · FEATURE METRICS', 3000],
-      ['http://127.0.0.1:1404/agents', '02_agents.png', 'http://127.0.0.1:1404/agents • Ninja Subagents', '8 NINJAS • MODEL CONFIG', 2400],
+      ['http://127.0.0.1:1404/agents', '02_agents.png', 'http://127.0.0.1:1404/agents • Ninja Subagents', '9 NINJAS • MODEL CONFIG', 2400],
       ['http://127.0.0.1:1404/bridges', '03_bridges.png', 'http://127.0.0.1:1404/bridges • LLM Bridge Gateway', 'GATEWAY :19999 • SIDECAR :1313', 2200],
       ['http://127.0.0.1:1404/skills', '04_skills.png', 'http://127.0.0.1:1404/skills • Skills Registry', '68 SKILLS • EMBED / UNEMBED', 2200],
+      ['http://127.0.0.1:1404/code', '15_code.png', 'http://127.0.0.1:1404/code • Native Code Intelligence', 'SQLITE FTS5 · SYMBOL INDEX', 2400],
       ['http://127.0.0.1:1404/savings', '05_savings.png', 'http://127.0.0.1:1404/savings • Token Savings Breakdown', 'TOOL-BY-TOOL METRICS', 2200],
       ['http://127.0.0.1:1404/context', '06_context.png', 'http://127.0.0.1:1404/context • Project Memory', 'PERSISTENT INVARIANTS', 2000],
       ['http://127.0.0.1:1404/persona', '07_persona.png', 'http://127.0.0.1:1404/persona • Episodic Memory', 'SQLITE FTS5 SEARCH', 2000],
@@ -329,6 +340,13 @@ async function main() {
       await browser.close();
     } catch (_) {
       /* ignore browser close errors during shutdown */
+    }
+    if (serverProc) {
+      try {
+        serverProc.kill('SIGTERM');
+      } catch (_) {
+        /* ignore server termination errors */
+      }
     }
     try {
       fs.rmSync(TMP_FRAMES_DIR, { recursive: true, force: true });

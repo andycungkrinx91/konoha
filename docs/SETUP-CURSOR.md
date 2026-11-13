@@ -23,7 +23,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.22.
+Status: **Linux x64 and Windows 11 x64 (`docker/windows-vm`) verified for 2.2.22**; macOS container sandbox (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`) and `.github/workflows/cross-platform.yml` (`macos-latest`, `windows-latest`, `ubuntu-latest`) cover the full 3-OS matrix (see `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Cursor Setup |
 |----|-----------------|--------------|

@@ -63,7 +63,7 @@ Konoha serves ALL 55 canonical tools through standard MCP protocols across 8 sup
 19. **A Server Nobody Owns Must Exit**: `src/mcp_orphan_guard.js` gives both long-lived entry points a self-terminating path. `startStdioOrphanGuard` polls `process.ppid === 1` every `mcp_orphan_parent_poll_ms` (30 s; `KONOHA_MCP_ORPHAN_POLL_MS` is a test seam, not user config) and exits when the spawning client died, so a stdio server orphaned by a short-lived launcher does not hold the bridge port or the database; `noteActivity()` on every `readline` line feeds a `mcp_stdio_idle_timeout_ms` (4 h; `KONOHA_MCP_STDIO_IDLE_MS`, same seam) idle budget, which is the only exit Windows has because Windows does not reparent children and `ppid` never becomes 1 there. `startDaemonOrphanGuard` claims `bridge.pid` and exits when a newer live daemon takes it over. Never remove the guard to "simplify startup": stdin EOF is not a reliable exit signal (a launcher that exits tears down its own pipe), so the poll is the only path that survives a reparent. Guards: `tests/test_mcp_orphan_guard.js`.
 20. **The Web UI Starts Only by Hand**: `konoha ui` exposes exactly `start` (foreground, blocking) and `build`. Nothing auto-starts it — not `init`, not `upgrade`, not the MCP stdio bootstrap. A second `konoha ui start` on a port that is already listening exits 1 with `already running`; `assertSingleInstance` probes the port before binding. Guard: `tests/test_ui_manual_only.js`.
 
-21. **A Delivery Verdict Needs All Three Platforms**: cross-platform end-to-end verification is mandatory, never optional. A change counts as done only after Linux, Windows, and macOS all pass — a single-OS green is not a verdict. Locally, reproduce with `act -j checks` and `act -j test --matrix os:ubuntu-latest --matrix shard:<N>` (`.actrc` maps only `ubuntu-latest`), and drive the Windows guest through `docker/windows-vm/oem/retest.cmd`. The macOS leg has no local image and remains GitHub-only (`docs/CI.md`). `.github/workflows/cross-platform.yml` also runs nightly at 02:00 UTC so a runner-image or OS-specific resolution change is caught without a push.
+21. **A Delivery Verdict Needs All Three Local Cross-Platform CI Environments**: cross-platform end-to-end verification is mandatory, never optional. A change counts as done only after Linux, Windows, and macOS all pass — a single-OS green is not a verdict. Exercise all 3 local cross-platform CI test environments before handoff: (1) **Linux**: Debian clean-room `pnpm test:sandbox [-- --shard=I/8]` + Ubuntu `act` `pnpm ci:act` / `pnpm ci:act:shard` (`act -j checks` / `act -j test --matrix os:ubuntu-latest --matrix shard:<N>`, `.actrc` pins `catthehacker/ubuntu:act-latest`); (2) **Windows**: `docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` inside `dockur/windows` (`scripts/windows-ci.ps1`); (3) **macOS**: `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` via Apple `container`, plus native `macos-latest` CI (or the Linux symlinked-`HOME` proxy for `/var` → `/private/var` and APFS path checks in `docs/CI.md`). `.github/workflows/cross-platform.yml` also runs on push, PR, tag, manual dispatch, and nightly at 02:00 UTC.
 
 ---
 
@@ -105,6 +105,12 @@ rtk node tests/test_skill_retrieval_precedence.js
 
 # Verify the first-run login fix end to end (Playwright; boots the web app)
 rtk pnpm run test:e2e
+
+# 3 local cross-platform CI test environments (Linux, Windows, macOS)
+rtk pnpm test:sandbox -- --shard=1/8
+rtk pnpm ci:act && rtk pnpm ci:act:shard
+# Windows (inside dockur/windows guest): docker\windows-vm\oem\run-ci.cmd -Shard 1/8
+# macOS (Apple silicon): KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox -- --shard=1/8
 
 # Static analysis & Zero-AI-Slop audit
 rtk node scripts/lint.js

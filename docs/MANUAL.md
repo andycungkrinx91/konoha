@@ -218,12 +218,9 @@ inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows command
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
 
-What does back those two platforms is the CI matrix, not this manual: `.github/workflows/cross-platform.yml` runs the
-install, lint, suite, and fresh-install smoke step on `windows-latest` and `macos-latest` for every push and pull
-request, on manual dispatch, and nightly at 02:00 UTC, and `scripts/windows-ci.ps1` reproduces the Windows job in a
-local VM. The nightly run exists because a runner-image change or an OS-specific dependency resolution can break a
-platform without any push. The macOS leg is GitHub-only, so a macOS-specific defect is confirmed there rather than
-locally (see `docs/CI.md`).
+What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
+install, lint, 8-shard suite, and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.22 from source
 
@@ -232,13 +229,12 @@ The published registry stops at 2.2.21, so 2.2.22 must be built and installed lo
 ```bash
 git clone <repo> konoha && cd konoha
 git checkout v2.2.22                  # the tree this manual describes
-npm pack                              # produces konoha-mcp-2.2.22.tgz, ~114 MB
+pnpm pack                             # produces konoha-mcp-2.2.22.tgz, ~114 MB
 npm install -g ./konoha-mcp-2.2.22.tgz
 konoha version                        # Current Version: 2.2.22
 ```
 
-`npm pack` uses the package's own `files` list (27 entries) and bundles `pptxgenjs`, which is why the tarball is large
-and why an offline `npm install -g` of the tarball works without a further fetch.
+`pnpm pack` uses the package's own `files` list (27 entries) and bundles `cfb`, `pptxgenjs`, and `xlsx-populate` (so the patched `cfb` ships inside the tarball rather than falling back to an unpatched top-level copy), which is why the tarball is large and why an offline `npm install -g` of the tarball works without a further fetch (`npm pack` fails on a pnpm-installed workspace once `bundleDependencies` is set).
 
 `konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.22, and aborts without touching the
 existing install (12.1 documents the exact output).
@@ -532,9 +528,9 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `telegram` | bot reporting and remote prompting | see chapter 8 |
 | `test` | verify the MCP server | — |
 | `tui` | full-screen interface | chapter 6 |
-| `ui` / `web` | local Web UI on port 1404 | `start`, `stop`, `restart`, `status` |
+| `ui` | local Web UI on port 1404 | `start`, `build` |
 | `uninstall` | remove Konoha | keeps custom skill files |
-| `upgrade` / `update` | upgrade from the npm registry | `--yes`, `--force` |
+| `upgrade` | upgrade from the npm registry | `--yes`, `--force` |
 | `version` / `-v` | version, plus a registry freshness check | — |
 | `webhook` / `webhooks` | outbound notifications | Bearer, API Key, JWT |
 
@@ -1380,7 +1376,7 @@ container system start                                  # once per boot
 KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox
 ```
 
-That still runs a **Linux** guest, so it reproduces the clean room but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. There is no host fallback: the suite refuses to start outside a sandbox, so macOS-native behaviour is covered by the `macos-latest` leg. Details in `docs/CI.md`.
+That still runs a **Linux** guest, so it reproduces the clean room (including `--shard=I/8` slices) but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Native macOS host semantics require either a real Mac running `CI=true pnpm test` or the `macos-latest` CI leg (`docs/CI.md`).
 
 The runner discovers every `tests/test_*.js` (plus `*.test.js` and `verify_*.js`), builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at the copy — `USERPROFILE` matters because `os.homedir()` ignores `HOME` on Windows. A suite that needs your real `~/.konoha` is a defect in the suite. Details and the isolation contract are in `docs/QA-AUTOMATION.md` and `docs/CI.md`.
 
@@ -1668,9 +1664,7 @@ Known limitations, stated rather than papered over:
 
 - Windows is verified on a local dockur/QEMU VM and by the `windows-latest` CI leg (`scripts/windows-ci.ps1` mirrors the
   latter); it is not verified on physical Windows hardware or on Docker Desktop for Windows.
-- macOS is exercised only by the `macos-latest` CI leg. No macOS host was available, so the defects that leg surfaced
-  were reproduced through their Linux-observable cause (a symlinked `HOME`) and fixed, but no green macOS run has been
-  observed here. Treat macOS support as CI-backed, not locally proven.
+- macOS is exercised by the `macos-latest` CI leg (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the clean-room container gate on Apple silicon). No macOS host was available here, so the defects that leg surfaced were reproduced through their Linux-observable cause (a symlinked `HOME`) and fixed, and `macos-latest` CI is the real host confirmation. Treat native macOS behaviour as CI-backed rather than locally executed on Apple hardware.
 - Authenticated Web UI page contents are described from routes and navigation, not screenshots.
 - Benchmark percentages are quoted from `docs/architecture/TOKEN-BASELINE.md` and the live `konoha savings` output; read
   12.1 before quoting them.

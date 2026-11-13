@@ -1483,12 +1483,12 @@
     "~"
    ],
    [
-    "konoha ui status",
+    "konoha ui --help",
     [
      "node",
      "bin/cli.js",
      "ui",
-     "status"
+     "--help"
     ],
     "13. UI • WEB SVELTEKIT DASHBOARD",
     null,
@@ -1548,7 +1548,7 @@
      "agent",
      "status"
     ],
-    "17. AGENT • 7 NINJA CALL STATS",
+    "17. AGENT • 9 NINJA CALL STATS",
     null,
     true,
     null,
@@ -1953,7 +1953,7 @@
     "http://127.0.0.1:1404/agents",
     "02_agents.png",
     "http://127.0.0.1:1404/agents • Ninja Subagents",
-    "7 NINJAS • MODEL CONFIG",
+    "9 NINJAS • MODEL CONFIG",
     2400
    ],
    [

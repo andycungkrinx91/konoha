@@ -1398,7 +1398,7 @@
     },
     {
       "name": "migrate_skills",
-      "description": "Re-index skills into SQLite FTS5.",
+      "description": "Re-index skills into SQLite FTS5 for ranked search and reranking. Optional: `find_skill`, `get_skill`, and `list_skills` already read the project skill tree alongside the database.",
       "inputSchema": {
         "type": "object",
         "properties": {

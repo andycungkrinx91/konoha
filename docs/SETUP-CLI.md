@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified on this host.** Windows 10/11 and macOS are exercised by `.github/workflows/cross-platform.yml` (install, lint, full suite, fresh-install smoke) on `windows-latest` and `macos-latest`; `scripts/windows-ci.ps1` reproduces the Windows job locally in a VM. macOS defects surfaced by that matrix are fixed but can only be re-confirmed by a GitHub run — there is no local macOS host.
+Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (8 shards), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -68,7 +68,7 @@ Konoha has three distinct modes. They are not interchangeable, and no mode perfo
 | Mode | Command | Behavior |
 |:---|:---|:---|
 | **Persistent global install** | `npm install -g konoha-mcp@latest` (or `pnpm add -g konoha-mcp@latest`); from a packed tarball, `npm install -g ./konoha-mcp-<version>.tgz` | Puts `konoha` on PATH. The package ships no install-time lifecycle script, so nothing is prompted for permission and nothing touches `$HOME` at install time. Runtime setup stays explicit (`konoha init --yes`) |
-| **In-place upgrade** | `konoha upgrade` / `konoha update` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
+| **In-place upgrade** | `konoha upgrade` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry. No persistent global install, no install-script side effects |
 
 `npx i -g konoha-mcp` is **not valid syntax** — `i` is not an `npx` flag. Use the persistent or ephemeral form above.

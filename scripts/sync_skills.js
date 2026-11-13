@@ -220,19 +220,12 @@ function syncSoul() {
 
   if (!fs.existsSync(soulSrc)) return 0;
 
-  let soulUpdated = 0;
-  const homeAgents = path.join(os.homedir(), '.agents');
-  const targets = [];
-  if (fs.existsSync(homeAgents)) {
-    targets.push(path.join(homeAgents, 'SOUL.md'));
-  }
-
-  for (const target of targets) {
-    if (copyFileIfChanged(soulSrc, target)) {
-      soulUpdated++;
-    }
-  }
-  return soulUpdated;
+  // One writer: src/soul_sync.js rewrites the managed block and leaves whatever
+  // the user wrote outside <!-- KONOHA-START -->/<!-- KONOHA-END --> untouched.
+  // Copying the raw template here would delete that prose on every sync.
+  const { syncSoulAcrossClients } = require('../src/soul_sync');
+  const res = syncSoulAcrossClients({ home: os.homedir() });
+  return (res.updated || 0) + (res.appended || 0);
 }
 
 if (require.main === module) {

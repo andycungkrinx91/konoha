@@ -19,6 +19,9 @@ if errorlevel 8 (
 )
 cd /d C:\konoha
 
+rem The guest has no route to astral.sh, so installUv() blocks on winget and the
+rem seed build hangs before the first suite. scripts/windows-ci.ps1 sets this too.
+set KONOHA_SKIP_UV_INSTALL=1
 set KONOHA_UI_AUTOSTART=0
 set KONOHA_TEST_EXCLUDE=test_yamanaka_
 set CI=true

@@ -1,6 +1,6 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.5.0 (Konoha v2.2.19)  
+**Document Version:** 1.6.0 (Konoha v2.2.22)  
 **Date:** 2026-11-08  
 **Status:** Authoritative CLI Command Reference
 
@@ -51,7 +51,6 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha ui` | `<start|build> [options]` | Run the local Web Configuration UI in the foreground (`start`, blocking) or rebuild its bundle (`build`); port 1404 |
 | `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
 | `konoha upgrade` | `[--yes\|-y] [--force]` | Upgrade the global Konoha installation in place via the detected package manager. Exits 1 when no package manager can install the target (`Upgrade aborted: no package manager could install konoha-mcp@<v>.`) and when the installed version cannot be verified (`Upgrade verification failed: ...`). Never reports success without an observed version |
-| `konoha update` | `[--yes\|-y] [--force]` | Documented synonym of `konoha upgrade` (same handler in `bin/cli.js`) |
 | `konoha version` | `[-v] [--version]` | Display installed CLI version and check npm registry for updates |
 | `konoha webhook` | `<subcommand> [options]` | Manage outbound SDLC event webhooks (list, add, test, enable, disable, delete) |
 
@@ -171,7 +170,7 @@ Three install modes, never blurred:
 | Mode | Invocation | Effect |
 |---|---|---|
 | Persistent global install | `npm install -g konoha-mcp@latest`, or `npm install -g ./konoha-mcp-<version>.tgz` for a packed tarball | Installs the CLI. The package ships no install-time lifecycle script, so no install hook executes and no script-permission prompt can block the install. Runtime setup happens on the next `konoha init --yes` (or `konoha upgrade` on an existing tree). |
-| In-place upgrade | `konoha upgrade` / `konoha update` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
+| In-place upgrade | `konoha upgrade` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
 | Ephemeral run | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs the CLI without installing it. Never claims to have performed a global install. |
 
 `konoha upgrade` failure contract:

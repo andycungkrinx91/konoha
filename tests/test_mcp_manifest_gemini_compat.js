@@ -10,7 +10,7 @@
  *
  * Contract enforced here:
  *   1. src/mcp_tool_manifest.json contains zero `"integer": true` keys.
- *   2. src/file_tools_router.js derives integer-ness from `type === 'integer'`
+ *   2. src/mcp/arg_validation.js derives integer-ness from `type === 'integer'`
  *      ONLY — it must not read `schema.integer`.
  *   3. Runtime validation still rejects fractional input for `type: 'integer'`
  *      properties and still accepts fractions for `type: 'number'` properties.
@@ -28,6 +28,7 @@ const path = require('path');
 const SRC_DIR = path.resolve(__dirname, '..', 'src');
 const MANIFEST_PATH = path.join(SRC_DIR, 'mcp_tool_manifest.json');
 const ROUTER_PATH = path.join(SRC_DIR, 'file_tools_router.js');
+const ARG_VALIDATION_PATH = path.join(SRC_DIR, 'mcp', 'arg_validation.js');
 
 /**
  * Recursively collect every schema node (property schema / array items) that
@@ -155,13 +156,13 @@ test('every inputSchema passes a strict Gemini-compatible keyword allow-list', (
   assert.deepEqual(violations, [], `Gemini would reject these schema nodes:\n${violations.join('\n')}`);
 });
 
-test('file_tools_router.js derives integer-ness from type === "integer" only', () => {
-  const source = fs.readFileSync(ROUTER_PATH, 'utf8');
-  assert.ok(!/schema\.integer\b/.test(source), 'router must not read schema.integer — derive from type === "integer"');
-  assert.ok(!/\.integer\s*&&/.test(source), 'router must not gate on a truthy .integer flag');
+test('arg_validation.js derives integer-ness from type === "integer" only', () => {
+  const source = fs.readFileSync(ARG_VALIDATION_PATH, 'utf8');
+  assert.ok(!/schema\.integer\b/.test(source), 'validator must not read schema.integer — derive from type === "integer"');
+  assert.ok(!/\.integer\s*&&/.test(source), 'validator must not gate on a truthy .integer flag');
   assert.ok(
     /schema\.type\s*===\s*'integer'/.test(source),
-    'router must still enforce integer-ness via type === "integer"'
+    'validator must still enforce integer-ness via type === "integer"'
   );
 });
 

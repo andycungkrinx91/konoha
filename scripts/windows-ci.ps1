@@ -7,7 +7,8 @@
 param(
   [string]$Source = 'Z:\',
   [string]$Work = 'C:\konoha',
-  [string]$LogDir = 'Z:\docker\windows-vm\logs'
+  [string]$LogDir = 'Z:\docker\windows-vm\logs',
+  [string]$Shard = $env:KONOHA_TEST_SHARD
 )
 
 $ErrorActionPreference = 'Continue'
@@ -212,10 +213,11 @@ Invoke-Step 'Verify ffmpeg webp encoder' {
 }
 
 Invoke-Step 'Lint' { pnpm lint }
-# CI splits the suite over 8 shards per OS; this guest runs all of it in one pass so a
-# local run still covers every suite. Set KONOHA_TEST_SHARD before invoking the script
-# to reproduce a single CI shard instead.
-Invoke-Step 'Test (full suite)' { pnpm test }
+# CI splits the suite over 8 shards per OS; this guest runs all of it in one pass by default,
+# or a single shard when -Shard I/N or KONOHA_TEST_SHARD=I/N is set.
+if ($Shard) { $env:KONOHA_TEST_SHARD = $Shard }
+$testLabel = if ($Shard) { "Test (shard $Shard)" } else { 'Test (full suite)' }
+Invoke-Step $testLabel { pnpm test }
 
 Invoke-Step 'Fresh-install smoke test' {
   $smokeHome = Join-Path $env:SystemDrive 'konoha-smoke-home'

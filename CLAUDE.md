@@ -23,7 +23,7 @@ main agent on Claude Code. Mandatory every turn.
 - **Konoha is mandatory**: `find_skill`/`get_skill`; no raw cat/grep.
 - **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact`, absolute root.
 - **Project skills are additive**: `.agents/skills` + skill DB; project rules outside markers preserved.
-- **Cross-platform e2e is mandatory**: Linux, Windows, macOS all pass.
+- **Cross-platform e2e is mandatory**: 3-OS local CI (Linux sandbox/act, Windows VM, macOS container/CI).
 - **RTK is mandatory**: prefix shell commands with `rtk`.
 - **Resume safety**: restore the Konoha/RTK workflow.
 - **HITL gates**: picker on every client; reply via `sannin({task_dir,choice,refinement})`; fail closed.
