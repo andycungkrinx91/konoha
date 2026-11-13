@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Manual version | 2.2.22 |
-| Code reference | tag `v2.2.22` (`master`), `package.json` version `2.2.22` |
-| Distribution status | **unpublished** — npm `konoha-mcp` latest is 2.2.19; the latest GitHub release is v2.2.19 |
+| Code reference | `package.json` version `2.2.22` on `feature/issue-13-native-code-intelligence`, tagged `v2.2.22` when the release is cut |
+| Distribution status | **2.2.22 unreleased** — npm `konoha-mcp` latest is 2.2.21 and the latest GitHub release is v2.2.21 |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
@@ -154,14 +154,14 @@ and `i -g` inside it is a mistake that npm happens to tolerate poorly. The two c
 
 ```bash
 # published release, no global install, runs once
-npx konoha-mcp@2.2.19 init
+npx konoha-mcp@2.2.21 init
 
 # real installation
 npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.22 specifically neither form works from the registry: `konoha-mcp@2.2.22` is not published — only `2.2.19` is.
+For 2.2.22 specifically neither form works from the registry: `konoha-mcp@2.2.22` is not published — only `2.2.21` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -225,7 +225,7 @@ macOS-specific defect is confirmed there rather than locally (see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.22 from source
 
-The published registry stops at 2.2.19, so 2.2.22 must be built and installed locally. From a clone:
+The published registry stops at 2.2.21, so 2.2.22 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
@@ -1661,8 +1661,8 @@ Observed in 2.2.22, recorded rather than fixed. None blocks normal operation.
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.22** as tagged at `v2.2.22` on `master`, one patch ahead of the newest npm release
-(`2.2.19`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
+This manual describes **2.2.22**, one patch ahead of the newest npm release (`2.2.21`) and the newest GitHub
+release (`v2.2.21`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
 scratch prefix, on the 2.2.20 tree; 2.2.22's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:

@@ -85,7 +85,7 @@ node bin/cli.js init --client=all
 - **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
 - **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
 - **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml); see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
-- **Search:** Semble via `uvx` for semantic code search; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
+- **Search:** native code intelligence over the same SQLite file (`code_search`, `code_symbol`, `code_impact`) — no Python, no `uvx`, no extra service; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
 
 The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
 
@@ -108,7 +108,7 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | 3D | Yamanaka generative 3D and Blender refinement | `yamanaka-skill` | Manifold and PBR validation |
 | Retrieval | Compact `use_skills` (single-skill `<= 8,000 B`, multi-skill `<= 4,800 B` total), session dedup | `src/mcp/skills_common.js` | `[ALREADY_IN_CONTEXT]` on repeat loads; `full: true` opt-in |
 | File I/O | Bounded reads: head, range, grep, structure, clean-find | `src/file_tools_router.js` | 150-line head cap, 250-line range cap, 20-match grep cap (50 hard max) |
-| Search | Semble semantic code search | `semble` MCP | Replaces full-repo dumps with line spans |
+| Search | Native code intelligence, SQLite FTS5 | `code_search`, `code_symbol`, `code_impact` | Replaces full-repo dumps with line spans |
 | Shell | RTK global CLI proxy compresses noisy output | `rtk` | Per-command savings via `rtk gain`; no global percentage asserted here |
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
@@ -125,7 +125,7 @@ The headline range is **bounded-retrieval only**, not whole-system. Evidence: [d
 - Core bounded retrieval lands inside 83–98%: `find_skill` ~98%, `read_file_range` ~82–94% depending on snapshot, `read_file_head` varies by file shape.
 - Structural pruning tools exceed it (`token_efficient_grep`, `file_info`, `find_files_clean` each 90%+ on the current snapshot).
 - Operational routers report 0% by design (`sannin`, `anbu`, `use_skills` preserve directives as-is) so they never inflate the metric.
-- Semble, RTK, latency, and cost are measured separately in `docs/BENCHMARK.md` (Semble ~98% on 3.2k queries; RTK 32.6% project / 59.2% global machine history). Fresh installs show `—`/`no_data` until their own calls are recorded.
+- Retrieval, RTK, latency, and cost are measured separately in `docs/BENCHMARK.md` (bounded retrieval 83–98%, FTS5 skill search 2,207 queries/sec; RTK 32.6% project / 59.2% global machine history). Fresh installs show `—`/`no_data` until their own calls are recorded.
 
 Do not quote 83–98% as whole-session or cost savings.
 
@@ -135,10 +135,10 @@ Do not quote 83–98% as whole-session or cost savings.
 
 ### 1. Delegate through MCP tools, never solo
 
-On a Konoha-configured host, non-trivial work routes through the Konoha and Semble MCP tools to a subagent:
+On a Konoha-configured host, non-trivial work routes through the Konoha MCP tools to a subagent:
 
 - Skill lookup: `find_skill` / `get_skill` / `use_skills` (Konoha MCP, SQLite FTS5).
-- Codebase search: `search` / `find_related` (Semble MCP).
+- Codebase search: `code_search` / `code_symbol` / `code_impact` (Konoha MCP, native FTS5 index).
 - Bounded reads: `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`.
 - Quality: `aislop_scan`, `aislop_fix`, `aislop_why`; delivery gate `anti_slop`.
 - Package manager: `pnpm` for JS/TS scaffolding, installs, and builds.
@@ -200,7 +200,7 @@ flowchart TB
     Prompt["User request"] --> Router["sannin triage"]
     Router --> Activate["use_skills activation<br/>(Konoha MCP get_skill)"]
     Activate --> Worker["Specialist subagent<br/>genin chunin jonin anbu<br/>tokubetsu-jonin akatsuki yamanaka"]
-    Router --> SembleMCP["Semble MCP code search"]
+    Router --> CodeIntel["Native code intelligence<br/>FTS5 index"]
     Worker --> Evidence["report_from_agent<br/>validation evidence"]
     Evidence --> KageGate["kage review<br/>98-pct confidence gate"]
     KageGate --> Delivery["Delivery"]
@@ -230,7 +230,7 @@ Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools a
 ### MCP tools: 55 canonical, 57 manifest entries
 
 `src/mcp_tool_manifest.json` lists 57 entries: 55 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
-The unified `konoha` server exposes 55 canonical tools over MCP; Semble adds `search`/`find_related` and aislop adds scan/fix hygiene.
+The unified `konoha` server exposes 55 canonical tools over MCP, including the seven `code_*` code-intelligence tools; aislop adds scan/fix hygiene.
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
@@ -244,7 +244,7 @@ QA tools (Anbu-exclusive): `qa_codify` (flow JSON to Playwright spec), `qa_e2e_r
 
 Detectors and documents: `website_ai_detector` (also `konoha detect-ai`; 0–20 = Human-Built), `docs_ai_detector` (also `konoha detect-docs`), `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`, `get_resolved_task_dir`, `get_soul`, `web_search`.
 
-Semble adds `search` and `find_related`; aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`.
+aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`. Search needs no second server: `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, and `code_remove` ship inside `konoha`.
 
 ### Ninja specialist team: 9 agents
 
@@ -301,7 +301,7 @@ Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<ag
 
 ### Guardrails
 
-Blocked at the tool-call level on capable clients (Claude Code, Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha/Semble tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
+Blocked at the tool-call level on capable clients (Claude Code, Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha MCP tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
 
 ---
 
@@ -339,7 +339,6 @@ If Konoha saves you meaningful context or time, consider supporting development:
 
 ## Credits
 
-- [Semble](https://github.com/MinishLab/semble) by MinishLab — semantic code search and dependency mapping.
 - [RTK](https://github.com/rtk-ai/rtk) — CLI output compaction proxy.
 - [aislop](https://github.com/scanaislop/aislop) — slop scanner behind the delivery pre-gate.
 - [anti-slop](https://github.com/miqdadbadjuber/anti-slop) by Miqdad Badjuber — review checklist standards.

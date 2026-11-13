@@ -414,6 +414,26 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
 
 ---
 
+### 🧭 Code Search Returns Nothing or `degraded: true`
+
+`code_search` answers from the FTS5 index inside `~/.konoha/konoha.db`, not from disk, so an empty result usually means the root was never indexed.
+
+1. Check what is indexed. `code_status` reports one entry per root with `files`, `symbols`, `chunks`, `status`, and the `error` that stopped a failed run:
+   ```
+   code_status({})
+   ```
+
+2. Index the repository once. The path is resolved to an absolute one; omitting it indexes the current working directory:
+   ```
+   code_index({ root: "/absolute/path/to/repo" })
+   ```
+
+3. A response carrying `degraded: true` means this Node.js build has no FTS5. Search then falls back to an unranked `LIKE` scan — slower and unordered, everything else unchanged. `code_status` reports `fts_available`; the SQLite bundled with Node.js 24 ships FTS5 on every platform Konoha supports, so `false` means a runtime built without it.
+
+4. A file that clearly defines a symbol but returns no `code_symbol` hit is either outside the lexer's languages (JavaScript, TypeScript, Python, Go, Rust, Java, C#, Kotlin, Swift, C/C++, Ruby, PHP, SQL, shell, Markdown) or was skipped by the filters — `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and any file over 1 MiB are never indexed.
+
+---
+
 ### 🥷 Agent Still Loading SKILL.md Files Directly
 
 The agent's instructions must be updated. Check the following:

@@ -234,6 +234,12 @@ konoha web
 
 ---
 
+### 14. 🧭 Code Intelligence Screen (`CodeIntel.svelte`)
+- Native code search over a repository path (`/code`), served by the in-process engine in `src/code_intel/` — no external MCP server, no Python, no network call.
+- `GET /api/v1/code/status` lists every indexed root with its file, symbol, and chunk counts plus `fts_available`; `POST /api/v1/code/search` runs one query and returns ranked snippets carrying `path`, `lines`, `language`, and `score`.
+- Results come from the FTS5 index in `~/.konoha/konoha.db`, so a repository must be indexed once (`code_index`) before it is searchable; the page surfaces `degraded` when the runtime's SQLite lacks FTS5.
+- 100% parity with the `code_status` and `code_search` MCP tools.
+
 ## 🛠️ Development & Building
 
 To modify or rebuild the web frontend:

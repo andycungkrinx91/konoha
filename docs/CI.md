@@ -36,6 +36,10 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
    harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing
    the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
 
+The code-intelligence suites (`tests/test_code_intel_*.js`) need nothing beyond that list: the
+engine is in-process over `node:sqlite`, so CI installs no Python, no `uvx`, and no language
+server to cover it.
+
 `fail-fast` is off: one OS or shard failing never cancels the others, so every run
 reports a per-OS, per-shard result. A `concurrency` group cancels superseded runs on
 the same branch. Permissions are `contents: read` only.

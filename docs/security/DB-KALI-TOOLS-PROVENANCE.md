@@ -86,7 +86,7 @@ recorded. This document is the evidence package for that decision; it does not p
 Only the canonical-schema test:
 
 - `tests/test_schema_migrations_and_lifecycle.js` now asserts that a fresh `setupSchema`
-  produces exactly **33** tables, that none of `kali_tools`, `lab_runs`,
+  produces exactly **42** tables, that none of `kali_tools`, `lab_runs`,
   `lab_tool_invocations`, `red_skill_audit` appear, and that `_sqliteai_vector` is absent
   from base DDL (extension-owned runtime state).
 

@@ -1,8 +1,8 @@
 # Issue #13 — Gate 1: Native Code Intelligence Engine (audit, design, approval packet)
 
-Status: **Gate 1 complete — awaiting approval for Gate 2.**
-Branch: `feature/issue-13-native-code-intelligence` · base `09faf82a` (v2.2.21) · schema at v5 · 50 MCP tools.
-Scope of this document: audit and design only. No schema change, no version bump, no Semble removal has been performed.
+Status: **Gates 1–5 complete — implemented on the feature branch for v2.2.22.**
+Branch: `feature/issue-13-native-code-intelligence` · base `09faf82a` (v2.2.21, schema v5, 50 MCP tools) · targets schema v6 with 55 canonical MCP tools.
+Scope of this document: the Gate 1 audit and design, preserved as the record of what was measured before the change. Sections 1–13 describe the pre-change tree and keep their original line citations; Sections 10 and 14 carry the as-built notes.
 
 ---
 
@@ -497,12 +497,12 @@ Both fixes shipped in Gate 2, before any re-deploy, because they are the only th
 
 ## 14. Recommendation
 
-**Gates 2–4 are implemented and verified. Gate 5 (Semble removal) is not started.**
+**Gates 2–5 are implemented and verified; the whole change is committed for v2.2.22 and not yet published.**
 
 What shipped, against the three non-negotiables:
 
 1. **Schema v6 lands with backup, a `SAVEPOINT` transaction, rollback-and-rethrow on failure, `PRAGMA foreign_key_check` returning zero rows, and an enforced `PRAGMA integrity_check`.** `SAVEPOINT` replaced the planned `BEGIN IMMEDIATE`: `setupSchema` is called from several entry points and at least one may already hold a transaction, and a savepoint nests where a second `BEGIN` fails. `setupSchema` is still not transactional overall (F-04, F-24), so the migration supplies the guarantees the surrounding code does not, and `verifyIntegrity` is now a hard gate rather than a discarded result (F-03).
-2. **Semble is untouched, and `src/semble_manager.js` will be edited, not deleted, at Gate 5.** Aislop imports its `uvx` resolution and package constant from 9 modules (F-18). Nothing in Gates 2–4 removed or renamed a Semble export.
+2. **Semble is retired.** Gate 5 deleted `src/semble_manager.js` outright and moved Aislop's `uvx` resolution into `src/uvx_runtime.js`, which exports only `AISLOP_PACKAGE` and `resolveUvxExecutablePath` (F-18 named 9 importers; all were repointed). Producer registrations are gone from every client manager and both prompt-policy builders. The cleanup entries that strip a stale `semble` server from an existing user config are deliberately retained, so upgrading from an older Konoha still purges it — `tests/test_fresh_install_mcp.js` and `tests/test_mcp_subagent_contract.js` pin both halves.
 3. **No new runtime dependency.** The parser is pure JS. Nothing in `src/code_intel/` spawns a process or writes to an analyzed repository, and `tests/test_code_intel_isolation.js` asserts both by scanning the module directory.
 
 Two deployment-safety defects (D-1, D-2) were pre-existing and independent of Issue #13; they were fixed first in Gate 2 because the same `konoha init` path that re-deploys after this change is the one that destroyed user files.

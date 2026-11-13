@@ -402,7 +402,8 @@
       <section id="mcp" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">MCP Servers &amp; Tools</h3>
         <p class="text-sm leading-relaxed mb-5" style="color: var(--color-text-muted);">
-          Every client is wired with three MCP servers. All file reads, code search, and skill lookups go through them —
+          Every client is wired with two stdio MCP servers, plus code intelligence that runs inside the `konoha`
+          server over its own SQLite index. All file reads, code search, and skill lookups go through them —
           native shell tools are bypassed for bounded, token-efficient operations.
         </p>
         <div class="space-y-3">
