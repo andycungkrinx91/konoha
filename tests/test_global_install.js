@@ -99,6 +99,24 @@ function check() {
     assert.ok(maj > 2 || (maj === 2 && min >= 0), `installed image-size ${resolved} must be >= 2.0.3`);
     console.log(`  ok   installed image-size ${resolved}`);
 
+    // The cfb patch is only effective if the patched copy ships AND is the one
+    // xlsx-populate resolves. Both halves are asserted; either alone is a silent no-op.
+    const cfbDir = path.join(pkgPath, 'node_modules', 'cfb');
+    assert.ok(fs.existsSync(cfbDir), 'installed tree must contain bundled cfb');
+    assert.ok(
+      !fs.readFileSync(path.join(cfbDir, 'cfb.js'), 'utf8').includes('Sh33tJ5'),
+      'bundled cfb must carry the seed-artifact patch'
+    );
+    const xpResolved = sh(process.execPath, ['-e',
+      `process.stdout.write(require.resolve('cfb', { paths: [${JSON.stringify(path.join(pkgPath, 'node_modules', 'xlsx-populate'))}] }))`
+    ]).trim();
+    assert.strictEqual(
+      path.resolve(xpResolved),
+      path.resolve(path.join(cfbDir, 'cfb.js')),
+      `xlsx-populate resolved ${xpResolved}, not the bundled patched cfb`
+    );
+    console.log('  ok   xlsx-populate resolves the bundled patched cfb');
+
     // PPTX export works from the installed copy (the real user-visible path).
     const pptxOut = path.join(prefix, 'probe.pptx');
     sh(process.execPath, ['-e', `
@@ -110,6 +128,18 @@ function check() {
     `]);
     assert.ok(fs.statSync(pptxOut).size > 5000, 'installed tree must be able to write a PPTX');
     console.log('  ok   installed tree writes a PPTX');
+
+    // XLSX export exercises the patched cfb through xlsx-populate (the only consumer).
+    const xlsxOut = path.join(prefix, 'probe.xlsx');
+    sh(process.execPath, ['-e', `
+      const XP = require(${JSON.stringify(path.join(pkgPath, 'node_modules', 'xlsx-populate'))});
+      XP.fromBlankAsync()
+        .then((wb) => { wb.sheet(0).cell('A1').value('ok'); return wb.toFileAsync(${JSON.stringify(xlsxOut)}); })
+        .then(() => process.exit(0))
+        .catch((e) => { console.error(e.message); process.exit(1); });
+    `]);
+    assert.ok(fs.statSync(xlsxOut).size > 1000, 'installed tree must be able to write an XLSX');
+    console.log('  ok   installed tree writes an XLSX');
 
     // Reinstall over the same prefix must stay clean (idempotent).
     sh('npm', ['install', '-g', '--prefix', prefix, tgzPath, '--no-audit', '--no-fund', '--loglevel=error'], {

@@ -26,6 +26,8 @@
 
 ### Fixed
 
+- **The `cfb` patch never reached anyone who installed Konoha (`package.json`, `pnpm-lock.yaml`, `tests/test_global_install.js`)**: `patches/cfb@1.2.2.patch` neutralises the `\u0001Sh33tJ5` seed artifact that `seed_cfb()` injects into every OLE container, but `patchedDependencies` is a pnpm-workspace mechanism — it applies in the repository and in CI, never in a consumer's tree. Only bundled packages ship their patched copy, and `bundleDependencies` listed `pptxgenjs` alone. `cfb` is now a direct dependency pinned at `1.2.2` and bundled; `xlsx-populate` is bundled with it, because leaving it at the consumer's top level let its `require('cfb')` resolve to the stock registry copy and made the bundled patched `cfb` unreachable. `tests/test_global_install.js` now asserts both halves — the bundled copy carries the patch and `xlsx-populate` resolves *that* copy — and writes an XLSX through the installed tree.
+
 - **A flat-deployed install could not load the router (`src/deploy_installer.js`)**: `src/file_tools_router.js` requires `./code_intel/tools`, but the flat runtime copy only enumerates known subdirectories, so the deployed `konoha` server died with `Cannot find module './code_intel/tools'` on the first tool call. `code_intel` is now in both `subdirs` and `preserveDirs`; `tests/test_fresh_install_mcp.js` performs a real stdio handshake and discovers 55 tools.
 
 - **`verifyIntegrity` was computed and ignored (`src/db_schema.js`)**: the integrity probe ran but nothing acted on a failure, so a corrupted database migrated anyway and failed later at an unrelated call site. It is now a hard gate that aborts `setupSchema` with the failing table names.

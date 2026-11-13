@@ -30,6 +30,7 @@ console.log('✓ Root package.json devDependencies is empty ({})');
 const rootDeps = rootPkg.dependencies || {};
 const allowedRootDeps = [
   '@bufbuild/protobuf',
+  'cfb',
   'docx',
   'xlsx-populate',
   'playwright',

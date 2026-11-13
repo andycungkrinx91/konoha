@@ -123,12 +123,13 @@ Read this before "fixing" the install, migrate, or upgrade path. Each row alread
 | Shorter cyber-pack dir list | Hardcode client skill dirs | deduped union of `DEFAULT_SKILLS_DIRS` + `getGlobalHarnessSkillTargets()` |
 | Flat runtime mirror | `require('../bin/lib/...')` from a `src/` module | `src/config_access.js` |
 | Transitive `image-size` | Trust the lockfile | `overrides.image-size >= 2.0.3`, `bundleDependencies`, `pnpm pack` (npm `pack` / global install drop bundled deps) |
+| Patched dependency, unpatched consumer | Assume `pnpm-workspace.yaml#patchedDependencies` reaches users | `cfb` + `xlsx-populate` are both in `bundleDependencies`; `tests/test_global_install.js` asserts the patched copy ships and is the one resolved |
 | Install-script shim | Add `postinstall` back | no install scripts; `tests/test_global_install.js` |
 | PATH-blind upgrade report | Compare the package root with itself | `bin/lib/upgrade_verify.js` |
 | Doc-level pins | Let docs drift from code | `PROMPT_CEILING_BYTES` (`src/mcp/memory_subagent_runner.js`), asserted independently by `tests/test_remediation_contract.js` |
 | Over-claiming the token ceiling | Quote 8192 as the harness budget | `token_guard.js` bounds Konoha's internal LangGraph payload only |
 | Cyber-pack residue survives upgrade | Ship an upgrade that leaves legacy rows/on-disk copies and only `doctor --clean-cyber-pack` can remove them | `purgeLegacyResidue` runs from `src/migrate.js`; explicit opt-in is never destroyed; `tests/test_upgrade_cyber_pack_purge.js` |
 | Stdin EOF as the only MCP exit | Rely on `readline` `close` to end a stdio server | `startStdioOrphanGuard` (`ppid === 1` poll) + `mcp_stdio_idle_timeout_ms`; `tests/test_mcp_orphan_guard.js` |
-| "Already started" treated as current | Report success when a UI daemon already holds the port | `konoha init` calls `cmdUiRestart`; `tests/test_ui_autostart.js` |
+| "Already started" treated as current | Report success when a UI listener already holds the port | `konoha ui start` exits 1 with `already running`; `tests/test_ui_manual_only.js` |
 
 Only `skill`-type rows are exempt from the embedding time budget (`src/vector_search.js:533`). Reference documents can therefore remain unembedded after a "successful" migrate, and `runMigration` reports them via `deferredSkills`.
