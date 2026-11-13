@@ -1,8 +1,12 @@
 name: Cross-Platform
 
 # Runs the repo checks on all three supported OSes for every push to master and
-# every pull request. The publish and release-assets workflows stay tag-only on
-# ubuntu-latest; this workflow owns push/PR verification and never publishes.
+# every pull request. Tag pushes are included so a release carries its own
+# verdict: the README CI badge reads the run for the release tag
+# (`cross-platform.yml?branch=v<version>`, rewritten by scripts/bump_version.js)
+# rather than whatever master happens to be.
+# The publish and release-assets workflows stay tag-only on ubuntu-latest; this
+# workflow owns push/PR/tag verification and never publishes.
 #
 # Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
 # macos < 20 min, windows < 40 min. The suite is the only term large enough to
@@ -18,6 +22,7 @@ name: Cross-Platform
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 

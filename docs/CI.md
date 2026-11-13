@@ -4,9 +4,14 @@
 
 The `Cross-Platform` workflow (`.github/workflows/cross-platform.yml`) runs the repo
 checks on **ubuntu-latest, windows-latest, and macos-latest** for every push to
-`master`, every pull request, and on manual dispatch (`workflow_dispatch`). It never
-publishes anything — the tag-only `publish.yml` and `release-assets.yml` workflows
-still own releases.
+`master`, every pull request, every `v*` tag, and on manual dispatch
+(`workflow_dispatch`). It never publishes anything — the tag-only `publish.yml` and
+`release-assets.yml` workflows still own releases.
+
+Tag pushes are included so a release carries its own verdict rather than inheriting
+whatever `master` last produced: the README CI badge is pinned to the release tag
+(`cross-platform.yml?branch=v<version>`, rewritten by `scripts/bump_version.js` on
+every bump) and can only render a status once the tag has a run.
 
 There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
 `publish.yml`).
@@ -61,6 +66,7 @@ on 22.04. It holds today because no addon is compiled at install time; the day o
 its artifact would require the runner's glibc and break older hosts. If 22.04 support
 ever becomes a promise, add one unsharded `ubuntu-22.04` leg rather than a ninth shard
 per release — a run is already 27 jobs against a 20-job plan cap.
+
 
 ## Duration budget
 

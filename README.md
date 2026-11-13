@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/konoha_logo_kyubi.webp" alt="Konoha Logo" width="300">
+  <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="512">
 </p>
 
 <h1 align="center">KONOHA</h1>
@@ -10,21 +10,32 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?logo=git&logoColor=white" alt="Release v2.2.22"></a>
-  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml/badge.svg" alt="Cross-platform CI"></a>
-  <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?logo=npm&logoColor=white" alt="npm total downloads"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
-  <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
-  <br>
-  <a href="#mcp-tools-55-canonical-57-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-55%20Canonical-10b981" alt="55 canonical MCP tools"></a>
-  <a href="#ninja-specialist-team-9-agents"><img src="https://img.shields.io/badge/Agents-9%20Specialists-8b5cf6" alt="9 specialist agents"></a>
-  <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7" alt="8 supported clients"></a>
-  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
-  <br>
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.22%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
-  <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?logo=vitest&logoColor=white" alt="QA automation"></a>
-  <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram remote"></a>
-  <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/stargazers"><img src="https://img.shields.io/github/stars/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Stars&color=ffd33d" alt="GitHub stars"></a>
+  <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?style=for-the-badge&logo=npm&logoColor=white&label=Downloads&color=cb3837" alt="npm total downloads"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/forks"><img src="https://img.shields.io/github/forks/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Forks&color=8250df" alt="GitHub forks"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/issues"><img src="https://img.shields.io/github/issues/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Issues%20Open&color=e11d48" alt="Open issues"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/issues?q=is%3Aissue%20is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Issues%20Closed&color=16a34a" alt="Closed issues"></a>
+</p>
+
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.22"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=v2.2.22&label=release%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on the latest release tag"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
+  <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
+</p>
+
+<p align="center">
+  <a href="#mcp-tools-55-canonical-57-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-55%20Canonical-10b981?style=for-the-badge&logo=modelcontextprotocol&logoColor=white" alt="55 canonical MCP tools"></a>
+  <a href="#ninja-specialist-team-9-agents"><img src="https://img.shields.io/badge/Agents-9%20Specialists-8b5cf6?style=for-the-badge&logo=langgraph&logoColor=white" alt="9 specialist agents"></a>
+  <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="8 supported clients"></a>
+  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?style=for-the-badge&logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
+</p>
+
+<p align="center">
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.22%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
+  <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>
+  <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
 </p>
 
 <p align="center">

@@ -108,10 +108,13 @@ function getDocumentationFiles(version) {
   return [
     {
       path: 'README.md',
-      check: (c) => c.includes(`Release-v${version}-blue`) && c.includes(`alt="Release v${version}"`),
+      check: (c) => c.includes(`Release-v${version}-blue`) && c.includes(`alt="Release v${version}"`) && c.includes(`cross-platform.yml?branch=v${version}`),
       bump: (oldV, newV) => {
         let n = replaceInFile('README.md', new RegExp(`Release-v${oldV}-blue`, 'g'), `Release-v${newV}-blue`);
         n += replaceInFile('README.md', new RegExp(`alt="Release v${oldV}"`, 'g'), `alt="Release v${newV}"`);
+        // The CI badge is pinned to the release tag, not the default branch, so a
+        // red master never misrepresents a shipped release.
+        n += replaceInFile('README.md', new RegExp(`cross-platform\\.yml\\?branch=v${oldV}`, 'g'), `cross-platform.yml?branch=v${newV}`);
         return n;
       }
     },
