@@ -7,14 +7,29 @@
  * `file_tools_router` owns JSON serialization and error formatting.
  */
 
+const fs = require('fs');
 const path = require('path');
 const { indexRepository } = require('./indexer');
 const store = require('./store');
 const query = require('./query');
 
+function _asDirectory(raw) {
+  const abs = path.resolve(String(raw));
+  try {
+    return fs.statSync(abs).isDirectory() ? abs : path.dirname(abs);
+  } catch (_) {
+    return abs;
+  }
+}
+
+// Explicit directory keys outrank 'path', which callers also use to name a file.
+function _optionalRoot(args) {
+  const raw = args.root || args.dir || args.directory || args.repo || args.path;
+  return raw ? _asDirectory(raw) : undefined;
+}
+
 function _rootPath(args) {
-  const raw = args.root || args.path || args.dir || args.directory || args.repo || process.cwd();
-  return path.resolve(String(raw));
+  return _asDirectory(args.root || args.dir || args.directory || args.repo || args.path || process.cwd());
 }
 
 function _conn() {
@@ -51,7 +66,7 @@ function codeSearch(args = {}) {
   const result = query.search({
     query: text,
     conn: _conn(),
-    rootPath: args.root || args.path || args.dir || args.repo,
+    rootPath: _optionalRoot(args),
     limit: args.limit !== undefined ? Number(args.limit) : undefined
   });
   return {
@@ -75,7 +90,7 @@ function codeSymbol(args = {}) {
   const result = query.findSymbol({
     name,
     conn: _conn(),
-    rootPath: args.root || args.path || args.dir || args.repo
+    rootPath: _optionalRoot(args)
   });
   return {
     name: result.name,
@@ -95,12 +110,15 @@ function codeSymbol(args = {}) {
 }
 
 function codeContext(args = {}) {
-  const relPath = args.file || args.path || args.rel_path || args.relPath;
+  let relPath = args.file || args.path || args.rel_path || args.relPath;
   if (!relPath) return { error: 'file is required' };
+  const rootPath = _optionalRoot(args);
+  // An absolute file is resolved against the root the caller named.
+  if (rootPath && path.isAbsolute(relPath)) relPath = path.relative(rootPath, relPath);
   const result = query.getContext({
     relPath,
     conn: _conn(),
-    rootPath: args.root || args.dir || args.repo,
+    rootPath,
     startLine: args.start_line !== undefined ? Number(args.start_line) : args.line !== undefined ? Number(args.line) : undefined,
     endLine: args.end_line !== undefined ? Number(args.end_line) : undefined
   });
@@ -122,7 +140,7 @@ function codeImpact(args = {}) {
   const result = query.impact({
     name,
     conn: _conn(),
-    rootPath: args.root || args.path || args.dir || args.repo,
+    rootPath: _optionalRoot(args),
     maxDepth: args.max_depth !== undefined ? Number(args.max_depth) : undefined,
     maxNodes: args.max_nodes !== undefined ? Number(args.max_nodes) : undefined
   });
@@ -144,7 +162,7 @@ function codeImpact(args = {}) {
 
 function codeStatus(args = {}) {
   const conn = _conn();
-  const result = query.status({ conn, rootPath: args.root || args.path || args.dir || args.repo });
+  const result = query.status({ conn, rootPath: _optionalRoot(args) });
   return {
     fts_available: store.ftsAvailable(conn),
     roots: result.roots.map((r) => ({
