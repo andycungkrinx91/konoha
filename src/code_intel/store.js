@@ -11,8 +11,14 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { getConnection, setupSchema } = require('../db');
+const dbModule = require('../db');
+const { getConnection, setupSchema } = dbModule;
 const { hasFts5Support } = require('../db_schema');
+
+// One connection per database path: openConnection runs on every code_* call and
+// nothing closes what it returns, so opening per call leaked a handle each time.
+let _conn = null;
+let _connPath = null;
 
 /**
  * Returns the main connection with the code-intelligence schema present.
@@ -22,7 +28,10 @@ const { hasFts5Support } = require('../db_schema');
  * nothing and a fresh install migrates once.
  */
 function openConnection() {
+  if (_conn && _connPath === dbModule.DB_PATH) return _conn;
   const conn = getConnection();
+  _conn = conn;
+  _connPath = dbModule.DB_PATH;
   const present = conn.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'code_index_roots'"
   ).get();
