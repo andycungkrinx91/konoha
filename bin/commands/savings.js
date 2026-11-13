@@ -15,8 +15,7 @@ const {
   FIRE_THEME,
   drawBox,
   applyGradientToBorders,
-  padEndVisual,
-  RASENGAN_THEME
+  padEndVisual
 } = require("../lib/format");
 
 const { fileExists } = require("../lib/prompt");
