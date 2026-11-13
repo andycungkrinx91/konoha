@@ -186,6 +186,9 @@ async function reviewNode(state) {
   const { akatsukiGate, akatsukiPassed } = _evaluateAkatsukiPreGate(state, status, projectPath, taskDir);
 
   const confidence = status.confidence !== undefined ? status.confidence : 100;
+  // Persist the number the gate actually judged: the sign-off response reads it
+  // back from the saved status, and an unscored run must not report `undefined`.
+  status.confidence = confidence;
   const slopFindings = status.ai_slop_findings || 0;
   const isSlopClean = status.ai_slop_clean !== false && slopFindings === 0;
   const advisorReview = superviseLifecycleStage('review', { status, taskDir, projectPath });
@@ -257,6 +260,7 @@ async function reviewNode(state) {
   const payload = {
     status,
     phase: 'review',
+    confidence,
     hitlPending: true,
     hitlStage: 'gate2',
     gateVerdict: 'pending_signoff',

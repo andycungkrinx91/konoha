@@ -314,7 +314,30 @@ function parseToolArguments(toolName, rawArgs) {
   return { args: {}, error: `arguments must be a JSON object, got ${typeof rawArgs}` };
 }
 
-function handleToolCall(id, params) {
+function _toolErrorFlag(text) {
+  try {
+    const parsed = JSON.parse(text);
+    return Boolean(parsed && typeof parsed === 'object' && parsed.error !== undefined);
+  } catch (_) {
+    return false;
+  }
+}
+
+// The LangGraph workflow is async: gates, pickers, confidence and the Akatsuki
+// pre-gate exist only on `executeTool`. The sync router would answer with
+// routing metadata and silently drop the parked workflow.
+async function _dispatchToolText(toolName, args) {
+  const dispatcher = require("./mcp/tool_dispatch");
+  if (!dispatcher.WORKFLOW_GRAPH_TOOLS.includes(toolName)) {
+    return router.dispatchTool(toolName, args);
+  }
+  const prepared = router.prepareToolCall(toolName, args);
+  if (prepared.error) return { text: JSON.stringify({ error: prepared.error }), isError: true };
+  const text = await dispatcher.executeTool(toolName, prepared.args);
+  return { text, isError: _toolErrorFlag(text) };
+}
+
+async function handleToolCall(id, params) {
   const toolName = params.name;
   const { args, error: argsError } = parseToolArguments(toolName, params.arguments);
 
@@ -332,13 +355,14 @@ function handleToolCall(id, params) {
 
   process.stderr.write(`[mcp ${SERVER_NAME}] tool_call: ${toolName}(${JSON.stringify(args)})\n`);
 
-  let text, isError;
+  let outcome;
   try {
-    ({ text, isError } = router.dispatchTool(toolName, args));
+    outcome = await _dispatchToolText(toolName, args);
   } catch (err) {
-    text = JSON.stringify({ error: `Tool execution failed: ${err.message}` });
-    isError = true;
+    outcome = { text: JSON.stringify({ error: `Tool execution failed: ${err.message}` }), isError: true };
   }
+  const { text } = outcome;
+  const isError = outcome.isError;
   const retBytes = Buffer.byteLength(text, "utf8");
   logToolCallSavings(toolName, args, retBytes);
   return {
@@ -351,7 +375,7 @@ function handleToolCall(id, params) {
   };
 }
 
-function handleRequest(req) {
+async function handleRequest(req) {
   const { method, id, params = {} } = req;
 
   if (id === undefined && method?.startsWith("notifications/")) {
@@ -371,7 +395,7 @@ function handleRequest(req) {
   if (method === "resources/templates/list") return { jsonrpc: "2.0", id, result: { resourceTemplates: [] } };
   if (method === "prompts/list") return { jsonrpc: "2.0", id, result: { prompts: [] } };
   if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: router.listToolSchemas() } };
-  if (method === "tools/call") return handleToolCall(id, params);
+  if (method === "tools/call") return await handleToolCall(id, params);
 
   if (id !== undefined) {
     return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } };
@@ -655,17 +679,23 @@ function setupStdioMcpListener(handles) {
     process.exit(0);
   });
 
+  // Responses are matched by id, but the workflow must not run twice
+  // concurrently for the same task, so requests are handled one at a time.
+  let queue = Promise.resolve();
+
   rl.on("line", (line) => {
     orphanGuard.noteActivity();
     const trimmed = line.trim();
     if (!trimmed) return;
-    try {
-      const req = JSON.parse(trimmed);
-      const response = handleRequest(req);
-      if (response) process.stdout.write(`${JSON.stringify(response)}\n`);
-    } catch (err) {
-      process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${err.message}` } })}\n`);
-    }
+    queue = queue.then(async () => {
+      try {
+        const req = JSON.parse(trimmed);
+        const response = await handleRequest(req);
+        if (response) process.stdout.write(`${JSON.stringify(response)}\n`);
+      } catch (err) {
+        process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${err.message}` } })}\n`);
+      }
+    });
   });
 }
 

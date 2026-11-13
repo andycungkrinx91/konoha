@@ -616,22 +616,31 @@ function validateToolArguments(name, args) {
   }
 }
 
-function dispatchTool(name, rawArgs) {
+// Normalize + validate without running the handler. The async MCP transport
+// needs the same guards `dispatchTool` applies before it can hand a graph tool
+// to the LangGraph executor instead of the sync handler table.
+function prepareToolCall(name, rawArgs) {
   const args = normalizeToolArguments(name, rawArgs || {});
   const agent = (args.agent || args.agent_name || '').toLowerCase().replace(/_/g, '-');
   const GENIN_BLOCKED = ['document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'];
   if (agent === 'genin' && GENIN_BLOCKED.includes(name)) {
-    return {
-      text: JSON.stringify({ error: `Permission denied: @genin is in strict read-only mode and cannot call '${name}'.` }),
-      isError: true
-    };
+    return { args, error: `Permission denied: @genin is in strict read-only mode and cannot call '${name}'.` };
   }
-  const handler = TOOL_HANDLERS[name];
   try {
     validateToolArguments(name, args);
   } catch (err) {
-    return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
+    return { args, error: err.message || String(err) };
   }
+  return { args, error: null };
+}
+
+function dispatchTool(name, rawArgs) {
+  const prepared = prepareToolCall(name, rawArgs);
+  const args = prepared.args;
+  if (prepared.error) {
+    return { text: JSON.stringify({ error: prepared.error }), isError: true };
+  }
+  const handler = TOOL_HANDLERS[name];
   if (!handler) {
     return { text: JSON.stringify({ error: `Unknown tool: ${name}` }), isError: true };
   }
@@ -681,6 +690,7 @@ module.exports = {
   isIdeInstallationDirectory,
   uriToPath,
   dispatchTool,
+  prepareToolCall,
   listToolSchemas,
   validateInstall,
   TOOL_HANDLERS,
