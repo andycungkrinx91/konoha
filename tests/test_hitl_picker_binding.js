@@ -167,3 +167,37 @@ test('the picker is served only to a signed link and refuses an unsigned verdict
     fs.rmSync(taskDir, { recursive: true, force: true });
   }
 });
+
+test('a gate raised by the LangGraph nodes renders in the picker', async () => {
+  // Defect pinned here: the nodes record the pending gate in `hitl_gate` and
+  // leave `phase` on the node that raised it (`plan`, `review`). The controller
+  // keyed only off `status`/`phase`, so every graph-driven gate answered 409 and
+  // a web-picker client was shown a dead link while the workflow sat parked.
+  const { createWebServer } = require(path.join(REPO, 'src', 'web_server.js'));
+  const taskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-picker-graph-'));
+  saveWorkflowStatus(taskDir, { phase: 'plan', hitl_gate: 'pending_plan_approval', plan: 'step one', tasks: [] });
+
+  const port = 1540 + Math.floor(Math.random() * 60);
+  const wrapper = createWebServer({ port });
+  await new Promise((resolve) => wrapper.server.listen(port, '127.0.0.1', resolve));
+  const sig = picker.signTaskDir(taskDir, wrapper.token);
+
+  try {
+    const page = await fetch(`http://127.0.0.1:${port}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}&sig=${sig}`);
+    const html = await page.text();
+    assert.equal(page.status, 200, 'a graph-raised gate must render: ' + html.slice(0, 160));
+    assert.match(html, /Gate 1/, 'the page must name the gate it is asking about');
+
+    saveWorkflowStatus(taskDir, { phase: 'review', hitl_gate: 'pending_human_signoff', confidence: 100, report: 'ok', tasks: [] });
+    const signoff = await fetch(`http://127.0.0.1:${port}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}&sig=${sig}`);
+    assert.equal(signoff.status, 200, 'the sign-off gate must render too');
+    assert.match(await signoff.text(), /Gate 2/);
+
+    saveWorkflowStatus(taskDir, { phase: 'done', hitl_gate: null, tasks: [] });
+    const done = await fetch(`http://127.0.0.1:${port}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}&sig=${sig}`);
+    assert.equal(done.status, 409, 'a finished task must not render a gate');
+  } finally {
+    wrapper.server.close();
+    fs.rmSync(taskDir, { recursive: true, force: true });
+  }
+});

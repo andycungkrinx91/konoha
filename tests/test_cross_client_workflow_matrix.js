@@ -26,11 +26,6 @@ fs.mkdirSync(QA_ROOT, { recursive: true });
 process.env.KONOHA_DB_PATH = path.join(os.tmpdir(), 'konoha-qa', 'skills.db');
 
 const agentManager = require('../src/agent_manager');
-const { uvxAvailable } = require('./helpers/uvx_available');
-
-// The Cursor writer only registers `semble` when `uvx` resolves, so a host
-// without uvx legitimately produces a two-server config for that client alone.
-const UVX = uvxAvailable();
 const { runMcpAgent } = require('../src/mcp/memory_subagent_runner');
 const { reportFromAgent } = require('../src/mcp/memory_project_context');
 const { runMcpWorkflow } = require('../src/mcp/workflow_runner');
@@ -105,11 +100,7 @@ for (const client of CLIENTS) {
   assert.ok(fs.existsSync(configPath), `Client ${client} must write config at ${configPath}`);
   const rawConfig = fs.readFileSync(configPath, 'utf8');
   assert.match(rawConfig, /konoha/, `Client ${client} config must declare konoha server`);
-  if (client !== 'cursor' || UVX) {
-    assert.match(rawConfig, /semble/, `Client ${client} config must declare semble server`);
-  } else {
-    console.log(`  · Client ${client}: uvx absent, semble entry intentionally omitted.`);
-  }
+  assert.doesNotMatch(rawConfig, /["']semble["']\s*:\s*\{/, `Client ${client} config must not declare the retired semble server`);
   assert.match(rawConfig, /aislop/, `Client ${client} config must declare aislop server`);
   console.log(`  ✓ Canonical MCP configuration verified: ${configPath}`);
 

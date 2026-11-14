@@ -31,10 +31,10 @@ async function run() {
   const content = fs.readFileSync(source, 'utf-8');
   const requiredPhrases = [
     'Konoha is mandatory',
-    'Semble is mandatory',
+    'Code intelligence is mandatory',
     'RTK is mandatory',
     'Resume safety',
-    'mcp__semble__search',
+    'mcp__konoha__code_search',
     'mcp__konoha__find_skill'
   ];
 

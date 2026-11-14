@@ -9,7 +9,8 @@ const {
   HOME,
   AGENTS_DIR,
   isPathVisible,
-  isIdeInstallationDir
+  isIdeInstallationDir,
+  getWorkspaceRoot
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 
@@ -334,6 +335,53 @@ function resolveFlowHashFromTask(flowHash, taskId) {
   return null;
 }
 
+// Project skills that have not been migrated yet live under the workspace, not
+// under HOME. They are read from disk on every lookup so a project's own skill
+// stays authoritative: the database is an index of them, never a replacement.
+const PROJECT_SKILL_SUBDIRS = [
+  ['.agents', 'skills'],
+  ['.agent', 'skills'],
+  ['skills'],
+  ['.skills'],
+  ['.cursor', 'skills'],
+  ['.gemini', 'skills'],
+  ['.gemini', 'antigravity-cli', 'skills'],
+  ['.commandcode', 'skills'],
+  ['.claude', 'skills'],
+  ['.codex', 'skills'],
+  ['.omp', 'agent', 'skills'],
+  ['.omp', 'skills'],
+  ['.pi', 'agent', 'skills'],
+  ['.pi', 'skills'],
+  ['.config', 'opencode', 'skills'],
+  ['.opencode', 'skills'],
+  ['docs', 'skills']
+];
+
+function getProjectSkillRoots() {
+  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT;
+  if (!ws) return [];
+  const resolved = path.resolve(ws);
+  if (resolved === path.resolve(HOME) || isIdeInstallationDir(resolved)) return [];
+  const roots = [];
+  for (const parts of PROJECT_SKILL_SUBDIRS) {
+    const dir = path.join(resolved, ...parts);
+    if (fs.existsSync(dir) && !roots.includes(dir)) roots.push(dir);
+  }
+  return roots;
+}
+
+function getSkillReadRoots() {
+  const roots = [];
+  for (const c of getProjectSkillRoots()) {
+    if (!roots.includes(c)) roots.push(c);
+  }
+  for (const c of getMirrorRoots()) {
+    if (!roots.includes(c)) roots.push(c);
+  }
+  return roots;
+}
+
 function getMirrorRoots() {
   const home = process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
   const candidates = [
@@ -419,7 +467,7 @@ function findInMirror(name) {
   const syntactic = validateSkillPath(norm);
   if (syntactic.error) return null;
 
-  for (const root of getMirrorRoots()) {
+  for (const root of getSkillReadRoots()) {
     if (!fs.existsSync(root)) continue;
     const resolvedRoot = path.resolve(root);
     // Fast synthetic containment test before touching the filesystem.
@@ -443,7 +491,7 @@ function _searchSingleMirrorEntry(entry, root, terms, seen, hits) {
   const skillMd = path.join(root, skillName, 'SKILL.md');
   if (!fs.existsSync(skillMd)) return;
   const matchName = skillName.toLowerCase();
-  const matches = terms.some(t => matchName.includes(t));
+  const matches = terms.length === 0 || terms.some(t => matchName.includes(t));
   if (!matches || seen.has(skillName)) return;
 
   seen.add(skillName);
@@ -457,21 +505,28 @@ function _searchSingleMirrorEntry(entry, root, terms, seen, hits) {
   } catch (_) { /* ignore */ }
 }
 
-function searchMirrorSkills(keyword, limit = 5) {
-  const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return [];
-  const hits = [];
-  const seen = new Set();
+// Returns true once `limit` hits are collected, so the caller can stop at the
+// first root that fills the quota.
+function _scanSkillRoot(root, terms, seen, hits, limit) {
+  if (!fs.existsSync(root)) return false;
+  try {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      _searchSingleMirrorEntry(entry, root, terms, seen, hits);
+      if (hits.length >= limit) return true;
+    }
+  } catch (_) { /* unreadable root is not a lookup failure */ }
+  return false;
+}
 
-  for (const root of getMirrorRoots()) {
-    if (!fs.existsSync(root)) continue;
-    try {
-      const entries = fs.readdirSync(root, { withFileTypes: true });
-      for (const entry of entries) {
-        _searchSingleMirrorEntry(entry, root, terms, seen, hits);
-        if (hits.length >= limit) return hits;
-      }
-    } catch (_) { /* ignore */ }
+function searchMirrorSkills(keyword, limit = 5, opts = {}) {
+  const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0 && !opts.allowEmpty) return [];
+  const hits = [];
+  const seen = new Set(opts.exclude || []);
+  const roots = Array.isArray(opts.roots) ? opts.roots : getSkillReadRoots();
+
+  for (const root of roots) {
+    if (_scanSkillRoot(root, terms, seen, hits, limit)) break;
   }
   return hits;
 }
@@ -602,6 +657,8 @@ module.exports = {
   getServedSkillsSet,
   resolveFlowHashFromTask,
   getMirrorRoots,
+  getProjectSkillRoots,
+  getSkillReadRoots,
   findInMirror,
   searchMirrorSkills,
   logToolCall,

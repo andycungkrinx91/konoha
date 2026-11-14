@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.21). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.22). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.21`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.22`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
@@ -25,7 +25,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha init` | `--yes`, `--force`, `--client=<cursor|claude|opencode|omp|codex|pi|all>` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers selected/detected MCP clients. | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
-| `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
+| `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool token savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |
 | `konoha detect-ai` | `<path>`, `--json` | Scans target codebase or single file against 32 AI fingerprint heuristics, returning Human-Built Index (0–100) and confidence verdict. | `PASS` (verified) |
 | `konoha doctor` | `--repair` | Audits system prerequisites (Node >= 24.0, uv, python, cargo, rtk), SQLite integrity, 8-client coverage (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP), 3D toolchain rows (Blender LTS, dcc-mcp-blender, Three.js, Manifold-3D), and auto-repairs discrepancies. | `PASS` (verified) |
 | `konoha clean` | (maintenance) | Deletes transient test databases, debug logs, dangling scratch workspaces, and temporary test artifacts from `/tmp/` and `~/.konoha/tmp/`. | `PASS` (verified) |
@@ -51,17 +51,15 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha queue list` | - | Displays pending inbound prompt queue entries. | `PASS` (verified) |
 | `konoha task list` | - | Displays active and completed SDLC governance tasks (`sdlc_tasks`). | `PASS` (verified) |
 | `konoha telegram status`| - | Displays Telegram Bot integration and alert webhook status. | `PASS` (verified) |
-| `konoha ui status` | - | Reports Web UI daemon status, port 1404 listening state, and systemd service health. | `PASS` (verified) |
-| `konoha web reset-password` | - | Resets Web UI authentication to factory bootstrap (`konohagakure`) and terminates stale sessions. | `PASS` (verified) |
-| `konoha auth reset` | - | Alias for `konoha web reset-password` to immediately recover operator access. | `PASS` (verified) |
+| `konoha ui start` | `--port <n>`, `--no-open` | Runs the Web UI in the foreground on port 1404 and blocks until `Ctrl+C`. | `PASS` (verified) |
+| `konoha auth reset` | - | Resets Web UI authentication to factory bootstrap (`konohagakure`) and terminates stale sessions, recovering operator access. | `PASS` (verified) |
 | `konoha test` | - | Executes MCP server protocol self-test followed by complete JavaScript test runner. | `PASS` (verified) |
 | `konoha db check` | `[path]` | Runs PRAGMA quick_check and integrity_check on SQLite database. | `PASS` (verified) |
 | `konoha db restore` | `[path] [--from <bcp>] [--force]` | Preserves corrupted DB to .corrupt.<timestamp> and restores from verified backup or salvages rows. | `PASS` (verified) |
-| `konoha update` | `--force`, `--yes` | Alias for `konoha upgrade`; runs the 5-stage non-destructive upgrade lifecycle (`backup -> upgrade -> init --y -> embed -> ui build & restart`). | `PASS` (verified) |
-| `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
 | `konoha upgrade` | `--yes` | Upgrades the global install in place. Verifies the installed version by running `konoha --version`; on total package-manager failure it exits 1 with `Upgrade aborted: no package manager could install konoha-mcp@<v>.` and does **not** run the post-upgrade lifecycle. | `PASS` (verified on Linux x64: no-package-manager path exits 1; failure path leaves version unchanged) |
 | `npm install -g konoha-mcp@latest` | - | Persistent global install. The package ships no install-time lifecycle script, so nothing runs at install time, nothing touches `HOME`, and no script-permission gate can deny the install. | `PASS` (verified on Linux x64 from a packed tarball, isolated `--prefix`/`HOME`; reinstall is idempotent) |
 | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | - | Ephemeral execution without a global install; never writes to `~/.konoha` beyond what `init` would. No install-script side effects. | `PASS` (verified on Linux x64 with isolated `HOME`) |
+| Patched `cfb` reaches the installed tree | `KONOHA_RUN_INSTALL_TEST=1 node tests/test_global_install.js` | `patches/cfb@1.2.2.patch` only applies inside the pnpm workspace, so `cfb` and its sole consumer `xlsx-populate` are both in `bundleDependencies`. The test asserts the bundled `cfb.js` has no `Sh33tJ5` seed artifact, that `xlsx-populate` resolves *that* copy rather than a top-level registry copy, and that the installed tree writes an XLSX. | `PASS` (verified on Linux x64: patched copy bundled, `xlsx-populate` resolves it, XLSX written) |
 | Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
 | macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
 | `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
@@ -107,8 +105,8 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 | :--- | :--- | :--- | :--- |
 | `tests/test_fresh_install_and_upgrade_in_tmp.js` | Full lifecycle fresh installation, unauthenticated health check, bootstrap login (`konohagakure`), mandatory password change, session invalidation, and upgrade simulation in isolated `/tmp/` sandbox. | Clean execution, zero leaks into `~`, unauthenticated health check 200, bootstrap login 200, password update 200. | `PASS` (verified) |
 | `tests/test_no_hardcoded_homedir.js` | Enforces zero hardcoded user paths (`/home/`, `C:\Users\`, `/Users/`) across all JavaScript, JSON, shell, and Python files; verifies dynamic path resolution via `os.homedir()` on POSIX and Windows. | 0 hardcoded paths across entire codebase; POSIX and Windows formats verified. | `PASS` (verified) |
-| `tests/test_schema_migrations_and_lifecycle.js` | Schema/app version separation: `setupSchema` is the only writer of `PRAGMA user_version` (`CURRENT_SCHEMA_VERSION = 5`), fresh install produces exactly 33 user tables with no `kali_tools`, and migration checksums match source. | Single-writer scan passes; injecting a second `user_version` write fails the guard; injecting `CREATE TABLE kali_tools` fails the 33-table assertion. | `PASS` (verified) |
-| `tests/test_schema_traceability.js` | Every declared table is documented in `docs/security/DATABASE-SCHEMA-AUDIT-2026-11-09.md`; FTS shadow tables and `_sqliteai_vector` are excluded as extension-owned. | 33 raw tables, 24 declared, 0 undocumented, 1 `user_version` writer. | `PASS` (verified) |
+| `tests/test_schema_migrations_and_lifecycle.js` | Schema/app version separation: `setupSchema` is the only writer of `PRAGMA user_version` (`CURRENT_SCHEMA_VERSION = 7`), fresh install produces exactly 43 raw user tables (31 declared) with no `kali_tools`, and migration checksums match source. | Single-writer scan passes; injecting a second `user_version` write fails the guard; injecting `CREATE TABLE kali_tools` fails the table-count assertion. | `PASS` (verified) |
+| `tests/test_schema_traceability.js` | Every declared table is documented in `docs/security/DATABASE-SCHEMA-AUDIT-2026-11-09.md`; FTS shadow tables and `_sqliteai_vector` are excluded as extension-owned. | 43 raw tables, 31 declared, 0 undocumented, 1 `user_version` writer. | `PASS` (verified) |
 | `tests/test_vps_safe_install.js` | Default install ships ANBU and no cyber pack: 0 pack files on disk, 0 indexed pack rows, `konoha doctor --vps` preflight reports pack absent. | Fresh `KONOHA_HOME` install: pack absent, ANBU present, preflight PASS on pack row. | `PASS` (verified) |
 | `tests/test_cyber_pack_opt_in.js` | Opt-in lifecycle: `--confirm` required, sha256 mismatch aborts before extraction, install → `opted-in` → remove → `removed`, second remove is a no-op, backup taken before deletion. | All lifecycle transitions and abuse cases pass. | `PASS` (verified) |
 | `tests/test_anbu_intact.js` | ANBU ships and routes without the pack; deleting the ANBU template provably breaks routing. | `findSkill('backend devops bug fix', 5, 'anbu')` resolves under `anbu-skill/`; scratch migration without the template yields 0. | `PASS` (verified) |
@@ -123,7 +121,8 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 ### 1.4 Migration Robustness, Safe Timeouts & Skill RAG Retrieval Invariant (v2.2.3)
 
 - **Safe Timeout Normalization & Zero-NaN Invariant**: `bin/lib/paths.js` exports `MIGRATION_TIMEOUT_MS` (900000 ms since 2.2.20, resolved from `install_build_migrate_timeout_ms`; it was 180000 in v2.2.3). `bin/commands/migrate.js`, `bin/commands/init.js`, `bin/commands/doctor.js`, and `bin/lib/runtime.js` implement defensive timeout normalization using `Number.isFinite()`, guaranteeing that a subprocess timeout is always an unsigned positive integer. This permanently eliminates the Node.js `ERR_OUT_OF_RANGE: Received NaN` crash when executing `konoha migrate --rebuild-embeddings` or `konoha embed`.
-- **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, all skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first. Local Markdown files (`SKILL.md` and `references/*.md`) serve strictly as secondary fallback mirrors when the database is unavailable or a record is missing.
+- **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first, then merge the project's own skill tree. `getSkillReadRoots()` in `src/mcp/skills_common.js` supplies `.agents/skills` and sixteen sibling locations (`PROJECT_SKILL_SUBDIRS`) ahead of the client mirrors, and `findSkill`/`listSkills` in `src/mcp/skills_search.js` de-duplicate the merged rows on skill name. A project skill therefore resolves before and without migration; `konoha migrate` buys ranked FTS5 search and ONNX reranking, not access.
+- **Dual-Source Regression Coverage**: `tests/test_project_skills_dual_source.js` points `KONOHA_DB_PATH` at a directory so `getDb` fails with `unable to open database file`, then asserts the unmigrated project skill still resolves through `find_skill`, `get_skill`, and `list_skills`. It is the guard that keeps `migrate_skills` an optimisation rather than a prerequisite.
 - **Workflow Skill Directives**: Sannin router dispatches across all active phases (`explore`, `plan`, `research`, `execute`, `document`) enforce the skill retrieval invariant:
   ```json
   "skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."
@@ -156,19 +155,27 @@ pnpm exec playwright install chromium   # first run only
 
 ```mermaid
 ---
+title: E2E Playwright Automation Architecture
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 flowchart TD
     W1["apps/web (SvelteKit 2 + Tailwind CSS)"] --> W2["API Service (port 1404)"]
@@ -180,13 +187,16 @@ flowchart TD
     T2 --> R1
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style W1 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W2 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W3 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W4 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style T1 fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    style T2 fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    style R1 fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class W1,W2,W4 blueShape;
+    class T1,T2 orangeShape;
+    class W3 greenShape;
+    class R1 redShape;
 ```
 
 ### 2.2 Web UI Viewport & Tab Verification Matrix
@@ -199,7 +209,7 @@ flowchart TD
 | **Agents** | `/agents` | Naruto Ninja 9-rank roster (including Yamanaka 3D specialist), active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
 | **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration (:19999), cross-provider second opinion routing table, latency monitor. | `routes_load.spec.js` |
 | **Remote Access & Prompts** | `/remote` | Authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
-| **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | `routes_load.spec.js` |
+| **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, per-tool breakdown. | `routes_load.spec.js` |
 | **AI Detectors** | `/detector` | Dual-target website and document AI fingerprint scanner (Human-Built Index 0-20, ZeroGPT defense). | `detector_flow.spec.js`, `routes_load.spec.js` |
 | **3D Studio & Maker** | `/3d/maker` | Text-to-3D and Image-to-3D generation, image upload dropzone (12 MB cap, magic-byte sniff validation for PNG/JPEG/WEBP), interactive 6-node Blender pipeline graph, real-time SSE progress, Three.js viewport, and GLB/PNG downloads. | `routes_load.spec.js` |
 | **Tasks & SDLC Governance** | `/tasks` | Multi-client task list with Client Badge column (omp, pi, codex, claude, cursor, etc.), interactive Gate 1 (Approve Plan) and Gate 2 (Delivery Sign-Off) controls, and live heartbeat safety. | `routes_load.spec.js`, `ui_consistency.spec.js` |
@@ -297,7 +307,7 @@ npx aislop scan --changes
 | **Theme Switcher 4-Gradient Dark Styling** | Open Theme Switcher modal in Dark Mode. | Modal container (`#konoha-theme-picker`) applies active theme's 4-gradient custom properties (`--theme-gradient-*`) with vibrant depth; zero hardcoded white surfaces. | `PASS` (verified in `ThemeSwitcher.svelte` & `themeState.svelte.js`) |
 | **Theme Switcher Modal Toggle Removal** | Open Theme Switcher popup modal. | Light/Dark appearance mode group is cleanly removed from inside the modal; mode switching preserved via quick external toggle button. | `PASS` (verified in `ThemeSwitcher.svelte`) |
 | **Header Control Sanitization** | Inspect top application header bar (`+layout.svelte`). | Password settings button, Logout button, `127.0.0.1:1404` badge, and `SSE Active` badge are cleanly removed from top header. | `PASS` (verified in `+layout.svelte`) |
-| **Sidebar Footer Gateway Status** | Inspect bottom of fixed left sidebar. | Status displays indicator dot with exact text `Listen on 127.0.0.1:1404`; `SQLite FTS5 + Semble` and `Localhost` labels are removed; author profile link preserved. | `PASS` (verified in `+layout.svelte`) |
+| **Sidebar Footer Gateway Status** | Inspect bottom of fixed left sidebar. | Status displays indicator dot with exact text `Listen on 127.0.0.1:1404`; `Localhost` label is removed; author profile link preserved. | `PASS` (verified in `+layout.svelte`) |
 | **Product Branding Wording** | Inspect brand logo subtitle and documentation overview. | User-facing `Ninja Agent Village` wording replaced with `Konoha MCP Orchestrator`. | `PASS` (verified in `+layout.svelte` and `Docs.svelte`) |
 | **Authentic Client Logos Rendering** | Navigate to `/clients` and inspect all 8 cards. | Displays verified, official local vendor SVG brand assets for Cursor, Claude Code, Antigravity, Codex, OpenCode, Command Code, Pi, and OMP; zero generic placeholder icons; includes text fallback. | `PASS` (verified in `Clients.svelte` & `assets/logos/`) |
 
@@ -320,12 +330,14 @@ npx aislop scan --changes
 
 | Test Item | Verification Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **OMP Setup & Registration** | Execute `ompManager.ensureOmpSetup()` / `POST /api/v1/clients/omp/setup`. | Atomically registers `konoha`, `semble`, and `aislop` in `~/.omp/agent/mcp.json` with `ACTIVE_CLIENT=omp` and `KONOHA_CLIENT=omp`. | `PASS` (automated in `tests/test_omp_manager.js`) |
+| **OMP Setup & Registration** | Execute `ompManager.ensureOmpSetup()` / `POST /api/v1/clients/omp/setup`. | Atomically registers `konoha` and `aislop` in `~/.omp/agent/mcp.json` with `ACTIVE_CLIENT=omp` and `KONOHA_CLIENT=omp`. | `PASS` (automated in `tests/test_omp_manager.js`) |
 | **OMP Contract & Mandate Injection** | Check `~/.omp/agent/AGENTS.md`. | Injects managed `<!-- KONOHA-CONTRACT-START/END -->` block including OMP Workflow Mandate (Sannin routing, Step 0 classification, Branch B scaffolding invariants, delivery gate). | `PASS` (automated in `tests/test_omp_manager.js`) |
 | **OMP RTK Rule Deployment** | Check `~/.omp/rules/rtk.md`. | Automatically deploys mandatory RTK execution rule into OMP global rules directory. | `PASS` (automated in `tests/test_omp_manager.js`) |
 | **Cross-Client Contract Validation** | Execute `node tests/test_cross_client_contract.js`. | Verifies contract text validity and resume safety across all 8 clients: Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | `PASS` (automated in `tests/test_cross_client_contract.js`) |
 | **Cross-Client Disconnect Isolation** | Call `removeClient('omp')` / `POST /api/v1/clients/omp/remove`. | Removes only Konoha-managed server keys from `mcp.json` and preserves any custom third-party MCP servers. | `PASS` (automated in `tests/test_omp_manager.js`) |
 | **Antigravity Integration Architecture** | Verify MCP configuration integration. | Confirms VSIX packaging was deprecated in v2.2.1; Antigravity integration operates purely via MCP configuration and global rules without local extension distribution. | `PASS` (verified in `src/deploy_utils.js`) |
+| **Cross-Platform E2E Delivery Gate** | Run `.github/workflows/cross-platform.yml` via `act -j checks` and `act -j test --matrix os:ubuntu-latest --matrix shard:<N>`, or wait for the nightly 02:00 UTC `schedule` run. | A single-OS green is not a delivery verdict: the change counts as done only when Linux, Windows, and macOS all pass. The rule is carried in every client contract, so an agent cannot declare completion on one platform. | `PASS` (ubuntu `checks` 286 s; shards 1/8 and 3/8 green; Windows guest 7/7 suites) |
+| **Nightly Regression Detection** | Inspect the `schedule` trigger in `.github/workflows/cross-platform.yml` (`0 2 * * *`). | Catches a regression introduced by a runner image change or an OS-specific dependency resolution that a push-only trigger cannot see. | `PASS` (trigger validated alongside `push`, `pull_request`, `workflow_dispatch`) |
 
 ---
 
@@ -365,10 +377,10 @@ npx aislop scan --changes
 | Test Item | Verification Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
 | **Authoritative Shared Width & Gutter Tokens** | Inspect `:root` in `apps/web/src/app.css` and `.console-content-container`. | Tokens `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), `--content-gutter-mobile: 1rem` (16px) defined; `.console-content-container` enforces `max-width: var(--content-max-width); margin: auto; width: 100%`. | `PASS` (verified in `app.css`) |
-| **Standard Console Route Width Parity** | Measure container width across `/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/semble`, `/detector`, `/tasks`, `/doctor`, `/settings` at 1920x1080. | Every standard route evaluates to exact 1280px width, centered at left offset 448px (symmetric 160px margins to the right of the 256px sidebar + 32px layout padding). | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
+| **Standard Console Route Width Parity** | Measure container width across `/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/code`, `/detector`, `/tasks`, `/doctor`, `/settings` at 1920x1080. | Every standard route evaluates to exact 1280px width, centered at left offset 448px (symmetric 160px margins to the right of the 256px sidebar + 32px layout padding). | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Explicit Layout Exceptions (/dashboard & /docs)** | Measure rendered width on `/dashboard` and `/docs` at 1920x1080. | Both routes opt out of the 1280px constraint via `isCustomLayoutRoute` in `+layout.svelte`, expanding to full content stage width (>= 1600px). `/docs` retains two-column TOC aside and full viewport-height flex container. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
-| **Unified PageHero Shell Parity** | Inspect hero container across `/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/semble`, `/detector`, `/tasks`, `/doctor`, `/docs`, `/settings`. | All pages render `PageHero.svelte` with `glass-card-3d rounded-[5px] p-8 border`, 3D background gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast title typography, and responsive badge/actions/stats. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
-| **Post-Login Field Effect Harmonization** | Inspect inputs, selects, and textareas across post-login console routes (`/settings`, `/remote`, `/search`, `/tasks`, `/semble`, `/detector`, `/persona`, `/context`, `/skills`, `/savings`, `/bridges`, `/agents`). | All post-login form controls apply `.login-field-effect` with `border-radius: 3px`, surface background, strong theme border, and travelling neon border sweep (`@keyframes neonBorderSweep`) with ambient glow (`@keyframes neonGlowPulse`) harmonized with `Login.svelte`. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
+| **Unified PageHero Shell Parity** | Inspect hero container across `/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/code`, `/detector`, `/tasks`, `/doctor`, `/docs`, `/settings`. | All pages render `PageHero.svelte` with `glass-card-3d rounded-[5px] p-8 border`, 3D background gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast title typography, and responsive badge/actions/stats. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
+| **Post-Login Field Effect Harmonization** | Inspect inputs, selects, and textareas across post-login console routes (`/settings`, `/remote`, `/search`, `/tasks`, `/code`, `/detector`, `/persona`, `/context`, `/skills`, `/savings`, `/bridges`, `/agents`). | All post-login form controls apply `.login-field-effect` with `border-radius: 3px`, surface background, strong theme border, and travelling neon border sweep (`@keyframes neonBorderSweep`) with ambient glow (`@keyframes neonGlowPulse`) harmonized with `Login.svelte`. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Responsive Viewport Matrix & Zero Overflow** | Evaluate document `scrollWidth` vs `clientWidth` across 8 viewports (`2560x1440`, `1920x1080`, `1680x1050`, `1440x900`, `1366x768`, `1024x768`, `768x1024`, `390x844`). | Zero document horizontal overflow across all viewports (`scrollWidth <= clientWidth`); cards, buttons, badges, and forms wrap cleanly without layout clipping. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Pre/Post Browser Measurement & Screenshots** | Inspect captured baseline and after screenshot artifacts under `tests/e2e/screenshots/`. | High-resolution before/after screenshots and computed style metrics recorded for all 16 console routes across desktop and mobile viewports. | `PASS` (verified in `tests/e2e/screenshots/`) |
 
@@ -428,7 +440,7 @@ npx aislop scan --changes
 | **SSE-Driven Post-Password-Change Refresh** | Complete password update on web console. | Server broadcasts `auth_state_changed` over SSE (`/api/v1/events`); `+layout.svelte` and `Dashboard.svelte` auto-refresh auth state and reload metrics in background without full browser reload. | `PASS` (verified in `tests/test_feedback_features.js` & E2E) |
 | **Mandatory Password Change Auto-Kickout** | Submit new password from bootstrap modal or `/settings`. | Unconditionally terminates all active sessions via `destroyAllSessions()`, clears session cookie (`Max-Age=0`), auto-kicks out to login page, updates login tag to `passphrase protected`, and requires re-authentication with new credentials. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
 | **Clean Login Page Interface** | Inspect `Login.svelte` elements on desktop and mobile viewports. | Tagline `Enter shinobi passphrase to access secure gateway` is completely removed; while `is_bootstrap` is true only the two-field set-new-password form renders (no sign-in tab, no default-value badge/hint), and once hardened the sign-in form shows the lowercase `passphrase` label with the `passphrase protected` badge, 3px line size, and sleek travelling neon border sweep. | `PASS` (automated in `tests/e2e/login_default_password_redirect.spec.js`) |
-| **Web Console CLI Credential Recovery** | Run `konoha web reset-password` and `konoha auth reset` from terminal. | Atomically restores `~/.konoha/web_auth.json` to default bootstrap password (`konohagakure`) and `is_bootstrap: true` without requiring an active web session; terminates all existing sessions. | `PASS` (verified manually & automated) |
+| **Web Console CLI Credential Recovery** | Run `konoha auth reset` from terminal. | Atomically restores `~/.konoha/web_auth.json` to default bootstrap password (`konohagakure`) and `is_bootstrap: true` without requiring an active web session; terminates all existing sessions. | `PASS` (verified manually & automated) |
 | **Sleek Travelling Neon Input Focus** | Focus inputs with `.login-field-effect` and `.input-theme` across themes and appearance modes. | Renders crisp 1.5px border with animated travelling neon border sweep (`@keyframes neonBorderSweep`) across active 4-color palette with subtle ambient glow (`@keyframes neonGlowPulse`); typing surface remains high-contrast `var(--color-surface)`. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
 | **OMP MCP Auto-Enable & Schema Validator Compliance** | Start new OMP session and inspect `~/.omp/agent/mcp.json`. | Generates valid `$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"` with `"type": "stdio"` transport on all server entries; auto-wires into `initAgents()`; contract ensures Konoha tools are auto-used while preserving native advisor review (`reviewMode: agent-end`). | `PASS` (verified in `tests/test_omp_manager.js` & live CLI) |
 | **Dynamic OMP Telegram Session Detection** | Execute `/session list` in Telegram while working inside OMP agent. | Dynamically checks `~/.omp/agent/sessions/` for active workspace session; attributes workspace session to `omp` rather than phantom `antigravity`. | `PASS` (automated in `tests/test_feedback_features.js`) |
@@ -496,7 +508,7 @@ npx aislop scan --changes
 | :--- | :--- | :--- | :--- |
 | **1. Loopback & Host Header CSRF Protection** | `GET /api/v1/csrf` & `tests/test_loopback_host_validation.js` | Enforces loopback IP and valid loopback Host header before returning session token; DNS rebinding and non-loopback calls rejected with HTTP 403; local SPA bootstrap preserved. | `PASS` (loopback verified) |
 | **2. Browser Launcher Sanitization & Argument Spawning** | `bin/lib/ui_commands.js:openUrlInBrowser` | Replaced `execSync` shell string concatenation with argument vector `spawn` (`xdg-open`, `open`, `cmd.exe /c start`) and strict URL protocol (`http:`, `https:`) and loopback host validation; eliminates command injection. | `PASS` (safe spawn verified) |
-| **3. Process Listing Daemon Token Masking** | `bin/lib/ui_commands.js:spawnBackgroundDaemon` | Daemon token passed via `KONOHA_WEB_TOKEN` environment variable and local token file; omitted from CLI arguments to prevent visibility in `ps aux` / process listings. | `PASS` (CLI token hidden) |
+| **3. Process Listing Token Masking** | `bin/lib/ui_commands.js:parseHostPortOptions`, `bin/lib/ui_commands.js:cmdWebForeground` | Server token passed via the `KONOHA_WEB_TOKEN` environment variable and the local token file; omitted from CLI arguments to prevent visibility in `ps aux` / process listings. | `PASS` (CLI token hidden) |
 | **4. Cryptographic RTK Installer Integrity Verification** | `src/rtk_installer.js` & SHA-256 check | Eliminated raw `curl ... \| sh` piping; installer downloads script to isolated temporary path and validates SHA-256 digest against pinned upstream hash (`7ca39973...`) before execution. | `PASS` (SHA-256 hash verified) |
 | **5. Non-Interactive Shell & Sanitized Worker Environment** | `src/queue/worker.js` & `tests/test_queue_worker.js` | Operational shell execution switched from interactive `-i` to non-interactive `['-c', cmd]`; child process environment filtered to safe system paths, stripping API tokens, passwords, and webhook secrets. | `PASS` (sanitized env verified) |
 | **6. Unmaintained Package Eradication** | `patches/pptxgenjs@4.0.1.patch` | Removed obsolete `https@1.0.0` from `pptxgenjs@4.0.1` manifest; verified 0 occurrences in `pnpm-lock.yaml` and npm tree. | `PASS` (https@1.0.0 excised) |
@@ -563,7 +575,7 @@ Authoritative verification matrix for the Konoha v2.2.15 release, verifying offi
 
 ### 27.2 Official Subagent Full Parity Architecture
 
-- **Manifest-Driven Tool Parity**: `src/mcp/memory_subagent_runner.js:buildSubagentMcpBlock` dynamically loads canonical tools from `src/mcp_tool_manifest.json`, granting official ninja subagents (`@genin`, `@chunin`, `@anbu`, `@jonin`, `@akatsuki`) complete tool parity with the main agent (all 47 canonical Konoha tools, Semble MCP `search`/`find_related`, and Aislop MCP `aislop_scan`/`aislop_why`/`aislop_fix`).
+- **Manifest-Driven Tool Parity**: `src/mcp/memory_subagent_runner.js:buildSubagentMcpBlock` dynamically loads canonical tools from `src/mcp_tool_manifest.json`, granting official ninja subagents (`@genin`, `@chunin`, `@anbu`, `@jonin`, `@akatsuki`) complete tool parity with the main agent (all 55 canonical Konoha tools, including the `code_search` / `code_symbol` / `code_impact` code-intelligence set, plus Aislop MCP `aislop_scan`/`aislop_why`/`aislop_fix`).
 - **Role Boundaries & Hard Safety Mandates**:
   - `@genin` & `@kage`: Read-only enforcement; forbidden from calling `aislop_fix` or modifying code.
   - `@akatsuki`: Authorized security operations, penetration testing in sandboxes, and blue-team defensive verification; missing/ambiguous authorization fails closed.
@@ -708,7 +720,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ---
 
-## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.21)
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.22)
 
 Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
@@ -749,7 +761,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 - **Fail-Closed Router Defenses**: Tripped circuit breakers route conditionally to `node_error` (never `node_complete`); unknown or unhandled review verdicts route to remediation/error.
 - **Single-Owner Token Metering**: Unified in `finalizeNodeResult()` (`src/mcp/langgraph/budget.js`), eliminating divergent token estimation and ambiguous zero-delta resets.
 - **Deterministic Pure-JS Tokenizer**: Replaced child-process Python tiktoken forks with pure-JS `gpt-tokenizer` (`cl100k_base`), guaranteeing 0.00% divergence against golden corpus.
-- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=24.0.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 48 tools with 2 deprecated aliases.
+- **Runtime & Contract Truthfulness**: Aligned verified Node floor to `>=24.0.0` (`node:sqlite` unflagged); implemented canonical `konoha config` CLI command; locked canonical surface at 55 tools with 2 deprecated aliases.
 
 ### 31.2 Verification Evidence & Acceptance Matrix
 
@@ -773,7 +785,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 ---
 
-## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.21)
+## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.22)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -813,7 +825,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 
 
-## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.21)
+## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.22)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -844,7 +856,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **24. Repo Lint Gate** | `node scripts/lint.js` | 518 backend files verified with 0 errors and 0 warnings (no numbered comments) | `PASS` (verified 2026-11-03) |
 | **25. Isolated Fresh Install & Upgrade** | `/tmp/konoha-iso` with isolated `HOME` | Six STRICT tables + migration applied, `dcc_mcp_version` column present, `three`/`manifold-3d` linked, worker + creature synthesizer deployed, and removed packages re-linked on the next run | `PASS` (verified 2026-11-03) |
 
-## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.21)
+## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.22)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -885,7 +897,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
   were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
   do not change what those clips depict structurally.
 
-## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.21)
+## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.22)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -924,7 +936,7 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **50 MCP Tools Orchestration** | `PASS` | `PASS` | `PASS` | JSON-RPC 2.0 stdio protocol handshake (`tests/test_mcp_protocol.js`) | `PASS` |
 | **9-Ninja Roster Governance** | `PASS` | `PASS` | `PASS` | YAML parse, soul archetype bindings, SDLC tasks (`tests/test_agent_delegation.js`) | `PASS` |
 | **Disaster Recovery & Integrity** | `PASS` | `PASS` | `PASS` | `konoha db check`, `konoha db restore`, `konoha data check/restore`, 100-byte SQLite header check | `PASS` |
-| **SQLite FTS5 & Semble Search** | `PASS` | `PASS` | `PASS` | `skills_fts` (1,081 entries), `persona_memories_fts`, vector index | `PASS` |
+| **SQLite FTS5 & Code Search** | `PASS` | `PASS` | `PASS` | `skills_fts` (1,081 entries), `persona_memories_fts`, `code_chunks_fts`, vector index | `PASS` |
 | **Three.js 3D Viewport Pipeline** | `PASS` | `PASS` | `PASS` | `tests/test_three_asset_viewport.js`, `tests/test_yamanaka_refine_fork.js`, binary glTF 2.0 + PNG | `PASS` |
 | **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth (`konohagakure`), 10-theme switch, 56/56 Playwright E2E + live `agent-browser` | `PASS` |
 | **Workflow Diagrams & Draw.io Parity** | `PASS` | `PASS` | `PASS` | Reverted 6 `assets/*.webp` to `448d894c`, synced with Draw.io Tabs 08/09/11/13/14/16, regenerated 7 animated WebP diagrams | `PASS` |
@@ -957,10 +969,10 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **11. Master E2E Suite & Web UI Playwright Automation** | `qa_e2e_run` -> `tests/e2e/web_ui_e2e.spec.js` & `tests/e2e/auth_login.spec.js` | Runs `sync_skills.js`, `pnpm --dir apps/web run build`, `test_konoha_2_2_18_master.js`, `scripts/lint.js` (729 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy), desktop (1440x900) and mobile (390x844) UI tests; verifies 2-field initial setup, Overview embedded Agent Activity, 6 execution states, spider 180° flip, full-screen modal, mobile-only dock, zero emojis, and hidden Yamanaka/3D Studio menus | `PASS` (verified) |
 | **12. Socket CLI Supply Chain & Zero-Vulnerability Gate** | `tests/test_socket_security_audit.js` & `docs/archive/security-compliance/socket_report_2.2.19_2026-11-08.md` | Verifies `socket fix --all --no-apply-fixes` (0 GHSAs/CVEs), `socket npm audit` (0 vulnerabilities), `pnpm audit` (0 unreviewed CVEs across root and apps/web), direct dependency scores (100% vulnerability score, 0 High, 0 Critical findings), and 0 shell invocations in `src/db_recovery.js` / `src/db_recovery_salvage.js` | `PASS` (verified 2026-11-08) |
 | **13. Fresh Install MCP Connection & Stdio Handshake (Cursor & OMP)** | `tests/test_fresh_install_mcp.js` & `tests/test_mcp_protocol_integrity.js` | Resolves unexpanded `${userHome}` in Cursor project MCP, resolves absolute `uvx` with GUI `env.PATH`, sanitizes stale `/tmp/` launcher paths in OMP, in-process launcher optimization for Node >= 24, and auto-detects installed clients on bare `konoha init` | `PASS` (verified 2026-11-08) |
-| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.21)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
-| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.21)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
+| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.22)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
+| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.22)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
 
-## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.21)
+## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.22)
 
 GitHub Actions run `43160159738` failed on five macOS legs and five Windows VM legs. Each failure was reproduced locally — a symlinked `HOME`/`TMPDIR` for the macOS path class, the dockur Windows guest for the rest — and fixed at its cause; no assertion was relaxed.
 
@@ -973,7 +985,7 @@ A later `windows-latest` leg then failed row 5's *precondition* — `AssertionEr
 | **3. Socket CLI output parsing** | `tests/test_socket_security_audit.js` | `firstJsonValue` extracts the first balanced JSON object from mixed stdout/stderr across 6 output shapes | `PASS` (verified) |
 | **4. Blender `.dmg` on macOS** | `tests/test_yamanaka_compute_and_installer.js`, `tests/test_doctor_3d_isolation.js` | The `.dmg` branch reports `manual-install-required` before any download; `installAllTools` isolates components and pushes a returned `success: false` into `errors[]` as well as a thrown one; diagnostics starts no fetch | `PASS` (verified) |
 | **5. Orphan guard: stdio and daemon self-exit** | `tests/test_mcp_orphan_guard.js` | T1: a stdio server whose stdin never closes exits on the idle budget. T2: a server orphaned by a dying parent (`ppid === 1`) exits on the parent-death poll — POSIX only, because Windows does not reparent, so T2 skips there and the idle budget is the Windows exit (T1/T5). T3/T4: a daemon exits when a newer live daemon takes `bridge.pid`, and at startup when another live daemon already owns it. T5: the idle budget fires with no activity | `PASS` (5/5 on Linux, 3.35 s) |
-| **6. UI daemon restart on re-init** | `tests/test_ui_autostart.js` | Opt-out honoured, port-scoped stop, graceful port release, and a real daemon restart on a free port where the served page references only assets present in the installed build | `PASS` (verified 37/37) |
+| **6. Web UI is manual-only and single-instance** | `tests/test_ui_manual_only.js` | The `ui` dispatcher exposes only `start`/`build`; no module in the init, upgrade, install-lifecycle, runtime-bootstrap, or MCP-stdio path references autostart; a second `konoha ui start` on a live port exits non-zero with `already running`, and both OS service units invoke `ui start` | `PASS` (verified 29/29) |
 | **7. Full suite on merged tree** | `tests/run_all.js` | Every discovered suite passes with 0 failed on the `ci/cross-platform` tree carrying parts A/B; the merged tree (with `origin/master`) is re-run through `scripts/sandbox.js` before commit | `PASS` (pre-merge tree via `act`, 1360.7 s; merged tree via `pnpm test:sandbox`, every discovered suite, 0 failed, 2026-11-12) |
 | **8. Config centralization & provenance** | `tests/test_config_centralization.js` | Every consumer reads through `getConfigValue`; `konoha config get` reports `value<TAB>[default|user]` and `--json` returns `{key, value, source}`; the 71-key surface matches `CONFIG_DEFAULTS` | `PASS` (31.1 s) |
 | **9. Container sandbox gate** | `tests/test_sandbox_guard.js`, `tests/test_sandbox_runtime.js` | The gate refuses to run without a reachable engine, keeps host working tree and `HOME` untouched, reuses named volumes, and never reports green when it did not execute. `test_sandbox_runtime` pins the argv for both engines — same image, mounts, env, and mode — with `--memory 4g` only on `container` (each of its instances is a 1 GiB VM, `KONOHA_SANDBOX_MEMORY` overrides), and rejects an unlisted runtime instead of guessing one | `PASS` (9.7 s; runtime plan verified on host) |
@@ -986,7 +998,7 @@ A later `windows-latest` leg then failed row 5's *precondition* — `AssertionEr
 | **16. Windows leg: 3D model discovery HOME** | `tests/test_yamanaka_web_api.js` | win32 `os.homedir()` ignores `HOME` and reads `USERPROFILE`, so the pinned seeded config was never read and `client_default_model` came back `null`; the suite now pins both | `PASS` (local) |
 | **17. Playwright Web UI e2e suite** | `tests/e2e/*.spec.js` via `pnpm --dir apps/web run test:e2e` | 18 spec files, 59 tests on a clean auth store: docs index asserts the mirror contract instead of a pinned row count, the `/agents` roster gets a hydration budget, and the rasengan transition waits for the shared WebGL scene before the theme click | `PASS` (59/59, 19.9 min, 2026-11-12) |
 
-## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.21)
+## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.22)
 
 A gate used to arrive as prose, so every client printed a numbered list and the human retyped a label; and the container sandbox was documented as the gate while `node tests/run_all.js` on a workstation still ran the suite against the developer's `~/.konoha`. Both are now code.
 
@@ -1000,3 +1012,24 @@ A gate used to arrive as prose, so every client printed a numbered list and the 
 | **6. The suite refuses the host** | `tests/test_sandbox_guard.js`, `tests/test_runner_isolation.js` | `evaluateMaintenanceGuard` allows only `KONOHA_SANDBOX_CONTAINER=1` or `CI=true`; an empty env, an isolated `HOME`, and a container marker that loses to CI are each asserted; the refusal message names `pnpm test:sandbox` and the RTK-equivalence sentence | `PASS` |
 | **7. A real browser can drive the gate** | Chromium click-through inside the container sandbox (host `chromium_headless_shell-1248` bind-mounted with its shared-library closure) | The served page renders 3 option cards, `#refinement` is visible, an option is preselected, picking the custom option and typing a note submits, and the page reports `Verdict submitted: Input your own choice` with no page errors | `PASS` (`BROWSER_OK cards=3`) |
 | **8. RTK cannot bypass the guard** | `tests/run_all.js` | The decision reads `process.env` before discovery, so `rtk node tests/run_all.js` refuses identically — RTK rewrites argv and never reaches it | `PASS` (guard placed before seed/discovery) |
+
+## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.22)
+
+Issue #13 replaced the external `semble` MCP server (Python, `uvx --from semble[mcp]@latest`) with an in-process engine over Konoha's own `~/.konoha/konoha.db`. Search answers from `code_chunks_fts`, an FTS5 virtual table created in schema v6/v7, and nothing under `src/code_intel/` spawns a process or writes to an analyzed repository.
+
+| # | Benchmark / Test Suite | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. Schema v6/v7 lands on a live v5 database** | `tests/test_code_intel_migration.js` | The seven `code_*` tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`) are created inside a `SAVEPOINT` after a backup is written; `PRAGMA foreign_key_check` returns no rows; `PRAGMA integrity_check` is `ok`; `PRAGMA user_version` becomes 7; a second run returns before touching anything | `PASS` (verified) |
+| **2. Table counts stay traceable** | `tests/test_schema_traceability.js`, `tests/test_schema_migrations_and_lifecycle.js` | `RAW_TABLE_COUNT` 42→43 and `DECLARED_TABLE_COUNT` 30→31 match the live schema; no lab table (`kali_tools`, `lab_runs`, `lab_tool_invocations`, `red_skill_audit`) reappears; every fresh table appears in the audit document; `src/db_schema.js` is the only writer of `PRAGMA user_version` | `PASS` (verified) |
+| **3. Manifest and router agree at 58** | `tests/test_docs_currency.js`, `tests/test_mcp_tools_table_parity.js` | Manifest 58 = 56 canonical + 2 deprecated; the router exports exactly that set and no longer exposes `search_file`; `src/templates/AGENTS.md` stays under 1,600 bytes and still mandates code intelligence | `PASS` (verified) |
+| **4. Lexer bounds symbol ranges** | `tests/test_code_intel_parser.js` | 16 languages over a fixture corpus; every symbol carries `start_line`/`end_line` inside the file, which a regex-only scan cannot do | `PASS` (verified) |
+| **5. Indexing never writes to the analyzed repository** | `tests/test_code_intel_tools.js` | The fixture tree is byte-identical after `code_index`; `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and files over 1 MiB are skipped; a second run reports `unchanged` | `PASS` (verified) |
+| **6. Ranking is definition-first, then BM25** | `tests/test_code_intel_search.js` | Definition chunks outrank body matches via `def_rank`, `bm25(code_chunks_fts, 10.0, 4.0, 1.0)` orders the rest, and snippets are capped at 40 lines / 2,000 chars / 20 hits | `PASS` (verified) |
+| **7. FTS5-absent fallback is honest** | `tests/test_code_intel_search.js` | With FTS5 unavailable the query runs as a `LIKE` scan and the response carries `degraded: true` instead of throwing or silently returning nothing | `PASS` (verified) |
+| **8. Impact graph maps sites to enclosing symbols** | `tests/test_code_intel_graph.js` | Reverse reachability defaults to depth 3 / 200 nodes, a call cycle terminates instead of exploding, a capped result sets `truncated: true`, and each referencing site is reported as `<kind> <name>` | `PASS` (verified) |
+| **9. Isolation invariants hold** | `tests/test_code_intel_isolation.js` | No `src/code_intel/` module contains `new DatabaseSync(`, `child_process`, or `generateDeterministicVector`; the Akatsuki lab DB carries zero `code_*` tables and `db.getConnection(labPath)` throws `LAB_DB_ISOLATION_VIOLATION`; `.env`, `id_rsa`, `server.pem`, `.key`, and `.p12` never enter the index; a symlink is skipped rather than followed; hostile FTS input comes out inert | `PASS` (verified) |
+| **10. Deployment safety** | `tests/test_deploy_safety.js` | A customized `SOUL.md` keeps its user content inside the `<!-- KONOHA-START -->` managed block; an agent file without `generated_by: konoha` is backed up as `<file>.konoha-backup`, never overwritten | `PASS` (verified) |
+| **11. Web dashboard route answers** | `tests/test_web_ui.js` | `/api/v1/code/status` lists the indexed root and `/api/v1/code/search` returns a real hit from a fixture index, not a vacuous 200 | `PASS` (34.9 s, sandboxed runner) |
+| **12. Web build** | `npx svelte-check --threshold error`, `npx vite build` | 69 files, 0 errors, 0 warnings; the production build exits 0 | `PASS` (verified) |
+| **13. The retired server stays retired** | `tests/test_fresh_install_mcp.js`, `tests/test_mcp_subagent_contract.js` | No client config declares `semble`; the deployed `.agents/skills/konoha/**` mirror is byte-identical to `src/templates/skills/konoha/**` | `PASS` (verified) |
+| **14. Zero-AI-Slop gate** | `npx aislop scan src` | Score 100 with zero non-informational findings | `PASS` (100/100) |

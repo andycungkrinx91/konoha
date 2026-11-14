@@ -1,4 +1,4 @@
-# 🍃 Konoha 9-Ninja Specialist Roster, Parallel Worktree Isolation & Operational Boundaries (v2.2.21)
+# 🍃 Konoha 9-Ninja Specialist Roster, Parallel Worktree Isolation & Operational Boundaries (v2.2.22)
 
 Technical reference on the 9-agent roster (`@sannin` router + 8 spawnable specialists), parallel git worktree contracts, strict tool permission matrices, compact skill loading (`use_skills`), and ADHD/anti-slop discipline.
 

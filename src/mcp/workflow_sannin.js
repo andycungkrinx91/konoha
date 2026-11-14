@@ -445,7 +445,20 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
     }
     const g2Res = applyGate2Choice(choiceObj, status, resolvedTaskDir, sdlcManager);
     if (g2Res.signed_off) {
-      const res = JSON.stringify({ status: 'completed', phase: 'done', task_id: taskId, task_dir: resolvedTaskDir });
+      // A terminal answer must still carry the evidence the gate judged:
+      // without confidence and the Akatsuki verdict the client cannot tell a
+      // clean pass from a signed-off remediation.
+      const res = JSON.stringify({
+        status: 'completed',
+        phase: 'done',
+        gateVerdict: 'pass',
+        task_id: taskId,
+        task_dir: resolvedTaskDir,
+        confidence: status.confidence,
+        ai_slop_findings: status.ai_slop_findings,
+        akatsuki_gate: status.akatsuki_gate || status.akatsuki_final_gate,
+        report: status.report
+      });
       logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
       return res;
     }

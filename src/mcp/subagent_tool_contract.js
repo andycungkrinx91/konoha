@@ -71,7 +71,7 @@ function buildNotAttachedNote(client) {
   const who = client ? `the ${client} client` : 'this client';
   return (
     '\n## MCP Tools\n' +
-    `No Konoha MCP server is registered for ${who}, so no \`mcp__konoha__*\`, \`mcp__semble__*\`, or \`mcp__aislop__*\` tool exists in this session. ` +
+    `No Konoha MCP server is registered for ${who}, so no \`mcp__konoha__*\`, or \`mcp__aislop__*\` tool exists in this session. ` +
     'Do not call them. Complete the task with the client\'s own file, search, and shell tools, and keep edits bounded.\n'
   );
 }

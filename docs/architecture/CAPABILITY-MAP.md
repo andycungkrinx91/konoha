@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.21  
+**Document Version:** 2.2.22  
 **Date:** 2026-11-04  
-**Status:** Canonical Reference (v2.2.21 Complete)  
+**Status:** Canonical Reference (v2.2.22 Complete)  
 
 ---
 
@@ -44,14 +44,14 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.1 Skill Discovery & Neural Retrieval
 
 * **Purpose:** Resolve, search, rank, and load relevant skills and reference SOPs for agent execution.
-* **Canonical Implementation:** `src/mcp/skills.js`, `src/vector_search.js`, `src/db.js`.
+* **Canonical Implementation:** `src/mcp/skills.js`, `src/mcp/skills_common.js`, `src/mcp/skills_search.js`, `src/vector_search.js`, `src/db.js`.
 * **Entry Points:**
   - MCP Tools: `find_skill(keyword, limit?)`, `list_skills(limit?)`, `get_skill(name)`, `optimize_report(query)`.
   - CLI: `konoha migrate`, `konoha embed`, `konoha skill list`.
 * **Consumers:** Sannin router, all 9 specialist subagents, external MCP clients.
-* **Storage:** SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`), ONNX embeddings in `assets/models/`.
+* **Storage:** Two sources, merged on every lookup. (1) The project's own tree — `.agents/skills` plus sixteen sibling locations from `PROJECT_SKILL_SUBDIRS`, resolved by `getProjectSkillRoots()`; (2) SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`) with ONNX embeddings cached natively by `@huggingface/transformers` (`HF_HOME` / Hugging Face `FileCache`, honoring `HF_HUB_CACHE` / `HUGGINGFACE_HUB_CACHE`). The database is an accelerator, not a prerequisite: an unmigrated project skill still resolves through `find_skill`, `get_skill`, and `list_skills`, and `migrate_skills` adds ranked search and reranking rather than access.
 * **Configuration:** `~/.konoha/mcp_config.json`, embedding model config in `src/vector_search.js`.
-* **Tests:** `tests/test_skill_resolution.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
+* **Tests:** `tests/test_skill_resolution.js`, `tests/test_project_skills_dual_source.js`, `tests/test_skill_uri_resolution.js`, `tests/test_no_filesystem_mirrors.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/ADDING-SKILLS.md`.
 * **Dependencies:** `node:sqlite`, `@huggingface/transformers`, `tar`.
 * **Token Optimization (ADR-0004):** Snippet-first search responses (~150 chars clean text vs 500 chars raw markdown, -32.3% payload reduction), intra-session search deduplication (`[LOADED]` badge on repeats, -38.4% reduction), and token-budgeted/section-targeted retrieval in `get_skill` (-87.1% reduction). See `docs/architecture/TOKEN-BASELINE.md`.
@@ -203,7 +203,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ### 2.10 Token Savings Telemetry
 
-* **Purpose:** Quantify token reduction and cost savings from bounded tool operations and Semble search.
+* **Purpose:** Quantify token reduction and cost savings from bounded tool operations and native code search.
 * **Canonical Implementation:** `src/db_savings.js`, `src/tools_savings_logger.js`.
 * **Entry Points:**
   - CLI: `konoha savings`.
@@ -243,13 +243,13 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Visual administration of agents, skills, SDLC tasks, bridges, clients, savings, and diagnostics with cross-platform lifecycle management.
 * **Canonical Implementation:** `src/web_server.js`, `apps/web/`, `bin/lib/ui_commands.js`.
 * **Entry Points:**
-  - CLI: `konoha ui [start|stop|restart|status|daemon|service|build|preview|open]`, `konoha web`.
+  - CLI: `konoha ui [start|build]`, `konoha service [install|uninstall|start|stop|restart|status]`.
   - HTTP Server: `http://127.0.0.1:1404`.
 * **Consumers:** Developers, administrators.
-* **Storage:** Ephemeral session tokens, CSRF tokens, port-scoped daemon PID files (`~/.konoha/ui/`).
+* **Storage:** Ephemeral session tokens and CSRF tokens. No PID file is written any more; `cmdUiStop` still reads a legacy port-scoped PID file (`~/.konoha/ui.pid`, `~/.konoha/ui-<port>.pid`) so an install upgraded from an older release can reap a detached daemon.
 * **Configuration:** `src/web_server.js` port 1404 (configurable via `--port`).
-* **Cross-Platform Resilience:** Detached daemon execution with `windowsHide: true` on Windows, 30-attempt port polling, socket teardown, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
-* **Tests:** `tests/test_web_ui.js`, `tests/test_ui_cross_platform_lifecycle.js`, `tests/test_ui_autostart.js`.
+* **Cross-Platform Resilience:** Foreground-only execution with `windowsHide: true` on Windows, a pre-bind single-instance port probe on every platform, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
+* **Tests:** `tests/test_web_ui.js`, `tests/test_ui_cross_platform_lifecycle.js`, `tests/test_ui_manual_only.js`.
 * **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/SETUP-CLI.md`.
 * **Dependencies:** SvelteKit 3, Vite, Tailwind CSS v4, `@sveltejs/adapter-node`.
 * **Known Legacy Paths:** None.
@@ -369,7 +369,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.21** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.22** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.

@@ -41,8 +41,8 @@ async function run() {
       assert.ok(text.includes('mcp__konoha__sannin'), `${a} missing mcp__konoha__sannin`);
       assert.ok(text.includes('mcp__konoha__find_skill'), `${a} missing mcp__konoha__find_skill`);
       assert.ok(text.includes('mcp__konoha__get_skill'), `${a} missing mcp__konoha__get_skill`);
-      assert.ok(text.includes('mcp__semble__search'), `${a} missing mcp__semble__search`);
-      assert.ok(text.includes('mcp__semble__find_related'), `${a} missing mcp__semble__find_related`);
+      assert.ok(text.includes('mcp__konoha__code_search'), `${a} missing mcp__konoha__code_search`);
+      assert.ok(!text.includes('mcp__semble__'), `${a} must not reference the retired semble server`);
     }
     console.log('✓ Core MCP tools shared across subagents passed');
 

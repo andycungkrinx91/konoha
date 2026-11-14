@@ -27,8 +27,7 @@ function runCli(args) {
       ...process.env,
       HOME: activeTestHome || process.env.HOME,
       USERPROFILE: activeTestHome || process.env.USERPROFILE,
-      KONOHA_DB_PATH: activeTestDbPath || process.env.KONOHA_DB_PATH,
-      KONOHA_UI_AUTOSTART: '0'
+      KONOHA_DB_PATH: activeTestDbPath || process.env.KONOHA_DB_PATH
     };
     const stdout = execFileSync(process.execPath, [CLI_JS, ...args], {
       cwd: REPO_ROOT,

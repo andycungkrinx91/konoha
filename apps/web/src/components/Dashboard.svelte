@@ -550,8 +550,8 @@
         </div>
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-4) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">MCP Servers</p>
-          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-primary);">3</p>
-          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">konoha · semble · aislop</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-primary);">2</p>
+          <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">konoha · aislop</p>
         </div>
       </div>
 

@@ -58,9 +58,7 @@ const {
   syncTemplateSkills
 } = require('./lib/runtime');
 const {
-  ensureUiDaemonAutoStart,
   cmdUi,
-  cmdWeb,
   cmdUiService
 } = require('./lib/ui_commands');
 const { runSplashScreen } = require('../src/splash');
@@ -158,9 +156,6 @@ async function dispatchCoreCommand(cmd, cmdArgs) {
 
 async function dispatchServiceCommand(cmd, cmdArgs) {
   switch (cmd) {
-    case 'web':
-      await cmdWeb(cmdArgs);
-      return true;
     case 'ui':
       await cmdUi(cmdArgs);
       return true;
@@ -169,7 +164,7 @@ async function dispatchServiceCommand(cmd, cmdArgs) {
       return true;
     case 'auth': {
       const sub = cmdArgs[0];
-      if (sub === 'reset' || sub === 'reset-password') {
+      if (sub === 'reset') {
         const auth = require('../src/auth');
         auth.resetAuthToDefault();
         process.stdout.write('  \x1b[38;2;0;255;255m⚡\x1b[0m Web console password has been reset to default: \x1b[1mkonohagakure\x1b[0m\n');
@@ -358,6 +353,5 @@ module.exports = {
   syncTemplateSkills,
   installCliRuntime,
   reconcileGlobalCommand,
-  ensureUiDaemonAutoStart,
   cmdHelp
 };

@@ -72,7 +72,7 @@ procedure is conditional on explicit authorisation. This audit stops at the evid
 - The lab DB already holds a complete, field-identical 361-row catalog, seeded on every
   `openLabDb()` when the table is empty.
 - No code path reads the main-DB table.
-- A fresh `setupSchema` does not create it (33 tables, verified; see
+- A fresh `setupSchema` does not create it (43 base tables in schema v7, verified; see
   `tests/test_schema_migrations_and_lifecycle.js`).
 - The only remaining occurrence is in the developer's live file.
 
@@ -86,7 +86,7 @@ recorded. This document is the evidence package for that decision; it does not p
 Only the canonical-schema test:
 
 - `tests/test_schema_migrations_and_lifecycle.js` now asserts that a fresh `setupSchema`
-  produces exactly **33** tables, that none of `kali_tools`, `lab_runs`,
+  produces exactly **43** base tables (following the schema v7 addition of `code_edges`), that none of `kali_tools`, `lab_runs`,
   `lab_tool_invocations`, `red_skill_audit` appear, and that `_sqliteai_vector` is absent
   from base DDL (extension-owned runtime state).
 

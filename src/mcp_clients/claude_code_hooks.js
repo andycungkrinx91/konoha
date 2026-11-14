@@ -59,7 +59,7 @@ if ((toolName === 'Read' || toolName === 'View' || toolName === 'ReadFile' || !t
   }) + "\\n");
   process.exit(0);
 }
-const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or code_search for codebase search! Retry using ONLY konoha MCP tools.";
 const decision = {
   "decision": "block",
   "reason": reason,

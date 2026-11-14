@@ -224,7 +224,7 @@ konoha init --yes
    rtk cat ~/.cursor/mcp.json
    ```
 
-2. Verify `konoha` and `semble` entries are present (installed by `konoha init` or `konoha doctor --yes`).
+2. Verify `konoha` and `aislop` entries are present (installed by `konoha init` or `konoha doctor --yes`).
 
 3. Run the bootstrap hook manually (must exit 0):
    ```bash
@@ -275,8 +275,8 @@ The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an 
    # Linux/macOS
    grep -A 20 mcpServers ~/.claude.json
    ```
-2. Verify both `konoha` and `semble` entries are present (installed by `konoha init` when `claude` CLI is detected).
-3. Run `/mcp` inside a Claude Code session — should list `konoha` and `semble` as connected servers.
+2. Verify both `konoha` and `aislop` entries are present (installed by `konoha init` when the CLI is detected).
+3. Run `/mcp` inside a Claude Code session — should list `konoha` and `aislop` as connected servers.
 4. If missing, run `konoha doctor --yes` to auto-repair the `~/.claude.json` registration.
 5. Restart Claude Code to pick up the new MCP config.
 
@@ -288,13 +288,13 @@ Full walkthrough: [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
 ### 📂 Working in the Konoha repo — skill not found
 
-Project-local skills live in `.agents/skills/` (including `konoha-maintenance`). After `git pull`, run:
+Project-local skills live in `.agents/skills/` (including `konoha`). Lookup reads that tree directly, so a fresh clone resolves project skills before any migration. After `git pull`:
 
 ```bash
 konoha migrate
 ```
 
-Then agents should use `find_skill("konoha maintenance")` instead of reading `SKILL.md` directly. Confirm indexing with `konoha status` (expect `konoha` skill in the list).
+Run it to pick up ranked FTS5 search and reranking; it is not required for the skill to be found. Then agents should use `find_skill("konoha maintenance")` instead of reading `SKILL.md` directly. Confirm indexing with `konoha status` (expect `konoha` skill in the list). If `status` reports zero entries but `find_skill` still returns the skill, that is the dual-source path working as designed, not a fault.
 
 ---
 
@@ -326,7 +326,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **48 canonical tools**.
+   Expected: JSON listing **56 canonical tools**.
 
 5. **Restart Cursor** after repair.
 
@@ -340,7 +340,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ### 🤖 Codex MCP Configuration Not Detected
 
-1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]`, `[mcp_servers.semble]`, and `[mcp_servers.aislop]`:
+1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]` and `[mcp_servers.aislop]`:
    ```bash
    rtk cat ~/.codex/config.toml
    ```
@@ -414,6 +414,26 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
 
 ---
 
+### 🧭 Code Search Returns Nothing or `degraded: true`
+
+`code_search` answers from the FTS5 index inside `~/.konoha/konoha.db`, not from disk, so an empty result usually means the root was never indexed.
+
+1. Check what is indexed. `code_status` reports one entry per root with `files`, `symbols`, `chunks`, `status`, and the `error` that stopped a failed run:
+   ```
+   code_status({})
+   ```
+
+2. Index the repository once. The path is resolved to an absolute one; omitting it indexes the current working directory:
+   ```
+   code_index({ root: "/absolute/path/to/repo" })
+   ```
+
+3. A response carrying `degraded: true` means this Node.js build has no FTS5. Search then falls back to an unranked `LIKE` scan — slower and unordered, everything else unchanged. `code_status` reports `fts_available`; the SQLite bundled with Node.js 24 ships FTS5 on every platform Konoha supports, so `false` means a runtime built without it.
+
+4. A file that clearly defines a symbol but returns no `code_symbol` hit is either outside the lexer's languages (JavaScript, TypeScript, Python, Go, Rust, Java, C#, Kotlin, Swift, C/C++, Ruby, PHP, SQL, shell, Markdown) or was skipped by the filters — `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and any file over 1 MiB are never indexed.
+
+---
+
 ### 🥷 Agent Still Loading SKILL.md Files Directly
 
 The agent's instructions must be updated. Check the following:
@@ -439,7 +459,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 48 canonical tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 56 canonical tools.
 - **If it persists**: re-run `konoha init --client=pi` (or `konoha init --client=all`), fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
@@ -476,7 +496,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 **Fix:**
 1. Run `konoha doctor --yes` to repair MCP and generated rules.
-2. Run `konoha migrate` after adding or editing a skill.
+2. Run `konoha migrate` after adding or editing a skill, to refresh the FTS5 index. An unmigrated skill still resolves from `.agents/skills`, so this step buys ranking rather than access.
 3. Verify the session calls `konoha.find_skill` and `konoha.get_skill`; do not create a filesystem mirror.
 4. On Cursor session start: `cursor_bootstrap.js` self-heals MCP, generated rules, and RTK state (fail-open).
 
@@ -611,11 +631,11 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Web UI keeps serving the previous build after `npm install -g` + `konoha init` (`v2.2.20`)**:
   - **Symptom**: The runtime under `~/.konoha` is current (`konoha version` is right), but the browser still loads the old UI, and `/` references asset hashes that no longer exist on disk.
   - **Reason**: the daemon caches the SvelteKit handler in-process at startup. `init` treated an active port as "already started" and skipped the restart, so the old build stayed in memory.
-  - **Fix**: resolved in `2.2.20` — `bin/commands/init.js#autoStartUiDaemonIfRequested` restarts a daemon that is already listening on the port. Manually: `konoha ui restart`. `KONOHA_UI_AUTOSTART=0` suppresses starting a daemon, not refreshing a running one.
+  - **Fix**: Ctrl+C the terminal and run `konoha ui start` again. The server caches the SvelteKit handler at startup, so nothing short of a restart picks up a new bundle. `init` and `upgrade` never start or restart it.
 * **Web UI Port 1404 Process Duplication or Warnings on New Terminal Tabs (`v2.0.0-beta.7`)**:
   - **Symptom**: Opening new terminal tabs or running `konoha ui start` when already running shows `warn` warnings or leaves orphaned daemon processes in `ps aux`.
   - **Reason**: `cmdUiStart` logged active instances as warnings instead of informational status, and dead PID files were not cleaned up if processes exited abruptly.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by reporting active servers cleanly via `info()`, pruning dead PID files, adding single-instance daemon process deduplication before spawn, handling `SIGHUP` in `cmdUiDaemon`, and ensuring `cmdUiStop` unconditionally cleans all orphaned daemons via `pkill -f "cli.js ui daemon"`.
+  - **Fix**: `konoha ui start` probes the port before binding and exits 1 with `already running` when a listener is present, so a duplicate cannot start. `cmdUiStop` prunes dead PID files and cleans orphaned listeners.
 * **SDLC Task Delivery Deadlock in Long-Running Persistent Sessions (`v2.0.0-beta.7`)**:
   - **Symptom**: Sannin routes a task, execution succeeds, but the Kage delivery review gate returns `status: "blocked"` with `Kage review did not approve all completed tasks` even though all current tasks passed validation.
   - **Reason**: The SDLC task completion check in `workflowReviewApproved` queried `listTasks({ sessionId })` across the entire session table. In persistent clients (Antigravity CLI/IDE with a long-lived conversation ID), leftover or unverified tasks from earlier prompts in that same session falsely blocked the active workflow from completing.
@@ -627,7 +647,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **Fragmented Savings Telemetry in TUI & UI (`v2.0.0-beta.7`)**:
   - **Symptom**: Running `konoha savings` displayed cluttered per-client provider invocation tables that distracted from visual token reduction metrics.
   - **Reason**: Legacy provider breakdown tables duplicated client stats rather than aggregating into the core token optimization metric.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to the measured skill-library baseline (baseline shown as unavailable when nothing is indexed) and Unified live metric from Konoha MCP + Semble Semantic Engine.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to the measured skill-library baseline (baseline shown as unavailable when nothing is indexed) and the unified live metric derived from Konoha MCP tool-call telemetry.
 * **Definition-of-Readiness (DoR) Gate Blocks Dispatch**:
   - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
   - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.
@@ -803,7 +823,7 @@ Settings Warning
 ```
 **Cause:** Claude Code requires permission rules to follow the `mcp__<server>__*` schema (double underscores) and does not permit colon wildcards (`mcp:konoha:*`) or bare command wildcards (`rtk *`).
 
-**Fix:** Run `konoha doctor --yes` or `node bin/cli.js init --yes --force`. Konoha automatically prunes legacy invalid entries and writes valid syntax (`mcp__konoha__*`, `mcp__semble__*`, `Bash(...)`).
+**Fix:** Run `konoha doctor --yes` or `node bin/cli.js init --yes --force`. Konoha automatically prunes legacy invalid entries and writes valid syntax (`mcp__konoha__*`, `mcp__aislop__*`, `Bash(...)`).
 
 ---
 
@@ -833,16 +853,16 @@ If running `get_file_structure` with `{"dir_path": "."}` on Windows outputs IDE 
 
 1. **Port 1404 Already in Use**:
    - **Symptom**: `EADDRINUSE 127.0.0.1:1404` when executing `konoha ui start`.
-   - **Fix**: Run `konoha ui restart` or `konoha ui stop`. On Windows, the stop handler executes process tree cleanup via `taskkill /F /T /PID`, releases port 1404, and cleans up port-scoped PID files under `~/.konoha/ui/`.
+   - **Fix**: The server runs in the terminal that started it, so Ctrl+C there releases the port. If the terminal is gone, `konoha ui start` will tell you the port is busy; find the owner with `lsof -i :1404` (Linux/macOS) or `netstat -ano | findstr :1404` (Windows) and stop it. `konoha init --force` and `konoha uninstall` also stop a listener they own.
    - Alternatively, bind to a custom port: `konoha ui start --port 1500`.
 
 2. **UI Daemon Fails to Start or Exits Immediately**:
-   - Check status and PID: `konoha ui status`.
+   - Check whether the port answers: `curl 127.0.0.1:1404/api/v1/health`.
    - Check daemon logs: `~/.konoha/ui/daemon-1404.log`.
    - Rebuild pre-built assets if missing: `konoha ui build`.
 
 3. **Browser Does Not Launch Automatically**:
-   - Run `konoha ui open` or navigate manually to `http://127.0.0.1:1404/`.
+   - Navigate to `http://127.0.0.1:1404/` manually; `konoha ui start` opens it unless `--no-open` is passed.
    - On Windows, detached daemon execution uses `cmd.exe /c start ""` with `windowsHide: true`.
 
 ---

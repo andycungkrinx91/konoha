@@ -48,7 +48,7 @@ function locate(lines, pattern) {
 /** Constant names that legitimately stand in for a budget, keyed by the budget they carry. */
 const BUDGET_CONSTANTS = {
   [SLOW_NETWORK_MS]: ['INSTALL_BUILD_MIGRATE_TIMEOUT_MS', 'MIGRATION_TIMEOUT_MS'],
-  180000: ['UI_READY_TIMEOUT_MS', 'AISLOP_GATE_TIMEOUT_MS'],
+  180000: ['AISLOP_GATE_TIMEOUT_MS'],
   30000: ['GIT_TIMEOUT_MS', 'CLI_PROBE_TIMEOUT_MS']
 };
 
@@ -259,7 +259,6 @@ expectTimeout('upgrade', /sizeErr|execSync|spawnSync\(c, \['--version'\]/, 30000
 expectTimeout('upgrade', /root -g.*timeout: \d+/, 30000, 'global root lookup');
 expectTimeout('upgrade', /spawnSync\(cmd, \['root', '-g'\]/, 30000, 'global root lookup (exec form)');
 expectTimeout('upgrade', /^      timeout: \d+,$/, 60000, 'installed version read');
-expectTimeout('upgrade', /waitForPortReady\(UI_PORT, \{ timeoutMs: (?:UI_READY_TIMEOUT_MS|\d+) \}\)/, 180000, 'web daemon readiness', { allowConstant: true });
 
 console.log('Slow-network budgets (install / build / migrate / embed)');
 

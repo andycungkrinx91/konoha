@@ -346,7 +346,7 @@ test('claude_code: every Class-1 MCP grant in settings is present in the generat
   // VACUITY GUARD: a pass with nothing to compare is meaningless.
   assert.ok(artifact.class1.length > 0,
     'no comparable grants found: permissions.allow contains zero Class-1 MCP tool names');
-  for (const server of ['mcp__konoha__', 'mcp__semble__', 'mcp__aislop__']) {
+  for (const server of ['mcp__konoha__', 'mcp__aislop__']) {
     assert.ok(artifact.class1.some((g) => g.startsWith(server)),
       `no ${server}* Class-1 grant in settings to compare`);
   }
@@ -485,7 +485,7 @@ test('command_code: generated .md files carry no wildcard approval', () => {
 
 test('opencode: agent permission blocks carry no wildcard form', () => {
   const home = freshHome('opencode');
-  openCodeManager.registerOpenCodeMcp('node', path.join(REPO, 'src', 'file_tools_mcp.js'), 'uvx', true, { home });
+  openCodeManager.registerOpenCodeMcp('node', path.join(REPO, 'src', 'file_tools_mcp.js'), true, { home });
   const config = JSON.parse(fs.readFileSync(path.join(home, '.config', 'opencode', 'opencode.json'), 'utf8'));
   assert.ok(config.agent, 'no agent entries generated');
   for (const name of Object.keys(config.agent)) {
@@ -499,7 +499,7 @@ test('opencode: agent permission blocks carry no wildcard form', () => {
 });
 
 test('codex: config.toml carries no wildcard approval', () => {
-  const toml = codexManager.updateCodexTomlMcp('', 'node', path.join(REPO, 'src', 'file_tools_mcp.js'), 'uvx');
+  const toml = codexManager.updateCodexTomlMcp('', 'node', path.join(REPO, 'src', 'file_tools_mcp.js'));
   assertNoWildcardApproval('codex config.toml', toml);
   for (const agent of AGENTS) {
     const block = toml.split(`[agents.${agent.name}]`)[1];

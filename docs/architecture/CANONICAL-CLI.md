@@ -1,6 +1,6 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.5.0 (Konoha v2.2.19)  
+**Document Version:** 1.6.0 (Konoha v2.2.22)  
 **Date:** 2026-11-08  
 **Status:** Authoritative CLI Command Reference
 
@@ -32,7 +32,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha doctor` | - | Run self-healing diagnostics on environment and configurations |
 | `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
 | `konoha help` | `[-h] [--help]` | Show interactive educational help menu |
-| `konoha init` | `[-y\|--yes] [--force] [--client=<name>] [--project] [--no-project] [--with-red-team] [--no-embed]` | Initialize MCP servers, database tables, and configure detected coding clients; re-running it also runs the migration pass (which purges the legacy opt-in cyber pack) and restarts a UI daemon already holding the port |
+| `konoha init` | `[-y\|--yes] [--force] [--client=<name>] [--project] [--no-project] [--with-red-team] [--no-embed]` | Initialize MCP servers, database tables, and configure detected coding clients; re-running it also runs the migration pass (which purges the legacy opt-in cyber pack) and, with `--force`, stops a UI listener it owns |
 | `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
 | `konoha mode` | `[hitl|safe|yolo|autonomous] [options]` | Switch HITL gate mode vs YOLO intent per project workspace |
 | `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants (including `hitl_mode`) |
@@ -40,7 +40,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha reinstall` | `[options]` | Shorthand for `konoha init --force` (clean reinstallation of MCP servers and configurations) |
 | `konoha savings` | - | Display token savings metrics and visual reduction percentages |
 | `konoha search` | `<query> [--num=<n>] [--depth=<d>] [--json]` | Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia) |
-| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage background system daemon service (systemd / launchd) for Web UI |
+| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage the boot-time OS service (systemd / launchd) that runs `konoha ui start` |
 | `konoha skill` | `<subcommand> [args]` | Manage skills (list installed, search public registry, add/remove, embed/unembed) |
 | `konoha soul` | `[--json]` | Display Ninja's Soul doctrine, tenets, and archetype spirits |
 | `konoha status` | - | Display system health, client configurations, and database stats |
@@ -48,29 +48,20 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
 | `konoha test` | - | Run integration diagnostics against the MCP server |
 | `konoha tui` | - | Launch interactive terminal UI for subagent and system management (`konoha agent list --tui`) |
-| `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
+| `konoha ui` | `<start|build> [options]` | Run the local Web Configuration UI in the foreground (`start`, blocking) or rebuild its bundle (`build`); port 1404 |
 | `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
 | `konoha upgrade` | `[--yes\|-y] [--force]` | Upgrade the global Konoha installation in place via the detected package manager. Exits 1 when no package manager can install the target (`Upgrade aborted: no package manager could install konoha-mcp@<v>.`) and when the installed version cannot be verified (`Upgrade verification failed: ...`). Never reports success without an observed version |
-| `konoha update` | `[--yes\|-y] [--force]` | Documented synonym of `konoha upgrade` (same handler in `bin/cli.js`) |
 | `konoha version` | `[-v] [--version]` | Display installed CLI version and check npm registry for updates |
-| `konoha web` | `[options]` | Foreground shorthand alias for `konoha ui start --foreground` |
 | `konoha webhook` | `<subcommand> [options]` | Manage outbound SDLC event webhooks (list, add, test, enable, disable, delete) |
 
 ---
 
 ## 2. Command Sub-Namespaces
 
-### 2.1 Web UI (`konoha ui` / `konoha web`)
-- `konoha ui start [--port <port>] [--foreground] [--no-open]` — Launch administrative UI daemon (default port 1404) with cross-platform resilience.
-- `konoha ui stop [--port <port>]` — Terminate running background UI daemon process tree.
-- `konoha ui restart [--port <port>]` — Cleanly restart running UI daemon.
-- `konoha ui status [--port <port>]` — Check whether the UI server is running, healthy, and report PID and port.
-- `konoha ui daemon` — Internal detached background daemon runner with port-scoped PID management.
-- `konoha ui build` — Build SvelteKit UI with Vite and Node adapter.
-- `konoha ui preview` — Run preview server for the built frontend.
-- `konoha ui open` — Open default system browser to the active Web UI URL.
-- `konoha ui service <install|uninstall|start|stop|restart|status>` — Manage OS-level background user services (`systemd` on Linux, `launchd` on macOS).
-- `konoha web` — Foreground shorthand alias for `konoha ui start --foreground`.
+### 2.1 Web UI (`konoha ui`)
+- `konoha ui start [--port <port>] [--host <host>] [--no-open]` — Run the administrative UI in the foreground on port 1404; the terminal blocks until `Ctrl+C`. A second `start` on a port that is already listening exits 1 instead of running a duplicate.
+- `konoha ui build` — Build the SvelteKit UI with Vite and the Node adapter.
+- `konoha service <install|uninstall|start|stop|restart|status>` — Manage the OS-level background user service (`systemd` on Linux, `launchd` on macOS).
 
 ### 2.2 Bridge Router (`konoha bridge`)
 - `konoha bridge list` — List all configured bridges, models, and provider endpoints.
@@ -179,7 +170,7 @@ Three install modes, never blurred:
 | Mode | Invocation | Effect |
 |---|---|---|
 | Persistent global install | `npm install -g konoha-mcp@latest`, or `npm install -g ./konoha-mcp-<version>.tgz` for a packed tarball | Installs the CLI. The package ships no install-time lifecycle script, so no install hook executes and no script-permission prompt can block the install. Runtime setup happens on the next `konoha init --yes` (or `konoha upgrade` on an existing tree). |
-| In-place upgrade | `konoha upgrade` / `konoha update` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
+| In-place upgrade | `konoha upgrade` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
 | Ephemeral run | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs the CLI without installing it. Never claims to have performed a global install. |
 
 `konoha upgrade` failure contract:

@@ -16,14 +16,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -50,17 +50,17 @@ flowchart TB
     Antigravity --> Cascade["Sidecar protocol cascade<br/>(proto -> raw -> gRPC)"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style BridgesLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style BridgesLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef gatewayNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef bridgeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class Client clientNode;
-    class Gateway gatewayNode;
-    class OpenAI,Compatible,Antigravity,OpenAIAPI,Local,Cascade,Discovery bridgeNode;
-    class Bridges storageNode;
+    class Client blueShape;
+    class Gateway,OpenAI,Compatible,Antigravity,Discovery orangeShape;
+    class Bridges,OpenAIAPI,Local greenShape;
+    class Cascade redShape;
 ```
 
 ## Supported Providers

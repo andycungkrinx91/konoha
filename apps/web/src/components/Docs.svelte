@@ -51,9 +51,9 @@
       detail: 'Canonical skill discovery, bounded file I/O, 8-ninja subagent dispatch, AI-fingerprint detectors, and native document engines across all 8 clients.'
     },
     {
-      name: 'semble',
-      tools: 'search, find_related',
-      detail: 'Semantic codebase search. Always called with the absolute repository path — replaces raw grep/glob for code discovery.'
+      name: 'native code intelligence',
+      tools: 'code_index, code_search, code_symbol, code_context, code_impact, code_related, code_status, code_remove',
+      detail: 'In-process hybrid Tree-sitter WASM AST + SQLite FTS5 + IBM Granite 97M embeddings + MiniLM L-6 reranker. No external server, no Python runtime.'
     },
     {
       name: 'aislop',
@@ -85,7 +85,7 @@
     { method: 'POST', path: '/api/v1/sdlc/check-readiness', desc: 'Definition-of-Readiness check for task text' },
     { method: 'POST', path: '/api/v1/sdlc/tasks/reconcile', desc: 'Reconcile tasks against active filesystem and Git state' },
     { method: 'GET', path: '/api/v1/sdlc/config', desc: 'Project SDLC config (dor_mode, review_mode)' },
-    { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha + Semble combined)' },
+    { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha FTS5 tool calls)' },
     { method: 'GET', path: '/api/v1/telegram/config', desc: 'Telegram bot settings (AES-256 encrypted at rest, masked)' },
     { method: 'POST', path: '/api/v1/telegram/config', desc: 'Update Telegram bot token, chat ID, mode & secret' },
     { method: 'POST', path: '/api/v1/telegram/test', desc: 'Send test notification message to configured Telegram chat' },
@@ -95,8 +95,9 @@
     { method: 'POST', path: '/api/v1/queue/prompts', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
     { method: 'GET', path: '/api/v1/webhooks', desc: 'List registered outbound notification webhooks' },
     { method: 'POST', path: '/api/v1/webhooks', desc: 'Create a new outbound webhook notification target' },
-    { method: 'GET', path: '/api/v1/semble', desc: 'Semble MCP status' },
-    { method: 'POST', path: '/api/v1/semble/search', desc: 'Semantic code search proxy' },
+    { method: 'GET', path: '/api/v1/code/status', desc: 'Code intelligence index status per indexed root and semantic runtime readiness' },
+    { method: 'POST', path: '/api/v1/code/search', desc: 'Hybrid AST + FTS5 + Granite 97M + MiniLM L-6 code search over the local index' },
+    { method: 'POST', path: '/api/v1/code/related', desc: 'Structural graph + semantic discovery of files related to an anchor file or symbol' },
     { method: 'GET', path: '/api/v1/search/status', desc: 'SearXNG search engine status' },
     { method: 'POST', path: '/api/v1/search', desc: 'Zero-API-key web search' },
     { method: 'GET', path: '/api/v1/doctor', desc: 'Environment health diagnostics' },
@@ -402,7 +403,8 @@
       <section id="mcp" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">MCP Servers &amp; Tools</h3>
         <p class="text-sm leading-relaxed mb-5" style="color: var(--color-text-muted);">
-          Every client is wired with three MCP servers. All file reads, code search, and skill lookups go through them —
+          Every client is wired with two stdio MCP servers, plus code intelligence that runs inside the `konoha`
+          server over its own SQLite index. All file reads, code search, and skill lookups go through them —
           native shell tools are bypassed for bounded, token-efficient operations.
         </p>
         <div class="space-y-3">
@@ -599,7 +601,7 @@
       <section id="clients" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Client Setup</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Use the Clients screen to configure or remove MCP wiring per client. The runtime contract (Konoha + Semble + aislop,
+          Use the Clients screen to configure or remove MCP wiring per client. The runtime contract (Konoha + aislop,
           RTK shell filtering, guardrails) is injected into every client's agent instructions.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -621,7 +623,7 @@
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha migrate [--clean|--rebuild-embeddings|--skills-dir]</span> <span style="color: var(--color-text-muted);"> — re-index custom skills into SQLite FTS5 database</span> </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha test</span> <span style="color: var(--color-text-muted);"> — perform verification tests on the MCP server & tools</span> </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha status</span> <span style="color: var(--color-text-muted);"> — check installation health, database size, and loaded skills</span> </div>
-          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha web / konoha ui &lt;start|stop|restart|status&gt;</span> <span style="color: var(--color-text-muted);"> — start/manage the local Web Configuration UI (port 1404)</span> </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha ui &lt;start|build&gt;</span> <span style="color: var(--color-text-muted);"> — serve the local Web Configuration UI in the foreground (port 1404), or build its bundle</span> </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha task &lt;list|show|slop&gt;</span> <span style="color: var(--color-text-muted);"> — inspect SDLC tasks and persisted slop results</span> </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha skill &lt;list|search|add|remove&gt;</span> <span style="color: var(--color-text-muted);"> — manage skills from the public registry (skills.sh)</span> </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);"> <span class="font-bold" style="color: var(--color-primary);">konoha doctor [--repair]</span> <span style="color: var(--color-text-muted);"> — environment diagnostics and auto-repair</span> </div>

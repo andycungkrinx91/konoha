@@ -15,6 +15,7 @@
 
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { parseShard } = require('../tests/helpers/shard');
 
 const repoRoot = path.resolve(__dirname, '..');
 const IMAGE = 'konoha-sandbox:local';
@@ -48,6 +49,13 @@ function sandboxPlan(runtime, options = {}) {
 
   const root = options.repoRoot || repoRoot;
   const mode = options.mode || 'full';
+  const env = options.env || process.env;
+  const rawShard = options.shard !== undefined ? options.shard : env.KONOHA_TEST_SHARD;
+  const shardArgs = [];
+  if (rawShard !== undefined && String(rawShard).trim() !== '') {
+    const parsed = parseShard(rawShard);
+    shardArgs.push('-e', `KONOHA_TEST_SHARD=${parsed.index}/${parsed.count}`);
+  }
   const steps = [];
 
   if (options.build !== false) {
@@ -55,7 +63,7 @@ function sandboxPlan(runtime, options = {}) {
   }
 
   steps.push([
-    'run', '--rm', ...spec.runArgs(options.env || process.env),
+    'run', '--rm', ...spec.runArgs(env),
     '-v', `${root}:/src:ro`,
     '-v', `${VOLUMES[0]}:/pnpm-store`,
     '-v', `${VOLUMES[1]}:/ms-playwright`,
@@ -64,6 +72,7 @@ function sandboxPlan(runtime, options = {}) {
     '-e', 'KONOHA_SANDBOX_CONTAINER=1',
     '-e', 'KONOHA_TEST_PARALLEL=1',
     '-e', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
+    ...shardArgs,
     IMAGE, mode
   ]);
 
@@ -71,7 +80,9 @@ function sandboxPlan(runtime, options = {}) {
 }
 
 function usage() {
-  process.stderr.write('usage: node scripts/sandbox.js [--lint] [--no-build] [--runtime docker|container]\n');
+  process.stderr.write(
+    'usage: node scripts/sandbox.js [--lint] [--no-build] [--runtime docker|container] [--shard I/N]\n'
+  );
   process.exit(2);
 }
 
@@ -79,6 +90,7 @@ function parseArgs(argv) {
   let mode = 'full';
   let build = true;
   let runtime = process.env.KONOHA_SANDBOX_RUNTIME || 'docker';
+  let shard;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -87,18 +99,22 @@ function parseArgs(argv) {
     else if (arg === '--no-build') build = false;
     else if (arg === '--runtime') runtime = argv[++i];
     else if (arg.startsWith('--runtime=')) runtime = arg.slice('--runtime='.length);
+    else if (arg === '--shard') {
+      if (i + 1 >= argv.length) usage();
+      shard = argv[++i];
+    } else if (arg.startsWith('--shard=')) shard = arg.slice('--shard='.length);
     else usage();
   }
 
-  return { mode, build, runtime };
+  return { mode, build, runtime, shard };
 }
 
 function main() {
-  const { mode, build, runtime } = parseArgs(process.argv.slice(2));
+  const { mode, build, runtime, shard } = parseArgs(process.argv.slice(2));
 
   let plan;
   try {
-    plan = sandboxPlan(runtime, { mode, build });
+    plan = sandboxPlan(runtime, { mode, build, shard });
   } catch (err) {
     process.stderr.write(`${err.message}\n`);
     usage();

@@ -55,7 +55,7 @@ Every agent bearing the leaf headband—from the router Sannin to the frontline 
 
 ### 5. Tactical Token Hygiene (Efficiency of Movement)
 * **Zero Wasted Movement**: A master shinobi moves swiftly without rustling leaves. Never dump massive files into conversation context.
-* **Targeted Bounded I/O**: Discover symbols with Semble; inspect targeted ranges (50–100 lines) with Konoha MCP tools. Minimize token burn while maximizing impact.
+* **Targeted Bounded I/O**: Discover symbols with `code_search`; inspect targeted ranges (50–100 lines) with Konoha MCP tools. Minimize token burn while maximizing impact.
 
 ---
 

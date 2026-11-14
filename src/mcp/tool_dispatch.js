@@ -48,6 +48,19 @@ const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
 
 const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
 
+/**
+ * Tools whose real work is the async LangGraph workflow. They only produce
+ * gates, pickers, confidence and the Akatsuki pre-gate on `executeTool`; the
+ * sync `executeToolSync` path returns routing metadata alone. Every MCP
+ * transport must therefore await `executeTool` for these names.
+ */
+const WORKFLOW_GRAPH_TOOLS = Object.freeze(['sannin']);
+
+// A single MCP call may have to spend several per-turn budgets before the
+// workflow parks on a gate or finishes. Bounded so a pathological loop still
+// returns something the caller can act on.
+const MAX_GRAPH_TURNS = 6;
+
 function annotateWorkflowFileHint(text) {
   return text;
 }
@@ -260,22 +273,69 @@ function _dispatchWorkflowCore(toolName, args, agent) {
   return null;
 }
 
+/** The graph parks on a gate with the prompt envelope as a JSON string. */
+function _parseGateEnvelope(raw) {
+  if (raw && typeof raw === 'object') return raw;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
   if (!parsedSannin || typeof graphInitRes !== 'object' || graphInitRes === null) {
     return graphInitRes;
   }
+  const checkpoint = {
+    thread_id: threadId,
+    graph_phase: graphInitRes.phase,
+    hitl_stage: graphInitRes.hitlStage || null,
+    flow_hash: graphInitRes.flowHash || parsedSannin.flow_hash
+  };
+  // LangGraph only carries channels declared in KonohaWorkflowState, so the
+  // Akatsuki verdict never survives as a top-level node key. It is persisted on
+  // the workflow status, which `formatGraphOutput` exposes as `workflow_status`.
+  const wfStatus = (graphInitRes.workflow_status && typeof graphInitRes.workflow_status === 'object')
+    ? graphInitRes.workflow_status
+    : (graphInitRes.status && typeof graphInitRes.status === 'object' ? graphInitRes.status : null);
+
+  // A parked gate IS the answer to this call. Merging the routing envelope over
+  // it would leave `instructions: spawn a subagent` on top of a paused workflow,
+  // so the agent never raises the picker and the gate is never answered.
+  // The envelope itself is the proof: a turn that stopped on the token budget
+  // also carries `hitlPending` from the checkpoint, but has no gate to answer.
+  const gateEnvelope = _parseGateEnvelope(graphInitRes.result);
+  if (gateEnvelope && gateEnvelope.hitl_gate && gateEnvelope.picker) {
+    return {
+      ...gateEnvelope,
+      status: 'awaiting_human',
+      phase: graphInitRes.phase,
+      task_id: parsedSannin.task_id,
+      task_dir: parsedSannin.task_dir,
+      flow_hash: parsedSannin.flow_hash,
+      session_id: parsedSannin.session_id,
+      client: parsedSannin.client,
+      selected_agent: parsedSannin.selected_agent,
+      confidence: graphInitRes.confidence ?? wfStatus?.confidence,
+      akatsukiPassed: wfStatus?.blue_mode_before_kage_verified,
+      akatsuki_gate: wfStatus?.akatsuki_gate || wfStatus?.akatsuki_final_gate,
+      hitlPending: true,
+      hitlStage: graphInitRes.hitlStage || null,
+      next_action: 'answer_hitl_gate',
+      langgraph_checkpoint: checkpoint
+    };
+  }
+
   if (parsedSannin.status === 'routed') {
     return {
       ...graphInitRes,
       ...parsedSannin,
       status: 'routed',
       phase: parsedSannin.phase || 'delegation',
-      langgraph_checkpoint: {
-        thread_id: threadId,
-        graph_phase: graphInitRes.phase,
-        hitl_stage: graphInitRes.hitlStage || null,
-        flow_hash: graphInitRes.flowHash || parsedSannin.flow_hash
-      },
+      langgraph_checkpoint: checkpoint,
       workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
       selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
     };
@@ -293,7 +353,7 @@ function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
 }
 
 async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
-  if (toolName === 'sannin') {
+  if (WORKFLOW_GRAPH_TOOLS.includes(toolName)) {
     const prompt = args.prompt || args.task || args.instructions;
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
@@ -315,12 +375,26 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
 
     try {
       const { sanninWorkflowInit } = require('./workflow');
-      const graphInitRes = await sanninWorkflowInit(resolvedTaskDir, {
+      // Gate answers and client identity must reach the graph state: without
+      // `client` the picker degrades to the web picker, and without `choice` a
+      // resumed gate is re-raised instead of applied.
+      const graphOptions = {
         prompt: prompt || (parsedSannin && parsedSannin.prompt),
         tokenBudget,
         threadId,
         autoSignoff,
-      });
+        choice: args.choice || args.gate_choice || args.gateChoice || args.hitl_choice || args.action,
+        refinement: args.refinement || args.feedback || args.notes,
+        client: (parsedSannin && parsedSannin.client) || args.client,
+        sessionId: (parsedSannin && parsedSannin.session_id) || sessId,
+      };
+      let graphInitRes = await sanninWorkflowInit(resolvedTaskDir, graphOptions);
+      // The per-turn token budget halts the graph mid-flight. A client that made
+      // one tool call expects a gate or a result, not a resume instruction, so
+      // keep turning until the workflow is parked or done.
+      for (let turn = 1; turn < MAX_GRAPH_TURNS && graphInitRes.status === 'paused_budget_exceeded'; turn++) {
+        graphInitRes = await sanninWorkflowInit(resolvedTaskDir, { ...graphOptions, choice: null, refinement: null });
+      }
       return _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId);
     } catch (graphErr) {
       if (typeof logToolCall === 'function') {
@@ -502,27 +576,29 @@ function _executeToolInternal(toolName, args, agent) {
 }
 
 /**
- * Identity resolution rule: an explicitly supplied agent is authoritative.
- * Detection only applies when no agent was supplied — a caller cannot borrow
- * the detected identity (e.g. @akatsuki) by passing a different agent name.
+ * Identity resolution rule: an active @genin session is pinned to strict
+ * read-only mode even if args override agent; otherwise an explicit agent
+ * is respected and detection applies when no agent was supplied.
  */
+const {
+  checkGeninToolAccess,
+  applyGeninCodeIndexBounds,
+  resolveAgentIdentity
+} = require('./genin_guard');
+
 function _resolveAgentIdentity(args) {
-  const explicit = args.agent || args.agent_name;
-  if (explicit) return normalizeAgentName(String(explicit));
-  const detected = detectActiveAgent();
-  return detected ? normalizeAgentName(String(detected)) : '';
+  return resolveAgentIdentity(args, detectActiveAgent);
 }
 
 function executeToolSync(toolName, args = {}) {
-  let agent = _resolveAgentIdentity(args);
-  const GENIN_BLOCKED_MUTATION_TOOLS = [
-    'document_create', 'spreadsheet_create', 'presentation_create',
-    'diagram_create', 'animation_export'
-  ];
-  if (agent === 'genin' && GENIN_BLOCKED_MUTATION_TOOLS.includes(toolName)) {
-    return JSON.stringify({
-      error: `Permission denied: @genin is in strict read-only mode and cannot call '${toolName}'. Use read-only exploration or delegate to anbu/tokubetsu-jonin.`
-    });
+  const agent = _resolveAgentIdentity(args);
+  const geninCheck = checkGeninToolAccess(toolName, args, () => agent);
+  if (!geninCheck.allowed) {
+    return JSON.stringify({ error: geninCheck.error });
+  }
+  const boundedArgs = applyGeninCodeIndexBounds(toolName, args, agent);
+  if (toolName.startsWith('code_')) {
+    return require('../file_tools_router').dispatchTool(toolName, boundedArgs).text;
   }
 
   if (['web_search', 'document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'].includes(toolName)) {
@@ -546,25 +622,16 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
     return await runWebSearch(query, numResults, searchDepth, agent);
   }
-  if (toolName === 'document_create') {
-    const { documentCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await documentCreate(args));
-  }
-  if (toolName === 'spreadsheet_create') {
-    const { spreadsheetCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await spreadsheetCreate(args));
-  }
-  if (toolName === 'presentation_create') {
-    const { presentationCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await presentationCreate(args));
-  }
-  if (toolName === 'diagram_create') {
-    const { diagramCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await diagramCreate(args));
-  }
-  if (toolName === 'animation_export') {
-    const { animationExport } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await animationExport(args));
+  const docEngineMethod = {
+    document_create: 'documentCreate',
+    spreadsheet_create: 'spreadsheetCreate',
+    presentation_create: 'presentationCreate',
+    diagram_create: 'diagramCreate',
+    animation_export: 'animationExport'
+  }[toolName];
+  if (docEngineMethod) {
+    const docEngine = require('../workflow/tokubetsu-scribe/document_engine');
+    return JSON.stringify(await docEngine[docEngineMethod](args));
   }
   if (toolName === 'website_ai_detector') {
     const target = args.target || args.path || args.url || args.site;
@@ -581,16 +648,25 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
 
 async function executeTool(toolName, args = {}) {
   const agent = _resolveAgentIdentity(args);
+  const geninCheck = checkGeninToolAccess(toolName, args, () => agent);
+  if (!geninCheck.allowed) {
+    return JSON.stringify({ error: geninCheck.error });
+  }
+  const boundedArgs = applyGeninCodeIndexBounds(toolName, args, agent);
+  if (toolName.startsWith('code_')) {
+    const dispatched = await require('../file_tools_router').dispatchToolAsync(toolName, boundedArgs);
+    return dispatched.text;
+  }
 
-  const heavyRes = await _executeHeavyToolAsync(toolName, args, agent);
+  const heavyRes = await _executeHeavyToolAsync(toolName, boundedArgs, agent);
   if (heavyRes !== null) return heavyRes;
 
-  const graphRes = await _dispatchWorkflowGraphAsync(toolName, args, agent);
+  const graphRes = await _dispatchWorkflowGraphAsync(toolName, boundedArgs, agent);
   if (graphRes !== null) {
     return typeof graphRes === 'object' ? JSON.stringify(graphRes) : graphRes;
   }
 
-  const res = _executeToolInternal(toolName, args, agent);
+  const res = _executeToolInternal(toolName, boundedArgs, agent);
   if (typeof res === 'object' && res !== null) {
     return JSON.stringify(res);
   }
@@ -609,6 +685,7 @@ function validateManifestArguments(toolName, args) {
 }
 
 module.exports = {
+  WORKFLOW_GRAPH_TOOLS,
   _executeToolInternal,
   executeToolSync,
   executeTool,

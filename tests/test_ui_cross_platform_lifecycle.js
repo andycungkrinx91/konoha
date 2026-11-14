@@ -9,7 +9,7 @@
  * - cmdUiStart uses windowsHide: true and extended retry count on Windows
  * - cmdUiStop supports arbitrary ports on Windows, uses taskkill /F /T /PID,
  *   PowerShell -Unique, and netstat -ano fallback
- * - cmdUiRestart waits for port release before restarting
+ * - a live listener blocks a second start (single-instance guard)
  * - resolveWebUiDir handles konoha / Konoha / konohagakure case variations
  * - web_server.js getDistDir resolves dynamically
  */
@@ -60,9 +60,9 @@ async function runTests() {
     cliSource.includes("windowsHide: true\n  });") || cliSource.includes("windowsHide: true")
   );
   ok(
-    'cmdUiStart adapts maxAttempts to 30 on Windows',
-    cliSource.includes("const maxAttempts = process.platform === 'win32' ? 30 : 15;") ||
-    cliSource.includes("async function waitForPortReady(port, { timeoutMs = 90000")
+    'cmdUiStart probes the port before binding (single-instance guard)',
+    cliSource.includes('async function assertSingleInstance(port, host)') &&
+    cliSource.includes('if (await checkPortActive(port))')
   );
 
   // cmdUiStop Windows logic
@@ -81,11 +81,11 @@ async function runTests() {
     cliSource.includes("netstat -ano -p tcp")
   );
 
-  // cmdUiRestart polling
+  // Single-instance refusal
   ok(
-    'cmdUiRestart polls checkPortActive before starting new daemon',
-    cliSource.includes("for (let i = 0; i < 20; i++) {") &&
-    cliSource.includes("if (!await checkPortActive(restartPort)) break;")
+    'a duplicate start refuses instead of forking a second server',
+    cliSource.includes('already running on http://') &&
+    cliSource.includes('process.exit(1);')
   );
 
   // cmdUiBuild cross-platform safety
@@ -121,10 +121,9 @@ async function runTests() {
     webServerSource.includes('const distDir = getDistDir();')
   );
 
-  // Windows SIGBREAK support in daemon and foreground modes
+  // Windows SIGBREAK support in foreground mode
   ok(
-    'cli.js hooks SIGBREAK on Windows in cmdUiDaemon and cmdWebForeground',
-    cliSource.includes("if (process.platform === 'win32') {\n    process.on('SIGBREAK', shutdown);") &&
+    'ui_commands.js hooks SIGBREAK on Windows in cmdWebForeground',
     cliSource.includes("if (process.platform === 'win32') {\n      process.on('SIGBREAK', handleShutdown);")
   );
 

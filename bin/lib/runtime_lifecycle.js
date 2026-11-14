@@ -255,34 +255,6 @@ function copyRuntimeConfigFiles() {
   }
 }
 
-function maybeAutoStartUiDaemon(versionChanged) {
-  const autoStartOptOut = String(process.env.KONOHA_UI_AUTOSTART || '').trim().toLowerCase();
-  const daemonSelf = process.env.KONOHA_UI_DAEMON === 'true';
-  const spawnGuard = process.env.KONOHA_UI_AUTOSTART_GUARD === '1';
-  if (!versionChanged || daemonSelf || spawnGuard || autoStartOptOut === '0' || autoStartOptOut === 'false' || autoStartOptOut === 'off' || autoStartOptOut === 'no') {
-    return;
-  }
-  try {
-    const uiPidFile = path.join(SKILLS_DB_DIR, 'ui.pid');
-    let daemonPid = 0;
-    if (fileExists(uiPidFile)) {
-      try { daemonPid = parseInt(fs.readFileSync(uiPidFile, 'utf8').trim(), 10) || 0; } catch (_) { /* best-effort */ }
-    }
-    let daemonRunning = false;
-    if (daemonPid > 0 && daemonPid !== process.pid) {
-      try { process.kill(daemonPid, 0); daemonRunning = true; } catch (_) { /* not running */ }
-    }
-    const { spawn } = require('child_process');
-    const cliEntry = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
-    const uiArgs = [cliEntry, 'ui', daemonRunning ? 'restart' : 'start', '--no-open'];
-    const uiChild = spawn(process.execPath || 'node', uiArgs, {
-      detached: true, stdio: 'ignore', env: Object.assign({}, process.env, { KONOHA_UI_AUTOSTART_GUARD: '1' })
-    });
-    uiChild.on('error', () => {});
-    uiChild.unref();
-  } catch { /* best-effort */ }
-}
-
 function runBootstrapProcess(bootstrapOptions) {
   const migrate = require('../../src/migrate');
   const attempt = async (opts) => {
@@ -341,7 +313,6 @@ async function ensureAutoSetup(force = false) {
   if (!needed) return;
 
   copyRuntimeConfigFiles();
-  maybeAutoStartUiDaemon(versionChanged);
 
   syncTemplateSkills();
   const pkgSkillsDir = fileExists(path.join(SRC_DIR, 'templates', 'skills'))

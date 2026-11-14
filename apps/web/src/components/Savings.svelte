@@ -75,7 +75,7 @@
 
 <div class="space-y-8 w-full">
   {#snippet heroDesc()}
-    Comprehensive token reduction telemetry across <strong>Konoha FTS5 Database</strong> (bounded file & skill reads) and <strong>Semble MCP</strong> (semantic code search). Full parity with <code class="px-1.5 py-0.5 rounded theme-bg-soft theme-text font-mono text-xs">konoha savings</code> in TUI.
+    Comprehensive token reduction telemetry from the <strong>Konoha FTS5 Database</strong> (bounded file &amp; skill reads). Full parity with <code class="px-1.5 py-0.5 rounded theme-bg-soft theme-text font-mono text-xs">konoha savings</code> in TUI.
   {/snippet}
 
   {#snippet heroActions()}
@@ -117,7 +117,6 @@
     {@const toolList = savings.by_call_type || savings.by_tool || []}
     {@const totalToolCalls = toolList.reduce((sum, item) => sum + (item.calls || 0), 0)}
     {@const filteredTools = getFilteredTools(toolList)}
-    {@const semble = savings.semble || {}}
     {@const combined = savings.combined || {}}
     {@const combToday = combined.today || { calls: today.calls || 0, tokens: today.tokens || today.tokens_saved_approx || 0, bytes: today.bytes || today.tokens_saved_bytes || 0, pct: today.pct_saved ?? today.pct ?? 0 }}
     {@const combLast7 = combined.last_7_days || combined.last7days || { calls: last7Days.calls || 0, tokens: last7Days.tokens || last7Days.tokens_saved_approx || 0, bytes: last7Days.bytes || last7Days.tokens_saved_bytes || 0, pct: last7Days.pct_saved ?? last7Days.pct ?? 0 }}
@@ -136,7 +135,7 @@
         </div>
         <div>
           <h3 class="text-base font-black theme-text tracking-tight">Combined Total Savings</h3>
-          <p class="text-xs font-semibold theme-text-secondary">Unified live metric from Konoha MCP + Semble Semantic Engine</p>
+          <p class="text-xs font-semibold theme-text-secondary">Unified live metric from Konoha MCP tool calls</p>
         </div>
       </div>
 
@@ -489,87 +488,5 @@
       {/if}
     </div>
 
-    <!-- Section 2: Semble MCP Semantic Code Search Savings -->
-    {#if semble && (semble.available || semble.total_saved)}
-      <div class="space-y-5 pt-4 border-t" style="border-color: var(--color-border);">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-lg font-black theme-text flex items-center gap-2">
-              <span class="flex items-center gap-1.5 text-status-success">
-                <span>2.</span>
-                <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <span>Semble MCP (Semantic Code Search) Savings</span>
-            </h3>
-            <p class="text-xs font-semibold theme-text-secondary">Replaces massive repository file scans with on-demand neural embeddings</p>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold badge-status badge-status-success">
-            {semble.total_saved_pct ?? 0}% Efficiency
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 perspective-container">
-          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
-              <span>Today</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.today?.ratio_pct ?? 0}%</span>
-            </div>
-            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.today?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
-              <span>{semble.today?.calls ?? 0} searches</span>
-              <span class="font-bold" style="color: var(--color-primary);">{semble.today?.ratio_pct ?? 0}% saved</span>
-            </div>
-          </div>
-
-          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
-              <span>Last 7 Days</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.last_7_days?.ratio_pct ?? 0}%</span>
-            </div>
-            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.last_7_days?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
-              <span>{semble.last_7_days?.calls ?? 0} searches</span>
-              <span class="font-bold" style="color: var(--color-primary);">{semble.last_7_days?.ratio_pct ?? 0}% saved</span>
-            </div>
-          </div>
-
-          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
-              <span>All Time Total</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.all_time?.ratio_pct ?? 0}%</span>
-            </div>
-            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.all_time?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
-              <span>{semble.all_time?.calls ?? 0} searches</span>
-              <span class="font-bold" style="color: var(--color-primary);">{semble.all_time?.ratio_pct ?? 0}% saved</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Semble Call Types Breakdown (TUI Parity) -->
-        {#if semble.call_types && semble.call_types.length > 0}
-          <div class="glass-card-3d p-6 rounded-3xl border space-y-3">
-            <h4 class="text-xs font-bold uppercase tracking-wider theme-text">
-              Semble Calls by Operation
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {#each semble.call_types as st}
-                <div class="p-4 rounded-xl border flex items-center justify-between" style="background-color: var(--color-bg); border-color: var(--color-border);">
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-xs" style="color: var(--color-primary);">{st.name}</span>
-                    <span class="text-xs theme-text-secondary font-semibold">• {st.calls} calls</span>
-                  </div>
-                  <div class="flex items-center gap-2 font-mono text-xs font-bold theme-text">
-                    <span>{st.share_pct}% share</span>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </div>
-    {/if}
   {/if}
 </div>

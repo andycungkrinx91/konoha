@@ -410,10 +410,6 @@ async function _syncVectorEmbeddings(conn, options, timeBudget) {
   try {
     const vectorSearch = require('./vector_search');
     if (typeof vectorSearch.backfillAllEmbeddings === 'function') {
-      log("\n⚡ Pre-caching neural models across platforms (IBM Granite + GTE Reranker)...");
-      if (typeof vectorSearch.predownloadAllModels === 'function') {
-        await vectorSearch.predownloadAllModels(false);
-      }
       log("⚡ Synchronizing vector embeddings (IBM Granite Multilingual)...");
       const forceRebuild = !!options.rebuildEmbeddings;
       const chunksIndexed = await vectorSearch.backfillAllEmbeddings(conn, forceRebuild, timeBudget || 180.0);

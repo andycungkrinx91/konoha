@@ -18,14 +18,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -38,8 +38,9 @@ flowchart TB
     Developer["Developer"] --> Registry["skills.sh<br/>(Git repository)"]
     Registry --> Files["Workspace or Home<br/>.agents/skills/&lt;name&gt;"]
     Templates["src/templates/skills"] --> Files
-    Files --> Migrate["konoha migrate<br/>(non-destructive)"]
+    Files --> Migrate["konoha migrate<br/>(optional · adds ranking)"]
     Migrate --> DB["SQLite konoha.db<br/>(skills + skills_fts)"]
+    Files -.->|"read first · works unmigrated"| Find
     Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
     DB --> Authz{"classifySkill(name, tags)"}-->|red · caller @akatsuki| Red["Authorized retrieval<br/>(requires_lab: true)<br/>execution still lab-gated"]
@@ -49,17 +50,16 @@ flowchart TB
     Get --> Client
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef actorNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef sourceNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef processNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef runtimeNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
 
-    class Developer,Client actorNode;
-    class Registry,Files,Templates sourceNode;
-    class Migrate processNode;
-    class DB,Find,Get,Red runtimeNode;
-    classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    class Denied denyNode;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Developer,Client,Registry,Files,Templates blueShape;
+    class Migrate,Authz orangeShape;
+    class DB,Find,Get,Red greenShape;
+    class Denied redShape;
 ```
 
 ---
@@ -105,7 +105,8 @@ konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 > - `.agents/skills/` = same relative path on all platforms
 
 ### Step 3: Run the Migration (Optional)
-If the database does not automatically sync or if you manually copied skill files, run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
+
+A skill dropped into `.agents/skills/` is already discoverable: `find_skill`, `list_skills`, and `get_skill` read the project tree directly (`getSkillReadRoots()` in `src/mcp/skills_common.js`), merging those rows with the database on every lookup. Migration is what adds ranked FTS5 search and ONNX reranking:
 
 ```bash
 konoha migrate

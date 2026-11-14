@@ -30,6 +30,7 @@ console.log('✓ Root package.json devDependencies is empty ({})');
 const rootDeps = rootPkg.dependencies || {};
 const allowedRootDeps = [
   '@bufbuild/protobuf',
+  'cfb',
   'docx',
   'xlsx-populate',
   'playwright',
@@ -43,6 +44,8 @@ const allowedRootDeps = [
   'three',
   'manifold-3d',
   'marked',
+  '@huggingface/transformers',
+  'web-tree-sitter',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {

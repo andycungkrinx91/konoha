@@ -69,10 +69,14 @@ function _statusFor(taskDir) {
 
 function _pendingPrompt(status, taskDir) {
   const taskId = path.basename(taskDir);
-  if (status.status === 'pending_human_signoff' || status.phase === 'delivery_signoff') {
+  // The LangGraph nodes record the gate in `hitl_gate` and leave `phase` at the
+  // node that raised it (`plan`, `review`), so keying off `phase` alone makes
+  // every graph-driven gate answer 409 and the picker never renders.
+  const pending = status.hitl_gate || status.status;
+  if (pending === 'pending_human_signoff' || status.phase === 'delivery_signoff') {
     return JSON.parse(buildGate2Prompt(status, taskDir, taskId, { confidence: status.confidence || 100, report: status.report }));
   }
-  if (status.status === 'pending_plan_approval' || status.phase === 'plan_approval') {
+  if (pending === 'pending_plan_approval' || status.phase === 'plan_approval') {
     return JSON.parse(buildGate1Prompt(status, taskDir, taskId, status.plan));
   }
   return null;
@@ -111,13 +115,23 @@ async function handleHitlRoutes(req, res, ctx, route) {
     const choice = parseGateChoice(body.choice, body.refinement);
     if (!choice) { sendJson(res, 400, { error: 'choice is required; submit one of the rendered option labels.' }); return true; }
 
-    const { runSannin } = require('../../mcp/workflow_sannin');
-    const raw = runSannin(null, taskDir, null, null, {
-      choice: body.choice,
-      refinement: body.refinement
-    });
+    // `executeTool` is the graph-aware resume: it applies the verdict and runs
+    // on until the workflow parks on the next gate or completes. The synchronous
+    // `runSannin` only answers with routing metadata, so a click would leave the
+    // workflow frozen and the human staring at a stale page.
+    const { executeTool } = require('../../mcp/tool_dispatch');
     let payload = {};
-    try { payload = JSON.parse(raw); } catch (_) { payload = { raw: String(raw) }; }
+    try {
+      const raw = await executeTool('sannin', {
+        task_dir: taskDir,
+        choice: body.choice,
+        refinement: body.refinement
+      });
+      payload = JSON.parse(raw);
+    } catch (err) {
+      sendJson(res, 500, { error: `Gate verdict failed: ${err.message}` });
+      return true;
+    }
     sendJson(res, 200, { ok: true, verdict: choice.action, result: payload });
     return true;
   }

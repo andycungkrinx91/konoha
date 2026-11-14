@@ -18,16 +18,19 @@
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.18)
+## Konoha runtime contract (2.2.22)
 main agent on Claude Code. Mandatory every turn.
-- **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
-- **Semble is mandatory**: `search`/`find_related` with repo path.
-- **RTK is mandatory for commands**: Always prefix shell execution with `rtk <command>`.
-- **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
-- **HITL Gates**: Gate 1 (`pending_plan_approval`) 1. Compact and approve / 2. Reject+Regenerate PLAN / 3. Input your own choice; Gate 2 (`pending_human_signoff`) 1. Compact and approve / 2. Remediation / 3. Input your own choice. Render the picker on EVERY client and submit the human's reply verbatim via `sannin({ task_dir, choice, refinement })`. Fail closed, never bypass.
-- **@advisor Review**: delivery needs @advisor approval.
-- **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
-- **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.
+- **Konoha is mandatory**: `find_skill`/`get_skill`; no raw cat/grep.
+- **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact`, absolute root.
+- **Project skills are additive**: `.agents/skills` + skill DB; project rules outside markers preserved.
+- **Cross-platform e2e is mandatory**: 3-OS local CI (Linux sandbox/act, Windows VM, macOS container/CI).
+- **RTK is mandatory**: prefix shell commands with `rtk`.
+- **Resume safety**: restore the Konoha/RTK workflow.
+- **HITL gates**: picker on every client; reply via `sannin({task_dir,choice,refinement})`; fail closed.
+- **Worktree/@advisor guard**: stay in `owned_files`; idle `@advisor` interrupts drift.
+- **@advisor review**: delivery needs approval.
+- **Zero-AI-Slop & Kage gate**: 100/100 + ≥98% confidence.
+- **Full contract**: `get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->
 
 <!-- KONOHA-END -->

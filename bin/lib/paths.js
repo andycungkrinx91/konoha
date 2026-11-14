@@ -72,9 +72,6 @@ const GATEWAY_PORT = getConfigValue('gateway_port');
 const BRIDGE_PORT = getConfigValue('bridge_port');
 const NINE_ROUTER_PORT = getConfigValue('nine_router_port');
 
-/** How long upgrade waits for the Web UI daemon to answer after a restart. */
-const UI_READY_TIMEOUT_MS = getConfigValue('ui_ready_timeout_ms');
-
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
   ? path.normalize(process.env.KONOHA_DB_PATH)
@@ -266,7 +263,6 @@ module.exports = {
   GATEWAY_PORT,
   BRIDGE_PORT,
   NINE_ROUTER_PORT,
-  UI_READY_TIMEOUT_MS,
   DB_PATH,
   FINGERPRINT_PATH,
   BRIDGES_JSON_PATH,

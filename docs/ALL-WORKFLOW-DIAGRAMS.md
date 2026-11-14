@@ -1,6 +1,6 @@
 # 🌊 Konoha Complete Workflows Architecture & Flow Diagrams
 
-This document defines all active architectural workflows within **Konoha** (`konoha-mcp`) using native, responsive, and publication-ready **Mermaid** diagrams rendered in the canonical **Tokubetsu-Jonin Light Design Standard** (pure white canvas `#FFFFFF`, dark slate typography `#0F172A`, 4-color theme accent strokes, and zero dark backgrounds).
+This document defines all active architectural workflows within **Konoha** (`konoha-mcp`) using native, responsive, and publication-ready **Mermaid** diagrams rendered in the canonical **Tokubetsu-Jonin Light Design Standard** (pure white canvas `#FFFFFF`, dark slate typography `#0F172A`, unified 4-color gradient-wash shapes across blue, orange, green, and red, and zero dark backgrounds).
 
 ---
 
@@ -38,14 +38,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -61,9 +61,10 @@ flowchart TB
     subgraph CoreMCP ["Konoha MCP & Storage Foundation"]
         SanninRouter["✧ Sannin MCP Router<br/>(Prompt Triage &amp; Delegation)"]
         SQLiteDB[("Unified SQLite DB<br/>~/.konoha/konoha.db<br/>(FTS5 · WAL Mode · busy_timeout=5000)")]
-        SembleSearch["Semble MCP Server<br/>(Project Code Search &amp; Symbol Index)"]
+        CodeIntel["Native Code Intelligence<br/>(code_index · code_search · code_symbol · code_context · code_impact · code_related · code_status · code_remove · AST + FTS5 + Granite)"]
         AislopScanner["Aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene)"]
         SanninRouter <--> SQLiteDB
+        CodeIntel <--> SQLiteDB
     end
 
     Orchestrator --> CoreMCP
@@ -94,17 +95,17 @@ flowchart TB
     QualityGate --> Delivery["Final Delivery &amp; User Response<br/>(Structured Confidence Report)"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style NinjaTeam fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style QualityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style NinjaTeam fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style QualityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef agentNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef clientNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef mcpNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef agentNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class UserPrompt,Clients,Orchestrator,Delivery clientNode;
-    class SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcpNode;
+    class SanninRouter,SQLiteDB,CodeIntel,AislopScanner mcpNode;
     class Sannin,Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu,Akatsuki,Yamanaka agentNode;
     class DoRGate,AkatsukiSecurityGate,SlopGate,SocketGate,ConfidenceGate gateNode;
 ```
@@ -121,14 +122,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -162,11 +163,11 @@ flowchart TD
 
     linkStyle default stroke:#334155,stroke-width:2px;
 
-    classDef routeNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef executeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef routeNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef executeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef reviewNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef failNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
 
     class Init,Phase0,Phase7 routeNode;
     class Phase1,Phase2,Phase2b,Gate2A,Phase3,Phase4,Phase6 executeNode;
@@ -186,21 +187,21 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
     padding: 24
-    wrappingWidth: 350
+    wrappingWidth: 380
 ---
 flowchart TD
     Trigger["Task Dispatch Trigger"] --> Inspect["Inspect Task Definition<br/>(title, prompt, context, parameters)"]
@@ -226,13 +227,13 @@ flowchart TD
     EnforcedEval -- "Issues found" --> BlockDispatch["BLOCK TASK DISPATCH<br/>• Reject execution<br/>• Return DoR failure diagnostics<br/>• Require clarified prompt"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style AssessmentRules fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style AssessmentRules fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef triggerNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef ruleNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef blockNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef triggerNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef ruleNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef blockNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+    classDef evalNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class Trigger,Inspect,Engine triggerNode;
     class R1,R2,R3,R4 ruleNode;
@@ -253,14 +254,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -293,13 +294,13 @@ flowchart TD
     Step5 --> Step6["Step 6: Kage Two-Step Review Gate<br/>• 100/100 aislop scan<br/>• ≥ 98% Delivery Confidence"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style MandatoryInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style MandatoryInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef reqNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef scaffoldNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef valNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef reqNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef scaffoldNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef invNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef valNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class UserReq reqNode;
     class Step1,Step2,Step3,Step4 scaffoldNode;
@@ -320,14 +321,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -358,13 +359,13 @@ flowchart TD
     Step6 --> Step7["Step 7: Delivery Verification Gate"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style FidelityRule fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style FidelityRule fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef startNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef processNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef ruleNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef valNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef startNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef processNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef ruleNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef valNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class SourceDesign startNode;
     class Step1,Step2,Step3,Step4,Step5 processNode;
@@ -385,14 +386,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#f59e0b'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -428,11 +429,11 @@ flowchart TD
 
     linkStyle default stroke:#334155,stroke-width:2px;
 
-    classDef triggerNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef loopNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    classDef triageNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef triggerNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef loopNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+    classDef triageNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class Trigger,Step1,Step2 triggerNode;
     class CheckSlop,CheckBreaker,CheckType gateNode;
@@ -453,21 +454,21 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
     padding: 24
-    wrappingWidth: 350
+    wrappingWidth: 380
 ---
 flowchart LR
     Start["QA Task Ingestion"] --> S1["1. Test Discovery<br/>(Check tests/ &amp; prevent duplicates)"]
@@ -480,8 +481,8 @@ flowchart LR
 
     linkStyle default stroke:#334155,stroke-width:2px;
 
-    classDef stepNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef stepNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
 
     class Start,S1,S2,S3,S4,S5 stepNode;
     class S6,Done passNode;
@@ -499,14 +500,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -547,14 +548,14 @@ flowchart TB
     Load --> AutoCompaction
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style MirrorTrees fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style ClientQueries fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style AutoCompaction fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style MirrorTrees fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style ClientQueries fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style AutoCompaction fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef sourceNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef mirrorNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef dbNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef queryNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef sourceNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef mirrorNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef dbNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef queryNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
 
     class SourceTree,SyncScript sourceNode;
     class M1,M2,M3,M4 mirrorNode;
@@ -574,14 +575,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#f59e0b'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -610,13 +611,13 @@ flowchart TB
     ProtoEncoder --> LocalLLM
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style SidecarProtocol fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style ModelEndpoints fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style SidecarProtocol fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style ModelEndpoints fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef routerNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef sidecarNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef destNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef clientNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef routerNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef sidecarNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef destNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
 
     class Client clientNode;
     class OuterGateway,Intercept routerNode;
@@ -636,14 +637,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -668,13 +669,13 @@ flowchart TD
     AuditAlerts -- "High or Medium Alert Detected" --> GateFail["BLOCK DELIVERY<br/>• Surface alert locations<br/>• Enforce dependency remediation"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style PolicyEngine fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style PolicyEngine fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef commitNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef policyNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef commitNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef policyNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef evalNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef failNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class Commit,Config,SocketCI commitNode;
     class Ignores,Rules policyNode;
@@ -695,14 +696,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#f59e0b'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -735,13 +736,13 @@ flowchart TD
     ConfidenceThreshold -- "Confidence < 98.0%" --> Blocked["DELIVERY BLOCKED<br/>• Reject final synthesis<br/>• Re-dispatch failed categories for remediation<br/>• Re-run verification upon resubmission"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style CriteriaMatrix fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style CriteriaMatrix fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef auditNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef criteriaNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef blockNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef auditNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef criteriaNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef evalNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef blockNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class TasksDone,KageAudit,AkatsukiGate auditNode;
     class C1,C2,C3,C4,C5 criteriaNode;
@@ -762,14 +763,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -807,14 +808,14 @@ flowchart TD
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style OutboundReporting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style InboundLongPolling fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style OutboundReporting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style InboundLongPolling fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef eventNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef routeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef checkNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef dropNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef eventNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef routeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef checkNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef dropNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class SDLCEvent,FormatReport,UserMessage eventNode;
     class SessionSwitch,ShellExec,SubagentDispatch,QueueEnqueue,ReplyStatus,ReplySavings,ReplyCancel,ReplyHelp,QueueWorker routeNode;
@@ -835,14 +836,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -877,15 +878,15 @@ flowchart TD
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style IngressLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style SecurityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style PromptQueueLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style IngressLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style SecurityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style PromptQueueLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef edgeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef authNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef clientNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef edgeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef authNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef storageNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef denyNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class WebClient,TgUser,ClientPickup clientNode;
     class WebServer,TgBot edgeNode;
@@ -906,14 +907,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -960,16 +961,16 @@ flowchart TD
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style RequestRouting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style OfficePipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style AnimationPipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style Deliverables fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style RequestRouting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style OfficePipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style AnimationPipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style Deliverables fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef officeNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef animNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef validNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef clientNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef officeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef animNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef validNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef failNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class UserReq,TJ,SanninSynthesize clientNode;
     class DocCreate,SheetCreate,PresCreate,ZeroGPTCheck officeNode;
@@ -990,19 +991,19 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#dc2626'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
-    nodeSpacing: 40
-    rankSpacing: 50
+    nodeSpacing: 45
+    rankSpacing: 55
     padding: 24
     wrappingWidth: 380
 ---
@@ -1049,17 +1050,17 @@ flowchart TB
     end
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style ConfigStore fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style ModeSwitch fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style SandboxLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style ToolingGuard fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style ConfigStore fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style ModeSwitch fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style SandboxLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style ToolingGuard fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef cliNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef blueNode fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-width:2px;
-    classDef redNode fill:#ffffff,stroke:#dc2626,color:#0f172a,stroke-width:2px;
-    classDef sandNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef cliNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef blueNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef redNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+    classDef sandNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef passNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef failNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class Operator,CLICommand,StatusCheck cliNode;
     class BlueOps,BlueStopLab blueNode;
@@ -1082,14 +1083,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -1147,11 +1148,11 @@ flowchart TD
     ErrorNode --> EndGraph
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef coreNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef warnNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    classDef successNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef startEnd fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef coreNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef warnNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef errNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+    classDef successNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
 
     class StartGraph,EndGraph,Gate1End,Gate2End startEnd;
     class EntryRouter,ClassifyNode,PlanNode,BriefNode,TodoNode,DispatchNode,ExecuteNode coreNode;
@@ -1173,14 +1174,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -1237,11 +1238,11 @@ flowchart TD
 
     EndTurn -. "Subsequent Turn Invocation<br/>turnTokensUsed: 0 · budgetExceeded: false<br/>persisted ceiling preserved" .-> StartTurn
 
-    classDef startNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef routerNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef activeNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef haltNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef errorNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef startNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef routerNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef activeNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef haltNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef errorNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class StartTurn,EndTurn,Gate2End startNode;
     class EntryRouter routerNode;
@@ -1271,17 +1272,17 @@ config:
   theme: base
   themeVariables:
     darkMode: false
-    background: "#ffffff"
-    mainBkg: "#ffffff"
-    primaryColor: "#ffffff"
-    primaryTextColor: "#0f172a"
-    primaryBorderColor: "#8b5cf6"
-    lineColor: "#334155"
-    arrowheadColor: "#334155"
-    secondaryColor: "#f8fafc"
-    tertiaryColor: "#ffffff"
-    fontFamily: "Inter, system-ui, -apple-system, sans-serif"
-    fontSize: "13px"
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -1315,12 +1316,12 @@ flowchart TD
     PromoteNode --> EndAsset(["Production 3D Asset<br/>(~/.konoha/3d-output/ &amp; SSE Stream Complete)"])
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef intakeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef geomNode fill:#ffffff,stroke:#0284c7,color:#0f172a,stroke-width:2px;
-    classDef refineNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef startEnd fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef intakeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef geomNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef refineNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef errNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class PromptIn,EndAsset startEnd;
     class InitNode,SynthNode intakeNode;
@@ -1349,17 +1350,17 @@ config:
   theme: base
   themeVariables:
     darkMode: false
-    background: "#ffffff"
-    mainBkg: "#ffffff"
-    primaryColor: "#ffffff"
-    primaryTextColor: "#0f172a"
-    primaryBorderColor: "#8b5cf6"
-    lineColor: "#334155"
-    arrowheadColor: "#334155"
-    secondaryColor: "#f8fafc"
-    tertiaryColor: "#ffffff"
-    fontFamily: "Inter, system-ui, -apple-system, sans-serif"
-    fontSize: "13px"
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -1391,12 +1392,12 @@ flowchart TD
     PromoteStage --> FinalOutput(["Delivery &amp; Client Telemetry<br/>• Preview PNG + Binary GLB download<br/>• SSE completed event &amp; Recent Assets gallery"])
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef startEnd fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef intakeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef geomNode fill:#ffffff,stroke:#0284c7,color:#0f172a,stroke-width:2px;
-    classDef refineNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef gateNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef errNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef startEnd fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef intakeNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef geomNode fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef refineNode fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef gateNode fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef errNode fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
     class ImgUpload,FinalOutput startEnd;
     class StageInput,DslNode intakeNode;

@@ -64,7 +64,6 @@ async function run() {
   try {
     process.env.HOME = tempHome;
     process.env.KONOHA_SEMANTIC_SEARCH = '0'; // Fast-path migration for unit test
-    process.env.KONOHA_UI_AUTOSTART = '0';
 
     // Must not throw (e.g. TypeError on autoInstallKonohaBridgeExtension).
     // ensureAutoSetup is async since the migrate/embed path went in-process.

@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified on this host.** Windows 10/11 and macOS are exercised by `.github/workflows/cross-platform.yml` (install, lint, full suite, fresh-install smoke) on `windows-latest` and `macos-latest`; `scripts/windows-ci.ps1` reproduces the Windows job locally in a VM. macOS defects surfaced by that matrix are fixed but can only be re-confirmed by a GitHub run — there is no local macOS host.
+Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards — tuned for GitHub Free's 20 total / 5 macOS concurrency caps), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -68,7 +68,7 @@ Konoha has three distinct modes. They are not interchangeable, and no mode perfo
 | Mode | Command | Behavior |
 |:---|:---|:---|
 | **Persistent global install** | `npm install -g konoha-mcp@latest` (or `pnpm add -g konoha-mcp@latest`); from a packed tarball, `npm install -g ./konoha-mcp-<version>.tgz` | Puts `konoha` on PATH. The package ships no install-time lifecycle script, so nothing is prompted for permission and nothing touches `$HOME` at install time. Runtime setup stays explicit (`konoha init --yes`) |
-| **In-place upgrade** | `konoha upgrade` / `konoha update` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
+| **In-place upgrade** | `konoha upgrade` | Reinstalls the global package with the detected manager (npm → pnpm → yarn → GitHub fallback), then runs the runtime lifecycle. If every installer fails it prints `Upgrade aborted: no package manager could install konoha-mcp@<v>.`, keeps your existing installation untouched, and exits `1` |
 | **Ephemeral execution** | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs one command from the registry. No persistent global install, no install-script side effects |
 
 `npx i -g konoha-mcp` is **not valid syntax** — `i` is not an `npx` flag. Use the persistent or ephemeral form above.
@@ -143,7 +143,7 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `konoha`, `semble`, and `aislop` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
+You should see `konoha` and `aislop` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains both entries (run `konoha doctor --yes` to repair).
 
 ### Windows PowerShell Alternative
 ```powershell
@@ -370,7 +370,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```bash
   konoha savings
   ```
-  Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
+  Retrieves and displays token savings metrics (Today, 7 days, All time) from the `konoha` FTS5 telemetry database, helping developers track overall efficiency.
 
 ### AI Fingerprint Detection (Website & Documents) (v2.0.2)
 
@@ -392,46 +392,26 @@ Scan websites and Production documents for AI generation markers, generator foot
 
 Konoha provides an optional local browser-based management dashboard powered by SvelteKit 3 and Tailwind CSS v4 on `127.0.0.1:1404`:
 
-- **Start Background Daemon (Cross-Platform)**:
+- **Start in the foreground**:
   ```bash
   konoha ui start
   ```
-  Launches the detached background daemon. On Windows, runs with `windowsHide: true` (no intrusive cmd popup), polls port 1404 up to 30 attempts, and opens the default browser automatically.
-- **Check Status & PID**:
-  ```bash
-  konoha ui status
-  ```
-- **Restart Daemon**:
-  ```bash
-  konoha ui restart
-  ```
-- **Stop Daemon**:
-  ```bash
-  konoha ui stop
-  ```
-  Cleanly terminates the daemon process tree (`taskkill /F /T` on Windows, `SIGBREAK`/`SIGTERM` handling, and socket teardown).
-- **Run in Foreground**:
-  ```bash
-  konoha ui start --foreground
-  # or
-  konoha web
-  ```
-- **Build & Preview from Source**:
+  Runs the server in the foreground and blocks the terminal. Press `Ctrl+C` to stop. The default browser opens automatically unless `--no-open` is passed.
+- **Build from source**:
   ```bash
   konoha ui build
-  konoha ui preview
   ```
-- **Open in Browser**:
+  Compiles the production SvelteKit bundle into `apps/web/build/` and refreshes the installed runtime copy under `~/.konoha/apps/web/build`.
+- **Options**: `--port=<n>` (default `1404`), `--host=<h>` (default `127.0.0.1`), `--no-open`.
+
+`konoha ui` has exactly these two subcommands. Nothing starts the UI implicitly — not `init`, not `upgrade`. A second `konoha ui start` on a port that is already listening exits 1 with `already running`; press Ctrl+C in the owning terminal first. For a boot-time instance use `konoha service`.
+
+- **Register the boot-time OS service** (systemd on Linux, launchd on macOS):
   ```bash
-  konoha ui open
-  ```
-- **Register OS Background Service (systemd / launchd)**:
-  ```bash
-  konoha ui service install
-  konoha ui service status
-  konoha ui service restart
-  konoha ui service stop
-  konoha ui service uninstall
+  konoha service install
+  konoha service status
+  konoha service restart
+  konoha service uninstall
   ```
 
 ### LLM Bridge Router (`konoha bridge`)
@@ -479,7 +459,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (`2.2.21`) and queries the official npm registry to check if a newer version is available:
+  Displays the installed local version (`2.2.22`) and queries the official npm registry to check if a newer version is available:
   ```bash
   konoha version
   ```
@@ -533,11 +513,11 @@ The installer registers whitelisted command prefixes in `~/.gemini/antigravity-c
 This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
 
 ### 2. Tool Auto-Approvals
-The installer registers tool auto-approval settings for the `konoha`, `semble`, and `aislop` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+The installer registers tool auto-approval settings for the `konoha` and `aislop` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
 - **`konoha`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
-- **`semble`**: Auto-approves `search` and `find_related`.
 - **`aislop`**: Auto-approves `aislop_scan`, `aislop_fix`, `aislop_why`, and `aislop_baseline`.
 - **`konoha`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
+- **`konoha`**: Auto-approves every canonical tool (56), including the native code-intelligence set — `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove`. The grant list is derived from `KONOHA_CANONICAL_TOOLS`, so a new canonical tool is approved without editing this list.
 
 These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.
 

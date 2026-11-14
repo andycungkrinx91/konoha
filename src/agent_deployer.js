@@ -207,12 +207,12 @@ function cleanObsoleteAgentDirs(_home = null) {
 }
 
 function deployGlobalClientConfigs(options) {
-  const { pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, home } = options;
+  const { pythonCmd, serverPath, agents, projectRoot, deployProject, home } = options;
   const effectiveHome = home || process.env.HOME || process.env.USERPROFILE || os.homedir();
 
   try {
     mcpClientsManager.ensureClaudeCodeSetup({
-      pythonCmd, serverPath, uvxCmd, silent: true,
+      pythonCmd, serverPath, silent: true,
       ruleContent: generateClaudeCodeMd(agents), agents, projectRoot, deployProject, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
@@ -220,34 +220,34 @@ function deployGlobalClientConfigs(options) {
   try {
     const opencodeManager = require('./opencode_manager');
     opencodeManager.ensureOpenCodeSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const codexManager = require('./codex_manager');
     codexManager.ensureCodexSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     mcpClientsManager.ensureCommandCodeSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const piManager = require("./pi_manager");
     if (options.force || piManager.isPiInstalled()) {
-      piManager.ensurePiSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
+      piManager.ensurePiSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const ompManager = require("./omp_manager");
     if (options.force || ompManager.isOmpInstalled()) {
-      ompManager.ensureOmpSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force });
+      ompManager.ensureOmpSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 }
@@ -256,7 +256,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const silent = typeof silentOrOptions === 'boolean' ? silentOrOptions : (silentOrOptions.silent || false);
   const pythonCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.pythonCmd || 'python3') : 'python3';
   const serverPath = typeof silentOrOptions === 'object' ? (silentOrOptions.serverPath || SERVER_PATH) : SERVER_PATH;
-  const uvxCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.uvxCmd || 'uvx') : 'uvx';
   const projectRoot = typeof silentOrOptions === 'object' ? (silentOrOptions.projectRoot || null) : null;
   const deployProject = typeof silentOrOptions === 'object' ? (silentOrOptions.deployProject || false) : false;
   const force = typeof silentOrOptions === 'object' ? (silentOrOptions.force || false) : false;
@@ -317,7 +316,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
 
   try {
     cursorManager.ensureCursorSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject,
+      pythonCmd, serverPath, agents, projectRoot, deployProject,
       silent: true, allowHooks: true, ruleContent: null, home: effectiveHome
     });
   } catch (_) { /* intentional fallback */ }
@@ -327,7 +326,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
   } catch (_) { /* intentional fallback */ }
 
   cleanObsoleteAgentDirs(effectiveHome);
-  deployGlobalClientConfigs({ pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, home: effectiveHome, force });
+  deployGlobalClientConfigs({ pythonCmd, serverPath, agents, projectRoot, deployProject, home: effectiveHome, force });
 
   try {
     deployUtils.syncSoulAcrossClients({ home: effectiveHome, silent });

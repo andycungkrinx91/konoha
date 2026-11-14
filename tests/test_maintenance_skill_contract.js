@@ -20,7 +20,7 @@ const FILES = [
 
 const required = [
   'Konoha MCP',
-  'Semble MCP',
+  'code_search',
   'RTK',
   'master',
   'andycungkrinx91.konoha-bridge-master-universal',

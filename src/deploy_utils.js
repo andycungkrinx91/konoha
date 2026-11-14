@@ -10,6 +10,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const { fileExists, ensureDir } = require('./platform_utils');
 const { pruneObsoleteStandaloneSkills } = require('./canonical_skills');
+const { backupOnce, resolveSoulSource, syncSoulAcrossClients } = require('./soul_sync');
 const {
   HOME,
   SKILLS_DB_DIR,
@@ -152,7 +153,14 @@ function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
-function copyIfDifferent(src, dest) {
+/**
+ * @param {object} [options]
+ * @param {'overwrite'|'backup'} [options.strategy] `overwrite` (default) keeps
+ *   historical behaviour. `backup` preserves a differing destination at
+ *   `<dest>.konoha-backup` first — required for anything a user may have
+ *   authored, such as SOUL.md or client agent files.
+ */
+function copyIfDifferent(src, dest, options = {}) {
   if (!fileExists(src)) return false;
   if (!fileExists(dest)) {
     copyFile(src, dest);
@@ -162,11 +170,13 @@ function copyIfDifferent(src, dest) {
     const a = fs.readFileSync(src);
     const b = fs.readFileSync(dest);
     if (!a.equals(b)) {
+      if (options.strategy === 'backup') backupOnce(dest);
       copyFile(src, dest);
       return true;
     }
   } catch {
     try {
+      if (options.strategy === 'backup') backupOnce(dest);
       copyFile(src, dest);
       return true;
     } catch { /* intentional fallback */ }
@@ -341,52 +351,6 @@ function mirrorSkillsDirectory() {
 
 function syncCursorSkillsFromAgents() {
   return 0;
-}
-
-function resolveSoulSource() {
-  const candidates = [
-    path.join(__dirname, 'templates', 'SOUL.md'),
-    path.join(__dirname, '..', 'src', 'templates', 'SOUL.md'),
-    path.join(__dirname, '..', '.agents', 'SOUL.md'),
-    path.join(__dirname, '..', 'SOUL.md')
-  ];
-  for (const c of candidates) {
-    if (fileExists(c)) return c;
-  }
-  return null;
-}
-
-function _copySingleSoulTarget(src, target) {
-  try {
-    return copyIfDifferent(src, target) ? 1 : 0;
-  } catch (_) {
-    return 0;
-  }
-}
-
-function syncSoulAcrossClients(options = {}) {
-  const src = resolveSoulSource();
-  if (!src) return 0;
-
-  const effectiveHome = options.home || process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
-  const targets = [
-    path.join(effectiveHome, '.agents', 'SOUL.md'),
-    path.join(effectiveHome, '.gemini', 'SOUL.md'),
-    path.join(effectiveHome, '.cursor', 'SOUL.md'),
-    path.join(effectiveHome, '.claude', 'SOUL.md'),
-    path.join(effectiveHome, '.commandcode', 'SOUL.md'),
-    path.join(effectiveHome, '.codex', 'SOUL.md'),
-    path.join(effectiveHome, '.config', 'opencode', 'SOUL.md'),
-    path.join(effectiveHome, '.opencode', 'SOUL.md'),
-    path.join(effectiveHome, '.pi', 'SOUL.md'),
-    path.join(effectiveHome, '.omp', 'SOUL.md')
-  ];
-
-  let updated = 0;
-  for (const t of targets) {
-    updated += _copySingleSoulTarget(src, t);
-  }
-  return updated;
 }
 
 const GLOBAL_GIT_EXCLUDE_PATTERNS = [

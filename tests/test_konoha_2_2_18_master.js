@@ -580,7 +580,7 @@ function testSafeInstallationAndCleanup() {
     antigravityManager.ensureAntigravityAgents(setupAgents, { home: sandboxHome });
     antigravityManager.ensureAntigravityPermissions(true, { home: sandboxHome });
 
-    cursorManager.registerCursorMcp('node', serverPath, 'uvx', true, { home: sandboxHome, konohaHome: path.join(sandboxHome, '.konoha') });
+    cursorManager.registerCursorMcp('node', serverPath, true, { home: sandboxHome, konohaHome: path.join(sandboxHome, '.konoha') });
     cursorManager.deployCursorGlobalRule(setupAgents, true, { home: sandboxHome });
     cursorManager.deployCursorGlobalAgents(setupAgents, true, { home: sandboxHome });
     assert.ok(fs.existsSync(path.join(sandboxHome, '.cursor', 'agents', 'sannin.md')), 'Cursor global agents must be deployed');

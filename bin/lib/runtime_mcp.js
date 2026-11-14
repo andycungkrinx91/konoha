@@ -14,10 +14,9 @@ const {
 } = require('./paths');
 const { fileExists, ensureDir, checkPython } = require('./prompt');
 const { info, warn, success } = require('./format');
-const { installUv, getUvCommand } = require('./extension');
 const deployUtils = require('../../src/deploy_utils');
 const antigravityManager = require('../../src/antigravity_manager');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
+const { AISLOP_PACKAGE } = require('../../src/uvx_runtime');
 
 function ensureCoreDirectories() {
   const dirs = [
@@ -106,17 +105,7 @@ function purgePackageCaches({ _ = false } = {}) {
   } catch { /* best-effort */ }
 }
 
-function resolveUvxCommand(silent) {
-  let uvCmd = getUvCommand();
-  if (!uvCmd) {
-    uvCmd = installUv(silent) ? (getUvCommand() || 'uv') : 'uv';
-  }
-  if (uvCmd === 'uv') return 'uvx';
-  const companionUvx = path.join(path.dirname(uvCmd), process.platform === 'win32' ? 'uvx.exe' : 'uvx');
-  return fileExists(companionUvx) ? companionUvx : 'uvx';
-}
-
-function pruneDisabledCursorMcpServers(enableAislop, enableSemble) {
+function pruneDisabledCursorMcpServers(enableAislop) {
   const cursorMcp = path.join(HOME, '.cursor', 'mcp.json');
   if (!fileExists(cursorMcp)) return;
   try {
@@ -125,10 +114,6 @@ function pruneDisabledCursorMcpServers(enableAislop, enableSemble) {
     let changed = false;
     if (!enableAislop && curConfig.mcpServers.aislop) {
       delete curConfig.mcpServers.aislop;
-      changed = true;
-    }
-    if (!enableSemble && curConfig.mcpServers.semble) {
-      delete curConfig.mcpServers.semble;
       changed = true;
     }
     if (changed) {
@@ -159,7 +144,6 @@ function registerMcp(_python, silent = false, allowAutoApprove = true, options =
     opts = allowAutoApprove;
     autoApprove = opts.allowAutoApprove !== undefined ? opts.allowAutoApprove : true;
   }
-  const enableSemble = opts.semble !== false;
   const enableAislop = opts.aislop !== false;
 
   ensureDir(path.dirname(MCP_CONFIG_PATH));
@@ -183,15 +167,6 @@ function registerMcp(_python, silent = false, allowAutoApprove = true, options =
   }
 
   const config = loadExistingMcpConfig(silent);
-  const uvxCmd = resolveUvxCommand(silent);
-
-  const sembleConfig = {
-    command: uvxCmd,
-    args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all']
-  };
-  if (autoApprove) {
-    sembleConfig.autoApprove = ['search', 'find_related'];
-  }
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const aislopConfig = {
@@ -209,8 +184,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true, options =
       : [];
   }
 
-  if (enableSemble) config.mcpServers['semble'] = sembleConfig;
-  else delete config.mcpServers['semble'];
+  delete config.mcpServers['semble'];
 
   if (enableAislop) config.mcpServers['aislop'] = aislopConfig;
   else delete config.mcpServers['aislop'];
@@ -219,11 +193,10 @@ function registerMcp(_python, silent = false, allowAutoApprove = true, options =
   delete config.mcpServers['skills-db'];
   delete config.mcpServers['konoha-files'];
 
-  pruneDisabledCursorMcpServers(enableAislop, enableSemble);
+  pruneDisabledCursorMcpServers(enableAislop);
 
   if (!silent) {
     const registered = [];
-    if (enableSemble) registered.push("'semble'");
     registered.push("'konoha'");
     if (enableAislop) registered.push("'aislop'");
     success(`Registered ${registered.join(', ')} MCP servers.`);
@@ -279,9 +252,6 @@ function unregisterPermissions(silent = false) {
     'command(node bin/cli.js)',
     'command(konoha)',
     'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
-    'mcp(semble/search)',
-    'mcp(semble/find_related)',
-    'mcp(semble/*)',
     'mcp(konoha-files/read_file_head)',
     'mcp(konoha-files/read_file_range)',
     'mcp(konoha-files/file_info)',

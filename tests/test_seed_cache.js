@@ -103,5 +103,33 @@ if (candidates.length === 0) {
   }
 }
 
+// Verify seed lifecycle locking, lease protection, and liveness-checked stale suite reaping
+const lifecycle = require('./helpers/seed_lifecycle');
+const lcRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_lifecycle_unit_'));
+const activeSeed = path.join(lcRoot, 'konoha_golden_seed_active');
+fs.mkdirSync(path.join(activeSeed, '.konoha'), { recursive: true });
+const leasePath = lifecycle.acquireSeedLease(activeSeed);
+check('active lease blocks pruneSeeds eviction', lifecycle.isSeedInUse(activeSeed) === true);
+const activePrune = lifecycle.pruneSeeds({
+  tmpDir: lcRoot,
+  seedIsComplete: () => true,
+  seedIsCurrent: () => false,
+  removeAllCurrent: true
+});
+check('pruneSeeds preserves actively leased seed', activePrune.skippedActive.includes(activeSeed) && fs.existsSync(activeSeed));
+lifecycle.releaseSeedLease(leasePath);
+check('releasing lease unlocks seed for pruning', lifecycle.isSeedInUse(activeSeed) === false);
+
+const deadSuite = path.join(lcRoot, 'konoha_suite_dead_test');
+const liveSuite = path.join(lcRoot, 'konoha_suite_live_test');
+fs.mkdirSync(deadSuite, { recursive: true });
+fs.mkdirSync(liveSuite, { recursive: true });
+lifecycle.writeSuiteMeta(deadSuite, { runnerPid: 999999, childPid: null, suite: 'dead.js' });
+lifecycle.writeSuiteMeta(liveSuite, { runnerPid: process.pid, childPid: null, suite: 'live.js' });
+const suiteSweep = lifecycle.pruneStaleSuiteDirs(lcRoot);
+check('pruneStaleSuiteDirs removes dead suite dir only', suiteSweep.removed.includes(deadSuite) && !fs.existsSync(deadSuite));
+check('pruneStaleSuiteDirs skips live suite dir', suiteSweep.skippedLive.includes(liveSuite) && fs.existsSync(liveSuite));
+fs.rmSync(lcRoot, { recursive: true, force: true });
+
 console.log(`\n${failures.length === 0 ? 'All checks passed' : `Failed: ${failures.join(', ')}`} (${passed} passed, ${failures.length} failed)`);
 process.exit(failures.length === 0 ? 0 : 1);

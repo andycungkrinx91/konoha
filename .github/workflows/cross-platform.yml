@@ -1,14 +1,21 @@
 name: Cross-Platform
 
 # Runs the repo checks on all three supported OSes for every push to master and
-# every pull request. The publish and release-assets workflows stay tag-only on
-# ubuntu-latest; this workflow owns push/PR verification and never publishes.
+# every pull request. Tag pushes are included so a release carries its own
+# verdict: the README CI badge reads the run for the release tag
+# (`cross-platform.yml?branch=v<version>`, rewritten by scripts/bump_version.js)
+# rather than whatever master happens to be.
+# The publish and release-assets workflows stay tag-only on ubuntu-latest; this
+# workflow owns push/PR/tag verification and never publishes.
 #
 # Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
-# macos < 20 min, windows < 40 min. The suite is the only term large enough to
+# macos < 20 min, windows < 30 min. The suite is the only term large enough to
 # matter, so it is split across shards on separate runners — one runner cannot
-# be made fast enough by tuning. Shard counts are set from the measured suite
-# work per platform; see the Duration budget table for the arithmetic.
+# be made fast enough by tuning. Shard counts are tuned for GitHub Free limits
+# (256 matrix jobs/run max; 20 concurrent jobs total; 5 concurrent macOS jobs):
+#   - windows-latest: 16 shards (~18 suites/shard; avoids the 17 min 8-shard run)
+#   - ubuntu-latest:  8 shards  (~36 suites/shard; finishes quickly and frees slots)
+#   - macos-latest:   5 shards  (matches the 5 concurrent macOS cap in one wave)
 #
 # The test step has no `continue-on-error`: a failing suite turns the workflow
 # red. Sharding cannot hide a failure, because each shard must run a non-empty
@@ -18,8 +25,15 @@ name: Cross-Platform
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+  # Nightly cross-platform run. Push-only triggers miss the regressions that
+  # matter most here: a runner image change, a dependency that resolves
+  # differently on another OS, or a Windows/macOS-only path bug that no PR
+  # touches. The cron run is the standing proof that every platform passes.
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
@@ -85,24 +99,104 @@ jobs:
           node bin/cli.js version
 
   test:
-    name: ${{ matrix.os }} shard ${{ matrix.shard }}/8
+    name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     strategy:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
       fail-fast: false
-      # Eight shards on every OS. One job over the whole discovered list measured
-      # 1720 s, far outside the 600 s Linux budget. The gate tree's 281 measured
-      # durations sum to 6245 s, and round-robin assignment of them predicted a
-      # worst shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured
-      # 175 s. Uniform rather than per-OS because the macOS and Windows
-      # multipliers are unmeasured, and Windows is the platform this work exists
-      # for — sizing it down on a number nobody has taken would be guesswork.
-      # Fewer shards would only save runner minutes, which is not the constraint.
+      # Per-OS shard matrix (29 test jobs + 3 checks jobs = 32 jobs <= 256 limit),
+      # asymmetric to respect GitHub Free concurrency (20 total, 5 macOS max).
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        include:
+          - os: ubuntu-latest
+            shard: 1
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 2
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 3
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 4
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 5
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 6
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 7
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 8
+            shard_total: 8
+          - os: macos-latest
+            shard: 1
+            shard_total: 5
+          - os: macos-latest
+            shard: 2
+            shard_total: 5
+          - os: macos-latest
+            shard: 3
+            shard_total: 5
+          - os: macos-latest
+            shard: 4
+            shard_total: 5
+          - os: macos-latest
+            shard: 5
+            shard_total: 5
+          - os: windows-latest
+            shard: 1
+            shard_total: 16
+          - os: windows-latest
+            shard: 2
+            shard_total: 16
+          - os: windows-latest
+            shard: 3
+            shard_total: 16
+          - os: windows-latest
+            shard: 4
+            shard_total: 16
+          - os: windows-latest
+            shard: 5
+            shard_total: 16
+          - os: windows-latest
+            shard: 6
+            shard_total: 16
+          - os: windows-latest
+            shard: 7
+            shard_total: 16
+          - os: windows-latest
+            shard: 8
+            shard_total: 16
+          - os: windows-latest
+            shard: 9
+            shard_total: 16
+          - os: windows-latest
+            shard: 10
+            shard_total: 16
+          - os: windows-latest
+            shard: 11
+            shard_total: 16
+          - os: windows-latest
+            shard: 12
+            shard_total: 16
+          - os: windows-latest
+            shard: 13
+            shard_total: 16
+          - os: windows-latest
+            shard: 14
+            shard_total: 16
+          - os: windows-latest
+            shard: 15
+            shard_total: 16
+          - os: windows-latest
+            shard: 16
+            shard_total: 16
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -233,7 +327,7 @@ jobs:
       - name: Test (shard)
         env:
           KONOHA_TEST_PARALLEL: '1'
-          KONOHA_TEST_SHARD: ${{ matrix.shard }}/8
+          KONOHA_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.shard_total }}
           KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         timeout-minutes: 90

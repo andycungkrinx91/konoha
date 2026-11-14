@@ -12,14 +12,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -33,8 +33,8 @@ flowchart TB
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js Production StateGraph · Sannin Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
-        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
-        SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
+        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
+        CodeIntel["Native Code Intelligence Engine<br/>(code_index · code_search · code_symbol · code_context · code_impact · code_related · code_status · code_remove)<br/>Tree-sitter WASM AST + SQLite FTS5 + Granite/MiniLM"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
         subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
@@ -43,6 +43,7 @@ flowchart TB
         end
         
         KonohaMCP <--> PersistenceLayer
+        CodeIntel <--> PersistenceLayer
     end
 
     subgraph Specialists ["Specialized Subagents (Sannin Router)"]
@@ -64,35 +65,34 @@ flowchart TB
     end
 
     Orchestrator --> KonohaMCP
-    Orchestrator --> SembleMCP
     KonohaMCP --> Sannin
     Sannin --> Specialists
     Specialists --> UniversalInvariants
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style PersistenceLayer fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#0f172a;
-    style Specialists fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style UniversalInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style PersistenceLayer fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#334155;
+    style Specialists fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style UniversalInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef agentNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class User,Clients,Orchestrator clientNode;
-    class KonohaMCP,SembleMCP,AislopMCP,SQLiteDB,VectorEngine mcpNode;
-    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki,Yamanaka agentNode;
-    class Archetypes,Invariants,SSRSafety invNode;
+    class User,Clients,Orchestrator blueShape;
+    class Sannin,Jonin,Anbu,Genin,Chunin,Tokubetsu,Yamanaka,KonohaMCP orangeShape;
+    class CodeIntel,SQLiteDB,VectorEngine,Archetypes,Invariants,SSRSafety greenShape;
+    class AislopMCP,Kage,Akatsuki redShape;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (56 Canonical Tools)
 
-`TOOL_HANDLERS` in `src/file_tools_router.js` registers **50** dispatch keys; `listToolSchemas()` advertises **48**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
+`TOOL_HANDLERS` in `src/file_tools_router.js` registers **58** dispatch keys; `listToolSchemas()` advertises **56**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
 
-| Tool Category | Registered Tools (48 Total) | Description |
+| Tool Category | Registered Tools (56 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. The plural `find_skills` is a hidden dispatch alias for `find_skill`. |
@@ -106,6 +106,7 @@ flowchart TB
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
 | **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
+| **Code Intelligence (8)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | Native SQLite code index (`web-tree-sitter` WASM AST, FTS5, Granite 97M embeddings, MiniLM L-6 reranker): `code_index` walks a repository read-only, `code_search` runs hybrid BM25 + semantic + reranked retrieval, `code_symbol` resolves definitions, `code_context` returns indexed source, `code_impact` walks reverse dependencies, `code_related` finds structurally and semantically related files, `code_status` lists indexed roots, `code_remove` drops one. No external process, no writes to the analyzed repository. |
 
 
 ### 🧭 Canonical Roster & Runtime Surfaces (v2.2.19)
@@ -131,7 +132,7 @@ The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/`
 - **Case-exact module names:** `src/mcp/langgraph/index.js` asserts at load time that every `require('./nodes/<name>')` has an exact-case `.js` on disk, so a case-insensitive filesystem (macOS, Windows) cannot hide a mismatch that Linux CI would reject.
 - **Skills are installed once, resolved by several URI shapes:** `get_skill` resolves `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>`, and `<skill>/references/<file>.md` through `_findSubpathInMirror`, staying inside the skills root. No alias copies are written.
 - **Every long-lived process exits itself (`src/mcp_orphan_guard.js`):** nothing outside the process reaps these, so each entry point owns its own termination. `startStdioOrphanGuard` (called from `setupStdioMcpListener` in `src/file_tools_mcp.js`) polls `process.ppid === 1` every `mcp_orphan_parent_poll_ms` and exits when the spawning client is gone, with `mcp_stdio_idle_timeout_ms` as the Windows safety net because Windows does not reparent children; `noteActivity()` on each `readline` line feeds that budget. `startDaemonOrphanGuard` claims `bridge.pid` and exits when a newer live daemon takes it over (`mcp_daemon_superseded_poll_ms`), so detached gateway daemons do not accumulate one per `init`. Stdin EOF alone is not a usable signal — a launcher that exits closes the pipe it handed the child, which is exactly why the poll exists. Guard: `tests/test_mcp_orphan_guard.js`.
-- **The UI daemon reloads only when restarted:** `apps/web` is served through a SvelteKit handler cached in the daemon process, so a refreshed `~/.konoha/apps/web/build` is invisible until the daemon restarts. `bin/commands/init.js#autoStartUiDaemonIfRequested` restarts a daemon that already holds the port instead of reporting `already-active`; `tests/test_ui_autostart.js` covers both the opt-out and the restart.
+- **The UI reloads only when restarted:** `apps/web` is served through a SvelteKit handler cached in the server process, so a refreshed `~/.konoha/apps/web/build` is invisible until it restarts. Nothing restarts it for you — `init` and `upgrade` never touch it; Ctrl+C the terminal and run `konoha ui start` again. `tests/test_ui_manual_only.js` guards that no autostart path returns and that a second `start` on a live port exits 1.
 
 ### 🖥️ Cross-Platform Install Verification Status
 
@@ -163,7 +164,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.21), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 7` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -172,6 +173,15 @@ All database interactions across the entire Konoha codebase are consolidated und
    - **Foreign Key Cascade Integrity**: Enforces `ON DELETE CASCADE` from `projects` to `persona_memories` with `PRAGMA foreign_keys = ON`, eliminating orphaned records.
 5. **Akatsuki Lab Segregation**: The Kali catalog and all lab execution records live in a separate file (`~/.konoha/akatsuki-lab/lab.db`) opened only through `src/workflow/akatsuki/lab_db.js#openLabDb`. `getConnection()` throws `LAB_DB_ISOLATION_VIOLATION` for any lab path, and `openRawConnection(path)` skips the main schema, migration, and vector setup. The lab store has four tables (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`) and is purged on confirmed teardown. See `docs/security/DATABASE-ISOLATION-INVENTORY.md` and the schema diagram in `docs/DATABASE-ERD.md`.
 
+### 🔎 Skill Resolution: Project Tree First, Database Second
+
+The SQLite index is an **accelerator over the project's skill tree, not a replacement for it**. Every lookup reads both sources and merges the result, so a skill that was never migrated is still discoverable and loadable.
+
+- **Read roots**: `getSkillReadRoots()` in `src/mcp/skills_common.js` returns the project's own skill directories first — `.agents/skills` and sixteen sibling locations (`PROJECT_SKILL_SUBDIRS`) — then the canonical client mirrors from `getMirrorRoots()`. A root is skipped when it resolves to `HOME` or to an IDE installation directory, so an editor's bundled resources are never mistaken for project skills.
+- **Merge points**: `findSkill` and `listSkills` in `src/mcp/skills_search.js` append project-tree rows after the database rows, de-duplicated on skill name, and `getSkill` in `src/mcp/skills_retrieval.js` falls back to the tree when the row is absent. Authorization still gates the result — an agent that may not read a skill does not see it from either source.
+- **What `migrate_skills` buys**: ranked FTS5 search, ONNX reranking, and token-budgeted `get_skill` output. It is an optimisation, not a prerequisite. `KONOHA_DB_PATH` pointing at an unopenable file degrades to tree-only reads rather than failing the lookup; `tests/test_project_skills_dual_source.js` asserts exactly that path.
+- **Project rules are additive too**: text a project wrote into `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` outside the `<!-- KONOHA-CONTRACT-START/END -->` markers survives re-deployment verbatim (`injectManagedConfig` in `src/agent_deployer.js`).
+
 ---
 
 ## 🧠 Hybrid Vector Search & Multilingual Retrieval (`src/vector_search.js`)
@@ -179,17 +189,16 @@ All database interactions across the entire Konoha codebase are consolidated und
 Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword matching:
 
 1. **IBM Granite 97M Multilingual Embedding (ONNX)**:
-   - Model: `onnx-community/granite-embedding-97m-multilingual-r2-ONNX` (384-dimensional dense vectors, int8 quantized).
-   - Pre/Post-processing: Tokenized via `tokenizers`, CLS-token extracted from `last_hidden_state`, and L2-normalized.
-2. **Alibaba GTE Multilingual Cross-Encoder Reranker**:
-   - Model: `onnx-community/gte-multilingual-reranker-base` (int8 quantized).
+   - Model: `onnx-community/granite-embedding-97m-multilingual-r2-ONNX` (384-dimensional dense vectors, int8 quantized via `@huggingface/transformers`).
+   - Pre/Post-processing: Tokenized via Hugging Face `AutoTokenizer`, CLS-token extracted from `last_hidden_state`, and L2-normalized.
+2. **MS MARCO MiniLM L-6 Cross-Encoder Reranker (ONNX)**:
+   - Model: `Xenova/ms-marco-MiniLM-L-6-v2` (int8 quantized via `@huggingface/transformers`).
    - Pairs query with candidate chunk snippets; scores with sigmoid logit transformation.
 3. **Cross-Platform `sqlite-vector` SIMD Acceleration**:
    - Lazily downloads platform-specific prebuilt binary (`linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, `windows-x64`) to `~/.konoha/vendor/sqlite-vector/`.
    - Build-time capability detection: if dynamic extension loading is disabled or unsupported in SQLite, falls back to in-memory cosine similarity calculation without errors.
-4. **Markdown Heading Chunker**:
-   - Chunks documentation by section headers (`#`, `##`, `###`), preserving semantic context boundaries.
-   - Max 2,000 characters per chunk with 100-character boundary overlap.
+4. **Markdown Heading & Code AST Chunkers**:
+   - Skill documentation is chunked by section headers (`#`, `##`, `###`); source code is chunked cleanly across Tree-sitter WASM AST symbol boundaries (`src/code_intel/chunker.js`).
 5. **Reciprocal Rank Fusion (RRF)**:
    - Merges vector similarity rankings with FTS5 BM25 ranks using standard `RRF(d) = sum(1.0 / (60 + rank))`.
 6. **Cross-Lingual Evaluation Benchmark**:
@@ -197,8 +206,8 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
      - **English**: 100.0% Recall@5 (MRR 0.892)
      - **Indonesian**: 95.0% Recall@5 (MRR 0.879)
      - **Overall**: 97.5% Recall@5 (MRR 0.885 vs FTS5 0.769)
-7. **Zero-Config Default & Opt-In Flag**:
-   - Semantic retrieval is enabled via `KONOHA_SEMANTIC_SEARCH=1`. When unset, Konoha defaults to pure SQLite FTS5 for zero-dependency instant startup.
+7. **Native Hugging Face Cache & Explicit Opt-Out (`KONOHA_SEMANTIC_SEARCH`)**:
+   - Semantic retrieval is enabled by default via `@huggingface/transformers` and its native Hugging Face `FileCache` (`HF_HOME`, `HF_HUB_CACHE`, `HF_HUB_OFFLINE=1`). Set `KONOHA_SEMANTIC_SEARCH=0` to explicitly disable semantic embeddings/reranking and run FTS5-only retrieval.
 8. **4-Tier Embedding Feature Deduplication**:
    - **Chunk-Level**: Document sections hashed via SHA-256 over normalized whitespace in `chunk_document()`, pruning duplicate markdown blocks before vectorization.
    - **In-Memory Cache**: `_EMBED_CACHE` (4,096 capacity) serves cached dense vectors in 0 ms with zero redundant ONNX compute.
@@ -315,7 +324,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 8 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev, OMP), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (48 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (56 tools) and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -349,7 +358,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 19. **QA Automation Workflow & Bounded Browser Loop (v2.1.0)**:
    - Integrates deterministic Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
 20. **13-Page Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
-   - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
+   - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#334155` arrows and matching arrowhead markers.
 21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13 - v2.1.14)**:
    - Centralizes canonical skill definitions into `src/canonical_skills.js` (17 canonical ninja and core skills, with `helm-chart-scaffolding` consolidated into `anbu-skill`). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees.
 22. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
@@ -391,8 +400,8 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Cleans sidebar section headers (`OPRATION & DIAGNOSTICS`) with explicit left-margin alignment (`ml-1`, `text-left`, `justify-start`) and replaces hardcoded dashboard header placeholders with dynamic active section and route name breadcrumbs.
    - Adds responsive mobile menu sidebar toggle on the far left of the mobile header (`lg:hidden`) with slide-out drawer navigation and backdrop dismissal, cleanly eliminating bottom dock clutter, and permanently embeds author attribution: `Created by Andy Setiyawan` with verified profile link in the sidebar footer.
 35. **OMP Client Architecture & Workflow Contract (v2.2.0)**:
-   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `uvx`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
-   - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient Semble codebase search.
+   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
+   - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient native codebase search.
    - Enforces host-native advisor review continuity (`reviewMode: agent-end`) executed cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
    - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
 36. **Proxy Gateway Process Lifecycle, Savings Telemetry Performance & Prompt Token Optimization (v2.1.18)**:
@@ -400,12 +409,12 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Incremental Transcript Cache & Dynamic Savings Telemetry**: Refactored `calculateAllModelTokens()` with `{ mtime, size }` persistent transcript caching (`~/.konoha/transcript_cache.json`) and in-memory TTL, slashing execution time from 9.35s to < 30ms. Replaced the static 15,000-byte baseline fallback in `find_skill` with dynamic `SUM(byte_size)` candidate metrics and cleaned legacy database normalizations, allowing savings ratios to accurately fluctuate between 83% and 98% based on real payload sizes.
    - **Prompt Token Optimization**: Decoupled canonical agent skills from raw database reference expansion in `src/agent_manager.js`, keeping agent prompts strictly scoped to top-level canonical skills. Emits concise on-demand discovery instructions in generated subagents and rules, shrinking `AGENTS.md`, `.cursorrules`, and subagent markdowns by > 85% (> 35,000 tokens saved per turn).
 37. **Console Content Width, PageHero Shell & Post-Login Form Field Harmonization (v2.1.18)**:
-   - **Authoritative Shared Width & Gutter Tokens**: Implemented `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), and `--content-gutter-mobile: 1rem` (16px) in `apps/web/src/app.css`. Applied uniformly through `.console-content-container` in `apps/web/src/routes/+layout.svelte` to all standard console routes (`/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/semble`, `/detector`, `/tasks`, `/doctor`, `/settings`), centering with symmetric margins to the right of the sidebar.
+   - **Authoritative Shared Width & Gutter Tokens**: Implemented `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), and `--content-gutter-mobile: 1rem` (16px) in `apps/web/src/app.css`. Applied uniformly through `.console-content-container` in `apps/web/src/routes/+layout.svelte` to all standard console routes (`/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/code`, `/detector`, `/tasks`, `/doctor`, `/settings`), centering with symmetric margins to the right of the sidebar.
    - **Explicit Route Layout Exceptions**: Preserved `/dashboard` and `/docs` as explicit exceptions via `isCustomLayoutRoute` in `+layout.svelte`, retaining their full content stage width and custom scrolling behavior.
    - **Unified PageHero Component**: Created reusable `apps/web/src/components/PageHero.svelte` implementing the measured `/remote` reference hero (`glass-card-3d rounded-[5px] p-8 border`, 3D gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast typography, and responsive badge/actions/stats snippets) across all standard routes and `/docs`.
    - **Post-Login Form Field Styling**: Applied `.login-field-effect` across all post-login form inputs, selects, and textareas, matching `Login.svelte` reference (`rounded-[3px]`, `background-color: var(--color-surface)`, `border: 1px solid var(--theme-border-strong)`, and travelling neon focus border sweep with ambient glow).
 38. **Atomic Authentication Reset, Travelling Neon Focus & Dynamic Toast Theming (v2.2.0)**:
-   - **Atomic Bootstrap Reset & Recovery**: Implemented `resetAuthToDefault()` in `src/auth.js` to restore default credentials (`konohagakure`, `is_bootstrap: true`) and purge stale sessions without requiring authenticated state. Added CLI commands `konoha web reset-password` and `konoha auth reset`.
+   - **Atomic Bootstrap Reset & Recovery**: Implemented `resetAuthToDefault()` in `src/auth.js` to restore default credentials (`konohagakure`, `is_bootstrap: true`) and purge stale sessions without requiring authenticated state. Added the CLI command `konoha auth reset`.
    - **Credential Isolation**: Configured `apps/web/playwright.config.js` with `reuseExistingServer: false` and isolated test credentials (`KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json'`), eliminating test runner credential pollution on user environments.
    - **Travelling Neon Focus Sweep**: Replaced heavy multi-layer box shadows with an animated 1.5px travelling neon border sweep (`@keyframes neonBorderSweep`) using double-background clipping (`padding-box, border-box`) and ambient breathing pulse (`@keyframes neonGlowPulse`), standardizing input corner radius to 3px.
    - **Dynamic Glass Toasts**: Added `--theme-surface-glass` token to `themeState.svelte.js` and updated `ToastHost.svelte` with dynamic theme backgrounds and 4-gradient accent bars.
@@ -414,13 +423,14 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Migrate and Embed Are Function Calls**: `bin/lib/install_lifecycle.js`, `bin/commands/migrate.js`, `bin/commands/upgrade.js`, `bin/lib/runtime_install.js`, `bin/commands/init_migration.js`, `bin/commands/doctor_services.js`, `src/skill_manager.js`, and `src/web/controllers/skills_controller.js` call `require('../../src/migrate').runMigration({...})` and await the result instead of `spawnSync(process.execPath, [migrate.js, ...])`. A non-zero child status can no longer be discarded silently, and no process boundary exists for the migrate/embed path.
    - **`runMigration` Returns a Result, Never Exits**: When invoked as a function it returns `{ ok, missingRequired, remainingLegacy }` instead of calling `process.exit(1)`; only `main()` keeps the exit. It also restores the module-level `DB_PATH` after the call, so repeated in-process invocations do not leak a previous `options.dbPath`.
    - **Time Budget**: `src/migrate.js` defaults the embedding pass to 900 s, overridable through `options.timeBudgetSeconds` or `KONOHA_MIGRATE_TIME_BUDGET`; the same value is published as the `migrate_time_budget_seconds` default. Callers wait `INSTALL_BUILD_MIGRATE_TIMEOUT_MS` (900000 ms) — no local literal, no `|| 180000` fallback — so the embedding stage is no longer truncated to 300 s underneath a 900 s wait.
-   - **Centralized Tunables (`bin/lib/config_defaults.js`)**: 71 documented defaults live in code, never in a shipped file. The ones that matter most: `migrate_time_budget_seconds` 900, `install_build_migrate_timeout_ms` 900000, `git_timeout_ms` 30000, `sqlite_busy_timeout_ms` 5000, `inference_timeout_ms` 900000, `stream_timeout_ms` 300000, `url_timeout_ms` 20000, `probe_timeout_ms` 1500, `aislop_gate_timeout_ms` 180000, `live_glb_poll_timeout_ms` 15000, `ui_ready_timeout_ms` 180000, `notify_dedupe_ttl_ms` 180000, `mcp_orphan_parent_poll_ms` 30000, `mcp_stdio_idle_timeout_ms` 14400000, `mcp_daemon_superseded_poll_ms` 30000, `minimum_confidence` 98, `skill_top_k` 5, `skill_candidate_k` 25, `semantic_top_k` 10, `ui_port` 1404, `gateway_port` 19999, `bridge_port` 1313, `nine_router_port` 20128. The loader is dependency-free so `bin/lib/paths.js` can consume it without the `bin/lib/paths.js` → `bin/commands/config.js` require cycle; `paths.js` derives `UI_PORT`, `GATEWAY_PORT`, `BRIDGE_PORT`, `NINE_ROUTER_PORT`, `MIGRATION_TIMEOUT_MS`, and `INSTALL_BUILD_MIGRATE_TIMEOUT_MS` from it. User overrides stay in `~/.konoha/config.json`; `konoha upgrade` never writes that file.
+   - **Centralized Tunables (`bin/lib/config_defaults.js`)**: 70 documented defaults live in code, never in a shipped file. The ones that matter most: `migrate_time_budget_seconds` 900, `install_build_migrate_timeout_ms` 900000, `git_timeout_ms` 30000, `sqlite_busy_timeout_ms` 5000, `inference_timeout_ms` 900000, `stream_timeout_ms` 300000, `url_timeout_ms` 20000, `probe_timeout_ms` 1500, `aislop_gate_timeout_ms` 180000, `live_glb_poll_timeout_ms` 15000, `notify_dedupe_ttl_ms` 180000, `mcp_orphan_parent_poll_ms` 30000, `mcp_stdio_idle_timeout_ms` 14400000, `mcp_daemon_superseded_poll_ms` 30000, `minimum_confidence` 98, `skill_top_k` 5, `skill_candidate_k` 25, `semantic_top_k` 10, `ui_port` 1404, `gateway_port` 19999, `bridge_port` 1313, `nine_router_port` 20128. The loader is dependency-free so `bin/lib/paths.js` can consume it without the `bin/lib/paths.js` → `bin/commands/config.js` require cycle; `paths.js` derives `UI_PORT`, `GATEWAY_PORT`, `BRIDGE_PORT`, `NINE_ROUTER_PORT`, `MIGRATION_TIMEOUT_MS`, and `INSTALL_BUILD_MIGRATE_TIMEOUT_MS` from it. User overrides stay in `~/.konoha/config.json`; `konoha upgrade` never writes that file.
    - **`konoha config get` Reports Provenance (`bin/commands/config.js`)**: plain output is `value<TAB>[default|user]`, `--json` returns `{key, value, source}`. Keys backed only by code print their effective value rather than `(unset)`.
    - **No Lifecycle Scripts**: the package declares no install-time lifecycle script; the guidance-only shim it used to run is deleted along with the manifest entry. That hook made stock npm abort a global install with `npm error code EALLOWSCRIPTS` while the script itself never ran, so removing both fixes installs and drops nothing load-bearing. Runtime setup is explicit: `konoha init --yes` for a fresh tree, `konoha upgrade` for an existing one.
 
 40. **`image-size` CVE Remediation & Cyber-Pack Residue Purge (v2.2.20)**:
    - **CVE-2025-71330 / GHSA-w3rx-r6r6-pgpr and CVE-2025-71329 / GHSA-5p2g-fcmc-qvqq** (HIGH, CVSS 8.7) are infinite loops in `image-size < 2.0.3` triggered by a crafted ICNS, JXL, or HEIF header. `pptxgenjs@4.0.1` declares `^1.2.1`, so any install that resolved dependencies freshly got the vulnerable line; the 2.2.19 tarball shipped no `node_modules` at all.
    - **Three-part fix**: `package.json#overrides.image-size` is `>=2.0.3` (npm ignores a dependency's own `overrides`), `bundleDependencies: ["pptxgenjs"]` ships the patched subtree, and `patches/pptxgenjs@4.0.1.patch` rewrites that dependency line to `">=2.0.3"` so the bundled tree is self-consistent. `pnpm-workspace.yaml` keeps its stricter `>=2.0.4` floor.
+   - **`cfb` follows the same rule, and needs its consumer bundled with it**: `patches/cfb@1.2.2.patch` strips the `\u0001Sh33tJ5` seed artifact, but `pnpm-workspace.yaml#patchedDependencies` only takes effect inside the workspace — a consumer's tree gets the stock tarball. `cfb` is therefore a direct dependency pinned at `1.2.2` and listed in `bundleDependencies`. Bundling `cfb` alone is a no-op: `xlsx-populate` sits at the consumer's top level and its `require('cfb')` resolves the stock registry copy, so `xlsx-populate` is bundled too and both resolve inside `konoha-mcp/node_modules/`. `tests/test_global_install.js` asserts the patched copy ships *and* that `xlsx-populate` resolves it, then writes an XLSX from the installed tree.
    - **`pnpm pack`, not `npm pack`**: `bundleDependencies` needs a real `node_modules`, and `npm pack` on the repo's default symlink layout emits a `.pnpm`-only tree that fails at runtime with `Cannot find module 'jszip'`. `pack:tgz` runs `pnpm pack`; CI publishes the resulting `konoha-mcp-<version>.tgz`.
    - **Cyber residue**: `src/cyber_pack.js` `remove()` deleted 3 hardcoded client dirs while `bin/lib/paths.js#DEFAULT_SKILLS_DIRS` and `src/global_skill_sync.js#getGlobalHarnessSkillTargets()` describe overlapping sets (`DEFAULT_SKILLS_DIRS` also carries the legacy `~/.opencode/skills`), leaving copies on disk in whichever roots the shorter list missed. Removal now iterates the deduped union of both lists plus `~/.konoha/skills` and the pack dir, and `runMigration` calls the purge after `seedSoulArchetypes`. Opted-in installs are skipped, non-cyber rows are preserved, and the database is backed up before any deletion.
 
@@ -439,14 +449,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -485,17 +495,15 @@ flowchart TD
     P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
 
     %% Styling Classes
-    classDef startEnd fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
-    classDef phase fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
-    classDef remediation fill:#ffffff,stroke:#ef4444,stroke-width:2px,color:#0f172a;
-    classDef approved fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class UserPrompt,DeliveryReport startEnd;
-    class P1,P2,P3,P4,P5,P6,P7 phase;
-    class Gate1,DecisionResearch,DecisionReview,Gate2 decision;
-    class Remediation remediation;
-    class P8 approved;
+    class UserPrompt,P1,P2,P3,P4 blueShape;
+    class Gate1,DecisionResearch,P5,P6,P7,DecisionReview,Gate2 orangeShape;
+    class P8,DeliveryReport greenShape;
+    class Remediation redShape;
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
@@ -570,7 +578,7 @@ The Konoha orchestration engine executes through 8 canonical runtime phases in `
    - **Telegram 2-Way Interactive Approvals**: Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot. Supports `/approval list` and `/approval <id>`. Enforces strict mutual exclusion between 1-way and 2-way modes to eliminate duplicate notifications. Broadcasts completion alerts across all clients.
    - **Complete Elimination of File-Based IPC**: Zero usage of `prompt.md`, `delegate.md`, or `result.md`. Task inputs are ingested from `<USER_REQUEST>` / `sdlc_tasks.description`, dispatches pass structured tool arguments, and results are reported directly via `konoha.report_from_agent`.
    - **Dynamic Polyglot Stack Detector (`src/mcp/stack_detector.js`)**: Inspects workspace manifests and dynamically selects native ecosystem commands across Node/TS, Python, Go, Rust, PHP, and Java.
-   - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `semble.search`.
+   - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `konoha.code_search`.
 
 11. **Hardened Runtime, Universal Project Sync & SQLite Primary Skill Authority (v2.2.3)**:
    - **Migration Timeout & NaN Crash Prevention (`bin/lib/paths.js`, `bin/commands/migrate.js`)**: Increased baseline migration timeout to 180s (3 minutes) to accommodate large SQLite FTS5 re-indexing and neural vector embedding generation across multi-core systems. Hardened `MIGRATION_TIMEOUT_MS` resolution against `NaN` crashes using defensive `Number.isFinite()` normalization. Superseded in 2.2.20 — see invariant 39: the budget is 900s from centralized config, and the embedding pass honors it.
@@ -599,7 +607,7 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
 
 1. **State Transitions & Agent Routing**:
    - `route` (`sannin`): Definition-of-Readiness check (`checkReadiness`), execution classification (`fast_track` direct execution vs `full_sdlc` 8-phase DAG), root task registration in SQLite `sdlc_tasks`, isolated scratch workspace creation (`scratch/tasks/<task_id>/`).
-   - `explore` (`genin`): Read-only codebase reconnaissance, AST/symbol exploration via `semble.search` and `konoha.read_file_range`, dependency boundary mapping; produces `findings.md`. Zero code modifications.
+   - `explore` (`genin`): Read-only codebase reconnaissance, AST/symbol exploration via `konoha.code_search` / `code_symbol` and `konoha.read_file_range`, dependency boundary mapping; produces `findings.md`. Zero code modifications.
    - `plan` (`kage`): Decomposition of `findings.md` into decoupled `- [agent]: task` items, determination of `needs_research` flag, subtask persistence in `sdlc_tasks`.
    - `pending_plan_approval` (Gate 1): Authoritative HITL gate pausing execution; choice 1 approves execution, choice 2 requests plan refinement/regeneration.
    - `research` (`chunin`): Executed conditionally when `needs_research == true`; real-time documentation retrieval and factual evidence gathering; produces `research_evidence.md`.
@@ -630,7 +638,7 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
    - **Structured MCP Communication**: Strict elimination of disk-based IPC (`prompt.md`, `delegate.md`, `result.md`). Communication passes through structured tool arguments and `konoha.report_from_agent`.
    - **Session Sandbox Isolation (Decision A)**: Episodic memories are strictly scoped to the active session (`session_id`). Cross-session visibility requires explicit opt-in (`allSessions: true`).
    - **Deterministic Token Budget**: Single unified prompt format (< 8 KB, ~1,800 tokens) with prefix determinism ($T_1 == T_2 == T_3$) for KV cache optimization.
-   - **RTK Boundary Guardrails**: Prohibits raw file cat/grep commands, enforcing `konoha.read_file_range` and `semble.search`.
+   - **RTK Boundary Guardrails**: Prohibits raw file cat/grep commands, enforcing `konoha.read_file_range` and `konoha.code_search`.
 
 ---
 
@@ -646,14 +654,15 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    fontFamily: 'Inter, system-ui, sans-serif'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
@@ -704,12 +713,17 @@ flowchart TD
     NodeBudget --> End
     NodeError --> End
 
-    classDef graphNode fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
-    classDef terminal fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
-    class NodeClassify,NodePlan,NodeBrief,NodeTodo,NodeDispatch,NodeExecute,NodeReview,NodeRemediate,NodeComplete,NodeBudget,NodeError,ResumeNode graphNode;
-    class EntryRouter decision;
-    class Start,End,GatePause1,GatePause2 terminal;
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Start,ResumeNode,NodeClassify,NodeBrief,NodeTodo blueShape;
+    class EntryRouter,NodePlan,NodeDispatch,NodeExecute,NodeReview,GatePause1,GatePause2 orangeShape;
+    class NodeComplete,End greenShape;
+    class NodeRemediate,NodeBudget,NodeError redShape;
 ```
 
 Budget edges are present only where the router in `src/mcp/langgraph/edges/router.js` declares `node_budget_exceeded`; `node_brief`, `node_todo`, and `node_plan` declare it too, and are omitted from the dashed set above only to keep the diagram readable.
@@ -757,7 +771,7 @@ LangGraph.js provides native parallel branch execution through the `Send` API an
    - **SDLC Ordering Invariants**: Core dependencies (database schema DDL migration -> backend API routing -> frontend UI binding) strictly require sequential barriers.
 3. **Architectural Implementation (v2.2.18)**:
    - **STATUS: ACTIVE IN v2.2.18 (`src/mcp/langgraph/`)**.
-   - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, Semble, aislop, and RTK.
+   - Subagents are invoked dynamically on demand per active task slice (`src/mcp/langgraph/nodes/dispatch.js`) with role-filtered tool manifests inherited from Konoha, aislop, and RTK.
 
 ---
 
@@ -842,14 +856,15 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    fontFamily: 'Inter, system-ui, sans-serif'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
@@ -889,6 +904,18 @@ flowchart TD
     ErrorHalt --> End
 
     End -.->|Next Turn Invocation<br/>turnTokensUsed: 0<br/>budgetExceeded: false<br/>retains tokenBudget| START
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class START,NodeClassify,NodeBrief,NodeTodo,NodeDispatch blueShape;
+    class EntryRouter,NodePlan,NodeExecute,NodeReview orangeShape;
+    class NodeComplete,End greenShape;
+    class NodeRemediate,BudgetHalt,ErrorHalt redShape;
 ```
 
 ---

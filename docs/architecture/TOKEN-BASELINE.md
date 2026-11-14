@@ -11,7 +11,7 @@
 
 | Metric Category | Scope / Target | Before (Phase 0) | After (Phase 5 Reconciled) | Absolute Delta | Relative Savings | Verification Status |
 |---|---|---|---|---|---|---|
-| **1. Tool Schema Overhead** | 48 Konoha + 2 Semble + 4 Aislop | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (50 in manifest: 48 canonical + 2 deprecated) |
+| **1. Tool Schema Overhead** | 48 Konoha + 2 external + 4 Aislop (pre-code-intelligence roster; the seven `code_*` schemas added in v2.2.22 are excluded from this measurement) | **4,163 tokens** | **4,016 tokens** | **-147 tokens** | **-3.5%** (-5.1% on Konoha) | Verified active JSON-RPC schemas (50 in manifest: 48 canonical + 2 deprecated) |
 | **2. Retrieval Payload Size** | 10 representative queries (`find_skill`) | **7,002 tokens** (700.2 avg) | **4,742 tokens** (474.2 avg) | **-2,260 tokens** | **-32.3%** | 10 distinct queries evaluated with live SQLite FTS5 |
 | **   ↳ Repeat Query Dedup** | Repeated query in same task | 500 tokens | 308 tokens | -192 tokens | **-38.4%** | Session cache returns `[LOADED]` |
 | **   ↳ Targeted Section Read** | `get_skill` with section/budget | 1,719 tokens | 222 tokens | -1,497 tokens | **-87.1%** | Target section slice vs full markdown |
@@ -38,7 +38,7 @@ Active JSON-RPC tool schemas emitted to clients in `tools/list`:
 Component                Before (Phase 0)   After (Round 1)    After (Round 2)      Total Delta
 ───────────────────────────────────────────────────────────────────────────────────────────────
 Konoha MCP Canonical         2,890 tokens       2,743 tokens       2,621 tokens   -269 tokens (-9.3%)
-Semble MCP                     784 tokens         784 tokens         504 tokens   -280 tokens (-35.7%)
+External code-search MCP        784 tokens         784 tokens         504 tokens   -280 tokens (-35.7%)
 Aislop MCP                     493 tokens         493 tokens         314 tokens   -179 tokens (-36.3%)
 ───────────────────────────────────────────────────────────────────────────────────────────────
 Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens   -724 tokens (-17.4%)
@@ -48,9 +48,9 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
-4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 50 tools in manifest (48 canonical + 2 deprecated) in CI/CD.
-5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, and locked at exactly 48 canonical tools active across 50 total entries in manifest) in `src/file_tools_router.js`.
-6. **Semble & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across Semble (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json` saving -179 tokens / -36.3%), saving a combined -459 tokens (-35.9%) across auxiliary MCP servers.
+4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 58 tools in manifest (56 canonical + 2 deprecated) in CI/CD.
+5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, 55 with code-intelligence v1, and locked at exactly 56 canonical tools active across 58 total entries in manifest) in `src/file_tools_router.js`.
+6. **External Code-Search & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across the then-registered external code-search MCP (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json`). The external server was later retired in favour of the in-process SQLite FTS5 code index, so those schema tokens no longer exist at all.
 
 ---
 
@@ -242,9 +242,9 @@ In Issue 9, prompt generation was unified into a single deterministic token-boun
 | Verification Suite | Target | Baseline (Phase 0) | Current (Phase 5 Reconciled) | Result |
 |---|---|---|---|---|
 | **JS Automated Test Suites** | `rtk node tests/run_all.js` | 86 passed, 0 failed (159.7s) | **90 passed, 0 failed** | **PASSED (100%)** |
-| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **50 tools in manifest (48 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
+| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **58 tools in manifest (56 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
 | **Reconcile Presentation Gate** | `rtk node tests/test_reconcile_presentation.js` | N/A (new test) | **Honest scoping & live bounds verified** | **PASSED (100%)** |
-| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 50 tools in manifest (48 canonical + 2 deprecated)** | **PASSED (100%)** |
+| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 58 tools in manifest (56 canonical + 2 deprecated)** | **PASSED (100%)** |
 | **CI Token Regression Gate** | `rtk node tests/test_token_regression_gate.js` | N/A (new test) | **All 5 token budgets enforced with +10% margin** | **PASSED (100%)** |
 | **Zero-AI-Slop Code Quality** | `rtk aislop scan --changes` | 100/100 Healthy (0 issues) | **100/100 Healthy (0 issues)** | **PASSED (0 warn, 0 err)** |
 | **Schema Integrity** | `rtk node tests/test_schema_integrity.js` | Passed | **Passed** | **PASSED** |
@@ -295,16 +295,15 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 | Gate Component | Measured Baseline | Permitted Ceiling (+10% margin) | Live CI Test Result | Verification Status |
 |---|---|---|---|---|
-| **Semble MCP Schema** | 504 tokens | 550 tokens | **504 tokens** | **PASS** |
 | **Aislop MCP Schema** | 314 tokens | 350 tokens | **314 tokens** | **PASS** |
 | **`query_persona_memory`** | 141 tokens | 200 tokens | **141 tokens** | **PASS** |
 | **`list_persona_memories`** | 263 tokens | 350 tokens | **263 tokens** | **PASS** |
 | **`query_project_memory`** | 311 tokens | 400 tokens | **311 tokens** | **PASS** |
 
 ### Deliberate-Failure Induced Verification Proof:
-1. Induced failure by lowering `LIMIT_SEMBLE` from 550 to 400 tokens in `tests/test_token_regression_gate.js`.
-2. Re-ran test runner: failed immediately with `AssertionError: Semble schema regressed: 504 > 400` (Process Exit Code 1).
-3. Restored `LIMIT_SEMBLE = 550`: all assertions passed cleanly with Process Exit Code 0.
+1. Induced failure by lowering `LIMIT_AISLOP` from 350 to 250 tokens in `tests/test_token_regression_gate.js`.
+2. Re-ran test runner: failed immediately with `AssertionError: Aislop schema regressed: 314 > 250` (Process Exit Code 1).
+3. Restored `LIMIT_AISLOP = 350`: all assertions passed cleanly with Process Exit Code 0.
 
 ---
 
@@ -312,7 +311,7 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 - **Single-Thread Inline Hierarchy**: Preserved completely. All agents execute within the single-thread inline hierarchy coordinated by Sannin and governed by Kage.
 - **Subagent Spawning**: **0 subagents spawned**. No dynamic subagents, background daemon forks, or multi-agent swarms introduced.
-- **MCP Tool Protocol Compatibility**: All 50 manifest tools (48 canonical + 2 deprecated), 2 Semble tools, and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
+- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
 - **Stable Bridge Gateway**: Untouched. Local LLM Proxy Gateway, bridge servers, and Bridge Router logic were preserved without modifications.
 - **Token Savings Telemetry**: Strictly preserved. Telemetry tracking in `~/.konoha/konoha.db` and bounded file tool constraints remain active and intact.
 
@@ -336,7 +335,7 @@ In historical database logging, tool calls were sometimes evaluated against stat
 | **`find_skill` (unsnippeted comparison)** | 2,767 KB (Full Library) | 2.80 KB (Unsnippeted Search Response) | 1.98 KB | **32.3%** | Token-to-token comparison from Metric 2 (700 → 474 tokens) |
 | **`find_skill` (full skill document comparison)**| 2,767 KB (Full Library) | 18.0 KB (~4,500 tokens matching skills) | 1.98 KB | **89.0%** | On-demand search preview vs full markdown skill loading |
 | **`get_skill`** | 9.5 KB | 9.5 KB | 9.5 KB | **0.0%** | Explicit payload retrieval; zero artificial savings claimed |
-| **`Semble` code search** | ~10 MB+ (Full Repository Scan) | ~10 MB+ (Full Repository Scan) | ~4 KB | **98.0%** | Semantic search vs exhaustive code reading |
+| **`code_search`** | ~10 MB+ (Full Repository Scan) | ~10 MB+ (Full Repository Scan) | ~4 KB | **98.0%** | FTS5 symbol search vs exhaustive code reading |
 
 ### 11.3 Root Cause of `Calls`-vs-`thought`-tokens Discrepancy
 Audit of `tool_calls` in `~/.konoha/konoha.db` and conversation transcripts across `~/.gemini/*/brain`:
@@ -349,7 +348,7 @@ The product banner claim (`Token reduction: 83-98% via on-demand search`) is an 
 - Bounded file range slices: **94.4% reduction** (2.58 KB read vs 45.7 KB full file benchmark).
 - Targeted section retrieval (`get_skill` with section anchor): **87.1% reduction** (222 tokens vs 1,719 full skill tokens benchmark).
 - Matching skills preview vs full skill loading: **89.0% reduction** (474 tokens vs ~4,500 tokens benchmark).
-- Semble semantic code search: **98.0% reduction** (snippeted search results vs repository scan benchmark).
+- Native `code_search` symbol search: **98.0% reduction** (snippeted search results vs repository scan benchmark).
 The 83%–98% range represents the genuine empirical reduction achieved by on-demand targeted retrieval over full-context dumping in benchmark suites.
 
 ---

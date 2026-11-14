@@ -51,7 +51,6 @@ function mergeObjectAppendOnly(target, additions, prefix = '', ownedKeysOut = []
     const keyPath = prefix ? `${prefix}.${key}` : key;
     const isKonohaKey =
       key === 'konoha' ||
-      key === 'semble' ||
       key.startsWith('konoha') ||
       forceUpdateKeys.has(keyPath) ||
       forceUpdateKeys.has(key);

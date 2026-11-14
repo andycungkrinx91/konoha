@@ -10,21 +10,32 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.21-blue.svg?logo=git&logoColor=white" alt="Release v2.2.21"></a>
-  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml/badge.svg" alt="Cross-platform CI"></a>
-  <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?logo=npm&logoColor=white" alt="npm total downloads"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
-  <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
-  <br>
-  <a href="#mcp-tools-48-canonical-50-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-48%20Canonical-10b981" alt="48 canonical MCP tools"></a>
-  <a href="#ninja-specialist-team-9-agents"><img src="https://img.shields.io/badge/Agents-9%20Specialists-8b5cf6" alt="9 specialist agents"></a>
-  <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7" alt="8 supported clients"></a>
-  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
-  <br>
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.21%20Controls-blue?logo=googlecloud&logoColor=white" alt="Security policy"></a>
-  <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?logo=vitest&logoColor=white" alt="QA automation"></a>
-  <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white" alt="Telegram remote"></a>
-  <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/stargazers"><img src="https://img.shields.io/github/stars/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Stars&color=ffd33d" alt="GitHub stars"></a>
+  <a href="https://www.npmjs.com/package/konoha-mcp"><img src="https://img.shields.io/npm/dt/konoha-mcp?style=for-the-badge&logo=npm&logoColor=white&label=Downloads&color=cb3837" alt="npm total downloads"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/forks"><img src="https://img.shields.io/github/forks/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Forks&color=8250df" alt="GitHub forks"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/issues"><img src="https://img.shields.io/github/issues/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Issues%20Open&color=e11d48" alt="Open issues"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/issues?q=is%3Aissue%20is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/andycungkrinx91/konoha?style=for-the-badge&logo=github&logoColor=white&label=Issues%20Closed&color=16a34a" alt="Closed issues"></a>
+</p>
+
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.22"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=v2.2.22&label=release%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on the latest release tag"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
+  <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
+</p>
+
+<p align="center">
+  <a href="#mcp-tools-56-canonical-58-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-56%20Canonical-10b981?style=for-the-badge&logo=modelcontextprotocol&logoColor=white" alt="56 canonical MCP tools"></a>
+  <a href="#ninja-specialist-team-9-agents"><img src="https://img.shields.io/badge/Agents-9%20Specialists-8b5cf6?style=for-the-badge&logo=langgraph&logoColor=white" alt="9 specialist agents"></a>
+  <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="8 supported clients"></a>
+  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?style=for-the-badge&logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
+</p>
+
+<p align="center">
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.22%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
+  <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>
+  <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
 </p>
 
 <p align="center">
@@ -84,8 +95,8 @@ node bin/cli.js init --client=all
 
 - **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
 - **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
-- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml); see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
-- **Search:** Semble via `uvx` for semantic code search; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
+- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml) on every push, pull request, tag, manual dispatch, and nightly at 02:00 UTC; see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
+- **Search:** native code intelligence over the same SQLite file (`code_search`, `code_symbol`, `code_impact`) — no Python, no `uvx`, no extra service; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
 
 The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
 
@@ -108,7 +119,7 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | 3D | Yamanaka generative 3D and Blender refinement | `yamanaka-skill` | Manifold and PBR validation |
 | Retrieval | Compact `use_skills` (single-skill `<= 8,000 B`, multi-skill `<= 4,800 B` total), session dedup | `src/mcp/skills_common.js` | `[ALREADY_IN_CONTEXT]` on repeat loads; `full: true` opt-in |
 | File I/O | Bounded reads: head, range, grep, structure, clean-find | `src/file_tools_router.js` | 150-line head cap, 250-line range cap, 20-match grep cap (50 hard max) |
-| Search | Semble semantic code search | `semble` MCP | Replaces full-repo dumps with line spans |
+| Search | Native code intelligence, SQLite FTS5 | `code_search`, `code_symbol`, `code_impact` | Replaces full-repo dumps with line spans |
 | Shell | RTK global CLI proxy compresses noisy output | `rtk` | Per-command savings via `rtk gain`; no global percentage asserted here |
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
@@ -125,7 +136,7 @@ The headline range is **bounded-retrieval only**, not whole-system. Evidence: [d
 - Core bounded retrieval lands inside 83–98%: `find_skill` ~98%, `read_file_range` ~82–94% depending on snapshot, `read_file_head` varies by file shape.
 - Structural pruning tools exceed it (`token_efficient_grep`, `file_info`, `find_files_clean` each 90%+ on the current snapshot).
 - Operational routers report 0% by design (`sannin`, `anbu`, `use_skills` preserve directives as-is) so they never inflate the metric.
-- Semble, RTK, latency, and cost are measured separately in `docs/BENCHMARK.md` (Semble ~98% on 3.2k queries; RTK 32.6% project / 59.2% global machine history). Fresh installs show `—`/`no_data` until their own calls are recorded.
+- Retrieval, RTK, latency, and cost are measured separately in `docs/BENCHMARK.md` (bounded retrieval 83–98%, FTS5 skill search 2,207 queries/sec; RTK 32.6% project / 59.2% global machine history). Fresh installs show `—`/`no_data` until their own calls are recorded.
 
 Do not quote 83–98% as whole-session or cost savings.
 
@@ -135,10 +146,10 @@ Do not quote 83–98% as whole-session or cost savings.
 
 ### 1. Delegate through MCP tools, never solo
 
-On a Konoha-configured host, non-trivial work routes through the Konoha and Semble MCP tools to a subagent:
+On a Konoha-configured host, non-trivial work routes through the Konoha MCP tools to a subagent:
 
 - Skill lookup: `find_skill` / `get_skill` / `use_skills` (Konoha MCP, SQLite FTS5).
-- Codebase search: `search` / `find_related` (Semble MCP).
+- Codebase search: `code_search` / `code_symbol` / `code_impact` (Konoha MCP, native FTS5 index).
 - Bounded reads: `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`.
 - Quality: `aislop_scan`, `aislop_fix`, `aislop_why`; delivery gate `anti_slop`.
 - Package manager: `pnpm` for JS/TS scaffolding, installs, and builds.
@@ -164,26 +175,50 @@ Gate 1 (`pending_plan_approval`): compact-and-approve, or reject/regenerate with
 
 Nine phases, two human gates, five quality gates. Every request enters through the Sannin router, fans out to specialist agents, and exits only through the gates. Full text flow with all 18 workflows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md).
 
-<img src="assets/konoha-orchestration-flow.webp" alt="Konoha orchestrator task artifact flow: user prompt into the LangGraph.js StateGraph orchestrator, six dispatch steps with Konoha and Semble lookups, the Akatsuki security gate, and the final response" width="100%">
+<img src="assets/konoha-orchestration-flow.webp" alt="Konoha orchestrator task artifact flow: user prompt into the LangGraph.js StateGraph orchestrator, six dispatch steps with Konoha skill lookups and native code search, the Akatsuki security gate, and the final response" width="100%">
 
 ```mermaid
 ---
-title: Konoha Skill Retrieval via Konoha MCP and Semble MCP
+title: Konoha Skill Retrieval via Konoha MCP and Native Code Search
 config:
   theme: base
   themeVariables:
-    fontFamily: 'Inter, system-ui, sans-serif'
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
     wrappingWidth: 380
 ---
 flowchart LR
     Task["Task prompt"] --> Sannin["sannin router"]
     Sannin --> KonohaMCP["Konoha MCP skill lookup"]
     KonohaMCP --> GeninSkill["genin-skill baseline scan"]
-    Sannin --> SembleMCP["Semble MCP code search"]
+    Sannin --> CodeSearch["code_search (SQLite FTS5 symbol index)"]
     KonohaMCP <--> SQLiteFTS5[("SQLite FTS5 skill index")]
 
     linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Task blueShape;
+    class Sannin,CodeSearch orangeShape;
+    class SQLiteFTS5 greenShape;
+    class KonohaMCP,GeninSkill redShape;
 ```
 
 ```mermaid
@@ -192,20 +227,44 @@ title: Konoha Delegation Handoff from Triage to Kage Review
 config:
   theme: base
   themeVariables:
-    fontFamily: 'Inter, system-ui, sans-serif'
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
     wrappingWidth: 380
 ---
 flowchart TB
     Prompt["User request"] --> Router["sannin triage"]
     Router --> Activate["use_skills activation<br/>(Konoha MCP get_skill)"]
     Activate --> Worker["Specialist subagent<br/>genin chunin jonin anbu<br/>tokubetsu-jonin akatsuki yamanaka"]
-    Router --> SembleMCP["Semble MCP code search"]
+    Router --> CodeIntel["Native code intelligence<br/>FTS5 index"]
     Worker --> Evidence["report_from_agent<br/>validation evidence"]
     Evidence --> KageGate["kage review<br/>98-pct confidence gate"]
     KageGate --> Delivery["Delivery"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Prompt,CodeIntel blueShape;
+    class Router,Activate,Worker orangeShape;
+    class Evidence,Delivery greenShape;
+    class KageGate redShape;
 ```
 
 ### 3. Subagent routing
@@ -227,14 +286,14 @@ Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools a
 - Text flows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md) (Mermaid) and the manifest at [docs/diagrams/README.md](docs/diagrams/README.md).
 - Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (layers, data flows, query lifecycle).
 
-### MCP tools: 48 canonical, 50 manifest entries
+### MCP tools: 56 canonical, 58 manifest entries
 
-`src/mcp_tool_manifest.json` lists 50 entries: 48 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
-The unified `konoha` server exposes 48 canonical tools over MCP; Semble adds `search`/`find_related` and aislop adds scan/fix hygiene.
+`src/mcp_tool_manifest.json` lists 58 entries: 56 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
+The unified `konoha` server exposes 56 canonical tools over MCP, including the eight `code_*` code-intelligence tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove`); aislop adds scan/fix hygiene.
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
-Retrieval tools: `find_skill`, `get_skill`, `use_skills` (single `<= 8,000 B`, multi `<= 4,800 B` total), `list_skills`, `optimize_report`, `migrate_skills`, project and persona memory tools (`get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`).
+Retrieval tools: `find_skill`, `get_skill`, `use_skills` (single `<= 8,000 B`, multi `<= 4,800 B` total), `list_skills`, `optimize_report`, `migrate_skills`, project and persona memory tools (`get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`). Lookups read the project's own skill tree (`.agents/skills` and sixteen sibling locations) alongside the SQLite index, so an unmigrated project skill still resolves and `migrate_skills` is an optimisation rather than a prerequisite.
 
 File tools: `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`.
 
@@ -244,7 +303,7 @@ QA tools (Anbu-exclusive): `qa_codify` (flow JSON to Playwright spec), `qa_e2e_r
 
 Detectors and documents: `website_ai_detector` (also `konoha detect-ai`; 0–20 = Human-Built), `docs_ai_detector` (also `konoha detect-docs`), `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`, `get_resolved_task_dir`, `get_soul`, `web_search`.
 
-Semble adds `search` and `find_related`; aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`.
+aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`. Search needs no second server: `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, and `code_remove` ship inside `konoha`.
 
 ### Ninja specialist team: 9 agents
 
@@ -287,7 +346,7 @@ RTK rules deploy alongside (`~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`,
 
 `~/.konoha/` holds the runtime (`file_tools_mcp.js`, `server.js`, `migrate.js`, `vector_search.js`, `bridge/`, `konoha.db` with `agents`, `bridges`, `sdlc_tasks` tables). Client configs are appended, never clobbered; every write takes a timestamped backup (`konoha config backup --client=all`, `konoha config restore --client=<name>`). Skill mirror roots include `~/.agents/skills`, `~/.cursor/skills`, `~/.claude/skills`, `~/.omp/agent/skills`, and `~/.codex/skills`.
 
-Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <backup|rebuild-fts|prune>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|stop|restart|status|open>`, `konoha web` (port 1404).
+Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <backup|rebuild-fts|prune>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|build>` (port 1404), `konoha service <install|status|uninstall>`.
 
 Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<agent>` wrappers; 27 legacy CLI aliases removed (canonical `konoha task|data|skill|agent|status` enforced); `konoha data prune` deletes immediately with no auto-backup. Full list in [CHANGELOG.md](CHANGELOG.md).
 `konoha embed` rebuilds vector embeddings (embed implies `--rebuild-embeddings`); `konoha reinstall` wipes and replaces configuration (reinstall implies `--force`).
@@ -295,13 +354,13 @@ Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<ag
 ### Bridge router and Web UI
 
 - Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; Antigravity IDE syncs it into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
-- Web UI on port `1404` (`konoha web`, `konoha ui`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
+- Web UI on port `1404` (`konoha ui start`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
 - Telegram: one-way completion notifications plus two-way remote prompting (`/run`, `/session`, `/status`, `/savings`, per-agent dispatch). Setup: [docs/TELEGRAM_INTEGRATION_GUIDE.md](docs/TELEGRAM_INTEGRATION_GUIDE.md).
 - SearXNG zero-API-key search for Chunin: [docs/SETUP-SEARXNG.md](docs/SETUP-SEARXNG.md).
 
 ### Guardrails
 
-Blocked at the tool-call level on capable clients (Claude Code, Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha/Semble tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
+Blocked at the tool-call level on capable clients (Claude Code, Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha MCP tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
 
 ---
 
@@ -314,8 +373,8 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 | [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
 | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
 | [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.21 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.21 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
+| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.22 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
+| [Security Architecture](docs/SECURITY.md) | v2.2.22 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
 | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
 | [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
 | [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |
@@ -325,7 +384,7 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then the gate before you hand it over: `pnpm test:sandbox` runs install, lint, the full suite, and the fresh-install smoke inside `konoha-sandbox:local`, leaving your host `HOME` and `node_modules` alone (on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container` runs the same image through [Apple's `container`](https://github.com/apple/container) instead of Docker Desktop); `pnpm test` is the same runner without isolation; `pnpm ci:act` replays the CI workflow locally. Per-change checks are `rtk node tests/run_all.js` for the suite, `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
+Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then run the 3 local cross-platform CI environments before you hand it over: (1) **Linux** — `pnpm test:sandbox [-- --shard=I/8]` (Debian clean-room container) + `pnpm ci:act` / `pnpm ci:act:shard` (Ubuntu `act` workflow); (2) **Windows** — `docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` inside `dockur/windows`; (3) **macOS** — `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` via [Apple's `container`](https://github.com/apple/container) (plus `macos-latest` or the native replay in [docs/CI.md](docs/CI.md)). Per-change checks are `rtk node tests/run_all.js` (inside the sandbox), `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
 
 ## Support
 
@@ -339,7 +398,6 @@ If Konoha saves you meaningful context or time, consider supporting development:
 
 ## Credits
 
-- [Semble](https://github.com/MinishLab/semble) by MinishLab — semantic code search and dependency mapping.
 - [RTK](https://github.com/rtk-ai/rtk) — CLI output compaction proxy.
 - [aislop](https://github.com/scanaislop/aislop) — slop scanner behind the delivery pre-gate.
 - [anti-slop](https://github.com/miqdadbadjuber/anti-slop) by Miqdad Badjuber — review checklist standards.

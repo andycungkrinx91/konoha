@@ -262,7 +262,7 @@ function _upgradeSingleAgent(a, defAgent, isAlreadyUpgraded) {
     changed = true;
   }
   if (typeof defAgent.constraints === 'string') {
-    if (typeof a.constraints !== 'string' || (!a.constraints.includes('semble') && defAgent.constraints.includes('semble')) || (defAgent.constraints.includes('NEVER use grep') && !a.constraints.includes('NEVER use grep'))) {
+    if (typeof a.constraints !== 'string' || (!a.constraints.includes('code_search') && defAgent.constraints.includes('code_search')) || (defAgent.constraints.includes('NEVER use grep') && !a.constraints.includes('NEVER use grep'))) {
       a.constraints = defAgent.constraints;
       changed = true;
     }

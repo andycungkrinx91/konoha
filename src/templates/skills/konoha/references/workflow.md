@@ -1,4 +1,4 @@
-# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.21)
+# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.22)
 
 Technical specification and operational guide for the LangGraph.js cyclic StateGraph orchestration engine, parallel git worktree execution, Real-Time Idle `@advisor` worker guard, native walkthrough/TODO synchronization, per-turn token budget governor, and HITL gates.
 
@@ -6,7 +6,7 @@ Technical specification and operational guide for the LangGraph.js cyclic StateG
 
 ## 🏗️ StateGraph Architecture Overview
 
-In Konoha `v2.2.21`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
+In Konoha `v2.2.22`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
 
 ### Dual-Track Execution Model
 1. **Branch B (Fast-Track / Single-Slice Tasks)**: Direct single-domain requests or slash shortcuts (`/jonin`, `/anbu`, `/genin`, etc.) dispatch with a compact delegation envelope (`<= 3KB` router payload) and client-native `spawn_directive`.

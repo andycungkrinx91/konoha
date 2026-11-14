@@ -34,8 +34,8 @@ function run() {
 
     // Verify SOUL.md synchronization across ~/.agents and all 8 client trees
     console.log('1. Testing syncSoulAcrossClients for ~/.agents and all clients...');
-    const updatedCount = deployUtils.syncSoulAcrossClients({ projectRoot: workspaceDir, silent: true });
-    assert.ok(updatedCount > 0, 'syncSoulAcrossClients must copy files to targets');
+    const soulSync = deployUtils.syncSoulAcrossClients({ projectRoot: workspaceDir, silent: true });
+    assert.ok(soulSync.appended + soulSync.updated > 0, 'syncSoulAcrossClients must copy files to targets');
 
     const expectedGlobalSoulTargets = [
       path.join(tempRoot, '.agents', 'SOUL.md'),
@@ -61,7 +61,7 @@ function run() {
     console.log('  ✓ SOUL.md successfully synchronized to ~/.agents and all 8 client trees');
 
     // Verify all client configurations, hooks, settings, and rules on fresh setup
-    console.log('2. Testing client configs, hooks, settings, rules, semble, and aislop across all 8 clients...');
+    console.log('2. Testing client configs, hooks, settings, rules, and aislop across all 8 clients...');
 
     // Mock launcher/server
     const dummyServer = path.join(tempRoot, 'server.js');
@@ -75,17 +75,13 @@ function run() {
 
     // Cursor
     const cursorMcpPath = path.join(tempRoot, '.cursor', 'mcp.json');
-    cursorManager.registerCursorMcp('node', dummyServer, 'uvx', true, { configPath: cursorMcpPath, home: tempRoot });
+    cursorManager.registerCursorMcp('node', dummyServer, true, { configPath: cursorMcpPath, home: tempRoot });
     cursorManager.deployCursorRtkRule(true, { home: tempRoot });
     assert.ok(fs.existsSync(cursorMcpPath), 'Must have ~/.cursor/mcp.json');
     assert.ok(fs.existsSync(path.join(tempRoot, '.cursor', 'rules', 'rtk.mdc')), 'Must have ~/.cursor/rules/rtk.mdc');
     const cursorCfg = JSON.parse(fs.readFileSync(cursorMcpPath, 'utf8'));
     assert.ok(cursorCfg.mcpServers.konoha, 'Cursor must configure konoha');
-    // Cursor only registers semble when uvx is actually installed (buildMcpServers gates
-    // on `uvx --version`), so a host without uvx legitimately emits no semble entry.
-    const uvxBin = require(path.join(ROOT, 'src', 'semble_manager')).resolveUvxExecutablePath();
-    const uvxAvailable = require('child_process').spawnSync(uvxBin, ['--version'], { stdio: 'ignore', windowsHide: true }).status === 0;
-    if (uvxAvailable) assert.ok(cursorCfg.mcpServers.semble, 'Cursor must configure semble when uvx is installed');
+    assert.ok(!cursorCfg.mcpServers.semble, 'client must not register the retired semble server');
     assert.ok(cursorCfg.mcpServers.aislop, 'Cursor must configure aislop');
 
     // Claude Code
@@ -93,7 +89,6 @@ function run() {
     mcpClientsManager.ensureClaudeCodeSetup({
       pythonCmd: 'node',
       serverPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -106,7 +101,7 @@ function run() {
     assert.ok(fs.existsSync(path.join(tempRoot, '.claude', 'rules', 'rtk.md')), 'Must have ~/.claude/rules/rtk.md');
     assert.ok(!fs.existsSync(path.join(workspaceDir, 'CLAUDE.md')), 'Project workspace must not receive CLAUDE.md');
     const claudeCfg = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf8'));
-    assert.ok(claudeCfg.mcpServers.semble, 'Claude Code must configure semble');
+    assert.ok(!claudeCfg.mcpServers.semble, 'client must not register the retired semble server');
     assert.ok(claudeCfg.mcpServers.aislop, 'Claude Code must configure aislop');
 
     // OpenCode
@@ -114,7 +109,6 @@ function run() {
     opencodeManager.ensureOpenCodeSetup({
       pythonCmd: 'node',
       serverPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -124,7 +118,7 @@ function run() {
     assert.ok(fs.existsSync(openCodeConfigPath), 'Must have OpenCode opencode.json');
     const openCodeCfg = JSON.parse(fs.readFileSync(openCodeConfigPath, 'utf8'));
     assert.ok(openCodeCfg.mcp.konoha, 'OpenCode must configure konoha');
-    assert.ok(openCodeCfg.mcp.semble, 'OpenCode must configure semble');
+    assert.ok(!openCodeCfg.mcp.semble, 'client must not register the retired semble server');
     assert.ok(openCodeCfg.mcp.aislop, 'OpenCode must configure aislop');
 
     // Command Code
@@ -132,7 +126,6 @@ function run() {
     mcpClientsManager.ensureCommandCodeSetup({
       pythonCmd: 'node',
       serverPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -141,7 +134,7 @@ function run() {
     });
     assert.ok(fs.existsSync(ccConfigPath), 'Must have Command Code mcp.json');
     const ccCfg = JSON.parse(fs.readFileSync(ccConfigPath, 'utf8'));
-    assert.ok(ccCfg.mcpServers.semble, 'Command Code must configure semble');
+    assert.ok(!ccCfg.mcpServers.semble, 'client must not register the retired semble server');
     assert.ok(ccCfg.mcpServers.aislop, 'Command Code must configure aislop');
 
     // Codex
@@ -149,7 +142,6 @@ function run() {
     codexManager.ensureCodexSetup({
       pythonCmd: 'node',
       serverPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -159,7 +151,7 @@ function run() {
     assert.ok(fs.existsSync(codexConfigPath), 'Must have Codex config.json');
     const codexCfg = fs.readFileSync(codexConfigPath, 'utf8');
     assert.ok(codexCfg.includes('mcp_servers.konoha'), 'Codex must configure konoha');
-    assert.ok(codexCfg.includes('mcp_servers.semble'), 'Codex must configure semble');
+    assert.ok(!codexCfg.includes('mcp_servers.semble'), 'Codex must not register the retired semble server');
     assert.ok(codexCfg.includes('mcp_servers.aislop'), 'Codex must configure aislop');
 
     // Pi
@@ -167,7 +159,6 @@ function run() {
     piManager.ensurePiSetup({
       pythonCmd: 'node',
       serverPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -177,7 +168,7 @@ function run() {
     assert.ok(fs.existsSync(piConfigPath), 'Must have Pi mcp.json');
     const piCfg = JSON.parse(fs.readFileSync(piConfigPath, 'utf8'));
     assert.ok(piCfg.mcpServers.konoha, 'Pi must configure konoha');
-    assert.ok(piCfg.mcpServers.semble, 'Pi must configure semble');
+    assert.ok(!piCfg.mcpServers.semble, 'client must not register the retired semble server');
     assert.ok(piCfg.mcpServers.aislop, 'Pi must configure aislop');
 
     // OMP
@@ -185,7 +176,6 @@ function run() {
     ompManager.ensureOmpSetup({
       nodeCmd: 'node',
       launcherPath: dummyServer,
-      uvxCmd: 'uvx',
       silent: true,
       skipDetection: true,
       force: true,
@@ -195,7 +185,7 @@ function run() {
     assert.ok(fs.existsSync(ompConfigPath), 'Must have OMP mcp.json');
     const ompCfg = JSON.parse(fs.readFileSync(ompConfigPath, 'utf8'));
     assert.ok(ompCfg.mcpServers.konoha, 'OMP must configure konoha');
-    assert.ok(ompCfg.mcpServers.semble, 'OMP must configure semble');
+    assert.ok(!ompCfg.mcpServers.semble, 'client must not register the retired semble server');
     assert.ok(ompCfg.mcpServers.aislop, 'OMP must configure aislop');
 
     // Test regenerateAndDeploy with isolated home
@@ -205,7 +195,7 @@ function run() {
       home: tempRoot
     });
 
-    console.log('  ✓ Client configs, hooks, settings, rules, semble, and aislop verified across all 8 clients');
+    console.log('  ✓ Client configs, hooks, settings, rules, and aislop verified across all 8 clients');
 
     // Verify cross-platform Windows homedir and mirror fallback resolution
     console.log('3. Testing Windows homedir & mirror fallback resolution (global and client mirrors only)...');

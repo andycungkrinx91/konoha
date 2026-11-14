@@ -7,7 +7,7 @@ const {
 } = require('./cursor_rules');
 const fs = require('fs');
 const path = require('path');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const { resolveCompatibleNode } = require('./runtime_resolver');
@@ -67,13 +67,6 @@ function _buildClientPathEnv(nodeCmd) {
   return [nodeDir, localBin, cargoBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
 }
 
-function _resolveUvxAvailable(uvxCmd) {
-  try {
-    const cmd = resolveUvxExecutablePath ? (resolveUvxExecutablePath(uvxCmd) || uvxCmd) : uvxCmd;
-    return spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true, stdio: 'ignore' }).status === 0;
-  } catch { return false; }
-}
-
 function _resolveAislopMcpConfig(npxCmd) {
   const isWin = process.platform === 'win32';
   let cmd = npxCmd, args = ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
@@ -92,21 +85,9 @@ function _resolveAislopMcpConfig(npxCmd) {
   };
 }
 
-function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
+function buildMcpServers() {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const resolvedUvx = resolveUvxExecutablePath ? resolveUvxExecutablePath(uvxCmd) : (uvxCmd || 'uvx');
-  const uvxAvailable = _resolveUvxAvailable(resolvedUvx);
   const servers = {
-    ...(uvxAvailable ? {
-      semble: {
-        type: 'stdio',
-        command: resolvedUvx,
-        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-        env: { PATH: _buildClientPathEnv(null) },
-        autoApprove: ['search', 'find_related'],
-        auto_approve: true
-      }
-    } : {}),
     aislop: _resolveAislopMcpConfig(npxCmd)
   };
 
@@ -128,7 +109,7 @@ function _backupCursorMcpSafe(targetMcp, backupPath, konohaHome, options = {}) {
   }
 }
 
-function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerCursorMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
@@ -162,7 +143,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
   if (!config.mcpServers || typeof config.mcpServers !== 'object' || Array.isArray(config.mcpServers)) {
     config.mcpServers = {};
   }
-  const servers = buildMcpServers(pythonCmd, serverPath, uvxCmd || 'uvx');
+  const servers = buildMcpServers();
   Object.assign(config.mcpServers, servers);
   fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n');
   try {
@@ -178,7 +159,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
   return true;
 }
 
-function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
   const { parseYaml } = require('../bin/lib/yaml_utils');
@@ -207,11 +188,7 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
     config.mcpServers = {};
   }
 
-  const servers = buildMcpServers(
-    pythonCmd,
-    serverPath,
-    uvxCmd || 'uvx'
-  );
+  const servers = buildMcpServers();
 
   const launcherPath = fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : serverPath;
   if (servers['konoha']) {
@@ -269,7 +246,6 @@ function _getCursorGrants() {
   const konohaGrants = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `Mcp(konoha, ${t})`);
   return [
     'Mcp(konoha)', ...konohaGrants,
-    'Mcp(semble)', 'Mcp(semble, search)', 'Mcp(semble, find_related)',
     'Mcp(aislop)', 'Mcp(aislop, aislop_scan)', 'Mcp(aislop, aislop_fix)',
     'Mcp(aislop, aislop_why)', 'Mcp(aislop, aislop_baseline)',
     'Shell(rtk)', 'Shell(konoha)'
@@ -295,7 +271,6 @@ function _updateSingleCursorSettingsPath(sPath, grants, options = {}) {
     const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
     const konohaMcpApprovals = [
       ...kTools.map(t => 'konoha/' + t), ...kTools.map(t => 'konoha:' + t), ...kTools,
-      'semble/search', 'semble/find_related', 'semble:search', 'semble:find_related', 'search', 'find_related',
       'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline',
       'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline',
       'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'
@@ -347,7 +322,6 @@ function registerCursorCliPermissions(silent = true, options = {}) {
   const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
   const konohaAutoApprove = ['rtk', 'rtk *', 'konoha', 'konoha *',
     ...kTools.map(t => `konoha:${t}`), ...kTools.map(t => `konoha/${t}`), ...kTools,
-    'semble:search', 'semble:find_related', 'search', 'find_related',
     'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'];
   config.autoApprove = Array.isArray(config.autoApprove)
     ? [...new Set([...config.autoApprove, ...konohaAutoApprove])]
@@ -541,7 +515,6 @@ function ensureCursorSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     agents = [],
     projectRoot = null,
     deployProject = false,
@@ -557,7 +530,7 @@ function ensureCursorSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent, options);
+  registerCursorMcp(pythonCmd, serverPath, silent, options);
   registerCursorCliPermissions(silent, options);
   registerCursorHooks(silent, allowHooks, options);
   deployCursorRtkRule(silent, options);
@@ -566,7 +539,7 @@ function ensureCursorSetup(options = {}) {
   deployCursorGlobalAgents(effectiveAgents, silent, options);
 
   if (projectRoot && (appendProject || (deployProject && _hasExistingCursorProjectConfig(projectRoot)))) {
-    registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent);
+    registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, silent);
     deployProjectCursor(projectRoot, effectiveAgents, silent, options.ruleContent || null);
   }
 
@@ -588,7 +561,7 @@ function _removeCursorMcpServers(cursorMcp, silent) {
     const config = JSON.parse(fs.readFileSync(cursorMcp, 'utf-8'));
     if (!config?.mcpServers) return;
     let updated = false;
-    for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
+    for (const name of ['konoha', 'aislop', 'skills-db', 'semble']) {
       if (config.mcpServers[name]) { delete config.mcpServers[name]; updated = true; }
     }
     if (updated) {
@@ -646,7 +619,7 @@ function removeCursorConfig(silent = true, options = {}) {
 
 function getCursorStatus() {
   const status = {
-    mcpGlobal: fileExists(CURSOR_MCP_GLOBAL), mcpSkillsDb: false, mcpSemble: false, mcpKonoha: false,
+    mcpGlobal: fileExists(CURSOR_MCP_GLOBAL), mcpSkillsDb: false, mcpKonoha: false,
     subagentsGlobal: 0, skillsGlobal: 0, skillsProject: 0, cliPermissions: false, hooks: false,
     projectMcp: false, projectRule: false, projectAgents: 0, rtkInstalled: isRtkInstalled(),
     rtkRuleDeployed: fileExists(path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc'))
@@ -656,7 +629,6 @@ function getCursorStatus() {
     try {
       const cfg = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       status.mcpSkillsDb = !!(cfg.mcpServers?.konoha);
-      status.mcpSemble = !!(cfg.mcpServers?.semble);
       status.mcpKonoha = !!(cfg.mcpServers?.konoha);
     } catch { /* best-effort */ }
   }
@@ -670,7 +642,7 @@ function getCursorStatus() {
     try {
       const cfg = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
       const allows = Array.isArray(cfg.permissions?.allow) ? cfg.permissions.allow : [];
-      status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
+      status.cliPermissions = allows.some(a => a.includes('konoha'));
     } catch { /* best-effort */ }
   }
   if (fileExists(CURSOR_HOOKS_GLOBAL)) {

@@ -5,21 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const platform = require('./platform_utils');
-const MCP_MANIFEST = (() => {
-  const candidates = [
-    path.join(__dirname, 'mcp_tool_manifest.json'),
-    path.resolve(__dirname, '..', 'src', 'mcp_tool_manifest.json'),
-    path.join(os.homedir(), '.konoha', 'mcp_tool_manifest.json')
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      try {
-        return JSON.parse(fs.readFileSync(c, 'utf8'));
-      } catch (_) { /* ignore */ }
-    }
-  }
-  return { protocol_versions: ['2024-11-05'], tools: [] };
-})();
+const { loadManifest } = require('./mcp/manifest');
+const MCP_MANIFEST = loadManifest();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
@@ -33,6 +20,8 @@ const { fileInfo: fileInfoWorker } = require('./file_tools/file_info');
 const { tokenEfficientGrep: tokenEfficientGrepWorker } = require('./file_tools/token_efficient_grep');
 const { getFileStructure: getFileStructureWorker } = require('./file_tools/get_file_structure');
 const { findFilesClean: findFilesCleanWorker } = require('./file_tools/find_files_clean');
+const CODE_INTEL_TOOLS = require('./code_intel/tools');
+const { normalizeToolArguments, validateToolArguments } = require('./mcp/arg_validation');
 
 // Allow paths under the Konoha install directory (~/\.konoha/).
 // This ensures the MCP server can work on workspace-internal paths
@@ -478,6 +467,14 @@ const TOOL_HANDLERS = {
   get_resolved_task_dir: (args) => runNodeSkillTool('get_resolved_task_dir', args),
   check_readiness: (args) => runNodeSkillTool('check_readiness', args),
   get_task_evidence: (args) => runNodeSkillTool('get_task_evidence', args),
+  code_index: (args) => CODE_INTEL_TOOLS.code_index(args),
+  code_search: (args) => CODE_INTEL_TOOLS.code_search(args),
+  code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol(args),
+  code_context: (args) => CODE_INTEL_TOOLS.code_context(args),
+  code_impact: (args) => CODE_INTEL_TOOLS.code_impact(args),
+  code_related: (args) => CODE_INTEL_TOOLS.code_related(args),
+  code_status: (args) => CODE_INTEL_TOOLS.code_status(args),
+  code_remove: (args) => CODE_INTEL_TOOLS.code_remove(args),
   get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
   website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args),
   docs_ai_detector: (args) => runNodeSkillTool('docs_ai_detector', args),
@@ -493,142 +490,68 @@ const TOOL_HANDLERS = {
   animation_export: (args) => runNodeSkillTool('animation_export', args)
 };
 
-function validateSchemaValue(value, schema, key) {
-  if (schema.type === 'object') {
-    if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${key} must be an object`);
-    return;
-  }
-  if (schema.type === 'array') {
-    if (!Array.isArray(value)) throw new Error(`${key} must be an array`);
-    if (schema.items) value.forEach((item, index) => validateSchemaValue(item, schema.items, `${key}[${index}]`));
-    return;
-  }
-  if (schema.type === 'number' || schema.type === 'integer') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${key} must be a finite number`);
-    // Integer-ness is derived from type === 'integer' ONLY. The legacy `integer: true`
-    // annotation is not a JSON Schema keyword and is rejected by Gemini's tool-schema
-    // validator, so it must never be required or honoured here.
-    if (schema.type === 'integer' && !Number.isInteger(value)) throw new Error(`${key} must be an integer`);
-    if (schema.minimum !== undefined && value < schema.minimum) throw new Error(`${key} must be at least ${schema.minimum}`);
-    if (schema.maximum !== undefined && value > schema.maximum) throw new Error(`${key} must be at most ${schema.maximum}`);
-    return;
-  }
-  if (schema.type === 'string') {
-    if (typeof value !== 'string') throw new Error(`${key} must be a string`);
-    if (schema.minLength !== undefined && value.length < schema.minLength) throw new Error(`${key} must not be empty`);
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw new Error(`${key} is too long`);
-    return;
-  }
-  if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error(`${key} must be a boolean`);
-}
-
-const TOOL_SPECIFIC_PARAM_MAP = {
-  read_file_head: { lines: 'max_lines', limit: 'max_lines', count: 'max_lines', FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
-  read_file_range: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', StartLine: 'start_line', EndLine: 'end_line' },
-  file_info: { FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
-  token_efficient_grep: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', Glob: 'glob', file_glob: 'glob', CaseInsensitive: 'ignore_case' },
-  get_file_structure: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir' },
-  find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', root_dir: 'dir', rootDir: 'dir', max_results: 'limit', maxResults: 'limit' },
-  find_skill: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
-  find_skills: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
+// Normalize + validate without running the handler. The async MCP transport
+// needs the same guards `dispatchTool` applies before it can hand a graph tool
+// to the LangGraph executor instead of the sync handler table.
+const ASYNC_TOOL_HANDLERS = {
+  code_index: (args) => CODE_INTEL_TOOLS.code_index_async(args),
+  code_search: (args) => CODE_INTEL_TOOLS.code_search_async(args),
+  code_related: (args) => CODE_INTEL_TOOLS.code_related_async(args)
 };
 
-const GLOBAL_PARAM_MAP = {
-  filepath: 'file_path',
-  FilePath: 'file_path',
-  Path: 'path',
-  StartLine: 'start_line',
-  EndLine: 'end_line',
-  Pattern: 'pattern',
-  CaseInsensitive: 'ignore_case',
-  Keyword: 'keyword',
-  TasteDials: 'taste_dials',
-  ProjectPath: 'project_path',
-  TaskDir: 'task_dir',
-  AgentName: 'agent_name',
-};
+const { checkGeninToolAccess, applyGeninCodeIndexBounds } = require('./mcp/genin_guard');
 
-function normalizeToolArguments(name, rawArgs) {
-  if (typeof rawArgs === 'string') {
-    const trimmed = rawArgs.trim();
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      try {
-        rawArgs = JSON.parse(trimmed);
-      } catch (_) { /* ignore */ }
-    }
-    if (typeof rawArgs === 'string') {
-      const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
-      if (AGENT_DELEGATION_TOOLS.includes(name)) {
-        rawArgs = { task: trimmed };
-      }
-    }
+function prepareToolCall(name, rawArgs) {
+  const args = normalizeToolArguments(name, rawArgs || {});
+  const geninCheck = checkGeninToolAccess(name, args);
+  if (!geninCheck.allowed) {
+    return { args, error: geninCheck.error };
   }
-  if (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs)) return rawArgs;
-  const normalized = { ...rawArgs };
-  const toolParamMap = TOOL_SPECIFIC_PARAM_MAP[name] || {};
-  for (const [rawKey, targetKey] of Object.entries(toolParamMap)) {
-    if (rawKey in normalized && !(targetKey in normalized)) {
-      normalized[targetKey] = normalized[rawKey];
-      delete normalized[rawKey];
-    }
+  const schema = MCP_MANIFEST.tools.find((t) => t.name === name)?.inputSchema;
+  const validationArgs = (args && typeof args === 'object' && !Array.isArray(args)) ? { ...args } : args;
+  if (schema && schema.additionalProperties === false && validationArgs && typeof validationArgs === 'object') {
+    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent')) delete validationArgs.agent;
+    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent_name')) delete validationArgs.agent_name;
   }
-  for (const [rawKey, targetKey] of Object.entries(GLOBAL_PARAM_MAP)) {
-    if (rawKey in normalized && !(targetKey in normalized)) {
-      normalized[targetKey] = normalized[rawKey];
-      delete normalized[rawKey];
-    }
+  try {
+    validateToolArguments(name, validationArgs);
+  } catch (err) {
+    return { args, error: err.message || String(err) };
   }
-  return normalized;
-}
-
-function validateToolArguments(name, args) {
-  const schema = MCP_MANIFEST.tools.find((tool) => tool.name === name)?.inputSchema;
-  if (!schema) throw new Error(`Unknown tool: ${name}`);
-  if (args === null || typeof args !== 'object' || Array.isArray(args)) {
-    const expectedProps = Object.keys(schema.properties || {}).join(', ');
-    throw new Error(`Tool "${name}" expects a JSON args object with schema { ${expectedProps} }, received ${typeof args}`);
-  }
-  for (const required of schema.required || []) {
-    if (!(required in args)) throw new Error(`${required} is required`);
-  }
-  if (schema.additionalProperties === false) {
-    for (const key of Object.keys(args)) {
-      if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw new Error(`Unknown argument: ${key}`);
-    }
-  }
-  for (const [key, value] of Object.entries(args)) {
-    const property = schema.properties && schema.properties[key];
-    if (property) {
-      validateSchemaValue(value, property, key);
-      if (property.enum && !property.enum.includes(value)) throw new Error(`${key} must be one of: ${property.enum.join(', ')}`);
-    }
-  }
-  if (schema.anyOf && !schema.anyOf.some((option) => (option.required || []).every((key) => key in args))) {
-    throw new Error('one of the supported path arguments is required');
-  }
+  const boundedArgs = applyGeninCodeIndexBounds(name, args, geninCheck.agent);
+  return { args: boundedArgs, error: null };
 }
 
 function dispatchTool(name, rawArgs) {
-  const args = normalizeToolArguments(name, rawArgs || {});
-  const agent = (args.agent || args.agent_name || '').toLowerCase().replace(/_/g, '-');
-  const GENIN_BLOCKED = ['document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'];
-  if (agent === 'genin' && GENIN_BLOCKED.includes(name)) {
-    return {
-      text: JSON.stringify({ error: `Permission denied: @genin is in strict read-only mode and cannot call '${name}'.` }),
-      isError: true
-    };
+  const prepared = prepareToolCall(name, rawArgs);
+  const args = prepared.args;
+  if (prepared.error) {
+    return { text: JSON.stringify({ error: prepared.error }), isError: true };
   }
   const handler = TOOL_HANDLERS[name];
-  try {
-    validateToolArguments(name, args);
-  } catch (err) {
-    return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
-  }
   if (!handler) {
     return { text: JSON.stringify({ error: `Unknown tool: ${name}` }), isError: true };
   }
   try {
     const result = handler(args);
+    return formatToolResult(result);
+  } catch (err) {
+    return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
+  }
+}
+
+async function dispatchToolAsync(name, rawArgs) {
+  const prepared = prepareToolCall(name, rawArgs);
+  const args = prepared.args;
+  if (prepared.error) {
+    return { text: JSON.stringify({ error: prepared.error }), isError: true };
+  }
+  const handler = ASYNC_TOOL_HANDLERS[name] || TOOL_HANDLERS[name];
+  if (!handler) {
+    return { text: JSON.stringify({ error: `Unknown tool: ${name}` }), isError: true };
+  }
+  try {
+    const result = await handler(args);
     return formatToolResult(result);
   } catch (err) {
     return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
@@ -673,6 +596,8 @@ module.exports = {
   isIdeInstallationDirectory,
   uriToPath,
   dispatchTool,
+  dispatchToolAsync,
+  prepareToolCall,
   listToolSchemas,
   validateInstall,
   TOOL_HANDLERS,

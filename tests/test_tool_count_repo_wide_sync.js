@@ -3,7 +3,7 @@
 
 /**
  * tests/test_tool_count_repo_wide_sync.js — Verifies that EVERY file across the repository
- * stating a Konoha tool count matches the live schema count (35 tools) without drift.
+ * stating a Konoha tool count matches the live schema count (55 tools) without drift.
  * 
  * Enforced by PLAN-RECONCILE-3.md to prevent narrow regression guards.
  */
@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, '..');
 const liveSchemas = listToolSchemas();
 const liveCount = liveSchemas.length;
 
-assert.strictEqual(liveCount, 48, `Live canonical tool count must be exactly 48, found ${liveCount}`);
+assert.strictEqual(liveCount, 56, `Live canonical tool count must be exactly 56, found ${liveCount}`);
 const liveToolNames = new Set(liveSchemas.map(t => t.name));
 
 // Tracked files and their expected assertions
@@ -27,39 +27,39 @@ const TRACKED_FILES = [
   {
     relPath: 'README.md',
     mustInclude: [
-      `MCP%20Tools-48%20Canonical-10b981`,
-      `The unified \`konoha\` server exposes 48 canonical tools`
+      `MCP%20Tools-56%20Canonical-10b981`,
+      `The unified \`konoha\` server exposes 56 canonical tools`
     ],
     forbiddenPatterns: [
-      /\b(?:46|45|43|42|40|39|38|37|35|33)\s+tools?\b/i
+      /\b(?:55|48|46|45|43|42|40|39|38|37|35|33)\s+tools?\b/i
     ]
   },
   {
     relPath: 'docs/ARCHITECTURE.md',
     mustInclude: [
-      `## 🛠️ Canonical Konoha MCP Tools Matrix (48 Canonical Tools)`,
-      `across \`konoha\` (48 tools)`
+      `## 🛠️ Canonical Konoha MCP Tools Matrix (56 Canonical Tools)`,
+      `across \`konoha\` (56 tools)`
     ],
     forbiddenPatterns: [
-      /across\s+`konoha`\s+\((?:46|45|43|42|40|39|38|37|35|33)\s+tools\)/i,
-      /\b(?:46|45|43|42|40|39|38|37|35|33)\s+canonical\s+tools\b/i
+      /across\s+`konoha`\s+\((?:55|46|45|43|42|40|39|38|37|35|33)\s+tools\)/i,
+      /\b(?:55|46|45|43|42|40|39|38|37|35|33)\s+canonical\s+tools\b/i
     ],
     verifyMatrix: true
   },
   {
     relPath: 'docs/architecture/CANONICAL-API.md',
     mustInclude: [
-      `All tools (48 active) are served through the \`konoha\` MCP server`
+      `All tools (56 active) are served through the \`konoha\` MCP server`
     ],
     forbiddenPatterns: [
-      /\bAll\s+tools\s+\((?:46|45|43|42|40|39|38|37|35|33)\s+active\)/i
+      /\bAll\s+tools\s+\((?:55|46|45|43|42|40|39|38|37|35|33)\s+active\)/i
     ]
   },
   {
     relPath: 'docs/architecture/TOKEN-BASELINE.md',
     mustInclude: [
-      `48 Konoha + 2 Semble + 4 Aislop`,
-      `exactly 48 canonical tools`
+      `48 Konoha + 2 external + 4 Aislop (pre-code-intelligence roster`,
+      `exactly 56 canonical tools`
     ],
     forbiddenPatterns: [
       /\bbetween\s+33\s+and\s+38\b/i,
@@ -68,27 +68,28 @@ const TRACKED_FILES = [
       /\b37\s+canonical\s+tools\b/i,
       /\b40\s+canonical\s+tools\b/i,
       /\b45\s+canonical\s+tools\b/i,
-      /\b46\s+canonical\s+tools\b/i
+      /\b46\s+canonical\s+tools\b/i,
+      /\b55\s+canonical\s+tools\b/i
     ]
   },
   {
     relPath: 'docs/TROUBLESHOOTING.md',
     mustInclude: [
-      `serves all 48 canonical tools`,
-      `JSON listing **48 canonical tools**`
+      `serves all 56 canonical tools`,
+      `JSON listing **56 canonical tools**`
     ],
     forbiddenPatterns: [
-      /serves\s+all\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i,
-      /JSON\s+listing\s+\*\*(?:46|45|43|42|40|39|38|37|35|20)\s+tools\*\*/i
+      /serves\s+all\s+(?:55|46|45|43|42|40|39|38|37|35|33)\s+tools/i,
+      /JSON\s+listing\s+\*\*(?:55|46|45|43|42|40|39|38|37|35|20)\s+tools\*\*/i
     ]
   },
   {
     relPath: 'src/pi_manager.js',
     mustInclude: [
-      `serves all 48 canonical tools through`
+      `serves all 56 canonical tools through`
     ],
     forbiddenPatterns: [
-      /serves\s+ALL\s+(?:46|45|43|42|40|39|38|37|35|33)\s+tools/i
+      /serves\s+ALL\s+(?:55|46|45|43|42|40|39|38|37|35|33)\s+tools/i
     ]
   },
   {
@@ -100,41 +101,41 @@ const TRACKED_FILES = [
       : '~/.agents/skills/konoha/SKILL.md',
     optional: true,
     mustInclude: [
-      `All 48 canonical MCP tools`,
-      `serves ALL 48 canonical tools`
+      `All 56 canonical MCP tools`,
+      `serves ALL 56 canonical tools`
     ],
     forbiddenPatterns: [
-      /All\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
-      /serves\s+ALL\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+tools/i
+      /All\s+(?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
+      /serves\s+ALL\s+(?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+tools/i
     ]
   },
   {
     relPath: 'src/templates/skills/konoha/SKILL.md',
     mustInclude: [
-      `All 48 canonical MCP tools`,
-      `serves ALL 48 canonical tools`
+      `All 56 canonical MCP tools`,
+      `serves ALL 56 canonical tools`
     ],
     forbiddenPatterns: [
-      /All\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
-      /serves\s+ALL\s+(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+tools/i
+      /All\s+(?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools/i,
+      /serves\s+ALL\s+(?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+tools/i
     ]
   },
   {
     relPath: 'scripts/generate_premium_flow_gifs.js',
     mustInclude: [
-      `48 canonical MCP tools · 8 coding clients`
+      `56 canonical MCP tools · 8 coding clients`
     ],
     forbiddenPatterns: [
-      /\b(?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
+      /\b(?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+MCP\s+tools\b/i
     ]
   },
   {
     relPath: 'scripts/lib/data.json',
     mustInclude: [
-      `Tool Registration (48 Tools)`
+      `Tool Registration (56 Tools)`
     ],
     forbiddenPatterns: [
-      /Tool\s+Registration\s+\((?:50|49|47|46|45|43|42|40|39|38|37|35|33)\s+Tools\)/i
+      /Tool\s+Registration\s+\((?:55|50|49|47|46|45|43|42|40|39|38|37|35|33)\s+Tools\)/i
     ]
   }
 ];

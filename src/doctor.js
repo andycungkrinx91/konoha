@@ -75,11 +75,11 @@ function checkMcpConfigJson(record, autoRepair) {
     try {
       const cfg = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
       const servers = cfg.mcpServers || {};
-      if (servers.konoha && servers.semble && servers.aislop) {
-        record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
+      if (servers.konoha && servers.aislop) {
+        record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha and aislop are active');
       } else if (autoRepair) {
         require('./antigravity_manager').ensureAntigravitySetup({ silent: true });
-        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and aislop in config');
       } else {
         record('MCP Config (mcp_config.json)', 'WARNING', 'Some MCP servers not registered');
       }
@@ -89,7 +89,7 @@ function checkMcpConfigJson(record, autoRepair) {
   } else if (autoRepair) {
     try {
       require('./antigravity_manager').ensureAntigravitySetup({ silent: true });
-      record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+      record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and aislop in config');
     } catch {
       record('MCP Config (mcp_config.json)', 'FAILED', 'Missing mcp_config.json');
     }

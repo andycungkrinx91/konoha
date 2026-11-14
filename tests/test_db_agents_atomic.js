@@ -12,7 +12,9 @@ fs.mkdirSync(yamlDir, { recursive: true });
 const yamlPath = path.join(yamlDir, 'agents.yaml');
 
 const origHome = process.env.HOME;
+const origUserProfile = process.env.USERPROFILE;
 process.env.HOME = tmpDir;
+process.env.USERPROFILE = tmpDir;
 
 try {
   const db = require('../src/db');
@@ -127,6 +129,9 @@ try {
 
   console.log('test_db_agents_atomic: PASS');
 } finally {
-  process.env.HOME = origHome;
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  if (origHome === undefined) delete process.env.HOME;
+  else process.env.HOME = origHome;
+  if (origUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = origUserProfile;
+  fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

@@ -13,6 +13,7 @@ const {
 } = require('../lib/paths');
 const deployUtils = require('../../src/deploy_utils');
 const { installFileTools } = require('../../src/deploy_installer');
+const { copyRuntimeAssets, copyRecursive } = require('../lib/runtime_install');
 const { smokeTestKonohaFilesMcp } = require('../lib/runtime_mcp');
 const { checkPython } = require('../lib/runtime_lifecycle');
 
@@ -95,6 +96,24 @@ function repairFileToolsSubsystem(context) {
 
   deployUtils.writeNodeExecPathRecord();
   deployUtils.writePythonCmdRecord(checkPython());
+
+  const pkgAssetsDir = path.join(path.resolve(SRC_DIR, '..'), 'assets');
+  const pkgGrammarsDir = path.join(pkgAssetsDir, 'grammars');
+  if (fileExists(pkgAssetsDir)) {
+    const grammarsDest = path.join(SKILLS_DB_DIR, 'assets', 'grammars');
+    const hadGrammars =
+      fileExists(pkgGrammarsDir) &&
+      fs.readdirSync(pkgGrammarsDir).every((entry) => fileExists(path.join(grammarsDest, entry)));
+    copyRuntimeAssets(pkgAssetsDir, copyRecursive);
+    context.record(
+      'Runtime Grammars (assets/grammars)',
+      hadGrammars ? 'HEALTHY' : 'REPAIRED',
+      hadGrammars
+        ? 'Runtime assets and grammars verified'
+        : 'Restored runtime assets and grammars from package'
+    );
+    if (!hadGrammars) context.incrementRepairs();
+  }
 
   purgeInvalidRuntimeMirrors(context);
 }
@@ -254,6 +273,7 @@ function restoreAnbu(context) {
 module.exports = {
   checkAndRepairFile,
   checkAndRepairRuntimeFiles,
+  repairFileToolsSubsystem,
   purgeInvalidRuntimeMirrors,
   cleanCyberPack,
   restoreAnbu

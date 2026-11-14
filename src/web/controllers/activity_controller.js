@@ -355,7 +355,7 @@ function populateTasksAndTools(graph, rawData) {
     const isToolActive = lastMs >= activeCutoffMs;
     graph.upsertNode({
       id: `tool:${toolName}`, key: toolName, type: 'tool', label: toolName,
-      category: toolName.startsWith('semble') ? 'Semble Code Search' : 'Konoha MCP Tool',
+      category: 'Konoha MCP Tool',
       status: lastMs >= liveBurstCutoffMs ? 'executing' : (isToolActive ? 'warm' : 'idle'),
       active: isToolActive, call_count: Number(item.call_count || 0),
       tokens_saved: Number(item.total_tokens_saved || 0),

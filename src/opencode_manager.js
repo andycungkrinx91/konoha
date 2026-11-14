@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { spawnSync } = require('child_process');
 
 const {
@@ -112,7 +112,7 @@ function writeOpenCodeConfig(config, options = {}) {
       client: 'opencode',
       scope: 'global',
       format: 'json',
-      ownedKeys: ['mcp.konoha', 'mcp.semble', 'mcp.aislop'],
+      ownedKeys: ['mcp.konoha', 'mcp.aislop'],
       ownedArrayItems: { instructions: ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'] }
     }, options);
   } catch (_) { /* best-effort */ }
@@ -136,22 +136,6 @@ function _configureKonohaMcpServer(config, pythonCmd, serverPath) {
       OPENCODE_CLIENT: '1',
       KONOHA_CLIENT: 'opencode',
       KONOHA_SEMANTIC_SEARCH: '1'
-    },
-    enabled: true
-  };
-}
-
-function _configureSembleMcpServer(config, uvxCmd) {
-  const isWin = process.platform === 'win32';
-  const resolvedCmd = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
-
-  config.mcp['semble'] = {
-    type: 'local',
-    command: [resolvedCmd, '--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-    environment: {
-      ACTIVE_CLIENT: 'opencode',
-      OPENCODE_CLIENT: '1',
-      KONOHA_CLIENT: 'opencode'
     },
     enabled: true
   };
@@ -204,7 +188,7 @@ function _buildOpenCodeAgentPermission() {
   // OpenCode gates tools through `permission` categories. The main agent gets
   // the full category map below; each subagent entry now carries the same map
   // explicitly instead of relying on inheritance. The mcp category is what
-  // governs konoha/semble/aislop tool approval; bash remains 'allow' for the
+  // governs konoha/aislop tool approval; bash remains 'allow' for the
   // TOOL only — destructive commands are still refused by the contract and
   // the client's own command guard rather than by widening approval.
   const permission = {
@@ -241,7 +225,7 @@ function _registerNinjaAgents(config) {
       const desc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
       agentMap[agent.name] = {
         description: desc,
-        prompt: agent.instructions || `Execute ${agent.name} workflow using konoha and semble MCP tools.`,
+        prompt: agent.instructions || `Execute ${agent.name} workflow using konoha MCP tools.`,
         mode: 'subagent',
         permission: _buildOpenCodeAgentPermission()
       };
@@ -325,17 +309,17 @@ function _syncOpenCodeSettingsFiles(config, options = {}) {
   _syncLegacyOpenCodeConfig(legacyDir, legacyConfig, config, options);
 }
 
-function _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath, uvxCmd) {
+function _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath) {
   if (!projectRoot || !fileExists(projectRoot)) return;
   const targetPath = fileExists(path.join(projectRoot, '.opencode', 'opencode.json'))
     ? path.join(projectRoot, '.opencode', 'opencode.json')
     : path.join(projectRoot, 'opencode.json');
-  registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, true, { configPath: targetPath });
+  registerOpenCodeMcp(pythonCmd, serverPath, true, { configPath: targetPath });
 }
 
 // MCP Server Registration
 
-function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerOpenCodeMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
@@ -351,7 +335,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, optio
   if (!config.mcp) config.mcp = {};
 
   _configureKonohaMcpServer(config, pythonCmd, serverPath);
-  _configureSembleMcpServer(config, uvxCmd);
+  delete config.mcp['semble'];
   _configureAislopMcpServer(config);
   _configureOpenCodePermissions(config);
   _registerNinjaAgents(config);
@@ -362,7 +346,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true, optio
   }
 
   if (!silent) {
-    process.stderr.write('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)\n');
+    process.stderr.write('  ✓ OpenCode MCP servers configured (konoha, aislop)\n');
   }
 
   return { ok: true };
@@ -484,7 +468,6 @@ function getOpenCodeStatus() {
     configExists: fileExists(OPENCODE_CONFIG) || fileExists(OPENCODE_LEGACY_CONFIG),
     configPath: getOpenCodeConfigPath(),
     mcpKonoha: false,
-    mcpSemble: false,
     rtkRuleDeployed: fileExists(path.join(OPENCODE_DIR, 'rules', 'rtk.md'))
   };
 
@@ -492,7 +475,6 @@ function getOpenCodeStatus() {
     try {
       const config = readOpenCodeConfig();
       status.mcpKonoha = !!(config.mcp && config.mcp['konoha']);
-      status.mcpSemble = !!(config.mcp && config.mcp['semble']);
       status.mcpAislop = !!(config.mcp && config.mcp['aislop']);
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
@@ -533,7 +515,6 @@ function ensureOpenCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     silent = true,
     force = false,
     skipDetection = false
@@ -556,7 +537,7 @@ function ensureOpenCodeSetup(options = {}) {
   }
 
   // Register MCP servers
-  const mcpResult = registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent, options);
+  const mcpResult = registerOpenCodeMcp(pythonCmd, serverPath, silent, options);
   if (!mcpResult.ok) {
     return { ok: false, reason: mcpResult.reason || 'opencode-mcp-registration-failed' };
   }
@@ -571,7 +552,7 @@ function ensureOpenCodeSetup(options = {}) {
     fileExists(path.join(projectRoot, '.opencode', 'opencode.json'))
   );
   if (projectRoot && (options.appendProject || (options.deployProject && hasExistingProj))) {
-    _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath, uvxCmd);
+    _appendOpenCodeProjectConfig(projectRoot, pythonCmd, serverPath);
   }
 
   return { ok: true, contractRule, rtkRule };

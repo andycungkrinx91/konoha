@@ -11,17 +11,11 @@ const {
   isRtkInstalled
 } = require('../platform_utils');
 const {
-  buildSembleSearchPolicyCompact,
-  buildFileToolsPolicyCompact
-} = require('../search_policy');
-const { buildSubagentContract } = require('../agent_contract');
-const {
   SERVER_PATH,
   CLAUDE_JSON,
   CLAUDE_SETTINGS,
   HOME,
   isClaudeCodeInstalled,
-  validateAgentName,
   resolveRtkRuleTemplate,
   initRtkHook,
   resolveAislopMcpConfig,
@@ -31,8 +25,6 @@ const {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
-  buildSubagentToolGrants,
-  assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
@@ -43,6 +35,15 @@ const {
   registerClaudeCodeBashGuard,
   registerClaudeCodeWorkflowReminder
 } = require('./claude_code_hooks');
+
+const {
+  adaptInstructionsForClaudeCode,
+  generateClaudeCodeSubagent,
+  AGENT_OWNERSHIP_MARKER,
+  isKonohaOwnedAgentFile,
+  _cleanMcpAgentFiles,
+  _deployClaudeCodeAgents
+} = require('./claude_agent_files');
 
 function deployClaudeCodeRtkRule(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
@@ -69,14 +70,14 @@ function deployClaudeCodeRtkRule(silent = true, options = {}) {
   }
 }
 
-function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
   }
   const targetConfig = options.configPath || (options.home ? path.join(options.home, '.claude.json') : CLAUDE_JSON);
   if (!fileExists(serverPath)) return false;
-  const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'claudecode' });
+  const servers = buildStdioMcpServers({ client: 'claudecode' });
 
   backupFile(targetConfig, silent, { client: 'claude', ...options });
 
@@ -141,7 +142,6 @@ function _applyClaudePermissionGrants(config, grants) {
 
   const invalidRules = [
     'mcp:konoha:*',
-    'mcp:semble:*',
     'rtk',
     'rtk *',
     'rtk*',
@@ -220,10 +220,10 @@ function registerClaudeCodePermissions(silent = true, options = {}) {
   return result;
 }
 
-function registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
   const targetMcp = path.join(projectRoot, '.mcp.json');
-  return registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, { configPath: targetMcp });
+  return registerClaudeCodeGlobalMcp(pythonCmd, serverPath, silent, { configPath: targetMcp });
 }
 
 function _hasExistingClaudeProjectConfig(projectRoot) {
@@ -233,117 +233,6 @@ function _hasExistingClaudeProjectConfig(projectRoot) {
     fileExists(path.join(projectRoot, '.claude', 'settings.json')) ||
     fileExists(path.join(projectRoot, 'CLAUDE.md'))
   );
-}
-
-function adaptInstructionsForClaudeCode(instructions) {
-  if (!instructions) return '';
-  return instructions
-    .replace(/Always set RequestFeedback:\s*false\s+and\s+UserFacing:\s*false\s+in\s+ArtifactMetadata\s+when\s+writing\s+files\.?\s*/gi, '')
-    .replace(/view_file/g, 'Read')
-    .replace(/write_to_file/g, 'Write')
-    .replace(/replace_file_content/g, 'Edit')
-    .replace(/run_command/g, 'Bash')
-    .replace(/(?:skills-db|konoha)\.find_skill/g, 'mcp__konoha__find_skill')
-    .replace(/(?:skills-db|konoha)\.get_skill/g, 'mcp__konoha__get_skill')
-    .replace(/(?:skills-db|konoha)\.list_skills/g, 'mcp__konoha__list_skills')
-    .replace(/(?:skills-db|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
-    .replace(/(?:skills-db|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
-    .replace(/(?:skills-db|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
-    .replace(/(?:skills-db|konoha)\.get_resolved_task_dir/g, 'mcp__konoha__get_resolved_task_dir')
-    .replace(/(?:skills-db|konoha)\.migrate_skills/g, 'mcp__konoha__migrate_skills')
-    .replace(/(?:skills-db|konoha)\.web_search/g, 'mcp__konoha__web_search')
-    .replace(/(?:skills-db|konoha)\.sannin/g, 'mcp__konoha__sannin')
-    .replace(/(?:skills-db|konoha)\.kage/g, 'mcp__konoha__kage')
-    .replace(/(?:skills-db|konoha)\.jonin/g, 'mcp__konoha__jonin')
-    .replace(/(?:skills-db|konoha)\.anbu/g, 'mcp__konoha__anbu')
-    .replace(/(?:skills-db|konoha)\.chunin/g, 'mcp__konoha__chunin')
-    .replace(/(?:skills-db|konoha)\.tokubetsu_jonin/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?:skills-db|konoha)\.genin/g, 'mcp__konoha__genin')
-    .replace(/(?:skills-db|konoha)\.akatsuki/g, 'mcp__konoha__akatsuki')
-    .replace(/semble\.search/g, 'mcp__semble__search')
-    .replace(/semble\.find_related/g, 'mcp__semble__find_related')
-    .replace(/(?<!mcp__konoha__)\boptimize_report\b/g, 'mcp__konoha__optimize_report')
-    .replace(/(?<!mcp__konoha__)\bkage\b(?!-)/g, 'mcp__konoha__kage')
-    .replace(/(?<!mcp__konoha__)\bjonin\b(?!-)/g, 'mcp__konoha__jonin')
-    .replace(/(?<!mcp__konoha__)\banbu\b(?!-)/g, 'mcp__konoha__anbu')
-    .replace(/(?<!mcp__konoha__)\bchunin\b(?!-)/g, 'mcp__konoha__chunin')
-    .replace(/(?<!mcp__konoha__)\bgenin\b(?!-)/g, 'mcp__konoha__genin')
-    .replace(/(?<!mcp__konoha__)\bakatsuki\b(?!-)/g, 'mcp__konoha__akatsuki')
-    .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b(?!-)/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?<!mcp__konoha__)\bsannin\b(?!-)/g, 'mcp__konoha__sannin')
-    .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
-    .replace(/(?<!mcp__konoha__)\bget_skill\b/g, 'mcp__konoha__get_skill')
-    .replace(/(?<!mcp__konoha__)\blist_skills\b/g, 'mcp__konoha__list_skills')
-    .replace(/(?<!mcp__konoha__)\bread_file_head\b/g, 'mcp__konoha__read_file_head')
-    .replace(/(?<!mcp__konoha__)\bread_file_range\b/g, 'mcp__konoha__read_file_range')
-    .replace(/(?<!mcp__konoha__)\bfile_info\b/g, 'mcp__konoha__file_info')
-    .replace(/(?<!mcp__konoha__)\btoken_efficient_grep\b/g, 'mcp__konoha__token_efficient_grep')
-    .replace(/(?<!mcp__konoha__)\bget_file_structure\b/g, 'mcp__konoha__get_file_structure')
-    .replace(/(?<!mcp__konoha__)\bfind_files_clean\b/g, 'mcp__konoha__find_files_clean')
-    // Native Grep/Glob stay allowed for the main agent, so subagents get them
-    // too — but the bare words are routed at the bounded Konoha tools so the
-    // anti-grep invariant is not weakened.
-    .replace(/(?<!mcp__konoha__)\bGrep\b/g, 'mcp__konoha__token_efficient_grep')
-    .replace(/(?<!mcp__konoha__)\bGlob\b/g, 'mcp__konoha__find_files_clean')
-    .trim();
-}
-
-function generateClaudeCodeSubagent(agent) {
-  const DEFAULT_ROLE_DESCRIPTIONS = {
-    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
-    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
-    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
-    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
-    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
-  };
-  const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
-  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-
-  let instructions = agent.instructions || '';
-  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
-  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
-  instructions = instructions.trim();
-  if (instructions && !instructions.endsWith('.')) {
-    instructions += '.';
-  }
-
-  if (agent.skills && agent.skills.length > 0) {
-    const skillList = agent.skills.map(s => `"${s}"`).join(', ');
-    const loadingInstruction = `MANDATORY FIRST ACTION before writing code: Call mcp__konoha__use_skills({ skills: [${skillList}] }) or mcp__konoha__get_skill to load your assigned domain guidelines into context. NEVER skip loading your assigned skills.`;
-    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
-    const logMatch = instructions.match(logPattern);
-    if (logMatch) {
-      const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `${loadingInstruction} ` + instructions.slice(insertIndex);
-    } else {
-      instructions = `${loadingInstruction} ` + instructions;
-    }
-  }
-
-  instructions = `${instructions}\n\n${buildSubagentContract('claude')}`;
-  const sembleLine = buildSembleSearchPolicyCompact();
-  const fileToolsLine = buildFileToolsPolicyCompact();
-  const body = adaptInstructionsForClaudeCode(`${instructions}\n\n${sembleLine}\n${fileToolsLine}\n`);
-
-  const toolGrants = buildSubagentToolGrants('claude');
-  assertNoWildcardGrants(toolGrants, `claude code subagent ${agent.name} allowed-tools`);
-
-  const frontmatter = [
-    '---',
-    `name: ${agent.name}`,
-    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
-    'allowed-tools:',
-    ...toolGrants.map(t => `  - ${t}`),
-    '---',
-    ''
-  ];
-
-  return frontmatter.join('\n') + body;
 }
 
 function deployClaudeCodeRules(ruleContent, silent = true, options = {}) {
@@ -446,35 +335,10 @@ function removeProjectClaudeMd(projectRoot, silent = true) {
   return false;
 }
 
-function _cleanMcpAgentFiles(dir) {
-  try {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      if (file.startsWith('mcp_') && file.endsWith('.md')) {
-        fs.unlinkSync(path.join(dir, file));
-      }
-    }
-  } catch (_) { /* ignore */ }
-}
-
-function _deployClaudeCodeAgents(agents, options = {}) {
-  if (!agents || !agents.length) return;
-  const claudeAgentsDir = (options && options.home ? path.join(options.home, ".claude", "agents") : path.join(HOME, ".claude", "agents"));
-  ensureDir(claudeAgentsDir);
-  for (const agent of agents) {
-    if (!agent || !agent.name || !validateAgentName(agent.name, claudeAgentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
-    const mdContent = generateClaudeCodeSubagent(agent);
-    const targetPath = path.join(claudeAgentsDir, agent.name + '.md');
-    fs.writeFileSync(targetPath, mdContent);
-  }
-  _cleanMcpAgentFiles(claudeAgentsDir);
-}
-
 function ensureClaudeCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     ruleContent = null,
     silent = true,
     agents = [],
@@ -494,7 +358,7 @@ function ensureClaudeCodeSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options);
+  registerClaudeCodeGlobalMcp(pythonCmd, serverPath, silent, options);
   registerClaudeCodePermissions(silent, options);
   registerClaudeCodeNativeBlocker(options);
   registerClaudeCodeBashGuard(silent, options);
@@ -506,12 +370,12 @@ function ensureClaudeCodeSetup(options = {}) {
   const effectiveRuleContent = ruleContent || require("../agent_manager").generateClaudeCodeMd(effectiveAgents);
   deployClaudeCodeRules(effectiveRuleContent, silent, options);
 
-  _deployClaudeCodeAgents(effectiveAgents, options);
+  _deployClaudeCodeAgents(effectiveAgents, { ...options, silent });
 
   const projectRoot = options.projectRoot || null;
   if (projectRoot && (options.appendProject || (options.deployProject && _hasExistingClaudeProjectConfig(projectRoot)))) {
     if (options.appendProject || fileExists(path.join(projectRoot, '.mcp.json'))) {
-      registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent);
+      registerClaudeCodeProjectMcp(projectRoot, pythonCmd, serverPath, silent);
     }
     if (options.appendProject || fileExists(path.join(projectRoot, '.claude', 'settings.json'))) {
       registerClaudeCodePermissions(silent, { settingsPath: path.join(projectRoot, '.claude', 'settings.json') });
@@ -529,7 +393,6 @@ function getClaudeCodeStatus() {
     installed: isClaudeCodeInstalled(),
     globalConfig: fileExists(CLAUDE_JSON),
     mcpKonoha: false,
-    mcpSemble: false,
     mcpSkillsDb: false,
     permissionsAllowed: false,
     agentsCount: 0,
@@ -548,7 +411,6 @@ function getClaudeCodeStatus() {
       }
       const health = readMcpHealth(config, 'mcpServers');
       status.mcpKonoha = health.konoha;
-      status.mcpSemble = health.semble;
       status.mcpAislop = health.aislop;
       status.mcpSkillsDb = health.skillsDb;
     } catch { /* ignore */ }
@@ -566,9 +428,8 @@ function getClaudeCodeStatus() {
       const allowRaw = settings?.permissions?.allow;
       const allowed = Array.isArray(allowRaw) ? allowRaw : [];
       const hasKonoha = allowed.includes('mcp__konoha__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__konoha__'));
-      const hasSemble = allowed.includes('mcp__semble__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__semble__'));
       const hasAislop = allowed.includes('mcp__aislop__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__aislop__'));
-      status.permissionsAllowed = hasKonoha && hasSemble && hasAislop;
+      status.permissionsAllowed = hasKonoha && hasAislop;
     } catch { /* ignore */ }
   }
 
@@ -678,6 +539,9 @@ module.exports = {
   registerClaudeCodePermissions,
   adaptInstructionsForClaudeCode,
   generateClaudeCodeSubagent,
+  isKonohaOwnedAgentFile,
+  AGENT_OWNERSHIP_MARKER,
+  _cleanMcpAgentFiles,
   registerClaudeCodeNativeBlocker,
   buildClaudeCodeBashGuardSource,
   registerClaudeCodeBashGuard,

@@ -131,6 +131,7 @@ export async function apiRequest(endpoint, options = {}) {
       headers
     });
   } catch (networkErr) {
+    if (networkErr?.name === 'AbortError') throw networkErr;
     const safeMsg = networkErr?.message || 'Network connection failed';
     toast.error('Network connection failed. Unable to reach gateway.');
     throw new ApiError(safeMsg, 0, null, 'err_offline');
@@ -150,7 +151,7 @@ export async function apiRequest(endpoint, options = {}) {
 }
 
 export const api = {
-  get: (url) => apiRequest(url, { method: 'GET' }),
+  get: (url, opts = {}) => apiRequest(url, { ...opts, method: 'GET' }),
   post: (url, body) => apiRequest(url, { method: 'POST', body: JSON.stringify(body) }),
   put: (url, body) => apiRequest(url, { method: 'PUT', body: JSON.stringify(body) }),
   patch: (url, body) => apiRequest(url, { method: 'PATCH', body: JSON.stringify(body) }),

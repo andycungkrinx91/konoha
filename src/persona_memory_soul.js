@@ -86,7 +86,10 @@ function resolveSoulPath(projectPath = null) {
 }
 
 function _ensureSoulTableSeeded(conn) {
-  try { require('./db').setupSchema(conn); } catch (_) { /* table may already exist */ }
+  try {
+    const dbMod = require('./db');
+    (dbMod.ensureSchema || dbMod.setupSchema)(conn);
+  } catch (_) { /* table may already exist */ }
   try {
     const countRow = conn.prepare('SELECT COUNT(*) AS c FROM soul_archetypes').get();
     if (!countRow || !countRow.c) {

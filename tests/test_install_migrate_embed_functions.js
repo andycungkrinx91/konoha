@@ -69,13 +69,11 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_migrate_fn_'));
 const prevEnv = {
   HOME: process.env.HOME,
   KONOHA_DB_PATH: process.env.KONOHA_DB_PATH,
-  KONOHA_UI_AUTOSTART: process.env.KONOHA_UI_AUTOSTART,
   KONOHA_SEMANTIC_SEARCH: process.env.KONOHA_SEMANTIC_SEARCH
 };
 
 process.env.HOME = sandbox;
 process.env.KONOHA_DB_PATH = path.join(sandbox, '.konoha', 'konoha.db');
-process.env.KONOHA_UI_AUTOSTART = '0';
 process.env.KONOHA_SEMANTIC_SEARCH = '0';
 
 function restoreEnv() {

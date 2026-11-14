@@ -19,7 +19,7 @@
                 <mxCell id="p1-client" parent="p1-l1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex | Pi | OMP" vertex="1">
                     <mxGeometry height="70" width="380" x="340" y="40" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-config" parent="p1-l1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" value="Client MCP Configurations&#10;Konoha + Semble + Aislop + optional RTK rules" vertex="1">
+                <mxCell id="p1-config" parent="p1-l1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" value="Client MCP Configurations&#10;Konoha + Aislop + optional RTK rules" vertex="1">
                     <mxGeometry height="70" width="330" x="820" y="40" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-l2" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f3ff;strokeColor=#a78bfa;fontColor=#4c1d95;fontStyle=1;" value="Orchestration and specialist agents" vertex="1">
@@ -49,7 +49,7 @@
                 <mxCell id="p1-konoha" parent="p1-l3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;;overflow=visible;" value="Konoha MCP&#10;find_skill | get_skill | memory | file tools | agents" vertex="1">
                     <mxGeometry height="80" width="400" x="230" y="40" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-semble" parent="p1-l3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontColor=#134e4a;fontStyle=1;" value="Semble MCP&#10;search | find_related" vertex="1">
+                <mxCell id="p1-codeintel" parent="p1-l3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontColor=#134e4a;fontStyle=1;" value="Code Intelligence (8 MCP Tools)&#10;code_index | code_search | code_symbol | code_context&#10;code_impact | code_related | code_status | code_remove" vertex="1">
                     <mxGeometry height="70" width="300" x="850" y="45" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-aislop" parent="p1-l3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;" value="Aislop MCP&#10;aislop_scan | aislop_fix | aislop_why" vertex="1">
@@ -106,7 +106,7 @@
                 <mxCell id="p1-e10" edge="1" parent="1" source="p1-db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p1-fts" value="index">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-e11" edge="1" parent="1" source="p1-semble" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;" target="p1-code" value="workspace search">
+                <mxCell id="p1-e11" edge="1" parent="1" source="p1-codeintel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;" target="p1-code" value="workspace search">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="1040" y="710" />
@@ -128,7 +128,7 @@
                 <mxCell id="p2-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="Runtime Query Lifecycle" vertex="1">
                     <mxGeometry height="40" width="700" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p2-note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;align=left;;overflow=visible;" value="Canonical flow: client prompt -&gt; Konoha skill retrieval -&gt; Semble code context -&gt; sannin delegation -&gt; synthesis" vertex="1">
+                <mxCell id="p2-note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;align=left;;overflow=visible;" value="Canonical flow: client prompt -&gt; Konoha skill retrieval -&gt; native code context -&gt; sannin delegation -&gt; synthesis" vertex="1">
                     <mxGeometry height="45" width="1100" x="40" y="60" as="geometry" />
                 </mxCell>
                 <mxCell id="p2-user" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;agent=host;" value="End User" vertex="1">
@@ -146,7 +146,7 @@
                 <mxCell id="p2-db" parent="1" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" value="SQLite FTS5" vertex="1">
                     <mxGeometry height="75" width="220" x="1327" y="109" as="geometry" />
                 </mxCell>
-                <mxCell id="p2-semble" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontStyle=1;;overflow=visible;" value="Semble MCP&#10;search / find_related" vertex="1">
+                <mxCell id="p2-codeintel" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontStyle=1;;overflow=visible;" value="Code Intelligence (8 Tools)&#10;code_index / code_search / code_symbol&#10;code_context / code_impact / code_related&#10;code_status / code_remove" vertex="1">
                     <mxGeometry height="75" width="260" x="990" y="250" as="geometry" />
                 </mxCell>
                 <mxCell id="p2-code" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;;overflow=visible;" value="Workspace Codebase" vertex="1">
@@ -195,7 +195,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="p2-e6" edge="1" parent="1" source="p2-orch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p2-semble" value="5. code context">
+                <mxCell id="p2-e6" edge="1" parent="1" source="p2-orch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p2-codeintel" value="5. code context">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="950" y="226" />
@@ -203,7 +203,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="p2-e7" edge="1" parent="1" source="p2-semble" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;" target="p2-code" value="semantic index">
+                <mxCell id="p2-e7" edge="1" parent="1" source="p2-codeintel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;" target="p2-code" value="FTS5 symbol index">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p2-e8" edge="1" parent="1" source="p2-orch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;exitX=0.333333;exitY=1;exitDx=0;exitDy=0;" target="p2-sannin" value="6. route">
@@ -294,7 +294,7 @@
                 <mxCell id="p3-mcp" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Konoha MCP&#10;find_skill / get_skill / direct specialist tools" vertex="1">
                     <mxGeometry height="80" width="320" x="1080" y="290" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-semble" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontStyle=1;;overflow=visible;" value="Semble MCP&#10;search / find_related" vertex="1">
+                <mxCell id="p3-codeintel" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontStyle=1;;overflow=visible;" value="Code Intelligence (8 Tools)&#10;code_index / code_search / code_symbol / code_context&#10;code_impact / code_related / code_status / code_remove" vertex="1">
                     <mxGeometry height="80" width="320" x="1080" y="490" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-e1" edge="1" parent="1" source="p3-prompt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p3-sannin" value="classify">
@@ -380,7 +380,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="p3-e11" edge="1" parent="1" source="p3-genin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p3-semble" value="code discovery">
+                <mxCell id="p3-e11" edge="1" parent="1" source="p3-genin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f766e;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p3-codeintel" value="code discovery">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="1010" y="377" />
@@ -725,7 +725,7 @@
             <root>
                 <mxCell id="0" />
                 <mxCell id="1" parent="0" />
-                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.21)" vertex="1">
+                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.22)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-input" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="User Prompt / Resume" vertex="1">
@@ -737,7 +737,7 @@
                 <mxCell id="p8-read" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;agent=sannin;" value="1. Read prompt spec&#10;Konoha bounded file tools" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="140" as="geometry" />
                 </mxCell>
-                <mxCell id="p8-discover" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;agent=sannin;" value="2. Discover skill + code&#10;Konoha MCP + Semble MCP" vertex="1">
+                <mxCell id="p8-discover" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;agent=sannin;" value="2. Discover skill + code&#10;Konoha MCP + Code Intelligence" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="270" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;agent=sannin;" value="3. LangGraph Dispatch Node&#10;Turn budget governor &amp; resume protocol" vertex="1">

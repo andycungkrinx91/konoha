@@ -93,7 +93,7 @@ function orchestrationScene() {
     prompt: { x: 60, y: 100, w: 190, h: 52, accent: THEME.blue, title: 'USER PROMPT', detail: 'user · resume' },
     orch: { x: 330, y: 92, w: 250, h: 68, accent: THEME.violet, title: 'PRIMARY ORCHESTRATOR', detail: 'main agent · 8 coding clients' },
     ctx: { x: 60, y: 205, w: 350, h: 58, accent: THEME.emerald, title: '1. PROJECT MEMORY & CONTEXT', detail: 'stack detect · auto-inject invariants' },
-    disc: { x: 500, y: 205, w: 350, h: 58, accent: THEME.cyan, title: '2. DISCOVER SKILL & HYGIENE', detail: 'find_skill · semble.search · aislop_scan' },
+    disc: { x: 500, y: 205, w: 350, h: 58, accent: THEME.cyan, title: '2. DISCOVER SKILL & HYGIENE', detail: 'find_skill · code_search · aislop_scan' },
     dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'jonin / anbu / chunin / yamanaka' },
     agents: { x: 345, y: 418, w: 510, h: 74, accent: THEME.violet, title: '4. SPECIALIST NINJA AGENTS', detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu', 'akatsuki', 'yamanaka'] },
     report: { x: 60, y: 545, w: 170, h: 52, accent: THEME.emerald, title: '5. REPORT', detail: 'report_from_agent' },
@@ -130,7 +130,7 @@ function orchestrationScene() {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
       subtitle: `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`,
       badge: '83–98% TOKEN SAVINGS',
-      footer: '48 canonical MCP tools · 8 coding clients · zero process cold-start · direct structured MCP tool delegation',
+      footer: '56 canonical MCP tools · 8 coding clients · zero process cold-start · direct structured MCP tool delegation',
     });
 
   const paint = (opts) => (ctx) => {

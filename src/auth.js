@@ -151,10 +151,18 @@ function isValidConfig(parsed) {
  *   If persistence fails the throw propagates: an unpersisted bootstrap must never
  *   be advertised as usable trusted server state.
  */
+const _verifiedBootstrapHashes = new Set();
+
 function _healBootstrapConfig(parsed) {
   if (!parsed.is_bootstrap) return;
   const currentBootstrap = resolveBootstrapPassword();
-  if (verifyPasswordHash(currentBootstrap, parsed)) return;
+  const cacheKey = `${parsed.format || ''}:${parsed.salt || ''}:${parsed.hash || ''}:${currentBootstrap}`;
+  if (_verifiedBootstrapHashes.has(cacheKey)) return;
+  if (verifyPasswordHash(currentBootstrap, parsed)) {
+    if (_verifiedBootstrapHashes.size >= 32) _verifiedBootstrapHashes.clear();
+    _verifiedBootstrapHashes.add(cacheKey);
+    return;
+  }
   const rehashed = hashPassword(currentBootstrap);
   parsed.format = rehashed.format;
   parsed.salt = rehashed.salt;
@@ -165,6 +173,9 @@ function _healBootstrapConfig(parsed) {
   } catch (_) {
     // Ignore persistence errors during opportunistic auto-healing
   }
+  const healedKey = `${parsed.format || ''}:${parsed.salt || ''}:${parsed.hash || ''}:${currentBootstrap}`;
+  if (_verifiedBootstrapHashes.size >= 32) _verifiedBootstrapHashes.clear();
+  _verifiedBootstrapHashes.add(healedKey);
 }
 
 function getAuthConfig() {
@@ -379,7 +390,7 @@ function destroyAllSessions() {
 /**
  * Unconditionally reset auth credentials to default bootstrap password ('konohagakure')
  * and flag is_bootstrap = true.
- * Used by CLI (`konoha web reset-password`) and emergency recovery without requiring an active session.
+ * Used by CLI (`konoha auth reset`) and emergency recovery without requiring an active session.
  */
 function resetAuthToDefault() {
   const defaultBootstrap = resolveBootstrapPassword();

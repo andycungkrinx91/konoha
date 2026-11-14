@@ -54,6 +54,24 @@ const lintOnly = sandboxPlan('container', { repoRoot: root, mode: 'lint', build:
 assert.strictEqual(lintOnly.steps.length, 1, '--no-build skips the image build');
 assert.strictEqual(lintOnly.steps[0].at(-1), 'lint');
 
+const dockerSharded = sandboxPlan('docker', { repoRoot: root, build: false, shard: '2/8' });
+const appleSharded = sandboxPlan('container', {
+  repoRoot: root,
+  build: false,
+  env: { KONOHA_TEST_SHARD: '2/8' }
+});
+assert.ok(dockerSharded.steps[0].includes('KONOHA_TEST_SHARD=2/8'), '--shard forwards KONOHA_TEST_SHARD');
+assert.deepStrictEqual(
+  stripMemory(appleSharded.steps[0]),
+  dockerSharded.steps[0],
+  'sharded sandbox argv stays identical across docker and container'
+);
+assert.throws(
+  () => sandboxPlan('docker', { repoRoot: root, shard: '9/8' }),
+  /shard index/,
+  'out-of-range shard must fail closed'
+);
+
 assert.throws(() => sandboxPlan('podman'), /unknown sandbox runtime/, 'an unlisted engine must not be guessed');
 
 console.log('test_sandbox_runtime: PASS');

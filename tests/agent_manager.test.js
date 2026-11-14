@@ -346,95 +346,46 @@ console.log('\n[MCP Tool Name Mapping]');
     assert.ok(!/(?<!mcp__konoha__)list_skills\b/.test(result), 'should not have bare list_skills');
   });
 
-  // ----- Semble MCP tool mapping -----
+  // ----- Native code intelligence tool mapping -----
 
-  test('generateClaudeCodeSubagent converts semble.search to mcp__semble__search', () => {
+  test('generateClaudeCodeSubagent prefixes bare code_search with the konoha server', () => {
     const result = mcp.generateClaudeCodeSubagent({
       name: 'kage',
       purpose: 'Code search',
-      instructions: 'Call semble.search to find code',
+      instructions: 'Call code_search to find code',
       type: 'self'
     });
-    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+    assert.ok(result.includes('mcp__konoha__code_search'), 'should have mcp__konoha__code_search');
+    assert.ok(!result.includes('mcp__semble__'), 'should not reference the retired semble server');
   });
 
-  test('generateClaudeCodeSubagent converts semble.find_related to mcp__semble__find_related', () => {
+  test('generateClaudeCodeSubagent does not double-prefix already qualified code tools', () => {
     const result = mcp.generateClaudeCodeSubagent({
       name: 'kage',
       purpose: 'Code search',
-      instructions: 'Call semble.find_related to explore callers',
+      instructions: 'Call mcp__konoha__code_search and mcp__konoha__code_impact',
       type: 'self'
     });
-    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
+    assert.ok(result.includes('mcp__konoha__code_search'), 'should have mcp__konoha__code_search');
+    assert.ok(result.includes('mcp__konoha__code_impact'), 'should have mcp__konoha__code_impact');
+    assert.ok(!result.includes('mcp__mcp__konoha__'), 'should NOT double-prefix');
   });
 
-  test('generateClaudeCodeSubagent does not double-prefix already correct semble names', () => {
-    const result = mcp.generateClaudeCodeSubagent({
-      name: 'kage',
-      purpose: 'Code search',
-      instructions: 'Call mcp__semble__search and mcp__semble__find_related',
-      type: 'self'
-    });
-    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
-    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
-    assert.ok(!result.includes('mcp__mcp__semble__'), 'should NOT double-prefix');
-    assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
-  });
-
-  test('generateClaudeCodeSubagent converts both semble and konoha tools in same instructions', () => {
-    const result = mcp.generateClaudeCodeSubagent({
-      name: 'kage',
-      purpose: 'Architecture',
-      instructions: 'Use find_skill for skills, semble.search for code',
-      type: 'self'
-    });
-    assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
-    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
-  });
-
-  test('generateClaudeCodeSubagent (mcp_clients_manager) converts semble.search', () => {
-    const mcp = require('../src/mcp_clients_manager');
-    const result = mcp.generateClaudeCodeSubagent({
+  test('generateClaudeCodeSubagent (mcp_clients_manager) prefixes bare code_search', () => {
+    const mcpClients = require('../src/mcp_clients_manager');
+    const result = mcpClients.generateClaudeCodeSubagent({
       name: 'kage',
       description: 'Architecture agent',
       purpose: 'Architecture',
-      instructions: 'Use semble.search to find code definitions',
+      instructions: 'Use code_search to find code definitions',
       type: 'self'
     });
-    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
-    assert.ok(!result.includes('`semble.search`'), 'should not have bare semble.search in backticks');
+    assert.ok(result.includes('mcp__konoha__code_search'), 'should have mcp__konoha__code_search');
   });
 
-  test('generateClaudeCodeSubagent (mcp_clients_manager) converts semble.find_related', () => {
-    const mcp = require('../src/mcp_clients_manager');
-    const result = mcp.generateClaudeCodeSubagent({
-      name: 'kage',
-      description: 'Architecture agent',
-      purpose: 'Architecture',
-      instructions: 'Use semble.find_related to find callers',
-      type: 'self'
-    });
-    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
-  });
-
-  test('generateClaudeCodeSubagent does not double-prefix semble tools', () => {
-    const mcp = require('../src/mcp_clients_manager');
-    const result = mcp.generateClaudeCodeSubagent({
-      name: 'kage',
-      description: 'Architecture agent',
-      purpose: 'Architecture',
-      instructions: 'Call mcp__semble__search and mcp__semble__find_related',
-      type: 'self'
-    });
-    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
-    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
-    assert.ok(!result.includes('mcp__mcp__semble__'), 'should NOT double-prefix');
-    assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
-  });
-
-  test('generateClaudeCodeSubagent grants semble/konoha tools explicitly (no wildcard)', () => {
-    const mcp = require('../src/mcp_clients_manager');
-    const result = mcp.generateClaudeCodeSubagent({
+  test('generateClaudeCodeSubagent grants code intelligence tools explicitly (no wildcard)', () => {
+    const mcpClients = require('../src/mcp_clients_manager');
+    const result = mcpClients.generateClaudeCodeSubagent({
       name: 'kage',
       description: 'Architecture agent',
       purpose: 'Architecture',
@@ -443,11 +394,10 @@ console.log('\n[MCP Tool Name Mapping]');
     });
     // Subagents must carry the same explicit tool grants as the main agent.
     // Wildcards are refused: approval stays a named allow-list.
-    assert.ok(result.includes('  - mcp__semble__search'), 'should grant mcp__semble__search');
-    assert.ok(result.includes('  - mcp__semble__find_related'), 'should grant mcp__semble__find_related');
+    assert.ok(result.includes('  - mcp__konoha__code_search'), 'should grant mcp__konoha__code_search');
     assert.ok(result.includes('  - mcp__konoha__kage'), 'should grant mcp__konoha__kage');
     assert.ok(result.includes('  - Bash'), 'should grant the Bash tool');
-    assert.ok(!result.includes('mcp__semble__*'), 'must NOT emit mcp__semble__* wildcard');
+    assert.ok(!result.includes('mcp__semble__*'), 'must NOT emit the retired mcp__semble__* wildcard');
     assert.ok(!result.includes('mcp__konoha__*'), 'must NOT emit mcp__konoha__* wildcard');
   });
 }

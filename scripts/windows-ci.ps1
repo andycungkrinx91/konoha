@@ -7,7 +7,8 @@
 param(
   [string]$Source = 'Z:\',
   [string]$Work = 'C:\konoha',
-  [string]$LogDir = 'Z:\docker\windows-vm\logs'
+  [string]$LogDir = 'Z:\docker\windows-vm\logs',
+  [string]$Shard = $env:KONOHA_TEST_SHARD
 )
 
 $ErrorActionPreference = 'Continue'
@@ -30,7 +31,7 @@ $env:PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT = '180000'
 $env:CI = 'true'
 # The guest cannot reach astral.sh, and the winget fallback blocks indefinitely instead
 # of failing: run 7 sat in the fresh-install smoke step for hours with no verdict.
-# uv is only needed for the semble MCP, which the smoke test does not exercise.
+# uv is only needed for the aislop MCP, which the smoke test does not exercise.
 $env:KONOHA_SKIP_UV_INSTALL = '1'
 
 # Provisioning writes PATH to the registry, which a shell that was already open never
@@ -93,6 +94,24 @@ if (-not (Test-Path 'C:\OEM\provision.ok')) {
   }
   if (-not (Test-Path 'C:\OEM\provision.ok')) {
     Write-Host 'Guest provisioning did not complete - see C:\OEM\provision.log' -ForegroundColor Red
+    Stop-Transcript | Out-Null
+    exit 1
+  }
+}
+
+# onnxruntime-node (win32-x64) links against VC++ 2015-2022 runtime DLLs; GitHub Actions
+# windows-latest pre-installs them, whereas older dockur/windows VM images may lack them.
+$vcMissing = (-not (Test-Path "$env:SystemRoot\System32\vcruntime140_1.dll")) -or (-not (Test-Path "$env:SystemRoot\System32\msvcp140_atomic_wait.dll"))
+if ($vcMissing) {
+  Write-Host "`n=== Provision Visual C++ Redistributable (x64) ===" -ForegroundColor Cyan
+  $vcExe = Join-Path $env:TEMP 'vc_redist.x64.exe'
+  & curl.exe -4 -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o $vcExe https://aka.ms/vs/17/release/vc_redist.x64.exe
+  if ($LASTEXITCODE -eq 0 -and (Test-Path $vcExe)) {
+    & cmd.exe /c "start /wait `"`" `"$vcExe`" /install /quiet /norestart"
+  }
+  $global:LASTEXITCODE = 0
+  if ((-not (Test-Path "$env:SystemRoot\System32\vcruntime140_1.dll")) -or (-not (Test-Path "$env:SystemRoot\System32\msvcp140_atomic_wait.dll"))) {
+    Write-Host 'Visual C++ Redistributable (x64) failed to install' -ForegroundColor Red
     Stop-Transcript | Out-Null
     exit 1
   }
@@ -212,26 +231,24 @@ Invoke-Step 'Verify ffmpeg webp encoder' {
 }
 
 Invoke-Step 'Lint' { pnpm lint }
-# CI splits the suite over 8 shards per OS; this guest runs all of it in one pass so a
-# local run still covers every suite. Set KONOHA_TEST_SHARD before invoking the script
-# to reproduce a single CI shard instead.
-Invoke-Step 'Test (full suite)' { pnpm test }
+# CI splits windows-latest over 16 shards (ubuntu: 8, macos: 5); this guest runs all of it in one pass by default,
+# or a single shard when -Shard I/N or KONOHA_TEST_SHARD=I/N is set.
+if ($Shard) { $env:KONOHA_TEST_SHARD = $Shard }
+$testLabel = if ($Shard) { "Test (shard $Shard)" } else { 'Test (full suite)' }
+Invoke-Step $testLabel { pnpm test }
 
 Invoke-Step 'Fresh-install smoke test' {
   $smokeHome = Join-Path $env:SystemDrive 'konoha-smoke-home'
   Remove-Item -Recurse -Force $smokeHome -ErrorAction SilentlyContinue
-  $saved = @{ HOME = $env:HOME; USERPROFILE = $env:USERPROFILE; KONOHA_UI_AUTOSTART = $env:KONOHA_UI_AUTOSTART }
+  $saved = @{ HOME = $env:HOME; USERPROFILE = $env:USERPROFILE }
   $env:HOME = $smokeHome
   $env:USERPROFILE = $smokeHome
-  # The smoke test proves install + migrate + version; a web UI daemon adds a detached
-  # process and a 90 s port wait for no coverage.
-  $env:KONOHA_UI_AUTOSTART = '0'
+  # The smoke test proves install + migrate + version; nothing in init starts the web UI.
   node bin/cli.js init --yes --no-project
   if ($LASTEXITCODE -eq 0) { node bin/cli.js migrate --skip-embeddings }
   if ($LASTEXITCODE -eq 0) { node bin/cli.js version }
   $env:HOME = $saved.HOME
   $env:USERPROFILE = $saved.USERPROFILE
-  $env:KONOHA_UI_AUTOSTART = $saved.KONOHA_UI_AUTOSTART
 }
 
 $completed = $true
