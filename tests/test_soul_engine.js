@@ -28,6 +28,9 @@ const templatePath = path.join(ROOT, 'src', 'templates', 'SOUL.md');
 const homeAgents = path.join(require('os').homedir(), '.agents');
 const homeSoulPath = path.join(homeAgents, 'SOUL.md');
 const projectSoulPath = path.join(ROOT, '.agents', 'SOUL.md');
+if (!fs.existsSync(projectSoulPath) && !fs.existsSync(homeSoulPath)) {
+  syncSoul();
+}
 const agentsSoulPath = fs.existsSync(projectSoulPath) ? projectSoulPath : homeSoulPath;
 
 assert.ok(fs.existsSync(templatePath), 'src/templates/SOUL.md must exist');

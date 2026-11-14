@@ -443,7 +443,7 @@ function getSavingsReport(dbPath = null) {
 
   const conn = db.getConnection(targetPath, false);
   try {
-    db.setupSchema(conn);
+    (db.ensureSchema || db.setupSchema)(conn);
     sanitizeLegacyRecords(conn);
     backfillFabricatedFloors(conn);
 

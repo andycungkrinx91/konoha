@@ -95,6 +95,37 @@ function collectCanonicalSkillFiles(templatesRoot) {
   return files;
 }
 
+function _escapeRegexLiteral(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function _hasKonohaAuthoredSkillSignature(raw, sourceItem) {
+  if (!raw || !sourceItem || !CANONICAL_SKILL_NAMES.has(sourceItem.topSkill)) {
+    return false;
+  }
+  const rel = String(sourceItem.relPath || '').replace(/\\/g, '/');
+  if (rel === `${sourceItem.topSkill}/SKILL.md` || rel.endsWith('/SKILL.md')) {
+    if (
+      sourceItem.topSkill === 'konoha' &&
+      (/^#\s*(?:🍃\s*)?Konoha\s+(?:Maintenance|MCP)/m.test(raw) ||
+        raw.includes('Konoha MCP Tools Orchestrator'))
+    ) {
+      return true;
+    }
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fmMatch) return false;
+    const nameRegex = new RegExp(`^name:\\s*['"]?${_escapeRegexLiteral(sourceItem.topSkill)}['"]?\\s*$`, 'm');
+    if (!nameRegex.test(fmMatch[1])) return false;
+    return (
+      /konoha/i.test(raw) ||
+      raw.includes('Standard Operating Procedures') ||
+      raw.includes('miqdadbadjuber/anti-slop') ||
+      raw.includes('i-have-adhd')
+    );
+  }
+  return /konoha/i.test(raw) || raw.includes('antislop') || raw.includes('i-have-adhd');
+}
+
 function _isImplicitlyKonohaManagedSkillFile(destPath, sourceItem, existingRecord) {
   if (existingRecord && (existingRecord.created_by_konoha || existingRecord.konoha_baseline_sha256)) {
     return true;
@@ -105,6 +136,7 @@ function _isImplicitlyKonohaManagedSkillFile(destPath, sourceItem, existingRecor
   try {
     const raw = fs.readFileSync(destPath, 'utf8');
     if (computeSha256(raw) === sourceItem.sha256) return true;
+    if (!existingRecord && _hasKonohaAuthoredSkillSignature(raw, sourceItem)) return true;
     return false;
   } catch (_) {
     return false;
@@ -199,16 +231,22 @@ function syncSingleManagedResource(params, manifest, options = {}) {
     Array.isArray(existingRecord.owned_keys) && existingRecord.owned_keys.length === 0 &&
     Array.isArray(existingRecord.owned_sections) &&
     existingRecord.owned_sections.includes('WHOLE_SKILL_RESOURCE');
-  if (existingRecord && (existingRecord.latest_sha256 === currentSha256 || konohaOwnsWholeResource)) {
+  if (!existingRecord || existingRecord.latest_sha256 === currentSha256 || konohaOwnsWholeResource) {
     const backupRes = backupConfigFile(absDest, { ...options, client: meta.client, scope: 'global' });
     fs.writeFileSync(absDest, templateContent, 'utf8');
-    const refreshedRecord = manifest.files[absDest] || existingRecord || { backups: [] };
+    const refreshedRecord = manifest.files[absDest] || existingRecord || {
+      owned_keys: [],
+      owned_sections: ['WHOLE_SKILL_RESOURCE'],
+      backups: []
+    };
     _recordBackup(refreshedRecord, backupRes);
     refreshedRecord.client = meta.client;
     refreshedRecord.scope = 'global';
     refreshedRecord.created_by_konoha = true;
     refreshedRecord.konoha_baseline_sha256 = templateSha256;
     refreshedRecord.latest_sha256 = templateSha256;
+    refreshedRecord.owned_keys = refreshedRecord.owned_keys || [];
+    refreshedRecord.owned_sections = refreshedRecord.owned_sections || ['WHOLE_SKILL_RESOURCE'];
     refreshedRecord.updated_at = new Date().toISOString();
     manifest.files[absDest] = refreshedRecord;
     return { action: 'patched', path: absDest, client: meta.client, hunksApplied: 0, wholesale: true };
@@ -287,7 +325,7 @@ function _syncSkillFiles(target, canonicalFiles, manifest, ctx) {
         destPath: path.join(target.skillsDir, item.relPath),
         templateContent: item.content,
         templateSha256: item.sha256,
-        meta: { client: target.client, topSkill: item.topSkill, sha256: item.sha256 }
+        meta: { client: target.client, topSkill: item.topSkill, relPath: item.relPath, sha256: item.sha256 }
       },
       manifest,
       ctx.options
@@ -313,7 +351,7 @@ function _syncSoul(target, soul, manifest, ctx) {
       destPath: target.soulPath,
       templateContent: soul.content,
       templateSha256: soul.sha256,
-      meta: { client: target.client, topSkill: 'konoha', sha256: soul.sha256 }
+      meta: { client: target.client, topSkill: 'konoha', relPath: 'SOUL.md', sha256: soul.sha256 }
     },
     manifest,
     ctx.options

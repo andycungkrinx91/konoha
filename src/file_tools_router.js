@@ -472,6 +472,7 @@ const TOOL_HANDLERS = {
   code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol(args),
   code_context: (args) => CODE_INTEL_TOOLS.code_context(args),
   code_impact: (args) => CODE_INTEL_TOOLS.code_impact(args),
+  code_related: (args) => CODE_INTEL_TOOLS.code_related(args),
   code_status: (args) => CODE_INTEL_TOOLS.code_status(args),
   code_remove: (args) => CODE_INTEL_TOOLS.code_remove(args),
   get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
@@ -492,19 +493,33 @@ const TOOL_HANDLERS = {
 // Normalize + validate without running the handler. The async MCP transport
 // needs the same guards `dispatchTool` applies before it can hand a graph tool
 // to the LangGraph executor instead of the sync handler table.
+const ASYNC_TOOL_HANDLERS = {
+  code_index: (args) => CODE_INTEL_TOOLS.code_index_async(args),
+  code_search: (args) => CODE_INTEL_TOOLS.code_search_async(args),
+  code_related: (args) => CODE_INTEL_TOOLS.code_related_async(args)
+};
+
+const { checkGeninToolAccess, applyGeninCodeIndexBounds } = require('./mcp/genin_guard');
+
 function prepareToolCall(name, rawArgs) {
   const args = normalizeToolArguments(name, rawArgs || {});
-  const agent = (args.agent || args.agent_name || '').toLowerCase().replace(/_/g, '-');
-  const GENIN_BLOCKED = ['document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'];
-  if (agent === 'genin' && GENIN_BLOCKED.includes(name)) {
-    return { args, error: `Permission denied: @genin is in strict read-only mode and cannot call '${name}'.` };
+  const geninCheck = checkGeninToolAccess(name, args);
+  if (!geninCheck.allowed) {
+    return { args, error: geninCheck.error };
+  }
+  const schema = MCP_MANIFEST.tools.find((t) => t.name === name)?.inputSchema;
+  const validationArgs = (args && typeof args === 'object' && !Array.isArray(args)) ? { ...args } : args;
+  if (schema && schema.additionalProperties === false && validationArgs && typeof validationArgs === 'object') {
+    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent')) delete validationArgs.agent;
+    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent_name')) delete validationArgs.agent_name;
   }
   try {
-    validateToolArguments(name, args);
+    validateToolArguments(name, validationArgs);
   } catch (err) {
     return { args, error: err.message || String(err) };
   }
-  return { args, error: null };
+  const boundedArgs = applyGeninCodeIndexBounds(name, args, geninCheck.agent);
+  return { args: boundedArgs, error: null };
 }
 
 function dispatchTool(name, rawArgs) {
@@ -519,6 +534,24 @@ function dispatchTool(name, rawArgs) {
   }
   try {
     const result = handler(args);
+    return formatToolResult(result);
+  } catch (err) {
+    return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
+  }
+}
+
+async function dispatchToolAsync(name, rawArgs) {
+  const prepared = prepareToolCall(name, rawArgs);
+  const args = prepared.args;
+  if (prepared.error) {
+    return { text: JSON.stringify({ error: prepared.error }), isError: true };
+  }
+  const handler = ASYNC_TOOL_HANDLERS[name] || TOOL_HANDLERS[name];
+  if (!handler) {
+    return { text: JSON.stringify({ error: `Unknown tool: ${name}` }), isError: true };
+  }
+  try {
+    const result = await handler(args);
     return formatToolResult(result);
   } catch (err) {
     return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
@@ -563,6 +596,7 @@ module.exports = {
   isIdeInstallationDirectory,
   uriToPath,
   dispatchTool,
+  dispatchToolAsync,
   prepareToolCall,
   listToolSchemas,
   validateInstall,

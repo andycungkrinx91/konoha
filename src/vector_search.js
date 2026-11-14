@@ -1,11 +1,9 @@
 /**
  * Hybrid semantic search, ONNX embeddings, and cross-encoder reranker for Konoha.
- * Pure Node.js replacement for vector_search.py using @huggingface/transformers and the node:sqlite driver.
+ * Powered by `@huggingface/transformers` and `node:sqlite`.
  */
 
 'use strict';
-
-const crypto = require('crypto');
 
 const { getConfigValue } = require('./config_access');
 
@@ -29,13 +27,19 @@ const {
   EMBED_MODEL_REPO,
   RERANK_MODEL_REPO,
   _EMBED_CACHE,
+  EmbeddingRuntimeUnavailableError,
   isSemanticSearchEnabled,
-  getBundledModelsDir,
+  getRuntimeStatus,
+  getEmbedPipeline,
   getRerankPipeline,
-  predownloadAllModels,
+  normalizeForEmbedding,
+  hashNormalizedText,
+  makeEmbedCacheKey,
+  embedBatch,
   embedText,
   cosineSimilarity,
-  rerank
+  rerank,
+  resetPipelinesForTest
 } = require('./vector_pipeline');
 
 const {
@@ -83,18 +87,20 @@ function scanQuantizedChunks(conn, queryVec, candidateK) {
 }
 
 function scanInMemoryChunks(conn, queryVec, candidateK) {
-  const rows = conn.prepare("SELECT skill_name, chunk_index, chunk_text, embedding FROM skill_chunks WHERE embedding IS NOT NULL").all();
+  const rows = conn.prepare("SELECT rowid AS rid, embedding FROM skill_chunks WHERE embedding IS NOT NULL").all();
   if (!rows || !rows.length) return [];
   const scored = [];
   for (const r of rows) {
     const buf = r.embedding;
     if (!buf || buf.length !== VECTOR_DIMENSION * 4) continue;
     const vec = new Float32Array(buf.buffer, buf.byteOffset, VECTOR_DIMENSION);
-    const sim = cosineSimilarity(queryVec, vec);
-    scored.push([r.skill_name, r.chunk_index, r.chunk_text, sim]);
+    scored.push([r.rid, cosineSimilarity(queryVec, vec)]);
   }
-  scored.sort((a, b) => b[3] - a[3]);
-  return scored.slice(0, candidateK);
+  scored.sort((a, b) => b[1] - a[1]);
+  const top = scored.slice(0, candidateK);
+  if (!top.length) return [];
+  const rowMap = new Map(conn.prepare(`SELECT rowid AS rid, skill_name, chunk_index, chunk_text FROM skill_chunks WHERE rowid IN (${top.map(() => '?').join(',')})`).all(...top.map((t) => t[0])).map((r) => [r.rid, r]));
+  return top.map(([rid, sim]) => { const d = rowMap.get(rid); return d ? [d.skill_name, d.chunk_index, d.chunk_text, sim] : null; }).filter(Boolean);
 }
 
 function scanNearestChunks(conn, queryVec, candidateK = 25) {
@@ -106,28 +112,76 @@ function scanNearestChunks(conn, queryVec, candidateK = 25) {
 }
 
 async function getVectorCandidates(conn, query, candidateK) {
-  try {
-    const queryVec = await embedText(query);
-    if (!queryVec) return [];
-    const nearest = scanNearestChunks(conn, queryVec, candidateK);
-    return nearest.map(([skill_name, chunk_index, chunk_text, sim]) => ({
-      skill_name, chunk_index, chunk_text, similarity: sim
-    }));
-  } catch (_) {
-    return [];
+  if (!isSemanticSearchEnabled()) return [];
+  const queryVec = await embedText(query);
+  if (!queryVec) return [];
+  const nearest = scanNearestChunks(conn, queryVec, candidateK);
+  return nearest.map(([skill_name, chunk_index, chunk_text, sim]) => ({
+    skill_name, chunk_index, chunk_text, similarity: sim
+  }));
+}
+
+function _scoreChunkTokenHits(chunkText, tokens) {
+  const lower = String(chunkText || '').toLowerCase();
+  let score = 0;
+  for (const tok of tokens) {
+    let idx = lower.indexOf(tok);
+    if (idx === -1) continue;
+    let tf = 0;
+    while (idx !== -1 && tf < 6) {
+      tf += 1;
+      idx = lower.indexOf(tok, idx + tok.length);
+    }
+    score += 1 + Math.log1p(tf);
   }
+  return score;
 }
 
 function getFtsChunkCandidates(conn, query, candidateK) {
   const cleanQ = query.replace(/[^a-zA-Z0-9_\-\s]/g, ' ').trim();
   if (!cleanQ) return [];
+  const tokenSet = extractTokenSet(cleanQ);
+  const tokens = tokenSet.size > 0
+    ? Array.from(tokenSet)
+    : cleanQ.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return [];
+
   try {
-    return conn.prepare(`
+    const ftsSkillNames = searchFtsSkills(conn, cleanQ, candidateK);
+    if (ftsSkillNames.length > 0) {
+      const skillRankBonus = new Map();
+      ftsSkillNames.forEach((name, idx) => skillRankBonus.set(name, 1 / (idx + 1)));
+      const placeholders = ftsSkillNames.map(() => '?').join(',');
+      const rows = conn.prepare(`
+        SELECT skill_name, chunk_index, chunk_text
+        FROM skill_chunks
+        WHERE skill_name IN (${placeholders})
+      `).all(...ftsSkillNames);
+      const ranked = rows
+        .map((row) => ({
+          ...row,
+          _bm25_proxy: (skillRankBonus.get(row.skill_name) || 0) * 3 + _scoreChunkTokenHits(row.chunk_text, tokens)
+        }))
+        .filter((row) => row._bm25_proxy > 0)
+        .sort((a, b) => b._bm25_proxy - a._bm25_proxy)
+        .slice(0, candidateK)
+        .map(({ _bm25_proxy, ...rest }) => rest);
+      if (ranked.length > 0) return ranked;
+    }
+
+    const whereClauses = tokens.slice(0, 6).map(() => 'LOWER(chunk_text) LIKE ?').join(' OR ');
+    const likeParams = tokens.slice(0, 6).map((t) => `%${t}%`);
+    const rows = conn.prepare(`
       SELECT skill_name, chunk_index, chunk_text
       FROM skill_chunks
-      WHERE chunk_text LIKE ?
+      WHERE ${whereClauses}
       LIMIT ?
-    `).all(`%${cleanQ.slice(0, 30)}%`, candidateK);
+    `).all(...likeParams, candidateK * 3);
+    return rows
+      .map((row) => ({ ...row, _score: _scoreChunkTokenHits(row.chunk_text, tokens) }))
+      .sort((a, b) => b._score - a._score)
+      .slice(0, candidateK)
+      .map(({ _score, ...rest }) => rest);
   } catch (_) {
     return [];
   }
@@ -136,19 +190,33 @@ function getFtsChunkCandidates(conn, query, candidateK) {
 async function searchChunksRAG(conn, query, options = {}) {
   const topK = options.topK || SKILL_TOP_K;
   const candidateK = options.candidateK || SKILL_CANDIDATE_K;
-  const useRerank = options.rerank !== false;
+  const useRerank = options.rerank !== false && isSemanticSearchEnabled();
   if (!query || !query.trim()) return [];
 
   const vecCandidates = await getVectorCandidates(conn, query, candidateK);
   const ftsCandidates = getFtsChunkCandidates(conn, query, candidateK);
 
   const candidateMap = new Map();
-  for (const c of [...vecCandidates, ...ftsCandidates]) {
+  const vecKeys = [];
+  for (const c of vecCandidates) {
     const key = `${c.skill_name}:${c.chunk_index}`;
     if (!candidateMap.has(key)) candidateMap.set(key, c);
+    vecKeys.push(key);
+  }
+  const ftsKeys = [];
+  for (const c of ftsCandidates) {
+    const key = `${c.skill_name}:${c.chunk_index}`;
+    if (!candidateMap.has(key)) candidateMap.set(key, c);
+    ftsKeys.push(key);
   }
 
-  const allCandidates = Array.from(candidateMap.values());
+  const fused = reciprocalRankFusion([vecKeys, ftsKeys], 60);
+  const allCandidates = fused
+    .slice(0, candidateK)
+    .map(([key, score]) => ({
+      ...candidateMap.get(key),
+      rrf_score: Number(score.toFixed(6))
+    }));
   if (!allCandidates.length) return [];
   if (useRerank) return await rerank(query, allCandidates, { topK });
   return allCandidates.slice(0, topK);
@@ -179,10 +247,11 @@ function searchFtsSkills(conn, query, candidateK) {
     if (dbMod.hasFts5Support && !dbMod.hasFts5Support(conn)) return [];
     const ftsQuery = Array.from(tokenSet).map(t => `"${t}"*`).join(' OR ');
     const ftsSql = `
-      SELECT name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
+      SELECT s.name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
       FROM skills_fts
+      JOIN skills s ON skills_fts.rowid = s.rowid
       WHERE skills_fts MATCH ?
-      ORDER BY rank ASC
+      ORDER BY CASE WHEN s.type = 'skill' THEN 0 ELSE 1 END ASC, rank ASC
       LIMIT ?
     `;
     return conn.prepare(ftsSql).all(ftsQuery, candidateK).map(r => r.name);
@@ -195,11 +264,12 @@ function scanCachedVectorSkills(conn, query, candidateK) {
   const chunkCountRow = conn.prepare("SELECT COUNT(*) as cnt FROM skill_chunks").get();
   if (!chunkCountRow || chunkCountRow.cnt <= 0) return [];
 
-  const norm = query.trim().split(/\s+/).join(' ');
-  const textHash = crypto.createHash('sha256').update(norm, 'utf8').digest('hex');
-  if (!_EMBED_CACHE.has(textHash)) return [];
+  const norm = normalizeForEmbedding(query);
+  const textHash = hashNormalizedText(norm);
+  const cacheKey = makeEmbedCacheKey(textHash, EMBED_MODEL_REPO);
+  if (!_EMBED_CACHE.has(cacheKey)) return [];
 
-  const queryVec = _EMBED_CACHE.get(textHash);
+  const queryVec = _EMBED_CACHE.get(cacheKey);
   const vecChunks = scanNearestChunks(conn, queryVec, candidateK);
   const seen = new Set();
   const vecSkillNames = [];
@@ -266,13 +336,13 @@ function findSkillSemantic(conn, query, topK = SKILL_TOP_K, candidateK = SKILL_C
   for (const r of skillRows) rowMap.set(r.name, r);
 
   const results = [];
-  for (let i = 0; i < candidateSkills.length && results.length < topK; i++) {
+  for (let i = 0; i < candidateSkills.length; i++) {
     const r = rowMap.get(candidateSkills[i]);
     if (r) results.push(Object.assign({}, r, { score: 1.0 - (i * 0.05) }));
   }
 
   sortSkillSearchResults(results, cleanQ);
-  return results;
+  return results.slice(0, topK);
 }
 
 function recordVectorChunkHit(hit, vecSkillMap, vecSkillNames) {
@@ -295,16 +365,25 @@ function processNearestVectorChunks(nearestChunks, vecSkillMap, vecSkillNames) {
 async function collectHybridVectorMap(conn, cleanQuery, candidateK) {
   const vecSkillMap = new Map();
   const vecSkillNames = [];
+  if (!isSemanticSearchEnabled()) {
+    return { vecSkillMap, vecSkillNames };
+  }
+  let chunkCountRow = null;
   try {
-    const chunkCountRow = conn.prepare("SELECT COUNT(*) as cnt FROM skill_chunks WHERE embedding IS NOT NULL").get();
-    if (!chunkCountRow || chunkCountRow.cnt <= 0 || !isSemanticSearchEnabled()) {
+    chunkCountRow = conn.prepare("SELECT COUNT(*) as cnt FROM skill_chunks WHERE embedding IS NOT NULL").get();
+  } catch (err) {
+    if (err && /no such table/i.test(err.message)) {
       return { vecSkillMap, vecSkillNames };
     }
-    const queryVec = await embedText(cleanQuery);
-    if (!queryVec) return { vecSkillMap, vecSkillNames };
-    const nearestChunks = scanNearestChunks(conn, queryVec, candidateK);
-    processNearestVectorChunks(nearestChunks, vecSkillMap, vecSkillNames);
-  } catch (_) { /* intentional fallback */ }
+    throw err;
+  }
+  if (!chunkCountRow || chunkCountRow.cnt <= 0) {
+    return { vecSkillMap, vecSkillNames };
+  }
+  const queryVec = await embedText(cleanQuery);
+  if (!queryVec) return { vecSkillMap, vecSkillNames };
+  const nearestChunks = scanNearestChunks(conn, queryVec, candidateK);
+  processNearestVectorChunks(nearestChunks, vecSkillMap, vecSkillNames);
   return { vecSkillMap, vecSkillNames };
 }
 
@@ -350,11 +429,10 @@ function scoreHybridCandidate(sName, cleanQuery, vecSkillMap, ftsSkillMap) {
   const vecInfo = vecSkillMap.get(sName);
   const ftsInfo = ftsSkillMap.get(sName);
 
-  if (inVec && !inFts && (vecInfo.similarity || 0) < 0.40) return null;
-
   const rrfVec = inVec ? (1.0 / (60 + vecInfo.rank)) : 0;
   const rrfFts = inFts ? (1.0 / (60 + ftsInfo.rank)) : 0;
-  let combinedScore = rrfVec + rrfFts;
+  const simBoost = inVec && vecInfo.similarity > 0 ? vecInfo.similarity * 0.05 : 0;
+  let combinedScore = rrfVec + rrfFts + simBoost;
 
   const lowerSName = sName.toLowerCase();
   const cleanLower = cleanQuery.toLowerCase();
@@ -427,15 +505,27 @@ async function findSkillHybrid(conn, query, options = {}) {
   }
 
   scoredItems.sort((a, b) => b.score - a.score);
-  const topCandidates = scoredItems.slice(0, topK);
-  const maxScore = topCandidates[0]?.score || 1;
-  for (const item of topCandidates) {
+  const rerankPoolSize = Math.min(scoredItems.length, Math.max(topK * 3, 12));
+  const poolCandidates = scoredItems.slice(0, rerankPoolSize);
+  const maxScore = poolCandidates[0]?.score || 1;
+  for (const item of poolCandidates) {
     item.normalized_score = Number((item.score / maxScore).toFixed(3));
   }
 
-  const results = populateHybridSkillResults(conn, topCandidates);
+  let results = populateHybridSkillResults(conn, poolCandidates);
+  const useRerank = options.rerank !== false && isSemanticSearchEnabled() && results.length > 1;
+  if (useRerank) {
+    const rerankCap = Math.min(results.length, Math.max(1, Number(options.rerankLimit) || 20));
+    const rerankInputs = results.slice(0, rerankCap).map((r) => ({ ...r, content: r.matched_chunk || [r.skill_name || r.name, r.tags].filter(Boolean).join(' — ') }));
+    const reranked = (await rerank(cleanQuery, rerankInputs, { topK: rerankCap })).map((r) => {
+      const { content: _unusedContent, ...rest } = r;
+      return { ...rest, rerank_score: Number(r.rerank_score || 0), score: Number((0.55 * Number(r.score || 0) + 0.45 * Number(r.rerank_score || 0)).toFixed(3)) };
+    });
+    results = [...reranked, ...results.slice(rerankCap)];
+  }
+
   sortSkillSearchResults(results, cleanQuery.toLowerCase());
-  return results;
+  return results.slice(0, topK);
 }
 
 function recordCachedChunkRow(r, localCache) {
@@ -455,29 +545,25 @@ function loadSkillChunkEmbedCache(conn, skillName) {
   return localCache;
 }
 
-async function resolveChunkEmbedding(conn, chunkText, localCache) {
-  let blob = localCache.get(chunkText);
-  if (blob && blob.length === VECTOR_DIMENSION * 4) return blob;
-
-  const existingRow = conn.prepare(
-    "SELECT embedding FROM skill_chunks WHERE chunk_text = ? AND embedding IS NOT NULL LIMIT 1"
-  ).get(chunkText);
-  if (existingRow && existingRow.embedding && existingRow.embedding.length === VECTOR_DIMENSION * 4) {
-    return existingRow.embedding;
+function _lookupGlobalReusableChunkBlobs(conn, texts) {
+  const reusable = new Map();
+  if (!texts.length) return reusable;
+  const BATCH = 64;
+  for (let i = 0; i < texts.length; i += BATCH) {
+    const slice = texts.slice(i, i + BATCH);
+    const placeholders = slice.map(() => '?').join(',');
+    const rows = conn.prepare(`
+      SELECT chunk_text, embedding
+      FROM skill_chunks
+      WHERE chunk_text IN (${placeholders}) AND embedding IS NOT NULL
+    `).all(...slice);
+    for (const r of rows) {
+      if (r.chunk_text && r.embedding && r.embedding.length === VECTOR_DIMENSION * 4 && !reusable.has(r.chunk_text)) {
+        reusable.set(r.chunk_text, r.embedding);
+      }
+    }
   }
-
-  const tInferStart = Date.now();
-  const vec = await embedText(chunkText);
-  if (!vec || vec.length !== VECTOR_DIMENSION) {
-    throw new Error(`Embedding dimension mismatch: expected ${VECTOR_DIMENSION}, got ${vec ? vec.length : 0}`);
-  }
-  blob = Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
-  const inferMs = Date.now() - tInferStart;
-
-  const envPace = parseInt(process.env.KONOHA_EMBED_PACE_MS || '', 10) || getConfigValue('embed_pace_ms');
-  const sleepMs = envPace > 0 ? envPace : Math.max(Math.round(inferMs * 1.25) + 15, 35);
-  await new Promise(resolve => setTimeout(resolve, sleepMs));
-  return blob;
+  return reusable;
 }
 
 async function indexSingleSkillChunks(conn, skillName, content) {
@@ -488,15 +574,41 @@ async function indexSingleSkillChunks(conn, skillName, content) {
   }
 
   const localCache = loadSkillChunkEmbedCache(conn, skillName);
-  const resolved = [];
-  for (const [idx, chunkText] of chunks) {
-    try {
-      const blob = await resolveChunkEmbedding(conn, chunkText, localCache);
-      resolved.push([idx, chunkText, blob]);
-    } catch (_) {
-      resolved.push([idx, chunkText, null]);
+  const missingUnique = [];
+  const missingSeen = new Set();
+  for (const [, chunkText] of chunks) {
+    const blob = localCache.get(chunkText);
+    if (!blob || blob.length !== VECTOR_DIMENSION * 4) {
+      if (!missingSeen.has(chunkText)) {
+        missingSeen.add(chunkText);
+        missingUnique.push(chunkText);
+      }
     }
   }
+
+  const globalReuse = _lookupGlobalReusableChunkBlobs(conn, missingUnique);
+  const needInference = missingUnique.filter((t) => !globalReuse.has(t));
+  const computedBlobs = new Map();
+
+  if (needInference.length > 0 && isSemanticSearchEnabled()) {
+    const vecs = await embedBatch(needInference, { batchSize: 16 });
+    for (let i = 0; i < needInference.length; i++) {
+      const vec = vecs[i];
+      if (!vec || vec.length !== VECTOR_DIMENSION) {
+        throw new Error(`Embedding dimension mismatch: expected ${VECTOR_DIMENSION}, got ${vec ? vec.length : 0}`);
+      }
+      computedBlobs.set(needInference[i], Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength));
+    }
+  }
+
+  const resolved = chunks.map(([idx, chunkText]) => {
+    const blob =
+      (localCache.get(chunkText) && localCache.get(chunkText).length === VECTOR_DIMENSION * 4 ? localCache.get(chunkText) : null) ||
+      globalReuse.get(chunkText) ||
+      computedBlobs.get(chunkText) ||
+      null;
+    return [idx, chunkText, blob];
+  });
 
   conn.transaction(() => {
     conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(skillName);
@@ -510,6 +622,7 @@ async function indexSingleSkillChunks(conn, skillName, content) {
 }
 
 async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds = 180.0) {
+  if (!isSemanticSearchEnabled() && !forceRebuild) return 0;
   const startTime = Date.now();
   initVectorTableIfSupported(conn);
   if (forceRebuild) {
@@ -518,7 +631,7 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
   }
 
   const existingIndexed = new Set(
-    conn.prepare("SELECT DISTINCT skill_name FROM skill_chunks").all().map(r => r.skill_name)
+    conn.prepare("SELECT DISTINCT skill_name FROM skill_chunks WHERE embedding IS NOT NULL").all().map(r => r.skill_name)
   );
 
   const skillHeaders = conn.prepare(
@@ -536,8 +649,6 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
     if (row && row.content) {
       totalChunks += await indexSingleSkillChunks(conn, sName, row.content);
     }
-    if (_EMBED_CACHE.size > 256) _EMBED_CACHE.clear();
-    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   if (totalChunks > 0) initVectorTableIfSupported(conn);
@@ -545,6 +656,7 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
 }
 
 module.exports = {
+  EmbeddingRuntimeUnavailableError,
   isSemanticSearchEnabled,
   getPlatformTag,
   getPlatformAssetInfo,
@@ -553,6 +665,10 @@ module.exports = {
   loadVectorExtension,
   initVectorTableIfSupported,
   chunkDocument,
+  normalizeForEmbedding,
+  hashNormalizedText,
+  makeEmbedCacheKey,
+  embedBatch,
   embedText,
   cosineSimilarity,
   reciprocalRankFusion,
@@ -563,11 +679,12 @@ module.exports = {
   backfillAllEmbeddings,
   enableLoadExtensionSafe,
   enable_load_extension_safe: enableLoadExtensionSafe,
+  getEmbedPipeline,
   getRerankPipeline,
+  getRuntimeStatus,
+  resetPipelinesForTest,
   rerank,
   searchChunksRAG,
-  predownloadAllModels,
-  getBundledModelsDir,
   RERANK_MODEL_REPO,
   EMBED_MODEL_REPO,
   _EMBED_CACHE

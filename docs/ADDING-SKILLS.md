@@ -18,14 +18,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -50,17 +50,16 @@ flowchart TB
     Get --> Client
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef actorNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef sourceNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef processNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef runtimeNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
 
-    class Developer,Client actorNode;
-    class Registry,Files,Templates sourceNode;
-    class Migrate processNode;
-    class DB,Find,Get,Red runtimeNode;
-    classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
-    class Denied denyNode;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Developer,Client,Registry,Files,Templates blueShape;
+    class Migrate,Authz orangeShape;
+    class DB,Find,Get,Red greenShape;
+    class Denied redShape;
 ```
 
 ---

@@ -20,11 +20,20 @@ process.env.KONOHA_HOME = path.join(tmpRoot, '.konoha');
 process.env.KONOHA_DB_PATH = path.join(tmpRoot, 'search.db');
 
 const db = require('../src/db');
+require('../src/file_tools_router').setWorkspaceRoot(tmpRoot);
 const tools = require('../src/code_intel/tools');
-const { search } = require('../src/code_intel/query');
+const store = require('../src/code_intel/store');
+const { indexRepositoryAsync } = require('../src/code_intel/indexer');
+const { search, searchAsync, getContext, related, relatedAsync } = require('../src/code_intel/query');
+const { EMBED_MODEL_REPO } = require('../src/vector_pipeline');
 const { SEARCH_MAX_HITS, SEARCH_SNIPPET_MAX_CHARS } = require('../src/code_intel/config');
 
-db.setupSchema(db.getConnection());
+const _setupConn = db.getConnection();
+try {
+  db.setupSchema(_setupConn);
+} finally {
+  _setupConn.close();
+}
 
 const ALPHA = path.join(tmpRoot, 'alpha');
 const BETA = path.join(tmpRoot, 'beta');
@@ -87,7 +96,119 @@ function write(root, files) {
   }
 }
 
-function run() {
+async function verifyHybridRelatedAndOverlap(conn) {
+  const gamma = path.join(tmpRoot, 'gamma');
+  const longLines = ['function longWindowTarget(items) {'];
+  for (let i = 1; i <= 55; i++) {
+    longLines.push(`  const step${i} = ${i}; // [unique-line-marker-${String(i).padStart(3, '0')}]`);
+  }
+  longLines.push('  return step55;', '}', '');
+
+  const gammaFiles = {
+    'src/jwt_guard.js': [
+      "const { loadPublicKey } = require('./key_store');",
+      '',
+      '/** Validates asymmetric HMAC or RSA digital signatures on bearer credentials. */',
+      'function verifyJwtSignature(token, secretKey) {',
+      '  const key = loadPublicKey(secretKey);',
+      '  return Boolean(token && key);',
+      '}',
+      '',
+      'module.exports = { verifyJwtSignature };',
+      ''
+    ].join('\n'),
+    'src/key_store.js': [
+      'function loadPublicKey(keyId) {',
+      '  return keyId ? `key:${keyId}` : null;',
+      '}',
+      'module.exports = { loadPublicKey };',
+      ''
+    ].join('\n'),
+    'src/billing_invoice.js': [
+      'function renderInvoiceTotal(lineItems) {',
+      '  return lineItems.reduce((acc, item) => acc + item.cents, 0);',
+      '}',
+      'module.exports = { renderInvoiceTotal };',
+      ''
+    ].join('\n'),
+    'tests/jwt_guard.test.js': [
+      "const { verifyJwtSignature } = require('../src/jwt_guard');",
+      'function runJwtCheck() {',
+      '  return verifyJwtSignature("header.payload.sig", "kid-1");',
+      '}',
+      'module.exports = { runJwtCheck };',
+      ''
+    ].join('\n'),
+    'src/long_window.js': longLines.join('\n')
+  };
+
+  write(gamma, gammaFiles);
+
+  const firstIdx = await indexRepositoryAsync({ rootPath: gamma, conn });
+  assert.strictEqual(firstIdx.embeddingModel, EMBED_MODEL_REPO);
+  assert.ok(firstIdx.embeddedChunks >= 5, `Expected chunk embeddings to be generated, got ${firstIdx.embeddedChunks}`);
+
+  const rootRow = store.getRoot(conn, gamma);
+  const embeddedCount = conn.prepare(
+    'SELECT COUNT(*) AS n FROM code_chunks WHERE root_hash = ? AND embedding IS NOT NULL AND embedding_model = ?'
+  ).get(rootRow.root_hash, EMBED_MODEL_REPO).n;
+  assert.ok(embeddedCount >= firstIdx.chunks, 'Every chunk should have a Granite 97M embedding persisted');
+
+  const noopIdx = await indexRepositoryAsync({ rootPath: gamma, conn });
+  assert.strictEqual(noopIdx.embeddedChunks, 0, 'Unchanged chunks must not be re-embedded');
+
+  fs.appendFileSync(path.join(gamma, 'src/billing_invoice.js'), '// trailing note\n', 'utf8');
+  const editIdx = await indexRepositoryAsync({ rootPath: gamma, conn });
+  assert.ok(editIdx.embeddedChunks <= 1, `Expected at most modified chunk embedded, got ${editIdx.embeddedChunks}`);
+
+  const fullCtx = getContext({ rootPath: gamma, relPath: 'src/long_window.js', conn });
+  assert.strictEqual(fullCtx.truncated, false);
+  for (let i = 1; i <= 55; i++) {
+    const marker = `[unique-line-marker-${String(i).padStart(3, '0')}]`;
+    const firstPos = fullCtx.text.indexOf(marker);
+    assert.ok(firstPos !== -1, `Missing line marker ${marker}`);
+    assert.strictEqual(fullCtx.text.indexOf(marker, firstPos + 1), -1, `Overlapping chunk duplicated ${marker}`);
+  }
+
+  const hybrid = await searchAsync({
+    rootPath: gamma,
+    query: 'digital signature validation for bearer credential',
+    conn,
+    limit: 5
+  });
+  assert.strictEqual(hybrid.semantic_applied, true, 'Granite 97M semantic vector search must run');
+  assert.strictEqual(hybrid.reranked, true, 'MiniLM L-6 cross-encoder reranking must run');
+  assert.strictEqual(hybrid.degraded, false);
+  assert.ok(hybrid.hits.length > 0);
+  assert.strictEqual(hybrid.hits[0].relPath, 'src/jwt_guard.js', `Expected jwt_guard.js rank #1, got ${hybrid.hits[0].relPath}`);
+  assert.ok(hybrid.hits[0].rerankScore > 0, 'Expected positive rerank score');
+
+  const relAsync = await relatedAsync({ rootPath: gamma, file: 'src/jwt_guard.js', conn, limit: 5 });
+  assert.strictEqual(relAsync.anchor.relPath, 'src/jwt_guard.js');
+  assert.strictEqual(relAsync.semantic_applied, true);
+  assert.strictEqual(relAsync.reranked, true);
+  const relPaths = relAsync.related.map((r) => r.relPath);
+  assert.ok(relPaths.includes('src/key_store.js'), `Expected imported dependency in related: ${relPaths.join(', ')}`);
+  assert.ok(relPaths.includes('tests/jwt_guard.test.js'), `Expected importer/test twin in related: ${relPaths.join(', ')}`);
+
+  const relBySymbol = related({ rootPath: gamma, symbol: 'verifyJwtSignature', conn, limit: 5 });
+  assert.strictEqual(relBySymbol.anchor.relPath, 'src/jwt_guard.js');
+  assert.ok(relBySymbol.related.some((r) => r.relPath === 'src/key_store.js'));
+
+  const prevEnv = process.env.KONOHA_SEMANTIC_SEARCH;
+  process.env.KONOHA_SEMANTIC_SEARCH = '0';
+  try {
+    const lexOnly = await searchAsync({ rootPath: gamma, query: 'verifyJwtSignature', conn });
+    assert.strictEqual(lexOnly.semantic_applied, false);
+    assert.strictEqual(lexOnly.reranked, false);
+    assert.ok(lexOnly.hits.some((h) => h.relPath === 'src/jwt_guard.js'));
+  } finally {
+    if (prevEnv === undefined) delete process.env.KONOHA_SEMANTIC_SEARCH;
+    else process.env.KONOHA_SEMANTIC_SEARCH = prevEnv;
+  }
+}
+
+async function run() {
   console.log('Running test_code_intel_search tests...');
   write(ALPHA, ALPHA_FILES);
   write(BETA, BETA_FILES);
@@ -167,8 +288,9 @@ function run() {
   const store = require('../src/code_intel/store');
   const realFtsAvailable = store.ftsAvailable;
   store.ftsAvailable = () => false;
+  const fallbackConn = db.getConnection();
   try {
-    const degraded = search({ query: 'tokenize', rootPath: ALPHA, conn: db.getConnection() });
+    const degraded = search({ query: 'tokenize', rootPath: ALPHA, conn: fallbackConn });
     assert.strictEqual(degraded.degraded, true, 'The LIKE path must announce itself');
     assert.ok(degraded.total >= 1, 'The fallback still finds the definition');
     // search() returns query-layer rows, which use relPath; the tool handler
@@ -178,22 +300,45 @@ function run() {
       assert.strictEqual(hit.score, 0, 'A LIKE hit has no bm25 score and must not pretend to');
       assert.ok(hit.snippet.length > 0);
     }
-    assert.strictEqual(search({ query: 'zzzNoSuchIdentifier', rootPath: ALPHA, conn: db.getConnection() }).total, 0);
+    assert.strictEqual(search({ query: 'zzzNoSuchIdentifier', rootPath: ALPHA, conn: fallbackConn }).total, 0);
     // Hostile input cannot reach SQL as syntax here either: the LIKE pattern is
     // a bound parameter, so quotes and wildcards are literal.
-    assert.doesNotThrow(() => search({ query: "'; DROP TABLE code_chunks; --", rootPath: ALPHA, conn: db.getConnection() }));
+    assert.doesNotThrow(() => search({ query: "'; DROP TABLE code_chunks; --", rootPath: ALPHA, conn: fallbackConn }));
   } finally {
     store.ftsAvailable = realFtsAvailable;
+    try { fallbackConn.close(); } catch (_) { /* ignore */ }
   }
-  assert.strictEqual(store.ftsAvailable(db.getConnection()), true, 'FTS availability is restored');
+  const checkConn = db.getConnection();
+  try {
+    assert.strictEqual(store.ftsAvailable(checkConn), true, 'FTS availability is restored');
+  } finally {
+    try { checkConn.close(); } catch (_) { /* ignore */ }
+  }
   assert.ok(tools.code_search({ root: ALPHA, query: 'tokenize' }).hits.length > 0, 'The table survived');
 
   // --- the index survives a process restart ----------------------------
   // Simulate a cold reader: a fresh connection must see the same hits.
-  const coldHits = search({ query: 'tokenize', rootPath: ALPHA, conn: db.openRawConnection(process.env.KONOHA_DB_PATH) });
-  assert.strictEqual(coldHits.total, hits.total, 'The index is durable, not process-local');
+  const coldConn = db.openRawConnection(process.env.KONOHA_DB_PATH);
+  try {
+    const coldHits = search({ query: 'tokenize', rootPath: ALPHA, conn: coldConn });
+    assert.strictEqual(coldHits.total, hits.total, 'The index is durable, not process-local');
+  } finally {
+    try { coldConn.close(); } catch (_) { /* ignore */ }
+  }
 
-  console.log('✓ Code-intelligence search: ranking, scoping, snippets, limits, degradation verified.');
+  const hybridConn = db.getConnection();
+  try {
+    await verifyHybridRelatedAndOverlap(hybridConn);
+  } finally {
+    try { hybridConn.close(); } catch (_) { /* ignore */ }
+    store.closeConnection();
+    fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+
+  console.log('✓ Code-intelligence search, hybrid Granite/MiniLM retrieval, overlap-free context, and code_related verified.');
 }
 
-run();
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

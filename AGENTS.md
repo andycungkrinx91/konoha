@@ -14,7 +14,7 @@
 
 ## Safety Guardrails
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
-- **Tests**: `pnpm test:sandbox` only.
+- **Tests**: `pnpm test:parallel` (host-isolated) or `pnpm test:sandbox` (container).
 
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.2.22)

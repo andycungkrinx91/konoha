@@ -10,6 +10,7 @@
 
   let searchQuery = $state("");
   let searchLimit = $state(5);
+  let searchFilter = $state("all");
   let isSearching = $state(false);
   let searchResults = $state(null);
   let searchError = $state("");
@@ -35,7 +36,8 @@
     try {
       searchResults = await api.post("/api/v1/code/search", {
         query: searchQuery.trim(),
-        limit: searchLimit
+        limit: searchLimit,
+        filter: searchFilter
       });
     } catch (err) {
       searchError = err.message;
@@ -64,7 +66,7 @@
     </div>
     <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold theme-text-secondary">Engine Type</div>
-      <div class="text-xl font-black text-[var(--theme-info)]">SQLite FTS5</div>
+      <div class="text-xl font-black text-[var(--theme-info)]">AST + Semantic</div>
     </div>
   {/snippet}
 
@@ -72,7 +74,7 @@
     title="Native Code Intelligence"
     badgeText="Built-in Index · No External Server"
     badgeIcon={heroBadgeIcon}
-    description="Symbol-aware code search over the local SQLite index. Lexed in-process, stored in the Konoha database, and queried with FTS5 — no Python runtime, no sidecar MCP server, no network round trip."
+    description="Hybrid Tree-sitter WASM AST, SQLite FTS5, IBM Granite 97M embeddings, and MiniLM L-6 reranking in-process over the local Konoha database — no Python runtime or sidecar MCP server."
     stats={heroStats}
   />
 
@@ -118,18 +120,24 @@
   {/if}
 
   <div class="glass-card-3d rounded-3xl p-6 lg:p-8 border space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h3 class="text-lg font-black theme-text">Index Search Playground</h3>
+        <h3 class="text-lg font-black theme-text">Hybrid Code Search Playground</h3>
         <p class="text-xs font-semibold theme-text-secondary mt-0.5">
-          Query the local FTS5 index. Results are definition-first, then by relevance.
+          Query the hybrid AST + FTS5 + Granite 97M index with MiniLM L-6 cross-encoder reranking.
         </p>
       </div>
       {#if status}
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {status.fts_available ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
-          <span class="w-1.5 h-1.5 rounded-full {status.fts_available ? 'bg-status-success-soft' : 'bg-status-danger-soft'}"></span>
-          {status.fts_available ? "FTS5 Online" : "FTS5 Unavailable"}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {status.fts_available ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
+            <span class="w-1.5 h-1.5 rounded-full {status.fts_available ? 'bg-status-success-soft' : 'bg-status-danger-soft'}"></span>
+            {status.fts_available ? "FTS5 Online" : "FTS5 Unavailable"}
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {status.semantic_enabled ? 'badge-status badge-status-success' : 'badge-status badge-status-warning'}">
+            <span class="w-1.5 h-1.5 rounded-full {status.semantic_enabled ? 'bg-status-success-soft' : 'bg-status-warning-soft'}"></span>
+            {status.semantic_enabled ? "Semantic Online" : "Lexical Only"}
+          </span>
+        </div>
       {/if}
     </div>
 
@@ -148,7 +156,20 @@
 
       <div class="flex items-center gap-3">
         <select
+          bind:value={searchFilter}
+          aria-label="Content filter"
+          class="px-3 py-3 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+        >
+          <option value="all">All</option>
+          <option value="code">Code</option>
+          <option value="docs">Docs</option>
+          <option value="tests">Tests</option>
+          <option value="config">Config</option>
+        </select>
+
+        <select
           bind:value={searchLimit}
+          aria-label="Result limit"
           class="px-3 py-3 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
         >
           <option value={3}>Top 3</option>
@@ -172,23 +193,42 @@
 
     {#if searchResults}
       <div class="space-y-4 pt-4 border-t theme-border">
-        <div class="flex items-center justify-between text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
           <span class="font-bold theme-text-secondary">
             {searchResults.total ?? 0} matches for "{searchQuery}"
           </span>
-          {#if searchResults.degraded}
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-warning">degraded: no FTS5</span>
-          {/if}
+          <div class="flex items-center gap-2">
+            {#if searchResults.semantic_applied}
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-success">Granite Vector</span>
+            {/if}
+            {#if searchResults.reranked}
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-info">MiniLM Reranked</span>
+            {/if}
+            {#if searchResults.degraded}
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-warning">degraded: no FTS5</span>
+            {/if}
+          </div>
         </div>
 
         <div class="space-y-3">
           {#each searchResults.hits || [] as r}
             <div class="p-4 rounded-2xl border theme-border theme-bg-surface space-y-2 hover:border-status-info-soft transition-colors">
-              <div class="flex items-center justify-between">
+              <div class="flex flex-wrap items-center justify-between gap-2">
                 <span class="font-mono text-xs font-bold text-action-primary break-all">{r.path}</span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">
-                  L{r.lines?.[0]}-{r.lines?.[1]} • {r.language}
-                </span>
+                <div class="flex items-center gap-1.5">
+                  {#if r.rerank_score != null}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">
+                      rerank {Number(r.rerank_score).toFixed(2)}
+                    </span>
+                  {:else if r.vector_score != null}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">
+                      vec {Number(r.vector_score).toFixed(2)}
+                    </span>
+                  {/if}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">
+                    L{r.lines?.[0]}-{r.lines?.[1]} • {r.language}
+                  </span>
+                </div>
               </div>
               <pre class="text-[11px] font-mono p-3 rounded-xl theme-bg-muted border theme-border theme-text overflow-x-auto whitespace-pre-wrap">{r.snippet}</pre>
             </div>

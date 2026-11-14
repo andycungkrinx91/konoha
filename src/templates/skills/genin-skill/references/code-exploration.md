@@ -15,10 +15,10 @@
 
 - Read narrowly — start with the relevant file, expand only when needed.
 - Do not read unrelated files, full repositories, generated bundles, binaries, or minified files unless explicitly needed.
-- Prefer `rg` over recursive `grep`. Never use `git grep` or any `git` command.
-- Prefer targeted `find` with `-maxdepth`; exclude heavy/generated folders.
-- Use `wc -l` or file size checks before opening huge files.
-- Use `sed -n 'start,endp' file` or equivalent range reads instead of full large-file reads.
+- Use Konoha native code-intelligence tools (`code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`) first; fall back to `rg` only when an index search reports `degraded: true`. Never use `git grep` or any `git` command.
+- Use `find_files_clean` instead of raw `find` when directory listing is needed outside the index; exclude heavy/generated folders.
+- Use `file_info` and `get_file_structure` before opening huge files.
+- Use `read_file_range` (or `code_context`) instead of full large-file reads.
 - Cite file paths and symbols (function names, class names) in findings.
 - Distinguish facts ("this file exports X") from assumptions ("this likely handles Y").
 - Prefer file maps and symbol maps over full-file reads.
@@ -34,8 +34,9 @@ Exclude these unless directly relevant: `.git`, `node_modules`, `vendor`, `dist`
 
 | Goal | Approach |
 |------|----------|
-| Find where X is defined | `rg -n "def X|class X|function X|export.*X" --glob '!node_modules/**' --glob '!vendor/**'` |
-| Find where X is used | `rg -n "import.*X|from.*X|require.*X|X\(" --glob '!dist/**' --glob '!build/**'` |
+| Find where X is defined | `code_symbol(name="X", root="<repo>")` or `code_search(query="X", root="<repo>")` |
+| Find where X is used | `code_impact(name="X", root="<repo>")` (reverse call/ref graph) |
+| Find structurally & semantically related files | `code_related(file="...", root="<repo>")` or `code_related(symbol="X", root="<repo>")` |
 | Understand data flow | Trace from API handler → service → repository → database |
 | Find config shape | Check env key names, docker-compose, CI config, settings modules; do not print secret values |
 | Map dependencies | Read package.json/pyproject.toml + import graph |

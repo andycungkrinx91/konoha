@@ -159,11 +159,13 @@ async function run() {
       // exists where the extension loads, so it cannot be part of a fixed count.
       .filter(n => !n.startsWith('sqlite_') && n !== '_sqliteai_vector');
     freshCheck.close();
-    assert.strictEqual(freshTables.length, 42, `fresh setupSchema must produce exactly 42 base tables, got ${freshTables.length}`);
+    assert.strictEqual(freshTables.length, 43, `fresh setupSchema must produce exactly 43 base tables, got ${freshTables.length}`);
     for (const labTable of ['kali_tools', 'lab_runs', 'lab_tool_invocations', 'red_skill_audit']) {
       assert.ok(!freshTables.includes(labTable), `fresh schema must not define lab table ${labTable}`);
     }
     assert.ok(!freshTables.includes('_sqliteai_vector'), '_sqliteai_vector is extension-owned runtime state, not base DDL');
+    const canonical = require('../src/db_schema').validateCanonicalSchema(new Database(freshDbPath, { readonly: true }));
+    assert.strictEqual(canonical.valid, true, `validateCanonicalSchema errors: ${canonical.errors.join('; ')}`);
 
     console.log('✓ All schema migrations, indexes, integrity checks, and task lifecycle tests passed!');
   } finally {

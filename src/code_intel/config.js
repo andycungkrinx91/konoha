@@ -39,10 +39,13 @@ const MAX_FILES_PER_ROOT = 20000;
 const MAX_SYMBOLS_PER_FILE = 2000;
 const MAX_REFS_PER_FILE = 5000;
 
-// Chunking: symbol bodies are chunked whole when small, split when large.
+// Chunking: AST declarations are kept whole when small, split cleanly when large.
 const CHUNK_MAX_LINES = 40;
-const CHUNK_MAX_CHARS = 2000;
+const CHUNK_MAX_CHARS = 1800;
 const CHUNK_OVERLAP_LINES = 8;
+const CHUNK_TOKEN_TARGET = 420;
+const CHUNK_TOKEN_MIN = 80;
+const CONTENT_KINDS = new Set(['code', 'docs', 'config', 'test']);
 
 // Query bounds.
 const SEARCH_MAX_HITS = 20;
@@ -50,11 +53,18 @@ const SEARCH_SNIPPET_MAX_CHARS = 2000;
 const IMPACT_MAX_DEPTH = 3;
 const IMPACT_MAX_NODES = 200;
 
-// Credential-bearing names. The language allowlist in `parser.js` already
-// rejects most of these by extension, but a secret must never enter the index
-// because of an incidental gap in that map — say a future `.env` language.
+// Credential-bearing names and bloated machine lockfiles.
 const SECRET_NAMES = /^(\.env(\..*)?|\.npmrc|\.netrc|\.pgpass|id_(rsa|dsa|ecdsa|ed25519)(\..*)?)$/i;
 const SECRET_EXTENSIONS = new Set(['.pem', '.key', '.p12', '.pfx', '.keystore', '.jks', '.asc']);
+const EXCLUDED_BASENAMES = new Set([
+  'package-lock.json',
+  'pnpm-lock.yaml',
+  'shrinkwrap.yaml',
+  'composer.lock',
+  'cargo.lock',
+  'gemfile.lock',
+  'poetry.lock'
+]);
 
 function isExcludedDir(name) {
   return EXCLUDED_DIRS.has(name);
@@ -63,6 +73,7 @@ function isExcludedDir(name) {
 function isExcludedFile(name) {
   const lower = name.toLowerCase();
   if (SECRET_NAMES.test(name)) return true;
+  if (EXCLUDED_BASENAMES.has(lower)) return true;
   for (const ext of EXCLUDED_EXTENSIONS) {
     if (lower.endsWith(ext)) return true;
   }
@@ -73,6 +84,8 @@ function isExcludedFile(name) {
 module.exports = {
   EXCLUDED_DIRS,
   EXCLUDED_EXTENSIONS,
+  EXCLUDED_BASENAMES,
+  CONTENT_KINDS,
   MAX_FILE_BYTES,
   MAX_FILES_PER_ROOT,
   MAX_SYMBOLS_PER_FILE,
@@ -80,6 +93,8 @@ module.exports = {
   CHUNK_MAX_LINES,
   CHUNK_MAX_CHARS,
   CHUNK_OVERLAP_LINES,
+  CHUNK_TOKEN_TARGET,
+  CHUNK_TOKEN_MIN,
   SEARCH_MAX_HITS,
   SEARCH_SNIPPET_MAX_CHARS,
   IMPACT_MAX_DEPTH,

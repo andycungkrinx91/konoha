@@ -22,10 +22,18 @@ process.env.KONOHA_HOME = path.join(tmpRoot, '.konoha');
 process.env.KONOHA_DB_PATH = path.join(tmpRoot, 'tools.db');
 
 const db = require('../src/db');
+const store = require('../src/code_intel/store');
 const tools = require('../src/code_intel/tools');
-const { dispatchTool } = require('../src/file_tools_router');
+const router = require('../src/file_tools_router');
+const { dispatchTool, dispatchToolAsync, prepareToolCall } = router;
 
-db.setupSchema(db.getConnection());
+router.setWorkspaceRoot(tmpRoot);
+const _setupConn = db.getConnection();
+try {
+  db.setupSchema(_setupConn);
+} finally {
+  _setupConn.close();
+}
 
 const REPO = path.join(tmpRoot, 'repo');
 
@@ -88,7 +96,7 @@ function snapshot() {
   return out;
 }
 
-function run() {
+async function run() {
   console.log('Running test_code_intel_tools tests...');
   buildRepo();
   const before = snapshot();
@@ -204,7 +212,8 @@ function run() {
     ['code_search', { root: REPO, query: 'multiply' }],
     ['code_symbol', { root: REPO, name: 'add' }],
     ['code_context', { root: REPO, file: 'app.js' }],
-    ['code_impact', { root: REPO, name: 'multiply' }]
+    ['code_impact', { root: REPO, name: 'multiply' }],
+    ['code_related', { root: REPO, file: 'app.js' }]
   ];
   for (const [name, args] of dispatchCases) {
     const raw = dispatchTool(name, args);
@@ -212,6 +221,60 @@ function run() {
     assert.ok(!parsed.error, `${name} must dispatch cleanly, got: ${JSON.stringify(parsed).slice(0, 200)}`);
     assert.ok(!raw.isError, `${name} must not report an error result`);
   }
+
+  // --- related & containment -------------------------------------------
+  const relSync = tools.code_related({ root: REPO, file: 'app.js' });
+  assert.ok(!relSync.error, `code_related failed: ${relSync.error}`);
+  assert.ok(relSync.related.some((r) => r.path === 'lib/math.js'), 'app.js must relate to lib/math.js');
+
+  assert.throws(() => tools.code_index({ root: '/etc' }), /outside workspace/i);
+  assert.strictEqual(dispatchTool('code_index', { root: '/etc' }).isError, true);
+  assert.strictEqual((await dispatchToolAsync('code_search', { root: '/etc', query: 'passwd' })).isError, true);
+  assert.throws(() => tools.code_context({ root: REPO, file: '../../etc/passwd' }), /outside repository root/i);
+  assert.throws(() => tools.code_related({ root: REPO, file: '../../etc/passwd' }), /outside repository root/i);
+
+  const symlinkDir = path.join(tmpRoot, 'symlink_repo');
+  fs.mkdirSync(symlinkDir, { recursive: true });
+  const linkPath = path.join(symlinkDir, 'escape.js');
+  const danglingLink = path.join(symlinkDir, 'escape_dangling.js');
+  try {
+    fs.symlinkSync('/etc/passwd', linkPath);
+    fs.symlinkSync(path.join(tmpRoot, 'nonexistent_outside.js'), danglingLink);
+    assert.throws(() => tools.code_context({ root: symlinkDir, file: 'escape.js' }), /outside repository root/i);
+    assert.throws(() => tools.code_related({ root: symlinkDir, file: 'escape.js' }), /outside repository root/i);
+    assert.throws(() => tools.code_context({ root: symlinkDir, file: 'escape_dangling.js' }), /outside repository root/i);
+    assert.throws(() => tools.code_related({ root: symlinkDir, file: 'escape_dangling.js' }), /outside repository root/i);
+  } catch (err) {
+    if (err && err.code !== 'EPERM' && err.code !== 'UNKNOWN') throw err;
+  }
+
+  // --- @genin read-only & D-04 bounds -----------------------------------
+  const geninBlockedRouter = dispatchTool('code_remove', { root: REPO, agent: 'genin' });
+  assert.strictEqual(geninBlockedRouter.isError, true);
+  assert.ok(/Permission denied: @genin/i.test(geninBlockedRouter.text));
+
+  const toolDispatch = require('../src/mcp/tool_dispatch');
+  const geninBlockedSync = JSON.parse(toolDispatch.executeToolSync('code_remove', { root: REPO, agent: '@genin' }));
+  assert.ok(/Permission denied: @genin/i.test(geninBlockedSync.error));
+  const geninBlockedAsync = JSON.parse(await toolDispatch.executeTool('code_remove', { root: REPO, agent: 'genin' }));
+  assert.ok(/Permission denied: @genin/i.test(geninBlockedAsync.error));
+
+  const bounded = prepareToolCall('code_index', { root: REPO, agent: 'genin', max_files: 99999, timeout_ms: 999999 });
+  assert.strictEqual(bounded.error, null);
+  assert.strictEqual(bounded.args.max_files, 5000);
+  assert.strictEqual(bounded.args.timeout_ms, 30000);
+
+  const boundedDefault = prepareToolCall('code_index', { root: REPO, agent: 'genin' });
+  assert.strictEqual(boundedDefault.args.max_files, 5000);
+  assert.strictEqual(boundedDefault.args.timeout_ms, 30000);
+
+  const geninGuard = require('../src/mcp/genin_guard');
+  assert.strictEqual(geninGuard.resolveAgentIdentity({ agent: 'anbu' }, () => 'genin'), 'genin');
+  assert.strictEqual(geninGuard.checkGeninToolAccess('code_remove', { agent: 'anbu' }, () => 'genin').allowed, false);
+  assert.strictEqual(geninGuard.checkGeninToolAccess('save_project_context', {}, () => 'genin').allowed, false);
+  assert.strictEqual(tools.code_search({ root: REPO, query: 'multiply', limit: -1 }).hits.length, 1);
+  assert.strictEqual(tools.code_related({ root: REPO, file: 'app.js', limit: -1 }).related.length, 1);
+  assert.throws(() => tools.code_context({ file: '/etc/passwd' }), /Path outside workspace/i);
 
   // --- removal -----------------------------------------------------------
   // Dispatched last: removal is the one case with an order dependency.
@@ -223,7 +286,17 @@ function run() {
   assert.deepStrictEqual(tools.code_status({ root: REPO }).roots, [], 'Removal must clear the root and its children');
   assert.deepStrictEqual(snapshot(), afterPrune, 'Removal must not touch the analyzed repository');
 
-  console.log('✓ Code-intelligence tools: index, incremental, search, symbol, context, impact, status, remove.');
+  console.log('✓ Code-intelligence tools: index, incremental, search, symbol, context, impact, related, containment, genin, status, remove.');
 }
 
-run();
+run()
+  .finally(() => {
+    store.closeConnection();
+    try {
+      fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (_) { /* best-effort cleanup */ }
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

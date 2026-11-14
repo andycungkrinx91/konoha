@@ -26,6 +26,7 @@ process.env.KONOHA_DB_PATH = path.join(tmpRoot, 'isolation.db');
 process.env.KONOHA_LAB_DB_ROOT = path.join(tmpRoot, 'lab-root');
 
 const db = require('../src/db');
+require('../src/file_tools_router').setWorkspaceRoot(tmpRoot);
 const authz = require('../src/skill_authorization');
 const labDb = require('../src/workflow/akatsuki/lab_db');
 const store = require('../src/code_intel/store');

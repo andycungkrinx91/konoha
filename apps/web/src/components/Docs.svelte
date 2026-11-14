@@ -52,8 +52,8 @@
     },
     {
       name: 'native code intelligence',
-      tools: 'code_index, code_search, code_symbol, code_context, code_impact, code_status, code_remove',
-      detail: 'In-process symbol-aware index over the Konoha SQLite database (FTS5). No external server, no Python runtime, no network.'
+      tools: 'code_index, code_search, code_symbol, code_context, code_impact, code_related, code_status, code_remove',
+      detail: 'In-process hybrid Tree-sitter WASM AST + SQLite FTS5 + IBM Granite 97M embeddings + MiniLM L-6 reranker. No external server, no Python runtime.'
     },
     {
       name: 'aislop',
@@ -95,8 +95,9 @@
     { method: 'POST', path: '/api/v1/queue/prompts', desc: 'Enqueue a remote prompt from Telegram or Web UI' },
     { method: 'GET', path: '/api/v1/webhooks', desc: 'List registered outbound notification webhooks' },
     { method: 'POST', path: '/api/v1/webhooks', desc: 'Create a new outbound webhook notification target' },
-    { method: 'GET', path: '/api/v1/code/status', desc: 'Code intelligence index status per indexed root' },
-    { method: 'POST', path: '/api/v1/code/search', desc: 'Symbol-aware code search over the local FTS5 index' },
+    { method: 'GET', path: '/api/v1/code/status', desc: 'Code intelligence index status per indexed root and semantic runtime readiness' },
+    { method: 'POST', path: '/api/v1/code/search', desc: 'Hybrid AST + FTS5 + Granite 97M + MiniLM L-6 code search over the local index' },
+    { method: 'POST', path: '/api/v1/code/related', desc: 'Structural graph + semantic discovery of files related to an anchor file or symbol' },
     { method: 'GET', path: '/api/v1/search/status', desc: 'SearXNG search engine status' },
     { method: 'POST', path: '/api/v1/search', desc: 'Zero-API-key web search' },
     { method: 'GET', path: '/api/v1/doctor', desc: 'Environment health diagnostics' },

@@ -44,6 +44,8 @@ const allowedRootDeps = [
   'three',
   'manifold-3d',
   'marked',
+  '@huggingface/transformers',
+  'web-tree-sitter',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {

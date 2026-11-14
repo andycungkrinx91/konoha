@@ -277,7 +277,7 @@ function _toolErrorFlag(text) {
 async function _dispatchToolText(toolName, args) {
   const dispatcher = require("./mcp/tool_dispatch");
   if (!dispatcher.WORKFLOW_GRAPH_TOOLS.includes(toolName)) {
-    return router.dispatchTool(toolName, args);
+    return await router.dispatchToolAsync(toolName, args);
   }
   const prepared = router.prepareToolCall(toolName, args);
   if (prepared.error) return { text: JSON.stringify({ error: prepared.error }), isError: true };

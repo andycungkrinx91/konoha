@@ -38,11 +38,11 @@ for (const tool of DELEGATE_TOOLS) {
     `Tool ${tool} must NOT exist in mcp_tool_manifest.json`
   );
 }
-assert.strictEqual(manifest.tools.length, 57, `Manifest tools length must be exactly 57, got ${manifest.tools.length}`);
+assert.strictEqual(manifest.tools.length, 58, `Manifest tools length must be exactly 58, got ${manifest.tools.length}`);
 
 const fileToolsRouter = require('../src/file_tools_router');
 const liveSchemas = fileToolsRouter.listToolSchemas();
-assert.strictEqual(liveSchemas.length, 55, `listToolSchemas() must return exactly 55 canonical schemas, got ${liveSchemas.length}`);
+assert.strictEqual(liveSchemas.length, 56, `listToolSchemas() must return exactly 56 canonical schemas, got ${liveSchemas.length}`);
 
 for (const tool of DELEGATE_TOOLS) {
   assert.strictEqual(

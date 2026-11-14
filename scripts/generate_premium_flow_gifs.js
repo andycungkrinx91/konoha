@@ -130,7 +130,7 @@ function orchestrationScene() {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
       subtitle: `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`,
       badge: '83–98% TOKEN SAVINGS',
-      footer: '55 canonical MCP tools · 8 coding clients · zero process cold-start · direct structured MCP tool delegation',
+      footer: '56 canonical MCP tools · 8 coding clients · zero process cold-start · direct structured MCP tool delegation',
     });
 
   const paint = (opts) => (ctx) => {

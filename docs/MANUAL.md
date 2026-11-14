@@ -68,14 +68,14 @@ the "83–98%" figure in the CLI banner actually covers.
 
 ### 1.2 The two MCP servers
 
-`konoha init` writes two stdio MCP servers into each harness config. Code search is no longer an external server: `konoha` indexes repositories into its own SQLite FTS5 tables and serves `code_search`, `code_symbol`, `code_context`, and `code_impact` in-process.
+`konoha init` writes two stdio MCP servers into each harness config. Code search is no longer an external server: `konoha` indexes repositories into its own SQLite schema v7 (`code_*` tables) using Tree-sitter WASM AST parsing, FTS5, and Granite 97M / MiniLM L-6 semantic retrieval, serving `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, and `code_related` in-process.
 
 | Server | Launched as | Role |
 |---|---|---|
 | `konoha` | the installed `konoha` binary | skills, subagents, workflows, bounded file tools, docs artefact generation |
 | `aislop` | `npx -y --prefer-offline -p aislop@latest aislop-mcp` | zero-AI-slop scanning (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`) |
 
-The `konoha` server exposes 55 canonical tools with 2 deprecated aliases hidden from dispatch — 57 manifest entries in
+The `konoha` server exposes 56 canonical tools with 2 deprecated aliases hidden from dispatch — 58 manifest entries in
 total (`src/file_tools_router.js`, locked by `tests/test_canonical_api_sync.js`). Chapter 10 lists them by group.
 
 `uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `aislop` server prefers it. The
@@ -219,7 +219,7 @@ physical Windows hardware and not on Docker Desktop for Windows, so confirm with
 report anything that differs.
 
 What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
-install, lint, 8-shard suite, and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.22 from source
@@ -756,7 +756,7 @@ agent state changing without a manual refresh.
 | `/persona` | Persona & Memory | per-agent memories, searchable |
 | `/context` | Workspace Context | per-project invariants and stacked detection |
 | `/search` | Web Search (SearXNG) | keyless web search from the browser |
-| `/code` | Code Intelligence | native SQLite FTS5 code search over a repository path |
+| `/code` | Code Intelligence | native WASM AST, FTS5, and Granite/MiniLM hybrid code search over a repository path |
 | `/detector` | AI Detector (Web & Docs) | scan a site or document for AI fingerprints |
 | `/tasks` | SDLC Tasks | workflow tasks, gate state, readiness |
 | `/doctor` | Health & Doctor | diagnostics, the same checks as `konoha doctor` |
@@ -1000,8 +1000,8 @@ Calls before `initialize` are rejected with JSON-RPC error `-32002`. Supported p
 `src/mcp_tool_manifest.json`: `2024-11-05`, `2024-10-07`, `2025-03-26`, `2025-11-25`, `2025-06-18`, plus `0.1.0` and
 `1.0.0`.
 
-The manifest declares 57 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
-**55**. Both retired names still resolve if an old prompt calls them.
+The manifest declares 58 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
+**56**. Both retired names still resolve if an old prompt calls them.
 
 ### 10.3 Dispatch
 
@@ -1030,6 +1030,29 @@ That is why a tool can exist, appear in `tools/list`, and still fail with a mess
 Sizes are from a 2.2.22 checkout and are here to set expectations, not as a contract.
 
 ```mermaid
+---
+title: Konoha Runtime Process & MCP Dispatch Topology
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
 flowchart LR
   C["8 clients<br/>stdio JSON-RPC"] --> P["protocol.js<br/>initialize · tools/list · tools/call"]
   P --> D["tool_dispatch.js<br/>validate · classify · gate"]
@@ -1043,11 +1066,23 @@ flowchart LR
   T["Telegram poller"] --> A
   B["bridge/"] --> L["LLM endpoints"]
   B --> DB
+
+  linkStyle default stroke:#334155,stroke-width:2px;
+
+  classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+  classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+  classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+  classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+  class C,U,T,L blueShape;
+  class P,M,F,A,B orangeShape;
+  class DB greenShape;
+  class D,W redShape;
 ```
 
 ### 10.5 Data layer
 
-`node:sqlite` from Node 24, no native module to compile. WAL mode, 42 tables in a fresh install, and three storage
+`node:sqlite` from Node 24, no native module to compile. WAL mode, 43 raw tables (31 declared, plus `_sqliteai_vector` when loaded) in a fresh install, and three storage
 patterns you will meet:
 
 - **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
@@ -1376,7 +1411,7 @@ container system start                                  # once per boot
 KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox
 ```
 
-That still runs a **Linux** guest, so it reproduces the clean room (including `--shard=I/8` slices) but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Native macOS host semantics require either a real Mac running `CI=true pnpm test` or the `macos-latest` CI leg (`docs/CI.md`).
+That still runs a **Linux** guest, so it reproduces the clean room (including `--shard=I/N` slices) but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Native macOS host semantics require either a real Mac running `CI=true pnpm test` or the `macos-latest` CI leg (`docs/CI.md`).
 
 The runner discovers every `tests/test_*.js` (plus `*.test.js` and `verify_*.js`), builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at the copy — `USERPROFILE` matters because `os.homedir()` ignores `HOME` on Windows. A suite that needs your real `~/.konoha` is a defect in the suite. Details and the isolation contract are in `docs/QA-AUTOMATION.md` and `docs/CI.md`.
 
@@ -1447,18 +1482,17 @@ that never opens the UI stays usable. Set the password.
 
 Deleting `konoha-mcp/` is safe; deleting the config backups removes your restore path.
 
-### 14.4 When semantic search is unavailable
+### 14.4 When semantic search is disabled or offline
 
-The system degrades rather than fails. Without the ONNX models, FTS5 lexical search still answers `find_skill`; what is
-lost is synonym recall. To make that explicit and skip the download:
+Semantic embeddings (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`) and cross-encoder reranking (`Xenova/ms-marco-MiniLM-L-6-v2`) run through `@huggingface/transformers` and use its native Hugging Face `FileCache` rather than a Konoha-managed model directory.
+
+If `KONOHA_SEMANTIC_SEARCH` is enabled (the default) and the ONNX runtime or model weights cannot load, semantic calls fail loudly with `EmbeddingRuntimeUnavailableError` instead of fabricating hash vectors. To opt out explicitly and run pure FTS5 / lexical retrieval with zero model downloads:
 
 ```bash
 export KONOHA_SEMANTIC_SEARCH=0
 ```
 
-Model candidates, in order: `<repo>/assets/models`, `~/.konoha/assets/models`, `~/.konoha/models`,
-`~/.konoha/transformers_cache`. A network-restricted host can be seeded by copying a populated `transformers_cache`
-directory into any of those locations.
+In air-gapped or metered environments where pre-populated Hugging Face cache weights exist, point standard Hugging Face environment variables at that cache (`HF_HOME` or `HF_HUB_CACHE` / `HUGGINGFACE_HUB_CACHE`) and enable offline loading (`HF_HUB_OFFLINE=1` or `TRANSFORMERS_OFFLINE=1`).
 
 ### 14.5 Windows
 
@@ -1556,7 +1590,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 42 tables |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 43 raw tables (31 declared) |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |

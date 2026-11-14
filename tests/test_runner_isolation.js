@@ -16,10 +16,15 @@ assert.strictEqual(process.env.KONOHA_TEST_SANDBOX, '1', 'KONOHA_TEST_SANDBOX mu
 
 // The suite is maintenance-gated: container sandbox or ephemeral CI runner.
 const { evaluateMaintenanceGuard } = require('./helpers/sandbox_guard');
+const guard = evaluateMaintenanceGuard();
 assert.strictEqual(
-  evaluateMaintenanceGuard().allowed,
+  guard.allowed,
   true,
-  'the runner must be inside the maintenance sandbox (container or ephemeral CI)'
+  'the runner must be inside an approved maintenance sandbox (container, ci, or host-isolated)'
+);
+assert.ok(
+  ['container', 'ci', 'host-isolated'].includes(guard.mode),
+  `unexpected maintenance mode: ${guard.mode}`
 );
 
 // Assert DB path ends in konoha.db

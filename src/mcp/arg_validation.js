@@ -44,6 +44,7 @@ const TOOL_SPECIFIC_PARAM_MAP = {
   find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', root_dir: 'dir', rootDir: 'dir', max_results: 'limit', maxResults: 'limit' },
   find_skill: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
   find_skills: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
+  code_related: { file_path: 'file', filepath: 'file', FilePath: 'file', rel_path: 'file', relPath: 'file', dir: 'root', directory: 'root', repo: 'root', name: 'symbol' },
 };
 
 const GLOBAL_PARAM_MAP = {

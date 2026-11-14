@@ -19,6 +19,11 @@ if errorlevel 8 (
 )
 cd /d C:\konoha
 
+if not exist "%SystemRoot%\System32\vcruntime140_1.dll" (
+  curl.exe -4 -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o "%TEMP%\vc_redist.x64.exe" https://aka.ms/vs/17/release/vc_redist.x64.exe
+  if exist "%TEMP%\vc_redist.x64.exe" start /wait "" "%TEMP%\vc_redist.x64.exe" /install /quiet /norestart
+)
+
 rem The guest has no route to astral.sh, so installUv() blocks on winget and the
 rem seed build hangs before the first suite. scripts/windows-ci.ps1 sets this too.
 set KONOHA_SKIP_UV_INSTALL=1

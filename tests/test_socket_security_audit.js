@@ -179,6 +179,7 @@ function verifyPnpmAuditMatrix() {
   assert.ok(
     rootAudit.includes('0 vulnerabilities') ||
     rootAudit.includes('No vulnerabilities found') ||
+    rootAudit.includes('No known vulnerabilities found') ||
     rootAudit.includes('All found vulnerabilities were already reviewed'),
     `Unexpected root pnpm audit output:\n${rootAudit}`
   );
@@ -187,6 +188,7 @@ function verifyPnpmAuditMatrix() {
   assert.ok(
     webAudit.includes('0 vulnerabilities') ||
     webAudit.includes('No vulnerabilities found') ||
+    webAudit.includes('No known vulnerabilities found') ||
     webAudit.includes('All found vulnerabilities were already reviewed'),
     `Unexpected apps/web pnpm audit output:\n${webAudit}`
   );

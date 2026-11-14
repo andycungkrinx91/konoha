@@ -72,6 +72,7 @@ function getReturnDescription(toolName) {
     code_symbol: 'Symbol definition list JSON with kind, parent, span and signature',
     code_context: 'Indexed source JSON for a file or line window',
     code_impact: 'Reverse-dependency list JSON with depth and enclosing symbol',
+    code_related: 'Related chunks and call-graph neighbors JSON',
     code_status: 'Indexed root list JSON with status, counts and last index time',
     code_remove: 'Removal confirmation JSON'
   };

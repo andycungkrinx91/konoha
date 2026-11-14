@@ -18,14 +18,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#10b981'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -45,15 +45,16 @@ flowchart TD
     Wikipedia --> Return
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    classDef inputNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef primaryNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef fallbackNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
-    classDef finalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
 
-    class Query inputNode;
-    class Searx primaryNode;
-    class DDG,Startpage fallbackNode;
-    class Wikipedia,Return finalNode;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Query blueShape;
+    class DDG,Startpage orangeShape;
+    class Searx,Return greenShape;
+    class Wikipedia redShape;
 ```
 
 ---

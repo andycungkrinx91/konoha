@@ -48,8 +48,8 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
-4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 57 tools in manifest (55 canonical + 2 deprecated) in CI/CD.
-5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, and locked at exactly 55 canonical tools active across 57 total entries in manifest) in `src/file_tools_router.js`.
+4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 58 tools in manifest (56 canonical + 2 deprecated) in CI/CD.
+5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, 55 with code-intelligence v1, and locked at exactly 56 canonical tools active across 58 total entries in manifest) in `src/file_tools_router.js`.
 6. **External Code-Search & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across the then-registered external code-search MCP (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json`). The external server was later retired in favour of the in-process SQLite FTS5 code index, so those schema tokens no longer exist at all.
 
 ---
@@ -242,9 +242,9 @@ In Issue 9, prompt generation was unified into a single deterministic token-boun
 | Verification Suite | Target | Baseline (Phase 0) | Current (Phase 5 Reconciled) | Result |
 |---|---|---|---|---|
 | **JS Automated Test Suites** | `rtk node tests/run_all.js` | 86 passed, 0 failed (159.7s) | **90 passed, 0 failed** | **PASSED (100%)** |
-| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **57 tools in manifest (55 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
+| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **58 tools in manifest (56 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
 | **Reconcile Presentation Gate** | `rtk node tests/test_reconcile_presentation.js` | N/A (new test) | **Honest scoping & live bounds verified** | **PASSED (100%)** |
-| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 57 tools in manifest (55 canonical + 2 deprecated)** | **PASSED (100%)** |
+| **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 58 tools in manifest (56 canonical + 2 deprecated)** | **PASSED (100%)** |
 | **CI Token Regression Gate** | `rtk node tests/test_token_regression_gate.js` | N/A (new test) | **All 5 token budgets enforced with +10% margin** | **PASSED (100%)** |
 | **Zero-AI-Slop Code Quality** | `rtk aislop scan --changes` | 100/100 Healthy (0 issues) | **100/100 Healthy (0 issues)** | **PASSED (0 warn, 0 err)** |
 | **Schema Integrity** | `rtk node tests/test_schema_integrity.js` | Passed | **Passed** | **PASSED** |
@@ -311,7 +311,7 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 - **Single-Thread Inline Hierarchy**: Preserved completely. All agents execute within the single-thread inline hierarchy coordinated by Sannin and governed by Kage.
 - **Subagent Spawning**: **0 subagents spawned**. No dynamic subagents, background daemon forks, or multi-agent swarms introduced.
-- **MCP Tool Protocol Compatibility**: All 57 manifest tools (55 canonical + 2 deprecated) and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
+- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
 - **Stable Bridge Gateway**: Untouched. Local LLM Proxy Gateway, bridge servers, and Bridge Router logic were preserved without modifications.
 - **Token Savings Telemetry**: Strictly preserved. Telemetry tracking in `~/.konoha/konoha.db` and bounded file tool constraints remain active and intact.
 

@@ -159,7 +159,7 @@ function loadCanonicalToolsFromManifest() {
     'document_create', 'spreadsheet_create', 'presentation_create',
     'diagram_create', 'animation_export',
     'code_index', 'code_search', 'code_symbol', 'code_context',
-    'code_impact', 'code_status', 'code_remove'
+    'code_impact', 'code_related', 'code_status', 'code_remove'
   ];
 }
 
@@ -226,6 +226,10 @@ function syncRuntimeSubdirectories(srcDir, destDir) {
     if (fileExists(fullSrc)) {
       copyRecursiveIfDifferent(fullSrc, item.dest);
     }
+  }
+  const grammarsSrc = path.join(rootDir, 'assets', 'grammars');
+  if (fileExists(grammarsSrc)) {
+    copyRecursiveIfDifferent(grammarsSrc, path.join(destDir, 'assets', 'grammars'));
   }
 }
 

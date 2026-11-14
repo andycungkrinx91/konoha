@@ -1919,13 +1919,13 @@
     },
     {
       "name": "code_index",
-      "description": "Index a repository into the native code-intelligence store. Incremental by content hash: unchanged files are skipped. Writes only to the Konoha DB, never to the analyzed repo.",
+      "description": "Incrementally index repo AST, symbols, chunks, and embeddings into Konoha DB.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           },
           "force": {
             "type": "boolean"
@@ -1933,6 +1933,20 @@
           "max_files": {
             "type": "number",
             "minimum": 1
+          },
+          "timeout_ms": {
+            "type": "number",
+            "minimum": 100
+          },
+          "verify": {
+            "type": "string",
+            "enum": [
+              "strict",
+              "fast_stat"
+            ]
+          },
+          "embed": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -1940,7 +1954,7 @@
     },
     {
       "name": "code_search",
-      "description": "Full-text search over indexed code chunks. Returns ranked snippets with file paths and line ranges. Sets degraded=true when FTS5 is unavailable and a LIKE scan was used.",
+      "description": "Hybrid AST/FTS5 + vector + cross-encoder search over indexed code chunks.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1949,12 +1963,22 @@
           },
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           },
           "limit": {
             "type": "number",
             "minimum": 1,
             "maximum": 20
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "code",
+              "docs",
+              "tests",
+              "config"
+            ]
           }
         },
         "required": [
@@ -1974,7 +1998,7 @@
           },
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           }
         },
         "required": [
@@ -1994,7 +2018,7 @@
           },
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           },
           "start_line": {
             "type": "number",
@@ -2022,7 +2046,7 @@
           },
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           },
           "max_depth": {
             "type": "number",
@@ -2042,6 +2066,41 @@
       }
     },
     {
+      "name": "code_related",
+      "description": "Find files structurally and semantically related to a file or symbol.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string",
+            "description": "Repo root (default: cwd)."
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "code",
+              "docs",
+              "tests",
+              "config"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "code_status",
       "description": "List indexed repository roots with file, symbol, and chunk counts.",
       "inputSchema": {
@@ -2049,7 +2108,7 @@
         "properties": {
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           }
         },
         "additionalProperties": false
@@ -2063,7 +2122,7 @@
         "properties": {
           "root": {
             "type": "string",
-            "description": "Repository root. Defaults to the current working directory."
+            "description": "Repo root (default: cwd)."
           }
         },
         "additionalProperties": false

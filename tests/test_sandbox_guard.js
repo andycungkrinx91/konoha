@@ -1,4 +1,6 @@
 const assert = require('assert');
+const os = require('os');
+const path = require('path');
 const { evaluateSandboxGuard, evaluateMaintenanceGuard } = require('./helpers/sandbox_guard');
 
 // Test 1: Real HOME without sandbox marker refuses
@@ -55,6 +57,30 @@ assert.match(
   evaluateMaintenanceGuard({}).reason,
   /rtk node tests\/run_all\.js` refuses identically/,
   'the refusal must state that RTK does not lift it'
+);
+
+// Option H1 host-isolated child invariants
+const tmpSuite = path.join(os.tmpdir(), 'konoha_suite_unit_test_home');
+const validHostEnv = {
+  KONOHA_HOST_ISOLATED: '1',
+  KONOHA_TEST_SANDBOX: '1',
+  HOME: tmpSuite,
+  USERPROFILE: tmpSuite,
+  KONOHA_DB_PATH: path.join(tmpSuite, '.konoha', 'konoha.db')
+};
+const hostRes = evaluateMaintenanceGuard(validHostEnv, { realHome: '/home/realuser' });
+assert.strictEqual(hostRes.allowed, true, 'valid host-isolated child env must allow');
+assert.strictEqual(hostRes.mode, 'host-isolated');
+
+assert.strictEqual(
+  evaluateMaintenanceGuard({ ...validHostEnv, KONOHA_DB_PATH: '/home/realuser/.konoha/konoha.db' }, { realHome: '/home/realuser' }).allowed,
+  false,
+  'host-isolated mode must refuse DB outside isolated HOME'
+);
+assert.strictEqual(
+  evaluateMaintenanceGuard({ ...validHostEnv, HOME: '/home/realuser', USERPROFILE: '/home/realuser' }, { realHome: '/home/realuser' }).allowed,
+  false,
+  'host-isolated mode must refuse real HOME'
 );
 
 console.log('test_sandbox_guard: PASS');

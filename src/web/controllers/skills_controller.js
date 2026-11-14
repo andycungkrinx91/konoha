@@ -359,7 +359,7 @@ async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   return false;
 }
 
-function _processWorkspaceRow(r, workspaceMap, personaMemory) {
+function _processWorkspaceRow(r, workspaceMap, personaMemory, conn = null) {
   let pRoot = r.workspace_root;
   if (!pRoot || typeof pRoot !== 'string') return;
   try { pRoot = path.resolve(path.normalize(pRoot)); } catch (_) { /* ignore */ }
@@ -367,10 +367,10 @@ function _processWorkspaceRow(r, workspaceMap, personaMemory) {
   const clientName = (r.client || 'generic').toLowerCase();
 
   if (!workspaceMap.has(normKey)) {
-    let prof = personaMemory.getProjectProfile(pRoot);
+    let prof = personaMemory.getProjectProfile(pRoot, conn);
     if (!prof && fs.existsSync(pRoot)) {
-      const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null);
-      prof = personaMemory.getProjectProfile(pHash);
+      const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null, conn);
+      prof = personaMemory.getProjectProfile(pHash, conn);
     }
     workspaceMap.set(normKey, {
       workspace_root: pRoot,
@@ -396,7 +396,7 @@ function _processWorkspaceRow(r, workspaceMap, personaMemory) {
 function _collectActiveWorkspaces(personaMemory) {
   const activeWorkspaces = [];
   try {
-    const conn = db.getConnection();
+    const conn = db.getConnection(null, false);
     try {
       const rows = conn.prepare(`
         SELECT client, workspace_root, MAX(last_active_at) AS last_active_at
@@ -407,7 +407,7 @@ function _collectActiveWorkspaces(personaMemory) {
         LIMIT 25
       `).all();
       const workspaceMap = new Map();
-      for (const r of rows) _processWorkspaceRow(r, workspaceMap, personaMemory);
+      for (const r of rows) _processWorkspaceRow(r, workspaceMap, personaMemory, conn);
       activeWorkspaces.push(...workspaceMap.values());
     } finally {
       conn.close();

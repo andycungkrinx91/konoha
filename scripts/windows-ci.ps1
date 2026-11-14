@@ -99,6 +99,24 @@ if (-not (Test-Path 'C:\OEM\provision.ok')) {
   }
 }
 
+# onnxruntime-node (win32-x64) links against VC++ 2015-2022 runtime DLLs; GitHub Actions
+# windows-latest pre-installs them, whereas older dockur/windows VM images may lack them.
+$vcMissing = (-not (Test-Path "$env:SystemRoot\System32\vcruntime140_1.dll")) -or (-not (Test-Path "$env:SystemRoot\System32\msvcp140_atomic_wait.dll"))
+if ($vcMissing) {
+  Write-Host "`n=== Provision Visual C++ Redistributable (x64) ===" -ForegroundColor Cyan
+  $vcExe = Join-Path $env:TEMP 'vc_redist.x64.exe'
+  & curl.exe -4 -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o $vcExe https://aka.ms/vs/17/release/vc_redist.x64.exe
+  if ($LASTEXITCODE -eq 0 -and (Test-Path $vcExe)) {
+    & cmd.exe /c "start /wait `"`" `"$vcExe`" /install /quiet /norestart"
+  }
+  $global:LASTEXITCODE = 0
+  if ((-not (Test-Path "$env:SystemRoot\System32\vcruntime140_1.dll")) -or (-not (Test-Path "$env:SystemRoot\System32\msvcp140_atomic_wait.dll"))) {
+    Write-Host 'Visual C++ Redistributable (x64) failed to install' -ForegroundColor Red
+    Stop-Transcript | Out-Null
+    exit 1
+  }
+}
+
 # --- Checkout: mirror the working tree, keep node_modules and the guest disk out. ---
 Write-Host "`n=== Checkout (robocopy) ===" -ForegroundColor Cyan
 robocopy $Source $Work /MIR /R:2 /W:1 /NFL /NDL /NJH /NP /XD node_modules .konoha logs
@@ -213,7 +231,7 @@ Invoke-Step 'Verify ffmpeg webp encoder' {
 }
 
 Invoke-Step 'Lint' { pnpm lint }
-# CI splits the suite over 8 shards per OS; this guest runs all of it in one pass by default,
+# CI splits windows-latest over 16 shards (ubuntu: 8, macos: 5); this guest runs all of it in one pass by default,
 # or a single shard when -Shard I/N or KONOHA_TEST_SHARD=I/N is set.
 if ($Shard) { $env:KONOHA_TEST_SHARD = $Shard }
 $testLabel = if ($Shard) { "Test (shard $Shard)" } else { 'Test (full suite)' }

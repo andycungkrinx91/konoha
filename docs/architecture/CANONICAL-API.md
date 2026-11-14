@@ -8,7 +8,7 @@
 
 ## 1. Canonical MCP Tools (Active Advertised Roster)
 
-All tools (55 active) are served through the `konoha` MCP server over stdio JSON-RPC.
+All tools (56 active) are served through the `konoha` MCP server over stdio JSON-RPC.
 
 | Tool Name | Parameters | Purpose | Return Schema |
 |---|---|---|---|
@@ -60,11 +60,12 @@ All tools (55 active) are served through the `konoha` MCP server over stdio JSON
 | `presentation_create` | `output_path: string, title: string, subtitle?: string, author?: string, slides: array` | Create modern 16:9 widescreen PPTX presentation from outline and slide specifications. | Presentation generation result JSON |
 | `diagram_create` | `output_path: string, title: string, width?: number, height?: number, nodes: array, edges?: array, groups?: array` | Generate scalable SVG architecture diagram from structured nodes and edges. | Diagram generation result JSON |
 | `animation_export` | `output_path: string, format?: string, html_content?: string, duration_ms?: number, fps?: number, width?: number, height?: number` | Convert diagram or pipeline animation to animated GIF or PNG. | Animation export result with format & frame metadata JSON |
-| `code_index` | `root?: string, force?: boolean, max_files?: number` | Index a repository into the native code-intelligence store. Incremental by content hash: unchanged files are skipped. Writes only to the Konoha DB, never to the analyzed repo. | Index summary JSON: files, symbols, chunks, changed and removed counts |
-| `code_search` | `query: string, root?: string, limit?: number` | Full-text search over indexed code chunks. Returns ranked snippets with file paths and line ranges. Sets degraded=true when FTS5 is unavailable and a LIKE scan was used. | Ranked hit list JSON with path, line span, bm25 score and snippet |
+| `code_index` | `root?: string, force?: boolean, max_files?: number, timeout_ms?: number, verify?: string, embed?: boolean` | Incrementally index repo AST, symbols, chunks, and embeddings into Konoha DB. | Index summary JSON: files, symbols, chunks, changed and removed counts |
+| `code_search` | `query: string, root?: string, limit?: number, filter?: string` | Hybrid AST/FTS5 + vector + cross-encoder search over indexed code chunks. | Ranked hit list JSON with path, line span, bm25 score and snippet |
 | `code_symbol` | `name: string, root?: string` | Look up symbol definitions by exact name. Sets ambiguous=true when more than one file defines the name. | Symbol definition list JSON with kind, parent, span and signature |
 | `code_context` | `file: string, root?: string, start_line?: number, end_line?: number` | Return indexed source text for a file, optionally limited to a line range. | Indexed source JSON for a file or line window |
 | `code_impact` | `name: string, root?: string, max_depth?: number, max_nodes?: number` | Reverse reachability: which symbols reference the named symbol, transitively, up to a bounded depth. | Reverse-dependency list JSON with depth and enclosing symbol |
+| `code_related` | `file?: string, symbol?: string, root?: string, limit?: number, filter?: string` | Find files structurally and semantically related to a file or symbol. | Related chunks and call-graph neighbors JSON |
 | `code_status` | `root?: string` | List indexed repository roots with file, symbol, and chunk counts. | Indexed root list JSON with status, counts and last index time |
 | `code_remove` | `root?: string` | Delete a repository root and all of its indexed rows. | Removal confirmation JSON |
 ---

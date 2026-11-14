@@ -1,10 +1,53 @@
 'use strict';
 
 const fs = require('fs');
-const { CODE_INTELLIGENCE_DDL, CODE_INTELLIGENCE_FTS_DDL } = require('./code_intel/ddl');
+const {
+  CODE_INTELLIGENCE_DDL,
+  CODE_INTELLIGENCE_V7_DDL,
+  CODE_INTELLIGENCE_FTS_DDL,
+  applyV7AdditiveColumns
+} = require('./code_intel/ddl');
 const { CORE_SCHEMA_DDL } = require('./schema_ddl');
 
-const CURRENT_SCHEMA_VERSION = 6;
+const CURRENT_SCHEMA_VERSION = 7;
+const _ensuredSchemaInodes = new Map();
+const REQUIRED_FAST_SCHEMA_TABLES = [
+  'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
+  'projects', 'active_sessions', 'tool_calls', 'agents',
+  'bridges', 'sdlc_tasks', 'code_edges', 'assets', 'generation_jobs'
+];
+
+function _getDbFileIdentity(dbPath) {
+  if (!dbPath || dbPath === ':memory:') return null;
+  const st = require('fs').statSync(dbPath, { throwIfNoEntry: false });
+  if (!st || !st.isFile()) return null;
+  return `${st.dev}:${st.ino}:${st.birthtimeMs}`;
+}
+
+function _hasAllRequiredTables(conn) {
+  const rows = conn.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").all();
+  const existing = new Set(rows.map((r) => r.name));
+  return REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t));
+}
+
+function ensureSchema(conn, backupDatabaseFn = null) {
+  const dbPath = conn && typeof conn.name === 'string' ? conn.name : null;
+  const identity = _getDbFileIdentity(dbPath);
+  if (identity && getCurrentUserVersion(conn) === CURRENT_SCHEMA_VERSION) {
+    if (_ensuredSchemaInodes.get(dbPath) === identity) return;
+    if (_hasAllRequiredTables(conn)) {
+      if (_ensuredSchemaInodes.size >= 128) _ensuredSchemaInodes.clear();
+      _ensuredSchemaInodes.set(dbPath, identity);
+      return;
+    }
+  }
+  setupSchema(conn, backupDatabaseFn);
+  const updatedId = _getDbFileIdentity(dbPath);
+  if (updatedId && getCurrentUserVersion(conn) === CURRENT_SCHEMA_VERSION) {
+    if (_ensuredSchemaInodes.size >= 128) _ensuredSchemaInodes.clear();
+    _ensuredSchemaInodes.set(dbPath, updatedId);
+  }
+}
 
 function getCurrentUserVersion(conn) {
   try {
@@ -124,7 +167,7 @@ function _backfillActiveSessionsProjectHash(conn) {
 
 
 /**
- * Applies the v6 code-intelligence schema atomically.
+ * Applies the v6 -> v7 code-intelligence schema atomically.
  *
  * Uses SAVEPOINT rather than BEGIN IMMEDIATE: `setupSchema` is called from
  * several entry points (`src/db.js`, `src/migrate.js`, `bin/lib/install_lifecycle.js`)
@@ -132,22 +175,24 @@ function _backfillActiveSessionsProjectHash(conn) {
  * on its own and also nests correctly, so one code path covers both cases.
  */
 function _applyCodeIntelligenceMigration(conn, backupDatabaseFn) {
-  if (getCurrentUserVersion(conn) >= 6) return;
+  if (getCurrentUserVersion(conn) >= CURRENT_SCHEMA_VERSION) return;
   _tryBackupBeforeMigration(conn, backupDatabaseFn);
   const ftsSupported = hasFts5Support(conn);
-  conn.exec('SAVEPOINT konoha_code_intel_v6');
+  conn.exec('SAVEPOINT konoha_code_intel_migration');
   try {
     conn.exec(CODE_INTELLIGENCE_DDL);
     if (ftsSupported) conn.exec(CODE_INTELLIGENCE_FTS_DDL);
+    applyV7AdditiveColumns(conn);
+    conn.exec(CODE_INTELLIGENCE_V7_DDL);
     const violations = conn.prepare('PRAGMA foreign_key_check').all();
     if (violations.length > 0) {
-      throw new Error(`${violations.length} foreign key violation(s) introduced by the v6 migration`);
+      throw new Error(`${violations.length} foreign key violation(s) introduced by the code-intelligence migration`);
     }
-    conn.exec('RELEASE konoha_code_intel_v6');
+    conn.exec('RELEASE konoha_code_intel_migration');
   } catch (err) {
     try {
-      conn.exec('ROLLBACK TO konoha_code_intel_v6');
-      conn.exec('RELEASE konoha_code_intel_v6');
+      conn.exec('ROLLBACK TO konoha_code_intel_migration');
+      conn.exec('RELEASE konoha_code_intel_migration');
     } catch (_) { /* intentional best-effort fallback */ }
     throw new Error(`CODE_INTEL_MIGRATION_FAILED: ${err.message}`);
   }
@@ -443,7 +488,8 @@ function validateCanonicalSchema(conn) {
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
       'schema_migrations', 'generation_jobs', 'assets',
       'asset_files', 'validation_results', 'llm_requests_3d',
-      'code_index_roots', 'code_files', 'code_symbols', 'code_refs', 'code_chunks'
+      'code_index_roots', 'code_files', 'code_symbols', 'code_refs', 'code_chunks',
+      'code_edges'
     ];
     for (const req of requiredTables) {
       if (!tables.has(req)) {
@@ -495,5 +541,6 @@ module.exports = {
   verifyIntegrity,
   hasFts5Support,
   setupSchema,
+  ensureSchema,
   validateCanonicalSchema
 };

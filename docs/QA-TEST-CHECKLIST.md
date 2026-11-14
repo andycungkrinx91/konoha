@@ -105,8 +105,8 @@ Results from the Linux x64 run on 2026-11-08. A `PASS` here means the command wa
 | :--- | :--- | :--- | :--- |
 | `tests/test_fresh_install_and_upgrade_in_tmp.js` | Full lifecycle fresh installation, unauthenticated health check, bootstrap login (`konohagakure`), mandatory password change, session invalidation, and upgrade simulation in isolated `/tmp/` sandbox. | Clean execution, zero leaks into `~`, unauthenticated health check 200, bootstrap login 200, password update 200. | `PASS` (verified) |
 | `tests/test_no_hardcoded_homedir.js` | Enforces zero hardcoded user paths (`/home/`, `C:\Users\`, `/Users/`) across all JavaScript, JSON, shell, and Python files; verifies dynamic path resolution via `os.homedir()` on POSIX and Windows. | 0 hardcoded paths across entire codebase; POSIX and Windows formats verified. | `PASS` (verified) |
-| `tests/test_schema_migrations_and_lifecycle.js` | Schema/app version separation: `setupSchema` is the only writer of `PRAGMA user_version` (`CURRENT_SCHEMA_VERSION = 6`), fresh install produces exactly 42 user tables with no `kali_tools`, and migration checksums match source. | Single-writer scan passes; injecting a second `user_version` write fails the guard; injecting `CREATE TABLE kali_tools` fails the 42-table assertion. | `PASS` (verified) |
-| `tests/test_schema_traceability.js` | Every declared table is documented in `docs/security/DATABASE-SCHEMA-AUDIT-2026-11-09.md`; FTS shadow tables and `_sqliteai_vector` are excluded as extension-owned. | 42 raw tables, 30 declared, 0 undocumented, 1 `user_version` writer. | `PASS` (verified) |
+| `tests/test_schema_migrations_and_lifecycle.js` | Schema/app version separation: `setupSchema` is the only writer of `PRAGMA user_version` (`CURRENT_SCHEMA_VERSION = 7`), fresh install produces exactly 43 raw user tables (31 declared) with no `kali_tools`, and migration checksums match source. | Single-writer scan passes; injecting a second `user_version` write fails the guard; injecting `CREATE TABLE kali_tools` fails the table-count assertion. | `PASS` (verified) |
+| `tests/test_schema_traceability.js` | Every declared table is documented in `docs/security/DATABASE-SCHEMA-AUDIT-2026-11-09.md`; FTS shadow tables and `_sqliteai_vector` are excluded as extension-owned. | 43 raw tables, 31 declared, 0 undocumented, 1 `user_version` writer. | `PASS` (verified) |
 | `tests/test_vps_safe_install.js` | Default install ships ANBU and no cyber pack: 0 pack files on disk, 0 indexed pack rows, `konoha doctor --vps` preflight reports pack absent. | Fresh `KONOHA_HOME` install: pack absent, ANBU present, preflight PASS on pack row. | `PASS` (verified) |
 | `tests/test_cyber_pack_opt_in.js` | Opt-in lifecycle: `--confirm` required, sha256 mismatch aborts before extraction, install → `opted-in` → remove → `removed`, second remove is a no-op, backup taken before deletion. | All lifecycle transitions and abuse cases pass. | `PASS` (verified) |
 | `tests/test_anbu_intact.js` | ANBU ships and routes without the pack; deleting the ANBU template provably breaks routing. | `findSkill('backend devops bug fix', 5, 'anbu')` resolves under `anbu-skill/`; scratch migration without the template yields 0. | `PASS` (verified) |
@@ -155,19 +155,27 @@ pnpm exec playwright install chromium   # first run only
 
 ```mermaid
 ---
+title: E2E Playwright Automation Architecture
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 flowchart TD
     W1["apps/web (SvelteKit 2 + Tailwind CSS)"] --> W2["API Service (port 1404)"]
@@ -179,13 +187,16 @@ flowchart TD
     T2 --> R1
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style W1 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W2 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W3 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style W4 fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a;
-    style T1 fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    style T2 fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    style R1 fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class W1,W2,W4 blueShape;
+    class T1,T2 orangeShape;
+    class W3 greenShape;
+    class R1 redShape;
 ```
 
 ### 2.2 Web UI Viewport & Tab Verification Matrix
@@ -1004,13 +1015,13 @@ A gate used to arrive as prose, so every client printed a numbered list and the 
 
 ## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.22)
 
-Issue #13 replaced the external `semble` MCP server (Python, `uvx --from semble[mcp]@latest`) with an in-process engine over Konoha's own `~/.konoha/konoha.db`. Search answers from `code_chunks_fts`, an FTS5 virtual table created by schema v6, and nothing under `src/code_intel/` spawns a process or writes to an analyzed repository.
+Issue #13 replaced the external `semble` MCP server (Python, `uvx --from semble[mcp]@latest`) with an in-process engine over Konoha's own `~/.konoha/konoha.db`. Search answers from `code_chunks_fts`, an FTS5 virtual table created in schema v6/v7, and nothing under `src/code_intel/` spawns a process or writes to an analyzed repository.
 
 | # | Benchmark / Test Suite | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
-| **1. Schema v6 lands on a live v5 database** | `tests/test_code_intel_migration.js` | The six `code_*` tables are created inside `SAVEPOINT konoha_code_intel_v6` after a backup is written; `PRAGMA foreign_key_check` returns no rows; `PRAGMA integrity_check` is `ok`; `PRAGMA user_version` becomes 6; a second run returns before touching anything | `PASS` (verified) |
-| **2. Table counts stay traceable** | `tests/test_schema_traceability.js`, `tests/test_schema_migrations_and_lifecycle.js` | `RAW_TABLE_COUNT` 32→42 and `DECLARED_TABLE_COUNT` 24→30 match the live schema; no lab table (`kali_tools`, `lab_runs`, `lab_tool_invocations`, `red_skill_audit`) reappears; every fresh table appears in the audit document; `src/db_schema.js` is the only writer of `PRAGMA user_version` | `PASS` (verified) |
-| **3. Manifest and router agree at 57** | `tests/test_docs_currency.js`, `tests/test_mcp_tools_table_parity.js` | Manifest 57 = 55 canonical + 2 deprecated; the router exports exactly that set and no longer exposes `search_file`; `src/templates/AGENTS.md` stays under 1,600 bytes and still mandates code intelligence | `PASS` (verified) |
+| **1. Schema v6/v7 lands on a live v5 database** | `tests/test_code_intel_migration.js` | The seven `code_*` tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`) are created inside a `SAVEPOINT` after a backup is written; `PRAGMA foreign_key_check` returns no rows; `PRAGMA integrity_check` is `ok`; `PRAGMA user_version` becomes 7; a second run returns before touching anything | `PASS` (verified) |
+| **2. Table counts stay traceable** | `tests/test_schema_traceability.js`, `tests/test_schema_migrations_and_lifecycle.js` | `RAW_TABLE_COUNT` 42→43 and `DECLARED_TABLE_COUNT` 30→31 match the live schema; no lab table (`kali_tools`, `lab_runs`, `lab_tool_invocations`, `red_skill_audit`) reappears; every fresh table appears in the audit document; `src/db_schema.js` is the only writer of `PRAGMA user_version` | `PASS` (verified) |
+| **3. Manifest and router agree at 58** | `tests/test_docs_currency.js`, `tests/test_mcp_tools_table_parity.js` | Manifest 58 = 56 canonical + 2 deprecated; the router exports exactly that set and no longer exposes `search_file`; `src/templates/AGENTS.md` stays under 1,600 bytes and still mandates code intelligence | `PASS` (verified) |
 | **4. Lexer bounds symbol ranges** | `tests/test_code_intel_parser.js` | 16 languages over a fixture corpus; every symbol carries `start_line`/`end_line` inside the file, which a regex-only scan cannot do | `PASS` (verified) |
 | **5. Indexing never writes to the analyzed repository** | `tests/test_code_intel_tools.js` | The fixture tree is byte-identical after `code_index`; `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and files over 1 MiB are skipped; a second run reports `unchanged` | `PASS` (verified) |
 | **6. Ranking is definition-first, then BM25** | `tests/test_code_intel_search.js` | Definition chunks outrank body matches via `def_rank`, `bm25(code_chunks_fts, 10.0, 4.0, 1.0)` orders the rest, and snippets are capped at 40 lines / 2,000 chars / 20 hits | `PASS` (verified) |

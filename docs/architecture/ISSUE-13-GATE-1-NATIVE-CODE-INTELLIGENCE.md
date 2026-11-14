@@ -157,6 +157,29 @@ Each item lists the command or measurement that resolves it. None of these block
 ## 7. Target Architecture
 
 ```mermaid
+---
+title: Native Code Intelligence Module Layering
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
 flowchart TD
     T[MCP tools: code_index, code_status, code_search, code_symbol, code_context, code_impact, code_remove]
     T --> E[E tools.js: arg validation, response shaping]
@@ -168,6 +191,18 @@ flowchart TD
     G[G config.js: caps, exclusions, env flags] --> C
     G --> D
     A --> DB[(konoha.db / KONOHA_DB_PATH)]
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class T,E blueShape;
+    class C,D,B orangeShape;
+    class A,DB greenShape;
+    class G redShape;
 ```
 
 | Layer | File | Responsibility |
@@ -506,3 +541,10 @@ What shipped, against the three non-negotiables:
 3. **No new runtime dependency.** The parser is pure JS. Nothing in `src/code_intel/` spawns a process or writes to an analyzed repository, and `tests/test_code_intel_isolation.js` asserts both by scanning the module directory.
 
 Two deployment-safety defects (D-1, D-2) were pre-existing and independent of Issue #13; they were fixed first in Gate 2 because the same `konoha init` path that re-deploys after this change is the one that destroyed user files.
+
+### 14.1 Post-Gate-5 Evolution on `v2.2.22` (As-Built Current State)
+
+Following the initial Gate 5 baseline, native code intelligence and vector caching evolved on `v2.2.22` as follows (historical sections 1–13 above remain an untouched Gate 1 record):
+
+1. **Schema `v7` & 8 `code_*` Tools (`56` canonical / `58` manifest):** `src/db_schema.js` (`CURRENT_SCHEMA_VERSION = 7`) added `code_edges` for cross-file import/call graph edges (43 base tables / 31 declared tables total), and `code_related` joined the active roster alongside `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, and `code_remove`.
+2. **Tree-sitter WASM + Native Hugging Face Caching (`D-02` Revised):** `src/code_intel/ast_parser.js` parses supported languages with `web-tree-sitter` WASM grammars bundled under `assets/grammars/`, and `@huggingface/transformers` runs genuine inference for Granite 97M embeddings and MiniLM L-6 reranking using Transformers.js's native `FileCache` (`HF_HOME` respected; no custom Konoha model downloader or cache directory).

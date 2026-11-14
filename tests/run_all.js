@@ -1,47 +1,61 @@
 #!/usr/bin/env node
 /**
  * Konoha comprehensive test suite runner (pure Node.js runtime).
- * Discovers and runs all JS test suites in the tests/ directory.
+ * Discovers and runs all JS test suites in the tests/ directory with strict
+ * container, CI, or Option H1 host-isolated sandbox guarantees.
  */
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync, spawn } = require('child_process');
+const { assertMaintenanceSandbox, HOST_ISOLATED_MARKER } = require('./helpers/sandbox_guard');
+const {
+  sourceFingerprint,
+  acquireSeedBuildLock,
+  releaseSeedBuildLock,
+  acquireSeedLease,
+  releaseSeedLease,
+  writeSuiteMeta,
+  cleanupSuiteDir,
+  pruneStaleSuiteDirs,
+  pruneSeeds
+} = require('./helpers/seed_lifecycle');
 
-// Maintenance runs are container-only. This executes before discovery so a host
-// invocation refuses instead of half-running the suite against the developer's
-// real HOME, global konoha shim, and ~/.konoha.
-require('./helpers/sandbox_guard').assertMaintenanceSandbox();
-
-let goldenSeedInfo = null;
 const SEED_SOURCE_ROOT = path.join(__dirname, '..');
+const WEB_BUILD_INDEX = path.join(SEED_SOURCE_ROOT, 'apps', 'web', 'build', 'index.js');
+const EXPLICIT_SEED_DIR = process.env.KONOHA_SEED_DIR ? path.resolve(process.env.KONOHA_SEED_DIR) : null;
 
-function sourceFingerprint(root) {
-  // Version alone is not enough: the seed embeds a byte-copy of the CLI tree, so
-  // any edit between seed creation and reuse makes test_runtime_mirror_parity
-  // report phantom divergence. Hash the tree that is actually under test.
-  const crypto = require('crypto');
-  const hash = crypto.createHash('sha256');
-  const walk = (dir) => {
-    let entries = [];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) {
-        hash.update(path.relative(root, full));
-        try { hash.update(fs.readFileSync(full)); } catch { /* unreadable file, name still counts */ }
-      }
-    }
-  };
-  for (const sub of ['src', 'bin', 'scripts']) walk(path.join(root, sub));
-  return hash.digest('hex');
+const isCleanupSeed = process.argv.includes('--cleanup-seed');
+const isPruneStale = process.argv.includes('--prune-stale');
+const isSeedOnly = process.argv.includes('--seed-only');
+const keepFailedSnapshot = process.argv.includes('--keep-failed-snapshot');
+const includePython = process.argv.includes('--include-python');
+const isParallel = process.argv.includes('--parallel') || process.env.KONOHA_TEST_PARALLEL === '1';
+const concurrencyArg = process.argv.find((a) => a.startsWith('--concurrency='));
+const concurrency = concurrencyArg ? parseInt(concurrencyArg.split('=')[1], 10) : 4;
+const shardArg = process.argv.find((a) => a.startsWith('--shard='));
+const shardValue = shardArg ? shardArg.split('=')[1] : process.env.KONOHA_TEST_SHARD;
+const { selectShard, parseShard } = require('./helpers/shard');
+const filterArg = process.argv.slice(2).find((a) => !a.startsWith('--'));
+
+const webBuildExists = fs.existsSync(WEB_BUILD_INDEX);
+const isHostMaintenance = isCleanupSeed || isPruneStale;
+if (!isHostMaintenance && !webBuildExists && process.env.CI !== 'true' && process.env.KONOHA_SANDBOX_CONTAINER !== '1') {
+  console.error("Missing apps/web/build/index.js — run 'rtk pnpm build:web' before executing host-isolated tests.");
+  process.exit(1);
 }
 
-// A seed is only reusable when the init actually finished: every artifact the
-// suites depend on must exist. `.auto_setup_state.json` is deliberately absent
-// here: only `konoha doctor` runs ensureAutoSetup() (bin/cli.js), so `init
-// --yes` never writes it and requiring it forces a full rebuild every run.
+const guardResult = assertMaintenanceSandbox(process.env, {
+  hostRunner: true,
+  runnerPath: __filename,
+  seedIsolated: true,
+  suiteSnapshotsIsolated: true,
+  webBuildFresh: webBuildExists || isHostMaintenance
+});
+const GUARD_MODE = guardResult.mode;
+
 const SEED_SENTINELS = [
   ['.konoha', 'konoha.db'],
   ['.konoha', 'server.js'],
@@ -66,9 +80,59 @@ function seedIsCurrent(dir) {
   }
 }
 
-// CI restores a persistent seed from a cache and points KONOHA_SEED_DIR at it.
-// That directory is checked first so a cache hit never depends on tmpdir naming.
-const EXPLICIT_SEED_DIR = process.env.KONOHA_SEED_DIR ? path.resolve(process.env.KONOHA_SEED_DIR) : null;
+let goldenSeedInfo = null;
+let activeSeedLeasePath = null;
+let activeBuildLockPath = null;
+let activeBuildingSeedDir = null;
+let shuttingDown = false;
+const activeSuites = new Map();
+
+function _terminateChild(child) {
+  if (!child || child.killed || child.exitCode !== null) return;
+  try {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    } else {
+      child.kill('SIGTERM');
+    }
+  } catch (_) {}
+}
+
+function _onTerminationSignal(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  const sigCode = signal === 'SIGINT' ? 130 : 143;
+  console.error(`\n[SIGNAL] Received ${signal}; terminating ${activeSuites.size} active suite(s) and cleaning temp snapshots...`);
+  for (const entry of activeSuites.values()) {
+    _terminateChild(entry.child);
+    cleanupSuiteDir(entry.suiteHome, `${entry.name} (${signal})`);
+  }
+  activeSuites.clear();
+  releaseSeedLease(activeSeedLeasePath);
+  if (activeBuildingSeedDir && !EXPLICIT_SEED_DIR && !seedIsComplete(activeBuildingSeedDir)) {
+    cleanupSuiteDir(activeBuildingSeedDir, 'interrupted-seed-build');
+  }
+  releaseSeedBuildLock(activeBuildLockPath);
+  process.exit(sigCode);
+}
+
+process.on('SIGINT', () => _onTerminationSignal('SIGINT'));
+process.on('SIGTERM', () => _onTerminationSignal('SIGTERM'));
+
+if (isCleanupSeed || isPruneStale) {
+  const suiteSweep = pruneStaleSuiteDirs(os.tmpdir());
+  const seedSweep = pruneSeeds({
+    tmpDir: os.tmpdir(),
+    seedIsComplete,
+    seedIsCurrent,
+    removeAllCurrent: isCleanupSeed
+  });
+  console.log(`[CLEANUP] Stale suites removed: ${suiteSweep.removed.length}, skipped-live: ${suiteSweep.skippedLive.length}, ambiguous: ${suiteSweep.skippedAmbiguous.length}`);
+  console.log(`[CLEANUP] Seeds removed: ${seedSweep.removed.length}, retained: ${seedSweep.retained.length}, skipped-active: ${seedSweep.skippedActive.length}`);
+  for (const s of suiteSweep.skippedLive) console.log(`  [ACTIVE/LOCKED SUITE] ${s}`);
+  for (const s of seedSweep.skippedActive) console.log(`  [ACTIVE/LOCKED SEED] ${s}`);
+  process.exit(0);
+}
 
 function candidateSeeds() {
   let names = [];
@@ -82,16 +146,11 @@ function candidateSeeds() {
     .sort((a, b) => {
       try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; }
     });
-  // When CI names the seed directory it is the only candidate: silently reusing
-  // an unrelated tmpdir seed would leave the cached path empty and pay the
-  // rebuild again on the next run.
   return EXPLICIT_SEED_DIR ? [EXPLICIT_SEED_DIR] : scanned;
 }
 
-function prepareExplicitSeedDir() {
-  // Only a directory this runner owns is ever wiped: an empty one (cache miss)
-  // or a complete-but-stale seed. Anything else is refused rather than deleted.
-  if (!EXPLICIT_SEED_DIR) return fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
+function prepareSeedTarget() {
+  if (!EXPLICIT_SEED_DIR) return { seedDir: fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_')), ownedNew: true };
   if (fs.existsSync(EXPLICIT_SEED_DIR)) {
     if (!seedIsComplete(EXPLICIT_SEED_DIR) && fs.readdirSync(EXPLICIT_SEED_DIR).length > 0) {
       throw new Error(
@@ -102,13 +161,9 @@ function prepareExplicitSeedDir() {
     fs.rmSync(EXPLICIT_SEED_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(EXPLICIT_SEED_DIR, { recursive: true });
-  return EXPLICIT_SEED_DIR;
+  return { seedDir: EXPLICIT_SEED_DIR, ownedNew: false };
 }
 
-// `.konoha/node_modules` is a link into the checkout's node_modules, and it is
-// the one thing in the seed a cache round-trip can mangle: tar either drops it
-// or materializes the whole tree, which would then be copied into every suite
-// snapshot. Re-point it at the checkout before the seed is used.
 function ensureSeedNodeModules(seedDir) {
   const link = path.join(seedDir, '.konoha', 'node_modules');
   const target = path.join(__dirname, '..', 'node_modules');
@@ -122,80 +177,77 @@ function ensureSeedNodeModules(seedDir) {
   fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
 }
 
+function stampSourceFingerprint(seedDir) {
+  try {
+    const stateFile = path.join(seedDir, '.konoha', '.auto_setup_state.json');
+    const state = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {};
+    const copied = path.join(seedDir, '.konoha');
+    state.version = require('../package.json').version;
+    state.sourceFingerprint = sourceFingerprint(SEED_SOURCE_ROOT);
+    state.copiedFingerprint = sourceFingerprint(copied);
+    fs.writeFileSync(stateFile, JSON.stringify(state), 'utf8');
+  } catch { /* missing stamp costs one rebuild */ }
+}
+
 function getGoldenSeed() {
   if (goldenSeedInfo) return goldenSeedInfo;
   for (const dir of candidateSeeds()) {
     if (seedIsCurrent(dir)) {
       ensureSeedNodeModules(dir);
+      if (!isSeedOnly) activeSeedLeasePath = acquireSeedLease(dir);
       goldenSeedInfo = { dir };
       return goldenSeedInfo;
     }
   }
-  const seedDir = prepareExplicitSeedDir();
-  // The init is silent for minutes on slow filesystems; without this line a
-  // stalled seed build looks identical to a hung runner.
-  console.log(`[SEED] Building golden seed in ${seedDir} (first-run init, can take several minutes) ...`);
-  const seedStart = Date.now();
-  const env = {
-    ...process.env,
-    HOME: seedDir,
-    // os.homedir() reads USERPROFILE on win32 and ignores HOME, so a suite that
-    // calls it would escape the sandbox and touch the real profile.
-    USERPROFILE: seedDir,
-    KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
-    KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
-  };
-  const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
-    cwd: seedDir,
-    env,
-    encoding: 'utf-8',
-    // First-run initialization on a clean HOME can take several minutes
-    timeout: 3600000
-  });
-  const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
-  if (!seedIsComplete(seedDir)) {
-    // A partial seed is rejected by seedIsCurrent anyway; failing here points
-    // at the init instead of surfacing as 279 identical suite failures.
-    throw new Error(`[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}). ${(res.stderr || '').trim().split('\n').slice(-5).join(' | ')}`);
-  }
-  // Stamped after the check: `konoha init` never writes this state file (see
-  // SEED_SENTINELS), so the seed's own freshness record is created here.
-  stampSourceFingerprint(seedDir);
-  console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
-  goldenSeedInfo = { dir: seedDir };
-  return goldenSeedInfo;
-}
 
-function stampSourceFingerprint(seedDir) {
+  const { seedDir, ownedNew } = prepareSeedTarget();
+  const lock = acquireSeedBuildLock(seedDir);
+  activeBuildLockPath = lock.lockPath;
+  activeBuildingSeedDir = ownedNew ? seedDir : null;
+
   try {
-    const stateFile = path.join(seedDir, '.konoha', '.auto_setup_state.json');
-    const state = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {};
-    // sourceFingerprint: the repo tree this seed was built from.
-    // copiedFingerprint: the tree the seed actually wrote, so a partial or
-    // externally-modified seed cannot be blessed as current.
-    const copied = path.join(seedDir, '.konoha');
-    // The init may skip ensureAutoSetup, leaving no state file behind; the seed
-    // is still valid, but only if the version is stamped here as well.
-    state.version = require('../package.json').version;
-    state.sourceFingerprint = sourceFingerprint(SEED_SOURCE_ROOT);
-    state.copiedFingerprint = sourceFingerprint(copied);
-    fs.writeFileSync(stateFile, JSON.stringify(state), 'utf8');
-  } catch { /* a missing stamp only costs one extra seed rebuild */ }
+    if (seedIsCurrent(seedDir)) {
+      ensureSeedNodeModules(seedDir);
+      if (!isSeedOnly) activeSeedLeasePath = acquireSeedLease(seedDir);
+      goldenSeedInfo = { dir: seedDir };
+      return goldenSeedInfo;
+    }
+
+    console.log(`[SEED] Building golden seed in ${seedDir} (first-run init, can take several minutes) ...`);
+    const seedStart = Date.now();
+    const env = {
+      ...process.env,
+      HOME: seedDir,
+      USERPROFILE: seedDir,
+      KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
+      KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
+    };
+    const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
+      cwd: seedDir,
+      env,
+      encoding: 'utf-8',
+      timeout: 3600000
+    });
+    const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
+    if (!seedIsComplete(seedDir)) {
+      throw new Error(`[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}). ${(res.stderr || '').trim().split('\n').slice(-5).join(' | ')}`);
+    }
+    stampSourceFingerprint(seedDir);
+    console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
+    if (!isSeedOnly) activeSeedLeasePath = acquireSeedLease(seedDir);
+    goldenSeedInfo = { dir: seedDir };
+    return goldenSeedInfo;
+  } catch (err) {
+    if (ownedNew) cleanupSuiteDir(seedDir, 'failed-seed-build');
+    throw err;
+  } finally {
+    activeBuildingSeedDir = null;
+    releaseSeedBuildLock(lock.lockPath);
+    activeBuildLockPath = null;
+  }
 }
 
 function copySeedDir(seedDir, suiteHome) {
-  // `cp -a` preserves ownership, which fails with EPERM in sandboxes where
-  // the seed files' uid/gid cannot be reproduced ("failed to preserve
-  // ownership ... Operation not permitted"). Dropping ownership preservation
-  // keeps the copy identical in content. The plain `cp -a` attempts stay in
-  // the chain for systems without GNU --no-preserve (macOS/BSD cp rejects
-  // the flag) and for environments where chown works.
-  // `fs.cpSync` stays last: it is the only fallback when no `cp` exists
-  // (Windows), and it only works on a fresh destination — a previous
-  // partial copy leaves `.konoha/node_modules` as a symlink into the repo
-  // tree, which cpSync resolves and then refuses to copy into itself
-  // (ERR_FS_CP_EINVAL). The `cp -r` step below succeeds in exactly that
-  // state, so cpSync is only reached when `cp` itself is unavailable.
   const src = `${seedDir}/.`;
   const dest = `${suiteHome}/`;
   const attempts = [
@@ -212,11 +264,6 @@ function copySeedDir(seedDir, suiteHome) {
       return;
     }
   }
-  // `cp -a` preserves `.konoha/node_modules` as a link in one syscall. The
-  // fallback cannot rely on that: recreating a symlink on Windows needs
-  // Developer Mode or elevation, and when it fails the walk covers the whole
-  // dependency tree (~21k files, ~400 MB) once per suite. Copy everything else
-  // and rebuild the link as a junction, which needs no privilege on Windows.
   const linkDir = path.join('.konoha', 'node_modules');
   fs.cpSync(seedDir, suiteHome, {
     recursive: true,
@@ -232,53 +279,40 @@ function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
   copySeedDir(seed.dir, suiteHome);
+  writeSuiteMeta(suiteHome, { runnerPid: process.pid, childPid: null, suite: name, createdAt: new Date().toISOString() });
 
   const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');
   const existingNodePath = process.env.NODE_PATH || '';
   const suiteNodePath = existingNodePath ? `${konohaModules}${path.delimiter}${existingNodePath}` : konohaModules;
-
-  const realUserBase = (() => {
-    try {
-      return path.join(os.userInfo().homedir, '.local');
-    } catch (_) {
-      return path.join(os.homedir(), '.local');
-    }
-  })();
-
-  const realPlaywrightPath = (() => {
-    try {
-      return path.join(os.userInfo().homedir, '.cache', 'ms-playwright');
-    } catch (_) {
-      return path.join(os.homedir(), '.cache', 'ms-playwright');
-    }
+  const realHome = (() => {
+    try { return os.userInfo().homedir; } catch (_) { return os.homedir(); }
   })();
 
   const env = {
     ...process.env,
     HOME: suiteHome,
-    // Mirrors the seed env: without this, os.homedir() on win32 resolves to the
-    // real profile while the product reads HOME, so paths diverge mid-suite.
     USERPROFILE: suiteHome,
     KONOHA_DB_PATH: path.join(suiteHome, '.konoha', 'konoha.db'),
-    PYTHONUSERBASE: process.env.PYTHONUSERBASE || realUserBase,
-    PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || realPlaywrightPath,
+    PYTHONUSERBASE: process.env.PYTHONUSERBASE || path.join(realHome, '.local'),
+    PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(realHome, '.cache', 'ms-playwright'),
     KONOHA_TEST_SANDBOX: '1',
+    ...(GUARD_MODE === 'host-isolated' ? { [HOST_ISOLATED_MARKER]: '1' } : {}),
     NODE_PATH: suiteNodePath
   };
 
   return {
     home: suiteHome,
     env,
-    cleanup: () => {
-      try {
-        fs.rmSync(suiteHome, { recursive: true, force: true });
-      } catch (_) {}
+    cleanup: (ok) => {
+      if (!ok && keepFailedSnapshot) {
+        console.warn(`[SNAPSHOT KEPT] Failed suite '${name}' preserved at: ${suiteHome}`);
+        return;
+      }
+      cleanupSuiteDir(suiteHome, name);
     }
   };
 }
 
-// The guard in prepareExplicitSeedDir throws rather than deleting a directory it
-// did not create; report that as a failed run, not a stack trace mid-suite.
 function warmSeed() {
   try {
     return getGoldenSeed();
@@ -288,57 +322,35 @@ function warmSeed() {
   }
 }
 
-// CI builds the seed in its own step so the ~4 minute first-run init is cached
-// across runs instead of landing inside whichever suite happens to start first.
-if (process.argv.includes('--seed-only')) {
+if (isSeedOnly) {
   const seed = warmSeed();
   console.log(`[SEED] ${seed.dir}`);
   process.exit(0);
 }
 
+// Reap stale suites from prior killed runs only after proving owner PIDs are dead.
+pruneStaleSuiteDirs(os.tmpdir());
+
 const testsDir = __dirname;
 const files = fs.readdirSync(testsDir);
-const includePython = process.argv.includes('--include-python');
-const isParallel = process.argv.includes('--parallel') || process.env.KONOHA_TEST_PARALLEL === '1';
-const concurrencyArg = process.argv.find(a => a.startsWith('--concurrency='));
-const concurrency = concurrencyArg ? parseInt(concurrencyArg.split('=')[1], 10) : 4;
-const shardArg = process.argv.find(a => a.startsWith('--shard='));
-// KONOHA_TEST_SHARD exists so `pnpm test` can be sharded without a wrapper
-// script re-plumbing argv; the flag wins when both are present.
-const shardValue = shardArg ? shardArg.split('=')[1] : process.env.KONOHA_TEST_SHARD;
-const { selectShard, parseShard } = require('./helpers/shard');
-const filterArg = process.argv.slice(2).find(a => !a.startsWith('--'));
-
-// Yamanaka 3D is unreleased work in progress: it is not part of the shipped
-// surface, it needs Blender and a GPU on the runner, and its assertions describe
-// behaviour that is still moving. Running it in the release gate reports red for
-// a feature nobody can use yet. Naming one on the command line still runs it, so
-// the suite stays usable while it is being built:
-//   node tests/run_all.js test_yamanaka_langgraph_pipeline
 const UNRELEASED_PREFIXES = ['test_yamanaka_'];
-const isUnreleased = f => UNRELEASED_PREFIXES.some(p => f.startsWith(p));
+const isUnreleased = (f) => UNRELEASED_PREFIXES.some((p) => f.startsWith(p));
 
-let jsTests = files.filter(f =>
+let jsTests = files.filter((f) =>
   (f.endsWith('.test.js') || f.startsWith('test_') || f.startsWith('verify_')) &&
   f.endsWith('.js') &&
   f !== 'run_all.js' &&
-  // An explicit filter overrides the unreleased skip: that is the one case where
-  // the caller is asking for this suite by name.
   (filterArg ? f.toLowerCase().includes(filterArg.toLowerCase()) : !isUnreleased(f))
 ).sort();
 
 if (shardValue) {
   let shard = null;
-  try {
-    shard = parseShard(shardValue);
-  } catch (err) {
+  try { shard = parseShard(shardValue); } catch (err) {
     console.error(err.message);
     process.exit(2);
   }
   const discovered = jsTests.length;
   jsTests = selectShard(jsTests, shard.index, shard.count);
-  // An empty shard means the split is wrong, not that there is nothing to test.
-  // Exiting 0 here would let a run go green having executed no suite at all.
   if (jsTests.length === 0) {
     console.error(`[SHARD] ${shard.index}/${shard.count} selected 0 of ${discovered} suites; refusing to report an empty shard as passing.`);
     process.exit(2);
@@ -346,16 +358,16 @@ if (shardValue) {
   console.log(`[SHARD] ${shard.index}/${shard.count}: ${jsTests.length} of ${discovered} suites`);
 }
 
-const pyTests = includePython ? files.filter(f =>
+const pyTests = includePython ? files.filter((f) =>
   f.startsWith('test_') && f.endsWith('.py') &&
   (!filterArg || f.toLowerCase().includes(filterArg.toLowerCase()))
 ).sort() : [];
 
 console.log('====================================================');
-console.log('       KONOHA JAVASCRIPT TEST SUITE RUNNER          ');
+console.log(`       KONOHA TEST SUITE RUNNER (${GUARD_MODE})     `);
 console.log('====================================================');
 console.log(`Discovered ${jsTests.length} JS test suites${includePython ? ` and ${pyTests.length} Python suites` : ''} (${isParallel ? `parallel mode, concurrency ${concurrency}` : 'sequential mode'}).\n`);
-const unreleased = filterArg ? [] : files.filter(f => f.startsWith('test_') && f.endsWith('.js') && isUnreleased(f)).sort();
+const unreleased = filterArg ? [] : files.filter((f) => f.startsWith('test_') && f.endsWith('.js') && isUnreleased(f)).sort();
 if (unreleased.length > 0) {
   console.log(`Not run: ${unreleased.length} suite(s) for unreleased features (${UNRELEASED_PREFIXES.join(',')})`);
   for (const s of unreleased) console.log(`  - ${s}`);
@@ -365,27 +377,24 @@ if (unreleased.length > 0) {
 let passed = 0;
 let failed = 0;
 const failList = [];
-// Build or validate the seed once, before any suite is scheduled. Left to the
-// first suite it blocks the event loop for minutes (spawnSync) while the other
-// workers sit parked, and its cost is attributed to whatever suite won the race.
 const seedWarmStart = Date.now();
 warmSeed();
 console.log(`[SEED] Seed check: ${((Date.now() - seedWarmStart) / 1000).toFixed(1)}s\n`);
 const startTime = Date.now();
 
 function runSuiteSync(cmd, args, name) {
+  if (shuttingDown) return;
   process.stdout.write(`[SUITE] Running: ${name} ... `);
   const snapshot = createSuiteSnapshot(name);
-  // Timed from after the snapshot: the ~400 MB seed copy is harness overhead,
-  // and charging it to the suite made a 2 s suite report as minutes.
+  const token = `${name}_${Date.now()}`;
+  activeSuites.set(token, { name, suiteHome: snapshot.home, child: null });
   const start = Date.now();
+  let ok = false;
   try {
-    const res = spawnSync(cmd, args, {
-      encoding: 'utf-8',
-      env: snapshot.env
-    });
+    const res = spawnSync(cmd, args, { encoding: 'utf-8', env: snapshot.env });
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    if (res.status === 0) {
+    ok = res.status === 0;
+    if (ok) {
       console.log(`PASS (${elapsed}s)`);
       passed++;
     } else {
@@ -396,24 +405,24 @@ function runSuiteSync(cmd, args, name) {
       failList.push(name);
     }
   } finally {
-    snapshot.cleanup();
+    activeSuites.delete(token);
+    snapshot.cleanup(ok);
   }
 }
 
 function runSuiteAsync(cmd, args, name) {
+  if (shuttingDown) return Promise.resolve();
   return new Promise((resolve) => {
     const snapshot = createSuiteSnapshot(name);
     const start = Date.now();
-    const child = spawn(cmd, args, {
-      env: snapshot.env
-    });
+    const child = spawn(cmd, args, { env: snapshot.env });
+    const token = `${name}_${child.pid || Date.now()}`;
+    activeSuites.set(token, { name, suiteHome: snapshot.home, child });
+    writeSuiteMeta(snapshot.home, { runnerPid: process.pid, childPid: child.pid || null, suite: name, createdAt: new Date().toISOString() });
+
     let out = '';
     let err = '';
     let settled = false;
-    // Suites that do full install/migration work are orders of magnitude slower
-    // in a VM than on a dev host; a flat cap kills them mid-flight. One cap for
-    // every suite: a slow suite that hangs is caught by the run's own deadline,
-    // and a per-suite split only ever mislabels the next slow suite.
     const suiteTimeoutMs = Number(process.env.KONOHA_TEST_TIMEOUT) || 3600000;
     const timer = setTimeout(() => {
       if (!settled) {
@@ -422,15 +431,16 @@ function runSuiteAsync(cmd, args, name) {
       }
     }, suiteTimeoutMs);
 
-    child.stdout.on('data', d => out += d);
-    child.stderr.on('data', d => err += d);
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
     const settle = (status) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      snapshot.cleanup();
+      activeSuites.delete(token);
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      if (status === 0) {
+      const ok = status === 0;
+      if (ok) {
         console.log(`[SUITE] Running: ${name} ... PASS (${elapsed}s)`);
         passed++;
       } else {
@@ -440,13 +450,11 @@ function runSuiteAsync(cmd, args, name) {
         failed++;
         failList.push(name);
       }
+      snapshot.cleanup(ok);
       resolve();
     };
 
-    child.on('close', status => settle(status));
-    // A spawn failure (missing exec, EACCES) emits 'error' and never 'close';
-    // without this listener the suite would sit until the timeout and then
-    // wait forever on a promise that can no longer settle.
+    child.on('close', (status) => settle(status));
     child.on('error', (e) => {
       err += `\n[SPAWN ERROR] ${e && e.message ? e.message : e}`;
       settle(1);
@@ -455,42 +463,43 @@ function runSuiteAsync(cmd, args, name) {
 }
 
 async function runAllParallel() {
-  // Host daemon, attribution, and vector search access shared resources; run them sequentially
-  const isSequential = f => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_akatsuki_skill_authz_db_isolation.js' || f === 'test_akatsuki_init.js' || f === 'test_akatsuki_security_centralization.js' || f === 'test_vector_search.js';
-  const parallelPool = jsTests.filter(f => !isSequential(f));
-  const sequentialPool = jsTests.filter(f => isSequential(f));
+  const isSequential = (f) => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_akatsuki_skill_authz_db_isolation.js' || f === 'test_akatsuki_init.js' || f === 'test_akatsuki_security_centralization.js' || f === 'test_vector_search.js';
+  const parallelPool = jsTests.filter((f) => !isSequential(f));
+  const sequentialPool = jsTests.filter((f) => isSequential(f));
 
   let index = 0;
   async function worker() {
-    while (index < parallelPool.length) {
+    while (!shuttingDown && index < parallelPool.length) {
       const f = parallelPool[index++];
       await runSuiteAsync(process.execPath, [path.join(testsDir, f)], f);
     }
   }
 
   const workers = [];
-  for (let i = 0; i < concurrency; i++) {
-    workers.push(worker());
-  }
+  for (let i = 0; i < concurrency; i++) workers.push(worker());
   await Promise.all(workers);
 
-  if (sequentialPool.length > 0) {
-    for (const f of sequentialPool) {
-      runSuiteSync(process.execPath, [path.join(testsDir, f)], f);
-    }
+  for (const f of sequentialPool) {
+    if (shuttingDown) break;
+    runSuiteSync(process.execPath, [path.join(testsDir, f)], f);
   }
-
   if (includePython) {
     for (const f of pyTests) {
-      const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
-      runSuiteSync(pyCmd, [path.join(testsDir, f)], f);
+      if (shuttingDown) break;
+      runSuiteSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(testsDir, f)], f);
     }
   }
-
   finish();
 }
 
 function finish() {
+  releaseSeedLease(activeSeedLeasePath);
+  activeSeedLeasePath = null;
+  const seedSweep = pruneSeeds({ tmpDir: os.tmpdir(), seedIsComplete, seedIsCurrent, removeAllCurrent: false });
+  if (seedSweep.removed.length > 0) {
+    console.log(`[CLEANUP] Pruned ${seedSweep.removed.length} stale/excess seed(s); retained ${seedSweep.retained.length}.`);
+  }
+
   const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('\n====================================================');
   console.log(`Test Summary: ${passed} passed, ${failed} failed in ${totalDuration}s.`);
@@ -507,12 +516,13 @@ if (isParallel) {
   runAllParallel();
 } else {
   for (const f of jsTests) {
+    if (shuttingDown) break;
     runSuiteSync(process.execPath, [path.join(testsDir, f)], f);
   }
   if (includePython) {
     for (const f of pyTests) {
-      const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
-      runSuiteSync(pyCmd, [path.join(testsDir, f)], f);
+      if (shuttingDown) break;
+      runSuiteSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(testsDir, f)], f);
     }
   }
   finish();

@@ -426,7 +426,7 @@ function registerPiMcp(pythonCmd, serverPath, silentOrOptions = true) {
 
     const isWin = process.platform === 'win32';
 
-    // Match the other clients: the konoha entry serves all 55 canonical tools through
+    // Match the other clients: the konoha entry serves all 56 canonical tools through
     // the file-tools launcher (which bootstraps node + workspace jail)
     config.mcpServers['konoha'] = {
       command: process.execPath || 'node',

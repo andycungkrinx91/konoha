@@ -26,7 +26,7 @@ const AGENTS_YAML_PATH = path.normalize(path.join(os.homedir(), '.agents', 'agen
 function getDbConnection(dbPath = null) {
   const target = dbPath !== null ? dbPath : db.DB_PATH;
   const conn = db.getConnection(target, false);
-  db.setupSchema(conn);
+  (db.ensureSchema || db.setupSchema)(conn);
   return conn;
 }
 

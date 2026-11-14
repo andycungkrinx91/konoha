@@ -12,14 +12,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -33,8 +33,8 @@ flowchart TB
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(LangGraph.js Production StateGraph · Sannin Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
-        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
-        CodeIntel["Native Code Intelligence Engine<br/>(code_search · code_symbol · code_context · code_impact)<br/>in-process SQLite FTS5 symbol index"]
+        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
+        CodeIntel["Native Code Intelligence Engine<br/>(code_index · code_search · code_symbol · code_context · code_impact · code_related · code_status · code_remove)<br/>Tree-sitter WASM AST + SQLite FTS5 + Granite/MiniLM"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
         subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
@@ -70,29 +70,29 @@ flowchart TB
     Specialists --> UniversalInvariants
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style PersistenceLayer fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#0f172a;
-    style Specialists fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
-    style UniversalInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style PersistenceLayer fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#334155;
+    style Specialists fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+    style UniversalInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
-    classDef agentNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class User,Clients,Orchestrator clientNode;
-    class KonohaMCP,CodeIntel,AislopMCP,SQLiteDB,VectorEngine mcpNode;
-    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu,Akatsuki,Yamanaka agentNode;
-    class Archetypes,Invariants,SSRSafety invNode;
+    class User,Clients,Orchestrator blueShape;
+    class Sannin,Jonin,Anbu,Genin,Chunin,Tokubetsu,Yamanaka,KonohaMCP orangeShape;
+    class CodeIntel,SQLiteDB,VectorEngine,Archetypes,Invariants,SSRSafety greenShape;
+    class AislopMCP,Kage,Akatsuki redShape;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (55 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (56 Canonical Tools)
 
-`TOOL_HANDLERS` in `src/file_tools_router.js` registers **57** dispatch keys; `listToolSchemas()` advertises **55**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
+`TOOL_HANDLERS` in `src/file_tools_router.js` registers **58** dispatch keys; `listToolSchemas()` advertises **56**. The two extra keys — `build_with_image_design` and the plural `find_skills` — are deprecated aliases that `src/mcp/protocol.js` filters out of `tools/list`. Both remain callable over `tools/call`; use `build_from_source` and `find_skill`.
 
-| Tool Category | Registered Tools (55 Total) | Description |
+| Tool Category | Registered Tools (56 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. The plural `find_skills` is a hidden dispatch alias for `find_skill`. |
@@ -106,7 +106,7 @@ flowchart TB
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
 | **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
-| **Code Intelligence (7)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove` | Native SQLite FTS5 code index: `code_index` walks a repository read-only, `code_search` ranks BM25 hits with definitions first, `code_symbol` resolves definitions, `code_context` returns indexed source, `code_impact` walks reverse dependencies, `code_status` lists indexed roots, `code_remove` drops one. No external process, no vector database, no writes to the analyzed repository. |
+| **Code Intelligence (8)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | Native SQLite code index (`web-tree-sitter` WASM AST, FTS5, Granite 97M embeddings, MiniLM L-6 reranker): `code_index` walks a repository read-only, `code_search` runs hybrid BM25 + semantic + reranked retrieval, `code_symbol` resolves definitions, `code_context` returns indexed source, `code_impact` walks reverse dependencies, `code_related` finds structurally and semantically related files, `code_status` lists indexed roots, `code_remove` drops one. No external process, no writes to the analyzed repository. |
 
 
 ### 🧭 Canonical Roster & Runtime Surfaces (v2.2.19)
@@ -164,7 +164,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 6` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 7` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -189,17 +189,16 @@ The SQLite index is an **accelerator over the project's skill tree, not a replac
 Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword matching:
 
 1. **IBM Granite 97M Multilingual Embedding (ONNX)**:
-   - Model: `onnx-community/granite-embedding-97m-multilingual-r2-ONNX` (384-dimensional dense vectors, int8 quantized).
-   - Pre/Post-processing: Tokenized via `tokenizers`, CLS-token extracted from `last_hidden_state`, and L2-normalized.
-2. **Alibaba GTE Multilingual Cross-Encoder Reranker**:
-   - Model: `onnx-community/gte-multilingual-reranker-base` (int8 quantized).
+   - Model: `onnx-community/granite-embedding-97m-multilingual-r2-ONNX` (384-dimensional dense vectors, int8 quantized via `@huggingface/transformers`).
+   - Pre/Post-processing: Tokenized via Hugging Face `AutoTokenizer`, CLS-token extracted from `last_hidden_state`, and L2-normalized.
+2. **MS MARCO MiniLM L-6 Cross-Encoder Reranker (ONNX)**:
+   - Model: `Xenova/ms-marco-MiniLM-L-6-v2` (int8 quantized via `@huggingface/transformers`).
    - Pairs query with candidate chunk snippets; scores with sigmoid logit transformation.
 3. **Cross-Platform `sqlite-vector` SIMD Acceleration**:
    - Lazily downloads platform-specific prebuilt binary (`linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, `windows-x64`) to `~/.konoha/vendor/sqlite-vector/`.
    - Build-time capability detection: if dynamic extension loading is disabled or unsupported in SQLite, falls back to in-memory cosine similarity calculation without errors.
-4. **Markdown Heading Chunker**:
-   - Chunks documentation by section headers (`#`, `##`, `###`), preserving semantic context boundaries.
-   - Max 2,000 characters per chunk with 100-character boundary overlap.
+4. **Markdown Heading & Code AST Chunkers**:
+   - Skill documentation is chunked by section headers (`#`, `##`, `###`); source code is chunked cleanly across Tree-sitter WASM AST symbol boundaries (`src/code_intel/chunker.js`).
 5. **Reciprocal Rank Fusion (RRF)**:
    - Merges vector similarity rankings with FTS5 BM25 ranks using standard `RRF(d) = sum(1.0 / (60 + rank))`.
 6. **Cross-Lingual Evaluation Benchmark**:
@@ -207,8 +206,8 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
      - **English**: 100.0% Recall@5 (MRR 0.892)
      - **Indonesian**: 95.0% Recall@5 (MRR 0.879)
      - **Overall**: 97.5% Recall@5 (MRR 0.885 vs FTS5 0.769)
-7. **Zero-Config Default & Opt-In Flag**:
-   - Semantic retrieval is enabled via `KONOHA_SEMANTIC_SEARCH=1`. When unset, Konoha defaults to pure SQLite FTS5 for zero-dependency instant startup.
+7. **Native Hugging Face Cache & Explicit Opt-Out (`KONOHA_SEMANTIC_SEARCH`)**:
+   - Semantic retrieval is enabled by default via `@huggingface/transformers` and its native Hugging Face `FileCache` (`HF_HOME`, `HF_HUB_CACHE`, `HF_HUB_OFFLINE=1`). Set `KONOHA_SEMANTIC_SEARCH=0` to explicitly disable semantic embeddings/reranking and run FTS5-only retrieval.
 8. **4-Tier Embedding Feature Deduplication**:
    - **Chunk-Level**: Document sections hashed via SHA-256 over normalized whitespace in `chunk_document()`, pruning duplicate markdown blocks before vectorization.
    - **In-Memory Cache**: `_EMBED_CACHE` (4,096 capacity) serves cached dense vectors in 0 ms with zero redundant ONNX compute.
@@ -325,7 +324,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 8 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev, OMP), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (55 tools) and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (56 tools) and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -359,7 +358,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 19. **QA Automation Workflow & Bounded Browser Loop (v2.1.0)**:
    - Integrates deterministic Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
 20. **13-Page Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
-   - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
+   - Full 13-page Draw.io cloud model in `docs/diagrams/konoha-infrastructure-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#334155` arrows and matching arrowhead markers.
 21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13 - v2.1.14)**:
    - Centralizes canonical skill definitions into `src/canonical_skills.js` (17 canonical ninja and core skills, with `helm-chart-scaffolding` consolidated into `anbu-skill`). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees.
 22. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
@@ -450,14 +449,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -496,17 +495,15 @@ flowchart TD
     P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
 
     %% Styling Classes
-    classDef startEnd fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
-    classDef phase fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
-    classDef remediation fill:#ffffff,stroke:#ef4444,stroke-width:2px,color:#0f172a;
-    classDef approved fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class UserPrompt,DeliveryReport startEnd;
-    class P1,P2,P3,P4,P5,P6,P7 phase;
-    class Gate1,DecisionResearch,DecisionReview,Gate2 decision;
-    class Remediation remediation;
-    class P8 approved;
+    class UserPrompt,P1,P2,P3,P4 blueShape;
+    class Gate1,DecisionResearch,P5,P6,P7,DecisionReview,Gate2 orangeShape;
+    class P8,DeliveryReport greenShape;
+    class Remediation redShape;
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
@@ -657,14 +654,15 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    fontFamily: 'Inter, system-ui, sans-serif'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
@@ -715,12 +713,17 @@ flowchart TD
     NodeBudget --> End
     NodeError --> End
 
-    classDef graphNode fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
-    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
-    classDef terminal fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
-    class NodeClassify,NodePlan,NodeBrief,NodeTodo,NodeDispatch,NodeExecute,NodeReview,NodeRemediate,NodeComplete,NodeBudget,NodeError,ResumeNode graphNode;
-    class EntryRouter decision;
-    class Start,End,GatePause1,GatePause2 terminal;
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Start,ResumeNode,NodeClassify,NodeBrief,NodeTodo blueShape;
+    class EntryRouter,NodePlan,NodeDispatch,NodeExecute,NodeReview,GatePause1,GatePause2 orangeShape;
+    class NodeComplete,End greenShape;
+    class NodeRemediate,NodeBudget,NodeError redShape;
 ```
 
 Budget edges are present only where the router in `src/mcp/langgraph/edges/router.js` declares `node_budget_exceeded`; `node_brief`, `node_todo`, and `node_plan` declare it too, and are omitted from the dashed set above only to keep the diagram readable.
@@ -853,14 +856,15 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    fontFamily: 'Inter, system-ui, sans-serif'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
@@ -900,6 +904,18 @@ flowchart TD
     ErrorHalt --> End
 
     End -.->|Next Turn Invocation<br/>turnTokensUsed: 0<br/>budgetExceeded: false<br/>retains tokenBudget| START
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class START,NodeClassify,NodeBrief,NodeTodo,NodeDispatch blueShape;
+    class EntryRouter,NodePlan,NodeExecute,NodeReview orangeShape;
+    class NodeComplete,End greenShape;
+    class NodeRemediate,BudgetHalt,ErrorHalt redShape;
 ```
 
 ---

@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (8 shards), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
+Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards — tuned for GitHub Free's 20 total / 5 macOS concurrency caps), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|
@@ -517,7 +517,7 @@ The installer registers tool auto-approval settings for the `konoha` and `aislop
 - **`konoha`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
 - **`aislop`**: Auto-approves `aislop_scan`, `aislop_fix`, `aislop_why`, and `aislop_baseline`.
 - **`konoha`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
-- **`konoha`**: Auto-approves every canonical tool (55), including the native code-intelligence set — `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`. The grant list is derived from `KONOHA_CANONICAL_TOOLS`, so a new canonical tool is approved without editing this list.
+- **`konoha`**: Auto-approves every canonical tool (56), including the native code-intelligence set — `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove`. The grant list is derived from `KONOHA_CANONICAL_TOOLS`, so a new canonical tool is approved without editing this list.
 
 These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.
 

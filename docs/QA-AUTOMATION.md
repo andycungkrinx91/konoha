@@ -20,24 +20,27 @@ Browsing web applications using LLMs is expensive in token consumption. Re-runni
 
 ```mermaid
 ---
+title: Token-Efficient Playwright QA Cycle
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
     padding: 24
-    wrappingWidth: 350
+    wrappingWidth: 380
 ---
 flowchart LR
     A["Explore<br/>(Playwright, tokens)"] --> B["Flow File<br/>(JSON)"]
@@ -46,10 +49,16 @@ flowchart LR
     D -. "only on failure:<br/>small, escalating triage" .-> A
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style A fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style B fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style C fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style D fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class A blueShape;
+    class B orangeShape;
+    class C greenShape;
+    class D redShape;
 ```
 
 ---
@@ -58,19 +67,20 @@ flowchart LR
 
 ```mermaid
 ---
+title: Canonical 8-Phase QA Automation Flow
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -110,7 +120,17 @@ flowchart TD
   RD -. "depth 7 or slop_cycles > 7" .-> STOP["Stop and ask the user"]
 
   linkStyle default stroke:#334155,stroke-width:2px;
-  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+
+  classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+  classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+  classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+  classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+  class P1,P2,P3,P4,Q1,Q2 blueShape;
+  class QV,Q3,QF,QFB,QFU,P6,P7,G orangeShape;
+  class Q4,Q5,Q6,P8 greenShape;
+  class RD,STOP redShape;
 ```
 
 ---
@@ -272,5 +292,5 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      pnpm test:sandbox            # full suite, container-local HOME and /tmp
      pnpm test:sandbox -- --lint  # fast path
      ```
-     Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `pnpm test` on the host now refuses to start: `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and exits 1 unless `KONOHA_SANDBOX_CONTAINER=1` or `CI=true` is set, so the only way to run the suite is `pnpm test:sandbox`. The check reads the process environment, so `rtk node tests/run_all.js` refuses identically. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible and is still not evidence — it inherits the machine's `~/.konoha`, its global `konoha` shim, and its client config, so a green run there says nothing about a clean machine.
-     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is for a single mutating suite, not for the runner: `tests/run_all.js` refuses a host run outright, so there is no host fallback for the full suite. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
+     Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and admits three strict modes: `container` (`KONOHA_SANDBOX_CONTAINER=1`), `ci` (`CI=true`), or **Option H1** `host-isolated` (`pnpm test:parallel` / `node tests/run_all.js`, where the runner creates a lock/lease-protected `os.tmpdir()` golden seed + ephemeral `os.tmpdir()/konoha_suite_*` snapshots with `HOME === USERPROFILE`, `KONOHA_DB_PATH` inside `$HOME/.konoha/`, `KONOHA_TEST_SANDBOX=1`, `KONOHA_HOST_ISOLATED=1`, and `SIGINT`/`SIGTERM` cleanup). Bare host execution without isolation invariants exits `1`. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible for targeted development.
+     See [Container sandbox](CI.md#container-sandbox-rule-12). Use `node tests/run_all.js --cleanup-seed` to prune unlocked golden seeds and dead `konoha_suite_*` artifacts after host verification. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.

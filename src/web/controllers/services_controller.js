@@ -6,6 +6,7 @@ const os = require('os');
 const doctor = require('../../doctor');
 const dbSavings = require('../../db_savings');
 const codeIntelTools = require('../../code_intel/tools');
+const vectorPipeline = require('../../vector_pipeline');
 const db = require('../../db');
 const {
   sendJson,
@@ -116,10 +117,30 @@ function _handleSavings(res, pathname, method) {
   }
 }
 
+function _clampCodeIntelLimit(raw) {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 10;
+  return Math.max(1, Math.min(Math.floor(parsed), 50));
+}
+
+function _sendCodeIntelError(res, err) {
+  const msg = (err && err.message) || 'Code intelligence request failed';
+  const isClientError = /required|outside|invalid|not found|not a directory|must be/i.test(msg);
+  return sendJson(res, isClientError ? 400 : 500, { error: msg });
+}
+
 async function _handleCodeIntel(req, res, pathname, method) {
   if (method === 'GET' && pathname === '/api/v1/code/status') {
     try {
-      return sendJson(res, 200, codeIntelTools.code_status({}));
+      const runtime = vectorPipeline.getRuntimeStatus();
+      return sendJson(res, 200, {
+        ...codeIntelTools.code_status({}),
+        engine: 'Tree-sitter AST + FTS5 + Granite 97M + MiniLM L-6',
+        semantic_enabled: runtime.available,
+        embed_model: runtime.embedModel.repo,
+        rerank_model: runtime.rerankModel.repo,
+        semantic_reason: runtime.reason
+      });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
@@ -129,10 +150,37 @@ async function _handleCodeIntel(req, res, pathname, method) {
       const body = await parseBody(req);
       const query = String(body.query || body.q || '').trim();
       if (!query) return sendJson(res, 400, { error: 'query is required' });
-      const limit = parseInt(body.limit || 10, 10);
-      return sendJson(res, 200, codeIntelTools.code_search({ query, root: body.root || body.repo, limit }));
+      const limit = _clampCodeIntelLimit(body.limit);
+      const result = await codeIntelTools.code_search_async({
+        query,
+        root: body.root || body.repo,
+        limit,
+        ...(body.filter ? { filter: body.filter } : {})
+      });
+      return sendJson(res, 200, result);
     } catch (err) {
-      return sendJson(res, 500, { error: err.message });
+      return _sendCodeIntelError(res, err);
+    }
+  }
+  if (method === 'POST' && pathname === '/api/v1/code/related') {
+    try {
+      const body = await parseBody(req);
+      const file = body.file || body.file_path || body.path;
+      const symbol = body.symbol || body.name;
+      if (!file && !symbol) {
+        return sendJson(res, 400, { error: 'file or symbol is required' });
+      }
+      const limit = _clampCodeIntelLimit(body.limit);
+      const result = await codeIntelTools.code_related_async({
+        file,
+        symbol,
+        root: body.root || body.repo,
+        limit,
+        ...(body.filter ? { filter: body.filter } : {})
+      });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return _sendCodeIntelError(res, err);
     }
   }
   return false;

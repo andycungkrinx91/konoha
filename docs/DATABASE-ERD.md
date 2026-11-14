@@ -11,22 +11,43 @@ Two physically separate SQLite files. Nothing joins across them, and no write pa
 
 ## Main DB
 
-Twenty-one tables appear below — those with relationships or security relevance. The
+Twenty-two tables appear below — those with relationships or security relevance. The
 remaining main tables (`assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`,
 `schema_migrations`, `validation_results`) and SQLite's own `*_fts*`, `sqlite_sequence`,
 and `_sqliteai_vector` bookkeeping tables are omitted as standalone storage.
 
 ```mermaid
+---
+title: Konoha Main SQLite Database ERD
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f0fdf4'
+    tertiaryColor: '#fff7ed'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+---
 erDiagram
     agents ||..o| soul_archetypes : "agent_name (logical)"
     skills ||--o{ skill_chunks : "skill_name = name"
     projects ||--o{ persona_memories : "project_hash"
     projects ||..o{ active_sessions : "project_hash (logical)"
     code_index_roots ||--o{ code_files : "root_hash"
+    code_index_roots ||--o{ code_edges : "root_hash"
     code_files ||--o{ code_symbols : "file_id"
     code_files ||--o{ code_refs : "file_id"
+    code_files ||--o{ code_edges : "source_file_id / target_file_id"
     code_files ||--o{ code_chunks : "file_id"
     code_symbols ||..o{ code_refs : "target_symbol_id (SET NULL)"
+    code_symbols ||..o{ code_edges : "source_symbol_id / target_symbol_id"
 
     agents {
         TEXT name PK
@@ -241,6 +262,7 @@ erDiagram
         INTEGER file_count
         INTEGER symbol_count
         INTEGER chunk_count
+        INTEGER indexed_epoch_ms
         TEXT indexed_at
         TEXT updated_at
         TEXT error
@@ -254,6 +276,12 @@ erDiagram
         INTEGER byte_size
         INTEGER line_count
         TEXT content_hash
+        REAL mtime_ms
+        REAL ctime_ms
+        TEXT inode_id
+        TEXT parser_version
+        TEXT content_kind
+        TEXT metrics_json
         TEXT indexed_at
     }
 
@@ -280,6 +308,18 @@ erDiagram
         INTEGER line
     }
 
+    code_edges {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER source_file_id FK
+        INTEGER source_symbol_id FK
+        INTEGER target_file_id FK
+        INTEGER target_symbol_id FK
+        TEXT edge_kind
+        TEXT specifier
+        REAL confidence
+    }
+
     code_chunks {
         INTEGER id PK
         TEXT root_hash
@@ -290,14 +330,17 @@ erDiagram
         INTEGER start_line
         INTEGER end_line
         TEXT body
+        TEXT chunk_kind
+        INTEGER symbol_id FK
+        TEXT content_hash
         BLOB embedding
         TEXT embedding_model
     }
 ```
 
-Declared foreign keys are `skill_chunks.skill_name → skills.name`, `persona_memories.project_hash → projects.project_hash`, and every `code_*` child row to its parent. Dotted relations are logical joins with no constraint.
+Declared foreign keys are `skill_chunks.skill_name → skills.name`, `persona_memories.project_hash → projects.project_hash`, and every `code_*` child row to its parent (`code_edges` also references `code_files` and `code_symbols`, `code_chunks.symbol_id` references `code_symbols`). Dotted relations are logical joins with no constraint.
 
-The five `code_*` tables are the native code-intelligence index (schema v6). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` is `ON DELETE SET NULL` on purpose: a reference whose definition was removed stays in the graph as an unresolved name rather than disappearing. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step. `code_chunks.embedding` stays `NULL` until a real embedding model is available — hash-derived vectors are never written there.
+The six relational `code_*` tables plus `code_chunks_fts` form the native code-intelligence index (schema v7). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` and `code_edges.target_file_id` / `target_symbol_id` use `ON DELETE SET NULL` so unresolved targets stay in the graph until re-linked. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step. `code_chunks.embedding` stays `NULL` only when semantic search is explicitly disabled (`KONOHA_SEMANTIC_SEARCH=0`) — synthetic hash-derived vectors are never written there.
 
 `lg_writes` is keyed on `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`; it references `lg_checkpoints` logically, not by a declared foreign key.
 
@@ -306,6 +349,24 @@ The five `code_*` tables are the native code-intelligence index (schema v6). Eac
 ## Akatsuki Lab DB
 
 ```mermaid
+---
+title: Konoha Akatsuki Lab SQLite Database ERD
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f0fdf4'
+    tertiaryColor: '#fff7ed'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+---
 erDiagram
     lab_runs ||--o{ lab_tool_invocations : "run_id"
     lab_runs ||--o{ red_skill_audit : "run_id"

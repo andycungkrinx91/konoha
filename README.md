@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  <a href="#mcp-tools-55-canonical-57-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-55%20Canonical-10b981?style=for-the-badge&logo=modelcontextprotocol&logoColor=white" alt="55 canonical MCP tools"></a>
+  <a href="#mcp-tools-56-canonical-58-manifest-entries"><img src="https://img.shields.io/badge/MCP%20Tools-56%20Canonical-10b981?style=for-the-badge&logo=modelcontextprotocol&logoColor=white" alt="56 canonical MCP tools"></a>
   <a href="#ninja-specialist-team-9-agents"><img src="https://img.shields.io/badge/Agents-9%20Specialists-8b5cf6?style=for-the-badge&logo=langgraph&logoColor=white" alt="9 specialist agents"></a>
   <a href="#supported-coding-clients-8-clients"><img src="https://img.shields.io/badge/Clients-8%20Supported-0284c7?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="8 supported clients"></a>
   <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Retrieval%20Savings-83--98%25%20bounded-9ece6a?style=for-the-badge&logo=speedtest&logoColor=white" alt="83-98 percent bounded retrieval savings"></a>
@@ -183,8 +183,22 @@ title: Konoha Skill Retrieval via Konoha MCP and Native Code Search
 config:
   theme: base
   themeVariables:
-    fontFamily: 'Inter, system-ui, sans-serif'
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
     wrappingWidth: 380
 ---
 flowchart LR
@@ -195,6 +209,16 @@ flowchart LR
     KonohaMCP <--> SQLiteFTS5[("SQLite FTS5 skill index")]
 
     linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Task blueShape;
+    class Sannin,CodeSearch orangeShape;
+    class SQLiteFTS5 greenShape;
+    class KonohaMCP,GeninSkill redShape;
 ```
 
 ```mermaid
@@ -203,8 +227,22 @@ title: Konoha Delegation Handoff from Triage to Kage Review
 config:
   theme: base
   themeVariables:
-    fontFamily: 'Inter, system-ui, sans-serif'
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
     wrappingWidth: 380
 ---
 flowchart TB
@@ -217,6 +255,16 @@ flowchart TB
     KageGate --> Delivery["Delivery"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class Prompt,CodeIntel blueShape;
+    class Router,Activate,Worker orangeShape;
+    class Evidence,Delivery greenShape;
+    class KageGate redShape;
 ```
 
 ### 3. Subagent routing
@@ -238,10 +286,10 @@ Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools a
 - Text flows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md) (Mermaid) and the manifest at [docs/diagrams/README.md](docs/diagrams/README.md).
 - Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (layers, data flows, query lifecycle).
 
-### MCP tools: 55 canonical, 57 manifest entries
+### MCP tools: 56 canonical, 58 manifest entries
 
-`src/mcp_tool_manifest.json` lists 57 entries: 55 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
-The unified `konoha` server exposes 55 canonical tools over MCP, including the seven `code_*` code-intelligence tools; aislop adds scan/fix hygiene.
+`src/mcp_tool_manifest.json` lists 58 entries: 56 canonical tools plus 2 hidden aliases (`find_skills`, `build_with_image_design`, 0 tokens in `tools/list`).
+The unified `konoha` server exposes 56 canonical tools over MCP, including the eight `code_*` code-intelligence tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove`); aislop adds scan/fix hygiene.
 
 Skill and delegation tools: `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka`, `akatsuki_init`, plus `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `check_readiness`.
 
@@ -255,7 +303,7 @@ QA tools (Anbu-exclusive): `qa_codify` (flow JSON to Playwright spec), `qa_e2e_r
 
 Detectors and documents: `website_ai_detector` (also `konoha detect-ai`; 0–20 = Human-Built), `docs_ai_detector` (also `konoha detect-docs`), `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`, `get_resolved_task_dir`, `get_soul`, `web_search`.
 
-aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`. Search needs no second server: `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, and `code_remove` ship inside `konoha`.
+aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`. Search needs no second server: `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, and `code_remove` ship inside `konoha`.
 
 ### Ninja specialist team: 9 agents
 

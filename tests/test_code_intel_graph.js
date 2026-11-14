@@ -22,10 +22,17 @@ process.env.KONOHA_HOME = path.join(tmpRoot, '.konoha');
 process.env.KONOHA_DB_PATH = path.join(tmpRoot, 'graph.db');
 
 const db = require('../src/db');
+const store = require('../src/code_intel/store');
 const tools = require('../src/code_intel/tools');
+require('../src/file_tools_router').setWorkspaceRoot(tmpRoot);
 const { IMPACT_MAX_DEPTH, IMPACT_MAX_NODES } = require('../src/code_intel/config');
 
-db.setupSchema(db.getConnection());
+const _setupConn = db.getConnection();
+try {
+  db.setupSchema(_setupConn);
+} finally {
+  _setupConn.close();
+}
 
 const REPO = path.join(tmpRoot, 'repo');
 
@@ -154,4 +161,90 @@ function run() {
   console.log('✓ Code-intelligence impact graph: cycles, depth, caps, enclosing symbols verified.');
 }
 
-run();
+async function runAsyncCrossFileEdges() {
+  const { indexRepositoryAsync } = require('../src/code_intel/indexer');
+  const query = require('../src/code_intel/query');
+  const tsRepo = path.join(tmpRoot, 'ts_edges_repo');
+  fs.mkdirSync(path.join(tsRepo, 'src', 'auth'), { recursive: true });
+  fs.writeFileSync(
+    path.join(tsRepo, 'tsconfig.json'),
+    JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } } }),
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(tsRepo, 'src', 'auth', 'jwt.ts'),
+    'export interface Auditable { audit(): void; }\nexport function verifyToken(t: string) { return t.length > 0; }\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(tsRepo, 'src', 'base.ts'),
+    'export class BaseService { init() { return true; } }\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(tsRepo, 'src', 'session.ts'),
+    [
+      "import { verifyToken, Auditable } from '@/auth/jwt';",
+      "import { BaseService } from './base';",
+      "export * from '@/auth/jwt';",
+      'export class SessionService extends BaseService implements Auditable {',
+      '  audit() { return verifyToken("abc"); }',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const conn = db.getConnection();
+  try {
+    const idx = await indexRepositoryAsync({ rootPath: tsRepo, conn });
+    assert.strictEqual(idx.status, 'fresh');
+    assert.ok(idx.edges >= 4, `Expected cross-file imports/reexports/extends/implements edges, got ${idx.edges}`);
+    assert.ok(idx.edgesResolved >= 4, `Expected edgesResolved >= 4, got ${idx.edgesResolved}`);
+
+    const edges = conn.prepare(`
+    SELECT e.edge_kind, e.specifier, fsrc.rel_path AS src_path, ftgt.rel_path AS tgt_path, stgt.name AS tgt_sym
+    FROM code_edges e
+    JOIN code_files fsrc ON fsrc.id = e.source_file_id
+    LEFT JOIN code_files ftgt ON ftgt.id = e.target_file_id
+    LEFT JOIN code_symbols stgt ON stgt.id = e.target_symbol_id
+    WHERE e.root_hash = ?
+  `).all(idx.rootHash);
+
+    assert.ok(
+      edges.some((e) => e.edge_kind === 'imports' && e.src_path === 'src/session.ts' && e.tgt_path === 'src/auth/jwt.ts'),
+      'tsconfig @/* alias import must resolve to src/auth/jwt.ts'
+    );
+    assert.ok(
+      edges.some((e) => e.edge_kind === 'reexports' && e.src_path === 'src/session.ts' && e.tgt_path === 'src/auth/jwt.ts'),
+      'reexport must resolve target_file_id cleanly'
+    );
+    assert.ok(
+      edges.some((e) => e.edge_kind === 'extends' && e.src_path === 'src/session.ts' && e.tgt_sym === 'BaseService'),
+      'extends clause must resolve target_symbol_id BaseService'
+    );
+    assert.ok(
+      edges.some((e) => e.edge_kind === 'implements' && e.src_path === 'src/session.ts' && e.tgt_sym === 'Auditable'),
+      'implements clause must resolve target_symbol_id Auditable'
+    );
+
+    const baseImpact = query.impact({ rootPath: tsRepo, name: 'BaseService', conn });
+    assert.ok(
+      baseImpact.nodes.some((n) => n.relPath === 'src/session.ts' && n.kind === 'extends'),
+      'query.impact must traverse resolved extends code_edges'
+    );
+    console.log('✓ Cross-file AST code_edges (aliases, reexports, extends, implements) & impact traversal verified.');
+  } finally {
+    try { conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
+(async () => {
+  try {
+    run();
+    await runAsyncCrossFileEdges();
+  } finally {
+    store.closeConnection();
+    fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+})();

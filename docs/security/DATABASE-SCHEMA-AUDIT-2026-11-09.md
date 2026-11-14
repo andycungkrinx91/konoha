@@ -24,7 +24,7 @@ Two stores, no shared connection, no shared migration, no shared backup.
 
 One extension-owned virtual table (`_sqliteai_vector`) and three FTS5 shadow-table families (`skills_fts_*`, `persona_memories_fts_*`, `code_chunks_fts_*`) exist in the main store. The lab store has four tables and no FTS.
 
-> **Revision note (schema v6, Issue #13).** The measurements in Sections 2, 4, and 9 were re-taken after the code-intelligence migration added six declared tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`) and their four shadow tables. Fresh and migrated-live object counts now agree at 43 user tables.
+> **Revision note (schema v7, Issue #13).** The measurements in Sections 2, 4, and 9 were updated after the code-intelligence v6/v7 migrations added seven declared tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`), their four FTS5 shadow tables, and additive v7 incremental/graph columns. Fresh and migrated-live object counts now agree at 44 user tables (43 base DDL tables excluding runtime `_sqliteai_vector`).
 
 ## 2. Full schema inventory
 
@@ -32,10 +32,10 @@ Measured objects:
 
 | Store | user tables | indexes | named indexes | triggers | views |
 |-------|-------------|---------|---------------|----------|-------|
-| Fresh (v6) | 43 | 70 | 38 | 9 | 0 |
-| Live copy, migrated to v6 | 43 | 70 | 38 | 9 | 0 |
+| Fresh (v7) | 44 | 73 | 41 | 9 | 0 |
+| Live copy, migrated to v7 | 44 | 73 | 41 | 9 | 0 |
 
-Pre-v6 the same figures were 33 / 58 / 31 / 6 fresh. The delta is exactly the code-intelligence block: +10 tables (5 ordinary, 1 virtual, 4 shadow), +12 indexes (7 named `idx_code_*`, 5 autoindexes from the four `UNIQUE` constraints), +3 triggers (`code_chunks_ai/ad/au`).
+Pre-v6 the same figures were 33 / 58 / 31 / 6 fresh. The v6+v7 code-intelligence delta adds +11 tables (6 ordinary, 1 virtual, 4 shadow), +15 indexes (10 named `idx_code_*`, 5 autoindexes from `UNIQUE` constraints), and +3 triggers (`code_chunks_ai/ad/au`).
 
 `kali_tools` and its `idx_kali_tools_*` / autoindex set are gone from the live copy: the main store and the fresh store now hold identical table sets. `_sqliteai_vector` is present in both files as extension-owned state.
 
@@ -68,7 +68,8 @@ Lab store FKs: `lab_tool_invocations.run_id → lab_runs.id`, `red_skill_audit.r
 `idx_gen_jobs_created`, `idx_gen_jobs_status`, `idx_llm_requests_3d_created`, `idx_llm_requests_3d_job`,
 `idx_validation_job`, `idx_projects_path`, `idx_prompt_queue_created`, `idx_prompt_queue_status`,
 `idx_code_files_root`, `idx_code_files_lang`, `idx_code_symbols_name`, `idx_code_symbols_file`,
-`idx_code_refs_target`, `idx_code_refs_file`, `idx_code_chunks_root`.
+`idx_code_refs_target`, `idx_code_refs_file`, `idx_code_chunks_root`, `idx_code_chunks_reuse`,
+`idx_code_edges_src`, `idx_code_edges_dst`.
 
 `sqlite_sequence` exists in both stores because two tables use `AUTOINCREMENT`:
 
@@ -106,19 +107,20 @@ Lab store FKs: `lab_tool_invocations.run_id → lab_runs.id`, `red_skill_audit.r
 | `validation_results` | same migration file | `src/mcp/three_asset/db_3d_schema.js` | `src/mcp/three_asset/db_3d_queries.js` | Live |
 | `llm_requests_3d` | same migration file | `src/mcp/three_asset/db_3d_schema.js` | `src/mcp/three_asset/db_3d_schema.js` | Live |
 | `_sqliteai_vector` | `src/vector_extension.js:106` (`vector_init`) | Extension only | `src/vector_search.js` | 0 rows |
-| `code_index_roots` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/store.js`, `src/code_intel/query.js` | Live (v6) |
-| `code_files` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/store.js`, `src/code_intel/query.js` | Live (v6) |
-| `code_symbols` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js` | Live (v6) |
-| `code_refs` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js` | Live (v6) |
-| `code_chunks` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js` | Live (v6) |
-| `code_chunks_fts` | `src/db_schema.js` (`CODE_INTELLIGENCE_FTS_DDL`) | Triggers on `code_chunks` | `src/code_intel/query.js` | Live (v6) |
+| `code_index_roots` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/store.js`, `src/code_intel/query.js` | Live (v7) |
+| `code_files` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/store.js`, `src/code_intel/query.js` | Live (v7) |
+| `code_symbols` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js`, `src/code_intel/graph_resolver.js` | Live (v7) |
+| `code_refs` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js` | Live (v7) |
+| `code_chunks` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js` | Live (v7) |
+| `code_edges` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_V7_DDL`) | `src/code_intel/store.js` | `src/code_intel/query.js`, `src/code_intel/graph_resolver.js` | Live (v7) |
+| `code_chunks_fts` | `src/db_schema.js` (`CODE_INTELLIGENCE_FTS_DDL`) | Triggers on `code_chunks` | `src/code_intel/query.js` | Live (v7) |
 | `kali_tools` | `src/workflow/akatsuki/lab_db.js:55` (lab), legacy copy in main | `src/workflow/akatsuki/lab.js:66` (lab) | `src/workflow/akatsuki/init.js:67` (lab) | **Finding** |
 
 **Finding 3.1 — `kali_tools` in the main DB has no reader.** The only readers are `src/workflow/akatsuki/init.js:65-67` and `src/workflow/akatsuki/lab.js:56`, and both open the lab DB. `tests/test_akatsuki_init.js:40` already asserts the main DB must not define it. The live table is residue from before the lab split; disposition is Section 7 of the plan, not this document.
 
 ## 4. Migration/init convergence
 
-Fresh = 43 user tables. Live = 43 after the v6 migration. The pre-v6 diff was `kali_tools`, now removed.
+Fresh = 44 user tables (43 excluding runtime `_sqliteai_vector`). Live = 44 after the v7 migration. The pre-v6 diff was `kali_tools`, now removed.
 
 | Difference | Why it exists | Disposition |
 |-----------|---------------|-------------|
@@ -126,7 +128,7 @@ Fresh = 43 user tables. Live = 43 after the v6 migration. The pre-v6 diff was `k
 
 `kali_tools` was removed from the live store by the evidence-first remediation in Section 7; fresh and live now define the same table set.
 
-`user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion`, with value `CURRENT_SCHEMA_VERSION = 6`. The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
+`user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion`, with value `CURRENT_SCHEMA_VERSION = 7`. The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
 
 `schema_migrations` rows on the fresh DB, with checksums recomputed from source:
 
@@ -158,21 +160,21 @@ Re-run after the schema/app version split, the isolation hardening, and the cybe
 
 Live still holds 3,268 legacy cyber rows written before the opt-in gate. They are inert (no consent file, no pack on disk) and `konoha doctor --clean-cyber-pack` deletes them after taking a backup; measured on a `VACUUM INTO` copy: 3,268 rows and 48 chunks removed, backup written, 0 rows remaining. The live DB on this machine was not modified.
 
-### Pass 3 — re-measured after schema v6 (Issue #13)
+### Pass 3 — re-measured after schema v7 (Issue #13)
 
 Measured on this host with `node:sqlite` (Node 24.22.2, SQLite 3.53.4), fresh temp `KONOHA_HOME` and a `VACUUM INTO` copy of the live store migrated in place.
 
-| Metric | Fresh | Live copy, migrated v5 → v6 |
+| Metric | Fresh | Live copy, migrated v5 → v7 |
 |--------|-------|------------------------------|
-| user tables | 43 | 43 |
-| named indexes | 38 | 38 |
+| user tables | 44 | 44 |
+| named indexes | 41 | 41 |
 | autoindexes | 32 | 32 |
 | triggers | 9 | 9 |
-| `user_version` | 6 | 6 |
+| `user_version` | 7 | 7 |
 | `integrity_check` | ok | ok |
 | `foreign_key_check` rows | 0 | 0 |
 
-The migration is idempotent: a second `setupSchema` on the migrated copy returns early on the `user_version >= 6` guard and leaves the counts unchanged.
+The migration is idempotent: a second `setupSchema` on the migrated copy returns early on the `user_version >= 7` guard and leaves the counts unchanged.
 
 ## 5. Integrity & data safety
 
@@ -250,12 +252,13 @@ No `SCAN` was found on `skill_chunks` in a hot path that an index should serve.
 | `asset_files` | migration SQL | `20261103_001` | `db_3d_promotion.js` | `storage_manager.js` | — | `docs/DATABASE-ERD.md` |
 | `validation_results` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_queries.js` | — | `docs/DATABASE-ERD.md` |
 | `llm_requests_3d` | migration SQL | `20261103_001` | `db_3d_schema.js` | `db_3d_schema.js` | — | `docs/DATABASE-ERD.md` |
-| `code_index_roots` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | schema v6 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
-| `code_files` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | schema v6 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
-| `code_symbols` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | schema v6 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
-| `code_refs` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | schema v6 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
-| `code_chunks` | `src/db_schema.js` (`CODE_INTELLIGENCE_DDL`) | schema v6 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
-| `code_chunks_fts` | `src/db_schema.js` (`CODE_INTELLIGENCE_FTS_DDL`) | schema v6 | `code_chunks` triggers | `src/code_intel/query.js` | `tests/test_code_intel_search.js` | this document Section 6 |
+| `code_index_roots` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_files` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_symbols` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_refs` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_chunks` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_edges` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_V7_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
+| `code_chunks_fts` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_FTS_DDL`) | schema v7 | `code_chunks` triggers | `src/code_intel/query.js` | `tests/test_code_intel_search.js` | this document Section 6 |
 | `_sqliteai_vector` | `src/vector_extension.js:106` | extension | Extension | `src/vector_search.js` | — | this document Section 6 |
 | `kali_tools` (main) | legacy | — | none | **none** | `tests/test_akatsuki_init.js:40` | this document Section 3 |
 

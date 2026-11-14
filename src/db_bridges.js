@@ -21,7 +21,7 @@ const EXTERNAL_ANTIGRAVITY_URL = `http://127.0.0.1:${EXTERNAL_ANTIGRAVITY_PORT}`
 function getDbConnection(dbPath = null) {
   const target = dbPath !== null ? dbPath : db.DB_PATH;
   const conn = db.getConnection(target, false);
-  db.setupSchema(conn);
+  (db.ensureSchema || db.setupSchema)(conn);
   return conn;
 }
 
