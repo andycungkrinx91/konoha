@@ -17,16 +17,39 @@ function isSpawnableSubagent(agentName) {
   return norm !== 'sannin' && SPAWNABLE_SUBAGENTS.includes(norm);
 }
 
+// The directive is embedded in a prompt whose ceiling the caller reserves room
+// for (PROMPT_CEILING_BYTES in memory_subagent_runner.js), so the task text is
+// bounded here instead of being allowed to grow the directive without limit.
+const SPAWN_TASK_EXCERPT_BYTES = 1200;
+
+function truncateSpawnTask(raw) {
+  const buf = Buffer.from(raw, 'utf8');
+  if (buf.length <= SPAWN_TASK_EXCERPT_BYTES) return raw;
+  const cut = buf.subarray(0, SPAWN_TASK_EXCERPT_BYTES).toString('utf8').replace(/�$/, '');
+  return `${cut}\n[task truncated at ${SPAWN_TASK_EXCERPT_BYTES} bytes; the full task is in the delegation envelope]`;
+}
+
+/**
+ * The task argument, JSON-encoded so quotes and newlines survive any harness
+ * syntax. The worktree rides in the task text because only two of the nine
+ * harnesses accept a working-directory argument.
+ */
+function spawnTaskArg(prompt, worktreePath) {
+  const raw = typeof prompt === 'string' ? prompt.trim() : '';
+  const body = raw ? truncateSpawnTask(raw) : '(no task text supplied by the dispatcher)';
+  return JSON.stringify(worktreePath ? `${body}\n[worktree: ${worktreePath}]` : body);
+}
+
 const CLIENT_SPAWN = {
-  omp:         { tool: 'task', args: (d) => `task(context="…", tasks=[{name:"${d.agent}", task:"…", agent:"${d.agent}"${d.worktreePath ? `, cwd:"${d.worktreePath}"` : ''}}])` },
-  cursor:      { tool: 'Task', args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  claude:      { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  commandcode: { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  opencode:    { tool: 'task',  args: (d) => `task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  codex:       { tool: 'spawn_agent', args: (d) => `spawn_agent(agent="${d.agent}", task="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  pi:          { tool: 'task',  args: (d) => `task(agent="${d.agent}", prompt="…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}")` },
-  antigravity: { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}"${d.worktreePath ? ', Workspace: "share"' : ''} })` },
-  agy:         { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: "…${d.worktreePath ? ` [worktree: ${d.worktreePath}]` : ''}"${d.worktreePath ? ', Workspace: "share"' : ''} })` }
+  omp:         { tool: 'task', args: (d) => `task(context=${d.taskArg}, tasks=[{name:"${d.agent}", task:${d.taskArg}, agent:"${d.agent}"${d.worktreePath ? `, cwd:"${d.worktreePath}"` : ''}}])` },
+  cursor:      { tool: 'Task', args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
+  claude:      { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
+  commandcode: { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
+  opencode:    { tool: 'task',  args: (d) => `task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
+  codex:       { tool: 'spawn_agent', args: (d) => `spawn_agent(agent="${d.agent}", task=${d.taskArg})` },
+  pi:          { tool: 'task',  args: (d) => `task(agent="${d.agent}", prompt=${d.taskArg})` },
+  antigravity: { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: ${d.taskArg}${d.worktreePath ? ', Workspace: "share"' : ''} })` },
+  agy:         { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: ${d.taskArg}${d.worktreePath ? ', Workspace: "share"' : ''} })` }
 };
 
 function resolveSpawnDescriptor(client) {
@@ -46,7 +69,8 @@ function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskD
   const desc = resolveSpawnDescriptor(client);
   const rawAgent = String(agent || 'subagent').replace(/^mcp_/, '');
   const targetAgent = rawAgent === 'sannin' ? 'kage' : rawAgent;
-  const cliFallback = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${resolvedWt ? ` --cwd "${resolvedWt}"` : ''} --task "…"`;
+  const taskArg = spawnTaskArg(prompt, resolvedWt);
+  const cliFallback = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${resolvedWt ? ` --cwd "${resolvedWt}"` : ''} --task ${taskArg}`;
 
   // Red skills are @akatsuki-only: a spawn for any other agent never carries them.
   const skillAuthz = require('../skill_authorization');
@@ -69,7 +93,7 @@ function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskD
   }
 
   if (desc && desc.tool && typeof desc.args === 'function') {
-    const callStr = desc.args({ client, agent: targetAgent, skills: skillsForTarget, projectPath, prompt, taskDir, worktreePath: resolvedWt });
+    const callStr = desc.args({ client, agent: targetAgent, skills: skillsForTarget, projectPath, prompt, taskArg, taskDir, worktreePath: resolvedWt });
     return [
       '## Spawn (mandatory)',
       `Spawn a background subagent named \`${targetAgent}\` with \`${callStr}\` (CLI fallback: \`${cliFallback}\`).`,
@@ -120,9 +144,10 @@ function buildParallelSpawnDirective({ client, dispatches = [], taskDir = null, 
   for (const d of validDispatches) {
     const ag = String(d.agent || d.name).replace(/^mcp_/, '').replace(/_/g, '-');
     const wtPath = d.worktree_path || (d.worktree && d.worktree.worktree_path) || null;
+    const taskArg = spawnTaskArg(d.task || d.prompt || '', wtPath);
     const callStr = (desc && desc.tool && typeof desc.args === 'function')
-      ? desc.args({ client, agent: ag, projectPath, worktreePath: wtPath })
-      : `rtk node ~/.konoha/bin/cli.js run-agent --agent ${ag}${wtPath ? ` --cwd "${wtPath}"` : ''} --task "…"`;
+      ? desc.args({ client, agent: ag, projectPath, prompt: d.task || d.prompt || '', taskArg, worktreePath: wtPath })
+      : `rtk node ~/.konoha/bin/cli.js run-agent --agent ${ag}${wtPath ? ` --cwd "${wtPath}"` : ''} --task ${taskArg}`;
     lines.push(`- **@${ag}** (${d.domain || d.phase || 'slice'}): \`${callStr}\`${wtPath ? ` [Worktree: \`${wtPath}\`]` : ''}`);
   }
 
