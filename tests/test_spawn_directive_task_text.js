@@ -38,6 +38,12 @@ function runTests() {
   const cliOnly = buildSpawnDirective({ client: 'unknown-client', agent: 'anbu', prompt: TASK });
   assert.ok(cliOnly.includes(TASK), 'CLI fallback must carry the task text');
 
+  // Pi has no native subagent tool, so it must not be promised one.
+  assert.strictEqual(CLIENT_SPAWN.pi, undefined, 'Pi must not advertise a spawn tool it does not have');
+  const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: TASK });
+  assert.ok(!piDirective.includes('task(agent='), 'Pi directive must not name a non-existent task tool');
+  assert.ok(piDirective.includes('run-agent'), 'Pi must fall back to the CLI runner');
+
   const parallel = buildParallelSpawnDirective({
     client: 'claude',
     projectPath: '/tmp/project',

@@ -47,7 +47,11 @@ const CLIENT_SPAWN = {
   commandcode: { tool: 'Task',  args: (d) => `Task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
   opencode:    { tool: 'task',  args: (d) => `task(subagent_type="${d.agent}", description="Execute ${d.agent} task", prompt=${d.taskArg})` },
   codex:       { tool: 'spawn_agent', args: (d) => `spawn_agent(agent="${d.agent}", task=${d.taskArg})` },
-  pi:          { tool: 'task',  args: (d) => `task(agent="${d.agent}", prompt=${d.taskArg})` },
+  // No `pi` entry: Pi ships no native subagent tool (its builtin set is bash,
+  // edit, find, grep, ls, read, write) and Konoha installs neither the example
+  // `subagent` extension nor ~/.pi/agent/agents/. A `task(...)` directive there
+  // named a tool that does not exist, so the spawn never happened. Pi falls
+  // through to the CLI runner, which does.
   antigravity: { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: ${d.taskArg}${d.worktreePath ? ', Workspace: "share"' : ''} })` },
   agy:         { tool: 'invoke_subagent', args: (d) => `invoke_subagent({ TypeName: "self", Role: "${d.agent} specialist", Prompt: ${d.taskArg}${d.worktreePath ? ', Workspace: "share"' : ''} })` }
 };

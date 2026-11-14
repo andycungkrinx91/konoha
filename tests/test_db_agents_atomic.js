@@ -39,7 +39,7 @@ try {
       const origPrepare = c.prepare.bind(c);
       c.prepare = function(sql) {
         const stmt = origPrepare(sql);
-        if (sql.includes("INSERT OR REPLACE INTO agents")) {
+        if (sql.includes("INSERT INTO agents")) {
           const origRun = stmt.run.bind(stmt);
           stmt.run = function(...a) {
             insertCount++;
@@ -94,7 +94,7 @@ try {
     let insertCount = 0;
     conn.prepare = function(sql) {
       const stmt = origPrepare(sql);
-      if (sql.includes("INSERT OR REPLACE INTO agents")) {
+      if (sql.includes("INSERT INTO agents")) {
         const origRun = stmt.run.bind(stmt);
         stmt.run = function(...a) {
           insertCount++;

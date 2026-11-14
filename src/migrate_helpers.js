@@ -35,11 +35,29 @@ function seedAgents(conn, logFn = console.error) {
     const agents = parseYaml(content);
     if (!Array.isArray(agents)) return;
 
+    // ON CONFLICT DO UPDATE, not INSERT OR REPLACE: REPLACE deletes the row and
+    // reinserts it, so every column this statement does not name — model,
+    // model_tier, cursor_fallback_model — silently becomes NULL on each
+    // migration. getMainModel() reads model_tier, so reseeding used to erase the
+    // configured model and fall back to the hardcoded default. Same shape as
+    // soul_seeds.js, which has always done this correctly.
     const stmt = conn.prepare(`
-      INSERT OR REPLACE INTO agents (
+      INSERT INTO agents (
         name, icon, title, purpose, skills, delegate_when,
         constraints_text, workflow, description, instructions, delegation_keywords, enable_mcp_tools
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(name) DO UPDATE SET
+        icon = excluded.icon,
+        title = excluded.title,
+        purpose = excluded.purpose,
+        skills = excluded.skills,
+        delegate_when = excluded.delegate_when,
+        constraints_text = excluded.constraints_text,
+        workflow = excluded.workflow,
+        description = excluded.description,
+        instructions = excluded.instructions,
+        delegation_keywords = excluded.delegation_keywords,
+        enable_mcp_tools = excluded.enable_mcp_tools
     `);
 
     const insertMany = conn.transaction((list) => {

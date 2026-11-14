@@ -68,13 +68,19 @@ function runTests() {
     assert.strictEqual(wfStep2.phase, 'review', 'Direct subagent completion must transition immediately to mandatory Kage review');
     assert.strictEqual(wfStep2.agent, 'kage', 'Mandatory review after direct subagent must be assigned to kage');
 
-    const clients = ['antigravity', 'cursor', 'claude', 'commandcode', 'opencode', 'codex', 'pi', 'omp'];
+    const clients = ['antigravity', 'cursor', 'claude', 'commandcode', 'opencode', 'codex', 'omp'];
     for (const c of clients) {
       const desc = resolveSpawnDescriptor(c);
       assert.ok(desc && desc.tool, `Client ${c} must have a valid subagent spawn descriptor`);
       const directive = buildSpawnDirective({ client: c, agent: 'anbu', prompt: 'test' });
       assert.ok(directive.includes('anbu'), `Spawn directive for ${c} must reference target agent`);
     }
+
+    // Pi ships no native subagent tool, so it must route through the CLI runner
+    // instead of being handed a directive that names a tool it does not have.
+    const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test' });
+    assert.ok(piDirective.includes('anbu'), 'Pi spawn directive must still reference the target agent');
+    assert.ok(piDirective.includes('run-agent'), 'Pi must fall back to the konoha CLI runner');
 
     const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
     const runAgentRes = spawnSync(process.execPath, [
