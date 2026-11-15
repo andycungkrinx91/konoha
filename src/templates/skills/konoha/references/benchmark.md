@@ -1,6 +1,6 @@
 # 🍃 Konoha Token Economy & Benchmark Standards (v2.2.22)
 
-Technical reference on Konoha's token economy, compact multi-skill digests (`use_skills`), Real-Time Idle `@advisor` budget (`<= 1,000 tokens/turn`), dynamic baseline savings calculations, SQLite FTS5 benchmark metrics, and KV-cache prefix optimization.
+Technical reference on Konoha's token economy, compact multi-skill digests (`use_skills`), Real-Time Idle `@advisor` budget (`<= 8,192 tokens/turn`), dynamic baseline savings calculations, SQLite FTS5 benchmark metrics, and KV-cache prefix optimization.
 
 ---
 
@@ -9,8 +9,8 @@ Technical reference on Konoha's token economy, compact multi-skill digests (`use
 Konoha delivers an authentic **83%–98% token reduction** across all 8 supported AI coding clients:
 1. **Compact Multi-Skill Digest (`use_skills` <= 6,400 Bytes / <= 1,600 Tokens)**:
    - Direct subagent invocations (e.g. `@genin` or `@anbu` loading 5 skills including `i-have-adhd` and `antislop*`) compile a structured, budget-governed digest (`~5,093 bytes` / `1,274 tokens` on Turn 1, and `~2,818 bytes` / `705 tokens` on repeat turns via session deduplication), down from `48,604 bytes` (`~12.1k tokens`) — an **89.5%–94.2% reduction** while keeping every discipline skill active.
-2. **Real-Time Idle `@advisor` Budget (`<= 1,000 Tokens` / Turn)**:
-   - Consumes **`0` tokens** when workers are idle or compliant (`status: 'IDLE_OK'`), and enforces a strict **`<= 1,000 tokens` (`4,000 bytes`)** ceiling when emitting an `INTERRUPT_CORRECTION` directive, with immediate stale telemetry eviction (`evict_stale_results: true`).
+2. **Real-Time Idle `@advisor` Budget (`<= 8,192 Tokens` / Turn)**:
+   - Consumes **`0` tokens** when workers are idle or compliant (`status: 'IDLE_OK'`), and enforces a **`<= 8,192 tokens` (`32,768 bytes`)** ceiling when emitting an `INTERRUPT_CORRECTION` directive, with Head+Middle+Tail context preservation (`src/context_budget.js`) so intermediate plan rules, TODOs, and goals are never dropped, plus immediate stale telemetry eviction (`evict_stale_results: true`).
 3. **Post-Approval Context Compaction**:
    - Approving Gate 1 (`1. Compact and approve`) automatically prunes pre-approval exploratory dumps and compacts `plan.md` before Phase 2 execution begins.
 

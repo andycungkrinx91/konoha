@@ -20,7 +20,7 @@ const {
   FILE_TOOLS_PYTHON_CMD_FILE,
   FILE_TOOLS_PY_DIR,
   SRC_DIR
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 const FILE_TOOLS_LAUNCHER_JS = path.join(SKILLS_DB_DIR, 'file_tools_launcher.js');
 

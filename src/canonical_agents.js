@@ -107,12 +107,63 @@ const CANONICAL_NINJAS = Object.freeze([
 ]);
 const CANONICAL_AGENT_NAMES = Object.freeze(CANONICAL_NINJAS.map((a) => a.name));
 const CANONICAL_AGENT_SET = Object.freeze(new Set(CANONICAL_AGENT_NAMES));
+const RESIDENT_SUPERVISOR_AGENTS = Object.freeze(['advisor']);
+const RESIDENT_SUPERVISOR_SET = Object.freeze(new Set(RESIDENT_SUPERVISOR_AGENTS));
+
+const ADVISOR_AGENT_DEFINITION = Object.freeze({
+  name: 'advisor',
+  icon: '◎',
+  title: 'Always-On Idle Foreman & Direct Steer Supervisor',
+  role: 'Resident Supervisor',
+  purpose: 'Idle turn-0 supervisor monitoring plan, TODO, and goal alignment across all agents and directly steering drifting agents',
+  description: 'Always-on idle supervisor started from workflow begin; monitors all agents against plan, TODOs, and goals, and directly steers drifting agents.',
+  delegationKeywords: 'advisor idle monitor drift supervision direct steer plan todo goal alignment',
+  constraints: 'STRICT READ-ONLY idle supervision (0 tokens when compliant, <= 8,192 tokens per steer turn). Never modify codebase files or run mutating commands; review agent outputs/in-progress turns against user goal, approved plan, and active TODOs, then directly steer any drifting agent.',
+  instructions: 'Log: "[◎ Advisor] idle watchdog armed." Sit idle on standby from the beginning of every session. Review every agent turn and report against the user goal, approved PLAN, active TODO list, worktree isolation, and owned_files. Consume 0 tokens when aligned (IDLE_OK). Whenever any agent drifts from the plan, TODOs, or goals, issue an immediate [ADVISOR STEER] correction directly to that agent.',
+  skills: []
+});
+
+function getAdvisorAgentDefinition() {
+  return {
+    ...ADVISOR_AGENT_DEFINITION,
+    skills: [...ADVISOR_AGENT_DEFINITION.skills]
+  };
+}
+
+function isResidentSupervisorAgent(name) {
+  return RESIDENT_SUPERVISOR_SET.has(normalizeAgentName(name));
+}
+
+function getDeployableAgentNames(baseNames = null) {
+  const base = Array.isArray(baseNames) ? baseNames : getCanonicalAgentNames();
+  const merged = [...base];
+  for (const sup of RESIDENT_SUPERVISOR_AGENTS) {
+    if (!merged.includes(sup)) merged.push(sup);
+  }
+  return merged;
+}
+
+function getDeployableAgents(agents = null) {
+  const list = Array.isArray(agents) && agents.length > 0 ? [...agents] : readTemplateAgents();
+  const hasAdvisor = list.some((a) => normalizeAgentName(a && a.name) === 'advisor');
+  if (!hasAdvisor) {
+    list.push(getAdvisorAgentDefinition());
+  }
+  return list;
+}
 
 module.exports = {
   FALLBACK_AGENT_NAMES,
   CANONICAL_NINJAS,
   CANONICAL_AGENT_NAMES,
   CANONICAL_AGENT_SET,
+  RESIDENT_SUPERVISOR_AGENTS,
+  RESIDENT_SUPERVISOR_SET,
+  ADVISOR_AGENT_DEFINITION,
+  getAdvisorAgentDefinition,
+  isResidentSupervisorAgent,
+  getDeployableAgentNames,
+  getDeployableAgents,
   normalizeAgentName,
   getCanonicalAgentNames,
   isCanonicalAgent,

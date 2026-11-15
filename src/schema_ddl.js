@@ -84,6 +84,9 @@ const CORE_SCHEMA_DDL = `
         dor_mode TEXT DEFAULT 'advisory',
         review_mode TEXT DEFAULT 'self',
         hitl_mode TEXT DEFAULT 'enabled',
+        advisor_mode TEXT DEFAULT 'realtime-idle',
+        advisor_max_tokens INTEGER DEFAULT 8192,
+        agent_input_token_quota INTEGER DEFAULT 100000,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );

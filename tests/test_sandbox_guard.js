@@ -1,4 +1,5 @@
 const assert = require('assert');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { evaluateSandboxGuard, evaluateMaintenanceGuard } = require('./helpers/sandbox_guard');
@@ -82,5 +83,47 @@ assert.strictEqual(
   false,
   'host-isolated mode must refuse real HOME'
 );
+
+// Regression: macOS os.tmpdir() resolves via /var -> /private/var symlink while
+// child paths inside it may not exist on disk yet.
+const symlinkSandboxRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_guard_link_test_'));
+try {
+  const realTmpBase = path.join(symlinkSandboxRoot, 'private_var_tmp');
+  const linkTmpBase = path.join(symlinkSandboxRoot, 'var_tmp_link');
+  fs.mkdirSync(realTmpBase, { recursive: true });
+  fs.symlinkSync(realTmpBase, linkTmpBase, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const uncreatedChild = path.join(linkTmpBase, 'konoha_suite_uncreated_home');
+  const linkEnv = {
+    KONOHA_HOST_ISOLATED: '1',
+    KONOHA_TEST_SANDBOX: '1',
+    HOME: uncreatedChild,
+    USERPROFILE: uncreatedChild,
+    KONOHA_DB_PATH: path.join(uncreatedChild, '.konoha', 'konoha.db')
+  };
+  const linkRes = evaluateMaintenanceGuard(linkEnv, {
+    realHome: '/home/realuser',
+    tmpDir: linkTmpBase
+  });
+  assert.strictEqual(linkRes.allowed, true, 'non-existent HOME inside symlinked tmpDir must allow');
+  assert.strictEqual(linkRes.mode, 'host-isolated');
+
+  const aliasedRealHomeRes = evaluateMaintenanceGuard(
+    {
+      KONOHA_HOST_ISOLATED: '1',
+      KONOHA_TEST_SANDBOX: '1',
+      HOME: path.join(linkTmpBase, 'realuser'),
+      USERPROFILE: path.join(linkTmpBase, 'realuser'),
+      KONOHA_DB_PATH: path.join(linkTmpBase, 'realuser', '.konoha', 'konoha.db')
+    },
+    {
+      realHome: path.join(realTmpBase, 'realuser'),
+      tmpDir: linkTmpBase
+    }
+  );
+  assert.strictEqual(aliasedRealHomeRes.allowed, false, 'symlink alias of uncreated realHome must still refuse');
+} finally {
+  fs.rmSync(symlinkSandboxRoot, { recursive: true, force: true });
+}
 
 console.log('test_sandbox_guard: PASS');

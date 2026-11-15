@@ -106,7 +106,7 @@ flowchart TB
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
 | **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
-| **Code Intelligence (8)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | Native SQLite code index (`web-tree-sitter` WASM AST, FTS5, Granite 97M embeddings, MiniLM L-6 reranker): `code_index` walks a repository read-only, `code_search` runs hybrid BM25 + semantic + reranked retrieval, `code_symbol` resolves definitions, `code_context` returns indexed source, `code_impact` walks reverse dependencies, `code_related` finds structurally and semantically related files, `code_status` lists indexed roots, `code_remove` drops one. No external process, no writes to the analyzed repository. |
+| **Code Intelligence (8)** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | Native SQLite code index (`web-tree-sitter` WASM AST, FTS5, Granite 97M embeddings, MiniLM L-6 reranker, bounded LRU/keyset-paged vector cache in `src/code_intel/vector_cache.js`): `code_index` walks a repository read-only (keeping roots `fresh` with `semantic_skipped` if ONNX weights are unavailable offline, and marking incomplete walks `stale` without deleting unvisited rows), `code_search` runs capability-gated hybrid BM25 + semantic + reranked retrieval (degrading cleanly to FTS5/lexical with `degraded: true`), `code_symbol` resolves definitions, `code_context` returns indexed source (returning `out_of_range: true`, `text: ''` when lines miss), `code_impact` walks reverse dependencies, `code_related` finds structurally and semantically related files, `code_status` lists indexed roots and runtime status, `code_remove` drops one. Indexing and static parsing never write to or execute analyzed repository code; optional stdio LSP enrichment (`src/code_intel/lsp_client.js`) runs only on query calls with `shell: false` and allowlisted binaries. |
 
 
 ### 🧭 Canonical Roster & Runtime Surfaces (v2.2.19)
@@ -131,7 +131,7 @@ The runtime root is `~/.konoha/` (`SKILLS_DB_DIR` in `bin/lib/paths.js`). `src/`
 - **`~/.konoha/bridge/` is not a runtime mirror.** Bridge state lives elsewhere; the purge list covers `mcp` and `workflow` only.
 - **Case-exact module names:** `src/mcp/langgraph/index.js` asserts at load time that every `require('./nodes/<name>')` has an exact-case `.js` on disk, so a case-insensitive filesystem (macOS, Windows) cannot hide a mismatch that Linux CI would reject.
 - **Skills are installed once, resolved by several URI shapes:** `get_skill` resolves `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>`, and `<skill>/references/<file>.md` through `_findSubpathInMirror`, staying inside the skills root. No alias copies are written.
-- **Every long-lived process exits itself (`src/mcp_orphan_guard.js`):** nothing outside the process reaps these, so each entry point owns its own termination. `startStdioOrphanGuard` (called from `setupStdioMcpListener` in `src/file_tools_mcp.js`) polls `process.ppid === 1` every `mcp_orphan_parent_poll_ms` and exits when the spawning client is gone, with `mcp_stdio_idle_timeout_ms` as the Windows safety net because Windows does not reparent children; `noteActivity()` on each `readline` line feeds that budget. `startDaemonOrphanGuard` claims `bridge.pid` and exits when a newer live daemon takes it over (`mcp_daemon_superseded_poll_ms`), so detached gateway daemons do not accumulate one per `init`. Stdin EOF alone is not a usable signal — a launcher that exits closes the pipe it handed the child, which is exactly why the poll exists. Guard: `tests/test_mcp_orphan_guard.js`.
+- **Every long-lived process exits itself (`src/mcp_orphan_guard.js`) and scopes MCP serialization (`src/mcp/request_scheduler.js`):** `setupStdioMcpListener` in `src/file_tools_mcp.js` serializes only `WORKFLOW_GRAPH_TOOLS` (`['sannin']`) so `tools/list`, `code_*`, and bounded file tools stay concurrent even during a long `code_index`. `startStdioOrphanGuard` polls `process.ppid === 1` every `mcp_orphan_parent_poll_ms` and exits when the spawning client is gone, with `mcp_stdio_idle_timeout_ms` as the Windows safety net because Windows does not reparent children; `noteActivity()` on each `readline` line feeds that budget. `startDaemonOrphanGuard` claims `bridge.pid` and exits when a newer live daemon takes it over (`mcp_daemon_superseded_poll_ms`), so detached gateway daemons do not accumulate one per `init`. Stdin EOF alone is not a usable signal — a launcher that exits closes the pipe it handed the child, which is exactly why the poll exists. Guard: `tests/test_mcp_orphan_guard.js`, `tests/test_code_intel_hardening.js`.
 - **The UI reloads only when restarted:** `apps/web` is served through a SvelteKit handler cached in the server process, so a refreshed `~/.konoha/apps/web/build` is invisible until it restarts. Nothing restarts it for you — `init` and `upgrade` never touch it; Ctrl+C the terminal and run `konoha ui start` again. `tests/test_ui_manual_only.js` guards that no autostart path returns and that a second `start` on a live port exits 1.
 
 ### 🖥️ Cross-Platform Install Verification Status
@@ -164,7 +164,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 7` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite was compiled without FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 7` (version 2.2.22), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support`, idempotent self-healing `ensureCodeChunksFts` repair during `setupSchema` even when `user_version >= 7`, and automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -206,8 +206,8 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
      - **English**: 100.0% Recall@5 (MRR 0.892)
      - **Indonesian**: 95.0% Recall@5 (MRR 0.879)
      - **Overall**: 97.5% Recall@5 (MRR 0.885 vs FTS5 0.769)
-7. **Native Hugging Face Cache & Explicit Opt-Out (`KONOHA_SEMANTIC_SEARCH`)**:
-   - Semantic retrieval is enabled by default via `@huggingface/transformers` and its native Hugging Face `FileCache` (`HF_HOME`, `HF_HUB_CACHE`, `HF_HUB_OFFLINE=1`). Set `KONOHA_SEMANTIC_SEARCH=0` to explicitly disable semantic embeddings/reranking and run FTS5-only retrieval.
+7. **Native Hugging Face Cache, Capability Gate & Explicit Opt-Out (`KONOHA_SEMANTIC_SEARCH`)**:
+   - Semantic retrieval is enabled by default via `@huggingface/transformers` and its native Hugging Face `FileCache` (`HF_HOME`, `HF_HUB_CACHE`, `HF_HUB_OFFLINE=1`). `src/vector_pipeline.js#getRuntimeStatus()` gates code-intelligence semantic search and reranking on runtime capability, so unavailable ONNX weights or offline uncached environments degrade cleanly to FTS5/lexical + structural results (`degraded: true`, `semantic_applied: false`) without throwing `500`s or marking indexed roots `failed`. Set `KONOHA_SEMANTIC_SEARCH=0` to explicitly disable semantic embeddings/reranking and run FTS5-only retrieval. `src/code_intel/vector_cache.js` bounds in-memory `_vectorSlabs` to 4 roots × 16,384 chunks (`64 MB` ceiling) with SQLite keyset-paged cosine streaming (`2,048` rows/page).
 8. **4-Tier Embedding Feature Deduplication**:
    - **Chunk-Level**: Document sections hashed via SHA-256 over normalized whitespace in `chunk_document()`, pruning duplicate markdown blocks before vectorization.
    - **In-Memory Cache**: `_EMBED_CACHE` (4,096 capacity) serves cached dense vectors in 0 ms with zero redundant ONNX compute.
@@ -216,7 +216,7 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
 9. **Persistent Persona & Context Memory Optimization**:
    - Idempotent `save_memory()` updates existing records instead of duplicating rows.
    - Strictly zero-hallucination factual extraction from `projects` and `persona_memories`.
-   - Auto-compact turn-based badges reduce prompt context footprint to < 120 tokens on turn >= 2.
+   - Quota-triggered Head+Middle+Tail LangGraph state compaction (`agent_input_token_quota`, default `100,000` tokens) preserves head/middle/tail anchors and auto-continues without Lost-in-the-Middle drops.
 
 ---
 
@@ -282,40 +282,41 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 
 ## 🛡️ Quality & Verification Gates
 
-1. **Real-Time Idle `@advisor` Worker Manager & Hallucination Guard (`src/workflow/kage-reviewer/advisor_monitor.js`)**:
-   - Stays idle (`0 tokens` / `status: 'IDLE_OK'`) when workers are compliant, and enforces a hard `<= 1,000 tokens` (`4,000 bytes`) per-turn inspection budget with `evict_stale_results: true` (OMP-aligned).
-   - Inspects every worker subagent report on-the-fly for: (a) TODO scope drift, (b) `owned_files` / `worktree_path` escape, (c) fabricated files or git conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`), (d) unverified completion claims, and (e) placeholder/slop artifacts.
-   - Immediately emits an `INTERRUPT_CORRECTION` directive when any violation is detected so the worker self-corrects on the fly.
+1. **Real-Time Idle `@advisor` Session Supervisor & Direct Steer Engine (`src/workflow/kage-reviewer/advisor_monitor.js`, `src/workflow/kage-reviewer/advisor_steering.js`)**:
+   - Deployed as a resident read-only supervisor profile (`advisor`) across all 8 coding clients while preserving the 9-ninja canonical roster and 8 spawnable worker subagents.
+   - Starts idle from turn 0 (`started_from_beginning: true`, `state: 'idle'`, `0 tokens` when compliant; capped at `<= 8,192 tokens` / `32,768 bytes` when triggered) via `sannin`, LangGraph `classifyNode`, and `buildAdvisorStartupDirective`, with Head+Middle+Tail context preservation (`src/context_budget.js`) so intermediate rules, TODOs, and goals are never lost in the middle.
+   - Monitors **all active agents** (in-progress turns, reports, and lifecycle stages) for: (a) User Goal, approved Plan, and TODO scope drift (`goal_drift`, `plan_drift`, `todo_drift`), (b) `owned_files` / `worktree_path` escape, (c) fabricated files or git conflict markers, (d) unverified completion claims, and (e) placeholder/slop artifacts.
+   - Immediately issues a direct client-native `[ADVISOR STEER]` call (`send_message`, `SendMessage`, `send_input`, `task`/`Task`, `subagent`, or `konoha run-agent`) and persists pending steer directives (`.konoha_advisor_steers.json`) injected into subsequent `dispatchNode`, `subagent_spawner`, and `runMcpAgent` calls until acknowledged.
 2. **Per-Agent Contract & Git Worktree (`git worktree`) Parallel Isolation (`src/mcp/worktree_isolation.js`)**:
    - Every parallel worker slice is isolated in a dedicated git worktree (`~/.konoha/tmp/<client>/<session>/worktrees/<task_id>_<agent>_<slice>/`) with disjoint `owned_files`, pre-merge `syntaxGateForFiles`, and 3-way conflict-free merge-back.
 3. **Zero-AI-Slop Pre-Gate with `aislop` MCP**:
    - Hard pre-gate: `kage` executes `aislop_scan` scoped to all changed files before any confidence percentage is assessed.
    - Requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json`. Missing or non-zero findings mechanically block workflow delivery.
    - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate issues.
-2. **Kage Reviewer 98% Minimum Confidence Gate**:
+4. **Kage Reviewer 98% Minimum Confidence Gate**:
    - Every task is reviewed by `kage` for structural integrity, zero hallucination, and security compliance.
    - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 98% (Minimum Required: ≥ 98% across all verification categories), delivery is blocked and tasks are re-delegated for remediation.
-3. **Zero Errors & Zero Warnings**:
+5. **Zero Errors & Zero Warnings**:
    - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
-4. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
-   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 8 coding clients.
-   - Preserves token budget by compacting instruction boilerplate while permanently retaining the primary skill SOP preview (250 chars) so fixing agents never lose their methodology.
-   - Bounds instruction truncation to 1200 chars and constraint truncation to 600 chars at sentence boundaries (no mid-sentence chopping).
-   - Enforces a 30-minute idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`) preventing cross-session turn accumulation in long-lived MCP server processes.
-5. **Append-Only Prompt History & Original Task Authority**:
+6. **Dynamic Per-Agent Input Token Quota, LangGraph State Compaction & Live TODO Sync (`src/context_compaction.js`, `src/mcp/langgraph/checkpointer.js`, `src/mcp/todo_walkthrough_sync.js`)**:
+   - Replaces legacy per-2-turn truncation with a user-configurable per-agent input token quota (`agent_input_token_quota`, default `100,000`, configurable via `KONOHA_AGENT_INPUT_TOKEN_QUOTA`, CLI config, SQLite `projects.agent_input_token_quota`, and Web UI SDLC settings).
+   - When an agent reaches its input token quota, Konoha persists a per-agent LangGraph state checkpoint (`lg_checkpoints` namespace `agent:<name>` and `KonohaWorkflowState.agentSnapshots`) containing `agent`, `task_id`, `task`, `todo`, `work`, `progress`, `latest_condition`, `quota_tokens`, and `observed_input_tokens`, compacts with Head+Middle+Tail preservation (`src/context_budget.js`), resets the post-compaction baseline, and auto-continues from `## LATEST CONDITION CHECKPOINT (Auto-Continue)`.
+   - Keeps `@advisor` idle from turn 0 with an `8,192`-token per-turn guard (`advisor_max_tokens = 8192`) and syncs `client_todo_directive` (`native_payload`), `walkthrough_steps`, `TODO.md`, and `sdlc_tasks` in real time across all 8 harnesses.
+   - Enforces a 30-minute idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`) preventing stale session accumulation in long-lived MCP server processes.
+7. **Append-Only Prompt History & Original Task Authority**:
    - `src/prompt_hook.js` records user inputs in an append-only format (`# Session Prompts`) with `## Original Task` as the authoritative goal.
    - Subsequent user messages or pasted errors are recorded as timestamped `## Follow-up N` refinements that never replace, delete, or overwrite the original bug task.
-6. **Real Validation Evidence Assessment in `report_from_agent`**:
+8. **Real Validation Evidence Assessment in `report_from_agent`**:
    - `report_from_agent()` verifies that completion claims contain real command output evidence matching passing markers (`exit code 0`, `0 errors`, `passed`, `succeeded`).
    - Unsubstantiated claims are automatically downgraded to `status: "unverified"`, preventing unverified tasks from silently completing the workflow.
-7. **Episodic Learnings & Memory Hygiene**:
+9. **Episodic Learnings & Memory Hygiene**:
    - Only learnings from verified tasks (`verified = True`) are persisted to episodic memory in `persona_memory.js`.
    - `memory_content_exists()` performs deduplication against the SQLite database, preventing corrupted or hallucinated diagnoses from polluting future prompts.
    - **Session Isolation Contract (Decision A)**: Episodic memories are strictly isolated per active session in agent-facing `queryMemories` and `listMemories`. Cross-session visibility is permitted only via explicit opt-in (`allSessions: true` or `crossSession: true`) used by Web UI listings and CLI management commands, and for non-episodic project-scoped memories (rules, architecture, preferences, patterns).
-8. **Authorized Penetration Testing in Dev/Local Environments**:
+10. **Authorized Penetration Testing in Dev/Local Environments**:
    - `anbu` is authorized to conduct penetration testing and vulnerability assessments in dev/local environments (`localhost`, `127.0.0.1`, dev containers, local clusters).
    - The workflow review gate utilizes pentest-aware validation (`_is_pentest_task`, `_is_clean_validation`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.
-9. **CLI Upgrade Engine, Progress Tracking & Subprocess Resilience**:
+11. **CLI Upgrade Engine, Progress Tracking & Subprocess Resilience**:
    - `KonohaProgressBar` delivers real-time terminal progress reporting (`0%` to `100%`) with shaded block indicators (`██████░░░░`), active elapsed timers, and unreferenced interval tickers (`timer.unref()`) to prevent event-loop stalls.
    - Animated Terminal Feedback: `startSpinner()` renders a 10-frame braille spinner (90ms interval) with in-place line redraw (`\r\x1b[2K`) on TTY; automatically falls back to static `›` lines on non-TTY, CI, or `NO_COLOR` environments, with `KONOHA_SPINNERS=0` as an explicit opt-out.
    - Unicode-Accurate Table Widths: `getVisualLength()` implements East Asian Width accounting (CJK ideographs, Hangul, kana, fullwidth forms) plus emoji-presentation BMP symbols that render as 2 columns in modern terminals, and `truncateVisual()` strips ANSI escapes before measuring/cutting — eliminating column overlap in agent/skill/status tables.
@@ -335,7 +336,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Web UI Governance Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness tester, task detail & audit evidence modal, and real-time project governance configuration (`/api/v1/sdlc/*`).
    - **QA Automation Evidence Rule**: For browser, E2E, and UI regression tasks, validation evidence must be generated via `qa_e2e_run` (Anbu owner) containing a valid `run_id`, clean exit code 0, 0 failures, and strict output capping under 2,000 characters. Unsubstantiated or fake green claims are rejected by the review gate (see `docs/QA-AUTOMATION.md`).
 12. **Base Personality: High Effort + Instruct Style Across All Agents**:
-   - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`) and main orchestrators across all 8 supported clients.
+   - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`, `yamanaka`) and main orchestrators across all 8 supported clients.
    - Combines deep internal reasoning (silent deliberation during High/Max effort) with crisp, direct, instruction-following output.
    - Strictly prohibits conversational filler ("hmmmm", "let me check", "wait - but", "let me see", "I will now proceed to", "let me examine"), hesitation markers, and sycophantic praise. Mandates ADHD-friendly formatting (numbered procedures, immediate next action first) and mandatory `FIRST ACTION: call konoha.find_skill`.
 13. **Strict Zero Dark Theme & 3-Color Minimum Gradient Invariants for Documentation**:
@@ -402,7 +403,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 35. **OMP Client Architecture & Workflow Contract (v2.2.0)**:
    - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
    - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient native codebase search.
-   - Enforces host-native advisor review continuity (`reviewMode: agent-end`) executed cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
+   - Starts `@advisor` idle from turn 0 (`startedFromBeginning: true`, `reviewScope: 'all_agents'`, `directSteer: true`) and preserves host-native final review continuity (`reviewMode: agent-end`) after Konoha workflows and Kage gates conclude.
    - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
 36. **Proxy Gateway Process Lifecycle, Savings Telemetry Performance & Prompt Token Optimization (v2.1.18)**:
    - **Proxy Gateway Stop Resilience**: Implemented cross-platform port-targeted termination (`killProcessOnPort` in `src/platform_utils.js`) for the Bridge Proxy Gateway (port 19999). Resolves listening PIDs via `lsof`/`fuser` on Linux/macOS and escalates from `SIGTERM` to `SIGKILL` if still bound; Windows queries PIDs via `netstat` and executes `taskkill /F`. Synchronized the Web UI `/bridges` and CLI lifecycle endpoints with verified socket checks (`checkPortActive(19999)`).
@@ -754,7 +755,7 @@ circuitOpen, budgetExceeded, error, resumeNode, autoSignoff, report
 | `node_budget_exceeded` | governor | edge | `addEdge` → `__end__`; turn pauses, successor persisted in `resumeNode`. |
 | `node_error` | governor | edge | `addEdge` → `__end__`; failed node persisted in `resumeNode`. |
 
-`node_budget_exceeded` and `node_error` are registered **without** `wrapGuardedNode`; the other nine nodes are wrapped. Conditional edges are registered for `__start__` and the seven stateful routers; `node_complete`, `node_budget_exceeded`, and `node_error` use plain edges to `__end__`.
+`node_budget_exceeded` and `node_error` are registered **without** `wrapGuardedNode`; the other nine nodes are wrapped. Conditional edges are registered for `__start__` and the eight stateful routers; `node_complete`, `node_budget_exceeded`, and `node_error` use plain edges to `__end__`.
 
 ---
 

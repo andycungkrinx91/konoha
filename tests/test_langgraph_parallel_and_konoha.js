@@ -37,7 +37,7 @@ async function runTests() {
   }
   assert.strictEqual(isSpawnableSubagent('sannin'), false, 'sannin must remain router-only (not spawnable as worker)');
 
-  const clients = ['antigravity', 'claude', 'cursor', 'opencode', 'commandcode', 'codex', 'omp', 'pi'];
+  const clients = ['antigravity', 'claude', 'cursor', 'opencode', 'commandcode', 'codex', 'omp'];
   for (const client of clients) {
     for (const agent of expectedSpecialists) {
       const directive = buildSpawnDirective({
@@ -50,6 +50,21 @@ async function runTests() {
       assert.ok(directive.includes(`/tmp/wt_${agent}`), `Worktree path must be included in directive for ${agent} on ${client}`);
     }
   }
+  const barePiErr = JSON.parse(buildSpawnDirective({
+    client: 'pi',
+    agent: 'anbu',
+    prompt: 'Execute anbu slice',
+    piSubagentSupported: false
+  }));
+  assert.strictEqual(barePiErr.error_code, 'UNSUPPORTED_NATIVE_SPAWN', 'Bare pi without pi-subagents must fail closed');
+  const piWithExt = buildSpawnDirective({
+    client: 'pi',
+    agent: 'anbu',
+    prompt: 'Execute anbu slice',
+    worktreePath: '/tmp/wt_anbu',
+    piSubagentSupported: true
+  });
+  assert.ok(piWithExt.includes('subagent(agent="anbu"') && piWithExt.includes('/tmp/wt_anbu'));
 
   const parsedKonoha = parseKonohaCommandInvocation('/konoha build a fullstack dashboard and audit security');
   assert.strictEqual(parsedKonoha.invocationMode, 'konoha_orchestrator');

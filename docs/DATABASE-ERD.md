@@ -112,6 +112,7 @@ erDiagram
         TEXT hitl_mode
         TEXT advisor_mode
         INTEGER advisor_max_tokens
+        INTEGER agent_input_token_quota
         TEXT created_at
         TEXT updated_at
     }
@@ -340,7 +341,7 @@ erDiagram
 
 Declared foreign keys are `skill_chunks.skill_name → skills.name`, `persona_memories.project_hash → projects.project_hash`, and every `code_*` child row to its parent (`code_edges` also references `code_files` and `code_symbols`, `code_chunks.symbol_id` references `code_symbols`). Dotted relations are logical joins with no constraint.
 
-The six relational `code_*` tables plus `code_chunks_fts` form the native code-intelligence index (schema v7). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` and `code_edges.target_file_id` / `target_symbol_id` use `ON DELETE SET NULL` so unresolved targets stay in the graph until re-linked. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step. `code_chunks.embedding` stays `NULL` only when semantic search is explicitly disabled (`KONOHA_SEMANTIC_SEARCH=0`) — synthetic hash-derived vectors are never written there.
+The six relational `code_*` tables plus `code_chunks_fts` form the native code-intelligence index (schema v7). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` and `code_edges.target_file_id` / `target_symbol_id` use `ON DELETE SET NULL` so unresolved targets stay in the graph until re-linked. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step, and `setupSchema` / `ensureCodeChunksFts` idempotently recreate and rebuild missing FTS5 structures even when `user_version >= 7`. `code_chunks.embedding` stays `NULL` when semantic search is disabled (`KONOHA_SEMANTIC_SEARCH=0`) or the semantic runtime is unavailable (e.g., offline without cached ONNX weights; `indexRepositoryAsync` sets `semantic_skipped: true` while leaving the root `fresh`) — synthetic hash-derived vectors are never written there.
 
 `lg_writes` is keyed on `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`; it references `lg_checkpoints` logically, not by a declared foreign key.
 

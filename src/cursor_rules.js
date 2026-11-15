@@ -9,6 +9,7 @@ const {
   buildCodeSearchPolicyCompact,
   buildFileToolsPolicyCompact,
 } = require('./search_policy');
+const { isReadOnlyAgent } = require('./agent_file_safety');
 
 const CURSOR_FALLBACK_MODEL = 'inherit';
 
@@ -27,7 +28,7 @@ function resolveCursorModel(agent = {}) {
 }
 
 function generateCursorSubagent(agent) {
-  const readonly = agent.name === 'genin';
+  const readonly = isReadOnlyAgent(agent);
   const description = `${agent.description} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
   
   let instructions = agent.instructions || '';
@@ -55,6 +56,7 @@ function generateCursorSubagent(agent) {
     '---',
     `name: ${agent.name}`,
     `description: ${description.replace(/\n/g, ' ')}`,
+    'generated_by: konoha',
   ];
   if (agent.model) {
     frontmatter.push(`model: ${agent.model}`);

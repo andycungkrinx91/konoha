@@ -174,7 +174,7 @@ All persistent state and databases live strictly in standardized paths:
 - **Global Skills:** `~/.agents/skills/<agent-skill>/`.
 - **Temporary Fallback Tasks:** `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`.
 - **Web UI Application:** `apps/web/` (SvelteKit 3).
-- **IDE Extensions:** `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` (Antigravity strictly exclusive).
+- **IDE Extensions (Retired Legacy Path):** `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` (auto-install/sync removed in `v2.2.1`; stale legacy registry entries pruned via `syncAntigravityExtensionRegistry`).
 
 ---
 

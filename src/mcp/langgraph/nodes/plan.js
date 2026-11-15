@@ -25,6 +25,9 @@ async function planNode(state) {
         const compactionAudit = superviseLifecycleStage('compaction', {
           status,
           taskDir,
+          goal: status.prompt || state.prompt || '',
+          todos: choiceResult.todos || status.tasks || state.todos || [],
+          client: status.client || state.client,
           compaction: choiceResult.compaction || status.compaction
         });
         saveWorkflowStatus(taskDir, status);
@@ -90,6 +93,8 @@ async function planNode(state) {
       phase: 'brief',
       hitlPending: false,
       hitlStage: null,
+      hitlChoice: null,
+      hitlRefinement: null,
     };
     return finalizeNodeResult(state, payload, 'node_brief', { source: planData });
   }

@@ -12,7 +12,7 @@ const {
   FILE_TOOLS_LAUNCHER_JS,
   FILE_TOOLS_LAUNCHER_PATH,
   FILE_TOOLS_PY_DIR
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 const { IS_WIN } = require('./platform_utils');
 const {
   resolveCompatibleNode,
@@ -209,14 +209,21 @@ function syncRuntimeJsFiles(srcDir, destDir) {
 }
 
 function syncRuntimeSubdirectories(srcDir, destDir) {
+  let synced = 0;
   const rootDir = path.resolve(srcDir, '..');
   const patchesSrc = path.join(rootDir, 'patches');
   if (fileExists(patchesSrc)) {
-    copyRecursiveIfDifferent(patchesSrc, path.join(destDir, 'patches'));
+    synced += copyRecursiveIfDifferent(patchesSrc, path.join(destDir, 'patches'));
+  }
+  const migrationsSrc = path.join(rootDir, 'migrations');
+  if (fileExists(migrationsSrc)) {
+    synced += copyRecursiveIfDifferent(migrationsSrc, path.join(destDir, 'migrations'));
   }
   const subdirs = [
     { src: 'file_tools', dest: FILE_TOOLS_PY_DIR },
     { src: 'mcp', dest: path.join(destDir, 'mcp') },
+    { src: 'mcp_clients', dest: path.join(destDir, 'mcp_clients') },
+    { src: 'queue', dest: path.join(destDir, 'queue') },
     { src: 'workflow', dest: path.join(destDir, 'workflow') },
     { src: 'bridge', dest: path.join(destDir, 'bridge') },
     { src: 'code_intel', dest: path.join(destDir, 'code_intel') }
@@ -224,13 +231,14 @@ function syncRuntimeSubdirectories(srcDir, destDir) {
   for (const item of subdirs) {
     const fullSrc = path.join(srcDir, item.src);
     if (fileExists(fullSrc)) {
-      copyRecursiveIfDifferent(fullSrc, item.dest);
+      synced += copyRecursiveIfDifferent(fullSrc, item.dest);
     }
   }
   const grammarsSrc = path.join(rootDir, 'assets', 'grammars');
   if (fileExists(grammarsSrc)) {
-    copyRecursiveIfDifferent(grammarsSrc, path.join(destDir, 'assets', 'grammars'));
+    synced += copyRecursiveIfDifferent(grammarsSrc, path.join(destDir, 'assets', 'grammars'));
   }
+  return synced;
 }
 
 function installRuntimePackageDependencies(destDir, silent) {
@@ -449,7 +457,7 @@ function cleanKonohaRuntimeDir(options = {}) {
 
   cleanTmpScratchEntries(path.join(target, 'tmp'), result);
 
-  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'code_intel', 'file_tools', 'mcp', 'src', '.agents', 'tmp', 'workflow', 'patches', 'docs']);
+  const preserveDirs = new Set(['transformers_cache', 'node_modules', 'vendor', 'searxng', 'assets', 'apps', 'bin', 'bridge', 'code_intel', 'file_tools', 'mcp', 'mcp_clients', 'migrations', 'queue', 'src', '.agents', 'tmp', 'workflow', 'patches', 'docs']);
   const preserveFiles = new Set(['konoha.db', 'konoha.db-wal', 'konoha.db-shm', 'package.json', 'pnpm-lock.yaml', 'web_token', 'bridges.json', 'konoha-bridge.json', '.python_cmd', '.node_exec_path', '.deploy-fingerprint', '.gitignore']);
 
   let entries = [];
@@ -473,5 +481,6 @@ module.exports = {
   KONOHA_CANONICAL_TOOLS,
   buildKonohaFilesMcpEntry,
   installFileTools,
+  syncRuntimeSubdirectories,
   cleanKonohaRuntimeDir
 };

@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('../db');
 const { getDb } = db;
+const { sliceBytesPreservingHeadMiddleTail } = require('../context_budget');
 const {
   HOME,
   AGENTS_DIR,
@@ -160,38 +161,60 @@ function fuzzyResolveSkill(requested, conn, maxDistance = 3) {
   return bestName;
 }
 
+function _selectHeadMiddleTailSections(sections, maxSize, name) {
+  if (sections.length <= 2) return null;
+  const lastIdx = sections.length - 1;
+  const midIdx = Math.floor(sections.length / 2);
+  const tailSec = `\n## ${sections[lastIdx]}`;
+  const tailBytes = Buffer.byteLength(tailSec, 'utf8');
+  const midSec = midIdx > 1 && midIdx < lastIdx ? `\n## ${sections[midIdx]}` : '';
+  const midBytes = midSec ? Buffer.byteLength(midSec, 'utf8') : 0;
+  const noteReserve = 240;
+
+  let accumulated = sections[0] || '';
+  let lastHeadIdx = 0;
+  let keptCount = 0;
+  for (let i = 1; i < lastIdx; i++) {
+    const needMid = i < midIdx ? midBytes : 0;
+    const candidate = `${accumulated}\n## ${sections[i]}`;
+    if (Buffer.byteLength(candidate, 'utf8') + needMid + tailBytes + noteReserve > maxSize) break;
+    accumulated = candidate;
+    lastHeadIdx = i;
+    keptCount++;
+  }
+  if (keptCount === 0) return null;
+
+  let midIncluded = lastHeadIdx >= midIdx || !midSec;
+  if (!midIncluded && Buffer.byteLength(`${accumulated}\n${midSec}${tailSec}`, 'utf8') + noteReserve <= maxSize) {
+    accumulated += midSec;
+    keptCount++;
+    lastHeadIdx = midIdx;
+    midIncluded = true;
+  }
+  if (!midIncluded) return null;
+
+  if (Buffer.byteLength(`${accumulated}${tailSec}`, 'utf8') + noteReserve > maxSize) return null;
+  accumulated += tailSec;
+  keptCount++;
+
+  const omittedCount = Math.max(0, lastIdx - keptCount);
+  const note = omittedCount > 0
+    ? `\n\n... [${omittedCount} additional sections omitted (head/middle/tail preserved). Load sub-sections on demand with get_skill("${name || 'skill'}/<section>")]`
+    : '';
+  return { text: accumulated + note, truncated: true };
+}
+
 function smartTruncate(content, maxSize, name = null) {
   if (!content) return { text: '', truncated: false };
   const bytes = Buffer.byteLength(content, 'utf8');
   if (bytes <= maxSize) return { text: content, truncated: false };
 
   const sections = content.split(/^#{1,3}\s+/m);
-  const intro = sections[0] || '';
-  let accumulated = intro;
-  let keptSections = [];
+  const structured = _selectHeadMiddleTailSections(sections, maxSize, name);
+  if (structured) return structured;
 
-  for (let i = 1; i < sections.length; i++) {
-    const section = sections[i];
-    const candidate = accumulated + '\n## ' + section;
-    if (Buffer.byteLength(candidate, 'utf8') <= maxSize - 400) {
-      accumulated = candidate;
-      keptSections.push(section);
-    } else {
-      break;
-    }
-  }
-
-  if (keptSections.length > 0) {
-    const omittedCount = sections.length - 1 - keptSections.length;
-    const note = omittedCount > 0
-      ? `\n\n... [${omittedCount} additional sections omitted for token budget. Load sub-sections on demand with get_skill("${name || 'skill'}/<section>")]`
-      : '';
-    return { text: accumulated + note, truncated: true };
-  }
-
-  const truncatedBuffer = Buffer.from(content, 'utf8').subarray(0, maxSize - 120);
-  const truncatedStr = truncatedBuffer.toString('utf8') + '\n\n... [Content truncated for token budget]';
-  return { text: truncatedStr, truncated: true };
+  const bounded = sliceBytesPreservingHeadMiddleTail(content, maxSize, { markerLabel: 'Content truncated for token budget' });
+  return { text: bounded, truncated: true };
 }
 
 function extractSnippet(content, maxLen = 150) {
@@ -625,11 +648,16 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null, base
     const bytesSaved = Math.max(baselineBytes - returnedBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);
     const clientName = detectActiveClient();
+    let safeQuery = String(queryStr || '');
+    try {
+      const { redactSecrets } = require('../bridge/utils');
+      safeQuery = redactSecrets(safeQuery);
+    } catch (_) { /* fallback */ }
 
     conn.prepare(`
       INSERT INTO tool_calls (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent, client)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(toolName, queryStr, returnedBytes, baselineBytes, bytesSaved, tokensSaved, agentName, clientName);
+    `).run(toolName, safeQuery, returnedBytes, baselineBytes, bytesSaved, tokensSaved, agentName, clientName);
   } catch (_) {
     // Fail silently on logging errors
   } finally {

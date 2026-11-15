@@ -539,10 +539,10 @@ flowchart TB
     SQLiteDB <--> Find
     Find --> Load
 
-    subgraph AutoCompaction ["High-Efficiency Auto-Compaction (Turn >= 2)"]
-        AC1["Project Memory Continuity<br/>(Tech stack &amp; invariants permanently retained)"]
-        AC2["Prompt Boilerplate Compaction<br/>(Instruction boilerplate compressed)"]
-        AC3["250-char SOP Preview Invariant<br/>(Always preserved even in compact mode)"]
+    subgraph AutoCompaction ["Quota-Triggered LangGraph State Compaction (Default 100k Input Quota)"]
+        AC1["LangGraph Checkpoint State<br/>(task, todo, work, progress, latest_condition)"]
+        AC2["Head+Middle+Tail Compaction<br/>(src/context_budget.js + reset baseline)"]
+        AC3["Auto-Continue + Live TODO Sync<br/>(Native TODOs across all 8 harnesses)"]
     end
 
     Load --> AutoCompaction

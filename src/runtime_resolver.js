@@ -7,7 +7,7 @@ const {
   HOME,
   FILE_TOOLS_NODE_PATH_FILE,
   FILE_TOOLS_PYTHON_CMD_FILE
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 function fileExists(p) {
   try {

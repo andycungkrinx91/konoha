@@ -82,11 +82,34 @@ function assertSandbox(env = process.env, realHome = null, marker = 'KONOHA_TEST
 const CONTAINER_MARKER = 'KONOHA_SANDBOX_CONTAINER';
 const HOST_ISOLATED_MARKER = 'KONOHA_HOST_ISOLATED';
 
-function _resolveSafe(p) {
+function _followSymlinkOrRealpath(cursor, tail, depth) {
+  try {
+    const lstat = fs.lstatSync(cursor);
+    if (lstat.isSymbolicLink() && depth < 16) {
+      const targetPath = path.resolve(path.dirname(cursor), fs.readlinkSync(cursor));
+      const fullTarget = tail.length > 0 ? path.join(targetPath, ...tail) : targetPath;
+      return _resolveSafe(fullTarget, depth + 1);
+    }
+    const base = fs.realpathSync(cursor);
+    return tail.length > 0 ? path.join(base, ...tail) : base;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _resolveSafe(p, depth = 0) {
   const abs = path.resolve(p);
   try {
     return fs.realpathSync(abs);
   } catch (_) {
+    const tail = [];
+    let cursor = abs;
+    while (cursor && cursor !== path.dirname(cursor)) {
+      const resolved = _followSymlinkOrRealpath(cursor, tail, depth);
+      if (resolved !== null) return resolved;
+      tail.unshift(path.basename(cursor));
+      cursor = path.dirname(cursor);
+    }
     return abs;
   }
 }

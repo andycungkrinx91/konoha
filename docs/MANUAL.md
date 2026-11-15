@@ -420,14 +420,14 @@ gate's link cannot approve another, and the page only renders for a task directo
 Every transport lands on `sannin({ task_dir, choice, refinement })`, the same resume path a typed reply takes, so a harness
 that ignores the picker loses the control but cannot bypass the gate.
 
-Each workflow gets a task directory:
+Each workflow gets an isolated task directory:
 
 ```
 ~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/
-  prompt.md  findings.md  plan.md  result.md  final_docs.md  kage_review.json
+  status.json  findings.md  plan.md  final_docs.md  kage_review.json  final_report.md
 ```
 
-These are the artefacts the workflow reads and writes. Chapter 11 explains why the *terminal* artefact
+Legacy file-based IPC (`prompt.md`, `delegate.md`, `delegated.md`, `result.md`) is retired. Task inputs arrive via `<USER_REQUEST>`, JSONL transcripts, and structured MCP arguments, while agent completions report through `report_from_agent` into `status.json` and SQLite `sdlc_tasks`. Chapter 11 explains why the *terminal* artefact
 (`final_report.md`) was replaced with path references: it was 61% of the disk-token footprint.
 
 ### 4.4 Tasks, telemetry and savings
@@ -948,7 +948,7 @@ do not want modified — including this one, which is why this manual's own veri
 ### 9.6 The MCP servers
 
 `konoha status` reports two registrations per client — `konoha` and `aislop`. [CC]'s `~/.claude.json`
-carries both, and Antigravity receives 57 tool schemas under `~/.gemini/antigravity-cli/mcp/konoha/`.
+carries both, and Antigravity receives 58 tool schemas (56 canonical + 2 deprecated aliases) under `~/.gemini/antigravity-cli/mcp/konoha/`.
 They play different roles:
 
 | Server | Role |
@@ -1166,9 +1166,9 @@ Without a TTY this is the only form that works; in a TTY `konoha agent models` o
 
 ### 11.4 Routing
 
-Task routing starts with the `sannin` orchestrator. Given a prompt, `sannin` matches `delegateWhen` and `delegationKeywords` to select the target specialist, and `lazy_subagent.js` returns a lightweight Markdown directive — task, context, constraints, and attached skills — rather than spawning a child OS process.
+Task routing starts with the `sannin` orchestrator. Given a prompt, `sannin` matches `delegateWhen` and `delegationKeywords` to select the target specialist, and `lazy_subagent.js` returns a harness-native subagent spawn directive — task, context, constraints, worktree isolation, and attached skills — rather than relying on retired `prompt.md` / `result.md` files. When native spawning is unavailable in a harness (for instance Pi without `pi-subagents`), it fails closed with an explicit `UNSUPPORTED_NATIVE_SPAWN` error instead of silently emulating it.
 
-Nine specialist tools appear in the MCP manifest (`sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`, `tokubetsu_jonin`, `genin`) alongside `report_from_agent` for recording task outcomes in the ledger. Outside MCP, the only shell entry point that dispatches subagents directly is `konoha run-agent --agents <list>`.
+Nine agent tools appear in the MCP manifest (`sannin` router + eight spawnable specialists: `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`, `tokubetsu_jonin`, `genin`) alongside `report_from_agent` for recording task outcomes in the ledger. Outside MCP, `konoha run-agent --agent <agent>` (or `--parallel --agents <list>`) spawns real child processes directly (`src/mcp/subagent_spawner.js`) with workspace `cwd`, permission guards (`KONOHA_READONLY=1`), timeout termination (`SIGTERM`/`SIGKILL`), cancellation cleanup, and concurrent fan-out.
 
 ### 11.5 Editing an agent
 
@@ -1185,22 +1185,22 @@ YAML is what the next command reads, and the database catches up on the next sav
 
 ### 11.6 What a delegation looks like on the wire
 
-Subagent dispatch never forks background daemon processes. Instead, `buildSpawnDirective` returns a Markdown instruction tailored to the calling harness, pairing the native subagent tool call with a CLI fallback:
+`buildSpawnDirective` pairs the active harness's native subagent invocation with the CLI process fallback, failing closed with `UNSUPPORTED_NATIVE_SPAWN` if the harness lacks native subagent support:
 
 | Client | Tool call it emits |
 |---|---|
 | OMP | `task(context="…", tasks=[{name:"<agent>", task:"…", agent:"<agent>"}])` |
 | Cursor | `Task(subagent_type="<agent>", description="…", prompt="…")` |
-| Claude Code | `Task(subagent_type="<agent>", description="…", prompt="…")` |
+| Claude Code | `Agent(subagent_type="<agent>", description="…", prompt="…")` |
 | Command Code | `Task(subagent_type="<agent>", description="…", prompt="…")` |
 | OpenCode | `task(subagent_type="<agent>", description="…", prompt="…")` |
-| Codex | `spawn_agent(agent="<agent>", task="…")` |
-| Pi | `task(agent="<agent>", prompt="…")` |
-| Antigravity | `invoke_subagent({ TypeName: "self", Role: "<agent> specialist", Prompt: "…" })` |
+| Codex | `spawn_agent(agent_type="<agent>", message="…")` |
+| Pi | `subagent(agent="<agent>", task="…")` *(only when `pi-subagents` is installed; otherwise `UNSUPPORTED_NATIVE_SPAWN`)* |
+| Antigravity | `invoke_subagent({ TypeName: "<agent>", Role: "<agent> specialist", Prompt: "…", Workspace: "share"\|"inherit" })` *(`inherit` for read-only `@genin`/`@kage`)* |
 
-Every form is followed by the same sentence: wait for the structured report via `konoha.report_from_agent`. The
-fallback for a client with no known descriptor is
-`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "…"`, and `--cwd` is added when a worktree path exists.
+Every form is followed by the same sentence: report structured outcomes via `konoha.report_from_agent`. The
+CLI fallback is
+`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "…"` (and `--cwd <worktree>` when a worktree path exists), which spawns an isolated OS child process with timeout and abort cleanup.
 
 Three rules constrain what can be delegated:
 
@@ -1356,8 +1356,7 @@ Doctor checks, in order:
 | SDLC governance | enabled bridges for cross-provider review; `antislop` attached to `kage` | restores the skill |
 
 Verdicts are `HEALTHY`, `REPAIRED`, `WARNING`, `FAILED`, `NOT INSTALLED`, `INFO`, `ACTIVE`. One `FAILED` sets exit code 1;
-`NOT INSTALLED` for a client you do not use is normal and does not. When repairs happen, doctor runs `konoha test`
-afterwards as a self-check, and a failing self-check also sets exit code 1 — so `konoha doctor && echo ok` is a usable gate.
+`NOT INSTALLED` for a client you do not use is normal and does not. When runtime repairs happen, doctor verifies the MCP startup smoke test inline (setting exit code 1 if it fails); run `konoha test` afterwards for full suite verification — so `konoha doctor && echo ok` stays fast and reliable as a health gate.
 
 Two behaviours to know before relying on it:
 
@@ -1430,7 +1429,7 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | Antigravity shows `NOT INSTALLED` in doctor but works | doctor reads `~/.gemini/config/mcp_config.json`, init writes `~/.gemini/antigravity-ide/mcp_config.json` | check the file init actually wrote (D11) |
 | Client shows no tools, `status` healthy | client caches the tool list per process | restart the client |
 | `Server is not initialized` (`-32002`) | a call arrived before `initialize` | restart the client; a raw JSON-RPC probe must send `initialize` first |
-| `code_search` returns `degraded: true` | this SQLite build lacks FTS5 | upgrade Node to >= 24; the fallback `LIKE` scan still answers, just slower |
+| `code_search` returns `degraded: true` | FTS5 is unavailable/missing or semantic search is disabled/offline-uncached | inspect `reason` and `semantic_applied` in the response: upgrade Node to >= 24 (or run `setupSchema` to repair `code_chunks_fts`), or pre-populate `HF_HOME` cache if semantic search was skipped offline |
 | Embedding generation stalls or burns bandwidth | first run downloads ONNX models | `konoha migrate --skip-embeddings`, or `KONOHA_SEMANTIC_SEARCH=0` |
 | `EACCES` on global install | installing into a root-owned prefix | use a user-owned prefix, never `sudo` |
 | Web UI unreachable | different port configured or process died | read `ui_port` from `~/.konoha/config.json`; `curl 127.0.0.1:<port>/api/v1/health` |
@@ -1486,7 +1485,7 @@ Deleting `konoha-mcp/` is safe; deleting the config backups removes your restore
 
 Semantic embeddings (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`) and cross-encoder reranking (`Xenova/ms-marco-MiniLM-L-6-v2`) run through `@huggingface/transformers` and use its native Hugging Face `FileCache` rather than a Konoha-managed model directory.
 
-If `KONOHA_SEMANTIC_SEARCH` is enabled (the default) and the ONNX runtime or model weights cannot load, semantic calls fail loudly with `EmbeddingRuntimeUnavailableError` instead of fabricating hash vectors. To opt out explicitly and run pure FTS5 / lexical retrieval with zero model downloads:
+If `KONOHA_SEMANTIC_SEARCH` is enabled (the default) and the ONNX runtime or model weights cannot load, low-level embedding helpers raise `EmbeddingRuntimeUnavailableError` instead of fabricating hash vectors. `src/vector_pipeline.js#getRuntimeStatus()` exposes runtime readiness so code-intelligence queries (`code_search`, `code_related`, and `/api/v1/code/{search,related}`) degrade cleanly to FTS5/lexical and structural graph results (`degraded: true`, `semantic_applied: false`, and `reason`), while `code_index` marks `semantic_skipped: true` and keeps the indexed root `fresh`. To opt out explicitly and run pure FTS5 / lexical retrieval with zero model downloads:
 
 ```bash
 export KONOHA_SEMANTIC_SEARCH=0

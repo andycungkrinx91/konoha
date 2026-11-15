@@ -119,7 +119,7 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | 3D | Yamanaka generative 3D and Blender refinement | `yamanaka-skill` | Manifold and PBR validation |
 | Retrieval | Compact `use_skills` (single-skill `<= 8,000 B`, multi-skill `<= 4,800 B` total), session dedup | `src/mcp/skills_common.js` | `[ALREADY_IN_CONTEXT]` on repeat loads; `full: true` opt-in |
 | File I/O | Bounded reads: head, range, grep, structure, clean-find | `src/file_tools_router.js` | 150-line head cap, 250-line range cap, 20-match grep cap (50 hard max) |
-| Search | Native code intelligence, SQLite FTS5 | `code_search`, `code_symbol`, `code_impact` | Replaces full-repo dumps with line spans |
+| Search | Tree-sitter WASM AST, SQLite FTS5, Granite/MiniLM hybrid vector + optional LSP | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | Replaces full-repo dumps with bounded AST/semantic spans |
 | Shell | RTK global CLI proxy compresses noisy output | `rtk` | Per-command savings via `rtk gain`; no global percentage asserted here |
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
@@ -279,7 +279,7 @@ File-based IPC (`prompt.md` / `delegate.md` / `result.md`) is retired; dispatch 
 
 ## Architecture
 
-Konoha is an **MCP Tools Orchestrator**: subagents run as in-process MCP tools and the orchestrator adopts a persona per dispatch. No child-process spawn per agent, no server-to-server RPC hop, no disk-file handoff.
+Konoha is an **MCP Tools Orchestrator**: subagent tools emit harness-native spawn directives (`src/mcp/lazy_subagent.js`) paired with managed child-process execution (`konoha run-agent` / `src/mcp/subagent_spawner.js`) and fail-closed `UNSUPPORTED_NATIVE_SPAWN` guards when a harness lacks native subagent support. Workers communicate via structured MCP arguments, JSONL session transcripts, and `report_from_agent` — with zero disk-file IPC (`prompt.md`, `delegate.md`, `result.md`).
 
 - Canonical diagram: `docs/diagrams/konoha-architecture.drawio` (18 tabs) plus `docs/diagrams/konoha-infrastructure-architecture.drawio` (18 tabs; page `19 Authenticated Local Web UI & Ingress Queue` replaces the architecture file's page 15).
 - Rendered canvases: 13 Draw.io-projected WebPs (`scripts/generate_drawio_flow_webp.js` + `scripts/lib/drawio_flow_svg.js`) and 7 Tokubetsu-rendered workflow WebPs (`scripts/generate_tokubetsu_flow_webp.js`); style-locked by `tests/test_flow_diagram_style_lock.js`.
@@ -315,7 +315,7 @@ aislop adds `aislop_scan`, `aislop_fix`, `aislop_why`. Search needs no second se
 | `@jonin` | Frontend builder | 4-framework UI, dark/light, live browser check, maintenance-skill generator |
 | `@anbu` | Backend, DevOps, QA | APIs, containers, Helm, Playwright E2E |
 | `@tokubetsu-jonin` | Scribe | Docs, runbooks, office deliverables |
-| `@kage` | Architect and governor | Plans, `@advisor` guard (`<= 1k tok/turn`, 0 when clean), 98% gate |
+| `@kage` | Architect and governor | Plans, `@advisor` guard (`<= 8k tok/turn`, 0 when clean), 98% gate |
 | `@akatsuki` | Security | Blue-Team review by default; isolated `akatsuki-lab` red-team only when authorized |
 | `@yamanaka` | 3D specialist | Three.js/Manifold synthesis, Blender refinement |
 
@@ -353,7 +353,7 @@ Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<ag
 
 ### Bridge router and Web UI
 
-- Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; Antigravity IDE syncs it into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
+- Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; automated VSIX installation and directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` were retired in `v2.2.1` (Konoha only prunes stale legacy registry entries). Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
 - Web UI on port `1404` (`konoha ui start`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
 - Telegram: one-way completion notifications plus two-way remote prompting (`/run`, `/session`, `/status`, `/savings`, per-agent dispatch). Setup: [docs/TELEGRAM_INTEGRATION_GUIDE.md](docs/TELEGRAM_INTEGRATION_GUIDE.md).
 - SearXNG zero-API-key search for Chunin: [docs/SETUP-SEARXNG.md](docs/SETUP-SEARXNG.md).

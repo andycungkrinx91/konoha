@@ -3,10 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 const platform = require('./platform_utils');
-const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
+const { parseYaml, stringifyYaml } = require('./config_access').loadBinLib('yaml_utils');
 const {
   USER_AGENTS_YAML_PATH, DEFAULT_AGENTS_YAML_PATH, HOME
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 let __cachedPython = null;
 let __cachedAgents = null;

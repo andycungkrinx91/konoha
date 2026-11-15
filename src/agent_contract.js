@@ -1,7 +1,5 @@
 'use strict';
 
-const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
-
 const CONTRACT_VERSION = '2.2.22';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
@@ -28,9 +26,9 @@ function buildAgentContract(options = {}) {
 
 You are the ${roleLabel} running through ${clientLabel}. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
-- **Stop reading prompt.md / file-based IPC**: user requests are passed directly in \`<USER_REQUEST>\` or stored in \`sdlc_tasks.description\`. NEVER call \`file_info("prompt.md")\` or search for \`prompt.md\` or \`delegate.md\`. Pass task instructions, context, constraints, and skills via direct structured MCP tool arguments.
+- **Canonical JSONL & Structured MCP Context**: user requests and session state flow natively through JSONL transcripts, \`sdlc_tasks\`, and structured MCP tool arguments (\`task\`, \`context\`, \`constraints\`, \`skills\`). Never look for or rely on retired file-based contracts.
 - **Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)**:
-  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`, \`/akatsuki <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (targeted subagent dispatch, zero DAG overhead, instant turnaround; all workflow gates remain authoritative).
+  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`, \`/akatsuki <prompt>\`, \`/yamanaka <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (targeted subagent dispatch, zero DAG overhead, instant turnaround; all workflow gates remain authoritative).
   - **Full SDLC Pipeline (Structured Track)**: Greenfield feature building, multi-subsystem refactors, and fullstack multi-agent tasks execute through the **Canonical 8-Phase DAG** with authoritative Gate 1 Plan approval and Gate 2 Delivery sign-off.
 - **Canonical 8-Phase Master Pipeline**: strictly adhere to the 8-phase SDLC lifecycle:
   - Phase 1 (Discovery, Recon & PRD: Genin & Chunin)
@@ -41,7 +39,7 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 6 (Automated Testing & QA: Anbu & Jonin)
   - Phase 7 (Security, Hardening & Audit: Akatsuki)
   - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
-- **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
+- **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead across all 9 canonical roles: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`, \`/yamanaka <prompt>\`.
 - **Authoritative Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
   - **Uniform rendering on EVERY client**: Antigravity, Claude Code, Cursor, Codex, OMP, OpenCode, CommandCode, Gemini CLI and the CLI/TUI all render gates identically. Render whatever the gate response returns; never suppress, summarize away, or auto-answer it.
   - **Interactive option picker (not number lookup)**: every gate payload carries a \`picker\` block naming the control this harness has. \`transport: native_tool\` → call the named tool with \`picker.call\` (OMP: \`ask\`; [CC]: \`AskUserQuestion\`). \`transport: web_picker\` → surface \`picker.url\`; it serves a real HTML form (option cards + custom-instruction field) that posts the verdict itself. Never print a numbered list and ask the human to retype a label; that is the text fallback, not the picker. Every transport submits through \`sannin({ task_dir, choice, refinement })\`, so a harness that ignores the picker still cannot bypass the gate.
@@ -88,7 +86,7 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
 - **IDE Directory Protection**: Access to IDE binary installation directories (containing \`Antigravity IDE.exe\`, \`dxcompiler.dll\`, \`resources.pak\`, etc.) is strictly forbidden across all file operations.
 - **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call \`konoha.build_from_text\` FIRST before creating files or scaffolding (or \`konoha.build_from_source\` whenFigma/OpenDesign/mockup sources are present). Author the 9-field design brief (product, industry, audience, primary_objective, user_outcome, information_architecture, interactions, visual_identity, technical_constraints) and derive the layout, theme strategy, and navigation from it; do not reuse a prior project layout. Compose domain-authentic layouts with zero emojis, meaningful automated tests, live browser verification, and the mandatory \`Build by konoha\` footer watermark + \`<meta name="generator" content="Build by konoha">\` tag, passing framework validation with 0 errors and 0 warnings.
 - **Parallel Git Worktree & Disjoint Ownership Contract**: Every mutating worker subagent (\`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`, \`@akatsuki\`, \`@yamanaka\`) executing in parallel is provisioned an isolated \`git worktree\` (\`worktree_path\`) and dedicated branch (\`konoha/agent/<agent>/<dispatch_id>\`) anchored to a shared \`base_sha\`. Workers MUST execute all edits inside their assigned \`worktree_path\`, touch only their \`owned_files\`, commit before \`report_from_agent\`, and leave zero conflict markers (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`). Read-only scouts (\`@genin\`, \`@chunin\`, \`@kage\`) never mutate files.
-- **Real-Time Idle @advisor Worker Guard (<= 1,000 tokens/turn)**: \`@advisor\` monitors worker subagent turns in real-time (0 tokens when idle, capped at <= 1,000 tokens per triggered turn) to intercept hallucinations, TODO drift, or worktree/ownership breaches on the fly.
+- **Real-Time Idle @advisor Worker Guard (<= 8,192 tokens/turn)**: \`@advisor\` starts at turn 0 across all 8 clients in idle supervision mode (0 tokens when compliant, capped at <= 8,192 tokens per triggered turn) watching every agent against the approved Plan, active TODOs, and User Goals, and issues direct steering (\`[ADVISOR STEER]\`) on drift.
 - **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
 - **Konoha-Bridge extension scoping invariant**: The \`konoha-bridge\` extension (\`andycungkrinx91.konoha-bridge\` / \`konoha-bridge-1.6.0.vsix\`) is exclusively for Antigravity IDE (\`~/.antigravity-ide/extensions/\`) and was removed in v2.2.1. It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
 - **Akatsuki Blue-Team Security Gate**: In the normal SDLC workflow, before Kage evaluates the delivery review gate, Akatsuki executes the Blue-Team Security Review Gate (SAST, secrets leakage audit, dependency CVE scan, Skill Guardian verification). Delivery is strictly BLOCKED until Akatsuki approves with security_reviewed=true. Offensive red-team operations run exclusively inside isolated unprivileged containers (akatsuki-lab).
@@ -136,63 +134,6 @@ function buildContractManifest(extra = {}) {
   };
 }
 
-function generateGenericSubagentMd(agent, client = 'generic') {
-  const DEFAULT_ROLE_DESCRIPTIONS = {
-    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
-    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
-    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
-    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across all modern frameworks with Tailwind v4',
-    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-team and blue-team security specialist; authorized security execution only',
-    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
-  };
-  const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
-  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-
-  let instructions = agent.instructions || '';
-  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
-  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
-  instructions = instructions.trim();
-  if (instructions && !instructions.endsWith('.')) {
-    instructions += '.';
-  }
-
-  if (agent.skills && agent.skills.length > 0) {
-    const skillList = agent.skills.map(s => `"${s}"`).join(', ');
-    const loadingInstruction = `MANDATORY FIRST ACTION before writing code: Call konoha.use_skills({ skills: [${skillList}] }) or konoha.get_skill to load your assigned domain guidelines into context. NEVER skip loading your assigned skills.`;
-    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
-    const logMatch = instructions.match(logPattern);
-    if (logMatch) {
-      const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `${loadingInstruction} ` + instructions.slice(insertIndex);
-    } else {
-      instructions = `${loadingInstruction} ` + instructions;
-    }
-  }
-
-  instructions = `${instructions}\n\n${buildSubagentContract(client)}`;
-  const searchLine = 'Search the codebase with konoha code_search / code_symbol / code_impact (native FTS5 index). Always pass the absolute root.';
-  const fileToolsLine = 'Read/inspect files using konoha MCP bounded file tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean).';
-
-  const toolGrants = buildSubagentToolGrants(client);
-  assertNoWildcardGrants(toolGrants, `subagent ${agent.name} (${client}) allowed-tools`);
-
-  const frontmatter = [
-    '---',
-    `name: ${agent.name}`,
-    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
-    'allowed-tools:',
-    ...toolGrants.map(t => `  - ${t}`),
-    '---',
-    ''
-  ];
-
-  return frontmatter.join('\n') + instructions + '\n\n' + searchLine + '\n' + fileToolsLine + '\n';
-}
-
 function buildProhibitedActionBlock() {
   const source = buildAgentContract({ client: 'konoha', role: 'main agent' });
   const lines = source.split('\n');
@@ -230,7 +171,7 @@ ${roleLabel} on ${clientLabel}. Mandatory every turn.
 - **RTK is mandatory**: prefix shell commands with \`rtk\`.
 - **Resume safety**: restore the Konoha/RTK workflow.
 - **HITL gates**: picker on every client; reply via \`sannin({task_dir,choice,refinement})\`; fail closed.
-- **Worktree/@advisor guard**: stay in \`owned_files\`; idle \`@advisor\` interrupts drift.
+- **Worktree/@advisor guard**: stay in \`owned_files\`; turn-0 idle \`@advisor\` steers Plan/TODO/Goal drift.
 - **@advisor review**: delivery needs approval.
 - **Zero-AI-Slop & Kage gate**: 100/100 + ≥98% confidence.
 - **Full contract**: \`get_skill('konoha/contract')\`.
@@ -297,6 +238,5 @@ module.exports = {
   buildProhibitedActionBlock,
   buildManagedContract,
   validateContractText,
-  buildContractManifest,
-  generateGenericSubagentMd
+  buildContractManifest
 };

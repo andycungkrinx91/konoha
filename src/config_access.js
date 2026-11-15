@@ -11,21 +11,29 @@
  * here surfaces it at startup instead of silently running on wrong tunables.
  */
 
-const CANDIDATES = ['../bin/lib/config_defaults', './bin/lib/config_defaults', '../../bin/lib/config_defaults'];
+const BIN_LIB_PREFIXES = ['../bin/lib/', './bin/lib/', '../../bin/lib/'];
 
-function load() {
-  for (const candidate of CANDIDATES) {
+/**
+ * Load a module from `bin/lib/` across dev (`src/`), flat mirror (`~/.konoha/`),
+ * and nested (`src/<sub/>`) execution layouts.
+ */
+function loadBinLib(moduleName) {
+  const cleanName = String(moduleName || '').replace(/^\/+/, '');
+  const tried = [];
+  for (const prefix of BIN_LIB_PREFIXES) {
+    const candidate = `${prefix}${cleanName}`;
+    tried.push(candidate);
     try {
       return require(candidate);
     } catch (_) { /* candidate unavailable in this layout */ }
   }
   throw new Error(
-    `config_defaults is unreachable (tried ${CANDIDATES.join(', ')}); ` +
+    `bin/lib/${cleanName} is unreachable (tried ${tried.join(', ')}); ` +
     'the install is incomplete — re-run `konoha upgrade` or reinstall.'
   );
 }
 
-const configDefaults = load();
+const configDefaults = loadBinLib('config_defaults');
 
 /**
  * `applyConfigEnv` for server processes: decrypts `enc:v1:` values through the
@@ -77,5 +85,6 @@ module.exports = {
   getConfig: configDefaults.getConfig,
   readUserConfig: configDefaults.readUserConfig,
   applyConfigEnv,
+  loadBinLib,
   isEncryptedValue: configDefaults.isEncryptedValue
 };

@@ -23,7 +23,8 @@ const REMINDER = [
   'For `/<subagent-name> <prompt>`: execute ONLY the requested subagent directly according to its specialization (do NOT route through Sannin or full SDLC workflow), followed by mandatory Kage review before delivery.',
   'For normal messages without `/konoha` or `/<subagent-name>`: preserve the AI client native behavior without Konoha interception.',
   'Within Konoha workflows: call konoha.find_skill first; code search via konoha code_search/code_symbol/code_impact; bounded file tools via konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
-  'completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100) and @advisor approval review before final delivery sign-off.'
+  '[TODO SYNC] Keep client native TODOs and walkthrough synchronized on every transition using client_todo_directive (TodoWrite/todowrite/update_plan/todo_write/task.md); on 100k input-token quota LangGraph compaction, resume directly from LATEST CONDITION CHECKPOINT;',
+  'completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100) and @advisor approval review before final delivery sign-off. Keep @advisor idle from turn 0 (<= 8,192 tok/turn) to watch plan/TODO/goal compliance and directly steer drifted agents.'
 ].join(' ');
 
 // Check if stdin provides a UserPromptSubmit payload without `/konoha` or `/<subagent-name>`

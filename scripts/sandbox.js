@@ -71,6 +71,8 @@ function sandboxPlan(runtime, options = {}) {
     '-e', 'KONOHA_TEST_SANDBOX=1',
     '-e', 'KONOHA_SANDBOX_CONTAINER=1',
     '-e', 'KONOHA_TEST_PARALLEL=1',
+    '-e', `KONOHA_TEST_TIMEOUT=${env.KONOHA_TEST_TIMEOUT || '1800000'}`,
+    ...(shardArgs.length > 0 ? ['-e', `KONOHA_SHARD_TIMEOUT=${env.KONOHA_SHARD_TIMEOUT || env.KONOHA_TEST_TIMEOUT || '1800000'}`] : []),
     '-e', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
     ...shardArgs,
     IMAGE, mode

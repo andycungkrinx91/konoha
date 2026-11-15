@@ -88,14 +88,22 @@ function run() {
     if (typeof labRecheck.close === 'function') labRecheck.close();
   }
 
-  // --- no module opens a database or spawns a process on its own ---------
+  // --- indexing/parsing never spawns processes or opens private DBs -------
   const codeIntelDir = path.join(__dirname, '..', 'src', 'code_intel');
   for (const file of fs.readdirSync(codeIntelDir).filter((f) => f.endsWith('.js'))) {
     const body = fs.readFileSync(path.join(codeIntelDir, file), 'utf8');
     assert.ok(!/new\s+DatabaseSync\s*\(/.test(body), `${file} must not open its own SQLite handle; go through src/db.js`);
-    assert.ok(!/child_process/.test(body), `${file} must not spawn a process; nothing in the analyzed repo may run`);
     assert.ok(!/generateDeterministicVector/.test(body), `${file} must not reach for hash-derived vectors`);
+    if (file === 'lsp_client.js') {
+      assert.ok(/shell:\s*false/.test(body), 'lsp_client.js must pass shell: false when spawning an LSP binary');
+      assert.ok(!/shell:\s*true/.test(body), 'lsp_client.js must never enable a shell');
+      assert.ok(!/\b(exec|execSync|execFile|spawnSync)\b/.test(body), 'lsp_client.js must only spawn stdio JSON-RPC clients');
+    } else {
+      assert.ok(!/child_process/.test(body), `${file} must not spawn a process; nothing in the analyzed repo may run`);
+    }
   }
+  const toolsBody = fs.readFileSync(path.join(codeIntelDir, 'tools.js'), 'utf8');
+  assert.ok(!/lsp_command/.test(toolsBody), 'MCP tool handlers must not accept arbitrary lsp_command overrides');
 
   // --- credentials never enter the index --------------------------------
   fs.writeFileSync(path.join(repo, '.env'), 'SECRET_TOKEN=abc123\n', 'utf8');

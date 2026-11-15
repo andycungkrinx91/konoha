@@ -394,14 +394,14 @@ engine instead of weakening the gate.
 
 Open the failed run from the Checks tab of the pull request (or Actions →
 Cross-Platform), pick the failed job, and expand the failed step. Job names carry the
-OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/8`.
+OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total>`.
 
 - `checks`: Install dependencies, Lint, Fresh-install smoke test. A lint failure names
   the file and rule; a smoke-test failure names the CLI command that exited non-zero.
-- `shard <n>/8`: the setup steps (seed, Playwright, web build, ffmpeg) then
+- `shard <n>/<shard_total>`: the setup steps (seed, Playwright, web build, ffmpeg) then
   `Test (shard)`. A failure there names the failing suite file and the harness log
   shows the first failing assertion. The first line of that step's log,
-  `[SHARD] <n>/8: <k> of <total> suites`, says what this shard was responsible for,
+  `[SHARD] <n>/<shard_total>: <k> of <total> suites`, says what this shard was responsible for,
   which is what distinguishes "this suite broke" from "this shard got the wrong list".
 
 ## How to re-run
@@ -771,11 +771,7 @@ Operational notes for the local Windows leg:
 
 Coverage gaps, by design:
 
-- The six `tests/test_yamanaka_*.js` suites are not run anywhere: Yamanaka 3D is
-  unreleased, so its suites are not part of the gate on this guest, on GitHub Actions,
-  or in `pnpm test`. The harness names every one it held back in the run banner, so the
-  log states what was not covered, and naming a suite on the command line still runs it:
-  `node tests/run_all.js test_yamanaka_langgraph_pipeline`. Nothing is deleted.
+- The six `tests/test_yamanaka_*.js` suites and Playwright `tests/e2e/yamanaka_3d_studio.spec.js` are skipped across all `2.2.*` versions (`/^2\.2\./`): Yamanaka 3D is planned/unreleased in `2.2.*`, so its suites are not part of the gate on this guest, on GitHub Actions, in `pnpm test`, or in `pnpm test:e2e`. The harness names every held-back suite in the run banner, so the log states what was skipped, and naming a unit suite on the command line still runs it: `node tests/run_all.js test_yamanaka_langgraph_pipeline`. Nothing is deleted.
 - The F42 Akatsuki lab declines to run in the guest: `src/workflow/akatsuki/lab.js` requires
   Docker on Windows, and the guest has no Docker. That is a fail-closed decline, not a suite
   failure.

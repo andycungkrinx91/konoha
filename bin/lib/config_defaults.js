@@ -57,6 +57,7 @@ const CONFIG_DEFAULTS = Object.freeze({
   mcp_daemon_superseded_poll_ms: 30000,
   // budgets / thresholds
   minimum_confidence: 98,
+  agent_input_token_quota: 100000,
   skill_top_k: 5,
   skill_candidate_k: 25,
   semantic_top_k: 10,
@@ -142,6 +143,7 @@ const SECRET_KEYS = Object.freeze([
 const ENV_ALIASES = Object.freeze({
   // budgets
   turn_budget: ['KONOHA_TURN_BUDGET'],
+  agent_input_token_quota: ['KONOHA_AGENT_INPUT_TOKEN_QUOTA'],
   hitl_mode: ['KONOHA_HITL_MODE'],
   advisor_mode: ['KONOHA_ADVISOR_MODE'],
   spinners: ['KONOHA_SPINNERS'],

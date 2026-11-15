@@ -40,6 +40,49 @@ const VALIDATION_EVIDENCE_PATTERN = new RegExp(
   'i'
 );
 
+function _realpathExistingPrefix(targetPath) {
+  let cur = path.resolve(targetPath);
+  const tail = [];
+  while (!fs.existsSync(cur)) {
+    const parent = path.dirname(cur);
+    if (parent === cur) return path.resolve(targetPath);
+    tail.unshift(path.basename(cur));
+    cur = parent;
+  }
+  const realBase = fs.realpathSync(cur);
+  return tail.length > 0 ? path.join(realBase, ...tail) : realBase;
+}
+
+function _isSubpathWithin(candidate, root) {
+  const rel = path.relative(path.resolve(root), path.resolve(candidate));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function _assertNoSymlinkedTaskPath(targetPath, rawTaskDir, allowedRoots) {
+  if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isSymbolicLink()) {
+    throw new Error(`Invalid task_dir "${rawTaskDir}": symlink task directories are not permitted.`);
+  }
+  const realTarget = _realpathExistingPrefix(targetPath);
+  const realRoots = allowedRoots.map(_realpathExistingPrefix);
+  if (!realRoots.some((root) => _isSubpathWithin(realTarget, root))) {
+    throw new Error(`Invalid task_dir "${rawTaskDir}": symlinked ancestor escapes permitted task roots.`);
+  }
+  const resolvedTarget = path.resolve(targetPath);
+  const deepestRoot = allowedRoots
+    .map((r) => path.resolve(r))
+    .filter((r) => _isSubpathWithin(resolvedTarget, r))
+    .sort((a, b) => b.length - a.length)[0];
+  if (deepestRoot) {
+    let cur = resolvedTarget;
+    while (cur && cur.length > deepestRoot.length && cur !== path.dirname(cur)) {
+      if (fs.existsSync(cur) && fs.lstatSync(cur).isSymbolicLink()) {
+        throw new Error(`Invalid task_dir "${rawTaskDir}": symlinked ancestor inside task root is not permitted.`);
+      }
+      cur = path.dirname(cur);
+    }
+  }
+}
+
 function getResolvedTaskDir(taskDir = null, projectPath = null, sessionId = null) {
   const tmpRoot = getKonohaTmpRoot(projectPath, sessionId);
   const tasksDir = path.join(tmpRoot, 'scratch', 'tasks');
@@ -55,10 +98,34 @@ function getResolvedTaskDir(taskDir = null, projectPath = null, sessionId = null
     }
     return path.join(tasksDir, 'default');
   }
-  if (!path.isAbsolute(taskDir)) {
-    return path.resolve(path.join(tasksDir, taskDir));
+  const rawTaskDir = String(taskDir);
+  if (rawTaskDir.includes('\0')) {
+    throw new Error('Invalid task_dir: null byte not allowed.');
   }
-  return taskDir;
+  const absTasksDir = path.resolve(tasksDir);
+  if (!path.isAbsolute(rawTaskDir)) {
+    const resolved = path.resolve(absTasksDir, rawTaskDir);
+    const rel = path.relative(absTasksDir, resolved);
+    if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+      throw new Error(`Invalid relative task_dir "${rawTaskDir}": escapes tasks root.`);
+    }
+    _assertNoSymlinkedTaskPath(resolved, rawTaskDir, [absTasksDir]);
+    return resolved;
+  }
+  const resolvedAbs = path.resolve(rawTaskDir);
+  const os = require('os');
+  const absTmp = path.resolve(tmpRoot);
+  const absKonohaTmpBase = path.resolve(process.env.KONOHA_TMP_ROOT || path.join(os.homedir(), '.konoha', 'tmp'));
+  const absOsTmp = path.resolve(os.tmpdir());
+  const insideRoot = (candidate, rootDir) => {
+    const rel = path.relative(rootDir, candidate);
+    return rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel));
+  };
+  if (!insideRoot(resolvedAbs, absTasksDir) && !insideRoot(resolvedAbs, absTmp) && !insideRoot(resolvedAbs, absKonohaTmpBase) && !insideRoot(resolvedAbs, absOsTmp)) {
+    throw new Error(`Invalid task_dir "${rawTaskDir}": must reside inside Konoha tasks root or system temp directory.`);
+  }
+  _assertNoSymlinkedTaskPath(resolvedAbs, rawTaskDir, [absTasksDir, absTmp, absKonohaTmpBase, absOsTmp]);
+  return resolvedAbs;
 }
 
 function readFileSafe(filePath) {
@@ -89,8 +156,19 @@ function loadWorkflowStatus(taskDir) {
 }
 
 function saveWorkflowStatus(taskDir, status) {
-  const statusPath = path.join(taskDir, 'status.json');
-  fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), 'utf8');
+  const statusPath = path.join(path.resolve(taskDir), 'status.json');
+  if (fs.existsSync(statusPath) && fs.lstatSync(statusPath).isSymbolicLink()) {
+    throw new Error(`Refusing to write symlinked workflow status file: ${statusPath}`);
+  }
+  fs.mkdirSync(path.dirname(statusPath), { recursive: true });
+  const tmpPath = `${statusPath}.tmp.${process.pid}.${Math.random().toString(36).slice(2, 8)}`;
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(status, null, 2), { encoding: 'utf8', flag: 'wx' });
+    fs.renameSync(tmpPath, statusPath);
+  } catch (err) {
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (_) { /* ignore */ }
+    throw err;
+  }
 }
 
 function workflowHash(filePath) {

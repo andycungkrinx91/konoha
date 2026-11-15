@@ -19,7 +19,8 @@ const {
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 const { autoMigrateProjectSkills } = require('./skills');
-const { executeTool } = require('./tool_dispatch');
+const { executeTool, WORKFLOW_GRAPH_TOOLS, validateManifestArguments } = require('./tool_dispatch');
+const { createRequestScheduler } = require('./request_scheduler');
 
 const ANTIGRAVITY_CLI = path.join(GEMINI_DIR, 'antigravity-cli');
 const ANTIGRAVITY_IDE = path.join(GEMINI_DIR, 'antigravity-ide');
@@ -131,7 +132,7 @@ function _normalizeToolArgs(rawArgs, toolName) {
   try {
     return JSON.parse(args);
   } catch (_) {
-    const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+    const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki', 'yamanaka'];
     if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
       return { task: args.trim() };
     }
@@ -145,6 +146,19 @@ async function _handleToolsCall(p, rid) {
   const knownTools = new Set((MCP_MANIFEST.tools || []).map(t => t.name));
   if (!toolName || !knownTools.has(toolName)) {
     return { jsonrpc: '2.0', id: rid, error: { code: -32601, message: `Unknown tool: ${toolName}` } };
+  }
+
+  try {
+    validateManifestArguments(toolName, args);
+  } catch (err) {
+    return {
+      jsonrpc: '2.0',
+      id: rid,
+      result: {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'invalid_arguments', message: err.message, tool: toolName }) }],
+        isError: true
+      }
+    };
   }
 
   let resultText;
@@ -219,20 +233,18 @@ async function main() {
     input: process.stdin,
     terminal: false
   });
+  let resolveDone;
+  const done = new Promise((resolve) => { resolveDone = resolve; });
+  const scheduler = createRequestScheduler({
+    serializedTools: WORKFLOW_GRAPH_TOOLS,
+    handleRequest,
+    writeLine: (obj) => console.log(JSON.stringify(obj)),
+    onIdleClose: resolveDone
+  });
 
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const req = JSON.parse(trimmed);
-      const resp = await handleRequest(req);
-      if (resp !== null) {
-        console.log(JSON.stringify(resp));
-      }
-    } catch (e) {
-      console.log(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${e.message}` } }));
-    }
-  }
+  rl.on('line', (line) => scheduler.enqueueLine(line));
+  rl.on('close', () => scheduler.markClosing());
+  await done;
 }
 
 module.exports = {

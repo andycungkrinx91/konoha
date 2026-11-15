@@ -507,7 +507,7 @@ function _handleScanResultVerdict(scanResult, skillName) {
 }
 
 function _deploySkillTargets(stagedPath, skillName, _options) {
-  const { AGENTS } = require('../../../bin/lib/paths');
+  const { AGENTS } = require('../../config_access').loadBinLib('paths');
   const deployUtils = require('../../deploy_utils');
   const globalTargetDir = path.join(AGENTS, 'skills', skillName);
 

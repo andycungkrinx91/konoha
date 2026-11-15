@@ -119,7 +119,9 @@ for (const client of CLIENTS) {
   assert.strictEqual(sanninRes.selected_agent, 'anbu', 'Backend prompt must route to anbu');
   assert.strictEqual(sanninRes.execution_mode, 'delegate', 'Execution mode must be delegate');
   assert.ok(sanninRes.instructions.includes('## Spawn (mandatory)'), `Instructions must include spawn directive for ${client}`);
-  console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}`);
+  assert.ok(sanninRes.advisor_supervisor && sanninRes.advisor_supervisor.started_from_beginning === true && sanninRes.advisor_supervisor.state === 'idle', `Sannin must start @advisor idle from turn 0 for ${client}`);
+  assert.ok(sanninRes.advisor_spawn_directive && sanninRes.advisor_spawn_directive.agent === 'advisor' && sanninRes.advisor_spawn_directive.started_from_beginning === true, `Sannin must return advisor_spawn_directive for ${client}`);
+  console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}, advisor=${sanninRes.advisor_supervisor.state}`);
 
   // C. Genin invoked for exploration
   const exploreRaw = agentManager.dispatchWorkflow(sanninRes.task_dir);
@@ -171,6 +173,16 @@ for (const client of CLIENTS) {
   console.log('  ✓ Reached Gate 1 (Plan Approval) checkpoint and approved interactively');
 
   // E. Direct MCP argument enforcement & bypass rejection
+  // Queue an advisor steer for anbu and confirm direct MCP agent runner injects it automatically
+  const { enqueueAdvisorSteer } = require('../src/workflow/kage-reviewer/advisor_monitor');
+  enqueueAdvisorSteer({
+    taskDir: sanninRes.task_dir,
+    client,
+    targetAgent: 'anbu',
+    violations: [{ type: 'todo_drift', detail: 'stay on auth controller' }],
+    directive: `[ADVISOR STEER] Stay aligned on auth controller for ${client}`
+  });
+
   // Direct MCP call succeeds
   const directMcpRaw = runMcpAgent('anbu', {
     task: 'Add audit log interceptor to auth controller',
@@ -178,12 +190,15 @@ for (const client of CLIENTS) {
     constraints: 'zero downtime',
     taskId: sanninRes.task_id,
     projectPath: clientProj,
-    sessionId: testSession
+    sessionId: testSession,
+    taskDir: sanninRes.task_dir
   });
   const directMcpRes = JSON.parse(directMcpRaw);
   assert.strictEqual(directMcpRes.status, 'ready');
   assert.strictEqual(directMcpRes.agent, 'anbu');
   assert.strictEqual(directMcpRes.phase, 'execution');
+  assert.ok(Array.isArray(directMcpRes.advisor_steers_delivered) && directMcpRes.advisor_steers_delivered.length === 1, `runMcpAgent must deliver pending advisor steer for ${client}`);
+  assert.ok(directMcpRes.instructions.includes('[ADVISOR STEER DIRECTIVE'), `Instructions must carry injected [ADVISOR STEER DIRECTIVE for ${client}`);
 
   // Retired file IPC rejection
   const bypassEmptyRaw = runMcpAgent('anbu', {});

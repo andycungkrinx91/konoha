@@ -12,11 +12,11 @@ Every official Konoha subagent must follow this contract on every new, resumed, 
 | `mcp__konoha__code_search` | Project source code search (default for any codebase lookup) |
 | `mcp__konoha__code_symbol` | Symbol definition lookup |
 | `mcp__konoha__code_impact` | Callers / blast radius (default for tracing callsites) |
+| `mcp__konoha__code_related` | Related symbols and files via structural + semantic graph |
 | `mcp__konoha__find_skill` | Discover skill reference names from the prompt |
 | `mcp__konoha__get_skill` | Load a skill's full content after discovery |
 | `mcp__konoha__list_skills` | Browse available skills |
 | `mcp__konoha__optimize_report` | Analyze task complexity and skill workflows |
-| `mcp__konoha__build_with_image_design` | Compatibility alias for source-driven UI builds |
 | `mcp__konoha__build_from_source` | Build UI from source mockups |
 | `mcp__konoha__build_from_text` | Build UI from a text description |
 | `mcp__konoha__read_file_head` | Bounded file read preview |

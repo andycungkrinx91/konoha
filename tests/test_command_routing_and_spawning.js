@@ -76,11 +76,16 @@ function runTests() {
       assert.ok(directive.includes('anbu'), `Spawn directive for ${c} must reference target agent`);
     }
 
-    // Pi ships no native subagent tool, so it must route through the CLI runner
-    // instead of being handed a directive that names a tool it does not have.
-    const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test' });
-    assert.ok(piDirective.includes('anbu'), 'Pi spawn directive must still reference the target agent');
-    assert.ok(piDirective.includes('run-agent'), 'Pi must fall back to the konoha CLI runner');
+    // Bare Pi ships no native subagent tool, so it must fail closed with
+    // UNSUPPORTED_NATIVE_SPAWN instead of silently emulating native spawning.
+    const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test', piSubagentSupported: false });
+    const piErr = JSON.parse(piDirective);
+    assert.strictEqual(piErr.ok, false, 'Bare Pi spawn must fail closed');
+    assert.strictEqual(piErr.error_code, 'UNSUPPORTED_NATIVE_SPAWN', 'Bare Pi must return UNSUPPORTED_NATIVE_SPAWN');
+    assert.ok(piErr.action.includes('pi-subagents'), 'Bare Pi error must explain installing pi-subagents');
+
+    const piExtDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test', piSubagentSupported: true });
+    assert.ok(piExtDirective.includes('subagent(agent="anbu"'), 'Pi with pi-subagents must emit subagent(...) directive');
 
     const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
     const runAgentRes = spawnSync(process.execPath, [

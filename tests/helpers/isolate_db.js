@@ -42,8 +42,10 @@ try {
         if (!testTables.includes(t)) {
           throw new Error(`[isolate_db] Schema parity error: table '${t}' missing from isolated DB`);
         }
-        const prodCols = prodConn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`);
-        const testCols = conn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`);
+        // Sort columns by name because upgraded DBs append columns via ALTER TABLE
+        // while fresh DBs declare them inside CREATE TABLE.
+        const prodCols = prodConn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`).sort();
+        const testCols = conn.prepare(`PRAGMA table_info(${t})`).all().map(c => `${c.name}:${c.type}:${c.pk}`).sort();
         if (prodCols.join(',') !== testCols.join(',')) {
           throw new Error(`[isolate_db] Schema parity error: column mismatch for table '${t}'`);
         }

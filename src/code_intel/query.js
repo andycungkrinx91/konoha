@@ -17,9 +17,14 @@ const {
 const {
   EMBED_MODEL_REPO,
   isSemanticSearchEnabled,
+  getRuntimeStatus,
   embedText,
   rerank
 } = require('../vector_pipeline');
+
+function _isSemanticUnavailableError(err) {
+  return Boolean(err && (err.name === 'EmbeddingRuntimeUnavailableError' || err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE'));
+}
 const { reciprocalRankFusion } = require('../vector_chunker');
 const { related, relatedAsync } = require('./related');
 
@@ -308,28 +313,41 @@ async function searchAsync(options = {}) {
   const relaxedKeys = _addRowListToRank(candMap, lex.relaxedRows.length > 0 ? lex.relaxedRows : lex.likeRows, mapSqlRow);
   if (relaxedKeys.length > 0) rankLists.push(relaxedKeys);
 
+  const wantSemantic = options.semantic !== false;
+  const wantRerank = options.rerank !== false;
+  const runtime = (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
+  let semanticReason = null;
+  if (wantSemantic && runtime && !runtime.available) {
+    semanticReason = runtime.reason || 'semantic runtime unavailable';
+  }
+
   let vecCount = 0;
-  if (options.semantic !== false && isSemanticSearchEnabled()) {
+  if (wantSemantic && runtime && runtime.available && isSemanticSearchEnabled()) {
     const modelRepo = options.embeddingModel || EMBED_MODEL_REPO;
-    const queryVec = await embedText(String(query), { modelRepo });
-    const vecRows = store.searchVectorCandidates(conn, rootHash, queryVec, {
-      model: modelRepo,
-      limit: candidateK,
-      contentKind
-    });
-    vecCount = vecRows.length;
-    const vecKeys = _addRowListToRank(candMap, vecRows, (v) => ({
-      chunkId: v.chunkId,
-      fileId: v.fileId,
-      relPath: v.relPath,
-      language: v.language,
-      startLine: v.startLine,
-      endLine: v.endLine,
-      symbolName: v.symbolName || '',
-      body: v.body,
-      vectorScore: Number(v.score)
-    }));
-    if (vecKeys.length > 0) rankLists.push(vecKeys);
+    try {
+      const queryVec = await embedText(String(query), { modelRepo });
+      const vecRows = store.searchVectorCandidates(conn, rootHash, queryVec, {
+        model: modelRepo,
+        limit: candidateK,
+        contentKind
+      });
+      vecCount = vecRows.length;
+      const vecKeys = _addRowListToRank(candMap, vecRows, (v) => ({
+        chunkId: v.chunkId,
+        fileId: v.fileId,
+        relPath: v.relPath,
+        language: v.language,
+        startLine: v.startLine,
+        endLine: v.endLine,
+        symbolName: v.symbolName || '',
+        body: v.body,
+        vectorScore: Number(v.score)
+      }));
+      if (vecKeys.length > 0) rankLists.push(vecKeys);
+    } catch (err) {
+      if (!_isSemanticUnavailableError(err)) throw err;
+      semanticReason = err.message;
+    }
   }
 
   const seedFileIds = Array.from(new Set(lex.strictRows.map((r) => r.file_id)));
@@ -342,9 +360,10 @@ async function searchAsync(options = {}) {
   if (rankLists.length === 0) {
     return {
       query,
-      degraded: lex.degradedLexical && vecCount === 0,
+      degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
       semantic_applied: vecCount > 0,
       reranked: false,
+      ...(semanticReason ? { reason: semanticReason } : {}),
       total: 0,
       hits: []
     };
@@ -358,23 +377,38 @@ async function searchAsync(options = {}) {
     rrfScore: Number(rrfScore.toFixed(6))
   }));
 
-  const useRerank = options.rerank !== false && isSemanticSearchEnabled() && pool.length > 0;
-  let hits;
-  if (useRerank) {
-    const reranked = await rerank(String(query), pool, { topK: limit });
-    hits = reranked.map((r) => ({
-      relPath: r.relPath,
-      language: r.language,
-      startLine: r.startLine,
-      endLine: r.endLine,
-      symbolName: r.symbolName,
-      score: Number((0.55 * (r.rrfNorm || 0) + 0.45 * (r.rerank_score || 0)).toFixed(6)),
-      rrfScore: r.rrfScore,
-      rerankScore: r.rerank_score,
-      vectorScore: r.vectorScore || 0,
-      snippet: _snippet(r.body)
-    }));
-  } else {
+  const rerankCapable = wantRerank
+    && runtime
+    && runtime.available
+    && isSemanticSearchEnabled()
+    && (!runtime.offline || (runtime.rerankModel && runtime.rerankModel.cached));
+  if (wantRerank && !semanticReason && !rerankCapable) {
+    semanticReason = (runtime && runtime.reason) || 'rerank runtime unavailable';
+  }
+  let didRerank = false;
+  let hits = null;
+  if (rerankCapable && pool.length > 0 && !semanticReason) {
+    try {
+      const reranked = await rerank(String(query), pool, { topK: limit });
+      didRerank = true;
+      hits = reranked.map((r) => ({
+        relPath: r.relPath,
+        language: r.language,
+        startLine: r.startLine,
+        endLine: r.endLine,
+        symbolName: r.symbolName,
+        score: Number((0.55 * (r.rrfNorm || 0) + 0.45 * (r.rerank_score || 0)).toFixed(6)),
+        rrfScore: r.rrfScore,
+        rerankScore: r.rerank_score,
+        vectorScore: r.vectorScore || 0,
+        snippet: _snippet(r.body)
+      }));
+    } catch (err) {
+      if (!_isSemanticUnavailableError(err)) throw err;
+      semanticReason = err.message;
+    }
+  }
+  if (!hits) {
     hits = pool.slice(0, limit).map((r) => ({
       relPath: r.relPath,
       language: r.language,
@@ -391,9 +425,10 @@ async function searchAsync(options = {}) {
 
   return {
     query,
-    degraded: lex.degradedLexical && vecCount === 0,
+    degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
     semantic_applied: vecCount > 0,
-    reranked: useRerank,
+    reranked: didRerank,
+    ...(semanticReason ? { reason: semanticReason } : {}),
     total: hits.length,
     hits
   };
@@ -441,7 +476,9 @@ function findSymbol(options = {}) {
 }
 
 function _assembleContextText(chunks, hasWindow, startLine, endLine) {
-  if (!chunks || chunks.length === 0) return '';
+  if (!chunks || chunks.length === 0) {
+    return { text: '', actualStart: 0, actualEnd: 0, outOfRange: Boolean(hasWindow), truncated: false };
+  }
   const lineMap = new Map();
   for (const chunk of chunks) {
     const lines = String(chunk.body || '').split('\n');
@@ -451,11 +488,19 @@ function _assembleContextText(chunks, hasWindow, startLine, endLine) {
     }
   }
   const sortedNos = Array.from(lineMap.keys()).sort((a, b) => a - b);
-  const clipped = hasWindow
+  const chosen = hasWindow
     ? sortedNos.filter((n) => n >= startLine && n <= endLine)
     : sortedNos;
-  const chosen = clipped.length > 0 ? clipped : sortedNos;
-  return chosen.map((n) => lineMap.get(n)).join('\n');
+  if (chosen.length === 0) {
+    return { text: '', actualStart: 0, actualEnd: 0, outOfRange: Boolean(hasWindow), truncated: false };
+  }
+  return {
+    text: chosen.map((n) => lineMap.get(n)).join('\n'),
+    actualStart: chosen[0],
+    actualEnd: chosen[chosen.length - 1],
+    outOfRange: false,
+    truncated: false
+  };
 }
 
 /** Returns the indexed source for one file, or for a line window inside it. */
@@ -484,14 +529,15 @@ function getContext(options = {}) {
     : conn.prepare(`SELECT start_line, end_line, body FROM code_chunks
         WHERE file_id = ? ORDER BY start_line ASC`).all(file.id);
 
-  const text = _assembleContextText(chunks, hasWindow, startLine, endLine);
+  const assembled = _assembleContextText(chunks, hasWindow, startLine, endLine);
   return {
     relPath,
     language: file.language,
-    startLine,
-    endLine,
-    truncated: chunks.length === 0,
-    text: text || ''
+    startLine: assembled.actualStart,
+    endLine: assembled.actualEnd,
+    outOfRange: assembled.outOfRange,
+    truncated: assembled.truncated,
+    text: assembled.text
   };
 }
 

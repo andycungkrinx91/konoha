@@ -17,7 +17,7 @@ const RUNTIME_LICENSE_SRC = path.join(RUNTIME_PKG_DIR, 'LICENSE');
 const TREE_SITTER_CLI_VERSION = '0.27.2';
 
 /**
- * Pinned authoritative MIT grammar upstream definitions (11 languages).
+ * Pinned authoritative MIT grammar upstream definitions (10 WASM grammars).
  */
 const GRAMMAR_SOURCES = Object.freeze([
   {
@@ -67,14 +67,6 @@ const GRAMMAR_SOURCES = Object.freeze([
     file: 'tree-sitter-rust.wasm',
     releaseAsset: 'tree-sitter-rust.wasm',
     sample: 'pub fn add(a: i32, b: i32) -> i32 { a + b }'
-  },
-  {
-    language: 'java',
-    repo: 'tree-sitter/tree-sitter-java',
-    tag: 'v0.23.5',
-    file: 'tree-sitter-java.wasm',
-    releaseAsset: 'tree-sitter-java.wasm',
-    sample: 'public class App { public int run() { return 1; } }'
   },
   {
     language: 'c',
@@ -327,7 +319,7 @@ async function _resolveSpecWasm(spec, repoMeta, prebuiltSqlPath) {
 }
 
 /**
- * Download/compile all 11 pinned MIT grammars and runtime WASM, verify ABI & parses,
+ * Download/compile all 10 pinned MIT grammars and runtime WASM, verify ABI & parses,
  * and write grammars.lock.json + THIRD_PARTY_LICENSES.txt.
  * @param {{ grammarsDir?: string, prebuiltSqlPath?: string }} [options]
  * @returns {Promise<{ ok: boolean, lockfilePath: string, grammars: object[] }>}
@@ -411,7 +403,7 @@ async function buildGrammars(options = {}) {
 }
 
 /**
- * Offline verification of runtime WASM, 11 locked grammar WASMs, SHA-256 digests,
+ * Offline verification of runtime WASM, 10 locked grammar WASMs, SHA-256 digests,
  * MIT licenses, ABI compatibility, and parse smoke checks.
  * @param {{ grammarsDir?: string }} [options]
  * @returns {Promise<{ ok: boolean, verifiedCount: number, runtime: object, grammars: object[] }>}

@@ -369,9 +369,13 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
     }
 
     const resolvedTaskDir = (parsedSannin && parsedSannin.task_dir) || getResolvedTaskDir(args.task_dir, projPath, sessId);
-    const threadId = args.thread_id || args.threadId || (parsedSannin && parsedSannin.task_id) || (resolvedTaskDir ? path.basename(resolvedTaskDir) : 'default-thread');
+    const dirTaskId = resolvedTaskDir ? path.basename(resolvedTaskDir) : '';
+    const dirScopeHash = resolvedTaskDir
+      ? require('crypto').createHash('sha256').update(path.resolve(resolvedTaskDir)).digest('hex').slice(0, 8) : '';
+    const threadId = (dirTaskId && dirScopeHash) ? `${dirTaskId}-${dirScopeHash}` : ((parsedSannin && parsedSannin.task_id) || dirTaskId || 'default-thread');
     const tokenBudget = args.token_budget || args.tokenBudget;
-    const autoSignoff = Boolean(args.auto_signoff);
+    const _sdlcCfg = require('../workflow/kage-reviewer/sdlc_manager').getProjectSdlcConfig(projPath);
+    const autoSignoff = Boolean(args.auto_signoff && ((_sdlcCfg && _sdlcCfg.hitl_mode) || 'enabled') === 'disabled');
 
     try {
       const { sanninWorkflowInit } = require('./workflow');

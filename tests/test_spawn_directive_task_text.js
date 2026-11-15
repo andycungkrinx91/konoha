@@ -35,14 +35,19 @@ function runTests() {
     assert.ok(worktreeDirective.includes('/tmp/wt-1'), `${client}: worktree spawn must still carry the worktree path`);
   }
 
-  const cliOnly = buildSpawnDirective({ client: 'unknown-client', agent: 'anbu', prompt: TASK });
-  assert.ok(cliOnly.includes(TASK), 'CLI fallback must carry the task text');
+  const unsupportedErr = JSON.parse(buildSpawnDirective({ client: 'unknown-client', agent: 'anbu', prompt: TASK }));
+  assert.strictEqual(unsupportedErr.ok, false, 'Unknown harness must fail closed');
+  assert.strictEqual(unsupportedErr.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
 
-  // Pi has no native subagent tool, so it must not be promised one.
-  assert.strictEqual(CLIENT_SPAWN.pi, undefined, 'Pi must not advertise a spawn tool it does not have');
-  const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: TASK });
+  // Bare Pi has no native subagent tool and must fail closed instead of silently emulating.
+  assert.strictEqual(CLIENT_SPAWN.pi, undefined, 'Pi must not advertise a spawn tool it does not have by default');
+  const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: TASK, piSubagentSupported: false });
   assert.ok(!piDirective.includes('task(agent='), 'Pi directive must not name a non-existent task tool');
-  assert.ok(piDirective.includes('run-agent'), 'Pi must fall back to the CLI runner');
+  const piErr = JSON.parse(piDirective);
+  assert.strictEqual(piErr.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
+  const piExt = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: TASK, piSubagentSupported: true });
+  assert.ok(piExt.includes(TASK), 'Pi with pi-subagents extension must carry the task text');
+  assert.ok(piExt.includes('subagent(agent="anbu"'), 'Pi with pi-subagents extension must invoke subagent tool');
 
   const parallel = buildParallelSpawnDirective({
     client: 'claude',
@@ -57,8 +62,10 @@ function runTests() {
   assert.ok(!parallel.includes('…'), 'parallel wave must not emit a placeholder task');
 
   const oversized = 'x'.repeat(5000);
-  const bounded = buildSpawnDirective({ client: 'claude', agent: 'anbu', prompt: oversized });
-  assert.ok(bounded.length < 3000, 'oversized task must be bounded so the prompt ceiling still holds');
+  for (const client of clientKeys) {
+    const bounded = buildSpawnDirective({ client, agent: 'anbu', prompt: oversized });
+    assert.ok(bounded.length < 3000, `${client}: oversized task must be bounded < 3000B, got ${bounded.length}`);
+  }
 
   console.log('✓ spawn directives carry task text across all clients');
 }

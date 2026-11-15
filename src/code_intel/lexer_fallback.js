@@ -10,15 +10,12 @@
  */
 
 const { MAX_SYMBOLS_PER_FILE, MAX_REFS_PER_FILE } = require('./config');
+const {
+  BRACE_LANGUAGES: BRACE_LANGS,
+  FALLBACK_SUPPORTED_LANGUAGES: SUPPORTED
+} = require('./capabilities');
 
 const FALLBACK_PARSER_VERSION = 'fallback-lexer-v1';
-
-const BRACE_LANGS = new Set([
-  'javascript', 'typescript', 'go', 'rust', 'java', 'csharp',
-  'kotlin', 'swift', 'c', 'cpp', 'ruby', 'php'
-]);
-
-const SUPPORTED = new Set([...BRACE_LANGS, 'python', 'shell', 'sql', 'markdown']);
 
 const KEYWORDS = new Set([
   'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue',
@@ -47,13 +44,14 @@ const DECL_KEYWORDS = {
   interface: 'interface',
   struct: 'class',
   trait: 'interface',
+  protocol: 'interface',
   enum: 'enum',
   namespace: 'namespace',
   module: 'namespace',
   impl: 'impl'
 };
 
-const BRACE_DECL_KEYWORDS = new Set(['function', 'func', 'fn']);
+const BRACE_DECL_KEYWORDS = new Set(['function', 'func', 'fn', 'fun']);
 
 function _isIdentStart(ch) {
   return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_' || ch === '$';
@@ -156,7 +154,7 @@ function _nextToken(src, cursor, prev, hashComments) {
 function tokenize(src, language) {
   const tokens = [];
   const n = src.length;
-  const hashComments = language === 'python' || language === 'ruby' || language === 'shell';
+  const hashComments = language === 'python' || language === 'ruby' || language === 'shell' || language === 'elixir';
   let i = 0;
   let line = 1;
   let prev = null;
@@ -463,13 +461,122 @@ function _parsePython(src, language) {
   return { symbols, refs: _collectPythonRefs(src, language, symbols, declLine) };
 }
 
+function _extractJsTsImports(src) {
+  const imports = [];
+  const seen = new Set();
+  const pushSpec = (edgeKind, specifier, line) => {
+    if (!specifier) return;
+    const key = `${edgeKind}:${specifier}:${line}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      imports.push({ edgeKind, specifier, names: [], line });
+    }
+  };
+  const pushHeritage = (edgeKind, sourceSymbolName, rawList, line) => {
+    const names = String(rawList || '')
+      .split(',')
+      .map((s) => s.trim().replace(/[<{(].*$/, '').split('.').pop().trim())
+      .filter((s) => /^[A-Za-z_$][\w$]*$/.test(s));
+    if (names.length > 0) {
+      imports.push({ edgeKind, specifier: '', names, sourceSymbolName, line });
+    }
+  };
+  const lines = src.split('\n');
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = idx + 1;
+    const raw = lines[idx].trim();
+    if (!raw || raw.startsWith('//') || raw.startsWith('*') || raw.startsWith('/*')) continue;
+    let m;
+    if ((m = raw.match(/^export\s+(?:\*|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/))) pushSpec('reexports', m[1], line);
+    if ((m = raw.match(/^import\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/))) pushSpec('imports', m[1], line);
+    const reqRe = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+    while ((m = reqRe.exec(raw)) !== null) pushSpec('imports', m[1], line);
+    const cls = raw.match(/(?:^|\s)(?:export\s+(?:default\s+)?)?(?:abstract\s+)?(class|interface)\s+([A-Za-z_$][\w$]*)(?:\s*<[^>]*>)?([^;{]*)/);
+    if (cls) {
+      const symName = cls[2];
+      const clause = cls[3] || '';
+      const extM = clause.match(/\bextends\s+([^{]+?)(?=\bimplements\b|$)/);
+      if (extM) pushHeritage('extends', symName, extM[1], line);
+      const impM = clause.match(/\bimplements\s+([^{]+)/);
+      if (impM) pushHeritage('implements', symName, impM[1], line);
+    }
+  }
+  return imports;
+}
+
+function _extractOtherImports(src, language) {
+  const imports = [];
+  const lines = src.split('\n');
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = idx + 1;
+    const raw = lines[idx].trim();
+    if (!raw) continue;
+    let m;
+    if (language === 'python') {
+      if (raw.startsWith('#')) continue;
+      if ((m = raw.match(/^from\s+([A-Za-z0-9_.]+)\s+import\b/))) imports.push({ edgeKind: 'imports', specifier: m[1], names: [], line });
+      else if ((m = raw.match(/^import\s+([A-Za-z0-9_.]+)/))) imports.push({ edgeKind: 'imports', specifier: m[1], names: [], line });
+      else if ((m = raw.match(/^class\s+([A-Za-z_]\w*)\s*\(([^)]+)\)/))) {
+        const names = m[2].split(',').map((s) => s.trim().split('.').pop().trim()).filter((s) => /^[A-Za-z_]\w*$/.test(s));
+        if (names.length > 0) imports.push({ edgeKind: 'extends', specifier: '', names, sourceSymbolName: m[1], line });
+      }
+    } else if (language === 'go' && (m = raw.match(/^(?:import\s+)?(?:[A-Za-z_.\w]*\s+)?["]([^"]+)["]/))) {
+      imports.push({ edgeKind: 'imports', specifier: m[1], names: [], line });
+    } else if (language === 'rust') {
+      if ((m = raw.match(/^(?:pub\s+)?use\s+([^;]+);/))) imports.push({ edgeKind: 'imports', specifier: m[1].trim(), names: [], line });
+      else if ((m = raw.match(/^(?:pub\s+)?mod\s+([A-Za-z_]\w*)\s*;/))) imports.push({ edgeKind: 'imports', specifier: m[1], names: [], line });
+    } else if ((language === 'c' || language === 'cpp') && (m = raw.match(/^#\s*include\s+[<"]([^>"]+)[>"]/))) {
+      imports.push({ edgeKind: 'imports', specifier: m[1], names: [], line });
+    }
+  }
+  return imports;
+}
+
+function _parseRubyOrElixir(src, language) {
+  const lines = src.split('\n');
+  const symbols = [];
+  const declLine = new Set();
+  for (let idx = 0; idx < lines.length; idx++) {
+    const raw = lines[idx];
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    const m = raw.match(/^\s*(defmodule|defprotocol|defimpl|defmacro|defp|def|class|module)\s+([A-Za-z_][\w.!?]*)/);
+    if (!m) continue;
+    const kw = m[1];
+    const kind = kw === 'class' || kw === 'defimpl' ? 'class' : (kw === 'module' || kw === 'defmodule' || kw === 'defprotocol' ? 'namespace' : 'function');
+    symbols.push({
+      name: m[2].split('.').pop(),
+      kind,
+      parentName: '',
+      startLine: idx + 1,
+      endLine: _pythonSymbolEnd(lines, idx, _indentOf(raw)),
+      signature: raw.trim().slice(0, 200),
+      language
+    });
+    declLine.add(idx + 1);
+    if (symbols.length >= MAX_SYMBOLS_PER_FILE) break;
+  }
+  return { symbols, refs: _collectPythonRefs(src, language, symbols, declLine), imports: [] };
+}
+
+function extractFallbackImports(src, language) {
+  if (language === 'javascript' || language === 'typescript') return _extractJsTsImports(src);
+  return _extractOtherImports(src, language);
+}
+
 function parseFile(source, language) {
   if (!SUPPORTED.has(language)) return { symbols: [], refs: [] };
-  if (language === 'python') return _parsePython(source, language);
+  if (language === 'python') {
+    const res = _parsePython(source, language);
+    return { ...res, imports: extractFallbackImports(source, language) };
+  }
+  if (language === 'ruby' || language === 'elixir') {
+    return _parseRubyOrElixir(source, language);
+  }
   if (language === 'markdown' || language === 'sql' || language === 'shell') {
     return { symbols: [], refs: [] };
   }
-  return _parseBraceLanguage(source, language);
+  const res = _parseBraceLanguage(source, language);
+  return { ...res, imports: extractFallbackImports(source, language) };
 }
 
 module.exports = {

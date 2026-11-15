@@ -7,10 +7,16 @@ const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { logToolCall } = require('./skills');
 const {
+  getResolvedTaskDir,
   loadWorkflowStatus,
   saveWorkflowStatus,
   VALIDATION_EVIDENCE_PATTERN
 } = require('./workflow');
+const {
+  applyAgentReportToTodos,
+  syncTodoAndWalkthrough,
+  formatTodoSyncBlock
+} = require('./todo_walkthrough_sync');
 
 function assessValidationEvidence(validation) {
   if (!validation || !Array.isArray(validation)) {
@@ -46,7 +52,14 @@ function _parseReportOptions(agentName, summary, status, filesCreated, rest) {
       taskDir: opts.taskDir || opts.task_dir || null,
       dispatchId: opts.dispatchId || opts.dispatch_id || null,
       validation: opts.validation || null,
-      taskId: opts.taskId || opts.task_id || null
+      taskId: opts.taskId || opts.task_id || null,
+      goal: opts.goal || null,
+      plan: opts.plan || null,
+      todos: opts.todos || null,
+      agentId: opts.agentId || opts.agent_id || null,
+      ownedFiles: opts.ownedFiles || opts.owned_files || null,
+      worktree: opts.worktree || opts.worktree_path || null,
+      client: opts.client || null
     };
   }
   return { agentName, summary, status, filesCreated, filesModified, learnings, projectPath, taskDir, dispatchId, validation, taskId };
@@ -91,27 +104,18 @@ function _updateWorkflowStatus(taskDir, dispatchId, agentName, finalStatus, upda
   // Completion arrives ONLY via report_from_agent — never result.md polling.
   // Phase-level dispatches (explore/research/plan/document/review, no task_id)
   // also complete here so the workflow engine can advance without any file IPC.
-  if (finalStatus === 'completed' || finalStatus === 'unverified') {
-    if (dispatch?.task_id) {
-      const task = (workflowStatus.tasks || []).find(t => t.id === dispatch.task_id);
-      if (task) {
-        task.status = finalStatus;
-        task.result = updateData.summary;
-        task.validation = updateData.validation || [];
-        task.verified = updateData.verified;
-        task.files_created = updateData.filesCreated || [];
-        task.files_modified = updateData.filesModified || [];
-      }
+  const cleanAgent = agentName.replace(/_/g, '-').toLowerCase();
+  const todoUpdated = applyAgentReportToTodos(workflowStatus, cleanAgent, dispatchId, finalStatus, updateData);
+  if ((finalStatus === 'completed' || finalStatus === 'unverified') && dispatch?.id) {
+    workflowStatus.completed_dispatches = workflowStatus.completed_dispatches || [];
+    if (!workflowStatus.completed_dispatches.includes(dispatch.id)) {
+      workflowStatus.completed_dispatches.push(dispatch.id);
     }
-    if (dispatch?.id) {
-      workflowStatus.completed_dispatches = workflowStatus.completed_dispatches || [];
-      if (!workflowStatus.completed_dispatches.includes(dispatch.id)) {
-        workflowStatus.completed_dispatches.push(dispatch.id);
-      }
-      workflowStatus.dispatch_results = workflowStatus.dispatch_results || {};
-      workflowStatus.dispatch_results[dispatch.id] = updateData.summary;
-      saveWorkflowStatus(taskDir, workflowStatus);
-    }
+    workflowStatus.dispatch_results = workflowStatus.dispatch_results || {};
+    workflowStatus.dispatch_results[dispatch.id] = updateData.summary;
+    saveWorkflowStatus(taskDir, workflowStatus);
+  } else if (todoUpdated) {
+    saveWorkflowStatus(taskDir, workflowStatus);
   }
   return { error: null, workflowStatus };
 }
@@ -179,6 +183,83 @@ function _notifyKageReview(cleanAgent, finalStatus, verified, details) {
   } catch (_) { /* best-effort */ }
 }
 
+function _applyAdvisorVerdict({ advisorVerdict, finalStatus, result, workflowStatus, opts, cleanAgent }) {
+  if (!advisorVerdict) return finalStatus;
+  if (!advisorVerdict.interrupted) {
+    result.advisor_status = advisorVerdict.status;
+    result.advisor_tokens_used = advisorVerdict.tokens_used;
+    return finalStatus;
+  }
+  result.advisor_status = advisorVerdict.status;
+  result.advisor_interrupted = true;
+  result.advisor_tokens_used = advisorVerdict.tokens_used;
+  result.advisor_directive = advisorVerdict.directive;
+  result.advisor_violations = advisorVerdict.violations;
+  result.advisor_steer_call = advisorVerdict.steer_call;
+  result.advisor_target_agent = cleanAgent;
+  if (opts.taskDir && workflowStatus) {
+    try { saveWorkflowStatus(opts.taskDir, workflowStatus); } catch (_) { /* non-fatal */ }
+  }
+  if (finalStatus !== 'completed') return finalStatus;
+  result.task_status = 'unverified';
+  return 'unverified';
+}
+
+function _evaluateAndRecordEvidence(ctx) {
+  const { cleanAgent, effTaskId, pPath, opts, workflowStatus, reportSummary, finalStatus, verified, verificationReason, result } = ctx;
+  let actClient = opts.client || workflowStatus?.client || '';
+  let nextStatus = finalStatus;
+  try {
+    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
+    const advisorMonitor = require('../workflow/kage-reviewer/advisor_monitor');
+    const cd = require('./client_detection');
+    actClient = actClient || (typeof cd.getActiveClient === 'function' ? cd.getActiveClient() : null) || cd.detectActiveClient() || process.env.KONOHA_CLIENT || '';
+    const sdlcConf = sdlcManager.getProjectSdlcConfig(pPath);
+    const activeDispatchObj = workflowStatus?.current_dispatch || {};
+    const advisorVerdict = advisorMonitor.evaluateWorkerTurn({
+      agent: cleanAgent,
+      taskId: effTaskId,
+      sessionId: cd.getActiveSessionId(pPath),
+      delegatedTodo: activeDispatchObj.task || '',
+      goal: workflowStatus?.prompt || opts.goal || '',
+      plan: workflowStatus?.plan || opts.plan || null,
+      todos: workflowStatus?.tasks || opts.todos || [],
+      summary: reportSummary,
+      status: nextStatus,
+      filesCreated: opts.filesCreated || [],
+      filesModified: opts.filesModified || [],
+      ownedFiles: opts.ownedFiles || opts.owned_files || activeDispatchObj.owned_files || [],
+      worktreePath: opts.worktree || opts.worktree_path || activeDispatchObj.worktree_path || null,
+      projectPath: pPath,
+      taskDir: opts.taskDir || workflowStatus?.task_dir || null,
+      client: actClient,
+      agentId: opts.agentId || activeDispatchObj.agent_id || null,
+      workflowStatus,
+      validation: opts.validation || []
+    }, sdlcConf);
+
+    nextStatus = _applyAdvisorVerdict({ advisorVerdict, finalStatus: nextStatus, result, workflowStatus, opts, cleanAgent });
+    const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
+    const evidenceData = {
+      verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
+      status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : nextStatus) : nextStatus,
+      summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
+      advisor: advisorVerdict ? {
+        status: advisorVerdict.status,
+        interrupted: advisorVerdict.interrupted,
+        tokens_used: advisorVerdict.tokens_used,
+        violations: advisorVerdict.violations
+      } : undefined,
+      is_phase_dispatch: isPhaseDispatch,
+      recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
+    };
+    sdlcManager.recordEvidence(effTaskId, evidenceData);
+    result.task_id = effTaskId;
+    result.evidence = evidenceData;
+  } catch (_) { /* non-fatal */ }
+  return { finalStatus: nextStatus, actClient };
+}
+
 function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
   const opts = _parseReportOptions(agentName, summary, status, filesCreated, rest);
   const rawAgent = (opts.agentName || '').toLowerCase().trim();
@@ -203,7 +284,17 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     reportSummary = docRes.summary;
   }
 
-  const { error: wfError, workflowStatus } = _updateWorkflowStatus(opts.taskDir, opts.dispatchId, opts.agentName, finalStatus, {
+  let safeTaskDir = '';
+  if (opts.taskDir) {
+    try {
+      safeTaskDir = getResolvedTaskDir(opts.taskDir, pPath);
+    } catch (err) {
+      return JSON.stringify({ status: 'error', message: err.message });
+    }
+  }
+  const safeOpts = safeTaskDir ? { ...opts, taskDir: safeTaskDir } : opts;
+
+  const { error: wfError, workflowStatus } = _updateWorkflowStatus(safeTaskDir || opts.taskDir, opts.dispatchId, opts.agentName, finalStatus, {
     summary: reportSummary, validation: opts.validation, verified, filesCreated: opts.filesCreated, filesModified: opts.filesModified
   });
   if (wfError) return JSON.stringify({ status: 'error', message: wfError });
@@ -213,70 +304,32 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     summary: reportSummary, validation: opts.validation, filesCreated: opts.filesCreated, filesModified: opts.filesModified
   });
 
-  const effTaskId = opts.taskId || workflowStatus?.current_dispatch?.task_id || (opts.taskDir ? path.basename(opts.taskDir) : null) || 'task_active';
+  const effTaskId = opts.taskId || workflowStatus?.current_dispatch?.task_id || (safeTaskDir ? path.basename(safeTaskDir) : null) || 'task_active';
   const result = {
     status: 'recorded', agent: cleanAgent, task_status: finalStatus, summary: reportSummary, verified,
     files_created: opts.filesCreated || [], files_modified: opts.filesModified || [], learnings_saved_count: savedIds.length,
     project_path: pPath, reason: (finalStatus === 'rejected') ? `Score exceeds 3.0% threshold: ${reportSummary}` : null
   };
 
-  let actClient = '';
-  let advisorVerdict = null;
-  try {
-    const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-    const advisorMonitor = require('../workflow/kage-reviewer/advisor_monitor');
-    const cd = require('./client_detection');
-    actClient = (typeof cd.getActiveClient === 'function' ? cd.getActiveClient() : null) || cd.detectActiveClient() || process.env.KONOHA_CLIENT || '';
-    const sdlcConf = sdlcManager.getProjectSdlcConfig(pPath);
-    const activeDispatchObj = workflowStatus?.current_dispatch || {};
-    advisorVerdict = advisorMonitor.evaluateWorkerTurn({
-      agent: cleanAgent,
-      taskId: effTaskId,
-      sessionId: cd.getActiveSessionId(pPath),
-      delegatedTodo: activeDispatchObj.task || '',
-      summary: reportSummary,
-      status: finalStatus,
-      filesCreated: opts.filesCreated || [],
-      filesModified: opts.filesModified || [],
-      ownedFiles: opts.ownedFiles || opts.owned_files || activeDispatchObj.owned_files || [],
-      worktreePath: opts.worktree || opts.worktree_path || activeDispatchObj.worktree_path || null,
-      projectPath: pPath,
-      validation: opts.validation || []
-    }, sdlcConf);
+  const evalOutcome = _evaluateAndRecordEvidence({
+    cleanAgent, effTaskId, pPath, opts: safeOpts, workflowStatus, reportSummary, finalStatus, verified, verificationReason, result
+  });
+  finalStatus = evalOutcome.finalStatus;
+  const actClient = evalOutcome.actClient;
 
-    if (advisorVerdict && advisorVerdict.interrupted) {
-      result.advisor_status = advisorVerdict.status;
-      result.advisor_interrupted = true;
-      result.advisor_tokens_used = advisorVerdict.tokens_used;
-      result.advisor_directive = advisorVerdict.directive;
-      result.advisor_violations = advisorVerdict.violations;
-      if (finalStatus === 'completed') {
-        finalStatus = 'unverified';
-        result.task_status = 'unverified';
-      }
-    } else if (advisorVerdict) {
-      result.advisor_status = advisorVerdict.status;
-      result.advisor_tokens_used = advisorVerdict.tokens_used;
-    }
-
-    const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
-    const evidenceData = {
-      verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
-      status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : finalStatus) : finalStatus,
-      summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
-      advisor: advisorVerdict ? {
-        status: advisorVerdict.status,
-        interrupted: advisorVerdict.interrupted,
-        tokens_used: advisorVerdict.tokens_used,
-        violations: advisorVerdict.violations
-      } : undefined,
-      is_phase_dispatch: isPhaseDispatch,
-      recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
-    };
-    sdlcManager.recordEvidence(effTaskId, evidenceData);
-    result.task_id = effTaskId;
-    result.evidence = evidenceData;
-  } catch (_) { /* non-fatal */ }
+  const syncTarget = workflowStatus || { prompt: reportSummary, client: actClient, assigned_agent: cleanAgent };
+  const syncBundle = syncTodoAndWalkthrough(syncTarget, {
+    client: actClient,
+    taskDir: safeTaskDir,
+    taskId: effTaskId
+  });
+  if (safeTaskDir && workflowStatus) {
+    try { saveWorkflowStatus(safeTaskDir, workflowStatus); } catch (_) { /* best-effort save */ }
+  }
+  result.todos = syncBundle.todos;
+  result.walkthrough_steps = syncBundle.walkthrough_steps;
+  result.client_todo_directive = syncBundle.client_todo_directive;
+  result.todo_sync_block = formatTodoSyncBlock(syncBundle.client_todo_directive, syncBundle.todos);
 
   if (!verified) {
     result.verification_reason = verificationReason;

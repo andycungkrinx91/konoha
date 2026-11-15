@@ -57,13 +57,14 @@ function deployClaudeCodeRtkRule(silent = true, options = {}) {
     return { ok: true };
   }
   try {
-    ensureDir(path.dirname(dest));
-    if (fileExists(dest)) {
-      backupFile(dest, isSilent, { client: 'claude', scope: 'global', ...opts });
-    }
-    fs.copyFileSync(src, dest);
-    if (!isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
-    return { ok: true };
+    const { writeManagedFileSafe } = require('../agent_file_safety');
+    const content = fs.readFileSync(src, 'utf8');
+    const writeRes = writeManagedFileSafe(dest, content, {
+      silent: isSilent,
+      onBeforeOverwrite: (p) => backupFile(p, isSilent, { client: 'claude', scope: 'global', ...opts })
+    });
+    if (writeRes.status !== 'conflict' && !isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    return { ok: true, status: writeRes.status };
   } catch (e) {
     if (e && /backup/i.test(e.message)) throw e;
     return { ok: false, reason: 'copy-failed', error: e.message };
@@ -480,9 +481,10 @@ function _removeClaudeInstructions(silent) {
 }
 
 function _restoreClaudeAgents(silent) {
+  const { getDeployableAgentNames } = require('../canonical_agents');
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
   const backupDir = path.join(HOME, '.claude', 'agents_backup');
-  const official = getCanonicalAgentNames();
+  const official = getDeployableAgentNames();
   for (const name of official) {
     const p = path.join(claudeAgentsDir, `${name}.md`);
     if (fileExists(p)) {

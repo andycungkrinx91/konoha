@@ -1,12 +1,12 @@
 # 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.22)
 
-Technical specification of the Konoha MCP Server architecture, 55 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
+Technical specification of the Konoha MCP Server architecture, 56 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
 
 ---
 
 ## 🏛️ System Architecture Overview
 
-Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 55 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
+Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi-agent coordination server. It serves ALL 56 canonical tools through standard MCP protocols, reducing token consumption by 83%–98% across 8 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `~/.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`, `~/.claude/settings.json`)
@@ -20,14 +20,14 @@ Konoha is a production-grade Model Context Protocol (MCP) orchestrator and multi
 
 ## 🛠️ Canonical MCP Tools & Server Boundaries
 
-All 55 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 57 total in manifest) are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`:
+All 56 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 58 total in manifest) are formally declared in `src/mcp_tool_manifest.json` and dispatched via `src/mcp/tool_dispatch.js`:
 
 | Category | Tools | Primary Purpose |
 |---|---|---|
 | **Orchestration & Workflow** | `sannin`, `check_readiness`, `get_resolved_task_dir`, `report_from_agent`, `get_task_evidence`, `get_slop_findings`, `qa_codify`, `qa_e2e_run` | Request triage, LangGraph StateGraph execution, Real-Time Idle `@advisor` inspection, test codification, E2E runner. |
 | **Skill & Knowledge RAG** | `find_skill`, `get_skill`, `list_skills`, `use_skills`, `migrate_skills`, `optimize_report` | SQLite FTS5 RAG search merged with the project's own skill tree (`.agents/skills` + 16 siblings via `getSkillReadRoots`), compact multi-skill digest (`<= 6,400 bytes`), on-demand skill retrieval, token footprint analysis. `migrate_skills` adds ranking, not access. |
 | **Bounded File Operations** | `read_file_head`, `read_file_range`, `token_efficient_grep`, `file_info`, `get_file_structure`, `find_files_clean` | Bounded file I/O, token-capped grepping, symbol outline preview. |
-| **Native Code Intelligence** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove` | In-process SQLite FTS5 code indexing, definition-first search, and symbol/impact graph (replaces retired `semble` MCP). |
+| **Native Code Intelligence** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | In-process SQLite FTS5 code indexing, definition-first search, and symbol/impact graph. |
 | **Specialist Subagents** | `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka` | Direct invocation of the 8 specialist personas (`@sannin` is router-only). |
 | **Security & Auditing** | `akatsuki_init`, `anti_slop`, `aislop_scan`, `aislop_why`, `aislop_fix`, `aislop_baseline`, `docs_ai_detector`, `website_ai_detector` | Dual-mode red/blue security, Zero-AI-Slop audit, automated repairs, AI detection. |
 | **Document Engineering** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Native DOCX/PDF, XLSX, PPTX, SVG diagrams, and animated WebP exports. |

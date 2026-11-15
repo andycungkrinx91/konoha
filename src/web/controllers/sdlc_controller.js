@@ -154,7 +154,8 @@ async function _handleSdlcConfig(req, res, method, parsedUrl, broadcastEvent) {
       review_mode: body.review_mode !== undefined ? body.review_mode : null,
       hitl_mode: hitlMode,
       advisor_mode: body.advisor_mode !== undefined ? body.advisor_mode : null,
-      advisor_max_tokens: body.advisor_max_tokens !== undefined ? body.advisor_max_tokens : null
+      advisor_max_tokens: body.advisor_max_tokens !== undefined ? body.advisor_max_tokens : null,
+      agent_input_token_quota: body.agent_input_token_quota !== undefined ? body.agent_input_token_quota : null
     });
     broadcastEvent('sdlc_config_updated', { project_path: projectPath, ...config });
     return sendJson(res, 200, { project_path: projectPath, ...config });

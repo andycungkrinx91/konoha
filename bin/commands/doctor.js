@@ -6,7 +6,6 @@ const {
   header,
   log,
   info,
-  error,
   drawTable,
   drawBox,
   computeTableWidths,
@@ -20,7 +19,6 @@ const {
 } = require('../lib/format');
 const { startSpinner, checkPython } = require('../lib/prompt');
 const { SERVER_PATH } = require('../lib/paths');
-const { cmdTest } = require('./test');
 const { checkAndRepairRuntimeFiles, cleanCyberPack, restoreAnbu } = require('./doctor_runtime');
 const { checkAndRepairClientConfigs } = require('./doctor_clients');
 const {
@@ -103,13 +101,7 @@ async function renderDoctorSummary(hasErrors, repairsDone) {
   log('');
 
   if (repairsDone > 0) {
-    info('Running self-test to verify repairs...');
-    try {
-      await cmdTest();
-    } catch (testErr) {
-      error(`Self-test failed after repairs: ${testErr.message}`);
-      process.exitCode = 1;
-    }
+    info('Run "konoha test" for full MCP and regression verification.');
   }
 }
 

@@ -31,6 +31,8 @@ const KONOHA_SERVER_KEYS = ['konoha', 'aislop'];
 const PI_AGENTS_MD = path.join(PI_AGENT_DIR, 'AGENTS.md');
 const PI_RTK_EXTENSION = path.join(PI_AGENT_DIR, 'extensions', 'rtk.ts');
 const PI_BLOCKER_EXTENSION = path.join(PI_AGENT_DIR, 'extensions', 'konoha-blocker.ts');
+const PI_SUBAGENT_EXTENSION_DIR = path.join(PI_AGENT_DIR, 'extensions', 'subagent');
+const PI_SUBAGENTS_EXT_DIR = path.join(PI_AGENT_DIR, 'extensions', 'pi-subagents');
 const RTK_BLOCK_START = '<!-- KONOHA-RTK-START -->';
 const RTK_BLOCK_END = '<!-- KONOHA-RTK-END -->';
 const CONTRACT_END_MARKER = '<!-- KONOHA-CONTRACT-END -->';
@@ -96,6 +98,7 @@ function buildPiWorkflowAddendum() {
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, secure with \`akatsuki\`, build 3D assets with \`yamanaka\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
+- **Always-on idle @advisor from turn 0**: start \`@advisor\` immediately via \`advisor_spawn_directive\` (or \`rtk konoha run-agent --agent advisor --idle\`) in idle supervision mode (0 tokens when compliant). \`@advisor\` reviews all agent work against the plan, TODOs, and goals and delivers \`[ADVISOR STEER]\` directly whenever drift occurs.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
   - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
   - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.
@@ -509,6 +512,14 @@ function ensurePiSetup(options = {}) {
   const rtk = deployPiRtkRule(silent);
   const contract = deployPiContract(silent, null, options);
   const blocker = deployPiBlockerExtension(silent, options);
+  const { getAdvisorAgentDefinition } = require('./canonical_agents');
+  const { buildSubagentContract } = require('./agent_contract');
+  const { writeAgentFileSafe, AGENT_OWNERSHIP_MARKER, getRoleDescription } = require('./agent_file_safety');
+  const adv = getAdvisorAgentDefinition();
+  const piAgentsDir = path.join(agentDir, 'agents');
+  ensureDirSafe(piAgentsDir);
+  const advMd = `---\nname: advisor\ndescription: "${getRoleDescription(adv)}"\ntools: read, grep, find, ls\n${AGENT_OWNERSHIP_MARKER}\n---\n\n${adv.instructions}\n\n${buildSubagentContract('pi')}\n`;
+  writeAgentFileSafe(path.join(piAgentsDir, 'advisor.md'), advMd, 'advisor', { silent });
 
   const projectRoot = options.projectRoot || null;
   const projMcp = projectRoot ? path.join(projectRoot, '.pi', 'mcp.json') : null;
@@ -530,46 +541,67 @@ function ensurePiSetup(options = {}) {
   };
 }
 
-function getPiStatus() {
+function hasPiSubagentSupport(options = {}) {
+  const agentDir = options.agentDir || (options.home ? path.join(options.home, '.pi', 'agent') : PI_AGENT_DIR);
+  const settingsPath = options.settingsPath || path.join(agentDir, 'settings.json');
+  const extCandidates = [
+    path.join(agentDir, 'extensions', 'subagent'),
+    path.join(agentDir, 'extensions', 'pi-subagents'),
+    path.join(agentDir, 'extensions', 'subagent.ts'),
+    path.join(agentDir, 'extensions', 'subagent.js')
+  ];
+  if (extCandidates.some((p) => fileExists(p))) {
+    return true;
+  }
+  const settings = readJsonSafe(settingsPath);
+  if (settings && Array.isArray(settings.packages)) {
+    return settings.packages.some((pkg) => {
+      const source = typeof pkg === 'string' ? pkg : (pkg && pkg.source);
+      return typeof source === 'string' && /pi-subagents/i.test(source);
+    });
+  }
+  return false;
+}
+
+function _readPiMcpServerFlags() {
+  if (!fileExists(PI_MCP_CONFIG)) return { mcpKonoha: false, mcpAislop: false };
+  const config = readJsonSafe(PI_MCP_CONFIG);
+  const servers = config && config.mcpServers;
+  return {
+    mcpKonoha: Boolean(servers && servers['konoha']),
+    mcpAislop: Boolean(servers && servers['aislop'])
+  };
+}
+
+function _isPiAdapterPackageInstalled() {
+  if (!fileExists(PI_SETTINGS)) return false;
+  const settings = readJsonSafe(PI_SETTINGS);
+  if (!settings || !Array.isArray(settings.packages)) return false;
+  return settings.packages.some((pkg) => {
+    const source = typeof pkg === 'string' ? pkg : (pkg && pkg.source);
+    return typeof source === 'string' && source.split('#')[0] === PI_ADAPTER_PACKAGE;
+  });
+}
+
+function _readPiAgentsContent() {
+  if (!fileExists(PI_AGENTS_MD)) return '';
+  try {
+    return fs.readFileSync(PI_AGENTS_MD, 'utf-8');
+  } catch (_) {
+    return '';
+  }
+}
+
+function getPiStatus(options = {}) {
   const installed = isPiInstalled();
-  let mcpKonoha = false;
-  let mcpAislop = false;
-  let adapterInstalled = false;
-  let rtkRuleDeployed = false;
-  let contractDeployed = false;
-  let blockerDeployed = false;
-  if (fileExists(PI_MCP_CONFIG)) {
-    const config = readJsonSafe(PI_MCP_CONFIG);
-    if (config && config.mcpServers) {
-      mcpKonoha = !!config.mcpServers['konoha'];
-      mcpAislop = !!config.mcpServers['aislop'];
-    }
-  }
-  if (fileExists(PI_SETTINGS)) {
-    const settings = readJsonSafe(PI_SETTINGS);
-    if (settings && Array.isArray(settings.packages)) {
-      adapterInstalled = settings.packages.some((pkg) => {
-        const source = typeof pkg === 'string' ? pkg : (pkg && pkg.source);
-        return typeof source === 'string' && source.split('#')[0] === PI_ADAPTER_PACKAGE;
-      });
-    }
-  }
-  if (fileExists(PI_RTK_EXTENSION)) {
-    rtkRuleDeployed = true;
-  } else if (fileExists(PI_AGENTS_MD)) {
-    try {
-      const agents = fs.readFileSync(PI_AGENTS_MD, 'utf-8');
-      rtkRuleDeployed = agents.includes(RTK_BLOCK_START);
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-  if (fileExists(PI_BLOCKER_EXTENSION)) {
-    blockerDeployed = true;
-  }
-  if (fileExists(PI_AGENTS_MD)) {
-    try {
-      contractDeployed = fs.readFileSync(PI_AGENTS_MD, 'utf-8').includes('<!-- KONOHA-CONTRACT-START -->');
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+  const { mcpKonoha, mcpAislop } = _readPiMcpServerFlags();
+  const adapterInstalled = _isPiAdapterPackageInstalled();
+  const subagentExtensionInstalled = hasPiSubagentSupport(options);
+  const blockerDeployed = fileExists(PI_BLOCKER_EXTENSION);
+  const agentsContent = _readPiAgentsContent();
+  const rtkRuleDeployed = fileExists(PI_RTK_EXTENSION) || agentsContent.includes(RTK_BLOCK_START);
+  const contractDeployed = agentsContent.includes('<!-- KONOHA-CONTRACT-START -->');
+
   return {
     installed,
     mcpKonoha,
@@ -579,6 +611,7 @@ function getPiStatus() {
     rtkRuleDeployed,
     contractDeployed,
     blockerDeployed,
+    subagentExtensionInstalled,
     configPath: PI_MCP_CONFIG
   };
 }
@@ -595,9 +628,12 @@ module.exports = {
   PI_MCP_CONFIG,
   PI_AGENTS_MD,
   PI_RTK_EXTENSION,
+  PI_SUBAGENT_EXTENSION_DIR,
+  PI_SUBAGENTS_EXT_DIR,
   PI_ADAPTER_PACKAGE,
   buildPiBlockerExtensionSource,
   isPiInstalled,
+  hasPiSubagentSupport,
   ensurePiSetup,
   ensureAdapterPackage,
   registerPiMcp,

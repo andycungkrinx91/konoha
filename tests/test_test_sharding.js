@@ -6,9 +6,13 @@
 // well, because the helper being right does not prove run_all.js consults it.
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const { spawnSync } = require('child_process');
 const path = require('path');
 const { selectShard, parseShard } = require('./helpers/shard');
+const { parsePositiveTimeoutMs } = require('./helpers/shard_timeout');
+const { isPidAlive } = require('./helpers/seed_lifecycle');
 
 let passed = 0;
 function check(name, fn) {
@@ -72,6 +76,81 @@ check('the harness refuses a malformed shard instead of running everything', () 
   assert.strictEqual(result.status, 2, `exit ${result.status}`);
   assert.match(result.stderr, /shard selector expects I\/N/);
   assert.doesNotMatch(result.stdout, /\[SUITE\]/, 'ran suites despite an invalid selector');
+});
+
+check('the harness enforces a 1800s timeout for shard tests across workflow and runner', () => {
+  const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml'), 'utf8');
+  assert.match(wf, /KONOHA_TEST_TIMEOUT:\s*'1800000'/);
+  assert.match(wf, /KONOHA_SHARD_TIMEOUT:\s*'1800000'/);
+  assert.match(wf, /timeout-minutes:\s*30\r?\n\s*run:\s*pnpm test/);
+  const runnerSrc = fs.readFileSync(harness, 'utf8');
+  assert.match(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*1800000/);
+  assert.match(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*1800000/);
+  const winPs1 = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'windows-ci.ps1'), 'utf8');
+  assert.match(winPs1, /KONOHA_TEST_TIMEOUT\s*=\s*'1800000'/);
+  assert.match(winPs1, /KONOHA_SHARD_TIMEOUT\s*=\s*'1800000'/);
+  const sandboxSrc = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sandbox.js'), 'utf8');
+  assert.match(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*1800000/);
+  assert.match(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*1800000/);
+});
+
+check('parsePositiveTimeoutMs rejects invalid, zero, and negative env values cleanly', () => {
+  assert.strictEqual(parsePositiveTimeoutMs(['-1', '1800000']), 1800000);
+  assert.strictEqual(parsePositiveTimeoutMs(['0', 'abc', '5000']), 5000);
+  assert.strictEqual(parsePositiveTimeoutMs(['abc', '  ', undefined, null]), 1800000);
+  assert.strictEqual(parsePositiveTimeoutMs(['-50', '0']), 1800000);
+  assert.strictEqual(parsePositiveTimeoutMs(['250']), 250);
+});
+
+check('shard watchdog terminates detached child trees and cleans suite directories on timeout', () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-watchdog-test-'));
+  try {
+    const suiteHome = path.join(tmpRoot, 'suite_home');
+    fs.mkdirSync(suiteHome, { recursive: true });
+    const pidFile = path.join(tmpRoot, 'pids.json');
+    const runnerScript = path.join(tmpRoot, 'runner_probe.js');
+    const childScript = path.join(tmpRoot, 'hanging_suite.js');
+    const helperPath = path.join(__dirname, 'helpers', 'shard_timeout.js');
+    const lifecyclePath = path.join(__dirname, 'helpers', 'seed_lifecycle.js');
+
+    fs.writeFileSync(childScript, [
+      "const fs = require('fs');",
+      "const { spawn } = require('child_process');",
+      `const pidFile = ${JSON.stringify(pidFile)};`,
+      "const grand = spawn(process.execPath, ['-e', 'setInterval(() => {}, 10000)'], { stdio: 'ignore' });",
+      "fs.writeFileSync(pidFile, JSON.stringify({ childPid: process.pid, grandPid: grand.pid }));",
+      "setInterval(() => {}, 10000);"
+    ].join('\n'), 'utf8');
+
+    fs.writeFileSync(runnerScript, [
+      "const { spawn } = require('child_process');",
+      `const { armShardWatchdog, parsePositiveTimeoutMs } = require(${JSON.stringify(helperPath)});`,
+      `const { cleanupSuiteDir } = require(${JSON.stringify(lifecyclePath)});`,
+      `const suiteHome = ${JSON.stringify(suiteHome)};`,
+      `const childScript = ${JSON.stringify(childScript)};`,
+      "const activeSuites = new Map();",
+      "const child = spawn(process.execPath, [childScript], { detached: process.platform !== 'win32', stdio: 'ignore' });",
+      "activeSuites.set('hang', { name: 'hanging_suite.js', suiteHome, child });",
+      "const timeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_SHARD_TIMEOUT, process.env.KONOHA_TEST_TIMEOUT], 1800000);",
+      "armShardWatchdog({ shard: '1/8', timeoutMs, activeSuites, cleanupSuiteDir, graceMs: 150, killWaitMs: 150 });",
+      "setInterval(() => {}, 10000);"
+    ].join('\n'), 'utf8');
+
+    const res = spawnSync(process.execPath, [runnerScript], {
+      encoding: 'utf8',
+      timeout: 15000,
+      env: { ...process.env, KONOHA_SHARD_TIMEOUT: '300', KONOHA_TEST_TIMEOUT: '1800000' }
+    });
+    assert.strictEqual(res.status, 1, `Expected exit 1 on shard timeout, got ${res.status}\n${res.stderr}`);
+    assert.match(res.stderr, /\[TIMEOUT\] Shard 1\/8 test run exceeded 0\.3s/);
+    assert.ok(!fs.existsSync(suiteHome), 'suiteHome must be cleaned up after child tree exit');
+    assert.ok(fs.existsSync(pidFile), 'child probe should have recorded PIDs before timeout');
+    const { childPid, grandPid } = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
+    assert.strictEqual(isPidAlive(childPid), false, `child PID ${childPid} leaked after timeout`);
+    assert.strictEqual(isPidAlive(grandPid), false, `grandchild PID ${grandPid} leaked after timeout`);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
 });
 
 console.log(`\n${passed} passed`);

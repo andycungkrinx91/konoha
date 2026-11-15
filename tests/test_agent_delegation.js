@@ -149,7 +149,7 @@ async function run() {
 
     // Phase 5: Compact Mode Persona Budget & Constraints Invariant
     console.log('Testing Phase 5: Compact mode Constraints preservation across all official agents...');
-    const officialAgents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin', 'sannin'];
+    const officialAgents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin', 'akatsuki', 'yamanaka', 'sannin'];
     const { runMcpAgent } = require('../src/mcp/memory_reporting');
 
     // Seed realistic instructions and constraints to test compact budget under load

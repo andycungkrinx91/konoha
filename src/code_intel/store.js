@@ -13,11 +13,19 @@ const fs = require('fs');
 const path = require('path');
 const dbModule = require('../db');
 const { getConnection, setupSchema } = dbModule;
-const { hasFts5Support } = require('../db_schema');
+const {
+  VECTOR_SLAB_MAX_ROOTS,
+  VECTOR_SLAB_MAX_CHUNKS_PER_ROOT,
+  VECTOR_SLAB_MAX_BYTES,
+  VECTOR_SCAN_PAGE_SIZE,
+  _vectorSlabs,
+  invalidateVectorSlab,
+  getVectorSlab,
+  searchVectorCandidates: _searchVectorCandidates
+} = require('./vector_cache');
 
 let _conn = null;
 let _connPath = null;
-const _vectorSlabs = new Map();
 
 function openConnection() {
   if (_conn && _connPath === dbModule.DB_PATH) return _conn;
@@ -38,11 +46,6 @@ function closeConnection() {
     _connPath = null;
   }
   invalidateVectorSlab();
-}
-
-function invalidateVectorSlab(rootHash = null) {
-  if (rootHash) _vectorSlabs.delete(rootHash);
-  else _vectorSlabs.clear();
 }
 
 function computeRootHash(rootPath) {
@@ -287,6 +290,13 @@ function writeFile(conn, rootHash, file, parsed, chunks) {
       const symId = chunk.symbolName ? (symbolByName.get(chunk.symbolName) || null) : null;
       const queue = prevEmbeddings.get(cHash);
       const reused = queue && queue.length > 0 ? queue.shift() : null;
+      const preVec = chunk.embedding
+        ? (Buffer.isBuffer(chunk.embedding) ? chunk.embedding : Buffer.from(new Float32Array(chunk.embedding).buffer))
+        : null;
+      const vecBuf = preVec || (reused ? reused.embedding : null);
+      const vecModel = preVec
+        ? (chunk.embeddingModel || file.preferredEmbeddingModel || null)
+        : (reused ? reused.model : null);
       insertChunk.run(
         rootHash,
         row.id,
@@ -299,8 +309,8 @@ function writeFile(conn, rootHash, file, parsed, chunks) {
         chunk.chunkKind || 'block',
         symId,
         cHash,
-        reused ? reused.embedding : null,
-        reused ? reused.model : null
+        vecBuf,
+        vecModel
       );
     });
 
@@ -312,7 +322,7 @@ function writeFile(conn, rootHash, file, parsed, chunks) {
   return fileId;
 }
 
-function finalizeRoot(conn, rootHash, headSha = '') {
+function finalizeRoot(conn, rootHash, headSha = '', options = {}) {
   const counts = conn.prepare(`SELECT
       (SELECT COUNT(*) FROM code_files WHERE root_hash = ?) AS files,
       (SELECT COUNT(*) FROM code_symbols WHERE root_hash = ?) AS symbols,
@@ -321,14 +331,16 @@ function finalizeRoot(conn, rootHash, headSha = '') {
   const existing = conn.prepare('SELECT indexed_epoch_ms, root_path FROM code_index_roots WHERE root_hash = ?').get(rootHash);
   const nextEpoch = Math.max(Date.now(), ((existing && existing.indexed_epoch_ms) || 0) + 1);
   const resolvedSha = headSha || (existing && existing.root_path ? resolveGitHeadSha(existing.root_path) : '');
+  const status = options.status === 'stale' ? 'stale' : 'fresh';
+  const errorNote = typeof options.error === 'string' ? options.error : '';
 
   conn.prepare(`UPDATE code_index_roots
-      SET status = 'fresh', file_count = ?, symbol_count = ?, chunk_count = ?,
-          head_sha = ?, indexed_epoch_ms = ?, indexed_at = ?, updated_at = ?, error = ''
+      SET status = ?, file_count = ?, symbol_count = ?, chunk_count = ?,
+          head_sha = ?, indexed_epoch_ms = ?, indexed_at = ?, updated_at = ?, error = ?
       WHERE root_hash = ?`)
-    .run(counts.files, counts.symbols, counts.chunks, resolvedSha, nextEpoch, nowIso(), nowIso(), rootHash);
+    .run(status, counts.files, counts.symbols, counts.chunks, resolvedSha, nextEpoch, nowIso(), nowIso(), errorNote, rootHash);
   invalidateVectorSlab(rootHash);
-  return { ...counts, headSha: resolvedSha, indexedEpochMs: nextEpoch };
+  return { ...counts, status, headSha: resolvedSha, indexedEpochMs: nextEpoch };
 }
 
 function getRoot(conn, rootPath) {
@@ -379,98 +391,8 @@ function getUnembeddedChunks(conn, rootHash, model) {
   `).all(rootHash, model);
 }
 
-function _toUnitFloat32(raw) {
-  const vec = raw instanceof Float32Array ? raw : new Float32Array(raw);
-  let normSq = 0;
-  for (let i = 0; i < vec.length; i++) normSq += vec[i] * vec[i];
-  if (Math.abs(normSq - 1) <= 1e-3 || normSq <= 0) return vec;
-  const inv = 1 / Math.sqrt(normSq);
-  const out = new Float32Array(vec.length);
-  for (let i = 0; i < vec.length; i++) out[i] = vec[i] * inv;
-  return out;
-}
-
-function getVectorSlab(conn, rootHash, model) {
-  if (!rootHash || !model) return null;
-  const cached = _vectorSlabs.get(rootHash);
-  if (cached && cached.model === model) return cached;
-
-  const rows = conn.prepare(`
-    SELECT c.id AS chunk_id, c.file_id, c.rel_path, c.language, c.start_line, c.end_line,
-           c.chunk_kind, c.body, c.embedding, s.name AS symbol_name,
-           COALESCE(f.content_kind, 'code') AS content_kind
-    FROM code_chunks c
-    LEFT JOIN code_files f ON f.id = c.file_id
-    LEFT JOIN code_symbols s ON s.id = c.symbol_id
-    WHERE c.root_hash = ? AND c.embedding IS NOT NULL AND c.embedding_model = ?
-    ORDER BY c.id ASC
-  `).all(rootHash, model);
-
-  const valid = [];
-  let dim = 0;
-  for (const r of rows) {
-    const buf = r.embedding;
-    const byteLen = buf ? (buf.byteLength || buf.length || 0) : 0;
-    if (byteLen < 16 || byteLen % 4 !== 0) continue;
-    const rowDim = byteLen / 4;
-    if (dim === 0) dim = rowDim;
-    if (rowDim !== dim) continue;
-    valid.push(r);
-  }
-
-  const vectors = new Float32Array(valid.length * dim);
-  const meta = valid.map((r, i) => {
-    const buf = r.embedding;
-    const rawVec = new Float32Array(buf.buffer, buf.byteOffset, dim);
-    vectors.set(_toUnitFloat32(rawVec), i * dim);
-    return {
-      chunkId: r.chunk_id,
-      fileId: r.file_id,
-      relPath: r.rel_path,
-      language: r.language,
-      startLine: r.start_line,
-      endLine: r.end_line,
-      chunkKind: r.chunk_kind,
-      contentKind: r.content_kind || 'code',
-      symbolName: r.symbol_name || '',
-      body: r.body
-    };
-  });
-
-  const slab = { model, dim, count: meta.length, vectors, meta };
-  _vectorSlabs.set(rootHash, slab);
-  return slab;
-}
-
-function _scoreSlabHits(slab, unitQuery, options, out) {
-  if (!slab || slab.count === 0 || slab.dim !== unitQuery.length) return;
-  const { dim, vectors, meta, count } = slab;
-  const excludeFileIds = options.excludeFileIds || null;
-  const contentKind = options.contentKind || null;
-  for (let i = 0; i < count; i++) {
-    const m = meta[i];
-    if (excludeFileIds && excludeFileIds.has(m.fileId)) continue;
-    if (contentKind && m.contentKind !== contentKind) continue;
-    const base = i * dim;
-    let dot = 0;
-    for (let d = 0; d < dim; d++) dot += unitQuery[d] * vectors[base + d];
-    out.push({ ...m, score: dot });
-  }
-}
-
 function searchVectorCandidates(conn, rootHash, queryVec, options = {}) {
-  if (!queryVec || !queryVec.length || !options.model) return [];
-  const unitQuery = _toUnitFloat32(queryVec);
-  const limit = Math.max(1, Number(options.limit) || 40);
-  const roots = rootHash
-    ? [rootHash]
-    : listRoots(conn).map((r) => r.root_hash);
-  const scored = [];
-  for (const rh of roots) {
-    _scoreSlabHits(getVectorSlab(conn, rh, options.model), unitQuery, options, scored);
-  }
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit);
+  return _searchVectorCandidates(conn, rootHash, queryVec, options, listRoots);
 }
 
 function getFileGraphNeighbors(conn, fileId) {
@@ -567,7 +489,7 @@ function ftsAvailable(conn) {
     conn.prepare('SELECT 1 FROM code_chunks_fts LIMIT 1').get();
     return true;
   } catch (_) {
-    return hasFts5Support(conn) && true;
+    return false;
   }
 }
 
@@ -583,6 +505,10 @@ function normalizeContentFilter(raw) {
 
 module.exports = {
   normalizeContentFilter,
+  VECTOR_SLAB_MAX_ROOTS,
+  VECTOR_SLAB_MAX_CHUNKS_PER_ROOT,
+  VECTOR_SLAB_MAX_BYTES,
+  VECTOR_SCAN_PAGE_SIZE,
   _vectorSlabs,
   invalidateVectorSlab,
   computeRootHash,

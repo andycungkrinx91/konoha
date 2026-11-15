@@ -48,6 +48,7 @@ assert.ok(runArgs.includes(`${root}:/src:ro`), 'the repo must be read-only insid
 assert.ok(runArgs.includes(`${VOLUMES[0]}:/pnpm-store`));
 assert.ok(runArgs.includes(`${VOLUMES[1]}:/ms-playwright`));
 assert.ok(runArgs.includes('KONOHA_TEST_SANDBOX=1'), 'the guard marker must be set inside the container');
+assert.ok(runArgs.includes('KONOHA_TEST_TIMEOUT=1800000'), 'default 1800s test timeout must be set inside the container');
 assert.strictEqual(runArgs[runArgs.length - 1], 'full', 'the default mode is the full gate');
 
 const lintOnly = sandboxPlan('container', { repoRoot: root, mode: 'lint', build: false });
@@ -61,6 +62,7 @@ const appleSharded = sandboxPlan('container', {
   env: { KONOHA_TEST_SHARD: '2/8' }
 });
 assert.ok(dockerSharded.steps[0].includes('KONOHA_TEST_SHARD=2/8'), '--shard forwards KONOHA_TEST_SHARD');
+assert.ok(dockerSharded.steps[0].includes('KONOHA_SHARD_TIMEOUT=1800000'), '--shard forwards default 1800s KONOHA_SHARD_TIMEOUT');
 assert.deepStrictEqual(
   stripMemory(appleSharded.steps[0]),
   dockerSharded.steps[0],

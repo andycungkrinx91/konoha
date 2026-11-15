@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { classifyExecutionTrack, computeFlowHash, parseKonohaCommandInvocation } = require('../../workflow_sannin');
 const { isPentestTask, loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
-const { superviseLifecycleStage } = require('../../../workflow/kage-reviewer/advisor_monitor');
+const { superviseLifecycleStage, initAdvisorSessionSupervisor } = require('../../../workflow/kage-reviewer/advisor_monitor');
+const { buildAdvisorStartupDirective } = require('../../lazy_subagent');
 const { finalizeNodeResult } = require('../budget');
 
 async function classifyNode(state, config) {
@@ -44,9 +45,21 @@ async function classifyNode(state, config) {
         status: 'pending'
       }];
     }
-    superviseLifecycleStage('classify', { status, taskDir });
+    const advisorSupervisor = initAdvisorSessionSupervisor({
+      client: state.client || status.client, status, goal: prompt, todos: status.tasks
+    });
+    const advisorSpawnDirective = buildAdvisorStartupDirective({
+      client: state.client || status.client, projectPath: status.project_path || state.projectPath, prompt, taskDir
+    });
+    superviseLifecycleStage('classify', { status, taskDir, goal: prompt, todos: status.tasks });
     saveWorkflowStatus(taskDir, status);
 
+    const gate2Waiting = Boolean(
+      status.hitl_gate === 'pending_human_signoff' ||
+      status.hitl_gate === 'delivery_signoff' ||
+      status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' ||
+      status.phase === 'delivery_signoff'
+    );
     const payload = {
       threadId,
       status,
@@ -57,9 +70,24 @@ async function classifyNode(state, config) {
       isFastTrack: false,
       phase: 'execute',
       flowHash,
+      ...(gate2Waiting ? {} : { hitlChoice: null, hitlRefinement: null, hitlStage: null }),
+      advisor_supervisor: advisorSupervisor,
+      advisor_spawn_directive: advisorSpawnDirective,
     };
     return finalizeNodeResult(state, payload, 'node_dispatch');
   }
+
+  const advisorStatus = taskDir ? (loadWorkflowStatus(taskDir) || state.status || {}) : (state.status || {});
+  const advisorSupervisor = initAdvisorSessionSupervisor({
+    client: state.client || advisorStatus.client, status: advisorStatus, goal: prompt, todos: advisorStatus.tasks || []
+  });
+  if (taskDir) {
+    fs.mkdirSync(taskDir, { recursive: true });
+    saveWorkflowStatus(taskDir, advisorStatus);
+  }
+  const advisorSpawnDirective = buildAdvisorStartupDirective({
+    client: state.client || advisorStatus.client, projectPath: state.projectPath || advisorStatus.project_path, prompt, taskDir
+  });
 
   const payload = {
     threadId,
@@ -68,6 +96,8 @@ async function classifyNode(state, config) {
     isFastTrack,
     phase: isFastTrack ? 'fast_track' : 'plan',
     flowHash,
+    advisor_supervisor: advisorSupervisor,
+    advisor_spawn_directive: advisorSpawnDirective,
   };
 
   const nextNode = isFastTrack ? 'node_complete' : 'node_plan';

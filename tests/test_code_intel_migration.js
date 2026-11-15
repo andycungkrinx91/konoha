@@ -227,6 +227,91 @@ function run() {
   assert.strictEqual(orphans, 0, 'Root deletion must cascade to code_files');
   assert.strictEqual(store.removeRoot(legacy, REPO_ROOT), false, 'removeRoot on an absent root must return false');
 
+  // --- Canonical code_chunks column order parity after v6 -> v7 upgrade ---
+  assert.deepStrictEqual(
+    colNames(v6, 'code_chunks'),
+    colNames(fresh, 'code_chunks'),
+    'Upgraded v6 code_chunks column order must match fresh canonical DDL'
+  );
+  // Stale v7 DB with trailing v7 columns heals automatically via ensureSchema
+  const staleV7Path = path.join(tmpRoot, 'stale_v7.db');
+  const staleV7 = db.getConnection(staleV7Path, false);
+  staleV7.exec(`
+    CREATE TABLE projects (project_hash TEXT PRIMARY KEY, project_path TEXT NOT NULL, project_name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE code_index_roots (root_hash TEXT PRIMARY KEY, root_path TEXT NOT NULL UNIQUE, head_sha TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'stale', file_count INTEGER NOT NULL DEFAULT 0, symbol_count INTEGER NOT NULL DEFAULT 0, chunk_count INTEGER NOT NULL DEFAULT 0, indexed_epoch_ms INTEGER NOT NULL DEFAULT 0, indexed_at TEXT, updated_at TEXT NOT NULL, error TEXT NOT NULL DEFAULT '');
+    CREATE TABLE code_files (id INTEGER PRIMARY KEY AUTOINCREMENT, root_hash TEXT NOT NULL, rel_path TEXT NOT NULL, language TEXT NOT NULL, byte_size INTEGER NOT NULL, line_count INTEGER NOT NULL, content_hash TEXT NOT NULL, mtime_ms REAL NOT NULL DEFAULT 0, ctime_ms REAL NOT NULL DEFAULT 0, inode_id TEXT NOT NULL DEFAULT '', parser_version TEXT NOT NULL DEFAULT '', content_kind TEXT NOT NULL DEFAULT 'code', metrics_json TEXT NOT NULL DEFAULT '{}', indexed_at TEXT NOT NULL);
+    CREATE TABLE code_chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, root_hash TEXT NOT NULL, file_id INTEGER NOT NULL, rel_path TEXT NOT NULL, language TEXT NOT NULL, chunk_index INTEGER NOT NULL, start_line INTEGER NOT NULL, end_line INTEGER NOT NULL, body TEXT NOT NULL, embedding BLOB, embedding_model TEXT, chunk_kind TEXT NOT NULL DEFAULT 'block', symbol_id INTEGER, content_hash TEXT NOT NULL DEFAULT '', UNIQUE (file_id, chunk_index));
+    PRAGMA user_version = 7;
+  `);
+  dbSchema.ensureSchema(staleV7, db.backupDatabase);
+  assert.deepStrictEqual(colNames(staleV7, 'code_chunks'), colNames(fresh, 'code_chunks'), 'Stale v7 code_chunks must self-heal to canonical column order');
+  staleV7.close();
+
+  // --- Fail-closed pre-migration backup checks ---------------------------
+  const failBackupPath = path.join(tmpRoot, 'fail_backup.db');
+  const failConn = db.getConnection(failBackupPath, false);
+  failConn.exec("CREATE TABLE user_notes (id INTEGER PRIMARY KEY, body TEXT); INSERT INTO user_notes VALUES (1, 'precious'); PRAGMA user_version = 5;");
+  assert.throws(
+    () => dbSchema.setupSchema(failConn, () => { throw new Error('disk full'); }),
+    /PRE_MIGRATION_BACKUP_FAILED.*disk full/,
+    'Throwing backup callback must abort migration fail-closed'
+  );
+  assert.strictEqual(userVersion(failConn), 5, 'Failed backup must not advance user_version');
+  assert.ok(!tableNames(failConn).includes('code_index_roots'), 'Failed backup must not apply partial schema changes');
+  assert.strictEqual(failConn.prepare('SELECT body FROM user_notes WHERE id = 1').get().body, 'precious');
+
+  const bogusBackupFile = path.join(tmpRoot, 'corrupt_backup.db');
+  fs.writeFileSync(bogusBackupFile, 'not-a-sqlite-file', 'utf8');
+  assert.throws(
+    () => dbSchema.setupSchema(failConn, () => ({ ok: true, targetPath: bogusBackupFile })),
+    /PRE_MIGRATION_BACKUP_FAILED/,
+    'Corrupt or truncated backup must abort migration fail-closed'
+  );
+  assert.strictEqual(userVersion(failConn), 5, 'Invalid backup must leave user_version untouched');
+
+  // Unwritable default backup path (regular file blocking backups directory)
+  const blockedDir = path.join(tmpRoot, 'blocked_backup_dir');
+  fs.mkdirSync(blockedDir, { recursive: true });
+  fs.writeFileSync(path.join(blockedDir, 'backups'), 'blocker-file', 'utf8');
+  const blockedDbPath = path.join(blockedDir, 'blocked.db');
+  const blockedConn = db.getConnection(blockedDbPath, false);
+  blockedConn.exec('CREATE TABLE user_notes (id INTEGER PRIMARY KEY, body TEXT); PRAGMA user_version = 5;');
+  assert.throws(
+    () => dbSchema.setupSchema(blockedConn),
+    /PRE_MIGRATION_BACKUP_FAILED/,
+    'Unwritable default backup destination must abort migration fail-closed'
+  );
+  assert.strictEqual(userVersion(blockedConn), 5);
+  blockedConn.close();
+  failConn.close();
+
+  // --- Mid-migration failure rolls back & leaves user_version unbumped ---
+  const midFailDir = path.join(tmpRoot, 'mid_fail_dir');
+  fs.mkdirSync(midFailDir, { recursive: true });
+  const midFailPath = path.join(midFailDir, 'mid_fail.db');
+  const midFailConn = db.getConnection(midFailPath, false);
+  midFailConn.exec(`
+    CREATE TABLE projects (project_hash TEXT PRIMARY KEY, project_path TEXT NOT NULL, created_at TEXT);
+    INSERT INTO projects VALUES ('p1', '/tmp/keep-me', '2026-01-01');
+    CREATE TABLE code_edges (broken_col INTEGER);
+    PRAGMA user_version = 6;
+  `);
+  assert.throws(
+    () => dbSchema.setupSchema(midFailConn, db.backupDatabase),
+    /CODE_INTEL_MIGRATION_FAILED/i,
+    'Mid-migration failure must throw instead of silently continuing'
+  );
+  assert.strictEqual(userVersion(midFailConn), 6, 'Mid-migration failure must NOT advance user_version');
+  assert.strictEqual(
+    midFailConn.prepare('SELECT project_path FROM projects WHERE project_hash = ?').get('p1').project_path,
+    '/tmp/keep-me',
+    'Rollback must preserve pre-migration user data'
+  );
+  assert.ok(!tableNames(midFailConn).includes('code_index_roots'), 'Rollback must undo newly created migration tables');
+  const midFailBackupsDir = path.join(midFailDir, 'backups');
+  assert.ok(fs.existsSync(midFailBackupsDir) && fs.readdirSync(midFailBackupsDir).some((f) => f.endsWith('.db')), 'Verified pre-migration backup must remain on disk');
+  midFailConn.close();
+
   // --- Integrity is enforced, not reported ------------------------------
   assert.ok(
     /verifyIntegrity|integrity_check/.test(fs.readFileSync(path.join(REPO_ROOT, 'src', 'db_schema.js'), 'utf8')),

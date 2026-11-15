@@ -1,13 +1,15 @@
 'use strict';
 
-const fs = require('fs');
 const {
   CODE_INTELLIGENCE_DDL,
   CODE_INTELLIGENCE_V7_DDL,
   CODE_INTELLIGENCE_FTS_DDL,
-  applyV7AdditiveColumns
+  applyV7AdditiveColumns,
+  hasCanonicalCodeChunksLayout,
+  ensureCodeChunksCanonicalLayout
 } = require('./code_intel/ddl');
 const { CORE_SCHEMA_DDL } = require('./schema_ddl');
+const { createAndVerifyPreMigrationBackup } = require('./db_migration_safety');
 
 const CURRENT_SCHEMA_VERSION = 7;
 const _ensuredSchemaInodes = new Map();
@@ -16,6 +18,60 @@ const REQUIRED_FAST_SCHEMA_TABLES = [
   'projects', 'active_sessions', 'tool_calls', 'agents',
   'bridges', 'sdlc_tasks', 'code_edges', 'assets', 'generation_jobs'
 ];
+
+// Kept in sync with CORE_SCHEMA_DDL (`agents`) in src/schema_ddl.js so older
+// databases missing evolved columns (e.g. `icon`, `model_tier`) get backfilled
+// before INSERT ... ON CONFLICT(name) writes execute.
+const AGENT_SCHEMA_COLUMNS = [
+  ['name', 'ALTER TABLE agents ADD COLUMN name TEXT;'],
+  ['icon', 'ALTER TABLE agents ADD COLUMN icon TEXT;'],
+  ['title', 'ALTER TABLE agents ADD COLUMN title TEXT;'],
+  ['model', 'ALTER TABLE agents ADD COLUMN model TEXT;'],
+  ['model_tier', 'ALTER TABLE agents ADD COLUMN model_tier TEXT;'],
+  ['purpose', 'ALTER TABLE agents ADD COLUMN purpose TEXT;'],
+  ['skills', 'ALTER TABLE agents ADD COLUMN skills TEXT;'],
+  ['delegate_when', 'ALTER TABLE agents ADD COLUMN delegate_when TEXT;'],
+  ['constraints_text', 'ALTER TABLE agents ADD COLUMN constraints_text TEXT;'],
+  ['workflow', 'ALTER TABLE agents ADD COLUMN workflow TEXT;'],
+  ['description', 'ALTER TABLE agents ADD COLUMN description TEXT;'],
+  ['instructions', 'ALTER TABLE agents ADD COLUMN instructions TEXT;'],
+  ['delegation_keywords', 'ALTER TABLE agents ADD COLUMN delegation_keywords TEXT;'],
+  ['cursor_fallback_model', 'ALTER TABLE agents ADD COLUMN cursor_fallback_model TEXT;'],
+  ['enable_mcp_tools', 'ALTER TABLE agents ADD COLUMN enable_mcp_tools INTEGER NOT NULL DEFAULT 1;'],
+];
+
+function _hasUniqueIndexOn(conn, colName) {
+  const indexes = conn.prepare('PRAGMA index_list(agents)').all();
+  for (const idx of indexes) {
+    if (!idx.unique) continue;
+    const cols = conn.prepare(`PRAGMA index_info(${JSON.stringify(idx.name)})`).all();
+    if (cols.length === 1 && cols[0].name === colName) return true;
+  }
+  return false;
+}
+
+function _hasRequiredAgentSchema(conn) {
+  const colInfo = conn.prepare('PRAGMA table_info(agents)').all();
+  const cols = new Set(colInfo.map((c) => c.name));
+  if (!AGENT_SCHEMA_COLUMNS.every(([col]) => cols.has(col))) return false;
+  return colInfo.some((c) => c.name === 'name' && c.pk > 0) || _hasUniqueIndexOn(conn, 'name');
+}
+
+function _ensureAgentsColumns(conn) {
+  const colInfo = conn.prepare('PRAGMA table_info(agents)').all();
+  const existing = new Set(colInfo.map((c) => c.name));
+  for (const [col, alterSql] of AGENT_SCHEMA_COLUMNS) {
+    if (!existing.has(col)) {
+      conn.prepare(alterSql).run();
+    }
+  }
+  // ON CONFLICT(name) in seedAgents/db_agents requires a PRIMARY KEY or UNIQUE index on name.
+  const hasNamePk = colInfo.some((c) => c.name === 'name' && c.pk > 0);
+  if (!hasNamePk && !_hasUniqueIndexOn(conn, 'name')) {
+    conn.exec('DELETE FROM agents WHERE rowid NOT IN (SELECT MIN(rowid) FROM agents WHERE name IS NOT NULL GROUP BY name);');
+    conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_name_unique ON agents(name);');
+  }
+}
 
 function _getDbFileIdentity(dbPath) {
   if (!dbPath || dbPath === ':memory:') return null;
@@ -27,7 +83,9 @@ function _getDbFileIdentity(dbPath) {
 function _hasAllRequiredTables(conn) {
   const rows = conn.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").all();
   const existing = new Set(rows.map((r) => r.name));
-  return REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t));
+  if (!REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t))) return false;
+  if (existing.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) return false;
+  return _hasRequiredAgentSchema(conn);
 }
 
 function ensureSchema(conn, backupDatabaseFn = null) {
@@ -91,45 +149,45 @@ function _dropLegacyPersonaMemoriesFts(conn) {
   } catch (_) { /* intentional best-effort fallback */ }
 }
 
-function _tryBackupBeforeMigration(conn, backupDatabaseFn) {
-  if (typeof backupDatabaseFn !== 'function' || !conn.name || conn.name === ':memory:' || !fs.existsSync(conn.name)) {
-    return;
+function _migratePersonaMemoriesForeignKey(conn) {
+  const tableExists = Boolean(
+    conn.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'persona_memories'").get()
+  );
+  if (!tableExists) return;
+  const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
+  const hasProjectFk = memFks.some(fk => fk.table === 'projects');
+  if (hasProjectFk) return;
+
+  conn.exec('SAVEPOINT konoha_persona_memories_fk');
+  try {
+    conn.exec(`
+      DELETE FROM persona_memories
+      WHERE project_hash IS NOT NULL
+        AND project_hash != ''
+        AND project_hash NOT IN (SELECT project_hash FROM projects);
+
+      DROP TABLE IF EXISTS persona_memories_migrated;
+      CREATE TABLE persona_memories_migrated (
+          id TEXT PRIMARY KEY, project_hash TEXT DEFAULT NULL, session_id TEXT DEFAULT '',
+          agent_name TEXT NOT NULL, memory_type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+          tags TEXT, importance INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+          FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
+      );
+      INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
+      SELECT id,
+             CASE WHEN project_hash = '' OR project_hash IS NULL THEN NULL ELSE project_hash END,
+             session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
+      FROM persona_memories;
+      DROP TABLE persona_memories;
+      ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
+    `);
+    conn.exec('RELEASE konoha_persona_memories_fk');
+  } catch (err) {
+    try {
+      conn.exec('ROLLBACK TO konoha_persona_memories_fk; RELEASE konoha_persona_memories_fk;');
+    } catch (_) { /* ignore nested rollback failure */ }
+    throw new Error(`PERSONA_MEMORIES_FK_MIGRATION_FAILED: ${err.message}`);
   }
-  try {
-    backupDatabaseFn(null, conn.name);
-  } catch (_) { /* backup helper fallback */ }
-}
-
-function _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn) {
-  try {
-    const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
-    const hasProjectFk = memFks.some(fk => fk.table === 'projects');
-    if (!hasProjectFk) {
-      _tryBackupBeforeMigration(conn, backupDatabaseFn);
-      conn.exec(`
-        BEGIN TRANSACTION;
-        DELETE FROM persona_memories
-        WHERE project_hash IS NOT NULL
-          AND project_hash != ''
-          AND project_hash NOT IN (SELECT project_hash FROM projects);
-
-        CREATE TABLE IF NOT EXISTS persona_memories_migrated (
-            id TEXT PRIMARY KEY, project_hash TEXT DEFAULT NULL, session_id TEXT DEFAULT '',
-            agent_name TEXT NOT NULL, memory_type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
-            tags TEXT, importance INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
-        );
-        INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
-        SELECT id,
-               CASE WHEN project_hash = '' OR project_hash IS NULL THEN NULL ELSE project_hash END,
-               session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
-        FROM persona_memories;
-        DROP TABLE persona_memories;
-        ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
-        COMMIT;
-      `);
-    }
-  } catch (_) { /* intentional best-effort fallback */ }
 }
 
 function _purgeLegacyDbArtifacts(conn) {
@@ -174,15 +232,33 @@ function _backfillActiveSessionsProjectHash(conn) {
  * and at least one of them may already hold a transaction. SAVEPOINT is atomic
  * on its own and also nests correctly, so one code path covers both cases.
  */
-function _applyCodeIntelligenceMigration(conn, backupDatabaseFn) {
-  if (getCurrentUserVersion(conn) >= CURRENT_SCHEMA_VERSION) return;
-  _tryBackupBeforeMigration(conn, backupDatabaseFn);
-  const ftsSupported = hasFts5Support(conn);
+function _repairCodeChunksFts(conn) {
+  if (!hasFts5Support(conn)) return;
+  const hasCodeChunks = Boolean(
+    conn.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'code_chunks'").get()
+  );
+  if (!hasCodeChunks) return;
+  const { ensureCodeChunksFts } = require('./code_intel/ddl');
+  ensureCodeChunksFts(conn);
+}
+
+function _applyCodeIntelligenceMigration(conn, ftsSupported = hasFts5Support(conn)) {
+  if (getCurrentUserVersion(conn) >= CURRENT_SCHEMA_VERSION) {
+    conn.exec(CODE_INTELLIGENCE_DDL);
+    applyV7AdditiveColumns(conn);
+    if (!hasCanonicalCodeChunksLayout(conn)) {
+      conn.exec(CODE_INTELLIGENCE_V7_DDL);
+      ensureCodeChunksCanonicalLayout(conn, ftsSupported);
+    }
+    _repairCodeChunksFts(conn);
+    return;
+  }
   conn.exec('SAVEPOINT konoha_code_intel_migration');
   try {
     conn.exec(CODE_INTELLIGENCE_DDL);
     if (ftsSupported) conn.exec(CODE_INTELLIGENCE_FTS_DDL);
     applyV7AdditiveColumns(conn);
+    ensureCodeChunksCanonicalLayout(conn, ftsSupported);
     conn.exec(CODE_INTELLIGENCE_V7_DDL);
     const violations = conn.prepare('PRAGMA foreign_key_check').all();
     if (violations.length > 0) {
@@ -198,124 +274,119 @@ function _applyCodeIntelligenceMigration(conn, backupDatabaseFn) {
   }
 }
 
-function setupSchema(conn, backupDatabaseFn = null) {
-  const ftsSupported = hasFts5Support(conn);
+function _migrateActiveSessionsPk(conn) {
+  const sessionCols = conn.prepare("PRAGMA table_info(active_sessions)").all();
+  if (sessionCols.length === 0) return;
+  const hasProjectHash = sessionCols.some(c => c.name === 'project_hash');
+  const pkCols = sessionCols.filter(c => c.pk > 0);
+  const hasSessionIdPk = pkCols.some(c => c.name === 'session_id');
+  if (hasProjectHash && hasSessionIdPk) return;
 
-  if (ftsSupported) {
-    _dropLegacyPersonaMemoriesFts(conn);
+  conn.exec('SAVEPOINT konoha_active_sessions_mig');
+  try {
+    conn.exec(`
+      DROP TABLE IF EXISTS active_sessions_migrated;
+      CREATE TABLE active_sessions_migrated (
+          client TEXT NOT NULL,
+          workspace_root TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          project_hash TEXT,
+          transcript_path TEXT,
+          last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (client, workspace_root, session_id)
+      );
+      INSERT OR IGNORE INTO active_sessions_migrated (client, workspace_root, session_id, transcript_path, last_active_at)
+      SELECT client, workspace_root, session_id, transcript_path, last_active_at
+      FROM active_sessions;
+      DROP TABLE active_sessions;
+      ALTER TABLE active_sessions_migrated RENAME TO active_sessions;
+    `);
+    conn.exec('RELEASE konoha_active_sessions_mig');
+  } catch (err) {
+    try {
+      conn.exec('ROLLBACK TO konoha_active_sessions_mig; RELEASE konoha_active_sessions_mig;');
+    } catch (_) { /* ignore nested rollback failure */ }
+    throw new Error(`ACTIVE_SESSIONS_MIGRATION_FAILED: ${err.message}`);
   }
+}
 
-  conn.exec(CORE_SCHEMA_DDL);
-
-  _migratePersonaMemoriesForeignKey(conn, backupDatabaseFn);
-
+function _tryExecSql(conn, sql) {
   try {
-    conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
-  } catch (_) { /* column already exists */ }
-
-  try {
-    const sessionCols = conn.prepare("PRAGMA table_info(active_sessions)").all();
-    const hasProjectHash = sessionCols.some(c => c.name === 'project_hash');
-    const pkCols = sessionCols.filter(c => c.pk > 0);
-    const hasSessionIdPk = pkCols.some(c => c.name === 'session_id');
-
-    if (!hasProjectHash || !hasSessionIdPk) {
-      conn.exec(`
-        BEGIN TRANSACTION;
-        CREATE TABLE IF NOT EXISTS active_sessions_migrated (
-            client TEXT NOT NULL,
-            workspace_root TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            project_hash TEXT,
-            transcript_path TEXT,
-            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (client, workspace_root, session_id)
-        );
-        INSERT OR IGNORE INTO active_sessions_migrated (client, workspace_root, session_id, transcript_path, last_active_at)
-        SELECT client, workspace_root, session_id, transcript_path, last_active_at
-        FROM active_sessions;
-        DROP TABLE active_sessions;
-        ALTER TABLE active_sessions_migrated RENAME TO active_sessions;
-        COMMIT;
-      `);
-    }
+    conn.exec(sql);
   } catch (_) { /* intentional best-effort fallback */ }
+}
 
-  _backfillActiveSessionsProjectHash(conn);
-  _purgeLegacyDbArtifacts(conn);
-
-  if (ftsSupported) {
-    try {
-      conn.exec(`
-        CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts
-        USING fts5(
-            name,
-            skill_name,
-            tags,
-            content,
-            content=skills,
-            content_rowid=rowid
-        );
-
-        CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
-            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
-            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
-            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-        END;
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS persona_memories_fts USING fts5(
-            id UNINDEXED,
-            project_hash,
-            agent_name,
-            title,
-            content,
-            tags,
-            content='persona_memories',
-            content_rowid='rowid'
-        );
-
-        CREATE TRIGGER IF NOT EXISTS persona_memories_ai AFTER INSERT ON persona_memories BEGIN
-            INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
-            VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS persona_memories_ad AFTER DELETE ON persona_memories BEGIN
-            INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
-            VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS persona_memories_au AFTER UPDATE ON persona_memories BEGIN
-            INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
-            VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
-            INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
-            VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
-        END;
-      `);
-    } catch (_) { /* intentional best-effort fallback if FTS5 creation fails */ }
-  } else {
-    try {
-      conn.exec(`
-        DROP TRIGGER IF EXISTS skills_ai;
-        DROP TRIGGER IF EXISTS skills_ad;
-        DROP TRIGGER IF EXISTS skills_au;
-        DROP TRIGGER IF EXISTS persona_memories_ai;
-        DROP TRIGGER IF EXISTS persona_memories_ad;
-        DROP TRIGGER IF EXISTS persona_memories_au;
-      `);
-    } catch (_) { /* intentional best-effort fallback */ }
+function _syncCoreFts5(conn, ftsSupported) {
+  if (!ftsSupported) {
+    _tryExecSql(conn, `
+      DROP TRIGGER IF EXISTS skills_ai;
+      DROP TRIGGER IF EXISTS skills_ad;
+      DROP TRIGGER IF EXISTS skills_au;
+      DROP TRIGGER IF EXISTS persona_memories_ai;
+      DROP TRIGGER IF EXISTS persona_memories_ad;
+      DROP TRIGGER IF EXISTS persona_memories_au;
+    `);
+    return;
   }
+  _tryExecSql(conn, `
+    CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts
+    USING fts5(
+        name,
+        skill_name,
+        tags,
+        content,
+        content=skills,
+        content_rowid=rowid
+    );
 
+    CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
+        INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
+        VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
+        INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
+        VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
+        INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
+        VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
+        INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
+        VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
+    END;
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS persona_memories_fts USING fts5(
+        id UNINDEXED,
+        project_hash,
+        agent_name,
+        title,
+        content,
+        tags,
+        content='persona_memories',
+        content_rowid='rowid'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS persona_memories_ai AFTER INSERT ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persona_memories_ad AFTER DELETE ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persona_memories_au AFTER UPDATE ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+    END;
+  `);
+}
+
+function _applyCoreColumnAndIndexMigrations(conn, ftsSupported) {
   const colSqls = [
     "ALTER TABLE tool_calls ADD COLUMN agent TEXT;",
     "ALTER TABLE tool_calls ADD COLUMN client TEXT;",
@@ -327,18 +398,14 @@ function setupSchema(conn, backupDatabaseFn = null) {
     "ALTER TABLE projects ADD COLUMN dor_mode TEXT DEFAULT 'advisory';",
     "ALTER TABLE projects ADD COLUMN review_mode TEXT DEFAULT 'self';",
     "ALTER TABLE projects ADD COLUMN advisor_mode TEXT DEFAULT 'realtime-idle';",
-    "ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 1000;",
+    "ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 8192;",
+    "ALTER TABLE projects ADD COLUMN agent_input_token_quota INTEGER DEFAULT 100000;",
     "ALTER TABLE tool_calls ADD COLUMN cached_tokens INTEGER;",
     "ALTER TABLE tool_calls ADD COLUMN input_tokens INTEGER;",
-    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;",
+    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;"
   ];
-  for (const sql of colSqls) {
-    try {
-      conn.exec(sql);
-    } catch (_) {
-      // Column already exists
-    }
-  }
+  for (const sql of colSqls) _tryExecSql(conn, sql);
+  _ensureAgentsColumns(conn);
 
   conn.exec(`
     CREATE INDEX IF NOT EXISTS idx_skills_type ON skills(type);
@@ -364,62 +431,77 @@ function setupSchema(conn, backupDatabaseFn = null) {
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_created ON prompt_queue(created_at);
   `);
 
-
   try {
     const queueCols = conn.prepare("PRAGMA table_info(prompt_queue)").all().map(c => c.name);
-    if (!queueCols.includes('workspace_root')) {
-      conn.exec("ALTER TABLE prompt_queue ADD COLUMN workspace_root TEXT DEFAULT ''");
-    }
-    if (!queueCols.includes('client')) {
-      conn.exec("ALTER TABLE prompt_queue ADD COLUMN client TEXT DEFAULT ''");
-    }
+    if (!queueCols.includes('workspace_root')) conn.exec("ALTER TABLE prompt_queue ADD COLUMN workspace_root TEXT DEFAULT ''");
+    if (!queueCols.includes('client')) conn.exec("ALTER TABLE prompt_queue ADD COLUMN client TEXT DEFAULT ''");
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
-    const now = new Date().toISOString();
-    conn.prepare("INSERT OR IGNORE INTO telegram_config (id, enabled, mode, transport, updated_at) VALUES (1, 0, 'one_way', 'polling', ?)").run(now);
+    conn.prepare("INSERT OR IGNORE INTO telegram_config (id, enabled, mode, transport, updated_at) VALUES (1, 0, 'one_way', 'polling', ?)").run(new Date().toISOString());
   } catch (_) { /* intentional best-effort fallback */ }
 
-  try {
-    conn.exec('DROP TABLE IF EXISTS tunnel_config; DROP TABLE IF EXISTS persona_memories_migrated; DROP TABLE IF EXISTS active_sessions_migrated;');
-  } catch (_) { /* intentional best-effort fallback */ }
-
-  try {
-    conn.prepare('DELETE FROM skill_chunks WHERE embedding IS NOT NULL AND length(embedding) != 1536').run();
-  } catch (_) { /* intentional best-effort fallback */ }
-
-  try {
-    conn.prepare("DELETE FROM agents WHERE name LIKE 'mcp_%'").run();
-  } catch (_) { /* intentional best-effort fallback */ }
+  _tryExecSql(conn, 'DROP TABLE IF EXISTS tunnel_config; DROP TABLE IF EXISTS persona_memories_migrated; DROP TABLE IF EXISTS active_sessions_migrated;');
+  try { conn.prepare('DELETE FROM skill_chunks WHERE embedding IS NOT NULL AND length(embedding) != 1536').run(); } catch (_) { /* intentional best-effort fallback */ }
+  try { conn.prepare("DELETE FROM agents WHERE name LIKE 'mcp_%'").run(); } catch (_) { /* intentional best-effort fallback */ }
 
   if (ftsSupported) {
-    try {
-      conn.exec("INSERT INTO skills_fts(skills_fts) VALUES('rebuild')");
-    } catch (_) { /* intentional best-effort fallback */ }
-    try {
-      conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
-    } catch (_) { /* intentional best-effort fallback */ }
+    _tryExecSql(conn, "INSERT INTO skills_fts(skills_fts) VALUES('rebuild')");
+    _tryExecSql(conn, "INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
   }
 
   try {
     const agentCols = new Set(conn.prepare('PRAGMA table_info(agents)').all().map(c => c.name));
-    for (const legacy of ['claude_model', 'cursor_model']) {
-      if (agentCols.has(legacy)) {
-        conn.prepare(`ALTER TABLE agents DROP COLUMN ${legacy}`).run();
-      }
-    }
+    if (agentCols.has('claude_model')) conn.prepare('ALTER TABLE agents DROP COLUMN claude_model').run();
+    if (agentCols.has('cursor_model')) conn.prepare('ALTER TABLE agents DROP COLUMN cursor_model').run();
   } catch (_) { /* intentional best-effort fallback */ }
 
-  // Migration v5: composite indices and user_version tracking
-  try {
-    conn.exec(`
-      CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status_updated ON sdlc_tasks(status, updated_at);
-      CREATE INDEX IF NOT EXISTS idx_persona_memories_agent_proj ON persona_memories(agent_name, project_hash);
-    `);
-  } catch (_) { /* intentional best-effort fallback */ }
+  _tryExecSql(conn, `
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status_updated ON sdlc_tasks(status, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_persona_memories_agent_proj ON persona_memories(agent_name, project_hash);
+  `);
+}
 
-  // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
+function _verifyPostMigrationOrThrow(conn) {
+  if (!verifyIntegrity(conn)) {
+    let detail = 'unknown';
+    try {
+      const row = conn.prepare('PRAGMA integrity_check').get();
+      detail = String(row ? (row.integrity_check !== undefined ? row.integrity_check : Object.values(row)[0]) : 'no result');
+    } catch (_) { /* intentional best-effort fallback */ }
+    throw new Error(`SCHEMA INTEGRITY FAILURE: PRAGMA integrity_check returned '${detail}'`);
+  }
+  const fkViolations = conn.prepare('PRAGMA foreign_key_check').all();
+  if (fkViolations.length > 0) {
+    throw new Error(`FOREIGN KEY VIOLATION: ${fkViolations.length} constraint violation(s) remain after migration`);
+  }
+  const canonicalCheck = validateCanonicalSchema(conn);
+  if (!canonicalCheck.valid) {
+    throw new Error(`CANONICAL SCHEMA FAILURE: ${canonicalCheck.errors.join('; ')}`);
+  }
+}
+
+function setupSchema(conn, backupDatabaseFn = null) {
+  const ftsSupported = hasFts5Support(conn);
+  const initialVersion = getCurrentUserVersion(conn);
+  const backupInfo = createAndVerifyPreMigrationBackup(conn, backupDatabaseFn, {
+    currentVersion: initialVersion,
+    targetVersion: CURRENT_SCHEMA_VERSION
+  });
+
+  conn.exec('SAVEPOINT konoha_setup_schema');
   try {
+    if (ftsSupported) _dropLegacyPersonaMemoriesFts(conn);
+    conn.exec(CORE_SCHEMA_DDL);
+    _migratePersonaMemoriesForeignKey(conn);
+    _tryExecSql(conn, "ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
+    _migrateActiveSessionsPk(conn);
+    _backfillActiveSessionsProjectHash(conn);
+    _purgeLegacyDbArtifacts(conn);
+    _syncCoreFts5(conn, ftsSupported);
+    _applyCoreColumnAndIndexMigrations(conn, ftsSupported);
+
+    // Yamanaka 3D Subsystem Canonical Schema & Legacy Table Purge
     const { purgeLegacy3DTables, verifyAndApplyCanonicalSchema, applyQualityLadderMigration, ensureAdditiveColumns } = require('./mcp/three_asset/db_3d_schema');
     const { applyProfileVocabularyMigration } = require('./mcp/three_asset/profile_vocabulary_migration');
     purgeLegacy3DTables(conn);
@@ -429,26 +511,21 @@ function setupSchema(conn, backupDatabaseFn = null) {
     // The ladder rebuild copies columns by position, so post-rebuild additive columns
     // (including the refine-fork lineage columns) are re-applied afterwards.
     ensureAdditiveColumns(conn);
+
+    // Migration v6/v7: native code intelligence index + canonical layout verification.
+    _applyCodeIntelligenceMigration(conn, ftsSupported);
+    _verifyPostMigrationOrThrow(conn);
+
+    setUserVersion(conn, CURRENT_SCHEMA_VERSION);
+    conn.exec('RELEASE konoha_setup_schema');
   } catch (err) {
-    if (err.message && (err.message.includes('SCHEMA DRIFT') || err.message.includes('FORBIDDEN') || err.message.includes('INTEGRITY') || err.message.includes('FOREIGN KEY VIOLATION'))) {
-      throw err;
-    }
-  }
-
-  // Migration v6: native code intelligence index.
-  _applyCodeIntelligenceMigration(conn, backupDatabaseFn);
-
-  setUserVersion(conn, CURRENT_SCHEMA_VERSION);
-
-  // Integrity is a hard gate: a migration that produced a corrupt file must
-  // fail loudly here rather than surface as a mystery error on first query.
-  if (!verifyIntegrity(conn)) {
-    let detail = 'unknown';
     try {
-      const row = conn.prepare('PRAGMA integrity_check').get();
-      detail = String(row ? (row.integrity_check !== undefined ? row.integrity_check : Object.values(row)[0]) : 'no result');
-    } catch (_) { /* intentional best-effort fallback */ }
-    throw new Error(`SCHEMA INTEGRITY FAILURE: PRAGMA integrity_check returned '${detail}'`);
+      conn.exec('ROLLBACK TO konoha_setup_schema; RELEASE konoha_setup_schema;');
+    } catch (_) { /* ignore rollback error */ }
+    if (backupInfo && backupInfo.backupPath && err && typeof err === 'object') {
+      err.backupPath = backupInfo.backupPath;
+    }
+    throw err;
   }
 
   return conn;
@@ -459,6 +536,17 @@ function setupSchema(conn, backupDatabaseFn = null) {
  *
  * @param {Object} conn
  */
+function _validateAgentsColumns(conn, errors) {
+  const agentCols = new Set(conn.prepare('PRAGMA table_info(agents)').all().map(c => c.name));
+  if (agentCols.has('claude_model')) errors.push("Legacy column 'agents.claude_model' must not exist");
+  if (agentCols.has('cursor_model')) errors.push("Legacy column 'agents.cursor_model' must not exist");
+  for (const [col] of AGENT_SCHEMA_COLUMNS) {
+    if (!agentCols.has(col)) {
+      errors.push(`Required column 'agents.${col}' is missing`);
+    }
+  }
+}
+
 /**
  * Validate that the database contains strictly canonical tables, columns,
  * vector dimensions (384 float32), and zero orphaned or duplicate records.
@@ -497,11 +585,12 @@ function validateCanonicalSchema(conn) {
       }
     }
 
-    // Assert absence of legacy columns in agents
     if (tables.has('agents')) {
-      const agentCols = new Set(conn.prepare('PRAGMA table_info(agents)').all().map(c => c.name));
-      if (agentCols.has('claude_model')) errors.push("Legacy column 'agents.claude_model' must not exist");
-      if (agentCols.has('cursor_model')) errors.push("Legacy column 'agents.cursor_model' must not exist");
+      _validateAgentsColumns(conn, errors);
+    }
+
+    if (tables.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) {
+      errors.push("Canonical layout mismatch on 'code_chunks' columns");
     }
 
     // Assert vector chunk dimension (384 float32 = 1536 bytes)

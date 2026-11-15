@@ -119,6 +119,13 @@ rtk npx aislop scan --changes
 
 ---
 
+## 🛡️ Code-Intel, Guardrail & Subagent Contracts
+
+- **HF Cache Parity (`src/hf_cache_resolver.js`)**: `src/vector_pipeline.js` delegates HuggingFace Hub cache discovery and `KONOHA_SEMANTIC_SEARCH` availability checks to `src/hf_cache_resolver.js` (keeping both modules well under the 700-line limit).
+- **Project-Only Konoha MCP Guardrail (`src/project_konoha_mcp_guardrail.js`, `scripts/konoha_project_mcp_guard.js`)**: Active exclusively inside the Konoha repository (`isKonohaRepository`); rejects unrouted native file/search/shell/legacy-IPC (`prompt.md`, `delegate.md`, `delegated.md`, `result.md`) calls across all 8 harnesses unless routed through Konoha MCP and Konoha maintenance skills.
+- **16 Code-Intel Languages (`src/code_intel/capabilities.js`)**: Supports `javascript`, `typescript`, `python`, `go`, `rust`, `c`, `cpp`, `shell`, `sql`, `php`, `ruby`, `kotlin`, `swift`, `dart`, `elixir`, `zig` (Tree-sitter WASM + fallback + optional stdio LSP); `java`, `csharp`, and `lua` are explicitly excluded (`EXCLUDED_LANGUAGES`).
+- **Fail-Closed Subagent Spawning, Turn-0 Idle `@advisor`, 100k Quota LangGraph Compaction & Live TODO Sync (`src/mcp/lazy_subagent.js`, `src/context_compaction.js`, `src/mcp/langgraph/checkpointer.js`, `src/mcp/todo_walkthrough_sync.js`, `src/workflow/kage-reviewer/advisor_monitor.js`, `src/context_budget.js`)**: Routes the 8 spawnable specialists (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu-jonin`, `genin`, `akatsuki`, `yamanaka`) via harness-native descriptors + `konoha run-agent` child processes, keeps `@advisor` idle from turn 0 (`<= 8,192 tokens` / `32,768 bytes` interrupt budget) to steer drifted agents, captures per-agent LangGraph SQLite checkpoints (`lg_checkpoints`, namespace `agent:<name>`) + compacts + auto-continues when reaching `agent_input_token_quota` (`100,000` default / `KONOHA_AGENT_INPUT_TOKEN_QUOTA`), and synchronizes full `client_todo_directive` (`native_payload`), `walkthrough_steps`, `TODO.md`, and `sdlc_tasks` across all 8 harnesses.
+
 ## 📜 Change History That Constrains Maintenance (v2.2.17 → v2.2.22)
 
 Read this before "fixing" the install, migrate, or upgrade path. Each row already shipped as a bug once.

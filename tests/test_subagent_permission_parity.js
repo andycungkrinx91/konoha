@@ -58,6 +58,7 @@ const claudeCode = require('../src/mcp_clients/claude_code');
 const commandCode = require('../src/mcp_clients/command_code');
 const codexManager = require('../src/codex_manager');
 const openCodeManager = require('../src/opencode_manager');
+const ompManager = require('../src/omp_manager');
 const antigravityAgents = require('../src/antigravity_agents');
 
 const TEST_FILE = __filename;
@@ -104,7 +105,7 @@ function parseFrontmatterList(md) {
   const out = [];
   let inList = false;
   for (const raw of match[1].split('\n')) {
-    if (/^allowed-tools:\s*$/.test(raw)) { inList = true; continue; }
+    if (/^(?:tools|allowed-tools):\s*$/.test(raw)) { inList = true; continue; }
     if (!inList) continue;
     if (/^\s+-\s+/.test(raw)) out.push(raw.replace(/^\s+-\s+/, '').trim());
     else if (raw.trim() === '') continue;
@@ -543,27 +544,31 @@ test('contract block SHA-256 is stable and present everywhere it must be', () =>
   }
 });
 
-test('every generated subagent .md keeps the prohibited-action block', () => {
+test('every active generated subagent definition keeps the prohibited-action block and zero legacy generic generator', () => {
+  assert.strictEqual(agentContract.generateGenericSubagentMd, undefined, 'Legacy generateGenericSubagentMd must be removed');
   for (const agent of AGENTS) {
-    assertProhibitedBlockIntact(`generic/${agent.name}`, agentContract.generateGenericSubagentMd(agent, 'codex'));
     assertProhibitedBlockIntact(`claude/${agent.name}`, claudeCode.generateClaudeCodeSubagent(agent));
+    assertProhibitedBlockIntact(`commandcode/${agent.name}`, commandCode.buildCommandCodeSubagentMd(agent));
+    assertProhibitedBlockIntact(`omp/${agent.name}`, ompManager.generateOmpSubagentMd(agent));
+    assertProhibitedBlockIntact(`opencode/${agent.name}`, openCodeManager.generateOpenCodeSubagentMd(agent));
+    assertProhibitedBlockIntact(`codex/${agent.name}`, codexManager.generateCodexSubagentToml(agent));
   }
 });
 
 // ===========================================================================
-console.log('self-consistency — the constant matches itself (NOT parity, NOT inheritance)');
+console.log('self-consistency — canonical subagent generators emit zero wildcards and valid tool sets');
 
-test('self-consistency: generator output equals the frozen constant', () => {
-  // Explicitly self-consistency: subagent vs constant. This test CANNOT detect
-  // a parity defect and does not claim to.
+test('self-consistency: active client generators emit no wildcards and match active contracts', () => {
   for (const agent of AGENTS) {
-    for (const client of ['generic', 'codex', 'opencode', 'commandcode', 'claude']) {
-      const md = agentContract.generateGenericSubagentMd(agent, client);
-      const sub = parseFrontmatterList(md);
-      assert.deepStrictEqual(sub, common.buildSubagentToolGrants(client),
-        `${client}/${agent.name} diverged from the constant`);
-      assert.deepStrictEqual(wildcardGrants(sub), [], `${client}/${agent.name} emitted a wildcard`);
-    }
+    const claudeMd = claudeCode.generateClaudeCodeSubagent(agent);
+    const claudeTools = parseFrontmatterList(claudeMd);
+    assert.deepStrictEqual(wildcardGrants(claudeTools), [], `claude/${agent.name} emitted a wildcard`);
+    const ccMd = commandCode.buildCommandCodeSubagentMd(agent);
+    const ccTools = parseFrontmatterList(ccMd);
+    assert.deepStrictEqual(wildcardGrants(ccTools), [], `commandcode/${agent.name} emitted a wildcard`);
+    const ompMd = ompManager.generateOmpSubagentMd(agent);
+    const ompTools = parseFrontmatterList(ompMd);
+    assert.deepStrictEqual(wildcardGrants(ompTools), [], `omp/${agent.name} emitted a wildcard`);
   }
 });
 

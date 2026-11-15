@@ -90,19 +90,6 @@
       "wasm_sha256": "24c89bd9252255e4aebbcbd7d2d308bd92c86dd95a130fdc80efa49577b8d738"
     },
     {
-      "language": "java",
-      "file": "tree-sitter-java.wasm",
-      "repo": "https://github.com/tree-sitter/tree-sitter-java",
-      "tag": "v0.23.5",
-      "commit_sha": "94703d5a6bed02b98e438d7cad1136c01a60ba2c",
-      "license": "MIT",
-      "license_sha256": "52ed137b039cd9c46409bc22e89938af911c95b157feae2d040b51e6084369a7",
-      "tree_sitter_cli_version": "upstream:^0.24.4",
-      "abi_version": 14,
-      "bytes": 414641,
-      "wasm_sha256": "4fdeac4ca6ca089f06c6f7e562abcac1733cd465728cc7031ebb73c2019122c4"
-    },
-    {
       "language": "c",
       "file": "tree-sitter-c.wasm",
       "repo": "https://github.com/tree-sitter/tree-sitter-c",

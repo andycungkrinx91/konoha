@@ -1,5 +1,5 @@
 
-Konoha registers **konoha** and **aislop** for every supported client detected during `konoha init`. Code search is in-process (SQLite FTS5 inside the `konoha` server), so there is no third MCP server to register. Missing optional clients are skipped without failing installation.
+Konoha registers **konoha** and **aislop** for every supported client detected during `konoha init`. Code intelligence runs in-process inside the `konoha` server (Tree-sitter WASM AST + SQLite FTS5 + IBM Granite/MiniLM hybrid vector + optional stdio LSP), so there is no third MCP server to register. Missing optional clients are skipped without failing installation. Custom user-modified deployment targets are protected via `.konoha-backup.<ts>` and `.konoha-proposed` conflict parking instead of silent overwrites. For Pi, native subagent spawning requires the `pi-subagents` extension (otherwise native spawn fails closed with `UNSUPPORTED_NATIVE_SPAWN` and uses `konoha run-agent`).
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
@@ -267,7 +267,6 @@ approval_mode = "auto"
       "command": "node",
       "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
       "env": { "ACTIVE_CLIENT": "omp", "KONOHA_CLIENT": "omp", "KONOHA_SEMANTIC_SEARCH": "1" }
-    },
     },
     "aislop": {
       "type": "stdio",

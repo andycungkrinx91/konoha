@@ -24,7 +24,7 @@ main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **RTK is mandatory**: prefix shell commands with `rtk`.
 - **Resume safety**: restore the Konoha/RTK workflow.
 - **HITL gates**: picker on every client; reply via `sannin({task_dir,choice,refinement})`; fail closed.
-- **Worktree/@advisor guard**: stay in `owned_files`; idle `@advisor` interrupts drift.
+- **Worktree/@advisor guard**: stay in `owned_files`; turn-0 idle `@advisor` steers Plan/TODO/Goal drift.
 - **@advisor review**: delivery needs approval.
 - **Zero-AI-Slop & Kage gate**: 100/100 + ≥98% confidence.
 - **Full contract**: `get_skill('konoha/contract')`.

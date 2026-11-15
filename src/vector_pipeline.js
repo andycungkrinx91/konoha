@@ -11,7 +11,6 @@
  * Fails loudly with `EmbeddingRuntimeUnavailableError` when runtime or models are unavailable.
  */
 
-const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
@@ -34,6 +33,7 @@ let _embedPipelinePromise = null;
 let _rerankPipelinePromise = null;
 let _embedLoaded = false;
 let _rerankLoaded = false;
+let _moduleLoadError = null;
 
 /**
  * Error thrown when semantic embedding or reranking cannot execute.
@@ -51,42 +51,20 @@ class EmbeddingRuntimeUnavailableError extends Error {
  * Returns whether semantic embedding and cross-encoder reranking are enabled.
  * @returns {boolean}
  */
-function isSemanticSearchEnabled() {
-  const val = process.env[SEMANTIC_SEARCH_ENV];
-  if (typeof val !== 'string') return true;
-  const normalized = val.trim().toLowerCase();
-  return !['0', 'false', 'off', 'no'].includes(normalized);
-}
+const {
+  isSemanticSearchEnabled,
+  resolveHfCacheOverride: _resolveHfCacheOverride,
+  isHfOffline: _isHfOffline,
+  resolveStandardHfHubCacheDir: _resolveStandardHfHubCacheDir,
+  resolveDefaultPackageCacheDir,
+  resolveCacheSearchDirs,
+  configureHfEnv,
+  resolveCachedRepoLocation: _resolveCachedRepoLocation,
+} = require('./hf_cache_resolver');
 
-function _resolveHfCacheOverride() {
-  const hubCache = process.env.HF_HUB_CACHE || process.env.HUGGINGFACE_HUB_CACHE;
-  if (typeof hubCache === 'string' && hubCache.trim()) {
-    return path.resolve(hubCache.trim());
-  }
-  const hfHome = process.env.HF_HOME;
-  if (typeof hfHome === 'string' && hfHome.trim()) {
-    return path.join(path.resolve(hfHome.trim()), 'hub');
-  }
-  return null;
-}
-
-function _isHfOffline() {
-  for (const key of ['HF_HUB_OFFLINE', 'TRANSFORMERS_OFFLINE']) {
-    const raw = process.env[key];
-    if (typeof raw === 'string' && ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase())) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function _configureHfEnv(hfEnv) {
-  const cacheOverride = _resolveHfCacheOverride();
-  hfEnv.cacheDir = cacheOverride !== null ? cacheOverride : _defaultCacheDir;
-  const offline = _isHfOffline();
-  hfEnv.allowRemoteModels = offline ? false : _defaultAllowRemote;
-  return { offline, cacheDir: hfEnv.cacheDir };
-}
+const _resolveDefaultPackageCacheDir = () => resolveDefaultPackageCacheDir(_defaultCacheDir);
+const _resolveCacheSearchDirs = () => resolveCacheSearchDirs(_defaultCacheDir);
+const _configureHfEnv = (hfEnv) => configureHfEnv(hfEnv, _defaultCacheDir, _defaultAllowRemote);
 
 async function _loadTransformersModule() {
   if (!_tfModulePromise) {
@@ -104,10 +82,9 @@ async function _loadTransformersModule() {
           && /ERR_DLOPEN_FAILED|specified module could not be found/i.test(`${err && err.code || ''} ${err && err.message || ''}`))
           ? ' (On Windows, install Microsoft Visual C++ 2015-2022 Redistributable x64: https://aka.ms/vs/17/release/vc_redist.x64.exe)'
           : '';
-        throw new EmbeddingRuntimeUnavailableError(
-          `Failed to load @huggingface/transformers runtime: ${err.message}${winHint}`,
-          err
-        );
+        const msg = `Failed to load @huggingface/transformers runtime: ${err.message}${winHint}`;
+        _moduleLoadError = msg;
+        throw new EmbeddingRuntimeUnavailableError(msg, err);
       });
   }
   const mod = await _tfModulePromise;
@@ -162,15 +139,28 @@ async function _initModelPair(kind, repo, modelKey) {
       `@huggingface/transformers is missing AutoTokenizer or ${modelKey}.`
     );
   }
+  const resolved = _resolveCachedRepoLocation(_resolveCacheSearchDirs(), repo);
+  const modelTarget = resolved ? resolved.modelRef : repo;
+  if (resolved && resolved.cacheDir && !_resolveHfCacheOverride()) {
+    mod.env.cacheDir = resolved.cacheDir;
+  }
   const loadOpts = { local_files_only: offline };
-  const tokenizer = await AutoTokenizer.from_pretrained(repo, loadOpts);
-  const model = await ModelClass.from_pretrained(repo, {
+  const tokenizer = await AutoTokenizer.from_pretrained(modelTarget, loadOpts);
+  const model = await ModelClass.from_pretrained(modelTarget, {
     dtype: 'q8',
     local_files_only: offline,
   });
   if (kind === 'embed') _embedLoaded = true;
   else _rerankLoaded = true;
-  return { tokenizer, model, repo, cacheDir, offline };
+  return {
+    tokenizer,
+    model,
+    repo,
+    cacheDir,
+    resolvedCacheDir: resolved ? resolved.cacheDir : cacheDir,
+    cacheLayout: resolved ? resolved.layout : 'remote',
+    offline,
+  };
 }
 
 function _getOrInitPipeline(kind, repo, modelKey, currentPromise, setPromise) {
@@ -235,33 +225,54 @@ function getRerankPipeline() {
  * Reports current semantic pipeline runtime configuration and availability without probing disk caches.
  * @returns {object}
  */
+
 function getRuntimeStatus() {
   const enabled = isSemanticSearchEnabled();
   const offline = _isHfOffline();
-  const cacheDir = _resolveHfCacheOverride() || _defaultCacheDir || null;
+  const searchDirs = _resolveCacheSearchDirs();
+  const embedLocation = _resolveCachedRepoLocation(searchDirs, EMBED_MODEL_REPO);
+  const rerankLocation = _resolveCachedRepoLocation(searchDirs, RERANK_MODEL_REPO);
+  const cacheDir = _resolveHfCacheOverride()
+    || (embedLocation && embedLocation.cacheDir)
+    || _resolveDefaultPackageCacheDir()
+    || _resolveStandardHfHubCacheDir()
+    || null;
   let packageAvailable = false;
-  try {
-    require.resolve('@huggingface/transformers');
-    packageAvailable = true;
-  } catch (_) {
-    packageAvailable = false;
-  }
-
+  try { require.resolve('@huggingface/transformers'); packageAvailable = true; } catch (_) { /* missing */ }
+  const embedCached = _embedLoaded || Boolean(embedLocation);
+  const rerankCached = _rerankLoaded || Boolean(rerankLocation);
+  const offlineWithoutCache = offline && !embedCached;
   let reason = 'ready';
   if (!enabled) reason = `${SEMANTIC_SEARCH_ENV}=0`;
   else if (!packageAvailable) reason = '@huggingface/transformers package unavailable';
-  else if (offline) reason = 'offline';
-
+  else if (_moduleLoadError) reason = _moduleLoadError;
+  else if (offlineWithoutCache) reason = 'offline without cached models';
+  else if (offline && !rerankCached) reason = 'offline without cached reranker';
+  else if (offline) reason = 'offline (cached)';
   return {
     enabled,
-    available: enabled && packageAvailable,
+    available: enabled && packageAvailable && !_moduleLoadError && !offlineWithoutCache,
     backend: '@huggingface/transformers',
     offline,
     cacheDir,
-    embedModel: { repo: EMBED_MODEL_REPO, loaded: _embedLoaded },
-    rerankModel: { repo: RERANK_MODEL_REPO, loaded: _rerankLoaded },
+    embedModel: {
+      repo: EMBED_MODEL_REPO,
+      loaded: _embedLoaded,
+      cached: embedCached,
+      cacheLayout: embedLocation ? embedLocation.layout : null,
+    },
+    rerankModel: {
+      repo: RERANK_MODEL_REPO,
+      loaded: _rerankLoaded,
+      cached: rerankCached,
+      cacheLayout: rerankLocation ? rerankLocation.layout : null,
+    },
     reason,
   };
+}
+
+function isSemanticCapable() {
+  return Boolean(getRuntimeStatus().available);
 }
 
 /**
@@ -633,6 +644,7 @@ async function resetPipelinesForTest() {
   _rerankPipelinePromise = null;
   _embedLoaded = false;
   _rerankLoaded = false;
+  _moduleLoadError = null;
   _RERANK_CACHE.clear();
   for (const p of [prevEmbed, prevRerank]) {
     if (!p) continue;
@@ -654,6 +666,7 @@ module.exports = {
   _EMBED_CACHE,
   EmbeddingRuntimeUnavailableError,
   isSemanticSearchEnabled,
+  isSemanticCapable,
   getRuntimeStatus,
   normalizeForEmbedding,
   hashNormalizedText,

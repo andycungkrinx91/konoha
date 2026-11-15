@@ -57,9 +57,10 @@ const {
 } = require('./langgraph');
 
 async function sanninWorkflowInit(taskDir, options = {}) {
+  const safeTaskDir = taskDir ? getResolvedTaskDir(taskDir, options.projectPath || options.project_path, options.sessionId || options.session_id) : '';
   const prompt = options.prompt || '';
   const tokenBudget = options.tokenBudget || options.token_budget || 8192;
-  const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
+  const threadId = options.threadId || options.taskId || (safeTaskDir ? path.basename(safeTaskDir) : 'default-thread');
   const autoSignoff = options.autoSignoff !== undefined ? options.autoSignoff : false;
   const hitlChoice = options.choice || options.gate_choice || options.gateChoice || options.hitlChoice || options.action || null;
   const hitlRefinement = options.refinement || options.hitlRefinement || options.feedback || options.notes || null;
@@ -70,7 +71,7 @@ async function sanninWorkflowInit(taskDir, options = {}) {
 
   return runKonohaGraph({
     prompt,
-    taskDir,
+    taskDir: safeTaskDir,
     tokenBudget,
     threadId,
     autoSignoff,
@@ -86,14 +87,15 @@ async function sanninWorkflowInit(taskDir, options = {}) {
 }
 
 async function sanninWorkflowNext(taskDir, options = {}) {
-  const threadId = options.threadId || options.taskId || (taskDir ? path.basename(taskDir) : 'default-thread');
+  const safeTaskDir = taskDir ? getResolvedTaskDir(taskDir, options.projectPath || options.project_path, options.sessionId || options.session_id) : '';
+  const threadId = options.threadId || options.taskId || (safeTaskDir ? path.basename(safeTaskDir) : 'default-thread');
   const hitlChoice = options.choice || options.gate_choice || options.gateChoice || options.hitlChoice || options.action || null;
   const hitlRefinement = options.refinement || options.hitlRefinement || options.feedback || options.notes || null;
   const tokenBudget = options.tokenBudget || options.token_budget || options.budget;
   const client = options.client || '';
   const sessionId = options.sessionId || options.session_id || '';
   const input = {
-    taskDir,
+    taskDir: safeTaskDir,
     threadId,
     hitlChoice,
     hitlRefinement,

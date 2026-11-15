@@ -89,4 +89,55 @@ function verifyOtherWritePaths() {
   fs.rmSync(yamlDir, { recursive: true, force: true });
 }
 
+/**
+ * Upgrading an older DB whose `agents` table lacks `icon` (or PK on `name`)
+ * must backfill all canonical columns before `seedAgents` / `db_agents` run
+ * INSERT ... ON CONFLICT(name) DO UPDATE.
+ */
+function verifyLegacyAgentsColumnBackfill() {
+  const legacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-legacy-agents-'));
+  try {
+    // Case A: pre-icon `agents` table with PK on `name`, already stamped user_version = 7
+    const dbPathA = path.join(legacyDir, 'pre_icon_v7.db');
+    const connA = db.getConnection(dbPathA, false);
+    connA.exec(`
+      CREATE TABLE agents (name TEXT PRIMARY KEY, title TEXT, model TEXT);
+      INSERT INTO agents (name, title, model) VALUES ('sannin', 'Old Router', 'custom-model');
+    `);
+    db.ensureSchema(connA);
+    seedAgents(connA, (msg) => {
+      assert.ok(!/Failed to seed agents/i.test(msg), `seedAgents must not fail after schema backfill: ${msg}`);
+    });
+    const sannin = connA.prepare('SELECT icon, model, enable_mcp_tools FROM agents WHERE name = ?').get('sannin');
+    assert.ok(sannin && sannin.icon, 'sannin.icon must be seeded after column backfill');
+    assert.strictEqual(sannin.model, 'custom-model', 'existing agents.model must be preserved across seedAgents');
+    assert.strictEqual(sannin.enable_mcp_tools, 1, 'enable_mcp_tools must backfill cleanly');
+    connA.close();
+
+    // Case B: pre-icon `agents` table at user_version = 7 even after CORE_SCHEMA_DDL exists for other tables
+    const dbPathB = path.join(legacyDir, 'v7_partial_agents.db');
+    const connB = db.getConnection(dbPathB, false);
+    db.setupSchema(connB);
+    connB.exec(`
+      DROP TABLE agents;
+      CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT, title TEXT);
+      INSERT INTO agents (id, name, title) VALUES ('legacy-1', 'anbu', 'Old Anbu');
+    `);
+    connB.close();
+
+    const connB2 = db.getConnection(dbPathB, false);
+    db.ensureSchema(connB2);
+    seedAgents(connB2, (msg) => {
+      assert.ok(!/Failed to seed agents/i.test(msg), `ensureSchema must backfill v7 partial agents table: ${msg}`);
+    });
+    const anbu = connB2.prepare('SELECT icon, title FROM agents WHERE name = ?').get('anbu');
+    assert.ok(anbu && anbu.icon, 'anbu.icon must be seeded on repaired v7 DB');
+    connB2.close();
+    console.log('✓ legacy agents tables without icon or PK(name) backfill and seed cleanly');
+  } finally {
+    fs.rmSync(legacyDir, { recursive: true, force: true });
+  }
+}
+
 main();
+verifyLegacyAgentsColumnBackfill();

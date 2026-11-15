@@ -14,6 +14,7 @@ const {
   buildFileToolsPolicyCompact
 } = require('../search_policy');
 const { buildSubagentContract } = require('../agent_contract');
+const { getDeployableAgents } = require('../canonical_agents');
 const {
   HOME,
   validateAgentName,
@@ -73,24 +74,16 @@ function adaptInstructionsForClaudeCode(instructions) {
 }
 
 function generateClaudeCodeSubagent(agent) {
-  const DEFAULT_ROLE_DESCRIPTIONS = {
-    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
-    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
-    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
-    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
-    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
-  };
-  const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
+  const {
+    isReadOnlyAgent,
+    isRouterAgent,
+    getRoleDescription
+  } = require('../agent_file_safety');
+  const rawDesc = getRoleDescription(agent);
   const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
 
   let instructions = agent.instructions || '';
   instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
-  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
   instructions = instructions.trim();
   if (instructions && !instructions.endsWith('.')) {
     instructions += '.';
@@ -114,8 +107,16 @@ function generateClaudeCodeSubagent(agent) {
   const fileToolsLine = buildFileToolsPolicyCompact();
   const body = adaptInstructionsForClaudeCode(`${instructions}\n\n${codeSearchLine}\n${fileToolsLine}\n`);
 
-  const toolGrants = buildSubagentToolGrants('claude');
-  assertNoWildcardGrants(toolGrants, `claude code subagent ${agent.name} allowed-tools`);
+  const readOnly = isReadOnlyAgent(agent);
+  const rawToolGrants = buildSubagentToolGrants('claude', agent);
+  const toolGrants = isRouterAgent(agent)
+    ? rawToolGrants
+    : rawToolGrants.filter((t) => t !== 'Task' && t !== 'Agent');
+  assertNoWildcardGrants(toolGrants, `claude code subagent ${agent.name} tools`);
+
+  const disallowed = readOnly
+    ? ['Write', 'Edit', 'Bash', 'NotebookEdit', 'Agent']
+    : (isRouterAgent(agent) ? [] : ['Agent']);
 
   const frontmatter = [
     '---',
@@ -125,8 +126,9 @@ function generateClaudeCodeSubagent(agent) {
     // without it and `_cleanMcpAgentFiles` refuses to delete one without it, so
     // a hand-written agent in ~/.claude/agents survives install and uninstall.
     'generated_by: konoha',
-    'allowed-tools:',
+    'tools:',
     ...toolGrants.map(t => `  - ${t}`),
+    ...(disallowed.length > 0 ? ['disallowedTools:', ...disallowed.map(t => `  - ${t}`)] : []),
     '---',
     ''
   ];
@@ -134,20 +136,7 @@ function generateClaudeCodeSubagent(agent) {
   return frontmatter.join('\n') + body;
 }
 
-const AGENT_OWNERSHIP_MARKER = 'generated_by: konoha';
-
-/** True when a file's YAML frontmatter carries the Konoha ownership marker. */
-function isKonohaOwnedAgentFile(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    if (!content.startsWith('---')) return false;
-    const end = content.indexOf('\n---', 3);
-    const frontmatter = end === -1 ? content : content.slice(0, end);
-    return frontmatter.split('\n').some((line) => line.trim() === AGENT_OWNERSHIP_MARKER);
-  } catch (_) {
-    return false;
-  }
-}
+const { AGENT_OWNERSHIP_MARKER, isKonohaOwnedAgentFile } = require('../agent_file_safety');
 
 function _cleanMcpAgentFiles(dir) {
   try {
@@ -197,10 +186,11 @@ function _reportAgentConflicts(conflicts) {
 
 function _deployClaudeCodeAgents(agents, options = {}) {
   if (!agents || !agents.length) return;
+  const deployAgents = getDeployableAgents(agents);
   const claudeAgentsDir = (options && options.home ? path.join(options.home, ".claude", "agents") : path.join(HOME, ".claude", "agents"));
   ensureDir(claudeAgentsDir);
   const conflicts = [];
-  for (const agent of agents) {
+  for (const agent of deployAgents) {
     if (!_isDeployableAgent(agent, claudeAgentsDir)) continue;
     const mdContent = generateClaudeCodeSubagent(agent);
     const targetPath = path.join(claudeAgentsDir, agent.name + ".md");

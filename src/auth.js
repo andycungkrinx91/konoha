@@ -11,7 +11,7 @@ const fs = require('fs');
 const { getConfigValue } = require('./config_access');
 const path = require('path');
 const crypto = require('crypto');
-const { SKILLS_DB_DIR } = require('../bin/lib/paths');
+const { SKILLS_DB_DIR } = require('./config_access').loadBinLib('paths');
 
 function getAuthConfigPath() {
   return process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');

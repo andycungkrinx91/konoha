@@ -237,7 +237,7 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 ## Test Suite Runner & Isolation Contract (G-01, G-17)
 
-Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the unreleased `tests/test_yamanaka_*.js` suites (named in the run banner; still runnable by passing one as the filter), so a new suite is discovered without editing a list.
+Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the unreleased `tests/test_yamanaka_*.js` suites across all `2.2.*` versions (`/^2\.2\./`, named in the run banner; still runnable by passing one as the filter), so a new suite is discovered without editing a list. Likewise, `tests/e2e/yamanaka_3d_studio.spec.js` automatically skips across `2.2.*` versions when running Playwright (`pnpm test:e2e`).
 
 Every test and lint entry point in `package.json` is routed through `scripts/rtk_exec.js`, so suite output reaches the orchestrating model as a failure-focused summary instead of thousands of raw lines:
 

@@ -16,37 +16,18 @@ const { CHUNK_SCHEMA_VERSION } = require('./chunker');
 const { parseFile: parseFallback } = require('./lexer_fallback');
 const { walkAst, parseMarkdownStructured, parseConfigStructured } = require('./ast_inspectors');
 
+const {
+  EXCLUDED_EXTENSIONS,
+  GRAMMAR_BY_EXT,
+  GRAMMAR_BY_LANG,
+  detectLanguageByPath,
+  getWasmGrammarKey,
+  isIndexableLanguage,
+  isLanguageExcluded
+} = require('./capabilities');
+
 const EXTRACTOR_VERSION = 'ast-extract-v1';
 const GRAMMARS_DIR_ENV = 'KONOHA_GRAMMARS_DIR';
-
-const GRAMMAR_BY_EXT = {
-  '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.jsx': 'javascript',
-  '.ts': 'typescript', '.mts': 'typescript', '.cts': 'typescript',
-  '.tsx': 'tsx',
-  '.py': 'python',
-  '.go': 'go',
-  '.rs': 'rust',
-  '.java': 'java',
-  '.c': 'c', '.h': 'c',
-  '.cc': 'cpp', '.cpp': 'cpp', '.hpp': 'cpp',
-  '.sh': 'bash', '.bash': 'bash',
-  '.sql': 'sql'
-};
-
-const GRAMMAR_BY_LANG = {
-  javascript: 'javascript',
-  typescript: 'typescript',
-  tsx: 'tsx',
-  python: 'python',
-  go: 'go',
-  rust: 'rust',
-  java: 'java',
-  c: 'c',
-  cpp: 'cpp',
-  shell: 'bash',
-  bash: 'bash',
-  sql: 'sql'
-};
 
 let _wtsModule = null;
 let _runtimeInitPromise = null;
@@ -128,12 +109,6 @@ function getParserVersion() {
   }
 }
 
-function _selectGrammarKey(language, relPath) {
-  const ext = relPath ? path.extname(relPath).toLowerCase() : '';
-  if (ext && Object.hasOwn(GRAMMAR_BY_EXT, ext)) return GRAMMAR_BY_EXT[ext];
-  return Object.hasOwn(GRAMMAR_BY_LANG, language) ? GRAMMAR_BY_LANG[language] : null;
-}
-
 function _initRuntime(grammarsDir, lock) {
   if (_runtimeInitPromise) return _runtimeInitPromise;
   _runtimeInitPromise = (async () => {
@@ -184,21 +159,32 @@ async function _loadGrammar(grammarKey) {
 
 /**
  * Parses `source` asynchronously using bundled MIT `web-tree-sitter` WASM grammars
- * for the 11 locked languages, structured extractors for Markdown/JSON/YAML/TOML,
- * or the lexical fallback for remaining extensions.
+ * for the 10 active WASM grammars (covering JS, TS/TSX, Python, Go, Rust, C, C++, Bash, SQL),
+ * structured extractors for Markdown/JSON/YAML/TOML, or lexical fallback for the remaining
+ * supported languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig). Excluded languages
+ * (Java, C#, Lua) return an empty unsupported result.
  */
 async function parseFileAsync(source, language, relPath = '') {
   const text = String(source || '');
-  if (language === 'markdown') return parseMarkdownStructured(text);
-  if (language === 'json' || language === 'yaml' || language === 'toml') {
-    return parseConfigStructured(text, language);
+  const detectedFromPath = relPath ? detectLanguageByPath(relPath) : null;
+  const relExt = relPath ? path.extname(String(relPath)).toLowerCase() : '';
+  if (relExt && EXCLUDED_EXTENSIONS.includes(relExt)) {
+    return { symbols: [], refs: [], imports: [], parserVersion: 'unsupported', parseEngine: 'unsupported' };
   }
-  const grammarKey = _selectGrammarKey(language, relPath);
+  const effectiveLang = language || detectedFromPath || '';
+  if (isLanguageExcluded(effectiveLang) || !isIndexableLanguage(effectiveLang)) {
+    return { symbols: [], refs: [], imports: [], parserVersion: 'unsupported', parseEngine: 'unsupported' };
+  }
+  if (effectiveLang === 'markdown') return parseMarkdownStructured(text);
+  if (effectiveLang === 'json' || effectiveLang === 'yaml' || effectiveLang === 'toml') {
+    return parseConfigStructured(text, effectiveLang);
+  }
+  const grammarKey = getWasmGrammarKey(effectiveLang, relPath);
   if (!grammarKey) {
-    const fb = parseFallback(text, language);
+    const fb = parseFallback(text, effectiveLang);
     return {
       ...fb,
-      imports: [],
+      imports: Array.isArray(fb.imports) ? fb.imports : [],
       parserVersion: 'fallback-lexer-v1',
       parseEngine: 'lexer'
     };
@@ -208,7 +194,7 @@ async function parseFileAsync(source, language, relPath = '') {
   parser.setLanguage(langObj);
   const tree = parser.parse(text);
   try {
-    return walkAst(tree, text, language, grammarKey, getParserVersion());
+    return walkAst(tree, text, effectiveLang, grammarKey, getParserVersion());
   } finally {
     if (tree && typeof tree.delete === 'function') tree.delete();
     if (typeof parser.delete === 'function') parser.delete();

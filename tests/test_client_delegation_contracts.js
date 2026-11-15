@@ -48,10 +48,10 @@ console.log('delegation capability');
 
 test('only the router may spawn subagents', () => {
   const mk = (name) => ({ name, description: 'd', instructions: 'i', skills: [] });
-  assert.strictEqual(buildDefineSubagentArgs(mk('sannin')).enable_subagent_tools, true,
+  assert.strictEqual(buildDefineSubagentArgs(mk('sannin')).EnableSubagentTools, true,
     'the router must be able to spawn subagents');
   for (const name of canonical.filter((n) => n !== 'sannin')) {
-    assert.strictEqual(buildDefineSubagentArgs(mk(name)).enable_subagent_tools, false,
+    assert.strictEqual(buildDefineSubagentArgs(mk(name)).EnableSubagentTools, false,
       `${name} must not spawn subagents`);
   }
 });

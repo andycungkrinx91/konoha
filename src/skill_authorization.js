@@ -29,7 +29,18 @@ const DEFAULT_LAB_DIR_NAME = 'akatsuki-lab';
 
 function _normalizeTags(tags) {
   if (!tags) return [];
-  const raw = Array.isArray(tags) ? tags : String(tags).split(/[,;\s]+/);
+  let raw = tags;
+  if (typeof tags === 'string') {
+    const trimmed = tags.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) raw = parsed;
+      } catch (_) { /* fall back to delimited split */ }
+    }
+    if (!Array.isArray(raw)) raw = trimmed.split(/[,;\s]+/);
+  }
+  if (!Array.isArray(raw)) return [];
   return raw
     .filter((t) => typeof t === 'string')
     .map((t) => t.trim().toLowerCase())
@@ -262,6 +273,54 @@ function _lexists(p) {
   }
 }
 
+function _lookupSkillRows(conn, skillName) {
+  if (!conn || !skillName) return [];
+  try {
+    return conn.prepare('SELECT name, skill_name, tags FROM skills WHERE name = ? OR skill_name = ?').all(skillName, skillName);
+  } catch (_) {
+    try {
+      return conn.prepare('SELECT name, tags FROM skills WHERE name = ?').all(skillName);
+    } catch (_) {
+      return [];
+    }
+  }
+}
+
+function lookupSkillTags(conn, skillName) {
+  const rows = _lookupSkillRows(conn, skillName);
+  if (rows.length === 0) return '';
+  const tagSet = new Set();
+  for (const row of rows) {
+    for (const tag of _normalizeTags(row && row.tags)) {
+      tagSet.add(tag);
+    }
+  }
+  return [...tagSet].join(',');
+}
+
+function findUnauthorizedSkill(skillsList, agentName, conn = null) {
+  if (!Array.isArray(skillsList) || skillsList.length === 0) return null;
+  for (const skillName of skillsList) {
+    if (!skillName) continue;
+    const rows = _lookupSkillRows(conn, skillName);
+    const tagSet = new Set();
+    const candidates = new Set([skillName]);
+    for (const row of rows) {
+      if (row && typeof row.skill_name === 'string' && row.skill_name.trim()) candidates.add(row.skill_name.trim());
+      if (row && typeof row.name === 'string' && row.name.trim()) candidates.add(row.name.trim());
+      for (const tag of _normalizeTags(row && row.tags)) tagSet.add(tag);
+    }
+    const mergedTags = [...tagSet].join(',');
+    for (const candidate of candidates) {
+      const auth = authorizeSkillAccess({ skillName: candidate, tags: mergedTags, agentName });
+      if (!auth.authorized) {
+        return { skill: skillName, auth, denied: authorizationDeniedResult(auth, skillName) };
+      }
+    }
+  }
+  return null;
+}
+
 module.exports = {
   SKILL_AUTHORIZATION_DENIED,
   LAB_DB_ISOLATION_VIOLATION,
@@ -273,6 +332,8 @@ module.exports = {
   classifySkill,
   authorizeSkillAccess,
   authorizationDeniedResult,
+  lookupSkillTags,
+  findUnauthorizedSkill,
   getMainDbPath,
   getLabDbDir,
   isLabDbPath,

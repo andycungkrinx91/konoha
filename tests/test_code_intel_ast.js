@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Test Suite: Tree-sitter WASM AST parsing across all 11 locked MIT languages,
+ * Test Suite: Tree-sitter WASM AST parsing across all 10 locked MIT WASM grammars,
+ * 16 canonical code languages + fallback parsers, explicit exclusion of Java/C#/Lua,
  * structured Markdown/config splitters, scope-aware chunking, .gitignore filters,
  * and content_kind classification.
  */
@@ -17,6 +18,8 @@ process.env.USERPROFILE = tmpRoot;
 process.env.KONOHA_HOME = path.join(tmpRoot, '.konoha');
 process.env.KONOHA_DB_PATH = path.join(tmpRoot, 'ast.db');
 
+const capabilities = require('../src/code_intel/capabilities');
+const { detectLanguage } = require('../src/code_intel/parser');
 const { parseFileAsync, getParserVersion } = require('../src/code_intel/parser_wasm');
 const { buildChunks } = require('../src/code_intel/chunker');
 const { CHUNK_MAX_LINES, CHUNK_MAX_CHARS, CHUNK_OVERLAP_LINES } = require('../src/code_intel/config');
@@ -66,13 +69,6 @@ const GRAMMAR_SAMPLES = [
     expectedImportSpec: 'crate::core::engine'
   },
   {
-    lang: 'java',
-    rel: 'AuthController.java',
-    code: 'import com.acme.core.Service;\npublic class AuthController {\n  public void login() {}\n}\n',
-    expectedSymbols: ['AuthController', 'login'],
-    expectedImportSpec: 'com.acme.core.Service'
-  },
-  {
     lang: 'c',
     rel: 'buf.c',
     code: '#include "header.h"\nstruct Buffer { int len; };\nint compute_sum(int a, int b) { return a + b; }\n',
@@ -102,9 +98,10 @@ const GRAMMAR_SAMPLES = [
   }
 ];
 
-async function testAll11WasmGrammars() {
+async function testAll10WasmGrammars() {
   const parserVer = getParserVersion();
   assert.ok(parserVer.startsWith('ts-wasm-v1-'), `Unexpected parser version: ${parserVer}`);
+  assert.strictEqual(GRAMMAR_SAMPLES.length, 10, 'Expected 10 active WASM grammar samples');
 
   for (const sample of GRAMMAR_SAMPLES) {
     const parsed = await parseFileAsync(sample.code, sample.lang, sample.rel);
@@ -121,7 +118,45 @@ async function testAll11WasmGrammars() {
       );
     }
   }
-  console.log('✓ All 11 MIT Tree-sitter WASM grammars parsed symbols and imports accurately');
+  console.log('✓ All 10 MIT Tree-sitter WASM grammars parsed symbols and imports accurately');
+}
+
+async function testCapabilitiesAndExclusions() {
+  assert.strictEqual(capabilities.SUPPORTED_LANGUAGES.length, 16, 'Must define exact 16 supported programming languages');
+  assert.deepStrictEqual(capabilities.getExcludedLanguages(), ['java', 'csharp', 'lua']);
+  for (const excluded of ['java', 'csharp', 'lua']) {
+    assert.strictEqual(capabilities.isLanguageSupported(excluded), false, `${excluded} must not be supported`);
+    assert.strictEqual(capabilities.getCapability(excluded), null, `${excluded} capability must be null`);
+  }
+  assert.strictEqual(detectLanguage('AuthController.java'), null, '.java must not be detected');
+  assert.strictEqual(detectLanguage('Program.cs'), null, '.cs must not be detected');
+  assert.strictEqual(detectLanguage('init.lua'), null, '.lua must not be detected');
+
+  const excludedParsed = await parseFileAsync('public class Foo {}', 'java', 'Foo.java');
+  assert.strictEqual(excludedParsed.parseEngine, 'unsupported');
+  assert.deepStrictEqual(excludedParsed.symbols, []);
+  const csParsed = await parseFileAsync('public class Bar {}', 'csharp', 'Bar.cs');
+  assert.strictEqual(csParsed.parseEngine, 'unsupported');
+  const luaParsed = await parseFileAsync('local function hi() end', 'lua', 'hi.lua');
+  assert.strictEqual(luaParsed.parseEngine, 'unsupported');
+
+  const fallbackSamples = [
+    { lang: 'php', rel: 'index.php', code: 'class Greeter { function hello() { return 1; } }\n', expect: 'Greeter' },
+    { lang: 'ruby', rel: 'app.rb', code: 'class Worker\n  def run\n    1\n  end\nend\n', expect: 'Worker' },
+    { lang: 'kotlin', rel: 'main.kt', code: 'class Router { }\nfun boot() { }\n', expect: 'boot' },
+    { lang: 'swift', rel: 'app.swift', code: 'struct Config { }\nfunc start() { }\n', expect: 'start' },
+    { lang: 'dart', rel: 'main.dart', code: 'class AppWidget { }\n', expect: 'AppWidget' },
+    { lang: 'elixir', rel: 'mix.ex', code: 'defmodule Core.Server do\n  def start_link, do: :ok\nend\n', expect: 'Server' },
+    { lang: 'zig', rel: 'main.zig', code: 'pub fn initEngine() void {}\n', expect: 'initEngine' }
+  ];
+  for (const s of fallbackSamples) {
+    assert.strictEqual(detectLanguage(s.rel), s.lang);
+    assert.strictEqual(capabilities.isLanguageSupported(s.lang), true);
+    const res = await parseFileAsync(s.code, s.lang, s.rel);
+    assert.strictEqual(res.parseEngine, 'lexer', `${s.lang} should route via lexer fallback`);
+    assert.ok(res.symbols.some((sym) => sym.name === s.expect), `${s.lang} fallback must extract ${s.expect}`);
+  }
+  console.log('✓ 16-language capability matrix, fallback parsers, and Java/C#/Lua exclusions verified');
 }
 
 async function testStructuredDocsAndConfigs() {
@@ -196,6 +231,9 @@ function testGitignoreAndContentKind() {
   fs.writeFileSync(path.join(repo, 'debug.log'), 'ignored\n', 'utf8');
   fs.writeFileSync(path.join(repo, 'dist', 'bundle.js'), 'ignored\n', 'utf8');
   fs.writeFileSync(path.join(repo, 'dist', 'keep.js'), 'export const ok = 1;\n', 'utf8');
+  fs.writeFileSync(path.join(repo, 'src', 'Legacy.java'), 'class Legacy {}\n', 'utf8');
+  fs.writeFileSync(path.join(repo, 'src', 'Program.cs'), 'class Program {}\n', 'utf8');
+  fs.writeFileSync(path.join(repo, 'src', 'init.lua'), 'return {}\n', 'utf8');
 
   const walked = walk(repo);
   const byRel = new Map(walked.files.map((f) => [f.relPath, f]));
@@ -205,13 +243,17 @@ function testGitignoreAndContentKind() {
   assert.strictEqual(byRel.get('docs/GUIDE.md').contentKind, 'docs');
   assert.strictEqual(byRel.get('config.yaml').contentKind, 'config');
   assert.strictEqual(byRel.has('dist/bundle.js'), false, 'dist/ must exclude bundle.js');
+  assert.strictEqual(byRel.has('src/Legacy.java'), false, 'walker must exclude .java');
+  assert.strictEqual(byRel.has('src/Program.cs'), false, 'walker must exclude .cs');
+  assert.strictEqual(byRel.has('src/init.lua'), false, 'walker must exclude .lua');
   console.log('✓ .gitignore filtering and content_kind classification verified');
 }
 
 (async () => {
   try {
     console.log('Running test_code_intel_ast tests...');
-    await testAll11WasmGrammars();
+    await testAll10WasmGrammars();
+    await testCapabilitiesAndExclusions();
     await testStructuredDocsAndConfigs();
     await testScopeAwareChunking();
     testGitignoreAndContentKind();

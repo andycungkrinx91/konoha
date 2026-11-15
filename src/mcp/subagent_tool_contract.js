@@ -76,8 +76,51 @@ function buildNotAttachedNote(client) {
   );
 }
 
+function _loadManifestToolCatalog() {
+  const manifest = require('../mcp_tool_manifest.json');
+  const arr = Array.isArray(manifest.tools) ? manifest.tools : [];
+  const names = arr.map((t) => t && t.name).filter(Boolean);
+  if (names.length === 0) {
+    throw new Error('buildSubagentMcpBlock: empty tool catalog from mcp_tool_manifest.json — refusing to emit a parity claim without the manifest.');
+  }
+  return names;
+}
+
+function buildSubagentMcpBlock(client = null, agentName = null, options = {}) {
+  const policy = resolveSubagentToolPolicy({ client, ...options });
+  if (!policy.attached) return buildNotAttachedNote(client);
+  const normAgent = (agentName || '').toLowerCase().replace(/_/g, '-');
+  const catalog = _loadManifestToolCatalog();
+  const tools = catalog.map((name) => `- \`mcp__konoha__${name}\``);
+  tools.push('- `mcp__aislop__aislop_scan`');
+  tools.push('- `mcp__aislop__aislop_why`');
+  if (['jonin', 'anbu'].includes(normAgent)) {
+    tools.push('- `mcp__aislop__aislop_fix`');
+  }
+
+  let boundaries = (
+    '### Strict Tool Boundaries\n' +
+    'Full manifest parity: prefer archetype specialty (genin read-only, chunin research, jonin UI/taste-skill, anbu backend/QA, tokubetsu docs, akatsuki security, kage review, sannin triage).\n'
+  );
+  if (['genin', 'kage', 'advisor'].includes(normAgent)) {
+    boundaries += (
+      'For aislop MCP: you may call `aislop_scan` and `aislop_why`. ' +
+      'You are strictly forbidden from calling `aislop_fix` or `aislop_baseline` (read-only mandate).\n'
+    );
+  }
+  if (normAgent === 'genin' || normAgent === 'advisor') {
+    const label = normAgent === 'advisor' ? 'Advisor' : 'Genin';
+    boundaries += (
+      `${label} Read-Only Invariant: You are strictly in read-only mode. You are forbidden from calling file mutation tools or executing file-modifying scripts. Perform non-destructive exploration, verification, and supervision only.\n`
+    );
+  }
+
+  return `\n## MCP Tools Available To You\n${tools.join('\n')}\n\n${boundaries}`;
+}
+
 module.exports = {
   REGISTRATION_FIELDS,
   resolveSubagentToolPolicy,
-  buildNotAttachedNote
+  buildNotAttachedNote,
+  buildSubagentMcpBlock
 };

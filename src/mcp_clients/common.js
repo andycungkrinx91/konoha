@@ -15,7 +15,7 @@ const {
 const {
   SERVER_PATH, FILE_TOOLS_MCP_PATH,
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME
-} = require('../../bin/lib/paths');
+} = require('../config_access').loadBinLib('paths');
 
 const KONOHA_MCP_NAMES = ['konoha', 'aislop'];
 // Servers Konoha used to register. Removed from client configs on install and uninstall
@@ -248,14 +248,46 @@ function getKonohaMappedTools(client) {
   return [];
 }
 
+const COMMANDCODE_READONLY_BUILTINS = Object.freeze([
+  'read_file',
+  'read_directory',
+  'grep',
+  'glob'
+]);
+
+const COMMANDCODE_WRITE_BUILTINS = Object.freeze([
+  'write_file',
+  'edit_file',
+  'bash'
+]);
+
+const READONLY_AISLOP_TOOLS = Object.freeze(['aislop_scan', 'aislop_why']);
+
 /**
  * The single source of truth for "which tools does an agent get".
- * The main agent and every subagent definition are both derived from it, so
- * parity holds by construction rather than by two hand-maintained lists.
+ * Read-only agents (e.g. genin) receive strictly read-only built-ins and MCP tools.
  */
-function buildSubagentToolGrants(client = 'generic') {
-  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `mcp__konoha__${t}`);
-  const aislop = SUBAGENT_SAFE_MCP_GRANTS.aislop.map(t => `mcp__aislop__${t}`);
+function buildSubagentToolGrants(client = 'generic', agent = null) {
+  const { isReadOnlyAgent } = require('../agent_file_safety');
+  const readOnly = isReadOnlyAgent(agent);
+  const { GENIN_BLOCKED_TOOLS } = readOnly
+    ? require('../mcp/genin_guard')
+    : { GENIN_BLOCKED_TOOLS: [] };
+  const blockedMcp = new Set(GENIN_BLOCKED_TOOLS);
+
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blockedMcp.has(t))
+    .map((t) => `mcp__konoha__${t}`);
+  const aislopSource = readOnly ? READONLY_AISLOP_TOOLS : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp__aislop__${t}`);
+
+  if (readOnly) {
+    const readOnlyBuiltins = client === 'gemini'
+      ? ['view_file']
+      : ['Read', 'Grep', 'Glob', 'WebSearch', 'TodoRead'];
+    return [...konoha, ...aislop, ...readOnlyBuiltins];
+  }
+
   const native = getKonohaMappedTools(client);
   return [
     ...konoha,
@@ -263,6 +295,31 @@ function buildSubagentToolGrants(client = 'generic') {
     ...MAIN_AGENT_BUILTIN_TOOLS,
     ...native.filter(t => !MAIN_AGENT_BUILTIN_TOOLS.includes(t))
   ];
+}
+
+function buildCommandCodeTools(agent = null) {
+  const { isReadOnlyAgent, isRouterAgent } = require('../agent_file_safety');
+  const readOnly = isReadOnlyAgent(agent);
+  const { GENIN_BLOCKED_TOOLS } = readOnly
+    ? require('../mcp/genin_guard')
+    : { GENIN_BLOCKED_TOOLS: [] };
+  const blockedMcp = new Set(GENIN_BLOCKED_TOOLS);
+
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blockedMcp.has(t))
+    .map((t) => `mcp__konoha__${t}`);
+  const aislopSource = readOnly ? READONLY_AISLOP_TOOLS : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp__aislop__${t}`);
+
+  const builtins = readOnly
+    ? [...COMMANDCODE_READONLY_BUILTINS]
+    : [
+        ...COMMANDCODE_READONLY_BUILTINS,
+        ...COMMANDCODE_WRITE_BUILTINS,
+        ...(isRouterAgent(agent) ? ['Task'] : [])
+      ];
+
+  return [...konoha, ...aislop, ...builtins];
 }
 
 function isWildcardGrant(grant) {
@@ -327,6 +384,7 @@ module.exports = {
   SUBAGENT_SAFE_MCP_GRANTS,
   getKonohaMappedTools,
   buildSubagentToolGrants,
+  buildCommandCodeTools,
   isWildcardGrant,
   assertNoWildcardGrants,
   readMcpHealth,

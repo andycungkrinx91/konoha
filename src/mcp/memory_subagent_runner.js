@@ -8,10 +8,25 @@ const db = require('../db');
 const { getDb } = db;
 const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
-const { getSessionKey, getAndIncrementSessionTurn } = require('./client_detection');
+const {
+  detectActiveClient,
+  resolveFirstSpawnClient,
+  getSessionKey,
+  getAndIncrementSessionTurn
+} = require('./client_detection');
 const { fuzzyResolveSkill, logToolCall } = require('./skills');
-const { getResolvedTaskDir } = require('./workflow_common');
+const { getResolvedTaskDir, loadWorkflowStatus, saveWorkflowStatus } = require('./workflow_common');
+const { prepareAgentTurnEnvelope } = require('../context_compaction');
+const { syncTodoAndWalkthrough, formatTodoSyncBlock, markAgentTodoInProgress } = require('./todo_walkthrough_sync');
 const { buildSpawnDirective } = require('./lazy_subagent');
+const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
+const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
+const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
+const { retrieveUnifiedContextSync } = require('../code_intel/genin_retrieval');
+const {
+  slicePreservingHeadMiddleTail,
+  sliceBytesPreservingHeadMiddleTail
+} = require('../context_budget');
 
 function getMainModel() {
   let conn = null;
@@ -104,56 +119,6 @@ function buildResearchFetchRule(agentName) {
   return '- RESEARCH RETRIEVAL: Fetch every source through `rtk curl <url>`; never bare curl, wget, or raw fetch. Keep URLs and citation ids verbatim.' + '\n';
 }
 
-function _loadManifestToolCatalog() {
-  const manifest = require('../mcp_tool_manifest.json');
-  const arr = Array.isArray(manifest.tools) ? manifest.tools : [];
-  const names = arr.map(t => t && t.name).filter(Boolean);
-  if (names.length === 0) {
-    throw new Error('buildSubagentMcpBlock: empty tool catalog from mcp_tool_manifest.json — refusing to emit a parity claim without the manifest.');
-  }
-  return names;
-}
-
-// Literal per-tool parity: every manifest tool as its own row (set-equality
-// holds exactly) with descriptions omitted to fit the <8KB ceiling.
-function buildSubagentMcpBlock(client = null, agentName = null, options = {}) {
-  const contract = require('./subagent_tool_contract');
-  const policy = contract.resolveSubagentToolPolicy({ client, ...options });
-  if (!policy.attached) return contract.buildNotAttachedNote(client);
-  const normAgent = (agentName || '').toLowerCase().replace(/_/g, '-');
-  // Full main-agent tool parity, generated from the canonical manifest so the
-  // list can never drift: every official subagent sees the same MCP catalog
-  // as the main agent as literal per-tool entries. Descriptions are omitted
-  // to preserve the unified <8KB token-bounded prompt ceiling; role guidance
-  // below directs usage. Only hard safety mandates remain enforced.
-  const catalog = _loadManifestToolCatalog();
-  const tools = catalog.map((name) => `- \`mcp__konoha__${name}\``);
-  tools.push('- `mcp__aislop__aislop_scan`');
-  tools.push('- `mcp__aislop__aislop_why`');
-  if (['jonin', 'anbu'].includes(normAgent)) {
-    tools.push('- `mcp__aislop__aislop_fix`');
-  }
-
-  let boundaries = (
-    '### Strict Tool Boundaries\n' +
-    'Full manifest parity: prefer archetype specialty (genin read-only, chunin research, jonin UI/taste-skill, anbu backend/QA, tokubetsu docs, akatsuki security, kage review, sannin triage).\n'
-  );
-  if (['genin', 'kage'].includes(normAgent)) {
-    boundaries += (
-      'For aislop MCP: you may call `aislop_scan` and `aislop_why`. ' +
-      'You are strictly forbidden from calling `aislop_fix` or `aislop_baseline` (read-only mandate).\n'
-    );
-  }
-  if (normAgent === 'genin') {
-    boundaries += (
-      'Genin Read-Only Invariant: You are strictly in read-only mode. You are forbidden from calling file mutation tools or executing file-modifying scripts. Perform non-destructive exploration, symbol search, and dependency analysis only.\n'
-    );
-  }
-
-  return `\n## MCP Tools Available To You\n${tools.join('\n')}\n\n${boundaries}`;
-}
-
-
 /** Whole-prompt token guardrail and the floor the system prompt may not shrink below. */
 const PROMPT_CEILING_BYTES = 8000;
 const SYSTEM_PROMPT_FLOOR_BYTES = 1500;
@@ -190,24 +155,13 @@ function resolveDisciplineBlock(headroomBytes) {
  * @returns {string}
  */
 function clampToBytes(text, maxBytes) {
-  let out = text || '';
-  let over = Buffer.byteLength(out, 'utf8') - maxBytes;
-  while (over > 0) {
-    out = out.substring(0, Math.max(0, out.length - Math.ceil(over / 2) - 1));
-    over = Buffer.byteLength(out, 'utf8') - maxBytes;
-  }
-  return out;
+  return sliceBytesPreservingHeadMiddleTail(text || '', maxBytes, { markerLabel: 'prompt-cap' });
 }
 
 function truncateAtBoundary(text, maxChars) {
   const s = text || '';
   if (s.length <= maxChars) return s;
-  const head = s.substring(0, maxChars);
-  const cutPoints = [head.lastIndexOf('. '), head.lastIndexOf('.\n'), head.lastIndexOf('\n')];
-  let cut = Math.max(...cutPoints);
-  if (cut < Math.floor(maxChars / 2)) cut = maxChars;
-  else cut += 1;
-  return head.substring(0, cut).trimEnd() + ' ...[truncated]';
+  return slicePreservingHeadMiddleTail(s, maxChars, { markerLabel: 'truncated' });
 }
 
 function cleanRedundantPersonaText(text) {
@@ -347,6 +301,8 @@ function _loadSkillsContent(skillsList, agentName) {
     for (const skillName of skillsList.slice(0, 3)) {
       if (!skillName) continue;
       const resolved = fuzzyResolveSkill(skillName, skillConn) || skillName;
+      const tags = lookupSkillTags(skillConn, resolved);
+      if (!authorizeSkillAccess({ skillName: resolved, tags, agentName }).authorized) continue;
       const row = queryStmt.get(resolved);
       if (row?.content) {
         const preview = row.content.substring(0, 45).trim() + (row.content.length > 45 ? '... (Call konoha.get_skill)' : '');
@@ -366,6 +322,20 @@ function _loadSkillsContent(skillsList, agentName) {
 
 function _formatProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId) {
   try {
+    let retrievalBlock = '';
+    if (dbAgentName === 'genin') {
+      const retrieved = retrieveUnifiedContextSync({
+        projectPath: resolvedProjPath,
+        query: instructions,
+        agentName: dbAgentName,
+        sessionId: resolvedSessionId,
+        maxChars: 1100,
+        maxHits: 4
+      });
+      if (retrieved && retrieved.available && retrieved.text) {
+        retrievalBlock = retrieved.text;
+      }
+    }
     let projProfile = personaMemory.getProjectProfile(resolvedProjPath);
     if (!projProfile) {
       const pHash = personaMemory.saveOrUpdateProject(resolvedProjPath);
@@ -374,14 +344,50 @@ function _formatProjectContext(dbAgentName, instructions, resolvedProjPath, reso
     const projMems = personaMemory.queryMemories({
       agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2
     });
-    return personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
+    const baseCtx = personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
+    return `${baseCtx}${retrievalBlock}`;
   } catch (_) {
     return '';
   }
 }
 
+function _resolveSpawnDirective({ isChildWorker, client, agent, skills, projectPath, prompt, worktree, piSubagentSupported }) {
+  if (isChildWorker) return { spawnDirective: undefined, spawnError: undefined };
+  const raw = buildSpawnDirective({ client, agent, skills, projectPath, prompt, worktree: worktree || null, piSubagentSupported });
+  if (raw && raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.error_code === 'UNSUPPORTED_NATIVE_SPAWN' || parsed.code === 'SKILL_AUTHORIZATION_DENIED')) {
+        return { spawnDirective: undefined, spawnError: parsed };
+      }
+    } catch (_) { /* keep raw directive */ }
+  }
+  return { spawnDirective: raw || undefined, spawnError: undefined };
+}
+
+function _buildTaskInstructions(opts, dorResult) {
+  let out = opts.task.trim();
+  if (dorResult && !dorResult.ready && dorResult.missing.length > 0) {
+    out += '\n\n### Definition-of-Readiness (DoR) Advisory Hints:\n' + dorResult.missing.map(m => `- ${m}`).join('\n');
+  }
+  const addSection = (title, val) => {
+    const text = typeof val === 'string' ? val.trim() : (Array.isArray(val) ? val.join('\n') : '');
+    if (text) out += `\n\n### ${title}:\n${text}`;
+  };
+  addSection('Context & Relevant Code Paths', opts.context);
+  addSection('Execution Constraints', opts.constraints);
+  if (opts.worktree) {
+    try {
+      const { buildWorktreeDirective } = require('./worktree_isolation');
+      const d = buildWorktreeDirective(typeof opts.worktree === 'string' ? { worktree_path: opts.worktree } : opts.worktree);
+      if (d) out += `\n\n${d}`;
+    } catch (_) { /* isolation is best-effort; never block the dispatch */ }
+  }
+  return out;
+}
+
 function _assembleSystemPrompt(data) {
-  const { dbAgentName, title, purpose, agentConstraints, personaInstructions, projectContextBlock, soulBehaviorBlock, tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash, agentName, client, resolvedProjPath, instructions } = data;
+  const { dbAgentName, title, purpose, agentConstraints, personaInstructions, projectContextBlock, soulBehaviorBlock, tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash, agentName, client, resolvedProjPath, instructions, isChildWorker = false, piSubagentSupported } = data;
   const staticHeader = (
     '[Konoha Token Preservation: Active - High-Efficiency Context]\n\n' +
     'IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, ' +
@@ -412,16 +418,12 @@ function _assembleSystemPrompt(data) {
     skillsSection = flowSkillsHeader || `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
   }
 
-  const effectiveClient = client || getActiveClient();
+  const effectiveClient = resolveFirstSpawnClient([client, getActiveClient(), detectActiveClient()], 'universal');
   const mcpBlock = buildSubagentMcpBlock(effectiveClient, agentName);
-  const spawnDirective = buildSpawnDirective({
-    client: effectiveClient,
-    agent: dbAgentName,
-    skills: skillsList,
-    projectPath: resolvedProjPath,
-    prompt: instructions
+  const { spawnDirective = '' } = _resolveSpawnDirective({
+    isChildWorker, client: effectiveClient, agent: dbAgentName, skills: skillsList,
+    projectPath: resolvedProjPath, prompt: data.rawTask || instructions, piSubagentSupported
   });
-  const spawnDirectiveBytes = spawnDirective ? Buffer.byteLength(spawnDirective, 'utf8') + 1 : 0;
   const buildBody = ({ personaChars, taste, doc, compactContext = false }) => {
     let body = prefix;
     const personaBody = personaChars > 0 ? truncateAtBoundary(personaInstructions, personaChars) : '';
@@ -441,10 +443,10 @@ function _assembleSystemPrompt(data) {
   // richest variant that still leaves room for both. Persona prose is trimmed
   // first because the soul block already carries the archetype voice.
   const requiredSkillReserve = Math.min(Buffer.byteLength(skillsSection, 'utf8'), MIN_SKILL_PREVIEW_BYTES);
-  const reserve = Buffer.byteLength(buildDisciplineContract(), 'utf8')
-    + Buffer.byteLength(DIFF_FOOTER, 'utf8') + 2
-    + spawnDirectiveBytes
-    + requiredSkillReserve;
+  const tailReserve = Buffer.byteLength(DIFF_FOOTER, 'utf8') + 2 + requiredSkillReserve;
+  const reserve = Buffer.byteLength(buildDisciplineContract(), 'utf8') + tailReserve;
+  const minDisciplineBytes = Buffer.byteLength(buildDisciplineContract({ includeAdhd: false, includeAntislop: true }), 'utf8');
+  const minReserve = Math.min(minDisciplineBytes, 420) + tailReserve;
   const bodyLadder = [
     { personaChars: personaCap, taste: true, doc: true },
     { personaChars: Math.min(personaCap, 600), taste: true, doc: true },
@@ -452,12 +454,13 @@ function _assembleSystemPrompt(data) {
     { personaChars: Math.min(personaCap, 400), taste: true, doc: false },
     { personaChars: Math.min(personaCap, 200), taste: true, doc: false },
     { personaChars: 0, taste: true, doc: false },
-    { personaChars: 0, taste: true, doc: false, compactContext: true },
     { personaChars: 0, taste: dbAgentName === 'jonin', doc: false, compactContext: true }
   ];
+  const candidates = bodyLadder.map(buildBody);
   const fitsCeiling = candidate => ceilingBytes - Buffer.byteLength(candidate, 'utf8') >= reserve;
-  let prompt = bodyLadder.map(buildBody).find(fitsCeiling);
-  if (!prompt) prompt = buildBody(bodyLadder[bodyLadder.length - 1]);
+  const fitsMinimumInvariant = candidate => ceilingBytes - Buffer.byteLength(candidate, 'utf8') >= minReserve;
+  let prompt = candidates.find(fitsCeiling) || candidates.find(fitsMinimumInvariant);
+  if (!prompt) prompt = buildBody({ personaChars: 0, taste: false, doc: false, compactContext: true });
 
   const disciplineHeadroom = ceilingBytes - Buffer.byteLength(prompt, 'utf8')
     - Buffer.byteLength(DIFF_FOOTER, 'utf8') - requiredSkillReserve - 1;
@@ -489,7 +492,13 @@ function _parseTaskOptions(task, context, constraints, rest) {
       flowHash: opts.flowHash || opts.flow_hash || flowHash,
       taskId: opts.taskId || opts.task_id || taskId,
       client: opts.client || client,
-      worktree: opts.worktree || opts.worktree_path || worktree
+      worktree: opts.worktree || opts.worktree_path || worktree,
+      isChildWorker: Boolean(opts.isChildWorker),
+      observedInputTokens: opts.observedInputTokens ?? opts.input_tokens,
+      agentInputTokenQuota: opts.agentInputTokenQuota ?? opts.agent_input_token_quota,
+      piSubagentSupported: typeof opts.piSubagentSupported === 'boolean'
+        ? opts.piSubagentSupported
+        : (typeof opts.pi_subagent_supported === 'boolean' ? opts.pi_subagent_supported : undefined)
     };
   }
   return { task, context, constraints, skills, tasteDials, projectPath, taskDir, sessionId, flowHash, taskId, client, worktree };
@@ -530,8 +539,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const opts = _parseTaskOptions(task, context, constraints, rest);
   const resolvedProjPath = opts.projectPath || getWorkspaceRoot() || process.cwd();
   const cd = require('./client_detection');
-  const activeClient = getActiveClient() || cd.detectActiveClient() || 'universal';
-  const resolvedSessionId = opts.sessionId || cd.getActiveSessionId(resolvedProjPath, activeClient);
+  const rawClient = cd.pickRawClient([opts.client, getActiveClient(), cd.detectActiveClient()]);
+  const spawnClient = cd.resolveDetectedSpawnClient(rawClient, 'universal');
+  const resolvedSessionId = opts.sessionId || cd.getActiveSessionId(resolvedProjPath, rawClient);
   getAndIncrementSessionTurn(getSessionKey(resolvedProjPath, resolvedSessionId));
 
   if (!opts.task || typeof opts.task !== 'string' || !opts.task.trim() || /\b(read|check|load|process|open)\s+(prompt\.md|delegate\.md)\b/i.test(opts.task)) {
@@ -549,32 +559,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     return JSON.stringify({ status: 'blocked', phase: 'dor', message: 'DoR check failed in enforced mode.', missing: dorResult.missing, dor_result: dorResult });
   }
 
-  let instructions = opts.task.trim();
-  if (dorResult && !dorResult.ready && dorResult.missing.length > 0) {
-    instructions += '\n\n### Definition-of-Readiness (DoR) Advisory Hints:\n' + dorResult.missing.map(m => `- ${m}`).join('\n');
-  }
-  if (typeof opts.context === 'string' && opts.context.trim()) instructions += `\n\n### Context & Relevant Code Paths:\n${opts.context.trim()}`;
-  else if (Array.isArray(opts.context) && opts.context.length > 0) instructions += `\n\n### Context & Relevant Code Paths:\n${opts.context.join('\n')}`;
-  if (typeof opts.constraints === 'string' && opts.constraints.trim()) instructions += `\n\n### Execution Constraints:\n${opts.constraints.trim()}`;
-  else if (Array.isArray(opts.constraints) && opts.constraints.length > 0) instructions += `\n\n### Execution Constraints:\n${opts.constraints.join('\n')}`;
-
-  // Per-dispatch worktree isolation. The spawn path has no cwd parameter, so
-  // the only lever is the prompt: state the worktree path and the commit
-  // requirement explicitly. Honour it or the agent edits the shared checkout.
-  if (opts.worktree) {
-    try {
-      const { buildWorktreeDirective } = require('./worktree_isolation');
-      const directive = buildWorktreeDirective(typeof opts.worktree === 'string'
-        ? { worktree_path: opts.worktree }
-        : opts.worktree);
-      if (directive) instructions += `\n\n${directive}`;
-    } catch (_) { /* isolation is best-effort; never block the dispatch */ }
-  }
+  let instructions = _buildTaskInstructions(opts, dorResult);
 
   let dbAgentName = agentName.startsWith('mcp_') ? agentName.substring(4) : agentName;
   dbAgentName = dbAgentName.replace(/_/g, '-');
-
-
+  const effTaskDir = getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
+  const steerCtx = consumeAdvisorSteerContext(effTaskDir, dbAgentName);
+  if (steerCtx.block) instructions = `${steerCtx.block}\n\n${instructions}`;
   const meta = _resolveAgentDbMetadata(dbAgentName);
   let skillsList = Array.isArray(opts.skills) && opts.skills.length > 0 ? [...opts.skills] : meta.skillsList;
   if (opts.flowHash) {
@@ -587,20 +578,29 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       }
     } catch (_) { /* ignore */ }
   }
-  if (skillsList.length === 0 && instructions) {
-    let conn = null;
-    try {
-      conn = getDb();
-      const auto = autoloadSkillsFromPrompt(instructions, conn);
-      if (auto.length > 0) skillsList = auto;
-    } catch (_) { /* ignore */ }
-    finally {
-      try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
+  let conn = null;
+  let deniedSkillBlock = null;
+  try { conn = getDb(); } catch (_) { /* no DB */ }
+  try {
+    if (conn && skillsList.length === 0 && instructions) {
+      try {
+        const auto = autoloadSkillsFromPrompt(instructions, conn).filter(
+          (skillName) => authorizeSkillAccess({ skillName, tags: lookupSkillTags(conn, skillName), agentName: dbAgentName }).authorized
+        );
+        if (auto.length > 0) skillsList = auto;
+      } catch (_) { /* skills table may not exist yet */ }
     }
+    if (dbAgentName === 'jonin') skillsList = _resolveJoninSkills(resolvedProjPath, instructions, opts.context, skillsList);
+    deniedSkillBlock = findUnauthorizedSkill(skillsList, dbAgentName, conn);
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
   }
-
-  if (dbAgentName === 'jonin') {
-    skillsList = _resolveJoninSkills(resolvedProjPath, instructions, opts.context, skillsList);
+  if (deniedSkillBlock) {
+    return JSON.stringify({
+      status: 'blocked', phase: 'skill_authorization', agent: dbAgentName,
+      flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
+      ...deniedSkillBlock.denied
+    });
   }
 
   if (opts.taskId) {
@@ -631,6 +631,15 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const tasteSkillBlock = dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '';
   const docDesignBlock = dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : '';
 
+  const turnEnvelope = prepareAgentTurnEnvelope({
+    opts, dbAgentName, spawnClient, resolvedProjPath, resolvedSessionId, sdlcConfig, effTaskDir, instructions,
+    extraBytes: Buffer.byteLength(skillsContent + projectContextBlock, 'utf8'),
+    todoHelpers: { syncTodoAndWalkthrough, formatTodoSyncBlock, markAgentTodoInProgress },
+    workflowHelpers: { loadWorkflowStatus, saveWorkflowStatus }
+  });
+  instructions = turnEnvelope.instructions;
+  const { todoSync, quotaCheck } = turnEnvelope;
+
   let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
   const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
   const fixedTail = _buildFixedTailBlocks(dbAgentName, skillsList, opts.flowHash);
@@ -640,30 +649,35 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
   }
   const tailBlocks = `${fixedTail}${taskBlock}`;
+  const isChildWorker = Boolean(opts.isChildWorker || process.env.KONOHA_IS_CHILD_WORKER === '1');
   const systemPrompt = _assembleSystemPrompt({
     dbAgentName, title: meta.title, purpose: meta.purpose, agentConstraints: meta.agentConstraints,
     personaInstructions: meta.personaInstructions, projectContextBlock, soulBehaviorBlock,
     tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash: opts.flowHash, agentName,
-    client: opts.client || activeClient, resolvedProjPath, instructions,
+    client: spawnClient, resolvedProjPath, instructions, rawTask: opts.task, isChildWorker, piSubagentSupported: opts.piSubagentSupported,
     maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
-  const effTaskDir = opts.taskDir || getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const resolvedWorktreePath = opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined;
-  const topSpawnDirective = buildSpawnDirective({
-    client: opts.client || activeClient,
-    agent: dbAgentName,
-    skills: skillsList,
-    projectPath: resolvedWorktreePath || resolvedProjPath,
-    prompt: opts.task,
-    worktree: opts.worktree || null
+  const { spawnDirective, spawnError } = _resolveSpawnDirective({
+    isChildWorker, client: spawnClient, agent: dbAgentName, skills: skillsList,
+    projectPath: resolvedWorktreePath || resolvedProjPath, prompt: opts.task,
+    worktree: opts.worktree, piSubagentSupported: opts.piSubagentSupported
   });
+  if (spawnError && spawnError.code === 'SKILL_AUTHORIZATION_DENIED') {
+    return JSON.stringify({ status: 'blocked', phase: 'skill_authorization', agent: dbAgentName, ...spawnError });
+  }
   const res = JSON.stringify({
-    status: 'ready', phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
+    status: spawnError ? 'unsupported_native_spawn' : 'ready',
+    phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
     mandatory_next_step: dbAgentName === 'kage' ? 'delivery' : 'kage_review',
     flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
     task_dir: effTaskDir, worktree_path: resolvedWorktreePath,
-    spawn_directive: topSpawnDirective || undefined,
+    spawn_directive: spawnDirective,
+    spawn_error: spawnError,
+    advisor_steers_delivered: steerCtx.pending.length > 0 ? steerCtx.pending : undefined,
+    todos: todoSync.todos, walkthrough_steps: todoSync.walkthrough_steps,
+    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck,
     instructions: instruction
   });
   logToolCall(agentName, `project_path=${resolvedProjPath} session_id=${resolvedSessionId} task_dir=${effTaskDir}`, res, dbAgentName);

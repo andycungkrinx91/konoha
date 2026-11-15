@@ -8,7 +8,7 @@
  * - src/agent_crud.js
  */
 
-const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
+const { parseYaml, stringifyYaml } = require('./config_access').loadBinLib('yaml_utils');
 
 const {
   loadAgents,

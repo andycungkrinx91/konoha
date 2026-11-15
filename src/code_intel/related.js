@@ -12,9 +12,14 @@ const { SEARCH_MAX_HITS, SEARCH_SNIPPET_MAX_CHARS } = require('./config');
 const {
   EMBED_MODEL_REPO,
   isSemanticSearchEnabled,
+  getRuntimeStatus,
   embedText,
   rerank
 } = require('../vector_pipeline');
+
+function _isSemanticUnavailableError(err) {
+  return Boolean(err && (err.name === 'EmbeddingRuntimeUnavailableError' || err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE'));
+}
 const { reciprocalRankFusion } = require('../vector_chunker');
 
 const EDGE_WEIGHTS = {
@@ -357,6 +362,43 @@ async function _collectSemanticRelated(conn, anchor, params) {
 }
 
 /** Hybrid graph, semantic cosine, and cross-encoder reranked relatedness lookup. */
+async function _fetchSemanticRelated(conn, anchor, params) {
+  try {
+    const semRes = await _collectSemanticRelated(conn, anchor, params);
+    return {
+      vecBestByFile: semRes.vecBestByFile,
+      semanticRankIds: semRes.semanticRankIds,
+      semanticReason: null
+    };
+  } catch (err) {
+    if (!_isSemanticUnavailableError(err)) throw err;
+    return {
+      vecBestByFile: new Map(),
+      semanticRankIds: [],
+      semanticReason: err.message
+    };
+  }
+}
+
+async function _applyRelatedRerank(anchor, anchorBody, pool, limit) {
+  try {
+    const queryHeader = [anchor.relPath, anchor.symbol ? anchor.symbol.name : ''].filter(Boolean).join(' | ');
+    const anchorQuery = `${queryHeader}\n${anchorBody.slice(0, 800)}`.trim();
+    const reranked = await rerank(anchorQuery, pool, { topK: limit });
+    return {
+      didRerank: true,
+      semanticReason: null,
+      finalItems: reranked.map((c) => {
+        const combined = Number((0.55 * (c.rrfNorm || 0) + 0.45 * (c.rerank_score || 0)).toFixed(6));
+        return _formatRelatedItem(c, combined);
+      })
+    };
+  } catch (err) {
+    if (!_isSemanticUnavailableError(err)) throw err;
+    return { didRerank: false, finalItems: null, semanticReason: err.message };
+  }
+}
+
 async function relatedAsync(options = {}) {
   const conn = options.conn || store.openConnection();
   const anchor = _resolveAnchor(conn, options);
@@ -375,10 +417,21 @@ async function relatedAsync(options = {}) {
   const { rows: anchorChunks, focused } = _loadAnchorChunks(conn, anchor.file, anchor.symbol, modelRepo);
   const anchorBody = focused.map((c) => c.body).join('\n');
 
-  const semanticEnabled = options.semantic !== false && isSemanticSearchEnabled();
-  const { vecBestByFile, semanticRankIds } = semanticEnabled
-    ? await _collectSemanticRelated(conn, anchor, { anchorChunks, focused, anchorBody, modelRepo, candidateK, byFileId })
-    : { vecBestByFile: new Map(), semanticRankIds: [] };
+  const wantSemantic = options.semantic !== false;
+  const wantRerank = options.rerank !== false;
+  const runtime = (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
+  let semanticReason = wantSemantic && runtime && !runtime.available
+    ? (runtime.reason || 'semantic runtime unavailable')
+    : null;
+
+  let vecBestByFile = new Map();
+  let semanticRankIds = [];
+  if (wantSemantic && runtime && runtime.available && isSemanticSearchEnabled()) {
+    const semOut = await _fetchSemanticRelated(conn, anchor, { anchorChunks, focused, anchorBody, modelRepo, candidateK, byFileId });
+    vecBestByFile = semOut.vecBestByFile;
+    semanticRankIds = semOut.semanticRankIds;
+    if (semOut.semanticReason) semanticReason = semOut.semanticReason;
+  }
 
   const rankLists = [];
   if (structuralRankIds.length > 0) rankLists.push(structuralRankIds);
@@ -390,7 +443,8 @@ async function relatedAsync(options = {}) {
       total: 0,
       semantic_applied: semanticRankIds.length > 0,
       reranked: false,
-      degraded: false
+      degraded: Boolean(semanticReason),
+      ...(semanticReason ? { reason: semanticReason } : {})
     };
   }
 
@@ -405,17 +459,23 @@ async function relatedAsync(options = {}) {
     .slice(0, candidateK);
 
   const pool = _buildCandidatePool(conn, ordered, vecBestByFile);
-  const useRerank = options.rerank !== false && isSemanticSearchEnabled() && pool.length > 0;
-  let finalItems;
-  if (useRerank) {
-    const queryHeader = [anchor.relPath, anchor.symbol ? anchor.symbol.name : ''].filter(Boolean).join(' | ');
-    const anchorQuery = `${queryHeader}\n${anchorBody.slice(0, 800)}`.trim();
-    const reranked = await rerank(anchorQuery, pool, { topK: limit });
-    finalItems = reranked.map((c) => {
-      const combined = Number((0.55 * (c.rrfNorm || 0) + 0.45 * (c.rerank_score || 0)).toFixed(6));
-      return _formatRelatedItem(c, combined);
-    });
-  } else {
+  const rerankCapable = wantRerank
+    && runtime
+    && runtime.available
+    && isSemanticSearchEnabled()
+    && (!runtime.offline || (runtime.rerankModel && runtime.rerankModel.cached));
+  if (wantRerank && !semanticReason && !rerankCapable) {
+    semanticReason = (runtime && runtime.reason) || 'rerank runtime unavailable';
+  }
+  let didRerank = false;
+  let finalItems = null;
+  if (rerankCapable && pool.length > 0 && !semanticReason) {
+    const rerankOut = await _applyRelatedRerank(anchor, anchorBody, pool, limit);
+    didRerank = rerankOut.didRerank;
+    finalItems = rerankOut.finalItems;
+    if (rerankOut.semanticReason) semanticReason = rerankOut.semanticReason;
+  }
+  if (!finalItems) {
     finalItems = pool.slice(0, limit).map((c) => _formatRelatedItem(c, Number(c.rrfNorm.toFixed(6))));
   }
 
@@ -429,8 +489,9 @@ async function relatedAsync(options = {}) {
     related: finalItems,
     total: finalItems.length,
     semantic_applied: semanticRankIds.length > 0,
-    reranked: useRerank,
-    degraded: false
+    reranked: didRerank,
+    degraded: Boolean(semanticReason),
+    ...(semanticReason ? { reason: semanticReason } : {})
   };
 }
 

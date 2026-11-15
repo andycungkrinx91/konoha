@@ -428,9 +428,9 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
    code_index({ root: "/absolute/path/to/repo" })
    ```
 
-3. A response carrying `degraded: true` means this Node.js build has no FTS5. Search then falls back to an unranked `LIKE` scan — slower and unordered, everything else unchanged. `code_status` reports `fts_available`; the SQLite bundled with Node.js 24 ships FTS5 on every platform Konoha supports, so `false` means a runtime built without it.
+3. A response carrying `degraded: true` means either SQLite FTS5 or the semantic embedding/rerank runtime is unavailable (for example `KONOHA_SEMANTIC_SEARCH=0`, offline mode without cached ONNX models, or missing `code_chunks_fts`). When FTS5 is absent, search falls back to an unranked `LIKE` scan — slower and unordered, everything else unchanged; when semantic models are unavailable, lexical FTS5 retrieval still runs cleanly. `code_status` reports `fts_available` and `semantic.available`; Node.js 24 bundles FTS5 on all supported platforms.
 
-4. A file that clearly defines a symbol but returns no `code_symbol` hit is either outside the lexer's languages (JavaScript, TypeScript, Python, Go, Rust, Java, C#, Kotlin, Swift, C/C++, Ruby, PHP, SQL, shell, Markdown) or was skipped by the filters — `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and any file over 1 MiB are never indexed.
+4. A file that clearly defines a symbol but returns no `code_symbol` hit is either outside the 16 supported code languages (JavaScript, TypeScript, Python, Go, Rust, C, C++, shell, SQL, PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig — note that `java`, `csharp`, and `lua` are intentionally excluded, while Markdown/JSON/YAML/TOML are indexed only as structured docs/config chunks without code symbol extraction) or was skipped by the filters — `node_modules`, `.git`, `dist`, `build`, `vendor`, binaries, `.min.js`, and any file over 1 MiB are never indexed.
 
 ---
 
@@ -799,13 +799,7 @@ The gateway does not rotate globally to another bridge after a rate limit. It fo
 
 ### External Antigravity Extension
 
-The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.6.0.vsix`, and installed ONLY into Antigravity IDE during `konoha init` and `konoha upgrade`:
-```bash
-# Antigravity IDE CLI (exclusive install target)
-antigravity --install-extension konoha-bridge-1.6.0.vsix
-```
-The VSIX is never installed into other IDEs (no `code --install-extension`, no `cursor --install-extension`). A fallback VSIX is bundled in `assets/konoha-bridge-1.6.0.vsix`.
-When Antigravity IDE is present, it is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
+Automated VSIX installation and directory syncing for the legacy `konoha-bridge` checkout (`~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`) were eliminated in `v2.2.1`. During `konoha init` and `konoha upgrade`, Konoha only prunes stale legacy registry entries via `syncAntigravityExtensionRegistry` and never installs extensions into VS Code, Cursor, or other IDEs. If you manually run an external Antigravity extension on `127.0.0.1:1313`, Konoha’s embedded aggregate gateway still owns `127.0.0.1:19999` and bridge activation remains explicit:
 
 1. Check the extension API on port `1313`: `curl -s http://localhost:1313/v1/models | jq .`
 2. Run `konoha bridge list`.

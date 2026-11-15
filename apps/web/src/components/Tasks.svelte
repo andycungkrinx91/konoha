@@ -10,7 +10,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   let reviewMode = $state('self');
   let hitlMode = $state('enabled');
   let advisorMode = $state('realtime-idle');
-  let advisorMaxTokens = $state(1000);
+  let advisorMaxTokens = $state(8192);
+  let agentInputTokenQuota = $state(100000);
   let configLoading = $state(false);
   let savingConfig = $state(false);
 
@@ -97,7 +98,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       reviewMode = data.review_mode || 'self';
       hitlMode = data.hitl_mode || 'enabled';
       advisorMode = data.advisor_mode || 'realtime-idle';
-      advisorMaxTokens = data.advisor_max_tokens || 1000;
+      advisorMaxTokens = data.advisor_max_tokens || 8192;
+      agentInputTokenQuota = data.agent_input_token_quota || 100000;
     } catch (err) {
       toast.error('Failed to load SDLC config: ' + err.message);
     } finally {
@@ -112,19 +114,22 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     }
     savingConfig = true;
     try {
+      const normalizedQuota = Number(agentInputTokenQuota) > 0 ? Math.floor(Number(agentInputTokenQuota)) : 100000;
       const data = await api.patch('/api/v1/sdlc/config', {
         project_path: configPath.trim(),
         dor_mode: dorMode,
         review_mode: reviewMode,
         hitl_mode: hitlMode,
         advisor_mode: advisorMode,
-        advisor_max_tokens: advisorMaxTokens
+        advisor_max_tokens: advisorMaxTokens,
+        agent_input_token_quota: normalizedQuota
       });
       dorMode = data.dor_mode || dorMode;
       reviewMode = data.review_mode || reviewMode;
       hitlMode = data.hitl_mode || hitlMode;
       advisorMode = data.advisor_mode || advisorMode;
       advisorMaxTokens = data.advisor_max_tokens || advisorMaxTokens;
+      agentInputTokenQuota = data.agent_input_token_quota || normalizedQuota;
       toast.success('SDLC configuration saved');
     } catch (err) {
       toast.error('Failed to save SDLC config: ' + err.message);
@@ -287,7 +292,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   <!-- Project SDLC Config -->
   <section class="metric-card-3d rounded-[5px] p-6 space-y-4 border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
     <h2 class="text-lg font-bold theme-text mb-4">Project Configuration</h2>
-    <div class="grid md:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
       <label class="block">
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">Project Path</span>
         <input
@@ -328,7 +333,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
         </select>
       </label>
       <label class="block">
-        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Advisor Guard (≤1k tok/turn)</span>
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Advisor Guard (≤8k tok/turn)</span>
         <select
           bind:value={advisorMode}
           class="w-full px-3 py-2 rounded-[3px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
@@ -337,6 +342,17 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
           <option value="turn-gate">Turn Gate Only</option>
           <option value="off">Off</option>
         </select>
+      </label>
+      <label class="block">
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Agent Input Quota (tok/agent)</span>
+        <input
+          type="number"
+          min="1000"
+          step="1000"
+          bind:value={agentInputTokenQuota}
+          placeholder="100000"
+          class="w-full px-3 py-2 rounded-[3px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
+        />
       </label>
     </div>
     <div class="mt-4 flex items-center gap-3">
@@ -429,20 +445,8 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="text-lg font-bold theme-text">Tasks ({tasks.length})</h2>
       <div class="flex items-center gap-2">
-        <input
-          type="text"
-          bind:value={projectFilter}
-          placeholder="Filter by project path…"
-          title="Leave empty to show tasks from every project"
-          class="w-48 px-3 py-2 rounded-[3px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none"
-          onkeydown={(e) => { if (e.key === 'Enter') loadTasks(); }}
-          onblur={() => loadTasks()}
-        />
-        <select
-          bind:value={statusFilter}
-          onchange={loadTasks}
-          class="px-3 py-2 rounded-[3px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none"
-        >
+        <input type="text" bind:value={projectFilter} placeholder="Filter by project path…" title="Leave empty to show tasks from every project" class="w-48 px-3 py-2 rounded-[3px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none" onkeydown={(e) => { if (e.key === 'Enter') loadTasks(); }} onblur={() => loadTasks()} />
+        <select bind:value={statusFilter} onchange={loadTasks} class="px-3 py-2 rounded-[3px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none">
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
           <option value="pending">Pending</option>
@@ -452,11 +456,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
           <option value="blocked">Blocked</option>
           <option value="timed_out">Timed Out (Stale)</option>
         </select>
-        <button
-          class="btn-3d btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-2 rounded-[3px] font-bold text-xs cursor-pointer disabled:opacity-50"
-          onclick={reconcileStaleTasks}
-          disabled={tasksLoading}
-          title="Reconcile old tasks stuck in_progress past their heartbeat lease"
+        <button class="btn-3d btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-2 rounded-[3px] font-bold text-xs cursor-pointer disabled:opacity-50" onclick={reconcileStaleTasks} disabled={tasksLoading} title="Reconcile old tasks stuck in_progress past their heartbeat lease"
         >
           <svg class="w-3.5 h-3.5 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -660,27 +660,15 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
 
                 <div class="flex items-center justify-between pt-2 border-t" style="border-color: var(--color-border, #e2e8f0);">
                   {#if task.status === 'timed_out' || task.status === 'blocked' || task.status === 'failed'}
-                    <button
-                      type="button"
-                      class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-info cursor-pointer hover:opacity-90"
-                      onclick={(e) => restartTask(task.id, e)}
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
+                    <button type="button" class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-info cursor-pointer hover:opacity-90" onclick={(e) => restartTask(task.id, e)}>
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                       Restart Task
                     </button>
                   {:else}
                     <div></div>
                   {/if}
-                  <button
-                    type="button"
-                    class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft cursor-pointer"
-                    onclick={(e) => deleteTask(task.id, e)}
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                  <button type="button" class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft cursor-pointer" onclick={(e) => deleteTask(task.id, e)}>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     Delete Task
                   </button>
                 </div>

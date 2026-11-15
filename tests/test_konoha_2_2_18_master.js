@@ -1,4 +1,5 @@
 'use strict';
+require('./helpers/isolate_db');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -351,21 +352,47 @@ function testJoninModesAndWebUiContracts() {
   console.log('✓ Test 7 (3 Jonin Creation Modes, 2-Field First-Install Password Setup, konohagakure Default & Web UI Contracts): PASSED');
 }
 
-async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
-  const specialists = ['akatsuki', 'kage', 'tokubetsu-jonin', 'anbu', 'chunin', 'genin'];
+async function testNineAgentEightClientSpawnAndAkatsukiBlueMode() {
+  const { CANONICAL_AGENT_NAMES } = require('../src/canonical_agents');
+  const { SPAWNABLE_SUBAGENTS } = require('../src/mcp/lazy_subagent');
+  const specialists = ['akatsuki', 'kage', 'tokubetsu-jonin', 'anbu', 'chunin', 'genin', 'jonin', 'yamanaka'];
+  assert.strictEqual(CANONICAL_AGENT_NAMES.length, 9, 'Canonical Konoha roster must have 9 agents (@sannin router + 8 specialists)');
+  assert.deepStrictEqual([...SPAWNABLE_SUBAGENTS].sort(), [...specialists].sort(), 'Spawnable specialists must include all 8 specialists including jonin and yamanaka');
   const clients = ['antigravity', 'cursor', 'claude', 'opencode', 'commandcode', 'codex', 'pi', 'omp'];
   const cliPath = path.join(REPO_ROOT, 'bin', 'cli.js');
   const { execFile } = require('child_process');
   const { runMcpAgent } = require('../src/mcp/memory_subagent_runner');
   const spawnTaskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_spawn_matrix_'));
+  const piSupportedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_pi_ext_home_'));
+  const barePiHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_pi_bare_home_'));
+  fs.mkdirSync(path.join(piSupportedHome, '.pi', 'agent', 'extensions', 'subagent'), { recursive: true });
+  fs.writeFileSync(path.join(piSupportedHome, '.pi', 'agent', 'extensions', 'subagent', 'index.ts'), '// test pi-subagents marker\n', 'utf8');
   let verifiedSpawns = 0;
 
   try {
-    console.log('    [Test 9.1] Spawning 6 specialists sequentially in real child processes...');
-    // Spawn all 6 specialists in real child processes and verify child PID + correlated evidence
+    console.log('    [Test 9.1] Spawning all 8 specialists sequentially in real child processes (9 canonical agents w/ @sannin)...');
+    // Verify bare Pi (without pi-subagents extension) fails closed cleanly in CLI subprocess
+    await new Promise((resolve, reject) => {
+      execFile(
+        process.execPath,
+        [cliPath, 'run-agent', '--agent', 'jonin', '--client', 'pi', '--task', 'Bare Pi check', '--project-path', spawnTaskDir],
+        { encoding: 'utf8', timeout: 20000, env: { ...process.env, HOME: barePiHome, USERPROFILE: barePiHome } },
+        (err, stdout) => {
+          assert.ok(err && err.code !== 0, 'Bare Pi without pi-subagents must fail closed');
+          const parsed = JSON.parse(String(stdout || '{}').trim());
+          assert.strictEqual(parsed.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
+          resolve();
+        }
+      );
+    });
+
+    // Spawn all 8 specialists in real child processes and verify child PID + correlated evidence
     for (const [idx, agent] of specialists.entries()) {
       const client = clients[idx % clients.length];
       const dispatchId = `disp_${agent}_${client}`;
+      const childEnv = client === 'pi'
+        ? { ...process.env, HOME: piSupportedHome, USERPROFILE: piSupportedHome }
+        : process.env;
       console.log(`      -> Spawning @${agent} on client=${client}...`);
       await new Promise((resolve, reject) => {
         execFile(
@@ -381,7 +408,7 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
             '--dispatch-id', dispatchId,
             '--auto-report'
           ],
-          { encoding: 'utf8', timeout: 20000 },
+          { encoding: 'utf8', timeout: 20000, env: childEnv },
           (err, stdout, stderr) => {
             if (err) return reject(new Error(`Spawn failed for ${agent}@${client}: ${stderr || err.message}`));
             try {
@@ -400,16 +427,31 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
       });
     }
 
-    console.log('    [Test 9.2] Verifying 48 dispatch adapter matrix cells...');
-    // Verify all 6 specialists x 8 clients (48 dispatch adapter cells) produce valid spawn directives & context transfer
+    console.log('    [Test 9.2] Verifying 64 dispatch adapter matrix cells (8 specialists x 8 clients)...');
+    // Verify all 8 specialists x 8 clients (64 dispatch adapter cells):
+    // bare Pi fails closed (UNSUPPORTED_NATIVE_SPAWN), Pi + pi-subagents and all 7 native clients succeed.
     for (const agent of specialists) {
       for (const client of clients) {
+        if (client === 'pi') {
+          const bareRaw = runMcpAgent(agent, {
+            task: `Execute ${agent} specialist verification`,
+            projectPath: REPO_ROOT,
+            taskDir: spawnTaskDir,
+            sessionId: 'test_session_id',
+            client: 'pi',
+            piSubagentSupported: false
+          });
+          const bareParsed = JSON.parse(bareRaw);
+          assert.strictEqual(bareParsed.status, 'unsupported_native_spawn', `Bare pi must fail closed for ${agent}`);
+          assert.strictEqual(bareParsed.spawn_error?.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
+        }
         const raw = runMcpAgent(agent, {
           task: `Execute ${agent} specialist verification`,
           projectPath: REPO_ROOT,
           taskDir: spawnTaskDir,
           sessionId: 'test_session_id',
-          client
+          client,
+          ...(client === 'pi' ? { piSubagentSupported: true } : {})
         });
         const parsed = JSON.parse(raw);
         assert.ok(parsed.status === 'dispatched' || parsed.status === 'ready');
@@ -417,7 +459,7 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
         verifiedSpawns++;
       }
     }
-    assert.strictEqual(verifiedSpawns, 48, 'All 6 specialists x 8 clients (48 spawns) must succeed');
+    assert.strictEqual(verifiedSpawns, 64, 'All 8 specialists x 8 clients (64 spawns) must succeed');
 
     console.log('    [Test 9.3] Validating correlated task evidence...');
     const evRaw = await Promise.resolve(executeTool('get_task_evidence', {
@@ -460,6 +502,7 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
     // Verify fail-closed rejection when Blue Mode is skipped
     const failDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_blue_fail_'));
     fs.writeFileSync(path.join(failDir, 'status.json'), JSON.stringify({
+      project_path: failDir,
       plan: '1. Skip security test',
       plan_approved: true,
       human_signed_off: true,
@@ -473,6 +516,7 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
     const failRes = await runKonohaGraph({
       prompt: '/konoha Test fail closed Blue Mode',
       taskDir: failDir,
+      projectPath: failDir,
       threadId: `blue_fail_${Date.now()}`
     });
     const failStatus = failRes.workflow_status || JSON.parse(fs.readFileSync(path.join(failDir, 'status.json'), 'utf8'));
@@ -483,8 +527,10 @@ async function testSixAgentEightClientSpawnAndAkatsukiBlueMode() {
     fs.rmSync(failDir, { recursive: true, force: true });
   } finally {
     fs.rmSync(spawnTaskDir, { recursive: true, force: true });
+    fs.rmSync(piSupportedHome, { recursive: true, force: true });
+    fs.rmSync(barePiHome, { recursive: true, force: true });
   }
-  console.log(`✓ Test 9 (6-Specialist x 8-Client = ${verifiedSpawns} Real Child Spawns & Akatsuki Blue Mode -> Kage Gate Proof): PASSED`);
+  console.log(`✓ Test 9 (8-Specialist / 9-Agent x 8-Client = ${verifiedSpawns} Real Child Spawns & Akatsuki Blue Mode -> Kage Gate Proof): PASSED`);
 }
 
 async function testFramerMarketplaceChuninReaAndJoninAdaptation() {
@@ -610,7 +656,7 @@ async function main() {
   testGitignoreAndProjectIsolation();
   testJoninModesAndWebUiContracts();
   testSafeInstallationAndCleanup();
-  await testSixAgentEightClientSpawnAndAkatsukiBlueMode();
+  await testNineAgentEightClientSpawnAndAkatsukiBlueMode();
   await testFramerMarketplaceChuninReaAndJoninAdaptation();
   console.log('=== ALL KONOHA 2.2.18 MASTER TESTS & BENCHMARKS PASSED ===');
 }

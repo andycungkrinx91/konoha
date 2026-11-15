@@ -135,6 +135,7 @@ apps/web/test-results/
 .agents/
 .codex/
 *.skills.fingerprint
+.aislop/history.jsonl
 
 # Local junk
 tmp/

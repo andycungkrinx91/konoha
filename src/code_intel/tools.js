@@ -13,6 +13,7 @@ const { indexRepository, indexRepositoryAsync } = require('./indexer');
 const store = require('./store');
 const query = require('./query');
 const { isSemanticSearchEnabled } = require('../vector_pipeline');
+const { defaultManager: lspManager } = require('./lsp_manager');
 
 function _asDirectory(raw) {
   const abs = path.resolve(String(raw));
@@ -23,42 +24,49 @@ function _asDirectory(raw) {
   }
 }
 
+function _tryFollowParentSymlink(cursor, pending, depth) {
+  let lstat = null;
+  try {
+    lstat = fs.lstatSync(cursor);
+  } catch (_) {
+    return 'continue';
+  }
+  if (!lstat) return 'continue';
+  if (!lstat.isSymbolicLink() || depth >= 16) return 'break';
+  try {
+    const rawLink = fs.readlinkSync(cursor);
+    const targetPath = path.resolve(path.dirname(cursor), rawLink);
+    const fullTarget = pending.length > 0 ? path.join(targetPath, ...pending) : targetPath;
+    return _realpathOrResolve(fullTarget, depth + 1);
+  } catch (_) {
+    return 'break';
+  }
+}
+
+function _resolveNonexistentRealpath(resolved, depth) {
+  const pending = [];
+  let cursor = resolved;
+  while (cursor && cursor !== path.dirname(cursor)) {
+    const step = _tryFollowParentSymlink(cursor, pending, depth);
+    if (step === 'break') break;
+    if (step !== 'continue') return step;
+    pending.unshift(path.basename(cursor));
+    cursor = path.dirname(cursor);
+  }
+  try {
+    const base = fs.existsSync(cursor) ? fs.realpathSync(cursor) : cursor;
+    return pending.length > 0 ? path.join(base, ...pending) : base;
+  } catch (_) {
+    return resolved;
+  }
+}
+
 function _realpathOrResolve(target, depth = 0) {
   const resolved = path.resolve(String(target));
   try {
     return fs.realpathSync(resolved);
   } catch (_) {
-    const pending = [];
-    let cursor = resolved;
-    while (cursor && cursor !== path.dirname(cursor)) {
-      let lstat = null;
-      try {
-        lstat = fs.lstatSync(cursor);
-      } catch (_) {
-        lstat = null;
-      }
-      if (lstat) {
-        if (lstat.isSymbolicLink() && depth < 16) {
-          try {
-            const rawLink = fs.readlinkSync(cursor);
-            const targetPath = path.resolve(path.dirname(cursor), rawLink);
-            const fullTarget = pending.length > 0 ? path.join(targetPath, ...pending) : targetPath;
-            return _realpathOrResolve(fullTarget, depth + 1);
-          } catch (_) {
-            break;
-          }
-        }
-        break;
-      }
-      pending.unshift(path.basename(cursor));
-      cursor = path.dirname(cursor);
-    }
-    try {
-      const base = fs.existsSync(cursor) ? fs.realpathSync(cursor) : cursor;
-      return pending.length > 0 ? path.join(base, ...pending) : base;
-    } catch (_) {
-      return resolved;
-    }
+    return _resolveNonexistentRealpath(resolved, depth);
   }
 }
 
@@ -146,6 +154,12 @@ function _formatIndexResponse(result) {
     embedded_chunks: result.embeddedChunks || 0,
     embedding_model: result.embeddingModel || null,
     ...(result.semanticSkipped ? { semantic_skipped: result.semanticSkipped } : {}),
+    ...(result.incomplete ? {
+      incomplete: true,
+      cap_reached: Boolean(result.capReached),
+      unreadable_dirs: result.unreadableDirs || [],
+      unreadable_files: result.unreadableFiles || []
+    } : {}),
     indexed_now: result.indexed,
     removed: result.removed,
     unchanged: result.skippedUnchanged,
@@ -188,6 +202,7 @@ function _formatSearchResponse(result) {
     degraded: result.degraded,
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
+    ...(result.reason ? { reason: result.reason } : {}),
     ...(result.error ? { error: result.error } : {}),
     hits: result.hits.map((h) => ({
       path: h.relPath,
@@ -251,6 +266,48 @@ function codeSymbol(args = {}) {
   };
 }
 
+function _resolveRootByRelPath(relPath) {
+  if (!relPath) return null;
+  try {
+    const roots = store.listRoots(_conn());
+    const match = roots.find((r) => r.root_path && fs.existsSync(path.join(r.root_path, relPath)));
+    return match ? _validateRootPath(match.root_path) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _resolveRootForLsp(args, relPath = '') {
+  const explicit = args.root || args.dir || args.directory || args.repo;
+  if (explicit) return _validateRootPath(explicit);
+  const byRelPath = _resolveRootByRelPath(relPath);
+  if (byRelPath) return byRelPath;
+  const ws = _router().getWorkspaceRoot();
+  return ws ? _validateRootPath(ws) : null;
+}
+
+async function codeSymbolAsync(args = {}) {
+  const base = codeSymbol(args);
+  if (base.error || args.lsp === false || !Array.isArray(base.symbols) || base.symbols.length === 0) {
+    return base;
+  }
+  const first = base.symbols[0];
+  const rootPath = _resolveRootForLsp(args, first.path);
+  if (!rootPath) return base;
+  const lsp = await lspManager.enrichSymbol({
+    rootPath,
+    name: base.name,
+    symbols: base.symbols.map((s) => ({
+      name: s.name,
+      relPath: s.path,
+      language: s.language,
+      startLine: Array.isArray(s.lines) ? s.lines[0] : 1
+    })),
+    timeoutMs: args.lsp_timeout_ms
+  });
+  return lsp && lsp.lsp_available ? { ...base, lsp } : base;
+}
+
 function codeContext(args = {}) {
   const rawFile = args.file || args.file_path || args.path || args.rel_path || args.relPath;
   if (!rawFile) return { error: 'file is required' };
@@ -269,11 +326,27 @@ function codeContext(args = {}) {
   return {
     path: result.relPath,
     language: result.language,
-    lines: [result.startLine, result.endLine],
-    empty: !result.text || Boolean(result.truncated),
+    lines: result.startLine > 0 ? [result.startLine, result.endLine] : [0, 0],
+    empty: !result.text,
+    out_of_range: Boolean(result.outOfRange),
     truncated: Boolean(result.truncated),
     content: result.text
   };
+}
+
+async function codeContextAsync(args = {}) {
+  const base = codeContext(args);
+  if (base.error || base.out_of_range || base.empty || args.lsp === false) return base;
+  const rootPath = _resolveRootForLsp(args, base.path);
+  if (!rootPath) return base;
+  const lsp = await lspManager.enrichContext({
+    rootPath,
+    relPath: base.path,
+    startLine: Array.isArray(base.lines) ? base.lines[0] : 1,
+    language: base.language,
+    timeoutMs: args.lsp_timeout_ms
+  });
+  return lsp && lsp.lsp_available ? { ...base, lsp } : base;
 }
 
 function codeImpact(args = {}) {
@@ -300,6 +373,43 @@ function codeImpact(args = {}) {
       enclosing: n.enclosing
     }))
   };
+}
+
+async function codeImpactAsync(args = {}) {
+  const base = codeImpact(args);
+  if (base.error || args.lsp === false) return base;
+  const conn = _conn();
+  const rootPathOpt = args.root || args.dir || args.directory || args.repo
+    ? _validateRootPath(args.root || args.dir || args.directory || args.repo)
+    : undefined;
+  const symRes = query.findSymbol({ name: base.name, conn, rootPath: rootPathOpt });
+  const anchor = symRes && Array.isArray(symRes.symbols) ? symRes.symbols[0] : null;
+  if (!anchor) return base;
+  const rootPath = rootPathOpt || _resolveRootForLsp(args, anchor.relPath);
+  if (!rootPath) return base;
+  const lsp = await lspManager.enrichImpact({
+    rootPath,
+    anchorSymbol: anchor,
+    name: base.name,
+    timeoutMs: args.lsp_timeout_ms
+  });
+  if (!lsp || !lsp.lsp_available) return base;
+  const existingKeys = new Set(base.dependents.map((d) => `${d.path}:${d.line}`));
+  const merged = [...base.dependents];
+  for (const ref of lsp.references || []) {
+    const key = `${ref.relPath}:${ref.line}`;
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    merged.push({
+      path: ref.relPath,
+      line: ref.line,
+      depth: 1,
+      kind: 'lsp_reference',
+      of: base.name,
+      enclosing: null
+    });
+  }
+  return { ...base, dependents: merged, lsp };
 }
 
 function _buildRelatedOptions(args = {}) {
@@ -339,6 +449,7 @@ function _formatRelatedResponse(result) {
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
     degraded: Boolean(result.degraded),
+    ...(result.reason ? { reason: result.reason } : {}),
     related: result.related.map((r) => ({
       path: r.relPath,
       language: r.language,
@@ -364,7 +475,28 @@ function codeRelated(args = {}) {
 async function codeRelatedAsync(args = {}) {
   const opts = _buildRelatedOptions(args);
   if (opts.error) return { error: opts.error };
-  return _formatRelatedResponse(await query.relatedAsync(opts));
+  const base = _formatRelatedResponse(await query.relatedAsync(opts));
+  if (base.error || args.lsp === false || !base.anchor || !base.anchor.relPath) {
+    return base;
+  }
+  const rootPath = opts.rootPath || _resolveRootForLsp(args, base.anchor.relPath);
+  if (!rootPath) return base;
+  let anchorLine = Number(args.line) || 1;
+  const targetSym = opts.symbol || base.anchor.symbol;
+  if (!args.line && targetSym) {
+    const found = query.findSymbol({ name: targetSym, conn: opts.conn, rootPath });
+    const match = (found.symbols || []).find((s) => s.relPath === base.anchor.relPath);
+    if (match) anchorLine = match.startLine;
+  }
+  const lsp = await lspManager.enrichRelated({
+    rootPath,
+    relPath: base.anchor.relPath,
+    line: anchorLine,
+    symbol: targetSym,
+    language: base.anchor.language,
+    timeoutMs: args.lsp_timeout_ms
+  });
+  return lsp && lsp.lsp_available ? { ...base, lsp } : base;
 }
 
 function codeStatus(args = {}) {
@@ -372,6 +504,7 @@ function codeStatus(args = {}) {
   const result = query.status({ conn, rootPath: _optionalRoot(args) });
   return {
     fts_available: store.ftsAvailable(conn),
+    lsp: lspManager.getStatusSnapshot(),
     roots: result.roots.map((r) => ({
       root: r.root_path,
       root_hash: r.root_hash,
@@ -397,8 +530,11 @@ module.exports = {
   code_search: codeSearch,
   code_search_async: codeSearchAsync,
   code_symbol: codeSymbol,
+  code_symbol_async: codeSymbolAsync,
   code_context: codeContext,
+  code_context_async: codeContextAsync,
   code_impact: codeImpact,
+  code_impact_async: codeImpactAsync,
   code_related: codeRelated,
   code_related_async: codeRelatedAsync,
   code_status: codeStatus,

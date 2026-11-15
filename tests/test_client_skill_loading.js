@@ -22,7 +22,7 @@ const opencodeSource = fs.readFileSync(path.join(root, 'src', 'opencode_manager.
 
 const subagentGenerated = [
   antigravity.buildAgentJson(sampleAgent).config.customAgent.systemPromptSections[0].content,
-  antigravity.buildDefineSubagentArgs(sampleAgent).system_prompt,
+  antigravity.buildDefineSubagentArgs(sampleAgent).SystemPrompt,
   cursor.generateCursorSubagent(sampleAgent),
   clients.generateClaudeCodeSubagent(sampleAgent),
 ];

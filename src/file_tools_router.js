@@ -496,10 +496,13 @@ const TOOL_HANDLERS = {
 const ASYNC_TOOL_HANDLERS = {
   code_index: (args) => CODE_INTEL_TOOLS.code_index_async(args),
   code_search: (args) => CODE_INTEL_TOOLS.code_search_async(args),
+  code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol_async(args),
+  code_context: (args) => CODE_INTEL_TOOLS.code_context_async(args),
+  code_impact: (args) => CODE_INTEL_TOOLS.code_impact_async(args),
   code_related: (args) => CODE_INTEL_TOOLS.code_related_async(args)
 };
 
-const { checkGeninToolAccess, applyGeninCodeIndexBounds } = require('./mcp/genin_guard');
+const { checkGeninToolAccess, applyGeninCodeIndexBounds, normalizeAgentName } = require('./mcp/genin_guard');
 
 function prepareToolCall(name, rawArgs) {
   const args = normalizeToolArguments(name, rawArgs || {});
@@ -510,8 +513,14 @@ function prepareToolCall(name, rawArgs) {
   const schema = MCP_MANIFEST.tools.find((t) => t.name === name)?.inputSchema;
   const validationArgs = (args && typeof args === 'object' && !Array.isArray(args)) ? { ...args } : args;
   if (schema && schema.additionalProperties === false && validationArgs && typeof validationArgs === 'object') {
-    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent')) delete validationArgs.agent;
-    if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent_name')) delete validationArgs.agent_name;
+    if ((!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent'))
+        && normalizeAgentName(validationArgs.agent) !== 'akatsuki') {
+      delete validationArgs.agent;
+    }
+    if ((!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, 'agent_name'))
+        && normalizeAgentName(validationArgs.agent_name) !== 'akatsuki') {
+      delete validationArgs.agent_name;
+    }
   }
   try {
     validateToolArguments(name, validationArgs);

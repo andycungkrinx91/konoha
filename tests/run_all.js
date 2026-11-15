@@ -22,6 +22,12 @@ const {
   pruneStaleSuiteDirs,
   pruneSeeds
 } = require('./helpers/seed_lifecycle');
+const {
+  parsePositiveTimeoutMs,
+  terminateChildTree,
+  terminateSuitesBeforeCleanup,
+  armShardWatchdog
+} = require('./helpers/shard_timeout');
 
 const SEED_SOURCE_ROOT = path.join(__dirname, '..');
 const WEB_BUILD_INDEX = path.join(SEED_SOURCE_ROOT, 'apps', 'web', 'build', 'index.js');
@@ -84,35 +90,28 @@ let goldenSeedInfo = null;
 let activeSeedLeasePath = null;
 let activeBuildLockPath = null;
 let activeBuildingSeedDir = null;
+let shardWatchdog = null;
 let shuttingDown = false;
 const activeSuites = new Map();
 
-function _terminateChild(child) {
-  if (!child || child.killed || child.exitCode !== null) return;
-  try {
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-    } else {
-      child.kill('SIGTERM');
-    }
-  } catch (_) {}
-}
-
-function _onTerminationSignal(signal) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  const sigCode = signal === 'SIGINT' ? 130 : 143;
-  console.error(`\n[SIGNAL] Received ${signal}; terminating ${activeSuites.size} active suite(s) and cleaning temp snapshots...`);
-  for (const entry of activeSuites.values()) {
-    _terminateChild(entry.child);
-    cleanupSuiteDir(entry.suiteHome, `${entry.name} (${signal})`);
-  }
-  activeSuites.clear();
+function _releaseSeedHandles() {
   releaseSeedLease(activeSeedLeasePath);
+  activeSeedLeasePath = null;
   if (activeBuildingSeedDir && !EXPLICIT_SEED_DIR && !seedIsComplete(activeBuildingSeedDir)) {
     cleanupSuiteDir(activeBuildingSeedDir, 'interrupted-seed-build');
   }
   releaseSeedBuildLock(activeBuildLockPath);
+  activeBuildLockPath = null;
+}
+
+async function _onTerminationSignal(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  if (shardWatchdog) shardWatchdog.cancel();
+  const sigCode = signal === 'SIGINT' ? 130 : 143;
+  console.error(`\n[SIGNAL] Received ${signal}; terminating ${activeSuites.size} active suite(s) and cleaning temp snapshots...`);
+  await terminateSuitesBeforeCleanup(activeSuites, signal, cleanupSuiteDir);
+  _releaseSeedHandles();
   process.exit(sigCode);
 }
 
@@ -222,11 +221,12 @@ function getGoldenSeed() {
       KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
       KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
     };
+    const seedTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 1800000);
     const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
       cwd: seedDir,
       env,
       encoding: 'utf-8',
-      timeout: 3600000
+      timeout: seedTimeoutMs
     });
     const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
     if (!seedIsComplete(seedDir)) {
@@ -275,8 +275,24 @@ function copySeedDir(seedDir, suiteHome) {
   ensureSeedNodeModules(suiteHome);
 }
 
+function _armShardTimeoutIfNeeded() {
+  if (shardWatchdog) return;
+  const activeShardArg = process.argv.find((a) => a.startsWith('--shard='));
+  const activeShard = activeShardArg ? activeShardArg.split('=')[1] : process.env.KONOHA_TEST_SHARD;
+  if (!activeShard) return;
+  const shardTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_SHARD_TIMEOUT, process.env.KONOHA_TEST_TIMEOUT], 1800000);
+  shardWatchdog = armShardWatchdog({
+    shard: activeShard,
+    timeoutMs: shardTimeoutMs,
+    activeSuites,
+    cleanupSuiteDir,
+    onBeforeExit: _releaseSeedHandles
+  });
+}
+
 function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
+  _armShardTimeoutIfNeeded();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
   copySeedDir(seed.dir, suiteHome);
   writeSuiteMeta(suiteHome, { runnerPid: process.pid, childPid: null, suite: name, createdAt: new Date().toISOString() });
@@ -333,7 +349,8 @@ pruneStaleSuiteDirs(os.tmpdir());
 
 const testsDir = __dirname;
 const files = fs.readdirSync(testsDir);
-const UNRELEASED_PREFIXES = ['test_yamanaka_'];
+const PKG_VERSION = String(require('../package.json').version || '');
+const UNRELEASED_PREFIXES = /^2\.2\./.test(PKG_VERSION) ? ['test_yamanaka_'] : [];
 const isUnreleased = (f) => UNRELEASED_PREFIXES.some((p) => f.startsWith(p));
 
 let jsTests = files.filter((f) =>
@@ -360,16 +377,16 @@ if (shardValue) {
 
 const pyTests = includePython ? files.filter((f) =>
   f.startsWith('test_') && f.endsWith('.py') &&
-  (!filterArg || f.toLowerCase().includes(filterArg.toLowerCase()))
+  (filterArg ? f.toLowerCase().includes(filterArg.toLowerCase()) : !isUnreleased(f))
 ).sort() : [];
 
 console.log('====================================================');
 console.log(`       KONOHA TEST SUITE RUNNER (${GUARD_MODE})     `);
 console.log('====================================================');
 console.log(`Discovered ${jsTests.length} JS test suites${includePython ? ` and ${pyTests.length} Python suites` : ''} (${isParallel ? `parallel mode, concurrency ${concurrency}` : 'sequential mode'}).\n`);
-const unreleased = filterArg ? [] : files.filter((f) => f.startsWith('test_') && f.endsWith('.js') && isUnreleased(f)).sort();
+const unreleased = filterArg ? [] : files.filter((f) => f.startsWith('test_') && (f.endsWith('.js') || (includePython && f.endsWith('.py'))) && isUnreleased(f)).sort();
 if (unreleased.length > 0) {
-  console.log(`Not run: ${unreleased.length} suite(s) for unreleased features (${UNRELEASED_PREFIXES.join(',')})`);
+  console.log(`Not run: ${unreleased.length} suite(s) for unreleased 2.2.* features (${UNRELEASED_PREFIXES.join(',')}, v${PKG_VERSION})`);
   for (const s of unreleased) console.log(`  - ${s}`);
   console.log('');
 }
@@ -381,41 +398,14 @@ const seedWarmStart = Date.now();
 warmSeed();
 console.log(`[SEED] Seed check: ${((Date.now() - seedWarmStart) / 1000).toFixed(1)}s\n`);
 const startTime = Date.now();
-
-function runSuiteSync(cmd, args, name) {
-  if (shuttingDown) return;
-  process.stdout.write(`[SUITE] Running: ${name} ... `);
-  const snapshot = createSuiteSnapshot(name);
-  const token = `${name}_${Date.now()}`;
-  activeSuites.set(token, { name, suiteHome: snapshot.home, child: null });
-  const start = Date.now();
-  let ok = false;
-  try {
-    const res = spawnSync(cmd, args, { encoding: 'utf-8', env: snapshot.env });
-    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    ok = res.status === 0;
-    if (ok) {
-      console.log(`PASS (${elapsed}s)`);
-      passed++;
-    } else {
-      console.log(`FAIL (exit code ${res.status})`);
-      if (res.stdout) console.log(res.stdout);
-      if (res.stderr) console.error(res.stderr);
-      failed++;
-      failList.push(name);
-    }
-  } finally {
-    activeSuites.delete(token);
-    snapshot.cleanup(ok);
-  }
-}
+_armShardTimeoutIfNeeded();
 
 function runSuiteAsync(cmd, args, name) {
   if (shuttingDown) return Promise.resolve();
   return new Promise((resolve) => {
     const snapshot = createSuiteSnapshot(name);
     const start = Date.now();
-    const child = spawn(cmd, args, { env: snapshot.env });
+    const child = spawn(cmd, args, { env: snapshot.env, detached: process.platform !== 'win32' });
     const token = `${name}_${child.pid || Date.now()}`;
     activeSuites.set(token, { name, suiteHome: snapshot.home, child });
     writeSuiteMeta(snapshot.home, { runnerPid: process.pid, childPid: child.pid || null, suite: name, createdAt: new Date().toISOString() });
@@ -423,11 +413,16 @@ function runSuiteAsync(cmd, args, name) {
     let out = '';
     let err = '';
     let settled = false;
-    const suiteTimeoutMs = Number(process.env.KONOHA_TEST_TIMEOUT) || 3600000;
+    let killEscalationTimer = null;
+    const suiteTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 1800000);
     const timer = setTimeout(() => {
       if (!settled) {
         err += `\n[TIMEOUT] Suite ${name} timed out after ${suiteTimeoutMs / 1000}s and was terminated.`;
-        try { child.kill('SIGKILL'); } catch (_) {}
+        terminateChildTree(child, 'SIGTERM');
+        killEscalationTimer = setTimeout(() => {
+          if (!settled) terminateChildTree(child, 'SIGKILL');
+        }, 500);
+        if (typeof killEscalationTimer.unref === 'function') killEscalationTimer.unref();
       }
     }, suiteTimeoutMs);
 
@@ -437,6 +432,7 @@ function runSuiteAsync(cmd, args, name) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (killEscalationTimer) clearTimeout(killEscalationTimer);
       activeSuites.delete(token);
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       const ok = status === 0;
@@ -462,6 +458,13 @@ function runSuiteAsync(cmd, args, name) {
   });
 }
 
+async function runSequentialList(cmd, filesList) {
+  for (const f of filesList) {
+    if (shuttingDown) break;
+    await runSuiteAsync(cmd, [path.join(testsDir, f)], f);
+  }
+}
+
 async function runAllParallel() {
   const isSequential = (f) => f.includes('_attribution.') || f === 'test_akatsuki_lab_isolation.js' || f === 'test_akatsuki_skill_authz_db_isolation.js' || f === 'test_akatsuki_init.js' || f === 'test_akatsuki_security_centralization.js' || f === 'test_vector_search.js';
   const parallelPool = jsTests.filter((f) => !isSequential(f));
@@ -479,20 +482,15 @@ async function runAllParallel() {
   for (let i = 0; i < concurrency; i++) workers.push(worker());
   await Promise.all(workers);
 
-  for (const f of sequentialPool) {
-    if (shuttingDown) break;
-    runSuiteSync(process.execPath, [path.join(testsDir, f)], f);
-  }
+  await runSequentialList(process.execPath, sequentialPool);
   if (includePython) {
-    for (const f of pyTests) {
-      if (shuttingDown) break;
-      runSuiteSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(testsDir, f)], f);
-    }
+    await runSequentialList(process.platform === 'win32' ? 'python' : 'python3', pyTests);
   }
   finish();
 }
 
 function finish() {
+  if (shardWatchdog) shardWatchdog.cancel();
   releaseSeedLease(activeSeedLeasePath);
   activeSeedLeasePath = null;
   const seedSweep = pruneSeeds({ tmpDir: os.tmpdir(), seedIsComplete, seedIsCurrent, removeAllCurrent: false });
@@ -512,18 +510,21 @@ function finish() {
   }
 }
 
-if (isParallel) {
-  runAllParallel();
-} else {
-  for (const f of jsTests) {
-    if (shuttingDown) break;
-    runSuiteSync(process.execPath, [path.join(testsDir, f)], f);
+async function main() {
+  if (isParallel) {
+    await runAllParallel();
+    return;
   }
+  await runSequentialList(process.execPath, jsTests);
   if (includePython) {
-    for (const f of pyTests) {
-      if (shuttingDown) break;
-      runSuiteSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(testsDir, f)], f);
-    }
+    await runSequentialList(process.platform === 'win32' ? 'python' : 'python3', pyTests);
   }
   finish();
 }
+
+main().catch((err) => {
+  console.error(err && err.stack ? err.stack : err);
+  if (shardWatchdog) shardWatchdog.cancel();
+  _releaseSeedHandles();
+  process.exit(1);
+});

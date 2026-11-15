@@ -9,8 +9,12 @@ const {
 } = require('../platform_utils');
 const {
   buildMainAgentContract,
-  generateGenericSubagentMd
+  buildSubagentContract
 } = require('../agent_contract');
+const {
+  writeAgentFileSafe,
+  writeManagedFileSafe
+} = require('../agent_file_safety');
 const { buildGuardrailCheckerSource } = require('../guardrails');
 const {
   SERVER_PATH,
@@ -25,23 +29,27 @@ const {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
-  buildSubagentToolGrants,
   assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
 
-function deployCommandCodeRtkRule(silent = true) {
+function deployCommandCodeRtkRule(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const src = resolveRtkRuleTemplate();
   if (!src) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
-  const dest = path.join(HOME, '.commandcode', 'rules', 'rtk.md');
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const dest = opts.dest || path.join(home, '.commandcode', 'rules', 'rtk.md');
   try {
-    ensureDir(path.dirname(dest));
-    fs.copyFileSync(src, dest);
-    if (!silent) process.stderr.write(String('  ✓ Deployed RTK rule to ' + dest) + '\n');
-    return { ok: true };
+    const content = fs.readFileSync(src, 'utf8');
+    const writeRes = writeManagedFileSafe(dest, content, { silent: isSilent });
+    if (writeRes.status !== 'conflict' && !isSilent) {
+      process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    }
+    return { ok: true, status: writeRes.status };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
@@ -361,11 +369,37 @@ function registerCommandCodeWorkflowReminder(silent = true, options = {}) {
 }
 
 function buildCommandCodeSubagentMd(agent) {
-  // Claude-style frontmatter plus the Command Code allow-list must both come
-  // from the one shared helper, so a subagent never gets a narrower tool set
-  // than the main agent (and never a wildcard).
-  assertNoWildcardGrants(buildSubagentToolGrants('commandcode'), `command code subagent ${agent.name} allowed-tools`);
-  return generateGenericSubagentMd(agent, 'commandcode');
+  const { buildCommandCodeTools } = require('./common');
+  const { getRoleDescription, isReadOnlyAgent, AGENT_OWNERSHIP_MARKER } = require('../agent_file_safety');
+  const { buildCodeSearchPolicyCompact, buildFileToolsPolicyCompact } = require('../search_policy');
+  const toolGrants = buildCommandCodeTools(agent);
+  assertNoWildcardGrants(toolGrants, `command code subagent ${agent.name} tools`);
+
+  const rawDesc = getRoleDescription(agent);
+  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+  let instructions = String(agent.instructions || '').trim();
+  if (instructions && !instructions.endsWith('.')) instructions += '.';
+  if (Array.isArray(agent.skills) && agent.skills.length > 0) {
+    const skillList = agent.skills.map((s) => `"${s}"`).join(', ');
+    instructions = `MANDATORY FIRST ACTION before writing code: Call konoha.use_skills({ skills: [${skillList}] }) or konoha.get_skill to load your assigned domain guidelines into context. ${instructions}`;
+  }
+  const readOnlyNote = isReadOnlyAgent(agent)
+    ? '\nRead-only enforcement: Never modify files or run shell commands.'
+    : '';
+  const body = `${instructions}${readOnlyNote}\n\n${buildSubagentContract('commandcode')}\n\n${buildCodeSearchPolicyCompact()}\n${buildFileToolsPolicyCompact()}\n`;
+
+  const frontmatter = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+    AGENT_OWNERSHIP_MARKER,
+    'tools:',
+    ...toolGrants.map((t) => `  - ${t}`),
+    '---',
+    ''
+  ];
+
+  return frontmatter.join('\n') + body;
 }
 
 function deployCommandCodeRules(silent = true, options = {}) {
@@ -393,15 +427,17 @@ function deployCommandCodeRules(silent = true, options = {}) {
     fs.writeFileSync(agentsMd, finalAgentsMd, 'utf8');
 
     const contractContent = buildMainAgentContract('commandcode') + '\n';
-    if (fileExists(ruleDest)) {
-      backupFile(ruleDest, silent, { client: 'commandcode', scope: 'global', ...opts });
-    }
-    fs.writeFileSync(ruleDest, contractContent, 'utf8');
+    const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+    writeManagedFileSafe(ruleDest, contractContent, {
+      silent: isSilent,
+      onBeforeOverwrite: (p) => backupFile(p, isSilent, { client: 'commandcode', scope: 'global', ...opts })
+    });
 
-    for (const agent of agents) {
+    const { getDeployableAgents } = require('../canonical_agents');
+    for (const agent of getDeployableAgents(agents)) {
       if (!agent || !agent.name || !validateAgentName(agent.name, agentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const subagentMd = buildCommandCodeSubagentMd(agent);
-      fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
+      writeAgentFileSafe(path.join(agentsDir, `${agent.name}.md`), subagentMd, agent.name, { silent: isSilent });
     }
 
     if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Command Code\n`);
@@ -435,7 +471,7 @@ function ensureCommandCodeSetup(options = {}) {
   registerCommandCodePermissions(silent, options);
   registerCommandCodeWorkflowReminder(silent, options);
   const nativeBlocker = registerCommandCodeNativeBlocker(silent, options);
-  const rtkRule = deployCommandCodeRtkRule(silent);
+  const rtkRule = deployCommandCodeRtkRule(silent, options);
   const contractRule = deployCommandCodeRules(silent, options);
 
   const projectRoot = options.projectRoot || null;

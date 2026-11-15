@@ -7,7 +7,7 @@ Guidelines and requirements for authoring, updating, and synchronizing Konoha `v
 ## 📁 Documentation Architecture & Directory Structure
 
 Every topic has exactly one live document. `docs/README.md` is the live index: open it first and follow the row for the topic you need instead of guessing a filename.
-- `README.md`: Executive entry point, quick start (`konoha init --client=<name>`), 9-agent roster (`@sannin` router + 8 specialists), 55 canonical MCP tools, LangGraph + Real-Time Idle `@advisor` + Git Worktree architecture, and security badges.
+- `README.md`: Executive entry point, quick start (`konoha init --client=<name>`), 9-agent roster (`@sannin` router + 8 specialists), 56 canonical MCP tools, LangGraph + Real-Time Idle `@advisor` + Git Worktree architecture, and security badges.
 - `CHANGELOG.md`: Authoritative chronological release notes following Keep a Changelog format.
 - `docs/README.md`: Live index of every current document, grouped by topic keys (architecture, security, setup, data, assets, conventions). It is the only place the document set is enumerated — never restate the count elsewhere, it drifts.
 - `docs/ARCHITECTURE.md`: Technical architecture specification, LangGraph StateGraph engine, Real-Time Idle `@advisor` (`<= 1,000 tokens/turn`), Per-Agent Git Worktree isolation, MCP transports, and dynamic website builder specs.

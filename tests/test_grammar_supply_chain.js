@@ -20,7 +20,6 @@ const REQUIRED_LANGUAGES = [
   'python',
   'go',
   'rust',
-  'java',
   'c',
   'cpp',
   'bash',
@@ -51,7 +50,7 @@ async function testLockfileAndRuntimeParity() {
   assert.deepEqual(
     [...lockedLangs].sort(),
     [...REQUIRED_LANGUAGES].sort(),
-    'grammars.lock.json must lock all 11 required languages'
+    'grammars.lock.json must lock all 10 required MIT WASM grammars (excluding Java/C#/Lua)'
   );
 
   for (const g of lock.grammars) {
@@ -73,7 +72,7 @@ async function testOfflineVerifyAndTamperRejection() {
   try {
     const verified = await verifyGrammars({ grammarsDir: GRAMMARS_DIR });
     assert.equal(verified.ok, true);
-    assert.equal(verified.verifiedCount, 11);
+    assert.equal(verified.verifiedCount, 10);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -82,7 +81,7 @@ async function testOfflineVerifyAndTamperRejection() {
   try {
     fs.cpSync(GRAMMARS_DIR, tmpDir, { recursive: true });
     const okCopy = await verifyGrammars({ grammarsDir: tmpDir });
-    assert.equal(okCopy.verifiedCount, 11);
+    assert.equal(okCopy.verifiedCount, 10);
 
     // Corrupt 1 byte in tree-sitter-sql.wasm -> must reject by SHA-256
     const sqlPath = path.join(tmpDir, 'tree-sitter-sql.wasm');
@@ -112,7 +111,7 @@ async function testOfflineVerifyAndTamperRejection() {
 async function main() {
   await testLockfileAndRuntimeParity();
   await testOfflineVerifyAndTamperRejection();
-  console.log('test_grammar_supply_chain passed (11 MIT WASMs locked, verified offline, tamper checks enforced)');
+  console.log('test_grammar_supply_chain passed (10 MIT WASMs locked, verified offline, tamper checks enforced)');
 }
 
 main().catch((err) => {

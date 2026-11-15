@@ -10,14 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const RESOLVE_EXTENSIONS = [
-  '.ts', '.tsx', '.mts', '.cts',
-  '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.go', '.rs', '.java',
-  '.c', '.h', '.cpp', '.hpp', '.cc',
-  '.sh', '.bash', '.sql'
-];
+const { RESOLVE_EXTENSIONS } = require('./capabilities');
 
 function _stripJsonComments(raw) {
   let out = '';

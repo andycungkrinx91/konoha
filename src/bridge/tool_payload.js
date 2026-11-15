@@ -17,6 +17,7 @@
 
 const { compressWebOutput } = require('./web_content');
 const { getConfigValue } = require('../config_access');
+const { extractKeyMiddleAnchors } = require('../context_budget');
 
 const DEFAULT_MAX_TOOL_OUTPUT_CHARS = getConfigValue('bridge_max_tool_output_chars');
 const MARKER_RESERVE_CHARS = 320;
@@ -75,6 +76,25 @@ function truncateWithMarker(text, maxChars) {
   if (typeof text !== 'string') return text;
   if (text.length <= maxChars) return text;
   const budget = Math.max(0, maxChars - MARKER_RESERVE_CHARS);
+  if (budget >= 350) {
+    const headLen = Math.ceil(budget * 0.40);
+    const midLen = Math.floor(budget * 0.25);
+    const tailLen = Math.max(0, budget - headLen - midLen);
+    const midStart = Math.max(headLen, Math.floor((text.length - midLen) / 2));
+    const midNote = `\n[…middle-anchor offset ${midStart}…]\n`;
+    const actualMidLen = Math.max(0, midLen - midNote.length);
+    const midAnchors = actualMidLen > 0
+      ? extractKeyMiddleAnchors(text, actualMidLen, { start: headLen, end: Math.max(headLen, text.length - tailLen) })
+      : '';
+    const midBody = midAnchors || (actualMidLen > 0 ? text.slice(midStart, midStart + actualMidLen) : '');
+    const dropped = Math.max(0, text.length - headLen - midBody.length - tailLen);
+    const marker = `\n\n[…konoha bridge truncated ${dropped} characters (${text.length} total) to keep this tool result within ${maxChars} characters (head/middle/tail preserved); request a narrower range for the full content.]\n\n`;
+    const assembled = text.slice(0, headLen)
+      + (midBody ? midNote + midBody : '')
+      + marker
+      + (tailLen > 0 ? text.slice(text.length - tailLen) : '');
+    if (assembled.length <= maxChars) return assembled;
+  }
   const head = Math.ceil(budget * 0.6);
   const tail = budget - head;
   const dropped = text.length - head - tail;

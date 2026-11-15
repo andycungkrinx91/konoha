@@ -138,7 +138,93 @@ function run() {
   assert.ok(fs.existsSync(userMcp), 'A user-authored mcp_*.md must survive');
   assert.ok(fs.existsSync(konohaNonMcp), 'Non-mcp_* files are not touched by this cleanup');
 
-  console.log('✓ Deploy safety: backup strategy, SOUL managed block, agent ownership verified.');
+  // --- SOUL.md conflict also emits .konoha-proposed ----------------------
+  assert.ok(fs.existsSync(`${soulTarget}.konoha-proposed`),
+    'Conflicting SOUL.md must write proposed content to .konoha-proposed');
+
+  // --- Rule files across harnesses never clobber user-authored content ---
+  const cursorManager = require('../src/cursor_manager');
+  const commandCode = require('../src/mcp_clients/command_code');
+  const openCodeManager = require('../src/opencode_manager');
+  const codexManager = require('../src/codex_manager');
+  const ompManager = require('../src/omp_manager');
+  const claudeCode = require('../src/mcp_clients/claude_code');
+  const antigravityManager = require('../src/antigravity_manager');
+  const { generateCursorRule } = require('../src/cursor_rules');
+  const { buildMainAgentContract } = require('../src/agent_contract');
+
+  const ruleHome = path.join(tmpRoot, 'rule-safety-home');
+  const customRuleBody = '# User Custom Rule\nDo not delete me.\n';
+  const userRulePaths = [
+    path.join(ruleHome, '.cursor', 'rules', 'konoha.mdc'),
+    path.join(ruleHome, '.cursor', 'rules', 'rtk.mdc'),
+    path.join(ruleHome, '.commandcode', 'rules', 'konoha.md'),
+    path.join(ruleHome, '.commandcode', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.config', 'opencode', 'rules', 'konoha.md'),
+    path.join(ruleHome, '.config', 'opencode', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.opencode', 'rules', 'konoha.md'),
+    path.join(ruleHome, '.opencode', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.codex', 'rules', 'konoha.md'),
+    path.join(ruleHome, '.codex', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.omp', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.claude', 'rules', 'rtk.md'),
+    path.join(ruleHome, '.gemini', 'antigravity-cli', 'rules', 'rtk.md')
+  ];
+  for (const rulePath of userRulePaths) {
+    write(rulePath, customRuleBody);
+  }
+
+  const cursorProject = path.join(tmpRoot, 'cursor-project');
+  const projectCursorRule = write(path.join(cursorProject, '.cursor', 'rules', 'konoha.mdc'), customRuleBody);
+
+  const sampleAgents = [{ name: 'genin', description: 'Scout', instructions: 'Explore.', skills: [] }];
+  cursorManager.deployCursorGlobalRule(sampleAgents, true, { home: ruleHome });
+  cursorManager.deployCursorRtkRule(true, { home: ruleHome });
+  cursorManager.deployProjectCursor(cursorProject, sampleAgents, true);
+  commandCode.deployCommandCodeRules(true, { home: ruleHome });
+  commandCode.deployCommandCodeRtkRule(true, { home: ruleHome });
+  openCodeManager.deployOpenCodeRules(true, { home: ruleHome });
+  openCodeManager.deployOpenCodeRtkRule(true, { home: ruleHome });
+  codexManager.deployCodexRules(true, { home: ruleHome });
+  codexManager.deployCodexRtkRule(true, { home: ruleHome });
+  ompManager.deployOmpRtkRule({ home: ruleHome, silent: true });
+  claudeCode.deployClaudeCodeRtkRule(true, { home: ruleHome });
+  antigravityManager.deployAntigravityRtkRule(true, { home: ruleHome });
+
+  for (const rulePath of [...userRulePaths, projectCursorRule]) {
+    assert.strictEqual(read(rulePath), customRuleBody,
+      `User-authored rule ${rulePath} must stay untouched on conflict`);
+    assert.strictEqual(read(`${rulePath}.konoha-backup`), customRuleBody,
+      `User-authored rule ${rulePath} must get a one-time .konoha-backup`);
+    assert.ok(fs.existsSync(`${rulePath}.konoha-proposed`),
+      `User-authored rule ${rulePath} must write Konoha candidate to .konoha-proposed`);
+  }
+
+  // Subsequent runs must preserve the original .konoha-backup
+  fs.writeFileSync(`${userRulePaths[0]}.konoha-backup`, customRuleBody, 'utf8');
+  cursorManager.deployCursorGlobalRule(sampleAgents, true, { home: ruleHome });
+  assert.strictEqual(read(`${userRulePaths[0]}.konoha-backup`), customRuleBody,
+    'Original .konoha-backup must survive subsequent deploy passes');
+
+  // Konoha-owned rule files update cleanly in place without conflict parking
+  const cleanHome = path.join(tmpRoot, 'clean-rule-home');
+  const staleCursorRule = write(
+    path.join(cleanHome, '.cursor', 'rules', 'konoha.mdc'),
+    generateCursorRule(sampleAgents).replace('Subagent', 'Stale').replace('Mandatory', 'Stale')
+  );
+  const staleCodexRule = write(
+    path.join(cleanHome, '.codex', 'rules', 'konoha.md'),
+    `${buildMainAgentContract('codex')}\n<!-- stale -->\n`
+  );
+  cursorManager.deployCursorGlobalRule(sampleAgents, true, { home: cleanHome });
+  codexManager.deployCodexRules(true, { home: cleanHome });
+  assert.ok(!fs.existsSync(`${staleCursorRule}.konoha-proposed`),
+    'Konoha-owned Cursor rule must update cleanly without creating .konoha-proposed');
+  assert.ok(!fs.existsSync(`${staleCodexRule}.konoha-proposed`),
+    'Konoha-owned Codex rule must update cleanly without creating .konoha-proposed');
+  assert.strictEqual(read(staleCodexRule), `${buildMainAgentContract('codex')}\n`);
+
+  console.log('✓ Deploy safety: backup strategy, SOUL managed block, agent & rule conflict parking verified.');
 }
 
 run();

@@ -7,6 +7,33 @@ const path = require('path');
 
 // Logging
 
+function _safeAppendPrivateLog(filePath, entry) {
+  let fd = null;
+  try {
+    const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+    try {
+      const st = fs.lstatSync(filePath);
+      if (st.isSymbolicLink() || !st.isFile()) return;
+      if (uid !== null && st.uid !== uid) return;
+      if ((st.mode & 0o077) !== 0) fs.chmodSync(filePath, 0o600);
+    } catch (statErr) {
+      if (statErr.code !== 'ENOENT') return;
+    }
+    const noFollow = fs.constants && fs.constants.O_NOFOLLOW ? fs.constants.O_NOFOLLOW : 0;
+    const flags = fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | noFollow;
+    fd = fs.openSync(filePath, flags, 0o600);
+    const fdStat = fs.fstatSync(fd);
+    if (!fdStat.isFile() || (uid !== null && fdStat.uid !== uid)) return;
+    fs.writeSync(fd, entry, undefined, 'utf8');
+  } catch {
+    // ignore filesystem errors for log files
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch { /* best effort */ }
+    }
+  }
+}
+
 function log(ctx, msg, isError = false) {
   if (typeof msg === 'object') {
     try {
@@ -15,19 +42,16 @@ function log(ctx, msg, isError = false) {
       msg = String(msg);
     }
   }
+  const safeMsg = redactSecrets(String(msg));
   const ts = new Date().toISOString().slice(11, 23);
-  if (ctx.outputChannel) ctx.outputChannel.appendLine(`[${ts}] ${msg}`);
-  if (isError) console.error(`[ag-bridge] ${msg}`);
+  if (ctx.outputChannel) ctx.outputChannel.appendLine(`[${ts}] ${safeMsg}`);
+  if (isError) console.error(`[ag-bridge] ${safeMsg}`);
 
   // Write to temporary global disk if verbose Request Logging is enabled in settings (for deep debugging)
   const config = vscode.workspace.getConfiguration('agLocalBridge');
   if (config.get('logRequests', false)) {
-    try {
-      const logFilePath = path.join(os.tmpdir(), 'ag-local-bridge.log');
-      fs.appendFileSync(logFilePath, `[${ts}] ${redactSecrets(String(msg))}\n`, 'utf8');
-    } catch {
-      // ignore filesystem errors for log files
-    }
+    const logFilePath = path.join(os.tmpdir(), 'ag-local-bridge.log');
+    _safeAppendPrivateLog(logFilePath, `[${ts}] ${safeMsg}\n`);
   }
 }
 
@@ -37,33 +61,28 @@ function _redactVerbosePayload(fullContent) {
       const parsed = JSON.parse(fullContent);
       return JSON.stringify(redactPayloadKeys(parsed), null, 2);
     } catch {
-      return fullContent;
+      return redactSecrets(fullContent);
     }
   }
   if (typeof fullContent === 'object' && fullContent !== null) {
     try {
       return JSON.stringify(redactPayloadKeys(fullContent), null, 2);
     } catch {
-      return fullContent;
+      return redactSecrets(String(fullContent));
     }
   }
-  return fullContent;
+  return typeof fullContent === 'string' ? redactSecrets(fullContent) : fullContent;
 }
 
 function _writeVerbosePayloadLog(fullContent) {
   if (fullContent === null) return;
-  try {
-    const redactedContent = _redactVerbosePayload(fullContent);
-    const payloadLogPath = path.join(os.tmpdir(), 'ag-local-bridge-payloads.log');
-    const ts = new Date().toISOString().slice(11, 23);
-    fs.appendFileSync(
-      payloadLogPath,
-      `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${redactedContent}\n--- [END PAYLOAD DUMP] ---\n`,
-      'utf8',
-    );
-  } catch {
-    // ignore filesystem errors for log files
-  }
+  const redactedContent = _redactVerbosePayload(fullContent);
+  const payloadLogPath = path.join(os.tmpdir(), 'ag-local-bridge-payloads.log');
+  const ts = new Date().toISOString().slice(11, 23);
+  _safeAppendPrivateLog(
+    payloadLogPath,
+    `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${redactedContent}\n--- [END PAYLOAD DUMP] ---\n`
+  );
 }
 
 /** Log only when agLocalBridge.logRequests is enabled (verbose/debug output) */
@@ -106,25 +125,27 @@ function updateStatusBar(ctx, running, port) {
 function redactSecrets(str) {
   if (typeof str !== 'string') return str;
   return str
-    .replace(/("api[_-]?key"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"')
-    .replace(/("token"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"')
-    .replace(/("authorization"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"');
+    .replace(/((?:Bearer|Basic)\s+)[A-Za-z0-9._~+/=-]{6,}/gi, '$1[REDACTED]')
+    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})\b/g, '[REDACTED]')
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]')
+    .replace(/\b(https?|wss?|postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?|amqp):\/\/[^:\s/@]+:[^@\s/]+@/gi, '$1://[REDACTED]@')
+    .replace(/([?&](?:token|api[_-]?key|apikey|access_token|refresh_token|client_secret|secret|password)=)[^&\s"'#]+/gi, '$1[REDACTED]')
+    .replace(/("(?:api[_-]?key|x-api-key|token|access[_-]?token|refresh[_-]?token|client[_-]?secret|session[_-]?token|authorization|password|secret|private[_-]?key|credential|dsn|connection[_-]?string)"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"');
 }
 
-/** Recursively redact sensitive keys from a JSON-compatible value */
+/** Recursively redact sensitive keys and secret-bearing strings from a JSON-compatible value */
 function redactPayloadKeys(obj) {
   if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return redactSecrets(obj);
   if (typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(redactPayloadKeys);
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
     const lk = k.toLowerCase();
-    if (lk.match(/(api.?key|password|secret|auth_|bearer|credential|token|authorization|x-api|api.?key)/)) {
+    if (lk.match(/(api.?key|password|secret|auth_|bearer|credential|token|authorization|x-api|private[_-]?key|dsn|connection.?string)/)) {
       out[k] = '***REDACTED***';
-    } else if (typeof v === 'object' && v !== null) {
-      out[k] = Array.isArray(v) ? v.map(redactPayloadKeys) : redactPayloadKeys(v);
     } else {
-      out[k] = v;
+      out[k] = redactPayloadKeys(v);
     }
   }
   return out;
@@ -254,4 +275,6 @@ module.exports = {
   buildCompletion,
   parseRetryAfter,
   extractProviderError,
+  redactSecrets,
+  redactPayloadKeys,
 };

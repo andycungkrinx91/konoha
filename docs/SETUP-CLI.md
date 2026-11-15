@@ -486,7 +486,7 @@ To keep Konoha updated with the latest optimizations and features, you can check
 
 ### Optional Antigravity Bridge Extension
 
-The external `konoha-bridge` extension is refreshed from the live `master` branch only when Antigravity IDE is detected. It installs at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and serves `127.0.0.1:1313`; Konoha’s embedded gateway remains on `127.0.0.1:19999`. No external bridge is enabled automatically. On CLI-only or headless machines, Konoha skips the extension and uses its embedded fallback.
+Automated installation and refresh of the external `konoha-bridge` extension (`~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`) were eliminated in `v2.2.1`; `konoha init` and `konoha upgrade` only prune stale legacy Antigravity registry entries (`syncAntigravityExtensionRegistry`). If you run a separate compatible external bridge manually on `127.0.0.1:1313`, keep Konoha’s embedded gateway on `127.0.0.1:19999` (`antigravity-extension` remains disabled until `konoha bridge enable`). On CLI-only or headless machines, Konoha likewise uses its embedded fallback.
 
 ### Model Registry and Fallbacks
 

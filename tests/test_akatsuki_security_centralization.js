@@ -1,5 +1,7 @@
 'use strict';
 
+require('./helpers/isolate_db');
+
 /**
  * tests/test_akatsuki_security_centralization.js
  *
@@ -326,6 +328,49 @@ async function runAkatsukiTests() {
   }
 
   console.log('✓ Akatsuki Final Gate cannot be bypassed; delivery blocks on security findings.');
+
+  // =========================================================================
+  // Subagent Runner Red-Skill Fail-Closed & Tool Identity Elevation Guards (M1/M2)
+  // =========================================================================
+  console.log('\n7. Testing runMcpAgent red-skill parity & prepareToolCall/genin_guard elevation guards...');
+  const { runMcpAgent } = require('../src/mcp/memory_subagent_runner');
+  const { prepareToolCall } = require('../src/file_tools_router');
+  const { resolveAgentIdentity } = require('../src/mcp/genin_guard');
+  const m1Ws = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-m1m2-sec-'));
+  try {
+    const blockedExplicit = JSON.parse(runMcpAgent('jonin', {
+      task: 'Style landing page',
+      skills: ['akatsuki-skill'],
+      project_path: m1Ws
+    }));
+    assert.strictEqual(blockedExplicit.status, 'blocked');
+    assert.strictEqual(blockedExplicit.phase, 'skill_authorization');
+    assert.strictEqual(blockedExplicit.code, 'SKILL_AUTHORIZATION_DENIED');
+
+    const blockedPentest = JSON.parse(runMcpAgent('anbu', {
+      task: 'Harden route',
+      skills: ['pentest-custom'],
+      project_path: m1Ws
+    }));
+    assert.strictEqual(blockedPentest.status, 'blocked');
+    assert.strictEqual(blockedPentest.code, 'SKILL_AUTHORIZATION_DENIED');
+
+    const strictPrep = prepareToolCall('akatsuki', { task: 'audit', agent: 'akatsuki' });
+    assert.ok(strictPrep.error, 'strict-schema akatsuki tool must reject undeclared agent=akatsuki');
+    assert.strictEqual(resolveAgentIdentity({ agent: 'akatsuki' }, () => 'anbu'), 'anbu', 'detected @anbu must never self-elevate to @akatsuki');
+
+    const { DatabaseSync } = require('node:sqlite');
+    const { lookupSkillTags, findUnauthorizedSkill } = require('../src/skill_authorization');
+    const memDb = new DatabaseSync(':memory:');
+    memDb.exec('CREATE TABLE skills (name TEXT PRIMARY KEY, skill_name TEXT, tags TEXT)');
+    memDb.prepare('INSERT INTO skills (name, skill_name, tags) VALUES (?, ?, ?)').run('custom-audit@proj-123', 'custom-audit', '["red-team"]');
+    assert.ok(lookupSkillTags(memDb, 'custom-audit').includes('red-team'), 'lookupSkillTags must resolve scoped skill_name tags');
+    const scopedDeny = findUnauthorizedSkill(['custom-audit'], 'anbu', memDb);
+    assert.ok(scopedDeny && scopedDeny.denied && scopedDeny.denied.code === 'SKILL_AUTHORIZATION_DENIED', 'scoped red skill must deny non-akatsuki');
+    memDb.close();
+  } finally {
+    try { fs.rmSync(m1Ws, { recursive: true, force: true }); } catch (_) {}
+  }
 
   console.log('\n=============================================================');
   console.log('✅ ALL AKATSUKI SECURITY CENTRALIZATION TESTS PASSED CLEANLY!');

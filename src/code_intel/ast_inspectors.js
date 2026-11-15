@@ -209,12 +209,19 @@ function _inspectHeritageClause(ch, className, line, ctx) {
     return;
   }
   if (ch.type !== 'class_heritage') return;
+  let hasClause = false;
   for (let k = 0; k < ch.namedChildCount; k++) {
     const sub = ch.namedChild(k);
     if (!sub) continue;
-    if (sub.type === 'extends_clause') _recordHeritageNames(sub, 'extends', className, line, ctx);
-    if (sub.type === 'implements_clause') _recordHeritageNames(sub, 'implements', className, line, ctx);
+    if (sub.type === 'extends_clause') {
+      hasClause = true;
+      _recordHeritageNames(sub, 'extends', className, line, ctx);
+    } else if (sub.type === 'implements_clause') {
+      hasClause = true;
+      _recordHeritageNames(sub, 'implements', className, line, ctx);
+    }
   }
+  if (!hasClause) _recordHeritageNames(ch, 'extends', className, line, ctx);
 }
 
 function _inspectJsTsNode(node, parentName, ctx) {
@@ -281,15 +288,6 @@ function _inspectOtherImports(node, ctx) {
   if (node.type === 'preproc_include' && (ctx.grammarKey === 'c' || ctx.grammarKey === 'cpp')) {
     const inc = node.childForFieldName('path');
     if (inc) ctx.imports.push({ edgeKind: 'imports', specifier: _stripQuotes(inc.text), names: [], line });
-    return;
-  }
-  if (node.type === 'import_declaration' && ctx.grammarKey === 'java') {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const ch = node.namedChild(i);
-      if (ch && (ch.type === 'scoped_identifier' || ch.type === 'identifier')) {
-        ctx.imports.push({ edgeKind: 'imports', specifier: ch.text, names: [], line });
-      }
-    }
     return;
   }
   if (node.type === 'command' && ctx.grammarKey === 'bash' && node.namedChildCount >= 2) {

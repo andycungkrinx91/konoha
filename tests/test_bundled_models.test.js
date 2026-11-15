@@ -195,6 +195,51 @@ async function testHfCacheReuseAndLoudFailure() {
     ]);
     assert.ok(offlineReranked[0].text.includes('Helm manages Kubernetes'));
 
+    // Python huggingface_hub snapshot cache layout: models--<org>--<repo>/snapshots/<rev>
+    const pyHubCache = path.join(tmpRoot, 'py_hub_cache');
+    const rev = '0123456789abcdef';
+    for (const repo of [vs.EMBED_MODEL_REPO, vs.RERANK_MODEL_REPO]) {
+      const srcRepoDir = path.join(baseEmbedPipe.cacheDir, ...repo.split('/'));
+      const modelRoot = path.join(pyHubCache, `models--${repo.replace('/', '--')}`);
+      const snapDir = path.join(modelRoot, 'snapshots', rev);
+      const refsDir = path.join(modelRoot, 'refs');
+      fs.mkdirSync(refsDir, { recursive: true });
+      fs.writeFileSync(path.join(refsDir, 'main'), `${rev}\n`, 'utf8');
+      fs.cpSync(srcRepoDir, snapDir, { recursive: true });
+    }
+    delete process.env.HF_HOME;
+    process.env.HF_HUB_CACHE = pyHubCache;
+    process.env.HF_HUB_OFFLINE = '1';
+    await vs.resetPipelinesForTest();
+    vs._EMBED_CACHE.clear();
+
+    const pyHubStatus = vp.getRuntimeStatus();
+    assert.strictEqual(pyHubStatus.available, true, 'models--*/snapshots/<rev> cache must report available: true');
+    assert.strictEqual(pyHubStatus.embedModel.cacheLayout, 'hf_hub_snapshot');
+    assert.strictEqual(pyHubStatus.rerankModel.cacheLayout, 'hf_hub_snapshot');
+
+    const pySnapPipe = await vp.getEmbedPipeline();
+    assert.strictEqual(pySnapPipe.cacheLayout, 'hf_hub_snapshot');
+    const snapVec = await vs.embedText('python huggingface_hub snapshot layout');
+    assert.strictEqual(snapVec.length, 384);
+    const snapRerank = await vs.rerank('Kubernetes Helm', [
+      'Helm manages Kubernetes charts.',
+      'Strawberry jam toast.',
+    ]);
+    assert.ok(snapRerank[0].text.includes('Helm manages Kubernetes'));
+
+    // Empty models--*/snapshots stub must NOT report cached/available offline
+    const stubHubCache = path.join(tmpRoot, 'stub_hub_cache');
+    fs.mkdirSync(
+      path.join(stubHubCache, `models--${vs.EMBED_MODEL_REPO.replace('/', '--')}`, 'snapshots'),
+      { recursive: true }
+    );
+    process.env.HF_HUB_CACHE = stubHubCache;
+    await vs.resetPipelinesForTest();
+    const stubStatus = vp.getRuntimeStatus();
+    assert.strictEqual(stubStatus.available, false, 'Empty HF Hub snapshot stub must report available: false');
+
+    delete process.env.HF_HUB_CACHE;
     process.env.HF_HOME = emptyHfHome;
     process.env.HF_HUB_OFFLINE = '1';
     await vs.resetPipelinesForTest();

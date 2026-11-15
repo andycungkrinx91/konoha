@@ -83,6 +83,7 @@ function detectActiveClient() {
       if (activeOverride.includes('pi.dev') || activeOverride === 'pi' || activeOverride.endsWith('-pi') || activeOverride.includes('pi-')) return 'pi';
       if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'agy';
       if (activeOverride.includes('antigravity') || activeOverride.includes('ide')) return 'antigravity';
+      return activeOverride;
     }
 
     if (process.env.CODEX_SESSION || process.env.CODEX_THREAD_ID || process.env.CODEX_CI) return 'codex';
@@ -458,10 +459,49 @@ function getAndIncrementSessionTurn(sessionKey) {
   return current;
 }
 
+/**
+ * Resolves auto-detected client attribution into a spawn-capable harness name,
+ * collapsing `'unattributed'` or empty detections to `fallback` while keeping
+ * explicit harness names intact so unsupported ones still fail closed.
+ */
+function resolveDetectedSpawnClient(client, fallback = 'universal') {
+  if (typeof client !== 'string') return fallback;
+  const trimmed = client.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'unattributed') return fallback;
+  return trimmed;
+}
+
+/**
+ * Selects the first non-empty trimmed string client candidate so whitespace-only
+ * overrides never mask later runtime or auto-detected attribution values.
+ */
+function pickRawClient(candidates = []) {
+  if (!Array.isArray(candidates)) {
+    return typeof candidates === 'string' ? candidates.trim() : '';
+  }
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Picks the first non-empty client candidate and normalizes `'unattributed'` or
+ * missing detections to `fallback` while keeping explicit harness names intact.
+ */
+function resolveFirstSpawnClient(candidates = [], fallback = 'universal') {
+  return resolveDetectedSpawnClient(pickRawClient(candidates), fallback);
+}
+
 
 module.exports = {
   detectActiveClient,
   detectActiveAgent,
+  pickRawClient,
+  resolveDetectedSpawnClient,
+  resolveFirstSpawnClient,
   getActiveSessionId,
   getKonohaTmpRoot,
   getSessionKey,

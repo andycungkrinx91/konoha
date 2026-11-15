@@ -80,22 +80,29 @@
     loading = true;
     error = "";
     try {
+      const skillsPromise = api.get("/api/v1/skills?limit=1000").catch(() => null);
+      const modelsPromise = api.get("/api/v1/bridges/models").catch(() => null);
       agents = await api.get("/api/v1/agents");
-      const skills = await api.get("/api/v1/skills?limit=1000");
-      const set = new Set(OFFICIAL_SKILLS);
-      (skills || []).forEach(s => {
-        if (s.name) set.add(s.name);
-        if (s.skill_name) set.add(s.skill_name);
-      });
+      const baseSet = new Set(OFFICIAL_SKILLS);
       (agents || []).forEach(a => {
-        (a.skills || []).forEach(s => set.add(s));
+        (a.skills || []).forEach(s => baseSet.add(s));
       });
-      allSkills = Array.from(set).sort();
-      try {
-        const modelsRes = await api.get("/api/v1/bridges/models");
+      allSkills = Array.from(baseSet).sort();
+      loading = false;
+
+      const [skills, modelsRes] = await Promise.all([skillsPromise, modelsPromise]);
+      if (Array.isArray(skills)) {
+        const mergedSet = new Set(baseSet);
+        skills.forEach(s => {
+          if (s.name) mergedSet.add(s.name);
+          if (s.skill_name) mergedSet.add(s.skill_name);
+        });
+        allSkills = Array.from(mergedSet).sort();
+      }
+      if (modelsRes && typeof modelsRes === 'object') {
         bridgeModels = modelsRes.models || [];
         nineRouterStatus = modelsRes.nine_router || null;
-      } catch (_) {
+      } else {
         bridgeModels = [];
         nineRouterStatus = null;
       }

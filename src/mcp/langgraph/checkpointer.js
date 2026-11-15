@@ -386,6 +386,67 @@ class KonohaCheckpointSaver extends BaseCheckpointSaver {
     })();
   }
 
+  getLatestCheckpointSync({ threadId, checkpointNs = '' } = {}) {
+    if (!threadId) return null;
+    this.setup();
+    const row = this.stmtLatest.get(TASKS, String(threadId), String(checkpointNs || ''));
+    if (!row) return null;
+    try {
+      const checkpoint = JSON.parse(Buffer.isBuffer(row.checkpoint) ? row.checkpoint.toString('utf8') : String(row.checkpoint || '{}'));
+      const metadata = JSON.parse(Buffer.isBuffer(row.metadata) ? row.metadata.toString('utf8') : String(row.metadata || '{}'));
+      return {
+        thread_id: row.thread_id,
+        checkpoint_ns: row.checkpoint_ns,
+        checkpoint_id: row.checkpoint_id,
+        parent_checkpoint_id: row.parent_checkpoint_id || null,
+        checkpoint,
+        metadata
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  putCheckpointSync({
+    threadId,
+    checkpointNs = '',
+    checkpointId = null,
+    parentCheckpointId = null,
+    channelValues = {},
+    metadata = {}
+  } = {}) {
+    if (!threadId) throw new Error('Missing threadId for putCheckpointSync.');
+    this.setup();
+    const ns = String(checkpointNs || '');
+    const prev = parentCheckpointId ? null : this.stmtLatest.get(TASKS, String(threadId), ns);
+    const effParent = parentCheckpointId || (prev && prev.checkpoint_id) || null;
+    const ckptId = checkpointId || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const ckptPayload = {
+      v: 4,
+      id: ckptId,
+      ts: new Date().toISOString(),
+      channel_values: channelValues,
+      channel_versions: {},
+      versions_seen: {},
+      pending_sends: []
+    };
+    this.stmtInsertCheckpoint.run(
+      String(threadId),
+      ns,
+      ckptId,
+      effParent,
+      'json',
+      Buffer.from(JSON.stringify(ckptPayload), 'utf8'),
+      Buffer.from(JSON.stringify(metadata || {}), 'utf8')
+    );
+    return {
+      thread_id: String(threadId),
+      checkpoint_ns: ns,
+      checkpoint_id: ckptId,
+      parent_checkpoint_id: effParent
+    };
+  }
+
   async migratePendingSends(checkpoint, threadId, parentCheckpointId) {
     const row = this.stmtMigratePendingSends.get(threadId, parentCheckpointId, TASKS);
     if (!row) return;

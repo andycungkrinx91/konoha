@@ -121,7 +121,10 @@ function _considerEntry(entry, relPath, rules, ctx) {
   try {
     stat = fs.lstatSync(absPath);
   } catch (err) {
-    return { skip: `stat failed: ${err.code || err.message}` };
+    const code = err && err.code;
+    if (code === 'ENOENT') return { skip: `transient enoent: ${code}` };
+    if (code === 'EACCES' || code === 'EPERM') return { skip: `unreadable file: ${code}` };
+    return { skip: `stat failed: ${code || err.message}` };
   }
   if (stat.isSymbolicLink()) return { skip: 'symlink' };
   if (stat.size > ctx.maxFileBytes) return { skip: `too large: ${stat.size} bytes` };

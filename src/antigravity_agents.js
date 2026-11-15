@@ -1,6 +1,7 @@
 'use strict';
 
-const { getCanonicalAgentNames } = require('./canonical_agents');
+const { getDeployableAgents, getDeployableAgentNames } = require('./canonical_agents');
+const { isReadOnlyAgent } = require('./agent_file_safety');
 
 const fs = require('fs');
 const path = require('path');
@@ -39,6 +40,8 @@ const SYSTEM_PROMPT_SECTIONS = [
 ];
 
 function agentAllowsWriteTools(agent) {
+  if (!agent) return false;
+  if (isReadOnlyAgent(agent.name)) return false;
   return !/read-only/i.test(agent.constraints || '');
 }
 
@@ -153,17 +156,18 @@ function deployAgentsToDir(agents, baseDir) {
 
 function ensureAntigravityAgents(agents, options = {}) {
   const home = options.home || HOME;
+  const deployAgents = getDeployableAgents(agents);
   const globalTarget = options.home ? path.join(home, ".gemini", "config", "agents") : ANTIGRAVITY_AGENTS_GLOBAL;
   const cliTarget = options.home ? path.join(home, ".gemini", "antigravity-cli", "agents") : path.join(ANTIGRAVITY_CLI_GLOBAL, "agents");
   const ideTarget = options.home ? path.join(home, ".gemini", "antigravity-ide", "agents") : path.join(ANTIGRAVITY_IDE_GLOBAL, "agents");
-  const globalResult = deployAgentsToDir(agents, globalTarget);
-  deployAgentsToDir(agents, cliTarget);
-  deployAgentsToDir(agents, ideTarget);
+  const globalResult = deployAgentsToDir(deployAgents, globalTarget);
+  deployAgentsToDir(deployAgents, cliTarget);
+  deployAgentsToDir(deployAgents, ideTarget);
 
   let projectResult = null;
   if (options.projectDir) {
     const projectAgentsDir = path.join(options.projectDir, '.agents', 'agents');
-    projectResult = deployAgentsToDir(agents, projectAgentsDir);
+    projectResult = deployAgentsToDir(deployAgents, projectAgentsDir);
   }
 
   return { global: globalResult, project: projectResult };
@@ -177,12 +181,12 @@ const ROUTER_AGENT = 'sannin';
 function buildDefineSubagentArgs(agent) {
   const processedInstructions = processAgentInstructions(agent);
   return {
-    name: agent.name,
-    description: agent.description,
-    system_prompt: processedInstructions,
-    enable_mcp_tools: true,
-    enable_write_tools: agentAllowsWriteTools(agent),
-    enable_subagent_tools: agent.name === ROUTER_AGENT,
+    Name: agent.name,
+    Description: agent.description,
+    SystemPrompt: processedInstructions,
+    EnableMCPTools: true,
+    EnableWriteTools: agentAllowsWriteTools(agent),
+    EnableSubagentTools: agent.name === ROUTER_AGENT
   };
 }
 
@@ -197,7 +201,7 @@ function _removeSingleAgentDir(resolvedBase, name) {
 
 function removeAntigravityAgents(options = {}) {
   const home = options.home || process.env.HOME || os.homedir();
-  const official = getCanonicalAgentNames();
+  const official = getDeployableAgentNames();
   const dirs = [
     path.join(home, '.gemini', 'antigravity-cli', 'agents'),
     path.join(home, '.gemini', 'antigravity-ide', 'agents')

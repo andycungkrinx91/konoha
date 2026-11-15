@@ -1009,7 +1009,7 @@
                 <mxCell id="p12-stg6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;agent=anbu;" value="Stage 6: 7 MCP Clients&#10;Managed injection &amp; union-merge" vertex="1">
                     <mxGeometry height="60" width="240" x="60" y="350" as="geometry" />
                 </mxCell>
-                <mxCell id="p12-stg7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;agent=anbu;" value="Stage 7: Bridge Extension&#10;Fast-path VSIX &amp; tools" vertex="1">
+                <mxCell id="p12-stg7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;agent=anbu;" value="Stage 7: Legacy Cleanup &amp; Tools&#10;Prune stale bridge &amp; tools" vertex="1">
                     <mxGeometry height="60" width="240" x="60" y="460" as="geometry" />
                 </mxCell>
                 <mxCell id="p12-done" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#15803d;fontStyle=1;agent=anbu;" value="100% Upgrade Finalized&#10;All MCP servers healthy" vertex="1">
@@ -1591,7 +1591,7 @@
                 <mxCell id="p18-dispatch" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="dispatch&#10;fan-out + git worktree" vertex="1" parent="1">
                     <mxGeometry x="120" y="420" width="200" height="48" as="geometry" />
                 </mxCell>
-                <mxCell id="p18-execute" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="execute&#10;parallel + @advisor (≤1k)" vertex="1" parent="1">
+                <mxCell id="p18-execute" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=sannin;" value="execute&#10;parallel + @advisor (≤8k)" vertex="1" parent="1">
                     <mxGeometry x="120" y="482" width="200" height="48" as="geometry" />
                 </mxCell>
                 <mxCell id="p18-review" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=kage;" value="review&#10;quality gate" vertex="1" parent="1">
@@ -1627,7 +1627,7 @@
                 <mxCell id="p18-repair" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#312e81;agent=anbu;" value="repair&#10;DSL patch, rebuild" vertex="1" parent="1">
                     <mxGeometry x="640" y="544" width="220" height="48" as="geometry" />
                 </mxCell>
-                <mxCell id="p18-sub-note1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="11 nodes registered · 9 wrapped by wrapGuardedNode · 7 conditional routers (@langchain/langgraph 1.6.0)" vertex="1" parent="1">
+                <mxCell id="p18-sub-note1" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="11 nodes registered · 9 wrapped by wrapGuardedNode · 9 conditional routers (@langchain/langgraph 1.6.0)" vertex="1" parent="1">
                     <mxGeometry x="120" y="750" width="500" height="34" as="geometry" />
                 </mxCell>
                 <mxCell id="p18-sub-note2" style="text;html=1;fontSize=12;fontStyle=0;fontColor=#475569;align=left;" value="Terminal sinks: node_budget_exceeded + node_error · checkpoints per thread (@langchain/langgraph-checkpoint 1.2.2, SQLite)" vertex="1" parent="1">

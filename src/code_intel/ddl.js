@@ -8,6 +8,24 @@
  * ordinary + 1 FTS5 virtual) plus 4 FTS5 extension shadow tables.
  */
 
+const CODE_CHUNKS_COLUMNS_SQL = `
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    root_hash TEXT NOT NULL,
+    file_id INTEGER NOT NULL REFERENCES code_files(id) ON DELETE CASCADE,
+    rel_path TEXT NOT NULL,
+    language TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    start_line INTEGER NOT NULL,
+    end_line INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    chunk_kind TEXT NOT NULL DEFAULT 'block',
+    symbol_id INTEGER REFERENCES code_symbols(id) ON DELETE SET NULL,
+    content_hash TEXT NOT NULL DEFAULT '',
+    embedding BLOB,
+    embedding_model TEXT,
+    UNIQUE (file_id, chunk_index)
+`;
+
 const CODE_INTELLIGENCE_DDL = `
   CREATE TABLE IF NOT EXISTS code_index_roots (
     root_hash TEXT PRIMARY KEY,
@@ -17,10 +35,10 @@ const CODE_INTELLIGENCE_DDL = `
     file_count INTEGER NOT NULL DEFAULT 0,
     symbol_count INTEGER NOT NULL DEFAULT 0,
     chunk_count INTEGER NOT NULL DEFAULT 0,
-    indexed_epoch_ms INTEGER NOT NULL DEFAULT 0,
     indexed_at TEXT,
     updated_at TEXT NOT NULL,
-    error TEXT NOT NULL DEFAULT ''
+    error TEXT NOT NULL DEFAULT '',
+    indexed_epoch_ms INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS code_files (
@@ -31,13 +49,13 @@ const CODE_INTELLIGENCE_DDL = `
     byte_size INTEGER NOT NULL,
     line_count INTEGER NOT NULL,
     content_hash TEXT NOT NULL,
+    indexed_at TEXT NOT NULL,
     mtime_ms REAL NOT NULL DEFAULT 0,
     ctime_ms REAL NOT NULL DEFAULT 0,
     inode_id TEXT NOT NULL DEFAULT '',
     parser_version TEXT NOT NULL DEFAULT '',
     content_kind TEXT NOT NULL DEFAULT 'code',
     metrics_json TEXT NOT NULL DEFAULT '{}',
-    indexed_at TEXT NOT NULL,
     UNIQUE (root_hash, rel_path)
   );
 
@@ -65,23 +83,7 @@ const CODE_INTELLIGENCE_DDL = `
     line INTEGER NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS code_chunks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    root_hash TEXT NOT NULL,
-    file_id INTEGER NOT NULL REFERENCES code_files(id) ON DELETE CASCADE,
-    rel_path TEXT NOT NULL,
-    language TEXT NOT NULL,
-    chunk_index INTEGER NOT NULL,
-    start_line INTEGER NOT NULL,
-    end_line INTEGER NOT NULL,
-    body TEXT NOT NULL,
-    chunk_kind TEXT NOT NULL DEFAULT 'block',
-    symbol_id INTEGER REFERENCES code_symbols(id) ON DELETE SET NULL,
-    content_hash TEXT NOT NULL DEFAULT '',
-    embedding BLOB,
-    embedding_model TEXT,
-    UNIQUE (file_id, chunk_index)
-  );
+  CREATE TABLE IF NOT EXISTS code_chunks (${CODE_CHUNKS_COLUMNS_SQL}  );
 
   CREATE INDEX IF NOT EXISTS idx_code_files_root ON code_files(root_hash);
   CREATE INDEX IF NOT EXISTS idx_code_files_lang ON code_files(root_hash, language);
@@ -202,10 +204,107 @@ const CODE_INTELLIGENCE_FTS_DDL = `
   END;
 `;
 
+const CODE_CHUNKS_CANONICAL_COLUMNS = Object.freeze([
+  'id',
+  'root_hash',
+  'file_id',
+  'rel_path',
+  'language',
+  'chunk_index',
+  'start_line',
+  'end_line',
+  'body',
+  'chunk_kind',
+  'symbol_id',
+  'content_hash',
+  'embedding',
+  'embedding_model'
+]);
+
+function hasCanonicalCodeChunksLayout(conn) {
+  const cols = conn.prepare('PRAGMA table_info(code_chunks)').all().map((c) => c.name);
+  if (cols.length !== CODE_CHUNKS_CANONICAL_COLUMNS.length) return false;
+  return CODE_CHUNKS_CANONICAL_COLUMNS.every((name, idx) => cols[idx] === name);
+}
+
+function ensureCodeChunksFts(conn) {
+  const hadFts = Boolean(
+    conn.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'code_chunks_fts'").get()
+  );
+  conn.exec(CODE_INTELLIGENCE_FTS_DDL);
+  if (!hadFts) {
+    const rowCount = conn.prepare('SELECT COUNT(*) AS n FROM code_chunks').get();
+    if (rowCount && rowCount.n > 0) {
+      conn.exec("INSERT INTO code_chunks_fts(code_chunks_fts) VALUES('rebuild')");
+    }
+  }
+  return !hadFts;
+}
+
+function ensureCodeChunksCanonicalLayout(conn, ftsSupported = false) {
+  const cols = conn.prepare('PRAGMA table_info(code_chunks)').all().map((c) => c.name);
+  if (cols.length === 0) return false;
+  if (
+    cols.length === CODE_CHUNKS_CANONICAL_COLUMNS.length
+    && CODE_CHUNKS_CANONICAL_COLUMNS.every((name, idx) => cols[idx] === name)
+  ) {
+    return false;
+  }
+
+  conn.exec('SAVEPOINT konoha_code_chunks_layout');
+  try {
+    applyV7AdditiveColumns(conn);
+    const migrateSql = [
+      'DROP TRIGGER IF EXISTS code_chunks_ai;',
+      'DROP TRIGGER IF EXISTS code_chunks_ad;',
+      'DROP TRIGGER IF EXISTS code_chunks_au;',
+      'DROP TABLE IF EXISTS code_chunks_fts;',
+      'DROP TABLE IF EXISTS code_chunks_canonical_migrated;',
+      'CREATE TABLE code_chunks_canonical_migrated (',
+      CODE_CHUNKS_COLUMNS_SQL,
+      ');',
+      `INSERT INTO code_chunks_canonical_migrated (
+        id, root_hash, file_id, rel_path, language, chunk_index,
+        start_line, end_line, body, chunk_kind, symbol_id,
+        content_hash, embedding, embedding_model
+      )
+      SELECT
+        id, root_hash, file_id, rel_path, language, chunk_index,
+        start_line, end_line, body,
+        COALESCE(chunk_kind, 'block'),
+        symbol_id,
+        COALESCE(content_hash, ''),
+        embedding,
+        embedding_model
+      FROM code_chunks;`,
+      'DROP TABLE code_chunks;',
+      'ALTER TABLE code_chunks_canonical_migrated RENAME TO code_chunks;',
+      'CREATE INDEX IF NOT EXISTS idx_code_chunks_root ON code_chunks(root_hash);',
+      'CREATE INDEX IF NOT EXISTS idx_code_chunks_reuse ON code_chunks(root_hash, content_hash, embedding_model);'
+    ].join('\n');
+    conn.exec(migrateSql);
+    if (ftsSupported) {
+      ensureCodeChunksFts(conn);
+    }
+    conn.exec('RELEASE konoha_code_chunks_layout');
+    return true;
+  } catch (err) {
+    try {
+      conn.exec('ROLLBACK TO konoha_code_chunks_layout');
+      conn.exec('RELEASE konoha_code_chunks_layout');
+    } catch (_) { /* ignore nested rollback failure */ }
+    throw err;
+  }
+}
+
 module.exports = {
   CODE_INTELLIGENCE_DDL,
   CODE_INTELLIGENCE_V7_DDL,
   CODE_INTELLIGENCE_FTS_DDL,
+  CODE_CHUNKS_CANONICAL_COLUMNS,
   V7_ADDITIVE_COLUMNS,
-  applyV7AdditiveColumns
+  applyV7AdditiveColumns,
+  hasCanonicalCodeChunksLayout,
+  ensureCodeChunksCanonicalLayout,
+  ensureCodeChunksFts
 };

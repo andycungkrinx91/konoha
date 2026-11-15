@@ -15,6 +15,11 @@ const { spawnSync } = require('child_process');
 const { getRtkCommand, isRtkInstalled } = require('./platform_utils');
 const { ensureRtkInstalled, refreshRtk } = require('./rtk_installer');
 const { KONOHA_CANONICAL_TOOLS, resolveCompatibleNode } = require('./deploy_utils');
+const {
+  writeManagedFileSafe,
+  snapshotNonKonohaRuleFiles,
+  restoreNonKonohaRuleFiles
+} = require('./agent_file_safety');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
@@ -108,31 +113,32 @@ function deployAntigravityRtkRule(silent = true, options = {}) {
   const opts = typeof silent === 'object' && silent !== null ? silent : options;
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
-  const rtkCmd = getRtkCommand();
-  if (rtkCmd) {
-    try {
-      spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], { encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', windowsHide: true });
-    } catch { /* ignore */ }
-  }
-  const templateSrc = path.join(__dirname, 'templates', 'rules', 'rtk-rules.md');
-  const src = fs.existsSync(templateSrc)
-    ? templateSrc
-    : path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
-  if (!fs.existsSync(src)) return { ok: false, reason: 'rtk-rule-template-missing' };
-
   const targets = [
     path.join(home, '.gemini', 'antigravity-cli', 'rules', 'rtk.md'),
     path.join(home, '.gemini', 'antigravity-ide', 'rules', 'rtk.md'),
     path.join(home, '.agents', 'rules', 'rtk-rules.md'),
     path.join(home, '.agents', 'rules', 'antigravity-rtk-rules.md')
   ];
+  const protectedSnaps = snapshotNonKonohaRuleFiles(targets);
+  const rtkCmd = getRtkCommand();
+  if (rtkCmd) {
+    try {
+      spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], { encoding: 'utf-8', timeout: 10000, stdio: isSilent ? 'ignore' : 'inherit', windowsHide: true });
+    } catch { /* ignore */ }
+  }
+  restoreNonKonohaRuleFiles(protectedSnaps);
+  const templateSrc = path.join(__dirname, 'templates', 'rules', 'rtk-rules.md');
+  const src = fs.existsSync(templateSrc)
+    ? templateSrc
+    : path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
+  if (!fs.existsSync(src)) return { ok: false, reason: 'rtk-rule-template-missing' };
 
   let deployed = 0;
   const errors = [];
+  const content = fs.readFileSync(src, 'utf8');
   for (const dest of targets) {
     try {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
+      writeManagedFileSafe(dest, content, { silent: isSilent });
       deployed++;
     } catch (err) {
       // A silent failure here hides a broken client rule from every caller.

@@ -219,6 +219,23 @@ function buildRecallSnippet(agentName, projectPath, query) {
  * Everything a delegated subagent needs to start without a discovery turn:
  * bounded skills, its own soul, and project recall.
  */
+function _loadGeninCodeIntelBlock(agentName, projectPath, prompt) {
+  if (agentName !== 'genin' || !projectPath) return null;
+  try {
+    const { retrieveUnifiedContextSync } = require('../code_intel/genin_retrieval');
+    const retrieved = retrieveUnifiedContextSync({
+      projectPath,
+      query: prompt,
+      agentName,
+      maxChars: 900,
+      maxHits: 4
+    });
+    return retrieved && retrieved.available && retrieved.text ? retrieved : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSkills = [] } = {}) {
   const skillAuthz = require('../skill_authorization');
   const isAllowed = (s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized;
@@ -230,6 +247,7 @@ function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSk
     .concat(blocked);
   const soul = buildSoulSnippet(agentName, projectPath);
   const recall = buildRecallSnippet(agentName, projectPath, prompt);
+  const codeIntelBlock = _loadGeninCodeIntelBlock(agentName, projectPath, prompt);
   const lines = [];
   lines.push(`### Delegation Envelope for \`${agentName}\``);
   lines.push(`- Bound skills (${skills.length}/${MAX_ENVELOPE_SKILLS}): ${skills.length > 0 ? skills.map((s) => `\`${s}\``).join(', ') : 'soul-bound defaults only'}`);
@@ -246,12 +264,16 @@ function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSk
   } else {
     lines.push('- Project recall: none recorded for this project yet');
   }
+  if (codeIntelBlock) {
+    lines.push(codeIntelBlock.text.trimEnd());
+  }
   return {
     agent: agentName,
     skills,
     dropped_skills: droppedSkills,
     soul: soul || null,
     recall,
+    ...(codeIntelBlock ? { code_intel: codeIntelBlock } : {}),
     text: lines.join('\n')
   };
 }

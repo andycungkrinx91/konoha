@@ -71,7 +71,7 @@ function normalizeToolArguments(name, rawArgs) {
       } catch (_) { /* ignore */ }
     }
     if (typeof rawArgs === 'string') {
-      const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+      const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki', 'yamanaka'];
       if (AGENT_DELEGATION_TOOLS.includes(name)) {
         rawArgs = { task: trimmed };
       }

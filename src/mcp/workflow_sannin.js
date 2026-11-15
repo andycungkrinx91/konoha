@@ -22,6 +22,8 @@ const {
   buildParallelSpawnDirective,
   buildDelegationEnvelope
 } = require('./sannin_router');
+const { buildAdvisorStartupDirective } = require('./lazy_subagent');
+const { initAdvisorSessionSupervisor } = require('../workflow/kage-reviewer/advisor_monitor');
 
 function calculateSingleKeywordScore(promptLower, kw) {
   if (promptLower.includes(kw)) {
@@ -233,8 +235,8 @@ function _extractAgentSkills(agentRow, routedSkills) {
  */
 function _filterAuthorizedSkills(routedSkills, agentName, options = {}) {
   if (options.includeBlocked) return routedSkills.slice();
-  const skillAuthz = require('../skill_authorization');
-  return routedSkills.filter((s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized);
+  const { authorizeSkillAccess, lookupSkillTags } = require('../skill_authorization');
+  return routedSkills.filter((s) => authorizeSkillAccess({ skillName: s, tags: lookupSkillTags(options.conn, s), agentName }).authorized);
 }
 
 function _mergeUnique(target, source) {
@@ -242,33 +244,45 @@ function _mergeUnique(target, source) {
   return target;
 }
 
-function _collectRoutedSkills(effPrompt, selectedAgent) {
+function _collectRoutedSkills(effPrompt, selectedAgent, sharedConn = null) {
   const { autoloadSkillsFromPrompt } = require('./memory_reporting');
-  const { authorizeSkillAccess } = require('../skill_authorization');
+  const { authorizeSkillAccess, lookupSkillTags } = require('../skill_authorization');
   const routedSkills = [];
-  let conn = null;
+  let localConn = null;
   try {
-    conn = getDb();
+    const conn = sharedConn || (localConn = getDb());
     // Prompt autoload matches across the whole skill table, so it can surface a
     // red (akatsuki-only) skill for a prompt like "trace the auth flow". Keep
     // only skills this agent may use; the agent's own bindings are added below
     // and are authorized separately by the route boundary.
     const autoLoaded = autoloadSkillsFromPrompt(effPrompt, conn).filter(
-      (skillName) => authorizeSkillAccess({ skillName, agentName: selectedAgent }).authorized
+      (skillName) => authorizeSkillAccess({ skillName, tags: lookupSkillTags(conn, skillName), agentName: selectedAgent }).authorized
     );
     _mergeUnique(routedSkills, autoLoaded);
     const agentRow = conn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
     _extractAgentSkills(agentRow, routedSkills);
   } catch (_) { /* ignore */ } finally {
-    if (conn) {
-      try { conn.close(); } catch (_) { /* best effort */ }
+    if (localConn) {
+      try { localConn.close(); } catch (_) { /* best effort */ }
     }
   }
   return routedSkills;
 }
 
 function _resolveRoutedSkills(effPrompt, selectedAgent, options = {}) {
-  return _filterAuthorizedSkills(_collectRoutedSkills(effPrompt, selectedAgent), selectedAgent, options);
+  let localConn = null;
+  let activeConn = options.conn || null;
+  if (!activeConn) {
+    try { localConn = getDb(); activeConn = localConn; } catch (_) { activeConn = null; }
+  }
+  try {
+    const collected = _collectRoutedSkills(effPrompt, selectedAgent, activeConn);
+    return _filterAuthorizedSkills(collected, selectedAgent, { ...options, conn: activeConn });
+  } finally {
+    if (localConn) {
+      try { localConn.close(); } catch (_) { /* best effort */ }
+    }
+  }
 }
 
 function _loadAgentDescriptions() {
@@ -338,8 +352,7 @@ function _buildInstructionText(ctx) {
   if (ctx.selectedAgent === 'jonin' || /\b(website|web\s*app|landing\s*page|frontend|storefront|portfolio|dashboard|scaffold.*ui)\b/i.test(ctx.effPrompt)) {
     buildGuidance = (
       '\n\n### ⚡ Website Scaffolding\n' +
-      '- Text: `konoha.build_from_text(name, description, framework)` FIRST; mockup: `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
-      '- Pass directives to `jonin`; ship the complete site with inline README and clean validation.'
+      '- Run `konoha.build_from_text` (or `build_from_source`) FIRST, then delegate to `jonin`.'
     );
   }
 
@@ -361,10 +374,13 @@ function _buildInstructionText(ctx) {
 
   const executionBlock = (
     '\n\n## Delegation Steps\n' +
-    `1. Call \`${ctx.selectedAgent}\` (\`task\`, \`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`, \`skills=${JSON.stringify(ctx.routedSkills)}\`).\n` +
-    `2. Report via \`konoha.report_from_agent\`, then call \`sannin(task_dir="${ctx.resolvedTaskDir}")\`.`
+    `1. Call \`${ctx.selectedAgent}\` (\`task_id="${ctx.taskId}"\`, \`flow_hash="${ctx.flowHash}"\`).\n` +
+    '2. Report via `konoha.report_from_agent`, then call `sannin(task_dir)`.'
   );
 
+  const advisorLine = ctx.advisorStartup
+    ? `\n\n### Idle Supervision\n- Start \`@advisor\` in idle mode from turn 0 via \`${ctx.advisorStartup.tool || 'run_command'}\` (\`--idle\`).`
+    : '';
   const spawnBlock = ctx.parallelSpawnDirective
     ? `\n\n${ctx.parallelSpawnDirective}`
     : (ctx.spawnDirective ? `\n\n${ctx.spawnDirective}` : '');
@@ -372,6 +388,7 @@ function _buildInstructionText(ctx) {
     `**Agent**: \`${ctx.selectedAgent}\`\n` +
     routeLine +
     `**Task**: ${ctx.effPrompt}` +
+    advisorLine +
     spawnBlock +
     executionBlock +
     buildGuidance + parallelGuidance + trackGuidance + advisoryText
@@ -401,8 +418,10 @@ function _recordTaskStatusAndFlow(ctx) {
     st.project_path = resolvedProjPath;
     st.client = actClient;
     st.route_mode = route ? route.mode : undefined;
+    st.hitl_mode = (sdlcConfig && sdlcConfig.hitl_mode) || 'enabled';
     st.flow_hash = flowHash;
     st.routed_skills = routedSkills;
+    initAdvisorSessionSupervisor({ client: actClient, status: st, goal: effPrompt, todos: st.tasks || [] });
     saveWorkflowStatus(resolvedTaskDir, st);
   } catch (_) { /* intentional best-effort fallback */ }
 
@@ -468,7 +487,8 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
   const res = isGate1
     ? buildGate1Prompt(status, resolvedTaskDir, taskId, status.plan)
     : buildGate2Prompt(status, resolvedTaskDir, taskId, { confidence: status.confidence || 100, report: status.report });
-  logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+  const { redactSecrets } = require('../bridge/utils');
+  logToolCall('sannin', redactSecrets(`task_dir=${resolvedTaskDir}`), redactSecrets(res), 'sannin');
   return res;
 }
 
@@ -478,6 +498,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
   const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath);
   const actClient = (typeof getActiveClient === 'function' ? getActiveClient() : null) || cd.detectActiveClient() || '';
+  const spawnClient = cd.resolveDetectedSpawnClient(actClient, 'universal');
 
   const resolvedTaskDir = _resolveSanninTaskDir(prompt, taskDir, resolvedProjPath, resolvedSessionId);
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
@@ -512,7 +533,23 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
   const candidateSkills = _resolveRoutedSkills(effPrompt, selectedAgent, { includeBlocked: true });
-  const routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent);
+  const { findUnauthorizedSkill, authorizationDeniedResult } = require('../skill_authorization');
+  let authConn = null;
+  let deniedEntry = null;
+  let routedSkills = [];
+  try {
+    try { authConn = getDb(); } catch (_) { authConn = null; }
+    deniedEntry = findUnauthorizedSkill(candidateSkills, selectedAgent, authConn);
+    routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent, { conn: authConn });
+  } finally {
+    if (authConn) { try { authConn.close(); } catch (_) { /* best effort */ } }
+  }
+  if (deniedEntry) {
+    const denial = authorizationDeniedResult({ identity: selectedAgent, reason: `Route to @${selectedAgent} requires red skill "${deniedEntry.skill}"; red skills may only be delegated to @akatsuki.` }, deniedEntry.skill);
+    const res = JSON.stringify({ status: 'blocked', phase: 'skill_authorization', task_dir: resolvedTaskDir, flow_hash: flowHash, ...denial });
+    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+    return res;
+  }
 
   _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route, invocationMode, directSubagent });
 
@@ -522,28 +559,12 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     return res;
   }
 
-  const { authorizeSkillAccess, authorizationDeniedResult } = require('../skill_authorization');
-  const deniedSkill = candidateSkills.find(
-    (s) => !authorizeSkillAccess({ skillName: s, agentName: selectedAgent }).authorized
-  );
-  if (deniedSkill) {
-    const res = JSON.stringify({
-      status: 'blocked',
-      phase: 'skill_authorization',
-      task_dir: resolvedTaskDir,
-      flow_hash: flowHash,
-      ...authorizationDeniedResult({ identity: selectedAgent, reason: `Route to @${selectedAgent} requires red skill "${deniedSkill}"; red skills may only be delegated to @akatsuki.` }, deniedSkill)
-    });
-    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
-    return res;
-  }
-
   const agentDescriptions = _loadAgentDescriptions();
   const description = agentDescriptions[selectedAgent] || agentDescriptions[selectedAgent.replace(/_/g, '-')] || agentDescriptions[selectedAgent.replace(/-/g, '_')] || 'general-purpose delegation';
 
   const envelope = buildDelegationEnvelope({ agentName: selectedAgent, projectPath: resolvedProjPath, prompt: effPrompt, routedSkills });
   const spawnDirective = buildSpawnDirective({
-    client: actClient,
+    client: spawnClient,
     agent: selectedAgent,
     skills: routedSkills,
     projectPath: resolvedProjPath,
@@ -551,7 +572,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   });
   const parallelSpawnDirective = parallelWorkstreams.length > 1
     ? buildParallelSpawnDirective({
-      client: actClient,
+      client: spawnClient,
       projectPath: resolvedProjPath,
       dispatches: parallelWorkstreams.map((ws) => ({
         agent: ws.agent,
@@ -561,19 +582,25 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     })
     : '';
 
-  const instruction = _buildInstructionText({
-    selectedAgent, executionTrack, flowHash, routedSkills, description,
-    resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
-    route, envelope, spawnDirective, parallelSpawnDirective
-  });
-
   const currentSt = loadWorkflowStatus(resolvedTaskDir);
   const syncBundle = syncTodoAndWalkthrough(currentSt, {
     client: actClient,
     taskDir: resolvedTaskDir,
+    taskId,
     tasks: parallelWorkstreams.length > 1
       ? parallelWorkstreams.map((ws, i) => ({ id: `task_${i + 1}`, task: `${effPrompt} (${ws.domain} slice)`, agent: ws.agent, status: 'pending' }))
       : [{ id: 'task_1', task: effPrompt, agent: selectedAgent, status: 'in_progress' }]
+  });
+  const advisorSupervisor = initAdvisorSessionSupervisor({ client: spawnClient, status: currentSt, goal: effPrompt, todos: syncBundle.todos });
+  saveWorkflowStatus(resolvedTaskDir, currentSt);
+  const advisorStartup = buildAdvisorStartupDirective({
+    client: spawnClient, projectPath: resolvedProjPath, prompt: effPrompt, taskDir: resolvedTaskDir
+  });
+
+  const instruction = _buildInstructionText({
+    selectedAgent, executionTrack, flowHash, routedSkills, description,
+    resolvedTaskDir, taskId, effPrompt, dorResult, parallelWorkstreams, resolvedProjPath,
+    route, envelope, spawnDirective, parallelSpawnDirective, advisorStartup
   });
 
   const res = JSON.stringify({
@@ -583,16 +610,29 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     skills: routedSkills, execution_track: executionTrack, parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     parallel_spawn_directive: parallelSpawnDirective || undefined,
-    todos: syncBundle.todos.map(t => ({ id: t.id, content: t.content.slice(0, 72), status: t.status, agent: t.agent })),
-    walkthrough_steps: syncBundle.walkthrough_steps.slice(0, 4).map(s => ({ step: s.step, id: s.id, status: s.status })),
-    client_todo_directive: { native_tool: syncBundle.client_todo_directive.native_tool, progress_summary: syncBundle.client_todo_directive.progress_summary },
+    advisor_supervisor: {
+      state: advisorSupervisor.state,
+      started_from_beginning: advisorSupervisor.started_from_beginning
+    },
+    advisor_spawn_directive: {
+      agent: 'advisor',
+      started_from_beginning: true,
+      tool: advisorStartup.tool || 'run_command'
+    },
+    todos: (syncBundle.todos || []).map((t) => ({ id: t.id, content: t.content, status: t.status, agent: t.agent })),
+    walkthrough_steps: (syncBundle.walkthrough_steps || []).map((w) => ({ id: w.id, status: w.status })),
+    client_todo_directive: {
+      native_tool: syncBundle.client_todo_directive.native_tool,
+      progress_summary: syncBundle.client_todo_directive.progress_summary
+    },
     route, delegation_envelope: envelope
       ? { agent: envelope.agent, skills: envelope.skills }
       : undefined,
     phase: 'delegation', execution_mode: route.mode, instructions: instruction, task_dir: resolvedTaskDir,
     session_id: resolvedSessionId, client: actClient, dor_result: { ready: dorResult.ready, score: dorResult.score }
   });
-  logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+  const { redactSecrets } = require('../bridge/utils');
+  logToolCall('sannin', redactSecrets(`task_dir=${resolvedTaskDir}`), redactSecrets(res), 'sannin');
   return res;
 }
 

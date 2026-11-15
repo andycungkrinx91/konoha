@@ -5,6 +5,7 @@ const path = require('path');
 const { loadWorkflowStatus, saveWorkflowStatus, cleanupTransientScratchFiles } = require('../../workflow_common');
 const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
 const { finalizeNodeResult } = require('../budget');
+const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
 
 async function completeNode(state) {
   const taskDir = state.taskDir || '';
@@ -12,6 +13,7 @@ async function completeNode(state) {
   const rootId = process.env.KONOHA_TASK_ID || state.threadId || status.task_id || path.basename(taskDir);
 
   status.phase = 'done';
+  const todoSync = syncTodoAndWalkthrough(status, { client: state.client || status.client || '', taskDir });
   if (taskDir) {
     fs.mkdirSync(taskDir, { recursive: true });
     saveWorkflowStatus(taskDir, status);
@@ -42,12 +44,18 @@ async function completeNode(state) {
     turn_tokens_used: (state.turnTokensUsed || 0),
     remediation_cycles: state.remediationCount,
     circuit_state: state.circuitState,
+    todos: todoSync.todos,
+    walkthrough_steps: todoSync.walkthrough_steps,
+    client_todo_directive: todoSync.client_todo_directive,
     report: status.report || 'Workflow successfully executed and validated.',
   };
 
   const payload = {
     status,
     phase: 'done',
+    todos: todoSync.todos,
+    walkthrough_steps: todoSync.walkthrough_steps,
+    client_todo_directive: todoSync.client_todo_directive,
     result: finalOutput,
   };
   return finalizeNodeResult(state, payload, '__end__', { source: finalOutput });

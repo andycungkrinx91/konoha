@@ -20,6 +20,8 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const readline = require("readline");
 const { startStdioOrphanGuard, startDaemonOrphanGuard } = require("./mcp_orphan_guard");
+const { createRequestScheduler } = require("./mcp/request_scheduler");
+const { WORKFLOW_GRAPH_TOOLS } = require("./mcp/tool_dispatch");
 
 // Seed process.env from ~/.konoha/config.json before any module captures a
 // value at load time. Explicit environment variables still win.
@@ -236,7 +238,7 @@ function handleInitialize(id, params) {
   };
 }
 
-const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki', 'yamanaka'];
 
 // Tool arguments arrive from client adapters that may hand us an object, a JSON
 // string, or a bare prose string. Return { args, error } instead of guessing:
@@ -616,6 +618,13 @@ function setupStdioMcpListener(handles) {
   });
   const orphanGuard = startStdioOrphanGuard();
 
+  const scheduler = createRequestScheduler({
+    serializedTools: WORKFLOW_GRAPH_TOOLS,
+    handleRequest,
+    writeLine: (obj) => process.stdout.write(`${JSON.stringify(obj)}\n`),
+    onIdleClose: () => process.exit(0)
+  });
+
   rl.on("close", () => {
     orphanGuard.stop();
     if (handles.pollInterval) clearInterval(handles.pollInterval);
@@ -624,26 +633,12 @@ function setupStdioMcpListener(handles) {
       const { stopGateway } = require("./bridge/gateway");
       stopGateway().catch(() => {});
     } catch (_) { /* best-effort */ }
-    process.exit(0);
+    scheduler.markClosing();
   });
-
-  // Responses are matched by id, but the workflow must not run twice
-  // concurrently for the same task, so requests are handled one at a time.
-  let queue = Promise.resolve();
 
   rl.on("line", (line) => {
     orphanGuard.noteActivity();
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    queue = queue.then(async () => {
-      try {
-        const req = JSON.parse(trimmed);
-        const response = await handleRequest(req);
-        if (response) process.stdout.write(`${JSON.stringify(response)}\n`);
-      } catch (err) {
-        process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${err.message}` } })}\n`);
-      }
-    });
+    scheduler.enqueueLine(line);
   });
 }
 
@@ -665,4 +660,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handleRequest, parseToolArguments, handleToolCall, SERVER_NAME, SERVER_VERSION, main };
+module.exports = { handleRequest, parseToolArguments, handleToolCall, setupStdioMcpListener, SERVER_NAME, SERVER_VERSION, main };

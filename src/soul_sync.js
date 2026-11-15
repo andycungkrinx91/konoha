@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { fileExists, ensureDir } = require('./platform_utils');
 const { KONOHA_START_TAG, KONOHA_END_TAG } = require('./config_merger');
-const { HOME } = require('../bin/lib/paths');
+const { HOME } = require('./config_access').loadBinLib('paths');
 
 /**
  * Preserves the user's original file before Konoha overwrites it.
@@ -78,6 +78,7 @@ function _syncSingleSoulTarget(srcContent, target) {
   if (existing.trim() === srcContent.trim()) return 'skipped';
 
   backupOnce(target);
+  fs.writeFileSync(`${target}.konoha-proposed`, `${wrapped}\n`, 'utf8');
   fs.writeFileSync(target, `${wrapped}\n`, 'utf8');
   return 'conflicted';
 }
@@ -126,7 +127,7 @@ function syncSoulAcrossClients(options = {}) {
 
   if (result.conflicts.length > 0 && options.silent !== true) {
     process.stderr.write(
-      `! SOUL.md replaced in ${result.conflicts.length} client(s); originals kept as *.konoha-backup\n`
+      `! SOUL.md replaced in ${result.conflicts.length} client(s); originals kept as *.konoha-backup and proposed content saved as *.konoha-proposed\n`
     );
   }
   return result;

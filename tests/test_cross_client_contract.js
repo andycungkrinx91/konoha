@@ -14,7 +14,7 @@ const clients = require('../src/mcp_clients_manager');
 const opencode = require('../src/opencode_manager');
 
 const agents = [
-  'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'
+  'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka', 'sannin'
 ].map((name) => ({
   name,
   description: `${name} agent`,
@@ -29,7 +29,7 @@ const agents = [
 
 const generated = {
   antigravityMain: antigravity.buildAgentJson(agents[0]).config.customAgent.systemPromptSections[0].content,
-  antigravityArgs: antigravity.buildDefineSubagentArgs(agents[0]).system_prompt,
+  antigravityArgs: antigravity.buildDefineSubagentArgs(agents[0]).SystemPrompt,
   cursorMain: cursor.generateCursorRule(agents),
   cursorSubagent: cursor.generateCursorSubagent(agents[0]),
   claudeMain: agentManager.generateClaudeCodeMd(agents),
