@@ -204,7 +204,12 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
   if (groupPlans.length > 0) {
     totalChunks += await _flushBackfillGroup(conn, groupPlans, pendingTexts, sessionReuse);
   }
-  report(totalSkills, totalSkills, 'finalizing');
+  // The loop `break`s on the time budget, leaving the alphabetical tail
+  // unembedded. Reporting `totalSkills/totalSkills` here would claim a completion
+  // the run did not reach, so report what actually happened and let the bar say
+  // where it stopped.
+  const truncated = processedSkills < totalSkills;
+  report(processedSkills, totalSkills, truncated ? 'time budget reached' : 'finalizing');
 
   if (totalChunks > 0) initVectorTableIfSupported(conn);
   return totalChunks;

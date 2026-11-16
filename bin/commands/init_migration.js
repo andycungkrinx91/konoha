@@ -30,9 +30,12 @@ function measureEmbeddingCoverage(dbPath = DB_PATH) {
   try {
     const Database = require('../../src/sqlite_driver');
     conn = new Database(dbPath, { readOnly: true });
+    // A chunk row with a NULL vector is not embedded: counting chunk existence
+    // alone reported a half-embedded database as complete.
     const q = (where) => conn.prepare(
       `SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0
-         AND ${where} AND NOT EXISTS (SELECT 1 FROM skill_chunks k WHERE k.skill_name = s.name)`
+         AND ${where} AND NOT EXISTS (SELECT 1 FROM skill_chunks k
+                                       WHERE k.skill_name = s.name AND k.embedding IS NOT NULL)`
     ).get().n;
     return { canonicalPending: q("s.type = 'skill'"), referencePending: q("s.type <> 'skill'") };
   } catch (_) {
@@ -213,7 +216,7 @@ function renderInitSummary(flags) {
   if (flags.skipEmbed) {
     log('');
     warn(`Vector embeddings were skipped (--no-embed). Run ${C.cyan}konoha migrate${C.reset} to enable semantic skill search.`);
-  } else if (flags.embedCoverage && (flags.embedCoverage.canonicalPending || flags.embedCoverage.referencePending)) {
+  } else if (!flags.embedFailed && flags.embedCoverage && (flags.embedCoverage.canonicalPending || flags.embedCoverage.referencePending)) {
     // Backfill stops at its time budget; say so rather than implying full coverage.
     // `konoha migrate` resumes incrementally — `konoha embed` would wipe and redo all chunks.
     const { canonicalPending, referencePending } = flags.embedCoverage;

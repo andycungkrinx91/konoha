@@ -31,6 +31,10 @@ const { classifyEmbedFailure, formatEmbedFailure } = require('../../src/embed_di
 function createEmbedProgress(title = 'Embeddings') {
   const bar = new KonohaProgressBar({ total: 100, width: 28, title });
   let started = false;
+  // Once the bar has reported a terminal state, nothing may paint over it. The
+  // callers that reuse one reporter (doctor retries per skills directory, init's
+  // fallback chain) would otherwise print a second bar or a ✓ after a ✗.
+  let settled = false;
 
   const begin = (stage) => {
     if (started) return;
@@ -42,7 +46,7 @@ function createEmbedProgress(title = 'Embeddings') {
 
   return {
     onProgress(p) {
-      if (!p) return;
+      if (!p || settled) return;
       begin(p.stage);
       // Until the backfill knows how many skills it will touch, a percentage
       // would be invented. Pulse with the current stage instead, then switch to
@@ -57,16 +61,30 @@ function createEmbedProgress(title = 'Embeddings') {
     },
 
     succeed(msg = 'embeddings ready') {
-      if (!started) return;
-      bar.finish(msg);
+      if (!started || settled) return;
+      settled = true;
+      // `finish()` forces 100%. The backfill stops at its time budget, leaving
+      // the alphabetical tail unembedded, so a short run must say where it got
+      // to instead of claiming a completion it did not reach. The pulse has to
+      // stop first or it keeps repainting over the final line.
+      if (bar.current >= bar.total) {
+        bar.finish(msg);
+      } else {
+        bar.stopPulse();
+        const percent = Math.round((bar.current / bar.total) * 100);
+        log(`  ${C.yellow}↯${C.reset} ${C.bold}${title}${C.reset} ${C.yellow}${percent}%${C.reset} — ${msg}`);
+      }
     },
 
     /**
      * Fails the bar in place and prints cause + remedies underneath. Accepts a
      * pre-classified failure (from `runMigration`) or a raw error.
-     * @returns {object} the classification, so callers can branch on `.id`
+     * @returns {object|null} the classification, or null if the bar had already
+     *   settled (a second failure must not repaint the first diagnosis).
      */
     fail(failureOrError) {
+      if (settled) return null;
+      settled = true;
       const failure = failureOrError && failureOrError.fixes
         ? failureOrError
         : classifyEmbedFailure(failureOrError);
@@ -82,6 +100,8 @@ function createEmbedProgress(title = 'Embeddings') {
      * that is not an embedding error at all.
      */
     abort(reason) {
+      if (settled) return;
+      settled = true;
       if (started) bar.fail(reason);
       else log(`  ${C.red}✗${C.reset} ${C.bold}${title}${C.reset} — ${C.red}${reason}${C.reset}`);
     },

@@ -359,7 +359,7 @@ async function cmdInit(args, options = {}) {
   const skipEmbed = args.includes('--no-embed');
   const migrationArgs = buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed });
 
-  await executeInitMigration({
+  const initRun = await executeInitMigration({
     skillsDirs,
     skills,
     migrationArgs,
@@ -397,7 +397,14 @@ async function cmdInit(args, options = {}) {
   }
 
   const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();
-  renderInitSummary({ ...clientFlags, skipEmbed, embedCoverage });
+  renderInitSummary({
+    ...clientFlags,
+    skipEmbed,
+    embedCoverage,
+    // A hard embed failure already printed its own cause and remedies; the
+    // coverage block's "run konoha migrate again" would contradict them.
+    embedFailed: Boolean(initRun && initRun.embedFailed)
+  });
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }

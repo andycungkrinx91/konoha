@@ -585,9 +585,12 @@ async function _runMigration(options = {}) {
   _verifyFtsQueries(conn);
   const embed = await _syncVectorEmbeddings(conn, options, timeBudget);
 
-  printSummary(conn);
-  conn.pragma('foreign_keys = ON');
-  conn.close();
+  try {
+    printSummary(conn);
+    conn.pragma('foreign_keys = ON');
+  } finally {
+    conn.close();
+  }
   log(`\n✅ Migration complete! ${total} entries indexed.`);
   return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH, embed };
 }

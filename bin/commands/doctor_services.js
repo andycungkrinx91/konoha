@@ -24,34 +24,46 @@ const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 async function executeMigrationRun(skillsDirs) {
   const migrate = require('../../src/migrate');
   const progress = createEmbedProgress('Doctor embeddings');
+  const attempt = async (opts) => {
+    try {
+      return await migrate.runMigration({ ...opts, onProgress: progress.onProgress });
+    } catch (err) {
+      return { ok: false, reason: err.message || 'migration failed' };
+    }
+  };
+
+  let result = null;
+  for (const s of skillsDirs) {
+    const skills = detectCustomSkills(s.path);
+    if (skills.length === 0) continue;
+    result = await attempt({ skillsDir: s.path, skills, rebuildEmbeddings: true });
+    if (result && result.ok !== false) break;
+  }
+  if (!result || result.ok === false) {
+    result = await attempt({ rebuildEmbeddings: true });
+  }
+
+  // Settle once, after every attempt: settling inside the loop would print a
+  // diagnosis for a directory whose failure a later attempt recovered from.
+  if (!result || result.ok === false) {
+    // Not an embedding failure, so no embed diagnosis: the caller records FAILED
+    // on the database row and the reason belongs there.
+    progress.abort((result && result.reason) || 'migration failed');
+    return false;
+  }
   // The caller only asks "was the database created?". Embedding is an
   // enhancement on top of it: an offline machine with no cached model still has
   // a working FTS5 database, so a failed embed fails the bar and is reported by
   // `checkEmbeddingHealth`, but must not turn this into a FAILED database.
-  const attempt = async (opts) => {
-    try {
-      const result = await migrate.runMigration({ ...opts, onProgress: progress.onProgress });
-      if (result && result.embed && result.embed.ok === false && result.embed.failure) {
-        progress.fail(result.embed.failure);
-      } else if (result && result.embed && result.embed.ok) {
-        progress.succeed('embeddings rebuilt');
-      } else {
-        progress.succeed('migration complete');
-      }
-      return Boolean(result && result.ok !== false);
-    } catch (err) {
-      progress.fail(err);
-      return false;
-    }
-  };
-
-  for (const s of skillsDirs) {
-    const skills = detectCustomSkills(s.path);
-    if (skills.length === 0) continue;
-    if (await attempt({ skillsDir: s.path, skills, rebuildEmbeddings: true })) return true;
+  const embed = result.embed;
+  if (embed && embed.ok === false && embed.failure) {
+    progress.fail(embed.failure);
+  } else if (embed && embed.ok && !embed.skipped) {
+    progress.succeed(`${embed.chunksIndexed || 0} chunks embedded`);
+  } else {
+    progress.succeed('migration complete');
   }
-
-  return attempt({ rebuildEmbeddings: true });
+  return true;
 }
 
 function readSchemaVersion() {
@@ -354,9 +366,12 @@ function checkEmbeddingHealth(context) {
     const total = conn.prepare(
       "SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0"
     ).get().n;
+    // A skill with a chunk row but a NULL vector is not embedded. Counting
+    // chunk existence reported a half-embedded corpus as HEALTHY.
     const missing = conn.prepare(
       `SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0
-         AND NOT EXISTS (SELECT 1 FROM skill_chunks k WHERE k.skill_name = s.name)`
+         AND NOT EXISTS (SELECT 1 FROM skill_chunks k
+                          WHERE k.skill_name = s.name AND k.embedding IS NOT NULL)`
     ).get().n;
     const vectors = conn.prepare('SELECT COUNT(*) n FROM skill_chunks WHERE embedding IS NOT NULL').get().n;
 
@@ -467,6 +482,7 @@ async function checkVpsPreflight(context) {
 
 module.exports = {
   checkDatabaseAndMigrations,
+  checkEmbeddingHealth,
   checkGeminiAndAgentsConfig,
   checkPromptHookConfig,
   checkGovernanceAndServices,
