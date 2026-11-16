@@ -74,10 +74,15 @@ function handleRequest(req, res) {
 }
 
 /**
- * One listener per host:port, created on first use. Nothing else is expected on
- * the picker's port (it is `ui_port + 1`, deliberately not the dashboard's), so
- * an `EADDRINUSE` here means the link will not answer and is worth saying out
- * loud — to stderr, because stdout is MCP framing.
+ * One listener per host:port, created on first use.
+ *
+ * `EADDRINUSE` is the normal multi-process case, not a fault: a user runs
+ * several clients, each with its own MCP process, and every one of them asks for
+ * the same `ui_port + 1`. The first binds; the rest get this error and their
+ * links still work, because the listener that won reads the same
+ * `~/.konoha/web_token` and the same task directories on disk. Warning on it
+ * would print once per gate forever. Any other bind error does mean the link is
+ * dead, and stdout is MCP framing, so that one goes to stderr.
  */
 function ensurePickerServer({ port, host = '127.0.0.1' } = {}) {
   // A privileged port cannot be bound by the process running Konoha, so trying
@@ -89,7 +94,7 @@ function ensurePickerServer({ port, host = '127.0.0.1' } = {}) {
   ensureSessionToken();
   const server = http.createServer(handleRequest);
   server.on('error', (err) => {
-    process.stderr.write(`[konoha picker] cannot serve ${host}:${port}: ${err.message}\n`);
+    if (err.code !== 'EADDRINUSE') process.stderr.write(`[konoha picker] cannot serve ${host}:${port}: ${err.message}\n`);
   });
   // Never hold the MCP process open: the gate is answered by a tool call, not
   // by this listener, so an idle picker must not delay shutdown.
