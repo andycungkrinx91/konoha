@@ -43,13 +43,20 @@ function makeEmbedCacheKey(textHash, modelRepo) {
 /**
  * Groups length-sorted misses into batches.
  *
- * `padding: true` computes every sequence at the width of the widest one in its
+ * `padding: true` computes every sequence at the width of the longest one in its
  * batch, so mixing a 60-token chunk with a 500-token chunk burns 8x the FLOPs on
  * the small one. Grouping into power-of-two width classes caps that waste at 2x
- * by construction; measured 2.08x end-to-end on live chunks. Widening the batch
- * itself was measured *slower* (0.93x at 64 items), so the item cap stays put.
+ * by construction; measured 2.08x end-to-end on live chunks.
  *
- * Input must be sorted ascending by `norm.length`.
+ * That 2.08x was measured when the depth was 16. The shipped depth is now 1,
+ * where every batch holds one item and this grouping is a no-op -- callers only
+ * get the bucketing benefit if they raise `batchSize`, and even then widening
+ * the batch measured *slower* (0.93x at 64 items) because the extra rows cost
+ * more in the int8 kernel than the padding saves. The planner is kept for those
+ * callers, not for the default path.
+ *
+ * Input must be sorted ascending by `norm.length` for the classes to stay
+ * contiguous. Order is irrelevant when `maxItems` is 1.
  * @param {Array<{norm: string}>} ordered
  * @param {number} maxItems hard item cap per ONNX call
  * @param {number} maxLength token ceiling for one sequence

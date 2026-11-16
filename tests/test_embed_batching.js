@@ -50,4 +50,17 @@ assert.strictEqual(oversize.length, 1, 'an over-length chunk must still be batch
 assert.strictEqual(planEmbedBatches([miss(0)], 64, maxLength)[0].length, 1, 'empty text still batches');
 console.log('  ✓ degenerate inputs handled');
 
+// --- 5. The shipped depth is pinned, not just the planner ---
+// One sequence per ONNX call is 1.65x faster end to end than 16, and nothing
+// else in the suite would notice if a tidy-up reverted the constant.
+{
+  const src = require('node:fs').readFileSync(require.resolve('../src/vector_pipeline'), 'utf8');
+  const m = src.match(/DEFAULT_EMBED_BATCH_SIZE\s*=\s*(\d+)/);
+  assert.ok(m, 'DEFAULT_EMBED_BATCH_SIZE must stay a literal constant');
+  assert.strictEqual(Number(m[1]), 1, `embed batch depth must stay 1, found ${m[1]}`);
+  const r = src.match(/DEFAULT_RERANK_BATCH_SIZE\s*=\s*(\d+)/);
+  assert.ok(r && Number(r[1]) > 1, 'rerank keeps its own deeper batch');
+  console.log(`  ✓ shipped embed depth pinned at ${m[1]}, rerank at ${r[1]}`);
+}
+
 console.log('\n✓ embed batching plan assertions passed');

@@ -42,15 +42,24 @@ function testNativeHuggingFaceContract() {
 
 function testEmbedThreadCap() {
   const vp = require('../src/vector_pipeline');
-  const logical = require('node:os').availableParallelism
-    ? require('node:os').availableParallelism()
-    : require('node:os').cpus().length;
-  const expected = Math.max(1, Math.ceil(logical / 2));
-  assert.strictEqual(vp._embedThreadCount(), expected,
-    `embed threads must be the physical core count (${expected}) on ${logical} logical CPUs`);
-  assert.ok(vp._embedThreadCount() < logical || logical <= 2,
-    'embed threads must stay below the logical CPU count so the desktop is usable during a re-embed');
-  console.log('✓ ONNX embedding threads track physical cores so a full re-embed cannot oversubscribe');
+  const threads = require('../src/embed_threads');
+  const logical = threads.logicalCpuCount();
+  const actual = vp.embedThreadCount();
+
+  assert.strictEqual(actual, threads.embedThreadCount(), 'the pipeline must use the shared rule');
+  assert.ok(actual >= 1 && actual <= logical, `embed threads (${actual}) must fit in ${logical} CPUs`);
+
+  // One thread per physical core where the OS reports the SMT ratio, else the
+  // ceiling -- which is the measured optimum on 16 logical CPUs and cannot
+  // freeze the desktop.
+  const topology = threads.readSmtTopology();
+  const expected = topology
+    ? Math.max(1, Math.round((logical * topology.cores) / topology.siblings))
+    : Math.max(1, Math.min(threads.THREAD_CEILING, logical));
+  assert.strictEqual(actual, expected, `embed threads must be ${expected} on ${logical} logical CPUs`);
+  assert.ok(actual < logical || logical <= threads.THREAD_CEILING,
+    'embed threads must stay below the logical count so the desktop stays usable');
+  console.log(`✓ ONNX embedding threads track physical cores (${actual} on ${logical} logical CPUs)`);
 }
 
 async function testEmbeddingInferenceAndOrdering() {

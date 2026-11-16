@@ -11,7 +11,7 @@
  * Fails loudly with `EmbeddingRuntimeUnavailableError` when runtime or models are unavailable.
  */
 
-const os = require('node:os');
+const { embedThreadCount } = require('./embed_threads');
 
 const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
 const EMBED_MODEL_REPO = 'onnx-community/granite-embedding-97m-multilingual-r2-ONNX';
@@ -142,19 +142,6 @@ async function _disposePipeline(resolved) {
   }
 }
 
-// ONNX Runtime defaults to one intra-op thread per logical CPU, which pins every
-// core and freezes the desktop during `konoha init`. The 97M q8 model does not
-// scale past the physical core count, and oversubscribing it is worse: over 600
-// real chunks on a 16-thread/8-core Ryzen 9 5900HX, 4 threads embedded at 204
-// chunks/s, 8 at 243, 12 at 227 and 16 at 202. Restricting the process to 8 CPUs
-// moved the optimum to 4, and to 4 CPUs moved it to 2, so half the logical count
-// tracks physical cores; a non-SMT host loses 2% at 4 cores, which is the price
-// of not reading topology from sysfs.
-function _embedThreadCount() {
-  const logical = os.availableParallelism ? os.availableParallelism() : (os.cpus() || []).length;
-  return Math.max(1, Math.ceil(logical / 2));
-}
-
 async function _initModelPair(kind, repo, modelKey) {
   const { mod, offline, cacheDir } = await _loadTransformersModule();
   const AutoTokenizer = mod.AutoTokenizer;
@@ -175,7 +162,7 @@ async function _initModelPair(kind, repo, modelKey) {
     dtype: 'q8',
     local_files_only: offline,
     session_options: {
-      intraOpNumThreads: _embedThreadCount(),
+      intraOpNumThreads: embedThreadCount(),
       interOpNumThreads: 1,
     },
   });
@@ -463,9 +450,16 @@ async function embedBatch(texts, options = {}) {
   // misses by length makes each batch near-homogeneous; measured 2.1x on 160
   // live chunks. Reordering is invisible to callers: `_storeEmbedChunkResults`
   // writes back through `chunk[b].indices`.
-  const ordered = misses
-    .slice()
-    .sort((a, b) => Math.min(a.norm.length, preCharCap) - Math.min(b.norm.length, preCharCap));
+  // At the default depth of one, every batch holds a single item, so its padded
+  // width already equals its own width and sorting 6k misses buys nothing.
+  const ordered =
+    batchSize > 1
+      ? misses
+          .slice()
+          .sort(
+            (a, b) => Math.min(a.norm.length, preCharCap) - Math.min(b.norm.length, preCharCap)
+          )
+      : misses;
 
   const batches = planEmbedBatches(ordered, batchSize, maxLength);
   for (let i = 0; i < batches.length; i++) {
@@ -474,8 +468,12 @@ async function embedBatch(texts, options = {}) {
       m.norm.length > preCharCap ? m.norm.slice(0, preCharCap) : m.norm
     );
     await _runEmbedBatchChunk(pipeline, batchInputs, maxLength, chunk, results);
+    // The knob is documented as an inter-chunk throttle, so scale by the rows
+    // in this call. At the shipped depth of one that is the same sleep as
+    // before; callers who raise `batchSize` keep the per-chunk meaning instead
+    // of silently getting a 16x weaker throttle.
     if (paceMs > 0 && i + 1 < batches.length) {
-      await _sleep(paceMs);
+      await _sleep(paceMs * chunk.length);
     }
   }
 
@@ -694,5 +692,5 @@ module.exports = {
   formatCodeForRerank,
   rerank,
   resetPipelinesForTest,
-  _embedThreadCount,
+  embedThreadCount,
 };

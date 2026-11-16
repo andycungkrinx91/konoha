@@ -274,7 +274,9 @@ There is no flag or environment variable for this, and the thread count does not
 terminal — ONNX Runtime would otherwise take one thread per logical core, and on an SMT chip those hyperthreads
 compete for the same execution units. Measured on a 16-thread Ryzen 9 5900HX over 600 real skill chunks, 4
 threads embedded at 204 chunks/s, 8 at 243, 12 at 227 and 16 at 202, so the physical core count is both the
-fastest and the politest setting.
+fastest and the politest setting. The ratio comes from /proc/cpuinfo on Linux, so a 4-vCPU virtual machine
+without SMT still gets all four threads instead of half of them; macOS and Windows have no cheap topology
+query and are capped at eight.
 
 Re-running `init` on an existing install does the same work against the runtime it finds, plus one thing that only matters the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind. It never starts or restarts the Web UI — that is `konoha ui start`, always by hand.
 
