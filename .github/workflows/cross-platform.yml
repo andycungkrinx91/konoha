@@ -400,6 +400,10 @@ jobs:
         shell: pwsh
         run: |
           function Test-LibwebpAnim {
+            # Re-read PATH: choco drops a shim into a directory this session may
+            # not have picked up yet, and a cached command lookup would keep
+            # resolving the encoder-less binary the runner shipped with.
+            $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
             try { $encoders = (& ffmpeg -hide_banner -encoders 2>$null) -join "`n" } catch { return $false }
             return $encoders -match 'libwebp_anim'
           }
