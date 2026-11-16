@@ -199,7 +199,7 @@ function _collectSdlcAndClientFeatures(features) {
 
   const clientDefs = [
     { id: 'antigravity', name: 'Antigravity' }, { id: 'cursor', name: 'Cursor' },
-    { id: 'claude', name: 'Claude Code' }, { id: 'opencode', name: 'OpenCode' },
+    { id: 'claudecode', name: 'Claude Code' }, { id: 'opencode', name: 'OpenCode' },
     { id: 'commandcode', name: 'CommandCode' }, { id: 'codex', name: 'Codex' },
     { id: 'pi', name: 'Pi' }, { id: 'omp', name: 'OMP' }
   ];

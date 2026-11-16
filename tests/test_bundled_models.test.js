@@ -40,6 +40,14 @@ function testNativeHuggingFaceContract() {
   console.log('✓ Native @huggingface/transformers contract and obsolete custom cache removal verified');
 }
 
+function testEmbedThreadCap() {
+  const vp = require('../src/vector_pipeline');
+  const cores = Math.max(1, require('node:os').cpus().length - 1);
+  assert.strictEqual(vp._embedThreadCount(), Math.min(4, cores),
+    `embed threads must be min(4, cores - 1) = ${Math.min(4, cores)} on ${cores} usable cores`);
+  console.log('✓ ONNX embedding threads stay capped so a full re-embed cannot pin every core');
+}
+
 async function testEmbeddingInferenceAndOrdering() {
   const vs = require('../src/vector_search');
   const vec = await vs.embedText('SQLite database schema migration and ALTER TABLE');
@@ -286,6 +294,7 @@ async function testHfCacheReuseAndLoudFailure() {
   try {
     console.log('Running test_bundled_models.test.js...');
     testNativeHuggingFaceContract();
+    testEmbedThreadCap();
     await testEmbeddingInferenceAndOrdering();
     await testRerankerInference();
     testRrfRerankingArchitecture();

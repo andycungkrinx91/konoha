@@ -14,18 +14,12 @@ const {
   setActiveClient,
   uriToPath,
   isIdeInstallationDir,
-  HOME,
-  GEMINI_DIR
+  HOME
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 const { autoMigrateProjectSkills } = require('./skills');
 const { executeTool, WORKFLOW_GRAPH_TOOLS, validateManifestArguments } = require('./tool_dispatch');
 const { createRequestScheduler } = require('./request_scheduler');
-
-const ANTIGRAVITY_CLI = path.join(GEMINI_DIR, 'antigravity-cli');
-const ANTIGRAVITY_IDE = path.join(GEMINI_DIR, 'antigravity-ide');
-const ANTIGRAVITY_CLI_BRAIN = path.join(ANTIGRAVITY_CLI, 'brain');
-const ANTIGRAVITY_IDE_BRAIN = path.join(ANTIGRAVITY_IDE, 'brain');
 
 function getServerVersion() {
   const candidates = [
@@ -58,14 +52,6 @@ const SUPPORTED_PROTOCOL_VERSIONS = MCP_MANIFEST.protocol_versions || ['2024-11-
 let MCP_INITIALIZED = false;
 
 
-function resolveAntigravityClient(isCli, convId) {
-  if (!convId) return isCli ? 'agy' : 'antigravity';
-  if (isCli) return 'agy';
-  if (fs.existsSync(path.join(ANTIGRAVITY_CLI_BRAIN, convId))) return 'agy';
-  if (fs.existsSync(path.join(ANTIGRAVITY_IDE_BRAIN, convId))) return 'antigravity';
-  return 'agy';
-}
-
 function resolveClientFromInfo(clientInfo) {
   const clientName = (clientInfo?.name || '').toLowerCase();
   if (clientName.includes('cursor')) return 'cursor';
@@ -75,12 +61,10 @@ function resolveClientFromInfo(clientInfo) {
   if (clientName.includes('codex')) return 'codex';
   if (clientName.includes('pi')) return 'pi';
   if (clientName.includes('omp')) return 'omp';
-  if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'agy';
-  if (clientName.includes('antigravity') || clientName.includes('ide')) {
-    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-    const isCli = (process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy');
-    return resolveAntigravityClient(isCli, convId);
-  }
+  if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'antigravity';
+  // `agy` is the CLI binary name, not a client identity: CLI and IDE are one
+  // harness, so both spellings resolve here and the database never sees two.
+  if (clientName.includes('antigravity') || clientName.includes('ide')) return 'antigravity';
   return detectActiveClient();
 }
 

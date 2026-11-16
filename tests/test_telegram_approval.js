@@ -52,7 +52,7 @@ async function run() {
       description: 'Finalize payment pipeline',
       status: 'pending_human_signoff',
       project_path: tmpDir,
-      client: 'agy'
+      client: 'antigravity'
     }, dbPath);
     assert.strictEqual(task2.status, 'pending_human_signoff');
 

@@ -111,7 +111,7 @@ function detectWorkspaceRoot() {
     curClient = runtimeState.getActiveClient() || '';
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
-  if (curClient === 'agy' || curClient === 'antigravity') {
+  if (curClient === 'antigravity') {
     const HOME = os.homedir();
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
     const cacheDirs = [

@@ -58,7 +58,7 @@ async function run() {
     // Turn 1 vs Turn 2 unified token-bounded prompt and prefix determinism
     server.SESSION_TURNS.clear();
     process.env.ANTIGRAVITY_CONVERSATION_ID = 'conv-test-123';
-    server.ACTIVE_CLIENT = 'agy';
+    server.ACTIVE_CLIENT = 'antigravity';
 
     const res1Json = server.runMcpAgent('jonin', {
       task: 'Scaffold hero section',
@@ -89,7 +89,7 @@ async function run() {
     console.log('✓ Turn 1 vs Turn 2 unified token-bounded prompt passed');
 
     // Multi-client support
-    const clients = ['claudecode', 'commandcode', 'opencode', 'agy', 'cursor'];
+    const clients = ['claudecode', 'commandcode', 'opencode', 'antigravity', 'cursor'];
     for (const client of clients) {
       server.ACTIVE_CLIENT = client;
       process.env.SESSION_ID = `session-${client}-999`;
@@ -126,7 +126,7 @@ async function run() {
     conn2.close();
 
     process.env.ANTIGRAVITY_CONVERSATION_ID = 'conv-compact-retention';
-    server.ACTIVE_CLIENT = 'agy';
+    server.ACTIVE_CLIENT = 'antigravity';
     server.SESSION_TURNS.clear();
 
     JSON.parse(server.runMcpAgent('jonin', { task: 'Turn one task', project_path: projectDir }));
@@ -154,7 +154,7 @@ async function run() {
 
     server.SESSION_TURNS.clear();
     server.SESSION_TURN_LAST_ACCESS.clear();
-    server.ACTIVE_CLIENT = 'agy';
+    server.ACTIVE_CLIENT = 'antigravity';
 
     const cd = require('../src/mcp/client_detection');
     const sessKey = cd.getSessionKey(projectDir);
@@ -192,7 +192,7 @@ async function run() {
     // Different client, different projects
     server.ACTIVE_CLIENT = 'cursor';
     const keyCursorB = cd.getSessionKey(projectDirB, 'sess-1');
-    server.ACTIVE_CLIENT = 'agy';
+    server.ACTIVE_CLIENT = 'antigravity';
     const keyAgyA = cd.getSessionKey(projectDirA, 'sess-1');
     assert.notStrictEqual(keyCursorB, keyAgyA);
 

@@ -130,7 +130,7 @@ Fresh = 44 user tables (43 excluding runtime `_sqliteai_vector`). Live = 44 afte
 
 `kali_tools` was removed from the live store by the evidence-first remediation in Section 7; fresh and live now define the same table set.
 
-`user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion` (historically `7` in Pass 3 below, currently `CURRENT_SCHEMA_VERSION = 8` per the Issue #12 revision note above). The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
+`user_version` is now written by exactly one function, `src/db_schema.js#setUserVersion` (historically `7` in Pass 3 below, currently `CURRENT_SCHEMA_VERSION = 9` per the alias-collapse revision note above). The previous second writer (`bin/lib/install_lifecycle.js`, `PRAGMA user_version = 2218`) is deleted, and `tests/test_schema_migrations_and_lifecycle.js` fails if any other file writes a literal `user_version = <n>`.
 
 `schema_migrations` rows on the fresh DB, with checksums recomputed from source:
 

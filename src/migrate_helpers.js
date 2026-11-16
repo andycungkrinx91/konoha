@@ -387,7 +387,7 @@ function classifySkillSourceProvenance(skillsDir) {
 
   let harness = 'generic';
   if (normSlash.includes('/.cursor/')) harness = 'cursor';
-  else if (normSlash.includes('/.claude/')) harness = 'claude';
+  else if (normSlash.includes('/.claude/')) harness = 'claudecode';
   else if (normSlash.includes('/.commandcode/')) harness = 'commandcode';
   else if (normSlash.includes('/.codex/')) harness = 'codex';
   else if (normSlash.includes('/opencode/') || normSlash.includes('/.opencode/')) harness = 'opencode';

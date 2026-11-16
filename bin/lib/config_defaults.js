@@ -109,7 +109,6 @@ const CONFIG_DEFAULTS = Object.freeze({
   three_d_output_dir: null,
   cycles_samples: 64,
   // local toolchain
-  onnx_threads: 1,
   embed_pace_ms: 0,
   chrome_path: null,
   toolchain_dir: null,
@@ -191,7 +190,6 @@ const ENV_ALIASES = Object.freeze({
   three_d_model: ['KONOHA_3D_MODEL'],
   three_d_output_dir: ['KONOHA_3D_OUTPUT_DIR'],
   cycles_samples: ['KONOHA_CYCLES_SAMPLES'],
-  onnx_threads: ['KONOHA_ONNX_THREADS'],
   embed_pace_ms: ['KONOHA_EMBED_PACE_MS'],
   qa_retention_count: ['KONOHA_QA_RETENTION_COUNT'],
   doc_gate_max_attempts: ['KONOHA_DOC_GATE_MAX_ATTEMPTS'],

@@ -91,15 +91,6 @@ const CLIENT_SPAWN = {
       return `invoke_subagent({ TypeName: "${d.agent}", Role: "${d.agent} specialist", Prompt: ${d.taskArg}, Workspace: "${ws}" })`;
     }
   },
-  agy: {
-    tool: 'invoke_subagent',
-    headlessBin: 'agy',
-    args: (d) => {
-      const readOnly = isReadOnlyAgent(d.agent);
-      const ws = !readOnly && d.worktreePath ? 'share' : 'inherit';
-      return `invoke_subagent({ TypeName: "${d.agent}", Role: "${d.agent} specialist", Prompt: ${d.taskArg}, Workspace: "${ws}" })`;
-    }
-  }
 };
 
 function buildUnsupportedSpawnPayload(client, reason) {
@@ -127,7 +118,8 @@ function resolveSpawnDescriptor(client, options = {}) {
     };
   }
   const key = client.toLowerCase().trim();
-  const canonical = key === 'claudecode' ? 'claude' : key;
+  // `agy` is the Antigravity CLI executable, not an identity: normalize it in.
+  const canonical = key === 'claudecode' ? 'claude' : (key === 'agy' ? 'antigravity' : key);
   if (CLIENT_SPAWN[canonical]) {
     return { supported: true, client: canonical, ...CLIENT_SPAWN[canonical] };
   }

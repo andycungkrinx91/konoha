@@ -50,7 +50,7 @@ async function runTests() {
     tasks: sampleTodos
   }, {
     taskDir: tmpTaskDir,
-    client: 'claude'
+    client: 'claudecode'
   });
   assert.ok(fs.existsSync(path.join(tmpTaskDir, 'TODO.md')), 'TODO.md must be written on sync');
   const todoMd = fs.readFileSync(path.join(tmpTaskDir, 'TODO.md'), 'utf8');

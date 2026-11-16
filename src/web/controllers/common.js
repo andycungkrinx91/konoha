@@ -74,7 +74,7 @@ function isClientConfigured(id) {
       const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
       return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
     }
-    if (id === 'claude') {
+    if (id === 'claudecode') {
       const cfgPath = path.join(os.homedir(), '.claude.json');
       if (!fs.existsSync(cfgPath)) return false;
       const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
@@ -293,7 +293,7 @@ function _discoverClaudeModels(discovered, seenIds, HOME) {
       model_name: typeof m === 'object' && m.name ? m.name : id,
       bridge: 'claude',
       owned_by: 'claude',
-      source: 'client:claude'
+      source: 'client:claudecode'
     });
   }
 }

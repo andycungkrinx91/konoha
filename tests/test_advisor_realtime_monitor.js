@@ -138,7 +138,7 @@ async function runTests() {
   assert.ok(anbuDriftViolations.some((v) => v.type === 'goal_drift'), 'must detect in-progress zero-overlap goal drift on worker agent');
 
   // Verify all 8 clients generate valid native direct steer calls
-  const all8Clients = ['antigravity', 'claude', 'codex', 'omp', 'cursor', 'opencode', 'commandcode', 'pi'];
+  const all8Clients = ['antigravity', 'claudecode', 'codex', 'omp', 'cursor', 'opencode', 'commandcode', 'pi'];
   for (const c of all8Clients) {
     const call = buildClientSteerCall({
       client: c,

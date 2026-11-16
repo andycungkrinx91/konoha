@@ -17,7 +17,7 @@ let _activitySeq = 0;
 const CLIENT_DEFINITIONS = [
   { id: 'antigravity', name: 'Antigravity', category: 'IDE / CLI' },
   { id: 'cursor', name: 'Cursor', category: 'IDE' },
-  { id: 'claude', name: 'Claude Code', category: 'CLI' },
+  { id: 'claudecode', name: 'Claude Code', category: 'CLI' },
   { id: 'opencode', name: 'OpenCode', category: 'CLI' },
   { id: 'commandcode', name: 'CommandCode', category: 'CLI' },
   { id: 'codex', name: 'Codex', category: 'CLI / App' },
@@ -57,7 +57,7 @@ function normalizeClientId(raw) {
   if (!s || s === 'unknown' || s === 'default') return 'antigravity';
   if (s.includes('antigravity') || s.includes('gemini')) return 'antigravity';
   if (s.includes('cursor')) return 'cursor';
-  if (s.includes('claude')) return 'claude';
+  if (s.includes('claude')) return 'claudecode';
   if (s.includes('opencode')) return 'opencode';
   if (s.includes('command')) return 'commandcode';
   if (s.includes('codex')) return 'codex';

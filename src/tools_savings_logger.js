@@ -6,13 +6,9 @@
  */
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { getDb, DB_PATH } = require('./db');
 
-const HOME = os.homedir();
 const DEFAULT_BASELINE = 550000; // ~140k tokens — matches server.py/server.js fallback
-const ANTIGRAVITY_CLI_BRAIN = path.join(HOME, '.gemini', 'antigravity-cli', 'brain');
-const ANTIGRAVITY_IDE_BRAIN = path.join(HOME, '.gemini', 'antigravity-ide', 'brain');
 
 function detectActiveClient() {
   try {
@@ -25,18 +21,13 @@ function detectActiveClient() {
       if (activeOverride.includes('claude')) return 'claudecode';
       if (activeOverride.includes('cursor')) return 'cursor';
       if (activeOverride === 'pi') return 'pi';
-      if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'agy';
+      if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'antigravity';
       if (activeOverride.includes('antigravity') || activeOverride.includes('ide')) return 'antigravity';
     }
 
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
     if (convId) {
-      if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy')) return 'agy';
-      const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
-      if (fs.existsSync(cliDir) && fs.statSync(cliDir).isDirectory()) return 'agy';
-      const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
-      if (fs.existsSync(ideDir) && fs.statSync(ideDir).isDirectory()) return 'antigravity';
-      return 'agy';
+      return 'antigravity';
     }
 
     if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1') return 'opencode';

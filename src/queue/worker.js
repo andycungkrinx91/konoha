@@ -36,9 +36,7 @@ function resolveAgyBin() {
 
 const CLIENT_DISPLAY_NAMES = {
   antigravity: 'Antigravity IDE/CLI',
-  agy: 'Antigravity CLI',
   claudecode: 'Claude Code',
-  claude: 'Claude Code',
   cursor: 'Cursor',
   codex: 'Codex',
   opencode: 'OpenCode',

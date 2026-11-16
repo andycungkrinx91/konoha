@@ -5,8 +5,6 @@ const path = require('path');
 
 const CLIENT_TODO_TOOLS = Object.freeze({
   antigravity: { tool: 'task_boundary', artifact: 'task.md' },
-  agy: { tool: 'task_boundary', artifact: 'task.md' },
-  claude: { tool: 'TodoWrite', artifact: null },
   claudecode: { tool: 'TodoWrite', artifact: null },
   cursor: { tool: 'TodoWrite', artifact: null },
   opencode: { tool: 'todowrite', artifact: null },
@@ -103,7 +101,7 @@ function _buildNativeTodoPayload({ key, todos, progressSummary, activeStepTitle,
     priority: t.priority || 'medium',
     ...(t.status === 'in_progress' ? { activeForm: `Working on ${t.content}` } : {})
   }));
-  if (key === 'antigravity' || key === 'agy') {
+  if (key === 'antigravity') {
     const taskMdPath = options.taskDir ? path.join(options.taskDir, 'task.md') : 'task.md';
     return {
       TaskName: activeStepTitle,

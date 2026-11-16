@@ -88,7 +88,7 @@ All tools (56 active) are served through the `konoha` MCP server over stdio JSON
 
 ## 3. Canonical Storage Architecture
 
-Main application tables reside in `~/.konoha/konoha.db` (`WAL` journal mode, `CURRENT_SCHEMA_VERSION = 8`, `45` base tables: `33` declared + `12` FTS5 shadow tables). Akatsuki Lab isolation resides in a physically separate store at `~/.konoha/akatsuki-lab/lab.db` (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`):
+Main application tables reside in `~/.konoha/konoha.db` (`WAL` journal mode, `CURRENT_SCHEMA_VERSION = 9`, `45` base tables: `33` declared + `12` FTS5 shadow tables). Akatsuki Lab isolation resides in a physically separate store at `~/.konoha/akatsuki-lab/lab.db` (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`):
 
 | Table | Engine | Purpose |
 |---|---|---|

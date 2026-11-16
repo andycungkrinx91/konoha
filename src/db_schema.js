@@ -11,8 +11,12 @@ const {
 const { CORE_SCHEMA_DDL } = require('./schema_ddl');
 const { createAndVerifyPreMigrationBackup } = require('./db_migration_safety');
 const { hasCanonicalMemoryBrainLayout, applyMemoryBrainMigration } = require('./memory_brain_ddl');
+const {
+  _renameLegacyClaudeHarnessLabel,
+  _mergeLegacyAgyClientRows
+} = require('./db_schema_repairs');
 
-const CURRENT_SCHEMA_VERSION = 8;
+const CURRENT_SCHEMA_VERSION = 9;
 const _ensuredSchemaInodes = new Map();
 const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
@@ -500,6 +504,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
     _tryExecSql(conn, "ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
     _migrateActiveSessionsPk(conn);
     _backfillActiveSessionsProjectHash(conn);
+    _renameLegacyClaudeHarnessLabel(conn);
+    _mergeLegacyAgyClientRows(conn);
     _purgeLegacyDbArtifacts(conn);
     _syncCoreFts5(conn, ftsSupported);
     _applyCoreColumnAndIndexMigrations(conn, ftsSupported);

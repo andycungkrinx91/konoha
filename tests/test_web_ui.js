@@ -358,7 +358,17 @@ async function run() {
   // Test CLI commands: `konoha ui start` serves in the foreground and blocks.
   const { execSync, spawn } = require('child_process');
   const cliPath = require('path').join(__dirname, '..', 'bin', 'cli.js');
-  const fgPort = 1405;
+  // Ephemeral, never a fixed port: building any `web_picker` gate binds
+  // `ui_port + 1` (1405) for the life of that process, and CI runs this shard
+  // four suites at a time — a fixed port let a concurrent picker answer the
+  // probe while `ui start` exited 1 with "already running".
+  const fgPort = await new Promise((resolve) => {
+    const probe = require('net').createServer();
+    probe.listen(0, '127.0.0.1', () => {
+      const { port: free } = probe.address();
+      probe.close(() => resolve(free));
+    });
+  });
 
   const probePort = () => new Promise((resolve) => {
     const socket = require('net').connect(fgPort, '127.0.0.1');

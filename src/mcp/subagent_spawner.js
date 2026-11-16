@@ -66,7 +66,6 @@ function buildHarnessCommand(client, { agent, prompt, fullPrompt, harnessBin, re
     commandcode: 'command-code',
     omp: 'omp',
     antigravity: 'agy',
-    agy: 'agy',
     pi: 'pi'
   })[canonicalClient];
 
@@ -93,7 +92,6 @@ function buildHarnessCommand(client, { agent, prompt, fullPrompt, harnessBin, re
     case 'cursor':
     case 'commandcode':
     case 'antigravity':
-    case 'agy':
     case 'pi':
       return { command: bin, args: ['-p', message] };
     default:

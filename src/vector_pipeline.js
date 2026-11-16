@@ -12,6 +12,7 @@
  */
 
 const crypto = require('node:crypto');
+const os = require('node:os');
 
 const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
 const EMBED_MODEL_REPO = 'onnx-community/granite-embedding-97m-multilingual-r2-ONNX';
@@ -130,6 +131,14 @@ async function _disposePipeline(resolved) {
   }
 }
 
+// ONNX Runtime takes one intra-op thread per core, which pins every core and
+// freezes the desktop for the whole `konoha init` embed (1099% CPU on 16 cores).
+// Cap it at 4: the 97M q8 model does not scale past that, and a seed build
+// measured 948s capped against 920s uncapped, so the cap costs nothing real.
+function _embedThreadCount() {
+  return Math.min(4, Math.max(1, (os.cpus() || []).length - 1));
+}
+
 async function _initModelPair(kind, repo, modelKey) {
   const { mod, offline, cacheDir } = await _loadTransformersModule();
   const AutoTokenizer = mod.AutoTokenizer;
@@ -149,6 +158,10 @@ async function _initModelPair(kind, repo, modelKey) {
   const model = await ModelClass.from_pretrained(modelTarget, {
     dtype: 'q8',
     local_files_only: offline,
+    session_options: {
+      intraOpNumThreads: _embedThreadCount(),
+      interOpNumThreads: 1,
+    },
   });
   if (kind === 'embed') _embedLoaded = true;
   else _rerankLoaded = true;
@@ -682,4 +695,5 @@ module.exports = {
   formatCodeForRerank,
   rerank,
   resetPipelinesForTest,
+  _embedThreadCount,
 };

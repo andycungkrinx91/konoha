@@ -19,7 +19,7 @@ const { isReadOnlyAgent } = require('./agent_file_safety');
 
 const SUPPORTED_HARNESSES = Object.freeze([
   'antigravity',
-  'claude',
+  'claudecode',
   'cursor',
   'commandcode',
   'opencode',
@@ -30,8 +30,8 @@ const SUPPORTED_HARNESSES = Object.freeze([
 
 const HARNESS_ALIASES = Object.freeze({
   agy: 'antigravity',
-  claudecode: 'claude',
-  'claude-code': 'claude',
+  claude: 'claudecode',
+  'claude-code': 'claudecode',
   'command-code': 'commandcode',
   'open-code': 'opencode',
   'pi-dev': 'pi',
@@ -67,7 +67,7 @@ const CANONICAL_KONOHA_SET = new Set([
 function normalizeHarness(harness) {
   if (!harness || typeof harness !== 'string') return 'antigravity';
   const norm = harness.toLowerCase().trim();
-  return HARNESS_ALIASES[norm] || (SUPPORTED_HARNESSES.includes(norm) ? norm : norm);
+  return HARNESS_ALIASES[norm] || norm;
 }
 
 function findKonohaRepoRoot(candidatePath) {
@@ -377,7 +377,7 @@ function formatHarnessDecision(harness, evalResult) {
   const reason = (evalResult && evalResult.reason) || '';
 
   switch (client) {
-    case 'claude':
+    case 'claudecode':
     case 'commandcode':
       return {
         decision: allowed ? 'allow' : 'deny',

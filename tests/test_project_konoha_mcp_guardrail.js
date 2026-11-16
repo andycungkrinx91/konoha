@@ -54,10 +54,12 @@ console.log('Running Project-Only Konoha-MCP Guardrail Tests...\n');
 runTest('1. Supports all 8 coding agent harnesses and normalizes aliases', () => {
   assert.deepStrictEqual(
     [...SUPPORTED_HARNESSES],
-    ['antigravity', 'claude', 'cursor', 'commandcode', 'opencode', 'codex', 'omp', 'pi']
+    ['antigravity', 'claudecode', 'cursor', 'commandcode', 'opencode', 'codex', 'omp', 'pi']
   );
   assert.strictEqual(normalizeHarness('agy'), 'antigravity');
-  assert.strictEqual(normalizeHarness('claudecode'), 'claude');
+  assert.strictEqual(normalizeHarness('claudecode'), 'claudecode');
+  assert.strictEqual(normalizeHarness('claude'), 'claudecode');
+  assert.strictEqual(normalizeHarness('claude-code'), 'claudecode');
   assert.strictEqual(normalizeHarness('pi-dev'), 'pi');
   assert.strictEqual(Object.keys(pluginGuard.interceptors).length, 8);
 });

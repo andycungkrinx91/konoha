@@ -135,7 +135,7 @@ function detectClientFromInfoOrEnv(params) {
     if (envClient.includes("commandcode") || envClient.includes("command-code")) return "commandcode";
     if (envClient.includes("codex") || envClient.includes("openai")) return "codex";
     if (envClient.includes("omp")) return "omp";
-    if (envClient.includes("agy") || envClient.includes("antigravity-cli")) return "agy";
+    if (envClient.includes("agy") || envClient.includes("antigravity-cli")) return "antigravity";
     if (envClient.includes("antigravity") || envClient.includes("ide")) return "antigravity";
   }
 
@@ -150,7 +150,7 @@ function detectClientFromInfoOrEnv(params) {
   if (client_name.includes("commandcode") || client_name.includes("command-code")) return "commandcode";
   if (client_name.includes("codex") || client_name.includes("openai")) return "codex";
   if (client_name.includes("omp")) return "omp";
-  if (client_name.includes("antigravity-cli") || client_name.includes("agy")) return "agy";
+  if (client_name.includes("antigravity-cli") || client_name.includes("agy")) return "antigravity";
   if (client_name.includes("antigravity") || client_name.includes("ide")) return "antigravity";
 
   return detect_active_client_from_env();
@@ -167,7 +167,7 @@ function resolveWorkspaceRootFromParams(params) {
 }
 
 function resolveSessionIdForClient(client) {
-  if (client === 'agy' || client === 'antigravity') return process.env.ANTIGRAVITY_CONVERSATION_ID || '';
+  if (client === 'antigravity') return process.env.ANTIGRAVITY_CONVERSATION_ID || '';
   if (client === 'claudecode') return process.env.CLAUDE_CONVERSATION_ID || process.env.CLAUDE_CODE_SESSION_ID || '';
   if (client === 'pi') {
     let sessId = process.env.PI_SESSION_ID || '';

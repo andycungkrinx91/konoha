@@ -85,7 +85,7 @@ function verifyTaskDirSignature(taskDir, signature, secrets) {
 const PICKER_BINDINGS = Object.freeze({
   // Harnesses with a documented structured-question tool.
   omp: { transport: 'native_tool', tool: 'ask' },
-  claude: { transport: 'native_tool', tool: 'AskUserQuestion' },
+  claudecode: { transport: 'native_tool', tool: 'AskUserQuestion' },
   // Harnesses Konoha drives through a file/config surface with no question tool
   // of its own; the Konoha picker page is the control.
   antigravity: { transport: 'web_picker' },
@@ -99,24 +99,11 @@ const PICKER_BINDINGS = Object.freeze({
 
 const FALLBACK_BINDING = Object.freeze({ transport: 'web_picker' });
 
-/**
- * The same harness reaches Konoha under more than one name: `runtime_state`
- * keys [CC] as `claudecode`, and the Antigravity CLI identifies as `agy`. The
- * aliases live here, at the consumer, so detection keys stay untouched and a
- * harness that ships a question tool is never downgraded to the web form.
- */
-const CLIENT_ALIASES = Object.freeze({
-  claudecode: 'claude',
-  'claude-code': 'claude',
-  agy: 'antigravity',
-  'antigravity-cli': 'antigravity'
-});
-
 const VERDICT_ENDPOINT = '/api/v1/hitl/verdict';
 
 function resolvePickerBinding(client) {
   const key = String(client || '').trim().toLowerCase();
-  return PICKER_BINDINGS[key] || PICKER_BINDINGS[CLIENT_ALIASES[key]] || FALLBACK_BINDING;
+  return PICKER_BINDINGS[key] || FALLBACK_BINDING;
 }
 
 /**
@@ -331,7 +318,6 @@ form.addEventListener('submit', async (event) => {
 
 module.exports = {
   PICKER_BINDINGS,
-  CLIENT_ALIASES,
   VERDICT_ENDPOINT,
   resolvePickerBinding,
   readSessionToken,

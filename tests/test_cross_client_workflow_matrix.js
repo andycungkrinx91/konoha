@@ -37,7 +37,7 @@ console.log(`Isolated fixture root: ${QA_ROOT}`);
 const CLIENTS = [
   'antigravity',
   'cursor',
-  'claude',
+  'claudecode',
   'opencode',
   'commandcode',
   'codex',
@@ -45,8 +45,11 @@ const CLIENTS = [
   'omp'
 ];
 
-// Verify supported clients list
-assert.deepStrictEqual(agentManager.SUPPORTED_CLIENTS.slice().sort(), CLIENTS.slice().sort());
+// Verify supported clients list (installer registry keys: `claude` is the CLI binary).
+assert.deepStrictEqual(
+  agentManager.SUPPORTED_CLIENTS.slice().sort(),
+  ['antigravity', 'claude', 'codex', 'commandcode', 'cursor', 'omp', 'opencode', 'pi']
+);
 
 // Verify invalid client rejection
 assert.throws(() => {
@@ -77,7 +80,7 @@ for (const client of CLIENTS) {
   } else if (client === 'cursor') {
     configPath = path.join(clientHome, '.cursor', 'mcp.json');
     agentManager.ensureClientSetup('cursor', { home: clientHome, configPath, silent: true, deployProject: false });
-  } else if (client === 'claude') {
+  } else if (client === 'claudecode') {
     configPath = path.join(clientHome, '.claude.json');
     agentManager.ensureClientSetup('claude', { home: clientHome, configPath, silent: true });
   } else if (client === 'opencode') {
@@ -105,6 +108,9 @@ for (const client of CLIENTS) {
   console.log(`  ✓ Canonical MCP configuration verified: ${configPath}`);
 
   // B. User request reaches Sannin and classifies/routes
+  // Pin the identity: without this the ambient harness env decides which client
+  // Sannin resolves, so the matrix silently tests one client eight times.
+  process.env.ACTIVE_CLIENT = client;
   const testSession = `test-sess-${client}-${Date.now()}`;
   const prompt = 'Refactor user database schema and implement order processing api endpoint';
   const sanninRaw = agentManager.runCanonicalWorkflow(prompt, {
@@ -118,7 +124,11 @@ for (const client of CLIENTS) {
   assert.ok(sanninRes.task_dir, `Task directory must be resolved for ${client}`);
   assert.strictEqual(sanninRes.selected_agent, 'anbu', 'Backend prompt must route to anbu');
   assert.strictEqual(sanninRes.execution_mode, 'delegate', 'Execution mode must be delegate');
-  assert.ok(sanninRes.instructions.includes('## Spawn (mandatory)'), `Instructions must include spawn directive for ${client}`);
+  if (client === 'pi') {
+    assert.ok(sanninRes.instructions.includes('UNSUPPORTED_NATIVE_SPAWN'), 'Pi must report the unsupported-spawn payload');
+  } else {
+    assert.ok(sanninRes.instructions.includes('## Spawn (mandatory)'), `Instructions must include spawn directive for ${client}`);
+  }
   assert.ok(sanninRes.advisor_supervisor && sanninRes.advisor_supervisor.started_from_beginning === true && sanninRes.advisor_supervisor.state === 'idle', `Sannin must start @advisor idle from turn 0 for ${client}`);
   assert.ok(sanninRes.advisor_spawn_directive && sanninRes.advisor_spawn_directive.agent === 'advisor' && sanninRes.advisor_spawn_directive.started_from_beginning === true, `Sannin must return advisor_spawn_directive for ${client}`);
   console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}, advisor=${sanninRes.advisor_supervisor.state}`);
@@ -194,11 +204,18 @@ for (const client of CLIENTS) {
     taskDir: sanninRes.task_dir
   });
   const directMcpRes = JSON.parse(directMcpRaw);
-  assert.strictEqual(directMcpRes.status, 'ready');
-  assert.strictEqual(directMcpRes.agent, 'anbu');
-  assert.strictEqual(directMcpRes.phase, 'execution');
-  assert.ok(Array.isArray(directMcpRes.advisor_steers_delivered) && directMcpRes.advisor_steers_delivered.length === 1, `runMcpAgent must deliver pending advisor steer for ${client}`);
-  assert.ok(directMcpRes.instructions.includes('[ADVISOR STEER DIRECTIVE'), `Instructions must carry injected [ADVISOR STEER DIRECTIVE for ${client}`);
+  if (client === 'pi') {
+    // Pi has no native subagent tool without the pi-subagents extension, so the
+    // runner must refuse to hand back a spawn it cannot perform.
+    assert.strictEqual(directMcpRes.status, 'unsupported_native_spawn');
+    assert.strictEqual(directMcpRes.agent, 'anbu');
+  } else {
+    assert.strictEqual(directMcpRes.status, 'ready');
+    assert.strictEqual(directMcpRes.agent, 'anbu');
+    assert.strictEqual(directMcpRes.phase, 'execution');
+    assert.ok(Array.isArray(directMcpRes.advisor_steers_delivered) && directMcpRes.advisor_steers_delivered.length === 1, `runMcpAgent must deliver pending advisor steer for ${client}`);
+    assert.ok(directMcpRes.instructions.includes('[ADVISOR STEER DIRECTIVE'), `Instructions must carry injected [ADVISOR STEER DIRECTIVE for ${client}`);
+  }
 
   // Retired file IPC rejection
   const bypassEmptyRaw = runMcpAgent('anbu', {});

@@ -52,7 +52,7 @@ async function run() {
       PRAGMA user_version = 7;
     `);
     dbSchema.setupSchema(v7Conn, db.backupDatabase);
-    assert.strictEqual(dbSchema.getCurrentUserVersion(v7Conn), 8, 'Upgraded DB must reach schema v8');
+    assert.strictEqual(dbSchema.getCurrentUserVersion(v7Conn), dbSchema.CURRENT_SCHEMA_VERSION, 'Upgraded DB must reach the current schema version');
 
     const row1 = v7Conn.prepare('SELECT * FROM persona_memories WHERE id = ?').get('m_legacy1');
     const row2 = v7Conn.prepare('SELECT * FROM persona_memories WHERE id = ?').get('m_legacy2');

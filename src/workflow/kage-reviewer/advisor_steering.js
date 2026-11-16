@@ -23,7 +23,7 @@ const STOP_WORDS = new Set([
 function _normalizeClientKey(client) {
   const raw = String(client || 'universal').toLowerCase().trim();
   if (raw === 'agy' || raw === 'antigravity-cli' || raw === 'antigravity-ide') return 'antigravity';
-  if (raw === 'claudecode' || raw === 'claude-code') return 'claude';
+  if (raw === 'claude' || raw === 'claude-code') return 'claudecode';
   if (raw === 'command-code') return 'commandcode';
   return raw || 'universal';
 }
@@ -222,7 +222,7 @@ function buildClientSteerCall(options = {}) {
   });
 
   if (normClient === 'antigravity') return pack('native_message', 'send_message', { Recipient: recipient, Message: directive });
-  if (normClient === 'claude') return pack('native_message', 'SendMessage', { to: recipient, message: directive, summary: `Advisor steer -> @${targetAgent}` });
+  if (normClient === 'claudecode') return pack('native_message', 'SendMessage', { to: recipient, message: directive, summary: `Advisor steer -> @${targetAgent}` });
   if (normClient === 'codex') return pack('native_input', 'send_input', { id: recipient, message: directive });
   if (normClient === 'omp') return pack('native_task_steer', 'task', { tasks: [{ name: `${targetAgent}-steer`, agent: targetAgent, task: directive }] });
   if (normClient === 'cursor' || normClient === 'opencode' || normClient === 'commandcode') {

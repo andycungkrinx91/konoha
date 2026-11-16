@@ -31,13 +31,13 @@ function gate1(dir, client) {
 }
 
 test('every deployed client resolves to a transport', () => {
-  const clients = ['antigravity', 'cursor', 'claude', 'opencode', 'commandcode', 'codex', 'pi', 'omp'];
+  const clients = ['antigravity', 'cursor', 'claudecode', 'opencode', 'commandcode', 'codex', 'pi', 'omp'];
   for (const client of clients) {
     const binding = picker.resolvePickerBinding(client);
     assert.ok(['native_tool', 'web_picker'].includes(binding.transport), `${client} must map to a real control, got ${binding.transport}`);
   }
   assert.equal(picker.resolvePickerBinding('omp').tool, 'ask');
-  assert.equal(picker.resolvePickerBinding('claude').tool, 'AskUserQuestion');
+  assert.equal(picker.resolvePickerBinding('claudecode').tool, 'AskUserQuestion');
   assert.equal(picker.resolvePickerBinding('no-such-harness').transport, 'web_picker', 'unknown harness must degrade to the web form, not to prose');
 });
 
@@ -62,17 +62,20 @@ test('gate payload carries a picker whose call matches its transport', () => wit
 
 }));
 
-test('the harness names detection emits reach the right binding', () => {
-  assert.equal(picker.resolvePickerBinding('claudecode').tool, 'AskUserQuestion',
-    '[CC] initializes as claudecode; an unaliased miss downgrades it to the web form');
-  assert.equal(picker.resolvePickerBinding('claude-code').tool, 'AskUserQuestion');
-  assert.equal(picker.resolvePickerBinding('agy').transport, 'web_picker', 'the Antigravity CLI must resolve explicitly, not by luck of the fallback');
-  assert.equal(picker.resolvePickerBinding('CLAUDE').tool, 'AskUserQuestion', 'client names arrive from config files in any case');
+test('bindings are keyed by the canonical names detection and the database already use', () => {
+  for (const client of ['omp', 'claudecode', 'antigravity']) {
+    assert.ok(Object.hasOwn(picker.PICKER_BINDINGS, client),
+      `${client} must be an explicit binding, not the fallback`);
+  }
+  for (const alias of ['claude', 'claude-code', 'antigravity-cli']) {
+    assert.equal(Object.hasOwn(picker.PICKER_BINDINGS, alias), false,
+      `${alias} would be a second spelling for one harness; client identity has exactly one name`);
+  }
 });
 
 test('AskUserQuestion is never called with a header it rejects', () => withTaskDir((dir) => {
-  for (const [client, gate] of [['claude', () => gates.buildGate1Prompt({ plan: 'x' }, dir, path.basename(dir), 'x', { client: 'claude' })],
-    ['claude', () => gates.buildGate2Prompt({ report: 'r' }, dir, path.basename(dir), { client: 'claude' })]]) {
+  for (const [client, gate] of [['claudecode', () => gates.buildGate1Prompt({ plan: 'x' }, dir, path.basename(dir), 'x', { client: 'claudecode' })],
+    ['claudecode', () => gates.buildGate2Prompt({ report: 'r' }, dir, path.basename(dir), { client: 'claudecode' })]]) {
     const prompt = JSON.parse(gate());
     assert.equal(prompt.picker.transport, 'native_tool', client);
     const header = prompt.picker.call.questions[0].header;

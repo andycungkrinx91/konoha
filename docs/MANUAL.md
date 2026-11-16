@@ -269,6 +269,11 @@ The installer performs seven steps, in its own words:
 7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
 Step 5 is the slow one on first run: embedding the seeded skill corpus into SQLite is most of the wall time.
+Embedding is capped at four threads, so a full rebuild leaves you cores to work with instead of pinning all of
+them. There is no flag or environment variable for this, and the cap does not depend on whether stdout is a
+terminal — ONNX Runtime would otherwise take one thread per core. The cap is cheap: the same 96-chunk batch ran
+in 2.47 s at four threads against 9.03 s at sixteen, but a whole golden-seed build measured 948 s against 920 s,
+because embedding is a small slice of `init`.
 
 Re-running `init` on an existing install does the same work against the runtime it finds, plus one thing that only matters the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind. It never starts or restarts the Web UI — that is `konoha ui start`, always by hand.
 
@@ -296,7 +301,7 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 8` on the current v2.2.22 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
+- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.22 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`

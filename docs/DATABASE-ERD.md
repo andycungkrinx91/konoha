@@ -11,7 +11,7 @@ Two physically separate SQLite files. Nothing joins across them, and no write pa
 
 ## Main DB
 
-Twenty-four tables appear below — those with relationships or security relevance (`CURRENT_SCHEMA_VERSION = 8`). The
+Twenty-four tables appear below — those with relationships or security relevance (`CURRENT_SCHEMA_VERSION = 9`). The
 remaining main tables (`assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`,
 `schema_migrations`, `validation_results`, `code_chunks_fts` virtual table, `persona_memories_fts`, `skills_fts`, and SQLite's `*_fts*` / `sqlite_sequence` bookkeeping tables) are omitted as standalone storage.
 

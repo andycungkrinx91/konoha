@@ -167,7 +167,7 @@ async function _handleSdlcConfig(req, res, method, parsedUrl, broadcastEvent) {
 function _executeClientSetup(clientName) {
   if (clientName === 'antigravity') require('../../antigravity_manager').ensureAntigravitySetup({ silent: true });
   if (clientName === 'cursor') require('../../cursor_manager').ensureCursorSetup({ silent: true });
-  if (clientName === 'claude') require('../../mcp_clients_manager').ensureClaudeCodeSetup({ silent: true });
+  if (clientName === 'claudecode') require('../../mcp_clients_manager').ensureClaudeCodeSetup({ silent: true });
   if (clientName === 'commandcode') require('../../mcp_clients_manager').ensureCommandCodeSetup({ silent: true });
   if (clientName === 'opencode') require('../../opencode_manager').ensureOpenCodeSetup({ silent: true });
   if (clientName === 'codex') require('../../codex_manager').ensureCodexSetup({ silent: true });
@@ -178,7 +178,7 @@ function _executeClientSetup(clientName) {
 function _executeClientRemove(clientName) {
   if (clientName === 'antigravity') require('../../antigravity_manager').removeAntigravityConfig(true);
   if (clientName === 'cursor') require('../../cursor_manager').removeCursorConfig(true);
-  if (clientName === 'claude') require('../../mcp_clients_manager').removeClaudeCodeConfig(true);
+  if (clientName === 'claudecode') require('../../mcp_clients_manager').removeClaudeCodeConfig(true);
   if (clientName === 'commandcode') require('../../mcp_clients_manager').removeCommandCodeConfig(true);
   if (clientName === 'opencode') require('../../opencode_manager').removeOpenCodeConfig(true);
   if (clientName === 'codex') require('../../codex_manager').removeCodexConfig(true);
@@ -191,7 +191,7 @@ function _handleClients(res, pathname, method, broadcastEvent) {
     const clientsList = [
       { id: 'antigravity', name: 'Antigravity IDE / CLI', configPath: '~/.gemini/config/mcp_config.json', configured: isClientConfigured('antigravity') },
       { id: 'cursor', name: 'Cursor IDE / CLI', configPath: '~/.cursor/mcp.json', configured: isClientConfigured('cursor') },
-      { id: 'claude', name: 'Claude Code CLI', configPath: '~/.claude.json', configured: isClientConfigured('claude') },
+      { id: 'claudecode', name: 'Claude Code CLI', configPath: '~/.claude.json', configured: isClientConfigured('claudecode') },
       { id: 'opencode', name: 'OpenCode IDE', configPath: '~/.config/opencode/opencode.json', configured: isClientConfigured('opencode') },
       { id: 'commandcode', name: 'Command Code CLI', configPath: '~/.commandcode/mcp.json', configured: isClientConfigured('commandcode') },
       { id: 'codex', name: 'Codex IDE / CLI', configPath: '~/.codex/config.toml', configured: isClientConfigured('codex') },
