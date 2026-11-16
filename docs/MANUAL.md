@@ -68,7 +68,7 @@ the "83–98%" figure in the CLI banner actually covers.
 
 ### 1.2 The two MCP servers
 
-`konoha init` writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite schema v7 (`code_*` tables) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
+`konoha` init writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite `code_*` tables (added in schema v6/v7; current DB schema is v8) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
 
 | Server | Launched as | Role |
 |---|---|---|
@@ -76,7 +76,7 @@ the "83–98%" figure in the CLI banner actually covers.
 | `aislop` | `npx -y --prefer-offline -p aislop@latest aislop-mcp` | zero-AI-slop scanning (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`) |
 
 The `konoha` server exposes 56 canonical tools with 2 deprecated aliases hidden from dispatch — 58 manifest entries in
-total (`src/file_tools_router.js`, locked by `tests/test_canonical_api_sync.js`). Chapter 10 lists them by group.
+total (`src/file_tools_router.js`, checked by `scripts/sync_canonical_api.js --check` and `tests/test_tool_count_repo_wide_sync.js`). Chapter 10 lists them by group.
 
 `uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `aislop` server prefers it. The
 `aislop` server needs no install — `npx` fetches it on first use.
@@ -296,11 +296,11 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, SQLite schema v7 (43 tables: 31 declared + 12 FTS5 shadow tables, including native code intelligence)
+- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 8` on the current v2.2.22 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`
-- a Web UI listener started at `http://127.0.0.1:1404/`
+- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.22, `konoha ui start` is strictly manual per Section 5.6)
 
 If you want a narrow install that touches only one harness:
 
@@ -501,10 +501,11 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `agent` | configure ninja subagents | `list`, `create`, `delete`, `status`, `skill`, `models`, `--tui` |
 | `akatsuki` | red-team / blue-team lab | `status`, `init`, `tools` |
 | `auth` | web console credentials | `konoha auth reset` |
-| `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable` |
+| `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable`, `start`, `stop`, `restart`, `models` |
+| `browser` | live headed Docker browser workspace | `start`, `status`, `logs`, `stop`, `cleanup`, `qa` |
 | `clean` | reclaim `~/.konoha` space | removes stale backups and dead PIDs |
-| `config` | CLI configuration | `list`, `get`, `set`, `unset` |
-| `data` | session history, persona memories, DB size | `view` |
+| `config` | CLI configuration | `list`, `get`, `set`, `unset`, `backup`, `backups`, `restore` |
+| `data` | session history, knowledge brain, DB size | `view`, `memory`, `add`, `search`, `delete`, `correct`, `withdraw`, `history`, `graph`, `maintain`, `revert`, `export`, `prune`, `vacuum`, `backup`, `rebuild-fts`, `check`, `restore` |
 | `db` | integrity and recovery | `check`, `restore` |
 | `detect-ai` | AI fingerprints in a site or project | `konoha detect-ai <target> [--json]` |
 | `detect-docs` | AI markers in prose and documents | `konoha detect-docs <file_path> [--json]` |
@@ -1082,7 +1083,7 @@ flowchart LR
 
 ### 10.5 Data layer
 
-`node:sqlite` from Node 24, no native module to compile. WAL mode, 43 raw tables (31 declared, plus `_sqliteai_vector` when loaded) in a fresh install, and three storage
+`node:sqlite` from Node 24, no native module to compile. WAL mode, 45 base tables (33 declared + 12 FTS5 shadow tables, excluding extension-owned `_sqliteai_vector` when loaded) in a fresh v8 install, and three storage
 patterns you will meet:
 
 - **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
@@ -1589,7 +1590,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 43 raw tables (31 declared) |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v8 |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |
@@ -1604,7 +1605,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 
 ### 16.2 Configuration keys
 
-`~/.konoha/config.json`, read at call time (no caching), so `konoha config set` takes effect immediately. The 70 keys
+`~/.konoha/config.json`, read at call time (no caching), so `konoha config set` takes effect immediately. The 71 keys
 declared in `bin/lib/config_defaults.js` are the compiled defaults; the table lists the ones you are likely to tune.
 `konoha config list` prints only the keys actually present in the file — a key you never set still reads its default
 from code, and `konoha config get <key>` shows which of the two answered.

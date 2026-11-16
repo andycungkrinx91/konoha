@@ -1,7 +1,7 @@
 # Konoha Canonical API Snapshot
 
 **Document Version:** 2.2.22  
-**Date:** 2026-11-08  
+**Date:** 2026-11-16  
 **Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.22)
 
 ---
@@ -44,16 +44,16 @@ All tools (56 active) are served through the `konoha` MCP server over stdio JSON
 | `query_project_memory` | `query?: string, project_path?: string, agent_name?: string, memory_type?: string, limit?: number` | Query project-scoped memories. | JSON match list |
 | `web_search` | `query: string, num_results?: number, search_depth?: string` | Search the web with fallback providers. | Search result JSON with citations |
 | `migrate_skills` | `force?: boolean, skills?: array, skills_dir?: string` | Re-index skills into SQLite FTS5 for ranked search and reranking. Optional: `find_skill`, `get_skill`, and `list_skills` already read the project skill tree alongside the database. | Migration summary JSON |
-| `save_persona_memory` | `agent_name: string, content: string, title?: string, memory_type?: string, tags?: string, importance?: number` | Save a persona memory. | Record ID confirmation |
-| `query_persona_memory` | `agent_name: string, query?: string, memory_type?: string, limit?: number` | Query persona memories. | Matched persona records JSON |
-| `list_persona_memories` | `agent_name?: string, memory_type?: string, limit?: number` | List persona memories. | Persona record list JSON |
+| `save_persona_memory` | `agent_name: string, content: string, title?: string, memory_type?: string, tags?: string, importance?: number, domain?: string, source_type?: string, source_ref?: string, verification_status?: string, confidence?: number, action?: string, target_id?: string, reason?: string` | Save a persona memory. | Record ID confirmation |
+| `query_persona_memory` | `agent_name: string, query?: string, memory_type?: string, limit?: number, domain?: string, confirmed_only?: boolean, include_inactive?: boolean` | Query persona memories. | Matched persona records JSON |
+| `list_persona_memories` | `agent_name?: string, memory_type?: string, limit?: number, domain?: string, confirmed_only?: boolean, include_inactive?: boolean` | List persona memories. | Persona record list JSON |
 | `delete_persona_memory` | `id: string` | Delete a persona memory. | Deletion confirmation JSON |
 | `check_readiness` | `task: string, project_path?: string` | Check task prompt readiness before dispatch. | Gate approval status JSON |
 | `get_task_evidence` | `task_id: string` | Retrieve validation evidence for a task. | Evidence log JSON |
 | `get_slop_findings` | `task_id: string` | Retrieve anti-slop scan findings and report for a task. | Anti-slop scanner report JSON |
 | `anti_slop` | `project_path?: string, files?: any, changed_files?: array, task_id?: string, strict?: boolean` | Perform final Zero-AI-Slop audit across changed files or target paths during Kage review, verifying zero AI slop findings and a perfect 100/100 score. | Audit report or structured result JSON |
 | `qa_codify` | `flow_path: string, out_path: string, name: string, lang?: string, skip_verification?: boolean` | Deterministically compiles a flow JSON file into a Playwright test specification after verifying it with the project's Playwright runner. | Playwright spec compilation confirmation JSON |
-| `qa_e2e_run` | `project_path: string, grep?: string, last_failed?: boolean, max_failures?: integer` | Runs Playwright end-to-end regression suites in a target project with JSON reporting and returns a compact, capped execution summary under 2,000 characters with a verifiable run_id. | Structured E2E execution summary JSON |
+| `qa_e2e_run` | `project_path: string, grep?: string, last_failed?: boolean, max_failures?: integer, headed?: boolean, live?: boolean, session_id?: string, playwright_ui?: boolean, timeout_ms?: integer` | Runs Playwright end-to-end regression suites in a target project with JSON reporting and returns a compact, capped execution summary under 2,000 characters with a verifiable run_id. | Structured E2E execution summary JSON |
 | `get_soul` | `agent_name?: string, project_path?: string, raw?: boolean` | Retrieve the Soul of Konoha (Ninja's Soul), universal shinobi tenets, and archetype persona voice for agents. | Soul document or structured data JSON |
 | `document_create` | `output_path: string, format?: string, title: string, subtitle?: string, author?: string, classification?: string, date?: string, sections?: array` | Create publication-grade DOCX or PDF from structured content. | Document generation result JSON |
 | `spreadsheet_create` | `output_path: string, author?: string, sheets: array` | Create XLSX spreadsheet with multiple sheets, formulas, and professional styling. | Spreadsheet generation result JSON |
@@ -88,22 +88,25 @@ All tools (56 active) are served through the `konoha` MCP server over stdio JSON
 
 ## 3. Canonical Storage Architecture
 
-All database tables reside inside SQLite database `~/.konoha/konoha.db` using `WAL` journal mode:
+Main application tables reside in `~/.konoha/konoha.db` (`WAL` journal mode, `CURRENT_SCHEMA_VERSION = 8`, `45` base tables: `33` declared + `12` FTS5 shadow tables). Akatsuki Lab isolation resides in a physically separate store at `~/.konoha/akatsuki-lab/lab.db` (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`):
 
 | Table | Engine | Purpose |
 |---|---|---|
-| `skills` | FTS5 Virtual Table + Relational | Full-text skill indexing & content lookup |
-| `skill_chunks` | Relational + BLOB | Vector embeddings storage (384-dim Granite) |
-| `project_memory` | Relational | Episodic architectural learnings per workspace |
-| `project_context` | Relational | Verified tech stack & architectural invariants |
-| `persona_memories` | Relational | User & agent persona traits and preferences |
-| `sdlc_tasks` | Relational | SDLC tasks, lifecycle states, and model tracking |
-| `sdlc_task_events` | Relational | Task event log, review notes, and transitions |
-| `sdlc_task_evidence` | Relational | Review evidence, command outputs, confidence scores |
+| `skills`, `skills_fts` | Relational + FTS5 | Indexed skill/reference catalog and full-text index |
+| `skill_chunks` | Relational + BLOB | 384-dim IBM Granite embeddings for skill retrieval |
+| `projects` | Relational | Workspace profiles, detected stacks, invariants, and SDLC/advisor settings |
+| `persona_memories`, `persona_memories_fts` | Relational + FTS5 | Provenance-aware knowledge brain across `persona`, `project`, `episodic`, `session`, and `knowledge` domains |
+| `memory_audit_events` | Relational | Immutable append-only audit log for memory corrections, withdrawals, and maintenance runs |
+| `memory_relations` | Relational | Deterministic evidence-backed knowledge graph edges |
+| `agents`, `soul_archetypes` | Relational | Subagent configurations, model assignments, and Ninja's Soul directives |
+| `sdlc_tasks` | Relational | SDLC governance tasks, DoR checklists, anti-slop cycles, and JSON validation evidence |
+| `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_edges`, `code_chunks`, `code_chunks_fts` | Relational + FTS5 | Native Tree-sitter WASM AST + FTS5 + vector code intelligence index |
+| `tool_calls` | Relational | Token savings telemetry and byte/token accounting per MCP invocation |
 | `bridges` | Relational | Local LLM bridge configurations & routing targets |
-| `savings` | Relational | Token savings telemetry & invocation counters |
-| `prompt_queue` | Relational | Unified inbound task queue (`pending`, `processing`, `completed`) |
-| `vault_secrets` | Relational + AES-256-GCM | Encrypted credential vault at rest (`src/crypto_vault.js`) |
+| `prompt_queue` | Relational | Unified inbound task queue (`pending`, `processing`, `completed`, `failed`, `cancelled`) |
+| `webhooks`, `telegram_config`, `telegram_session_targets` | Relational | Outbound webhooks (vault-encrypted secrets via `~/.konoha/.vault_key`) and Telegram remote state |
+| `active_sessions`, `lg_checkpoints`, `lg_writes` | Relational + BLOB | Client session tracking and LangGraph SQLite StateGraph checkpoints |
+| `schema_migrations`, `assets`, `asset_files`, `generation_jobs`, `validation_results`, `llm_requests_3d` | Relational | Schema migration ledger and Yamanaka 3D pipeline staging/asset tables (`2.2.*` UI-hidden) |
 
 ---
 
@@ -123,7 +126,7 @@ Command names below come from `bin/cli.js` dispatch. See `docs/architecture/CANO
 * `konoha test`
 * `konoha clean`
 * `konoha uninstall`
-* `konoha db`
+* `konoha db {check|restore}`
 * `konoha tui` (runs `agent list --tui`)
 * `konoha help` (`--help`, `-h`)
 * `konoha search <query>`
@@ -131,6 +134,7 @@ Command names below come from `bin/cli.js` dispatch. See `docs/architecture/CANO
 * `konoha service {...}`
 * `konoha auth reset`
 * `konoha bridge {list|status|create|enable|disable|delete|start|stop|restart|models}`
+* `konoha browser {start|status|logs|stop|cleanup|qa}`
 * `konoha queue {...}`
 * `konoha telegram {...}`
 * `konoha webhook | webhooks {...}`
@@ -140,9 +144,9 @@ Command names below come from `bin/cli.js` dispatch. See `docs/architecture/CANO
 * `konoha akatsuki {...}`
 * `konoha agent {...}`
 * `konoha run-agent {...}`
-* `konoha data {...}`
+* `konoha data {view|memory|add|search|delete|correct|withdraw|history|graph|maintain|revert|export|prune|vacuum|backup|rebuild-fts|check|restore}`
 * `konoha soul [...args]`
 * `konoha project {...}`
 * `konoha task {...}`
 * `konoha mode [...]`
-* `konoha config {...}`
+* `konoha config {list|get|set|unset|backup|backups|restore}`

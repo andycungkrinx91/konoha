@@ -1,3 +1,18 @@
+## [Unreleased]
+
+Changes landed on `feature/issue-13-native-code-intelligence` (v2.2.22 branch) after the initial 2026-11-13 milestone below:
+
+### Added
+- **Tree-sitter WASM AST, `code_related`, and Schema v7 code graph (`src/code_intel/`)**: Replaced the initial pure-JS lexer with 10 `web-tree-sitter` WASM grammars across 9 AST languages plus lexical fallback for 7 more (16 total; Java, C#, Lua excluded) and 4 structured config/doc formats, added `code_edges` (`CURRENT_SCHEMA_VERSION = 7`) and `code_related` (bringing the advertised MCP roster to 56 canonical tools / 58 manifest entries), provenance (`parser`, `heuristic`, `lsp`, `unresolved`) with optional stdio JSON-RPC LSP enrichment, cooperative async indexing event-loop yields (`setImmediate`), bounded LRU vector cache (`src/code_intel/vector_cache.js`), and capability-gated semantic fallback (`KONOHA_SEMANTIC_SEARCH=0` distinguishes intentional disablement from offline runtime degradation).
+- **Live Headed Docker Browser Workspace (Issue #11, `docker/browser-workspace.Dockerfile`, `src/workflow/qa-automation/browser_session_manager.js`, `bin/commands/browser.js`)**: Isolated `Xvfb` + `fluxbox` + `x11vnc` + loopback `noVNC` container with SwiftShader WebGL, host mount/bind security guards (`browser_workspace_security.js`), `konoha browser <start|status|logs|stop|cleanup|qa>`, async `qa_e2e_run` / `qaE2eRunAsync` headed support while keeping CI (`CI=1`) strictly headless, and active `browser_sessions` surfaced through existing `GET /api/v1/activity/live`.
+- **Provenance-Aware Native Knowledge Brain (Issue #12, Schema v8, `src/memory_brain*.js`)**: Bumped `CURRENT_SCHEMA_VERSION = 8` (`45` base tables / `33` declared), adding `memory_audit_events`, `memory_relations`, provenance/lifecycle columns on `persona_memories`, reversible correction/supersession/withdrawal/verify/restore operations, deterministic evidence-backed graph traversal, conservative dry-run/apply/revert maintenance, `GBrainMemoryAdapter` isolation boundary, `konoha data {correct|withdraw|history|graph|maintain|revert}`, and extended existing `/api/v1/persona` routes without adding new REST endpoints.
+
+### Removed
+- **Retired `agent-browser` CLI & `bin/lib/extension.js` provisioning chain**: QA automation now runs directly against the target project's Playwright installation (`pnpm exec playwright`), reporting `qa_blocked` (`playwright-not-installed`) when unavailable.
+
+### Changed
+- **`2.2.*` Yamanaka 3D UI & Test Gating**: Hidden 3D Studio navigation remains gated off across `2.2.*` (`SHOW_3D_STUDIO_MENU = false`), and `tests/test_yamanaka_*.js` / `tests/e2e/yamanaka_3d_studio.spec.js` skip automatically under `/^2\.2\./`.
+
 ## [2.2.22] - 2026-11-13
 
 ### Added

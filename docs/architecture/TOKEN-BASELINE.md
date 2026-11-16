@@ -48,7 +48,7 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
-4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and 58 tools in manifest (56 canonical + 2 deprecated) in CI/CD.
+4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, while `scripts/sync_canonical_api.js --check`, `tests/test_docs_currency.js`, and `tests/test_tool_count_repo_wide_sync.js` assert 0 drift and 58 tools in manifest (56 canonical + 2 deprecated) in CI/CD.
 5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, 40, 46, 47 with Akatsuki Lab init, 55 with code-intelligence v1, and locked at exactly 56 canonical tools active across 58 total entries in manifest) in `src/file_tools_router.js`.
 6. **External Code-Search & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across the then-registered external code-search MCP (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json`). The external server was later retired in favour of the in-process SQLite FTS5 code index, so those schema tokens no longer exist at all.
 
@@ -242,7 +242,7 @@ In Issue 9, prompt generation was unified into a single deterministic token-boun
 | Verification Suite | Target | Baseline (Phase 0) | Current (Phase 5 Reconciled) | Result |
 |---|---|---|---|---|
 | **JS Automated Test Suites** | `rtk node tests/run_all.js` | 86 passed, 0 failed (159.7s) | **90 passed, 0 failed** | **PASSED (100%)** |
-| **Canonical API Schema Sync** | `rtk node tests/test_canonical_api_sync.js` | N/A (new test) | **58 tools in manifest (56 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
+| **Canonical API Schema Sync** | `rtk node scripts/sync_canonical_api.js --check` / `test_docs_currency.js` | N/A (new test) | **58 tools in manifest (56 canonical + 2 deprecated), 0 drift** | **PASSED (100%)** |
 | **Reconcile Presentation Gate** | `rtk node tests/test_reconcile_presentation.js` | N/A (new test) | **Honest scoping & live bounds verified** | **PASSED (100%)** |
 | **Repo-Wide Tool Count Sync** | `rtk node tests/test_tool_count_repo_wide_sync.js` | N/A (new test) | **All tracked repo files matched to 58 tools in manifest (56 canonical + 2 deprecated)** | **PASSED (100%)** |
 | **CI Token Regression Gate** | `rtk node tests/test_token_regression_gate.js` | N/A (new test) | **All 5 token budgets enforced with +10% margin** | **PASSED (100%)** |

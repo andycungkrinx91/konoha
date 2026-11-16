@@ -84,8 +84,8 @@ pnpm add -g konoha-mcp@latest
 konoha init --client=all
 
 # Restore a previous client configuration backup at any time:
-konoha restore --client=cursor
-konoha restore --client=all
+konoha config restore --client=cursor --scope=all
+konoha config restore --client=all --scope=all
 ```
 
 ```powershell

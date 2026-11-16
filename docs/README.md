@@ -12,7 +12,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
 | `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.22 |
 | `architecture/gaps` | [architecture/ARCHITECTURAL-GAPS.md](architecture/ARCHITECTURAL-GAPS.md) | Open architectural gaps and their remediation order |
-| `architecture/issue-13-native-code-intelligence` | [architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md](architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md) | Gate 1 audit, initial schema v6 design, and current schema v7 / `web-tree-sitter` / 8-tool native code intelligence |
+| `architecture/issue-13-native-code-intelligence` | [architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md](architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md) | Gate 1 audit, initial schema v6 design, and native code intelligence (`web-tree-sitter` / 8 `code_*` tools; current DB schema v8) |
 | `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; Section 11.4 is the evidence for the 83–98% context-saving claim |
 | `workflows/diagrams` | [ALL-WORKFLOW-DIAGRAMS.md](ALL-WORKFLOW-DIAGRAMS.md) | End-to-end Mermaid flows for every workflow |
 
@@ -69,6 +69,6 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 ## Conventions
 
 - Live documents only. Dated audit reports, superseded guides, and completed reviews live in `docs/archive/`.
-- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1417), `QA-TEST-CHECKLIST.md` (939), `ARCHITECTURE.md` (918), `TROUBLESHOOTING.md` (814), `MANUAL.md` (1655) — catalogs and checklists whose splitting would fragment embeds or break anchors, and a manual whose chapter order is the render order of the PDF.
+- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1416), `QA-TEST-CHECKLIST.md` (1062), `ARCHITECTURE.md` (967), `TROUBLESHOOTING.md` (880), `CI.md` (785), `MANUAL.md` (1704) — catalogs, CI records, and checklists whose splitting would fragment embeds or break anchors, and a manual whose chapter order is the render order of the PDF.
 - Every internal link resolves; `tests/test_docs_currency.js` walks `README.md` and `docs/**`, and `tests/test_docs_index.js` asserts this index matches the filesystem.
 - `BENCHMARK.md` is generated. `node scripts/generate_benchmark.js --check` fails on manual edits.
