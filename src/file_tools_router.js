@@ -414,16 +414,27 @@ function getServerModule() {
   return _serverModule;
 }
 
+function _formatSkillToolText(raw) {
+  const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  let isError = false;
+  try {
+    const parsed = JSON.parse(text);
+    isError = typeof parsed === 'object' && parsed !== null && parsed.error !== undefined;
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  return { text, isError };
+}
+
+async function runNodeSkillToolAsync(toolName, args) {
+  try {
+    return _formatSkillToolText(await getServerModule().executeTool(toolName, args));
+  } catch (err) {
+    return { error: err.message || String(err), text: JSON.stringify({ error: err.message || String(err) }), isError: true };
+  }
+}
+
 function runNodeSkillTool(toolName, args) {
   try {
-    const server = getServerModule();
-    const text = server.executeToolSync(toolName, args);
-    let isError = false;
-    try {
-      const parsed = JSON.parse(text);
-      isError = typeof parsed === 'object' && parsed !== null && parsed.error !== undefined;
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    return { text, isError };
+    return _formatSkillToolText(getServerModule().executeToolSync(toolName, args));
   } catch (err) {
     return { error: err.message || String(err), text: JSON.stringify({ error: err.message || String(err) }), isError: true };
   }
@@ -494,6 +505,15 @@ const TOOL_HANDLERS = {
 // needs the same guards `dispatchTool` applies before it can hand a graph tool
 // to the LangGraph executor instead of the sync handler table.
 const ASYNC_TOOL_HANDLERS = {
+  sannin: (args) => runNodeSkillToolAsync('sannin', args),
+  kage: (args) => runNodeSkillToolAsync('kage', args),
+  jonin: (args) => runNodeSkillToolAsync('jonin', args),
+  anbu: (args) => runNodeSkillToolAsync('anbu', args),
+  akatsuki: (args) => runNodeSkillToolAsync('akatsuki', args),
+  yamanaka: (args) => runNodeSkillToolAsync('yamanaka', args),
+  chunin: (args) => runNodeSkillToolAsync('chunin', args),
+  tokubetsu_jonin: (args) => runNodeSkillToolAsync('tokubetsu_jonin', args),
+  genin: (args) => runNodeSkillToolAsync('genin', args),
   code_index: (args) => CODE_INTEL_TOOLS.code_index_async(args),
   code_search: (args) => CODE_INTEL_TOOLS.code_search_async(args),
   code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol_async(args),

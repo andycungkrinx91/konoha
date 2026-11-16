@@ -68,7 +68,7 @@ the "83–98%" figure in the CLI banner actually covers.
 
 ### 1.2 The two MCP servers
 
-`konoha init` writes two stdio MCP servers into each harness config. Code search is no longer an external server: `konoha` indexes repositories into its own SQLite schema v7 (`code_*` tables) using Tree-sitter WASM AST parsing, FTS5, and Granite 97M / MiniLM L-6 semantic retrieval, serving `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, and `code_related` in-process.
+`konoha init` writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite schema v7 (`code_*` tables) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
 
 | Server | Launched as | Role |
 |---|---|---|
@@ -296,7 +296,7 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, FTS5 schema v1.1.0
+- `~/.konoha/konoha.db`, 16.3 MB, SQLite schema v7 (43 tables: 31 declared + 12 FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`

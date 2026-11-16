@@ -21,8 +21,10 @@ const {
   classifyExecutionTrack,
   detectParallelWorkstreams,
   dispatchParallelSlices,
+  dispatchParallelSlicesAsync,
   computeFlowHash,
-  runSannin
+  runSannin,
+  runSanninAsync
 } = require('./workflow_sannin');
 
 const {
@@ -146,7 +148,9 @@ module.exports = {
   parseKonohaCommandInvocation,
   routeByKeywordsWithPrompt,
   dispatchParallelSlices,
+  dispatchParallelSlicesAsync,
   runSannin,
+  runSanninAsync,
   computeFlowHash,
   compute_flow_hash: computeFlowHash,
   workflowHash,

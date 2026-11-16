@@ -32,7 +32,7 @@ const { detectActiveAgent, getActiveSessionId } = require('./client_detection');
 const { findSkill, listSkills, getSkill, useSkills, optimizeReport, logToolCall } = require('./skills');
 const { runAntiSlopAudit } = require('./anti_slop');
 const { buildFromSource, buildFromText } = require('./build_spec');
-const { getResolvedTaskDir, runSannin } = require('./workflow');
+const { getResolvedTaskDir, runSannin, runSanninAsync } = require('./workflow');
 const { runWebSearch } = require('./web_search');
 const { runWebsiteAiDetector, runWebsiteAiDetectorSync } = require('./ai_detector');
 const { runDocsAiDetector, runDocsAiDetectorSync } = require('./docs_ai_detector');
@@ -41,6 +41,7 @@ const {
   saveProjectContext,
   queryProjectMemory,
   runMcpAgent,
+  runMcpAgentAsync,
   reportFromAgent
 } = require('./memory_reporting');
 
@@ -195,7 +196,7 @@ function _resolveFlowHash(args, taskDir) {
   return flowHash;
 }
 
-function _dispatchAgentDelegation(toolName, args, callerIdentity) {
+function _dispatchAgentDelegation(toolName, args, callerIdentity, agentRunner = runMcpAgent) {
   if (toolName === 'akatsuki') {
     const akatsukiExplicitLab = Boolean(
       args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow
@@ -209,31 +210,21 @@ function _dispatchAgentDelegation(toolName, args, callerIdentity) {
   }
 
   const delegatable = getCanonicalAgentNames().filter(n => n !== 'sannin');
-  const requested = normalizeAgentName(toolName);
-  if (!delegatable.includes(requested)) {
-    return null;
-  }
+  if (!delegatable.includes(normalizeAgentName(toolName))) return null;
 
-  const task = args.task || args.prompt || args.instructions;
-  const projectPath = args.project_path || getWorkspaceRoot();
-  const taskDir = args.task_dir;
-  const sessId = args.session_id || args.sessionId;
-  const flowHash = _resolveFlowHash(args, taskDir);
-  const worktree = args.worktree || args.worktree_path || null;
-
-  return runMcpAgent(toolName, {
-    task,
+  return agentRunner(toolName, {
+    task: args.task || args.prompt || args.instructions,
     context: args.context,
     constraints: args.constraints,
     skills: args.skills,
     tasteDials: args.taste_dials || args.tasteDials,
-    projectPath,
-    taskDir,
-    sessionId: sessId,
-    flowHash,
+    projectPath: args.project_path || getWorkspaceRoot(),
+    taskDir: args.task_dir,
+    sessionId: args.session_id || args.sessionId,
+    flowHash: _resolveFlowHash(args, args.task_dir),
     taskId: args.task_id || args.taskId || null,
     client: args.client || null,
-    worktree
+    worktree: args.worktree || args.worktree_path || null
   });
 }
 
@@ -358,7 +349,7 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
 
-    const sanninRes = runSannin(prompt, args.task_dir, projPath, sessId, args);
+    const sanninRes = await runSanninAsync(prompt, args.task_dir, projPath, sessId, args);
     let parsedSannin = null;
     try {
       parsedSannin = JSON.parse(sanninRes);
@@ -668,6 +659,11 @@ async function executeTool(toolName, args = {}) {
   const graphRes = await _dispatchWorkflowGraphAsync(toolName, boundedArgs, agent);
   if (graphRes !== null) {
     return typeof graphRes === 'object' ? JSON.stringify(graphRes) : graphRes;
+  }
+
+  const delegationRes = await _dispatchAgentDelegation(toolName, boundedArgs, agent, runMcpAgentAsync);
+  if (delegationRes !== null) {
+    return typeof delegationRes === 'object' ? JSON.stringify(delegationRes) : delegationRes;
   }
 
   const res = _executeToolInternal(toolName, boundedArgs, agent);

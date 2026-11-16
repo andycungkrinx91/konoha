@@ -80,7 +80,9 @@ const CODE_INTELLIGENCE_DDL = `
     target_name TEXT NOT NULL,
     target_symbol_id INTEGER REFERENCES code_symbols(id) ON DELETE SET NULL,
     kind TEXT NOT NULL,
-    line INTEGER NOT NULL
+    line INTEGER NOT NULL,
+    provenance TEXT NOT NULL DEFAULT 'unresolved',
+    confidence REAL NOT NULL DEFAULT 0.35
   );
 
   CREATE TABLE IF NOT EXISTS code_chunks (${CODE_CHUNKS_COLUMNS_SQL}  );
@@ -104,7 +106,8 @@ const CODE_INTELLIGENCE_V7_DDL = `
     target_symbol_id INTEGER REFERENCES code_symbols(id) ON DELETE SET NULL,
     edge_kind TEXT NOT NULL,
     specifier TEXT NOT NULL DEFAULT '',
-    confidence REAL NOT NULL DEFAULT 1.0
+    confidence REAL NOT NULL DEFAULT 1.0,
+    provenance TEXT NOT NULL DEFAULT 'unresolved'
   );
 
   CREATE INDEX IF NOT EXISTS idx_code_chunks_reuse ON code_chunks(root_hash, content_hash, embedding_model);
@@ -116,6 +119,8 @@ const TABLE_INFO_QUERIES = {
   code_index_roots: 'PRAGMA table_info(code_index_roots)',
   code_files: 'PRAGMA table_info(code_files)',
   code_chunks: 'PRAGMA table_info(code_chunks)',
+  code_refs: 'PRAGMA table_info(code_refs)',
+  code_edges: 'PRAGMA table_info(code_edges)',
 };
 
 const V7_ADDITIVE_COLUMNS = [
@@ -169,6 +174,21 @@ const V7_ADDITIVE_COLUMNS = [
     column: 'content_hash',
     alterSql: "ALTER TABLE code_chunks ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''",
   },
+  {
+    table: 'code_refs',
+    column: 'provenance',
+    alterSql: "ALTER TABLE code_refs ADD COLUMN provenance TEXT NOT NULL DEFAULT 'unresolved'",
+  },
+  {
+    table: 'code_refs',
+    column: 'confidence',
+    alterSql: 'ALTER TABLE code_refs ADD COLUMN confidence REAL NOT NULL DEFAULT 0.35',
+  },
+  {
+    table: 'code_edges',
+    column: 'provenance',
+    alterSql: "ALTER TABLE code_edges ADD COLUMN provenance TEXT NOT NULL DEFAULT 'unresolved'",
+  },
 ];
 
 function applyV7AdditiveColumns(conn) {
@@ -179,6 +199,7 @@ function applyV7AdditiveColumns(conn) {
       cols = new Set(conn.prepare(TABLE_INFO_QUERIES[spec.table]).all().map((c) => c.name));
       colsByTable.set(spec.table, cols);
     }
+    if (cols.size === 0) continue;
     if (!cols.has(spec.column)) {
       conn.prepare(spec.alterSql).run();
       cols.add(spec.column);

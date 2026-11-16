@@ -5,7 +5,7 @@ const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_commo
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
 const { superviseLifecycleStage, evaluateWorkerTurn } = require('../../../workflow/kage-reviewer/advisor_monitor');
 const { runAkatsukiFinalGate } = require('../../../workflow/akatsuki/workflows');
-const { runMcpAgent } = require('../../memory_subagent_runner');
+const { runMcpAgentAsync } = require('../../memory_subagent_runner');
 const { normalizeAgentName } = require('../../../canonical_agents');
 const { getActiveClient } = require('../../runtime_state');
 const { detectActiveClient, resolveFirstSpawnClient } = require('../../client_detection');
@@ -37,7 +37,7 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
       typeof getActiveClient === 'function' ? getActiveClient() : null,
       detectActiveClient()
     ], 'universal');
-    const rawMcp = runMcpAgent(targetAgent, {
+    const rawMcp = await runMcpAgentAsync(targetAgent, {
       task: task.task || task.description || `Execute task slice ${task.id}`,
       projectPath,
       taskDir,

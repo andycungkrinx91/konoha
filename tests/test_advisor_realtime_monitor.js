@@ -1,4 +1,5 @@
 'use strict';
+require('./helpers/isolate_db');
 
 /**
  * Verification Suite: Component 7 — Real-Time Idle `@advisor` Worker Manager & Hallucination Guard
@@ -198,10 +199,10 @@ async function runTests() {
   assert.strictEqual(injCall.target_agent, 'anbuid');
   assert.ok(injCall.command.includes("--task 'Stop $(id)"), 'CLI fallback must POSIX single-quote untrusted directive text');
 
-  assert.strictEqual(checkGeninToolAccess('document_create', { agent: 'advisor' }).allowed, false);
-  assert.strictEqual(checkGeninToolAccess('sannin', { agent: 'advisor' }).allowed, false);
-  assert.strictEqual(checkGeninToolAccess('aislop_fix', { agent: 'advisor' }).allowed, false);
-  assert.strictEqual(checkGeninToolAccess('code_search', { agent: 'advisor' }).allowed, true);
+  assert.strictEqual(checkGeninToolAccess('document_create', { agent: 'advisor' }, () => '').allowed, false);
+  assert.strictEqual(checkGeninToolAccess('sannin', { agent: 'advisor' }, () => '').allowed, false);
+  assert.strictEqual(checkGeninToolAccess('aislop_fix', { agent: 'advisor' }, () => '').allowed, false);
+  assert.strictEqual(checkGeninToolAccess('code_search', { agent: 'advisor' }, () => '').allowed, true);
   assert.strictEqual(checkGeninToolAccess('code_remove', { agent: 'anbu' }, () => 'advisor').allowed, false, 'Active @advisor session must stay pinned in read-only mode');
 
   const traversalRes = evaluateWorkerTurn({

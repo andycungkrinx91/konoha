@@ -29,6 +29,15 @@ function isPidAlive(pid) {
   if (!Number.isInteger(num) || num <= 0) return false;
   try {
     process.kill(num, 0);
+    if (process.platform === 'linux') {
+      try {
+        const stat = fs.readFileSync(`/proc/${num}/stat`, 'utf8');
+        const rparen = stat.lastIndexOf(')');
+        if (rparen !== -1 && stat.slice(rparen + 1).trimStart().startsWith('Z')) {
+          return false;
+        }
+      } catch (_) { /* /proc unavailable or process already reaped */ }
+    }
     return true;
   } catch (err) {
     return err && err.code === 'EPERM';
@@ -76,9 +85,19 @@ function sourceFingerprint(root) {
     walk(path.join(root, sub));
   }
 
-  for (const rel of ['package.json', 'pnpm-lock.yaml', path.join('apps', 'web', 'build', 'index.js'), path.join('apps', 'web', 'build', 'build-meta.json')]) {
+  for (const rel of ['package.json', 'pnpm-lock.yaml', path.join('apps', 'web', 'build', 'index.js')]) {
     const full = path.join(root, rel);
     if (fs.existsSync(full)) _updateFileHash(hash, rel, full);
+  }
+  // Hash only build-meta version (ignore volatile builtAt timestamp so repeated
+  // CI web builds hit the restored golden-seed cache).
+  const metaFull = path.join(root, 'apps', 'web', 'build', 'build-meta.json');
+  const buildMeta = _readJsonSafe(metaFull);
+  if (buildMeta && buildMeta.version) {
+    hash.update(path.join('apps', 'web', 'build', 'build-meta.json').replace(/\\/g, '/'));
+    hash.update('\0');
+    hash.update(String(buildMeta.version));
+    hash.update('\0');
   }
 
   // When checksumming `.konoha` itself, include top-level runtime entrypoints (e.g. server.js).

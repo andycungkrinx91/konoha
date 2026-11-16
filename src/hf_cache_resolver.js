@@ -114,10 +114,7 @@ function configureHfEnv(hfEnv, defaultCacheDir = null, defaultAllowRemote = true
 function dirHasModelArtifacts(dir) {
   try {
     if (!fs.existsSync(dir)) return false;
-    if (fs.existsSync(path.join(dir, 'config.json'))) return true;
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (e.isFile() || (e.isDirectory() && fs.readdirSync(path.join(dir, e.name)).length > 0)) return true;
-    }
+    return fs.existsSync(path.join(dir, 'config.json'));
   } catch (_) {
     /* uncached or unreadable */
   }

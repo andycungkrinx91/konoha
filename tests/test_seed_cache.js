@@ -131,5 +131,32 @@ check('pruneStaleSuiteDirs removes dead suite dir only', suiteSweep.removed.incl
 check('pruneStaleSuiteDirs skips live suite dir', suiteSweep.skippedLive.includes(liveSuite) && fs.existsSync(liveSuite));
 fs.rmSync(lcRoot, { recursive: true, force: true });
 
+// Verify sourceFingerprint is invariant across volatile build-meta.json timestamps
+const fpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_fp_meta_'));
+try {
+  fs.mkdirSync(path.join(fpRoot, 'apps', 'web', 'build'), { recursive: true });
+  fs.writeFileSync(path.join(fpRoot, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.22' }));
+  fs.writeFileSync(path.join(fpRoot, 'apps', 'web', 'build', 'index.js'), 'export default {};\n');
+  fs.writeFileSync(
+    path.join(fpRoot, 'apps', 'web', 'build', 'build-meta.json'),
+    JSON.stringify({ version: '2.2.22', builtAt: '2026-01-01T00:00:00.000Z' })
+  );
+  const fpA = lifecycle.sourceFingerprint(fpRoot);
+  fs.writeFileSync(
+    path.join(fpRoot, 'apps', 'web', 'build', 'build-meta.json'),
+    JSON.stringify({ version: '2.2.22', builtAt: '2026-11-16T12:34:56.789Z' })
+  );
+  const fpB = lifecycle.sourceFingerprint(fpRoot);
+  check('sourceFingerprint ignores volatile builtAt in build-meta.json', fpA === fpB);
+  fs.writeFileSync(
+    path.join(fpRoot, 'apps', 'web', 'build', 'build-meta.json'),
+    JSON.stringify({ version: '2.2.23', builtAt: '2026-11-16T12:34:56.789Z' })
+  );
+  const fpC = lifecycle.sourceFingerprint(fpRoot);
+  check('sourceFingerprint still changes when build-meta version changes', fpA !== fpC);
+} finally {
+  fs.rmSync(fpRoot, { recursive: true, force: true });
+}
+
 console.log(`\n${failures.length === 0 ? 'All checks passed' : `Failed: ${failures.join(', ')}`} (${passed} passed, ${failures.length} failed)`);
 process.exit(failures.length === 0 ? 0 : 1);

@@ -221,14 +221,22 @@ function _resolveTargetSymbol(targetName, importedFileIds, byName) {
   return { fileId: candidates[0].file_id, symbolId: candidates[0].id, confidence: 0.6 };
 }
 
+const { parseMetricsJson, resolveEdgeProvenance, resolveRefProvenance } = require('./provenance');
+
 function _applyResolvedEdge(edge, ctx) {
   const srcFile = ctx.fileById.get(edge.source_file_id);
   if (!srcFile) return 0;
+  const srcEngine = parseMetricsJson(srcFile.metrics_json).engine || 'lexer';
 
   if (edge.edge_kind === 'imports' || edge.edge_kind === 'reexports') {
     const hit = resolveModuleSpecifier(srcFile.rel_path, srcFile.language, edge.specifier, ctx.fileByRel, ctx.aliasConfig);
-    if (!hit || hit.fileId === edge.source_file_id) return 0;
-    ctx.updateEdge.run(hit.fileId, edge.target_symbol_id || null, hit.confidence, edge.id);
+    if (!hit || hit.fileId === edge.source_file_id) {
+      const unresolved = resolveEdgeProvenance(srcEngine, false, 0.4);
+      ctx.updateEdge.run(null, null, unresolved.confidence, unresolved.provenance, edge.id);
+      return 0;
+    }
+    const prov = resolveEdgeProvenance(srcEngine, true, hit.confidence);
+    ctx.updateEdge.run(hit.fileId, edge.target_symbol_id || null, prov.confidence, prov.provenance, edge.id);
     if (!ctx.importedByFile.has(edge.source_file_id)) ctx.importedByFile.set(edge.source_file_id, []);
     ctx.importedByFile.get(edge.source_file_id).push(hit.fileId);
     return 1;
@@ -237,11 +245,35 @@ function _applyResolvedEdge(edge, ctx) {
   if (edge.edge_kind === 'extends' || edge.edge_kind === 'implements') {
     const preferredFiles = ctx.importedByFile.get(edge.source_file_id) || [];
     const hit = _resolveTargetSymbol(edge.specifier, preferredFiles, ctx.symbolLookup);
-    if (!hit) return 0;
-    ctx.updateEdge.run(hit.fileId, hit.symbolId, hit.confidence, edge.id);
+    if (!hit) {
+      const unresolved = resolveEdgeProvenance(srcEngine, false, 0.35);
+      ctx.updateEdge.run(null, null, unresolved.confidence, unresolved.provenance, edge.id);
+      return 0;
+    }
+    const prov = resolveEdgeProvenance(srcEngine, true, hit.confidence);
+    ctx.updateEdge.run(hit.fileId, hit.symbolId, prov.confidence, prov.provenance, edge.id);
     return 1;
   }
   return 0;
+}
+
+function _resolveCrossFileRefs(conn, rootHash, ctx) {
+  const refs = conn.prepare('SELECT id, file_id, target_name, target_symbol_id FROM code_refs WHERE root_hash = ?').all(rootHash);
+  const updateRef = conn.prepare('UPDATE code_refs SET target_symbol_id = ?, provenance = ?, confidence = ? WHERE id = ?');
+  for (const ref of refs) {
+    if (ref.target_symbol_id) continue;
+    const srcFile = ctx.fileById.get(ref.file_id);
+    const srcEngine = srcFile ? (parseMetricsJson(srcFile.metrics_json).engine || 'lexer') : 'lexer';
+    const preferredFiles = ctx.importedByFile.get(ref.file_id) || [];
+    const hit = _resolveTargetSymbol(ref.target_name, preferredFiles, ctx.symbolLookup);
+    if (!hit) {
+      const prov = resolveRefProvenance(srcEngine, null, 0.35);
+      updateRef.run(null, prov.provenance, prov.confidence, ref.id);
+      continue;
+    }
+    const prov = resolveRefProvenance(srcEngine, hit.symbolId, hit.confidence);
+    updateRef.run(hit.symbolId, prov.provenance, prov.confidence, ref.id);
+  }
 }
 
 /**
@@ -249,7 +281,7 @@ function _applyResolvedEdge(edge, ctx) {
  * across all files indexed under `rootHash`.
  */
 function resolveEdgesForRoot(conn, rootHash, rootPath, updatedFileIds = null) {
-  const fileRows = conn.prepare('SELECT id, rel_path, language FROM code_files WHERE root_hash = ?').all(rootHash);
+  const fileRows = conn.prepare('SELECT id, rel_path, language, metrics_json FROM code_files WHERE root_hash = ?').all(rootHash);
   if (fileRows.length === 0) return 0;
 
   const fileById = new Map();
@@ -276,7 +308,7 @@ function resolveEdgesForRoot(conn, rootHash, rootPath, updatedFileIds = null) {
   }
 
   const updateEdge = conn.prepare(
-    'UPDATE code_edges SET target_file_id = ?, target_symbol_id = ?, confidence = ? WHERE id = ?'
+    'UPDATE code_edges SET target_file_id = ?, target_symbol_id = ?, confidence = ?, provenance = ? WHERE id = ?'
   );
   const ctx = { fileById, fileByRel, aliasConfig, symbolLookup, importedByFile, updateEdge };
   let resolvedCount = 0;
@@ -285,6 +317,7 @@ function resolveEdgesForRoot(conn, rootHash, rootPath, updatedFileIds = null) {
     for (const edge of edges) {
       resolvedCount += _applyResolvedEdge(edge, ctx);
     }
+    _resolveCrossFileRefs(conn, rootHash, ctx);
   });
   tx();
   return resolvedCount;

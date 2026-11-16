@@ -219,63 +219,85 @@ function buildRecallSnippet(agentName, projectPath, query) {
  * Everything a delegated subagent needs to start without a discovery turn:
  * bounded skills, its own soul, and project recall.
  */
+function _unwrapCodeIntel(retrieved) {
+  return retrieved && retrieved.available && retrieved.text ? retrieved : null;
+}
+
+function _geninRetrievalArgs(projectPath, prompt, agentName) {
+  return { projectPath, query: prompt, agentName, maxChars: 900, maxHits: 4 };
+}
+
 function _loadGeninCodeIntelBlock(agentName, projectPath, prompt) {
   if (agentName !== 'genin' || !projectPath) return null;
   try {
     const { retrieveUnifiedContextSync } = require('../code_intel/genin_retrieval');
-    const retrieved = retrieveUnifiedContextSync({
-      projectPath,
-      query: prompt,
-      agentName,
-      maxChars: 900,
-      maxHits: 4
-    });
-    return retrieved && retrieved.available && retrieved.text ? retrieved : null;
+    return _unwrapCodeIntel(retrieveUnifiedContextSync(_geninRetrievalArgs(projectPath, prompt, agentName)));
   } catch (_) {
     return null;
   }
 }
 
-function buildDelegationEnvelope({ agentName, projectPath, prompt = '', routedSkills = [] } = {}) {
+async function _loadGeninCodeIntelBlockAsync(agentName, projectPath, prompt) {
+  if (agentName !== 'genin' || !projectPath) return null;
+  try {
+    const { retrieveUnifiedContextAsync } = require('../code_intel/genin_retrieval');
+    return _unwrapCodeIntel(await retrieveUnifiedContextAsync(_geninRetrievalArgs(projectPath, prompt, agentName)));
+  } catch (_) {
+    return null;
+  }
+}
+
+function _prepareDelegationEnvelope({ agentName, projectPath, prompt = '', routedSkills = [] } = {}) {
   const skillAuthz = require('../skill_authorization');
   const isAllowed = (s) => skillAuthz.authorizeSkillAccess({ skillName: s, agentName }).authorized;
   const permitted = Array.isArray(routedSkills) ? routedSkills.filter(isAllowed) : [];
   const blocked = Array.isArray(routedSkills) ? routedSkills.filter((s) => !isAllowed(s)) : [];
   const skills = permitted.slice(0, MAX_ENVELOPE_SKILLS);
-  const droppedSkills = permitted
-    .filter((s) => !skills.includes(s))
-    .concat(blocked);
+  const droppedSkills = permitted.filter((s) => !skills.includes(s)).concat(blocked);
   const soul = buildSoulSnippet(agentName, projectPath);
   const recall = buildRecallSnippet(agentName, projectPath, prompt);
-  const codeIntelBlock = _loadGeninCodeIntelBlock(agentName, projectPath, prompt);
+  return { agentName, skills, droppedSkills, blocked, soul, recall };
+}
+
+function _finalizeDelegationEnvelope(prep, codeIntelBlock) {
   const lines = [];
-  lines.push(`### Delegation Envelope for \`${agentName}\``);
-  lines.push(`- Bound skills (${skills.length}/${MAX_ENVELOPE_SKILLS}): ${skills.length > 0 ? skills.map((s) => `\`${s}\``).join(', ') : 'soul-bound defaults only'}`);
-  if (droppedSkills.length > 0) {
-    lines.push(`- On-demand skills (load with \`konoha.use_skills\` only if needed): ${droppedSkills.map((s) => `\`${s}\``).join(', ')}`);
+  lines.push(`### Delegation Envelope for \`${prep.agentName}\``);
+  lines.push(`- Bound skills (${prep.skills.length}/${MAX_ENVELOPE_SKILLS}): ${prep.skills.length > 0 ? prep.skills.map((s) => `\`${s}\``).join(', ') : 'soul-bound defaults only'}`);
+  if (prep.droppedSkills.length > 0) {
+    lines.push(`- On-demand skills (load with \`konoha.use_skills\` only if needed): ${prep.droppedSkills.map((s) => `\`${s}\``).join(', ')}`);
   }
-  if (blocked.length > 0) {
-    lines.push(`- Authorization: ${blocked.map((s) => `\`${s}\``).join(', ')} withheld — SKILL_AUTHORIZATION_DENIED (red skills are @akatsuki-only)`);
+  if (prep.blocked.length > 0) {
+    lines.push(`- Authorization: ${prep.blocked.map((s) => `\`${s}\``).join(', ')} withheld — SKILL_AUTHORIZATION_DENIED (red skills are @akatsuki-only)`);
   }
-  lines.push(`- Soul excerpt: ${soul ? soul.replace(/\n+/g, ' | ') : 'unavailable — follow the inlined discipline contract'}`);
-  if (recall.length > 0) {
-    lines.push(`- Project recall (${recall.length} item(s)):`);
-    lines.push(recall.join('\n'));
+  lines.push(`- Soul excerpt: ${prep.soul ? prep.soul.replace(/\n+/g, ' | ') : 'unavailable — follow the inlined discipline contract'}`);
+  if (prep.recall.length > 0) {
+    lines.push(`- Project recall (${prep.recall.length} item(s)):`);
+    lines.push(prep.recall.join('\n'));
   } else {
     lines.push('- Project recall: none recorded for this project yet');
   }
-  if (codeIntelBlock) {
-    lines.push(codeIntelBlock.text.trimEnd());
-  }
+  if (codeIntelBlock) lines.push(codeIntelBlock.text.trimEnd());
   return {
-    agent: agentName,
-    skills,
-    dropped_skills: droppedSkills,
-    soul: soul || null,
-    recall,
+    agent: prep.agentName,
+    skills: prep.skills,
+    dropped_skills: prep.droppedSkills,
+    soul: prep.soul || null,
+    recall: prep.recall,
     ...(codeIntelBlock ? { code_intel: codeIntelBlock } : {}),
     text: lines.join('\n')
   };
+}
+
+function buildDelegationEnvelope(opts = {}) {
+  const prep = _prepareDelegationEnvelope(opts);
+  const codeIntelBlock = _loadGeninCodeIntelBlock(opts.agentName, opts.projectPath, opts.prompt);
+  return _finalizeDelegationEnvelope(prep, codeIntelBlock);
+}
+
+async function buildDelegationEnvelopeAsync(opts = {}) {
+  const prep = _prepareDelegationEnvelope(opts);
+  const codeIntelBlock = await _loadGeninCodeIntelBlockAsync(opts.agentName, opts.projectPath, opts.prompt);
+  return _finalizeDelegationEnvelope(prep, codeIntelBlock);
 }
 
 
@@ -289,6 +311,7 @@ module.exports = {
   decideRoute,
   formatRouteLine,
   buildDelegationEnvelope,
+  buildDelegationEnvelopeAsync,
   buildSpawnDirective,
   buildParallelSpawnDirective
 };

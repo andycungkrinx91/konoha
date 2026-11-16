@@ -32,18 +32,15 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
    by the suite job, and an unbounded Hugging Face download here would turn a
    network hiccup into a fake cross-platform failure.
 
-`test` — 29 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
+`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 29 test shards.
+
+`test` — `needs: [seed]`, 29 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm --filter konoha-web build` — before the seed, because `konoha init` builds the
-   UI on demand when no build of the current version exists; with the repo build
-   present the seed copies it instead of running a second SvelteKit build.
-3. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
-   --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
+2. Restore Hugging Face model cache (`node_modules/@huggingface/transformers/.cache`, `~/.cache/huggingface`, `~/.konoha/models`) and run `pnpm --filter konoha-web build` (with deterministic `SOURCE_DATE_EPOCH`) — before the seed fallback, because `konoha init` builds the UI on demand when no build of the current version exists; with the repo build present the seed copies it instead of running a second SvelteKit build.
+3. Restore the golden seed cache built by `seed` (or build on fallback miss with `KONOHA_SEED_DIR`, cross-skill batched embeddings, `KONOHA_SKIP_UV_INSTALL=1`, `KONOHA_SKIP_RTK_INSTALL=1`).
 4. Playwright browsers (cached) and the ffmpeg `libwebp_anim` check.
-5. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the
-   harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing
-   the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
+5. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
 
 The code-intelligence suites (`tests/test_code_intel_*.js`) need nothing beyond that list: the
 engine is in-process over `node:sqlite`, so CI installs no Python, no `uvx`, and no language
@@ -69,7 +66,7 @@ The compatibility direction matters: green on 26.04 does not prove a developer m
 on 22.04. It holds today because no addon is compiled at install time; the day one is,
 its artifact would require the runner's glibc and break older hosts. If 22.04 support
 ever becomes a promise, add one unsharded `ubuntu-22.04` leg rather than a ninth shard
-per release — a run is already 32 jobs (`3 checks + 29 test shards`) against a 20-job plan cap.
+per release — a run is already 35 jobs (`3 checks + 3 seed + 29 test shards`) against a 20-job plan cap.
 
 
 ## Duration budget
@@ -105,7 +102,7 @@ steps are fast (a seed cache hit is 0.4 s, the web build is seconds), but a host
 is slower and the seed restore pulls ~400 MB out of the cache. Treat it as a minute or
 two, not as a number.
 
-A run is 3 `checks` jobs plus 29 shard jobs (`32` total). A Free plan capped at 20 concurrent
+A run is 3 `checks` jobs, 3 `seed` jobs, plus 29 shard jobs (`35` total). A Free plan capped at 20 concurrent
 jobs (and 5 concurrent macOS jobs) queues the surplus beyond 20, though `ubuntu-latest` and
 `macos-latest` complete early and yield slots to the remaining `windows-latest` shards — so
 if a run looks slower than the sum of its steps, read the queue time before reading it as a

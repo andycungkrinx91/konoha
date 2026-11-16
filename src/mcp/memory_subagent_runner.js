@@ -320,32 +320,29 @@ function _loadSkillsContent(skillsList, agentName) {
   return skillsContent;
 }
 
+function _loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId) {
+  let projProfile = personaMemory.getProjectProfile(resolvedProjPath);
+  if (!projProfile) {
+    const pHash = personaMemory.saveOrUpdateProject(resolvedProjPath);
+    projProfile = personaMemory.getProjectProfile(pHash);
+  }
+  const projMems = personaMemory.queryMemories({
+    agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2
+  });
+  return personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
+}
+
 function _formatProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId) {
   try {
     let retrievalBlock = '';
     if (dbAgentName === 'genin') {
       const retrieved = retrieveUnifiedContextSync({
-        projectPath: resolvedProjPath,
-        query: instructions,
-        agentName: dbAgentName,
-        sessionId: resolvedSessionId,
-        maxChars: 1100,
-        maxHits: 4
+        projectPath: resolvedProjPath, query: instructions, agentName: dbAgentName,
+        sessionId: resolvedSessionId, maxChars: 1100, maxHits: 4
       });
-      if (retrieved && retrieved.available && retrieved.text) {
-        retrievalBlock = retrieved.text;
-      }
+      if (retrieved && retrieved.available && retrieved.text) retrievalBlock = retrieved.text;
     }
-    let projProfile = personaMemory.getProjectProfile(resolvedProjPath);
-    if (!projProfile) {
-      const pHash = personaMemory.saveOrUpdateProject(resolvedProjPath);
-      projProfile = personaMemory.getProjectProfile(pHash);
-    }
-    const projMems = personaMemory.queryMemories({
-      agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2
-    });
-    const baseCtx = personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
-    return `${baseCtx}${retrievalBlock}`;
+    return `${_loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId)}${retrievalBlock}`;
   } catch (_) {
     return '';
   }
@@ -535,7 +532,7 @@ function _buildFixedTailBlocks(dbAgentName, skillsList, flowHash) {
   return `${dualBoundaryAnchor}${executionProtocol}`;
 }
 
-function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
+function _prepareAgentRun(agentName, task = null, context = null, constraints = null, rest = []) {
   const opts = _parseTaskOptions(task, context, constraints, rest);
   const resolvedProjPath = opts.projectPath || getWorkspaceRoot() || process.cwd();
   const cd = require('./client_detection');
@@ -545,18 +542,20 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   getAndIncrementSessionTurn(getSessionKey(resolvedProjPath, resolvedSessionId));
 
   if (!opts.task || typeof opts.task !== 'string' || !opts.task.trim() || /\b(read|check|load|process|open)\s+(prompt\.md|delegate\.md)\b/i.test(opts.task)) {
-    return JSON.stringify({
-      status: 'error',
-      reason: 'retired_file_ipc',
-      error: 'File-based IPC (delegate.md / prompt.md) is retired and rejected. Pass task instructions, context, constraints, and skills via direct structured MCP arguments.'
-    });
+    return {
+      earlyReturn: JSON.stringify({
+        status: 'error',
+        reason: 'retired_file_ipc',
+        error: 'File-based IPC (delegate.md / prompt.md) is retired and rejected. Pass task instructions, context, constraints, and skills via direct structured MCP arguments.'
+      })
+    };
   }
 
   const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(opts.task, resolvedProjPath);
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
-    return JSON.stringify({ status: 'blocked', phase: 'dor', message: 'DoR check failed in enforced mode.', missing: dorResult.missing, dor_result: dorResult });
+    return { earlyReturn: JSON.stringify({ status: 'blocked', phase: 'dor', message: 'DoR check failed in enforced mode.', missing: dorResult.missing, dor_result: dorResult }) };
   }
 
   let instructions = _buildTaskInstructions(opts, dorResult);
@@ -596,11 +595,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     try { if (conn) conn.close(); } catch (_) { /* best-effort */ }
   }
   if (deniedSkillBlock) {
-    return JSON.stringify({
-      status: 'blocked', phase: 'skill_authorization', agent: dbAgentName,
-      flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
-      ...deniedSkillBlock.denied
-    });
+    return {
+      earlyReturn: JSON.stringify({
+        status: 'blocked', phase: 'skill_authorization', agent: dbAgentName,
+        flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
+        ...deniedSkillBlock.denied
+      })
+    };
   }
 
   if (opts.taskId) {
@@ -609,88 +610,86 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       const existingEvidence = (existingTask && typeof existingTask.evidence === 'object' && existingTask.evidence !== null) ? existingTask.evidence : {};
       sdlcManager.updateTask(opts.taskId, {
         status: 'in_progress',
-        evidence: {
-          ...existingEvidence,
-          active_agent: dbAgentName,
-          phase: 'execution',
-          project_path: resolvedProjPath,
-          skills_bound: skillsList
-        }
+        evidence: { ...existingEvidence, active_agent: dbAgentName, phase: 'execution', project_path: resolvedProjPath, skills_bound: skillsList }
       });
     } catch (_) { /* ignore */ }
   }
-
   let soulBehaviorBlock = '';
   try {
     const soulInfo = personaMemory.getSoul({ agentName: dbAgentName, projectPath: resolvedProjPath });
     if (soulInfo?.behavior_directive) soulBehaviorBlock = `${soulInfo.behavior_directive}\n`;
   } catch (_) { /* ignore */ }
+  return {
+    agentName, opts, dbAgentName, spawnClient, resolvedProjPath, resolvedSessionId, sdlcConfig, effTaskDir, steerCtx, meta, skillsList,
+    instructions, skillsContent: _loadSkillsContent(skillsList, agentName), soulBehaviorBlock,
+    tasteSkillBlock: dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '',
+    docDesignBlock: dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : ''
+  };
+}
 
-  const skillsContent = _loadSkillsContent(skillsList, agentName);
-  const projectContextBlock = _formatProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId);
-  const tasteSkillBlock = dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '';
-  const docDesignBlock = dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : '';
-
+function _finalizeAgentRun(p, projectContextBlock) {
+  let { instructions } = p;
   const turnEnvelope = prepareAgentTurnEnvelope({
-    opts, dbAgentName, spawnClient, resolvedProjPath, resolvedSessionId, sdlcConfig, effTaskDir, instructions,
-    extraBytes: Buffer.byteLength(skillsContent + projectContextBlock, 'utf8'),
+    opts: p.opts, dbAgentName: p.dbAgentName, spawnClient: p.spawnClient, resolvedProjPath: p.resolvedProjPath,
+    resolvedSessionId: p.resolvedSessionId, sdlcConfig: p.sdlcConfig, effTaskDir: p.effTaskDir, instructions,
+    extraBytes: Buffer.byteLength(p.skillsContent + projectContextBlock, 'utf8'),
     todoHelpers: { syncTodoAndWalkthrough, formatTodoSyncBlock, markAgentTodoInProgress },
     workflowHelpers: { loadWorkflowStatus, saveWorkflowStatus }
   });
   instructions = turnEnvelope.instructions;
   const { todoSync, quotaCheck } = turnEnvelope;
-
   let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
   const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
-  const fixedTail = _buildFixedTailBlocks(dbAgentName, skillsList, opts.flowHash);
+  const fixedTail = _buildFixedTailBlocks(p.dbAgentName, p.skillsList, p.opts.flowHash);
   if (Buffer.byteLength(fixedTail + taskBlock, 'utf8') > tailCeiling) {
-    const room = tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24;
-    instructions = truncateAtBoundary(instructions, Math.max(0, room));
+    instructions = truncateAtBoundary(instructions, Math.max(0, tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24));
     taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
   }
   const tailBlocks = `${fixedTail}${taskBlock}`;
-  const isChildWorker = Boolean(opts.isChildWorker || process.env.KONOHA_IS_CHILD_WORKER === '1');
+  const isChildWorker = Boolean(p.opts.isChildWorker || process.env.KONOHA_IS_CHILD_WORKER === '1');
   const systemPrompt = _assembleSystemPrompt({
-    dbAgentName, title: meta.title, purpose: meta.purpose, agentConstraints: meta.agentConstraints,
-    personaInstructions: meta.personaInstructions, projectContextBlock, soulBehaviorBlock,
-    tasteSkillBlock, docDesignBlock, skillsList, skillsContent, effFlowHash: opts.flowHash, agentName,
-    client: spawnClient, resolvedProjPath, instructions, rawTask: opts.task, isChildWorker, piSubagentSupported: opts.piSubagentSupported,
+    dbAgentName: p.dbAgentName, title: p.meta.title, purpose: p.meta.purpose, agentConstraints: p.meta.agentConstraints,
+    personaInstructions: p.meta.personaInstructions, projectContextBlock, soulBehaviorBlock: p.soulBehaviorBlock,
+    tasteSkillBlock: p.tasteSkillBlock, docDesignBlock: p.docDesignBlock, skillsList: p.skillsList, skillsContent: p.skillsContent,
+    effFlowHash: p.opts.flowHash, agentName: p.agentName, client: p.spawnClient, resolvedProjPath: p.resolvedProjPath,
+    instructions, rawTask: p.opts.task, isChildWorker, piSubagentSupported: p.opts.piSubagentSupported,
     maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
-  const resolvedWorktreePath = opts.worktree ? (typeof opts.worktree === 'string' ? opts.worktree : opts.worktree.worktree_path) : undefined;
+  const resolvedWorktreePath = p.opts.worktree ? (typeof p.opts.worktree === 'string' ? p.opts.worktree : p.opts.worktree.worktree_path) : undefined;
   const { spawnDirective, spawnError } = _resolveSpawnDirective({
-    isChildWorker, client: spawnClient, agent: dbAgentName, skills: skillsList,
-    projectPath: resolvedWorktreePath || resolvedProjPath, prompt: opts.task,
-    worktree: opts.worktree, piSubagentSupported: opts.piSubagentSupported
+    isChildWorker, client: p.spawnClient, agent: p.dbAgentName, skills: p.skillsList,
+    projectPath: resolvedWorktreePath || p.resolvedProjPath, prompt: p.opts.task,
+    worktree: p.opts.worktree, piSubagentSupported: p.opts.piSubagentSupported
   });
   if (spawnError && spawnError.code === 'SKILL_AUTHORIZATION_DENIED') {
-    return JSON.stringify({ status: 'blocked', phase: 'skill_authorization', agent: dbAgentName, ...spawnError });
+    return JSON.stringify({ status: 'blocked', phase: 'skill_authorization', agent: p.dbAgentName, ...spawnError });
   }
   const res = JSON.stringify({
-    status: spawnError ? 'unsupported_native_spawn' : 'ready',
-    phase: 'execution', agent: dbAgentName, model: meta.assignedModel,
-    mandatory_next_step: dbAgentName === 'kage' ? 'delivery' : 'kage_review',
-    flow_hash: opts.flowHash || undefined, project_path: resolvedProjPath, session_id: resolvedSessionId,
-    task_dir: effTaskDir, worktree_path: resolvedWorktreePath,
-    spawn_directive: spawnDirective,
-    spawn_error: spawnError,
-    advisor_steers_delivered: steerCtx.pending.length > 0 ? steerCtx.pending : undefined,
+    status: spawnError ? 'unsupported_native_spawn' : 'ready', phase: 'execution', agent: p.dbAgentName, model: p.meta.assignedModel,
+    mandatory_next_step: p.dbAgentName === 'kage' ? 'delivery' : 'kage_review', flow_hash: p.opts.flowHash || undefined,
+    project_path: p.resolvedProjPath, session_id: p.resolvedSessionId, task_dir: p.effTaskDir, worktree_path: resolvedWorktreePath,
+    spawn_directive: spawnDirective, spawn_error: spawnError,
+    advisor_steers_delivered: p.steerCtx.pending.length > 0 ? p.steerCtx.pending : undefined,
     todos: todoSync.todos, walkthrough_steps: todoSync.walkthrough_steps,
-    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck,
-    instructions: instruction
+    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck, instructions: instruction
   });
-  logToolCall(agentName, `project_path=${resolvedProjPath} session_id=${resolvedSessionId} task_dir=${effTaskDir}`, res, dbAgentName);
+  logToolCall(p.agentName, `project_path=${p.resolvedProjPath} session_id=${p.resolvedSessionId} task_dir=${p.effTaskDir}`, res, p.dbAgentName);
   return res;
 }
 
+function runMcpAgent(agentName, task = null, context = null, constraints = null, ...rest) {
+  const prep = _prepareAgentRun(agentName, task, context, constraints, rest);
+  if (prep.earlyReturn) return prep.earlyReturn;
+  return _finalizeAgentRun(prep, _formatProjectContext(prep.dbAgentName, prep.instructions, prep.resolvedProjPath, prep.resolvedSessionId));
+}
+
+async function runMcpAgentAsync(agentName, task = null, context = null, constraints = null, ...rest) {
+  return require('./memory_subagent_async').runMcpAgentAsync(agentName, task, context, constraints, ...rest);
+}
+
 module.exports = {
-  getMainModel,
-  applyFileEdits,
-  autoloadSkillsFromPrompt,
-  buildSubagentMcpBlock,
-  buildResearchFetchRule,
-  truncateAtBoundary,
-  cleanRedundantPersonaText,
-  runMcpAgent
+  getMainModel, applyFileEdits, autoloadSkillsFromPrompt, buildSubagentMcpBlock,
+  buildResearchFetchRule, truncateAtBoundary, cleanRedundantPersonaText,
+  _loadBaseProjectContext, _prepareAgentRun, _finalizeAgentRun, runMcpAgent, runMcpAgentAsync
 };

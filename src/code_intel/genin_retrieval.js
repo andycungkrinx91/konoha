@@ -309,29 +309,63 @@ function _formatUnifiedContext({ fresh, hits, symbols, impact, lspEnrich, memori
   return { text, budgetUsed: text.length, maxChars: cap };
 }
 
+function _fallbackTerms(rawQuery, effQuery) {
+  const candidates = _extractCandidateSymbols(rawQuery);
+  return [...new Set([...candidates, ...effQuery.split(/\s+/).filter((t) => t.length >= 2)])].slice(0, 6);
+}
+
+function _mergeUniqueHits(merged, seen, hits, limit) {
+  for (const hit of hits || []) {
+    const key = `${hit.relPath}:${hit.startLine}:${hit.endLine}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(hit);
+    if (merged.length >= limit) return true;
+  }
+  return false;
+}
+
 function _searchSyncWithFallback(conn, absRoot, rawQuery, effQuery, limit) {
   if (!effQuery) return { hits: [], total: 0, degraded: false };
   const primary = queryEngine.search({ rootPath: absRoot, query: effQuery, conn, limit });
   if (primary && Array.isArray(primary.hits) && primary.hits.length > 0) return primary;
 
-  const candidates = _extractCandidateSymbols(rawQuery);
-  const terms = [...new Set([...candidates, ...effQuery.split(/\s+/).filter((t) => t.length >= 2)])];
   const merged = [];
   const seen = new Set();
   let degraded = Boolean(primary && primary.degraded);
-  for (const term of terms.slice(0, 6)) {
+  for (const term of _fallbackTerms(rawQuery, effQuery)) {
     const res = queryEngine.search({ rootPath: absRoot, query: term, conn, limit });
     if (res && res.degraded) degraded = true;
-    for (const hit of (res && res.hits) || []) {
-      const key = `${hit.relPath}:${hit.startLine}:${hit.endLine}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push(hit);
-      if (merged.length >= limit) break;
-    }
-    if (merged.length >= limit) break;
+    if (_mergeUniqueHits(merged, seen, res && res.hits, limit)) break;
   }
   return { query: effQuery, hits: merged, total: merged.length, degraded };
+}
+
+async function _searchAsyncWithFallback(conn, absRoot, rawQuery, effQuery, limit) {
+  if (!effQuery) return { hits: [], total: 0, degraded: false, semantic_applied: false, reranked: false };
+  const primary = await queryEngine.searchAsync({ rootPath: absRoot, query: effQuery, conn, limit });
+  if (primary && Array.isArray(primary.hits) && primary.hits.length > 0) return primary;
+
+  const merged = [];
+  const seen = new Set();
+  let degraded = Boolean(primary && primary.degraded);
+  let semanticApplied = Boolean(primary && primary.semantic_applied);
+  let reranked = Boolean(primary && primary.reranked);
+  for (const term of _fallbackTerms(rawQuery, effQuery)) {
+    const res = await queryEngine.searchAsync({ rootPath: absRoot, query: term, conn, limit });
+    if (res && res.degraded) degraded = true;
+    if (res && res.semantic_applied) semanticApplied = true;
+    if (res && res.reranked) reranked = true;
+    if (_mergeUniqueHits(merged, seen, res && res.hits, limit)) break;
+  }
+  return {
+    query: effQuery,
+    hits: merged,
+    total: merged.length,
+    degraded,
+    semantic_applied: semanticApplied,
+    reranked
+  };
 }
 
 function _prepareRetrievalPostIndex(conn, absRoot, fresh, options) {
@@ -448,9 +482,13 @@ async function retrieveUnifiedContextAsync(options = {}) {
     const prep = _prepareRetrievalPostIndex(conn, absRoot, fresh, options);
     if (prep.errorResult) return prep.errorResult;
 
-    const searchRes = prep.effQuery
-      ? await queryEngine.searchAsync({ rootPath: absRoot, query: prep.effQuery, conn, limit: options.maxHits || DEFAULT_MAX_HITS })
-      : { hits: [], total: 0, degraded: false };
+    const searchRes = await _searchAsyncWithFallback(
+      conn,
+      absRoot,
+      options.query,
+      prep.effQuery,
+      options.maxHits || DEFAULT_MAX_HITS
+    );
     const { symbols, impact } = _queryMatchingSymbols(conn, absRoot, options.query, searchRes.hits || []);
     let lspEnrich = null;
     if (options.lsp !== false && symbols.length > 0) {
@@ -474,7 +512,13 @@ async function retrieveUnifiedContextAsync(options = {}) {
       lspEnrich,
       memories,
       maxChars: options.maxChars,
-      extraFields: { lsp: lspEnrich, degraded: Boolean(searchRes.degraded) }
+      extraFields: {
+        mode: 'async',
+        semantic_applied: Boolean(searchRes.semantic_applied),
+        reranked: Boolean(searchRes.reranked),
+        lsp: lspEnrich,
+        degraded: Boolean(searchRes.degraded)
+      }
     });
   } catch (err) {
     return { available: false, reason: err.message || 'retrieval_failed', text: '' };

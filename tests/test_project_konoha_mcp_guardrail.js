@@ -11,7 +11,6 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const GUARD_CLI = path.join(REPO_ROOT, 'scripts', 'konoha_project_mcp_guard.js');
-const PLUGIN_DIR = path.join(REPO_ROOT, '.agents', 'plugins', 'konoha-mcp-guard');
 
 const {
   SUPPORTED_HARNESSES,
@@ -19,9 +18,25 @@ const {
   findKonohaRepoRoot,
   evaluateProjectMcpGuardrail,
   formatHarnessDecision,
-  createHarnessInterceptor
+  createHarnessInterceptor,
+  ensureProjectKonohaGuardPlugin
 } = require('../src/project_konoha_mcp_guardrail');
 
+function createTempKonohaFixture(prefix) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const dirType = process.platform === 'win32' ? 'junction' : 'dir';
+  fs.symlinkSync(path.join(REPO_ROOT, 'src'), path.join(dir, 'src'), dirType);
+  fs.symlinkSync(path.join(REPO_ROOT, 'bin'), path.join(dir, 'bin'), dirType);
+  fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.22' }));
+  fs.copyFileSync(GUARD_CLI, path.join(dir, 'scripts', 'konoha_project_mcp_guard.js'));
+  return dir;
+}
+
+const TEMP_PLUGIN_REPO = createTempKonohaFixture('konoha-guard-plugin-');
+const TEMP_ENSURED = ensureProjectKonohaGuardPlugin(TEMP_PLUGIN_REPO);
+assert.strictEqual(TEMP_ENSURED.ok, true, 'ensureProjectKonohaGuardPlugin must materialize plugin files in a clean checkout');
+const PLUGIN_DIR = TEMP_ENSURED.pluginDir;
 const pluginGuard = require(path.join(PLUGIN_DIR, 'guard.js'));
 
 function runTest(name, fn) {
@@ -144,6 +159,22 @@ runTest('5. Plugin manifest, hooks.json, JS interceptors, and CLI runner work en
   const hooksCfg = JSON.parse(fs.readFileSync(path.join(PLUGIN_DIR, 'hooks.json'), 'utf8'));
   assert.ok(hooksCfg['konoha-mcp-guard'] && hooksCfg['konoha-mcp-guard'].enabled === true);
 
+  // Real generated guard.js interceptors deny inside the materialized Konoha repo root
+  const generatedAgy = pluginGuard.interceptors.antigravity({
+    cwd: TEMP_PLUGIN_REPO,
+    tool_name: 'grep_search',
+    tool_input: { SearchPath: TEMP_PLUGIN_REPO, Query: 'runSannin' }
+  });
+  assert.strictEqual(generatedAgy.decision, 'deny');
+  assert.throws(
+    () => pluginGuard.interceptors.opencode({
+      cwd: TEMP_PLUGIN_REPO,
+      tool_name: 'Grep',
+      tool_input: { pattern: 'x', path: TEMP_PLUGIN_REPO }
+    }),
+    /KONOHA_MCP_REQUIRED_SEARCH|rejected in the Konoha repository/i
+  );
+
   // OpenCode plugin throws on deny
   const openCodeHook = createHarnessInterceptor('opencode', { projectRoot: REPO_ROOT });
   assert.throws(
@@ -216,3 +247,5 @@ runTest('6. ensureProjectKonohaGuardPlugin skips user repos and supports copied 
     fs.rmSync(fakeKonoha, { recursive: true, force: true });
   }
 });
+
+fs.rmSync(TEMP_PLUGIN_REPO, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

@@ -47,6 +47,11 @@ const {
   reciprocalRankFusion
 } = require('./vector_chunker');
 
+const {
+  indexSingleSkillChunks,
+  backfillAllEmbeddings
+} = require('./vector_backfill');
+
 const FTS_STOP_WORDS = new Set([
   'dan', 'atau', 'yang', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'adalah', 'ini', 'itu',
   'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were'
@@ -526,133 +531,6 @@ async function findSkillHybrid(conn, query, options = {}) {
 
   sortSkillSearchResults(results, cleanQuery.toLowerCase());
   return results.slice(0, topK);
-}
-
-function recordCachedChunkRow(r, localCache) {
-  if (r.chunk_text && r.embedding && r.embedding.length === VECTOR_DIMENSION * 4) {
-    localCache.set(r.chunk_text, r.embedding);
-  }
-}
-
-function loadSkillChunkEmbedCache(conn, skillName) {
-  const localCache = new Map();
-  try {
-    const existing = conn.prepare(
-      "SELECT chunk_text, embedding FROM skill_chunks WHERE skill_name = ? AND embedding IS NOT NULL"
-    ).all(skillName);
-    for (const r of existing) recordCachedChunkRow(r, localCache);
-  } catch (_) { /* intentional fallback */ }
-  return localCache;
-}
-
-function _lookupGlobalReusableChunkBlobs(conn, texts) {
-  const reusable = new Map();
-  if (!texts.length) return reusable;
-  const BATCH = 64;
-  for (let i = 0; i < texts.length; i += BATCH) {
-    const slice = texts.slice(i, i + BATCH);
-    const placeholders = slice.map(() => '?').join(',');
-    const rows = conn.prepare(`
-      SELECT chunk_text, embedding
-      FROM skill_chunks
-      WHERE chunk_text IN (${placeholders}) AND embedding IS NOT NULL
-    `).all(...slice);
-    for (const r of rows) {
-      if (r.chunk_text && r.embedding && r.embedding.length === VECTOR_DIMENSION * 4 && !reusable.has(r.chunk_text)) {
-        reusable.set(r.chunk_text, r.embedding);
-      }
-    }
-  }
-  return reusable;
-}
-
-async function indexSingleSkillChunks(conn, skillName, content) {
-  const chunks = chunkDocument(content);
-  if (!chunks.length) {
-    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(skillName);
-    return 0;
-  }
-
-  const localCache = loadSkillChunkEmbedCache(conn, skillName);
-  const missingUnique = [];
-  const missingSeen = new Set();
-  for (const [, chunkText] of chunks) {
-    const blob = localCache.get(chunkText);
-    if (!blob || blob.length !== VECTOR_DIMENSION * 4) {
-      if (!missingSeen.has(chunkText)) {
-        missingSeen.add(chunkText);
-        missingUnique.push(chunkText);
-      }
-    }
-  }
-
-  const globalReuse = _lookupGlobalReusableChunkBlobs(conn, missingUnique);
-  const needInference = missingUnique.filter((t) => !globalReuse.has(t));
-  const computedBlobs = new Map();
-
-  if (needInference.length > 0 && isSemanticSearchEnabled()) {
-    const vecs = await embedBatch(needInference, { batchSize: 16 });
-    for (let i = 0; i < needInference.length; i++) {
-      const vec = vecs[i];
-      if (!vec || vec.length !== VECTOR_DIMENSION) {
-        throw new Error(`Embedding dimension mismatch: expected ${VECTOR_DIMENSION}, got ${vec ? vec.length : 0}`);
-      }
-      computedBlobs.set(needInference[i], Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength));
-    }
-  }
-
-  const resolved = chunks.map(([idx, chunkText]) => {
-    const blob =
-      (localCache.get(chunkText) && localCache.get(chunkText).length === VECTOR_DIMENSION * 4 ? localCache.get(chunkText) : null) ||
-      globalReuse.get(chunkText) ||
-      computedBlobs.get(chunkText) ||
-      null;
-    return [idx, chunkText, blob];
-  });
-
-  conn.transaction(() => {
-    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(skillName);
-    const stmt = conn.prepare("INSERT INTO skill_chunks (skill_name, chunk_index, chunk_text, embedding) VALUES (?, ?, ?, ?)");
-    for (const [idx, chunkText, blob] of resolved) {
-      stmt.run(skillName, idx, chunkText, blob);
-    }
-  })();
-
-  return chunks.length;
-}
-
-async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds = 180.0) {
-  if (!isSemanticSearchEnabled() && !forceRebuild) return 0;
-  const startTime = Date.now();
-  initVectorTableIfSupported(conn);
-  if (forceRebuild) {
-    conn.prepare("DELETE FROM skill_chunks").run();
-    _EMBED_CACHE.clear();
-  }
-
-  const existingIndexed = new Set(
-    conn.prepare("SELECT DISTINCT skill_name FROM skill_chunks WHERE embedding IS NOT NULL").all().map(r => r.skill_name)
-  );
-
-  const skillHeaders = conn.prepare(
-    "SELECT name, type FROM skills ORDER BY CASE WHEN type = 'skill' THEN 0 ELSE 1 END, name ASC"
-  ).all();
-  const getContentStmt = conn.prepare("SELECT content FROM skills WHERE name = ?");
-
-  let totalChunks = 0;
-  for (const h of skillHeaders) {
-    const sName = h.name;
-    if (!forceRebuild && existingIndexed.has(sName)) continue;
-    if (h.type !== 'skill' && maxTimeSeconds > 0 && ((Date.now() - startTime) / 1000) > maxTimeSeconds) break;
-
-    const row = getContentStmt.get(sName);
-    if (row && row.content) {
-      totalChunks += await indexSingleSkillChunks(conn, sName, row.content);
-    }
-  }
-
-  if (totalChunks > 0) initVectorTableIfSupported(conn);
-  return totalChunks;
 }
 
 module.exports = {

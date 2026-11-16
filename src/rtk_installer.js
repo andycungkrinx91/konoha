@@ -108,6 +108,7 @@ function _executeVerifiedInstallScript(verifiedScript, silent) {
 }
 
 function ensureRtkInstalled(silent = true) {
+  if (process.env.KONOHA_SKIP_RTK_INSTALL === '1') return { ok: false, reason: 'skipped' };
   if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
 
   const home = os.homedir();

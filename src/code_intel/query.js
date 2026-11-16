@@ -8,6 +8,7 @@
  */
 
 const store = require('./store');
+const provenance = require('./provenance');
 const {
   SEARCH_MAX_HITS,
   SEARCH_SNIPPET_MAX_CHARS,
@@ -84,7 +85,8 @@ function _queryFtsChunks(conn, params) {
   ].filter(Boolean).join('\n      ');
   const sql = `
     SELECT c.id, c.rel_path, c.language, c.start_line, c.end_line, c.body,
-           f.id AS file_id, s.name AS symbol_name,
+           f.id AS file_id, f.content_hash, f.parser_version, f.metrics_json,
+           s.name AS symbol_name,
            bm25(code_chunks_fts, 10.0, 4.0, 1.0) AS score,
            CASE WHEN ${defSql} THEN 0 ELSE 1 END AS def_rank
     FROM code_chunks_fts
@@ -110,6 +112,7 @@ function _queryLikeChunks(conn, query, rootHash, limit, contentKind = null) {
   ].filter(Boolean).join('\n      ');
   const sql = `
     SELECT c.id, c.file_id, c.rel_path, c.language, c.start_line, c.end_line, c.body,
+           f.content_hash, f.parser_version, f.metrics_json,
            s.name AS symbol_name
     FROM code_chunks c
     JOIN code_files f ON f.id = c.file_id
@@ -151,21 +154,16 @@ function search(options = {}) {
 
   const ftsQuery = toFtsQuery(query);
   const terms = _terms(query);
+  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
   if (ftsQuery && store.ftsAvailable(conn)) {
     try {
       const rows = _queryFtsChunks(conn, { ftsExpr: ftsQuery, terms, rootHash, contentKind, limit });
       return {
         query,
         degraded: false,
+        ...(snapshot ? { snapshot } : {}),
         total: rows.length,
-        hits: rows.map((r) => ({
-          relPath: r.rel_path,
-          language: r.language,
-          startLine: r.start_line,
-          endLine: r.end_line,
-          score: Number(r.score),
-          snippet: _snippet(r.body)
-        }))
+        hits: rows.map((r) => provenance.formatSyncHit(r, Number(r.score), _snippet(r.body)))
       };
     } catch (_) {
       // Fall through to LIKE: a malformed MATCH must not break the tool.
@@ -176,15 +174,9 @@ function search(options = {}) {
   return {
     query,
     degraded: true,
+    ...(snapshot ? { snapshot } : {}),
     total: rows.length,
-    hits: rows.map((r) => ({
-      relPath: r.rel_path,
-      language: r.language,
-      startLine: r.start_line,
-      endLine: r.end_line,
-      score: 0,
-      snippet: _snippet(r.body)
-    }))
+    hits: rows.map((r) => provenance.formatSyncHit(r, 0, _snippet(r.body)))
   };
 }
 
@@ -207,6 +199,9 @@ function _recordSearchCandidate(candMap, key, row) {
     end_line: row.endLine,
     symbolName: row.symbolName || '',
     symbol_name: row.symbolName || '',
+    contentHash: row.contentHash || '',
+    parserVersion: row.parserVersion || '',
+    metricsJson: row.metricsJson || '{}',
     body: row.body,
     chunk_text: row.body,
     defRank: row.defRank ?? 1,
@@ -303,6 +298,9 @@ async function searchAsync(options = {}) {
     startLine: r.start_line,
     endLine: r.end_line,
     symbolName: r.symbol_name || '',
+    contentHash: r.content_hash || '',
+    parserVersion: r.parser_version || '',
+    metricsJson: r.metrics_json || '{}',
     body: r.body,
     defRank: r.def_rank ?? 1
   });
@@ -340,6 +338,9 @@ async function searchAsync(options = {}) {
         startLine: v.startLine,
         endLine: v.endLine,
         symbolName: v.symbolName || '',
+        contentHash: v.contentHash || '',
+        parserVersion: v.parserVersion || '',
+        metricsJson: v.metricsJson || '{}',
         body: v.body,
         vectorScore: Number(v.score)
       }));
@@ -358,11 +359,13 @@ async function searchAsync(options = {}) {
   if (structKeys.length > 0) rankLists.push(structKeys);
 
   if (rankLists.length === 0) {
+    const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
     return {
       query,
       degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
       semantic_applied: vecCount > 0,
       reranked: false,
+      ...(snapshot ? { snapshot } : {}),
       ...(semanticReason ? { reason: semanticReason } : {}),
       total: 0,
       hits: []
@@ -391,43 +394,33 @@ async function searchAsync(options = {}) {
     try {
       const reranked = await rerank(String(query), pool, { topK: limit });
       didRerank = true;
-      hits = reranked.map((r) => ({
-        relPath: r.relPath,
-        language: r.language,
-        startLine: r.startLine,
-        endLine: r.endLine,
-        symbolName: r.symbolName,
-        score: Number((0.55 * (r.rrfNorm || 0) + 0.45 * (r.rerank_score || 0)).toFixed(6)),
-        rrfScore: r.rrfScore,
-        rerankScore: r.rerank_score,
-        vectorScore: r.vectorScore || 0,
-        snippet: _snippet(r.body)
-      }));
+      hits = reranked.map((r) => provenance.formatAsyncHit(
+        r,
+        Number((0.55 * (r.rrfNorm || 0) + 0.45 * (r.rerank_score || 0)).toFixed(6)),
+        r.rerank_score,
+        _snippet(r.body)
+      ));
     } catch (err) {
       if (!_isSemanticUnavailableError(err)) throw err;
       semanticReason = err.message;
     }
   }
   if (!hits) {
-    hits = pool.slice(0, limit).map((r) => ({
-      relPath: r.relPath,
-      language: r.language,
-      startLine: r.startLine,
-      endLine: r.endLine,
-      symbolName: r.symbolName,
-      score: lex.degradedLexical && vecCount === 0 ? 0 : r.rrfScore,
-      rrfScore: r.rrfScore,
-      rerankScore: 0,
-      vectorScore: r.vectorScore || 0,
-      snippet: _snippet(r.body)
-    }));
+    hits = pool.slice(0, limit).map((r) => provenance.formatAsyncHit(
+      r,
+      lex.degradedLexical && vecCount === 0 ? 0 : r.rrfScore,
+      0,
+      _snippet(r.body)
+    ));
   }
 
+  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
   return {
     query,
     degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
     semantic_applied: vecCount > 0,
     reranked: didRerank,
+    ...(snapshot ? { snapshot } : {}),
     ...(semanticReason ? { reason: semanticReason } : {}),
     total: hits.length,
     hits
@@ -448,20 +441,22 @@ function findSymbol(options = {}) {
     return { name, symbols: [], ambiguous: false, error: `root not indexed: ${options.rootPath}` };
   }
   const rows = root
-    ? conn.prepare(`SELECT s.*, f.rel_path FROM code_symbols s
+    ? conn.prepare(`SELECT s.*, f.rel_path, f.content_hash, f.parser_version, f.metrics_json FROM code_symbols s
         JOIN code_files f ON f.id = s.file_id
         WHERE s.name = ? AND s.root_hash = ?
         ORDER BY f.rel_path ASC, s.start_line ASC`).all(name, root.root_hash)
-    : conn.prepare(`SELECT s.*, f.rel_path FROM code_symbols s
+    : conn.prepare(`SELECT s.*, f.rel_path, f.content_hash, f.parser_version, f.metrics_json FROM code_symbols s
         JOIN code_files f ON f.id = s.file_id
         WHERE s.name = ?
         ORDER BY f.rel_path ASC, s.start_line ASC`).all(name);
 
   const files = new Set(rows.map((r) => r.rel_path));
+  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
   return {
     name,
     ambiguous: files.size > 1,
     candidateCount: rows.length,
+    ...(snapshot ? { snapshot } : {}),
     symbols: rows.map((r) => ({
       name: r.name,
       kind: r.kind,
@@ -470,36 +465,9 @@ function findSymbol(options = {}) {
       language: r.language,
       startLine: r.start_line,
       endLine: r.end_line,
-      signature: r.signature
+      signature: r.signature,
+      ...provenance.buildHitProvenance(r)
     }))
-  };
-}
-
-function _assembleContextText(chunks, hasWindow, startLine, endLine) {
-  if (!chunks || chunks.length === 0) {
-    return { text: '', actualStart: 0, actualEnd: 0, outOfRange: Boolean(hasWindow), truncated: false };
-  }
-  const lineMap = new Map();
-  for (const chunk of chunks) {
-    const lines = String(chunk.body || '').split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const lineNo = (Number(chunk.start_line) || 1) + i;
-      if (!lineMap.has(lineNo)) lineMap.set(lineNo, lines[i]);
-    }
-  }
-  const sortedNos = Array.from(lineMap.keys()).sort((a, b) => a - b);
-  const chosen = hasWindow
-    ? sortedNos.filter((n) => n >= startLine && n <= endLine)
-    : sortedNos;
-  if (chosen.length === 0) {
-    return { text: '', actualStart: 0, actualEnd: 0, outOfRange: Boolean(hasWindow), truncated: false };
-  }
-  return {
-    text: chosen.map((n) => lineMap.get(n)).join('\n'),
-    actualStart: chosen[0],
-    actualEnd: chosen[chosen.length - 1],
-    outOfRange: false,
-    truncated: false
   };
 }
 
@@ -529,7 +497,8 @@ function getContext(options = {}) {
     : conn.prepare(`SELECT start_line, end_line, body FROM code_chunks
         WHERE file_id = ? ORDER BY start_line ASC`).all(file.id);
 
-  const assembled = _assembleContextText(chunks, hasWindow, startLine, endLine);
+  const assembled = provenance.assembleContextText(chunks, hasWindow, startLine, endLine);
+  const rootRow = root || conn.prepare('SELECT * FROM code_index_roots WHERE root_hash = ?').get(file.root_hash);
   return {
     relPath,
     language: file.language,
@@ -537,6 +506,8 @@ function getContext(options = {}) {
     endLine: assembled.actualEnd,
     outOfRange: assembled.outOfRange,
     truncated: assembled.truncated,
+    ...provenance.buildHitProvenance(file),
+    ...(rootRow ? { snapshot: provenance.buildSnapshotMetadata(rootRow) } : {}),
     text: assembled.text
   };
 }
@@ -552,13 +523,19 @@ function _pushImpactNode(node, ctx) {
 
 function _recordRef(row, depth, target, ctx) {
   const owner = ctx.enclosingStmt.get(row.file_id, row.line, row.line);
+  const resolved = Boolean(row.target_symbol_id);
+  const fileProv = provenance.buildHitProvenance(row);
   _pushImpactNode({
     relPath: row.rel_path,
     line: row.line,
     kind: row.kind,
     depth,
     target,
-    enclosing: owner ? `${owner.kind} ${owner.name}` : null
+    enclosing: owner ? `${owner.kind} ${owner.name}` : null,
+    provenance: row.provenance || (resolved ? fileProv.provenance : 'unresolved'),
+    confidence: Number.isFinite(Number(row.confidence)) ? Number(row.confidence) : (resolved ? fileProv.confidence : 0.35),
+    resolved,
+    contentHash: fileProv.contentHash
   }, ctx);
   return owner ? owner.name : null;
 }
@@ -570,13 +547,19 @@ function _expandEdgesForTarget(target, depth, ctx, next) {
     if (ctx.nodes.length >= ctx.maxNodes) return;
     const ownerName = erow.source_sym_name || '';
     const line = erow.source_sym_line || 1;
+    const resolved = Boolean(erow.target_symbol_id || erow.target_file_id);
+    const conf = Number.isFinite(Number(erow.confidence)) ? Number(erow.confidence) : 0.5;
     _pushImpactNode({
       relPath: erow.rel_path,
       line,
       kind: erow.edge_kind,
       depth,
       target,
-      enclosing: ownerName ? `${erow.source_sym_kind} ${ownerName}` : null
+      enclosing: ownerName ? `${erow.source_sym_kind} ${ownerName}` : null,
+      provenance: erow.provenance || (resolved ? (conf >= 0.85 ? 'parser' : 'heuristic') : 'unresolved'),
+      confidence: conf,
+      resolved,
+      contentHash: erow.content_hash || ''
     }, ctx);
     if (ownerName && !ctx.visited.has(ownerName)) {
       ctx.visited.add(ownerName);
@@ -618,11 +601,13 @@ function impact(options = {}) {
   const maxNodes = Math.min(Number(options.maxNodes) || IMPACT_MAX_NODES, IMPACT_MAX_NODES);
   const rootHash = root ? root.root_hash : null;
 
-  const refsSql = `SELECT r.kind, r.line, f.rel_path, f.id AS file_id
+  const refsSql = `SELECT r.kind, r.line, r.target_symbol_id, r.provenance, r.confidence,
+      f.rel_path, f.id AS file_id, f.content_hash, f.parser_version, f.metrics_json
       FROM code_refs r JOIN code_files f ON f.id = r.file_id
       WHERE r.target_name = ? ${rootHash ? 'AND r.root_hash = ?' : ''}
       ORDER BY f.rel_path ASC, r.line ASC`;
-  const edgeSql = `SELECT e.edge_kind, f.rel_path,
+  const edgeSql = `SELECT e.edge_kind, e.confidence, e.provenance, e.target_file_id, e.target_symbol_id,
+      f.rel_path, f.content_hash,
       src.name AS source_sym_name, src.kind AS source_sym_kind, src.start_line AS source_sym_line
       FROM code_edges e
       JOIN code_files f ON f.id = e.source_file_id
@@ -661,16 +646,21 @@ function impact(options = {}) {
   const nodes = ctx.nodes;
 
   nodes.sort((a, b) => a.depth - b.depth || (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0) || a.line - b.line);
-  return { name, nodes, truncated, maxDepth, maxNodes };
+  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
+  return { name, nodes, truncated, maxDepth, maxNodes, ...(snapshot ? { snapshot } : {}) };
 }
 
 function status(options = {}) {
   const conn = options.conn || store.openConnection();
+  const enrichRoot = (r) => {
+    const snap = provenance.buildSnapshotMetadata(r);
+    return snap ? { ...r, snapshot_consistent: snap.snapshot_consistent, stale_head: snap.stale_head, current_head_sha: snap.current_head_sha } : r;
+  };
   if (options.rootPath) {
     const root = _resolveRoot(conn, options.rootPath);
-    return root ? { roots: [root] } : { roots: [] };
+    return root ? { roots: [enrichRoot(root)] } : { roots: [] };
   }
-  return { roots: store.listRoots(conn) };
+  return { roots: store.listRoots(conn).map(enrichRoot) };
 }
 
 module.exports = {

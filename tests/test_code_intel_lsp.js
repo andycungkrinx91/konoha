@@ -192,7 +192,11 @@ async function testRouterAndToolsLspEnrichment(conn, repo, mockScript, logPath) 
   const impOut = await callRouterTool('code_impact', { root: repo, name: 'verifyToken' });
   assert.ok(impOut.lsp && impOut.lsp.lsp_available === true);
   assert.strictEqual(impOut.dependents.filter((d) => d.path === 'src/api.ts' && d.line === 3).length, 1, 'Existing static ref at api.ts:3 must be deduplicated');
-  assert.ok(impOut.dependents.some((d) => d.path === 'src/extra.ts' && d.kind === 'lsp_reference'), 'code_impact must merge additional LSP reference edges');
+  const lspDep = impOut.dependents.find((d) => d.path === 'src/extra.ts' && d.kind === 'lsp_reference');
+  assert.ok(lspDep, 'code_impact must merge additional LSP reference edges');
+  assert.strictEqual(lspDep.provenance, 'lsp', 'LSP-derived impact edge must carry provenance=lsp');
+  assert.strictEqual(lspDep.confidence, 1);
+  assert.strictEqual(lspDep.resolved, true);
 
   const ctxOut = await callRouterTool('code_context', { root: repo, file: 'src/auth.ts', start_line: 1, end_line: 2 });
   assert.ok(ctxOut.lsp && ctxOut.lsp.lsp_available === true && ctxOut.lsp.hover.includes('verifyToken'));

@@ -8,6 +8,7 @@
 
 const path = require('path');
 const store = require('./store');
+const provenance = require('./provenance');
 const { SEARCH_MAX_HITS, SEARCH_SNIPPET_MAX_CHARS } = require('./config');
 const {
   EMBED_MODEL_REPO,
@@ -99,7 +100,12 @@ function _ensureEntry(byFileId, meta) {
       relPath: meta.rel_path,
       language: meta.language,
       contentKind: meta.content_kind || 'code',
+      contentHash: meta.content_hash || '',
+      parserVersion: meta.parser_version || '',
+      metricsJson: meta.metrics_json || '{}',
       structuralScore: 0,
+      maxRelConfidence: 0,
+      hasVerifiedRel: false,
       reasons: new Set(),
       relationships: []
     };
@@ -113,14 +119,20 @@ function _recordEdgeRows(byFileId, rows, direction) {
   for (const r of rows) {
     const entry = _ensureEntry(byFileId, r);
     const kind = r.edge_kind || 'imports';
-    const w = (weights[kind] || 2.0) * (Number(r.confidence) || 0.5);
+    const conf = Number.isFinite(Number(r.confidence)) ? Number(r.confidence) : 0.5;
+    const edgeProv = r.provenance || (conf >= 0.85 ? 'parser' : 'heuristic');
+    const w = (weights[kind] || 2.0) * (conf || 0.5);
     entry.structuralScore += w;
+    if (conf > entry.maxRelConfidence) entry.maxRelConfidence = conf;
+    if (edgeProv === 'parser') entry.hasVerifiedRel = true;
     entry.reasons.add(`${direction}_${kind}`);
     entry.relationships.push({
       type: `${direction}_edge`,
       kind,
       specifier: r.specifier,
-      symbol: r.target_sym_name || r.source_sym_name || ''
+      symbol: r.target_sym_name || r.source_sym_name || '',
+      confidence: Number(conf.toFixed(4)),
+      provenance: edgeProv
     });
   }
 }
@@ -128,13 +140,17 @@ function _recordEdgeRows(byFileId, rows, direction) {
 function _recordRefRows(byFileId, rows, direction) {
   for (const r of rows) {
     const entry = _ensureEntry(byFileId, r);
+    const conf = Number.isFinite(Number(r.confidence)) ? Number(r.confidence) : 0.65;
     const w = Math.min(2.6, 0.9 + 0.4 * Number(r.ref_count || 1));
     entry.structuralScore += w;
+    if (conf > entry.maxRelConfidence) entry.maxRelConfidence = conf;
     entry.reasons.add('shared_symbol_ref');
     entry.relationships.push({
       type: 'shared_symbol_ref',
       direction,
-      symbols: String(r.symbols || '').split(',').filter(Boolean).slice(0, 8)
+      symbols: String(r.symbols || '').split(',').filter(Boolean).slice(0, 8),
+      confidence: Number(conf.toFixed(4)),
+      provenance: conf >= 0.8 ? 'parser' : 'heuristic'
     });
   }
 }
@@ -227,7 +243,8 @@ function _fillRepresentativeChunks(conn, fileIds) {
   const reps = new Map();
   const stmt = conn.prepare(`
     SELECT c.id AS chunk_id, c.file_id, c.rel_path, c.language, c.start_line, c.end_line,
-           c.body, f.content_kind, s.name AS symbol_name
+           c.body, f.content_kind, f.content_hash, f.parser_version, f.metrics_json,
+           s.name AS symbol_name
     FROM code_chunks c
     JOIN code_files f ON f.id = c.file_id
     LEFT JOIN code_symbols s ON s.id = c.symbol_id
@@ -254,6 +271,19 @@ function _buildCandidatePool(conn, orderedEntries, vecBestByFile) {
     const startLine = rep ? rep.startLine || rep.start_line : 1;
     const endLine = rep ? rep.endLine || rep.end_line : 1;
     const symbolName = rep ? rep.symbolName || rep.symbol_name || '' : '';
+    const contentHash = entry.contentHash || (rep && (rep.contentHash || rep.content_hash)) || '';
+    const parserVersion = entry.parserVersion || (rep && (rep.parserVersion || rep.parser_version)) || '';
+    const metricsJson = (entry.metricsJson && entry.metricsJson !== '{}')
+      ? entry.metricsJson
+      : ((rep && (rep.metricsJson || rep.metrics_json)) || '{}');
+    const fileProv = provenance.buildHitProvenance({
+      content_hash: contentHash,
+      parser_version: parserVersion,
+      metrics_json: metricsJson
+    });
+    const relConfidence = entry.maxRelConfidence > 0
+      ? entry.maxRelConfidence
+      : (vecHit ? Math.max(0.4, Number(vecHit.score || 0)) : fileProv.confidence);
     return {
       fileId: entry.fileId,
       relPath: entry.relPath,
@@ -272,7 +302,12 @@ function _buildCandidatePool(conn, orderedEntries, vecBestByFile) {
       vectorScore: vecHit ? Number(vecHit.score.toFixed(4)) : 0,
       rrfNorm,
       reasons: Array.from(entry.reasons),
-      relationships: entry.relationships
+      relationships: entry.relationships,
+      contentHash: fileProv.contentHash,
+      parseEngine: fileProv.parseEngine,
+      parserVersion: fileProv.parserVersion,
+      provenance: entry.hasVerifiedRel ? 'parser' : (entry.relationships.length > 0 ? 'heuristic' : fileProv.provenance),
+      confidence: Number(relConfidence.toFixed(4))
     };
   });
 }
@@ -289,7 +324,28 @@ function _formatRelatedItem(c, scoreOverride = null) {
     reasons: c.reasons,
     relationships: c.relationships.slice(0, 6),
     bestSpan: { startLine: c.startLine, endLine: c.endLine, symbolName: c.symbolName },
+    provenance: c.provenance || 'heuristic',
+    confidence: c.confidence !== undefined ? c.confidence : 0.6,
+    parseEngine: c.parseEngine || '',
+    contentHash: c.contentHash || '',
     snippet: _snippet(c.body)
+  };
+}
+
+function _buildRelatedEnvelopeMeta(conn, anchor) {
+  const rootRow = anchor.root || conn.prepare('SELECT * FROM code_index_roots WHERE root_hash = ?').get(anchor.file.root_hash);
+  const anchorProv = provenance.buildHitProvenance(anchor.file);
+  return {
+    anchor: {
+      relPath: anchor.relPath,
+      rootHash: anchor.file.root_hash,
+      language: anchor.file.language,
+      symbol: anchor.symbol ? anchor.symbol.name : '',
+      contentHash: anchorProv.contentHash,
+      parseEngine: anchorProv.parseEngine,
+      provenance: anchorProv.provenance
+    },
+    snapshot: provenance.buildSnapshotMetadata(rootRow)
   };
 }
 
@@ -316,12 +372,7 @@ function related(options = {}) {
   }));
   const pool = _buildCandidatePool(conn, topEntries, new Map());
   return {
-    anchor: {
-      relPath: anchor.relPath,
-      rootHash: anchor.file.root_hash,
-      language: anchor.file.language,
-      symbol: anchor.symbol ? anchor.symbol.name : ''
-    },
+    ..._buildRelatedEnvelopeMeta(conn, anchor),
     related: pool.map((c) => _formatRelatedItem(c, c.structuralScore)),
     total: pool.length,
     semantic_applied: false,
@@ -480,12 +531,7 @@ async function relatedAsync(options = {}) {
   }
 
   return {
-    anchor: {
-      relPath: anchor.relPath,
-      rootHash: anchor.file.root_hash,
-      language: anchor.file.language,
-      symbol: anchor.symbol ? anchor.symbol.name : ''
-    },
+    ..._buildRelatedEnvelopeMeta(conn, anchor),
     related: finalItems,
     total: finalItems.length,
     semantic_applied: semanticRankIds.length > 0,

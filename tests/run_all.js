@@ -219,7 +219,9 @@ function getGoldenSeed() {
       HOME: seedDir,
       USERPROFILE: seedDir,
       KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
-      KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
+      KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure',
+      KONOHA_SKIP_UV_INSTALL: process.env.KONOHA_SKIP_UV_INSTALL || '1',
+      KONOHA_SKIP_RTK_INSTALL: process.env.KONOHA_SKIP_RTK_INSTALL || '1'
     };
     const seedTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 1800000);
     const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {

@@ -47,10 +47,18 @@ function pidAlive(pid) {
   if (!Number.isFinite(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
-    return true;
   } catch (_) {
     return false;
   }
+  if (process.platform === 'linux') {
+    try {
+      const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+      if (/^State:\s*[ZX]/m.test(status)) return false;
+    } catch (_) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function waitFor(cond, timeoutMs, intervalMs = 100) {

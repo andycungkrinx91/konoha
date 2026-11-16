@@ -98,8 +98,75 @@ jobs:
           node bin/cli.js migrate --skip-embeddings
           node bin/cli.js version
 
+  seed:
+    name: Build golden seed (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Hugging Face model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/@huggingface/transformers/.cache
+            ~/.cache/huggingface
+            ~/.konoha/models
+          key: konoha-hf-models-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/vector_pipeline.js') }}
+          restore-keys: |
+            konoha-hf-models-${{ runner.os }}-
+
+      - name: Build web
+        env:
+          SOURCE_DATE_EPOCH: '1760000000'
+        run: pnpm --filter konoha-web build
+
+      - name: Restore golden seed
+        id: seed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
+
+      - name: Build golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 30
+        env:
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
+          KONOHA_SKIP_UV_INSTALL: '1'
+          KONOHA_SKIP_RTK_INSTALL: '1'
+        run: node tests/run_all.js --seed-only
+
+      - name: Save golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
+
   test:
     name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
+    needs: [seed]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 75
     strategy:
@@ -221,7 +288,20 @@ jobs:
       # when no build of the current version exists, and resolveWebBuildSource()
       # prefers apps/web/build when there is one. Without this step first the seed
       # build runs a second full SvelteKit build instead of copying this one.
+      - name: Restore Hugging Face model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/@huggingface/transformers/.cache
+            ~/.cache/huggingface
+            ~/.konoha/models
+          key: konoha-hf-models-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/vector_pipeline.js') }}
+          restore-keys: |
+            konoha-hf-models-${{ runner.os }}-
+
       - name: Build web
+        env:
+          SOURCE_DATE_EPOCH: '1760000000'
         run: pnpm --filter konoha-web build
 
       # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
@@ -235,7 +315,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
 
       - name: Build golden seed
         if: steps.seed-cache.outputs.cache-hit != 'true'
@@ -256,7 +336,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
 
       # Bare runners have no browser cache. The harness forwards
       # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js), defaulting to

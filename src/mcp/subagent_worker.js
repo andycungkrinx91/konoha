@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { isReadOnlyAgent } = require('../agent_file_safety');
 const { normalizeAgentName } = require('../canonical_agents');
-const { runMcpAgent } = require('./memory_subagent_runner');
+const { runMcpAgentAsync } = require('./memory_subagent_runner');
 const { reportFromAgent } = require('./memory_project_context');
 
 function readStdin() {
@@ -46,7 +46,7 @@ async function main() {
     process.chdir(workDir);
   }
 
-  const rawResult = runMcpAgent(agent, {
+  const rawResult = await runMcpAgentAsync(agent, {
     task: payload.task || '',
     context: payload.context || undefined,
     constraints: payload.constraints || undefined,

@@ -187,16 +187,16 @@ function _insertEdgesForFile(conn, rootHash, fileId, imports, symbolByName) {
   conn.prepare('DELETE FROM code_edges WHERE source_file_id = ?').run(fileId);
   if (!Array.isArray(imports) || imports.length === 0) return;
   const insertEdge = conn.prepare(`INSERT INTO code_edges
-      (root_hash, source_file_id, source_symbol_id, target_file_id, target_symbol_id, edge_kind, specifier, confidence)
-      VALUES (?, ?, ?, NULL, NULL, ?, ?, ?)`);
+      (root_hash, source_file_id, source_symbol_id, target_file_id, target_symbol_id, edge_kind, specifier, confidence, provenance)
+      VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?)`);
   for (const imp of imports) {
     const srcSymId = imp.sourceSymbolName ? (symbolByName.get(imp.sourceSymbolName) || null) : null;
     if (Array.isArray(imp.names) && imp.names.length > 0 && (imp.edgeKind === 'extends' || imp.edgeKind === 'implements')) {
       for (const targetName of imp.names) {
-        insertEdge.run(rootHash, fileId, srcSymId, imp.edgeKind, targetName, 0.5);
+        insertEdge.run(rootHash, fileId, srcSymId, imp.edgeKind, targetName, 0.5, 'unresolved');
       }
     } else if (imp.specifier) {
-      insertEdge.run(rootHash, fileId, srcSymId, imp.edgeKind || 'imports', imp.specifier, 0.5);
+      insertEdge.run(rootHash, fileId, srcSymId, imp.edgeKind || 'imports', imp.specifier, 0.5, 'unresolved');
     }
   }
 }
@@ -268,9 +268,10 @@ function writeFile(conn, rootHash, file, parsed, chunks) {
       localByName.get(sym.name).push(sym);
     }
 
+    const { resolveRefProvenance } = require('./provenance');
     const insertRef = conn.prepare(`INSERT INTO code_refs
-        (root_hash, file_id, target_name, target_symbol_id, kind, line)
-        VALUES (?, ?, ?, ?, ?, ?)`);
+        (root_hash, file_id, target_name, target_symbol_id, kind, line, provenance, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const ref of parsed.refs) {
       const candidates = localByName.get(ref.targetName);
       let targetId = null;
@@ -278,7 +279,8 @@ function writeFile(conn, rootHash, file, parsed, chunks) {
         const c = candidates[0];
         targetId = symbolIds.get(`${c.name}:${c.kind}:${c.startLine}`) || null;
       }
-      insertRef.run(rootHash, row.id, ref.targetName, targetId, ref.kind, ref.line);
+      const refProv = resolveRefProvenance(parsed.parseEngine || 'lexer', targetId);
+      insertRef.run(rootHash, row.id, ref.targetName, targetId, ref.kind, ref.line, refProv.provenance, refProv.confidence);
     }
 
     const insertChunk = conn.prepare(`INSERT INTO code_chunks
@@ -398,7 +400,8 @@ function searchVectorCandidates(conn, rootHash, queryVec, options = {}) {
 function getFileGraphNeighbors(conn, fileId) {
   const outgoing = conn.prepare(`
     SELECT e.target_file_id AS file_id, f.rel_path, f.language, f.content_kind,
-           e.edge_kind, e.specifier, e.confidence,
+           f.content_hash, f.parser_version, f.metrics_json,
+           e.edge_kind, e.specifier, e.confidence, e.provenance,
            tgt.name AS target_sym_name, src.name AS source_sym_name
     FROM code_edges e
     JOIN code_files f ON f.id = e.target_file_id
@@ -409,7 +412,8 @@ function getFileGraphNeighbors(conn, fileId) {
 
   const incoming = conn.prepare(`
     SELECT e.source_file_id AS file_id, f.rel_path, f.language, f.content_kind,
-           e.edge_kind, e.specifier, e.confidence,
+           f.content_hash, f.parser_version, f.metrics_json,
+           e.edge_kind, e.specifier, e.confidence, e.provenance,
            tgt.name AS target_sym_name, src.name AS source_sym_name
     FROM code_edges e
     JOIN code_files f ON f.id = e.source_file_id
@@ -420,6 +424,7 @@ function getFileGraphNeighbors(conn, fileId) {
 
   const sharedImports = conn.prepare(`
     SELECT e2.source_file_id AS file_id, f.rel_path, f.language, f.content_kind,
+           f.content_hash, f.parser_version, f.metrics_json,
            COUNT(DISTINCT e2.specifier) AS shared_count,
            GROUP_CONCAT(DISTINCT e2.specifier) AS specifiers
     FROM code_edges e1
@@ -435,6 +440,8 @@ function getFileGraphNeighbors(conn, fileId) {
 
   const inboundRefs = conn.prepare(`
     SELECT r.file_id, f.rel_path, f.language, f.content_kind,
+           f.content_hash, f.parser_version, f.metrics_json,
+           MAX(r.confidence) AS confidence,
            COUNT(*) AS ref_count, GROUP_CONCAT(DISTINCT r.target_name) AS symbols
     FROM code_symbols s
     JOIN code_refs r ON r.root_hash = s.root_hash AND r.target_name = s.name
@@ -447,6 +454,8 @@ function getFileGraphNeighbors(conn, fileId) {
 
   const outboundRefs = conn.prepare(`
     SELECT s.file_id, f.rel_path, f.language, f.content_kind,
+           f.content_hash, f.parser_version, f.metrics_json,
+           MAX(r.confidence) AS confidence,
            COUNT(*) AS ref_count, GROUP_CONCAT(DISTINCT r.target_name) AS symbols
     FROM code_refs r
     JOIN code_symbols s ON s.root_hash = r.root_hash AND s.name = r.target_name

@@ -72,6 +72,9 @@ function _buildSlabFromRows(rows, model) {
       chunkKind: r.chunk_kind,
       contentKind: r.content_kind || 'code',
       symbolName: r.symbol_name || '',
+      contentHash: r.content_hash || '',
+      parserVersion: r.parser_version || '',
+      metricsJson: r.metrics_json || '{}',
       body: r.body
     };
   });
@@ -109,7 +112,10 @@ function getVectorSlab(conn, rootHash, model, options = {}) {
   const rows = conn.prepare(`
     SELECT c.id AS chunk_id, c.file_id, c.rel_path, c.language, c.start_line, c.end_line,
            c.chunk_kind, c.body, c.embedding, s.name AS symbol_name,
-           COALESCE(f.content_kind, 'code') AS content_kind
+           COALESCE(f.content_kind, 'code') AS content_kind,
+           COALESCE(f.content_hash, '') AS content_hash,
+           COALESCE(f.parser_version, '') AS parser_version,
+           COALESCE(f.metrics_json, '{}') AS metrics_json
     FROM code_chunks c
     LEFT JOIN code_files f ON f.id = c.file_id
     LEFT JOIN code_symbols s ON s.id = c.symbol_id
@@ -160,7 +166,10 @@ function _searchPagedRoot({ conn, rootHash, model, unitQuery, options, out, cap 
   const stmt = conn.prepare(`
     SELECT c.id AS chunk_id, c.file_id, c.rel_path, c.language, c.start_line, c.end_line,
            c.chunk_kind, c.body, c.embedding, s.name AS symbol_name,
-           COALESCE(f.content_kind, 'code') AS content_kind
+           COALESCE(f.content_kind, 'code') AS content_kind,
+           COALESCE(f.content_hash, '') AS content_hash,
+           COALESCE(f.parser_version, '') AS parser_version,
+           COALESCE(f.metrics_json, '{}') AS metrics_json
     FROM code_chunks c
     LEFT JOIN code_files f ON f.id = c.file_id
     LEFT JOIN code_symbols s ON s.id = c.symbol_id
@@ -196,6 +205,9 @@ function _searchPagedRoot({ conn, rootHash, model, unitQuery, options, out, cap 
         chunkKind: r.chunk_kind,
         contentKind: ck,
         symbolName: r.symbol_name || '',
+        contentHash: r.content_hash || '',
+        parserVersion: r.parser_version || '',
+        metricsJson: r.metrics_json || '{}',
         body: r.body,
         score: dot
       }, cap);

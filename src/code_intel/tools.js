@@ -202,6 +202,7 @@ function _formatSearchResponse(result) {
     degraded: result.degraded,
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
+    ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     ...(result.reason ? { reason: result.reason } : {}),
     ...(result.error ? { error: result.error } : {}),
     hits: result.hits.map((h) => ({
@@ -212,6 +213,10 @@ function _formatSearchResponse(result) {
       score: h.score,
       ...(h.vectorScore ? { vector_score: h.vectorScore } : {}),
       ...(h.rerankScore ? { rerank_score: h.rerankScore } : {}),
+      provenance: h.provenance || 'heuristic',
+      confidence: h.confidence !== undefined ? h.confidence : 0.6,
+      ...(h.parseEngine ? { parse_engine: h.parseEngine } : {}),
+      ...(h.contentHash ? { content_hash: h.contentHash } : {}),
       snippet: h.snippet
     }))
   };
@@ -253,6 +258,7 @@ function codeSymbol(args = {}) {
     name: result.name,
     ambiguous: result.ambiguous,
     candidate_count: result.candidateCount || 0,
+    ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     ...(result.error ? { error: result.error } : {}),
     symbols: result.symbols.map((s) => ({
       name: s.name,
@@ -261,7 +267,11 @@ function codeSymbol(args = {}) {
       path: s.relPath,
       language: s.language,
       lines: [s.startLine, s.endLine],
-      signature: s.signature
+      signature: s.signature,
+      provenance: s.provenance || 'heuristic',
+      confidence: s.confidence !== undefined ? s.confidence : 0.6,
+      ...(s.parseEngine ? { parse_engine: s.parseEngine } : {}),
+      ...(s.contentHash ? { content_hash: s.contentHash } : {})
     }))
   };
 }
@@ -330,6 +340,11 @@ function codeContext(args = {}) {
     empty: !result.text,
     out_of_range: Boolean(result.outOfRange),
     truncated: Boolean(result.truncated),
+    provenance: result.provenance || 'heuristic',
+    confidence: result.confidence !== undefined ? result.confidence : 0.6,
+    ...(result.parseEngine ? { parse_engine: result.parseEngine } : {}),
+    ...(result.contentHash ? { content_hash: result.contentHash } : {}),
+    ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     content: result.text
   };
 }
@@ -364,13 +379,18 @@ function codeImpact(args = {}) {
     name: result.name,
     truncated: result.truncated,
     max_depth: result.maxDepth,
+    ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     dependents: result.nodes.map((n) => ({
       path: n.relPath,
       line: n.line,
       depth: n.depth,
       kind: n.kind,
       of: n.target,
-      enclosing: n.enclosing
+      enclosing: n.enclosing,
+      provenance: n.provenance || 'unresolved',
+      confidence: n.confidence !== undefined ? n.confidence : 0.35,
+      resolved: Boolean(n.resolved),
+      ...(n.contentHash ? { content_hash: n.contentHash } : {})
     }))
   };
 }
@@ -406,7 +426,10 @@ async function codeImpactAsync(args = {}) {
       depth: 1,
       kind: 'lsp_reference',
       of: base.name,
-      enclosing: null
+      enclosing: null,
+      provenance: 'lsp',
+      confidence: 1.0,
+      resolved: true
     });
   }
   return { ...base, dependents: merged, lsp };
@@ -449,6 +472,7 @@ function _formatRelatedResponse(result) {
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
     degraded: Boolean(result.degraded),
+    ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     ...(result.reason ? { reason: result.reason } : {}),
     related: result.related.map((r) => ({
       path: r.relPath,
@@ -461,6 +485,10 @@ function _formatRelatedResponse(result) {
       reasons: r.reasons,
       relationships: r.relationships,
       best_span: r.bestSpan,
+      provenance: r.provenance || 'heuristic',
+      confidence: r.confidence !== undefined ? r.confidence : 0.6,
+      ...(r.parseEngine ? { parse_engine: r.parseEngine } : {}),
+      ...(r.contentHash ? { content_hash: r.contentHash } : {}),
       snippet: r.snippet
     }))
   };
@@ -508,11 +536,16 @@ function codeStatus(args = {}) {
     roots: result.roots.map((r) => ({
       root: r.root_path,
       root_hash: r.root_hash,
+      head_sha: r.head_sha || '',
+      ...(r.current_head_sha ? { current_head_sha: r.current_head_sha } : {}),
       status: r.status,
+      snapshot_consistent: r.snapshot_consistent !== undefined ? Boolean(r.snapshot_consistent) : (r.status === 'fresh' || r.status === 'ready'),
+      stale_head: Boolean(r.stale_head),
       files: r.file_count,
       symbols: r.symbol_count,
       chunks: r.chunk_count,
       indexed_at: r.indexed_at,
+      indexed_epoch_ms: Number(r.indexed_epoch_ms || 0),
       error: r.error || null
     }))
   };

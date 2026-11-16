@@ -20,7 +20,8 @@ const {
   formatRouteLine,
   buildSpawnDirective,
   buildParallelSpawnDirective,
-  buildDelegationEnvelope
+  buildDelegationEnvelope,
+  buildDelegationEnvelopeAsync
 } = require('./sannin_router');
 const { buildAdvisorStartupDirective } = require('./lazy_subagent');
 const { initAdvisorSessionSupervisor } = require('../workflow/kage-reviewer/advisor_monitor');
@@ -492,33 +493,43 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
   return res;
 }
 
-function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {
+function _authorizeSanninRouteSkills(effPrompt, selectedAgent) {
+  const candidateSkills = _resolveRoutedSkills(effPrompt, selectedAgent, { includeBlocked: true });
+  const { findUnauthorizedSkill } = require('../skill_authorization');
+  let authConn = null;
+  try {
+    try { authConn = getDb(); } catch (_) { authConn = null; }
+    const deniedEntry = findUnauthorizedSkill(candidateSkills, selectedAgent, authConn);
+    const routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent, { conn: authConn });
+    return { deniedEntry, routedSkills };
+  } finally {
+    if (authConn) { try { authConn.close(); } catch (_) { /* best effort */ } }
+  }
+}
+
+function _prepareSanninDispatch(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {
   const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
   const cd = require('./client_detection');
   const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
   const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath);
   const actClient = (typeof getActiveClient === 'function' ? getActiveClient() : null) || cd.detectActiveClient() || '';
   const spawnClient = cd.resolveDetectedSpawnClient(actClient, 'universal');
-
   const resolvedTaskDir = _resolveSanninTaskDir(prompt, taskDir, resolvedProjPath, resolvedSessionId);
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
-
   const taskId = path.basename(resolvedTaskDir);
   const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
-  let status = loadWorkflowStatus(resolvedTaskDir);
-  status = _cleanStaleTaskArtifactsIfChanged(prompt, resolvedTaskDir, status);
+  const status = _cleanStaleTaskArtifactsIfChanged(prompt, resolvedTaskDir, loadWorkflowStatus(resolvedTaskDir));
 
   if (status.phase === 'done' || status.status === 'completed') {
     const res = JSON.stringify({ status: 'completed', phase: 'done', task_id: taskId, task_dir: resolvedTaskDir, session_id: resolvedSessionId, client: actClient });
     logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
-    return res;
+    return { earlyReturn: res };
   }
-
   const gateHandledRes = _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlcManager);
-  if (gateHandledRes) return gateHandledRes;
+  if (gateHandledRes) return { earlyReturn: gateHandledRes };
 
   const effPrompt = _resolveEffectivePrompt(prompt, status, taskId, sdlcManager);
-  if (!effPrompt) return JSON.stringify({ status: 'error', message: 'No prompt provided for task execution.' });
+  if (!effPrompt) return { earlyReturn: JSON.stringify({ status: 'error', message: 'No prompt provided for task execution.' }) };
 
   const parsedCmd = parseKonohaCommandInvocation(effPrompt);
   const invocationMode = parsedCmd.invocationMode;
@@ -532,70 +543,54 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
-  const candidateSkills = _resolveRoutedSkills(effPrompt, selectedAgent, { includeBlocked: true });
-  const { findUnauthorizedSkill, authorizationDeniedResult } = require('../skill_authorization');
-  let authConn = null;
-  let deniedEntry = null;
-  let routedSkills = [];
-  try {
-    try { authConn = getDb(); } catch (_) { authConn = null; }
-    deniedEntry = findUnauthorizedSkill(candidateSkills, selectedAgent, authConn);
-    routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent, { conn: authConn });
-  } finally {
-    if (authConn) { try { authConn.close(); } catch (_) { /* best effort */ } }
-  }
+  const { deniedEntry, routedSkills } = _authorizeSanninRouteSkills(effPrompt, selectedAgent);
   if (deniedEntry) {
+    const { authorizationDeniedResult } = require('../skill_authorization');
     const denial = authorizationDeniedResult({ identity: selectedAgent, reason: `Route to @${selectedAgent} requires red skill "${deniedEntry.skill}"; red skills may only be delegated to @akatsuki.` }, deniedEntry.skill);
     const res = JSON.stringify({ status: 'blocked', phase: 'skill_authorization', task_dir: resolvedTaskDir, flow_hash: flowHash, ...denial });
     logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
-    return res;
+    return { earlyReturn: res };
   }
 
   _recordTaskStatusAndFlow({ sdlcManager, taskId, effPrompt, sdlcConfig, dorResult, executionTrack, flowHash, routedSkills, resolvedProjPath, resolvedSessionId, actClient, resolvedTaskDir, route, invocationMode, directSubagent });
-
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
     const res = JSON.stringify({ status: 'blocked', phase: 'dor', message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.', missing: dorResult.missing, dor_result: dorResult, flow_hash: flowHash, task_dir: resolvedTaskDir });
     logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
-    return res;
+    return { earlyReturn: res };
   }
+  return {
+    resolvedProjPath, resolvedSessionId, actClient, spawnClient, resolvedTaskDir, taskId,
+    effPrompt, invocationMode, directSubagent, dorResult, executionTrack, parallelWorkstreams,
+    route, flowHash, selectedAgent, routedSkills
+  };
+}
 
+function _finalizeSanninDispatch(prep, envelope) {
+  const {
+    resolvedProjPath, resolvedSessionId, actClient, spawnClient, resolvedTaskDir, taskId,
+    effPrompt, invocationMode, directSubagent, dorResult, executionTrack, parallelWorkstreams,
+    route, flowHash, selectedAgent, routedSkills
+  } = prep;
   const agentDescriptions = _loadAgentDescriptions();
   const description = agentDescriptions[selectedAgent] || agentDescriptions[selectedAgent.replace(/_/g, '-')] || agentDescriptions[selectedAgent.replace(/-/g, '_')] || 'general-purpose delegation';
-
-  const envelope = buildDelegationEnvelope({ agentName: selectedAgent, projectPath: resolvedProjPath, prompt: effPrompt, routedSkills });
-  const spawnDirective = buildSpawnDirective({
-    client: spawnClient,
-    agent: selectedAgent,
-    skills: routedSkills,
-    projectPath: resolvedProjPath,
-    prompt: effPrompt
-  });
+  const spawnDirective = buildSpawnDirective({ client: spawnClient, agent: selectedAgent, skills: routedSkills, projectPath: resolvedProjPath, prompt: effPrompt });
   const parallelSpawnDirective = parallelWorkstreams.length > 1
     ? buildParallelSpawnDirective({
-      client: spawnClient,
-      projectPath: resolvedProjPath,
-      dispatches: parallelWorkstreams.map((ws) => ({
-        agent: ws.agent,
-        task: ws.task || `${effPrompt} (${ws.domain} slice)`,
-        skills: _resolveRoutedSkills(effPrompt, ws.agent)
-      }))
+      client: spawnClient, projectPath: resolvedProjPath,
+      dispatches: parallelWorkstreams.map((ws) => ({ agent: ws.agent, task: ws.task || `${effPrompt} (${ws.domain} slice)`, skills: _resolveRoutedSkills(effPrompt, ws.agent) }))
     })
     : '';
 
   const currentSt = loadWorkflowStatus(resolvedTaskDir);
   const syncBundle = syncTodoAndWalkthrough(currentSt, {
-    client: actClient,
-    taskDir: resolvedTaskDir,
-    taskId,
+    client: actClient, taskDir: resolvedTaskDir, taskId,
     tasks: parallelWorkstreams.length > 1
       ? parallelWorkstreams.map((ws, i) => ({ id: `task_${i + 1}`, task: `${effPrompt} (${ws.domain} slice)`, agent: ws.agent, status: 'pending' }))
       : [{ id: 'task_1', task: effPrompt, agent: selectedAgent, status: 'in_progress' }]
   });
   const advisorSupervisor = initAdvisorSessionSupervisor({ client: spawnClient, status: currentSt, goal: effPrompt, todos: syncBundle.todos });
   saveWorkflowStatus(resolvedTaskDir, currentSt);
-  const advisorStartup = buildAdvisorStartupDirective({
-    client: spawnClient, projectPath: resolvedProjPath, prompt: effPrompt, taskDir: resolvedTaskDir
-  });
+  const advisorStartup = buildAdvisorStartupDirective({ client: spawnClient, projectPath: resolvedProjPath, prompt: effPrompt, taskDir: resolvedTaskDir });
 
   const instruction = _buildInstructionText({
     selectedAgent, executionTrack, flowHash, routedSkills, description,
@@ -610,24 +605,12 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     skills: routedSkills, execution_track: executionTrack, parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     parallel_spawn_directive: parallelSpawnDirective || undefined,
-    advisor_supervisor: {
-      state: advisorSupervisor.state,
-      started_from_beginning: advisorSupervisor.started_from_beginning
-    },
-    advisor_spawn_directive: {
-      agent: 'advisor',
-      started_from_beginning: true,
-      tool: advisorStartup.tool || 'run_command'
-    },
+    advisor_supervisor: { state: advisorSupervisor.state, started_from_beginning: advisorSupervisor.started_from_beginning },
+    advisor_spawn_directive: { agent: 'advisor', started_from_beginning: true, tool: advisorStartup.tool || 'run_command' },
     todos: (syncBundle.todos || []).map((t) => ({ id: t.id, content: t.content, status: t.status, agent: t.agent })),
     walkthrough_steps: (syncBundle.walkthrough_steps || []).map((w) => ({ id: w.id, status: w.status })),
-    client_todo_directive: {
-      native_tool: syncBundle.client_todo_directive.native_tool,
-      progress_summary: syncBundle.client_todo_directive.progress_summary
-    },
-    route, delegation_envelope: envelope
-      ? { agent: envelope.agent, skills: envelope.skills }
-      : undefined,
+    client_todo_directive: { native_tool: syncBundle.client_todo_directive.native_tool, progress_summary: syncBundle.client_todo_directive.progress_summary },
+    route, delegation_envelope: envelope ? { agent: envelope.agent, skills: envelope.skills } : undefined,
     phase: 'delegation', execution_mode: route.mode, instructions: instruction, task_dir: resolvedTaskDir,
     session_id: resolvedSessionId, client: actClient, dor_result: { ready: dorResult.ready, score: dorResult.score }
   });
@@ -636,62 +619,23 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   return res;
 }
 
-function dispatchParallelSlices(workstreams = [], sharedOptions = {}) {
-  const { runMcpAgent } = require('./memory_subagent_runner');
-  const {
-    taskId = 'root',
-    flowHash = null,
-    sessionId = null,
-    projectPath = null,
-    taskDir = null,
-    client = null
-  } = sharedOptions;
-
-  if (!Array.isArray(workstreams) || workstreams.length === 0) {
-    return [];
-  }
-
-  return workstreams.map(ws => {
-    const agent = ws.agent || ws.name;
-    const task = ws.task || ws.prompt || ws.instructions || `Execute ${ws.domain || agent} slice.`;
-    const context = ws.context || sharedOptions.context || null;
-    const constraints = ws.constraints || sharedOptions.constraints || null;
-    const skills = Array.isArray(ws.skills) && ws.skills.length > 0 ? ws.skills : (ws.routed_skills || _resolveRoutedSkills(task, agent));
-    const tasteDials = ws.taste_dials || ws.tasteDials || sharedOptions.tasteDials || null;
-    const worktree = ws.worktree || ws.worktree_path || null;
-
-    const resRaw = runMcpAgent(agent, {
-      task, context, constraints, skills, tasteDials,
-      projectPath, taskDir, sessionId, flowHash, taskId, client, worktree
-    });
-    try {
-      return JSON.parse(resRaw);
-    } catch (_) {
-      return { status: 'ready', agent, output: resRaw };
-    }
-  });
+function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {
+  const prep = _prepareSanninDispatch(prompt, taskDir, projectPath, sessionId, options);
+  if (prep.earlyReturn) return prep.earlyReturn;
+  const envelope = buildDelegationEnvelope({ agentName: prep.selectedAgent, projectPath: prep.resolvedProjPath, prompt: prep.effPrompt, routedSkills: prep.routedSkills });
+  return _finalizeSanninDispatch(prep, envelope);
 }
 
-async function dispatchParallelSlicesAsync(workstreams = [], sharedOptions = {}) {
-  if (!Array.isArray(workstreams) || workstreams.length === 0) {
-    return [];
-  }
-  const tasks = workstreams.map(ws => Promise.resolve().then(() => dispatchParallelSlices([ws], sharedOptions)[0]));
-  const settled = await Promise.allSettled(tasks);
-  return settled.map((item, idx) => {
-    if (item.status === 'fulfilled') return item.value;
-    const fallbackAgent = workstreams[idx]?.agent || workstreams[idx]?.name || 'unknown';
-    return { status: 'error', agent: fallbackAgent, error: item.reason?.message || String(item.reason) };
-  });
-}
+const _parallelMod = require('./workflow_sannin_dispatch');
+const dispatchParallelSlices = (ws, opts) => _parallelMod.dispatchParallelSlices(ws, opts, _resolveRoutedSkills);
+const dispatchParallelSlicesAsync = (ws, opts) => _parallelMod.dispatchParallelSlicesAsync(ws, opts, _resolveRoutedSkills);
+const runSanninAsync = (prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) =>
+  _parallelMod.runSanninAsync(
+    { prepare: _prepareSanninDispatch, finalize: _finalizeSanninDispatch, buildEnvelopeAsync: buildDelegationEnvelopeAsync },
+    { prompt, taskDir, projectPath, sessionId, options }
+  );
 
 module.exports = {
-  parseKonohaCommandInvocation,
-  routeByKeywordsWithPrompt,
-  classifyExecutionTrack,
-  detectParallelWorkstreams,
-  dispatchParallelSlices,
-  dispatchParallelSlicesAsync,
-  computeFlowHash,
-  runSannin
+  parseKonohaCommandInvocation, routeByKeywordsWithPrompt, classifyExecutionTrack, detectParallelWorkstreams,
+  dispatchParallelSlices, dispatchParallelSlicesAsync, computeFlowHash, runSannin, runSanninAsync
 };

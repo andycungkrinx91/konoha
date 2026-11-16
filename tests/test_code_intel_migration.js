@@ -62,6 +62,10 @@ function run() {
   for (const col of ['chunk_kind', 'symbol_id', 'content_hash']) {
     assert.ok(colNames(fresh, 'code_chunks').includes(col), `code_chunks must include v7 column ${col}`);
   }
+  for (const col of ['provenance', 'confidence']) {
+    assert.ok(colNames(fresh, 'code_refs').includes(col), `code_refs must include v7 column ${col}`);
+  }
+  assert.ok(colNames(fresh, 'code_edges').includes('provenance'), 'code_edges must include v7 column provenance');
   assert.ok(colNames(fresh, 'code_index_roots').includes('indexed_epoch_ms'), 'code_index_roots must include indexed_epoch_ms');
 
   const indexes = fresh
@@ -312,13 +316,65 @@ function run() {
   assert.ok(fs.existsSync(midFailBackupsDir) && fs.readdirSync(midFailBackupsDir).some((f) => f.endsWith('.db')), 'Verified pre-migration backup must remain on disk');
   midFailConn.close();
 
-  // --- Integrity is enforced, not reported ------------------------------
-  assert.ok(
-    /verifyIntegrity|integrity_check/.test(fs.readFileSync(path.join(REPO_ROOT, 'src', 'db_schema.js'), 'utf8')),
-    'setupSchema must still call verifyIntegrity'
-  );
+  // --- Integrity failure during migration aborts, rolls back, and recovers via backup ---
+  const integDir = path.join(tmpRoot, 'integrity_fail');
+  fs.mkdirSync(integDir, { recursive: true });
+  const integDbPath = path.join(integDir, 'integ_fail.db');
+  const integConn = db.getConnection(integDbPath, false);
+  integConn.exec(`
+    CREATE TABLE projects (project_hash TEXT PRIMARY KEY, project_path TEXT NOT NULL, project_name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    INSERT INTO projects VALUES ('p_orig', '/tmp/original-project', 'orig', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+    PRAGMA user_version = 6;
+  `);
 
-  console.log('✓ Code-intelligence migration, idempotency, FTS triggers, and cascade verified.');
+  const { restoreFromVerifiedBackupFile } = require('../src/db_migration_safety');
+  // Create verified pre-migration backup on healthy DB, then introduce a real SQLite
+  // CHECK constraint anomaly so PRAGMA integrity_check fails inside _verifyPostMigrationOrThrow.
+  const backupFnWithIntegrityFault = (label, dbPath) => {
+    const backupPath = db.backupDatabase(label, dbPath);
+    integConn.exec(`
+      CREATE TABLE _check_fault (val TEXT CHECK(length(val) > 5));
+      PRAGMA ignore_check_constraints = ON;
+      INSERT INTO _check_fault VALUES ('bad');
+      PRAGMA ignore_check_constraints = OFF;
+    `);
+    return backupPath;
+  };
+
+  let caughtIntegErr = null;
+  try {
+    dbSchema.setupSchema(integConn, backupFnWithIntegrityFault);
+  } catch (err) {
+    caughtIntegErr = err;
+  }
+  assert.ok(caughtIntegErr, 'Forced verifyIntegrity() failure must abort setupSchema');
+  assert.match(caughtIntegErr.message, /INTEGRITY ERROR|SCHEMA INTEGRITY FAILURE/i, 'Must report integrity error from verifyIntegrity()');
+  assert.match(caughtIntegErr.message, /CHECK constraint failed/i, 'Must include underlying SQLite integrity_check failure detail');
+  assert.ok(caughtIntegErr.backupPath && fs.existsSync(caughtIntegErr.backupPath), 'Aborted migration must attach verified pre-migration err.backupPath');
+  assert.strictEqual(userVersion(integConn), 6, 'Aborted migration must NOT advance PRAGMA user_version');
+  assert.strictEqual(
+    integConn.prepare('SELECT project_path FROM projects WHERE project_hash = ?').get('p_orig').project_path,
+    '/tmp/original-project',
+    'Savepoint rollback must keep pre-migration rows intact'
+  );
+  assert.ok(!tableNames(integConn).includes('code_index_roots'), 'Savepoint rollback must leave no partial v7 tables');
+  integConn.close();
+
+  // Recover DB cleanly from the pre-migration verified backup
+  restoreFromVerifiedBackupFile(integDbPath, caughtIntegErr.backupPath);
+  const recoveredConn = db.getConnection(integDbPath, false);
+  assert.strictEqual(dbSchema.verifyIntegrity(recoveredConn), true, 'Restored pre-migration backup must pass verifyIntegrity()');
+  assert.strictEqual(userVersion(recoveredConn), 6, 'Restored backup must preserve pre-migration user_version 6');
+  assert.strictEqual(
+    recoveredConn.prepare('SELECT project_path FROM projects WHERE project_hash = ?').get('p_orig').project_path,
+    '/tmp/original-project',
+    'Restored backup must preserve pre-migration user data'
+  );
+  dbSchema.setupSchema(recoveredConn, db.backupDatabase);
+  assert.strictEqual(userVersion(recoveredConn), 7, 'Cleanly restored DB must migrate to v7 without partial state');
+  recoveredConn.close();
+
+  console.log('✓ Code-intelligence migration, integrity failure rollback, backup recovery, idempotency, FTS triggers, and cascade verified.');
 }
 
 run();

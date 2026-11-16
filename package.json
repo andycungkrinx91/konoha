@@ -70,7 +70,8 @@
     "access": "public"
   },
   "overrides": {
-    "image-size": ">=2.0.3"
+    "image-size": ">=2.0.3",
+    "globalthis": "npm:@socketregistry/globalthis@1.0.7"
   },
   "bundleDependencies": [
     "cfb",
