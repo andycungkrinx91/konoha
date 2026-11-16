@@ -173,6 +173,20 @@ function readLog(logPath) {
   return fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
+/**
+ * The child writes its log asynchronously, so a fixed sleep is a race: a loaded
+ * runner has not flushed the line yet and a correct client looks broken. Poll
+ * with a deadline instead — same assertion, no timing assumption.
+ */
+async function waitForCancelRequests(logPath, minimum, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const seen = readLog(logPath).filter((e) => e.method === '$/cancelRequest').length;
+    if (seen >= minimum || Date.now() >= deadline) return seen;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
 async function callRouterTool(name, args) {
   const res = await router.dispatchToolAsync(name, args);
   assert.ok(!res.isError, `${name} router dispatch failed: ${res.text}`);
@@ -236,6 +250,17 @@ async function testCancelLruAndProcessCleanup(mockScript, logPath) {
 
   delete process.env.KONOHA_LSP_COMMAND_OVERRIDE;
   const mgr = new LspManager({ maxClients: 2, idleTtlMs: 30000, timeoutMs: 2000 });
+  // A failed assertion used to skip shutdownAll, leaving mock children holding
+  // `tmpRoot`; the outer rmSync then failed with EPERM on Windows and buried
+  // the real error under a cleanup error.
+  try {
+    await assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2, r3);
+  } finally {
+    await mgr.shutdownAll();
+  }
+}
+
+async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2, r3) {
   const c1 = await mgr.acquireClient(r1, 'typescript', 'src/auth.ts', { commandOverride: `${process.execPath} ${mockScript}` });
   const c2 = await mgr.acquireClient(r2, 'typescript', 'src/auth.ts', { commandOverride: `${process.execPath} ${mockScript}` });
   assert.strictEqual(c1.available && c2.available, true);
@@ -252,7 +277,7 @@ async function testCancelLruAndProcessCleanup(mockScript, logPath) {
     () => c2.client.request('$/slowNeverReply', {}, { timeoutMs: 2000, signal: ac.signal }),
     (err) => err && err.code === 'ABORT_ERR'
   );
-  await new Promise((r) => setTimeout(r, 80));
+  await waitForCancelRequests(logPath, 2);
   const events = readLog(logPath);
   const cancels = events.filter((e) => e.method === '$/cancelRequest');
   assert.ok(cancels.length >= 2, 'Timeout and AbortSignal must send $/cancelRequest to child LSP');

@@ -409,14 +409,17 @@ Gate 1 (`src/mcp/workflow_runner.js:380`). If a harness cannot render the prompt
 proceeding.
 
 **The gate is a picker, not a numbered list.** Each gate payload carries a `picker` block naming the control the active
-harness actually has. OMP gets a native `ask` call and Claude Code gets `AskUserQuestion`, both built from the gate's own
-options. Every other harness gets `transport: web_picker` with a loopback URL to `/api/v1/hitl/picker`, which serves a
-self-contained HTML form — one card per option plus a custom-instruction field — that posts its own verdict to
-`/api/v1/hitl/verdict`. No tool name is invented for a harness that has no question tool, because a call to a
-non-existent tool fails at runtime; those harnesses get the form instead. Both routes authenticate with a per-gate
-signature — an HMAC of the task directory keyed by the session token — because a human opening a link has no cookie jar,
-and handing them the master token would put it in every transcript. The signature is scoped to one directory, so one
-gate's link cannot approve another, and the page only renders for a task directory that actually holds a `status.json`.
+harness actually has. OMP gets a native `ask` call carrying an HTML form built from the gate's own options — `ask` takes
+`{ html, i }`, so the options are rendered as radios rather than handed over as a questions array — and [CC] gets
+`AskUserQuestion`. Every other harness gets `transport: web_picker` with a loopback URL to `/api/v1/hitl/picker`, which
+serves a self-contained HTML form — one card per option plus a custom-instruction field — that posts its own verdict to
+`/api/v1/hitl/verdict`. The MCP process serves those two routes itself (`src/mcp/hitl_picker_server.js`), so the link
+works without `konoha ui` running; when the dashboard is up it owns the port and answers instead, with the same token and
+the same checks. No tool name is invented for a harness that has no question tool, because a call to a non-existent tool
+fails at runtime; those harnesses get the form instead. Both routes authenticate with a per-gate signature — an HMAC of
+the task directory keyed by the session token — because a human opening a link has no cookie jar, and handing them the
+master token would put it in every transcript. The signature is scoped to one directory, so one gate's link cannot
+approve another, and the page only renders for a task directory that actually holds a `status.json`.
 Every transport lands on `sannin({ task_dir, choice, refinement })`, the same resume path a typed reply takes, so a harness
 that ignores the picker loses the control but cannot bypass the gate.
 

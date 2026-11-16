@@ -543,12 +543,19 @@ function indexRepository(options = {}) {
 
 async function indexRepositoryAsync(options = {}) {
   const ctx = await _prepareIndexContextAsync(options);
+  // ponytail: test-only pacing. The cooperative-yield test has to prove
+  // `tools/list` is answered while indexing is in flight; on a fast runner a
+  // 260-file corpus finishes before the assertion, so the test paces itself
+  // instead of pretending every machine is slow. Remove if indexing gains a
+  // real scheduling hook.
+  const fileDelayMs = Number.parseInt(process.env.KONOHA_INDEX_FILE_DELAY_MS || '', 10) || 0;
   try {
     const ops = [];
     let lastYieldAt = Date.now();
     for (let idx = 0; idx < ctx.files.length; idx++) {
       _checkAbort(options.signal, ctx.deadlineMs);
       const file = ctx.files[idx];
+      if (fileDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, fileDelayMs));
       const op = await _prepareFileOpAsync({
         conn: ctx.conn,
         rootHash: ctx.rootHash,

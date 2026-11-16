@@ -99,25 +99,69 @@ const PICKER_BINDINGS = Object.freeze({
 
 const FALLBACK_BINDING = Object.freeze({ transport: 'web_picker' });
 
+/**
+ * The same harness reaches Konoha under more than one name: `runtime_state`
+ * keys [CC] as `claudecode`, and the Antigravity CLI identifies as `agy`. The
+ * aliases live here, at the consumer, so detection keys stay untouched and a
+ * harness that ships a question tool is never downgraded to the web form.
+ */
+const CLIENT_ALIASES = Object.freeze({
+  claudecode: 'claude',
+  'claude-code': 'claude',
+  agy: 'antigravity',
+  'antigravity-cli': 'antigravity'
+});
+
 const VERDICT_ENDPOINT = '/api/v1/hitl/verdict';
 
 function resolvePickerBinding(client) {
   const key = String(client || '').trim().toLowerCase();
-  return PICKER_BINDINGS[key] || FALLBACK_BINDING;
+  return PICKER_BINDINGS[key] || PICKER_BINDINGS[CLIENT_ALIASES[key]] || FALLBACK_BINDING;
 }
 
 /**
- * The arguments a harness needs to raise its own control. For `native_tool`
- * this is the option list in the shape a question tool expects; the free-text
- * escape hatch is a separate option so "type your own instruction" stays
- * reachable without the human editing the prompt.
+ * OMP's `ask` takes a semantic HTML form, not a question array: `{ html, i }`.
+ * Radios carry the option label as their value so the submitted field maps
+ * straight onto the verdict without a translation table.
  */
-function buildNativeToolCall(prompt) {
+function renderInlineForm(prompt) {
+  const options = prompt.options || [];
+  const gateName = prompt.gate_name || prompt.title || 'HITL Gate';
+  const radios = options.map((opt, index) => {
+    const description = opt.description ? ` — ${escapeHtml(opt.description)}` : '';
+    return `<label><input type="radio" name="choice" value="${escapeHtml(opt.label)}"${index === 0 ? ' checked' : ''}> ${escapeHtml(opt.label)}${description}</label>`;
+  }).join('\n');
+  const refinement = options.some((opt) => opt.accepts_text)
+    ? '<label>Custom instruction <textarea name="refinement"></textarea></label>'
+    : '';
+  return `<form>
+<fieldset>
+<legend>${escapeHtml(gateName)}: ${escapeHtml(prompt.question || '')}</legend>
+${radios}
+</fieldset>
+${refinement}
+</form>`;
+}
+
+/** `AskUserQuestion` rejects a header longer than 12 characters. */
+function gateHeader(prompt) {
+  return prompt.gate === 'gate_2' ? 'Gate 2' : 'Gate 1';
+}
+
+/**
+ * The arguments a harness needs to raise its own control, in that tool's own
+ * schema. The free-text escape hatch is a separate option so "type your own
+ * instruction" stays reachable without the human editing the prompt.
+ */
+function buildNativeToolCall(prompt, tool) {
+  if (tool === 'ask') {
+    return { html: renderInlineForm(prompt), i: `${prompt.gate_name || 'HITL gate'} verdict` };
+  }
   return {
     questions: [
       {
         question: prompt.question,
-        header: prompt.gate_name,
+        header: gateHeader(prompt),
         multiSelect: false,
         options: (prompt.options || []).map((opt) => ({
           label: opt.label,
@@ -128,8 +172,16 @@ function buildNativeToolCall(prompt) {
   };
 }
 
+/**
+ * The link is only worth emitting if something answers it. The dashboard is
+ * manual-only, so the MCP process serves the two capability routes itself.
+ */
 function buildPickerUrl({ baseUrl, taskDir }) {
   const root = String(baseUrl || '').replace(/\/+$/, '');
+  try {
+    const { port, hostname } = new URL(root);
+    require('./hitl_picker_server').ensurePickerServer({ port: Number(port) || 80, host: hostname });
+  } catch (_) { /* an unparseable base URL cannot be served locally; the caller's link stands */ }
   const query = new URLSearchParams();
   if (taskDir) query.set('task_dir', taskDir);
   const signature = signTaskDir(taskDir);
@@ -154,15 +206,19 @@ function buildPickerBinding(prompt, options = {}) {
 
   if (binding.transport === 'native_tool') {
     picker.tool = binding.tool;
-    picker.call = buildNativeToolCall(prompt);
+    picker.call = buildNativeToolCall(prompt, binding.tool);
   } else {
     picker.url = buildPickerUrl(options);
     picker.open_when = 'A gate is pending and this harness has no question tool.';
   }
 
-  picker.instruction = binding.transport === 'native_tool'
-    ? `Call ${binding.tool} with picker.call; do not print a numbered list for the human to retype.`
-    : 'Raise the picker; do not print a numbered list for the human to retype.';
+  if (binding.transport !== 'native_tool') {
+    picker.instruction = 'Raise picker.url; the page posts the verdict itself. Do not print a numbered list for the human to retype.';
+  } else if (binding.tool === 'ask') {
+    picker.instruction = 'Call ask with picker.call; it returns {choice, refinement}. Pass both to sannin({task_dir, choice, refinement}); do not print a numbered list for the human to retype.';
+  } else {
+    picker.instruction = `Call ${binding.tool} with picker.call; do not print a numbered list for the human to retype.`;
+  }
 
   return picker;
 }
@@ -260,12 +316,14 @@ form.addEventListener('submit', async (event) => {
 
 module.exports = {
   PICKER_BINDINGS,
+  CLIENT_ALIASES,
   VERDICT_ENDPOINT,
   resolvePickerBinding,
   readSessionToken,
   signTaskDir,
   verifyTaskDirSignature,
   buildNativeToolCall,
+  renderInlineForm,
   buildPickerUrl,
   buildPickerBinding,
   renderPickerPage

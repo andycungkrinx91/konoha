@@ -45,13 +45,13 @@ test('gate payload carries a picker whose call matches its transport', () => wit
   const omp = gate1(dir, 'omp');
   assert.equal(omp.picker.transport, 'native_tool');
   assert.equal(omp.picker.tool, 'ask');
-  assert.equal(omp.picker.call.questions.length, 1);
-  assert.equal(omp.picker.call.questions[0].multiSelect, false);
-  assert.deepEqual(
-    omp.picker.call.questions[0].options.map((o) => o.label),
-    omp.interactive_prompt.options.map((o) => o.label),
-    'the tool call must offer exactly the gate options, not a re-worded subset'
-  );
+  assert.equal(omp.picker.call.questions, undefined, 'ask takes {html, i}; a questions array fails its schema and renders nothing');
+  assert.ok(typeof omp.picker.call.i === 'string' && omp.picker.call.i.length > 0, 'ask requires an intent string');
+  for (const option of omp.interactive_prompt.options) {
+    assert.ok(omp.picker.call.html.includes(option.label), `the form must offer "${option.label}", not a re-worded subset`);
+  }
+  assert.match(omp.picker.call.html, /name="choice"/);
+  assert.match(omp.picker.call.html, /name="refinement"/, 'the free-text escape hatch must be a field');
   assert.deepEqual(omp.picker.submit_args, ['task_dir', 'choice', 'refinement']);
   assert.match(omp.picker.instruction, /ask/);
 
@@ -60,6 +60,24 @@ test('gate payload carries a picker whose call matches its transport', () => wit
   assert.match(cursor.picker.url, /\/api\/v1\/hitl\/picker\?/);
   assert.ok(cursor.picker.url.includes(encodeURIComponent(path.basename(dir))), 'picker URL must target this task');
 
+}));
+
+test('the harness names detection emits reach the right binding', () => {
+  assert.equal(picker.resolvePickerBinding('claudecode').tool, 'AskUserQuestion',
+    '[CC] initializes as claudecode; an unaliased miss downgrades it to the web form');
+  assert.equal(picker.resolvePickerBinding('claude-code').tool, 'AskUserQuestion');
+  assert.equal(picker.resolvePickerBinding('agy').transport, 'web_picker', 'the Antigravity CLI must resolve explicitly, not by luck of the fallback');
+  assert.equal(picker.resolvePickerBinding('CLAUDE').tool, 'AskUserQuestion', 'client names arrive from config files in any case');
+});
+
+test('AskUserQuestion is never called with a header it rejects', () => withTaskDir((dir) => {
+  for (const [client, gate] of [['claude', () => gates.buildGate1Prompt({ plan: 'x' }, dir, path.basename(dir), 'x', { client: 'claude' })],
+    ['claude', () => gates.buildGate2Prompt({ report: 'r' }, dir, path.basename(dir), { client: 'claude' })]]) {
+    const prompt = JSON.parse(gate());
+    assert.equal(prompt.picker.transport, 'native_tool', client);
+    const header = prompt.picker.call.questions[0].header;
+    assert.ok(header.length <= 12, `header "${header}" exceeds the 12-character limit and the call would be refused`);
+  }
 }));
 
 test('binding map names only tools that exist', () => {
@@ -198,6 +216,43 @@ test('a gate raised by the LangGraph nodes renders in the picker', async () => {
     assert.equal(done.status, 409, 'a finished task must not render a gate');
   } finally {
     wrapper.server.close();
+    fs.rmSync(taskDir, { recursive: true, force: true });
+  }
+});
+
+test('the MCP process serves the picker URL it hands out', async () => {
+  // Defect pinned here: the dashboard is manual-only, and the MCP process never
+  // started it, so a web_picker gate emitted a URL to a dead port and the gate
+  // had no control at all. `ensurePickerServer` makes the emitted link real.
+  const { ensurePickerServer } = require(path.join(REPO, 'src', 'mcp', 'hitl_picker_server.js'));
+  const server = ensurePickerServer({ port: 0, host: '127.0.0.1' });
+  await new Promise((resolve) => {
+    if (server.listening) return resolve();
+    server.once('listening', resolve);
+  });
+  const port = server.address().port;
+  assert.ok(port > 0, 'the picker must bind a real port');
+
+  const taskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-picker-mcp-'));
+  saveWorkflowStatus(taskDir, { status: 'pending_plan_approval', phase: 'plan_approval', plan: 'step one', tasks: [] });
+  const sig = picker.signTaskDir(taskDir);
+  assert.ok(sig, 'a gate capability must be signable even when `konoha ui` never ran');
+
+  try {
+    const url = `http://127.0.0.1:${port}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}&sig=${sig}`;
+    const page = await fetch(url);
+    const html = await page.text();
+    assert.equal(page.status, 200, 'the emitted picker URL must render: ' + html.slice(0, 160));
+    assert.match(html, /<form id="picker">/);
+    assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
+
+    const unsigned = await fetch(`http://127.0.0.1:${port}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}`);
+    assert.equal(unsigned.status, 403, 'the mini server must enforce the same capability check as the dashboard');
+
+    const unknown = await fetch(`http://127.0.0.1:${port}/api/v1/whatever`);
+    assert.equal(unknown.status, 404, 'the mini server must not expose any route beyond the two capability routes');
+  } finally {
+    server.close();
     fs.rmSync(taskDir, { recursive: true, force: true });
   }
 });

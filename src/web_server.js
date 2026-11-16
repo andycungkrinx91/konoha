@@ -465,7 +465,9 @@ module.exports = {
   createWebServer,
   startWebServer,
   getDistDir,
-  handleWebServerRequest
+  handleWebServerRequest,
+  generateSessionToken,
+  persistSessionToken
 };
 
 if (require.main === module) {

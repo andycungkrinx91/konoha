@@ -556,7 +556,10 @@ async function testWarmedParserMcpResponsiveness(conn) {
   const mcpResult = await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'file_tools_mcp.js')], {
       cwd: tmpRoot,
-      env: { ...process.env, KONOHA_SEMANTIC_SEARCH: '0' },
+      // Pace indexing so 260 files cannot finish before the assertion on a fast
+      // runner: the invariant under test is that tools/list is answered while
+      // code_index is in flight, not that this machine happens to be slow.
+      env: { ...process.env, KONOHA_SEMANTIC_SEARCH: '0', KONOHA_INDEX_FILE_DELAY_MS: '5' },
       stdio: ['pipe', 'pipe', 'pipe']
     });
     const responses = new Map();

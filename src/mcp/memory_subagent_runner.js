@@ -7,6 +7,10 @@ const path = require('path');
 const db = require('../db');
 const { getDb } = db;
 const personaMemory = require('../persona_memory');
+const {
+  formatProjectContext: _formatProjectContext,
+  loadBaseProjectContext: _loadBaseProjectContext
+} = require('./project_context_prompt');
 const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
 const {
   detectActiveClient,
@@ -22,7 +26,6 @@ const { buildSpawnDirective } = require('./lazy_subagent');
 const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
 const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
 const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
-const { retrieveUnifiedContextSync } = require('../code_intel/genin_retrieval');
 const {
   slicePreservingHeadMiddleTail,
   sliceBytesPreservingHeadMiddleTail
@@ -318,34 +321,6 @@ function _loadSkillsContent(skillsList, agentName) {
     }
   }
   return skillsContent;
-}
-
-function _loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId) {
-  let projProfile = personaMemory.getProjectProfile(resolvedProjPath);
-  if (!projProfile) {
-    const pHash = personaMemory.saveOrUpdateProject(resolvedProjPath);
-    projProfile = personaMemory.getProjectProfile(pHash);
-  }
-  const projMems = personaMemory.queryMemories({
-    agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2
-  });
-  return personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
-}
-
-function _formatProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId) {
-  try {
-    let retrievalBlock = '';
-    if (dbAgentName === 'genin') {
-      const retrieved = retrieveUnifiedContextSync({
-        projectPath: resolvedProjPath, query: instructions, agentName: dbAgentName,
-        sessionId: resolvedSessionId, maxChars: 1100, maxHits: 4
-      });
-      if (retrieved && retrieved.available && retrieved.text) retrievalBlock = retrieved.text;
-    }
-    return `${_loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId)}${retrievalBlock}`;
-  } catch (_) {
-    return '';
-  }
 }
 
 function _resolveSpawnDirective({ isChildWorker, client, agent, skills, projectPath, prompt, worktree, piSubagentSupported }) {

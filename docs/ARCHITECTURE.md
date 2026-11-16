@@ -631,14 +631,18 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
 
    **Gate presentation is a picker, not prose.** Every gate payload carries a `picker` block naming the control the active
    harness actually has (`src/mcp/hitl_picker.js`). Harnesses with a structured-question tool get `transport: native_tool` plus the
-   exact call to make (OMP `ask`, `[CC]` `AskUserQuestion`); every other harness gets `transport: web_picker` with a loopback URL to
-   `/api/v1/hitl/picker`, an HTML form of option cards and a custom-instruction field that posts to `/api/v1/hitl/verdict`. That
-   endpoint resolves the verdict through `runSannin`, the same resume path as a typed reply, so a click and a message land in one
-   place. Both routes authenticate with a per-gate capability signature — an HMAC of the task directory keyed by the persisted
-   session token — because the human opening the link has no cookie jar for it and handing them the master token would put it in
-   every transcript and gate payload. The signature is scoped to one directory, so one gate's link cannot approve another; the page
-   is served `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and the verdict route only accepts a directory that
-   actually holds a `status.json`. A harness that ignores the picker still cannot bypass the gate — it just loses the control.
+   exact call to make (OMP `ask` with an `{ html, i }` form, `[CC]` `AskUserQuestion`); every other harness gets `transport: web_picker`
+   with a loopback URL to `/api/v1/hitl/picker`, an HTML form of option cards and a custom-instruction field that posts to
+   `/api/v1/hitl/verdict`. Those two routes are served from the MCP process itself by `src/mcp/hitl_picker_server.js` — a bare
+   `http.createServer` over `handleHitlRoutes` with no assets, no banner on stdout, and an unref'd listener — because the dashboard is
+   manual-only and a gate URL to a port nobody listens on is not a control; a running `konoha ui` holds the port first and serves the
+   same routes with the same token. The verdict endpoint resolves through `runSannin`, the same resume path as a typed reply, so a
+   click and a message land in one place. Both routes authenticate with a per-gate capability signature — an HMAC of the task
+   directory keyed by the persisted session token — because the human opening the link has no cookie jar for it and handing them the
+   master token would put it in every transcript and gate payload. The signature is scoped to one directory, so one gate's link
+   cannot approve another; the page is served `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and the verdict route
+   only accepts a directory that actually holds a `status.json`. A harness that ignores the picker still cannot bypass the gate — it
+   just loses the control.
    - `synthesize` (`sannin`): Generates `final_report.md`, updates root container to `completed` in `sdlc_tasks`, purges transient scratch files.
 
 2. **Core Operational Invariants**:

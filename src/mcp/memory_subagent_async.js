@@ -8,7 +8,10 @@
 
 const { retrieveUnifiedContextAsync } = require('../code_intel/genin_retrieval');
 const {
-  _loadBaseProjectContext,
+  composeProjectContext,
+  readCachedProjectContext
+} = require('./project_context_prompt');
+const {
   _prepareAgentRun,
   _finalizeAgentRun
 } = require('./memory_subagent_runner');
@@ -28,11 +31,15 @@ async function _fetchGeninRetrievalBlockAsync(dbAgentName, instructions, resolve
 }
 
 async function formatProjectContextAsync(dbAgentName, instructions, resolvedProjPath, resolvedSessionId, retrievalOptions = {}) {
+  const cached = readCachedProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId);
+  if (cached !== undefined) return cached;
   try {
     const retrievalBlock = await _fetchGeninRetrievalBlockAsync(
       dbAgentName, instructions, resolvedProjPath, resolvedSessionId, retrievalOptions
     );
-    return `${_loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId)}${retrievalBlock}`;
+    // Same cache as the sync path: whichever composes first fixes the prefix, so
+    // a turn that falls back to sync retrieval cannot reshuffle it.
+    return composeProjectContext(dbAgentName, instructions, resolvedProjPath, resolvedSessionId, retrievalBlock);
   } catch (_) {
     return '';
   }
