@@ -406,7 +406,10 @@ jobs:
           if (Test-LibwebpAnim) { Write-Host 'runner ffmpeg already exposes libwebp_anim'; exit 0 }
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             Write-Host "choco install ffmpeg (attempt $attempt/3)"
-            choco install ffmpeg -y --no-progress
+            # --force: a choco package that already reports installed would
+            # otherwise no-op, and the probe would keep failing on the same
+            # binary for all three attempts.
+            choco install ffmpeg -y --no-progress --force
             if (Test-LibwebpAnim) { exit 0 }
             Start-Sleep -Seconds (15 * $attempt)
           }
