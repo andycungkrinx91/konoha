@@ -17,7 +17,12 @@ const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
 const EMBED_MODEL_REPO = 'onnx-community/granite-embedding-97m-multilingual-r2-ONNX';
 const RERANK_MODEL_REPO = 'Xenova/ms-marco-MiniLM-L-6-v2';
 const EMBED_DIM = 384;
-const DEFAULT_BATCH_SIZE = 16;
+// One sequence per ONNX call is 1.58x faster than 16 on the bundled granite-97m
+// q8 graph (44 295 live chunks: 201.5 vs 127.6 chunks/s, 220 s vs 347 s). Padding
+// waste is already ~0 at these widths, so the win is the int8 kernel at M=1, not
+// saved tokens. Callers can still raise it via `batchSize`.
+const DEFAULT_EMBED_BATCH_SIZE = 1;
+const DEFAULT_RERANK_BATCH_SIZE = 16;
 const DEFAULT_EMBED_MAX_LENGTH = 512;
 const DEFAULT_RERANK_MAX_LENGTH = 512;
 
@@ -433,7 +438,7 @@ async function embedBatch(texts, options = {}) {
 
   const modelRepo = options.modelRepo || EMBED_MODEL_REPO;
   const maxLength = Math.max(16, Number(options.maxLength) || DEFAULT_EMBED_MAX_LENGTH);
-  const batchSize = Math.max(1, Number(options.batchSize) || DEFAULT_BATCH_SIZE);
+  const batchSize = Math.max(1, Number(options.batchSize) || DEFAULT_EMBED_BATCH_SIZE);
   const paceMs = Math.max(0, Number(options.paceMs ?? process.env.KONOHA_EMBED_PACE_MS) || 0);
   const results = Array.from({ length: texts.length });
   const misses = _collectEmbedMisses(texts, modelRepo, results);
@@ -600,7 +605,7 @@ async function rerank(query, documents, options = {}) {
   }
 
   const topK = options.topK || documents.length;
-  const batchSize = Math.max(1, Number(options.batchSize) || DEFAULT_BATCH_SIZE);
+  const batchSize = Math.max(1, Number(options.batchSize) || DEFAULT_RERANK_BATCH_SIZE);
   const maxLength = Math.max(32, Number(options.maxLength) || DEFAULT_RERANK_MAX_LENGTH);
 
   const cleanQuery = String(query || '');

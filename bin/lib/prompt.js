@@ -143,7 +143,7 @@ function startSpinner(text) {
 }
 
 class KonohaProgressBar {
-  constructor({ total = 100, width = 28, title = 'Progress' } = {}) {
+  constructor({ total = 100, width = 28, title = 'Progress', phases = null } = {}) {
     this.total = Math.max(1, total);
     this.width = width;
     this.title = title;
@@ -152,6 +152,33 @@ class KonohaProgressBar {
     this.isTTY = Boolean(process.stdout && process.stdout.isTTY);
     this.timer = null;
     this._lastLoggedPercent = -1;
+    // The run's stages, announced as they start and ticked as they finish.
+    // Empty by default, so single-stage callers keep a one-line bar.
+    this.phases = Array.isArray(phases) ? phases.map(String) : [];
+    this._phase = -1;
+  }
+
+  /**
+   * Advances the phase list. Phases only move forward: a retry that re-indexes
+   * skills must not un-tick the stage the previous attempt already finished.
+   *
+   * Each transition is printed as its own line rather than redrawn under the
+   * bar. A multi-line block would have to move the cursor up over whatever the
+   * caller logged in between — and `src/migrate.js` logs every skill to stderr,
+   * so the block would erase those lines. One line, plus a persistent trail.
+   */
+  setPhase(name) {
+    const label = String(name);
+    const idx = this.phases.indexOf(label);
+    if (idx < 0 || idx <= this._phase) return this;
+    const previous = this._phase;
+    this._phase = idx;
+    this.status = label;
+    this._clearLine();
+    if (previous >= 0) log(`  ${C.green}✓${C.reset} ${C.dim}${this.phases[previous]}${C.reset}`);
+    log(`  ${C.cyan}▸${C.reset} ${label}`);
+    this.render();
+    return this;
   }
 
   start(initialStatus = '') {
@@ -167,6 +194,20 @@ class KonohaProgressBar {
     return this;
   }
 
+  _barLine(frame = '') {
+    const ratio = Math.min(1, Math.max(0, this.current / this.total));
+    const percent = Math.round(ratio * 100);
+    const filledLen = Math.round(this.width * ratio);
+    const bar = `${C.cyan}${'█'.repeat(filledLen)}${C.dim}${'░'.repeat(this.width - filledLen)}${C.reset}`;
+    const spinner = frame ? `${frame} ` : '';
+    return `  ${C.bold}${this.title}${C.reset} [${bar}] ${C.cyan}${String(percent).padStart(3)}%${C.reset} ${C.dim}${spinner}${this.status}${C.reset}`;
+  }
+
+  /** Erases the bar line and leaves the cursor at its start. */
+  _clearLine() {
+    if (this.isTTY) process.stdout.write('\r\x1b[2K');
+  }
+
   render() {
     const ratio = Math.min(1, Math.max(0, this.current / this.total));
     const percent = Math.round(ratio * 100);
@@ -179,21 +220,13 @@ class KonohaProgressBar {
       return;
     }
 
-    const filledLen = Math.round(this.width * ratio);
-    const emptyLen = this.width - filledLen;
-    const bar = `${C.cyan}${'█'.repeat(filledLen)}${C.dim}${'░'.repeat(emptyLen)}${C.reset}`;
-    const line = `\r\x1b[2K  ${C.bold}${this.title}${C.reset} [${bar}] ${C.cyan}${String(percent).padStart(3)}%${C.reset} ${C.dim}${this.status}${C.reset}`;
-    process.stdout.write(line);
+    process.stdout.write(`\r\x1b[2K${this._barLine()}`);
   }
 
   logStep(msg) {
-    if (this.isTTY) {
-      process.stdout.write('\r\x1b[2K');
-      log(`  ${C.green}✓${C.reset} ${msg}`);
-      this.render();
-    } else {
-      log(`  ${C.green}✓${C.reset} ${msg}`);
-    }
+    this._clearLine();
+    log(`  ${C.green}✓${C.reset} ${msg}`);
+    this.render();
     return this;
   }
 
@@ -207,14 +240,7 @@ class KonohaProgressBar {
     let pulseIdx = 0;
     this.timer = setInterval(() => {
       pulseIdx = (pulseIdx + 1) % SPINNER_FRAMES.length;
-      const frame = SPINNER_FRAMES[pulseIdx];
-      const ratio = Math.min(1, Math.max(0, this.current / this.total));
-      const percent = Math.round(ratio * 100);
-      const filledLen = Math.round(this.width * ratio);
-      const emptyLen = this.width - filledLen;
-      const bar = `${C.cyan}${'█'.repeat(filledLen)}${C.dim}${'░'.repeat(emptyLen)}${C.reset}`;
-      const line = `\r\x1b[2K  ${C.bold}${this.title}${C.reset} [${bar}] ${C.cyan}${String(percent).padStart(3)}%${C.reset} ${C.dim}${frame} ${this.status}${C.reset}`;
-      process.stdout.write(line);
+      process.stdout.write(`\r\x1b[2K${this._barLine(SPINNER_FRAMES[pulseIdx])}`);
     }, SPINNER_INTERVAL_MS || 80);
     // A forgotten bar must never be the reason the process refuses to exit.
     this.timer.unref?.();
@@ -238,22 +264,14 @@ class KonohaProgressBar {
     this.stopPulse();
     this.current = this.total;
     this.status = finalStatus;
-    if (this.isTTY) {
-      process.stdout.write('\r\x1b[2K');
-      log(`  ${C.green}✓${C.reset} ${C.bold}${this.title}${C.reset} ${C.green}100%${C.reset} — ${finalStatus}`);
-    } else {
-      log(`  ${C.green}✓${C.reset} [${this.title}] 100% ${finalStatus}`);
-    }
+    this._clearLine();
+    log(`  ${C.green}✓${C.reset} ${C.bold}${this.title}${C.reset} ${C.green}100%${C.reset} — ${finalStatus}`);
   }
 
   fail(reason = 'Failed') {
     this.stopPulse();
-    if (this.isTTY) {
-      process.stdout.write('\r\x1b[2K');
-      log(`  ${C.red}✗${C.reset} ${C.bold}${this.title}${C.reset} — ${C.red}${reason}${C.reset}`);
-    } else {
-      log(`  ${C.red}✗${C.reset} [${this.title}] ${reason}`);
-    }
+    this._clearLine();
+    log(`  ${C.red}✗${C.reset} ${C.bold}${this.title}${C.reset} — ${C.red}${reason}${C.reset}`);
   }
 }
 

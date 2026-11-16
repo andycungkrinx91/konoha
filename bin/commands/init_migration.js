@@ -12,7 +12,7 @@ const {
 } = require('../lib/paths');
 const cursorManager = require('../../src/cursor_manager');
 const { C, log, info, warn, error, success, drawBox, LEAF_THEME, getCliVersion } = require('../lib/format');
-const { createEmbedProgress } = require('../lib/embed_progress');
+const { createEmbedProgress, MIGRATION_PHASES } = require('../lib/embed_progress');
 const { verifySkillDatabaseContract, hasCompleteDatabaseSchema } = require('../lib/runtime_lifecycle');
 
 /**
@@ -127,8 +127,10 @@ async function executeInitMigration(options) {
 
   // One bar for the whole seed+embed phase: embedding dominates the wall time
   // and used to print a line per skill, which buried the actual failure when the
-  // model download broke.
-  const progress = createEmbedProgress('Seeding skills');
+  // model download broke. A caller that injects its own reporter also owns the
+  // settle, because it knows the stages that run after this one.
+  const progress = options.progress || createEmbedProgress('Seeding skills', MIGRATION_PHASES);
+  const settle = !options.progress;
   const run = await runMigrationAttempts(migrationArgs, safeTimeoutMs, progress.onProgress);
 
   if (run.status !== 0) {
@@ -140,16 +142,18 @@ async function executeInitMigration(options) {
   }
 
   const embedFailure = run.embedFailure || (run.result && run.result.embed && run.result.embed.ok === false ? run.result.embed.failure : null);
-  if (embedFailure) {
-    // Skills are indexed; only the vectors are missing. Keep the install usable
-    // and tell the user exactly how to finish, instead of exiting non-zero.
-    progress.fail(embedFailure);
-    warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
-  } else {
-    const embed = run.result && run.result.embed;
-    progress.succeed(embed && Number.isFinite(embed.chunksIndexed)
-      ? `${embed.chunksIndexed} chunks embedded`
-      : 'embeddings ready');
+  const embed = run.result && run.result.embed;
+  if (settle) {
+    if (embedFailure) {
+      // Skills are indexed; only the vectors are missing. Keep the install usable
+      // and tell the user exactly how to finish, instead of exiting non-zero.
+      progress.fail(embedFailure);
+      warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+    } else {
+      progress.succeed(embed && Number.isFinite(embed.chunksIndexed)
+        ? `${embed.chunksIndexed} chunks embedded`
+        : 'embeddings ready');
+    }
   }
 
   if (run.referencesDeferred) {
@@ -171,7 +175,7 @@ async function executeInitMigration(options) {
     error(`SQLite schema verification failed: ${schemaError.message}`);
     process.exit(1);
   }
-  return { embedFailed: Boolean(embedFailure) };
+  return { embedFailed: Boolean(embedFailure), embedFailure, embed };
 }
 
 function buildClientStatusLines(flags) {

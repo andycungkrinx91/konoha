@@ -127,4 +127,37 @@ function capture(fn) {
   console.log('  ✓ the init summary stays silent after a failure and reports the remainder after a cutoff');
 }
 
+// --- the run announces the stages it passes through ------------------------
+{
+  const { INIT_PHASES } = require('../bin/lib/embed_progress');
+  const progress = createEmbedProgress('Installing Konoha', INIT_PHASES);
+  const out = capture(() => {
+    progress.onProgress({ phase: 'migrate skills' });
+    progress.onProgress({ phase: 'embeddings' });
+    progress.onProgress({ done: 4, total: 8, stage: 'skill 4/8' });
+    progress.phase('configuration');
+    progress.succeed('8 chunks embedded');
+  });
+  assert.ok(out.includes('migrate skills'), 'the run must name the migration phase');
+  assert.ok(out.includes('configuration'), 'and the client-wiring phase init runs after it');
+  assert.ok(out.includes('embeddings'), 'and the embedding phase');
+  assert.ok(out.includes('Installing Konoha'), 'the phases belong to the titled run');
+  assert.ok(/✓.*migrate skills/.test(out), 'a finished phase is ticked off');
+  assert.ok(/▸.*configuration/.test(out), 'the active phase is marked');
+  // Every transition is a line of its own: the bar is the only thing that
+  // repaints, so a caller logging mid-run cannot be overwritten.
+  assert.ok(out.split('\n').filter((l) => l.includes('migrate skills')).length >= 2,
+    'phases print as a persistent trail, not an in-place block');
+
+  // Phases only move forward: a retry that re-announces an earlier stage must
+  // not un-tick the one already finished.
+  const bar = new (require('../bin/lib/prompt').KonohaProgressBar)({ phases: ['a', 'b', 'c'] });
+  capture(() => {
+    bar.setPhase('c');
+    bar.setPhase('a');
+  });
+  assert.strictEqual(bar._phase, 2, 'setPhase must ignore a backwards move');
+  console.log('  ✓ the run announces its phases and only moves forward');
+}
+
 console.log('\n✓ embed progress assertions passed');

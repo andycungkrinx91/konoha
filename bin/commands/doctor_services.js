@@ -18,12 +18,12 @@ const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
 const { AISLOP_PACKAGE } = require('../../src/uvx_runtime');
 const { confirmPrompt } = require('../lib/prompt');
-const { createEmbedProgress } = require('../lib/embed_progress');
+const { createEmbedProgress, MIGRATION_PHASES } = require('../lib/embed_progress');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 
 async function executeMigrationRun(skillsDirs) {
   const migrate = require('../../src/migrate');
-  const progress = createEmbedProgress('Doctor embeddings');
+  const progress = createEmbedProgress('Doctor embeddings', MIGRATION_PHASES);
   const attempt = async (opts) => {
     try {
       return await migrate.runMigration({ ...opts, onProgress: progress.onProgress });

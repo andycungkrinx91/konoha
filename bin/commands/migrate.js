@@ -6,7 +6,7 @@
 
 
 const { C, log, info, warn, error, success, header } = require("../lib/format");
-const { createEmbedProgress } = require("../lib/embed_progress");
+const { createEmbedProgress, MIGRATION_PHASES } = require("../lib/embed_progress");
 
 const { moveUnusedSkills, detectSkillsDirs, syncTemplateSkills } = require("../lib/runtime");
 const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
@@ -156,7 +156,7 @@ async function cmdMigrate(args = []) {
   const cleanArgs = args.includes('--clean') ? ['--clean'] : [];
   const customDirIdx = args.indexOf('--skills-dir');
 
-  const progress = createEmbedProgress('Embeddings');
+  const progress = createEmbedProgress('Embeddings', MIGRATION_PHASES);
   const run = customDirIdx >= 0 && args[customDirIdx + 1]
     ? await runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags, progress)
     : await runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags, progress);

@@ -52,6 +52,7 @@ const { checkPortActive } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
+const { createEmbedProgress, INIT_PHASES } = require('../lib/embed_progress');
 const {
   executePreInstallBackup,
   runTransactionalDatabaseMigration
@@ -359,13 +360,17 @@ async function cmdInit(args, options = {}) {
   const skipEmbed = args.includes('--no-embed');
   const migrationArgs = buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed });
 
+  const progress = createEmbedProgress('Installing Konoha', INIT_PHASES);
   const initRun = await executeInitMigration({
     skillsDirs,
     skills,
     migrationArgs,
     safeTimeoutMs: INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
     python,
-    pkgSkillsDir
+    pkgSkillsDir,
+    // The bar spans the client wiring that runs after the migration, so init
+    // owns the settle and the migration must not close it early.
+    progress
   });
 
   agentManager.loadAgents();
@@ -383,6 +388,7 @@ async function cmdInit(args, options = {}) {
   );
 
   if (hasClientsToSetup) {
+    progress.phase('configuration');
     const setupAgents = agentManager.loadAgents();
     const currentCwd = path.resolve(process.cwd());
     setupClientIntegrations({
@@ -394,6 +400,20 @@ async function cmdInit(args, options = {}) {
     if (clientFlags.allowAntigravity) {
       deployRtkRules(args);
     }
+  }
+
+  // Settle before the summary block: the bar owns the last few lines on screen,
+  // and the install summary must not print underneath a live bar.
+  if (initRun && initRun.embedFailed) {
+    progress.fail(initRun.embedFailure);
+    warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+  } else {
+    const embedded = initRun && initRun.embed;
+    progress.succeed(embedded && embedded.skipped
+      ? 'installation complete (embeddings skipped)'
+      : embedded && Number.isFinite(embedded.chunksIndexed)
+        ? `${embedded.chunksIndexed} chunks embedded`
+        : 'installation complete');
   }
 
   const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();

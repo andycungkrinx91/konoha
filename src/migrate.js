@@ -371,6 +371,17 @@ function _cleanDeletedSkills(conn, options) {
   }
 }
 
+/**
+ * Announces which stage the migration entered. A reporter uses this to tick the
+ * phase list under its bar; a broken reporter must never abort the migration.
+ */
+function _emitPhase(options, phase) {
+  if (typeof options.onProgress !== 'function') return;
+  try {
+    options.onProgress({ phase });
+  } catch (_) { /* progress is advisory */ }
+}
+
 function _verifyFtsQueries(conn) {
   log("\n🔍 Verifying FTS index...");
   try {
@@ -413,6 +424,7 @@ async function _syncVectorEmbeddings(conn, options, timeBudget) {
   }
   const forceRebuild = !!options.rebuildEmbeddings;
   const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+  _emitPhase(options, 'embeddings');
   try {
     const chunksIndexed = await vectorSearch.backfillAllEmbeddings(
       conn,
@@ -546,6 +558,7 @@ async function _runMigration(options = {}) {
 
   _purgeExistingSkills(conn, options);
 
+  _emitPhase(options, 'migrate skills');
   let total = 0;
   total += _migrateDocumentation(conn, options.skillsOnly);
   for (const item of skillsToMigrate) {
