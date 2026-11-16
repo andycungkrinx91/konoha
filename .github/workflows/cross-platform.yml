@@ -388,13 +388,30 @@ jobs:
           brew install ffmpeg-full
           echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
 
+      # The Windows image's ffmpeg may lack the encoder, and
+      # community.chocolatey.org answers 504 under load — which cost shard 16/16
+      # of run 43868450771 a whole job before a single test ran. `choco install`
+      # also exits 0 when the feed times out ("Unable to find package"), so the
+      # exit code proves nothing and the encoder probe is the only real signal.
+      # Retry here and fail this step, rather than leaving the verify step to
+      # discover it after the install already reported success.
       - name: Ensure ffmpeg with libwebp (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $hasEncoder = $false
-          try { $hasEncoder = ((ffmpeg -hide_banner -encoders 2>$null) -match 'libwebp_anim').Count -gt 0 } catch { $hasEncoder = $false }
-          if (-not $hasEncoder) { choco install ffmpeg -y --no-progress }
+          function Test-LibwebpAnim {
+            try { $encoders = (& ffmpeg -hide_banner -encoders 2>$null) -join "`n" } catch { return $false }
+            return $encoders -match 'libwebp_anim'
+          }
+          if (Test-LibwebpAnim) { Write-Host 'runner ffmpeg already exposes libwebp_anim'; exit 0 }
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            Write-Host "choco install ffmpeg (attempt $attempt/3)"
+            choco install ffmpeg -y --no-progress
+            if (Test-LibwebpAnim) { exit 0 }
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          Write-Host '::error::could not provision an ffmpeg exposing libwebp_anim in 3 attempts'
+          exit 1
 
       - name: Verify ffmpeg webp encoder
         run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"

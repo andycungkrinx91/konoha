@@ -331,7 +331,13 @@ expectation, and no `continue-on-error` was added anywhere.
   ran `brew install ffmpeg`, and homebrew-core's `ffmpeg` formula is configured
   without `--enable-libwebp`, so the binary it installed still had no
   `libwebp_anim` encoder; the step installs `ffmpeg-full` instead and appends its
-  keg-only bin directory to `PATH`.
+  keg-only bin directory to `PATH`. On Windows the encoder comes from
+  `choco install ffmpeg`, and that step now retries: the community feed answers
+  `504 Gateway Timeout` under load, and `choco` still exits 0 when it cannot
+  resolve the package, so the shard of run `43868450771` died at the encoder
+  verification with a runner ffmpeg that had never been replaced. The probe, not
+  the installer's exit code, decides success, and the step fails itself after
+  three attempts instead of deferring to the verification below it.
 - **pnpm resolution (test_agent_browser_provisioning)** — superseded. That suite
   and the `agent-browser` provisioning chain it exercised are deleted; QA now runs
   on the target project's own Playwright, so there is no CLI to resolve and no
