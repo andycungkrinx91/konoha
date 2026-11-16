@@ -635,8 +635,9 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
    with a loopback URL to `/api/v1/hitl/picker`, an HTML form of option cards and a custom-instruction field that posts to
    `/api/v1/hitl/verdict`. Those two routes are served from the MCP process itself by `src/mcp/hitl_picker_server.js` — a bare
    `http.createServer` over `handleHitlRoutes` with no assets, no banner on stdout, and an unref'd listener — because the dashboard is
-   manual-only and a gate URL to a port nobody listens on is not a control; a running `konoha ui` holds the port first and serves the
-   same routes with the same token. The verdict endpoint resolves through `runSannin`, the same resume path as a typed reply, so a
+   manual-only and a gate URL to a port nobody listens on is not a control. It binds the port *above* `ui_port`, not `ui_port` itself,
+   so a pending gate never makes `konoha ui` report a phantom instance; a dashboard the human started still serves the same routes
+   with the same token on its own port. The verdict endpoint resolves through `runSannin`, the same resume path as a typed reply, so a
    click and a message land in one place. Both routes authenticate with a per-gate capability signature — an HMAC of the task
    directory keyed by the persisted session token — because the human opening the link has no cookie jar for it and handing them the
    master token would put it in every transcript and gate payload. The signature is scoped to one directory, so one gate's link

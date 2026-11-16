@@ -140,7 +140,7 @@ test('the picker is served only to a signed link and refuses an unsigned verdict
   const picker = require(path.join(REPO, 'src', 'mcp', 'hitl_picker.js'));
   const sig = picker.signTaskDir(taskDir, wrapper.token);
   assert.ok(sig, 'a gate capability must be signable');
-  assert.ok(!picker.buildPickerUrl({ baseUrl: 'http://127.0.0.1:1', taskDir }).includes(wrapper.token),
+  assert.ok(!picker.buildPickerUrl({ baseUrl: 'http://127.0.0.1:1780', taskDir }).includes(wrapper.token),
     'the picker URL must never carry the session token');
   const url = `${base}/api/v1/hitl/picker?task_dir=${encodeURIComponent(taskDir)}&sig=${sig}`;
 
@@ -255,4 +255,46 @@ test('the MCP process serves the picker URL it hands out', async () => {
     server.close();
     fs.rmSync(taskDir, { recursive: true, force: true });
   }
+});
+
+test('a pending gate does not squat the dashboard port', async () => {
+  // Defect pinned here: the mini server bound `ui_port` itself and never
+  // released it, so `konoha ui` exited with "already running on
+  // http://127.0.0.1:1404/" for the rest of the MCP process lifetime and there
+  // was no terminal to Ctrl+C. The picker now takes the port above the
+  // dashboard's, and the emitted URL points at it.
+  const { ensurePickerServer } = require(path.join(REPO, 'src', 'mcp', 'hitl_picker_server.js'));
+  const basePort = 1660 + Math.floor(Math.random() * 40);
+  const taskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-picker-port-'));
+  saveWorkflowStatus(taskDir, { status: 'pending_plan_approval', phase: 'plan_approval', plan: 'step one', tasks: [] });
+
+  const url = picker.buildPickerUrl({ baseUrl: `http://127.0.0.1:${basePort}`, taskDir });
+  assert.equal(new URL(url).port, String(basePort + 1), 'the picker must not claim the dashboard port');
+
+  const server = ensurePickerServer({ port: basePort + 1, host: '127.0.0.1' });
+  assert.ok(server, 'the picker port must be bindable');
+  await new Promise((resolve) => {
+    if (server.listening) return resolve();
+    server.once('listening', resolve);
+  });
+
+  try {
+    const page = await fetch(url);
+    assert.equal(page.status, 200, 'the emitted URL must answer on the offset port');
+  } finally {
+    server.close();
+    fs.rmSync(taskDir, { recursive: true, force: true });
+  }
+});
+
+test('a gate never pre-selects its own approval', () => {
+  // A fail-closed gate whose first option is already checked approves on a stray
+  // submit. The controller answers 400 when no choice arrives, which is the
+  // outcome a human-less submit deserves.
+  return withTaskDir((dir) => {
+    const gate = gate1(dir, 'omp');
+    assert.ok(!/checked/.test(gate.picker.call.html), 'the native form must not pre-select an option');
+    const page = picker.renderPickerPage(gate.interactive_prompt, { taskDir: dir });
+    assert.ok(!/checked/.test(page), 'the web form must not pre-select an option');
+  });
 });

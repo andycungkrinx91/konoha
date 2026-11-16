@@ -29,7 +29,11 @@ function contextCacheKey(dbAgentName, instructions, resolvedProjPath, resolvedSe
 }
 
 function remember(key, context) {
-  if (CONTEXT_CACHE.size >= CONTEXT_CACHE_MAX) CONTEXT_CACHE.clear();
+  // Evict the oldest, not the whole map: a long session reaches 64 distinct
+  // (project, session, agent, instructions) keys easily, and clearing would
+  // recompose every still-running task against fresh retrieval state — the exact
+  // prefix reshuffle this cache exists to prevent.
+  if (CONTEXT_CACHE.size >= CONTEXT_CACHE_MAX) CONTEXT_CACHE.delete(CONTEXT_CACHE.keys().next().value);
   CONTEXT_CACHE.set(key, context);
   return context;
 }

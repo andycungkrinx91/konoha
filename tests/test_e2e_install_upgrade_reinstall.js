@@ -288,6 +288,11 @@ async function testWorkflowTokenBurnPrevention() {
   console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
 
   // Subagents Unified Token-Bounded Prompts
+  // The assertions are about the prompt itself. `status` depends on whether the
+  // host's harness can spawn natively (a bare `pi` cannot), so pin one that can
+  // instead of inheriting the machine — the same pattern as
+  // tests/test_auto_compaction.js.
+  server.ACTIVE_CLIENT = 'claude';
   const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin', 'akatsuki'];
   for (const agent of agents) {
     server.SESSION_TURNS.clear();

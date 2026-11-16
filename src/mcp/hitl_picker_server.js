@@ -36,7 +36,17 @@ function ensureSessionToken() {
   // A machine that never ran `konoha ui` has no token file, so `signTaskDir`
   // returns null and every gate URL would be refused. Bootstrap one with the
   // dashboard's own helpers so both sides sign and verify with the same secret.
-  const web = require('../web_server');
+  // The flat install has no `~/.konoha/web/`, so `../web_server` there is a copy
+  // whose own `./web/controllers/*` imports throw; `../src/web_server` is the one
+  // with the tree beside it.
+  let web = null;
+  for (const candidate of ['../web_server', '../src/web_server']) {
+    try {
+      web = require(candidate);
+      break;
+    } catch (_) { /* layout without that path */ }
+  }
+  if (!web) throw new Error('web_server is unreachable; the install is incomplete — re-run `konoha upgrade`.');
   web.persistSessionToken(web.generateSessionToken());
 }
 
@@ -64,13 +74,14 @@ function handleRequest(req, res) {
 }
 
 /**
- * One listener per host:port, created on first use. `EADDRINUSE` means a real
- * `konoha ui` already owns the port; it serves the same routes with the same
- * token, so the link works either way and the failure is not an error.
+ * One listener per host:port, created on first use. Nothing else is expected on
+ * the picker's port (it is `ui_port + 1`, deliberately not the dashboard's), so
+ * an `EADDRINUSE` here means the link will not answer and is worth saying out
+ * loud — to stderr, because stdout is MCP framing.
  */
 function ensurePickerServer({ port, host = '127.0.0.1' } = {}) {
   // A privileged port cannot be bound by the process running Konoha, so trying
-  // only produces an EACCES the caller cannot act on. `ui_port` defaults to 1404.
+  // only produces an EACCES the caller cannot act on.
   if (!Number.isInteger(port) || port < 0 || (port > 0 && port < 1024)) return null;
   const key = `${host}:${port}`;
   const existing = servers.get(key);
@@ -78,7 +89,7 @@ function ensurePickerServer({ port, host = '127.0.0.1' } = {}) {
   ensureSessionToken();
   const server = http.createServer(handleRequest);
   server.on('error', (err) => {
-    if (err.code !== 'EADDRINUSE') process.stderr.write(`[konoha picker] ${err.message}\n`);
+    process.stderr.write(`[konoha picker] cannot serve ${host}:${port}: ${err.message}\n`);
   });
   // Never hold the MCP process open: the gate is answered by a tool call, not
   // by this listener, so an idle picker must not delay shutdown.

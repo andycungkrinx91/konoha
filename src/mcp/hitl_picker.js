@@ -122,14 +122,15 @@ function resolvePickerBinding(client) {
 /**
  * OMP's `ask` takes a semantic HTML form, not a question array: `{ html, i }`.
  * Radios carry the option label as their value so the submitted field maps
- * straight onto the verdict without a translation table.
+ * straight onto the verdict without a translation table. Nothing is
+ * pre-selected: a gate that submits itself is not a human decision.
  */
 function renderInlineForm(prompt) {
   const options = prompt.options || [];
   const gateName = prompt.gate_name || prompt.title || 'HITL Gate';
-  const radios = options.map((opt, index) => {
+  const radios = options.map((opt) => {
     const description = opt.description ? ` — ${escapeHtml(opt.description)}` : '';
-    return `<label><input type="radio" name="choice" value="${escapeHtml(opt.label)}"${index === 0 ? ' checked' : ''}> ${escapeHtml(opt.label)}${description}</label>`;
+    return `<label><input type="radio" name="choice" value="${escapeHtml(opt.label)}"> ${escapeHtml(opt.label)}${description}</label>`;
   }).join('\n');
   const refinement = options.some((opt) => opt.accepts_text)
     ? '<label>Custom instruction <textarea name="refinement"></textarea></label>'
@@ -175,19 +176,33 @@ function buildNativeToolCall(prompt, tool) {
 /**
  * The link is only worth emitting if something answers it. The dashboard is
  * manual-only, so the MCP process serves the two capability routes itself.
+ *
+ * It binds the port above `ui_port`, not `ui_port`: holding the dashboard's own
+ * port for the life of the MCP process makes `konoha ui` exit with "already
+ * running" and no terminal to Ctrl+C. Both listeners answer with the same token
+ * and the same checks, so the offset costs nothing.
  */
 function buildPickerUrl({ baseUrl, taskDir }) {
   const root = String(baseUrl || '').replace(/\/+$/, '');
+  let pageRoot = root;
   try {
-    const { port, hostname } = new URL(root);
-    require('./hitl_picker_server').ensurePickerServer({ port: Number(port) || 80, host: hostname });
-  } catch (_) { /* an unparseable base URL cannot be served locally; the caller's link stands */ }
+    const target = new URL(root);
+    target.port = String((Number(target.port) || 80) + 1);
+    pageRoot = target.origin;
+    const server = require('./hitl_picker_server').ensurePickerServer({ port: Number(target.port), host: target.hostname });
+    if (!server) throw new Error(`cannot bind ${target.host}`);
+  } catch (err) {
+    // stdout is MCP framing, so the diagnosis goes to stderr. The signed link is
+    // still emitted: a human who opens a dead page sees the failure, which beats
+    // a gate that pretends it has no picker at all.
+    process.stderr.write(`[konoha picker] ${err.message}\n`);
+  }
   const query = new URLSearchParams();
   if (taskDir) query.set('task_dir', taskDir);
   const signature = signTaskDir(taskDir);
   if (signature) query.set('sig', signature);
   const suffix = query.toString();
-  return `${root}/api/v1/hitl/picker${suffix ? `?${suffix}` : ''}`;
+  return `${pageRoot}/api/v1/hitl/picker${suffix ? `?${suffix}` : ''}`;
 }
 
 /**
@@ -246,7 +261,7 @@ function renderPickerPage(prompt, options = {}) {
   const cards = choices.map((opt, index) => {
     const id = `opt-${index}`;
     return `<label class="card" for="${id}">
-  <input type="radio" id="${id}" name="choice" value="${escapeHtml(opt.label)}"${index === 0 ? ' checked' : ''}>
+  <input type="radio" id="${id}" name="choice" value="${escapeHtml(opt.label)}">
   <span class="label">${escapeHtml(opt.label)}</span>
   <span class="desc">${escapeHtml(opt.description || '')}</span>
 </label>`;
