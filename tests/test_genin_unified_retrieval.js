@@ -93,6 +93,8 @@ async function runTests() {
   });
   assert.strictEqual(r1.available, true, '1. Must auto-index unindexed repo cleanly');
   assert.strictEqual(r1.status, 'fresh');
+  assert.strictEqual(r1.semantic_status, 'disabled', '1. KONOHA_SEMANTIC_SEARCH=0 must surface semantic_status=disabled');
+  assert.strictEqual(r1.degraded, false, '1. Intentional semantic disablement must not set degraded=true');
   assert.strictEqual(r1.topology.files, 2);
 
   // FTS5 search hits grounded in returned context
@@ -150,6 +152,8 @@ async function runTests() {
     lspCommandOverride: `${process.execPath} ${mockLsp}`
   });
   assert.ok(rAsync.lsp && rAsync.lsp.lsp_available === true, '9. Async retrieval must attach LSP enrichment');
+  assert.strictEqual(rAsync.semantic_status, 'disabled', '9. Async retrieval under KONOHA_SEMANTIC_SEARCH=0 must keep semantic_status=disabled');
+  assert.strictEqual(rAsync.degraded, false, '9. Async retrieval under KONOHA_SEMANTIC_SEARCH=0 must keep degraded=false');
   assert.ok(rAsync.text.includes('LSP ('), '9. Formatted context must include LSP precision summary');
   await lspManager.shutdownAll();
 

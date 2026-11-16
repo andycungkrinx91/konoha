@@ -176,6 +176,7 @@ async function verifyHybridRelatedAndOverlap(conn) {
     conn,
     limit: 5
   });
+  assert.strictEqual(hybrid.semantic_status, 'available', 'Available Granite/MiniLM runtime must report semantic_status: available');
   assert.strictEqual(hybrid.semantic_applied, true, 'Granite 97M semantic vector search must run');
   assert.strictEqual(hybrid.reranked, true, 'MiniLM L-6 cross-encoder reranking must run');
   assert.strictEqual(hybrid.degraded, false);
@@ -183,8 +184,14 @@ async function verifyHybridRelatedAndOverlap(conn) {
   assert.strictEqual(hybrid.hits[0].relPath, 'src/jwt_guard.js', `Expected jwt_guard.js rank #1, got ${hybrid.hits[0].relPath}`);
   assert.ok(hybrid.hits[0].rerankScore > 0, 'Expected positive rerank score');
 
+  const syncAvailable = search({ rootPath: gamma, query: 'verifyJwtSignature', conn, limit: 5 });
+  assert.strictEqual(syncAvailable.semantic_status, 'available');
+  assert.strictEqual(syncAvailable.degraded, false);
+
   const relAsync = await relatedAsync({ rootPath: gamma, file: 'src/jwt_guard.js', conn, limit: 5 });
   assert.strictEqual(relAsync.anchor.relPath, 'src/jwt_guard.js');
+  assert.strictEqual(relAsync.semantic_status, 'available');
+  assert.strictEqual(relAsync.degraded, false);
   assert.strictEqual(relAsync.semantic_applied, true);
   assert.strictEqual(relAsync.reranked, true);
   const relPaths = relAsync.related.map((r) => r.relPath);
@@ -193,15 +200,27 @@ async function verifyHybridRelatedAndOverlap(conn) {
 
   const relBySymbol = related({ rootPath: gamma, symbol: 'verifyJwtSignature', conn, limit: 5 });
   assert.strictEqual(relBySymbol.anchor.relPath, 'src/jwt_guard.js');
+  assert.strictEqual(relBySymbol.semantic_status, 'available');
+  assert.strictEqual(relBySymbol.degraded, false);
   assert.ok(relBySymbol.related.some((r) => r.relPath === 'src/key_store.js'));
 
   const prevEnv = process.env.KONOHA_SEMANTIC_SEARCH;
   process.env.KONOHA_SEMANTIC_SEARCH = '0';
   try {
+    const lexSync = search({ rootPath: gamma, query: 'verifyJwtSignature', conn });
     const lexOnly = await searchAsync({ rootPath: gamma, query: 'verifyJwtSignature', conn });
-    assert.strictEqual(lexOnly.semantic_applied, false);
-    assert.strictEqual(lexOnly.reranked, false);
+    const relSyncDis = related({ rootPath: gamma, symbol: 'verifyJwtSignature', conn, limit: 5 });
+    const relAsyncDis = await relatedAsync({ rootPath: gamma, file: 'src/jwt_guard.js', conn, limit: 5 });
+    for (const out of [lexSync, lexOnly, relSyncDis, relAsyncDis]) {
+      assert.strictEqual(out.semantic_status, 'disabled');
+      assert.strictEqual(out.degraded, false);
+      assert.strictEqual(out.semantic_applied, false);
+      assert.strictEqual(out.reranked, false);
+    }
+    assert.ok(lexSync.hits.some((h) => h.relPath === 'src/jwt_guard.js'));
     assert.ok(lexOnly.hits.some((h) => h.relPath === 'src/jwt_guard.js'));
+    assert.ok(relSyncDis.related.some((r) => r.relPath === 'src/key_store.js'));
+    assert.ok(relAsyncDis.related.some((r) => r.relPath === 'src/key_store.js'));
   } finally {
     if (prevEnv === undefined) delete process.env.KONOHA_SEMANTIC_SEARCH;
     else process.env.KONOHA_SEMANTIC_SEARCH = prevEnv;

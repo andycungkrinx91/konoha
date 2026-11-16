@@ -35,6 +35,7 @@ const query = require('../src/code_intel/query');
 const related = require('../src/code_intel/related');
 const tools = require('../src/code_intel/tools');
 const { indexRepository, indexRepositoryAsync } = require('../src/code_intel/indexer');
+const { parseFileAsync } = require('../src/code_intel/parser_wasm');
 const vectorPipeline = require('../src/vector_pipeline');
 const router = require('../src/file_tools_router');
 const { createRequestScheduler } = require('../src/mcp/request_scheduler');
@@ -106,50 +107,118 @@ async function testSemanticCapabilityAndDegradation(conn) {
   const uncachedHome = path.join(tmpRoot, 'uncached_hf');
   fs.mkdirSync(uncachedHome, { recursive: true });
 
+  const callRoute = async (pathname, method, body) => {
+    const req = body ? Readable.from([JSON.stringify(body)]) : Readable.from([]);
+    return new Promise((resolve) => {
+      const res = {
+        statusCode: 0,
+        writeHead(code) { res.statusCode = code; },
+        setHeader() {},
+        end(payload) { resolve({ status: res.statusCode, body: JSON.parse(payload) }); }
+      };
+      handleServicesRoutes(req, res, { broadcastEvent: () => {}, sseClients: new Set() }, new URL(`http://127.0.0.1${pathname}`), pathname, method);
+    });
+  };
+
   await withEnv({ HF_HUB_OFFLINE: '1', HF_HOME: uncachedHome, HF_HUB_CACHE: null, KONOHA_SEMANTIC_SEARCH: '1' }, async () => {
     const idx = await indexRepositoryAsync({ rootPath: repo, conn });
     assert.strictEqual(idx.status, 'fresh', 'Unavailable embeddings must leave index fresh');
     assert.ok(idx.semantic_skipped && idx.semanticSkipped, 'semantic_skipped reason must be reported');
 
+    const sSync = query.search({ rootPath: repo, query: 'verifyJwtSignature', conn });
+    assert.strictEqual(sSync.semantic_status, 'degraded');
+
     const sRes = await query.searchAsync({ rootPath: repo, query: 'verifyJwtSignature', conn });
     assert.strictEqual(sRes.degraded, true);
+    assert.strictEqual(sRes.semantic_status, 'degraded');
     assert.strictEqual(sRes.semantic_applied, false);
     assert.strictEqual(sRes.reranked, false);
     assert.ok(sRes.reason, 'Degraded reason must be surfaced');
     assert.ok(sRes.hits.some((h) => h.relPath === 'src/auth.js'));
 
+    const rSync = related.related({ rootPath: repo, file: 'src/caller.js', conn });
+    assert.strictEqual(rSync.semantic_status, 'degraded');
+
     const rRes = await related.relatedAsync({ rootPath: repo, file: 'src/caller.js', conn });
     assert.strictEqual(rRes.degraded, true);
+    assert.strictEqual(rRes.semantic_status, 'degraded');
     assert.strictEqual(rRes.semantic_applied, false);
     assert.strictEqual(rRes.reranked, false);
     assert.ok(rRes.related.some((item) => item.relPath === 'src/auth.js'));
 
-    // HTTP /api/v1/code/search & /api/v1/code/related must return 200, never 500
-    const callRoute = async (pathname, method, body) => {
-      const req = body ? Readable.from([JSON.stringify(body)]) : Readable.from([]);
-      return new Promise((resolve) => {
-        const res = {
-          statusCode: 0,
-          writeHead(code) { res.statusCode = code; },
-          setHeader() {},
-          end(payload) { resolve({ status: res.statusCode, body: JSON.parse(payload) }); }
-        };
-        handleServicesRoutes(req, res, { broadcastEvent: () => {}, sseClients: new Set() }, new URL(`http://127.0.0.1${pathname}`), pathname, method);
-      });
-    };
-
     const statusHttp = await callRoute('/api/v1/code/status', 'GET');
     assert.strictEqual(statusHttp.status, 200);
     assert.strictEqual(statusHttp.body.semantic_enabled, false);
+    assert.strictEqual(statusHttp.body.semantic_status, 'degraded');
 
     const sHttp = await callRoute('/api/v1/code/search', 'POST', { query: 'verifyJwtSignature', root: repo });
     assert.strictEqual(sHttp.status, 200);
     assert.strictEqual(sHttp.body.degraded, true);
+    assert.strictEqual(sHttp.body.semantic_status, 'degraded');
     assert.ok(sHttp.body.hits.length >= 1);
 
     const rHttp = await callRoute('/api/v1/code/related', 'POST', { file: 'src/caller.js', root: repo });
     assert.strictEqual(rHttp.status, 200);
     assert.strictEqual(rHttp.body.degraded, true);
+    assert.strictEqual(rHttp.body.semantic_status, 'degraded');
+  });
+
+  // Intentionally disabled semantic search (KONOHA_SEMANTIC_SEARCH=0) must report disabled, never degraded
+  await withEnv({ HF_HUB_OFFLINE: '1', HF_HOME: uncachedHome, HF_HUB_CACHE: null, KONOHA_SEMANTIC_SEARCH: '0' }, async () => {
+    const idxDisabled = await indexRepositoryAsync({ rootPath: repo, conn });
+    assert.strictEqual(idxDisabled.status, 'fresh');
+
+    const checks = [
+      query.search({ rootPath: repo, query: 'verifyJwtSignature', conn }),
+      await query.searchAsync({ rootPath: repo, query: 'verifyJwtSignature', conn }),
+      tools.code_search({ root: repo, query: 'verifyJwtSignature' }),
+      await tools.code_search_async({ root: repo, query: 'verifyJwtSignature' }),
+      related.related({ rootPath: repo, file: 'src/caller.js', conn }),
+      await related.relatedAsync({ rootPath: repo, file: 'src/caller.js', conn }),
+      tools.code_related({ root: repo, file: 'src/caller.js' }),
+      await tools.code_related_async({ root: repo, file: 'src/caller.js' })
+    ];
+    for (const out of checks) {
+      assert.strictEqual(out.semantic_status, 'disabled');
+      assert.strictEqual(out.degraded, false);
+      assert.strictEqual(out.semantic_applied, false);
+      assert.strictEqual(out.reranked, false);
+      const list = out.hits || out.related || [];
+      assert.ok(list.length >= 1, 'Lexical/structural results must remain available when disabled');
+    }
+
+    const toolStatus = tools.code_status({ root: repo });
+    assert.strictEqual(toolStatus.semantic_status, 'disabled');
+    const statusDisabled = await callRoute('/api/v1/code/status', 'GET');
+    assert.strictEqual(statusDisabled.status, 200);
+    assert.strictEqual(statusDisabled.body.semantic_status, 'disabled');
+    const sDisabled = await callRoute('/api/v1/code/search', 'POST', { query: 'verifyJwtSignature', root: repo });
+    assert.strictEqual(sDisabled.status, 200);
+    assert.strictEqual(sDisabled.body.semantic_status, 'disabled');
+    assert.strictEqual(sDisabled.body.degraded, false);
+  });
+
+  // Enabled semantic search whose runtime fails mid-flight (corrupt offline cache) must report degraded
+  const corruptHfHome = path.join(tmpRoot, 'corrupt_hf');
+  const corruptEmbedDir = path.join(corruptHfHome, 'hub', ...vectorPipeline.EMBED_MODEL_REPO.split('/'));
+  fs.mkdirSync(corruptEmbedDir, { recursive: true });
+  fs.writeFileSync(path.join(corruptEmbedDir, 'config.json'), '{corrupt-json', 'utf8');
+  await withEnv({ HF_HUB_OFFLINE: '1', HF_HOME: corruptHfHome, HF_HUB_CACHE: null, KONOHA_SEMANTIC_SEARCH: '1' }, async () => {
+    try {
+      assert.strictEqual(vectorPipeline.getRuntimeStatus().semanticStatus, 'available');
+      const sFail = await query.searchAsync({ rootPath: repo, query: 'verifyJwtSignature', conn });
+      assert.strictEqual(sFail.semantic_status, 'degraded');
+      assert.strictEqual(sFail.degraded, true);
+      assert.strictEqual(sFail.semantic_applied, false);
+      assert.ok(sFail.hits.some((h) => h.relPath === 'src/auth.js'));
+
+      const rFail = await related.relatedAsync({ rootPath: repo, file: 'src/caller.js', conn });
+      assert.strictEqual(rFail.semantic_status, 'degraded');
+      assert.strictEqual(rFail.degraded, true);
+      assert.ok(rFail.related.some((item) => item.relPath === 'src/auth.js'));
+    } finally {
+      await vectorPipeline.resetPipelinesForTest();
+    }
   });
 
   // Also test genuine failure still marks root failed
@@ -466,6 +535,135 @@ async function testMcpConcurrencyParityAndBoundedVectors(conn) {
   console.log('✓ P3: Concurrent MCP queue, sync/async graph parity, bounded LRU/paged vectors, and security bounds verified');
 }
 
+async function testWarmedParserMcpResponsiveness(conn) {
+  const warmSeed = setupRepo('p2_warm_seed', {
+    'seed.js': 'function warmSeed(v) { return v + 1; }\nmodule.exports = { warmSeed };\n'
+  });
+  const bigFiles = Object.fromEntries(
+    Array.from({ length: 260 }, (_, idx) => [
+      `src/svc_${idx}.js`,
+      [
+        `function fn_${idx}_a(x) { return x + ${idx}; }`,
+        `function fn_${idx}_b(y) { return fn_${idx}_a(y) * 2; }`,
+        `class Service_${idx} { run(v) { return fn_${idx}_b(v); } }`,
+        `module.exports = { Service_${idx}, fn_${idx}_a };\n`
+      ].join('\n')
+    ])
+  );
+  const bigRepo = setupRepo('p2_warmed_big_repo', bigFiles);
+
+  // Subprocess MCP test: warm Tree-sitter grammar first (id=2), then verify tools/list (id=4) beats sustained indexing (id=3)
+  const mcpResult = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'file_tools_mcp.js')], {
+      cwd: tmpRoot,
+      env: { ...process.env, KONOHA_SEMANTIC_SEARCH: '0' },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const responses = new Map();
+    const order = [];
+    const waiters = new Map();
+    let buf = '';
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL'); } catch (_) { /* ignore */ }
+      reject(new Error(`Warmed MCP subprocess timed out; seen ids=${JSON.stringify(order)}`));
+    }, 20000);
+    child.stdout.on('data', (chunk) => {
+      buf += chunk.toString('utf8');
+      let nl;
+      while ((nl = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const msg = JSON.parse(line);
+        responses.set(msg.id, msg);
+        order.push(msg.id);
+        if (waiters.has(msg.id)) {
+          waiters.get(msg.id)(msg);
+          waiters.delete(msg.id);
+        }
+      }
+    });
+    child.on('error', (err) => { clearTimeout(timer); reject(err); });
+    const waitForId = (id) => (responses.has(id)
+      ? Promise.resolve(responses.get(id))
+      : new Promise((res) => waiters.set(id, res)));
+    const send = (payload) => child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...payload }) + '\n');
+
+    (async () => {
+      send({ id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', clientInfo: { name: 'warm-test', version: '1' } } });
+      await waitForId(1);
+      send({ id: 2, method: 'tools/call', params: { name: 'code_index', arguments: { root: warmSeed, embed: false } } });
+      await waitForId(2); // Tree-sitter WASM + JS grammar now warm and cached
+
+      send({ id: 3, method: 'tools/call', params: { name: 'code_index', arguments: { root: bigRepo, embed: false } } });
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        const row = conn.prepare('SELECT status FROM code_index_roots WHERE root_path = ?').get(bigRepo);
+        if (row && row.status === 'indexing') break;
+        if (responses.has(3)) break;
+        await new Promise((r) => setTimeout(r, 2));
+      }
+      assert.strictEqual(responses.has(3), false, 'code_index must still be running when tools/list is sent');
+      send({ id: 4, method: 'tools/list', params: {} });
+      await Promise.all([waitForId(4), waitForId(3)]);
+      child.stdin.end();
+      await new Promise((res, rej) => child.once('exit', (code) => (code === 0 ? res() : rej(new Error(`MCP exited ${code}`)))));
+      clearTimeout(timer);
+      resolve({ order, idxResp: responses.get(3), listResp: responses.get(4) });
+    })().catch((err) => {
+      clearTimeout(timer);
+      try { child.kill('SIGKILL'); } catch (_) { /* ignore */ }
+      reject(err);
+    });
+  });
+
+  assert.ok(mcpResult.order.indexOf(4) < mcpResult.order.indexOf(3),
+    `Expected tools/list (4) before warmed code_index (3), got order ${JSON.stringify(mcpResult.order)}`);
+  assert.ok(Array.isArray(mcpResult.listResp.result.tools) && mcpResult.listResp.result.tools.length > 0);
+  const idxPayload = JSON.parse(mcpResult.idxResp.result.content[0].text);
+  assert.strictEqual(idxPayload.status, 'fresh');
+  assert.strictEqual(idxPayload.files, 260);
+
+  // In-process verification with pre-warmed parseFileAsync during sustained parsed-file loop
+  await parseFileAsync('function warmLocal(a) { return a + 1; }\n', 'javascript', 'warm_local.js');
+  const inProcRepo = setupRepo('p2_warmed_inproc', bigFiles);
+  let indexingDone = false;
+  let listStarted = false;
+  const events = [];
+  const scheduler = createRequestScheduler({
+    serializedTools: ['sannin'],
+    writeLine: () => {},
+    handleRequest: async (req) => {
+      if (req.method === 'tools/list') {
+        events.push('tools_list_done');
+        return { jsonrpc: '2.0', id: req.id, result: { tools: [] } };
+      }
+      return { jsonrpc: '2.0', id: req.id, result: {} };
+    }
+  });
+  let listPromise = null;
+  const idxOut = await indexRepositoryAsync({
+    rootPath: inProcRepo,
+    conn,
+    embed: false,
+    onProgress: (info) => {
+      const msg = typeof info === 'string' ? info : (info && info.phase);
+      if (!listStarted && !indexingDone && typeof msg === 'string' && msg.startsWith('parsed ')) {
+        listStarted = true;
+        listPromise = scheduler.enqueueLine(JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'tools/list', params: {} }));
+      }
+    }
+  });
+  indexingDone = true;
+  events.push('indexing_done');
+  assert.ok(listPromise, 'onProgress parsed phase must have triggered during warmed async indexing');
+  await listPromise;
+  assert.strictEqual(events[0], 'tools_list_done', `Expected tools/list to complete before indexing finished, events=${events.join(',')}`);
+  assert.strictEqual(idxOut.status, 'fresh');
+  assert.strictEqual(idxOut.files, 260);
+  console.log('✓ P2-fix: Warmed Tree-sitter async indexing yields cooperatively and serves concurrent tools/list before completion');
+}
+
 (async () => {
   const conn = db.getConnection();
   try {
@@ -474,6 +672,7 @@ async function testMcpConcurrencyParityAndBoundedVectors(conn) {
     await testSemanticCapabilityAndDegradation(conn);
     await testContextAndPruningAndFtsRepair(conn);
     await testMcpConcurrencyParityAndBoundedVectors(conn);
+    await testWarmedParserMcpResponsiveness(conn);
     console.log('test_code_intel_hardening passed cleanly.');
   } catch (err) {
     console.error('test_code_intel_hardening failed:', err);

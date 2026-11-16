@@ -351,10 +351,15 @@ function _buildRelatedEnvelopeMeta(conn, anchor) {
 
 /** Structural-graph relatedness lookup across indexed repository files. */
 function related(options = {}) {
+  const runtime = getRuntimeStatus();
+  const semState = provenance.classifySemanticStatus({
+    enabled: isSemanticSearchEnabled() && (options.semantic !== false || options.rerank !== false),
+    runtime
+  });
   const conn = options.conn || store.openConnection();
   const anchor = _resolveAnchor(conn, options);
   if (anchor.error) {
-    return { anchor: null, related: [], total: 0, semantic_applied: false, reranked: false, degraded: false, error: anchor.error };
+    return { anchor: null, related: [], total: 0, semantic_status: semState.semanticStatus, semantic_applied: false, reranked: false, degraded: false, error: anchor.error };
   }
   const rawLimit = Number(options.limit);
   const limit = Number.isFinite(rawLimit)
@@ -375,6 +380,7 @@ function related(options = {}) {
     ..._buildRelatedEnvelopeMeta(conn, anchor),
     related: pool.map((c) => _formatRelatedItem(c, c.structuralScore)),
     total: pool.length,
+    semantic_status: semState.semanticStatus,
     semantic_applied: false,
     reranked: false,
     degraded: false
@@ -451,10 +457,18 @@ async function _applyRelatedRerank(anchor, anchorBody, pool, limit) {
 }
 
 async function relatedAsync(options = {}) {
+  const wantSemantic = options.semantic !== false;
+  const wantRerank = options.rerank !== false;
+  const envEnabled = isSemanticSearchEnabled();
+  const runtime = envEnabled && (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
+  const baseSem = provenance.classifySemanticStatus({
+    enabled: envEnabled && (wantSemantic || wantRerank),
+    runtime
+  });
   const conn = options.conn || store.openConnection();
   const anchor = _resolveAnchor(conn, options);
   if (anchor.error) {
-    return { anchor: null, related: [], total: 0, semantic_applied: false, reranked: false, degraded: false, error: anchor.error };
+    return { anchor: null, related: [], total: 0, semantic_status: baseSem.semanticStatus, semantic_applied: false, reranked: false, degraded: false, error: anchor.error };
   }
 
   const rawLimit = Number(options.limit);
@@ -468,34 +482,40 @@ async function relatedAsync(options = {}) {
   const { rows: anchorChunks, focused } = _loadAnchorChunks(conn, anchor.file, anchor.symbol, modelRepo);
   const anchorBody = focused.map((c) => c.body).join('\n');
 
-  const wantSemantic = options.semantic !== false;
-  const wantRerank = options.rerank !== false;
-  const runtime = (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
-  let semanticReason = wantSemantic && runtime && !runtime.available
-    ? (runtime.reason || 'semantic runtime unavailable')
-    : null;
+  let semanticFailed = envEnabled && wantSemantic && runtime && !runtime.available;
+  let semanticReason = semanticFailed ? (runtime.reason || 'semantic runtime unavailable') : null;
 
   let vecBestByFile = new Map();
   let semanticRankIds = [];
-  if (wantSemantic && runtime && runtime.available && isSemanticSearchEnabled()) {
+  if (envEnabled && wantSemantic && runtime && runtime.available) {
     const semOut = await _fetchSemanticRelated(conn, anchor, { anchorChunks, focused, anchorBody, modelRepo, candidateK, byFileId });
     vecBestByFile = semOut.vecBestByFile;
     semanticRankIds = semOut.semanticRankIds;
-    if (semOut.semanticReason) semanticReason = semOut.semanticReason;
+    if (semOut.semanticReason) {
+      semanticFailed = true;
+      semanticReason = semOut.semanticReason;
+    }
   }
 
   const rankLists = [];
   if (structuralRankIds.length > 0) rankLists.push(structuralRankIds);
   if (semanticRankIds.length > 0) rankLists.push(semanticRankIds);
   if (rankLists.length === 0) {
+    const outcome = provenance.classifySemanticStatus({
+      enabled: envEnabled && (wantSemantic || wantRerank),
+      runtime,
+      semanticFailed,
+      failureReason: semanticReason
+    });
     return {
       anchor: { relPath: anchor.relPath, rootHash: anchor.file.root_hash, language: anchor.file.language, symbol: anchor.symbol ? anchor.symbol.name : '' },
       related: [],
       total: 0,
+      semantic_status: outcome.semanticStatus,
       semantic_applied: semanticRankIds.length > 0,
       reranked: false,
-      degraded: Boolean(semanticReason),
-      ...(semanticReason ? { reason: semanticReason } : {})
+      degraded: outcome.semanticDegraded,
+      ...(outcome.reason ? { reason: outcome.reason } : {})
     };
   }
 
@@ -510,34 +530,45 @@ async function relatedAsync(options = {}) {
     .slice(0, candidateK);
 
   const pool = _buildCandidatePool(conn, ordered, vecBestByFile);
-  const rerankCapable = wantRerank
+  const rerankCapable = envEnabled
+    && wantRerank
     && runtime
     && runtime.available
-    && isSemanticSearchEnabled()
     && (!runtime.offline || (runtime.rerankModel && runtime.rerankModel.cached));
-  if (wantRerank && !semanticReason && !rerankCapable) {
+  if (envEnabled && wantRerank && !semanticFailed && !rerankCapable) {
+    semanticFailed = true;
     semanticReason = (runtime && runtime.reason) || 'rerank runtime unavailable';
   }
   let didRerank = false;
   let finalItems = null;
-  if (rerankCapable && pool.length > 0 && !semanticReason) {
+  if (rerankCapable && pool.length > 0 && !semanticFailed) {
     const rerankOut = await _applyRelatedRerank(anchor, anchorBody, pool, limit);
     didRerank = rerankOut.didRerank;
     finalItems = rerankOut.finalItems;
-    if (rerankOut.semanticReason) semanticReason = rerankOut.semanticReason;
+    if (rerankOut.semanticReason) {
+      semanticFailed = true;
+      semanticReason = rerankOut.semanticReason;
+    }
   }
   if (!finalItems) {
     finalItems = pool.slice(0, limit).map((c) => _formatRelatedItem(c, Number(c.rrfNorm.toFixed(6))));
   }
 
+  const outcome = provenance.classifySemanticStatus({
+    enabled: envEnabled && (wantSemantic || wantRerank),
+    runtime,
+    semanticFailed,
+    failureReason: semanticReason
+  });
   return {
     ..._buildRelatedEnvelopeMeta(conn, anchor),
     related: finalItems,
     total: finalItems.length,
+    semantic_status: outcome.semanticStatus,
     semantic_applied: semanticRankIds.length > 0,
     reranked: didRerank,
-    degraded: Boolean(semanticReason),
-    ...(semanticReason ? { reason: semanticReason } : {})
+    degraded: outcome.semanticDegraded,
+    ...(outcome.reason ? { reason: outcome.reason } : {})
   };
 }
 

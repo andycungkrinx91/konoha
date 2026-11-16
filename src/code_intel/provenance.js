@@ -167,6 +167,28 @@ function assembleContextText(chunks, hasWindow, startLine, endLine) {
   };
 }
 
+function classifySemanticStatus({ enabled = true, runtime = null, semanticFailed = false, failureReason = null } = {}) {
+  if (!enabled || (runtime && runtime.enabled === false)) {
+    return { semanticStatus: 'disabled', semanticDegraded: false, reason: null };
+  }
+  if (semanticFailed || !runtime || !runtime.available) {
+    return {
+      semanticStatus: 'degraded',
+      semanticDegraded: true,
+      reason: failureReason || (runtime && runtime.reason) || 'semantic runtime unavailable'
+    };
+  }
+  return { semanticStatus: 'available', semanticDegraded: false, reason: null };
+}
+
+function mergeSemanticStatuses(statuses = []) {
+  const valid = statuses.filter(Boolean);
+  if (valid.includes('degraded')) return 'degraded';
+  if (valid.includes('available')) return 'available';
+  if (valid.includes('disabled')) return 'disabled';
+  return 'disabled';
+}
+
 module.exports = {
   parseMetricsJson,
   classifyEngineProvenance,
@@ -177,5 +199,7 @@ module.exports = {
   buildHitProvenance,
   formatSyncHit,
   formatAsyncHit,
-  assembleContextText
+  assembleContextText,
+  classifySemanticStatus,
+  mergeSemanticStatuses
 };

@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const store = require('./store');
 const queryEngine = require('./query');
+const provenance = require('./provenance');
 const { indexRepository, indexRepositoryAsync } = require('./indexer');
 const { defaultManager: lspManager } = require('./lsp_manager');
 const personaMemory = require('../persona_memory');
@@ -326,23 +327,33 @@ function _mergeUniqueHits(merged, seen, hits, limit) {
 }
 
 function _searchSyncWithFallback(conn, absRoot, rawQuery, effQuery, limit) {
-  if (!effQuery) return { hits: [], total: 0, degraded: false };
+  if (!effQuery) return { hits: [], total: 0, degraded: false, semantic_status: 'disabled', semantic_applied: false, reranked: false };
   const primary = queryEngine.search({ rootPath: absRoot, query: effQuery, conn, limit });
   if (primary && Array.isArray(primary.hits) && primary.hits.length > 0) return primary;
 
   const merged = [];
   const seen = new Set();
   let degraded = Boolean(primary && primary.degraded);
+  const statuses = [primary && primary.semantic_status];
   for (const term of _fallbackTerms(rawQuery, effQuery)) {
     const res = queryEngine.search({ rootPath: absRoot, query: term, conn, limit });
     if (res && res.degraded) degraded = true;
+    if (res && res.semantic_status) statuses.push(res.semantic_status);
     if (_mergeUniqueHits(merged, seen, res && res.hits, limit)) break;
   }
-  return { query: effQuery, hits: merged, total: merged.length, degraded };
+  return {
+    query: effQuery,
+    hits: merged,
+    total: merged.length,
+    degraded,
+    semantic_status: provenance.mergeSemanticStatuses(statuses),
+    semantic_applied: false,
+    reranked: false
+  };
 }
 
 async function _searchAsyncWithFallback(conn, absRoot, rawQuery, effQuery, limit) {
-  if (!effQuery) return { hits: [], total: 0, degraded: false, semantic_applied: false, reranked: false };
+  if (!effQuery) return { hits: [], total: 0, degraded: false, semantic_status: 'disabled', semantic_applied: false, reranked: false };
   const primary = await queryEngine.searchAsync({ rootPath: absRoot, query: effQuery, conn, limit });
   if (primary && Array.isArray(primary.hits) && primary.hits.length > 0) return primary;
 
@@ -351,11 +362,13 @@ async function _searchAsyncWithFallback(conn, absRoot, rawQuery, effQuery, limit
   let degraded = Boolean(primary && primary.degraded);
   let semanticApplied = Boolean(primary && primary.semantic_applied);
   let reranked = Boolean(primary && primary.reranked);
+  const statuses = [primary && primary.semantic_status];
   for (const term of _fallbackTerms(rawQuery, effQuery)) {
     const res = await queryEngine.searchAsync({ rootPath: absRoot, query: term, conn, limit });
     if (res && res.degraded) degraded = true;
     if (res && res.semantic_applied) semanticApplied = true;
     if (res && res.reranked) reranked = true;
+    if (res && res.semantic_status) statuses.push(res.semantic_status);
     if (_mergeUniqueHits(merged, seen, res && res.hits, limit)) break;
   }
   return {
@@ -363,6 +376,7 @@ async function _searchAsyncWithFallback(conn, absRoot, rawQuery, effQuery, limit
     hits: merged,
     total: merged.length,
     degraded,
+    semantic_status: provenance.mergeSemanticStatuses(statuses),
     semantic_applied: semanticApplied,
     reranked
   };
@@ -460,7 +474,14 @@ function retrieveUnifiedContextSync(options = {}) {
       impact,
       memories,
       maxChars: options.maxChars,
-      extraFields: { lspStatus: lspManager.getStatusSnapshot() }
+      extraFields: {
+        mode: 'sync',
+        semantic_status: searchRes.semantic_status || 'disabled',
+        semantic_applied: Boolean(searchRes.semantic_applied),
+        reranked: Boolean(searchRes.reranked),
+        degraded: Boolean(searchRes.degraded),
+        lspStatus: lspManager.getStatusSnapshot()
+      }
     });
   } catch (err) {
     return { available: false, reason: err.message || 'retrieval_failed', text: '' };
@@ -514,6 +535,7 @@ async function retrieveUnifiedContextAsync(options = {}) {
       maxChars: options.maxChars,
       extraFields: {
         mode: 'async',
+        semantic_status: searchRes.semantic_status || 'disabled',
         semantic_applied: Boolean(searchRes.semantic_applied),
         reranked: Boolean(searchRes.reranked),
         lsp: lspEnrich,

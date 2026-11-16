@@ -135,10 +135,11 @@ function _queryLikeChunks(conn, query, rootHash, limit, contentKind = null) {
  * `degraded: true` rather than failing — a slow answer beats no answer, but
  * the caller is told which one it got.
  */
-function search(options = {}) {
+function _prepareSearchSetup(options, semanticStatus) {
   const query = options.query;
+  const baseEmpty = { hits: [], degraded: false, semantic_status: semanticStatus, semantic_applied: false, reranked: false, total: 0 };
   if (!query || !String(query).trim()) {
-    return { query: '', hits: [], degraded: false, total: 0 };
+    return { earlyReturn: { query: '', ...baseEmpty } };
   }
   const conn = options.conn || store.openConnection();
   const rawLimit = Number(options.limit);
@@ -148,35 +149,45 @@ function search(options = {}) {
   const contentKind = store.normalizeContentFilter(options.filter);
   const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
   if (options.rootPath && !root) {
-    return { query, hits: [], degraded: false, total: 0, error: `root not indexed: ${options.rootPath}` };
+    return { earlyReturn: { query, ...baseEmpty, error: `root not indexed: ${options.rootPath}` } };
   }
-  const rootHash = root ? root.root_hash : null;
+  return { query, conn, limit, contentKind, root, rootHash: root ? root.root_hash : null };
+}
+
+function search(options = {}) {
+  const semState = provenance.classifySemanticStatus({
+    enabled: isSemanticSearchEnabled() && (options.semantic !== false || options.rerank !== false),
+    runtime: getRuntimeStatus()
+  });
+  const setup = _prepareSearchSetup(options, semState.semanticStatus);
+  if (setup.earlyReturn) return setup.earlyReturn;
+  const { query, conn, limit, contentKind, root, rootHash } = setup;
 
   const ftsQuery = toFtsQuery(query);
   const terms = _terms(query);
   const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
+  let degraded = false;
+  let rows = null;
   if (ftsQuery && store.ftsAvailable(conn)) {
     try {
-      const rows = _queryFtsChunks(conn, { ftsExpr: ftsQuery, terms, rootHash, contentKind, limit });
-      return {
-        query,
-        degraded: false,
-        ...(snapshot ? { snapshot } : {}),
-        total: rows.length,
-        hits: rows.map((r) => provenance.formatSyncHit(r, Number(r.score), _snippet(r.body)))
-      };
+      rows = _queryFtsChunks(conn, { ftsExpr: ftsQuery, terms, rootHash, contentKind, limit });
     } catch (_) {
-      // Fall through to LIKE: a malformed MATCH must not break the tool.
+      rows = null;
     }
   }
-
-  const rows = _queryLikeChunks(conn, query, rootHash, limit, contentKind);
+  if (!rows) {
+    degraded = true;
+    rows = _queryLikeChunks(conn, query, rootHash, limit, contentKind);
+  }
   return {
     query,
-    degraded: true,
+    degraded,
+    semantic_status: semState.semanticStatus,
+    semantic_applied: false,
+    reranked: false,
     ...(snapshot ? { snapshot } : {}),
     total: rows.length,
-    hits: rows.map((r) => provenance.formatSyncHit(r, 0, _snippet(r.body)))
+    hits: rows.map((r) => provenance.formatSyncHit(r, degraded ? 0 : Number(r.score), _snippet(r.body)))
   };
 }
 
@@ -267,25 +278,42 @@ function _addRowListToRank(candMap, rows, mapper) {
   return keys;
 }
 
+function _finalizeAsyncSearch({ query, root, envEnabled, wantSemantic, wantRerank, runtime, lex, vecCount, semanticFailed, semanticReason, didRerank, hits }) {
+  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
+  const outcome = provenance.classifySemanticStatus({
+    enabled: envEnabled && (wantSemantic || wantRerank),
+    runtime,
+    semanticFailed,
+    failureReason: semanticReason
+  });
+  return {
+    query,
+    degraded: (lex.degradedLexical && vecCount === 0) || outcome.semanticDegraded,
+    semantic_status: outcome.semanticStatus,
+    semantic_applied: vecCount > 0,
+    reranked: didRerank,
+    ...(snapshot ? { snapshot } : {}),
+    ...(outcome.reason ? { reason: outcome.reason } : {}),
+    total: hits.length,
+    hits
+  };
+}
+
 /**
  * Hybrid AST/FTS5 + Granite 97M semantic + graph RRF + MiniLM L-6 reranked search.
  */
 async function searchAsync(options = {}) {
-  const query = options.query;
-  if (!query || !String(query).trim()) {
-    return { query: '', hits: [], degraded: false, semantic_applied: false, reranked: false, total: 0 };
-  }
-  const conn = options.conn || store.openConnection();
-  const rawLimit = Number(options.limit);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.max(1, Math.min(Math.floor(rawLimit), SEARCH_MAX_HITS))
-    : SEARCH_MAX_HITS;
-  const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
-  if (options.rootPath && !root) {
-    return { query, hits: [], degraded: false, semantic_applied: false, reranked: false, total: 0, error: `root not indexed: ${options.rootPath}` };
-  }
-  const rootHash = root ? root.root_hash : null;
-  const contentKind = store.normalizeContentFilter(options.filter);
+  const wantSemantic = options.semantic !== false;
+  const wantRerank = options.rerank !== false;
+  const envEnabled = isSemanticSearchEnabled();
+  const runtime = envEnabled && (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
+  const baseSem = provenance.classifySemanticStatus({
+    enabled: envEnabled && (wantSemantic || wantRerank),
+    runtime
+  });
+  const setup = _prepareSearchSetup(options, baseSem.semanticStatus);
+  if (setup.earlyReturn) return setup.earlyReturn;
+  const { query, conn, limit, contentKind, root, rootHash } = setup;
   const candidateK = Math.max(limit * 3, 40);
 
   const lex = _collectLexicalLists(conn, query, rootHash, candidateK, contentKind);
@@ -311,16 +339,15 @@ async function searchAsync(options = {}) {
   const relaxedKeys = _addRowListToRank(candMap, lex.relaxedRows.length > 0 ? lex.relaxedRows : lex.likeRows, mapSqlRow);
   if (relaxedKeys.length > 0) rankLists.push(relaxedKeys);
 
-  const wantSemantic = options.semantic !== false;
-  const wantRerank = options.rerank !== false;
-  const runtime = (wantSemantic || wantRerank) ? getRuntimeStatus() : null;
+  let semanticFailed = false;
   let semanticReason = null;
-  if (wantSemantic && runtime && !runtime.available) {
+  if (envEnabled && wantSemantic && runtime && !runtime.available) {
+    semanticFailed = true;
     semanticReason = runtime.reason || 'semantic runtime unavailable';
   }
 
   let vecCount = 0;
-  if (wantSemantic && runtime && runtime.available && isSemanticSearchEnabled()) {
+  if (envEnabled && wantSemantic && runtime && runtime.available) {
     const modelRepo = options.embeddingModel || EMBED_MODEL_REPO;
     try {
       const queryVec = await embedText(String(query), { modelRepo });
@@ -347,6 +374,7 @@ async function searchAsync(options = {}) {
       if (vecKeys.length > 0) rankLists.push(vecKeys);
     } catch (err) {
       if (!_isSemanticUnavailableError(err)) throw err;
+      semanticFailed = true;
       semanticReason = err.message;
     }
   }
@@ -359,17 +387,10 @@ async function searchAsync(options = {}) {
   if (structKeys.length > 0) rankLists.push(structKeys);
 
   if (rankLists.length === 0) {
-    const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
-    return {
-      query,
-      degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
-      semantic_applied: vecCount > 0,
-      reranked: false,
-      ...(snapshot ? { snapshot } : {}),
-      ...(semanticReason ? { reason: semanticReason } : {}),
-      total: 0,
-      hits: []
-    };
+    return _finalizeAsyncSearch({
+      query, root, envEnabled, wantSemantic, wantRerank, runtime, lex, vecCount,
+      semanticFailed, semanticReason, didRerank: false, hits: []
+    });
   }
 
   const fused = reciprocalRankFusion(rankLists, 60).slice(0, Math.max(limit * 3, 25));
@@ -380,17 +401,18 @@ async function searchAsync(options = {}) {
     rrfScore: Number(rrfScore.toFixed(6))
   }));
 
-  const rerankCapable = wantRerank
+  const rerankCapable = envEnabled
+    && wantRerank
     && runtime
     && runtime.available
-    && isSemanticSearchEnabled()
     && (!runtime.offline || (runtime.rerankModel && runtime.rerankModel.cached));
-  if (wantRerank && !semanticReason && !rerankCapable) {
+  if (envEnabled && wantRerank && !semanticFailed && !rerankCapable) {
+    semanticFailed = true;
     semanticReason = (runtime && runtime.reason) || 'rerank runtime unavailable';
   }
   let didRerank = false;
   let hits = null;
-  if (rerankCapable && pool.length > 0 && !semanticReason) {
+  if (rerankCapable && pool.length > 0 && !semanticFailed) {
     try {
       const reranked = await rerank(String(query), pool, { topK: limit });
       didRerank = true;
@@ -402,6 +424,7 @@ async function searchAsync(options = {}) {
       ));
     } catch (err) {
       if (!_isSemanticUnavailableError(err)) throw err;
+      semanticFailed = true;
       semanticReason = err.message;
     }
   }
@@ -414,17 +437,10 @@ async function searchAsync(options = {}) {
     ));
   }
 
-  const snapshot = root ? provenance.buildSnapshotMetadata(root) : null;
-  return {
-    query,
-    degraded: (lex.degradedLexical && vecCount === 0) || Boolean(semanticReason),
-    semantic_applied: vecCount > 0,
-    reranked: didRerank,
-    ...(snapshot ? { snapshot } : {}),
-    ...(semanticReason ? { reason: semanticReason } : {}),
-    total: hits.length,
-    hits
-  };
+  return _finalizeAsyncSearch({
+    query, root, envEnabled, wantSemantic, wantRerank, runtime, lex, vecCount,
+    semanticFailed, semanticReason, didRerank, hits
+  });
 }
 
 /**

@@ -12,7 +12,7 @@ const path = require('path');
 const { indexRepository, indexRepositoryAsync } = require('./indexer');
 const store = require('./store');
 const query = require('./query');
-const { isSemanticSearchEnabled } = require('../vector_pipeline');
+const { isSemanticSearchEnabled, getRuntimeStatus } = require('../vector_pipeline');
 const { defaultManager: lspManager } = require('./lsp_manager');
 
 function _asDirectory(raw) {
@@ -200,6 +200,7 @@ function _formatSearchResponse(result) {
     query: result.query,
     total: result.total,
     degraded: result.degraded,
+    ...(result.semantic_status ? { semantic_status: result.semantic_status } : {}),
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
     ...(result.snapshot ? { snapshot: result.snapshot } : {}),
@@ -469,6 +470,7 @@ function _formatRelatedResponse(result) {
   return {
     anchor: result.anchor,
     total: result.total,
+    ...(result.semantic_status ? { semantic_status: result.semantic_status } : {}),
     semantic_applied: Boolean(result.semantic_applied),
     reranked: Boolean(result.reranked),
     degraded: Boolean(result.degraded),
@@ -530,8 +532,10 @@ async function codeRelatedAsync(args = {}) {
 function codeStatus(args = {}) {
   const conn = _conn();
   const result = query.status({ conn, rootPath: _optionalRoot(args) });
+  const runtime = getRuntimeStatus();
   return {
     fts_available: store.ftsAvailable(conn),
+    semantic_status: runtime.semanticStatus,
     lsp: lspManager.getStatusSnapshot(),
     roots: result.roots.map((r) => ({
       root: r.root_path,

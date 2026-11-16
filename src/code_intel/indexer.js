@@ -25,7 +25,7 @@ const { FALLBACK_PARSER_VERSION, parseFile, buildChunks } = require('./parser');
 const { GRAMMAR_BY_EXT, GRAMMAR_BY_LANG, getParserVersion, parseFileAsync } = require('./parser_wasm');
 const { CHUNK_SCHEMA_VERSION } = require('./chunker');
 const { resolveEdgesForRoot } = require('./graph_resolver');
-const { walk } = require('./walker');
+const { walk, walkAsync } = require('./walker');
 const store = require('./store');
 const {
   EMBED_MODEL_REPO,
@@ -94,24 +94,40 @@ function _canSkipByFastStat(existing, file, versionCompatible, options) {
   return !_hasStatDrift(existing, file);
 }
 
+function _yieldEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function _recordFileReadError(err, file, stats, scanTracker) {
+  const code = err && err.code;
+  if (code === 'ENOENT') {
+    stats.skipped.push({ relPath: file.relPath, reason: 'transient vanished: ENOENT' });
+    scanTracker.transientVanished.add(file.relPath);
+    return null;
+  }
+  stats.errors += 1;
+  if (code === 'EACCES' || code === 'EPERM') {
+    stats.skipped.push({ relPath: file.relPath, reason: `unreadable file: ${code}` });
+  } else {
+    stats.skipped.push({ relPath: file.relPath, reason: `read failed: ${code || err.message}` });
+  }
+  scanTracker.unreadableFiles.add(file.relPath);
+  return null;
+}
+
 function _readFileBytes(file, stats, scanTracker) {
   try {
     return fs.readFileSync(file.absPath);
   } catch (err) {
-    const code = err && err.code;
-    if (code === 'ENOENT') {
-      stats.skipped.push({ relPath: file.relPath, reason: 'transient vanished: ENOENT' });
-      scanTracker.transientVanished.add(file.relPath);
-      return null;
-    }
-    stats.errors += 1;
-    if (code === 'EACCES' || code === 'EPERM') {
-      stats.skipped.push({ relPath: file.relPath, reason: `unreadable file: ${code}` });
-    } else {
-      stats.skipped.push({ relPath: file.relPath, reason: `read failed: ${code || err.message}` });
-    }
-    scanTracker.unreadableFiles.add(file.relPath);
-    return null;
+    return _recordFileReadError(err, file, stats, scanTracker);
+  }
+}
+
+async function _readFileBytesAsync(file, stats, scanTracker) {
+  try {
+    return await fs.promises.readFile(file.absPath);
+  } catch (err) {
+    return _recordFileReadError(err, file, stats, scanTracker);
   }
 }
 
@@ -189,7 +205,7 @@ async function _prepareFileOpAsync({ conn, rootHash, file, options, stats, scanT
     return null;
   }
 
-  const rawBuf = _readFileBytes(file, stats, scanTracker);
+  const rawBuf = await _readFileBytesAsync(file, stats, scanTracker);
   if (rawBuf === null) return null;
 
   const hash = store.contentHash(rawBuf);
@@ -298,7 +314,7 @@ function _pruneVanished(conn, rootHash, files, scanInfo = {}) {
   return removed;
 }
 
-function _prepareIndexContext(options) {
+function _initContextBase(options) {
   const rootPath = options.rootPath;
   if (!rootPath) throw new Error('code_intel: rootPath is required');
   const absRoot = path.resolve(rootPath);
@@ -308,12 +324,11 @@ function _prepareIndexContext(options) {
   const conn = options.conn || store.openConnection();
   const rootHash = store.ensureRoot(conn, absRoot);
   store.markRootStatus(conn, rootHash, 'indexing', '');
-  const walkRes = walk(absRoot, {
-    maxFiles: options.maxFiles || MAX_FILES_PER_ROOT,
-    maxFileBytes: options.maxFileBytes || MAX_FILE_BYTES,
-    respectGitignore: options.respectGitignore
-  });
-  const headSha = store.resolveGitHeadSha(absRoot);
+  return { absRoot, conn, rootHash };
+}
+
+function _buildContextState(base, walkRes, options) {
+  const headSha = store.resolveGitHeadSha(base.absRoot);
   const verifyMode = (options.fast_stat === true || options.verify === 'fast_stat') ? 'fast_stat' : 'strict';
   const started = Date.now();
   const deadlineMs = options.timeoutMs > 0 ? started + options.timeoutMs : 0;
@@ -323,7 +338,28 @@ function _prepareIndexContext(options) {
     transientVanished: new Set()
   };
   const stats = { indexed: 0, skippedUnchanged: 0, errors: 0, symbols: 0, chunks: 0, skipped: [...walkSkipped], updatedFileIds: [] };
-  return { absRoot, conn, rootHash, headSha, verifyMode, files: walkRes.files, walkSkipped, started, deadlineMs, stats, scanTracker };
+  return { ...base, headSha, verifyMode, files: walkRes.files, walkSkipped, started, deadlineMs, stats, scanTracker };
+}
+
+function _prepareIndexContext(options) {
+  const base = _initContextBase(options);
+  const walkRes = walk(base.absRoot, {
+    maxFiles: options.maxFiles || MAX_FILES_PER_ROOT,
+    maxFileBytes: options.maxFileBytes || MAX_FILE_BYTES,
+    respectGitignore: options.respectGitignore
+  });
+  return _buildContextState(base, walkRes, options);
+}
+
+async function _prepareIndexContextAsync(options) {
+  const base = _initContextBase(options);
+  await _yieldEventLoop();
+  const walkRes = await walkAsync(base.absRoot, {
+    maxFiles: options.maxFiles || MAX_FILES_PER_ROOT,
+    maxFileBytes: options.maxFileBytes || MAX_FILE_BYTES,
+    respectGitignore: options.respectGitignore
+  });
+  return _buildContextState(base, walkRes, options);
 }
 
 function _buildIndexResult(ctx, counts, removed, extra = {}) {
@@ -446,6 +482,7 @@ async function _preparePendingEmbeddings(ctx, ops, options) {
   let embeddedChunks = 0;
 
   for (let start = 0; start < workItems.length; start += batchSize) {
+    if (start > 0) await _yieldEventLoop();
     _checkAbort(options.signal, ctx.deadlineMs);
     const slice = workItems.slice(start, start + batchSize);
     const texts = slice.map((item) => _formatChunkForEmbed(item.payload));
@@ -505,11 +542,13 @@ function indexRepository(options = {}) {
 }
 
 async function indexRepositoryAsync(options = {}) {
-  const ctx = _prepareIndexContext(options);
+  const ctx = await _prepareIndexContextAsync(options);
   try {
     const ops = [];
-    for (const file of ctx.files) {
+    let lastYieldAt = Date.now();
+    for (let idx = 0; idx < ctx.files.length; idx++) {
       _checkAbort(options.signal, ctx.deadlineMs);
+      const file = ctx.files[idx];
       const op = await _prepareFileOpAsync({
         conn: ctx.conn,
         rootHash: ctx.rootHash,
@@ -519,6 +558,13 @@ async function indexRepositoryAsync(options = {}) {
         scanTracker: ctx.scanTracker
       });
       if (op) ops.push(op);
+      if (typeof options.onProgress === 'function' && (idx === 0 || (idx + 1) % 25 === 0 || idx + 1 === ctx.files.length)) {
+        options.onProgress(`parsed ${idx + 1}/${ctx.files.length}`);
+      }
+      if ((idx + 1) % 4 === 0 || Date.now() - lastYieldAt >= 8) {
+        await _yieldEventLoop();
+        lastYieldAt = Date.now();
+      }
     }
     let embedStats = { embeddedChunks: 0, embeddingModel: null };
     let existingChunkEmbeddings = [];
@@ -531,6 +577,7 @@ async function indexRepositoryAsync(options = {}) {
       const reason = (err && err.message) || 'embedding runtime unavailable';
       embedStats = { embeddedChunks: 0, embeddingModel: null, semanticSkipped: reason, semantic_skipped: reason };
     }
+    await _yieldEventLoop();
     const { counts, removed, edgesResolved } = _commitIndexTransaction(
       ctx,
       ops,

@@ -137,6 +137,7 @@ async function _handleCodeIntel(req, res, pathname, method) {
         ...codeIntelTools.code_status({}),
         engine: 'Tree-sitter AST + FTS5 + Granite 97M + MiniLM L-6',
         semantic_enabled: runtime.available,
+        semantic_status: runtime.semanticStatus,
         embed_model: runtime.embedModel.repo,
         rerank_model: runtime.rerankModel.repo,
         semantic_reason: runtime.reason

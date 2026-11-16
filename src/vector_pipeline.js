@@ -249,9 +249,12 @@ function getRuntimeStatus() {
   else if (offlineWithoutCache) reason = 'offline without cached models';
   else if (offline && !rerankCached) reason = 'offline without cached reranker';
   else if (offline) reason = 'offline (cached)';
+  const available = enabled && packageAvailable && !_moduleLoadError && !offlineWithoutCache;
+  const semanticStatus = !enabled ? 'disabled' : (available ? 'available' : 'degraded');
   return {
     enabled,
-    available: enabled && packageAvailable && !_moduleLoadError && !offlineWithoutCache,
+    available,
+    semanticStatus,
     backend: '@huggingface/transformers',
     offline,
     cacheDir,

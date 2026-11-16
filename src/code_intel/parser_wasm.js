@@ -132,12 +132,30 @@ function _initRuntime(grammarsDir, lock) {
   return _runtimeInitPromise;
 }
 
+let _lastParseYieldMs = 0;
+
+async function _yieldAfterWarmHit(wasCached) {
+  // Cached grammar lookups resolve via microtasks only; yield a macrotask periodically
+  // so sustained warmed parseFileAsync() loops cannot starve the Node.js event loop.
+  if (!wasCached) {
+    _lastParseYieldMs = Date.now();
+    return;
+  }
+  const now = Date.now();
+  if (now - _lastParseYieldMs >= 4) {
+    await new Promise((resolve) => setImmediate(resolve));
+    _lastParseYieldMs = Date.now();
+  }
+}
+
 async function _loadGrammar(grammarKey) {
   const grammarsDir = getBundledGrammarsDir();
   const lock = _loadLockfile(grammarsDir);
   const wts = await _initRuntime(grammarsDir, lock);
   const cacheKey = `${grammarsDir}:${grammarKey}`;
-  if (_loadedLanguages.has(cacheKey)) return { wts, langObj: _loadedLanguages.get(cacheKey) };
+  if (_loadedLanguages.has(cacheKey)) {
+    return { wts, langObj: _loadedLanguages.get(cacheKey), fromCache: true };
+  }
 
   const spec = lock.byLanguage[grammarKey];
   if (!spec) {
@@ -154,7 +172,7 @@ async function _loadGrammar(grammarKey) {
   }
   const langObj = await wts.Language.load(bytes);
   _loadedLanguages.set(cacheKey, langObj);
-  return { wts, langObj };
+  return { wts, langObj, fromCache: false };
 }
 
 /**
@@ -189,7 +207,8 @@ async function parseFileAsync(source, language, relPath = '') {
       parseEngine: 'lexer'
     };
   }
-  const { wts, langObj } = await _loadGrammar(grammarKey);
+  const { wts, langObj, fromCache } = await _loadGrammar(grammarKey);
+  await _yieldAfterWarmHit(fromCache);
   const parser = new wts.Parser();
   parser.setLanguage(langObj);
   const tree = parser.parse(text);
