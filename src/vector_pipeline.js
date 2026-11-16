@@ -142,12 +142,17 @@ async function _disposePipeline(resolved) {
   }
 }
 
-// ONNX Runtime takes one intra-op thread per core, which pins every core and
-// freezes the desktop for the whole `konoha init` embed (1099% CPU on 16 cores).
-// Cap it at 4: the 97M q8 model does not scale past that, and a seed build
-// measured 948s capped against 920s uncapped, so the cap costs nothing real.
+// ONNX Runtime defaults to one intra-op thread per logical CPU, which pins every
+// core and freezes the desktop during `konoha init`. The 97M q8 model does not
+// scale past the physical core count, and oversubscribing it is worse: over 600
+// real chunks on a 16-thread/8-core Ryzen 9 5900HX, 4 threads embedded at 204
+// chunks/s, 8 at 243, 12 at 227 and 16 at 202. Restricting the process to 8 CPUs
+// moved the optimum to 4, and to 4 CPUs moved it to 2, so half the logical count
+// tracks physical cores; a non-SMT host loses 2% at 4 cores, which is the price
+// of not reading topology from sysfs.
 function _embedThreadCount() {
-  return Math.min(4, Math.max(1, (os.cpus() || []).length - 1));
+  const logical = os.availableParallelism ? os.availableParallelism() : (os.cpus() || []).length;
+  return Math.max(1, Math.ceil(logical / 2));
 }
 
 async function _initModelPair(kind, repo, modelKey) {

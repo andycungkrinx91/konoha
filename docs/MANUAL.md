@@ -269,11 +269,12 @@ The installer performs seven steps, in its own words:
 7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
 Step 5 is the slow one on first run: embedding the seeded skill corpus into SQLite is most of the wall time.
-Embedding is capped at four threads, so a full rebuild leaves you cores to work with instead of pinning all of
-them. There is no flag or environment variable for this, and the cap does not depend on whether stdout is a
-terminal — ONNX Runtime would otherwise take one thread per core. The cap is cheap: the same 96-chunk batch ran
-in 2.47 s at four threads against 9.03 s at sixteen, but a whole golden-seed build measured 948 s against 920 s,
-because embedding is a small slice of `init`.
+Embedding uses one thread per physical core, so a full rebuild uses the machine without oversubscribing it.
+There is no flag or environment variable for this, and the thread count does not depend on whether stdout is a
+terminal — ONNX Runtime would otherwise take one thread per logical core, and on an SMT chip those hyperthreads
+compete for the same execution units. Measured on a 16-thread Ryzen 9 5900HX over 600 real skill chunks, 4
+threads embedded at 204 chunks/s, 8 at 243, 12 at 227 and 16 at 202, so the physical core count is both the
+fastest and the politest setting.
 
 Re-running `init` on an existing install does the same work against the runtime it finds, plus one thing that only matters the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind. It never starts or restarts the Web UI — that is `konoha ui start`, always by hand.
 

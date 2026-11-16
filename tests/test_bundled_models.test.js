@@ -42,10 +42,15 @@ function testNativeHuggingFaceContract() {
 
 function testEmbedThreadCap() {
   const vp = require('../src/vector_pipeline');
-  const cores = Math.max(1, require('node:os').cpus().length - 1);
-  assert.strictEqual(vp._embedThreadCount(), Math.min(4, cores),
-    `embed threads must be min(4, cores - 1) = ${Math.min(4, cores)} on ${cores} usable cores`);
-  console.log('✓ ONNX embedding threads stay capped so a full re-embed cannot pin every core');
+  const logical = require('node:os').availableParallelism
+    ? require('node:os').availableParallelism()
+    : require('node:os').cpus().length;
+  const expected = Math.max(1, Math.ceil(logical / 2));
+  assert.strictEqual(vp._embedThreadCount(), expected,
+    `embed threads must be the physical core count (${expected}) on ${logical} logical CPUs`);
+  assert.ok(vp._embedThreadCount() < logical || logical <= 2,
+    'embed threads must stay below the logical CPU count so the desktop is usable during a re-embed');
+  console.log('✓ ONNX embedding threads track physical cores so a full re-embed cannot oversubscribe');
 }
 
 async function testEmbeddingInferenceAndOrdering() {
