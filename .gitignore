@@ -151,3 +151,10 @@ docker/windows-vm/logs/
 # same weights. Keep them out so a local export never lands in the repo.
 assets/models/**/onnx/model_*.onnx
 !assets/models/**/onnx/model_quantized.onnx
+
+# Hugging Face snapshot residue beside a bundled model: .gitattributes would
+# drag the tracked .onnx weights into LFS, and the model card is upstream
+# prose. The repo ships its own config/tokenizer pair instead.
+assets/models/**/.gitattributes
+assets/models/**/README.md
+assets/models/**/special_tokens_map.json
