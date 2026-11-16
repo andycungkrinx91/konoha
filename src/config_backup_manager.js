@@ -466,14 +466,17 @@ function formatBackupSummaryLines(backupSummary) {
   if (backedUp.length === 0) {
     return ['  [Backup] No existing client configuration files required backup (fresh state).'];
   }
-  const lines = [
-    `  [Backup] Backed up and verified ${backedUp.length} existing configuration file(s) before modification:`
-  ];
+  // One line per run, not one per file. `konoha migrate` backs up ~50 config
+  // files and the per-file list buried everything printed after it.
+  const perClient = new Map();
   for (const item of backedUp) {
-    const statusLabel = item.verified !== false ? 'verified SHA-256 ✓' : 'unverified';
-    lines.push(`    • [${item.client}:${item.scope}] ${item.sourcePath} -> ${item.backupPath} (${statusLabel})`);
+    const key = `${item.client}:${item.scope}`;
+    perClient.set(key, (perClient.get(key) || 0) + 1);
   }
-  return lines;
+  const counts = Array.from(perClient, ([key, count]) => `${key} (${count})`).join(', ');
+  return [
+    `  [Backup] Backed up and verified ${backedUp.length} existing configuration file(s) before modification: ${counts}`
+  ];
 }
 
 function _backupScopeFiles(filePaths, client, scope, options, results) {

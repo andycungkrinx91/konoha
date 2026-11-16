@@ -11,6 +11,7 @@ Changes landed on `feature/issue-13-native-code-intelligence` (v2.2.22 branch) a
 - **Retired `agent-browser` CLI & `bin/lib/extension.js` provisioning chain**: QA automation now runs directly against the target project's Playwright installation (`pnpm exec playwright`), reporting `qa_blocked` (`playwright-not-installed`) when unavailable.
 
 ### Changed
+- **`konoha init` / `konoha migrate` print one progress bar instead of hundreds of lines (`bin/lib/prompt.js`, `bin/lib/embed_progress.js`, `src/migrate.js`)**: per-skill `📦 Migrating:` headers, per-file `✓ references/*.md (N → N bytes, optimized 0.0%)` lines, and the 54-line `[Backup]` file list all fought the bar for the screen. Migration now takes an optional `logSink`; `createEmbedProgress(...).detail(msg)` folds ordinary lines into the bar's trailing status (clipped at 56 chars, `optimized` tails stripped) while `✗`/`⚠` still print as persistent lines, and after the run settles only urgent lines surface. The backup summary collapsed to one line of per-client counts, and the `! Kept existing <path>` conflict chatter collapsed to one line per client (`! Kept 18 existing agent file(s); Konoha's versions written to *.konoha-proposed (e.g. …)`). A PTY `konoha migrate` now emits 8 lines plus the bar; a `konoha init` emits section headers only.
 - **`2.2.*` Yamanaka 3D UI & Test Gating**: Hidden 3D Studio navigation remains gated off across `2.2.*` (`SHOW_3D_STUDIO_MENU = false`), and `tests/test_yamanaka_*.js` / `tests/e2e/yamanaka_3d_studio.spec.js` skip automatically under `/^2\.2\./`.
 
 ### Fixed

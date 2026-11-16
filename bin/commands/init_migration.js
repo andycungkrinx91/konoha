@@ -45,14 +45,15 @@ function measureEmbeddingCoverage(dbPath = DB_PATH) {
   }
 }
 
-async function runMigrationAttempts(migrationArgs, safeTimeoutMs, onProgress = null) {
+async function runMigrationAttempts(migrationArgs, safeTimeoutMs, onProgress = null, logSink = null) {
   const migrate = require('../../src/migrate');
   const baseOptions = {
     skillsDir: _argValue(migrationArgs, '--skills-dir'),
     skills: _argList(migrationArgs, '--skills'),
     clean: migrationArgs.includes('--clean'),
     timeBudgetSeconds: Math.floor(safeTimeoutMs / 1000),
-    onProgress
+    onProgress,
+    logSink
   };
 
   const attempt = async (opts) => {
@@ -103,21 +104,22 @@ function _argList(args, flag) {
   return out;
 }
 
-async function migrateSingleSkillsDir(sDirPath) {
+async function migrateSingleSkillsDir(sDirPath, logSink = null) {
   try {
     await require('../../src/migrate').runMigration({
       skillsDir: sDirPath,
       skipEmbeddings: true,
-      rebuildEmbeddings: false
+      rebuildEmbeddings: false,
+      logSink
     });
   } catch { /* intentional fallback */ }
 }
 
-async function indexPreExistingSkills(skillsDirs, pkgSkillsDir) {
+async function indexPreExistingSkills(skillsDirs, pkgSkillsDir, logSink = null) {
   if (!Array.isArray(skillsDirs)) return;
   for (const sDir of skillsDirs) {
     if (sDir.path && sDir.path !== pkgSkillsDir && fileExists(sDir.path)) {
-      await migrateSingleSkillsDir(sDir.path);
+      await migrateSingleSkillsDir(sDir.path, logSink);
     }
   }
 }
@@ -131,7 +133,7 @@ async function executeInitMigration(options) {
   // settle, because it knows the stages that run after this one.
   const progress = options.progress || createEmbedProgress('Seeding skills', MIGRATION_PHASES);
   const settle = !options.progress;
-  const run = await runMigrationAttempts(migrationArgs, safeTimeoutMs, progress.onProgress);
+  const run = await runMigrationAttempts(migrationArgs, safeTimeoutMs, progress.onProgress, progress.detail);
 
   if (run.status !== 0) {
     // Not an embedding failure: the migration itself failed, so classifying it
@@ -167,7 +169,7 @@ async function executeInitMigration(options) {
   }
 
   success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
-  await indexPreExistingSkills(skillsDirs, pkgSkillsDir);
+  await indexPreExistingSkills(skillsDirs, pkgSkillsDir, progress.detail);
 
   try {
     if (!hasCompleteDatabaseSchema()) throw new Error('required SQLite schema is incomplete');

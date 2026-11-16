@@ -224,6 +224,29 @@ function run() {
     'Konoha-owned Codex rule must update cleanly without creating .konoha-proposed');
   assert.strictEqual(read(staleCodexRule), `${buildMainAgentContract('codex')}\n`);
 
+  // A home full of foreign agent files must report one collapsed line, not one per file:
+  // per-file conflict chatter buried the progress bar.
+  const noisyHome = path.join(tmpRoot, 'noisy-home');
+  const noisyAgentsDir = path.join(noisyHome, '.config', 'opencode', 'agents');
+  for (const name of ['sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka']) {
+    write(path.join(noisyAgentsDir, `${name}.md`), `# user-authored ${name}\n`);
+  }
+  const captured = [];
+  const originalWrite = process.stderr.write;
+  process.stderr.write = (chunk) => { captured.push(String(chunk)); return true; };
+  try {
+    openCodeManager.deployOpenCodeRules(false, { home: noisyHome });
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+  const conflictLines = captured.filter((line) => line.includes('Kept '));
+  assert.strictEqual(conflictLines.length, 1,
+    `opencode conflict report must be one line, got ${conflictLines.length}`);
+  assert.ok(/Kept \d+ existing agent file\(s\)/.test(conflictLines[0]),
+    'opencode conflict report must carry the collapsed count');
+  assert.strictEqual(read(path.join(noisyAgentsDir, 'sannin.md')), '# user-authored sannin\n',
+    'Foreign opencode agent must stay untouched');
+
   console.log('✓ Deploy safety: backup strategy, SOUL managed block, agent & rule conflict parking verified.');
 }
 

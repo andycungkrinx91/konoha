@@ -54,7 +54,8 @@ async function runInProcessMigration(options = {}) {
     skipEmbeddings: options.skipEmbeddings || false,
     skillsOnly: options.skillsOnly || false,
     timeBudgetSeconds: options.timeBudgetSeconds,
-    onProgress: options.onProgress
+    onProgress: options.onProgress,
+    logSink: options.logSink
   });
 }
 
@@ -69,7 +70,8 @@ async function runMigrationWithFallback(options = {}) {
     skillsDir: options.skillsDir || null,
     clean: options.clean || false,
     skipEmbeddings: true,
-    skillsOnly: true
+    skillsOnly: true,
+    logSink: options.logSink
   });
 }
 
@@ -80,7 +82,8 @@ async function runCustomDirMigration(customDir, cleanArgs, flags, progress) {
       clean: cleanArgs.includes('--clean'),
       rebuildEmbeddings: flags.hasRebuildEmbeddings,
       skipEmbeddings: flags.hasSkipEmbeddings,
-      onProgress: progress && progress.onProgress
+      onProgress: progress && progress.onProgress,
+      logSink: progress && progress.detail
     });
     if (result && result.ok === false) {
       throw new Error((result.missingRequired || []).join(', ') || result.reason || 'Migration failed');
@@ -101,7 +104,8 @@ async function runAutoDirsMigration(skillsDirs, cleanArgs, flags, progress) {
       clean: cleanArgs.includes('--clean'),
       rebuildEmbeddings: flags.hasRebuildEmbeddings,
       skipEmbeddings: flags.hasSkipEmbeddings,
-      onProgress: progress && progress.onProgress
+      onProgress: progress && progress.onProgress,
+      logSink: progress && progress.detail
     });
     if (last && last.ok === false) {
       throw new Error((last.missingRequired || []).join(', ') || last.reason || 'Migration failed');

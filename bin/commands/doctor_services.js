@@ -26,7 +26,7 @@ async function executeMigrationRun(skillsDirs) {
   const progress = createEmbedProgress('Doctor embeddings', MIGRATION_PHASES);
   const attempt = async (opts) => {
     try {
-      return await migrate.runMigration({ ...opts, onProgress: progress.onProgress });
+      return await migrate.runMigration({ ...opts, onProgress: progress.onProgress, logSink: progress.detail });
     } catch (err) {
       return { ok: false, reason: err.message || 'migration failed' };
     }

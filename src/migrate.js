@@ -42,9 +42,20 @@ let SKILLS_DIR = path.normalize(path.join(os.homedir(), '.agents', 'skills'));
 const { CANONICAL_SKILL_NAMES } = require('./canonical_skills');
 const CUSTOM_SKILLS = Array.from(CANONICAL_SKILL_NAMES);
 
+// `konoha init`/`migrate`/`doctor --fix` paint one progress bar; a line per
+// reference file would scroll it away. A caller that owns the bar installs a
+// sink and decides what survives. Without one the historical behaviour holds.
+let _logSink = null;
+
+function _formatLogArgs(args) {
+  return args.map(a => (typeof a === "object" && a !== null) ? JSON.stringify(a) : String(a)).join(" ");
+}
+
 function log(...args) {
+  if (_logSink) return _logSink(_formatLogArgs(args));
+  const msg = _formatLogArgs(args);
   if (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || require.main !== module) {
-    process.stderr.write(args.map(a => (typeof a === "object" && a !== null) ? JSON.stringify(a) : String(a)).join(" ") + "\n");
+    process.stderr.write(msg + "\n");
   } else {
     console.log(...args);
   }
@@ -471,11 +482,14 @@ function _purgeExistingSkills(conn, options) {
 
 async function runMigration(options = {}) {
   const prevDbPath = DB_PATH;
+  const prevSink = _logSink;
+  _logSink = typeof options.logSink === 'function' ? options.logSink : null;
   try {
     return await _runMigration(options);
   } finally {
-    // Module-level path state must not leak between in-process calls.
+    // Module-level state must not leak between in-process calls.
     DB_PATH = prevDbPath;
+    _logSink = prevSink;
   }
 }
 
@@ -560,7 +574,7 @@ async function _runMigration(options = {}) {
 
   _emitPhase(options, 'migrate skills');
   let total = 0;
-  total += _migrateDocumentation(conn, options.skillsOnly);
+  total += _migrateDocumentation(conn, options.skillsOnly, { log });
   for (const item of skillsToMigrate) {
     if (!requiredSet.has(item.name) && timeBudget > 0 && ((Date.now() - startTime) / 1000) > timeBudget) {
       deferredSkills += 1;

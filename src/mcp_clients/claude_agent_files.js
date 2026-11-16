@@ -179,9 +179,10 @@ function _parkConflictingAgent(targetPath, mdContent, agentName) {
 }
 
 function _reportAgentConflicts(conflicts) {
-  for (const c of conflicts) {
-    process.stderr.write(`! Kept existing ${c.path}; Konoha's version written to ${c.proposed}\n`);
-  }
+  if (!conflicts.length) return;
+  process.stderr.write(
+    `! Kept ${conflicts.length} existing agent file(s); Konoha's versions written to *.konoha-proposed (e.g. ${conflicts[0].proposed})\n`
+  );
 }
 
 function _deployClaudeCodeAgents(agents, options = {}) {

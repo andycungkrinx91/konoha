@@ -389,6 +389,7 @@ function generateOpenCodeSubagentMd(agent) {
 }
 
 function _writeOpenCodeAgentsDir(aDir, agents, options = {}) {
+  const conflicts = [];
   try {
     const { writeAgentFileSafe } = require('./agent_file_safety');
     const { getDeployableAgents } = require('./canonical_agents');
@@ -396,9 +397,16 @@ function _writeOpenCodeAgentsDir(aDir, agents, options = {}) {
     for (const agent of getDeployableAgents(agents)) {
       if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const subagentMd = generateOpenCodeSubagentMd(agent);
-      writeAgentFileSafe(path.join(aDir, `${agent.name}.md`), subagentMd, agent.name, options);
+      const res = writeAgentFileSafe(
+        path.join(aDir, `${agent.name}.md`),
+        subagentMd,
+        agent.name,
+        { ...options, silent: true }
+      );
+      if (res && res.status === 'conflict') conflicts.push(res.proposed);
     }
   } catch { /* intentional best-effort fallback */ }
+  return conflicts;
 }
 
 function deployOpenCodeRules(silent = true, options = {}) {
@@ -449,8 +457,14 @@ function deployOpenCodeRules(silent = true, options = {}) {
     path.join(openCodeDir, "agents"),
     path.join(legacyDir, "agents")
   ];
+  const conflicts = [];
   for (const aDir of agentDirs) {
-    _writeOpenCodeAgentsDir(aDir, agents);
+    conflicts.push(..._writeOpenCodeAgentsDir(aDir, agents, { silent: isSilent }));
+  }
+  if (conflicts.length > 0 && !isSilent) {
+    process.stderr.write(
+      `! Kept ${conflicts.length} existing agent file(s); Konoha's versions written to *.konoha-proposed (e.g. ${conflicts[0]})\n`
+    );
   }
 
   if (!isSilent && deployed > 0) process.stderr.write(`  ✓ Deployed Konoha instructions & agents to OpenCode\n`);

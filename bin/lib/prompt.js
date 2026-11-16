@@ -187,6 +187,18 @@ class KonohaProgressBar {
     return this;
   }
 
+  /**
+   * Replaces the text trailing the bar without touching the pulse timer. Long
+   * labels are clipped so a wrapped line cannot break the carriage-return
+   * redraw. Used for per-item detail that must not get its own line.
+   */
+  setStatus(text) {
+    const flat = String(text).replace(/\s+/g, ' ').trim();
+    this.status = flat.length > 56 ? `${flat.slice(0, 55)}…` : flat;
+    this.render();
+    return this;
+  }
+
   update(current, status) {
     if (typeof current === 'number') this.current = Math.min(this.total, Math.max(0, current));
     if (typeof status === 'string') this.status = status;

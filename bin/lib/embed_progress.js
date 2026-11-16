@@ -20,16 +20,17 @@ const MIGRATION_PHASES = ['migrate skills', 'embeddings'];
 const INIT_PHASES = [...MIGRATION_PHASES, 'configuration'];
 
 /**
- * Builds a progress reporter to hand to `runMigration({ onProgress })`.
+ * Builds a progress reporter to hand to `runMigration({ onProgress, logSink })`.
  *
- * Nothing renders until the first progress event, so a run that skips embedding
- * (--no-embed, --skip-embeddings) prints no bar at all.
+ * The bar is lazy: nothing renders until the first progress event or the first
+ * logged line, so a caller that never reaches the migration prints no bar.
  *
  * @param {string} title
  * @param {string[]} [phases] the run's stages, listed under the bar
  * @returns {{
  *   onProgress: (p: {done?: number, total?: number, stage?: string, phase?: string}) => void,
  *   phase: (name: string) => void,
+ *   detail: (message: string) => void,
  *   succeed: (msg?: string) => void,
  *   fail: (failureOrError: object) => object|null,
  *   abort: (reason: string) => void,
@@ -84,6 +85,33 @@ function createEmbedProgress(title = 'Embeddings', phases = []) {
     phase(name) {
       if (!started || settled) return;
       bar.setPhase(name);
+    },
+
+    /**
+     * Takes over the migration's own logging. Every indexed reference file used
+     * to print a line, which buried the bar and the actual error under a wall of
+     * "optimized 0.0%" rows. Installed as `runMigration({ logSink })`.
+     *
+     * Errors and warnings keep a persistent line; everything else becomes the
+     * bar's trailing label, so the run still says what it is doing.
+     */
+    detail(message) {
+      const text = String(message)
+        .trim()
+        .replace(/\s*\([^()]*optimized [^()]*\)$/, '');
+      if (!text) return;
+      const urgent = /^[✗⚠]/.test(text);
+      if (settled) {
+        if (urgent) log(`  ${C.red}${text}${C.reset}`);
+        return;
+      }
+      begin();
+      if (urgent) {
+        log(`  ${C.red}${text}${C.reset}`);
+        bar.render();
+        return;
+      }
+      bar.setStatus(text);
     },
 
     succeed(msg = 'embeddings ready') {

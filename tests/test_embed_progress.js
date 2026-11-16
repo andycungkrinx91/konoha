@@ -11,7 +11,7 @@
  */
 
 const assert = require('assert');
-const { createEmbedProgress } = require('../bin/lib/embed_progress');
+const { createEmbedProgress, MIGRATION_PHASES } = require('../bin/lib/embed_progress');
 
 /** Runs `fn` with stdout captured; returns everything it printed. */
 function capture(fn) {
@@ -158,6 +158,47 @@ function capture(fn) {
   });
   assert.strictEqual(bar._phase, 2, 'setPhase must ignore a backwards move');
   console.log('  ✓ the run announces its phases and only moves forward');
+}
+
+// --- per-item logging folds into the bar, errors do not ----------------------
+{
+  const progress = createEmbedProgress('Embeddings', MIGRATION_PHASES);
+  const out = capture(() => {
+    progress.onProgress({ phase: 'migrate skills' });
+    // The migration logs one line per reference file. Each used to get its own
+    // row, which scrolled the bar off the screen.
+    progress.detail('📦 Migrating: anbu-skill');
+    progress.detail('  ✓ references/api-design-expert.md (10,243 → 10,239 bytes, optimized 0.0%)');
+    progress.detail('  ✓ references/authentication-identity-expert.md (6,777 → 6,774 bytes, optimized 0.0%)');
+  });
+  assert.ok(!out.includes('api-design-expert'),
+    'a per-file line must not get its own row; it belongs on the bar line');
+  assert.ok(!out.includes('optimized'),
+    'the byte-delta tail is noise and must be stripped');
+
+  const bar = new (require('../bin/lib/prompt').KonohaProgressBar)({ total: 100 });
+  capture(() => {
+    bar.setStatus('✓ references/authentication-identity-expert.md');
+  });
+  assert.strictEqual(bar.status, '✓ references/authentication-identity-expert.md',
+    'the newest item is the bar label, so the run still says what it is doing');
+  capture(() => bar.setStatus('x'.repeat(200)));
+  assert.ok(bar.status.length <= 56, 'a long label is clipped so the redraw cannot wrap');
+
+  const withError = capture(() => {
+    progress.detail('  ✗ Directory not found: /nope');
+  });
+  assert.ok(withError.includes('Directory not found'),
+    'an error must keep a persistent line instead of scrolling past on the bar');
+
+  const afterSettle = capture(() => {
+    progress.succeed('done');
+    progress.detail('  ✓ references/late.md (1 → 1 bytes, optimized 0.0%)');
+    progress.detail('  ⚠ late warning');
+  });
+  assert.ok(!afterSettle.includes('late.md'), 'a settled bar must not print per-item noise again');
+  assert.ok(afterSettle.includes('late warning'), 'but a late warning still surfaces');
+  console.log('  ✓ detail() folds per-item logging into the bar and keeps errors visible');
 }
 
 console.log('\n✓ embed progress assertions passed');

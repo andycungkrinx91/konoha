@@ -262,26 +262,31 @@ async function handleExistingInstallation(clientFlags, args, options) {
  * can always run `konoha migrate` to finish it.
  */
 async function migrateExistingInstallation(options = {}) {
+  const progress = createEmbedProgress('Migrating existing installation', INIT_PHASES);
+  const runOptions = {
+    skillsDir: options.skillsDir || null,
+    timeBudgetSeconds: options.timeBudgetSeconds,
+    onProgress: progress.onProgress,
+    logSink: progress.detail
+  };
   try {
     const { runMigration } = require('../../src/migrate');
     header('📊 Migrating existing installation');
-    let result = await runMigration({
-      skillsDir: options.skillsDir || null,
-      skipEmbeddings: Boolean(options.skipEmbeddings),
-      timeBudgetSeconds: options.timeBudgetSeconds
-    });
+    let result = await runMigration({ ...runOptions, skipEmbeddings: Boolean(options.skipEmbeddings) });
     if (result && result.ok === false) {
-      result = await runMigration({
-        skillsDir: options.skillsDir || null,
-        skipEmbeddings: true,
-        skillsOnly: true,
-        timeBudgetSeconds: options.timeBudgetSeconds
-      });
+      result = await runMigration({ ...runOptions, skipEmbeddings: true, skillsOnly: true });
     }
     if (result && result.ok === false) {
+      progress.abort(result.reason || (result.missingRequired || []).join(', ') || 'migration did not complete');
       warn(`Migration did not complete (${result.reason || (result.missingRequired || []).join(', ') || 'unknown reason'}). Run "konoha migrate" to finish it.`);
+    } else if (result && result.embed && result.embed.ok === false) {
+      progress.fail(result.embed.failure);
+      warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+    } else {
+      progress.succeed(result && result.embed && result.embed.skipped ? 'migration complete (embeddings skipped)' : 'migration complete');
     }
   } catch (err) {
+    progress.abort(err.message || 'migration failed');
     warn(`Migration failed: ${err.message}. Run "konoha migrate" to finish it.`);
   }
 }
