@@ -76,37 +76,34 @@ async function run() {
     assert.strictEqual(translateTargetUrlForContainer('http://127.0.0.1:3000/', 'darwin'), 'http://host.docker.internal:3000/');
     console.log('  ✓ Endpoint binding, mount isolation, and cross-platform URL translation passed');
 
-    // Web UI browser endpoints + authenticated /browser-view fail-closed check
-    const mockMgr = new BrowserSessionManager({
-      execSync: (cmd, args) => {
-        if (args[0] === 'run') return { status: 0, stdout: 'cid1\n' };
-        return { status: 0, stdout: 'ok\n' };
-      },
-      probeReady: async () => true,
-      allocatePort: async () => 46199
-    });
+    // Existing Web UI API preserves auth/CSRF and surfaces live browser_sessions via /api/v1/activity/live
     srv = await startWebServer({ port: 14219, host: '127.0.0.1' });
-    // Inject mock manager directly onto server controller state via /api/v1/browser/sessions default route check:
-    const unauthViewer = await httpCall({ hostname: '127.0.0.1', port: 14219, path: '/browser-view', method: 'GET' });
-    assert.strictEqual(unauthViewer.status, 401, '/browser-view must fail closed when unauthenticated');
-
-    const authViewer = await httpCall({
+    const unauthActivity = await httpCall({
       hostname: '127.0.0.1', port: 14219,
-      path: `/browser-view?token=${srv.token}`,
-      method: 'GET'
+      path: '/api/v1/activity/live',
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
-    assert.strictEqual(authViewer.status, 200);
-    assert.ok(authViewer.body.includes('Konoha Live Browser'));
+    assert.strictEqual(unauthActivity.status, 401, '/api/v1/activity/live must fail closed for unauthenticated browser requests');
+
+    const authActivity = await httpCall({
+      hostname: '127.0.0.1', port: 14219,
+      path: '/api/v1/activity/live',
+      method: 'GET',
+      headers: { 'X-Konoha-Web-Token': srv.token }
+    });
+    assert.strictEqual(authActivity.status, 200);
+    const activityJson = JSON.parse(authActivity.body);
+    assert.ok(Array.isArray(activityJson.browser_sessions), '/api/v1/activity/live must include browser_sessions');
 
     const unauthPost = await httpCall({
       hostname: '127.0.0.1', port: 14219,
-      path: '/api/v1/browser/sessions',
+      path: '/api/v1/activity/ping',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    }, { targetUrl: 'http://127.0.0.1:3000' });
+    }, {});
     assert.strictEqual(unauthPost.status, 403, 'POST without CSRF token must return 403');
-    await mockMgr.cleanupStaleSessions();
-    console.log('  ✓ Web viewer authentication and CSRF controls passed');
+    console.log('  ✓ Existing Web UI activity API, auth, and CSRF controls passed');
 
     // Async QA run: missing Playwright returns qa_blocked; mock_report preserves <2000 char cap & run_id; headless CI compatibility
     const noPwProj = path.join(tmpDir, 'no_pw_proj');
@@ -171,6 +168,14 @@ async function run() {
     await new Promise((r) => testPageSrv.listen(0, '127.0.0.1', r));
     const appUrl = `http://127.0.0.1:${testPageSrv.address().port}/`;
 
+    const mockMgr = new BrowserSessionManager({
+      execSync: (cmd, args) => {
+        if (args[0] === 'run') return { status: 0, stdout: 'cid1\n' };
+        return { status: 0, stdout: 'ok\n' };
+      },
+      probeReady: async () => true,
+      allocatePort: async () => 46199
+    });
     const monitorRes = await runLiveBrowserMonitor({
       url: appUrl,
       workspaceMode: 'docker-headed',
@@ -184,6 +189,7 @@ async function run() {
     if (!process.env.CI && !process.env.KONOHA_HEADLESS_TEST) {
       assert.strictEqual(monitorRes.browser_launch.mode, 'docker-headed');
     }
+    await mockMgr.cleanupStaleSessions();
 
     const pwRes = await verifyInteractiveExperienceWithPlaywright(appUrl, { requireMotionAnd3d: false });
     assert.strictEqual(pwRes.passed, true, `Playwright verification failed: ${JSON.stringify(pwRes)}`);

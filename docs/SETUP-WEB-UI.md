@@ -252,9 +252,9 @@ pnpm run build:web
 
 `pnpm --dir apps/web run build` runs `vite build && node scripts/write-build-meta.js`, which stamps `apps/web/build/build-meta.json` with `{ "version": "<apps/web/package.json version>", "builtAt": "<ISO>" }`. During `konoha init`, `resolveWebBuildSource` skips any candidate build whose `build-meta.json` version does not match the CLI version (logging `Skipping stale Web UI build <v> at <dir>`), and `_syncWebBuildOutput` reports the version it actually installed — `Pre-built Web UI installed to … (v<installed>)`. A build with no `build-meta.json` logs `Web UI provenance unknown …` rather than claiming a version match.
 
-### 15. 🖥️ Live Headed Browser Viewer & Native Knowledge Brain Endpoints
-- **Live Browser Workspace Viewer (`/browser-view`, `/api/v1/browser/*`)**:
-  - Serves an authenticated (`401` without valid session cookie/token) viewer wrapper around the loopback-bound `noVNC` URL returned by `BrowserSessionManager` (`src/web/controllers/browser_controller.js`).
-  - Mutating session endpoints (`POST /api/v1/browser/sessions`, `POST /api/v1/browser/sessions/:id/interact`, `POST /api/v1/browser/sessions/:id/cancel`, `DELETE /api/v1/browser/sessions/:id`, `POST /api/v1/browser/qa`, `POST /api/v1/browser/cleanup`) require both authentication and a valid `X-Konoha-Web-Token` CSRF header.
-- **Native Knowledge Brain Endpoints (`/api/v1/persona/*`)**:
-  - Extends `/api/v1/persona/export` with provenance/lifecycle records alongside `/api/v1/persona/relations`, `/api/v1/persona/maintenance`, and per-memory `/:id/correct`, `/:id/withdraw`, `/:id/verify`, `/:id/history`, and `/:id/graph` routes (`src/web/controllers/memory_brain_routes.js`).
+### 15. 🖥️ Live Headed Browser Session Visibility & Provenance-Aware Memory Behavior
+- **Live Browser Session Visibility (`/api/v1/activity/live`)**:
+  - Existing authenticated `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) includes active `browser_sessions` (status, `build_id`, `fresh`, loopback `viewer_url`, and optional `playwright_ui_url`) without introducing separate REST endpoints.
+  - Interactive live browser viewing serves directly over loopback `127.0.0.1` (`noVNC` with per-session `-rfbauth` authentication); management uses `konoha browser` CLI and `qa_e2e_run` / `live_browser_monitor.js`.
+- **Provenance-Aware Memory API Compatibility (`/api/v1/persona`)**:
+  - Existing `/api/v1/persona` routes (`src/web/controllers/skills_controller.js`) delegate cleanly to `src/persona_memory.js` / `src/memory_brain.js` (returning provenance metadata on `GET`, filtering active records by default, and supporting optional `action: 'correct'` or provenance fields on `POST /api/v1/persona` without expanding REST route surface).

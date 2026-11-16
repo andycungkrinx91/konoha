@@ -313,13 +313,9 @@ function _handleGetSoul(res, parsedUrl) {
   }
 }
 
-const { handleMemoryBrainRoutes } = require('./memory_brain_routes');
-
 async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   const { pathname, method, parsedUrl } = route;
   if (method === 'GET' && pathname === '/api/v1/soul') return _handleGetSoul(res, parsedUrl);
-  const brainRes = await handleMemoryBrainRoutes(req, res, route, broadcastEvent);
-  if (brainRes !== false) return brainRes;
 
   const personaMemory = require('../../persona_memory');
   if (method === 'GET' && pathname === '/api/v1/persona') {
@@ -338,10 +334,34 @@ async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   if (method === 'POST' && pathname === '/api/v1/persona') {
     try {
       const body = await parseBody(req);
+      if (body.action === 'correct' && body.targetId && body.newContent) {
+        const resCorrect = personaMemory.correctMemory({
+          id: body.targetId,
+          newContent: body.newContent,
+          title: body.title,
+          reason: body.reason || '',
+          actor: body.actor || body.agentName || 'web',
+          evidenceRef: body.evidenceRef || body.sourceRef || ''
+        });
+        broadcastEvent('persona_updated', { action: 'correct', id: resCorrect.new_id });
+        return sendJson(res, 200, resCorrect);
+      }
       if (!body.agentName || !body.content) return sendJson(res, 400, { error: 'Missing required fields: agentName, content' });
-      const id = personaMemory.saveMemory({ agentName: body.agentName, content: body.content, title: body.title || '', memoryType: body.memoryType || 'rule', tags: body.tags || '', importance: parseInt(body.importance || 1, 10), projectPath: body.projectPath || null });
-      broadcastEvent('persona_updated', { action: 'create', id, agent: body.agentName });
-      return sendJson(res, 201, { id, ok: true });
+      const saved = personaMemory.remember({
+        agentName: body.agentName,
+        content: body.content,
+        title: body.title || '',
+        memoryType: body.memoryType || 'rule',
+        tags: body.tags || '',
+        importance: parseInt(body.importance || 1, 10),
+        domain: body.domain,
+        sourceType: body.sourceType || 'agent',
+        sourceRef: body.sourceRef || '',
+        verificationStatus: body.verificationStatus,
+        projectPath: body.projectPath || null
+      });
+      broadcastEvent('persona_updated', { action: 'create', id: saved.id, agent: body.agentName });
+      return sendJson(res, 201, { id: saved.id, ok: true, provenance: saved.provenance });
     } catch (err) { return sendJson(res, 500, { error: err.message }); }
   }
   if (method === 'DELETE' && pathname.startsWith('/api/v1/persona/')) {

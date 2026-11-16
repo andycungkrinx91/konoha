@@ -7,7 +7,7 @@
 
 const crypto = require('crypto');
 const db = require('./db');
-const { DB_PATH, getDb, initMemoryTables, computeProjectHash } = require('./persona_memory_projects');
+const { getDb, initMemoryTables, computeProjectHash } = require('./persona_memory_projects');
 const { assertDurableKnowledgeSafe, formatKnowledgeRecord, recall } = require('./memory_brain');
 const { recordAuditEvent } = require('./memory_brain_lifecycle');
 
@@ -20,7 +20,7 @@ function exportMemoryBrain({
   projectPath = null,
   projectHash = null,
   includeInactive = false,
-  dbPath = DB_PATH
+  dbPath = null
 } = {}) {
   const pHash = projectHash || (projectPath ? computeProjectHash(projectPath) : null);
   const conn = getDb(dbPath);
@@ -176,7 +176,7 @@ function _applyImportPayload(conn, { payload, mode, actor }) {
   return { ok: true, imported_memories: importedMemories, imported_relations: importedRelations };
 }
 
-function importMemoryBrain(bundle, { mode = 'merge', actor = 'import', dbPath = DB_PATH } = {}) {
+function importMemoryBrain(bundle, { mode = 'merge', actor = 'import', dbPath = null } = {}) {
   const payload = typeof bundle === 'string' ? JSON.parse(bundle) : bundle;
   if (!payload || !Array.isArray(payload.memories)) {
     throw new Error('Invalid memory brain bundle: memories array is required.');
@@ -200,7 +200,7 @@ function importMemoryBrain(bundle, { mode = 'merge', actor = 'import', dbPath = 
   }
 }
 
-function rebuildMemoryIndex({ dbPath = DB_PATH } = {}) {
+function rebuildMemoryIndex({ dbPath = null } = {}) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
@@ -216,7 +216,7 @@ function rebuildMemoryIndex({ dbPath = DB_PATH } = {}) {
   }
 }
 
-function benchmarkRetrieval(cases = [], { dbPath = DB_PATH } = {}) {
+function benchmarkRetrieval(cases = [], { dbPath = null } = {}) {
   const list = Array.isArray(cases) ? cases : [];
   if (list.length === 0) return { count: 0, recall_at_k: 0, mrr: 0, stale_leaks: 0, avg_latency_ms: 0 };
 

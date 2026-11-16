@@ -9,6 +9,7 @@
 
 const db = require('../../db');
 const agentManager = require('../../agent_manager');
+const { defaultBrowserSessionManager } = require('../../workflow/qa-automation/browser_session_manager');
 const { sendJson, isClientConfigured } = require('./common');
 
 let _activitySeq = 0;
@@ -493,7 +494,12 @@ function getLiveActivitySnapshot(options = {}) {
   const limit = Number(options.limit) || 60;
   const canonicalAgents = loadCanonicalAgents();
   const rawData = queryDatabaseActivity(windowMinutes, limit);
-  return buildExecutionGraph(rawData, canonicalAgents);
+  const graphSnapshot = buildExecutionGraph(rawData, canonicalAgents);
+  const mgr = options.browserSessionManager || defaultBrowserSessionManager;
+  return {
+    ...graphSnapshot,
+    browser_sessions: mgr.listSessions({ includeStopped: false })
+  };
 }
 
 async function handleActivityRoutes(req, res, ctx, parsedUrl, ...rest) {

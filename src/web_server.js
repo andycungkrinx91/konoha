@@ -15,7 +15,6 @@ const skillsController = require('./web/controllers/skills_controller');
 const sdlcController = require('./web/controllers/sdlc_controller');
 const hitlController = require('./web/controllers/hitl_controller');
 const servicesController = require('./web/controllers/services_controller');
-const browserController = require('./web/controllers/browser_controller');
 let _model3DController = null;
 let _model3DRefineController = null;
 function getModel3DController() {
@@ -161,7 +160,6 @@ async function _dispatchApiControllers(req, res, ctx, route) {
   if (await sdlcController.handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
   if (await hitlController.handleHitlRoutes(req, res, ctx, route)) return true;
   if (await servicesController.handleServicesRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
-  if (await browserController.handleBrowserApiRoutes(req, res, ctx, { parsedUrl, pathname, method })) return true;
   if (pathname.startsWith('/api/v1/3d') || pathname.startsWith('/api/v1/model3d')) {
     if (await getModel3DController().handleModel3DRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
     if (await getModel3DRefineController().routeRefineForkRequests(req, res, ctx, pathname, method)) return true;
@@ -216,10 +214,6 @@ async function handleWebServerRequest(req, res, ctx) {
   }
 
   if (pathname.startsWith('/assets/') && _serveAssetFile(res, pathname)) return;
-
-  if (pathname === '/browser-view' || pathname.startsWith('/browser-view/')) {
-    return browserController.handleBrowserViewerPage(req, res, ctx, parsedUrl);
-  }
 
   const skHandler = await getSvelteKitHandler();
   if (skHandler && !pathname.startsWith('/api/')) {

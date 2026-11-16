@@ -179,31 +179,32 @@ async function run() {
     assert.ok(revRes.reverted_count >= 1);
     console.log('  ✓ Conservative traceable & reversible maintenance passed');
 
-    // Web API routes & CLI konoha data smoke
+    // Existing Web UI /api/v1/persona contract + CLI konoha data subcommands
     srv = await startWebServer({ port: 14211, host: '127.0.0.1' });
     const headers = { 'Content-Type': 'application/json', 'X-Konoha-Web-Token': srv.token };
     const correctHttp = await httpRequest({
       hostname: '127.0.0.1', port: 14211,
-      path: `/api/v1/persona/${unverifiedPos.id}/correct`,
+      path: '/api/v1/persona',
       method: 'POST', headers
-    }, { newContent: 'Never commit playwright artifacts to git.', reason: 'CI policy', actor: 'anbu' });
+    }, { action: 'correct', targetId: unverifiedPos.id, newContent: 'Never commit playwright artifacts to git.', reason: 'CI policy', actor: 'anbu' });
     assert.strictEqual(correctHttp.status, 200);
     assert.strictEqual(correctHttp.data.ok, true);
 
-    const histHttp = await httpRequest({
+    const listHttp = await httpRequest({
       hostname: '127.0.0.1', port: 14211,
-      path: `/api/v1/persona/${unverifiedPos.id}/history`,
+      path: `/api/v1/persona?agent=anbu&projectPath=${encodeURIComponent(projPath)}`,
       method: 'GET', headers
     });
-    assert.strictEqual(histHttp.status, 200);
-    assert.strictEqual(histHttp.data.memory.lifecycle_status, 'superseded');
+    assert.strictEqual(listHttp.status, 200);
+    assert.ok(listHttp.data.memories.some((m) => m.id === correctHttp.data.new_id));
+    assert.ok(!listHttp.data.memories.some((m) => m.id === unverifiedPos.id), 'Superseded memory must not remain active in GET /api/v1/persona');
 
     const cliOut = execFileSync(process.execPath, [
       path.resolve(__dirname, '..', 'bin', 'cli.js'),
       'data', 'history', correctHttp.data.new_id
     ], { env: { ...process.env, KONOHA_DB_PATH: dbPath }, encoding: 'utf8' });
     assert.ok(cliOut.includes('corrected') || cliOut.includes('Status:'));
-    console.log('  ✓ Web API routes and CLI data subcommands passed');
+    console.log('  ✓ Existing /api/v1/persona routes and CLI data subcommands passed');
   } finally {
     if (prevSemantic === undefined) delete process.env.KONOHA_SEMANTIC_SEARCH;
     else process.env.KONOHA_SEMANTIC_SEARCH = prevSemantic;

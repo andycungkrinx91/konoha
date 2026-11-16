@@ -306,11 +306,11 @@ When interactive browser observation is needed during frontend development (`liv
 - **Security Controls (`src/workflow/qa-automation/browser_workspace_security.js`)**:
   - `validateBindHost`: VNC/noVNC and optional Playwright UI (`9323`) ports bind strictly to `127.0.0.1` unless `allowPublicBind: true` is paired with an explicit `>= 16`-character `authToken`.
   - `validateWorkspaceMountPath`: mounts only an explicit workspace directory read-only (`/workspace:ro`) and refuses home/root directories, personal browser profiles (`.mozilla`, Chrome/Chromium `User Data`), `.ssh`/`.aws`/`.gnupg`/`.kube`, `.env*`, or `konoha.db`.
-  - `konoha ui` proxies `/browser-view` behind existing session authentication and requires `X-Konoha-Web-Token` CSRF protection on `/api/v1/browser/*` mutations.
+  - `konoha ui` surfaces active container viewer URLs (`http://127.0.0.1:<port>/vnc.html?...`) through existing authenticated `GET /api/v1/activity/live` (`browser_sessions`), while noVNC itself binds loopback `127.0.0.1` with per-session `-rfbauth` authentication.
 - **Session Lifecycle (`src/workflow/qa-automation/browser_session_manager.js`)**:
   - Supports session creation, persistence/reuse across edits (`reuse: true`, tracking `build_id` / `fresh`), streamed log inspection, cancellation (`SIGTERM`), idle/max-duration watchdogs, and orphan cleanup (`konoha.browser.managed=true`).
   - CLI surface: `konoha browser start|status|logs|stop|cleanup|qa`.
-  - Web UI surface: `/browser-view`, `/api/v1/browser/sessions`, `/api/v1/browser/qa`, and `/api/v1/browser/cleanup`.
+  - Existing Web UI surface: `GET /api/v1/activity/live` (`browser_sessions`) and `/api/v1/events` SSE (`no new REST endpoints`).
 - **Headless CI Preservation & WebGL Notes**:
   - Under `CI=1`, `qaE2eRunAsync` and `apps/web/playwright.config.js` ignore headed flags and run headless Playwright without starting Docker viewer containers.
   - Inside the container, Chromium launches with `--use-gl=angle --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist` so WebGL/Three.js scenes render via CPU SwiftShader without host GPU passthrough.

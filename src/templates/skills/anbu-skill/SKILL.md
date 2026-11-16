@@ -99,7 +99,7 @@ Anbu automatically detects and enforces idiomatic polyglot toolchains wrapped wi
 
 ---
 
-4. For live interactive debugging, launch headed QA inside the isolated Docker browser workspace (`qa_e2e_run` with `headed: true, live: true` or `konoha browser qa`) and inspect via the authenticated `/browser-view` viewer; under `CI=1`, Playwright always stays headless without starting Docker viewer containers.
+4. For live interactive debugging, launch headed QA inside the isolated Docker browser workspace (`qa_e2e_run` with `headed: true, live: true` or `konoha browser qa`) and inspect via the loopback `viewer_url` reported in `GET /api/v1/activity/live` or CLI output; under `CI=1`, Playwright always stays headless without starting Docker viewer containers.
 
 ## Universal Shinobi Guardrails & Safety Invariants
 

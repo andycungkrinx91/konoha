@@ -12,7 +12,6 @@ const db = require('./db');
 const vectorPipeline = require('./vector_pipeline');
 const { classifySemanticStatus } = require('./code_intel/provenance');
 const {
-  DB_PATH,
   getDb,
   initMemoryTables,
   computeProjectHash,
@@ -225,7 +224,7 @@ function remember(opts = {}) {
 
   const safeContent = content.length > 1000 ? content.substring(0, 1000) : content;
   const cleanAgent = _normalizeAgent(opts.agentName || opts.agent_name || opts.persona);
-  const dbPath = opts.dbPath || opts.db_path || DB_PATH;
+  const dbPath = opts.dbPath || opts.db_path || null;
   const projectPath = opts.projectPath || opts.project_path || null;
   const { pHash, sessId } = _resolveProjectAndSession({
     projectPath,
@@ -391,7 +390,7 @@ function recall(opts = {}) {
   const isAll = (!rawAgent || rawAgent === 'all' || rawAgent === 'global');
   const query = String(opts.query || '').trim();
   const limit = Math.min(Math.max(parseInt(opts.limit ?? 5, 10) || 5, 1), 100);
-  const dbPath = opts.dbPath || opts.db_path || DB_PATH;
+  const dbPath = opts.dbPath || opts.db_path || null;
   const projectPath = opts.projectPath || opts.project_path || null;
   const sessionId = opts.sessionId ?? opts.session_id ?? null;
   const allSessions = Boolean(opts.allSessions || opts.all_sessions || opts.crossSession || opts.cross_session || sessionId === 'all' || sessionId === '*');
@@ -515,7 +514,7 @@ async function recallAsync(opts = {}) {
   try {
     const queryStr = String(opts.query).trim();
     const scoreById = new Map(lexical.map((m, idx) => [m.id, 1 / (60 + idx + 1)]));
-    const semanticApplied = await _fuseVectorScores(opts.dbPath || opts.db_path || DB_PATH, queryStr, lexical, scoreById);
+    const semanticApplied = await _fuseVectorScores(opts.dbPath || opts.db_path || null, queryStr, lexical, scoreById);
     const reranked = await _fuseRerankScores(queryStr, lexical, scoreById);
     const fused = [...lexical].sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
     return {
@@ -538,7 +537,7 @@ async function recallAsync(opts = {}) {
 
 function listKnowledge(opts = {}) {
   const limit = Math.min(Math.max(parseInt(opts.limit ?? 50, 10) || 50, 1), 200);
-  const dbPath = opts.dbPath || opts.db_path || DB_PATH;
+  const dbPath = opts.dbPath || opts.db_path || null;
   const projectPath = opts.projectPath || opts.project_path || null;
   let allSessions = Boolean(opts.allSessions || opts.all_sessions || opts.crossSession || opts.cross_session);
   const sessionId = opts.sessionId ?? opts.session_id ?? null;

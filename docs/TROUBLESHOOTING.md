@@ -162,7 +162,7 @@ node --version  # Must be >= 24.0.0
   docker build -f docker/browser-workspace.Dockerfile -t konoha-browser-workspace:local .
   ```
 - **Target URL unreachable on Linux Docker**: `BrowserSessionManager` rewrites `127.0.0.1` / `localhost` URLs to `host.docker.internal` (`host-gateway`). A dev server listening strictly on host `127.0.0.1` rejects connections arriving via `docker0`; start local preview servers with `--host 0.0.0.0` (for example `vite dev --host 0.0.0.0`).
-- **Host port collision or stale container**: run `konoha browser cleanup` (or `POST /api/v1/browser/cleanup`) to remove idle or orphaned `konoha.browser.managed=true` containers; loopback ports auto-fallback when `EADDRINUSE` occurs.
+- **Host port collision or stale container**: run `konoha browser cleanup` to remove idle or orphaned `konoha.browser.managed=true` containers; loopback ports auto-fallback when `EADDRINUSE` occurs.
 
 ---
 
