@@ -405,18 +405,28 @@ async function _syncVectorEmbeddings(conn, options, timeBudget) {
   } catch (_) { /* ignore */ }
 
   const shouldEmbed = !options.skipEmbeddings && (semanticEnabled || options.rebuildEmbeddings);
-  if (!shouldEmbed) return;
+  if (!shouldEmbed) return { ok: true, skipped: true };
 
+  const vectorSearch = require('./vector_search');
+  if (typeof vectorSearch.backfillAllEmbeddings !== 'function') {
+    return { ok: true, skipped: true };
+  }
+  const forceRebuild = !!options.rebuildEmbeddings;
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
   try {
-    const vectorSearch = require('./vector_search');
-    if (typeof vectorSearch.backfillAllEmbeddings === 'function') {
-      log("⚡ Synchronizing vector embeddings (IBM Granite Multilingual)...");
-      const forceRebuild = !!options.rebuildEmbeddings;
-      const chunksIndexed = await vectorSearch.backfillAllEmbeddings(conn, forceRebuild, timeBudget || 180.0);
-      log(`   Vector index synchronized: ${chunksIndexed} chunks processed.`);
-    }
-  } catch (e) {
-    log(`   ⚠ Vector embedding generation deferred/skipped: ${e.message}`);
+    const chunksIndexed = await vectorSearch.backfillAllEmbeddings(
+      conn,
+      forceRebuild,
+      timeBudget || 180.0,
+      onProgress
+    );
+    return { ok: true, chunksIndexed };
+  } catch (err) {
+    // Embedding is an enhancement, not a precondition: a failed model download
+    // must not throw away the skills that were just indexed. Report it as data
+    // so the CLI can print the diagnosis and still exit successfully.
+    const { classifyEmbedFailure } = require('./embed_diagnostics');
+    return { ok: false, failure: classifyEmbedFailure(err) };
   }
 }
 
@@ -573,13 +583,13 @@ async function _runMigration(options = {}) {
   } catch (_) { /* ignore */ }
 
   _verifyFtsQueries(conn);
-  await _syncVectorEmbeddings(conn, options, timeBudget);
+  const embed = await _syncVectorEmbeddings(conn, options, timeBudget);
 
   printSummary(conn);
   conn.pragma('foreign_keys = ON');
   conn.close();
   log(`\n✅ Migration complete! ${total} entries indexed.`);
-  return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH };
+  return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH, embed };
 }
 
 

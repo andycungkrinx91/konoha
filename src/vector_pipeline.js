@@ -11,7 +11,6 @@
  * Fails loudly with `EmbeddingRuntimeUnavailableError` when runtime or models are unavailable.
  */
 
-const crypto = require('node:crypto');
 const os = require('node:os');
 
 const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
@@ -62,6 +61,13 @@ const {
   configureHfEnv,
   resolveCachedRepoLocation: _resolveCachedRepoLocation,
 } = require('./hf_cache_resolver');
+
+const {
+  normalizeForEmbedding,
+  hashNormalizedText,
+  makeEmbedCacheKey,
+  planEmbedBatches,
+} = require('./embed_batching');
 
 const _resolveDefaultPackageCacheDir = () => resolveDefaultPackageCacheDir(_defaultCacheDir);
 const _resolveCacheSearchDirs = () => resolveCacheSearchDirs(_defaultCacheDir);
@@ -291,34 +297,6 @@ function isSemanticCapable() {
   return Boolean(getRuntimeStatus().available);
 }
 
-/**
- * Normalizes whitespace for deterministic embedding deduplication and cache keys.
- * @param {string} text
- * @returns {string}
- */
-function normalizeForEmbedding(text) {
-  return String(text || '').trim().replace(/\s+/g, ' ');
-}
-
-/**
- * Computes a SHA-256 hex digest of normalized text.
- * @param {string} normText
- * @returns {string}
- */
-function hashNormalizedText(normText) {
-  return crypto.createHash('sha256').update(normText, 'utf8').digest('hex');
-}
-
-/**
- * Builds a model-scoped in-memory cache key for an embedding hash.
- * @param {string} textHash
- * @param {string} [modelRepo]
- * @returns {string}
- */
-function makeEmbedCacheKey(textHash, modelRepo = EMBED_MODEL_REPO) {
-  return `${modelRepo}:${textHash}`;
-}
-
 function _lruGet(cache, cacheKey) {
   if (!cache.has(cacheKey)) return null;
   const val = cache.get(cacheKey);
@@ -469,13 +447,24 @@ async function embedBatch(texts, options = {}) {
   }
 
   const preCharCap = maxLength * 16;
-  for (let start = 0; start < misses.length; start += batchSize) {
-    const chunk = misses.slice(start, start + batchSize);
+  // `padding: true` computes every sequence at the width of the longest one in
+  // its batch, and real chunk bodies run p50 756 / p99 1988 chars, so a randomly
+  // ordered batch spends a large share of its FLOPs on padding. Sorting the
+  // misses by length makes each batch near-homogeneous; measured 2.1x on 160
+  // live chunks. Reordering is invisible to callers: `_storeEmbedChunkResults`
+  // writes back through `chunk[b].indices`.
+  const ordered = misses
+    .slice()
+    .sort((a, b) => Math.min(a.norm.length, preCharCap) - Math.min(b.norm.length, preCharCap));
+
+  const batches = planEmbedBatches(ordered, batchSize, maxLength);
+  for (let i = 0; i < batches.length; i++) {
+    const chunk = batches[i];
     const batchInputs = chunk.map((m) =>
       m.norm.length > preCharCap ? m.norm.slice(0, preCharCap) : m.norm
     );
     await _runEmbedBatchChunk(pipeline, batchInputs, maxLength, chunk, results);
-    if (paceMs > 0 && start + batchSize < misses.length) {
+    if (paceMs > 0 && i + 1 < batches.length) {
       await _sleep(paceMs);
     }
   }

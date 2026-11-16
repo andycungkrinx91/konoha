@@ -103,7 +103,7 @@ function _commitSkillChunkPlan(conn, plan, computedBlobs, sessionReuse) {
 async function _embedPendingTexts(texts, sessionReuse) {
   const computedBlobs = new Map();
   if (!texts.length || !isSemanticSearchEnabled()) return computedBlobs;
-  const vecs = await embedBatch(texts, { batchSize: 16 });
+  const vecs = await embedBatch(texts);
   for (let i = 0; i < texts.length; i++) {
     const vec = vecs[i];
     if (!vec || vec.length !== VECTOR_DIMENSION) {
@@ -132,9 +132,15 @@ async function _flushBackfillGroup(conn, plans, pendingTexts, sessionReuse) {
   return total;
 }
 
-async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds = 180.0) {
+async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds = 180.0, onProgress = null) {
   if (!isSemanticSearchEnabled() && !forceRebuild) return 0;
   const startTime = Date.now();
+  const report = (done, total, stage) => {
+    if (typeof onProgress !== 'function') return;
+    try {
+      onProgress({ done, total, stage });
+    } catch (_) { /* a broken reporter must never abort embedding */ }
+  };
   initVectorTableIfSupported(conn);
   if (forceRebuild) {
     conn.prepare('DELETE FROM skill_chunks').run();
@@ -155,13 +161,29 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
   const pendingSet = new Set();
   let totalChunks = 0;
 
+  // Header count is known up front, so the bar can show a real percentage from
+  // the first skill instead of pulsing. Some headers turn out empty or already
+  // indexed and are skipped; the total is then simply not reached, which is why
+  // `finish()` is driven by the loop completing rather than by `done === total`.
+  const totalSkills = skillHeaders.length;
+  let processedSkills = 0;
+  report(0, totalSkills, 'preparing');
+
   for (const h of skillHeaders) {
     const sName = h.name;
-    if (!forceRebuild && existingIndexed.has(sName)) continue;
+    if (!forceRebuild && existingIndexed.has(sName)) {
+      processedSkills += 1;
+      report(processedSkills, totalSkills, sName);
+      continue;
+    }
     if (h.type !== 'skill' && maxTimeSeconds > 0 && ((Date.now() - startTime) / 1000) > maxTimeSeconds) break;
 
     const row = getContentStmt.get(sName);
-    if (!row || !row.content) continue;
+    if (!row || !row.content) {
+      processedSkills += 1;
+      report(processedSkills, totalSkills, sName);
+      continue;
+    }
     const plan = _prepareSkillChunkPlan(conn, sName, row.content, sessionReuse);
     groupPlans.push(plan);
     for (const t of plan.needInference) {
@@ -176,10 +198,13 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
       pendingTexts = [];
       pendingSet.clear();
     }
+    processedSkills += 1;
+    report(processedSkills, totalSkills, sName);
   }
   if (groupPlans.length > 0) {
     totalChunks += await _flushBackfillGroup(conn, groupPlans, pendingTexts, sessionReuse);
   }
+  report(totalSkills, totalSkills, 'finalizing');
 
   if (totalChunks > 0) initVectorTableIfSupported(conn);
   return totalChunks;

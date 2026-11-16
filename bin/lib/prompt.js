@@ -216,6 +216,8 @@ class KonohaProgressBar {
       const line = `\r\x1b[2K  ${C.bold}${this.title}${C.reset} [${bar}] ${C.cyan}${String(percent).padStart(3)}%${C.reset} ${C.dim}${frame} ${this.status}${C.reset}`;
       process.stdout.write(line);
     }, SPINNER_INTERVAL_MS || 80);
+    // A forgotten bar must never be the reason the process refuses to exit.
+    this.timer.unref?.();
     return this;
   }
 

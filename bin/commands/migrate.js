@@ -6,6 +6,7 @@
 
 
 const { C, log, info, warn, error, success, header } = require("../lib/format");
+const { createEmbedProgress } = require("../lib/embed_progress");
 
 const { moveUnusedSkills, detectSkillsDirs, syncTemplateSkills } = require("../lib/runtime");
 const { executePreInstallBackup, runTransactionalDatabaseMigration } = require("../lib/install_lifecycle");
@@ -52,7 +53,8 @@ async function runInProcessMigration(options = {}) {
     rebuildEmbeddings: options.rebuildEmbeddings || false,
     skipEmbeddings: options.skipEmbeddings || false,
     skillsOnly: options.skillsOnly || false,
-    timeBudgetSeconds: options.timeBudgetSeconds
+    timeBudgetSeconds: options.timeBudgetSeconds,
+    onProgress: options.onProgress
   });
 }
 
@@ -71,38 +73,44 @@ async function runMigrationWithFallback(options = {}) {
   });
 }
 
-async function runCustomDirMigration(customDir, cleanArgs, flags) {
+async function runCustomDirMigration(customDir, cleanArgs, flags, progress) {
   try {
     const result = await runMigrationWithFallback({
       skillsDir: customDir,
       clean: cleanArgs.includes('--clean'),
       rebuildEmbeddings: flags.hasRebuildEmbeddings,
-      skipEmbeddings: flags.hasSkipEmbeddings
+      skipEmbeddings: flags.hasSkipEmbeddings,
+      onProgress: progress && progress.onProgress
     });
     if (result && result.ok === false) {
       throw new Error((result.missingRequired || []).join(', ') || result.reason || 'Migration failed');
     }
     success('Migration complete!');
+    return result;
   } catch (e) {
     warn(`Migration timed out or partially failed: ${e.message}`);
     warn('Run "konoha migrate" again to finish remaining references.');
+    return null;
   }
 }
 
-async function runAutoDirsMigration(skillsDirs, cleanArgs, flags) {
+async function runAutoDirsMigration(skillsDirs, cleanArgs, flags, progress) {
   try {
     const last = await runMigrationWithFallback({
       skillsDirs: skillsDirs.map((d) => d.path),
       clean: cleanArgs.includes('--clean'),
       rebuildEmbeddings: flags.hasRebuildEmbeddings,
-      skipEmbeddings: flags.hasSkipEmbeddings
+      skipEmbeddings: flags.hasSkipEmbeddings,
+      onProgress: progress && progress.onProgress
     });
     if (last && last.ok === false) {
       throw new Error((last.missingRequired || []).join(', ') || last.reason || 'Migration failed');
     }
     success('Migration complete for all skill directories!');
+    return last;
   } catch (e) {
     error(`Migration failed: ${e.message}`);
+    return null;
   }
 }
 
@@ -148,10 +156,27 @@ async function cmdMigrate(args = []) {
   const cleanArgs = args.includes('--clean') ? ['--clean'] : [];
   const customDirIdx = args.indexOf('--skills-dir');
 
-  if (customDirIdx >= 0 && args[customDirIdx + 1]) {
-    await runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags);
+  const progress = createEmbedProgress('Embeddings');
+  const run = customDirIdx >= 0 && args[customDirIdx + 1]
+    ? await runCustomDirMigration(args[customDirIdx + 1], cleanArgs, flags, progress)
+    : await runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags, progress);
+
+  const embed = run && run.embed;
+  if (!run) {
+    // The helpers swallow their own exceptions and return null; without this the
+    // bar would stay mid-flight. The cause was already printed by the helper, so
+    // no diagnosis block here.
+    progress.abort('migration failed; see the errors above');
+  } else if (embed && embed.ok === false && embed.failure) {
+    // Skills are searchable through FTS5; only vectors are missing. Print the
+    // cause and remedies, keep the exit code at 0 so scripts do not treat a
+    // failed model download as a broken install.
+    progress.fail(embed.failure);
+    warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+  } else if (embed && embed.ok && !embed.skipped) {
+    progress.succeed(`${embed.chunksIndexed || 0} chunks embedded`);
   } else {
-    await runAutoDirsMigration(detectSkillsDirs(), cleanArgs, flags);
+    progress.succeed(embed && embed.skipped ? 'migration complete (embeddings skipped)' : 'migration complete');
   }
 
   syncPostMigrationWorkspaces();

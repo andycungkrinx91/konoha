@@ -35,7 +35,12 @@ const {
 } = require('../vector_pipeline');
 
 const CHUNK_LIMITS = { CHUNK_MAX_LINES, CHUNK_MAX_CHARS, CHUNK_OVERLAP_LINES };
-const EMBED_BATCH_SIZE = 16;
+// How many chunks to hand `embedBatch` at once. `embedBatch` length-sorts its
+// input and picks its own ONNX batch size, so this only bounds abort latency and
+// progress granularity: 64 items is four batches, a couple of seconds between
+// cancellation checks. Widening it to 512 measured 0.89x (i.e. no gain, within
+// noise) because 32+ items already find same-width neighbours to batch with.
+const EMBED_SLAB_SIZE = 64;
 
 function _formatChunkForEmbed(chunk) {
   const header = [chunk.rel_path, chunk.symbol_name].filter(Boolean).join(' | ');
@@ -477,18 +482,18 @@ async function _preparePendingEmbeddings(ctx, ops, options) {
     return { embedStats: { embeddedChunks: 0, embeddingModel: modelRepo }, existingChunkEmbeddings: [] };
   }
 
-  const batchSize = Math.max(1, Number(options.embedBatchSize) || EMBED_BATCH_SIZE);
+  const slabSize = EMBED_SLAB_SIZE;
   const existingChunkEmbeddings = [];
   let embeddedChunks = 0;
 
-  for (let start = 0; start < workItems.length; start += batchSize) {
+  for (let start = 0; start < workItems.length; start += slabSize) {
     if (start > 0) await _yieldEventLoop();
     _checkAbort(options.signal, ctx.deadlineMs);
-    const slice = workItems.slice(start, start + batchSize);
+    const slice = workItems.slice(start, start + slabSize);
     const texts = slice.map((item) => _formatChunkForEmbed(item.payload));
     let vectors;
     try {
-      vectors = await embedBatch(texts, { modelRepo, batchSize });
+      vectors = await embedBatch(texts, { modelRepo });
     } catch (err) {
       if (err && (err.code === 'ABORT_ERR' || err.code === 'ETIMEDOUT')) throw err;
       const reason = (err && err.message) || 'embedding runtime unavailable';

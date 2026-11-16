@@ -18,15 +18,29 @@ const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
 const { AISLOP_PACKAGE } = require('../../src/uvx_runtime');
 const { confirmPrompt } = require('../lib/prompt');
+const { createEmbedProgress } = require('../lib/embed_progress');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 
 async function executeMigrationRun(skillsDirs) {
   const migrate = require('../../src/migrate');
+  const progress = createEmbedProgress('Doctor embeddings');
+  // The caller only asks "was the database created?". Embedding is an
+  // enhancement on top of it: an offline machine with no cached model still has
+  // a working FTS5 database, so a failed embed fails the bar and is reported by
+  // `checkEmbeddingHealth`, but must not turn this into a FAILED database.
   const attempt = async (opts) => {
     try {
-      const result = await migrate.runMigration(opts);
+      const result = await migrate.runMigration({ ...opts, onProgress: progress.onProgress });
+      if (result && result.embed && result.embed.ok === false && result.embed.failure) {
+        progress.fail(result.embed.failure);
+      } else if (result && result.embed && result.embed.ok) {
+        progress.succeed('embeddings rebuilt');
+      } else {
+        progress.succeed('migration complete');
+      }
       return Boolean(result && result.ok !== false);
-    } catch {
+    } catch (err) {
+      progress.fail(err);
       return false;
     }
   };
@@ -313,8 +327,62 @@ async function checkWebUiDaemon(context) {
   } catch (_) { /* intentional fallback */ }
 }
 
+/**
+ * Embedding health: is semantic search usable, and how much of the corpus has
+ * vectors? Reports the same cause/remedy schema as `konoha init` when it is not.
+ *
+ * A vector-less install still works (FTS5), so this is WARNING, not FAILED.
+ */
+function checkEmbeddingHealth(context) {
+  const { isSemanticSearchEnabled, SEMANTIC_SEARCH_ENV } = require('../../src/hf_cache_resolver');
+  const { formatEmbedFailure, classifyEmbedFailure } = require('../../src/embed_diagnostics');
+
+  if (!isSemanticSearchEnabled()) {
+    const failure = classifyEmbedFailure({ message: `semantic embedding requested while ${SEMANTIC_SEARCH_ENV} disabled` });
+    context.record(
+      'Vector Embeddings (semantic search)',
+      'WARNING',
+      `disabled via ${SEMANTIC_SEARCH_ENV}. Fix: ${failure.fixes[0]}`
+    );
+    return;
+  }
+
+  let conn;
+  try {
+    const Database = require('../../src/sqlite_driver');
+    conn = new Database(DB_PATH, { readOnly: true });
+    const total = conn.prepare(
+      "SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0"
+    ).get().n;
+    const missing = conn.prepare(
+      `SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0
+         AND NOT EXISTS (SELECT 1 FROM skill_chunks k WHERE k.skill_name = s.name)`
+    ).get().n;
+    const vectors = conn.prepare('SELECT COUNT(*) n FROM skill_chunks WHERE embedding IS NOT NULL').get().n;
+
+    if (total === 0) {
+      context.record('Vector Embeddings (semantic search)', 'INFO', 'no skill content to embed yet');
+    } else if (missing === 0) {
+      context.record('Vector Embeddings (semantic search)', 'HEALTHY', `${vectors} chunk vectors, ${total} skills covered`);
+    } else {
+      context.record(
+        'Vector Embeddings (semantic search)',
+        'WARNING',
+        `${missing}/${total} skills unembedded. Fix: konoha migrate --rebuild-embeddings`
+      );
+    }
+  } catch (err) {
+    // Unreadable database or missing vector table: explain, do not crash.
+    const lines = formatEmbedFailure(classifyEmbedFailure(err));
+    context.record('Vector Embeddings (semantic search)', 'WARNING', lines.join(' ').slice(0, 240));
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
 async function checkGovernanceAndServices(context) {
   checkDatabaseGovernance(context);
+  checkEmbeddingHealth(context);
   await checkWebUiDaemon(context);
 }
 

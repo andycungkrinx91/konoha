@@ -353,7 +353,6 @@ async function cmdInit(args, options = {}) {
   installCliRuntime();
 
   header('🌱 Seeding Canonical Subagent Skills');
-  const spinnerMigrate = startSpinner('Seeding canonical skills into ~/.konoha/konoha.db...');
   const skillsDirs = detectSkillsDirs();
   const { CANONICAL_SKILL_NAMES } = require('../../src/canonical_skills');
   const skills = Array.from(CANONICAL_SKILL_NAMES);
@@ -366,8 +365,7 @@ async function cmdInit(args, options = {}) {
     migrationArgs,
     safeTimeoutMs: INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
     python,
-    pkgSkillsDir,
-    spinner: spinnerMigrate
+    pkgSkillsDir
   });
 
   agentManager.loadAgents();
