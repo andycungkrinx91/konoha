@@ -29,6 +29,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}akatsuki${C.reset}          ⚔️  Manage Red-Team/Blue-Team security lab operations, sandboxes, and tooling.
   ${C.cyan}auth${C.reset}              🔐 Manage web console authentication credentials and password reset.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+  ${C.cyan}browser${C.reset}           🖥️  Manage isolated live headed Docker browser workspaces and QA execution.
   ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
   ${C.cyan}config${C.reset}            ⚙️  View and manage CLI configurations (list, get, set, unset).
   ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.

@@ -139,7 +139,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Web API: Existing `/api/v1/persona` routes (extended for provenance/correction compatibility; zero new REST endpoints).
 * **Consumers:** Subagents, Chunin knowledge capture, Web UI, CLI operators.
 * **Storage:** SQLite `persona_memories`, `persona_memories_fts`, `memory_audit_events`, and `memory_relations` tables (`CURRENT_SCHEMA_VERSION = 8`).
-* **Configuration:** Optional semantic fusion gated by `KONOHA_SEMANTIC_SEARCH` (`0` reports `semantic_status: 'disabled'`; unavailable cache reports `semantic_status: 'degraded'`); optional external sync via `GBrainMemoryAdapter`.
+* **Configuration:** Lexical FTS5/LIKE retrieval today (`src/memory_brain.js` omits `embedding` on `INSERT INTO persona_memories` and `src/vector_backfill.js` only backfills `skill_chunks`, so `_fuseVectorScores` selects zero rows and `recallAsync` reports `semantic_applied: false`); `KONOHA_SEMANTIC_SEARCH=0` reports `semantic_status: 'disabled'` and unavailable cache reports `semantic_status: 'degraded'`; optional external sync via `GBrainMemoryAdapter`.
 * **Tests:** `tests/test_persona_memory.js`, `tests/test_memory_brain_migration_and_api.js`, `tests/test_memory_brain_lifecycle_and_graph.js`, `tests/test_memory_brain_retrieval_and_maintenance.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/DATABASE-ERD.md`, `docs/QA-TEST-CHECKLIST.md`.
 * **Dependencies:** `node:sqlite`.

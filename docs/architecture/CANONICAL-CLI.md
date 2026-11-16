@@ -208,8 +208,8 @@ Three install modes, never blurred:
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **VERIFIED** — install, `init`, upgrade failure paths, and full test suite verified on host + Debian container sandbox (`pnpm test:sandbox`) + Ubuntu `act` |
-| Windows 11 x64 | **VERIFIED** — local `dockur/windows` QEMU VM (`scripts/windows-ci.ps1`) and GitHub Actions `windows-latest` shards (note: an individual `test_code_intel_async_and_provenance.js` CI failure on shard 15/16 is tracked separately in `docs/CI.md`) |
-| macOS arm64 / x64 | **CI-BACKED / PARTIAL** — `macos-latest` GitHub Actions matrix covers install, lint, suite shards, and fresh-install smoke; locally approximated via symlinked-`HOME` proxy + Apple `container` Linux clean room (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`), with no native Apple hardware run locally |
+| Linux x64 | **PARTIAL (PR #16)** — `ubuntu-latest shard 5/8` passes at `61e73b7f`; `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands |
+| Windows 11 x64 | **UNVERIFIED (PR #16)** — `windows-latest` (16 shards) remained `IN_PROGRESS` / unverified at audit time |
+| macOS arm64 / x64 | **UNVERIFIED (PR #16)** — `macos-latest` (5 shards) remained `IN_PROGRESS` / unverified at audit time (no native Apple hardware run locally) |
 
-Do not mark a local platform run verified from static tests alone; see `docs/CI.md` for live matrix details.
+PR #16 status at audit time: `reviewDecision: ""` (zero approvals), `Socket Security: Pull Request Alerts` failing on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2`, and Issues `#11`, `#12`, and `#13` still `OPEN`. Do not mark the cross-platform matrix green while any shard is queued, running, or failing; see `docs/CI.md` for live matrix details.

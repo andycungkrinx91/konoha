@@ -397,7 +397,7 @@ The six relational `code_*` tables plus `code_chunks_fts` form the native code-i
 
 `lg_writes` is keyed on `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`; it references `lg_checkpoints` logically, not by a declared foreign key.
 
-`persona_memories_migrated` and `active_sessions_migrated` are not shown: they exist only while a foreign-key/PK rebuild is running and are dropped when it commits.
+`persona_memories_migrated` and `active_sessions_migrated` are not shown: they exist only while a foreign-key/PK rebuild is running and are dropped when it commits. Note that `persona_memories.embedding` exists in DDL, but `src/memory_brain.js` omits `embedding` on `INSERT` and `src/vector_backfill.js` only backfills `skill_chunks`, so memory recall (`recallAsync`) currently runs lexical FTS5/LIKE retrieval with `semantic_applied: false`.
 
 ## Akatsuki Lab DB
 
