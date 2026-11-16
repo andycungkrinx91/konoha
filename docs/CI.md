@@ -337,7 +337,10 @@ expectation, and no `continue-on-error` was added anywhere.
   resolve the package, so the shard of run `43868450771` died at the encoder
   verification with a runner ffmpeg that had never been replaced. The probe, not
   the installer's exit code, decides success, and the step fails itself after
-  three attempts instead of deferring to the verification below it.
+  three attempts instead of deferring to the verification below it. That
+  verification prints the `ffmpeg -version` banner of the binary it rejected —
+  the same probe runs on three operating systems, so a bare "lacks the encoder"
+  never says which install leg lost.
 - **pnpm resolution (test_agent_browser_provisioning)** — superseded. That suite
   and the `agent-browser` provisioning chain it exercised are deleted; QA now runs
   on the target project's own Playwright, so there is no CLI to resolve and no

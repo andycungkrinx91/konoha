@@ -400,10 +400,10 @@ jobs:
         shell: pwsh
         run: |
           function Test-LibwebpAnim {
-            # Re-read PATH: choco drops a shim into a directory this session may
-            # not have picked up yet, and a cached command lookup would keep
-            # resolving the encoder-less binary the runner shipped with.
-            $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+            # Prepend the shim dir so the freshly installed ffmpeg wins over
+            # whichever binary the runner shipped with, without dropping the
+            # entries earlier steps appended via $GITHUB_PATH.
+            $env:Path = "C:\ProgramData\chocolatey\bin;$env:Path"
             try { $encoders = (& ffmpeg -hide_banner -encoders 2>$null) -join "`n" } catch { return $false }
             return $encoders -match 'libwebp_anim'
           }
@@ -420,8 +420,12 @@ jobs:
           Write-Host '::error::could not provision an ffmpeg exposing libwebp_anim in 3 attempts'
           exit 1
 
+      # One probe for all three OSes, so a failure must say which binary it
+      # rejected: the three provisioning legs differ and the runner's ffmpeg is
+      # a plausible suspect every time.
       - name: Verify ffmpeg webp encoder
-        run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"
+        run: |
+          node -e 'const{spawnSync}=require("child_process");const enc=spawnSync("ffmpeg",["-hide_banner","-encoders"],{encoding:"utf8"});if(enc.stdout&&enc.stdout.includes("libwebp_anim")){console.log("ffmpeg exposes libwebp_anim");process.exit(0);}const ver=spawnSync("ffmpeg",["-hide_banner","-version"],{encoding:"utf8"});const which=(ver.stdout||"").split("\n")[0]||(ver.error?"ffmpeg not on PATH ("+ver.error.code+")":"ffmpeg not on PATH");console.error("ffmpeg build lacks the libwebp_anim encoder");console.error("resolved:",which);process.exit(1);'
 
       # Full suite via tests/run_all.js, split into the shard this job owns.
       # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
