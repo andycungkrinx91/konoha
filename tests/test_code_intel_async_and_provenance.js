@@ -54,8 +54,11 @@ function initGitRepo(root) {
   execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: root, stdio: 'ignore' });
 }
 
+let activeConn = null;
+
 async function runTests() {
   const conn = db.getConnection();
+  activeConn = conn;
   db.setupSchema(conn);
 
   const repo = path.join(tmpRoot, 'repo_async');
@@ -221,5 +224,10 @@ runTests()
   .finally(async () => {
     await lspManager.shutdownAll();
     store.closeConnection();
-    fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    try {
+      if (activeConn && typeof activeConn.close === 'function') activeConn.close();
+    } catch (_) { /* ignore */ }
+    try {
+      fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (_) { /* Windows EPERM when OS/V8 holds transient SQLite WAL or .git handles until exit */ }
   });
