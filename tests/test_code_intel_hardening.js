@@ -599,14 +599,13 @@ async function testWarmedParserMcpResponsiveness(conn) {
       await waitForId(2); // Tree-sitter WASM + JS grammar now warm and cached
 
       send({ id: 3, method: 'tools/call', params: { name: 'code_index', arguments: { root: bigRepo, embed: false } } });
-      const deadline = Date.now() + 10000;
-      while (Date.now() < deadline) {
-        const row = conn.prepare('SELECT status FROM code_index_roots WHERE root_path = ?').get(bigRepo);
-        if (row && row.status === 'indexing') break;
-        if (responses.has(3)) break;
-        await new Promise((r) => setTimeout(r, 2));
-      }
-      assert.strictEqual(responses.has(3), false, 'code_index must still be running when tools/list is sent');
+      // No DB poll before this: the parent's connection is not a reliable
+      // observer of the child's `indexing` status (macOS shard 2/5 of run
+      // 43868450771 read the response before it ever saw the row, then failed
+      // the "still running" guard). The ordering assertion below is the real
+      // invariant — tools/list answered while code_index was in flight — and
+      // the 5 ms/file pacing makes 260 files take over a second, so sending
+      // tools/list immediately cannot race it.
       send({ id: 4, method: 'tools/list', params: {} });
       await Promise.all([waitForId(4), waitForId(3)]);
       child.stdin.end();
