@@ -155,6 +155,17 @@ node --version  # Must be >= 24.0.0
 
 ---
 
+### ⚠️ `browser-image-missing` or container cannot reach host dev server in live headed browser workspace
+
+- **Missing image**: build the isolated browser image once before starting live headed sessions:
+  ```bash
+  docker build -f docker/browser-workspace.Dockerfile -t konoha-browser-workspace:local .
+  ```
+- **Target URL unreachable on Linux Docker**: `BrowserSessionManager` rewrites `127.0.0.1` / `localhost` URLs to `host.docker.internal` (`host-gateway`). A dev server listening strictly on host `127.0.0.1` rejects connections arriving via `docker0`; start local preview servers with `--host 0.0.0.0` (for example `vite dev --host 0.0.0.0`).
+- **Host port collision or stale container**: run `konoha browser cleanup` (or `POST /api/v1/browser/cleanup`) to remove idle or orphaned `konoha.browser.managed=true` containers; loopback ports auto-fallback when `EADDRINUSE` occurs.
+
+---
+
 ### ⚠️ `The "pnpm" field in package.json is no longer read` / `ignored: "pnpm.auditConfig"`
 
 - **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and the `package.json#overrides` copy that duplicated the YAML was dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both were removed in 2.2.19.

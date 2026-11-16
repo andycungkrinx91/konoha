@@ -519,7 +519,8 @@ const ASYNC_TOOL_HANDLERS = {
   code_symbol: (args) => CODE_INTEL_TOOLS.code_symbol_async(args),
   code_context: (args) => CODE_INTEL_TOOLS.code_context_async(args),
   code_impact: (args) => CODE_INTEL_TOOLS.code_impact_async(args),
-  code_related: (args) => CODE_INTEL_TOOLS.code_related_async(args)
+  code_related: (args) => CODE_INTEL_TOOLS.code_related_async(args),
+  qa_e2e_run: (args) => require('./workflow/qa-automation/qa_tools').qaE2eRunAsync(args)
 };
 
 const { checkGeninToolAccess, applyGeninCodeIndexBounds, normalizeAgentName } = require('./mcp/genin_guard');

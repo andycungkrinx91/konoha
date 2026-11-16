@@ -39,6 +39,8 @@ erDiagram
     agents ||..o| soul_archetypes : "agent_name (logical)"
     skills ||--o{ skill_chunks : "skill_name = name"
     projects ||--o{ persona_memories : "project_hash"
+    persona_memories ||..o{ memory_audit_events : "memory_id (immutable log)"
+    persona_memories ||..o{ memory_relations : "source_memory_id / target_memory_id"
     projects ||..o{ active_sessions : "project_hash (logical)"
     code_index_roots ||--o{ code_files : "root_hash"
     code_index_roots ||--o{ code_edges : "root_hash"
@@ -127,8 +129,56 @@ erDiagram
         TEXT content
         TEXT tags
         INTEGER importance
+        TEXT domain
+        TEXT source_type
+        TEXT source_ref
+        TEXT creator_agent
+        REAL confidence
+        TEXT verification_status
+        TEXT lifecycle_status
+        TEXT superseded_by
+        TEXT valid_from
+        TEXT valid_until
+        TEXT last_verified_at
+        INTEGER access_count
+        REAL salience
+        BLOB embedding
+        TEXT metadata_json
         TEXT created_at
         TEXT updated_at
+    }
+
+    memory_audit_events {
+        TEXT id PK
+        TEXT memory_id
+        TEXT action
+        TEXT actor
+        TEXT reason
+        TEXT evidence_ref
+        TEXT previous_state
+        TEXT new_state
+        TEXT project_hash
+        TEXT session_id
+        INTEGER reversible
+        TEXT reverted_at
+        TEXT created_at
+    }
+
+    memory_relations {
+        TEXT id PK
+        TEXT source_memory_id
+        TEXT target_memory_id
+        TEXT relation_type
+        TEXT evidence_ref
+        TEXT evidence_type
+        REAL confidence
+        INTEGER verified
+        TEXT project_hash
+        TEXT session_id
+        TEXT agent_name
+        TEXT created_by
+        TEXT status
+        TEXT created_at
     }
 
     active_sessions {

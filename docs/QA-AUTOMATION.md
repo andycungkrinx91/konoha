@@ -294,3 +294,24 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      ```
      Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and admits three strict modes: `container` (`KONOHA_SANDBOX_CONTAINER=1`), `ci` (`CI=true`), or **Option H1** `host-isolated` (`pnpm test:parallel` / `node tests/run_all.js`, where the runner creates a lock/lease-protected `os.tmpdir()` golden seed + ephemeral `os.tmpdir()/konoha_suite_*` snapshots with `HOME === USERPROFILE`, `KONOHA_DB_PATH` inside `$HOME/.konoha/`, `KONOHA_TEST_SANDBOX=1`, `KONOHA_HOST_ISOLATED=1`, and `SIGINT`/`SIGTERM` cleanup). Bare host execution without isolation invariants exits `1`. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible for targeted development.
      See [Container sandbox](CI.md#container-sandbox-rule-12). Use `node tests/run_all.js --cleanup-seed` to prune unlocked golden seeds and dead `konoha_suite_*` artifacts after host verification. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
+
+---
+
+## Live Headed Docker Browser Workspace
+
+When interactive browser observation is needed during frontend development (`live_browser_monitor.js`) or Anbu QA (`qa_e2e_run` / `qaE2eRunAsync`), Konoha launches a persistent headed Chromium session inside an isolated container built from `docker/browser-workspace.Dockerfile` (`konoha-browser-workspace:local`).
+
+### Architecture & Isolation
+- **Display & Viewer Stack**: `Xvfb :99` (`-nolisten tcp`) + `fluxbox` + `x11vnc` (`-localhost -rfbauth`) + `noVNC`/`websockify`, paired with `src/workflow/qa-automation/browser_container_agent.js` keeping a single headed Chromium context alive over a container-local UNIX domain socket (`/tmp/konoha-browser-agent.sock`, mode `0600`).
+- **Security Controls (`src/workflow/qa-automation/browser_workspace_security.js`)**:
+  - `validateBindHost`: VNC/noVNC and optional Playwright UI (`9323`) ports bind strictly to `127.0.0.1` unless `allowPublicBind: true` is paired with an explicit `>= 16`-character `authToken`.
+  - `validateWorkspaceMountPath`: mounts only an explicit workspace directory read-only (`/workspace:ro`) and refuses home/root directories, personal browser profiles (`.mozilla`, Chrome/Chromium `User Data`), `.ssh`/`.aws`/`.gnupg`/`.kube`, `.env*`, or `konoha.db`.
+  - `konoha ui` proxies `/browser-view` behind existing session authentication and requires `X-Konoha-Web-Token` CSRF protection on `/api/v1/browser/*` mutations.
+- **Session Lifecycle (`src/workflow/qa-automation/browser_session_manager.js`)**:
+  - Supports session creation, persistence/reuse across edits (`reuse: true`, tracking `build_id` / `fresh`), streamed log inspection, cancellation (`SIGTERM`), idle/max-duration watchdogs, and orphan cleanup (`konoha.browser.managed=true`).
+  - CLI surface: `konoha browser start|status|logs|stop|cleanup|qa`.
+  - Web UI surface: `/browser-view`, `/api/v1/browser/sessions`, `/api/v1/browser/qa`, and `/api/v1/browser/cleanup`.
+- **Headless CI Preservation & WebGL Notes**:
+  - Under `CI=1`, `qaE2eRunAsync` and `apps/web/playwright.config.js` ignore headed flags and run headless Playwright without starting Docker viewer containers.
+  - Inside the container, Chromium launches with `--use-gl=angle --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist` so WebGL/Three.js scenes render via CPU SwiftShader without host GPU passthrough.
+  - Host `127.0.0.1` / `localhost` target URLs are translated to `host.docker.internal` (with `--add-host=host.docker.internal:host-gateway` on Linux); when targeting a host dev server from Linux Docker, start the dev server with `--host 0.0.0.0` so the container bridge can reach it.

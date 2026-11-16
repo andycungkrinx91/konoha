@@ -198,7 +198,7 @@ async function _loadTargetInPage(page, target, timeoutMs = 15000) {
 async function _probeCanvasStage(page, canvasLoc) {
   const has3dCanvas = (await canvasLoc.count()) > 0;
   if (!has3dCanvas) {
-    return { has3dCanvas: false, canvasMetrics: { present: false, width: 0, height: 0, pointerReactive: false } };
+    return { has3dCanvas: false, canvasMetrics: { present: false, width: 0, height: 0, pointerReactive: false, webglSupported: false, webglRenderer: null } };
   }
   const box = await canvasLoc.boundingBox();
   if (box && box.width > 0 && box.height > 0) {
@@ -207,13 +207,25 @@ async function _probeCanvasStage(page, canvasLoc) {
   }
   const canvasMetrics = await page.evaluate(() => {
     const c = document.querySelector('canvas[data-3d-stage="true"], canvas');
-    if (!c) return { present: false, width: 0, height: 0, pointerReactive: false };
+    if (!c) return { present: false, width: 0, height: 0, pointerReactive: false, webglSupported: false, webglRenderer: null };
     const rect = c.getBoundingClientRect();
+    let webglSupported = false;
+    let webglRenderer = null;
+    try {
+      const probe = document.createElement('canvas');
+      const gl = probe.getContext('webgl2') || probe.getContext('webgl') || probe.getContext('experimental-webgl');
+      if (gl) {
+        webglSupported = true;
+        webglRenderer = gl.getParameter(gl.RENDERER) || 'webgl';
+      }
+    } catch (_) { /* software webgl probe optional */ }
     return {
       present: true,
       width: Math.round(rect.width),
       height: Math.round(rect.height),
-      pointerReactive: c.getAttribute('data-pointer-active') === 'true' || rect.width > 0
+      pointerReactive: c.getAttribute('data-pointer-active') === 'true' || rect.width > 0,
+      webglSupported,
+      webglRenderer
     };
   });
   return { has3dCanvas: true, canvasMetrics };
@@ -235,7 +247,16 @@ async function _verifyReducedMotionContext(browser, target, timeoutMs) {
 
 async function verifyInteractiveExperienceWithPlaywright(target = {}, options = {}) {
   const pw = require('@playwright/test');
-  const browser = await pw.chromium.launch({ headless: true });
+  const launchArgs = [
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+    '--enable-webgl',
+    '--ignore-gpu-blocklist'
+  ];
+  const browser = await pw.chromium.launch({
+    headless: options.headless !== false || Boolean(process.env.CI),
+    args: launchArgs
+  });
   const consoleErrors = [];
   const pageErrors = [];
 
@@ -307,18 +328,57 @@ async function verifyInteractiveExperienceWithPlaywright(target = {}, options = 
   }
 }
 
+async function _launchDockerDevPreview(options, url, buildId) {
+  const { defaultBrowserSessionManager } = require('../qa-automation/browser_session_manager');
+  const mgr = options.sessionManager || defaultBrowserSessionManager;
+  try {
+    const workspaceSession = await mgr.createSession({
+      sessionId: options.sessionId || undefined,
+      purpose: 'frontend-dev',
+      projectPath: options.projectPath || null,
+      targetUrl: url,
+      buildId,
+      reuse: options.reuse !== false
+    });
+    return {
+      workspaceSession,
+      browserLaunch: {
+        opened: true,
+        mode: 'docker-headed',
+        session_id: workspaceSession.session_id,
+        viewer_url: workspaceSession.viewer_url,
+        vnc_password: workspaceSession.vnc_password,
+        reused: Boolean(workspaceSession.reused)
+      }
+    };
+  } catch (err) {
+    return {
+      workspaceSession: null,
+      browserLaunch: { opened: false, mode: 'docker-headed', error: err.message }
+    };
+  }
+}
+
 async function runLiveBrowserMonitor(options = {}) {
   const url = options.url || `http://localhost:${options.port || 3000}`;
   const htmlOverride = typeof options.html === 'string' ? options.html : null;
+  const buildId = String(options.buildId || `live-${Date.now().toString(36)}`);
+  const isCi = Boolean(process.env.CI || process.env.KONOHA_HEADLESS_TEST === '1' || options.headless === true);
+  const serverState = htmlOverride === null
+    ? await waitForDevServer(url, options)
+    : { ready: true, attempts: 0, status: 200, html: htmlOverride || '' };
 
-  let serverState = { ready: true, attempts: 0, status: 200, html: htmlOverride || '' };
-  if (htmlOverride === null) {
-    serverState = await waitForDevServer(url, options);
+  let workspaceSession = null;
+  let browserLaunch = { opened: false, skipped_reason: 'server_not_ready' };
+  const wantDockerWorkspace = options.workspaceMode === 'docker-headed' || (options.liveWorkspace === true && !isCi);
+
+  if (serverState.ready && wantDockerWorkspace && !isCi) {
+    const launchRes = await _launchDockerDevPreview(options, url, buildId);
+    workspaceSession = launchRes.workspaceSession;
+    browserLaunch = launchRes.browserLaunch;
+  } else if (serverState.ready) {
+    browserLaunch = openSystemBrowser(url, options);
   }
-
-  const browserLaunch = serverState.ready
-    ? openSystemBrowser(url, options)
-    : { opened: false, skipped_reason: 'server_not_ready' };
 
   const inspection = serverState.ready
     ? inspectRenderedHtml(serverState.html, options.viewports, options)
@@ -335,8 +395,12 @@ async function runLiveBrowserMonitor(options = {}) {
   return {
     status: serverState.ready && inspection.passed ? 'passed' : 'failed',
     url,
+    build_id: buildId,
+    fresh: true,
+    verified_at: new Date().toISOString(),
     server_ready: serverState.ready,
     browser_launch: browserLaunch,
+    workspace_session: workspaceSession,
     inspection
   };
 }

@@ -10,11 +10,13 @@ const {
 } = require('./code_intel/ddl');
 const { CORE_SCHEMA_DDL } = require('./schema_ddl');
 const { createAndVerifyPreMigrationBackup } = require('./db_migration_safety');
+const { hasCanonicalMemoryBrainLayout, applyMemoryBrainMigration } = require('./memory_brain_ddl');
 
-const CURRENT_SCHEMA_VERSION = 7;
+const CURRENT_SCHEMA_VERSION = 8;
 const _ensuredSchemaInodes = new Map();
 const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
+  'memory_audit_events', 'memory_relations',
   'projects', 'active_sessions', 'tool_calls', 'agents',
   'bridges', 'sdlc_tasks', 'code_edges', 'assets', 'generation_jobs'
 ];
@@ -85,6 +87,7 @@ function _hasAllRequiredTables(conn) {
   const existing = new Set(rows.map((r) => r.name));
   if (!REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t))) return false;
   if (existing.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) return false;
+  if (existing.has('persona_memories') && !hasCanonicalMemoryBrainLayout(conn)) return false;
   return _hasRequiredAgentSchema(conn);
 }
 
@@ -514,6 +517,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
 
     // Migration v6/v7: native code intelligence index + canonical layout verification.
     _applyCodeIntelligenceMigration(conn, ftsSupported);
+    // Migration v8: provenance-aware knowledge brain tables & additive columns.
+    applyMemoryBrainMigration(conn);
     _verifyPostMigrationOrThrow(conn);
 
     setUserVersion(conn, CURRENT_SCHEMA_VERSION);
@@ -573,6 +578,7 @@ function validateCanonicalSchema(conn) {
     const requiredTables = [
       'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
+      'memory_audit_events', 'memory_relations',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',
       'schema_migrations', 'generation_jobs', 'assets',
       'asset_files', 'validation_results', 'llm_requests_3d',
@@ -583,6 +589,10 @@ function validateCanonicalSchema(conn) {
       if (!tables.has(req)) {
         errors.push(`Required canonical table '${req}' is missing`);
       }
+    }
+
+    if (tables.has('persona_memories') && !hasCanonicalMemoryBrainLayout(conn)) {
+      errors.push("Canonical layout mismatch on 'persona_memories' v8 columns");
     }
 
     if (tables.has('agents')) {

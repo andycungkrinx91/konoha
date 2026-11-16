@@ -35,6 +35,7 @@ const {
 
 const { fileExists } = require("../lib/prompt");
 const { removedSynonymMessage } = require("../lib/canonical_synonyms");
+const dataBrain = require("./data_brain");
 
 
 function cmdDataHelp() {
@@ -50,6 +51,12 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}add <agent> <txt>${C.reset} ➕ Save a persistent rule or preference for an agent persona.
   ${C.cyan}search <query>${C.reset}    🔍 Search saved knowledge and memories across agents.
   ${C.cyan}delete <id>${C.reset}       🗑️ Remove a saved memory item by ID.
+  ${C.cyan}correct <id> <t>${C.reset}  ✏️ Correct/supersede a memory while preserving audit history.
+  ${C.cyan}withdraw <id>${C.reset}     🚫 Withdraw or invalidate a memory without losing audit history.
+  ${C.cyan}history <id>${C.reset}      📜 View provenance, audit timeline, and supersession chain.
+  ${C.cyan}graph <id>${C.reset}        🕸️ Traverse deterministic knowledge relations and evidence.
+  ${C.cyan}maintain [--apply]${C.reset} 🔧 Run conservative memory maintenance (dry-run by default).
+  ${C.cyan}revert <id>${C.reset}       ↩️ Revert a reversible audit event or maintenance run.
   ${C.cyan}export${C.reset}            📤 Export indexed skills and database knowledge into a Markdown report.
   ${C.cyan}prune${C.reset}             🧹 Clean up old active sessions and usage logs (preserves memories), then vacuum.
   ${C.cyan}vacuum${C.reset}            ⚡ Defragment and compress SQLite database file directly.
@@ -104,6 +111,24 @@ async function cmdData(args) {
       break;
     case 'delete':
       await cmdDataDelete(subArgs);
+      break;
+    case 'correct':
+      await dataBrain.cmdDataCorrect(subArgs);
+      break;
+    case 'withdraw':
+      await dataBrain.cmdDataWithdraw(subArgs);
+      break;
+    case 'history':
+      await dataBrain.cmdDataHistory(subArgs);
+      break;
+    case 'graph':
+      await dataBrain.cmdDataGraph(subArgs);
+      break;
+    case 'maintain':
+      await dataBrain.cmdDataMaintain(subArgs);
+      break;
+    case 'revert':
+      await dataBrain.cmdDataRevert(subArgs);
       break;
     case 'prune':
       await cmdDataPrune(subArgs);
@@ -379,7 +404,11 @@ function buildExportMarkdown(conn) {
   content += `\n## 📉 Token Telemetry Summary\n`;
   content += `- **Total Tool Invocations**: ${toolCallsSum.count || 0}\n`;
   content += `- **Cumulative Bytes Saved**: ${toolCallsSum.bytes_saved || 0} bytes\n`;
-  content += `- **Cumulative Tokens Saved**: ${toolCallsSum.tokens_saved || 0} tokens\n`;
+  content += `- **Cumulative Tokens Saved**: ${toolCallsSum.tokens_saved || 0} tokens\n\n`;
+  try {
+    const { exportMemoryBrain } = require('../../src/memory_brain_export');
+    content += exportMemoryBrain({ format: 'markdown', includeInactive: true, dbPath: DB_PATH }) + '\n';
+  } catch (_) { /* best-effort */ }
   return content;
 }
 

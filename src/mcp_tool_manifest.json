@@ -1452,6 +1452,50 @@
             "type": "number",
             "minimum": 1,
             "maximum": 5
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "persona",
+              "project",
+              "episodic",
+              "session",
+              "knowledge"
+            ]
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_ref": {
+            "type": "string"
+          },
+          "verification_status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "unverified",
+              "inferred",
+              "disputed"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "correct",
+              "withdraw"
+            ]
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
           }
         },
         "required": [
@@ -1481,6 +1525,15 @@
             "type": "number",
             "minimum": 1,
             "maximum": 100
+          },
+          "domain": {
+            "type": "string"
+          },
+          "confirmed_only": {
+            "type": "boolean"
+          },
+          "include_inactive": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1505,6 +1558,15 @@
             "type": "number",
             "minimum": 1,
             "maximum": 100
+          },
+          "domain": {
+            "type": "string"
+          },
+          "confirmed_only": {
+            "type": "boolean"
+          },
+          "include_inactive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -1670,6 +1732,26 @@
           "max_failures": {
             "type": "integer",
             "description": "Stop test run after N failures (default 1 during remediation)."
+          },
+          "headed": {
+            "type": "boolean",
+            "description": "Run Playwright in headed mode inside an isolated browser workspace when not in CI."
+          },
+          "live": {
+            "type": "boolean",
+            "description": "Attach or launch a host-accessible live headed browser session."
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Existing live browser session ID to reuse."
+          },
+          "playwright_ui": {
+            "type": "boolean",
+            "description": "Optionally expose loopback-bound Playwright UI Mode."
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "Timeout budget in milliseconds for async QA execution."
           }
         },
         "required": [

@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 
 const ANSI_RE = /\u001b\[[0-9;]*[a-zA-Z]/g;
 
@@ -62,9 +62,67 @@ function verifyPlaywrightSpec(resolvedProject, specPath) {
   return { ok: false, reason: 'flow-failed', detail: raw.slice(0, 500) || 'Playwright exited with a non-zero status.' };
 }
 
+function _wireAsyncProcess(child, options, resolve) {
+  let stdout = '';
+  let stderr = '';
+  let timedOut = false;
+  let cancelled = false;
+
+  const timeoutMs = Number(options.timeoutMs) || 300000;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try { child.kill('SIGTERM'); } catch (_) { /* ignore */ }
+  }, timeoutMs);
+  if (typeof timer.unref === 'function') timer.unref();
+
+  const onAbort = () => {
+    cancelled = true;
+    try { child.kill('SIGTERM'); } catch (_) { /* ignore */ }
+  };
+  if (options.signal) {
+    if (options.signal.aborted) onAbort();
+    else options.signal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  child.stdout?.on('data', (chunk) => {
+    const text = chunk.toString('utf8');
+    if (stdout.length < 1024 * 1024) stdout += text;
+    if (typeof options.onLog === 'function') options.onLog('stdout', text);
+  });
+  child.stderr?.on('data', (chunk) => {
+    const text = chunk.toString('utf8');
+    if (stderr.length < 512 * 1024) stderr += text;
+    if (typeof options.onLog === 'function') options.onLog('stderr', text);
+  });
+  child.on('error', (err) => {
+    clearTimeout(timer);
+    resolve({ status: 1, stdout, stderr: `${stderr}\n${err.message}`.trim(), timedOut, cancelled });
+  });
+  child.on('close', (code) => {
+    clearTimeout(timer);
+    resolve({ status: code ?? 1, stdout, stderr, timedOut, cancelled });
+  });
+}
+
+function playwrightExecAsync(resolvedProject, args, extraEnv = {}, options = {}) {
+  return new Promise((resolve) => {
+    const localBin = path.join(resolvedProject, 'node_modules', '.bin');
+    const env = { ...process.env, ...extraEnv };
+    env.PATH = localBin + path.delimiter + (env.PATH || '');
+    const isWin = process.platform === 'win32';
+    const child = isWin
+      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'pnpm.cmd', ...args], { cwd: resolvedProject, env, windowsHide: true })
+      : spawn('pnpm', args, { cwd: resolvedProject, env, windowsHide: true });
+
+    if (typeof options.onSpawn === 'function') options.onSpawn(child);
+    _wireAsyncProcess(child, options, resolve);
+  });
+}
+
 module.exports = {
   resolveTargetProjectDir,
   localPlaywrightBin,
   playwrightExec,
+  playwrightExecAsync,
   verifyPlaywrightSpec
 };

@@ -26,7 +26,6 @@ function _wrapDeprecatedWarning(raw, oldName, newName) {
 
 const path = require('path');
 const { spawnSync } = require('child_process');
-const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { detectActiveAgent, getActiveSessionId } = require('./client_detection');
 const { findSkill, listSkills, getSkill, useSkills, optimizeReport, logToolCall } = require('./skills');
@@ -71,6 +70,12 @@ function boundPersonaMemories(mems) {
     id: m.id,
     agent_name: m.agent_name,
     memory_type: m.memory_type,
+    domain: m.domain || 'persona',
+    verification_status: m.verification_status || 'confirmed',
+    lifecycle_status: m.lifecycle_status || 'active',
+    confidence: m.confidence ?? 1.0,
+    source_type: m.source_type || 'agent',
+    source_ref: m.source_ref || '',
     title: m.title,
     content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
     updated_at: m.updated_at
@@ -431,73 +436,7 @@ function _dispatchMemory(toolName, args, agent) {
   return null;
 }
 
-function _dispatchPersonaMemory(toolName, args, agent) {
-  if (toolName === 'save_persona_memory') {
-    const targetAgent = args.agent_name || agent;
-    const content = args.content || '';
-    if (!targetAgent || !content) return JSON.stringify({ error: 'agent_name and content are required.' });
-    try {
-      const mid = personaMemory.saveMemory({
-        agentName: targetAgent, content, title: args.title || '', memoryType: args.memory_type || 'rule',
-        tags: args.tags || '', importance: parseInt(args.importance || 1, 10),
-        projectPath: args.project_path || getWorkspaceRoot(), sessionId: args.session_id
-      });
-      return JSON.stringify({ status: 'saved', id: mid, agent: targetAgent });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to save memory: ${e.message}` });
-    }
-  }
-  if (toolName === 'query_persona_memory') {
-    const targetAgent = args.agent_name || agent;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    try {
-      const mems = personaMemory.queryMemories({
-        agentName: targetAgent, query: args.query || '', memoryType: args.memory_type,
-        projectPath, sessionId: args.session_id || getActiveSessionId(projectPath),
-        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10)
-      });
-      const boundedMems = boundPersonaMemories(mems);
-      return JSON.stringify({ agent: targetAgent, count: boundedMems.length, memories: boundedMems });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to query memories: ${e.message}` });
-    }
-  }
-  if (toolName === 'list_persona_memories') {
-    const projectPath = args.project_path || getWorkspaceRoot();
-    try {
-      const mems = personaMemory.listMemories({
-        agentName: args.agent_name, memoryType: args.memory_type, projectPath,
-        sessionId: args.session_id || getActiveSessionId(projectPath),
-        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20)
-      });
-      const boundedMems = boundPersonaMemories(mems);
-      return JSON.stringify({ count: boundedMems.length, memories: boundedMems });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to list memories: ${e.message}` });
-    }
-  }
-  if (toolName === 'delete_persona_memory') {
-    if (!args.id) return JSON.stringify({ error: 'Memory id is required.' });
-    try {
-      const deleted = personaMemory.deleteMemory(args.id);
-      return JSON.stringify({ status: deleted ? 'deleted' : 'not_found', id: args.id });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to delete memory: ${e.message}` });
-    }
-  }
-  if (toolName === 'get_soul') {
-    const agentName = args.agent_name || args.agent || null;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    const raw = Boolean(args.raw);
-    try {
-      const soul = personaMemory.getSoul({ agentName, projectPath, raw });
-      return raw ? (soul.raw_markdown || '') : JSON.stringify(soul);
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to load soul: ${e.message}` });
-    }
-  }
-  return null;
-}
+const { dispatchPersonaMemory } = require('./persona_memory_dispatch');
 
 function _dispatchAuditAndDetectors(toolName, args, agent) {
   if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
@@ -561,7 +500,7 @@ function _executeToolInternal(toolName, args, agent) {
   const memRes = _dispatchMemory(toolName, args, agent);
   if (memRes !== null) return memRes;
 
-  const personaRes = _dispatchPersonaMemory(toolName, args, agent);
+  const personaRes = dispatchPersonaMemory(toolName, args, agent, boundPersonaMemories);
   if (personaRes !== null) return personaRes;
 
   const auditRes = _dispatchAuditAndDetectors(toolName, args, agent);

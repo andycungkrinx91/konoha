@@ -46,10 +46,10 @@ function colNames(conn, table) {
 function run() {
   console.log('Running test_code_intel_migration tests...');
 
-  // --- Fresh install reaches v7 -------------------------------------------
+  // --- Fresh install reaches current schema version -----------------------
   const fresh = db.getConnection();
   db.setupSchema(fresh);
-  assert.strictEqual(userVersion(fresh), 7, 'Fresh schema must land on user_version 7');
+  assert.strictEqual(userVersion(fresh), dbSchema.CURRENT_SCHEMA_VERSION, `Fresh schema must land on user_version ${dbSchema.CURRENT_SCHEMA_VERSION}`);
 
   const tables = tableNames(fresh);
   for (const name of ['code_index_roots', 'code_files', 'code_symbols', 'code_refs', 'code_chunks', 'code_chunks_fts', 'code_edges']) {
@@ -90,7 +90,7 @@ function run() {
   const before = tableNames(fresh).sort().join(',');
   db.setupSchema(fresh);
   assert.strictEqual(tableNames(fresh).sort().join(','), before, 'Second setupSchema must not change tables');
-  assert.strictEqual(userVersion(fresh), 7, 'Second setupSchema must leave user_version at 7');
+  assert.strictEqual(userVersion(fresh), dbSchema.CURRENT_SCHEMA_VERSION, `Second setupSchema must leave user_version at ${dbSchema.CURRENT_SCHEMA_VERSION}`);
 
   // --- v5 database upgrades in place, preserving data --------------------
   const legacyPath = path.join(tmpRoot, 'legacy.db');
@@ -109,7 +109,7 @@ function run() {
 
   dbSchema.setupSchema(legacy, () => ({ ok: true, backupPath: null }));
 
-  assert.strictEqual(userVersion(legacy), 7, 'Upgrade must write user_version 7');
+  assert.strictEqual(userVersion(legacy), dbSchema.CURRENT_SCHEMA_VERSION, `Upgrade must write user_version ${dbSchema.CURRENT_SCHEMA_VERSION}`);
   assert.ok(tableNames(legacy).includes('code_index_roots'), 'Upgrade must add code tables');
   assert.ok(tableNames(legacy).includes('code_edges'), 'Upgrade must add code_edges table');
   const preserved = legacy.prepare('SELECT project_path FROM projects WHERE project_hash = ?').get('abc123');
@@ -187,7 +187,7 @@ function run() {
     PRAGMA user_version = 6;
   `);
   dbSchema.setupSchema(v6, () => ({ ok: true, backupPath: null }));
-  assert.strictEqual(userVersion(v6), 7, 'v6 -> v7 upgrade must land on user_version 7');
+  assert.strictEqual(userVersion(v6), dbSchema.CURRENT_SCHEMA_VERSION, `v6 -> v${dbSchema.CURRENT_SCHEMA_VERSION} upgrade must land on user_version ${dbSchema.CURRENT_SCHEMA_VERSION}`);
   assert.ok(colNames(v6, 'code_files').includes('parser_version'), 'v6 -> v7 must add code_files.parser_version');
   assert.ok(colNames(v6, 'code_chunks').includes('content_hash'), 'v6 -> v7 must add code_chunks.content_hash');
   assert.ok(tableNames(v6).includes('code_edges'), 'v6 -> v7 must create code_edges');
@@ -371,7 +371,7 @@ function run() {
     'Restored backup must preserve pre-migration user data'
   );
   dbSchema.setupSchema(recoveredConn, db.backupDatabase);
-  assert.strictEqual(userVersion(recoveredConn), 7, 'Cleanly restored DB must migrate to v7 without partial state');
+  assert.strictEqual(userVersion(recoveredConn), dbSchema.CURRENT_SCHEMA_VERSION, `Cleanly restored DB must migrate to v${dbSchema.CURRENT_SCHEMA_VERSION} without partial state`);
   recoveredConn.close();
 
   console.log('✓ Code-intelligence migration, integrity failure rollback, backup recovery, idempotency, FTS triggers, and cascade verified.');

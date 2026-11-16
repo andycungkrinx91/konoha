@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { hasCanonicalCodeChunksLayout } = require('./code_intel/ddl');
+const { hasCanonicalMemoryBrainLayout } = require('./memory_brain_ddl');
 
 const SQLITE_HEADER_MAGIC = 'SQLite format 3\0';
 
@@ -103,6 +104,9 @@ function needsSchemaMigrationOrRepair(conn, currentVersion, targetVersion) {
     }
   }
   if (existingTables.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) {
+    return true;
+  }
+  if (existingTables.has('persona_memories') && !hasCanonicalMemoryBrainLayout(conn)) {
     return true;
   }
   return false;

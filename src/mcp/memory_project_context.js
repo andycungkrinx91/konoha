@@ -131,7 +131,10 @@ function saveSingleLearning(l, cleanAgent, pPath) {
     const sessId = cd.getActiveSessionId(pPath);
     return personaMemory.saveMemory({
       agentName: cleanAgent, content, title: `${cleanAgent} decision`,
-      memoryType: 'episodic', importance: 2, projectPath: pPath, sessionId: sessId, dbPath: db.DB_PATH
+      memoryType: 'episodic', domain: 'session',
+      sourceType: 'agent_report', creatorAgent: cleanAgent,
+      verificationStatus: 'confirmed', confidence: 0.95,
+      importance: 2, projectPath: pPath, sessionId: sessId, dbPath: db.DB_PATH
     });
   } catch (e) {
     process.stderr.write(`[mcp report_from_agent] Error saving learning: ${e.message}\n`);
@@ -342,6 +345,23 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   return res;
 }
 
+function _formatBoundedMemories(mems) {
+  return (mems || []).map(m => ({
+    id: m.id,
+    agent_name: m.agent_name,
+    memory_type: m.memory_type,
+    domain: m.domain || 'persona',
+    verification_status: m.verification_status || 'confirmed',
+    lifecycle_status: m.lifecycle_status || 'active',
+    confidence: m.confidence ?? 1.0,
+    source_type: m.source_type || 'agent',
+    source_ref: m.source_ref || '',
+    title: m.title,
+    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
+    updated_at: m.updated_at
+  }));
+}
+
 function getProjectContext(projectPath = null, sessionId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   const cd = require('./client_detection');
@@ -352,14 +372,7 @@ function getProjectContext(projectPath = null, sessionId = null) {
     profile = personaMemory.getProjectProfile(pHash);
   }
   const mems = personaMemory.listMemories({ projectPath: pPath, sessionId: sess, limit: 5 });
-  const boundedMems = (mems || []).map(m => ({
-    id: m.id,
-    agent_name: m.agent_name,
-    memory_type: m.memory_type,
-    title: m.title,
-    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
-    updated_at: m.updated_at
-  }));
+  const boundedMems = _formatBoundedMemories(mems);
   const safeProfile = profile ? {
     ...profile,
     context_summary: profile.context_summary && profile.context_summary.length > 500
@@ -402,14 +415,7 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
     sessionId: sess,
     limit: effLimit
   });
-  const boundedMems = (mems || []).map(m => ({
-    id: m.id,
-    agent_name: m.agent_name,
-    memory_type: m.memory_type,
-    title: m.title,
-    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
-    updated_at: m.updated_at
-  }));
+  const boundedMems = _formatBoundedMemories(mems);
   return JSON.stringify({
     status: 'ok',
     project_path: pPath,

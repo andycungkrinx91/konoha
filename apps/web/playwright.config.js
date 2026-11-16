@@ -22,6 +22,7 @@ export default defineConfig({
   reporter: 'line',
   use: {
     baseURL: 'http://127.0.0.1:4173',
+    headless: process.env.KONOHA_PW_HEADED === '1' && !process.env.CI ? false : undefined,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

@@ -226,6 +226,11 @@ async function dispatchAgentCommand(cmd, cmdArgs) {
     case 'task':
       await cmdTask(cmdArgs);
       return true;
+    case 'browser': {
+      const { cmdBrowser } = require('./commands/browser');
+      await cmdBrowser(cmdArgs);
+      return true;
+    }
     case 'bridge':
       await cmdBridge(cmdArgs);
       return true;

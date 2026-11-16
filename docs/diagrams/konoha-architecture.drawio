@@ -1064,7 +1064,7 @@
                 <mxCell id="p13-title" parent="1" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#0f172a;" value="13 Automated QA Orchestration &amp; Multi-Agent Workflow Loop" vertex="1">
                     <mxGeometry height="30" width="800" x="40" y="20" as="geometry" />
                 </mxCell>
-                <mxCell id="p13-sub" parent="1" style="text;html=1;fontSize=12;fontColor=#64748b;" value="Strict DoR Gate · Genin Read-Only Recon · Kage Spec-First Planning · Anbu Codify &amp; Headless Playwright · Jonin UI Fixes · Kage Quality Gate (≥98% Confidence, 0 AI Slop)" vertex="1">
+                <mxCell id="p13-sub" parent="1" style="text;html=1;fontSize=12;fontColor=#64748b;" value="Strict DoR Gate · Genin Read-Only Recon · Kage Spec-First Planning · Anbu Codify &amp; Playwright (Headless / Live Docker) · Jonin UI Fixes · Kage Quality Gate (≥98% Confidence, 0 AI Slop)" vertex="1">
                     <mxGeometry height="20" width="1000" x="40" y="50" as="geometry" />
                 </mxCell>
                 <mxCell id="p13-sannin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;agent=sannin;" value="1. Route: Sannin&#10;triage prompt &amp; DoR" vertex="1">
@@ -1091,7 +1091,7 @@
                 <mxCell id="p13-qv" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef08a;strokeColor=#ca8a04;align=center;fontStyle=1;agent=anbu;" value="spec&#10;valid?" vertex="1">
                     <mxGeometry height="50" width="90" x="510" y="230" as="geometry" />
                 </mxCell>
-                <mxCell id="p13-q3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;agent=anbu;" value="Anbu: qa_e2e_run&#10;headless Playwright run" vertex="1">
+                <mxCell id="p13-q3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;agent=anbu;" value="Anbu: qa_e2e_run&#10;headless CI / live Docker" vertex="1">
                     <mxGeometry height="50" width="180" x="640" y="230" as="geometry" />
                 </mxCell>
                 <mxCell id="p13-qf" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#ef4444;align=center;fontStyle=1;agent=anbu;" value="failures?" vertex="1">

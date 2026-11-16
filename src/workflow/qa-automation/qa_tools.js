@@ -11,13 +11,16 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { stripAnsi, getSha256, qaCodify } = require('./qa_codify');
-const { resolveTargetProjectDir, playwrightExec } = require('./qa_runner');
+const { resolveTargetProjectDir, localPlaywrightBin, playwrightExec, playwrightExecAsync } = require('./qa_runner');
+const { defaultBrowserSessionManager } = require('./browser_session_manager');
 const {
   ensureQaGitignore,
   getProjectOutputDirs,
   copyFailureEvidence,
   runQaRetention
 } = require('./qa_retention');
+
+const _activeQaRuns = new Map();
 
 function recordSuiteFileHash(file, resolvedProject, fileHashes) {
   if (fileHashes[file]) return;
@@ -125,9 +128,15 @@ function parseTestReport(reportPath, testRun) {
   return extractJsonFromStdout(testRun ? testRun.stdout : null, reportPath);
 }
 
+function probePlaywrightInstalled(resolvedProject, rawProjectPath) {
+  const hasLocalPw = localPlaywrightBin(resolvedProject)
+    || (rawProjectPath ? localPlaywrightBin(path.resolve(rawProjectPath)) : null);
+  if (!hasLocalPw) return false;
+  return playwrightExec(resolvedProject, ['exec', 'playwright', '--version']).status === 0;
+}
+
 function runPlaywrightSuite(resolvedProject, projectOutput, reportPath, args) {
-  const checkRes = playwrightExec(resolvedProject, ['exec', 'playwright', '--version']);
-  if (checkRes.status !== 0) {
+  if (!probePlaywrightInstalled(resolvedProject, args.projectPath)) {
     return { ok: false, error: 'Playwright not found or not installed in project.', fix: 'pnpm exec playwright install chromium' };
   }
   const pwArgs = ['exec', 'playwright', 'test', '--reporter=json', '--output', projectOutput.artifactsDir];
@@ -172,6 +181,32 @@ function buildSummaryLines(gitignoreRes, retentionRes) {
   return lines;
 }
 
+function buildFinalQaReport({ reportJson, resolvedProject, qaTmpDir, gitignoreRes, runId, reportPath, extra = {} }) {
+  const state = { fileHashes: {}, totals: { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, durationMs: 0 }, failureEntries: [], flakyNames: [] };
+  processReportSuites(reportJson, resolvedProject, state);
+  copyFailureEvidence(state.failureEntries, qaTmpDir);
+  const retentionRes = runQaRetention(runId);
+  const summaryLines = buildSummaryLines(gitignoreRes, retentionRes);
+  const displayedFailures = state.failureEntries.slice(0, 5);
+  const truncatedCount = state.failureEntries.length - displayedFailures.length;
+  const result = {
+    status: state.totals.failed === 0 ? 'passed' : 'failed',
+    run_id: runId,
+    ...extra,
+    report_path: reportPath,
+    totals: state.totals,
+    duration_ms: state.totals.durationMs,
+    file_hashes: state.fileHashes,
+    failures: displayedFailures,
+    truncated_failures: truncatedCount > 0 ? truncatedCount : 0,
+    flaky_tests: state.flakyNames,
+    housekeeping: { gitignore: gitignoreRes, retention: retentionRes },
+    summary_lines: summaryLines
+  };
+  capSummaryPayload(result, displayedFailures);
+  return result;
+}
+
 function qaE2eRun(args = {}) {
   const projectPath = args.project_path || args.projectPath || process.cwd();
   const grep = args.grep || null;
@@ -188,7 +223,7 @@ function qaE2eRun(args = {}) {
   fs.mkdirSync(qaTmpDir, { recursive: true });
   const reportPath = path.join(qaTmpDir, 'report.json');
 
-  const pwRes = obtainReportJson(mockReport, { resolvedProject, projectOutput }, reportPath, { grep, lastFailed, maxFailures });
+  const pwRes = obtainReportJson(mockReport, { resolvedProject, projectOutput }, reportPath, { grep, lastFailed, maxFailures, projectPath });
   if (!pwRes.ok) {
     return { status: 'error', run_id: runId, report_path: reportPath, error: pwRes.error, detail: pwRes.detail, fix: pwRes.fix };
   }
@@ -202,35 +237,159 @@ function qaE2eRun(args = {}) {
     return { status: 'error', run_id: runId, report_path: reportPath, error: 'Playwright aborted before running any test', detail };
   }
 
-  const state = { fileHashes: {}, totals: { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, durationMs: 0 }, failureEntries: [], flakyNames: [] };
-  processReportSuites(reportJson, resolvedProject, state);
-  copyFailureEvidence(state.failureEntries, qaTmpDir);
-  const retentionRes = runQaRetention(runId);
-  const summaryLines = buildSummaryLines(gitignoreRes, retentionRes);
+  return buildFinalQaReport({ reportJson, resolvedProject, qaTmpDir, gitignoreRes, runId, reportPath });
+}
 
-  const displayedFailures = state.failureEntries.slice(0, 5);
-  const truncatedCount = state.failureEntries.length - displayedFailures.length;
-  const result = {
-    status: state.totals.failed === 0 ? 'passed' : 'failed',
+function _buildAsyncQaArgs(projectOutput, args) {
+  const pwArgs = ['exec', 'playwright', 'test', '--reporter=json', '--output', projectOutput.artifactsDir];
+  if (args.grep) pwArgs.push('--grep', args.grep);
+  if (args.last_failed || args.lastFailed) pwArgs.push('--last-failed');
+  const maxF = args.max_failures !== undefined ? Number(args.max_failures) : null;
+  if (maxF !== null && maxF > 0) pwArgs.push(`--max-failures=${maxF}`);
+  const wantHeaded = Boolean(args.headed || args.live) && !process.env.CI;
+  if (wantHeaded) pwArgs.push('--headed');
+  if (args.playwright_ui && !process.env.CI) {
+    pwArgs.push('--ui-host=127.0.0.1', `--ui-port=${Number(args.playwright_ui_port) || 9323}`);
+  }
+  return { pwArgs, wantHeaded };
+}
+
+async function qaE2eRunAsync(args = {}) {
+  if (args.mock_report) {
+    return qaE2eRun(args);
+  }
+  const projectPath = args.project_path || args.projectPath || process.cwd();
+  const resolvedProject = resolveTargetProjectDir(projectPath);
+  const gitignoreRes = ensureQaGitignore(resolvedProject);
+  const projectOutput = getProjectOutputDirs(resolvedProject);
+  const runId = `qa-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const qaTmpDir = path.join(os.homedir(), '.konoha', 'tmp', 'qa', runId);
+  fs.mkdirSync(qaTmpDir, { recursive: true });
+  const reportPath = path.join(qaTmpDir, 'report.json');
+
+  if (!probePlaywrightInstalled(resolvedProject, projectPath)) {
+    return {
+      status: 'error',
+      ok: false,
+      error: 'qa_blocked',
+      reason: 'playwright-not-installed',
+      run_id: runId,
+      report_path: reportPath,
+      fix: 'pnpm exec playwright install chromium'
+    };
+  }
+
+  const sessionMgr = args.sessionManager || defaultBrowserSessionManager;
+  const { pwArgs, wantHeaded } = _buildAsyncQaArgs(projectOutput, args);
+  let liveSession = null;
+  if (wantHeaded && (args.live || args.docker_workspace || args.session_id)) {
+    liveSession = await sessionMgr.createSession({
+      sessionId: args.session_id || undefined,
+      purpose: 'qa-automation',
+      projectPath: resolvedProject,
+      workspaceMount: resolvedProject,
+      playwrightUi: Boolean(args.playwright_ui),
+      reuse: args.reuse !== false
+    });
+  }
+
+  const abortController = new AbortController();
+  const runState = {
     run_id: runId,
-    report_path: reportPath,
-    totals: state.totals,
-    duration_ms: state.totals.durationMs,
-    file_hashes: state.fileHashes,
-    failures: displayedFailures,
-    truncated_failures: truncatedCount > 0 ? truncatedCount : 0,
-    flaky_tests: state.flakyNames,
-    housekeeping: { gitignore: gitignoreRes, retention: retentionRes },
-    summary_lines: summaryLines
+    status: 'running',
+    headed: wantHeaded,
+    session_id: liveSession ? liveSession.session_id : (args.session_id || null),
+    viewer_url: liveSession ? liveSession.viewer_url : null,
+    started_at: new Date().toISOString(),
+    logs: [],
+    abortController
   };
+  _activeQaRuns.set(runId, runState);
 
-  capSummaryPayload(result, displayedFailures);
+  const extraEnv = {
+    PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
+    ...(wantHeaded ? { KONOHA_PW_HEADED: '1' } : {})
+  };
+  const testRun = await playwrightExecAsync(resolvedProject, pwArgs, extraEnv, {
+    timeoutMs: Number(args.timeout_ms || args.timeoutMs) || 300000,
+    signal: abortController.signal,
+    onSpawn: (child) => {
+      if (liveSession) sessionMgr.registerChildProcess(liveSession.session_id, child);
+    },
+    onLog: (stream, chunk) => {
+      runState.logs.push({ ts: new Date().toISOString(), stream, text: chunk.slice(0, 400) });
+      if (runState.logs.length > 100) runState.logs.shift();
+      if (typeof args.onLog === 'function') args.onLog(stream, chunk);
+    }
+  });
+
+  if (testRun.cancelled) {
+    runState.status = 'cancelled';
+    return { status: 'cancelled', run_id: runId, session_id: runState.session_id, report_path: reportPath };
+  }
+  if (testRun.timedOut) {
+    runState.status = 'timed_out';
+    return { status: 'error', reason: 'timeout', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright test execution timed out.' };
+  }
+
+  const reportJson = parseTestReport(reportPath, testRun);
+  if (!reportJson) {
+    runState.status = 'error';
+    const errText = stripAnsi(testRun.stderr || testRun.stdout || 'Test execution failed').slice(0, 500);
+    return { status: 'error', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright test execution failed to produce JSON output', detail: errText };
+  }
+
+  const globalErrors = Array.isArray(reportJson.errors) ? reportJson.errors : [];
+  if (globalErrors.length > 0) {
+    runState.status = 'error';
+    const detail = stripAnsi(globalErrors.map((e) => (e && e.message) || String(e)).join('\n')).slice(0, 500);
+    return { status: 'error', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright aborted before running any test', detail };
+  }
+
+  const result = buildFinalQaReport({
+    reportJson,
+    resolvedProject,
+    qaTmpDir,
+    gitignoreRes,
+    runId,
+    reportPath,
+    extra: {
+      headed: wantHeaded,
+      ...(liveSession ? { session_id: liveSession.session_id, viewer_url: liveSession.viewer_url } : {})
+    }
+  });
+  runState.status = result.status;
   return result;
+}
+
+function getQaRunStatus(runId) {
+  const s = _activeQaRuns.get(String(runId || ''));
+  if (!s) return null;
+  return {
+    run_id: s.run_id,
+    status: s.status,
+    headed: s.headed,
+    session_id: s.session_id,
+    viewer_url: s.viewer_url,
+    started_at: s.started_at,
+    logs: s.logs.slice(-50)
+  };
+}
+
+function cancelQaRun(runId) {
+  const s = _activeQaRuns.get(String(runId || ''));
+  if (!s) return { ok: false, found: false, run_id: runId };
+  s.abortController.abort();
+  s.status = 'cancelled';
+  return { ok: true, found: true, run_id: s.run_id, status: 'cancelled' };
 }
 
 module.exports = {
   qaCodify,
   qaE2eRun,
+  qaE2eRunAsync,
+  getQaRunStatus,
+  cancelQaRun,
   ensureQaGitignore,
   getProjectOutputDirs,
   copyFailureEvidence,

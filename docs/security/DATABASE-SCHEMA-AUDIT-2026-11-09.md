@@ -26,6 +26,8 @@ One extension-owned virtual table (`_sqliteai_vector`) and three FTS5 shadow-tab
 
 > **Revision note (schema v7, Issue #13).** The measurements in Sections 2, 4, and 9 were updated after the code-intelligence v6/v7 migrations added seven declared tables (`code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`), their four FTS5 shadow tables, and additive v7 incremental/graph columns. Fresh and migrated-live object counts now agree at 44 user tables (43 base DDL tables excluding runtime `_sqliteai_vector`).
 
+> **Revision note (schema v8, Issue #12).** Schema v8 adds `memory_audit_events` and `memory_relations` (`src/memory_brain_ddl.js`) plus additive provenance/lifecycle columns on `persona_memories`. Fresh and migrated-live object counts advance from 43 to 45 base DDL tables (33 declared tables + 12 FTS5 shadow tables, excluding runtime `_sqliteai_vector`).
+
 ## 2. Full schema inventory
 
 Measured objects:
@@ -259,6 +261,8 @@ No `SCAN` was found on `skill_chunks` in a hot path that an index should serve.
 | `code_chunks` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
 | `code_edges` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_V7_DDL`) | schema v7 | `src/code_intel/store.js` | `src/code_intel/query.js` | `tests/test_code_intel_migration.js` | this document Section 2 |
 | `code_chunks_fts` | `src/code_intel/ddl.js` (`CODE_INTELLIGENCE_FTS_DDL`) | schema v7 | `code_chunks` triggers | `src/code_intel/query.js` | `tests/test_code_intel_search.js` | this document Section 6 |
+| `memory_audit_events` | `src/memory_brain_ddl.js` (`MEMORY_BRAIN_V8_DDL`) | schema v8 | `src/memory_brain_lifecycle.js` | `src/memory_brain_lifecycle.js` | `tests/test_memory_brain_lifecycle_and_graph.js` | `docs/DATABASE-ERD.md` |
+| `memory_relations` | `src/memory_brain_ddl.js` (`MEMORY_BRAIN_V8_DDL`) | schema v8 | `src/memory_brain_graph.js` | `src/memory_brain_graph.js` | `tests/test_memory_brain_lifecycle_and_graph.js` | `docs/DATABASE-ERD.md` |
 | `_sqliteai_vector` | `src/vector_extension.js:106` | extension | Extension | `src/vector_search.js` | — | this document Section 6 |
 | `kali_tools` (main) | legacy | — | none | **none** | `tests/test_akatsuki_init.js:40` | this document Section 3 |
 

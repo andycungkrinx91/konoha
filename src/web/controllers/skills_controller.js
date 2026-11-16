@@ -313,9 +313,13 @@ function _handleGetSoul(res, parsedUrl) {
   }
 }
 
+const { handleMemoryBrainRoutes } = require('./memory_brain_routes');
+
 async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   const { pathname, method, parsedUrl } = route;
   if (method === 'GET' && pathname === '/api/v1/soul') return _handleGetSoul(res, parsedUrl);
+  const brainRes = await handleMemoryBrainRoutes(req, res, route, broadcastEvent);
+  if (brainRes !== false) return brainRes;
 
   const personaMemory = require('../../persona_memory');
   if (method === 'GET' && pathname === '/api/v1/persona') {

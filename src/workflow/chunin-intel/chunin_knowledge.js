@@ -47,11 +47,18 @@ function saveChuninKnowledge({
     tagList.push('verified-source');
   }
 
+  const hasUrls = Array.isArray(sourceUrls) && sourceUrls.length > 0;
   return personaMemory.saveMemory({
     agentName: 'chunin',
     content: formattedContent,
     title: cleanTitle,
     memoryType: 'knowledge',
+    domain: 'knowledge',
+    sourceType: hasUrls ? 'web_citation' : 'chunin',
+    sourceRef: hasUrls ? sourceUrls.join(', ') : '',
+    creatorAgent: 'chunin',
+    verificationStatus: hasUrls ? 'confirmed' : 'unverified',
+    confidence: hasUrls ? 0.9 : 0.65,
     importance,
     projectPath: pPath,
     sessionId,
