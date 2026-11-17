@@ -11,6 +11,7 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const GUARD_CLI = path.join(REPO_ROOT, 'scripts', 'konoha_project_mcp_guard.js');
+const PTY_DRIVER = path.join(__dirname, 'helpers', 'pty_driver.py');
 
 const {
   SUPPORTED_HARNESSES,
@@ -567,9 +568,12 @@ runTest('14. A piped payload still prompts: the menu reads the controlling termi
   const payloadPath = path.join(store, 'payload.json');
   fs.writeFileSync(payloadPath, JSON.stringify(HITL_DENIAL));
   try {
-    const hasScript = spawnSync(process.platform === 'win32' ? 'where' : 'sh',
-      process.platform === 'win32' ? ['script'] : ['-c', 'command -v script'], { encoding: 'utf8' }).status === 0;
-    if (process.platform === 'win32' || !hasScript) {
+    // `script(1)` is unusable here: BSD `script` demands a tty on its own stdin
+    // and aborts with `tcgetattr/ioctl` when handed a pipe, and neither variant
+    // reports the child's status. A pty.fork driver needs neither.
+    const hasPtyDriver = process.platform !== 'win32' &&
+      spawnSync('sh', ['-c', 'command -v python3'], { encoding: 'utf8' }).status === 0;
+    if (!hasPtyDriver) {
       console.log('  SKIP 14a. No pty driver on this platform; the fail-closed leg above covers the CLI');
     } else {
       const node = process.execPath;
@@ -578,11 +582,12 @@ runTest('14. A piped payload still prompts: the menu reads the controlling termi
       // assert that a real terminal does prompt.
       const ptyEnv = { ...process.env };
       delete ptyEnv.KONOHA_GUARD_NO_TTY;
+      let answerRun = 0;
       const runPty = (answers, extraEnv = {}) => {
-        const argv = process.platform === 'darwin'
-          ? ['-q', '/dev/null', '/bin/sh', '-c', inner]
-          : ['-qec', inner, '/dev/null'];
-        return spawnSync('script', argv, { input: answers, encoding: 'utf8', timeout: 30000, env: { ...ptyEnv, ...extraEnv } });
+        const answersPath = path.join(store, `answers_${answerRun++}.txt`);
+        fs.writeFileSync(answersPath, answers);
+        return spawnSync('python3', [PTY_DRIVER, answersPath, '/bin/sh', '-c', inner],
+          { encoding: 'utf8', timeout: 40000, env: { ...ptyEnv, ...extraEnv } });
       };
 
       const blocked = runPty('1\n');
@@ -591,9 +596,7 @@ runTest('14. A piped payload still prompts: the menu reads the controlling termi
         `the menu must render when stdin is a payload pipe (got: ${blockedText.slice(0, 400)})`);
       assert.ok(blockedText.includes('read_file_range'), 'the pty briefing must name the Konoha alternative');
       assert.ok(!blockedText.includes('No TTY available'), 'a controlling terminal must not be mistaken for no terminal');
-      if (process.platform !== 'darwin') {
-        assert.strictEqual(blocked.status, 2, 'choosing block under a pty must exit 2');
-      }
+      assert.strictEqual(blocked.status, 2, 'choosing block under a pty must exit 2');
       assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'blocking under a pty must record nothing');
 
       const accepted = runPty('2\nOperator accepted the risk on the terminal\n');
@@ -613,9 +616,7 @@ runTest('14. A piped payload still prompts: the menu reads the controlling termi
       const forcedText = `${forced.stdout || ''}${forced.stderr || ''}`;
       assert.ok(forcedText.includes('No TTY'), `KONOHA_GUARD_NO_TTY=1 must skip the menu (got: ${forcedText.slice(0, 400)})`);
       assert.ok(!forcedText.includes('Block this call and try another way'), 'a forced no-terminal run must not render the menu');
-      if (process.platform !== 'darwin') {
-        assert.strictEqual(forced.status, 2, 'a forced no-terminal run must exit 2 even with an answer on stdin');
-      }
+      assert.strictEqual(forced.status, 2, 'a forced no-terminal run must exit 2 even with an answer on stdin');
       assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a forced no-terminal run must record nothing');
     }
   } finally {

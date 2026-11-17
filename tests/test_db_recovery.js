@@ -20,7 +20,9 @@ const {
   restoreDatabase,
   autoRecoverIfNeeded,
   salvageDatabase,
-  buildSafeTableDdl
+  buildSafeTableDdl,
+  createSchemaNeutralizedProbe,
+  salvageViaNeutralizedSchema
 } = require('../src/db_recovery');
 
 const CLI_PATH = path.join(__dirname, '..', 'bin', 'cli.js');
@@ -400,6 +402,73 @@ console.log('8. Verifying SQLite salvage against malicious schemas, triggers, PR
     false,
     'Virtual table DDL must be rejected'
   );
+
+  // Some SQLite builds refuse the whole file while initialising a schema row that
+  // carries a second statement, so the catalog cannot be read at all and every
+  // healthy table is lost with the poisoned one. The probe comments out the tail
+  // in a private copy; the copy must still salvage, and the repaired table must
+  // still be rejected because the comment stays in its DDL.
+  const neutralizedPath = createSchemaNeutralizedProbe(maliciousDbPath, dir, 'poison_tbl');
+  assert.ok(neutralizedPath, 'the schema probe must be built from a diagnosable malformed row');
+  const sourceBytes = fs.readFileSync(maliciousDbPath);
+  const probeBytes = fs.readFileSync(neutralizedPath);
+  assert.strictEqual(probeBytes.length, sourceBytes.length, 'the probe must keep the page layout byte-for-byte');
+  const differing = [...sourceBytes].reduce((acc, byte, i) => acc + (byte === probeBytes[i] ? 0 : 1), 0);
+  assert.strictEqual(differing, 2, `the probe must only comment out the separator (got ${differing} bytes)`);
+
+  const neutralizedOut = path.join(dir, 'neutralized_clean.db');
+  const neutralizedRes = salvageViaNeutralizedSchema(
+    maliciousDbPath,
+    neutralizedOut,
+    dir,
+    'malformed database schema (poison_tbl) (ERR_SQLITE_ERROR)'
+  );
+  assert.ok(neutralizedRes, 'a diagnosable malformed schema row must route through the neutralised copy');
+  assert.strictEqual(neutralizedRes.ok, true, `a neutralised schema must still salvage: ${neutralizedRes.reason}`);
+  assert.strictEqual(
+    fs.readdirSync(dir).some((entry) => entry.includes('schema_neutralized_probe')),
+    false,
+    'the neutralised copy must be removed from the staging directory'
+  );
+  assert.strictEqual(
+    salvageViaNeutralizedSchema(maliciousDbPath, neutralizedOut, dir, 'file is not a database'),
+    null,
+    'a reason that names no object must not trigger the neutralised copy'
+  );
+  const neutralizedDb = new DatabaseSync(neutralizedOut, { readOnly: true });
+  const neutralizedRows = neutralizedDb.prepare('SELECT payload FROM safe_records ORDER BY id ASC').all();
+  const neutralizedNames = neutralizedDb.prepare("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
+    .map((obj) => obj.name);
+  neutralizedDb.close();
+  assert.strictEqual(neutralizedRows.length, 4, 'a neutralised schema must still carry every row');
+  assert.ok(!neutralizedNames.includes('poison_tbl'), 'the repaired table must still be rejected');
+  assert.ok(!neutralizedNames.includes('evil_trigger'), 'a neutralised schema must not resurrect triggers');
+
+  // An object name that is not in the file must yield no probe rather than a scan
+  // of unrelated bytes.
+  assert.strictEqual(createSchemaNeutralizedProbe(maliciousDbPath, dir, 'not_there'), null);
+
+  // A record with no separator must not let the scan walk past its terminating NUL
+  // into the next row: that would rewrite an unrelated object's DDL.
+  const syntheticPath = path.join(dir, 'synthetic_schema.db');
+  fs.writeFileSync(syntheticPath, Buffer.concat([
+    Buffer.from('SQLite format 3\0', 'latin1'),
+    Buffer.from('CREATE TABLE boundary_tbl (id INT ', 'latin1'),
+    Buffer.from([0x00, 0x00, 0x3b, 0x20, 0x20]),
+    Buffer.from('; ATTACH DATABASE \'x\' AS y;', 'latin1'),
+    Buffer.from([0x00])
+  ]));
+  assert.strictEqual(
+    createSchemaNeutralizedProbe(syntheticPath, dir, 'boundary_tbl'),
+    null,
+    'a record with no separator must not be repaired by reaching into the next row'
+  );
+  assert.strictEqual(
+    createSchemaNeutralizedProbe(maliciousDbPath, dir, 'poison_tbl (id'),
+    null,
+    'an object name that is not an identifier must be refused'
+  );
+  console.log('  ✓ A schema row that no build can parse is neutralised instead of sinking the salvage');
   console.log('  ✓ Malicious triggers, views, writable_schema DDL, ATTACH, PRAGMAs, and dot-commands neutralized');
 }
 

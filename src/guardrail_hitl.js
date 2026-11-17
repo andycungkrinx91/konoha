@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const readline = require('readline');
+const tty = require('tty');
 
 const {
   normalizeHarness,
@@ -90,8 +91,12 @@ function openControllingTerminal() {
     return null;
   }
   return {
-    input: fs.createReadStream(null, { fd: inFd }),
-    output: fs.createWriteStream(null, { fd: outFd }),
+    // libuv tty handles, not plain file streams: a `fs.createReadStream` over a
+    // tty fd queues a threadpool read that cannot be cancelled, so `destroy()`
+    // never completes and the process hangs after the answer. `tty.ReadStream`
+    // stops the read on destroy and lets the process exit.
+    input: new tty.ReadStream(inFd),
+    output: new tty.WriteStream(outFd),
     // End the streams rather than closing the descriptors: a raw close under a
     // pending write emits EBADF and takes the process down after the answer.
     close() {

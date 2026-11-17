@@ -437,6 +437,52 @@ expectation, and no `continue-on-error` was added anywhere.
   and asserts that a table rejected by a binary-patched DDL does not sink a
   salvageable sibling. Every guard is proven to bite by mutation.
 
+- **A malformed schema row no build can parse (`test_db_recovery`, macos 5/5, second
+  round)** — after the reason was reported, the reason itself was the bug:
+  `malformed database schema (poison_tbl) (ERR_SQLITE_ERROR)`. A fixture writes a
+  `sqlite_master` DDL of the shape `CREATE TABLE poison_tbl (id INT );
+  ATTACH DATABASE 'pwn.db' AS p;--`. Linux's sqlite reads the row (trailing
+  statements after the first are ignored) and the salvage proceeds; the macOS
+  build rejects the whole row at schema-init, so **every** statement on that
+  connection fails, including `SELECT 1` and `SELECT … FROM sqlite_master`. There
+  is no read-only escape hatch, and there is no SQL repair either: `node:sqlite`
+  opens SQLite in defensive mode, so `PRAGMA writable_schema = ON` reads back `0`
+  and any `UPDATE`/`DELETE` on `sqlite_master` throws `table sqlite_master may not
+  be modified`. The repair is therefore byte-level: `createSchemaNeutralizedProbe`
+  copies the file, finds the named object's row, and overwrites the `;` that ends
+  its DDL (plus the byte after it) with `--`, which is length-preserving and leaves
+  the poisoned row's `--`/`ATTACH` intact so `FORBIDDEN_DDL_RE` still rejects it.
+  `salvageViaNeutralizedSchema` only runs that probe when sqlite itself named the
+  object, and the probe is unlinked afterwards. Reproduce the platform split on
+  Linux — the row has to be patched into the file, because `exec()` stores only
+  the first statement of a multi-statement string, so it cannot write the
+  hostile row at all:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path'),{DatabaseSync}=require('node:sqlite');
+  const d=fs.mkdtempSync(p.join(os.tmpdir(),'poison-')),f=p.join(d,'x.db');
+  const db=new DatabaseSync(f);db.exec('CREATE TABLE poison_tbl (id INT /*____POISON_DDL_PATCH_SLOT_0123456789____*/)');db.close();
+  const raw=fs.readFileSync(f),slot=Buffer.from('/*____POISON_DDL_PATCH_SLOT_0123456789____*/');
+  Buffer.from(\"); ATTACH DATABASE 'pwn.db' AS p;--\".padEnd(slot.length,' ')).copy(raw,raw.indexOf(slot));
+  fs.writeFileSync(f,raw);
+  const c=new DatabaseSync(f);console.log(c.prepare('select sql from sqlite_master').all());"
+  # Linux prints the row: CREATE TABLE poison_tbl (id INT ); ATTACH DATABASE 'pwn.db' AS p;--         )
+  # macOS throws: malformed database schema (poison_tbl)
+  ```
+
+- **The guardrail CLI hung after the answer (`test_project_konoha_mcp_guardrail`, macos
+  4/5)** — the macOS leg died with `script: tcgetattr/ioctl: Operation not supported
+  on socket`, and underneath it was a product defect. `openControllingTerminal` wrapped
+  the `/dev/tty` descriptor in `fs.createReadStream`, whose read is a threadpool
+  operation that cannot be cancelled; `destroy()` in `close()` never completed, so the
+  process kept a live handle and never exited after the operator answered. `script`
+  only hid it by forwarding EOF into the terminal. The streams are now `tty.ReadStream`
+  / `tty.WriteStream` (libuv tty handles stop their read on destroy), and the test
+  drives the CLI through `tests/helpers/pty_driver.py` — `pty.fork()`, answers replayed
+  once the prompt goes idle — instead of `script(1)`, which needs a tty on *its own*
+  stdin and so cannot be given a payload pipe at all. The exit-status assertions are
+  now unconditional on every platform.
+
 - **A sandboxed `HOME` rewrote the checkout's `.omp/mcp.json` (`ensureOmpSetup`)** — not a
   test failure, a poisoned workspace. `ensureOmpSetup` auto-detected a project whenever
   `cwd/.omp/mcp.json` existed, which is right for the CLI and wrong for a suite running
