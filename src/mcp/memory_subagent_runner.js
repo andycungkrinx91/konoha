@@ -26,7 +26,7 @@ const { buildSpawnDirective } = require('./lazy_subagent');
 const { isResidentSupervisorAgent, getAdvisorAgentDefinition } = require('../canonical_agents');
 const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
 const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
-const { resolveTaskId, readSharedContext, formatSharedContextBlock } = require('./shared_context');
+const { resolveTaskId, readSharedContext, formatSharedContextBlock, SC_MAX_BYTES } = require('./shared_context');
 const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
 const {
   slicePreservingHeadMiddleTail,
@@ -637,7 +637,12 @@ function _finalizeAgentRun(p, projectContextBlock) {
   instructions = turnEnvelope.instructions;
   const { todoSync, quotaCheck } = turnEnvelope;
   let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
-  const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
+  // Sibling findings are task-scoped and directly relevant; ambient recall is not. The
+  // block is rendered first and its bytes reserved, so a prompt that is already near the
+  // ceiling evicts background context instead of silently dropping the findings.
+  const sharedBlock = formatSharedContextBlock(p.sharedRows, SC_MAX_BYTES);
+  const promptCeiling = PROMPT_CEILING_BYTES - (sharedBlock ? Buffer.byteLength(sharedBlock, 'utf8') + 2 : 0);
+  const tailCeiling = promptCeiling - SYSTEM_PROMPT_FLOOR_BYTES;
   const fixedTail = _buildFixedTailBlocks(p.dbAgentName, p.skillsList, p.opts.flowHash);
   if (Buffer.byteLength(fixedTail + taskBlock, 'utf8') > tailCeiling) {
     instructions = truncateAtBoundary(instructions, Math.max(0, tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24));
@@ -651,13 +656,9 @@ function _finalizeAgentRun(p, projectContextBlock) {
     tasteSkillBlock: p.tasteSkillBlock, docDesignBlock: p.docDesignBlock, skillsList: p.skillsList, skillsContent: p.skillsContent,
     effFlowHash: p.opts.flowHash, agentName: p.agentName, client: p.spawnClient, resolvedProjPath: p.resolvedProjPath,
     instructions, rawTask: p.opts.task, isChildWorker, piSubagentSupported: p.opts.piSubagentSupported,
-    maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
+    maxBytes: promptCeiling - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
-  const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
-  // Budgeted to actual headroom: a fixed block overflows jonin (within ~20 B of the
-  // ceiling) and clampToBytes would then eat the middle of the system prompt.
-  const sharedRoom = PROMPT_CEILING_BYTES - Buffer.byteLength(instruction, 'utf8') - 2;
-  const sharedBlock = formatSharedContextBlock(p.sharedRows, sharedRoom);
+  const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), promptCeiling);
   const finalInstruction = sharedBlock ? `${instruction}\n\n${sharedBlock}` : instruction;
   const resolvedWorktreePath = p.opts.worktree ? (typeof p.opts.worktree === 'string' ? p.opts.worktree : p.opts.worktree.worktree_path) : undefined;
   const { spawnDirective, spawnError } = _resolveSpawnDirective({
