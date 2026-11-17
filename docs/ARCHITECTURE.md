@@ -1000,6 +1000,7 @@ Keyword routing is deterministic and free, and right most of the time. It is als
 
 - **Inherited model, no new dependency:** `model_router.resolveChatTargets()` + `sendChatMessage()`. No Jev model, no provider, no SDK.
 - **Gated:** route judgments require `delegate` mode *and* an ambiguity margin below `SJ_AMBIGUITY_MARGIN` (0.15). Explicit `/agent` slash routing and single-candidate prompts never call out.
+- **The wait is real:** the verdict is awaited before the routing payload returns, so an ambiguous dispatch pays up to `SJ_MODEL_TIMEOUT_MS` (8 s) of added latency. That is the price of a correct route on a prompt the heuristic cannot separate; a clear prompt pays nothing. A cache hit pays nothing either.
 - **Fallback is total:** every failure path returns `{ source: 'heuristic' }` and the keyword verdict stands. A model outage changes routing quality, never availability.
 - **Cached:** `sha256(prompt).slice(0,16) + candidates`, LRU 64, so a repeated dispatch is byte-identical and free. Degraded verdicts are cached too, under `SJ_FALLBACK_TTL_MS` (60 s): a retried dispatch does not re-pay for the same refusal, and a provider that recovers is picked up within the minute instead of being pinned to its first failure for the process lifetime.
 - **Advisor drift:** `evaluateWorkerTurnAsync` consults the model only when goal/summary domain overlap is thin (0 < ratio < 0.34). A model verdict is *appended* to the deterministic violations, never substituted.
