@@ -416,6 +416,14 @@ OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total
 - From a pull request: the workflow runs automatically on every push to the PR
   branch. Pushing an empty commit re-runs it; prefer re-running failed jobs from
   the run page instead.
+- Locally, `node tests/run_all.js` reproduces a shard. It strips the caller's
+  harness identity (`ACTIVE_CLIENT`, `KONOHA_CLIENT`, the `PI_*`, `OMP_*`,
+  `OPENCODE_*`, `COMMANDCODE_*`, `CODEX_*`, `CLAUDE_*`, `CURSOR_SESSION_ID` and
+  `ANTIGRAVITY_CONVERSATION_ID` signals) before spawning each suite, because CI
+  has none of them. Without that, `detectActiveClient()` answers `pi` and the
+  delegation suites fail with `unsupported_native_spawn` on a machine where CI is
+  green. Running one suite by hand skips the strip, so use
+  `node tests/run_all.js <filter>` to reproduce a single failure.
 
 ## Local parity with act
 

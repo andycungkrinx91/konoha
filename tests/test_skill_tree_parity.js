@@ -68,14 +68,23 @@ async function run() {
   const projMirror = path.join(ROOT, '.agents', 'skills');
   for (const slug of fs.existsSync(projMirror) ? fs.readdirSync(projMirror) : []) {
     const template = path.join(SOURCE, slug);
-    if (!fs.existsSync(template)) continue;
+    assert.ok(fs.existsSync(template), `.agents/skills/${slug} has no counterpart in src/templates/skills`);
+    const mirroredDir = path.join(projMirror, slug);
     for (const rel of getFiles(template)) {
-      const mirrored = path.join(projMirror, slug, rel);
+      const mirrored = path.join(mirroredDir, rel);
       const label = path.join('.agents', 'skills', slug, rel);
       assert.ok(fs.existsSync(mirrored), `${label} must mirror src/templates/skills`);
       assert.ok(
         fs.readFileSync(path.join(template, rel)).equals(fs.readFileSync(mirrored)),
         `${label} drifted from src/templates/skills`
+      );
+    }
+    // And nothing else: a file deleted from the templates would otherwise stay published forever.
+    const templateFiles = getFiles(template);
+    for (const rel of getFiles(mirroredDir)) {
+      assert.ok(
+        templateFiles.has(rel),
+        `.agents/skills/${slug}/${rel} exists only in the mirror and must be deleted`
       );
     }
   }

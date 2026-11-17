@@ -292,6 +292,22 @@ function _armShardTimeoutIfNeeded() {
   });
 }
 
+// Ambient harness identity must never reach a suite. CI has none of these, so a
+// developer running the suite from inside a client would otherwise see different
+// results: `detectActiveClient()` returns `pi`, `runMcpAgent` answers
+// `unsupported_native_spawn`, and delegation suites fail on a clean checkout.
+const CLIENT_IDENTITY_ENV = [
+  'ACTIVE_CLIENT', 'KONOHA_CLIENT',
+  'ANTIGRAVITY_CONVERSATION_ID',
+  'CODEX_SESSION', 'CODEX_THREAD_ID', 'CODEX_CI',
+  'OMP_SESSION', 'OMP_SESSION_ID', 'OMP_CLIENT', 'OMP_AGENT',
+  'OPENCODE_CLIENT', 'OPENCODE_SESSION', 'OPENCODE_SESSION_ID',
+  'COMMANDCODE_CLIENT', 'COMMANDCODE_SESSION', 'COMMANDCODE_SESSION_ID',
+  'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CONVERSATION_ID',
+  'PI_CODING_AGENT', 'PI_SESSION_FILE', 'PI_SESSION_ID',
+  'CURSOR_SESSION_ID'
+];
+
 function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   _armShardTimeoutIfNeeded();
@@ -317,6 +333,7 @@ function createSuiteSnapshot(name) {
     ...(GUARD_MODE === 'host-isolated' ? { [HOST_ISOLATED_MARKER]: '1' } : {}),
     NODE_PATH: suiteNodePath
   };
+  for (const key of CLIENT_IDENTITY_ENV) delete env[key];
 
   return {
     home: suiteHome,

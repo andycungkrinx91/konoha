@@ -250,4 +250,20 @@ runTest('6. ensureProjectKonohaGuardPlugin skips user repos and supports copied 
   }
 });
 
+runTest('7. Tracked .agents plugin copies match what the generator emits', () => {
+  // `.agents/plugins/konoha-mcp-guard/` is tracked in git, but only `ensureProjectKonohaGuardPlugin`
+  // ever writes it, and nothing runs that on this repo. Compare against a fresh generation in a
+  // temp fixture rather than regenerating in place — in-place would overwrite the drift it reports.
+  const trackedDir = path.join(REPO_ROOT, '.agents', 'plugins', 'konoha-mcp-guard');
+  assert.ok(fs.existsSync(trackedDir), 'repo must track .agents/plugins/konoha-mcp-guard');
+  for (const rel of ['plugin.json', 'hooks.json', 'guard.js', path.join('scripts', 'konoha_project_mcp_guard.js')]) {
+    const tracked = path.join(trackedDir, rel);
+    assert.ok(fs.existsSync(tracked), `.agents/plugins/konoha-mcp-guard/${rel} must exist in the repo`);
+    assert.ok(
+      fs.readFileSync(tracked).equals(fs.readFileSync(path.join(PLUGIN_DIR, rel))),
+      `.agents/plugins/konoha-mcp-guard/${rel} drifted from the generator`
+    );
+  }
+});
+
 fs.rmSync(TEMP_PLUGIN_REPO, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

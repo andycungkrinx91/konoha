@@ -81,6 +81,12 @@ function runTests() {
   const konohaSanitize = deployUtils.sanitizePollutedProjectGitignore(konohaRoot);
   assert.strictEqual(konohaSanitize.modified, false, 'Konoha repository .gitignore must not be stripped');
 
+  // `.agents/` reaches this repo's excludes from the global file Konoha itself writes, so the
+  // root-level re-inclusion has to survive sanitization or every new file there goes untracked.
+  const konohaGitignore = fs.readFileSync(path.join(konohaRoot, '.gitignore'), 'utf8').split('\n').map(l => l.trim());
+  assert.ok(konohaGitignore.includes('!.agents/'), 'Konoha repo .gitignore must keep the !.agents/ re-inclusion');
+  assert.ok(konohaGitignore.includes('!.agents/**'), 'Konoha repo .gitignore must keep the !.agents/** re-inclusion');
+
   // stripLegacyKonohaPreamble removes leaked Rule 3 & legacy unclosed GEMINI blocks
   const pollutedGlobalDoc = [
     '# Custom Agent Rules for Konoha',
