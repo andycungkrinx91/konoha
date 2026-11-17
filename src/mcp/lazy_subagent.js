@@ -365,8 +365,7 @@ function buildAdvisorStartupDirective({
       tool: desc.tool,
       spawn_call: callStr,
       cli_fallback: cliFallback,
-      steer_protocol: sampleSteer,
-      directive: `## @advisor (idle, turn 0)\nStart \`@advisor\`: \`${callStr}\` (steer: \`${sampleSteer.tool}\`).`
+      steer_protocol: sampleSteer
     };
   }
 
@@ -382,8 +381,7 @@ function buildAdvisorStartupDirective({
     tool: null,
     spawn_call: null,
     cli_fallback: cliFallback,
-    steer_protocol: sampleSteer,
-    directive: `## @advisor (idle, turn 0)\nStart \`@advisor\`: \`${cliFallback}\` (steer: \`${sampleSteer.tool}\`).`
+    steer_protocol: sampleSteer
   };
 }
 
