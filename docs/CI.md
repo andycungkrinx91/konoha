@@ -658,7 +658,12 @@ Fidelity limits, read before trusting a green local run:
   ```
 
   Passing on Linux does not prove a macOS path bug fixed; the symlinked-`HOME` run is the
-  cheap proxy, and a GitHub macOS run is the only real confirmation.
+  cheap proxy, and a GitHub macOS run is the only real confirmation. The suites whose
+  assertions actually depend on path canonicalization, and therefore the ones worth running
+  under the proxy: `test_db_recovery`, `test_project_konoha_mcp_guardrail`,
+  `test_skill_tree_parity`, `test_omp_manager`, `test_lightweight_contracts`,
+  `test_skill_budget_digest`, `test_no_filesystem_mirrors`,
+  `test_fresh_install_cross_platform_sync`.
 - `runner.temp` maps to the act container's `/tmp`, so `PLAYWRIGHT_BROWSERS_PATH` resolves
   inside the container.
 - The workflow's ffmpeg and Playwright `--with-deps` steps need `sudo`. The medium
