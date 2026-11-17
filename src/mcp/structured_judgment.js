@@ -24,6 +24,10 @@ const SJ_CACHE_MAX = 64;
 const SJ_MIN_CONFIDENCE = 0.6;
 // Prompt text is clipped: routing signals live in the first few hundred chars.
 const SJ_PROMPT_CHARS = 1200;
+// A degraded verdict is still a verdict. Caching it briefly stops a repeated
+// ambiguous dispatch from re-billing the model, without pinning a recovered
+// provider to the first failure for the life of the process.
+const SJ_FALLBACK_TTL_MS = 60000;
 
 const cache = new Map();
 
@@ -36,13 +40,21 @@ function _cacheGet(key) {
   const hit = cache.get(key);
   if (!hit) return null;
   cache.delete(key);
+  if (hit.expiresAt <= Date.now()) return null;
   cache.set(key, hit);
-  return hit;
+  return hit.value;
 }
 
-function _cacheSet(key, value) {
-  cache.set(key, value);
+function _cacheSet(key, value, ttlMs = Infinity) {
+  cache.set(key, { value, expiresAt: ttlMs === Infinity ? Infinity : Date.now() + ttlMs });
   while (cache.size > SJ_CACHE_MAX) cache.delete(cache.keys().next().value);
+}
+
+/** Cache a degraded verdict under the short TTL and hand it back. */
+function _fallback(key, reason) {
+  const out = { source: 'heuristic', reason };
+  _cacheSet(key, out, SJ_FALLBACK_TTL_MS);
+  return out;
 }
 
 /** Strip fences and prose so `JSON.parse` sees only the model's object. */
@@ -92,10 +104,10 @@ async function judgeRoute({ prompt = '', candidates = [], projectPath = null } =
       'You route tasks between specialist agents. Answer with JSON only: {"agent": "<one of the given names>", "confidence": <0..1>, "reason": "<12 words max>"}.',
       `Agents: ${names.join(', ')}\nProject: ${projectPath || 'unknown'}\nTask: ${String(prompt).slice(0, SJ_PROMPT_CHARS)}`
     );
-    if (!verdict || !names.includes(verdict.agent)) return { source: 'heuristic', reason: 'model returned no valid agent' };
+    if (!verdict || !names.includes(verdict.agent)) return _fallback(key, 'model returned no valid agent');
     const confidence = Number(verdict.confidence);
     if (!Number.isFinite(confidence) || confidence < SJ_MIN_CONFIDENCE) {
-      return { source: 'heuristic', reason: `model confidence ${verdict.confidence} below ${SJ_MIN_CONFIDENCE}` };
+      return _fallback(key, `model confidence ${verdict.confidence} below ${SJ_MIN_CONFIDENCE}`);
     }
     const out = {
       source: 'model',
@@ -106,7 +118,7 @@ async function judgeRoute({ prompt = '', candidates = [], projectPath = null } =
     _cacheSet(key, out);
     return out;
   } catch (_) {
-    return { source: 'heuristic', reason: 'model unavailable' };
+    return _fallback(key, 'model unavailable');
   }
 }
 
@@ -128,16 +140,16 @@ async function judgeDrift({ agent = 'worker', goal = '', plan = '', todos = [], 
       'You audit whether an agent summary stays inside its goal and plan. Answer with JSON only: {"drift": true|false, "confidence": <0..1>, "reason": "<12 words max>"}.',
       `Agent: ${agent}\nGoal: ${String(goal).slice(0, 400)}\nPlan: ${String(plan).slice(0, 400)}\nTodos:\n${todoList}\nSummary: ${summaryText.slice(0, SJ_PROMPT_CHARS)}`
     );
-    if (!verdict || typeof verdict.drift !== 'boolean') return { source: 'heuristic', reason: 'model returned no verdict' };
+    if (!verdict || typeof verdict.drift !== 'boolean') return _fallback(key, 'model returned no verdict');
     const confidence = Number(verdict.confidence);
     if (!Number.isFinite(confidence) || confidence < SJ_MIN_CONFIDENCE) {
-      return { source: 'heuristic', reason: `model confidence ${verdict.confidence} below ${SJ_MIN_CONFIDENCE}` };
+      return _fallback(key, `model confidence ${verdict.confidence} below ${SJ_MIN_CONFIDENCE}`);
     }
     const out = { source: 'model', drift: verdict.drift, confidence, reason: String(verdict.reason || '').slice(0, 120) };
     _cacheSet(key, out);
     return out;
   } catch (_) {
-    return { source: 'heuristic', reason: 'model unavailable' };
+    return _fallback(key, 'model unavailable');
   }
 }
 
@@ -152,6 +164,7 @@ module.exports = {
   SJ_CACHE_MAX,
   SJ_MIN_CONFIDENCE,
   SJ_PROMPT_CHARS,
+  SJ_FALLBACK_TTL_MS,
   judgeRoute,
   judgeDrift,
   clearJudgmentCache

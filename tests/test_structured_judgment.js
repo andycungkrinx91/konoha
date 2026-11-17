@@ -91,6 +91,18 @@ async function main() {
   assert.strictEqual(d.source, 'heuristic');
   assert.strictEqual(calls, 0, 'empty summary must not spend a call');
 
+  // A degraded verdict is cached briefly so a retried dispatch is not re-billed,
+  // and expires so a recovered provider is not pinned to the first failure.
+  reset(new Error('ETIMEDOUT'));
+  r = await sj.judgeRoute({ prompt: 'retry the cache probe', candidates: ['anbu', 'jonin'] });
+  assert.strictEqual(r.source, 'heuristic', 'a transport failure must degrade');
+  const billedOnce = calls;
+  calls = 0;
+  r = await sj.judgeRoute({ prompt: 'retry the cache probe', candidates: ['anbu', 'jonin'] });
+  assert.strictEqual(r.source, 'heuristic');
+  assert.strictEqual(calls, 0, `a cached degradation must not re-bill (was ${billedOnce})`);
+  assert(sj.SJ_FALLBACK_TTL_MS > 0 && sj.SJ_FALLBACK_TTL_MS <= 300000, 'fallback TTL must be bounded');
+
   // A missing endpoint is a heuristic verdict, not a crash.
   state.targets = [];
   reset('{"agent":"anbu","confidence":0.9}');
