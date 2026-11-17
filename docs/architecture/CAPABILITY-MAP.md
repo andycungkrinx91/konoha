@@ -160,7 +160,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Storage:** SQLite `sdlc_tasks` table (`dor_result`, `evidence`, `slop_result` JSON columns).
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
 * **Tests:** `tests/test_sdlc_dor.js`, `tests/test_sdlc_tasks.js`, `tests/test_anti_slop_gate.js`, `tests/test_ai_detector.js`, `tests/test_docs_ai_detector.js`.
-* **Documentation:** `docs/ARCHITECTURE.md`, `docs/README.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/README.md`, `docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md`.
 * **Dependencies:** `node:sqlite`, `aislop` CLI.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
@@ -369,7 +369,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Native install scripts stay denied (`allowBuilds: onnxruntime-node: false`, `protobufjs: false`); `onnxruntime-node`'s postinstall fetches CUDA EP binaries from NuGet without checksum verification.
   - Socket.dev policy configuration is a narrowing, never a widening: `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` stay suppressed because they describe the documented contract, while `usesEval` is no longer suppressed and `pnpm-lock.yaml` / `patches/**` are no longer ignored.
 * **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`, `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js`, `tests/test_xlsx_populate_lodash_lite.js`, `tests/test_document_engine_security.js`, `tests/test_socket_security_audit.js`.
-* **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`, `CHANGELOG.md`.
+* **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md`, `CHANGELOG.md`.
 
 ---
 

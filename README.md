@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.22%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.23%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
@@ -374,8 +374,8 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 | [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
 | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
 | [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.22 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.22 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
+| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.23 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
+| [Security Architecture](docs/SECURITY.md) | v2.2.23 ingress, auth, queue controls; newest external audit [2.2.23 (2026-11-17)](docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md) |
 | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
 | [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
 | [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |

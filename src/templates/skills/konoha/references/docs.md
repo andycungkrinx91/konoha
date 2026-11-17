@@ -17,7 +17,7 @@ Every topic has exactly one live document. `docs/README.md` is the live index: o
 - `docs/MANUAL.md` + `docs/MANUAL.pdf`: The operator's manual. The PDF is generated (`node scripts/build_manual_pdf.js`), never hand-edited, and must be newer than the Markdown it was built from (`tests/test_manual_book.js`).
 - `docs/CI.md`: Cross-platform workflow, `act` and Windows-VM local mirrors, browser provisioning, and the engine capability split. Platform-specific defects belong here as reproduction steps, not as prose in the changelog.
 - `docs/TROUBLESHOOTING.md`: Symptom → cause → fix, with platform-specific sections. New failure modes observed in QA go here, not into `CHANGELOG.md`.
-- `docs/SecurityCompliance/`: Holds a single file, the newest dated external audit (`security_compliance_report_2.2.19_2026-11-09.md`). It is a dated record, not the security reference; current controls live in `docs/SECURITY.md`. Earlier reports are archived under `docs/archive/security-compliance/`.
+- `docs/SecurityCompliance/`: Holds a single file, the newest dated external audit (`security_compliance_report_2.2.23_2026-11-17.md`). It is a dated record, not the security reference; current controls live in `docs/SECURITY.md`. Earlier reports are archived under `docs/archive/security-compliance/`.
 - `docs/archive/`: Frozen dated reports and finished reviews, one directory per topic. `docs/archive/README.md` indexes them and states the keep-or-archive rule. A live document never links into `docs/archive/`.
 - `docs/architecture/`: Canonical specifications (`CANONICAL-API.md`, `CANONICAL-CLI.md`, `CANONICAL-NAMING.md`, `CAPABILITY-MAP.md`, `ARCHITECTURAL-GAPS.md`, `TOKEN-BASELINE.md`).
 - `docs/security/`: Database isolation, schema, red-skill, and skill-authz inventories.

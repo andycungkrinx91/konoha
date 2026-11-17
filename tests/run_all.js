@@ -305,6 +305,9 @@ const CLIENT_IDENTITY_ENV = [
   'COMMANDCODE_CLIENT', 'COMMANDCODE_SESSION', 'COMMANDCODE_SESSION_ID',
   'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CONVERSATION_ID',
   'PI_CODING_AGENT', 'PI_SESSION_FILE', 'PI_SESSION_ID',
+  // OMP reuses PI's names, so the state-directory variables also identify a
+  // harness and must be stripped for the suite to reproduce CI.
+  'PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR', 'OMP_SESSION_FILE', 'OMP_HOME',
   'CURSOR_SESSION_ID'
 ];
 

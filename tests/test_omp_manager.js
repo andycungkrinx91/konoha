@@ -98,6 +98,44 @@ try {
   const agentsMdContent = fs.readFileSync(testAgentsMd, 'utf8');
   assert.match(agentsMdContent, /Konoha runtime contract/);
 
+  // A sandboxed home must not write the developer's project config. Suite runs used
+  // to point the repo's `.omp/mcp.json` at a temp launcher that no longer existed,
+  // and every delegated OMP agent then lost the Konoha MCP server entirely.
+  const fakeProject = path.join(tmpDir, 'project');
+  const fakeProjectMcp = path.join(fakeProject, '.omp', 'mcp.json');
+  fs.mkdirSync(path.dirname(fakeProjectMcp), { recursive: true });
+  fs.writeFileSync(fakeProjectMcp, JSON.stringify({ mcpServers: { konoha: { command: 'sentinel' } } }), 'utf8');
+  const cwdBefore = process.cwd();
+  try {
+    process.chdir(fakeProject);
+    ompManager.ensureOmpSetup({ home: tmpDir, silent: true });
+  } finally {
+    process.chdir(cwdBefore);
+  }
+  const afterProject = JSON.parse(fs.readFileSync(fakeProjectMcp, 'utf8'));
+  assert.strictEqual(afterProject.mcpServers.konoha.command, 'sentinel',
+    'A temp-home run must leave the project .omp/mcp.json untouched');
+
+  // A suite overrides the environment, not the `home` option, so the same guard must
+  // hold when HOME/USERPROFILE point at a sandbox. `paths.js` captures HOME at module
+  // load, so this has to run in a child process to reproduce the real condition.
+  const envHome = path.join(tmpDir, 'sandbox-home');
+  fs.mkdirSync(envHome, { recursive: true });
+  const childScript = `
+    const manager = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'omp_manager.js'))});
+    manager.ensureOmpSetup({ silent: true });
+  `;
+  const child = require('child_process').spawnSync(process.execPath, ['-e', childScript], {
+    cwd: fakeProject,
+    env: { ...process.env, HOME: envHome, USERPROFILE: envHome },
+    encoding: 'utf8',
+    timeout: 120000
+  });
+  assert.strictEqual(child.status, 0, `sandboxed ensureOmpSetup must exit 0: ${child.stderr}`);
+  const afterEnv = JSON.parse(fs.readFileSync(fakeProjectMcp, 'utf8'));
+  assert.strictEqual(afterEnv.mcpServers.konoha.command, 'sentinel',
+    'An overridden HOME must not let ensureOmpSetup rewrite the project .omp/mcp.json');
+
   // Status check
   const status = ompManager.getOmpStatus();
   assert.strictEqual(typeof status.installed, 'boolean');

@@ -75,8 +75,17 @@ function check(label, fn) {
 }
 
 function makeMockHarness(name, scriptBody) {
-  const binPath = path.join(TEMP_ROOT, `mock-${name}`);
   const src = `#!/usr/bin/env node\n'use strict';\n${scriptBody}\n`;
+  if (process.platform === 'win32') {
+    // A shebang file is not spawnable on Windows, and a `.cmd` shim is what npm/pnpm
+    // install anyway, so this exercises the real ComSpec route rather than skipping it.
+    const jsPath = path.join(TEMP_ROOT, `mock-${name}.js`);
+    fs.writeFileSync(jsPath, src.replace(/^#![^\n]*\n/, ''), 'utf8');
+    const cmdPath = path.join(TEMP_ROOT, `mock-${name}.cmd`);
+    fs.writeFileSync(cmdPath, `@echo off\r\n"${process.execPath}" "%~dp0mock-${name}.js" %*\r\n`, 'utf8');
+    return cmdPath;
+  }
+  const binPath = path.join(TEMP_ROOT, `mock-${name}`);
   fs.writeFileSync(binPath, src, 'utf8');
   fs.chmodSync(binPath, 0o755);
   return binPath;
@@ -297,8 +306,7 @@ async function main() {
     assert.strictEqual(piRes.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
   });
 
-  if (process.platform !== 'win32') {
-    await check('4. Real executable harness binary execution, non-zero exit & ENOENT across 8 clients', async () => {
+  await check('4. Real executable harness binary execution, non-zero exit & ENOENT across 8 clients', async () => {
       const markerLog = path.join(TEMP_ROOT, 'harness-calls.jsonl');
       const mockBin = makeMockHarness('ok', `
         const fs = require('fs');
@@ -368,8 +376,12 @@ async function main() {
       });
       assert.strictEqual(missingRes.ok, false);
       assert.strictEqual(missingRes.error_code, 'HARNESS_BINARY_NOT_FOUND');
-    });
+  });
 
+  // Cancellation timing is a POSIX proof: on Windows the tree kill goes through
+  // `taskkill /T`, whose invocation shape is pinned by check 16 of
+  // `tests/test_spawn_harness_contracts.js` rather than by a wall-clock assertion.
+  if (process.platform !== 'win32') {
     await check('5. Timeout (SIGTERM->SIGKILL) & AbortController cancellation leave zero orphan processes', async () => {
       const sleeperBin = makeMockHarness('sleeper', `
         const fs = require('fs');
@@ -496,6 +508,7 @@ async function main() {
       'COMMANDCODE_CLIENT', 'COMMANDCODE_SESSION', 'COMMANDCODE_SESSION_ID',
       'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CONVERSATION_ID',
       'PI_CODING_AGENT', 'PI_SESSION_FILE', 'PI_SESSION_ID',
+      'PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR', 'OMP_SESSION_FILE', 'OMP_HOME',
       'CURSOR_SESSION_ID', 'KONOHA_SUBAGENT', 'SESSION_ID', 'KONOHA_SESSION_ID'
     ];
     for (const k of envVarsToStrip) delete cleanEnv[k];

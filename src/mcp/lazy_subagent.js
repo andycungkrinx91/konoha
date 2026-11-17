@@ -44,10 +44,14 @@ function truncateSpawnTask(raw) {
  * The task argument, JSON-encoded so quotes and newlines survive any harness
  * syntax. The worktree rides in the task text because only two of the nine
  * harnesses accept a working-directory argument.
+ *
+ * Backticks are dropped: the whole call is embedded in a markdown inline code
+ * span, and markdown has no escape inside one, so a backtick in the task text
+ * truncates the call the model is told to run.
  */
 function spawnTaskArg(prompt, worktreePath) {
   const raw = typeof prompt === 'string' ? prompt.trim() : '';
-  const body = raw ? truncateSpawnTask(raw) : '(no task text supplied by the dispatcher)';
+  const body = raw ? truncateSpawnTask(raw).replace(/`/g, '') : '(no task text supplied by the dispatcher)';
   return JSON.stringify(worktreePath ? `${body}\n[worktree: ${worktreePath}]` : body);
 }
 
@@ -55,7 +59,15 @@ const CLIENT_SPAWN = {
   omp: {
     tool: 'task',
     headlessBin: 'omp',
-    args: (d) => `task(context=${d.taskArg}, tasks=[{name:"${d.agent}", task:${d.taskArg}, agent:"${d.agent}"${d.worktreePath ? `, cwd:"${d.worktreePath}"` : ''}}])`
+    // OMP's `task` schema is `{context, tasks:[{name?, agent, task, solutionSpace,
+    // outputSchema?, schemaMode?, tools?, isolated?}]}` with `"+" : "delete"`, so
+    // every key outside that set is dropped without complaint: a `cwd` key would
+    // silently lose the worktree, and `solutionSpace` is required, not optional.
+    // `isolated` is deliberately not set — it provisions a second checkout, while
+    // Konoha has already prepared the worktree named in the task text.
+    // `context` is the shared envelope and must not repeat the per-task body, so it
+    // names the delegation only; the slice and its worktree stay in `task`.
+    args: (d) => `task(context=${JSON.stringify(`Konoha delegation for @${d.agent}; the slice body and its worktree are in tasks[0].task.`)}, tasks=[{name:"${d.agent}", agent:"${d.agent}", task:${d.taskArg}, solutionSpace:${JSON.stringify('scope fixed by the delegation envelope; the child chooses how, not what')}}])`
   },
   cursor: {
     tool: 'Task',
@@ -130,7 +142,7 @@ function resolveSpawnDescriptor(client, options = {}) {
       tool: 'run-agent',
       generic: true,
       headlessBin: 'konoha',
-      args: (d) => `rtk node ~/.konoha/bin/cli.js run-agent --agent ${_safeAgentToken(d.agent)}${d.worktreePath ? ` --cwd ${_shellQuotePosix(d.worktreePath)}` : ''} --task ${d.taskArg}`
+      args: (d) => `rtk node ~/.konoha/bin/cli.js run-agent --agent ${_safeAgentToken(d.agent)}${d.worktreePath ? ` --cwd ${_shellQuotePosix(d.worktreePath)}` : ''} --task ${_cliTaskExcerpt(d.prompt)} --execute`
     };
   }
   if (canonical === 'pi' || canonical === 'pi-dev' || canonical === 'pi.dev') {
@@ -168,6 +180,18 @@ function _shellQuotePosix(value) {
   return `'${String(value ?? '').replace(/'/g, "'\\''")}'`;
 }
 
+/**
+ * Task text for the CLI-fallback command. The command is embedded in a markdown
+ * inline code span, so a backtick inside the task text would terminate the span
+ * and truncate the command the model is told to run. Backticks carry no meaning
+ * to the child (the text is already inside POSIX single quotes), so they are
+ * dropped rather than escaped — markdown offers no escape inside a code span.
+ */
+function _cliTaskExcerpt(prompt) {
+  const raw = typeof prompt === 'string' && prompt.trim() ? prompt.trim() : '(no task text supplied by the dispatcher)';
+  return _shellQuotePosix(truncateSpawnTask(raw).replace(/`/g, ''));
+}
+
 function _safeAgentToken(raw) {
   const cleaned = String(raw || 'subagent').replace(/^mcp_/, '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
   return cleaned || 'subagent';
@@ -184,7 +208,12 @@ function buildSpawnDirective({ client, agent, skills, projectPath, prompt, taskD
   const rawAgent = _safeAgentToken(agent);
   const targetAgent = rawAgent === 'sannin' ? 'kage' : rawAgent;
   const taskArg = spawnTaskArg(prompt, resolvedWt);
-  const cliBase = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent}${resolvedWt ? ` --cwd ${_shellQuotePosix(resolvedWt)}` : ''}`;
+  // `--execute` is what turns this into a real child process: without it the CLI
+  // only prints another spawn directive, so a harness that cannot spawn natively
+  // (the case this fallback exists for) would loop forever. `--task` is required
+  // by the parser, and the raw text is POSIX-quoted instead of reusing the
+  // JSON-encoded taskArg, whose `$` and backticks a shell would expand.
+  const cliBase = `rtk node ~/.konoha/bin/cli.js run-agent --agent ${targetAgent} --task ${_cliTaskExcerpt(prompt)} --execute${resolvedWt ? ` --cwd ${_shellQuotePosix(resolvedWt)}` : ''}`;
 
   // Red skills are @akatsuki-only: a spawn for any other agent never carries them.
   const skillAuthz = require('../skill_authorization');
@@ -258,7 +287,8 @@ function buildParallelSpawnDirective({ client, dispatches = [], taskDir = null, 
   }
 
   const agentNames = validDispatches.map(d => _safeAgentToken((d.agent || d.name || '').replace(/_/g, '-')));
-  const cliParallel = `rtk node ~/.konoha/bin/cli.js run-agent --parallel --agents ${agentNames.join(',')}${taskDir ? ` --task-dir ${_shellQuotePosix(taskDir)}` : ''}`;
+  const cliParallelTask = _shellQuotePosix(`Execute the ${agentNames.join(', ')} slice(s) of the current task as independent workstreams.`);
+  const cliParallel = `rtk node ~/.konoha/bin/cli.js run-agent --parallel --agents ${agentNames.join(',')} --task ${cliParallelTask} --execute${taskDir ? ` --task-dir ${_shellQuotePosix(taskDir)}` : ''}`;
 
   const lines = [
     '## Parallel Spawn Wave (mandatory concurrent execution)',

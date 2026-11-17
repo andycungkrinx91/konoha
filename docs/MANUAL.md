@@ -1216,7 +1216,11 @@ YAML is what the next command reads, and the database catches up on the next sav
 
 Every form is followed by the same sentence: report structured outcomes via `konoha.report_from_agent`. The
 CLI fallback is
-`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "…"` (and `--cwd <worktree>` when a worktree path exists), which spawns an isolated OS child process with timeout and abort cleanup.
+`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "<task>" --execute` (plus `--cwd <worktree>` when a worktree path exists). `--execute` is what makes it a real child process: it resolves the installed harness binary (`omp`, `claude`, `codex`, `cursor-agent`, `opencode`, `command-code`, `agy`, `pi`), runs it headlessly with timeout and abort cleanup, and returns the child's `child_pid`. Without `--execute` the same command only prints another spawn directive, which is useful for inspection and useless as a fallback.
+
+Client identity is inferred, so `--client` is only needed to override it. OMP exports PI's variable names verbatim (`PI_SESSION_FILE`, `PI_CODING_AGENT_DIR`) and no `OMP_*` marker of its own, so detection reads the state directory those variables point at: a path under `~/.omp/` is OMP, a path under `~/.pi/` is Pi. A session that resolves to `pi` without the `pi-subagents` extension still fails closed with `UNSUPPORTED_NATIVE_SPAWN`; passing `--client cli --execute` selects the installed harness instead.
+
+The harness binary is resolved to its absolute path on `PATH` (`PATHEXT`-aware on Windows) before spawning. On Windows the npm/pnpm-installed CLIs are `.cmd` shims, and Node refuses to spawn those without a shell, so `--execute` routes them through `ComSpec /d /s /c` with an unquoted command line. `cmd.exe` treats a newline as a command separator, so on that one route a multi-line task reaches the child with its newlines collapsed to spaces; every other platform passes the task text verbatim.
 
 Three rules constrain what can be delegated:
 

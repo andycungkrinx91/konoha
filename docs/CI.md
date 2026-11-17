@@ -163,6 +163,27 @@ Two things follow. Shard 8 is not known to be the worst Windows shard — only o
 observed — so do not rebalance on it. And 1013 s of suite work still sits under the 40-minute
 target with room for a cold seed, but the headroom is smaller than the Linux numbers suggest.
 
+## Spawning a `.cmd` harness on Windows
+
+A platform-specific defect with a reproduction, so it does not get re-litigated:
+
+```
+# on Windows, from a shell where the harness is installed
+node -e "require('child_process').spawn(require('child_process').execSync('where claude',{encoding:'utf8'}).split(/\r?\n/)[0].trim(),['--version'],{stdio:'inherit'})"
+# Error: spawn EINVAL
+```
+
+Node refuses to spawn a `.cmd`/`.bat` without a shell (the CVE-2024-27980 mitigation), and
+npm/pnpm install these CLIs as `.cmd` shims. `src/mcp/subagent_spawner.js` therefore resolves
+the binary to its absolute `PATH` location and routes a `.cmd`/`.bat` through
+`ComSpec /d /s /c` with `windowsVerbatimArguments`; a real `.exe` is spawned directly. The
+process held is then `cmd.exe`, so cancellation uses `taskkill /T` rather than `kill()`.
+
+`tests/test_spawn_harness_contracts.js` pins this by re-running the spawner in a child process
+with `process.platform` pinned to `win32` and a temp `PATH` holding a fake `omp.cmd`, so the
+assertion runs on Linux and macOS too. That is simulation, not a native Windows run; the
+native check is the `windows-latest` leg of `cross-platform.yml`.
+
 ## Golden seed cache
 
 Every suite runs against a throwaway copy of one golden seed — a full `konoha init`
@@ -390,6 +411,28 @@ expectation, and no `continue-on-error` was added anywhere.
   those are git-ignored per-machine output of `konoha init`. It now deploys the
   artifacts into a temp `HOME` and measures them there, and asserts the `<1800`
   byte budget on `buildLightweightContract({ client })` for every client.
+
+- **A sandboxed `HOME` rewrote the checkout's `.omp/mcp.json` (`ensureOmpSetup`)** — not a
+  test failure, a poisoned workspace. `ensureOmpSetup` auto-detected a project whenever
+  `cwd/.omp/mcp.json` existed, which is right for the CLI and wrong for a suite running
+  under a throwaway `HOME`: the run rewrote the repository's project config to point at
+  `/tmp/<suite-home>/.konoha/file_tools_launcher.js`. That launcher dies with the suite, so
+  every later OMP session in the checkout logged
+  `MCP server "konoha" failed to connect … exited with code 1 before responding` and ran
+  with no `konoha.*` tools — including every delegated subagent. Reproduce on any platform
+  (`.omp/mcp.json` is git-ignored, so compare the file, not `git diff`):
+
+  ```
+  node -p "require('fs').statSync('.omp/mcp.json').mtimeMs" > /tmp/before
+  HOME=$(mktemp -d) USERPROFILE=$HOME node -e "require('./src/omp_manager').ensureOmpSetup({silent:true})"
+  node -p "require('fs').statSync('.omp/mcp.json').mtimeMs" > /tmp/after
+  diff /tmp/before /tmp/after   # must print nothing; it used to be rewritten
+  ```
+
+  The sandbox check compares the requested `home` against `os.userInfo().homedir`, not
+  `process.env.HOME` — the environment variable is exactly what a sandbox overrides, so
+  comparing against it would classify every sandbox as the real home. `tests/test_omp_manager.js`
+  pins the byte-identity of the project file.
 
 The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host with
 neither LXC nor Docker. That is product behavior, so the suite supplies a mocked

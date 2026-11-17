@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const {
@@ -376,7 +377,21 @@ function ensureOmpSetup(options = {}) {
   const rtkResult = deployOmpRtkRule({ ...options, silent });
   const agentsResult = deployOmpAgents({ ...options, targetAgentDir, silent });
 
-  const projectRoot = options.projectRoot || (fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
+  // Auto-detecting the project from cwd is right for the real CLI and wrong for
+  // any sandboxed caller: a test or CI run with a temporary HOME wrote its own
+  // throwaway launcher path into the developer's `.omp/mcp.json`, after which every
+  // OMP session in that repo failed to start Konoha and lost all its tools.
+  // `os.userInfo()` reads the account database, so an overridden `process.env.HOME`
+  // cannot make a sandbox look like the real home. The effective home is resolved
+  // the same way `bin/lib/paths.js` resolves it, because a suite typically overrides
+  // the environment variable rather than passing `home`.
+  const realHome = (() => {
+    try { return os.userInfo().homedir || HOME; } catch (_) { return HOME; }
+  })();
+  const effectiveHome = options.home || process.env.HOME || process.env.USERPROFILE || realHome;
+  const sandboxed = Boolean(effectiveHome) && path.resolve(effectiveHome) !== path.resolve(realHome);
+  const projectRoot = options.projectRoot
+    || (!sandboxed && fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
   const projMcp = projectRoot ? path.join(projectRoot, '.omp', 'mcp.json') : null;
   if (projMcp && (options.appendProject || options.deployProject || fileExists(projMcp))) {
     registerOmpMcp({ ...options, configPath: projMcp, silent });

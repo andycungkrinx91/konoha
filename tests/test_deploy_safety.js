@@ -28,6 +28,7 @@ const {
   _cleanMcpAgentFiles
 } = require('../src/mcp_clients/claude_code');
 const { KONOHA_START_TAG, KONOHA_END_TAG } = require('../src/config_merger');
+const { writeAgentFileSafe } = require('../src/agent_file_safety');
 
 const HOME_DIR = path.join(tmpRoot, 'home');
 
@@ -124,6 +125,28 @@ function run() {
     'generated_by: konoha appears in prose but not in frontmatter\n');
   assert.strictEqual(isKonohaOwnedAgentFile(bodyOnly), false,
     'The marker counts only inside frontmatter');
+
+  // --- Legacy agent files stay upgradeable ------------------------------
+  // Konoha 2.2.x wrote agent files that identified themselves only by the managed
+  // contract block, so a marker-only ownership check treated them as user-authored
+  // and parked every later deploy as `.konoha-proposed`: agents stayed frozen at
+  // whatever version first wrote them, with their original tool grants.
+  const legacyPath = write(path.join(tmpRoot, 'agents', 'legacy.md'),
+    '---\nname: genin\ndescription: "Scout"\nallowed-tools:\n  - Write\n---\nBody.\n\n' +
+    '<!-- KONOHA-CONTRACT-START -->\n## Konoha runtime contract (2.2.18)\n<!-- KONOHA-CONTRACT-END -->\n');
+  assert.strictEqual(isKonohaOwnedAgentFile(legacyPath), true,
+    'A contract-managed agent file is Konoha-owned even without the frontmatter marker');
+
+  const legacyWrite = writeAgentFileSafe(legacyPath, '---\nname: genin\n' + AGENT_OWNERSHIP_MARKER + '\n---\nNew.\n', 'genin');
+  assert.strictEqual(legacyWrite.status, 'written', 'A legacy Konoha agent must be upgraded in place, not parked');
+  assert.strictEqual(fs.readFileSync(legacyPath, 'utf8').includes(AGENT_OWNERSHIP_MARKER), true);
+
+  const littered = write(path.join(tmpRoot, 'agents', 'littered.md'),
+    '---\nname: kage\n---\nOld.\n\n<!-- KONOHA-CONTRACT-START -->\n<!-- KONOHA-CONTRACT-END -->\n');
+  write(`${littered}.konoha-proposed`, 'candidate\n');
+  writeAgentFileSafe(littered, '---\nname: kage\n---\nNew.\n', 'kage');
+  assert.strictEqual(fs.existsSync(`${littered}.konoha-proposed`), false,
+    'A superseded candidate must not survive the overwrite it was waiting for');
 
   // --- Cleanup only removes Konoha-owned mcp_* files --------------------
   const agentsDir = path.join(tmpRoot, 'agents-clean');
