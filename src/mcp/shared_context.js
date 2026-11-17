@@ -88,6 +88,7 @@ function recordFinding(options = {}) {
     projectPath: options.projectPath,
     sessionId: options.sessionId,
     confidence: options.verified === false ? 0.6 : 1.0,
+    verificationStatus: options.verified === false ? 'unverified' : 'confirmed',
     importance: 2,
     metadata: {
       task_id: taskId,
@@ -131,7 +132,8 @@ function readSharedContext(options = {}) {
         agent: _normAgent(row.agent_name),
         status: String(meta.status || 'reported'),
         summary: _clip(String(row.content || '').replace(/^[^·]*·\s*[^·]*·\s*/, ''), 200),
-        files: Number(meta.files || 0)
+        files: Number(meta.files || 0),
+        unverified: row.verification_status === 'unverified'
       };
     });
 }
@@ -146,7 +148,7 @@ function formatSharedContextBlock(rows, maxBytes = SC_MAX_BYTES) {
   const lines = [];
   let bytes = headerBytes;
   for (const row of rows) {
-    const line = `- @${row.agent} (${row.status}): ${row.summary}${row.files > 0 ? ` · files=${row.files}` : ''}`;
+    const line = `- @${row.agent} (${row.status}${row.unverified ? ', unverified' : ''}): ${row.summary}${row.files > 0 ? ` · files=${row.files}` : ''}`;
     const lineBytes = Buffer.byteLength(line, 'utf8') + 1;
     if (bytes + lineBytes > cap) break;
     lines.push(line);

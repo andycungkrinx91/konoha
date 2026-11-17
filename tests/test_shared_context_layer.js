@@ -62,6 +62,15 @@ const afterReplace = sc.readSharedContext({ taskId, projectPath });
 assert.strictEqual(afterReplace.length, 1, 're-report must replace, not duplicate');
 assert(afterReplace[0].summary.includes('updated finding text'));
 
+// An unverified report must stay marked: the block is what siblings trust.
+const unverifiedTaskId = 'task-unverified-probe';
+sc.recordFinding({ agent: 'chunin', taskId: unverifiedTaskId, summary: 'probably the timeout comes from the proxy', verified: false, projectPath });
+const unverifiedRows = sc.readSharedContext({ taskId: unverifiedTaskId, projectPath });
+assert.strictEqual(unverifiedRows.length, 1);
+assert.strictEqual(unverifiedRows[0].unverified, true, 'an unverified finding must carry the flag');
+const unverifiedBlock = sc.formatSharedContextBlock(unverifiedRows);
+assert(unverifiedBlock.includes('unverified'), 'the prompt block must not present unverified work as trusted');
+
 // Byte budget holds even when every slot is filled with long summaries.
 for (const agent of ['kage', 'jonin', 'anbu', 'chunin', 'akatsuki', 'yamanaka', 'tokubetsu-jonin']) {
   sc.recordFinding({ agent, taskId, summary: 'x'.repeat(600), verified: true, projectPath });
