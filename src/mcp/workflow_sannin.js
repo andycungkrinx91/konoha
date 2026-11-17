@@ -379,8 +379,10 @@ function _buildInstructionText(ctx) {
     '2. Report via `konoha.report_from_agent`, then call `sannin(task_dir)`.'
   );
 
+  // The call itself lives in `advisor_spawn_directive.spawn_call`; repeating it
+  // here would cost ~300 bytes twice in a response the same client reads whole.
   const advisorLine = ctx.advisorStartup
-    ? `\n\n### Idle Supervision\n- Start \`@advisor\` in idle mode from turn 0: \`${ctx.advisorStartup.spawn_call || ctx.advisorStartup.cli_fallback}\`\n- Steer a drifted agent with \`${(ctx.advisorStartup.steer_protocol || {}).tool || 'the client steer call'}\`.`
+    ? `\n\n### Idle Supervision\n- Start \`@advisor\` from turn 0: \`advisor_spawn_directive.spawn_call\`; steer drift with \`${(ctx.advisorStartup.steer_protocol || {}).tool || 'the client steer call'}\`.`
     : '';
   const spawnBlock = ctx.parallelSpawnDirective
     ? `\n\n${ctx.parallelSpawnDirective}`
@@ -609,12 +611,9 @@ function _finalizeSanninDispatch(prep, envelope) {
     advisor_spawn_directive: {
       agent: 'advisor',
       started_from_beginning: true,
-      tool: advisorStartup.tool || 'run_command',
-      supported_native: advisorStartup.supported_native,
       spawn_call: advisorStartup.spawn_call || advisorStartup.cli_fallback,
       cli_fallback: advisorStartup.cli_fallback,
-      steer_tool: (advisorStartup.steer_protocol || {}).tool || null,
-      directive: advisorStartup.directive
+      steer_tool: (advisorStartup.steer_protocol || {}).tool || null
     },
     todos: (syncBundle.todos || []).map((t) => ({ id: t.id, content: t.content, status: t.status, agent: t.agent })),
     walkthrough_steps: (syncBundle.walkthrough_steps || []).map((w) => ({ id: w.id, status: w.status })),

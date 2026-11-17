@@ -197,7 +197,7 @@ function run() {
     assert.ok(!delegatedRun.instructions.includes('Direct Execution'));
     assert.ok(delegatedRun.delegation_envelope, 'envelope present');
     assert.ok(delegatedRun.delegation_envelope.skills.length <= router.MAX_ENVELOPE_SKILLS);
-    assert.deepStrictEqual(Object.keys(delegatedRun.delegation_envelope).sort(), ['agent', 'skills'], 'runSannin projects the compact envelope to hold the <3KB payload contract');
+    assert.deepStrictEqual(Object.keys(delegatedRun.delegation_envelope).sort(), ['agent', 'skills'], 'runSannin projects the compact envelope to hold the <3.4KB payload contract');
     assert.strictEqual(delegatedRun.delegation_envelope.agent, delegatedRun.selected_agent);
   });
 

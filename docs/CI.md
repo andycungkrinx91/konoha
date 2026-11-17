@@ -562,6 +562,25 @@ expectation, and no `continue-on-error` was added anywhere.
   Cleanup now retries and, if the tree is still locked, prints which path it could not
   remove and carries on: a disposable temp tree is never a reason to lose the suite.
 
+- **A rollback assertion was reading a re-indexed root (`test_code_intel_hardening`)** — the
+ leg aborted an index mid-commit, then searched for the pre-abort symbol and expected it
+ to be there. That held until `isUsableRoot` started rejecting a `failed` root: the search
+ then re-indexed from the current tree, which holds the aborted edit, so the original
+ symbol was gone and the assertion failed with `FTS/chunks for original symbol must remain
+ intact after rollback`. The product behavior is intended; the test was asserting against
+ a retry it did not ask for. It now pins `options.rootResolved` to the post-abort row.
+ Mutation-proven: dropping the pin reproduces the failure.
+
+- **The sannin payload cap was measured on ambient client detection
+ (`test_e2e_install_upgrade_reinstall`)** — the cap was 3 000 bytes, and
+ `advisor_spawn_directive` pushed the OMP payload to 3 315. The gate was also reading
+ `detectActiveClient()`, so the same commit measured anywhere from 2 951 bytes (gemini) to
+ 3 315 bytes (OMP) depending on which client the host detected — a release gate that reads
+ ambient machine state. The duplicate call was removed
+ from `instructions` (it was already carried as data), two fields with no consumer were
+ dropped, and the cap is now 3 400 bytes measured across all ten clients with the worst one
+ named in the failure message. Mutation-proven: restoring the `directive` field fails it.
+
 The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host with
 neither LXC nor Docker. That is product behavior, so the suite supplies a mocked
 engine instead of weakening the gate.
@@ -873,7 +892,18 @@ the suites you name, writing `docker/windows-vm/logs/retest.log`:
 
 ```cmd
 pushd \\host.lan\Data\docker\windows-vm\oem
+powershell -c "Unblock-File .\retest.cmd"
 retest.cmd test_queue_worker.js test_subagent_delegation_integrity.js
+```
+
+The share copy carries a mark-of-the-web, so the first launch raises SmartScreen and a click
+on that dialog dismisses the run instead of starting it. `Unblock-File` clears the mark once;
+run it from an already-open `cmd` window rather than double-clicking the `.bat`. A run
+started from `Z:` needs the same treatment:
+
+```cmd
+powershell -c "Unblock-File Z:\docker\windows-vm\oem\retest.cmd"
+Z:\docker\windows-vm\oem\retest.cmd test_code_intel_lsp.js
 ```
 
 `scripts/windows-ci.ps1` robocopies the shared checkout to `C:\konoha` (pnpm's store links

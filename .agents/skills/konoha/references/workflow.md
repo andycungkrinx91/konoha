@@ -9,7 +9,7 @@ Technical specification and operational guide for the LangGraph.js cyclic StateG
 In Konoha `v2.2.23`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
 
 ### Dual-Track Execution Model
-1. **Branch B (Fast-Track / Single-Slice Tasks)**: Direct single-domain requests or slash shortcuts (`/jonin`, `/anbu`, `/genin`, etc.) dispatch with a compact delegation envelope (`<= 3KB` router payload) and client-native `spawn_directive`.
+1. **Branch B (Fast-Track / Single-Slice Tasks)**: Direct single-domain requests or slash shortcuts (`/jonin`, `/anbu`, `/genin`, etc.) dispatch with a compact delegation envelope (`< 3.4KB` router payload on the worst of 10 clients) and client-native `spawn_directive`.
 2. **Branch A (Full SDLC & Parallel Multi-Agent Pipeline)**: Multi-step engineering and `/konoha` workflows traverse the cyclic StateGraph with parallel git worktree isolation, Real-Time Idle `@advisor` monitoring, native TODO/walkthrough synchronization, and Kage 98% governance.
 
 ---

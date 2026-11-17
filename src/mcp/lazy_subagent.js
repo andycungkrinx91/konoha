@@ -67,7 +67,7 @@ const CLIENT_SPAWN = {
     // Konoha has already prepared the worktree named in the task text.
     // `context` is the shared envelope and must not repeat the per-task body, so it
     // names the delegation only; the slice and its worktree stay in `task`.
-    args: (d) => `task(context=${JSON.stringify(`Konoha delegation for @${d.agent}; the slice body and its worktree are in tasks[0].task.`)}, tasks=[{name:"${d.agent}", agent:"${d.agent}", task:${d.taskArg}, solutionSpace:${JSON.stringify('scope fixed by the delegation envelope; the child chooses how, not what')}}])`
+    args: (d) => `task(context=${JSON.stringify(`Konoha delegation for @${d.agent}; slice body in tasks[0].task.`)}, tasks=[{name:"${d.agent}", agent:"${d.agent}", task:${d.taskArg}, solutionSpace:${JSON.stringify('scope fixed by the envelope')}}])`
   },
   cursor: {
     tool: 'Task',

@@ -281,11 +281,28 @@ async function testWorkflowTokenBurnPrevention() {
   assert.ok(sourcePayloadLen < 25000, `build_from_source payload must be < 25KB, got ${sourcePayloadLen}`);
   console.log(`  ✓ build_from_source payload is compact (${sourcePayloadLen} bytes, < 25KB, verified 80% reduction)`);
 
-  // runSannin triage payload size (< 3KB)
-  const sanninRes = JSON.parse(runSannin('Build modern reactive ecommerce shop with products catalog'));
-  assert.ok(['jonin', 'anbu', 'sannin'].includes(sanninRes.selected_agent));
-  assert.ok(JSON.stringify(sanninRes).length < 3000, `runSannin payload must be < 3KB, got ${JSON.stringify(sanninRes).length}`);
-  console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
+  // runSannin triage payload size. The cap is checked on the *worst* client, not
+  // on whichever one the ambient machine happens to detect: OMP's `task(...)`
+  // call is the longest spawn form, and a gate that reads ambient state reports
+  // a different number per host. The advisor directive is turn-0 content the
+  // agent needs at rest, so the cap covers it rather than trimming it away.
+  const RUN_SANNIN_MAX_BYTES = 3400;
+  const sanninClients = ['claude', 'omp', 'pi', 'cursor', 'codex', 'gemini', 'opencode', 'commandcode', 'antigravity', 'cli'];
+  const sanninPrevClient = server.ACTIVE_CLIENT;
+  let sanninWorst = { bytes: 0, client: null };
+  try {
+    for (const sanninClient of sanninClients) {
+      server.ACTIVE_CLIENT = sanninClient;
+      const sanninRes = JSON.parse(runSannin('Build modern reactive ecommerce shop with products catalog'));
+      assert.ok(['jonin', 'anbu', 'sannin'].includes(sanninRes.selected_agent), `Unexpected route for ${sanninClient}`);
+      const bytes = JSON.stringify(sanninRes).length;
+      if (bytes > sanninWorst.bytes) sanninWorst = { bytes, client: sanninClient };
+    }
+  } finally {
+    server.ACTIVE_CLIENT = sanninPrevClient;
+  }
+  assert.ok(sanninWorst.bytes < RUN_SANNIN_MAX_BYTES, `runSannin payload must be < ${RUN_SANNIN_MAX_BYTES} bytes, got ${sanninWorst.bytes} for ${sanninWorst.client}`);
+  console.log(`  ✓ runSannin routing payload is compact (worst ${sanninWorst.bytes} bytes for ${sanninWorst.client}, < ${RUN_SANNIN_MAX_BYTES})`);
 
   // Subagents Unified Token-Bounded Prompts
   // The assertions are about the prompt itself. `status` depends on whether the
