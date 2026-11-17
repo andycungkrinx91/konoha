@@ -60,6 +60,27 @@ async function run() {
   console.log('Running test_skill_tree_parity tests...');
 
   assert.ok(fs.existsSync(SOURCE), 'Canonical templates skills dir must exist');
+
+  // The project mirror is tracked in git, but nothing regenerates it — sync_skills.js writes
+  // only the home mirror. So every subtree it carries must stay byte-identical to the
+  // canonical templates, or the published copy answers with stale instructions. Checked
+  // before the deployed-mirror early return below, which fires on a clean checkout.
+  const projMirror = path.join(ROOT, '.agents', 'skills');
+  for (const slug of fs.existsSync(projMirror) ? fs.readdirSync(projMirror) : []) {
+    const template = path.join(SOURCE, slug);
+    if (!fs.existsSync(template)) continue;
+    for (const rel of getFiles(template)) {
+      const mirrored = path.join(projMirror, slug, rel);
+      const label = path.join('.agents', 'skills', slug, rel);
+      assert.ok(fs.existsSync(mirrored), `${label} must mirror src/templates/skills`);
+      assert.ok(
+        fs.readFileSync(path.join(template, rel)).equals(fs.readFileSync(mirrored)),
+        `${label} drifted from src/templates/skills`
+      );
+    }
+  }
+  if (fs.existsSync(projMirror)) console.log('✓ Tracked project skill mirror matches src/templates/skills');
+
   if (!fs.existsSync(DEPLOYED)) {
     console.log(`✓ Deployed mirror absent in workspace (canonical in src/templates/skills)`);
     return;

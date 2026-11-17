@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.registry.outputs.published != 'true'
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build Web UI bundle
         if: steps.registry.outputs.published != 'true'

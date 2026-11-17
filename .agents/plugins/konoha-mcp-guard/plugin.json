@@ -1,0 +1,5 @@
+{
+  "name": "konoha-mcp-guard",
+  "description": "Konoha repository-only JS guardrail enforcing Konoha MCP tools and maintenance skills across all 8 harnesses.",
+  "version": "1.0.0"
+}

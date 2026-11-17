@@ -6,8 +6,17 @@ const { cleanHexColor, resolveDynamicOutputPath } = require('./document_engine_c
 function sanitizeFormula(formula) {
   if (typeof formula !== 'string') return '';
   const clean = formula.startsWith('=') ? formula.slice(1).trim() : formula.trim();
-  if (/(WEBSERVICE\(|ENCODEURL\(|HYPERLINK\(|CALL\(|REGISTER\.|DDEREFERENCE\(|SQL\.REQUEST\()/i.test(clean)) {
+  // Remote-fetch, DDE/OLE and registered-function sinks. DDE/REGISTER are the classic
+  // Excel formula-execution vectors; WEBSERVICE/ENCODEURL/HYPERLINK exfiltrate or beacon.
+  if (/(WEBSERVICE\(|ENCODEURL\(|HYPERLINK\(|CALL\(|REGISTER[.(]|DDE\(|DDEREFERENCE\(|SQL\.REQUEST\()/i.test(clean)) {
     throw new Error(`Formula rejected: function not allowed: ${clean}`);
+  }
+  // The DDE link operator is the other half of the same vector and matches none of the
+  // names above: `=cmd|' /C calc'!A0` executes a program, and `|` is not an Excel
+  // operator, so any `|` outside a string literal is a link. Sheet refs (`Sheet2!A1`)
+  // and text containing `|` (`="a|b"`) still pass.
+  if (/\|/.test(clean.replace(/"[^"]*"/g, ''))) {
+    throw new Error(`Formula rejected: DDE link operator: ${clean}`);
   }
   return clean;
 }

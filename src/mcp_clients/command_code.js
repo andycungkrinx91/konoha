@@ -183,11 +183,10 @@ function registerCommandCodePermissions(silent = true, options = {}) {
 }
 
 function buildCommandCodeBlockerSource() {
-  const checkerLiteral = JSON.stringify(buildGuardrailCheckerSource());
+  const checkerLiteral = buildGuardrailCheckerSource();
   return `#!/usr/bin/env node
 const fs = require('fs');
-const GUARDRAIL_CHECKER_SOURCE = ${checkerLiteral};
-const checkCommandGuardrails = new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();
+const checkCommandGuardrails = ${checkerLiteral};
 let raw = '';
 try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
 let input = null;

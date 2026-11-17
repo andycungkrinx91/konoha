@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.22"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.23-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.23"></a>
   <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=master&label=cross-platform%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on master"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
   <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
@@ -124,7 +124,8 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
 | Quality | Two-step Zero-AI-Slop pre-gate | `aislop_scan` + `anti_slop` | 100/100 scan and 0 findings required before synthesis |
-| Supply chain | Socket CLI audit | `socket ci` | Mechanical blocker on High/Medium dependency findings |
+| Supply chain | Socket CLI audit | `socket ci` | Mechanical blocker on High/Medium dependency findings; `socket.yml` suppresses only documented capabilities (never `usesEval`), and `pnpm-lock.yaml` / `patches/**` stay audited |
+| Dependency posture | No `lodash`, no dynamic execution, exact pins | `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js` | Fails the build if `lodash` returns, if a bundled dep loses its exact pin, or if `eval`/`new Function` reappears |
 | Remediation | Bounded auto-fix loop | `src/sdlc_remediation.js` | Circuit breaker, max 7 cycles |
 | Remote | Telegram dual-mode bot + prompt queue | `src/telegram/`, `src/queue/` | Numeric `chat_id` whitelist; atomic SQLite state machine |
 | Secrets | Argon2id auth, AES-256-GCM vault, scrypt key derivation | `src/auth.js`, `src/crypto_vault.js` | Automatic masking in logs and TUI; zero plaintext secrets |

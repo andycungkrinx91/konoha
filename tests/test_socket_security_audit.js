@@ -206,6 +206,9 @@ function verifySocketConfigRules() {
   assert.ok(ymlContent.includes('issueRules:'), 'Must specify issueRules');
   assert.ok(ymlContent.includes('envVars: false'), 'Must safely filter benign envVars capability alerts');
   assert.ok(ymlContent.includes('networkAccess: false'), 'Must safely filter benign networkAccess capability alerts');
+  assert.ok(!ymlContent.includes('usesEval: false'), 'usesEval must not be suppressed: v2.2.23 removed every eval sink');
+  assert.ok(!/^\s*-\s*"pnpm-lock\.yaml"/m.test(ymlContent), 'pnpm-lock.yaml must stay audited, not ignored');
+  assert.ok(!/^\s*-\s*"patches\/\*\*"/m.test(ymlContent), 'patches/** must stay audited, not ignored');
 
   const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
   assert.strictEqual(

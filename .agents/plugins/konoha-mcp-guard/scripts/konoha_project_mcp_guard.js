@@ -1,0 +1,1 @@
+/home/andycungkrinx/experiment/portofolio/data/konoha/scripts/konoha_project_mcp_guard.js

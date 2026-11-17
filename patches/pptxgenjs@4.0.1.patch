@@ -1,5 +1,11 @@
+diff --git a/dist/pptxgen.bundle.js b/dist/pptxgen.bundle.js
+deleted file mode 100644
+index c20c9445033558f594d28a2178e8c60d22d14870..0000000000000000000000000000000000000000
+diff --git a/dist/pptxgen.bundle.js.map b/dist/pptxgen.bundle.js.map
+deleted file mode 100644
+index 3db05251a94042f9e5bc73fb965bd558b388f293..0000000000000000000000000000000000000000
 diff --git a/package.json b/package.json
-index e6728e1fb738b43528069796f2b2bd74ec380313..68bb4986e0f75765351d9c97000ac9b39ad3fc07 100644
+index e6728e1fb738b43528069796f2b2bd74ec380313..8e3024c9386a2e2efad05b67f3a271c3192a0873 100644
 --- a/package.json
 +++ b/package.json
 @@ -1,96 +1,95 @@

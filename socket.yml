@@ -1,17 +1,21 @@
 version: 2
 # Socket.dev Configuration for Konoha
 # Docs: https://docs.socket.dev
+#
+# Suppressions here are limited to capabilities Konoha exercises by design and that
+# are already documented in docs/SECURITY.md. Anything a fix can remove stays enabled:
+# `usesEval` is NOT suppressed (v2.2.23 removed every dynamic-execution sink, including
+# the browser bundles that shipped inside pptxgenjs, xlsx-populate, and jszip), and
+# pnpm-lock.yaml / patches/** are NOT ignored so supply-chain changes are audited.
 
 projectIgnorePaths:
   - "apps/web"
   - "apps/web/build"
-  - "pnpm-lock.yaml"
   - "tests"
   - "tests/**"
   - "docs"
   - "docs/**"
   - "assets/**"
-  - "patches/**"
   - ".konoha"
   - ".gemini"
   - ".agents"
@@ -22,10 +26,14 @@ projectIgnorePaths:
   - ".omp"
 
 issueRules:
+  # Konoha reads provider API keys from the environment by design (CLI/MCP contract).
   envVars: false
+  # Endpoint literals are user-facing configuration, not exfiltration.
   urlStrings: false
+  # MCP servers talk to configured providers and the local Ollama/ONNX runtimes.
   networkAccess: false
+  # LLM prompt-injection heuristics are not actionable for a local agent tool.
   gptSecurity: false
   gptAnomaly: false
-  usesEval: false
+  # Package authors rotate; provenance is enforced in CI instead.
   newAuthor: false

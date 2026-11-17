@@ -41,7 +41,7 @@ const CURSOR_RTK_RULE = path.join(CURSOR_DIR, 'rules', 'rtk.mdc');
 const CONTRACT_MARKER = 'KONOHA-CONTRACT-START';
 const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
 const agentContract = fileExists(contractPath) ? require(contractPath) : null;
-const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.22';
+const CONTRACT_VERSION = agentContract?.CONTRACT_VERSION || '2.2.23';
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }

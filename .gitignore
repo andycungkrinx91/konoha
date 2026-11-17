@@ -132,8 +132,9 @@ apps/web/test-results/
 .claude/
 .commandcode/
 .opencode/
-.agents/
 .codex/
+!.agents/
+!.agents/**
 *.skills.fingerprint
 .aislop/history.jsonl
 

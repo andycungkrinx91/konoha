@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.22)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.23)
 
 ## 1. Overview & Threat Model
 
@@ -71,7 +71,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - Render pages intercept network calls: external HTTP/HTTPS and `file:` schemes are blocked. Local system font stacks replace external Google Fonts `@import` calls.
 
 ### 6.3 Formula Injection Guard
-- Spreadsheet generation validates formula strings, rejecting Excel DDE and dangerous functions: `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `REGISTER.ID`, `DDEREFERENCE`, `SQL.REQUEST`.
+- Spreadsheet generation validates formula strings, rejecting Excel DDE and dangerous functions: `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `REGISTER.ID`/`REGISTER(...)`, `DDE`, `DDEREFERENCE`, `SQL.REQUEST`. See §12.4 for the v2.2.23 additions.
 
 ---
 
@@ -128,7 +128,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.22)
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.23)
 
 ### 11.1 Bridge Request Budget
 - **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.
@@ -141,5 +141,37 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - **Magic-Byte Sniffing**: The declared filename extension is ignored. Only PNG, JPEG, and WebP signatures are accepted; anything else is refused with `415`.
 - **Filename Sanitisation**: the reference stem is reduced to `[a-zA-Z0-9_-]` before it is used as a filesystem name, so upload names cannot traverse directories.
 - **Authenticated Only**: the route requires an authenticated Web session like every other mutating `/api/v1/*` endpoint.
+
+---
+
+## 12. Supply Chain & Dynamic Execution Hardening (v2.2.23)
+
+### 12.1 Zero Dynamic Execution
+- **No `eval` / `Function` in the runtime**: `src/`, `bin/`, and `scripts/` contain no `eval(`, no `new Function(`, and no `node:vm` code-generation call. `tests/test_no_dynamic_execution.js` scans every runtime file and fails the build if one reappears.
+- **Guardrail checker is embedded, not compiled**: `src/mcp_clients/command_code.js`, `src/mcp_clients/claude_code_hooks.js`, and `src/pi_blocker_template.js` emit `buildGuardrailCheckerSource()` verbatim as a function expression (`const checkCommandGuardrails = function checkCommandGuardrails(command) {...}`) instead of wrapping the source in `new Function(...)()`. One source of truth, zero code generation in the generated hook.
+
+### 12.2 `lodash` Removal (`patches/xlsx-populate@1.21.0.patch`)
+- **Why**: `lodash` was a transitive dependency of `xlsx-populate@1.21.0` only, and its `template()` function compiles strings with `Function`, which is the static eval sink scanners flagged. Konoha never called `template`; the sink was nonetheless shipped inside the published tarball, because `xlsx-populate` is a `bundleDependency`.
+- **What**: the pnpm patch replaces all 19 `require("lodash")` call sites with `lib/lodash-lite.js`, a 27-helper shim implementing exactly the surface `xlsx-populate` uses, with lodash-4-faithful semantics (object-shorthand iteratees, `sortBy` identity default and iteratee-list flattening, `remove` mutation, `includes` SameValueZero, cycle-safe `cloneDeep`). `lodash` is dropped from the dependency list.
+- **Parity**: `tests/test_xlsx_populate_lodash_lite.js` asserts the helper behaviours against documented lodash 4 semantics, including sparse-array iteration and a full XLSX round-trip (merges, frozen pane, autofilter, formulas, styles) through the real `spreadsheet_create` tool.
+- **Bundle removal**: the patch also deletes `browser/` (13.9 MiB webpack bundle, 52 `Function(` occurrences, 154 `template` references) and `examples/`, and removes the `browser` field from the manifest. Konoha is Node-only (`main: lib/XlsxPopulate.js`), so no consumer path changes.
+
+### 12.3 Presentation Image Boundary (`src/workflow/tokubetsu-scribe/doc_engine_presentation.js`)
+- `pptxgenjs` resolves `addImage({ path })` with `fs.readFileSync` and `addImage({ path: 'http…' })` with an HTTPS GET. Konoha only embeds internally rendered cover artwork, so the engine routes every image through `addInlineImage(slide, buffer)`, which requires an in-memory PNG buffer (magic-byte checked) and emits a base64 data URI. No path or URL string can reach `addImage`; `tests/test_document_engine_security.js` asserts the single guarded call site.
+
+### 12.4 Spreadsheet Formula Blocklist
+- `sanitizeFormula()` now also rejects `DDE(` and `REGISTER.`/`REGISTER(`, closing the Excel DDE command-execution vector alongside the existing `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `DDEREFERENCE`, and `SQL.REQUEST` rules.
+- **DDE link operator**: the same payload has a second spelling, `=cmd|' /C calc'!A0`, which names none of those functions. `|` is not an Excel operator, so any pipe outside a quoted string literal is treated as a DDE link and rejected. `Sheet2!A1` references and `="a|b"` text still pass; `tests/test_document_engine_security.js` asserts all four directions.
+
+### 12.5 Install Scripts & Deterministic Releases
+- **Native install scripts stay denied**: `pnpm-workspace.yaml#allowBuilds` keeps `onnxruntime-node: false` and `protobufjs: false`. `onnxruntime-node`'s postinstall downloads CUDA EP binaries from NuGet without checksum verification; ONNX inference itself is unaffected because the JS binding ships prebuilt.
+- **Frozen installs**: `.github/workflows/publish.yml` installs with `--frozen-lockfile`. Release builds cannot resolve a dependency version that is not in the committed lockfile.
+- **Exact pins**: `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are pinned to exact versions, so the patched and bundled packages cannot drift between lockfile resolution and publish.
+- **No browser bundles in the shipped tree**: the three patched packages ship only the Node entry points Konoha loads. `xlsx-populate` loses `browser/` (13.9 MiB, 52 `Function(` occurrences) and `examples/`; `pptxgenjs` loses `dist/pptxgen.bundle.js` and its source map; `jszip` loses `dist/` and the `browser` manifest field. All three bundles carry a `setImmediate` polyfill of `new Function(""+e)`, and the remaining `pptxgen.cjs.js`/`.es.js`/`.min.js` and `jszip/lib/` contain none. A scan of the packed tarball finds zero `new Function(` or `eval(` occurrences across 205 bundled `.js` files. `tests/test_dependency_posture.js` asserts the installed trees, not just the patch files, so a stale `node_modules` cannot re-ship a deleted bundle.
+- **Socket suppressions narrowed**: `socket.yml` no longer suppresses `usesEval`, and no longer ignores `pnpm-lock.yaml` or `patches/**`, so supply-chain and patch changes are audited. `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` remain suppressed because those capabilities are Konoha's documented contract.
+
+### 12.6 Release-Time Dependency Audit
+- `tests/test_dependency_posture.js` fails the build if `lodash` reappears in the lockfile or manifest, if the `xlsx-populate` patch loses its `lodash-lite` shim or stops deleting the browser bundle, if the `pptxgenjs` or `jszip` patches stop deleting their browser builds, if an installed tree still contains a deleted bundle (a stale `node_modules` after a patch edit), if any bundled dependency loses its exact pin, if the publish workflow reverts to `--no-frozen-lockfile`, or if `onnxruntime-node` builds are re-enabled.
+- **License attribution is part of the audit.** The tarball redistributes `bundleDependencies` and their transitive closure — 19 packages across Apache-2.0, MIT, ISC, and BlueOak-1.0.0. `NOTICE` names each one with its license and copyright, records that `jszip` is redistributed under its MIT option rather than GPL-3.0-or-later, and `tests/test_package_tarball_files.js` reads the packed artifact to fail on an unattributed package or a missing license file. Patched files stay under the license of the package they patch.
 
 ---

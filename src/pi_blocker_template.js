@@ -3,7 +3,7 @@
 const { buildGuardrailCheckerSource } = require('./guardrails');
 
 function buildPiBlockerExtensionSource() {
-  const guardrailSource = JSON.stringify(buildGuardrailCheckerSource());
+  const guardrailSource = buildGuardrailCheckerSource();
   return [
     '// Konoha native-tool blocker for Pi (auto-managed by konoha pi_manager).',
     '// Blocks the native read tool (bounded file tools / code_search instead) and',
@@ -45,9 +45,7 @@ function buildPiBlockerExtensionSource() {
     '  "(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) " +',
     '  "or the konoha code_search tool for codebase discovery instead.";',
     '',
-    'const GUARDRAIL_CHECKER_SOURCE = ' + guardrailSource + ';',
-    'const checkCommandGuardrails: (command: string) => { category: string; reason: string } | null =',
-    '  new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();',
+    'const checkCommandGuardrails: (command: string) => { category: string; reason: string } | null = ' + guardrailSource + ';',
     '',
     'function isReadToolCallEvent(event: ToolCallEvent): boolean {',
     '  return event.toolName === "read";',

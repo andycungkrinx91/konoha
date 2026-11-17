@@ -1,0 +1,627 @@
+diff --git a/browser/xlsx-populate-no-encryption.js b/browser/xlsx-populate-no-encryption.js
+deleted file mode 100644
+index deec963a308cfbefa0fa3fdec75b4256bb3eea33..0000000000000000000000000000000000000000
+diff --git a/browser/xlsx-populate-no-encryption.min.js b/browser/xlsx-populate-no-encryption.min.js
+deleted file mode 100644
+index 77c6cf56b668691192912e1f69ca753e7f055d86..0000000000000000000000000000000000000000
+diff --git a/browser/xlsx-populate-no-encryption.min.js.map b/browser/xlsx-populate-no-encryption.min.js.map
+deleted file mode 100644
+index d3cc592e68a968b029f5dd4ab80813114a82dd9e..0000000000000000000000000000000000000000
+diff --git a/browser/xlsx-populate.js b/browser/xlsx-populate.js
+deleted file mode 100644
+index 6190c7874c3e0dbd4cc565440131ade44481e0ba..0000000000000000000000000000000000000000
+diff --git a/browser/xlsx-populate.min.js b/browser/xlsx-populate.min.js
+deleted file mode 100644
+index 8a7afb0339ec8ba4124ca1f68b47d7aa3b4fccc3..0000000000000000000000000000000000000000
+diff --git a/browser/xlsx-populate.min.js.map b/browser/xlsx-populate.min.js.map
+deleted file mode 100644
+index c09170fad9e38331e3a5be4256f472287e0ba471..0000000000000000000000000000000000000000
+diff --git a/examples/basic/index.js b/examples/basic/index.js
+deleted file mode 100644
+index 48994f81913466f1040632cf0ca8a2e5bd9be1fb..0000000000000000000000000000000000000000
+diff --git a/examples/basic/out.xlsx b/examples/basic/out.xlsx
+deleted file mode 100644
+index 604ae605889607e8411f278f112ff9add1d8c6f4..0000000000000000000000000000000000000000
+diff --git a/examples/browser/index.html b/examples/browser/index.html
+deleted file mode 100644
+index e094236ffe9e79808f69c8c10f66a517a9b890c0..0000000000000000000000000000000000000000
+diff --git a/examples/encryption/in.xlsx b/examples/encryption/in.xlsx
+deleted file mode 100644
+index fc0a10d334fe48f748959bc0254d3aaa41bb71ea..0000000000000000000000000000000000000000
+diff --git a/examples/encryption/index.js b/examples/encryption/index.js
+deleted file mode 100644
+index d57296a1119664a14d771ee9e4045dae1fe7586f..0000000000000000000000000000000000000000
+diff --git a/examples/encryption/out.xlsx b/examples/encryption/out.xlsx
+deleted file mode 100644
+index 7ec282ca0930c108786739b4a9bed290d6e2159b..0000000000000000000000000000000000000000
+diff --git a/examples/ranges/index.js b/examples/ranges/index.js
+deleted file mode 100644
+index b31ad1ca2cbf5bee6dac63f20a4f61e283e71bf7..0000000000000000000000000000000000000000
+diff --git a/examples/ranges/out.xlsx b/examples/ranges/out.xlsx
+deleted file mode 100644
+index 3531af333efc7e1297b3d55abe0771127c71cfe0..0000000000000000000000000000000000000000
+diff --git a/examples/ranges/template.xlsx b/examples/ranges/template.xlsx
+deleted file mode 100644
+index f88e0638cd529d780d8a4737c70cf9627ead4570..0000000000000000000000000000000000000000
+diff --git a/examples/styles/index.js b/examples/styles/index.js
+deleted file mode 100644
+index 0ad206815434e7cc7fd2652462bde4a202585496..0000000000000000000000000000000000000000
+diff --git a/examples/styles/out.xlsx b/examples/styles/out.xlsx
+deleted file mode 100644
+index ae910d80b57834652f82883d4065be640a85397e..0000000000000000000000000000000000000000
+diff --git a/lib/AppProperties.js b/lib/AppProperties.js
+index 8782189d6e2ac551da3d4e99e66dbfae291a8aa3..1480a09ea135ea7717c49bc92fe4af38ac5ec1f7 100644
+--- a/lib/AppProperties.js
++++ b/lib/AppProperties.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const xmlq = require("./xmlq");
+ const ArgHandler = require("./ArgHandler");
+ 
+diff --git a/lib/ArgHandler.js b/lib/ArgHandler.js
+index 11d56fc414ad7aff111d38d6ce17f67db8cce393..67ffeb100542a40c285efecadb292d53473eabef 100644
+--- a/lib/ArgHandler.js
++++ b/lib/ArgHandler.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * Method argument handler. Used for overloading methods.
+diff --git a/lib/Cell.js b/lib/Cell.js
+index efc881eb6f72e09ac42402e931dca26c077fce2f..5c85d7fbdd6a1717b0b64f402d19907651099ad8 100644
+--- a/lib/Cell.js
++++ b/lib/Cell.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const ArgHandler = require("./ArgHandler");
+ const addressConverter = require("./addressConverter");
+ const dateConverter = require("./dateConverter");
+diff --git a/lib/ContentTypes.js b/lib/ContentTypes.js
+index 96966f5b8df306938b3eac350b999f86842a524a..115c3ab133805eb28ec4cc69a60caafc729d96df 100644
+--- a/lib/ContentTypes.js
++++ b/lib/ContentTypes.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * A content type collection.
+diff --git a/lib/Encryptor.js b/lib/Encryptor.js
+index 17154ff9d180950be9131859fc3190ffa3bf47e0..48098e4b28daf84b26d025e5e94d689a1fe38e43 100644
+--- a/lib/Encryptor.js
++++ b/lib/Encryptor.js
+@@ -8,7 +8,7 @@
+  * https://github.com/nolze/ms-offcrypto-tool
+  */
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const cfb = require("cfb");
+ const crypto = require("crypto");
+ const externals = require("./externals");
+diff --git a/lib/FormulaError.js b/lib/FormulaError.js
+index ee2c70a7c7152362e0cdaf4dae0dd4b234e69bbc..f981930ea0f50fbe37696fdc668573e98813c72c 100644
+--- a/lib/FormulaError.js
++++ b/lib/FormulaError.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * A formula error (e.g. #DIV/0!).
+diff --git a/lib/Relationships.js b/lib/Relationships.js
+index 7ab80f544eeb22a5df7584ec32ab7caa0b957f5f..3c591d968404a6013eca77477292ba3f09f2e160 100644
+--- a/lib/Relationships.js
++++ b/lib/Relationships.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ const RELATIONSHIP_SCHEMA_PREFIX = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/";
+ 
+diff --git a/lib/RichText.js b/lib/RichText.js
+index b34f91f04ca21e20dac76f4782defd9c92fe8b17..26020a94df452a84a1f810f8c56b803a87c86b87 100644
+--- a/lib/RichText.js
++++ b/lib/RichText.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const RichTextFragment = require("./RichTextFragment");
+ 
+ /**
+diff --git a/lib/RichTextFragment.js b/lib/RichTextFragment.js
+index 8500d664a1a481c02ede21c16bc3fb981d0a718d..527652d58ba662600b64fcd0abe154f5946d53cc 100644
+--- a/lib/RichTextFragment.js
++++ b/lib/RichTextFragment.js
+@@ -3,7 +3,7 @@
+ /* eslint camelcase:off */
+ 
+ const ArgHandler = require("./ArgHandler");
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const xmlq = require("./xmlq");
+ const colorIndexes = require("./colorIndexes");
+ 
+diff --git a/lib/Row.js b/lib/Row.js
+index 724315155f78d2d0e39fd34923c82dcbeddc0e87..8ddff90e4bf337d31e571eda8db345b40cffc92d 100644
+--- a/lib/Row.js
++++ b/lib/Row.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const Cell = require("./Cell");
+ const regexify = require("./regexify");
+ const ArgHandler = require("./ArgHandler");
+diff --git a/lib/SharedStrings.js b/lib/SharedStrings.js
+index c7ca5555f7b9ce71eb8577a1dc1944e654e85f74..fce8cc26954ede9ef7ee4a119fa5e967b733c666 100644
+--- a/lib/SharedStrings.js
++++ b/lib/SharedStrings.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * The shared strings table.
+diff --git a/lib/Sheet.js b/lib/Sheet.js
+index 381041cbf27a4566c0318bd2054774839482f7a5..3e38d0d0dc37975d45fcfa33c764f5e7adccd086 100644
+--- a/lib/Sheet.js
++++ b/lib/Sheet.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const Cell = require("./Cell");
+ const Row = require("./Row");
+ const Column = require("./Column");
+diff --git a/lib/Style.js b/lib/Style.js
+index 3c602ce61b1c2fceefea9ad7f064806726b09883..cce20358c064979d3bdc40e3399c630c357ddf18 100644
+--- a/lib/Style.js
++++ b/lib/Style.js
+@@ -3,7 +3,7 @@
+ /* eslint camelcase:off */
+ 
+ const ArgHandler = require("./ArgHandler");
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const xmlq = require("./xmlq");
+ const colorIndexes = require("./colorIndexes");
+ 
+diff --git a/lib/StyleSheet.js b/lib/StyleSheet.js
+index 9d6ec7f1ec2e4b774cc9e1edb443a579d3ec3bc2..4b87778712c330ac06d77bc748dfd84645cdc45c 100644
+--- a/lib/StyleSheet.js
++++ b/lib/StyleSheet.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const xmlq = require("./xmlq");
+ const Style = require("./Style");
+ 
+diff --git a/lib/Workbook.js b/lib/Workbook.js
+index 0fe21e65be682c934537b6f09950dd078a6e36ec..58377c14262257d3b5fdf70c65ac30cb3ceed7ab 100644
+--- a/lib/Workbook.js
++++ b/lib/Workbook.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const fs = require("fs");
+ const JSZip = require('jszip');
+ 
+diff --git a/lib/XmlBuilder.js b/lib/XmlBuilder.js
+index 81e0be9820f14c0fd84ccc5f4261d9917d732947..9d41b1692b739ad9ce762b5f6abdc6de4eac9755 100644
+--- a/lib/XmlBuilder.js
++++ b/lib/XmlBuilder.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ const XML_DECLARATION = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
+ 
+diff --git a/lib/addressConverter.js b/lib/addressConverter.js
+index e879df03d166adeb6a328a4806dae09889b5d629..87461e444ae98515190212fc313482e113fac37e 100644
+--- a/lib/addressConverter.js
++++ b/lib/addressConverter.js
+@@ -4,7 +4,7 @@
+ // These methods get called a lot so disable the rule to allow V8 opmtimization.
+ /* eslint-disable operator-assignment */
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ const ADDRESS_REGEX = /^(?:'?(.+?)'?!)?(?:(\$)?([A-Z]+)(\$)?(\d+)(?::(\$)?([A-Z]+)(\$)?(\d+))?|(\$)?([A-Z]+):(\$)?([A-Z]+)|(\$)?(\d+):(\$)?(\d+))$/;
+ 
+ /**
+diff --git a/lib/lodash-lite.js b/lib/lodash-lite.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..7d6ba4db9cc55ce8820d2d330defb19f7ca1937a
+--- /dev/null
++++ b/lib/lodash-lite.js
+@@ -0,0 +1,316 @@
++'use strict';
++
++// Minimal lodash-compatible subset used by xlsx-populate.
++// xlsx-populate only needs 27 helpers and never touches lodash's `template`,
++// `eval`, or `Function` sinks, so the real lodash (1 051 files) is replaced here.
++// Semantics mirror lodash 4 for the inputs this library actually passes.
++
++function isNil(value) {
++  return value === null || value === undefined;
++}
++
++function isArray(value) {
++  return Array.isArray(value);
++}
++
++function isObject(value) {
++  const type = typeof value;
++  return value !== null && (type === 'object' || type === 'function');
++}
++
++function isFunction(value) {
++  return typeof value === 'function';
++}
++
++function isNumber(value) {
++  return typeof value === 'number' || (isObject(value) && Object.prototype.toString.call(value) === '[object Number]');
++}
++
++function isNaNValue(value) {
++  return isNumber(value) && value !== +value;
++}
++
++function isInteger(value) {
++  return typeof value === 'number' && value === Math.floor(value) && isFinite(value);
++}
++
++function isEmpty(value) {
++  if (isNil(value)) return true;
++  if (isArray(value) || typeof value === 'string' || typeof value === 'function') return value.length === 0;
++  if (value instanceof Map || value instanceof Set) return value.size === 0;
++  if (isObject(value)) {
++    for (const key in value) {
++      if (Object.prototype.hasOwnProperty.call(value, key)) return false;
++    }
++    return true;
++  }
++  return true;
++}
++
++function ownKeys(value) {
++  return isObject(value) ? Object.keys(value) : [];
++}
++
++function values(value) {
++  return ownKeys(value).map((key) => value[key]);
++}
++
++function assign(target, ...sources) {
++  const to = Object(target);
++  for (const source of sources) {
++    if (isNil(source)) continue;
++    for (const key of Object.keys(Object(source))) to[key] = source[key];
++  }
++  return to;
++}
++
++function defaults(target, ...sources) {
++  const to = Object(target);
++  for (const source of sources) {
++    if (isNil(source)) continue;
++    for (const key of Object.keys(Object(source))) {
++      if (to[key] === undefined) to[key] = source[key];
++    }
++  }
++  return to;
++}
++
++function forOwn(value, iteratee) {
++  if (!isObject(value)) return value;
++  for (const key of Object.keys(value)) {
++    if (iteratee(value[key], key, value) === false) break;
++  }
++  return value;
++}
++
++function mapValues(value, iteratee) {
++  const result = {};
++  for (const key of ownKeys(value)) result[key] = iteratee(value[key], key, value);
++  return result;
++}
++
++function clone(value) {
++  if (!isObject(value)) return value;
++  if (isArray(value)) return value.slice();
++  return assign({}, value);
++}
++
++function cloneDeep(value, seen) {
++  if (!isObject(value)) return value;
++  if (isFunction(value)) return value;
++  const memo = seen || new Map();
++  if (memo.has(value)) return memo.get(value);
++  if (value instanceof Date) return new Date(value.getTime());
++  if (value instanceof RegExp) return new RegExp(value.source, value.flags);
++  if (isArray(value)) {
++    const out = [];
++    memo.set(value, out);
++    for (let i = 0; i < value.length; i++) out[i] = cloneDeep(value[i], memo);
++    return out;
++  }
++  const out = Object.create(Object.getPrototypeOf(value));
++  memo.set(value, out);
++  for (const key of Object.keys(value)) out[key] = cloneDeep(value[key], memo);
++  return out;
++}
++
++function isEqual(a, b) {
++  if (a === b) return true;
++  if (isNumber(a) && isNumber(b)) return a !== +a && b !== +b;
++  if (!isObject(a) || !isObject(b)) return false;
++  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
++  if (a instanceof RegExp && b instanceof RegExp) return String(a) === String(b);
++  const aIsArray = isArray(a);
++  if (aIsArray !== isArray(b)) return false;
++  if (aIsArray) {
++    if (a.length !== b.length) return false;
++    for (let i = 0; i < a.length; i++) if (!isEqual(a[i], b[i])) return false;
++    return true;
++  }
++  const aKeys = Object.keys(a);
++  const bKeys = Object.keys(b);
++  if (aKeys.length !== bKeys.length) return false;
++  for (const key of aKeys) {
++    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
++    if (!isEqual(a[key], b[key])) return false;
++  }
++  return true;
++}
++
++function isMatch(object, source) {
++  if (!isObject(object)) return isEmpty(source);
++  for (const key of Object.keys(source)) {
++    if (!isEqual(object[key], source[key])) return false;
++  }
++  return true;
++}
++
++// lodash's iteratee shorthand: undefined → identity, function → itself,
++// object → partial match, string/number → property accessor.
++function toIteratee(iteratee) {
++  if (isFunction(iteratee)) return iteratee;
++  if (isNil(iteratee)) return (value) => value;
++  if (isObject(iteratee)) return (value) => isMatch(value, iteratee);
++  return (value) => (isObject(value) || typeof value === 'string' ? value[iteratee] : undefined);
++}
++
++function eachEntry(collection, iteratee) {
++  if (isNil(collection)) return;
++  if (isArray(collection) || typeof collection === 'string') {
++    const length = collection.length;
++    for (let i = 0; i < length; i++) {
++      if (iteratee(collection[i], i, collection) === false) return;
++    }
++    return;
++  }
++  for (const key of ownKeys(collection)) {
++    if (iteratee(collection[key], key, collection) === false) return;
++  }
++}
++
++function forEach(collection, iteratee) {
++  eachEntry(collection, iteratee);
++  return collection;
++}
++
++function map(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  const result = [];
++  eachEntry(collection, (value, key) => {
++    result.push(fn(value, key, collection));
++  });
++  return result;
++}
++
++function filter(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  const result = [];
++  eachEntry(collection, (value, key) => {
++    if (fn(value, key, collection)) result.push(value);
++  });
++  return result;
++}
++
++function find(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  let found;
++  eachEntry(collection, (value, key) => {
++    if (fn(value, key, collection)) {
++      found = value;
++      return false;
++    }
++    return undefined;
++  });
++  return found;
++}
++
++function findIndex(array, iteratee) {
++  if (isNil(array)) return -1;
++  const fn = toIteratee(iteratee);
++  for (let i = 0; i < array.length; i++) {
++    if (fn(array[i], i, array)) return i;
++  }
++  return -1;
++}
++
++function every(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  let result = true;
++  eachEntry(collection, (value, key) => {
++    if (!fn(value, key, collection)) {
++      result = false;
++      return false;
++    }
++    return undefined;
++  });
++  return result;
++}
++
++function some(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  let result = false;
++  eachEntry(collection, (value, key) => {
++    if (fn(value, key, collection)) {
++      result = true;
++      return false;
++    }
++    return undefined;
++  });
++  return result;
++}
++
++function remove(collection, iteratee) {
++  const fn = toIteratee(iteratee);
++  const removed = [];
++  if (!isArray(collection)) return removed;
++  for (let i = collection.length - 1; i >= 0; i--) {
++    if (fn(collection[i], i, collection)) removed.unshift(collection.splice(i, 1)[0]);
++  }
++  return removed;
++}
++
++function includes(collection, value, fromIndex) {
++  if (isNil(collection)) return false;
++  if (typeof collection === 'string') return collection.indexOf(value, fromIndex || 0) >= 0;
++  const list = isArray(collection) ? collection : values(collection);
++  const start = fromIndex ? Math.max(0, fromIndex) : 0;
++  for (let i = start; i < list.length; i++) {
++    const item = list[i];
++    if (item === value || (item !== item && value !== value)) return true;
++  }
++  return false;
++}
++
++function sortBy(collection, ...iteratees) {
++  // lodash defaults to identity and flattens an array of iteratees (property list).
++  const flat = iteratees.length === 0 ? [undefined] : [].concat(...iteratees.map((it) => (isArray(it) ? it : [it])));
++  const fns = flat.map(toIteratee);
++  const entries = map(collection, (value, key) => ({ value, key, criteria: fns.map((fn) => fn(value, key)) }));
++  entries.sort((a, b) => {
++    for (let i = 0; i < a.criteria.length; i++) {
++      const left = a.criteria[i];
++      const right = b.criteria[i];
++      if (left === right) continue;
++      if (isNil(left) || isNaNValue(left)) return 1;
++      if (isNil(right) || isNaNValue(right)) return -1;
++      return left < right ? -1 : 1;
++    }
++    return 0;
++  });
++  return entries.map((entry) => entry.value);
++}
++
++function escapeRegExp(value) {
++  if (typeof value !== 'string') return isNil(value) ? '' : String(value);
++  return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
++}
++
++module.exports = {
++  assign,
++  clone,
++  cloneDeep,
++  defaults,
++  escapeRegExp,
++  every,
++  filter,
++  find,
++  findIndex,
++  forEach,
++  forOwn,
++  includes,
++  isArray,
++  isEmpty,
++  isEqual,
++  isFunction,
++  isInteger,
++  isNaN: isNaNValue,
++  isNil,
++  isNumber,
++  isObject,
++  map,
++  mapValues,
++  remove,
++  some,
++  sortBy,
++  values
++};
+diff --git a/lib/regexify.js b/lib/regexify.js
+index 831345222975ca97450ebb61926e867ab4843746..ad55629ce4008aea5eed06a21f37ff3dd1f3c1be 100644
+--- a/lib/regexify.js
++++ b/lib/regexify.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * Convert a pattern to a RegExp.
+diff --git a/lib/xmlq.js b/lib/xmlq.js
+index d217a00d2083c4dd747da54a8918d82a6ce03bb4..2581ef14b1c1cbdc7d453c1050cc8eee9a6085ef 100644
+--- a/lib/xmlq.js
++++ b/lib/xmlq.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const _ = require("lodash");
++const _ = require("./lodash-lite");
+ 
+ /**
+  * XML query methods.
+diff --git a/package.json b/package.json
+index d688d907f0b5e4c01542f291366b0dfda92bf5f7..cbef8b10e6656369bc56fba0788430378739f888 100644
+--- a/package.json
++++ b/package.json
+@@ -17,9 +17,6 @@
+     "password"
+   ],
+   "main": "lib/XlsxPopulate.js",
+-  "browser": {
+-    "XlsxPopulate": "./browser/xlsx-populate.js"
+-  },
+   "scripts": {
+     "test": "jasmine JASMINE_CONFIG_PATH=test/unit/jasmine.json",
+     "e2e-generate": "jasmine JASMINE_CONFIG_PATH=test/e2e-generate/jasmine.json",
+@@ -36,7 +33,6 @@
+   "dependencies": {
+     "cfb": "^1.1.3",
+     "jszip": "^3.2.2",
+-    "lodash": "^4.17.15",
+     "sax": "^1.2.4"
+   },
+   "repository": {

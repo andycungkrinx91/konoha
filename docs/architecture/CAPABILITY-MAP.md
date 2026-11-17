@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.22  
-**Date:** 2026-11-16  
-**Status:** Canonical Reference (v2.2.22 Branch Audit)  
+**Document Version:** 2.2.23  
+**Date:** 2026-11-17  
+**Status:** Canonical Reference (v2.2.23 Branch Audit)  
 
 ---
 
@@ -356,13 +356,19 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.18 Supply-Chain Policy Governance & Socket Hardening (`socket.yml`, `patches/`)
 
 * **Purpose:** Repository-wide supply-chain governance blocking malicious dependencies, unverified remote installers, anomalous synthetic artifacts, and unmaintained packages.
-* **Canonical Implementation:** `socket.yml`, `patches/playwright-core@1.64.1.patch`, `patches/cfb@1.2.2.patch`, `patches/docx@9.14.0.patch`, `package.json` (`overrides`, `resolutions`).
+* **Canonical Implementation:** `socket.yml`, `patches/playwright-core@1.64.1.patch`, `patches/cfb@1.2.2.patch`, `patches/docx@9.14.0.patch`, `patches/pptxgenjs@4.0.1.patch`, `patches/xlsx-populate@1.21.0.patch`, `package.json` (`overrides`, `bundleDependencies`, exact pins), `pnpm-workspace.yaml` (`patchedDependencies`, `allowBuilds`).
 * **Governance Invariants:**
   - Excision of Windows Edge reinstall PowerShell scripts (`bin/reinstall_msedge_*_win.ps1`).
   - Neutralization of SheetJS `\u0001Sh33tJ5` synthetic seed artifact and runtime byte validation in `src/workflow/tokubetsu-scribe/doc_engine_spreadsheet.js`.
-  - Complete eradication of unmaintained `hash-js@1.1.7` in favor of Cure53-audited `@noble/hashes@^2.4.0` and native `node:crypto`.
-  - Socket.dev policy configuration (`urlStrings: false`, `gptSecurity: false`, `gptAnomaly: false`).
-* **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`.
+  - Complete eradication of unmaintained `hash-js@1.1.7`: the `hash.js` name is overridden to Cure53-audited `@noble/hashes@2.4.0`, Argon2id comes from `hash-wasm@4.12.0` (pinned exactly), and `node:crypto` covers the rest.
+  - **`lodash` is not in the tree.** It arrived only through `xlsx-populate@1.21.0`, whose `template()` compiles strings with `Function`. `patches/xlsx-populate@1.21.0.patch` swaps all 19 `require("lodash")` sites for `lib/lodash-lite.js` (27 helpers, lodash-4 semantics), drops the dependency, and deletes the prebuilt `browser/` bundle (13.9 MiB, 52 `Function(` occurrences) plus `examples/` and the `browser` manifest field. Konoha resolves `main: lib/XlsxPopulate.js` only.
+  - **No dynamic execution in the runtime.** `src/`, `bin/`, and `scripts/` hold no `eval(`, `new Function(`, or `node:vm` code generation. The generated guardrail hooks embed `buildGuardrailCheckerSource()` verbatim as a function expression instead of wrapping it in `new Function(source)()`.
+  - **No patched package ships a browser build.** `pptxgenjs` loses `dist/pptxgen.bundle.js` + source map (`patches/pptxgenjs@4.0.1.patch`) and `jszip` loses its Browserify `dist/` + `browser` field (`patches/jszip@3.10.2.patch`); all three bundles polyfill `setImmediate` with `new Function(""+e)`. Konoha loads `pptxgen.cjs.js` and `jszip/lib/index.js`, neither of which carries `Function(` or `eval(`. `tests/test_dependency_posture.js` asserts the installed trees, so a stale `node_modules` cannot re-ship a deleted bundle, and a scan of the packed tarball finds zero sinks across 205 bundled `.js` files.
+  - **Images reach `pptxgenjs` as buffers.** `addInlineImage(slide, buffer)` requires an in-memory PNG (magic-byte checked) and emits a base64 data URI, so no filesystem path or URL string can reach `addImage`'s `fs.readFileSync` / HTTPS GET branches.
+  - **Releases are reproducible.** `.github/workflows/publish.yml` installs with `--frozen-lockfile`, and `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are exact pins so patched and bundled packages cannot drift between resolution and publish.
+  - Native install scripts stay denied (`allowBuilds: onnxruntime-node: false`, `protobufjs: false`); `onnxruntime-node`'s postinstall fetches CUDA EP binaries from NuGet without checksum verification.
+  - Socket.dev policy configuration is a narrowing, never a widening: `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` stay suppressed because they describe the documented contract, while `usesEval` is no longer suppressed and `pnpm-lock.yaml` / `patches/**` are no longer ignored.
+* **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`, `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js`, `tests/test_xlsx_populate_lodash_lite.js`, `tests/test_document_engine_security.js`, `tests/test_socket_security_audit.js`.
 * **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`, `CHANGELOG.md`.
 
 ---
@@ -371,7 +377,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.22** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.23** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.

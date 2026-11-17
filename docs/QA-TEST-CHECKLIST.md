@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.22). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.23). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -720,7 +720,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ---
 
-## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.22)
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.23)
 
 Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
@@ -785,7 +785,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 ---
 
-## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.22)
+## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -825,7 +825,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 
 
-## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.22)
+## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -856,7 +856,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **24. Repo Lint Gate** | `node scripts/lint.js` | 518 backend files verified with 0 errors and 0 warnings (no numbered comments) | `PASS` (verified 2026-11-03) |
 | **25. Isolated Fresh Install & Upgrade** | `/tmp/konoha-iso` with isolated `HOME` | Six STRICT tables + migration applied, `dcc_mcp_version` column present, `three`/`manifold-3d` linked, worker + creature synthesizer deployed, and removed packages re-linked on the next run | `PASS` (verified 2026-11-03) |
 
-## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.22)
+## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -897,7 +897,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
   were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
   do not change what those clips depict structurally.
 
-## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.22)
+## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -969,10 +969,10 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **11. Master E2E Suite & Web UI Playwright Automation** | `qa_e2e_run` -> `tests/e2e/web_ui_e2e.spec.js` & `tests/e2e/auth_login.spec.js` | Runs `sync_skills.js`, `pnpm --dir apps/web run build`, `test_konoha_2_2_18_master.js`, `scripts/lint.js` (729 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy), desktop (1440x900) and mobile (390x844) UI tests; verifies 2-field initial setup, Overview embedded Agent Activity, 6 execution states, spider 180° flip, full-screen modal, mobile-only dock, zero emojis, and hidden Yamanaka/3D Studio menus | `PASS` (verified) |
 | **12. Socket CLI Supply Chain & Zero-Vulnerability Gate** | `tests/test_socket_security_audit.js` & `docs/archive/security-compliance/socket_report_2.2.19_2026-11-08.md` | Verifies `socket fix --all --no-apply-fixes` (0 GHSAs/CVEs), `socket npm audit` (0 vulnerabilities), `pnpm audit` (0 unreviewed CVEs across root and apps/web), direct dependency scores (100% vulnerability score, 0 High, 0 Critical findings), and 0 shell invocations in `src/db_recovery.js` / `src/db_recovery_salvage.js` | `PASS` (verified 2026-11-08) |
 | **13. Fresh Install MCP Connection & Stdio Handshake (Cursor & OMP)** | `tests/test_fresh_install_mcp.js` & `tests/test_mcp_protocol_integrity.js` | Resolves unexpanded `${userHome}` in Cursor project MCP, resolves absolute `uvx` with GUI `env.PATH`, sanitizes stale `/tmp/` launcher paths in OMP, in-process launcher optimization for Node >= 24, and auto-detects installed clients on bare `konoha init` | `PASS` (verified 2026-11-08) |
-| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.22)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
-| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.22)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
+| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.23)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
+| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.23)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
 
-## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.22)
+## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.23)
 
 GitHub Actions run `43160159738` failed on five macOS legs and five Windows VM legs. Each failure was reproduced locally — a symlinked `HOME`/`TMPDIR` for the macOS path class, the dockur Windows guest for the rest — and fixed at its cause; no assertion was relaxed.
 
@@ -998,7 +998,7 @@ A later `windows-latest` leg then failed row 5's *precondition* — `AssertionEr
 | **16. Windows leg: 3D model discovery HOME** | `tests/test_yamanaka_web_api.js` | win32 `os.homedir()` ignores `HOME` and reads `USERPROFILE`, so the pinned seeded config was never read and `client_default_model` came back `null`; the suite now pins both | `PASS` (local) |
 | **17. Playwright Web UI e2e suite** | `tests/e2e/*.spec.js` via `pnpm --dir apps/web run test:e2e` | 18 spec files, 59 tests on a clean auth store: docs index asserts the mirror contract instead of a pinned row count, the `/agents` roster gets a hydration budget, and the rasengan transition waits for the shared WebGL scene before the theme click | `PASS` (59/59, 19.9 min, 2026-11-12) |
 
-## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.22)
+## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.23)
 
 A gate used to arrive as prose, so every client printed a numbered list and the human retyped a label; and the container sandbox was documented as the gate while `node tests/run_all.js` on a workstation still ran the suite against the developer's `~/.konoha`. Both are now code.
 
@@ -1015,7 +1015,7 @@ A gate used to arrive as prose, so every client printed a numbered list and the 
 | **9. Bindings are keyed by the canonical client names** | `tests/test_hitl_picker_binding.js` | `claudecode` and `antigravity` are explicit keys, and `claude`, `claude-code`, `antigravity-cli`, `agy` are absent — a second spelling for one harness was how `[CC]` silently downgraded to the web form | `PASS` |
 | **10. The MCP process serves the URL it hands out** | `tests/test_hitl_picker_binding.js` | `ensurePickerServer` binds a real port, bootstraps a session token when `konoha ui` never ran, renders a signed gate link as a 200 `<form>`, refuses an unsigned link with 403, and 404s any route beyond the two capability routes | `PASS` |
 
-## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.22)
+## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.23)
 
 > [!NOTE]
 > **Delivery & PR #16 Status (Open):** Issues `#11`, `#12`, and `#13` remain `OPEN` (`closingIssuesReferences: []` on PR #16, zero PR approvals / `reviewDecision: ""`). At audit time (`61e73b7f`), `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands, macOS (5 shards) and Windows (16 shards) remained unverified/`IN_PROGRESS`, and `Socket Security: Pull Request Alerts` reported `FAILURE` on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2` (`@emnapi/runtime`, `@img/sharp-wasm32`, `@protobufjs/codegen`, `@img/sharp-darwin-*`).
@@ -1039,7 +1039,7 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **13. The retired server stays retired** | `tests/test_fresh_install_mcp.js`, `tests/test_mcp_subagent_contract.js` | No client config declares `semble`; the deployed `.agents/skills/konoha/**` mirror is byte-identical to `src/templates/skills/konoha/**` | `PASS` (verified) |
 | **14. Zero-AI-Slop gate** | `npx aislop scan src` | Score 100 with zero non-informational findings | `PASS` (100/100) |
 
-## Section 41: Code Intelligence Hardening, Legacy Agents Upgrade & `2.2.*` Yamanaka Skip Gates (v2.2.22)
+## Section 41: Code Intelligence Hardening, Legacy Agents Upgrade & `2.2.*` Yamanaka Skip Gates (v2.2.23)
 
 > [!NOTE]
 > All Yamanaka 3D feature suites (`tests/test_yamanaka_*.js` in `tests/run_all.js` and `tests/e2e/yamanaka_3d_studio.spec.js` in Playwright) are automatically skipped across all `2.2.*` versions (`/^2\.2\./`) because Yamanaka 3D is a planned post-`2.2` feature. UI visibility checks (`agent_activity_and_ui.spec.js` and `web_ui_e2e.spec.js`) continue to verify Yamanaka/3D Studio navigation remains hidden.
@@ -1068,3 +1068,25 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **3. Schema v7→v8 migration & traceability** | `tests/test_memory_brain_migration_and_api.js`, `tests/test_schema_migrations_and_lifecycle.js`, `tests/test_schema_traceability.js` | `CURRENT_SCHEMA_VERSION = 9` (`45` raw / `33` declared tables), `memory_audit_events` & `memory_relations` created cleanly in savepoint, existing `persona_memories` backfilled, single `user_version` writer invariant preserved | `PASS` (verified) |
 | **4. Provenance, corrections, graph & provider boundary** | `tests/test_memory_brain_lifecycle_and_graph.js` | Unified `remember`/`recall` across domains, correction/supersession/withdrawal/verify/restore with append-only audit log, secret/transient boundary rejection, deterministic evidence-backed graph excluding inferred claims from confirmed facts, and optional `GBrainMemoryAdapter` isolation | `PASS` (verified) |
 | **5. Retrieval benchmark, semantic status & reversible maintenance** | `tests/test_memory_brain_retrieval_and_maintenance.js` | Confirmed phrase/AND hits outrank inferred partial hits (`MRR=1`, `stale_leaks=0`); today `src/memory_brain.js` omits `embedding` on `INSERT INTO persona_memories` and `src/vector_backfill.js` only backfills `skill_chunks`, so `_fuseVectorScores` selects zero rows and `recallAsync` reports `semantic_applied: false` (lexical FTS5/LIKE retrieval only); `KONOHA_SEMANTIC_SEARCH=0` reports `semantic_status: 'disabled'` (`degraded: false`), offline uncached `KONOHA_SEMANTIC_SEARCH=1` reports `semantic_status: 'degraded'` (`degraded: true`), conservative maintenance dryRun/apply/revert never alters confirmed facts, and existing `/api/v1/persona` (`src/web/controllers/skills_controller.js`) + CLI `konoha data` routes work | `PASS` (verified) |
+
+---
+
+## Section 43: Supply-Chain & Dynamic-Execution Hardening (v2.2.23)
+
+Authoritative verification matrix for the `v2.2.23` Socket alert remediation: `lodash` removal, dynamic-execution elimination, document-engine ingress boundaries, deterministic packaging, and the narrowed `socket.yml` suppressions.
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. `lodash` is absent from the tree and the tarball** | `tests/test_dependency_posture.js` | No `node_modules/lodash`; `pnpm-lock.yaml` has zero `lodash@` resolutions; `tar -tzf konoha-mcp-2.2.23.tgz \| grep -c node_modules/lodash` returns `0` | `PASS` |
+| **2. Patched `xlsx-populate` preserves lodash semantics** | `tests/test_xlsx_populate_lodash_lite.js` | 74 helper assertions against lodash 4 behaviour, plus an XLSX round-trip asserting merges, formulas, styles, and autoFilter survive the shim | `PASS` |
+| **3. The prebuilt browser bundles are gone** | `tests/test_dependency_posture.js`, `tests/test_package_tarball_files.js` | `xlsx-populate/browser`, `xlsx-populate/examples`, `pptxgenjs/dist/pptxgen.bundle.js` (+ `.map`), and `jszip/dist/` are absent from disk and tarball; the `browser` field is removed from the packaged `xlsx-populate` manifest; the shipped `pptxgen.cjs.js`/`.es.js`/`.min.js` contain no `Function(` or `eval(`; `main` still resolves `lib/XlsxPopulate.js` | `PASS` |
+| **4. Zero dynamic execution in the runtime** | `tests/test_no_dynamic_execution.js` | every runtime file free of `eval(`, `new Function(`, and `node:vm` code generation; emitted hook payloads declare `checkCommandGuardrails` as a function expression | `PASS` |
+| **5. Emitted guardrails still enforce** | `tests/test_no_dynamic_execution.js` | Generated Claude Code, Command Code, and Pi hook payloads deny the native read tool, block `rm -rf /`, and pass benign commands through | `PASS` |
+| **6. Presentation images are buffers, never paths** | `tests/test_document_engine_security.js` | `addInlineImage` rejects a non-Buffer, a sub-8-byte payload, and a wrong magic number; exactly one `addImage` call site exists in the engine | `PASS` |
+| **7. Spreadsheet formula blocklist covers both DDE halves and OLE** | `tests/test_document_engine_security.js` | `DDE(`, `REGISTER(`, `REGISTER.`, `WEBSERVICE(`, `ENCODEURL(`, `HYPERLINK(`, `CALL(`, `DDEREFERENCE(`, and `SQL.REQUEST(` are rejected; the link-operator form `=cmd|' /C calc'!A0` is rejected on its bare `|`; `=Sheet2!A1+1` and `="a|b"` still pass | `PASS` |
+| **8. Install scripts stay denied** | `tests/test_dependency_posture.js` | `allowBuilds` keeps `onnxruntime-node: false` and `protobufjs: false`, so the unverified CUDA EP download from NuGet never runs | `PASS` |
+| **9. Releases are reproducible** | `tests/test_dependency_posture.js`, `.github/workflows/publish.yml` | `publish.yml` runs `pnpm install --frozen-lockfile`; `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are exact pins | `PASS` |
+| **10. Socket suppressions narrowed, not widened** | `tests/test_socket_security_audit.js` | `socket.yml` contains no `usesEval: false`; `pnpm-lock.yaml` and `patches/**` are no longer in `projectIgnorePaths` | `PASS` |
+| **11. Redistributed licenses ship and are accurately attributed** | `tests/test_package_tarball_files.js`, `NOTICE` | Tarball ships `LICENSE` and `NOTICE`; `NOTICE` names all 19 redistributed packages with license and copyright (Apache-2.0, MIT, ISC, BlueOak-1.0.0), states `jszip` is redistributed under its MIT option, and each package ships its own unmodified license file; the patches do not relicense anything | `PASS` |
+| **12. Installed tree still produces documents** | `tests/test_global_install.js` (`KONOHA_RUN_INSTALL_TEST=1`) | Fresh global install of `konoha-mcp-2.2.23.tgz` writes a PPTX and an XLSX, resolves the bundled patched `cfb`, and reinstalls idempotently | `PASS` |
+| **13. Version metadata stays synchronized** | `node scripts/bump_version.js --check` | All 18 managed files at `2.2.23`, including the drawio version labels and `scripts/lib/data.json` | `PASS` |

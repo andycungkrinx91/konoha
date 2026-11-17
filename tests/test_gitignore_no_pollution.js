@@ -112,6 +112,13 @@ function runTests() {
   assert.ok(filterAll.clause.includes('project_hash = ?'), 'allSessions must still scope by project_hash when provided');
   assert.deepStrictEqual(filterAll.params, ['proj_abc123']);
 
+  // The repo tracks `.agents/`, but Konoha injects `.agents/` into the global excludes file, so a
+  // bare entry here would silently hide every new project skill file from `git status`.
+  const repoGitignore = fs.readFileSync(path.join(__dirname, '..', '.gitignore'), 'utf8');
+  const ignoreLines = repoGitignore.split('\n').map(line => line.trim());
+  assert.ok(ignoreLines.includes('!.agents/'), 'repo .gitignore must re-include .agents/ over the global exclude');
+  assert.ok(ignoreLines.includes('!.agents/**'), 'repo .gitignore must re-include nested .agents/ files');
+
   console.log('✓ test_gitignore_no_pollution: All assertions passed.');
 }
 
