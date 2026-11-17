@@ -314,6 +314,19 @@ function _buildCommonFilterSql(opts, prefix, nowIso) {
     clauses.push(` AND ${col}updated_at >= ?`);
     params.push(String(opts.since));
   }
+  const sourceRef = opts.sourceRef || opts.source_ref;
+  if (sourceRef) {
+    clauses.push(` AND ${col}source_ref = ?`);
+    params.push(String(sourceRef).trim());
+  }
+  if (Array.isArray(opts.excludeMemoryTypes) && opts.excludeMemoryTypes.length > 0) {
+    clauses.push(` AND ${col}memory_type NOT IN (${opts.excludeMemoryTypes.map(() => '?').join(',')})`);
+    params.push(...opts.excludeMemoryTypes.map(String));
+  }
+  if (Array.isArray(opts.excludeDomains) && opts.excludeDomains.length > 0) {
+    clauses.push(` AND COALESCE(${col}domain, 'persona') NOT IN (${opts.excludeDomains.map(() => '?').join(',')})`);
+    params.push(...opts.excludeDomains.map(String));
+  }
   return { sql: clauses.join(''), params };
 }
 

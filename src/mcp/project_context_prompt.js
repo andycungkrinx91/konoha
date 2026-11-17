@@ -45,7 +45,9 @@ function loadBaseProjectContext(dbAgentName, instructions, resolvedProjPath, res
     projProfile = personaMemory.getProjectProfile(pHash);
   }
   const projMems = personaMemory.queryMemories({
-    agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2
+    agentName: dbAgentName, query: instructions, projectPath: resolvedProjPath, sessionId: resolvedSessionId, limit: 2,
+    // Sibling findings arrive as their own prompt block; recalling them here too would duplicate them.
+    excludeDomains: ['shared_task']
   });
   return personaMemory.formatProjectContextForPrompt(projProfile, projMems, 1, true);
 }

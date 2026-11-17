@@ -6,6 +6,7 @@ const db = require('../db');
 const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { logToolCall } = require('./skills');
+const sharedContext = require('./shared_context');
 const {
   getResolvedTaskDir,
   loadWorkflowStatus,
@@ -339,6 +340,25 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     result.remediation = "Task recorded as UNVERIFIED. Re-run validation commands, then re-report with entries like 'npm run build exited 0'.";
   }
 
+  // Cross-agent context: publish this finding so sibling specialists dispatched
+  // later in the same task start from it instead of re-deriving it.
+  try {
+    sharedContext.recordFinding({
+      agent: cleanAgent,
+      taskId: sharedContext.resolveTaskId({ taskDir: safeTaskDir || opts.taskDir, workflowStatus }),
+      status: finalStatus,
+      summary: reportSummary,
+      learnings: allLearnings,
+      filesCreated: opts.filesCreated,
+      filesModified: opts.filesModified,
+      verified,
+      projectPath: pPath,
+      sessionId: opts.sessionId || (workflowStatus && workflowStatus.session_id) || undefined
+    });
+  } catch (e) {
+    process.stderr.write(`[mcp report_from_agent] shared context skipped: ${e.message}\n`);
+  }
+
   _notifyKageReview(cleanAgent, finalStatus, verified, { summary: reportSummary, effTaskId, filesModified: opts.filesModified, actClient });
   const res = JSON.stringify(result);
   logToolCall('report_from_agent', `agent=${cleanAgent} status=${finalStatus}`, res, cleanAgent);
@@ -401,8 +421,21 @@ function saveProjectContext(projectPath = null, contextSummary = '', techStack =
   });
 }
 
+// Bookkeeping rows (flow-skill bindings, checkpoints) are written for the
+// workflow engine, not for agents; they crowd out real recall within `limit`.
+const RECALL_NOISE_TYPES = ['flow_skill', 'checkpoint', 'lg_checkpoint', 'lg_write', 'workflow_progress'];
+
 function queryProjectMemory(query = '', projectPath = null, agentName = null, memoryType = null, ...rest) {
-  const [limit = 5, sessionId = null] = rest;
+  let [limit = 5, sessionId = null] = rest;
+  if (memoryType && typeof memoryType === 'object') {
+    const o = memoryType;
+    query = o.query ?? query;
+    projectPath = o.projectPath || o.project_path || projectPath;
+    agentName = o.agentName || o.agent_name || agentName;
+    memoryType = o.memoryType || o.memory_type || null;
+    limit = o.limit ?? limit;
+    sessionId = o.sessionId || o.session_id || sessionId;
+  }
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   const cd = require('./client_detection');
   const sess = sessionId || cd.getActiveSessionId(pPath);
@@ -411,6 +444,7 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
     agentName,
     query,
     memoryType,
+    excludeMemoryTypes: memoryType ? null : RECALL_NOISE_TYPES,
     projectPath: pPath,
     sessionId: sess,
     limit: effLimit

@@ -26,6 +26,7 @@ const { buildSpawnDirective } = require('./lazy_subagent');
 const { isResidentSupervisorAgent, getAdvisorAgentDefinition } = require('../canonical_agents');
 const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
 const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
+const { resolveTaskId, readSharedContext, formatSharedContextBlock } = require('./shared_context');
 const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
 const {
   slicePreservingHeadMiddleTail,
@@ -555,6 +556,15 @@ function _prepareAgentRun(agentName, task = null, context = null, constraints = 
   const effTaskDir = getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const steerCtx = consumeAdvisorSteerContext(effTaskDir, dbAgentName);
   if (steerCtx.block) instructions = `${steerCtx.block}\n\n${instructions}`;
+  // Sibling findings for this task: cheaper than re-deriving another agent's work.
+  // Rendered in _finalizeAgentRun once the prompt size (and thus the remaining
+  // headroom under the ceiling) is known.
+  const sharedRows = readSharedContext({
+    taskId: resolveTaskId({ taskDir: effTaskDir }),
+    excludeAgent: dbAgentName,
+    projectPath: resolvedProjPath,
+    sessionId: resolvedSessionId
+  });
   const meta = _resolveAgentDbMetadata(dbAgentName);
   let skillsList = Array.isArray(opts.skills) && opts.skills.length > 0 ? [...opts.skills] : meta.skillsList;
   if (opts.flowHash) {
@@ -611,7 +621,7 @@ function _prepareAgentRun(agentName, task = null, context = null, constraints = 
   } catch (_) { /* ignore */ }
   return {
     agentName, opts, dbAgentName, spawnClient, resolvedProjPath, resolvedSessionId, sdlcConfig, effTaskDir, steerCtx, meta, skillsList,
-    instructions, skillsContent: _loadSkillsContent(skillsList, agentName), soulBehaviorBlock,
+    instructions, skillsContent: _loadSkillsContent(skillsList, agentName), soulBehaviorBlock, sharedRows,
     tasteSkillBlock: dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '',
     docDesignBlock: dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : ''
   };
@@ -646,6 +656,13 @@ function _finalizeAgentRun(p, projectContextBlock) {
     maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
+  // Sibling findings are appended only if they fit under the same ceiling.
+  // A fixed-size block would overflow high-baseline agents (jonin runs within
+  // ~20 bytes of the ceiling) and clampToBytes would then eat the middle of the
+  // system prompt, so the budget is whatever is actually left.
+  const sharedRoom = PROMPT_CEILING_BYTES - Buffer.byteLength(instruction, 'utf8') - 2;
+  const sharedBlock = formatSharedContextBlock(p.sharedRows, sharedRoom);
+  const finalInstruction = sharedBlock ? `${instruction}\n\n${sharedBlock}` : instruction;
   const resolvedWorktreePath = p.opts.worktree ? (typeof p.opts.worktree === 'string' ? p.opts.worktree : p.opts.worktree.worktree_path) : undefined;
   const { spawnDirective, spawnError } = _resolveSpawnDirective({
     isChildWorker, client: p.spawnClient, agent: p.dbAgentName, skills: p.skillsList,
@@ -662,7 +679,7 @@ function _finalizeAgentRun(p, projectContextBlock) {
     spawn_directive: spawnDirective, spawn_error: spawnError,
     advisor_steers_delivered: p.steerCtx.pending.length > 0 ? p.steerCtx.pending : undefined,
     todos: todoSync.todos, walkthrough_steps: todoSync.walkthrough_steps,
-    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck, instructions: instruction
+    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck, instructions: finalInstruction
   });
   logToolCall(p.agentName, `project_path=${p.resolvedProjPath} session_id=${p.resolvedSessionId} task_dir=${p.effTaskDir}`, res, p.dbAgentName);
   return res;

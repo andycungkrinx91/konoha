@@ -245,6 +245,7 @@ function _loadPersistedMemories(absRoot, queryText, sessionId, dbPath) {
       sessionId,
       allSessions: false,
       limit: 3,
+      excludeDomains: ['shared_task'],
       dbPath: dbPath || personaMemory.DB_PATH
     });
     if (Array.isArray(qMems) && qMems.length > 0) return qMems;
