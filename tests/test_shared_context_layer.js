@@ -18,7 +18,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const sc = require(path.join(ROOT, 'src', 'mcp', 'shared_context'));
-const { reportFromAgent } = require(path.join(ROOT, 'src', 'mcp', 'memory_project_context'));
+const { reportFromAgent, getProjectContext } = require(path.join(ROOT, 'src', 'mcp', 'memory_project_context'));
 const { runMcpAgent } = require(path.join(ROOT, 'src', 'mcp', 'memory_subagent_runner'));
 const { saveWorkflowStatus, getResolvedTaskDir } = require(path.join(ROOT, 'src', 'mcp', 'workflow_common'));
 
@@ -102,6 +102,12 @@ assert(anbu.instructions.includes('Shared Task Context'), 'consumer prompt must 
 assert(anbu.instructions.includes('sannin_router.js'), 'consumer prompt must carry the sibling finding content');
 const genin = JSON.parse(runMcpAgent('genin', { task: 'Apply the retry change', projectPath, taskDir }));
 assert(!genin.instructions.includes('Shared Task Context'), 'producer prompt must not echo its own finding');
+
+// Task findings are for siblings in the same task, not for generic project
+// recall. Otherwise every later turn re-reads the last task's scratch notes.
+const recall = JSON.parse(getProjectContext(projectPath));
+assert(!recall.memories.some((m) => m.domain === 'shared_task'),
+  'project recall must not surface task-scoped findings as durable project memory');
 
 console.log(`  block bytes: ${Buffer.byteLength(fullBlock, 'utf8')} (cap ${sc.SC_MAX_BYTES})`);
 console.log('PASS test_shared_context_layer.js');

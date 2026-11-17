@@ -391,7 +391,7 @@ function getProjectContext(projectPath = null, sessionId = null) {
     const pHash = personaMemory.saveOrUpdateProject(pPath);
     profile = personaMemory.getProjectProfile(pHash);
   }
-  const mems = personaMemory.listMemories({ projectPath: pPath, sessionId: sess, limit: 5 });
+  const mems = personaMemory.listMemories({ projectPath: pPath, sessionId: sess, limit: 5, excludeDomains: ['shared_task'] });
   const boundedMems = _formatBoundedMemories(mems);
   const safeProfile = profile ? {
     ...profile,

@@ -253,6 +253,7 @@ function _loadPersistedMemories(absRoot, queryText, sessionId, dbPath) {
       projectPath: absRoot,
       allSessions: true,
       limit: 3,
+      excludeDomains: ['shared_task'],
       dbPath: dbPath || personaMemory.DB_PATH
     }) || [];
   } catch (_) {
