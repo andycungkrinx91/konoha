@@ -430,9 +430,12 @@ expectation, and no `continue-on-error` was added anywhere.
   # must carry a reason naming the sqlite failure, never reason: undefined
   ```
 
-  `tests/test_db_recovery.js` asserts a non-empty reason on the garbage path and
-  that a table rejected by a binary-patched DDL does not sink a salvageable
-  sibling. Both are proven to bite by mutation.
+  `tests/test_db_recovery.js` requires a described failure rather than a pinned
+  dialect — sqlite's wording is `malformed` on one version and `file is not a
+  database` on another — so it asserts the reason is neither empty nor the
+  `unknown error` placeholder, checks a second, target-side failure for the same,
+  and asserts that a table rejected by a binary-patched DDL does not sink a
+  salvageable sibling. Every guard is proven to bite by mutation.
 
 - **A sandboxed `HOME` rewrote the checkout's `.omp/mcp.json` (`ensureOmpSetup`)** — not a
   test failure, a poisoned workspace. `ensureOmpSetup` auto-detected a project whenever

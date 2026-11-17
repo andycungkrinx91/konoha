@@ -23,6 +23,7 @@ const {
   recordGuardrailException,
   readGuardrailExceptions
 } = require('./project_konoha_mcp_guardrail');
+const { NON_ACCEPTABLE_CODES } = require('./guardrail_exceptions');
 
 const DEFAULT_TTL_MINUTES = 30;
 
@@ -154,6 +155,11 @@ async function askHitlDecision(options = {}) {
 
     if (answer === '3') return { choice: 'cancel' };
     if (answer !== '2') return { choice: 'block' };
+
+    if (NON_ACCEPTABLE_CODES.includes(evalResult.code)) {
+      output.write(`${evalResult.code} has no acceptable form; routing the call another way is the only path.\n`);
+      return { choice: 'block' };
+    }
 
     const ttlMinutes = Number.isFinite(options.ttlMinutes) && options.ttlMinutes > 0
       ? options.ttlMinutes

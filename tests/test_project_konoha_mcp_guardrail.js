@@ -308,6 +308,22 @@ runTest('7. Tracked .agents plugin copies match what the generator emits', () =>
       `.agents/plugins/konoha-mcp-guard/${rel} drifted from the generator`
     );
   }
+
+  // The symlink that broke CI was one file in this directory. A walk over the
+  // whole tracked tree is what stops the next hand-added mirror link: a mode
+  // 120000 entry checks out on Windows as a text file holding the target path.
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      assert.strictEqual(
+        fs.lstatSync(full).isSymbolicLink(),
+        false,
+        `${path.relative(REPO_ROOT, full)} must be a regular file; a tracked symlink resolves only on the machine that created it`
+      );
+      if (entry.isDirectory()) walk(full);
+    }
+  };
+  walk(path.join(REPO_ROOT, '.agents'));
 });
 
 runTest('8. A stale symlink in the plugin dir is replaced, not written through', () => {
@@ -516,6 +532,23 @@ runTest('13. The interactive menu offers both resolutions, defaults to block on 
     assert.strictEqual(decision.choice, 'accept');
     assert.ok(decision.exception && decision.exception.id, 'accepting must return the recorded exception');
     assert.strictEqual(readGuardrailExceptions(store).length, 1);
+
+    // A rule whose only correct outcome is "no" must not become a button: the
+    // answer is taken, then refused, and nothing is recorded.
+    fs.rmSync(guardrailExceptionsPath(store), { force: true });
+    const secret = drive(['2', 'Operator wants to write the secret anyway']);
+    const refused = await askHitlDecision({
+      evalResult: { code: 'SECRET_FILE_WRITE_DENIED', reason: 'writing .env is forbidden', harness: 'omp' },
+      repoRoot: store,
+      input: secret.input,
+      output: secret.output
+    });
+    assert.strictEqual(refused.choice, 'block', 'a non-acceptable code must resolve as a block even when 2 is chosen');
+    assert.ok(
+      secret.text().includes('has no acceptable form'),
+      `the refusal must say why (got: ${secret.text().slice(0, 300)})`
+    );
+    assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a refused code must record nothing');
   } finally {
     fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -585,6 +618,64 @@ runTest('14. A piped payload still prompts: the menu reads the controlling termi
       }
       assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a forced no-terminal run must record nothing');
     }
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('15. A tool call cannot write the exception store, and no unconditional rule can be risk-accepted', () => {
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-selfmint-'));
+  const call = (payload) => evaluateProjectMcpGuardrail(payload, { harness: 'omp', repoRoot: store });
+  try {
+    const ledger = guardrailExceptionsPath(store);
+    const write = call({ tool_name: 'Write', tool_input: { file_path: ledger, content: '{}' }, cwd: REPO_ROOT });
+    assert.strictEqual(write.allowed, false, 'a tool call must not be able to write the exception store');
+    assert.strictEqual(write.code, 'GUARDRAIL_STATE_WRITE_DENIED');
+
+    // The same store through an rtk-wrapped shell must be closed too, or the deny
+    // above is cosmetic. `cp` passes the destructive-command rules.
+    const shell = call({ tool_name: 'Bash', tool_input: { command: `rtk cp /tmp/forged.json ${ledger}` }, cwd: REPO_ROOT });
+    assert.strictEqual(shell.code, 'GUARDRAIL_STATE_WRITE_DENIED');
+    assert.ok(describeGuardrailRemediation(shell.code).length > 0, 'the new code must still name another way');
+
+    // No exception can cover it, so accepting one cannot bootstrap a bypass.
+    for (const code of ['GUARDRAIL_STATE_WRITE_DENIED', 'SECRET_FILE_WRITE_DENIED']) {
+      assert.throws(
+        () => recordGuardrailException(store, { code, tool: 'Write', justification: 'let the guard mint itself' }),
+        /cannot be risk-accepted/
+      );
+    }
+
+    // A hand-edited store cannot grant one either, and nothing outlives the ceiling.
+    const now = Date.now();
+    const forge = (entry) => {
+      fs.mkdirSync(path.dirname(ledger), { recursive: true });
+      fs.writeFileSync(ledger, JSON.stringify({ version: 1, exceptions: [entry] }));
+    };
+    const entry = (code, createdAt) => ({
+      id: `grx_${code}`, code, tool: '*', path: '*', justification: 'forged', accepted_by: 'forger',
+      harness: 'omp', created_at: new Date(createdAt).toISOString(),
+      expires_at: new Date(now + 365 * 24 * 3600 * 1000).toISOString()
+    });
+    forge(entry('SECRET_FILE_WRITE_DENIED', now));
+    const forged = call({ tool_name: 'Write', tool_input: { file_path: path.join(REPO_ROOT, '.env') }, cwd: REPO_ROOT });
+    assert.strictEqual(forged.allowed, false, 'a forged entry must not cover an unconditional denial');
+    assert.strictEqual(forged.code, 'SECRET_FILE_WRITE_DENIED');
+
+    forge(entry('KONOHA_MCP_REQUIRED_READ', now - 2 * 3600 * 1000));
+    assert.deepStrictEqual(readGuardrailExceptions(store), [], 'an entry older than the ceiling must be pruned');
+
+    // A recorded acceptance is capped too, so --ttl-minutes cannot mint a month.
+    fs.rmSync(ledger, { force: true });
+    const capped = recordGuardrailException(store, {
+      code: 'KONOHA_MCP_REQUIRED_READ', tool: 'Read', justification: 'ceiling probe for the store', ttlMs: 365 * 24 * 3600 * 1000
+    });
+    const cappedMs = Date.parse(capped.expires_at) - Date.parse(capped.created_at);
+    assert.ok(cappedMs <= 60 * 60 * 1000, `an accepted risk must be capped at an hour (got ${cappedMs} ms)`);
+
+    // Ordinary writes stay allowed: the deny is the store, not every write.
+    const ordinary = call({ tool_name: 'Write', tool_input: { file_path: path.join(REPO_ROOT, 'src', 'server.js') }, cwd: REPO_ROOT });
+    assert.strictEqual(ordinary.allowed, true, `a normal write must stay allowed (got: ${ordinary.reason})`);
   } finally {
     fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }

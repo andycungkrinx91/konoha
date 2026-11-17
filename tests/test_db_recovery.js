@@ -454,9 +454,23 @@ console.log('9. Verifying B-tree page corruption row salvage and garbage file fa
   assert.strictEqual(reasonless.ok, false, 'Garbage input must not salvage');
   assert.strictEqual(typeof reasonless.reason, 'string', 'A failed salvage must carry a reason');
   assert.ok(reasonless.reason.trim().length > 0, 'The salvage reason must not be empty');
+  // The wording is sqlite's and differs by version and platform ("malformed",
+  // "file is not a database"), so assert that the failure was described rather
+  // than pinned to one dialect. `_describeError` only yields this placeholder
+  // when it was handed nothing, which is the regression to catch.
+  assert.notStrictEqual(
+    reasonless.reason.trim().toLowerCase(),
+    'unknown error',
+    'The reason must describe the underlying sqlite failure, not fall back to a placeholder'
+  );
+
+  // A second, structurally different failure must also name itself: the point of
+  // the fix is that no failure path can return ok:false and stay silent.
+  const unwritable = salvageDatabase(garbageDb, path.join(dir, 'missing', 'parent', 'out.db'), { stagingDir: dir });
+  assert.strictEqual(unwritable.ok, false, 'An unwritable target must not salvage');
   assert.ok(
-    reasonless.reason.toLowerCase().includes('malformed'),
-    `The reason must name the underlying sqlite failure (got: ${reasonless.reason})`
+    typeof unwritable.reason === 'string' && unwritable.reason.trim().length > 0,
+    'A target-side failure must carry a reason too'
   );
 
   // Rejected tables carry a reason too, and one unusable table must not discard

@@ -1751,7 +1751,7 @@
                 <mxCell id="p19-block" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="1 Block and try another way&#10;no state written, hook exits 2" vertex="1">
                     <mxGeometry height="58" width="330" x="60" y="350" as="geometry" />
                 </mxCell>
-                <mxCell id="p19-accept" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fffbeb;strokeColor=#f59e0b;fontColor=#92400e;fontStyle=1;" value="2 Accept with risk&#10;human decision, never automatic" vertex="1">
+                <mxCell id="p19-accept" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fffbeb;strokeColor=#f59e0b;fontColor=#92400e;fontStyle=1;" value="2 Accept with risk&#10;never for secrets, shell, or the store" vertex="1">
                     <mxGeometry height="58" width="330" x="860" y="350" as="geometry" />
                 </mxCell>
                 <mxCell id="p19-cancel" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontStyle=1;" value="3 Cancel or no terminal&#10;blocked, fail closed" vertex="1">
@@ -1775,7 +1775,7 @@
                 <mxCell id="p19-audit" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;" value="Audit line appended&#10;.konoha/guardrail-audit.jsonl, who and why" vertex="1">
                     <mxGeometry height="58" width="330" x="860" y="700" as="geometry" />
                 </mxCell>
-                <mxCell id="p19-summary" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#334155;fontStyle=1;" value="Invariant: an accepted risk is scoped to one denial code and one tool, expires, and always leaves an audit trail; a blocked call never becomes a silent pass." vertex="1">
+                <mxCell id="p19-summary" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#334155;fontStyle=1;" value="Invariant: an accepted risk is scoped to one denial code and one tool, capped at an hour, and always leaves an audit trail; the gated agent cannot write the store itself, and a blocked call never becomes a silent pass." vertex="1">
                     <mxGeometry height="58" width="760" x="60" y="700" as="geometry" />
                 </mxCell>
                 <mxCell id="p19-e1" edge="1" parent="1" source="p19-hook" target="p19-eval" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="tool call">

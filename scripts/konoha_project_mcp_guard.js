@@ -153,14 +153,19 @@ async function _runHitl(opts, evalResult, repoRoot, payload) {
       return 2;
     }
     const targetPath = (payload.tool_input && (payload.tool_input.path || payload.tool_input.file_path)) || '';
-    recordGuardrailException(repoRoot, {
-      code: evalResult.code,
-      tool: payload.tool_name || payload.toolName || payload.tool || '*',
-      targetPath,
-      justification: opts.justification,
-      harness: evalResult.harness,
-      ttlMs: (Number.isFinite(opts.ttlMinutes) && opts.ttlMinutes > 0 ? opts.ttlMinutes : 30) * 60 * 1000
-    });
+    try {
+      recordGuardrailException(repoRoot, {
+        code: evalResult.code,
+        tool: payload.tool_name || payload.toolName || payload.tool || '*',
+        targetPath,
+        justification: opts.justification,
+        harness: evalResult.harness,
+        ttlMs: (Number.isFinite(opts.ttlMinutes) && opts.ttlMinutes > 0 ? opts.ttlMinutes : 30) * 60 * 1000
+      });
+    } catch (err) {
+      process.stderr.write(`${err.message}\n`);
+      return 2;
+    }
     const reEvaluated = evaluateProjectMcpGuardrail(payload, { harness: evalResult.harness, repoRoot });
     process.stdout.write(`${JSON.stringify(formatHarnessDecision(evalResult.harness, reEvaluated))}\n`);
     return reEvaluated.allowed ? 0 : 2;

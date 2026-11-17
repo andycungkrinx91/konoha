@@ -22,7 +22,9 @@ const {
   revokeGuardrailExceptions,
   appendGuardrailAudit,
   guardrailExceptionsPath,
-  guardrailAuditPath
+  guardrailAuditPath,
+  GUARDRAIL_STATE_FILES,
+  NON_ACCEPTABLE_CODES
 } = require('./guardrail_exceptions');
 
 const SUPPORTED_HARNESSES = Object.freeze([
@@ -274,7 +276,8 @@ const GUARDRAIL_REMEDIATION = Object.freeze({
   SECRET_FILE_WRITE_DENIED: 'no alternative; secrets stay outside the repository',
   SHELL_GUARDRAIL_VIOLATION: 'an rtk-wrapped, non-destructive command',
   RTK_REQUIRED: 'the same command prefixed with "rtk "',
-  RETIRED_LEGACY_MCP: 'konoha:find_skill, konoha:use_skills, or konoha:build_from_source'
+  RETIRED_LEGACY_MCP: 'konoha:find_skill, konoha:use_skills, or konoha:build_from_source',
+  GUARDRAIL_STATE_WRITE_DENIED: 'no alternative; a human accepts risk at a terminal, and the guard CLI writes the store'
 });
 
 function describeGuardrailRemediation(code) {
@@ -296,6 +299,8 @@ function _exceptionCovers(entry, evalResult, toolName) {
 function evaluateProjectMcpGuardrail(payload = {}, options = {}) {
   const result = _evaluateProjectMcpGuardrailRaw(payload, options);
   if (result.allowed) return result;
+  // Some denials have no acceptable form: no store entry can unblock them.
+  if (NON_ACCEPTABLE_CODES.includes(result.code)) return result;
 
   const repoRoot = options.repoRoot || result.repo_root;
   if (!repoRoot) return result;
@@ -419,6 +424,16 @@ function _evaluateProjectMcpGuardrailRaw(payload = {}, options = {}) {
         `[${harness}] Writing secret file "${baseName}" is forbidden in the Konoha repository.`
       );
     }
+    // The exception store is the bypass itself: a tool call that could write it
+    // would grant its own permission, so it is closed like a secret.
+    if (GUARDRAIL_STATE_FILES.includes(baseName)) {
+      return _denyResult(
+        harness,
+        scope.repoRoot,
+        'GUARDRAIL_STATE_WRITE_DENIED',
+        `[${harness}] "${baseName}" records accepted guardrail risks and is written only by the guard CLI.`
+      );
+    }
     return _allowResult(harness, true, scope.repoRoot, 'File modification tool permitted in Konoha repository.');
   }
 
@@ -439,6 +454,16 @@ function _evaluateProjectMcpGuardrailRaw(payload = {}, options = {}) {
         scope.repoRoot,
         'RTK_REQUIRED',
         `[${harness}] Shell command without rtk wrapper is rejected in the Konoha repository: prefix with "rtk <command>".`
+      );
+    }
+    // An rtk-wrapped `node -e` would otherwise reach the store the same way.
+    const stateFile = GUARDRAIL_STATE_FILES.find(name => command.includes(name));
+    if (stateFile) {
+      return _denyResult(
+        harness,
+        scope.repoRoot,
+        'GUARDRAIL_STATE_WRITE_DENIED',
+        `[${harness}] "${stateFile}" records accepted guardrail risks and is written only by the guard CLI.`
       );
     }
     return _allowResult(harness, true, scope.repoRoot, 'Approved rtk-wrapped shell command.');
