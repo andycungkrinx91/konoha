@@ -18,6 +18,12 @@ const {
   findKonohaRepoRoot,
   evaluateProjectMcpGuardrail,
   formatHarnessDecision,
+  describeGuardrailRemediation,
+  readGuardrailExceptions,
+  recordGuardrailException,
+  revokeGuardrailExceptions,
+  guardrailExceptionsPath,
+  guardrailAuditPath,
   createHarnessInterceptor,
   ensureProjectKonohaGuardPlugin
 } = require('../src/project_konoha_mcp_guardrail');
@@ -39,9 +45,21 @@ assert.strictEqual(TEMP_ENSURED.ok, true, 'ensureProjectKonohaGuardPlugin must m
 const PLUGIN_DIR = TEMP_ENSURED.pluginDir;
 const pluginGuard = require(path.join(PLUGIN_DIR, 'guard.js'));
 
+const PENDING_TESTS = [];
+
 function runTest(name, fn) {
   try {
-    fn();
+    const outcome = fn();
+    if (outcome && typeof outcome.then === 'function') {
+      PENDING_TESTS.push(outcome.then(
+        () => console.log(`  PASS ${name}`),
+        (err) => {
+          console.error(`  FAIL ${name}: ${err.stack || err.message}`);
+          process.exitCode = 1;
+        }
+      ));
+      return;
+    }
     console.log(`  PASS ${name}`);
   } catch (err) {
     console.error(`  FAIL ${name}: ${err.stack || err.message}`);
@@ -245,6 +263,27 @@ runTest('6. ensureProjectKonohaGuardPlugin skips user repos and supports copied 
       encoding: 'utf8'
     });
     assert.strictEqual(JSON.parse(out.trim()).decision, 'deny');
+
+    // The copy has no src/ sibling, so --hitl used to fail with a rejected
+    // MODULE_NOT_FOUND promise: exit 2, the same code a real denial returns,
+    // but only a bare module error on stderr instead of the fail-closed briefing.
+    let hitlFailed = null;
+    try {
+      execFileSync(process.execPath, [copiedPluginScript, '--harness', 'antigravity', '--hitl'], {
+        cwd: path.join(fakeKonoha, '.agents', 'plugins', 'konoha-mcp-guard'),
+        input: JSON.stringify({ cwd: fakeKonoha, tool_name: 'grep_search', tool_input: { SearchPath: fakeKonoha, Query: 'x' } }),
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, KONOHA_GUARD_NO_TTY: '1' }
+      });
+    } catch (err) {
+      hitlFailed = err;
+    }
+    assert.ok(hitlFailed, 'a copied plugin --hitl run with no terminal must exit non-zero');
+    assert.strictEqual(hitlFailed.status, 2, 'the copied plugin must fail closed with exit 2, not crash');
+    const hitlStderr = String(hitlFailed.stderr || '');
+    assert.ok(!/Cannot find module/.test(hitlStderr), `the copied plugin must resolve src/ modules (got: ${hitlStderr.slice(0, 300)})`);
+    assert.ok(/No TTY available/.test(hitlStderr), `the copied plugin must render the fail-closed briefing (got: ${hitlStderr.slice(0, 300)})`);
   } finally {
     fs.rmSync(fakeKonoha, { recursive: true, force: true });
   }
@@ -259,6 +298,11 @@ runTest('7. Tracked .agents plugin copies match what the generator emits', () =>
   for (const rel of ['plugin.json', 'hooks.json', 'guard.js', path.join('scripts', 'konoha_project_mcp_guard.js')]) {
     const tracked = path.join(trackedDir, rel);
     assert.ok(fs.existsSync(tracked), `.agents/plugins/konoha-mcp-guard/${rel} must exist in the repo`);
+    assert.strictEqual(
+      fs.lstatSync(tracked).isSymbolicLink(),
+      false,
+      `.agents/plugins/konoha-mcp-guard/${rel} must be a regular file; a symlink resolves only on the machine that created it`
+    );
     assert.ok(
       fs.readFileSync(tracked).equals(fs.readFileSync(path.join(PLUGIN_DIR, rel))),
       `.agents/plugins/konoha-mcp-guard/${rel} drifted from the generator`
@@ -266,4 +310,286 @@ runTest('7. Tracked .agents plugin copies match what the generator emits', () =>
   }
 });
 
-fs.rmSync(TEMP_PLUGIN_REPO, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+runTest('8. A stale symlink in the plugin dir is replaced, not written through', () => {
+  const fakeKonoha = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-symlink-'));
+  const sentinel = path.join(fakeKonoha, 'sentinel.js');
+  try {
+    const dirType = process.platform === 'win32' ? 'junction' : 'dir';
+    fs.symlinkSync(path.join(REPO_ROOT, 'src'), path.join(fakeKonoha, 'src'), dirType);
+    fs.symlinkSync(path.join(REPO_ROOT, 'bin'), path.join(fakeKonoha, 'bin'), dirType);
+    fs.mkdirSync(path.join(fakeKonoha, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(fakeKonoha, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.22' }));
+    fs.copyFileSync(GUARD_CLI, path.join(fakeKonoha, 'scripts', 'konoha_project_mcp_guard.js'));
+
+    const dest = path.join(fakeKonoha, '.agents', 'plugins', 'konoha-mcp-guard', 'scripts', 'konoha_project_mcp_guard.js');
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(sentinel, 'SENTINEL\n');
+    try {
+      fs.symlinkSync(sentinel, dest, 'file');
+    } catch (err) {
+      if (err.code === 'EPERM' || err.code === 'EACCES') {
+        console.log('  SKIP 8. symlink creation not permitted on this host');
+        return;
+      }
+      throw err;
+    }
+
+    const res = ensureProjectKonohaGuardPlugin(fakeKonoha);
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(fs.lstatSync(dest).isSymbolicLink(), false, 'the symlink must be replaced by a real file');
+    assert.strictEqual(fs.readFileSync(sentinel, 'utf8'), 'SENTINEL\n', 'the write must not follow the symlink to its target');
+    assert.ok(fs.readFileSync(dest).equals(fs.readFileSync(GUARD_CLI)), 'the replacement must carry the guard CLI');
+  } finally {
+    fs.rmSync(fakeKonoha, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+const HITL_DENIAL = {
+  tool_name: 'Read',
+  tool_input: { file_path: path.join(REPO_ROOT, 'src', 'server.js') },
+  cwd: REPO_ROOT
+};
+
+runTest('9. Accepting a risk writes a scoped exception, an audit line, and lets the next identical call through', () => {
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-accept-'));
+  try {
+    const before = evaluateProjectMcpGuardrail(HITL_DENIAL, { harness: 'omp', repoRoot: store });
+    assert.strictEqual(before.allowed, false);
+    assert.strictEqual(before.code, 'KONOHA_MCP_REQUIRED_READ');
+    assert.ok(describeGuardrailRemediation(before.code).includes('read_file_range'), 'the denial must name the Konoha alternative');
+
+    const entry = recordGuardrailException(store, {
+      code: before.code,
+      tool: 'Read',
+      justification: 'Auditing the guard itself for the CI fix',
+      harness: 'omp',
+      acceptedBy: 'test'
+    });
+    assert.strictEqual(entry.code, 'KONOHA_MCP_REQUIRED_READ');
+    assert.ok(Date.parse(entry.expires_at) > Date.now(), 'the exception must carry a future expiry');
+    assert.strictEqual(readGuardrailExceptions(store).length, 1);
+
+    const after = evaluateProjectMcpGuardrail(HITL_DENIAL, { harness: 'omp', repoRoot: store });
+    assert.strictEqual(after.allowed, true, 'the accepted exception must satisfy the same call');
+    assert.strictEqual(after.code, 'RISK_ACCEPTED');
+    assert.strictEqual(after.risk_accepted, true);
+
+    // The exception is scoped to one denial code and one tool, so nothing else slips through.
+    assert.strictEqual(evaluateProjectMcpGuardrail({
+      tool_name: 'Glob', tool_input: { pattern: 'src/**/*.js', path: REPO_ROOT }, cwd: REPO_ROOT
+    }, { harness: 'omp', repoRoot: store }).allowed, false, 'a different denial code must not be covered');
+    assert.strictEqual(evaluateProjectMcpGuardrail({
+      tool_name: 'Grep', tool_input: { pattern: 'x', path: REPO_ROOT }, cwd: REPO_ROOT
+    }, { harness: 'omp', repoRoot: store }).allowed, false, 'a different tool must not be covered');
+
+    const audit = fs.readFileSync(guardrailAuditPath(store), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const accepted = audit.filter((row) => row.event === 'risk_accepted');
+    assert.strictEqual(accepted.length, 1);
+    assert.strictEqual(accepted[0].exception_id, entry.id);
+    assert.strictEqual(accepted[0].justification, 'Auditing the guard itself for the CI fix');
+
+    assert.strictEqual(revokeGuardrailExceptions(store), 1);
+    assert.strictEqual(readGuardrailExceptions(store).length, 0);
+    assert.strictEqual(evaluateProjectMcpGuardrail(HITL_DENIAL, { harness: 'omp', repoRoot: store }).allowed, false);
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('10. Blocking writes no exception and no audit entry', () => {
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-block-'));
+  try {
+    assert.strictEqual(evaluateProjectMcpGuardrail(HITL_DENIAL, { harness: 'omp', repoRoot: store }).allowed, false);
+    assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'blocking must not create the exception store');
+    assert.strictEqual(fs.existsSync(guardrailAuditPath(store)), false, 'blocking must not append an audit line');
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('11. An expired exception is ignored and pruned from the store', () => {
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-expired-'));
+  try {
+    recordGuardrailException(store, {
+      code: 'KONOHA_MCP_REQUIRED_READ',
+      tool: 'Read',
+      justification: 'Short-lived exception for the probe',
+      ttlMs: 60000,
+      acceptedBy: 'test'
+    });
+    const persisted = JSON.parse(fs.readFileSync(guardrailExceptionsPath(store), 'utf8'));
+    persisted.exceptions[0].expires_at = new Date(Date.now() - 60000).toISOString();
+    fs.writeFileSync(guardrailExceptionsPath(store), JSON.stringify(persisted));
+
+    assert.strictEqual(readGuardrailExceptions(store).length, 0);
+    assert.strictEqual(JSON.parse(fs.readFileSync(guardrailExceptionsPath(store), 'utf8')).exceptions.length, 0,
+      'expired entries are pruned on read');
+    assert.strictEqual(evaluateProjectMcpGuardrail(HITL_DENIAL, { harness: 'omp', repoRoot: store }).allowed, false);
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('12. The CLI fails closed on --hitl without a TTY and records a risk only when explicitly accepted', () => {
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-cli-'));
+  const payload = JSON.stringify(HITL_DENIAL);
+  try {
+    // KONOHA_GUARD_NO_TTY makes the no-terminal branch reachable from a script:
+    // a child inherits the developer's terminal otherwise and waits on it.
+    let failed = null;
+    try {
+      execFileSync(process.execPath, [GUARD_CLI, '--harness', 'omp', '--hitl', '--repo-root', store], {
+        cwd: store,
+        input: payload,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, KONOHA_GUARD_NO_TTY: '1' }
+      });
+    } catch (err) {
+      failed = err;
+    }
+    assert.ok(failed, 'a no-terminal --hitl run must exit non-zero');
+    assert.strictEqual(failed.status, 2, 'a no-terminal --hitl run must exit 2 (deny)');
+    // The non-TTY briefing goes to stderr so a hook's JSON stdout stays parseable.
+    const briefing = String(failed.stderr) + String(failed.stdout);
+    assert.ok(briefing.includes('read_file_range'), 'the fail-closed briefing must name the Konoha alternative');
+    assert.ok(briefing.includes('--accept-with-risk'), 'the fail-closed briefing must name the explicit escape hatch');
+    assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a blocked run must not record a risk');
+
+    const out = execFileSync(process.execPath, [
+      GUARD_CLI, '--harness', 'omp', '--repo-root', store,
+      '--accept-with-risk', '--justification', 'Explicitly accepted by the operator'
+    ], { cwd: store, input: payload, encoding: 'utf8' });
+    assert.strictEqual(JSON.parse(out.trim()).decision, 'allow');
+    const recorded = readGuardrailExceptions(store);
+    assert.strictEqual(recorded.length, 1);
+    // The payload arrives on stdin once: a second read sees EOF, and a wildcard
+    // exception for every tool would be recorded instead of one for `read`.
+    assert.strictEqual(recorded[0].tool, 'read', 'the acceptance must be scoped to the tool that was denied, not to every tool');
+    assert.strictEqual(recorded[0].code, 'KONOHA_MCP_REQUIRED_READ', 'the acceptance must be scoped to the denial code');
+    assert.strictEqual(recorded[0].path, path.join(REPO_ROOT, 'src', 'server.js'), 'the claimed path must be recorded for the audit trail');
+    const auditEvents = fs.readFileSync(guardrailAuditPath(store), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    assert.strictEqual(auditEvents[0].event, 'risk_accepted');
+    assert.strictEqual(auditEvents[0].tool, 'read', 'the audit line must name the scoped tool');
+
+    const listed = execFileSync(process.execPath, [GUARD_CLI, '--list-exceptions', '--repo-root', store], { cwd: store, encoding: 'utf8' });
+    assert.ok(listed.includes('KONOHA_MCP_REQUIRED_READ'), 'the list must show the accepted code');
+    const revoked = execFileSync(process.execPath, [GUARD_CLI, '--revoke-exceptions', '--repo-root', store], { cwd: store, encoding: 'utf8' });
+    assert.ok(revoked.includes('Revoked 1 guardrail exception'), `unexpected revoke output: ${revoked}`);
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('13. The interactive menu offers both resolutions, defaults to block on EOF, and refuses a short justification', async () => {
+  const { askHitlDecision } = require('../src/guardrail_hitl');
+  const { PassThrough } = require('stream');
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-menu-'));
+  const drive = (answers) => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const chunks = [];
+    output.on('data', (chunk) => chunks.push(chunk));
+    input.end(answers.map((answer) => `${answer}\n`).join(''));
+    return { input, output, text: () => Buffer.concat(chunks).toString('utf8') };
+  };
+  const evalResult = { code: 'KONOHA_MCP_REQUIRED_READ', reason: 'native read blocked inside the Konoha repo', harness: 'omp' };
+  try {
+    const eof = drive([]);
+    const blocked = await askHitlDecision({ evalResult, repoRoot: store, input: eof.input, output: eof.output });
+    assert.strictEqual(blocked.choice, 'block', 'EOF must resolve to block');
+    const menu = eof.text();
+    assert.ok(menu.includes('Block this call and try another way'), 'the menu must offer blocking');
+    assert.ok(menu.includes('Accept with risk'), 'the menu must offer accepting the risk');
+    assert.ok(menu.includes('read_file_range'), 'the menu must name the Konoha alternative');
+
+    const short = drive(['2', 'nope']);
+    await assert.rejects(
+      () => askHitlDecision({ evalResult, repoRoot: store, input: short.input, output: short.output }),
+      /justification of at least 8 characters/,
+      'an under-length justification must fail closed instead of accepting the risk'
+    );
+    assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a refused acceptance must write nothing');
+
+    const accepted = drive(['2', 'Operator accepted the risk for this audit']);
+    const decision = await askHitlDecision({ evalResult, repoRoot: store, input: accepted.input, output: accepted.output });
+    assert.strictEqual(decision.choice, 'accept');
+    assert.ok(decision.exception && decision.exception.id, 'accepting must return the recorded exception');
+    assert.strictEqual(readGuardrailExceptions(store).length, 1);
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+runTest('14. A piped payload still prompts: the menu reads the controlling terminal, not stdin', async () => {
+  // The denial payload owns stdin, so `--hitl` in a pipeline cannot prompt on it.
+  // This drives the CLI under a real pty: payload on a file redirect, answers on
+  // the terminal. Windows has no `script`, so the pty leg is skipped there and
+  // the fail-closed leg still runs everywhere.
+  const { hasControllingTerminal } = require('../src/guardrail_hitl');
+  const { spawnSync } = require('child_process');
+  assert.strictEqual(typeof hasControllingTerminal(), 'boolean', 'the terminal probe must always answer');
+
+  const store = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-guard-hitl-pty-'));
+  const payloadPath = path.join(store, 'payload.json');
+  fs.writeFileSync(payloadPath, JSON.stringify(HITL_DENIAL));
+  try {
+    const hasScript = spawnSync(process.platform === 'win32' ? 'where' : 'sh',
+      process.platform === 'win32' ? ['script'] : ['-c', 'command -v script'], { encoding: 'utf8' }).status === 0;
+    if (process.platform === 'win32' || !hasScript) {
+      console.log('  SKIP 14a. No pty driver on this platform; the fail-closed leg above covers the CLI');
+    } else {
+      const node = process.execPath;
+      const inner = `"${node}" "${GUARD_CLI}" --harness omp --hitl --repo-root "${store}" < "${payloadPath}"`;
+      // Never inherit a KONOHA_GUARD_NO_TTY from the developer's shell: these legs
+      // assert that a real terminal does prompt.
+      const ptyEnv = { ...process.env };
+      delete ptyEnv.KONOHA_GUARD_NO_TTY;
+      const runPty = (answers, extraEnv = {}) => {
+        const argv = process.platform === 'darwin'
+          ? ['-q', '/dev/null', '/bin/sh', '-c', inner]
+          : ['-qec', inner, '/dev/null'];
+        return spawnSync('script', argv, { input: answers, encoding: 'utf8', timeout: 30000, env: { ...ptyEnv, ...extraEnv } });
+      };
+
+      const blocked = runPty('1\n');
+      const blockedText = `${blocked.stdout || ''}${blocked.stderr || ''}`;
+      assert.ok(blockedText.includes('Block this call and try another way'),
+        `the menu must render when stdin is a payload pipe (got: ${blockedText.slice(0, 400)})`);
+      assert.ok(blockedText.includes('read_file_range'), 'the pty briefing must name the Konoha alternative');
+      assert.ok(!blockedText.includes('No TTY available'), 'a controlling terminal must not be mistaken for no terminal');
+      if (process.platform !== 'darwin') {
+        assert.strictEqual(blocked.status, 2, 'choosing block under a pty must exit 2');
+      }
+      assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'blocking under a pty must record nothing');
+
+      const accepted = runPty('2\nOperator accepted the risk on the terminal\n');
+      const acceptedText = `${accepted.stdout || ''}${accepted.stderr || ''}`;
+      assert.ok(acceptedText.includes('"decision":"allow"'), `accepting under a pty must allow (got: ${acceptedText.slice(0, 400)})`);
+      const recorded = readGuardrailExceptions(store);
+      assert.strictEqual(recorded.length, 1, 'accepting under a pty must record exactly one exception');
+      assert.strictEqual(recorded[0].tool, 'read', 'the pty acceptance must stay scoped to the denied tool');
+      assert.strictEqual(recorded[0].code, 'KONOHA_MCP_REQUIRED_READ');
+
+      // The override forces the no-terminal branch even where a terminal exists.
+      // It exists so the fail-closed path is reachable from a script; it must be
+      // able to block, and only to block.
+      fs.rmSync(guardrailExceptionsPath(store), { force: true });
+      fs.rmSync(guardrailAuditPath(store), { force: true });
+      const forced = runPty('2\nOperator accepted the risk on the terminal\n', { KONOHA_GUARD_NO_TTY: '1' });
+      const forcedText = `${forced.stdout || ''}${forced.stderr || ''}`;
+      assert.ok(forcedText.includes('No TTY'), `KONOHA_GUARD_NO_TTY=1 must skip the menu (got: ${forcedText.slice(0, 400)})`);
+      assert.ok(!forcedText.includes('Block this call and try another way'), 'a forced no-terminal run must not render the menu');
+      if (process.platform !== 'darwin') {
+        assert.strictEqual(forced.status, 2, 'a forced no-terminal run must exit 2 even with an answer on stdin');
+      }
+      assert.strictEqual(fs.existsSync(guardrailExceptionsPath(store)), false, 'a forced no-terminal run must record nothing');
+    }
+  } finally {
+    fs.rmSync(store, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+Promise.all(PENDING_TESTS).then(() => {
+  fs.rmSync(TEMP_PLUGIN_REPO, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+});

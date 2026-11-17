@@ -311,26 +311,69 @@ function executeSalvagePass(sourcePath, targetPath) {
     targetConn = openHardenedTarget(targetPath);
 
     let totalRows = 0;
+    let salvagedTables = 0;
     targetConn.exec('BEGIN IMMEDIATE;');
     for (const spec of validSpecs) {
-      targetConn.exec(spec.createSql);
-      totalRows += salvageTableRows(sourceConn, targetConn, spec);
+      // One unusable table must not abort the pass: a single DDL or INSERT that
+      // the target rejects (an unusual collation, a STRICT/UPSERT edge, a
+      // platform-specific parser difference) used to discard every row rescued
+      // up to that point. A savepoint isolates it and the reason is reported.
+      targetConn.exec('SAVEPOINT salvage_table;');
+      try {
+        targetConn.exec(spec.createSql);
+        totalRows += salvageTableRows(sourceConn, targetConn, spec);
+        targetConn.exec('RELEASE salvage_table;');
+        salvagedTables += 1;
+      } catch (err) {
+        try {
+          targetConn.exec('ROLLBACK TO salvage_table;');
+          targetConn.exec('RELEASE salvage_table;');
+        } catch (_) { /* the savepoint is gone; the enclosing transaction still commits */ }
+        catalog.rejectedObjects.push({
+          name: spec.tableName,
+          type: 'table',
+          reason: `table could not be recreated in the target: ${_describeError(err)}`
+        });
+      }
     }
     targetConn.exec('COMMIT;');
 
+    if (salvagedTables === 0) {
+      return {
+        ok: false,
+        tables: 0,
+        rows: 0,
+        rejectedObjects: catalog.rejectedObjects,
+        reason: 'no table could be recreated in the target database'
+      };
+    }
+
     return {
       ok: true,
-      tables: validSpecs.length,
+      tables: salvagedTables,
       rows: totalRows,
       rejectedObjects: catalog.rejectedObjects
     };
-  } catch (_) {
-    return { ok: false, tables: 0, rows: 0, rejectedObjects: [] };
+  } catch (err) {
+    return { ok: false, tables: 0, rows: 0, rejectedObjects: [], reason: _describeError(err) };
   } finally {
     if (sourceConn && sourceConn.isOpen) { try { sourceConn.close(); } catch (_) { /* ignore */ } }
     if (targetConn && targetConn.isOpen) { try { targetConn.close(); } catch (_) { /* ignore */ } }
   }
 }
+
+/**
+ * A reason-less failure is unreportable: the macOS CI leg returned
+ * `{ok:false, tables:0, rows:0}` and there was nothing to act on. Every failure
+ * path carries the underlying message plus the sqlite error code when present.
+ */
+function _describeError(err) {
+  if (!err) return 'unknown error';
+  const message = err.message || String(err);
+  const code = err.code || err.errcode || err.errstr;
+  return code ? `${message} (${code})` : message;
+}
+
 
 function salvageDatabase(sourceDb, targetDb, options = {}) {
   const directRes = executeSalvagePass(sourceDb, targetDb);

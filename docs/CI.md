@@ -412,6 +412,28 @@ expectation, and no `continue-on-error` was added anywhere.
   artifacts into a temp `HOME` and measures them there, and asserts the `<1800`
   byte budget on `buildLightweightContract({ client })` for every client.
 
+- **Reason-less salvage failure (`test_db_recovery`, macos 5/5)** — the salvage
+  pass returned `{ok:false, tables:0, rows:0, rejectedObjects:[]}` on the macOS
+  leg with no `reason`, so `assert.strictEqual(salvageRes.ok, true, …${salvageRes.reason})`
+  printed `should succeed: undefined` and nothing identified the failing step.
+  Two defects made that possible: `executeSalvagePass` swallowed every exception
+  in a bare `catch (_)`, and a single table whose DDL the target refused aborted
+  the whole pass, discarding every row already rescued. The pass now returns
+  `reason` on every failure path (message plus the sqlite errcode), and each
+  table runs inside a `SAVEPOINT` so one rejection is recorded in
+  `rejectedObjects` and the siblings still commit. Reproduce on any platform:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path');const d=fs.mkdtempSync(p.join(os.tmpdir(),'salvage-'));
+  fs.writeFileSync(p.join(d,'garbage.db'),Buffer.alloc(4096,0x41));
+  console.log(JSON.stringify(require('./src/db_recovery').salvageDatabase(p.join(d,'garbage.db'),p.join(d,'out.db'),{stagingDir:d})));"
+  # must carry a reason naming the sqlite failure, never reason: undefined
+  ```
+
+  `tests/test_db_recovery.js` asserts a non-empty reason on the garbage path and
+  that a table rejected by a binary-patched DDL does not sink a salvageable
+  sibling. Both are proven to bite by mutation.
+
 - **A sandboxed `HOME` rewrote the checkout's `.omp/mcp.json` (`ensureOmpSetup`)** — not a
   test failure, a poisoned workspace. `ensureOmpSetup` auto-detected a project whenever
   `cwd/.omp/mcp.json` existed, which is right for the CLI and wrong for a suite running

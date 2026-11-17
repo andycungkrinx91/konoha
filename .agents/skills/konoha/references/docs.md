@@ -21,9 +21,9 @@ Every topic has exactly one live document. `docs/README.md` is the live index: o
 - `docs/archive/`: Frozen dated reports and finished reviews, one directory per topic. `docs/archive/README.md` indexes them and states the keep-or-archive rule. A live document never links into `docs/archive/`.
 - `docs/architecture/`: Canonical specifications (`CANONICAL-API.md`, `CANONICAL-CLI.md`, `CANONICAL-NAMING.md`, `CAPABILITY-MAP.md`, `ARCHITECTURAL-GAPS.md`, `TOKEN-BASELINE.md`).
 - `docs/security/`: Database isolation, schema, red-skill, and skill-authz inventories.
-- `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio`, `konoha-infrastructure-architecture.drawio` — 18 pages each, 0 geometric collisions).
+- `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio` — 19 pages, `konoha-infrastructure-architecture.drawio` — 18 pages, 0 geometric collisions).
 - `docs/templates/`: Client configuration templates (`claude-code.mcp.yaml`).
-- `assets/`: 33 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
+- `assets/`: 34 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
 
 ---
 
@@ -42,5 +42,5 @@ All documentation authored or updated by Konoha subagents (especially `@tokubets
 - Verify version synchronization across all 18 targets: `rtk node tests/test_version_consistency.js`
 - Verify documentation symbol currency: `rtk node tests/test_docs_currency.js`
 - Verify the live index covers every live document and no archived one: `rtk node tests/test_docs_index.js`
-- Verify Draw.io zero collisions across all 18 pages: `rtk node tests/test_diagram_sync.js`
-- Verify all 33 animated WebP assets and 107 active markdown embeds: `rtk node tests/test_all_assets_webp.js`
+- Verify Draw.io zero collisions across all 19 architecture pages: `rtk node tests/test_diagram_sync.js`
+- Verify all 34 animated WebP assets and 107 active markdown embeds: `rtk node tests/test_all_assets_webp.js`

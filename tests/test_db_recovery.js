@@ -446,6 +446,49 @@ console.log('9. Verifying B-tree page corruption row salvage and garbage file fa
   assert.strictEqual(garbageOutcome.method, 'none');
   assert.ok(fs.readFileSync(garbageDb).equals(garbageBytes), 'Failed salvage must leave original file untouched');
   console.log(`  ✓ B-tree partial salvage recovered ${surviving.c}/60 rows and garbage file failed closed safely`);
+
+  // A failed salvage must say why. A macOS leg once returned {ok:false, tables:0,
+  // rows:0} with no reason at all, which is unreportable: the caller could not
+  // tell a malformed image from a permissions problem.
+  const reasonless = salvageDatabase(garbageDb, path.join(dir, 'reasonless_out.db'), { stagingDir: dir });
+  assert.strictEqual(reasonless.ok, false, 'Garbage input must not salvage');
+  assert.strictEqual(typeof reasonless.reason, 'string', 'A failed salvage must carry a reason');
+  assert.ok(reasonless.reason.trim().length > 0, 'The salvage reason must not be empty');
+  assert.ok(
+    reasonless.reason.toLowerCase().includes('malformed'),
+    `The reason must name the underlying sqlite failure (got: ${reasonless.reason})`
+  );
+
+  // Rejected tables carry a reason too, and one unusable table must not discard
+  // the rows rescued from the others.
+  const mixedDb = path.join(dir, 'mixed.db');
+  const mixed = new DatabaseSync(mixedDb);
+  mixed.exec('CREATE TABLE mixed_kept (id INTEGER PRIMARY KEY, v TEXT);');
+  mixed.prepare('INSERT INTO mixed_kept (v) VALUES (?)').run('survivor');
+  mixed.exec('CREATE TABLE mixed_bad (id INTEGER PRIMARY KEY /*____MIXED_PATCH_SLOT_0123456789____*/);');
+  mixed.close();
+  const mixedRaw = fs.readFileSync(mixedDb);
+  const mixedNeedle = Buffer.from('/*____MIXED_PATCH_SLOT_0123456789____*/', 'utf8');
+  const mixedReplacement = Buffer.from('); DROP TABLE mixed_kept;--'.padEnd(mixedNeedle.length, ' '), 'utf8');
+  const mixedIdx = mixedRaw.indexOf(mixedNeedle);
+  assert.ok(mixedIdx !== -1, 'Expected to locate the mixed-DDL patch slot');
+  mixedReplacement.copy(mixedRaw, mixedIdx);
+  fs.writeFileSync(mixedDb, mixedRaw);
+
+  const mixedOut = path.join(dir, 'mixed_out.db');
+  const mixedRes = salvageDatabase(mixedDb, mixedOut, { stagingDir: dir });
+  assert.strictEqual(mixedRes.ok, true, `One rejected table must not fail the pass: ${mixedRes.reason}`);
+  for (const rejected of mixedRes.rejectedObjects) {
+    assert.ok(
+      typeof rejected.reason === 'string' && rejected.reason.trim().length > 0,
+      `Rejected object ${rejected.name} must carry a reason`
+    );
+  }
+  const mixedVerify = new DatabaseSync(mixedOut, { readOnly: true });
+  const keptRows = mixedVerify.prepare('SELECT COUNT(*) AS c FROM mixed_kept').get();
+  mixedVerify.close();
+  assert.strictEqual(Number(keptRows.c), 1, 'The salvageable table must survive a sibling rejection');
+  console.log('  ✓ A failed salvage names its reason, and a rejected table does not sink its siblings');
 }
 
 // Atomic replacement rollback, WAL/SHM sidecar restoration, staging cleanup, and concurrency lock

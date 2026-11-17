@@ -189,3 +189,78 @@ Delegation runs other coding harnesses as child processes, so the launch path is
 - **A sandboxed home cannot rewrite project configuration.** `ensureOmpSetup` auto-detects a project from `cwd`, which is correct for the CLI and wrong for anything running under a temporary `HOME`: a test run rewrote the repository's `.omp/mcp.json` to point at its own throwaway launcher, after which every delegated agent in that checkout started without the Konoha MCP server. The sandbox check compares `options.home` against `os.userInfo().homedir`, not `process.env.HOME`, because the environment variable is exactly what a sandbox overrides.
 
 ---
+
+## 14. Guardrail Denial & Human-in-the-Loop Resolution (v2.2.23)
+
+The project guardrail intercepts every harness `PreToolUse` call and denies native reads, searches, globs, outlines, and unwrapped shell inside a Konoha checkout. A denial is not a dead end: it is a decision point with exactly two real outcomes — route the call through the Konoha alternative, or accept the risk with a written, scoped, expiring, audited exception.
+
+### 14.1 Hooks stay fail-closed; the prompt is a separate front end
+
+A hook has one non-interactive JSON answer and cannot ask a question, so the automated path never prompts. `scripts/konoha_project_mcp_guard.js` keeps its hook contract (`--harness <name>`, stdin JSON, one JSON object on stdout, exit `2` on deny with `--exit-on-deny`) and adds an opt-in interactive path behind `--hitl`.
+
+The copy that ships is `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js`, which has no `src/` sibling, so both `project_konoha_mcp_guardrail` and `guardrail_hitl` resolve through one candidate search (`_resolveSrcModule`) rather than a relative `require`. Without it, `--hitl` on the deployed copy exited `2` with `Cannot find module '../src/guardrail_hitl'` and nothing else — the same code a real denial returns, with no briefing and no named alternative, so neither the harness nor the human could tell a crash from a block.
+
+The denial payload arrives on **stdin**, so stdin is a pipe whenever `--hitl` runs in a pipeline — and a pipe cannot answer a prompt. The menu therefore reads the **controlling terminal** (`/dev/tty`, or `CONIN$`/`CONOUT$` on Windows) instead of `process.stdin`. No controlling terminal — a hook, a CI job, a detached process — fails closed: the reason and the named alternative go to **stderr** (so a caller parsing stdout still gets clean JSON) and the exit code is `2`. Nothing is recorded. `KONOHA_GUARD_NO_TTY=1` forces the no-terminal branch explicitly, which is how the regression proves it from a script instead of waiting on a developer's keyboard; the override can only force a block, never an allow.
+
+### 14.2 Denials name the alternative
+
+Every denial carries a code, and every code maps to the Konoha route that satisfies it (`describeGuardrailRemediation`). A denial that only says "blocked" trains an agent to retry the same call; a denial that names `konoha:read_file_range` ends the loop in one step.
+
+| Denial code | Named alternative |
+|---|---|
+| `KONOHA_MCP_REQUIRED_READ` | `konoha:read_file_range`, `read_file_head`, `file_info` |
+| `KONOHA_MCP_REQUIRED_SEARCH` | `konoha:code_search`, `code_symbol`, `code_impact`, `token_efficient_grep` |
+| `KONOHA_MCP_REQUIRED_DISCOVERY` | `konoha:find_files_clean` |
+| `KONOHA_MCP_REQUIRED_STRUCTURE` | `konoha:get_file_structure`, `code_symbol` |
+| `READ_ONLY_AGENT_WRITE_DENIED` | delegate the edit to `@anbu` or `@jonin` |
+| `RTK_REQUIRED` | prefix the command with `rtk` |
+| `RETIRED_LEGACY_MCP` | `konoha:find_skill`, `use_skills`, `build_from_source` |
+| `RETIRED_LEGACY_IPC`, `SHELL_GUARDRAIL_VIOLATION` | no in-place alternative; rewrite the call |
+| `SECRET_FILE_WRITE_DENIED` | no alternative by design |
+
+### 14.3 The three-way menu
+
+```mermaid
+flowchart TD
+  A["PreToolUse hook: 8 harnesses"] --> B["evaluateProjectMcpGuardrail()"]
+  B -->|allowed| C["Allow: Konoha MCP route"]
+  B -->|denied| D["Deny: code + named alternative"]
+  D --> E{"HITL menu"}
+  E -->|"1 Block and try another way"| F["No state written, hook exits 2"]
+  E -->|"2 Accept with risk"| G["Justification required, 8+ characters"]
+  E -->|"3 Cancel / no TTY"| H["Blocked, fail closed, exit 2"]
+  F --> I["Agent retries via Konoha MCP"]
+  I --> J["Allow: rule satisfied"]
+  G --> K["Scoped exception: code + tool, 30 min TTL"]
+  K --> L["Audit line in .konoha/guardrail-audit.jsonl"]
+  L --> M["Allow: RISK_ACCEPTED"]
+  H --> N["Call rejected, reason returned"]
+```
+
+The projection of this page is `assets/konoha-flow-19-guardrail-denial-human-in-the-loop-resolution.webp`; drawio page 19 is the editable source.
+
+### 14.4 An accepted risk is narrow by construction
+
+- **Scoped to one denial code and one tool.** `_exceptionCovers` compares the code and the tool name only. The target path is recorded for the audit trail but is deliberately *not* part of the match: `_extractTargetPath` returns a grep call's `pattern` before its `path`, so path equality rejected the very call the human had just approved. Accepting `KONOHA_MCP_REQUIRED_READ` for `Read` therefore leaves `Glob` and `Grep` denied.
+- **Time-limited.** Default TTL 30 minutes (`--ttl-minutes` overrides). Expired entries are pruned on read, so an acceptance cannot outlive its window by being left on disk.
+- **Justified.** `recordGuardrailException` throws below 8 characters; `--accept-with-risk` refuses the same way. An empty justification is a rubber stamp, not a decision.
+- **Audited.** `.konoha/guardrail-audit.jsonl` is append-only and records `risk_accepted` (id, code, tool, path, harness, who, why, expiry) and `exceptions_revoked` (count). A reviewer can reconstruct every acceptance without asking the operator.
+- **Revocable.** `--revoke-exceptions` deletes the store and audits the removal; `--list-exceptions` prints what is live.
+
+Both files are machine-local runtime state and are gitignored (`.konoha/guardrail-*.json`, `.konoha/guardrail-*.jsonl`). A risk acceptance is a decision about one checkout on one machine, so shipping it in a tag would hand a future clone an exception its operator never granted.
+
+### 14.5 Non-interactive acceptance
+
+An operator who has already decided does not need a prompt:
+
+```bash
+echo '{"tool_name":"Read","tool_input":{"file_path":"src/server.js"},"cwd":"'$PWD'"}' \
+  | node scripts/konoha_project_mcp_guard.js --harness omp \
+      --accept-with-risk --justification "auditing the guard for the CI fix" --ttl-minutes 15
+```
+
+The justification is still mandatory, the TTL still applies, and the audit line is still written — the only thing skipped is the menu.
+
+`tests/test_project_konoha_mcp_guardrail.js` covers all of it: tests 9-13 assert that acceptance writes the exception and the audit line and lets the next identical call through while a different code or tool stays denied, that blocking writes nothing, that an expired entry is pruned and ignored, that `--hitl` with no controlling terminal exits `2` and records nothing, and that the menu defaults to block on EOF and refuses a short justification. Test 14 drives the CLI under a real pty with the payload on stdin, which is the shipped shape of the command: the menu appears, choice `1` exits `2` and writes nothing, and choice `2` records exactly one exception scoped to the denied tool. Each behaviour is proven to bite by a mutation (exception match disabled, expiry ignored, exit code softened, menu default flipped, payload re-read from a drained stdin, justification length unchecked). Test 6 closes the loop on the copy that actually ships: it runs `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js` with `--hitl` and no terminal and asserts the fail-closed briefing on stderr, which is what a relative `require` into a directory with no `src/` sibling cannot produce.
+
+---
