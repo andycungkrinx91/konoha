@@ -75,10 +75,11 @@ for (const agent of SPAWNABLE) {
   const withFindings = JSON.parse(runMcpAgent(agent, { task: `Budget gate probe for ${agent}`, projectPath, taskDir: probeTaskDir }));
   const bytes = Buffer.byteLength(withFindings.instructions, 'utf8');
   assert(bytes <= PROMPT_CEILING_BYTES, `${agent}: prompt with findings ${bytes} bytes exceeds ${PROMPT_CEILING_BYTES}`);
-  const hasBlock = withFindings.instructions.includes('Shared Task Context');
-  // The block is dropped only when the agent genuinely has no room for it.
-  assert(hasBlock || bytes > PROMPT_CEILING_BYTES - 200, `${agent}: ${PROMPT_CEILING_BYTES - bytes} bytes free, block was dropped`);
-  findingsReport.push(`${agent}=${bytes}${hasBlock ? '+block' : ''}`);
+  // The runner reserves the block's bytes before assembling the tail, so every
+  //    spawnable agent must receive it. A dropped block means the reservation
+  //    regressed, not that the agent ran out of room.
+  assert(withFindings.instructions.includes('Shared Task Context'), `${agent}: sibling findings were dropped (${PROMPT_CEILING_BYTES - bytes} bytes free)`);
+  findingsReport.push(`${agent}=${bytes}+block`);
 }
 
 console.log(`  prompt bytes: ${SPAWNABLE.map((a) => `${a}=${Buffer.byteLength(built.get(a), 'utf8')}`).join(' ')}`);

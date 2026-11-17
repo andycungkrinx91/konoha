@@ -23,7 +23,7 @@ const fakeRouter = {
   sendChatMessage: async () => {
     calls += 1;
     if (reply instanceof Error) throw reply;
-    return { text: reply };
+    return { text: reply, usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 } };
   }
 };
 require.cache[mrPath] = { id: mrPath, filename: mrPath, loaded: true, exports: fakeRouter, children: [], paths: [] };
@@ -42,12 +42,14 @@ async function main() {
   let r = await sj.judgeRoute({ prompt: 'add a retry to the bridge fetch', candidates: ['anbu', 'jonin'] });
   assert.strictEqual(r.source, 'model', 'valid model verdict must be adopted');
   assert.strictEqual(r.agent, 'anbu');
+  assert.ok(r.usage && r.usage.total_tokens > 0, 'a billed verdict must report its usage to the caller');
   assert.strictEqual(calls, 1);
 
   // Same question is served from cache, not re-billed.
   r = await sj.judgeRoute({ prompt: 'add a retry to the bridge fetch', candidates: ['anbu', 'jonin'] });
   assert.strictEqual(r.agent, 'anbu');
   assert.strictEqual(calls, 1, 'repeat judgment must not call the model again');
+  assert.strictEqual(r.usage, null, 'a cache hit spends nothing, so it must not report usage');
 
   // Fenced / chatty output still parses.
   reset('Sure.\n```json\n{"agent":"jonin","confidence":0.8,"reason":"ui"}\n```');

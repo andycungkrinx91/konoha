@@ -1001,7 +1001,7 @@ Keyword routing is deterministic and free, and right most of the time. It is als
 - **Inherited model, no new dependency:** `model_router.resolveChatTargets()` + `sendChatMessage()`. No Jev model, no provider, no SDK.
 - **Gated:** route judgments require `delegate` mode *and* an ambiguity margin below `SJ_AMBIGUITY_MARGIN` (0.15). Explicit `/agent` slash routing and single-candidate prompts never call out.
 - **Fallback is total:** every failure path returns `{ source: 'heuristic' }` and the keyword verdict stands. A model outage changes routing quality, never availability.
-- **Cached:** `sha256(prompt).slice(0,16) + candidates`, LRU 64, so a repeated dispatch is byte-identical and free.
+- **Cached:** `sha256(prompt).slice(0,16) + candidates`, LRU 64, so a repeated dispatch is byte-identical and free. Degraded verdicts are cached too, under `SJ_FALLBACK_TTL_MS` (60 s): a retried dispatch does not re-pay for the same refusal, and a provider that recovers is picked up within the minute instead of being pinned to its first failure for the process lifetime.
 - **Advisor drift:** `evaluateWorkerTurnAsync` consults the model only when goal/summary domain overlap is thin (0 < ratio < 0.34). A model verdict is *appended* to the deterministic violations, never substituted.
 - **Steer dedupe:** `enqueueAdvisorSteer` suppresses a steer whose `(agent, violation types, directive)` signature repeats within `ADVISOR_STEER_COOLDOWN_MS` (90 s), returning the existing record. A suppressed duplicate does not re-mark the supervisor as steering.
 

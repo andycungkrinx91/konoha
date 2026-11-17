@@ -81,7 +81,7 @@ async function _ask(system, user) {
     max_tokens: SJ_MAX_TOKENS,
     timeoutMs: SJ_MODEL_TIMEOUT_MS
   });
-  return _extractJson(res && res.text);
+  return { json: _extractJson(res && res.text), usage: (res && res.usage) || null };
 }
 
 /**
@@ -97,10 +97,10 @@ async function judgeRoute({ prompt = '', candidates = [], projectPath = null } =
 
   const key = _cacheKey('route', `${crypto.createHash('sha256').update(String(prompt)).digest('hex').slice(0, 16)}\0${names.join(',')}`);
   const cached = _cacheGet(key);
-  if (cached) return cached;
+  if (cached) return { ...cached, usage: null };
 
   try {
-    const verdict = await _ask(
+    const { json: verdict, usage } = await _ask(
       'You route tasks between specialist agents. Answer with JSON only: {"agent": "<one of the given names>", "confidence": <0..1>, "reason": "<12 words max>"}.',
       `Agents: ${names.join(', ')}\nProject: ${projectPath || 'unknown'}\nTask: ${String(prompt).slice(0, SJ_PROMPT_CHARS)}`
     );
@@ -113,7 +113,8 @@ async function judgeRoute({ prompt = '', candidates = [], projectPath = null } =
       source: 'model',
       agent: verdict.agent,
       confidence,
-      reason: String(verdict.reason || '').slice(0, 120)
+      reason: String(verdict.reason || '').slice(0, 120),
+      usage
     };
     _cacheSet(key, out);
     return out;
@@ -132,11 +133,11 @@ async function judgeDrift({ agent = 'worker', goal = '', plan = '', todos = [], 
 
   const key = _cacheKey('drift', `${crypto.createHash('sha256').update(`${goal}\0${plan}\0${summaryText}`).digest('hex').slice(0, 16)}`);
   const cached = _cacheGet(key);
-  if (cached) return cached;
+  if (cached) return { ...cached, usage: null };
 
   const todoList = (Array.isArray(todos) ? todos : []).slice(0, 8).map((t) => `- ${typeof t === 'string' ? t : (t && (t.content || t.task)) || ''}`).join('\n');
   try {
-    const verdict = await _ask(
+    const { json: verdict, usage } = await _ask(
       'You audit whether an agent summary stays inside its goal and plan. Answer with JSON only: {"drift": true|false, "confidence": <0..1>, "reason": "<12 words max>"}.',
       `Agent: ${agent}\nGoal: ${String(goal).slice(0, 400)}\nPlan: ${String(plan).slice(0, 400)}\nTodos:\n${todoList}\nSummary: ${summaryText.slice(0, SJ_PROMPT_CHARS)}`
     );
@@ -145,7 +146,7 @@ async function judgeDrift({ agent = 'worker', goal = '', plan = '', todos = [], 
     if (!Number.isFinite(confidence) || confidence < SJ_MIN_CONFIDENCE) {
       return _fallback(key, `model confidence ${verdict.confidence} below ${SJ_MIN_CONFIDENCE}`);
     }
-    const out = { source: 'model', drift: verdict.drift, confidence, reason: String(verdict.reason || '').slice(0, 120) };
+    const out = { source: 'model', drift: verdict.drift, confidence, reason: String(verdict.reason || '').slice(0, 120), usage };
     _cacheSet(key, out);
     return out;
   } catch (_) {

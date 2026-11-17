@@ -82,7 +82,8 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
       completed_at: completedAt,
       elapsed_ms: Math.max(1, completedAt - startedAt),
       worktree_path: task.worktree_path || null,
-      advisor_status: advisorEval.status
+      advisor_status: advisorEval.status,
+      advisor_judge_tokens: (advisorEval.judge_usage && advisorEval.judge_usage.total_tokens) || 0
     }
   };
 }

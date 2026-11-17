@@ -495,7 +495,9 @@ async function evaluateWorkerTurnAsync(event = {}, options = {}) {
     });
   } catch (_) { verdict = null; }
   if (!verdict || verdict.source !== 'model') return evaluateWorkerTurn(event, options);
-  return evaluateWorkerTurn(event, { ...options, modelDrift: verdict });
+  // The probe's spend belongs to this turn, not to the caller's imagination.
+  const result = evaluateWorkerTurn(event, { ...options, modelDrift: verdict });
+  return { ...result, judge_usage: verdict.usage || null };
 }
 
 function superviseLifecycleStage(stage, context = {}, options = {}) {
