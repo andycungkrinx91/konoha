@@ -100,6 +100,14 @@ async function main() {
   assert.notStrictEqual(res.selected_agent, 'jonin', 'heuristic fallback must not adopt the model pick');
   assert.strictEqual(res.route.judgment.source, 'heuristic');
 
+  // A hard signal override outranks the verdict: the model sees the same text the
+  // keyword override already read, and security/systems prompts must not be
+  // re-routed by a tie-breaker.
+  judgeCalls = [];
+  judgeReply = { source: 'model', agent: 'jonin', confidence: 0.95, reason: 'looks visual' };
+  res = await dispatch('review the security audit of the login flow');
+  assert.strictEqual(res.selected_agent, 'akatsuki', `security override must outrank the verdict, got ${res.selected_agent}`);
+
   // Direct slash delegation never consults the model.
   judgeCalls = [];
   res = await dispatch('/genin map the routing module');

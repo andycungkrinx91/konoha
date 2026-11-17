@@ -126,13 +126,10 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '', options = {}) {
   if (parsed.invocationMode === 'direct_subagent' && parsed.targetAgent) {
     return parsed.targetAgent;
   }
-  // Structured judgment already picked an agent for this exact prompt; do not
-  // re-litigate it with keywords.
-  if (options.precomputedAgent) return options.precomputedAgent;
-
   const effectiveText = parsed.cleanPrompt || p;
   const promptLower = effectiveText.toLowerCase();
   let bestAgent = _findBestAgentFromDb(promptLower);
+  const scoredAgent = bestAgent; // the scorer's own conclusion, pre-override
 
   if (!bestAgent) {
     if (/\b(c|c\+\+|clang|llvm|allocator|buffer overflow|memory leak|backend|devops|api|database|server)\b/i.test(promptLower)) {
@@ -168,6 +165,9 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '', options = {}) {
   if (spatialSignals.some(sig => promptLower.includes(sig))) {
     bestAgent = 'yamanaka';
   }
+  // A verdict only breaks the tie the scorer left open; a hard signal override
+  // (security, systems, write, spatial) still wins - the model sees the same text.
+  if (options.precomputedAgent && bestAgent === scoredAgent) return options.precomputedAgent;
   return bestAgent;
 }
 
