@@ -15,7 +15,8 @@ const {
   peekPendingAdvisorSteers,
   acknowledgeAdvisorSteers,
   formatSteerInjectionBlock,
-  consumeAdvisorSteerContext
+  consumeAdvisorSteerContext,
+  extractDomainTokens
 } = require('./advisor_steering');
 
 const MAX_ADVISOR_TURN_TOKENS = 8192;
@@ -229,6 +230,14 @@ function evaluateWorkerTurn(event = {}, options = {}) {
       violations.push(item);
     }
   }
+  // A host-model drift verdict is appended, never substituted: the keyword
+  // checks above stay authoritative and the model only fills their blind spot.
+  if (options.modelDrift && options.modelDrift.drift) {
+    const detail = options.modelDrift.reason || `@${agent} summary is semantically off the stated goal.`;
+    if (!violations.some((v) => v.type === 'goal_drift' && v.detail === detail)) {
+      violations.push({ type: 'goal_drift', detail });
+    }
+  }
 
   const boundaryViolations = _checkOwnedFilesAndWorktree({
     filesCreated: event.filesCreated,
@@ -364,7 +373,8 @@ function _appendRagMemorySlice(slices, projectPath, query, status) {
     const mems = personaMemory.queryMemories({
       projectPath: projectPath || status.project_path,
       query: query || status.prompt || '',
-      limit: 2
+      limit: 2,
+      excludeDomains: ['shared_task']
     });
     if (Array.isArray(mems) && mems.length > 0) {
       slices.push(`RAG Memory: ${mems.map((m) => `${m.title}: ${(m.content || '').slice(0, 120)}`).join(' | ')}`);
@@ -436,6 +446,56 @@ function _collectExecutionStageViolations(context, options, violations) {
   if (turnEval.interrupted && Array.isArray(turnEval.violations)) {
     violations.push(...turnEval.violations);
   }
+}
+
+// Below this share of shared domain terms the keyword checks are guessing about
+// intent rather than proving alignment, so the verdict is worth a model call.
+const DRIFT_AMBIGUITY_RATIO = 0.34;
+
+/**
+ * Overlap ratio between the goal's and the summary's domain terms, or `null`
+ * when either side is too thin for the ratio to mean anything.
+ */
+function driftOverlapRatio(goal, summary) {
+  const goalTokens = extractDomainTokens(goal || '');
+  const sumTokens = extractDomainTokens(summary || '');
+  if (goalTokens.length < 4 || sumTokens.length < 5) return null;
+  const lower = String(summary || '').toLowerCase();
+  const matched = goalTokens.filter((t) => lower.includes(t)).length;
+  return matched / goalTokens.length;
+}
+
+function isDriftAmbiguous(goal, summary) {
+  const ratio = driftOverlapRatio(goal, summary);
+  return ratio !== null && ratio > 0 && ratio < DRIFT_AMBIGUITY_RATIO;
+}
+
+/**
+ * Same verdict as `evaluateWorkerTurn`, plus one host-model opinion when the
+ * keyword overlap is thin. Clean, unambiguous turns cost zero model calls.
+ */
+async function evaluateWorkerTurnAsync(event = {}, options = {}) {
+  const goal = event.goal || options.goal || '';
+  const summary = event.summary || '';
+  // The probe is advisory: any failure must fall back to the deterministic
+  // verdict rather than failing the caller's turn.
+  let ambiguous = false;
+  try { ambiguous = isDriftAmbiguous(goal, summary); } catch (_) { ambiguous = false; }
+  if (!ambiguous) return evaluateWorkerTurn(event, options);
+
+  let verdict = null;
+  try {
+    const { judgeDrift } = require('../../mcp/structured_judgment');
+    verdict = await judgeDrift({
+      agent: event.agent,
+      goal,
+      plan: event.plan || options.plan || '',
+      todos: event.todos || options.todos || [],
+      summary
+    });
+  } catch (_) { verdict = null; }
+  if (!verdict || verdict.source !== 'model') return evaluateWorkerTurn(event, options);
+  return evaluateWorkerTurn(event, { ...options, modelDrift: verdict });
 }
 
 function superviseLifecycleStage(stage, context = {}, options = {}) {
@@ -560,6 +620,9 @@ module.exports = {
   evictStaleAdvisorState,
   buildInterruptCorrectionDirective,
   evaluateWorkerTurn,
+  evaluateWorkerTurnAsync,
+  isDriftAmbiguous,
+  driftOverlapRatio,
   buildAdvisorCoreCharter,
   retrieveAdvisorDynamicContext,
   superviseLifecycleStage,

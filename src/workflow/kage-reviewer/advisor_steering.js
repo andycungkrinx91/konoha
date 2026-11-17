@@ -330,6 +330,36 @@ function _withSteerQueueLock(taskDir, fn, fallback = null) {
   }
 }
 
+// A re-flagged violation within this window is the same steer, not a new one.
+// The queue is the only durable state both call sites share, so the cooldown is
+// derived from the last matching entry's `created_at` rather than a counter.
+const ADVISOR_STEER_COOLDOWN_MS = 90000;
+// Beyond this the queue stops being a signal and starts being a transcript.
+const ADVISOR_STEER_QUEUE_CAP = 30;
+
+function _steerSignature(record) {
+  const target = record.target_agent || '';
+  const types = (Array.isArray(record.violations) ? record.violations : [])
+    .map((v) => (v && v.type) || '')
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  return `${target}\0${types}\0${String(record.directive || '')}`;
+}
+
+function _isDuplicateSteer(queue, record, cooldownMs) {
+  if (!(cooldownMs > 0)) return false;
+  const sig = _steerSignature(record);
+  const now = Date.now();
+  for (let i = queue.length - 1; i >= 0; i -= 1) {
+    const prev = queue[i];
+    if (!prev || _steerSignature(prev) !== sig) continue;
+    const at = Date.parse(prev.created_at);
+    if (Number.isFinite(at) && now - at < cooldownMs) return true;
+  }
+  return false;
+}
+
 function enqueueAdvisorSteer(options = {}) {
   const targetAgent = _normalizeAgentName(options.targetAgent || options.agent || 'worker');
   const steerCall = options.clientSteerCall || buildClientSteerCall({
@@ -352,13 +382,21 @@ function enqueueAdvisorSteer(options = {}) {
     created_at: new Date().toISOString()
   };
 
+  const cooldownMs = options.cooldownMs === undefined ? ADVISOR_STEER_COOLDOWN_MS : Number(options.cooldownMs);
+  let enqueued = record;
   if (options.taskDir) {
-    _withSteerQueueLock(options.taskDir, () => {
+    enqueued = _withSteerQueueLock(options.taskDir, () => {
       const queue = _readSteerQueue(options.taskDir);
+      if (_isDuplicateSteer(queue, record, cooldownMs)) {
+        return queue.filter((s) => s && _steerSignature(s) === _steerSignature(record)).pop() || record;
+      }
       queue.push(record);
-      _writeSteerQueue(options.taskDir, queue);
-    });
+      _writeSteerQueue(options.taskDir, queue.slice(-ADVISOR_STEER_QUEUE_CAP));
+      return record;
+    }, record);
   }
+  // A suppressed duplicate must not re-mark the supervisor as steering.
+  if (enqueued !== record) return enqueued;
   if (options.workflowStatus && typeof options.workflowStatus === 'object') {
     const existing = Array.isArray(options.workflowStatus.advisor_steers) ? options.workflowStatus.advisor_steers : [];
     options.workflowStatus.advisor_steers = [...existing.slice(-19), record];
@@ -436,5 +474,6 @@ module.exports = {
   peekPendingAdvisorSteers,
   acknowledgeAdvisorSteers,
   formatSteerInjectionBlock,
-  consumeAdvisorSteerContext
+  consumeAdvisorSteerContext,
+  extractDomainTokens: _extractDomainTokens
 };
