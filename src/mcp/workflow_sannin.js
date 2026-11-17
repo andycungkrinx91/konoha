@@ -129,7 +129,6 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '', options = {}) {
   const effectiveText = parsed.cleanPrompt || p;
   const promptLower = effectiveText.toLowerCase();
   let bestAgent = _findBestAgentFromDb(promptLower);
-  const scoredAgent = bestAgent; // the scorer's own conclusion, pre-override
 
   if (!bestAgent) {
     if (/\b(c|c\+\+|clang|llvm|allocator|buffer overflow|memory leak|backend|devops|api|database|server)\b/i.test(promptLower)) {
@@ -146,28 +145,25 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '', options = {}) {
     'buffer overflow', 'memory allocator', 'memory leak', 'allocator', 'segfault',
     'core dump', 'valgrind', 'clang', 'c++'
   ];
-  if (systemsSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'anbu';
-  }
   const writeSignals = ['prd', 'write a prd', 'technical doc', 'write the doc', 'draft the doc', 'write docs', 'author', 'write a spec'];
-  if (writeSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'tokubetsu_jonin';
-  }
   const securitySignals = [
     'security audit', 'penetration test', 'pentest', 'red team', 'blue team',
     'vulnerability scan', 'vuln scan', 'cve audit', 'owasp check', 'security review',
     'exploit verification', 'guardian scan', 'security assessment', 'cve'
   ];
-  if (securitySignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'akatsuki';
-  }
   const spatialSignals = ['text-to-3d', 'image-to-3d', 'blender headless', 'manifold-3d', 'export glb', '3d model'];
-  if (spatialSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'yamanaka';
+  // A signal override is authoritative on its own evidence, whether or not the
+  // scorer happened to agree - so track that one fired, not that the answer moved.
+  let overridden = false;
+  for (const [signals, agent] of [[systemsSignals, 'anbu'], [writeSignals, 'tokubetsu_jonin'], [securitySignals, 'akatsuki'], [spatialSignals, 'yamanaka']]) {
+    if (signals.some((sig) => promptLower.includes(sig))) {
+      bestAgent = agent;
+      overridden = true;
+    }
   }
-  // A verdict only breaks the tie the scorer left open; a hard signal override
-  // (security, systems, write, spatial) still wins - the model sees the same text.
-  if (options.precomputedAgent && bestAgent === scoredAgent) return options.precomputedAgent;
+  // A verdict only breaks the tie the heuristics left open; the model sees the
+  // same text, so it cannot outrank a signal the scorer was overruled for.
+  if (options.precomputedAgent && !overridden) return options.precomputedAgent;
   return bestAgent;
 }
 

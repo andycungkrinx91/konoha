@@ -108,6 +108,15 @@ async function main() {
   res = await dispatch('review the security audit of the login flow');
   assert.strictEqual(res.selected_agent, 'akatsuki', `security override must outrank the verdict, got ${res.selected_agent}`);
 
+  // The override must also win when the scorer *already agreed* with it: an
+  // agreeing override is still an override, and the old guard (result changed?)
+  // let a model pick discard it here.
+  judgeCalls = [];
+  judgeReply = { source: 'model', agent: 'jonin', confidence: 0.95, reason: 'looks visual' };
+  res = await dispatch('retry the animation on the memory leak');
+  assert.strictEqual(judgeCalls.length, 1, 'the prompt must be ambiguous enough to probe');
+  assert.strictEqual(res.selected_agent, 'anbu', `an agreeing systems override must still win, got ${res.selected_agent}`);
+
   // Direct slash delegation never consults the model.
   judgeCalls = [];
   res = await dispatch('/genin map the routing module');
