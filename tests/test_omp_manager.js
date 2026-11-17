@@ -54,6 +54,25 @@ assert.match(managedContract, /<!-- KONOHA-CONTRACT-START -->/, 'Must have contr
 assert.match(managedContract, /<!-- KONOHA-CONTRACT-END -->/, 'Must have contract end marker');
 console.log('  ✓ Managed contract syntax and markers verified.');
 
+// Redeploy must collapse every managed block, not just rewrite the first one.
+// A file that gained a second block during an upgrade keeps the stale copy
+// forever otherwise: the agent then reads two contract versions per turn.
+const contractModule = require('../src/agent_contract');
+const freshBlock = ompManager.buildOmpManagedContract();
+const staleBlock = freshBlock.replace(/Konoha runtime contract \([\d.]+\)/, 'Konoha runtime contract (0.0.1)');
+const accumulated = `${staleBlock}\n\nuser note kept verbatim\n\n${freshBlock}\n`;
+const collapsed = contractModule.buildManagedContract(accumulated, freshBlock);
+const startMarkers = collapsed.match(/<!-- KONOHA-CONTRACT-START -->/g) || [];
+assert.strictEqual(startMarkers.length, 1, 'Redeploy must leave exactly one managed contract block');
+assert.doesNotMatch(collapsed, /Konoha runtime contract \(0\.0\.1\)/, 'Redeploy must drop the stale contract version');
+assert.match(collapsed, /user note kept verbatim/, 'Redeploy must preserve text outside the markers');
+assert.strictEqual(
+  contractModule.buildManagedContract(collapsed, freshBlock),
+  collapsed,
+  'Redeploy must be idempotent'
+);
+console.log('  ✓ Redeploy collapses duplicate contract blocks.');
+
 // MCP Servers Configuration Verification
 const servers = ompManager.buildOmpMcpServers({
   nodeCmd: 'node',
