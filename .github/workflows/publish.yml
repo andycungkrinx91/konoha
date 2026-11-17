@@ -98,9 +98,12 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
 
           # Registry propagation is not instant: 2.2.19 took ~8m26s from step
-          # completion to metadata visibility. Budget 20x30s = 10 minutes so a
-          # healthy but slow publish is never reported as a failure.
-          for attempt in $(seq 1 20); do
+          # completion to metadata visibility. Budget 40x30s = 20 minutes so a
+          # healthy but slow publish is never reported as a failure — 2.2.22
+          # landed metadata at the 10-minute mark and its tarball a few minutes
+          # later, so the old 20x30s window expired one attempt early.
+          ATTEMPTS=40
+          for attempt in $(seq 1 "$ATTEMPTS"); do
             META=$(curl -sS -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${NAME}/${VERSION}")
             TGZ=$(curl -sS -o /dev/null -I -w '%{http_code}' "https://registry.npmjs.org/${NAME}/-/${NAME}-${VERSION}.tgz")
             echo "attempt ${attempt}: metadata=${META} tarball=${TGZ}"
@@ -108,7 +111,7 @@ jobs:
               echo "${NAME}@${VERSION} is live"
               exit 0
             fi
-            [ "$attempt" -lt 20 ] && sleep 30 || true
+            [ "$attempt" -lt "$ATTEMPTS" ] && sleep 30 || true
           done
 
           echo "::error::${NAME}@${VERSION} did not resolve after publish (metadata=${META:-?}, tarball=${TGZ:-?})"
