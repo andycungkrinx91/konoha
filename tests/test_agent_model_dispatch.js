@@ -46,7 +46,7 @@ async function testAgentModelDispatch() {
     conn.close();
 
     // Dispatch anbu — must return assigned model 'claude-3-7-sonnet'
-    const resAnbuStr = server.runMcpAgent('anbu', 'Verify backend security and endpoints', null, null, null, null, tmpDir);
+    const resAnbuStr = server.runMcpAgent('anbu', { task: 'Verify backend security and endpoints', project_path: tmpDir, client: 'antigravity' });
     const resAnbu = JSON.parse(resAnbuStr);
     assert.strictEqual(resAnbu.status, 'ready');
     assert.strictEqual(resAnbu.agent, 'anbu');
@@ -57,7 +57,7 @@ async function testAgentModelDispatch() {
     );
 
     // Dispatch kage — unassigned agent must return 'inherit'
-    const resKageStr = server.runMcpAgent('kage', 'Perform architecture review', null, null, null, null, tmpDir);
+    const resKageStr = server.runMcpAgent('kage', { task: 'Perform architecture review', project_path: tmpDir, client: 'antigravity' });
     const resKage = JSON.parse(resKageStr);
     assert.strictEqual(resKage.status, 'ready');
     assert.strictEqual(resKage.agent, 'kage');
