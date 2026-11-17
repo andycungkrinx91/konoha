@@ -17,9 +17,9 @@ This prevents high-volume, low-payload operational subagents from skewing the co
 
 | Period | Total Calls | Cumulative Bytes Saved | Tokens Saved (~/4) | Byte-Weighted Reduction |
 |:---|:---:|:---:|:---:|:---:|
-| **Today** | 402 | ~9.79 MB | ~2.57M tokens | **89%** |
-| **Last 7 Days** | 4,425 | ~119.63 MB | ~31.36M tokens | **86%** |
-| **All Time** | 4,425 | ~119.63 MB | ~31.36M tokens | **86%** |
+| **Today** | 301 | ~5.33 MB | ~1.40M tokens | **75%** |
+| **Last 7 Days** | 301 | ~5.33 MB | ~1.40M tokens | **75%** |
+| **All Time** | 301 | ~5.33 MB | ~1.40M tokens | **75%** |
 
 ---
 
@@ -29,44 +29,25 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 
 | # | Call Type | Calls | Baseline (MB) | Returned (MB) | Saved (MB) | Avg Base (KB) | Avg Ret (KB) | % Saved | Category Characterization |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `read_file_range` | 1761 | 39.86 MB | 7.98 MB | 31.88 MB | 23.18 KB | 4.64 KB | **80%** | Core bounded retrieval (83%–98% headline) |
-| 2 | `token_efficient_grep` | 806 | 60.46 MB | 1.23 MB | 59.23 MB | 76.81 KB | 1.56 KB | **98%** | Aggressive context pruning (> 98% reduction) |
-| 3 | `find_files_clean` | 253 | 20.19 MB | 0.29 MB | 19.89 MB | 81.71 KB | 1.19 KB | **98.5%** | Aggressive context pruning (> 98% reduction) |
-| 4 | `read_file_head` | 209 | 1.89 MB | 0.71 MB | 1.18 MB | 9.25 KB | 3.48 KB | **62.4%** | Core bounded retrieval (83%–98% headline) |
-| 5 | `get_skill` | 164 | 1.7 MB | 1.2 MB | 0.5 MB | 10.59 KB | 7.48 KB | **29.4%** | Bounded section delivery & audit (55%–82%) |
-| 6 | `anbu` | 140 | 1.17 MB | 1.17 MB | 0 MB | 8.53 KB | 8.53 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 7 | `akatsuki` | 108 | 0.88 MB | 0.88 MB | 0 MB | 8.32 KB | 8.32 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 8 | `genin` | 102 | 0.85 MB | 0.85 MB | 0 MB | 8.51 KB | 8.51 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 9 | `tokubetsu-jonin` | 98 | 0.82 MB | 0.82 MB | 0 MB | 8.58 KB | 8.58 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 10 | `kage` | 98 | 0.82 MB | 0.82 MB | 0 MB | 8.52 KB | 8.52 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 11 | `chunin` | 88 | 0.73 MB | 0.73 MB | 0 MB | 8.52 KB | 8.52 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 12 | `file_info` | 85 | 1.52 MB | 0.02 MB | 1.5 MB | 18.3 KB | 0.25 KB | **98.7%** | Aggressive context pruning (> 98% reduction) |
-| 13 | `report_from_agent` | 81 | 0.08 MB | 0.08 MB | 0 MB | 1.01 KB | 1.01 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 14 | `sannin` | 67 | 0.2 MB | 0.2 MB | 0 MB | 3.1 KB | 3.1 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 15 | `code_search` | 62 | 0.81 MB | 0.81 MB | 0 MB | 13.41 KB | 13.41 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 16 | `use_skills` | 55 | 3.99 MB | 0.18 MB | 3.81 MB | 74.31 KB | 3.34 KB | **95.5%** | Operational router / spec generator (0% base=ret) |
-| 17 | `web_search` | 36 | 0.01 MB | 0.01 MB | 0 MB | 0.32 KB | 0.32 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 18 | `build_from_text` | 27 | 0.64 MB | 0.64 MB | 0 MB | 24.21 KB | 24.21 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 19 | `build_from_source` | 26 | 0.36 MB | 0.36 MB | 0 MB | 14.3 KB | 14.3 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 20 | `jonin` | 25 | 0.21 MB | 0.21 MB | 0 MB | 8.49 KB | 8.49 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 21 | `code_symbol` | 22 | 0.01 MB | 0.01 MB | 0 MB | 0.27 KB | 0.27 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 22 | `find_skill` | 18 | 1.09 MB | 0.04 MB | 1.05 MB | 61.99 KB | 2.07 KB | **96.7%** | Core bounded retrieval (83%–98% headline) |
-| 23 | `get_file_structure` | 15 | 0.6 MB | 0.01 MB | 0.59 MB | 40.73 KB | 0.63 KB | **98.5%** | Aggressive context pruning (> 98% reduction) |
-| 24 | `yamanaka` | 12 | 0.1 MB | 0.1 MB | 0 MB | 8.53 KB | 8.53 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 25 | `code_context` | 12 | 0.03 MB | 0.03 MB | 0 MB | 2.76 KB | 2.76 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 26 | `code_status` | 11 | 0 MB | 0 MB | 0 MB | 0.22 KB | 0.22 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 27 | `anti_slop` | 10 | 0.01 MB | 0.01 MB | 0 MB | 1.22 KB | 1.22 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 28 | `get_task_evidence` | 6 | 0 MB | 0 MB | 0 MB | 0.81 KB | 0.81 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 29 | `docs_ai_detector` | 6 | 0.01 MB | 0.01 MB | 0 MB | 0.95 KB | 0.95 KB | **0%** | Bounded section delivery & audit (55%–82%) |
-| 30 | `code_index` | 4 | 0.01 MB | 0.01 MB | 0 MB | 2.85 KB | 2.85 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 31 | `code_impact` | 4 | 0.02 MB | 0.02 MB | 0 MB | 4.49 KB | 4.49 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 32 | `list_skills` | 3 | 0.29 MB | 0.29 MB | 0 MB | 99.81 KB | 99.81 KB | **0%** | Aggressive context pruning (> 98% reduction) |
-| 33 | `get_resolved_task_dir` | 3 | 0 MB | 0 MB | 0 MB | 0.15 KB | 0.15 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 34 | `website_ai_detector` | 2 | 0 MB | 0 MB | 0 MB | 0.64 KB | 0.64 KB | **0%** | Bounded section delivery & audit (55%–82%) |
-| 35 | `get_project_context` | 2 | 0 MB | 0 MB | 0 MB | 2.35 KB | 2.35 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 36 | `check_readiness` | 2 | 0 MB | 0 MB | 0 MB | 0.16 KB | 0.16 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 37 | `query_project_memory` | 1 | 0 MB | 0 MB | 0 MB | 2.93 KB | 2.93 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 38 | `get_slop_findings` | 1 | 0 MB | 0 MB | 0 MB | 0.12 KB | 0.12 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 1 | `read_file_range` | 152 | 1.95 MB | 0.82 MB | 1.13 MB | 13.11 KB | 5.53 KB | **57.8%** | Core bounded retrieval (83%–98% headline) |
+| 2 | `get_skill` | 54 | 1.39 MB | 0.5 MB | 0.88 MB | 26.32 KB | 9.56 KB | **63.7%** | Bounded section delivery & audit (55%–82%) |
+| 3 | `sannin` | 17 | 0.06 MB | 0.06 MB | 0 MB | 3.59 KB | 3.59 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 4 | `token_efficient_grep` | 11 | 1.43 MB | 0.01 MB | 1.42 MB | 133.42 KB | 1.17 KB | **99.1%** | Aggressive context pruning (> 98% reduction) |
+| 5 | `anbu` | 11 | 0.11 MB | 0.11 MB | 0 MB | 9.89 KB | 9.89 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 6 | `find_skill` | 10 | 0.53 MB | 0.01 MB | 0.52 MB | 54.39 KB | 1.36 KB | **97.5%** | Core bounded retrieval (83%–98% headline) |
+| 7 | `use_skills` | 9 | 0.38 MB | 0.09 MB | 0.29 MB | 43.21 KB | 9.88 KB | **77.1%** | Operational router / spec generator (0% base=ret) |
+| 8 | `find_files_clean` | 8 | 1.03 MB | 0.01 MB | 1.02 MB | 131.36 KB | 1.34 KB | **99%** | Aggressive context pruning (> 98% reduction) |
+| 9 | `report_from_agent` | 5 | 0.01 MB | 0.01 MB | 0 MB | 2.93 KB | 2.93 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 10 | `genin` | 5 | 0.05 MB | 0.05 MB | 0 MB | 9.74 KB | 9.74 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 11 | `read_file_head` | 4 | 0.04 MB | 0.01 MB | 0.03 MB | 9.91 KB | 3.34 KB | **66.3%** | Core bounded retrieval (83%–98% headline) |
+| 12 | `file_info` | 3 | 0.05 MB | 0 MB | 0.05 MB | 16.28 KB | 0.2 KB | **98.8%** | Aggressive context pruning (> 98% reduction) |
+| 13 | `advisor` | 3 | 0.03 MB | 0.03 MB | 0 MB | 10.13 KB | 10.13 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 14 | `kage` | 2 | 0.02 MB | 0.02 MB | 0 MB | 11.54 KB | 11.54 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 15 | `jonin` | 2 | 0.02 MB | 0.02 MB | 0 MB | 10.4 KB | 10.4 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 16 | `docs_ai_detector` | 2 | 0 MB | 0 MB | 0 MB | 0.49 KB | 0.49 KB | **0%** | Bounded section delivery & audit (55%–82%) |
+| 17 | `tokubetsu-jonin` | 1 | 0.01 MB | 0.01 MB | 0 MB | 12.85 KB | 12.85 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 18 | `code_search` | 1 | 0 MB | 0 MB | 0 MB | 0.09 KB | 0.09 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 19 | `akatsuki` | 1 | 0.01 MB | 0.01 MB | 0 MB | 12.77 KB | 12.77 KB | **0%** | Operational router / spec generator (0% base=ret) |
 
 ### Precise Headline Scoping
 - **Core Bounded Retrieval (83%–98%)**: Primary file reading and skill search (`read_file_range` at ~94%, `find_skill` at ~86%, `read_file_head` at ~88%) operate strictly within the headline 83%–98% range.
@@ -120,7 +101,7 @@ Shell commands executed through the `rtk` wrapper are actively filtered, strippe
 
 | Scope | Commands Executed | Input Tokens | Output Tokens | Tokens Saved | Net Token Reduction |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Current Project (konoha)** | 75,850 | 95.72M | 39.81M | 55.91M | **58.4%** |
+| **Current Project (konoha)** | 91,027 | 13.65M | 9.65M | 4.01M | **29.4%** |
 | **Global Machine History** | 14,951 | 18.60M | 9.69M | 11.01M | **59.2%** |
 
 ### Command-Specific Empirical Reduction Distribution
@@ -143,16 +124,16 @@ Konoha's single-process Node.js runtime and in-process SQLite driver eliminate t
 ### 📊 Process Memory Footprint
 | Metric | Resident Size (MB) | Characterization |
 |:---|:---:|:---|
-| **Resident Set Size (RSS)** | **101.0 MB** | Total process memory including runtime, shared libraries, and SQLite |
-| **V8 Heap Allocated** | **38.3 MB** | V8 memory committed by Node.js runtime |
-| **V8 Heap Used** | **25.0 MB** | Active working JavaScript objects (agents, router, session caches) |
+| **Resident Set Size (RSS)** | **365.9 MB** | Total process memory including runtime, shared libraries, and SQLite |
+| **V8 Heap Allocated** | **287.5 MB** | V8 memory committed by Node.js runtime |
+| **V8 Heap Used** | **162.6 MB** | Active working JavaScript objects (agents, router, session caches) |
 | **External Buffer Memory** | **2.1 MB** | Native buffers and SQLite prepared statement handles |
 
 ### ⚡ Subsystem Execution Throughput & Latency
 | Subsystem & Operation | Sample Set | Throughput | Mean Latency | Characterization |
 |:---|:---:|:---:|:---:|:---|
-| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **1,624 queries/sec** | **0.62 ms** | In-process relational + BM25 ranking |
-| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **24,424 ops/sec** | **0.041 ms** | Authenticated GMAC encryption at rest |
+| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **5,449 queries/sec** | **0.18 ms** | In-process relational + BM25 ranking |
+| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **12,085 ops/sec** | **0.083 ms** | Authenticated GMAC encryption at rest |
 | **MCP Tool Dispatch** (Bounded File Read) | 500 ops | **2,820 calls/sec** | **0.35 ms** | Zero-copy slice with boundary token caps |
 | **Web Server API Health & Metrics** | 1,000 ops | **4,150 req/sec** | **0.24 ms** | In-memory cached system metrics endpoint |
 

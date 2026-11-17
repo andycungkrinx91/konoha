@@ -449,3 +449,17 @@ Do not mark a platform verified from static tests; update this table only after 
   - Web API: Surfaces `browser_sessions` on existing `GET /api/v1/activity/live` (`zero new REST endpoints`).
 * **Tests:** `tests/test_browser_workspace_lifecycle.js`, `tests/test_browser_workspace_security_and_qa.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`.
 * **Documentation:** `docs/QA-AUTOMATION.md`, `docs/QA-TEST-CHECKLIST.md`, `src/templates/skills/anbu-skill/references/qa-automation.md`.
+
+---
+
+### 2.24 Shared Context Layer & Structured Judgment (`src/mcp/shared_context.js`, `src/mcp/structured_judgment.js`)
+
+* **Purpose:** Let a specialist dispatched later in a task start from a sibling's verified finding instead of re-deriving it, and let the host's own model break ties the keyword router cannot.
+* **Canonical Implementation:** `src/mcp/shared_context.js` (producer/consumer over `persona_memories`), `src/mcp/structured_judgment.js` (route + drift verdicts via `model_router.resolveChatTargets()` → `sendChatMessage()`).
+* **Entry Points:** No new MCP tools. Producer runs inside `report_from_agent`; consumer inside `runMcpAgent`/`runMcpAgentAsync` prompt assembly. Judgment is reached only through the async `sannin` path (`executeTool` → `_dispatchWorkflowGraphAsync` → `runSanninAsync` → `prepareAsync`).
+* **Storage:** Reuses `persona_memories` with `domain='shared_task'`, `memory_type='finding'`, task identity in `source_ref`. No new table.
+* **Configuration:** `SC_MAX_ITEMS` (5), `SC_SNIPPET_CHARS` (320), `SC_MAX_BYTES` (700), `SJ_AMBIGUITY_MARGIN` (0.15), `SJ_MODEL_TIMEOUT_MS` (2500), `ADVISOR_STEER_COOLDOWN_MS` (90000).
+* **Guarantees:** Deterministic-first — a verdict is requested only when the keyword heuristic is provably ambiguous, and every failure path degrades to the heuristic result. The shared block is sized to the *actual* remaining prompt headroom, so it can never truncate a system prompt.
+* **Tests:** `tests/test_shared_context_layer.js`, `tests/test_structured_judgment.js`, `tests/test_sannin_judgment_integration.js`, `tests/test_advisor_steer_dedupe.js`, `tests/test_token_budget_gate.js`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/architecture/TOKEN-BASELINE.md`.
+* **Dependencies:** `node:sqlite`, existing bridge (`src/bridge/*`). No new provider, API, or SDK.

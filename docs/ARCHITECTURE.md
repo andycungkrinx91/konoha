@@ -972,6 +972,36 @@ The Yamanaka 3D graph validates twice — `validate_pre` before Blender refines 
 
 ---
 
+## 🧬 Shared Context & Structured Judgment (v2.2.23)
+
+Two token sinks are addressed without adding a provider, a model, or a tool.
+
+### 1. Shared Context Layer (`src/mcp/shared_context.js`)
+
+Every specialist in a task re-derives facts its siblings already established, and the re-derivation is billed twice: once in the sibling's prompt, once in its output. Verified findings are now published to the task and replayed to later specialists.
+
+| Aspect | Behaviour |
+|---|---|
+| Storage | `persona_memories` with `domain='shared_task'`, `memory_type='finding'`; no new table |
+| Task identity | `source_ref` = root task id (never the per-slice dispatch id, which would defeat reuse) |
+| Producer | `report_from_agent` → `recordFinding`, delete-then-insert with an identical-content short-circuit |
+| Consumer | `_prepareAgentRun` reads, `_finalizeAgentRun` renders — the block is sized to the *measured* remaining headroom, so it can never truncate the system prompt |
+| Budget | 5 items, 320 chars per snippet, ≤ 700 B hard cap; header bytes counted against the cap |
+| Isolation | Findings are excluded from every agent-facing generic recall (`excludeDomains: ['shared_task']`) so the same content is never billed twice |
+
+### 2. Structured Judgment (`src/mcp/structured_judgment.js`)
+
+Keyword routing is deterministic and free, and right most of the time. It is also sometimes provably unsure — the top two candidates within 15% of each other. Only then does the orchestrator ask the host's own model, through the existing bridge, to break the tie.
+
+- **Inherited model, no new dependency:** `model_router.resolveChatTargets()` + `sendChatMessage()`. No Jev model, no provider, no SDK.
+- **Gated:** route judgments require `delegate` mode *and* an ambiguity margin below `SJ_AMBIGUITY_MARGIN` (0.15). Explicit `/agent` slash routing and single-candidate prompts never call out.
+- **Fallback is total:** every failure path returns `{ source: 'heuristic' }` and the keyword verdict stands. A model outage changes routing quality, never availability.
+- **Cached:** `sha256(prompt).slice(0,16) + candidates`, LRU 64, so a repeated dispatch is byte-identical and free.
+- **Advisor drift:** `evaluateWorkerTurnAsync` consults the model only when goal/summary domain overlap is thin (0 < ratio < 0.34). A model verdict is *appended* to the deterministic violations, never substituted.
+- **Steer dedupe:** `enqueueAdvisorSteer` suppresses a steer whose `(agent, violation types, directive)` signature repeats within `ADVISOR_STEER_COOLDOWN_MS` (90 s), returning the existing record. A suppressed duplicate does not re-mark the supervisor as steering.
+
+The sync `sannin` path (`runSannin`) stays heuristic-only; judgment is reached through `runSanninAsync` → `prepareAsync`, which is what `executeTool` calls.
+
 ### 📚 Official LangGraph.js Documentation Citations
 
 All research and architectural mappings in this specification are grounded in official LangGraph.js / LangChain documentation and specifications:
