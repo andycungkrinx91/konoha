@@ -64,4 +64,21 @@ assert.ok(
 assert.ok(capped.truncated, 'A capped section must report truncation');
 console.log('  ✓ Oversized sections are capped to the budget.');
 
+// A capped whole-document read must name what it dropped, or the caller
+// re-requests the full document and pays for the bytes it just saved.
+const oversized = ['# Big\n\nIntro.\n']
+  .concat(Array.from({ length: 40 }, (_, n) => `## Section ${n}\n` + 'y'.repeat(1200)))
+  .join('\n');
+const cappedDoc = truncateSkillContent(oversized, 'demo', 0, null);
+assert.ok(cappedDoc.truncated, 'A 48 KB document must report truncation at the 8 KB cap');
+assert.ok(
+  cappedDoc.remainingSections.length > 0,
+  'A capped document must list the sections it did not return'
+);
+assert.ok(
+  cappedDoc.remainingSections.every((t) => !cappedDoc.finalContent.includes('## ' + t)),
+  'A listed section must not already be present in the returned content'
+);
+console.log(`  ✓ Capped document names ${cappedDoc.remainingSections.length} sections still available.`);
+
 console.log('\nAll test_skill_budget_digest tests passed!');

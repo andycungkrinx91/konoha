@@ -324,9 +324,9 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 - **Single-Thread Inline Hierarchy**: Was preserved at the time of this measurement. It is **no longer the architecture**: `@sannin` routes to 8 spawnable specialists (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu-jonin`, `genin`, `akatsuki`, `yamanaka`) through `src/mcp/lazy_subagent.js`, with per-agent LangGraph checkpoints and optional git worktree isolation. The paragraphs in this document that assume one inline thread describe the phase they measured, not the current engine.
 - **Subagent Spawning**: Was **0 subagents** when this document was written. It is now the product's core path, and the spawn contract is pinned by `tests/test_spawn_harness_contracts.js` (16 checks) and `tests/test_subagent_spawning_p0.js` (9 checks).
-- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
+- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients. The 4 `aislop_*` tools are served by the separate Aislop MCP server, not by `src/mcp/tool_dispatch.js`, and are not part of the 56.
 - **Stable Bridge Gateway**: Untouched. Local LLM Proxy Gateway, bridge servers, and Bridge Router logic were preserved without modifications.
-- **Token Savings Telemetry**: Strictly preserved. Telemetry tracking in `~/.konoha/konoha.db` and bounded file tool constraints remain active and intact.
+- **Token Savings Telemetry**: Active for what it measures: every tool call is recorded in `~/.konoha/konoha.db` with returned bytes and bytes saved. The `input_tokens`, `output_tokens`, and `cached_tokens` columns exist on `tool_calls` but nothing populates them, so Konoha cannot report its own prompt-cache hit rate.
 
 ---
 

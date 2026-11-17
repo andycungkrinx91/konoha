@@ -631,6 +631,7 @@ module.exports = {
   PI_SUBAGENTS_EXT_DIR,
   PI_ADAPTER_PACKAGE,
   buildPiBlockerExtensionSource,
+  buildPiWorkflowAddendum,
   isPiInstalled,
   hasPiSubagentSupport,
   ensurePiSetup,

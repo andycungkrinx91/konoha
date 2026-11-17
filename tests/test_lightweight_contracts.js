@@ -22,6 +22,7 @@ const deploy = require('../src/agent_deployer');
 const cursorManager = require('../src/cursor_manager');
 const codexManager = require('../src/codex_manager');
 const ompManager = require('../src/omp_manager');
+const piManager = require('../src/pi_manager');
 const { getSkill } = require('../src/mcp/skills');
 const { getCanonicalAgentNames } = require('../src/canonical_agents');
 
@@ -139,6 +140,27 @@ try {
     `OMP managed contract must stay <= 5200 bytes, found ${ompManagedBytes}`
   );
   console.log(`  ✓ OMP addendum ${addendumBytes} B <= 4200, managed contract ${ompManagedBytes} B <= 5200`);
+
+  // Pi carries its own copy of the mandate, paid on every request. It was the
+  // unoptimized original of the OMP one for two releases because nothing capped it.
+  const piAddendum = piManager.buildPiWorkflowAddendum();
+  const piAddendumBytes = Buffer.byteLength(piAddendum, 'utf8');
+  assert.ok(
+    piAddendumBytes <= 5000,
+    `Pi workflow addendum must stay <= 5000 bytes (paid every turn), found ${piAddendumBytes}`
+  );
+  for (const anchor of [
+    'Route through the village, never free-run',
+    'Step 0: Classify request',
+    'BRANCH B: Website Scaffolding Pipeline'
+  ]) {
+    assert.ok(piAddendum.includes(anchor), `Pi addendum must keep the "${anchor}" rule`);
+  }
+  assert.ok(
+    !piAddendum.includes('pnpm create next-app@latest'),
+    'scaffolding commands belong in jonin-skill, not the Pi per-turn addendum'
+  );
+  console.log(`  ✓ Pi addendum ${piAddendumBytes} B <= 5000`);
 } finally {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 }

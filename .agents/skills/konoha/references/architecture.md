@@ -29,10 +29,12 @@ All 56 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 58 t
 | **Bounded File Operations** | `read_file_head`, `read_file_range`, `token_efficient_grep`, `file_info`, `get_file_structure`, `find_files_clean` | Bounded file I/O, token-capped grepping, symbol outline preview. |
 | **Native Code Intelligence** | `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove` | In-process SQLite FTS5 code indexing, definition-first search, and symbol/impact graph. |
 | **Specialist Subagents** | `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`, `yamanaka` | Direct invocation of the 8 specialist personas (`@sannin` is router-only). |
-| **Security & Auditing** | `akatsuki_init`, `anti_slop`, `aislop_scan`, `aislop_why`, `aislop_fix`, `aislop_baseline`, `docs_ai_detector`, `website_ai_detector` | Dual-mode red/blue security, Zero-AI-Slop audit, automated repairs, AI detection. |
+| **Security & Auditing** | `akatsuki_init`, `anti_slop`, `docs_ai_detector`, `website_ai_detector` | Dual-mode red/blue security, Zero-AI-Slop audit, AI detection. |
 | **Document Engineering** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Native DOCX/PDF, XLSX, PPTX, SVG diagrams, and animated WebP exports. |
 | **Web & Research** | `web_search`, `build_from_text`, `build_from_source` | Live web research and dynamic website scaffolding specification generators. |
 | **Memory & Context** | `get_project_context`, `save_project_context`, `query_project_memory`, `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, `get_soul` | Project invariants, flow-bounded persona memories, and soul archetypes. |
+
+The `aislop_scan`, `aislop_why`, `aislop_fix`, and `aislop_baseline` tools are **not** Konoha tools. They are served by the separate Aislop MCP server, so they appear in no manifest row above and are absent from `src/mcp/tool_dispatch.js`; the 56-tool count is Konoha's own surface.
 
 ### Strict Tool Boundaries
 1. **Repository Code Search**: ALWAYS use the native code intelligence tools (`code_search`, `code_symbol`, `code_impact`) with the absolute repository root. NEVER use native grep/find/cat or Konoha skill tools for code exploration.

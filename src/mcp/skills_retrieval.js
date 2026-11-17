@@ -102,6 +102,17 @@ function _truncateSkillContent(content, normName, tokenBudget, requestedSection)
     const truncRes = smartTruncate(finalContent, maxBytes, normName);
     finalContent = truncRes.text;
     truncated = truncRes.truncated;
+    // A capped document must say what it dropped, or the caller re-requests the
+    // whole thing and pays for the bytes it just saved.
+    if (truncated) {
+      const keptTitles = new Set((finalContent.match(/^#{1,3}\s.+$/gm) || []).map((h) => h.replace(/^#+\s*/, '').trim()));
+      remainingSections = shielded
+        .split(/\n(?=##\s)/)
+        .slice(1)
+        .map(extractSectionTitle)
+        .filter((t) => t && !keptTitles.has(t.trim()))
+        .slice(0, 10);
+    }
   }
 
   return { finalContent, truncated, remainingSections, hash: contentHash(shielded) };
