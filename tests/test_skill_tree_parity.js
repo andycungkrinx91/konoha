@@ -8,9 +8,11 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const SOURCE = path.join(ROOT, 'src', 'templates', 'skills');
+const { getSkillsScanDirs } = require(path.join(ROOT, 'src', 'skill_manager'));
 const _homeSkills = path.join(require('os').homedir(), '.agents', 'skills');
 const _projSkills = path.join(ROOT, '.agents', 'skills');
 function _treeComplete(dir) {
@@ -95,6 +97,26 @@ async function run() {
   }
   if (fs.existsSync(projMirror)) console.log('✓ Tracked project skill mirror matches src/templates/skills');
 
+  // The project mirror is the published subset, not a deployment target: only the slugs git
+  // tracks belong there. copySkillsDirFast(templates, .agents/skills) adds all seventeen and
+  // this test would still pass, because every added slug has a template counterpart — so the
+  // package grows by megabytes with nothing failing. Assert against the tracked set instead.
+  if (fs.existsSync(path.join(ROOT, '.git'))) {
+    const tracked = new Set(
+      execFileSync('git', ['ls-files', '.agents/skills'], { cwd: ROOT, encoding: 'utf-8' })
+        .split('\n')
+        .filter(Boolean)
+        .map(line => line.split('/')[2])
+        .filter(Boolean)
+    );
+    const present = fs.existsSync(projMirror)
+      ? fs.readdirSync(projMirror, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+      : [];
+    const stray = present.filter(slug => !tracked.has(slug));
+    assert.deepStrictEqual(stray, [], `.agents/skills holds untracked slug(s) ${stray.join(', ')} — it is the published subset, not a deployment target`);
+    console.log(`✓ Project skill mirror carries only its ${present.length} published slug(s)`);
+  }
+
   // Cursor runtime mirror is not required, but it must never be a symlink out of the repo.
   const cursorSkills = path.join(ROOT, '.cursor', 'skills');
   let isSymlink = false;
@@ -131,6 +153,30 @@ async function run() {
     assert.ok(srcBuf.equals(depBuf), `Content mismatch in ${rel}`);
   }
   console.log('✓ Template and agents deployment text files match');
+
+  // Every client reads its own mirror, and ~/.agents/skills is only one of them. A mirror
+  // left a release behind answers that client's sessions with stale instructions, and it
+  // also poisons any measurement taken through get_skill, which ingests from whichever
+  // mirror resolves. Foreign skills are ignored: only files that exist in the templates are
+  // required, so a mirror carrying other vendors' skills stays legal, and a mirror that never
+  // had konoha deployed has no stale copy to serve and is skipped.
+  const otherMirrors = getSkillsScanDirs()
+    .filter(dir => path.resolve(dir) !== path.resolve(DEPLOYED))
+    .filter(dir => fs.existsSync(path.join(dir, 'konoha')));
+  let comparedMirrors = 0;
+  for (const mirror of otherMirrors) {
+    for (const rel of sourceFiles) {
+      const deployed = path.join(mirror, rel);
+      const label = path.join(path.relative(require('os').homedir(), mirror), rel);
+      assert.ok(fs.existsSync(deployed), `${label} must exist in every client mirror`);
+      assert.ok(
+        fs.readFileSync(path.join(SOURCE, rel)).equals(fs.readFileSync(deployed)),
+        `${label} drifted from src/templates/skills`
+      );
+    }
+    comparedMirrors++;
+  }
+  console.log(`✓ ${comparedMirrors} additional client mirror(s) match src/templates/skills`);
 
   // Compatibility files
   for (const rel of ALLOWED_DEPLOYED_ONLY) {
