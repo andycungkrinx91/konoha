@@ -78,27 +78,35 @@ check('the harness refuses a malformed shard instead of running everything', () 
   assert.doesNotMatch(result.stdout, /\[SUITE\]/, 'ran suites despite an invalid selector');
 });
 
+// Project policy: the CI timeout is fixed at 3600000 ms (3600 s). A shard runs a
+// full cross-platform suite and must not be killed mid-suite. If this check fails,
+// the timeout was changed - revert it. Never edit these assertions to match a new
+// number: that converts the guard into a rubber stamp. A slow suite is fixed by
+// making it faster or by sharding it, not by moving the timeout.
+const TIMEOUT_RULE = 'the CI timeout is fixed at 3600000 ms (3600 s) by project policy - revert the timeout, do not edit this assertion';
+const mustMatch = (src, re, where) => assert.match(src, re, `${where} no longer carries the 3600 s timeout: ${TIMEOUT_RULE}`);
+
 check('the harness enforces a 3600s timeout for shard tests across workflow and runner', () => {
   const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml'), 'utf8');
-  assert.match(wf, /KONOHA_TEST_TIMEOUT:\s*'3600000'/);
-  assert.match(wf, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/);
-  assert.match(wf, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/);
+  mustMatch(wf, /KONOHA_TEST_TIMEOUT:\s*'3600000'/, 'workflow env KONOHA_TEST_TIMEOUT');
+  mustMatch(wf, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/, 'workflow env KONOHA_SHARD_TIMEOUT');
+  mustMatch(wf, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/, 'workflow shard step ceiling');
   const runnerSrc = fs.readFileSync(harness, 'utf8');
-  assert.match(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*3600000/);
-  assert.match(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*3600000/);
+  mustMatch(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_SHARD_TIMEOUT');
+  mustMatch(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_TEST_TIMEOUT');
   const winPs1 = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'windows-ci.ps1'), 'utf8');
-  assert.match(winPs1, /KONOHA_TEST_TIMEOUT\s*=\s*'3600000'/);
-  assert.match(winPs1, /KONOHA_SHARD_TIMEOUT\s*=\s*'3600000'/);
+  mustMatch(winPs1, /KONOHA_TEST_TIMEOUT\s*=\s*'3600000'/, 'windows-ci.ps1 KONOHA_TEST_TIMEOUT');
+  mustMatch(winPs1, /KONOHA_SHARD_TIMEOUT\s*=\s*'3600000'/, 'windows-ci.ps1 KONOHA_SHARD_TIMEOUT');
   const sandboxSrc = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sandbox.js'), 'utf8');
-  assert.match(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*3600000/);
-  assert.match(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*3600000/);
+  mustMatch(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*3600000/, 'sandbox.js KONOHA_TEST_TIMEOUT');
+  mustMatch(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*3600000/, 'sandbox.js KONOHA_SHARD_TIMEOUT');
 });
 
 check('parsePositiveTimeoutMs rejects invalid, zero, and negative env values cleanly', () => {
   assert.strictEqual(parsePositiveTimeoutMs(['-1', '1800000']), 1800000);
   assert.strictEqual(parsePositiveTimeoutMs(['0', 'abc', '5000']), 5000);
-  assert.strictEqual(parsePositiveTimeoutMs(['abc', '  ', undefined, null]), 3600000);
-  assert.strictEqual(parsePositiveTimeoutMs(['-50', '0']), 3600000);
+  assert.strictEqual(parsePositiveTimeoutMs(['abc', '  ', undefined, null]), 3600000, `fallback must stay 3600 s: ${TIMEOUT_RULE}`);
+  assert.strictEqual(parsePositiveTimeoutMs(['-50', '0']), 3600000, `fallback must stay 3600 s: ${TIMEOUT_RULE}`);
   assert.strictEqual(parsePositiveTimeoutMs(['250']), 250);
 });
 

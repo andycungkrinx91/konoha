@@ -468,6 +468,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **The deployed copy resolves `src/` by search, not by relative path**: the CLI that ships is `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js`, and that directory has no `src/` sibling, so a bare `require('../src/guardrail_hitl')` threw. Because `_runHitl` is `async`, the throw became a rejected promise and the entry point's catch set `exitCode = 2` — the same code a denial returns — with only `Cannot find module …` on stderr, so no briefing, no named alternative, and no menu. Both modules now resolve through one `_resolveSrcModule(relativePath)` candidate list walking up from `__dirname` and `cwd`, and test 6 runs the copied CLI under `--hitl` to assert the briefing itself.
    - **Drawio page 19 is the editable source** for the flow, projected to `assets/konoha-flow-19-guardrail-denial-human-in-the-loop-resolution.webp`; `docs/SECURITY.md` §14 carries the Mermaid companion and the denial-code table.
 
+43. **CI Test Timeout Is Fixed at 3600 s (Do Not Change)**:
+   - `KONOHA_TEST_TIMEOUT` and `KONOHA_SHARD_TIMEOUT` are `3600000` ms in four places — `.github/workflows/cross-platform.yml` (env, with `timeout-minutes: 60` on the shard step and a `90` job ceiling), `scripts/sandbox.js`, `scripts/windows-ci.ps1`, and `tests/run_all.js`'s `parsePositiveTimeoutMs` fallback, plus `DEFAULT_TEST_TIMEOUT_MS` in `tests/helpers/shard_timeout.js`. They are deliberately generous: a shard runs a full cross-platform suite and must not be killed mid-suite.
+   - `tests/test_test_sharding.js` asserts every one of those sites, and `tests/test_sandbox_runtime.js` asserts the container defaults. **If either fails on a timeout assertion, the timeout was changed — revert it.** Editing the assertion to match a new number converts a guard into a rubber stamp.
+   - A slow suite is fixed by making the suite faster or by sharding it, never by moving this number. Raising it hides a regression behind a longer wait; lowering it kills healthy suites under CI load.
+
 ---
 
 
