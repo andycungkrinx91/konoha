@@ -535,7 +535,10 @@ expectation, and no `continue-on-error` was added anywhere.
   survived into the command. The array form is now the unambiguous one and is what the
   suites pass; the string form honours `"…"`/`'…'` quoting, and an unquoted path with
   spaces is reported as a missing binary instead of resolving a prefix.
-  `tests/test_code_intel_lsp.js` covers all three forms in `testOverridePathWithSpaces`.
+  `tests/test_code_intel_lsp.js` covers all three forms in `testOverridePathWithSpaces`,
+  plus the quoted `KONOHA_LSP_COMMAND_OVERRIDE` form — the environment variable can only
+  carry a string, so quoting is the only way to pass `C:\Program Files\nodejs\node.exe`
+  through it, and that form is what the Windows run actually hit.
 
 - **An emptied directory was read as a shipped browser bundle (`test_dependency_posture`,
   windows)** — the gate asserted `!fs.existsSync(node_modules/xlsx-populate/browser)`, and
