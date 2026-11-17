@@ -86,8 +86,17 @@ console.log('Running test_document_engine_security: presentation + spreadsheet b
     assert.strictEqual(resolveDynamicOutputPath(absolute, 'x.pptx'), absolute);
     assert.ok(fs.statSync(path.join(tmp, 'a', 'b')).isDirectory(), 'parent dirs must be created');
 
-    const relative = resolveDynamicOutputPath(path.join('rel', 'sub', 'sheet.xlsx'), 'x.xlsx');
-    assert.strictEqual(relative, path.resolve('rel', 'sub', 'sheet.xlsx'));
+    // A relative path resolves against process.cwd(), so the leg runs with cwd
+    // inside the temp dir — otherwise the assertion leaves rel/sub/ in the repo.
+    const cwdBefore = process.cwd();
+    process.chdir(tmp);
+    try {
+      const relative = resolveDynamicOutputPath(path.join('rel', 'sub', 'sheet.xlsx'), 'x.xlsx');
+      assert.strictEqual(relative, path.resolve('rel', 'sub', 'sheet.xlsx'));
+      assert.ok(fs.statSync(path.join(tmp, 'rel', 'sub')).isDirectory(), 'relative parents must be created too');
+    } finally {
+      process.chdir(cwdBefore);
+    }
 
     assert.strictEqual(resolveDynamicOutputPath(undefined, 'fallback.pptx'), path.resolve('output', 'fallback.pptx'));
     assert.strictEqual(resolveDynamicOutputPath('', 'fallback.pptx'), path.resolve('output', 'fallback.pptx'));
