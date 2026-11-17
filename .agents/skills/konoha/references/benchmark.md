@@ -93,15 +93,15 @@ anchors and lists the top-level sections still available. Covered by
 `tests/test_skill_budget_digest.js`.
 
 **Known ceiling**: the cap decides the cost, not the request. `get_skill({section: 'Cardinal
-Maintenance Invariants'})` returns **7,767 B / 1,952 tok** and the full digest returns
-**7,933 B / 1,955 tok** — 0.2% apart, because `MAX_CONTENT_SIZE` (8,000 B) is smaller than the
-section. That section is **17,283 B / 4,484 tok**, 47.6% of the 36,323 B document, so the
-section request silently drops 55% of the one section a maintainer most needs, and the
+Maintenance Invariants'})` returns **7,854 B / 1,932 tok** and the full digest returns
+**7,927 B / 1,956 tok** — 0.9% apart, because `MAX_CONTENT_SIZE` (8,000 B) is smaller than the
+section. That section is **19,240 B / 4,947 tok**, 48.3% of the 39,869 B document, so the
+section request silently drops 59% of the one section a maintainer most needs, and the
 remaining-sections hint cannot help because there is only one section in play. A caller
 asking for three invariants pays for eight thousand bytes. The upgrade path is invariant-level
 chunking — one numbered item per chunk, 400–600 tok — so a caller can buy the three rules it
-needs; the `konoha` skill already has 40 `skill_chunks` rows (avg 932 B) that a section
-request never consults.
+needs; the `konoha` skill already has `skill_chunks` rows in the index (avg ~820 B) that a section
+request never consults — `src/mcp/skills_retrieval.js` reads the file, not the table.
 
 ---
 
