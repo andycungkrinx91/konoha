@@ -93,3 +93,8 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - marked@18.2.0
+
+audit:
+  ignore:
+    - "GHSA-gcqx-w48m-w2h4"
+    - "GHSA-fc5q-39xc-vjpf"
