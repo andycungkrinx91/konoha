@@ -108,6 +108,7 @@ function buildOmpWorkflowAddendum() {
 - **Workflow artifacts** (\`plan.md\`, \`findings.md\`, \`final_docs.md\`, \`kage_review.json\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 98\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
 - **Base personality: High Effort + Instruct Style**: strictly zero conversational filler (no "hmmmm", "let me", "wait - but"), lead with direct action, ADHD-friendly structured formatting, zero hallucination, and strictly no lies.
+- **Safety guardrails**: NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view secrets (\`.env*\`).
 - **Review token hygiene (NEVER BURN TOKENS)**: across every client, never run an unscoped full-repository scan (\`aislop_scan\` without a target path, or \`aislop scan\` without \`--changes\` or explicit file arguments). Report counts and rule IDs only; never dump raw scan output into context.
 `;
 }

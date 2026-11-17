@@ -110,6 +110,35 @@ try {
     'OMP contract deploy must be idempotent'
   );
   console.log(`  ✓ ${path.join('.omp', 'agent', 'AGENTS.md')}: deployed, validated, idempotent`);
+
+  // The addendum is the single largest per-turn term Konoha controls in the OMP
+  // user context, and it is paid on every request. It carries rules, not procedure:
+  // framework scaffolding commands live in the skill that owns them and load on demand.
+  const addendum = ompManager.buildOmpWorkflowAddendum();
+  const addendumBytes = Buffer.byteLength(addendum, 'utf8');
+  assert.ok(
+    addendumBytes <= 4200,
+    `OMP workflow addendum must stay <= 4200 bytes (paid every turn), found ${addendumBytes}`
+  );
+  for (const anchor of [
+    'Route through the village, never free-run',
+    'Step 0: Classify request',
+    'BRANCH B: Website Scaffolding Pipeline',
+    'Project-Specific Design Mandate',
+    'Zero Errors & Zero Warnings'
+  ]) {
+    assert.ok(addendum.includes(anchor), `OMP addendum must keep the "${anchor}" rule`);
+  }
+  assert.ok(
+    !addendum.includes('pnpm create next-app@latest'),
+    'scaffolding commands belong in jonin-skill, not the per-turn addendum'
+  );
+  const ompManagedBytes = Buffer.byteLength(ompManager.buildOmpManagedContract(), 'utf8');
+  assert.ok(
+    ompManagedBytes <= 5200,
+    `OMP managed contract must stay <= 5200 bytes, found ${ompManagedBytes}`
+  );
+  console.log(`  ✓ OMP addendum ${addendumBytes} B <= 4200, managed contract ${ompManagedBytes} B <= 5200`);
 } finally {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 }

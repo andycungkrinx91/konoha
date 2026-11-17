@@ -16,6 +16,29 @@ Konoha delivers an authentic **83%–98% token reduction** across all 8 supporte
 
 ---
 
+## 🧱 Fixed-Prefix Budget: What Konoha Injects on Every Turn
+
+Every supported harness prepends a fixed block before the first user token. Konoha controls three of its terms — the managed contract block, the OMP workflow addendum, and the MCP tool schemas — and a cache hit only survives while those bytes stay identical between turns.
+
+| Term | Deployed size | Rule |
+|---|---|---|
+| `~/.omp/agent/AGENTS.md` (OMP user context) | ~5.5 KB | exactly one managed block, exactly one contract version |
+| OMP workflow addendum (`buildOmpWorkflowAddendum`) | ~4.1 KB | rules only; command dumps and procedure belong to the skill that owns them |
+| Lightweight contract (`buildLightweightContract`) | ~1.0 KB per foreign client file | version bump only; the body does not vary by client |
+| Tool schemas (`src/mcp_tool_manifest.json`) | ~28 KB | an API contract — prose trimming moves ~1.1 KB of ~8.3k tokens; only tool-count reduction moves it materially |
+
+1. **One managed block, one version.** `buildManagedContract` (`src/agent_contract.js`) removes *every* `KONOHA-CONTRACT-START`…`KONOHA-CONTRACT-END` span before writing the fresh block. Splicing only the first pair left any second block in place forever and made redeploy a permanent no-op; a deployed file once carried 2.2.23 and 2.2.12 side by side, so the agent read two versions of the same rules on every turn.
+2. **Only one user-level context file is injected.** OMP keeps one user context file and `native` (`~/.omp/agent/AGENTS.md`) wins it, so `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.config/opencode/AGENTS.md`, and `~/.agents/AGENTS.md` are not part of an OMP prompt. Each serves its own harness; never assume the contract is read twice.
+3. **`~/.omp/AGENTS.md` is not a context file.** The native user location is `~/.omp/agent/AGENTS.md`. `~/.omp/AGENTS.md` sits in a dot-directory with no provider mapping, so it is never injected — keeping a copy there is a trap for a future release, not a saving.
+4. **Duplicated procedure costs twice.** Framework scaffolding commands and scan-scoping procedure were once in both the addendum and `jonin-skill` / `konoha` references. The skill loads on demand; the addendum is paid every turn. Procedure belongs in the skill.
+5. **Byte-stability beats brevity.** A block that changes size or order between turns loses the cache for everything after it. Deploying the same contract twice must be byte-identical — `tests/test_lightweight_contracts.js` asserts the second deploy reports `changed: false`.
+
+### Honest Limit: Konoha Cannot Report Its Own Cache Hit Rate
+
+`tool_calls` carries `input_tokens`, `output_tokens`, and `cached_tokens` (`src/db_schema.js`), but nothing on the MCP path writes them: the only usage objects built live in `src/bridge/gateway_adapters.js` and `src/bridge/handlers/anthropic.js`, and they return those counts to the caller instead of persisting them. Every row's token columns are NULL, so any cache-hit figure attributed to Konoha is inference from payload sizes, never measurement. Fix the writer before quoting a number.
+
+---
+
 ## 🧮 Dynamic Token Savings Telemetry (`src/tools_savings_logger.js` & `src/mcp/skills_common.js`)
 
 Konoha computes authentic token savings on every MCP tool call, persisting records into `tool_calls` inside `~/.konoha/konoha.db`:

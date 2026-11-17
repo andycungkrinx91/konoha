@@ -9,7 +9,7 @@ the index is the cache. If `get_skill` returns anything different, re-run
 
 Assembled from three verified sources: the 11 rules in the user's 17-section
 template (Section 14, "in particular"), the 7 rules in the `AGENTS.md`
-runtime contract block, and the 20 Cardinal Maintenance Invariants in
+runtime contract block, and the Cardinal Maintenance Invariants in
 `src/templates/skills/konoha/SKILL.md` — with 6 documented merges (aislop
 gate, 700-line limit, Konoha mandatory, code intelligence mandatory, RTK mandatory,
 Zero-AI-Slop & Kage Gate). The count is 26 because that is how many distinct
