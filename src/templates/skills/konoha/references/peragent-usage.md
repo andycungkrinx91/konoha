@@ -22,6 +22,20 @@ Technical reference on the 9-agent roster (`@sannin` router + 8 spawnable specia
 
 ---
 
+## 🥷 How a Spawn Actually Happens (`src/mcp/subagent_spawner.js`)
+
+A spawn is a child process, not an in-process call. Five things must line up, and each of them was a shipped defect before it did:
+
+1. **Client identity is decided by state-directory path, not by an env var name.** OMP exports no `OMP_*` marker and reuses `PI_*` verbatim, so `src/mcp/client_detection.js` checks `OMP_STATE_ENV_VARS` and `_envPointsAtOmpStateDir()` **before** the Pi branch. `src/mcp/protocol.js#resolveClientFromInfo` repeats the ordering — a second detector with the old order reintroduces the same bug on the other path.
+2. **The gate is the harness *binary*, not native-tool support.** `validateSpawnCapability` walks `HARNESS_PATH_ORDER` with `findExecutableOnPath`, which honours `PATHEXT` on Windows and the POSIX exec bit — a file that merely exists is not runnable. `cli` and `universal` resolve through `resolveInstalledHarnessClient` to whichever harness is actually installed.
+3. **OMP needs its identity passed, and its `task` schema is exact.** `omp -p --agent` exits 2; identity goes through `-p --append-system-prompt`. A `tasks[]` item carries `solutionSpace` and must **not** carry `cwd` or `isolated`, and `spawnTaskArg` strips backticks at that one source.
+4. **Windows shims are not executables.** A `.cmd`/`.bat` harness goes through `ComSpec /d /s /c` with `windowsVerbatimArguments`, newlines flattened only on that route, and `_prepareSpawnSpec` must carry the flag into `_executeSpawnSpec`. Killing it means `taskkill /T` (`windowsKillInvocation`), not `child.kill()`.
+5. **The CLI fallback quotes for the platform it is on.** `lazy_subagent.js` emits `--task '<posix-quoted>' --execute`; `_shellQuotePosix` output is wrong on `cmd.exe`, which is why the CLI route is a fallback and not the default.
+
+Guards: `tests/test_spawn_harness_contracts.js` (16 checks, including a faked `win32` with a lowercase `PATHEXT`) and `tests/test_subagent_spawning_p0.js` (9 checks, POSIX-gated where the platform matters). A change to any of the five without a matching assertion is a regression the suite cannot see.
+
+---
+
 ## 🌿 Per-Agent Contract & Git Worktree (`git worktree`) Parallel Isolation
 
 Implemented in `src/mcp/worktree_isolation.js` and enforced by `src/agent_contract.js`:

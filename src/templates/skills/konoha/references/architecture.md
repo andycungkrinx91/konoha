@@ -40,6 +40,17 @@ All 56 canonical MCP tools (plus 2 hidden deprecated compatibility aliases, 58 t
 3. **File Inspection**: ALWAYS use Konoha bounded tools (`read_file_range`, `read_file_head`, `token_efficient_grep`). Never execute raw shell `cat` or `grep`.
 4. **Shell Execution**: ALWAYS prefix shell commands with `rtk <command>`.
 
+### The Project Guardrail Is an Architecture Boundary, Not a Lint Rule
+
+`src/project_konoha_mcp_guardrail.js` evaluates every tool call and every shell command before it runs, and it can refuse. A refusal is a **branchable decision**, not a dead end:
+
+- **`GUARDRAIL_REMEDIATION`** maps each denial code to what the operator should do instead, so a denial never arrives as a bare "denied".
+- **`--hitl`** opens a menu on the *controlling terminal* (`/dev/tty`; `CONIN$`/`CONOUT$` on Windows) when stdin is a pipe, and records a code+tool-scoped risk acceptance with a TTL capped at one hour. Hooks never prompt — they stay fail-closed, and `KONOHA_GUARD_NO_TTY=1` can only force a block, never grant one.
+- **The exception store is an attack surface.** `.konoha/guardrail-exceptions.json` and `.konoha/guardrail-audit.jsonl` are writable only through `src/guardrail_exceptions.js`; any tool path that could write them is itself denied with a `NON_ACCEPTABLE_CODES` entry, which the menu refuses to accept. Some denials — secret write, destructive shell, retired IPC/MCP, store write — have no acceptable form at all.
+- **Every client binds through one spelling.** `src/mcp/hitl_picker.js` keys `claudecode` and `antigravity`, serves the web picker from the MCP process itself (port `ui_port + 1`), and never preselects an option.
+
+Guards: `tests/test_project_konoha_mcp_guardrail.js` tests 9-15, including a pty leg driven by `tests/helpers/pty_driver.py` that proves the CLI exits on its own.
+
 ---
 
 ## 📡 Transports & Communications
