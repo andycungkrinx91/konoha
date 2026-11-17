@@ -94,9 +94,9 @@ anchors and lists the top-level sections still available. Covered by
 
 **Known ceiling**: the cap decides the cost, not the request. `get_skill({section: 'Cardinal
 Maintenance Invariants'})` returns **7,854 B / 1,932 tok** and the full digest returns
-**7,927 B / 1,956 tok** — 0.9% apart, because `MAX_CONTENT_SIZE` (8,000 B) is smaller than the
-section. That section is **19,240 B / 4,947 tok**, 48.3% of the 39,869 B document, so the
-section request silently drops 59% of the one section a maintainer most needs, and the
+**7,927 B / 1,956 tok** — 1.2% apart, because `MAX_CONTENT_SIZE` (8,000 B) is smaller than the
+section. That section is **19,410 B / 4,985 tok**, 48.5% of the 40,039 B document, so the
+section request silently drops 60% of the one section a maintainer most needs, and the
 remaining-sections hint cannot help because there is only one section in play. A caller
 asking for three invariants pays for eight thousand bytes. The upgrade path is invariant-level
 chunking — one numbered item per chunk, 400–600 tok — so a caller can buy the three rules it
