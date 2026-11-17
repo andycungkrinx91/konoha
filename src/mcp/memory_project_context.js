@@ -209,10 +209,9 @@ function _applyAdvisorVerdict({ advisorVerdict, finalStatus, result, workflowSta
   return 'unverified';
 }
 
-function _evaluateAndRecordEvidence(ctx) {
+function _evaluateAndRecordEvidence(ctx, useModelJudge = false) {
   const { cleanAgent, effTaskId, pPath, opts, workflowStatus, reportSummary, finalStatus, verified, verificationReason, result } = ctx;
   let actClient = opts.client || workflowStatus?.client || '';
-  let nextStatus = finalStatus;
   try {
     const sdlcManager = require('../workflow/kage-reviewer/sdlc_manager');
     const advisorMonitor = require('../workflow/kage-reviewer/advisor_monitor');
@@ -220,7 +219,7 @@ function _evaluateAndRecordEvidence(ctx) {
     actClient = actClient || (typeof cd.getActiveClient === 'function' ? cd.getActiveClient() : null) || cd.detectActiveClient() || process.env.KONOHA_CLIENT || '';
     const sdlcConf = sdlcManager.getProjectSdlcConfig(pPath);
     const activeDispatchObj = workflowStatus?.current_dispatch || {};
-    const advisorVerdict = advisorMonitor.evaluateWorkerTurn({
+    const advisorInput = {
       agent: cleanAgent,
       taskId: effTaskId,
       sessionId: cd.getActiveSessionId(pPath),
@@ -229,7 +228,7 @@ function _evaluateAndRecordEvidence(ctx) {
       plan: workflowStatus?.plan || opts.plan || null,
       todos: workflowStatus?.tasks || opts.todos || [],
       summary: reportSummary,
-      status: nextStatus,
+      status: finalStatus,
       filesCreated: opts.filesCreated || [],
       filesModified: opts.filesModified || [],
       ownedFiles: opts.ownedFiles || opts.owned_files || activeDispatchObj.owned_files || [],
@@ -240,31 +239,42 @@ function _evaluateAndRecordEvidence(ctx) {
       agentId: opts.agentId || activeDispatchObj.agent_id || null,
       workflowStatus,
       validation: opts.validation || []
-    }, sdlcConf);
-
-    nextStatus = _applyAdvisorVerdict({ advisorVerdict, finalStatus: nextStatus, result, workflowStatus, opts, cleanAgent });
-    const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
-    const evidenceData = {
-      verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
-      status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : nextStatus) : nextStatus,
-      summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
-      advisor: advisorVerdict ? {
-        status: advisorVerdict.status,
-        interrupted: advisorVerdict.interrupted,
-        tokens_used: advisorVerdict.tokens_used,
-        violations: advisorVerdict.violations
-      } : undefined,
-      is_phase_dispatch: isPhaseDispatch,
-      recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
     };
-    sdlcManager.recordEvidence(effTaskId, evidenceData);
-    result.task_id = effTaskId;
-    result.evidence = evidenceData;
+
+    const settle = (advisorVerdict) => {
+      const nextStatus = _applyAdvisorVerdict({ advisorVerdict, finalStatus, result, workflowStatus, opts, cleanAgent });
+      const isPhaseDispatch = !opts.taskId && !workflowStatus?.current_dispatch?.task_id;
+      const evidenceData = {
+        verified, verification_reason: verificationReason, validation: opts.validation || [], agent: cleanAgent,
+        status: isPhaseDispatch ? (workflowStatus?.phase === 'synthesize' ? 'in_progress' : nextStatus) : nextStatus,
+        summary: reportSummary, files_created: opts.filesCreated || [], files_modified: opts.filesModified || [],
+        advisor: advisorVerdict ? {
+          status: advisorVerdict.status,
+          interrupted: advisorVerdict.interrupted,
+          tokens_used: advisorVerdict.tokens_used,
+          violations: advisorVerdict.violations
+        } : undefined,
+        is_phase_dispatch: isPhaseDispatch,
+        recorded_at: new Date().toISOString(), project_path: pPath, session_id: cd.getActiveSessionId(pPath), client: actClient
+      };
+      sdlcManager.recordEvidence(effTaskId, evidenceData);
+      result.task_id = effTaskId;
+      result.evidence = evidenceData;
+      if (advisorVerdict && advisorVerdict.judge_usage) result.advisor_judge_tokens = advisorVerdict.judge_usage.total_tokens || 0;
+      return { finalStatus: nextStatus, actClient };
+    };
+
+    if (!useModelJudge || typeof advisorMonitor.evaluateWorkerTurnAsync !== 'function') {
+      return settle(advisorMonitor.evaluateWorkerTurn(advisorInput, sdlcConf));
+    }
+    return advisorMonitor.evaluateWorkerTurnAsync(advisorInput, sdlcConf)
+      .then(settle)
+      .catch(() => ({ finalStatus, actClient }));
   } catch (_) { /* non-fatal */ }
-  return { finalStatus: nextStatus, actClient };
+  return { finalStatus, actClient };
 }
 
-function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
+function _reportFromAgent(agentName, summary, status, filesCreated, rest, useModelJudge) {
   const opts = _parseReportOptions(agentName, summary, status, filesCreated, rest);
   const rawAgent = (opts.agentName || '').toLowerCase().trim();
   if (rawAgent.startsWith('delegate_to_') || rawAgent.startsWith('delegated_to_')) {
@@ -315,10 +325,20 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     project_path: pPath, reason: (finalStatus === 'rejected') ? `Score exceeds 3.0% threshold: ${reportSummary}` : null
   };
 
-  const evalOutcome = _evaluateAndRecordEvidence({
-    cleanAgent, effTaskId, pPath, opts: safeOpts, workflowStatus, reportSummary, finalStatus, verified, verificationReason, result
-  });
-  finalStatus = evalOutcome.finalStatus;
+  const finalizeCtx = { cleanAgent, effTaskId, pPath, opts: safeOpts, workflowStatus, reportSummary, verified, verificationReason, result, safeTaskDir, allLearnings };
+  const evalOutcome = _evaluateAndRecordEvidence(
+    { cleanAgent, effTaskId, pPath, opts: safeOpts, workflowStatus, reportSummary, finalStatus, verified, verificationReason, result },
+    useModelJudge
+  );
+  if (evalOutcome && typeof evalOutcome.then === 'function') {
+    return evalOutcome.then((outcome) => _finalizeReport(finalizeCtx, outcome));
+  }
+  return _finalizeReport(finalizeCtx, evalOutcome);
+}
+
+function _finalizeReport(ctx, evalOutcome) {
+  const { cleanAgent, effTaskId, pPath, opts, workflowStatus, reportSummary, verified, verificationReason, result, safeTaskDir, allLearnings } = ctx;
+  const finalStatus = evalOutcome.finalStatus;
   const actClient = evalOutcome.actClient;
 
   const syncTarget = workflowStatus || { prompt: reportSummary, client: actClient, assigned_agent: cleanAgent };
@@ -363,6 +383,14 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   const res = JSON.stringify(result);
   logToolCall('report_from_agent', `agent=${cleanAgent} status=${finalStatus}`, res, cleanAgent);
   return res;
+}
+
+function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
+  return _reportFromAgent(agentName, summary, status, filesCreated, rest, false);
+}
+
+async function reportFromAgentAsync(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
+  return _reportFromAgent(agentName, summary, status, filesCreated, rest, true);
 }
 
 function _formatBoundedMemories(mems) {
@@ -462,6 +490,7 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
 module.exports = {
   assessValidationEvidence,
   reportFromAgent,
+  reportFromAgentAsync,
   getProjectContext,
   saveProjectContext,
   queryProjectMemory

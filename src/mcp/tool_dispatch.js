@@ -41,7 +41,8 @@ const {
   queryProjectMemory,
   runMcpAgent,
   runMcpAgentAsync,
-  reportFromAgent
+  reportFromAgent,
+  reportFromAgentAsync
 } = require('./memory_reporting');
 
 const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
@@ -407,18 +408,27 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
   return null;
 }
 
+function _isReportTool(toolName) {
+  return toolName === 'report_from_agent' || Boolean(toolName && toolName.startsWith('report_from_'));
+}
+
+function _reportInvocation(toolName, args, agent) {
+  let inferredAgent = (toolName && toolName.startsWith('report_from_'))
+    ? toolName.replace('report_from_', '')
+    : (args.agent_name || agent);
+  if (inferredAgent === 'agent' || !inferredAgent) inferredAgent = args.agent_name || agent;
+  // The positional report contract has no slot for goal/plan/todos, and the
+  // drift judge needs them. The object form carries every field through.
+  return {
+    ...args,
+    agent: inferredAgent,
+    projectPath: args.project_path || args.projectPath || getWorkspaceRoot()
+  };
+}
+
 function _dispatchMemory(toolName, args, agent) {
-  if (toolName === 'report_from_agent' || (toolName && toolName.startsWith('report_from_'))) {
-    let inferredAgent = (toolName && toolName.startsWith('report_from_'))
-      ? toolName.replace('report_from_', '')
-      : (args.agent_name || agent);
-    if (inferredAgent === 'agent' || !inferredAgent) inferredAgent = args.agent_name || agent;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    return reportFromAgent(
-      inferredAgent, args.summary || '', args.status || 'completed',
-      args.files_created || [], args.files_modified || [], args.learnings || [],
-      projectPath, args.task_dir, args.dispatch_id, args.validation
-    );
+  if (_isReportTool(toolName)) {
+    return reportFromAgent(_reportInvocation(toolName, args, agent));
   }
   if (toolName === 'get_project_context') {
     return getProjectContext(args.project_path || getWorkspaceRoot(), args.session_id);
@@ -434,6 +444,11 @@ function _dispatchMemory(toolName, args, agent) {
     return JSON.stringify(migrateModule.migrate_skills(args));
   }
   return null;
+}
+
+async function _dispatchMemoryAsync(toolName, args, agent) {
+  if (!_isReportTool(toolName)) return null;
+  return reportFromAgentAsync(_reportInvocation(toolName, args, agent));
 }
 
 const { dispatchPersonaMemory } = require('./persona_memory_dispatch');
@@ -604,6 +619,9 @@ async function executeTool(toolName, args = {}) {
   if (delegationRes !== null) {
     return typeof delegationRes === 'object' ? JSON.stringify(delegationRes) : delegationRes;
   }
+
+  const memoryRes = await _dispatchMemoryAsync(toolName, boundedArgs, agent);
+  if (memoryRes !== null) return memoryRes;
 
   const res = _executeToolInternal(toolName, boundedArgs, agent);
   if (typeof res === 'object' && res !== null) {
