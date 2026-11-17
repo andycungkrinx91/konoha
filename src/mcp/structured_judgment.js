@@ -16,7 +16,9 @@ const { resolveChatTargets, sendChatMessage } = require('./three_asset/model_rou
 
 // Below this top1-top2 score gap the heuristic ranking is not trustworthy.
 const SJ_AMBIGUITY_MARGIN = 0.15;
-const SJ_MODEL_TIMEOUT_MS = 2500;
+// Measured on the 9router host model: 3.1-5.4 s per verdict, so 2500 ms timed out
+// every call and the feature silently never fired. Bounded, not generous.
+const SJ_MODEL_TIMEOUT_MS = 8000;
 const SJ_MAX_TOKENS = 300;
 const SJ_CACHE_MAX = 64;
 const SJ_MIN_CONFIDENCE = 0.6;
