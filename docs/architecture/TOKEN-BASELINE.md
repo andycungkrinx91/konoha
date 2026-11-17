@@ -387,3 +387,88 @@ Investigation into why per-agent model assignment was not taking effect at dispa
    - Dispatches unassigned agent (`kage`) and verifies `model: 'inherit'`.
    - Includes proven deliberate induced-failure check.
 
+
+---
+
+## 13. Orchestration Payload Baseline (v2.2.23)
+
+Measured before implementing the shared-context / structured-judgment work for issues #21 and #22. Environment: Node.js v24.22.2, `gpt-tokenizer` (`cl100k_base`), isolated temp DB via `tests/helpers/isolate_db.js`. Reproduce with `node tests/test_token_budget_gate.js`.
+
+### 13.1 Subagent dispatch prompt (`runMcpAgent`), zero findings
+
+| Agent | Prompt bytes | Prompt tokens | MCP catalog block (B) | Fixed tail (B) | Ceiling headroom (B) |
+|---|---|---|---|---|---|
+| @genin | 7,601 | 2,201 | 2,506 | 2,226 | 399 |
+| @kage | 7,418 | 2,139 | 2,282 | 2,129 | 582 |
+| @chunin | 7,419 | 2,120 | 2,126 | 2,276 | 581 |
+| @jonin | 7,982 | 2,300 | 2,154 | 2,251 | **18** |
+| @anbu | 7,259 | 2,112 | 2,154 | 2,129 | 741 |
+| @tokubetsu-jonin | 7,945 | 2,293 | 2,126 | 2,162 | **55** |
+| @akatsuki | 7,426 | 2,129 | 2,126 | 2,141 | 574 |
+| @yamanaka | 7,413 | 2,142 | 2,126 | 2,141 | 587 |
+
+`PROMPT_CEILING_BYTES = 8000`. A genin task block is 91 bytes, so **58–64% of every dispatch prompt is identical boilerplate** across all eight agents (2,126–2,506 B of MCP tool catalog plus 2,129–2,276 B of fixed tail).
+
+### 13.2 Fixed blocks (rendered once per dispatch)
+
+| Block | Bytes | Tokens |
+|---|---|---|
+| `buildSubagentMcpBlock('omp','genin')` | 2,507 | 931 |
+| `buildSubagentMcpBlock('omp','jonin')` | 2,155 | 857 |
+| `buildSubagentMcpBlock('omp','advisor')` | 2,509 | 930 |
+| `buildDisciplineContract()` | 1,189 | 275 |
+| `COMPACT_REMINDER` | 151 | 35 |
+| `REMEDIATION_INVARIANT` | 101 | 22 |
+
+### 13.3 Delegation envelope and routing responses
+
+| Payload | Bytes | Tokens |
+|---|---|---|
+| Delegation envelope (@genin, 1 bound skill, before fixes) | — | **628** |
+| Sannin `delegate` response (3 samples) | 2,970 / 3,079 / 2,873 | 855 / 885 / 831 |
+| Canonical `tools/list` (56 tools) | 28,986 | **6,598** |
+
+### 13.4 Defects this baseline exposed
+
+| ID | Defect | Measured impact |
+|---|---|---|
+| F1 | `tools/list` ships all 56 schemas every session | 6,598 tokens fixed cost per client session |
+| F2 | Dispatch prompt boilerplate duplicated per agent | 58–64% of each prompt |
+| F3 | `dispatch.js` sets `tool_block` (~2.1–2.5 KB) that the child regenerates identically | ~550–620 tokens per delegated turn |
+| F4 | Delegation recall returned `flow_skill` bookkeeping rows | 3 of 3 recall slots wasted in the sample envelope |
+| F5 | `buildSoulSnippet` stringified `{name, summary}` tenets | literal `[object Object] · [object Object]` in every envelope |
+| F6 | `getMainModel()` reads `agents.model_tier`, which is `NULL` for all 9 rows | `model: 'inherit'` is a literal, not a resolution |
+| F7 | Advisor re-enqueues identical steers with no cooldown | queue capped at 30 entries; duplicates evict signal |
+
+### 13.5 Sibling-finding block under the ceiling
+
+The shared-context block is sized from actual remaining headroom (`8000 − assembled prompt − 2`), never from a fixed cap. @jonin and @tokubetsu-jonin run within 18–55 bytes of the ceiling, so a fixed 700-byte block would overflow and `clampToBytes` would silently truncate the middle of the system prompt (persona, skills, project context).
+
+| Agent | Prompt with findings (B) | Block rendered |
+|---|---|---|
+| @genin | 7,997 | yes (trimmed) |
+| @kage | 7,814 | yes |
+| @chunin | 7,815 | yes |
+| @jonin | 7,980 | yes (trimmed) |
+| @anbu | 7,883 | yes |
+| @tokubetsu-jonin | 7,783 | yes |
+| @akatsuki | 7,822 | yes |
+| @yamanaka | 7,809 | yes |
+
+`tests/test_token_budget_gate.js` asserts every prompt stays `<= 8000` with findings present, and that the block is dropped only when fewer than 200 bytes remain.
+
+### 13.6 Post-change measurements (same harness, same tokenizer)
+
+Measured with `tests/test_token_budget_gate.js` and `tests/test_shared_context_layer.js` after the shared-context and structured-judgment work. Every number below is read from a gate that asserts it; nothing here is estimated.
+
+| Item | Before | After | Gate |
+|---|---|---|---|
+| `tools/list` serialized | 28,986 B / 6,598 tok | unchanged (56 tools, no tool added) | `test_token_budget_gate.js` |
+| Dispatch payload `tool_block` | 2,107–2,509 B per delegated turn | 0 (child regenerates it) | `test_token_budget_gate.js` |
+| Soul tenets in envelope | `[object Object] · [object Object]` | `name: summary` | `test_token_budget_gate.js` |
+| Recall noise rows (`flow_skill`, checkpoint, progress) | up to 3 of the returned rows | excluded at SQL level | `test_token_budget_gate.js` |
+| Sibling findings in child prompt | n/a | ≤ 700 B, sized to real headroom | `test_shared_context_layer.js` (505 B for 2 findings) |
+| Advisor steers for one unfixed violation | one per turn | one per 90 s | `test_advisor_steer_dedupe.js` |
+| Model calls for routing | 0 | 0 on clear, zero-signal, and `/agent` prompts; 1 on ambiguity, cached thereafter | `test_sannin_judgment_integration.js` |
+
+The last row is the point of the gating: routing cost is unchanged for the prompts that were already decided correctly, and the model is consulted only where the keyword scorer is provably within `SJ_AMBIGUITY_MARGIN` of a coin flip.
