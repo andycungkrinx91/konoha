@@ -27,10 +27,10 @@ console.log('Running test_shared_context_layer.js...');
 const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_shared_ctx_'));
 const taskId = 'task-shared-ctx-probe';
 
-// 1. No findings yet → no block.
+// No findings yet → no block.
 assert.strictEqual(sc.formatSharedContextBlock(sc.readSharedContext({ taskId, projectPath })), '');
 
-// 2. One producer publishes a finding.
+// One producer publishes a finding.
 sc.recordFinding({
   agent: 'genin',
   taskId,
@@ -48,13 +48,13 @@ assert.strictEqual(rows[0].agent, 'genin');
 assert.strictEqual(rows[0].files, 1);
 assert(rows[0].summary.includes('request_retry.js'), 'summary must survive the round trip');
 
-// 3. Reporter does not see its own finding back.
+// Reporter does not see its own finding back.
 assert.deepStrictEqual(sc.readSharedContext({ taskId, excludeAgent: 'genin', projectPath }), []);
 
-// 4. Task scoping: another task's findings stay out.
+// Task scoping: another task's findings stay out.
 assert.deepStrictEqual(sc.readSharedContext({ taskId: 'task-other', projectPath }), []);
 
-// 5. Re-report is idempotent, and a changed report replaces instead of appending.
+// Re-report is idempotent, and a changed report replaces instead of appending.
 const firstId = sc.recordFinding({ agent: 'genin', taskId, summary: 'same text', verified: true, projectPath });
 assert.strictEqual(sc.recordFinding({ agent: 'genin', taskId, summary: 'same text', verified: true, projectPath }), firstId, 'identical re-report must reuse the row');
 sc.recordFinding({ agent: 'genin', taskId, summary: 'updated finding text', verified: true, projectPath });
@@ -62,7 +62,7 @@ const afterReplace = sc.readSharedContext({ taskId, projectPath });
 assert.strictEqual(afterReplace.length, 1, 're-report must replace, not duplicate');
 assert(afterReplace[0].summary.includes('updated finding text'));
 
-// 6. Byte budget holds even when every slot is filled with long summaries.
+// Byte budget holds even when every slot is filled with long summaries.
 for (const agent of ['kage', 'jonin', 'anbu', 'chunin', 'akatsuki', 'yamanaka', 'tokubetsu-jonin']) {
   sc.recordFinding({ agent, taskId, summary: 'x'.repeat(600), verified: true, projectPath });
 }
@@ -71,7 +71,7 @@ assert(fullBlock.length > 0, 'block must render when findings exist');
 assert(Buffer.byteLength(fullBlock, 'utf8') <= sc.SC_MAX_BYTES, `block ${Buffer.byteLength(fullBlock, 'utf8')} bytes exceeds budget`);
 assert(sc.readSharedContext({ taskId, projectPath }).length <= sc.SC_MAX_ITEMS, 'finding count must be capped');
 
-// 7. End-to-end: a real report reaches the next specialist's prompt, and the
+// End-to-end: a real report reaches the next specialist's prompt, and the
 //    reporter's own prompt stays clean.
 const e2eTaskId = 'task-e2e-probe';
 const taskDir = getResolvedTaskDir(e2eTaskId, projectPath);

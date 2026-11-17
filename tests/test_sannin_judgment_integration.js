@@ -71,19 +71,19 @@ async function main() {
   seedAgents();
   installFakeJudge();
 
-  // 1. A clear single-keyword win never pays for a model call.
+  // A clear single-keyword win never pays for a model call.
   judgeCalls = [];
   let res = await dispatch('add retry backoff to the fetch helper');
   assert.strictEqual(judgeCalls.length, 0, 'unambiguous prompt must not call the model');
   assert.strictEqual(res.selected_agent, 'anbu', `expected anbu, got ${res.selected_agent}`);
   assert.strictEqual(res.route.judgment.source, 'heuristic', 'route must report the heuristic source');
 
-  // 2. A prompt with no keyword signal at all also stays free.
+  // A prompt with no keyword signal at all also stays free.
   judgeCalls = [];
   res = await dispatch('look into the thing');
   assert.strictEqual(judgeCalls.length, 0, 'zero-signal prompt must not call the model');
 
-  // 3. An ambiguous prompt asks once and adopts a confident verdict.
+  // An ambiguous prompt asks once and adopts a confident verdict.
   judgeCalls = [];
   judgeReply = { source: 'model', agent: 'jonin', confidence: 0.88, reason: 'visual work' };
   res = await dispatch('retry the transition on the card');
@@ -92,7 +92,7 @@ async function main() {
   assert.strictEqual(res.route.judgment.source, 'model');
   assert.strictEqual(res.route.judgment.confidence, 0.88);
 
-  // 4. A heuristic fallback leaves the keyword verdict intact.
+  // A heuristic fallback leaves the keyword verdict intact.
   judgeCalls = [];
   judgeReply = { source: 'heuristic', reason: 'model unavailable' };
   res = await dispatch('retry the transition on the card');
@@ -100,19 +100,19 @@ async function main() {
   assert.notStrictEqual(res.selected_agent, 'jonin', 'heuristic fallback must not adopt the model pick');
   assert.strictEqual(res.route.judgment.source, 'heuristic');
 
-  // 5. Direct slash delegation never consults the model.
+  // Direct slash delegation never consults the model.
   judgeCalls = [];
   res = await dispatch('/genin map the routing module');
   assert.strictEqual(judgeCalls.length, 0, 'explicit slash routing must stay deterministic');
 
-  // 6. The same verdict reaches the MCP tool surface.
+  // The same verdict reaches the MCP tool surface.
   judgeCalls = [];
   judgeReply = { source: 'model', agent: 'jonin', confidence: 0.9, reason: 'visual work' };
   const toolRes = JSON.parse(await executeTool('sannin', { prompt: 'retry the transition on the card', project_path: projectPath, session_id: 'sj-integ-sess' }));
   assert.strictEqual(judgeCalls.length, 1, 'tool dispatch must run the async prepare hook');
   assert.strictEqual(toolRes.selected_agent, 'jonin', `tool dispatch must honour the model verdict, got ${toolRes.selected_agent}`);
 
-  // 7. The dispatch payload carries no duplicate tool block.
+  // The dispatch payload carries no duplicate tool block.
   assert(!JSON.stringify(res).includes('"tool_block"'), 'dispatch payload must not carry tool_block');
 
   console.log(`  ambiguity probes: ${judgeCalls.length} in the last dispatch`);

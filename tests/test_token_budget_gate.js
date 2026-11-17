@@ -27,7 +27,7 @@ const listToolSchemas = require(path.join(ROOT, 'src', 'file_tools_router')).lis
 
 console.log('Running test_token_budget_gate.js...');
 
-// 1. Canonical tool surface must not grow.
+// Canonical tool surface must not grow.
 const schemas = listToolSchemas();
 assert.strictEqual(schemas.length, CANONICAL_TOOL_COUNT, `tools/list must stay at ${CANONICAL_TOOL_COUNT} tools`);
 const schemaTokens = encode(JSON.stringify(schemas)).length;
@@ -36,7 +36,7 @@ assert(
   `tools/list schema surface ${schemaTokens} tokens exceeds ${LIMIT_CANONICAL_SCHEMA_TOKENS}`
 );
 
-// 2. Every spawnable agent's prompt stays under the ceiling.
+// Every spawnable agent's prompt stays under the ceiling.
 const projectPath = process.cwd();
 const built = new Map();
 for (const agent of SPAWNABLE) {
@@ -49,18 +49,18 @@ for (const agent of SPAWNABLE) {
   built.set(agent, parsed.instructions);
 }
 
-// 3. Prefix-cache stability: same (agent, task) must render byte-identical.
+// Prefix-cache stability: same (agent, task) must render byte-identical.
 const repeat = JSON.parse(runMcpAgent('genin', { task: 'Budget gate probe for genin', projectPath })).instructions;
 assert.strictEqual(repeat, built.get('genin'), 'repeat dispatch of the same task must be byte-identical for prefix caching');
 
-// 4. Delegation envelope carries no stringified objects and no workflow bookkeeping.
+// Delegation envelope carries no stringified objects and no workflow bookkeeping.
 const { buildDelegationEnvelope } = require(path.join(ROOT, 'src', 'mcp', 'sannin_router'));
 const envelope = buildDelegationEnvelope({ agentName: 'genin', projectPath, prompt: 'map the routing module', routedSkills: [] });
 assert(!envelope.text.includes('[object Object]'), 'soul tenets must render, not stringify');
 assert(!envelope.recall.some((line) => line.includes('[flow_skill]')), 'workflow bookkeeping rows must not consume recall slots');
 assert(encode(envelope.text).length <= 900, `delegation envelope ${encode(envelope.text).length} tokens exceeds 900`);
 
-// 5. Sibling findings must never push a prompt past the ceiling. Agents run
+// Sibling findings must never push a prompt past the ceiling. Agents run
 //    close to 8000 bytes, so the block has to shrink (or vanish) instead of
 //    letting clampToBytes eat the system prompt.
 const sharedContext = require(path.join(ROOT, 'src', 'mcp', 'shared_context'));

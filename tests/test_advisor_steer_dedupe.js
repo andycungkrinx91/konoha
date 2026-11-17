@@ -29,26 +29,26 @@ function queue() {
   return steering.peekPendingAdvisorSteers(taskDir);
 }
 
-// 1. The same violation twice in a row is one steer.
+// The same violation twice in a row is one steer.
 const violations = [{ type: 'todo_drift', detail: '@anbu skipped the retry task' }];
 const first = steer({ violations, directive: 'Do the retry task.' });
 const second = steer({ violations, directive: 'Do the retry task.' });
 assert.strictEqual(queue().length, 1, 'duplicate steer must not be enqueued twice');
 assert.strictEqual(second.id, first.id, 'duplicate call must return the existing steer');
 
-// 2. A different directive is a different steer.
+// A different directive is a different steer.
 steer({ violations, directive: 'Stop and read the plan first.' });
 assert.strictEqual(queue().length, 2, 'changed directive must enqueue');
 
-// 3. A different violation type is a different steer.
+// A different violation type is a different steer.
 steer({ violations: [{ type: 'goal_drift', detail: 'off goal' }], directive: 'Do the retry task.' });
 assert.strictEqual(queue().length, 3, 'changed violation type must enqueue');
 
-// 4. Zero cooldown restores unconditional enqueue (explicit opt-out).
+// Zero cooldown restores unconditional enqueue (explicit opt-out).
 steer({ violations, directive: 'Do the retry task.', cooldownMs: 0 });
 assert.strictEqual(queue().length, 4, 'cooldownMs=0 must disable dedupe');
 
-// 5. After the cooldown expires the same steer is allowed again.
+// After the cooldown expires the same steer is allowed again.
 steering.acknowledgeAdvisorSteers(taskDir, 'anbu');
 const queuePath = path.join(taskDir, '.konoha_advisor_steers.json');
 const raw = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
@@ -58,7 +58,7 @@ const before = JSON.parse(fs.readFileSync(queuePath, 'utf8')).length;
 steer({ violations, directive: 'Do the retry task.' });
 assert.strictEqual(JSON.parse(fs.readFileSync(queuePath, 'utf8')).length, before + 1, 'expired cooldown must allow a re-steer');
 
-// 6. The drift judge is only consulted on thin keyword overlap.
+// The drift judge is only consulted on thin keyword overlap.
 assert.strictEqual(monitor.isDriftAmbiguous('add retry backoff to the bridge fetch call', 'no relation whatsoever here'), false,
   'zero overlap is not ambiguous: the keyword check already catches it');
 assert.strictEqual(monitor.isDriftAmbiguous('add retry backoff to the bridge fetch call', 'backoff retry backoff retry backoff retry'), false,
@@ -69,7 +69,7 @@ assert.strictEqual(monitor.isDriftAmbiguous('add retry backoff to the bridge fet
   'half the goal terms present is not ambiguous');
 assert.strictEqual(monitor.isDriftAmbiguous('', 'anything at all here'), false, 'no goal is never ambiguous');
 
-// 7. The async evaluator stays free when the turn is unambiguous.
+// The async evaluator stays free when the turn is unambiguous.
 (async () => {
   const clean = await monitor.evaluateWorkerTurnAsync({
     agent: 'anbu',
@@ -81,7 +81,7 @@ assert.strictEqual(monitor.isDriftAmbiguous('', 'anything at all here'), false, 
   });
   assert.strictEqual(clean.status, 'IDLE_OK', `unambiguous clean turn must cost nothing, got ${clean.status}`);
 
-  // 8. A model-issued drift verdict is appended to the deterministic ones.
+  // A model-issued drift verdict is appended to the deterministic ones.
   const drifted = monitor.evaluateWorkerTurn({
     agent: 'anbu',
     goal: 'add retry backoff to the bridge fetch call',
