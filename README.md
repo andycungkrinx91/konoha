@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.22"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.23-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.23"></a>
   <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=master&label=cross-platform%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on master"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
   <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.22%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.23%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
@@ -124,7 +124,8 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
 | Quality | Two-step Zero-AI-Slop pre-gate | `aislop_scan` + `anti_slop` | 100/100 scan and 0 findings required before synthesis |
-| Supply chain | Socket CLI audit | `socket ci` | Mechanical blocker on High/Medium dependency findings |
+| Supply chain | Socket CLI audit | `socket ci` | Mechanical blocker on High/Medium dependency findings; `socket.yml` suppresses only documented capabilities (never `usesEval`), and `pnpm-lock.yaml` / `patches/**` stay audited |
+| Dependency posture | No `lodash`, no dynamic execution, exact pins | `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js` | Fails the build if `lodash` returns, if a bundled dep loses its exact pin, or if `eval`/`new Function` reappears |
 | Remediation | Bounded auto-fix loop | `src/sdlc_remediation.js` | Circuit breaker, max 7 cycles |
 | Remote | Telegram dual-mode bot + prompt queue | `src/telegram/`, `src/queue/` | Numeric `chat_id` whitelist; atomic SQLite state machine |
 | Secrets | Argon2id auth, AES-256-GCM vault, scrypt key derivation | `src/auth.js`, `src/crypto_vault.js` | Automatic masking in logs and TUI; zero plaintext secrets |
@@ -373,8 +374,8 @@ Single entry point: [docs/README.md](docs/README.md) (one topic, one source of t
 | [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
 | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
 | [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.22 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.22 ingress, auth, queue controls; newest external audit [2.2.19 (2026-11-09)](docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) |
+| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.23 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
+| [Security Architecture](docs/SECURITY.md) | v2.2.23 ingress, auth, queue controls; newest external audit [2.2.23 (2026-11-17)](docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md) |
 | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
 | [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
 | [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |

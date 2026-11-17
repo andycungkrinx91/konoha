@@ -1,0 +1,17 @@
+{
+  "konoha-mcp-guard": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "Read|read|read_file|view_file|view_file_outline|view_code_item|view_symbol|Grep|grep|grep_search|Glob|glob|find_by_name|list_dir|LS|Bash|bash|run_command|shell|Write|Edit|edit_file|write_file|replace_file_content|write_to_file|call_mcp_tool|mcp__semble__.*|mcp__skills-db__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/konoha_project_mcp_guard.js --harness antigravity",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

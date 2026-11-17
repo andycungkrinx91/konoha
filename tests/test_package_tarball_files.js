@@ -53,4 +53,47 @@ test("pnpm pack excludes docs/ and preserves bin/cli.js, apps/web/build, src/tem
     false,
     "bundled cfb must be the patched build"
   );
+
+  // No patched package may ship a browser bundle. `pptxgenjs/dist/pptxgen.bundle.js` and
+  // `jszip/dist/*.js` are webpack/Browserify builds whose `setImmediate` polyfill is
+  // `new Function(""+e)`; Konoha loads `dist/pptxgen.cjs.js` and `jszip/lib/index.js`
+  // only. A stale node_modules after a patch edit re-ships them, so assert the packed
+  // artifact rather than trusting the patch file.
+  for (const dead of [
+    "node_modules/pptxgenjs/dist/pptxgen.bundle.js",
+    "node_modules/pptxgenjs/dist/pptxgen.bundle.js.map",
+    "node_modules/xlsx-populate/browser/",
+    "node_modules/xlsx-populate/examples/",
+    "node_modules/jszip/dist/",
+  ]) {
+    assert.strictEqual(
+      paths.filter((p) => p.startsWith(dead)).length,
+      0,
+      `tarball must not ship ${dead}: dead weight carrying an eval sink`
+    );
+  }
+
+  // Apache-2.0 §4(d): a NOTICE that exists in the source must ship with every
+  // distribution. The tarball redistributes every bundleDependency plus its transitive
+  // closure, so NOTICE must attribute each one and each must carry its own license
+  // file, or the distribution reads as relicensing them under Konoha's Apache-2.0.
+  assert.ok(paths.includes("NOTICE"), "tarball must ship NOTICE");
+  assert.ok(paths.includes("LICENSE"), "tarball must ship LICENSE");
+  const notice = fs.readFileSync(path.join(root, "NOTICE"), "utf8");
+  const redistributed = [
+    "@types/node", "adler-32", "cfb", "crc-32", "image-size", "immediate",
+    "inherits", "jszip", "lie", "pako", "pptxgenjs", "readable-stream",
+    "safe-buffer", "sax", "setimmediate", "string_decoder", "undici-types",
+    "util-deprecate", "xlsx-populate",
+  ];
+  for (const pkg of redistributed) {
+    assert.ok(notice.includes(pkg), `NOTICE must attribute redistributed package ${pkg}`);
+    assert.ok(
+      paths.some((p) => p.startsWith(`node_modules/${pkg}/`) && /^licen[cs]e/i.test(p.slice(p.lastIndexOf("/") + 1))),
+      `node_modules/${pkg} must ship its own license file`
+    );
+  }
+  for (const license of ["Apache-2.0", "MIT", "ISC", "BlueOak-1.0.0"]) {
+    assert.ok(notice.includes(license), `NOTICE must name the ${license} license it redistributes under`);
+  }
 });

@@ -117,6 +117,9 @@ PLAN*.md
 3d-assets/
 **/3d-assets/**
 .konoha/3d-output/
+# Guardrail HITL runtime state: a risk acceptance is machine-local and must never ship
+.konoha/guardrail-*.json
+.konoha/guardrail-*.jsonl
 
 # Test / QA artifacts
 test-results/
@@ -132,8 +135,9 @@ apps/web/test-results/
 .claude/
 .commandcode/
 .opencode/
-.agents/
 .codex/
+!.agents/
+!.agents/**
 *.skills.fingerprint
 .aislop/history.jsonl
 

@@ -106,6 +106,54 @@ function createHeaderRepairedProbe(sourceDb, stagingDir) {
   }
 }
 
+/**
+ * A schema row whose SQL text carries a second statement is refused outright by
+ * some SQLite builds while they initialise the schema, which makes the whole
+ * file unreadable — not just the offending table. SQLite names the object in the
+ * error, so the tail can be commented out in a private copy: the page layout
+ * stays byte-for-byte identical, the rest of the database becomes readable, and
+ * the repaired table is still rejected by `buildSafeTableDdl` because the
+ * comment remains part of its DDL.
+ */
+function createSchemaNeutralizedProbe(sourceDb, stagingDir, objectName) {
+  const name = String(objectName || '').trim();
+  if (!VALID_IDENT_RE.test(name)) return null;
+  try {
+    const raw = fs.readFileSync(sourceDb);
+    const candidates = [
+      `CREATE TABLE ${name}`,
+      `CREATE TABLE "${name}"`,
+      `CREATE TABLE [${name}]`,
+      `CREATE TABLE \`${name}\``
+    ];
+    let start = -1;
+    for (const candidate of candidates) {
+      start = raw.indexOf(Buffer.from(candidate, 'utf8'));
+      if (start !== -1) break;
+    }
+    if (start === -1) return null;
+
+    // Stop at the record boundary: a NUL byte means the scan left this row, and
+    // flipping a byte there would corrupt an unrelated page.
+    const limit = Math.min(raw.length - 1, start + 8192);
+    let semi = -1;
+    for (let i = start; i < limit; i++) {
+      if (raw[i] === 0x00) break;
+      if (raw[i] === 0x3b) { semi = i; break; }
+    }
+    if (semi === -1 || semi + 1 >= raw.length) return null;
+    if (raw[semi + 1] < 0x20 || raw[semi + 1] > 0x7e) return null;
+
+    raw[semi] = 0x2d;
+    raw[semi + 1] = 0x2d;
+    const probePath = path.join(stagingDir, 'schema_neutralized_probe.db');
+    fs.writeFileSync(probePath, raw, { mode: 0o600 });
+    return probePath;
+  } catch (_) {
+    return null;
+  }
+}
+
 function sanitizeColumnSpec(col) {
   const name = String(col.name || '').trim();
   if (!VALID_IDENT_RE.test(name)) return null;
@@ -311,24 +359,86 @@ function executeSalvagePass(sourcePath, targetPath) {
     targetConn = openHardenedTarget(targetPath);
 
     let totalRows = 0;
+    let salvagedTables = 0;
     targetConn.exec('BEGIN IMMEDIATE;');
     for (const spec of validSpecs) {
-      targetConn.exec(spec.createSql);
-      totalRows += salvageTableRows(sourceConn, targetConn, spec);
+      // One unusable table must not abort the pass: a single DDL or INSERT that
+      // the target rejects (an unusual collation, a STRICT/UPSERT edge, a
+      // platform-specific parser difference) used to discard every row rescued
+      // up to that point. A savepoint isolates it and the reason is reported.
+      targetConn.exec('SAVEPOINT salvage_table;');
+      try {
+        targetConn.exec(spec.createSql);
+        totalRows += salvageTableRows(sourceConn, targetConn, spec);
+        targetConn.exec('RELEASE salvage_table;');
+        salvagedTables += 1;
+      } catch (err) {
+        try {
+          targetConn.exec('ROLLBACK TO salvage_table;');
+          targetConn.exec('RELEASE salvage_table;');
+        } catch (_) { /* the savepoint is gone; the enclosing transaction still commits */ }
+        catalog.rejectedObjects.push({
+          name: spec.tableName,
+          type: 'table',
+          reason: `table could not be recreated in the target: ${_describeError(err)}`
+        });
+      }
     }
     targetConn.exec('COMMIT;');
 
+    if (salvagedTables === 0) {
+      return {
+        ok: false,
+        tables: 0,
+        rows: 0,
+        rejectedObjects: catalog.rejectedObjects,
+        reason: 'no table could be recreated in the target database'
+      };
+    }
+
     return {
       ok: true,
-      tables: validSpecs.length,
+      tables: salvagedTables,
       rows: totalRows,
       rejectedObjects: catalog.rejectedObjects
     };
-  } catch (_) {
-    return { ok: false, tables: 0, rows: 0, rejectedObjects: [] };
+  } catch (err) {
+    return { ok: false, tables: 0, rows: 0, rejectedObjects: [], reason: _describeError(err) };
   } finally {
     if (sourceConn && sourceConn.isOpen) { try { sourceConn.close(); } catch (_) { /* ignore */ } }
     if (targetConn && targetConn.isOpen) { try { targetConn.close(); } catch (_) { /* ignore */ } }
+  }
+}
+
+/**
+ * A reason-less failure is unreportable: the macOS CI leg returned
+ * `{ok:false, tables:0, rows:0}` and there was nothing to act on. Every failure
+ * path carries the underlying message plus the sqlite error code when present.
+ */
+function _describeError(err) {
+  if (!err) return 'unknown error';
+  const message = err.message || String(err);
+  const code = err.code || err.errcode || err.errstr;
+  return code ? `${message} (${code})` : message;
+}
+
+function _malformedSchemaObject(reason) {
+  const match = /malformed database schema \(([^)]+)\)/.exec(String(reason || ''));
+  return match ? match[1] : null;
+}
+
+function salvageViaNeutralizedSchema(sourceDb, targetDb, stagingDir, reason) {
+  const objectName = _malformedSchemaObject(reason);
+  if (!objectName) return null;
+  const neutralizedPath = createSchemaNeutralizedProbe(sourceDb, stagingDir, objectName);
+  if (!neutralizedPath) return null;
+  try {
+    const res = executeSalvagePass(neutralizedPath, targetDb);
+    return res.ok ? res : null;
+  } finally {
+    try {
+      if (fs.existsSync(neutralizedPath)) fs.unlinkSync(neutralizedPath);
+    } catch (_) { /* best-effort cleanup */ }
   }
 }
 
@@ -339,6 +449,10 @@ function salvageDatabase(sourceDb, targetDb, options = {}) {
   }
 
   const stagingDir = options.stagingDir || path.dirname(targetDb);
+
+  const neutralizedRes = salvageViaNeutralizedSchema(sourceDb, targetDb, stagingDir, directRes.reason);
+  if (neutralizedRes) return neutralizedRes;
+
   const probePath = createHeaderRepairedProbe(sourceDb, stagingDir);
   if (!probePath) {
     return directRes;
@@ -356,5 +470,7 @@ function salvageDatabase(sourceDb, targetDb, options = {}) {
 module.exports = {
   salvageDatabase,
   buildSafeTableDdl,
+  createSchemaNeutralizedProbe,
+  salvageViaNeutralizedSchema,
   quoteIdent
 };

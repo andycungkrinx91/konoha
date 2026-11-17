@@ -11,6 +11,25 @@ function assertRegisteredWithRunner() {
   console.log(`  \u2713 Registered as ${registered.map(([name]) => `npm run ${name}`).join(', ')}.`);
 }
 
+// Undici enforces the fetch spec's blocklist of ports. A kernel with a wide
+// `ip_local_port_range` (2000-65535 is a common tuning) can hand one of them to
+// `listen(0)`, and the request then dies with `bad port`; CI's default
+// 32768-60999 range never can, so the failure only shows up on some developer
+// machines. Ask again until the port is usable.
+const FETCH_BLOCKED_PORTS = new Set([
+  2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080
+]);
+
+async function listenOnFetchablePort(server) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    if (!FETCH_BLOCKED_PORTS.has(port)) return port;
+    await new Promise((resolve) => server.close(resolve));
+  }
+  throw new Error('Could not obtain a listening port outside the fetch spec blocklist.');
+}
+
 async function runProtocolTests() {
   console.log('Testing sendChatMessage protocol handling (SSE & JSON)...');
   assertRegisteredWithRunner();
@@ -54,8 +73,7 @@ async function runProtocolTests() {
     });
   });
 
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const port = server.address().port;
+  const port = await listenOnFetchablePort(server);
   const baseUrl = `http://127.0.0.1:${port}/v1`;
 
   try {

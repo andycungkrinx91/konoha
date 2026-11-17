@@ -351,9 +351,12 @@ async function testContextAndPruningAndFtsRepair(conn) {
   assert.strictEqual(afterAbortStatus.status, 'failed', 'Aborted run must mark root failed, never false fresh');
   const rolledBackFiles = conn.prepare('SELECT rel_path FROM code_files WHERE root_hash = ? ORDER BY rel_path').all(initialRollbackIdx.rootHash).map((r) => r.rel_path);
   assert.deepStrictEqual(rolledBackFiles, ['a.js', 'b.js'], 'Transaction rollback must preserve original file set');
-  const origSearch = query.search({ rootPath: rollbackRepo, query: 'stableOriginalToken', conn });
+  // A `failed` root is retried on the next query by design, so pin the row this
+  // search reads: the assertion is about what the rollback left behind, not
+  // about the retry that would rebuild the index from the current tree.
+  const origSearch = query.search({ rootPath: rollbackRepo, rootResolved: afterAbortStatus, query: 'stableOriginalToken', conn });
   assert.ok(origSearch.hits.some((h) => h.relPath === 'a.js'), 'FTS/chunks for original symbol must remain intact after rollback');
-  const abortedSearch = query.search({ rootPath: rollbackRepo, query: 'abortedPartialToken', conn });
+  const abortedSearch = query.search({ rootPath: rollbackRepo, rootResolved: afterAbortStatus, query: 'abortedPartialToken', conn });
   assert.strictEqual(abortedSearch.total, 0, 'Aborted edit must not leak partial FTS/chunks');
 
   // P2.3: store.ftsAvailable + repair on user_version = 7

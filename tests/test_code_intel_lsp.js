@@ -194,7 +194,10 @@ async function callRouterTool(name, args) {
 }
 
 async function testRouterAndToolsLspEnrichment(conn, repo, mockScript, logPath) {
-  process.env.KONOHA_LSP_COMMAND_OVERRIDE = `${process.execPath} ${mockScript}`;
+  // An env var can only be a string, so quote the executable: `process.execPath`
+  // is `C:\Program Files\nodejs\node.exe` on Windows and bare whitespace
+  // splitting would resolve the command `C:\Program`.
+  process.env.KONOHA_LSP_COMMAND_OVERRIDE = `"${process.execPath}" "${mockScript}"`;
 
   const symOut = await callRouterTool('code_symbol', { root: repo, name: 'verifyToken' });
   assert.ok(symOut.lsp && symOut.lsp.lsp_available === true, 'code_symbol async route must include LSP enrichment');
@@ -261,8 +264,8 @@ async function testCancelLruAndProcessCleanup(mockScript, logPath) {
 }
 
 async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2, r3) {
-  const c1 = await mgr.acquireClient(r1, 'typescript', 'src/auth.ts', { commandOverride: `${process.execPath} ${mockScript}` });
-  const c2 = await mgr.acquireClient(r2, 'typescript', 'src/auth.ts', { commandOverride: `${process.execPath} ${mockScript}` });
+  const c1 = await mgr.acquireClient(r1, 'typescript', 'src/auth.ts', { commandOverride: [process.execPath, mockScript] });
+  const c2 = await mgr.acquireClient(r2, 'typescript', 'src/auth.ts', { commandOverride: [process.execPath, mockScript] });
   assert.strictEqual(c1.available && c2.available, true);
   const pid1 = c1.client.pid;
 
@@ -283,7 +286,7 @@ async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2
   assert.ok(cancels.length >= 2, 'Timeout and AbortSignal must send $/cancelRequest to child LSP');
 
   // Adding r3 with maxClients=2 must evict LRU r1 and exit its child process
-  const c3 = await mgr.acquireClient(r3, 'typescript', 'src/auth.ts', { commandOverride: `${process.execPath} ${mockScript}` });
+  const c3 = await mgr.acquireClient(r3, 'typescript', 'src/auth.ts', { commandOverride: [process.execPath, mockScript] });
   assert.strictEqual(c3.available, true);
   assert.strictEqual(mgr.pool.size, 2, 'LSP pool must stay bounded to maxClients');
   await new Promise((r) => setTimeout(r, 100));
@@ -310,6 +313,61 @@ async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2
   console.log('✓ LSP $/cancelRequest, LRU eviction, pool cap, idle/shutdown & SIGTERM/SIGKILL cleanup verified');
 }
 
+async function testOverridePathWithSpaces(mockScript) {
+  // `process.execPath` is `/usr/bin/node` on Linux but
+  // `C:\Program Files\nodejs\node.exe` on Windows, and the string form of the
+  // override used to be split on bare whitespace — so on Windows every LSP
+  // leg resolved the command `C:\Program` and reported `server binary missing`.
+  const spacedDir = path.join(tmpRoot, 'Program Files', 'nodejs');
+  fs.mkdirSync(spacedDir, { recursive: true });
+  const spacedNode = path.join(spacedDir, process.platform === 'win32' ? 'node.exe' : 'node');
+  fs.copyFileSync(process.execPath, spacedNode);
+  fs.chmodSync(spacedNode, 0o755);
+  const spacedMock = path.join(spacedDir, 'mock_lsp.js');
+  fs.copyFileSync(mockScript, spacedMock);
+
+  const mgr = new LspManager();
+  try {
+    const quoted = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: `"${spacedNode}" "${spacedMock}"`
+    });
+    assert.strictEqual(quoted.available, true, `A quoted override path with spaces must resolve: ${quoted.reason}`);
+    assert.strictEqual(quoted.command, path.resolve(spacedNode));
+    assert.deepStrictEqual(quoted.args, [spacedMock]);
+
+    const asArray = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: [spacedNode, spacedMock]
+    });
+    assert.strictEqual(asArray.available, true, `An array override must resolve a path with spaces: ${asArray.reason}`);
+    assert.strictEqual(asArray.command, path.resolve(spacedNode));
+
+    // An env var can only carry a string, so quoting is the only way to pass a
+    // spaced executable through it. This is the exact Windows shape: the real
+    // CI failure was `KONOHA_LSP_COMMAND_OVERRIDE` set to an unquoted
+    // `C:\Program Files\nodejs\node.exe <mock>`, which resolved `C:\Program`.
+    const previousOverride = process.env.KONOHA_LSP_COMMAND_OVERRIDE;
+    process.env.KONOHA_LSP_COMMAND_OVERRIDE = `"${spacedNode}" "${spacedMock}"`;
+    try {
+      const fromEnv = mgr.resolveServerSpec('typescript', 'src/auth.ts');
+      assert.strictEqual(fromEnv.available, true, `A quoted env-var override with spaces must resolve: ${fromEnv.reason}`);
+      assert.strictEqual(fromEnv.command, path.resolve(spacedNode));
+      assert.deepStrictEqual(fromEnv.args, [spacedMock]);
+    } finally {
+      if (previousOverride === undefined) delete process.env.KONOHA_LSP_COMMAND_OVERRIDE;
+      else process.env.KONOHA_LSP_COMMAND_OVERRIDE = previousOverride;
+    }
+
+    const unquoted = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: `${spacedNode} ${spacedMock}`
+    });
+    assert.strictEqual(unquoted.available, false, 'An unquoted path with spaces is ambiguous and must not silently pick a prefix');
+    assert.match(unquoted.reason, /server binary missing/, 'The ambiguous case must still report a missing binary');
+  } finally {
+    await mgr.shutdownAll();
+  }
+  console.log('✓ LSP command override survives a path containing spaces (quoted and array forms)');
+}
+
 (async () => {
   const conn = db.getConnection();
   try {
@@ -325,6 +383,7 @@ async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2
     const logPath = writeMockLspServer(mockScript);
     await testRouterAndToolsLspEnrichment(conn, repo, mockScript, logPath);
     await defaultManager.shutdownAll();
+    await testOverridePathWithSpaces(mockScript);
     await testCancelLruAndProcessCleanup(mockScript, logPath);
     console.log('test_code_intel_lsp passed cleanly.');
   } catch (err) {

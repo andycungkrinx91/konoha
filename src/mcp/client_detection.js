@@ -69,9 +69,32 @@ function globSync(pattern) {
 }
 
 
+const OMP_STATE_ENV_VARS = Object.freeze([
+  'PI_SESSION_FILE',
+  'PI_CODING_AGENT_DIR',
+  'PI_CODING_AGENT_SESSION_DIR',
+  'OMP_SESSION_FILE',
+  'OMP_HOME'
+]);
+
+/**
+ * True when a harness env var names a path inside OMP's own state directory.
+ * OMP reuses PI's variable names, so the path — not the name — carries identity.
+ */
+function _envPointsAtOmpStateDir() {
+  for (const name of OMP_STATE_ENV_VARS) {
+    const raw = process.env[name];
+    if (!raw) continue;
+    const normalized = String(raw).replace(/\\/g, '/');
+    if (normalized === '.omp' || normalized.includes('/.omp/') || normalized.endsWith('/.omp')) return true;
+  }
+  return false;
+}
+
 function detectActiveClient() {
   try {
     if (getActiveClient()) return getActiveClient();
+
     const activeOverride = (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || '').toLowerCase().trim();
     if (activeOverride) {
       if (activeOverride.includes('codex') || activeOverride.includes('openai')) return 'codex';
@@ -91,6 +114,12 @@ function detectActiveClient() {
     if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1' || process.env.OPENCODE_SESSION_ID) return 'opencode';
     if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1' || process.env.COMMANDCODE_SESSION_ID) return 'commandcode';
     if (process.env.CLAUDE_CODE_CHILD_SESSION === '1' || process.env.CLAUDE_CONVERSATION_ID) return 'claudecode';
+    // OMP inherits PI's environment contract verbatim (`PI_SESSION_FILE`,
+    // `PI_CODING_AGENT_DIR`, `PI_GIT_GUARD`, ...) and exports no OMP_* marker of
+    // its own, so the PI branch below claimed every OMP session. The state
+    // directory is the only signal that separates them: OMP keeps its sessions
+    // under ~/.omp/agent, PI under ~/.pi/agent.
+    if (_envPointsAtOmpStateDir()) return 'omp';
     if (process.env.PI_CODING_AGENT || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
     if (process.env.CURSOR_SESSION_ID) return 'cursor';
 

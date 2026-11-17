@@ -292,6 +292,25 @@ function _armShardTimeoutIfNeeded() {
   });
 }
 
+// Ambient harness identity must never reach a suite. CI has none of these, so a
+// developer running the suite from inside a client would otherwise see different
+// results: `detectActiveClient()` returns `pi`, `runMcpAgent` answers
+// `unsupported_native_spawn`, and delegation suites fail on a clean checkout.
+const CLIENT_IDENTITY_ENV = [
+  'ACTIVE_CLIENT', 'KONOHA_CLIENT',
+  'ANTIGRAVITY_CONVERSATION_ID',
+  'CODEX_SESSION', 'CODEX_THREAD_ID', 'CODEX_CI',
+  'OMP_SESSION', 'OMP_SESSION_ID', 'OMP_CLIENT', 'OMP_AGENT',
+  'OPENCODE_CLIENT', 'OPENCODE_SESSION', 'OPENCODE_SESSION_ID',
+  'COMMANDCODE_CLIENT', 'COMMANDCODE_SESSION', 'COMMANDCODE_SESSION_ID',
+  'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CONVERSATION_ID',
+  'PI_CODING_AGENT', 'PI_SESSION_FILE', 'PI_SESSION_ID',
+  // OMP reuses PI's names, so the state-directory variables also identify a
+  // harness and must be stripped for the suite to reproduce CI.
+  'PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR', 'OMP_SESSION_FILE', 'OMP_HOME',
+  'CURSOR_SESSION_ID'
+];
+
 function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   _armShardTimeoutIfNeeded();
@@ -314,9 +333,13 @@ function createSuiteSnapshot(name) {
     PYTHONUSERBASE: process.env.PYTHONUSERBASE || path.join(realHome, '.local'),
     PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(realHome, '.cache', 'ms-playwright'),
     KONOHA_TEST_SANDBOX: '1',
+    // The parity gate compares templates against ~/.agents/skills, which only means something
+    // when HOME is this sandboxed seed snapshot rather than the developer's ambient install.
+    KONOHA_TEST_SKILL_PARITY_HOME: '1',
     ...(GUARD_MODE === 'host-isolated' ? { [HOST_ISOLATED_MARKER]: '1' } : {}),
     NODE_PATH: suiteNodePath
   };
+  for (const key of CLIENT_IDENTITY_ENV) delete env[key];
 
   return {
     home: suiteHome,

@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const {
@@ -91,29 +92,24 @@ function buildOmpWorkflowAddendum() {
   return `
 ## Konoha Workflow Mandate (OMP) — MANDATORY
 
-- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.code_search\`) as primary execution tools.
-- **Advisor Preservation**: OMP's built-in advisor review (\`reviewMode: agent-end\`) must always run after all Konoha multi-agent workflows, subagent delegations, and Kage review gates finish cleanly. Never abort the turn early or bypass advisor post-review.
-- **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
+- **OMP Auto-Enable & Auto-Use Mandate**: OMP uses the Konoha MCP tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.code_search\`) as its primary execution tools on every new or resumed session.
+- **Advisor Preservation**: OMP's advisor review (\`reviewMode: agent-end\`) runs after every Konoha workflow, subagent delegation, and Kage gate. Never abort a turn early or bypass it.
+- **Route through the village, never free-run**: for any non-trivial task, start from \`konoha.sannin\` (triage + \`get_resolved_task_dir\`), then explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
-  - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
-  - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.
-  - **Everything else** → **BRANCH A** (standard multi-agent workflow above).
-- **BRANCH B: Website Scaffolding Pipeline (SKIP standard pipeline)**:
-  - Call \`konoha.build_from_text(name, description, framework, taste_dials?)\` or \`konoha.build_from_source(name, source_dir, framework, taste_dials?)\` FIRST before writing any code or scaffolding.
-  - Pass the returned directives directly as structured tool constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
-  - Jonin implements the complete working website with an inline \`README.md\` and executes validation commands cleanly. DO NOT delegate to \`tokubetsu-jonin\` or other subagents unless technical documentation was explicitly requested by the user.
-  - **Project-Specific Design Mandate**: Derive art direction, information architecture, navigation pattern, theme strategy, motion language, and component composition from a 9-field design brief authored from the request itself. No house template: no mandatory bottom dock, no mandatory theme switcher, no mandatory hero carousel, no commerce sections unless the request requires commerce. Apply the Anti-Template Gate before delivery.
-  - **Craft Polish**: Enrich the brief-derived direction with editorial typography, negative space, justified hover/motion treatment, and a zero-emoji policy in UI controls — without overriding the design brief.
-  - **Standard Framework Scaffolding via pnpm**: Always use token-safe, non-interactive flags wrapped with rtk: Next.js (\`rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent\`), Nuxt (\`rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false\`), Angular (\`rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true\`), SvelteKit (\`rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm\`). Always install packages with \`rtk pnpm add <packages> --silent\` to suppress verbose installation logs.
-  - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\`), \`"build"\` (\`pnpm run build\`), and \`"start"\` (\`pnpm run start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
-  - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
-- **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills; duplicate-skill warnings are automatically filtered by konoha-blocker; prefer the Konoha MCP path.
+  - Website build intent (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, or a named framework), or supplied design mockups → **BRANCH B**.
+  - Everything else → **BRANCH A** (the multi-agent workflow above).
+- **BRANCH B: Website Scaffolding Pipeline (SKIP standard pipeline)**: call \`konoha.build_from_text\` (or \`build_from_source\` for mockups) FIRST, pass the returned directives to \`konoha.jonin\` as structured tool constraints, and do not call Chunin, Genin, or Kage. Jonin delivers the complete working site with an inline \`README.md\`; delegate to \`tokubetsu-jonin\` only when documentation was explicitly requested.
+  - **Project-Specific Design Mandate**: derive art direction, information architecture, navigation pattern, theme strategy, motion language, and component composition from a 9-field design brief authored from the request. No house template — no mandatory bottom dock, theme switcher, hero carousel, or commerce sections the request did not ask for. Apply the Anti-Template Gate before delivery, with editorial typography, negative space, justified hover/motion, and zero emoji in UI controls.
+  - Framework scaffolding commands and the \`package.json\` scripts invariant (\`lint\`, \`build\`, \`start\`, plus \`check\` for SvelteKit) live in \`jonin-skill\`; load it before scaffolding.
+- **Zero Errors & Zero Warnings**: do not claim completion until the framework's \`build\`, \`lint\`, and \`check\` commands pass cleanly with 0 errors and 0 warnings.
+- **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors; the project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills, so prefer the Konoha MCP path.
 - **Code search via \`code_search\`**: index the repository once with \`code_index\`, then use \`code_search\` / \`code_symbol\` / \`code_impact\` — never native grep/glob/find for codebase discovery.
 - **Bounded file tools**: use \`konoha.read_file_head\`, \`read_file_range\`, \`file_info\`, \`get_file_structure\`, \`find_files_clean\`, \`token_efficient_grep\` instead of native read/grep when scanning the repository.
 - **Workflow artifacts** (\`plan.md\`, \`findings.md\`, \`final_docs.md\`, \`kage_review.json\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 98\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
-- **Base personality: High Effort + Instruct Style**: Strictly zero conversational filler (no "hmmmm", "let me", "wait - but"), lead with direct action, ADHD-friendly structured formatting, zero hallucination, and strictly no lies.
-- **Review token hygiene & strict changed-files scoping (NEVER BURN TOKENS)**: Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, OMP), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context. When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution. NEVER dump raw full-repo scan output into conversation context; summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
+- **Base personality: High Effort + Instruct Style**: strictly zero conversational filler (no "hmmmm", "let me", "wait - but"), lead with direct action, ADHD-friendly structured formatting, zero hallucination, and strictly no lies.
+- **Safety guardrails**: NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view secrets (\`.env*\`).
+- **Review token hygiene (NEVER BURN TOKENS)**: across every client, never run an unscoped full-repository scan (\`aislop_scan\` without a target path, or \`aislop scan\` without \`--changes\` or explicit file arguments). Report counts and rule IDs only; never dump raw scan output into context.
 `;
 }
 
@@ -376,7 +372,21 @@ function ensureOmpSetup(options = {}) {
   const rtkResult = deployOmpRtkRule({ ...options, silent });
   const agentsResult = deployOmpAgents({ ...options, targetAgentDir, silent });
 
-  const projectRoot = options.projectRoot || (fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
+  // Auto-detecting the project from cwd is right for the real CLI and wrong for
+  // any sandboxed caller: a test or CI run with a temporary HOME wrote its own
+  // throwaway launcher path into the developer's `.omp/mcp.json`, after which every
+  // OMP session in that repo failed to start Konoha and lost all its tools.
+  // `os.userInfo()` reads the account database, so an overridden `process.env.HOME`
+  // cannot make a sandbox look like the real home. The effective home is resolved
+  // the same way `bin/lib/paths.js` resolves it, because a suite typically overrides
+  // the environment variable rather than passing `home`.
+  const realHome = (() => {
+    try { return os.userInfo().homedir || HOME; } catch (_) { return HOME; }
+  })();
+  const effectiveHome = options.home || process.env.HOME || process.env.USERPROFILE || realHome;
+  const sandboxed = Boolean(effectiveHome) && path.resolve(effectiveHome) !== path.resolve(realHome);
+  const projectRoot = options.projectRoot
+    || (!sandboxed && fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
   const projMcp = projectRoot ? path.join(projectRoot, '.omp', 'mcp.json') : null;
   if (projMcp && (options.appendProject || options.deployProject || fileExists(projMcp))) {
     registerOmpMcp({ ...options, configPath: projMcp, silent });

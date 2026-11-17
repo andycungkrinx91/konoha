@@ -7,6 +7,19 @@ function getPptxGenJS() {
   return require('pptxgenjs');
 }
 
+const PNG_MAGIC = 0x89504e47;
+
+// pptxgenjs resolves `path` as a filesystem read (fs.readFileSync) and `http*` as a
+// network GET. Konoha only ever embeds internally rendered artwork, so the boundary is
+// a Buffer in, base64 data URI out: no path or URL string can reach addImage.
+function addInlineImage(slide, buffer, geometry) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 8 || buffer.readUInt32BE(0) !== PNG_MAGIC) {
+    throw new Error('pptx image payload must be an in-memory PNG buffer');
+  }
+  const box = geometry || { x: 0, y: 0, w: 13.33, h: 7.5 };
+  slide.addImage({ data: 'image/png;base64,' + buffer.toString('base64'), x: box.x, y: box.y, w: box.w, h: box.h });
+}
+
 async function _renderCoverSlide(slide, sDef, options, theme, pptx) {
   try {
     const coverBuffer = await renderCoverArtworkPng(theme, {
@@ -18,7 +31,7 @@ async function _renderCoverSlide(slide, sDef, options, theme, pptx) {
       cover_model: options.cover_model
     }, true);
 
-    slide.addImage({ data: 'image/png;base64,' + coverBuffer.toString('base64'), x: 0, y: 0, w: 13.33, h: 7.5 });
+    addInlineImage(slide, coverBuffer);
   } catch (_) {
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 1.0, y: 1.2, w: 11.33, h: 5.0,
@@ -216,5 +229,6 @@ async function presentationCreate(options = {}) {
 }
 
 module.exports = {
-  presentationCreate
+  presentationCreate,
+  addInlineImage
 };

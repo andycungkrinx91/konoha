@@ -12,7 +12,12 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { salvageDatabase, buildSafeTableDdl } = require('./db_recovery_salvage');
+const {
+  salvageDatabase,
+  buildSafeTableDdl,
+  createSchemaNeutralizedProbe,
+  salvageViaNeutralizedSchema
+} = require('./db_recovery_salvage');
 
 const SQLITE_HEADER_MAGIC = 'SQLite format 3\0';
 const DB_IDENTITY_EXT_RE = /\.(?:db|sqlite|sqlite3|backup)(?:[._-][A-Za-z0-9._-]+)?$/i;
@@ -630,5 +635,7 @@ module.exports = {
   restoreDatabase,
   autoRecoverIfNeeded,
   salvageDatabase,
-  buildSafeTableDdl
+  buildSafeTableDdl,
+  createSchemaNeutralizedProbe,
+  salvageViaNeutralizedSchema
 };

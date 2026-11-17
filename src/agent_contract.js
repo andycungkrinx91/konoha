@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_VERSION = '2.2.22';
+const CONTRACT_VERSION = '2.2.23';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 
@@ -103,14 +103,27 @@ function buildSubagentContract(client) {
   return buildLightweightContract({ client, role: 'subagent' });
 }
 
-function buildManagedContract(existing, contract) {
-  const source = String(existing || '');
-  const startIndex = source.indexOf(CONTRACT_START);
-  const endIndex = source.indexOf(CONTRACT_END);
-  if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-    return source.slice(0, startIndex) + contract + source.slice(endIndex + CONTRACT_END.length);
+/**
+ * Remove every managed block, not just the first one. A file that accumulated a
+ * second block (an upgrade that appended instead of replacing) would otherwise
+ * keep it forever: the first block is rewritten each deploy and the stale one
+ * survives, so the agent reads two contract versions in one prompt and pays for
+ * both on every turn.
+ */
+function stripManagedBlocks(source) {
+  const text = String(source || '');
+  let out = text;
+  for (;;) {
+    const startIndex = out.indexOf(CONTRACT_START);
+    const endIndex = out.indexOf(CONTRACT_END, startIndex === -1 ? 0 : startIndex);
+    if (startIndex === -1 || endIndex === -1) return out;
+    out = out.slice(0, startIndex) + out.slice(endIndex + CONTRACT_END.length);
   }
-  return `${source.trim()}\n\n${contract}\n`;
+}
+
+function buildManagedContract(existing, contract) {
+  const outside = stripManagedBlocks(existing).trim();
+  return outside ? `${outside}\n\n${contract}\n` : `${contract}\n`;
 }
 
 function validateContractText(text) {

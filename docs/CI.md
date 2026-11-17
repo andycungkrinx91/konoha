@@ -163,6 +163,27 @@ Two things follow. Shard 8 is not known to be the worst Windows shard — only o
 observed — so do not rebalance on it. And 1013 s of suite work still sits under the 40-minute
 target with room for a cold seed, but the headroom is smaller than the Linux numbers suggest.
 
+## Spawning a `.cmd` harness on Windows
+
+A platform-specific defect with a reproduction, so it does not get re-litigated:
+
+```
+# on Windows, from a shell where the harness is installed
+node -e "require('child_process').spawn(require('child_process').execSync('where claude',{encoding:'utf8'}).split(/\r?\n/)[0].trim(),['--version'],{stdio:'inherit'})"
+# Error: spawn EINVAL
+```
+
+Node refuses to spawn a `.cmd`/`.bat` without a shell (the CVE-2024-27980 mitigation), and
+npm/pnpm install these CLIs as `.cmd` shims. `src/mcp/subagent_spawner.js` therefore resolves
+the binary to its absolute `PATH` location and routes a `.cmd`/`.bat` through
+`ComSpec /d /s /c` with `windowsVerbatimArguments`; a real `.exe` is spawned directly. The
+process held is then `cmd.exe`, so cancellation uses `taskkill /T` rather than `kill()`.
+
+`tests/test_spawn_harness_contracts.js` pins this by re-running the spawner in a child process
+with `process.platform` pinned to `win32` and a temp `PATH` holding a fake `omp.cmd`, so the
+assertion runs on Linux and macOS too. That is simulation, not a native Windows run; the
+native check is the `windows-latest` leg of `cross-platform.yml`.
+
 ## Golden seed cache
 
 Every suite runs against a throwaway copy of one golden seed — a full `konoha init`
@@ -391,6 +412,175 @@ expectation, and no `continue-on-error` was added anywhere.
   artifacts into a temp `HOME` and measures them there, and asserts the `<1800`
   byte budget on `buildLightweightContract({ client })` for every client.
 
+- **Reason-less salvage failure (`test_db_recovery`, macos 5/5)** — the salvage
+  pass returned `{ok:false, tables:0, rows:0, rejectedObjects:[]}` on the macOS
+  leg with no `reason`, so `assert.strictEqual(salvageRes.ok, true, …${salvageRes.reason})`
+  printed `should succeed: undefined` and nothing identified the failing step.
+  Two defects made that possible: `executeSalvagePass` swallowed every exception
+  in a bare `catch (_)`, and a single table whose DDL the target refused aborted
+  the whole pass, discarding every row already rescued. The pass now returns
+  `reason` on every failure path (message plus the sqlite errcode), and each
+  table runs inside a `SAVEPOINT` so one rejection is recorded in
+  `rejectedObjects` and the siblings still commit. Reproduce on any platform:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path');const d=fs.mkdtempSync(p.join(os.tmpdir(),'salvage-'));
+  fs.writeFileSync(p.join(d,'garbage.db'),Buffer.alloc(4096,0x41));
+  console.log(JSON.stringify(require('./src/db_recovery').salvageDatabase(p.join(d,'garbage.db'),p.join(d,'out.db'),{stagingDir:d})));"
+  # must carry a reason naming the sqlite failure, never reason: undefined
+  ```
+
+  `tests/test_db_recovery.js` requires a described failure rather than a pinned
+  dialect — sqlite's wording is `malformed` on one version and `file is not a
+  database` on another — so it asserts the reason is neither empty nor the
+  `unknown error` placeholder, checks a second, target-side failure for the same,
+  and asserts that a table rejected by a binary-patched DDL does not sink a
+  salvageable sibling. Every guard is proven to bite by mutation.
+
+- **A malformed schema row no build can parse (`test_db_recovery`, macos 5/5, second
+  round)** — after the reason was reported, the reason itself was the bug:
+  `malformed database schema (poison_tbl) (ERR_SQLITE_ERROR)`. A fixture writes a
+  `sqlite_master` DDL of the shape `CREATE TABLE poison_tbl (id INT );
+  ATTACH DATABASE 'pwn.db' AS p;--`. Linux's sqlite reads the row (trailing
+  statements after the first are ignored) and the salvage proceeds; the macOS
+  build rejects the whole row at schema-init, so **every** statement on that
+  connection fails, including `SELECT 1` and `SELECT … FROM sqlite_master`. There
+  is no read-only escape hatch, and there is no SQL repair either: `node:sqlite`
+  opens SQLite in defensive mode, so `PRAGMA writable_schema = ON` reads back `0`
+  and any `UPDATE`/`DELETE` on `sqlite_master` throws `table sqlite_master may not
+  be modified`. The repair is therefore byte-level: `createSchemaNeutralizedProbe`
+  copies the file, finds the named object's row, and overwrites the `;` that ends
+  its DDL (plus the byte after it) with `--`, which is length-preserving and leaves
+  the poisoned row's `--`/`ATTACH` intact so `FORBIDDEN_DDL_RE` still rejects it.
+  `salvageViaNeutralizedSchema` only runs that probe when sqlite itself named the
+  object, and the probe is unlinked afterwards. Reproduce the platform split on
+  Linux — the row has to be patched into the file, because `exec()` stores only
+  the first statement of a multi-statement string, so it cannot write the
+  hostile row at all:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path'),{DatabaseSync}=require('node:sqlite');
+  const d=fs.mkdtempSync(p.join(os.tmpdir(),'poison-')),f=p.join(d,'x.db');
+  const db=new DatabaseSync(f);db.exec('CREATE TABLE poison_tbl (id INT /*____POISON_DDL_PATCH_SLOT_0123456789____*/)');db.close();
+  const raw=fs.readFileSync(f),slot=Buffer.from('/*____POISON_DDL_PATCH_SLOT_0123456789____*/');
+  Buffer.from(\"); ATTACH DATABASE 'pwn.db' AS p;--\".padEnd(slot.length,' ')).copy(raw,raw.indexOf(slot));
+  fs.writeFileSync(f,raw);
+  const c=new DatabaseSync(f);console.log(c.prepare('select sql from sqlite_master').all());"
+  # Linux prints the row: CREATE TABLE poison_tbl (id INT ); ATTACH DATABASE 'pwn.db' AS p;--         )
+  # macOS throws: malformed database schema (poison_tbl)
+  ```
+
+- **The guardrail CLI hung after the answer (`test_project_konoha_mcp_guardrail`, macos
+  4/5)** — the macOS leg died with `script: tcgetattr/ioctl: Operation not supported
+  on socket`, and underneath it was a product defect. `openControllingTerminal` wrapped
+  the `/dev/tty` descriptor in `fs.createReadStream`, whose read is a threadpool
+  operation that cannot be cancelled; `destroy()` in `close()` never completed, so the
+  process kept a live handle and never exited after the operator answered. `script`
+  only hid it by forwarding EOF into the terminal. The streams are now `tty.ReadStream`
+  / `tty.WriteStream` (libuv tty handles stop their read on destroy), and the test
+  drives the CLI through `tests/helpers/pty_driver.py` — `pty.fork()`, answers replayed
+  once the prompt goes idle — instead of `script(1)`, which needs a tty on *its own*
+  stdin and so cannot be given a payload pipe at all. The exit-status assertions are
+  now unconditional on every platform.
+
+- **A sandboxed `HOME` rewrote the checkout's `.omp/mcp.json` (`ensureOmpSetup`)** — not a
+  test failure, a poisoned workspace. `ensureOmpSetup` auto-detected a project whenever
+  `cwd/.omp/mcp.json` existed, which is right for the CLI and wrong for a suite running
+  under a throwaway `HOME`: the run rewrote the repository's project config to point at
+  `/tmp/<suite-home>/.konoha/file_tools_launcher.js`. That launcher dies with the suite, so
+  every later OMP session in the checkout logged
+  `MCP server "konoha" failed to connect … exited with code 1 before responding` and ran
+  with no `konoha.*` tools — including every delegated subagent. Reproduce on any platform
+  (`.omp/mcp.json` is git-ignored, so compare the file, not `git diff`):
+
+  ```
+  node -p "require('fs').statSync('.omp/mcp.json').mtimeMs" > /tmp/before
+  HOME=$(mktemp -d) USERPROFILE=$HOME node -e "require('./src/omp_manager').ensureOmpSetup({silent:true})"
+  node -p "require('fs').statSync('.omp/mcp.json').mtimeMs" > /tmp/after
+  diff /tmp/before /tmp/after   # must print nothing; it used to be rewritten
+  ```
+
+  The sandbox check compares the requested `home` against `os.userInfo().homedir`, not
+  `process.env.HOME` — the environment variable is exactly what a sandbox overrides, so
+  comparing against it would classify every sandbox as the real home. `tests/test_omp_manager.js`
+  pins the byte-identity of the project file.
+
+- **An LSP override path containing spaces resolved to `C:\Program`
+  (`test_code_intel_lsp`, `test_genin_unified_retrieval`, windows)** — `_parseCommandSpec`
+  split the override on `/\s+/`, which is correct for `/usr/bin/node /tmp/mock.js` and
+  wrong for `C:\Program Files\nodejs\node.exe C:\Temp\mock.js`. Both suites build their
+  override from `process.execPath`, so the same source line passed on Linux and macOS and
+  failed on Windows with `server binary missing: C:\Program` — reported as
+  `code_symbol async route must include LSP enrichment` and `9. Async retrieval must attach
+  LSP enrichment`. Reproduce on any platform by putting the interpreter behind a spaced
+  directory:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path');
+  const d=fs.mkdtempSync(p.join(os.tmpdir(),'sp-')),dir=p.join(d,'Program Files','nodejs');
+  fs.mkdirSync(dir,{recursive:true});
+  const bin=p.join(dir,process.platform==='win32'?'node.exe':'node');
+  fs.copyFileSync(process.execPath,bin);fs.chmodSync(bin,0o755);
+  const m=require('./src/code_intel/lsp_manager').defaultManager;
+  const spec=(o)=>m.resolveServerSpec('typescript','a.ts',{commandOverride:o});
+  console.log('unquoted:', spec(bin+' x.js').reason || spec(bin+' x.js').available);
+  console.log('array   :', spec([bin,'x.js']).available);
+  console.log('quoted  :', spec('\"'+bin+'\" x.js').available);"
+  # before: unquoted: server binary missing: /tmp/sp-…/Program   array: server binary missing: /tmp/sp-…/Program   quoted: server binary missing: "/tmp/sp-…/Program
+  # after:  unquoted: server binary missing: /tmp/sp-…/Program   array: true   quoted: true
+  ```
+
+  Both the array and the quoted form used to fail; the array form failed because
+  `String([bin, 'x.js'])` joins on `,`, and the quoted form because the quote characters
+  survived into the command. The array form is now the unambiguous one and is what the
+  suites pass; the string form honours `"…"`/`'…'` quoting, and an unquoted path with
+  spaces is reported as a missing binary instead of resolving a prefix.
+  `tests/test_code_intel_lsp.js` covers all three forms in `testOverridePathWithSpaces`,
+  plus the quoted `KONOHA_LSP_COMMAND_OVERRIDE` form — the environment variable can only
+  carry a string, so quoting is the only way to pass `C:\Program Files\nodejs\node.exe`
+  through it, and that form is what the Windows run actually hit.
+
+- **An emptied directory was read as a shipped browser bundle (`test_dependency_posture`,
+  windows)** — the gate asserted `!fs.existsSync(node_modules/xlsx-populate/browser)`, and
+  pnpm prunes the emptied directory on Linux but leaves it behind on Windows, so the patch
+  had done its job and the gate failed anyway with
+  `xlsx-populate/browser must not ship`. The assertion is now `shipsAnyFile`, which walks
+  the subtree and treats an empty directory as absent; it still fails the moment a real
+  bundle file reappears. Reproduce the platform split without Windows:
+
+  ```
+  mkdir -p node_modules/xlsx-populate/browser && node tests/test_dependency_posture.js   # passes
+  printf x > node_modules/xlsx-populate/browser/probe.js && node tests/test_dependency_posture.js  # fails
+  rm -rf node_modules/xlsx-populate/browser
+  ```
+
+- **A temp-tree cleanup aborted the whole suite (`test_genin_unified_retrieval`,
+  windows)** — the `finally` block called `fs.rmSync(tmpRoot, {recursive:true, force:true})`
+  unguarded, and a mock LSP child killed moments earlier can still hold a handle on Windows.
+  The resulting `EPERM` was thrown from the `finally`, which killed the process *after* the
+  real assertion had already been recorded — the run then ended with no summary at all.
+  Cleanup now retries and, if the tree is still locked, prints which path it could not
+  remove and carries on: a disposable temp tree is never a reason to lose the suite.
+
+- **A rollback assertion was reading a re-indexed root (`test_code_intel_hardening`)** — the
+ leg aborted an index mid-commit, then searched for the pre-abort symbol and expected it
+ to be there. That held until `isUsableRoot` started rejecting a `failed` root: the search
+ then re-indexed from the current tree, which holds the aborted edit, so the original
+ symbol was gone and the assertion failed with `FTS/chunks for original symbol must remain
+ intact after rollback`. The product behavior is intended; the test was asserting against
+ a retry it did not ask for. It now pins `options.rootResolved` to the post-abort row.
+ Mutation-proven: dropping the pin reproduces the failure.
+
+- **The sannin payload cap was measured on ambient client detection
+ (`test_e2e_install_upgrade_reinstall`)** — the cap was 3 000 bytes, and
+ `advisor_spawn_directive` pushed the OMP payload to 3 315. The gate was also reading
+ `detectActiveClient()`, so the same commit measured anywhere from 2 951 bytes (gemini) to
+ 3 315 bytes (OMP) depending on which client the host detected — a release gate that reads
+ ambient machine state. The duplicate call was removed
+ from `instructions` (it was already carried as data), two fields with no consumer were
+ dropped, and the cap is now 3 400 bytes measured across all ten clients with the worst one
+ named in the failure message. Mutation-proven: restoring the `directive` field fails it.
+
 The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host with
 neither LXC nor Docker. That is product behavior, so the suite supplies a mocked
 engine instead of weakening the gate.
@@ -416,6 +606,14 @@ OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total
 - From a pull request: the workflow runs automatically on every push to the PR
   branch. Pushing an empty commit re-runs it; prefer re-running failed jobs from
   the run page instead.
+- Locally, `node tests/run_all.js` reproduces a shard. It strips the caller's
+  harness identity (`ACTIVE_CLIENT`, `KONOHA_CLIENT`, the `PI_*`, `OMP_*`,
+  `OPENCODE_*`, `COMMANDCODE_*`, `CODEX_*`, `CLAUDE_*`, `CURSOR_SESSION_ID` and
+  `ANTIGRAVITY_CONVERSATION_ID` signals) before spawning each suite, because CI
+  has none of them. Without that, `detectActiveClient()` answers `pi` and the
+  delegation suites fail with `unsupported_native_spawn` on a machine where CI is
+  green. Running one suite by hand skips the strip, so use
+  `node tests/run_all.js <filter>` to reproduce a single failure.
 
 ## Local parity with act
 
@@ -460,7 +658,12 @@ Fidelity limits, read before trusting a green local run:
   ```
 
   Passing on Linux does not prove a macOS path bug fixed; the symlinked-`HOME` run is the
-  cheap proxy, and a GitHub macOS run is the only real confirmation.
+  cheap proxy, and a GitHub macOS run is the only real confirmation. The suites whose
+  assertions actually depend on path canonicalization, and therefore the ones worth running
+  under the proxy: `test_db_recovery`, `test_project_konoha_mcp_guardrail`,
+  `test_skill_tree_parity`, `test_omp_manager`, `test_lightweight_contracts`,
+  `test_skill_budget_digest`, `test_no_filesystem_mirrors`,
+  `test_fresh_install_cross_platform_sync`.
 - `runner.temp` maps to the act container's `/tmp`, so `PLAYWRIGHT_BROWSERS_PATH` resolves
   inside the container.
 - The workflow's ffmpeg and Playwright `--with-deps` steps need `sudo`. The medium
@@ -694,7 +897,18 @@ the suites you name, writing `docker/windows-vm/logs/retest.log`:
 
 ```cmd
 pushd \\host.lan\Data\docker\windows-vm\oem
+powershell -c "Unblock-File .\retest.cmd"
 retest.cmd test_queue_worker.js test_subagent_delegation_integrity.js
+```
+
+The share copy carries a mark-of-the-web, so the first launch raises SmartScreen and a click
+on that dialog dismisses the run instead of starting it. `Unblock-File` clears the mark once;
+run it from an already-open `cmd` window rather than double-clicking the `.bat`. A run
+started from `Z:` needs the same treatment:
+
+```cmd
+powershell -c "Unblock-File Z:\docker\windows-vm\oem\retest.cmd"
+Z:\docker\windows-vm\oem\retest.cmd test_code_intel_lsp.js
 ```
 
 `scripts/windows-ci.ps1` robocopies the shared checkout to `C:\konoha` (pnpm's store links

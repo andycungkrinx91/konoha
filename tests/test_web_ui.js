@@ -5,8 +5,16 @@ const { assertSandbox } = require('./helpers/sandbox_guard');
 assertSandbox();
 
 const assert = require('assert');
+const fsMod = require('fs');
+const pathMod = require('path');
 const http = require('http');
 const { startWebServer } = require('../src/web_server');
+
+// POST /api/v1/skills writes SKILL.md into the project .agents/skills tree, and
+// DELETE only clears the DB row, so the fixture has to be removed by hand or it
+// pollutes the repo and trips the skill-mirror parity guard.
+const TEST_SKILL_SLUG = 'test-e2e-skill';
+const TEST_SKILL_DIR = pathMod.join(__dirname, '..', '.agents', 'skills', TEST_SKILL_SLUG);
 
 async function request(options, body = null) {
   return new Promise((resolve, reject) => {
@@ -30,6 +38,7 @@ async function run() {
   const port = process.env.KONOHA_UI_TEST_PORT ? parseInt(process.env.KONOHA_UI_TEST_PORT, 10) : 1409;
   const srv = await startWebServer({ port, host: '127.0.0.1' });
   const token = srv.token;
+  let createdSkillDir = null;
   console.log('✓ Web server started on port ' + port);
 
   try {
@@ -158,7 +167,7 @@ async function run() {
     console.log('✓ GET /api/v1/skills and /api/v1/skills/:name passed');
 
     // 5b. Skills CRUD (Create, Embed, Unembed, Delete)
-    const testSkillSlug = 'test-e2e-skill';
+    const testSkillSlug = TEST_SKILL_SLUG;
     const createSkill = await request({
       hostname: '127.0.0.1',
       port,
@@ -177,6 +186,11 @@ async function run() {
     });
     assert.strictEqual(createSkill.status, 201);
     assert.strictEqual(createSkill.data.name, testSkillSlug);
+    assert.ok(createSkill.data.file_path, 'POST /api/v1/skills must report the SKILL.md it wrote');
+    createdSkillDir = pathMod.dirname(createSkill.data.file_path);
+    const expectedTail = pathMod.join('.agents', 'skills', TEST_SKILL_SLUG);
+    assert.ok(createdSkillDir.endsWith(expectedTail),
+      `the created skill must land under .agents/skills/${TEST_SKILL_SLUG}, got ${createdSkillDir}`);
     console.log('✓ POST /api/v1/skills (create) passed');
 
     const embedSkill = await request({
@@ -227,7 +241,9 @@ async function run() {
       }
     });
     assert.strictEqual(deleteSkill.status, 200);
-    console.log('✓ DELETE /api/v1/skills/:name passed');
+    assert.ok(fsMod.existsSync(createdSkillDir) === false,
+      `DELETE /api/v1/skills/:name must remove ${createdSkillDir}, which POST created`);
+    console.log('✓ DELETE /api/v1/skills/:name passed (SKILL.md removed from disk)');
 
     // Savings endpoint
     const savings = await request({ hostname: '127.0.0.1', port, path: '/api/v1/savings', method: 'GET' });
@@ -351,6 +367,8 @@ async function run() {
     console.log('✓ Static SPA serving (dashboard redirect) without CSRF token leakage passed');
 
   } finally {
+    if (createdSkillDir) fsMod.rmSync(createdSkillDir, { recursive: true, force: true });
+    fsMod.rmSync(TEST_SKILL_DIR, { recursive: true, force: true });
     await srv.instance.stop();
     console.log('✓ Server stopped');
   }

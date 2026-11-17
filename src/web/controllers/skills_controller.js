@@ -127,6 +127,28 @@ async function _handleInstallSkill(req, res, broadcastEvent) {
   }
 }
 
+// New skills land in the served project's own `.agents/skills` when it has one,
+// falling back to the global home mirror. Resolving from __dirname would target
+// the package install root instead, i.e. `node_modules/konoha/.agents/skills` on
+// a global install.
+function _skillsWriteRoot() {
+  try {
+    const projectRoot = _resolveTargetProjectPath(null, _collectActiveWorkspaces(require('../../persona_memory')));
+    const projectSkills = path.join(projectRoot, '.agents', 'skills');
+    if (projectRoot && fs.existsSync(projectSkills)) return projectSkills;
+  } catch (_) { /* fall through to the global mirror */ }
+  return path.join(os.homedir(), '.agents', 'skills');
+}
+
+function _skillDirFor(name) {
+  // Names arrive decoded from the URL, so reject anything that could escape the
+  // skills root before it reaches rmSync.
+  if (typeof name !== 'string' || !/^[a-z0-9_-]+$/.test(name)) return null;
+  const root = _skillsWriteRoot();
+  const dir = path.join(root, name);
+  return dir.startsWith(root + path.sep) ? dir : null;
+}
+
 function _writeNewSkillFile(name, description, tags, content) {
   const tagsList = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
   let fullContent = '---\n' + `name: ${name}\n` + `description: ${description}\n`;
@@ -135,9 +157,7 @@ function _writeNewSkillFile(name, description, tags, content) {
   }
   fullContent += '---\n\n' + `# ${name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n\n` + (content || `${description}\n`);
 
-  const projectSkillsDir = path.resolve(__dirname, '..', '..', '..', '.agents', 'skills', name);
-  const globalSkillsDir = path.join(os.homedir(), '.agents', 'skills', name);
-  const targetDir = fs.existsSync(path.resolve(__dirname, '..', '..', '..', '.agents', 'skills')) ? projectSkillsDir : globalSkillsDir;
+  const targetDir = path.join(_skillsWriteRoot(), name);
 
   fs.mkdirSync(targetDir, { recursive: true });
   const targetFile = path.join(targetDir, 'SKILL.md');
@@ -238,6 +258,10 @@ function _handleDeleteSingleSkill(res, pathname, broadcastEvent) {
     const skillName = decodeURIComponent(pathname.slice('/api/v1/skills/'.length));
     const skillManager = require('../../skill_manager');
     try { skillManager.removeSkill(skillName); } catch (_) { /* ignore */ }
+    // removeSkill only scans the global client trees, so a skill created through
+    // _writeNewSkillFile under the project .agents/skills would survive the delete.
+    const projectDir = _skillDirFor(skillName);
+    if (projectDir) fs.rmSync(projectDir, { recursive: true, force: true });
     const conn = db.getConnection(null, false);
     conn.prepare('DELETE FROM skill_chunks WHERE skill_name = ?').run(skillName);
     conn.prepare('DELETE FROM skills WHERE name = ? OR skill_name = ?').run(skillName, skillName);

@@ -81,6 +81,12 @@ function runTests() {
   const konohaSanitize = deployUtils.sanitizePollutedProjectGitignore(konohaRoot);
   assert.strictEqual(konohaSanitize.modified, false, 'Konoha repository .gitignore must not be stripped');
 
+  // `.agents/` reaches this repo's excludes from the global file Konoha itself writes, so the
+  // root-level re-inclusion has to survive sanitization or every new file there goes untracked.
+  const konohaGitignore = fs.readFileSync(path.join(konohaRoot, '.gitignore'), 'utf8').split('\n').map(l => l.trim());
+  assert.ok(konohaGitignore.includes('!.agents/'), 'Konoha repo .gitignore must keep the !.agents/ re-inclusion');
+  assert.ok(konohaGitignore.includes('!.agents/**'), 'Konoha repo .gitignore must keep the !.agents/** re-inclusion');
+
   // stripLegacyKonohaPreamble removes leaked Rule 3 & legacy unclosed GEMINI blocks
   const pollutedGlobalDoc = [
     '# Custom Agent Rules for Konoha',
@@ -111,6 +117,13 @@ function runTests() {
   const filterAll = appendSessionFilter({ allSessions: true, pHash: 'proj_abc123' });
   assert.ok(filterAll.clause.includes('project_hash = ?'), 'allSessions must still scope by project_hash when provided');
   assert.deepStrictEqual(filterAll.params, ['proj_abc123']);
+
+  // The repo tracks `.agents/`, but Konoha injects `.agents/` into the global excludes file, so a
+  // bare entry here would silently hide every new project skill file from `git status`.
+  const repoGitignore = fs.readFileSync(path.join(__dirname, '..', '.gitignore'), 'utf8');
+  const ignoreLines = repoGitignore.split('\n').map(line => line.trim());
+  assert.ok(ignoreLines.includes('!.agents/'), 'repo .gitignore must re-include .agents/ over the global exclude');
+  assert.ok(ignoreLines.includes('!.agents/**'), 'repo .gitignore must re-include nested .agents/ files');
 
   console.log('✓ test_gitignore_no_pollution: All assertions passed.');
 }

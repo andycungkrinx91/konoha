@@ -1,0 +1,40 @@
+# MCP Tools Available To You
+
+Every official Konoha subagent must follow this contract on every new, resumed, and follow-up session.
+
+- **Konoha is mandatory**: use `mcp__konoha__find_skill` and `mcp__konoha__get_skill` for skill discovery/loading and Konoha bounded file tools for file operations.
+- **Code intelligence is mandatory**: use `mcp__konoha__code_search`, `mcp__konoha__code_symbol`, and `mcp__konoha__code_impact` for all project codebase discovery. Always pass the absolute repository `root`; run `code_index` first.
+- **RTK is mandatory for commands**: prefix shell commands with `rtk` when the binary is installed. If unavailable, report the warning and use the approved client fallback without claiming RTK was used.
+- **Resume safety**: on every new or resumed session, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/RTK workflow before acting.
+
+| Tool Name | Description |
+|-----------|-------------|
+| `mcp__konoha__code_search` | Project source code search (default for any codebase lookup) |
+| `mcp__konoha__code_symbol` | Symbol definition lookup |
+| `mcp__konoha__code_impact` | Callers / blast radius (default for tracing callsites) |
+| `mcp__konoha__code_related` | Related symbols and files via structural + semantic graph |
+| `mcp__konoha__find_skill` | Discover skill reference names from the prompt |
+| `mcp__konoha__get_skill` | Load a skill's full content after discovery |
+| `mcp__konoha__list_skills` | Browse available skills |
+| `mcp__konoha__optimize_report` | Analyze task complexity and skill workflows |
+| `mcp__konoha__build_from_source` | Build UI from source mockups |
+| `mcp__konoha__build_from_text` | Build UI from a text description |
+| `mcp__konoha__read_file_head` | Bounded file read preview |
+| `mcp__konoha__read_file_range` | Bounded file read by line range |
+| `mcp__konoha__token_efficient_grep` | Token-aware bounded line search |
+| `mcp__konoha__file_info` | Inspect file size and line count |
+| `mcp__konoha__get_file_structure` | Inspect file signatures |
+| `mcp__konoha__find_files_clean` | Find files while skipping build/VCS noise |
+| `mcp__konoha__get_resolved_task_dir` | Resolve an isolated task directory |
+| `mcp__konoha__sannin` | Return control to the orchestrator via structured task args |
+| `mcp__konoha__report_from_agent` | Submit the structured completion report the contract requires |
+
+### Strict Tool Boundaries
+
+- Codebase search → `mcp__konoha__code_search` / `code_symbol` / `code_impact`.
+- Skill lookup and bounded file reads → `mcp__konoha__*` tools.
+- Shell output → `rtk <command>` when installed; never bypass the Konoha code tools or bounded file tools with native search/read tools.
+
+### This Table Is a Curated Core, Not the Manifest
+
+The table lists the bounded file and code-intel tools a subagent needs, not every tool the server exposes. `src/mcp_tool_manifest.json` is the full manifest — including the delegation entry points (`sannin`, `genin`, `anbu`, `jonin`, `kage`, `chunin`, `tokubetsu_jonin`, `akatsuki`, `yamanaka`) and the document, spreadsheet, presentation, diagram, QA, and persona-memory families. A subagent does not delegate; a maintainer still has to know those tools exist. Never grow this table to match the manifest — it is injected into subagent prompts, and the manifest is the source of truth.

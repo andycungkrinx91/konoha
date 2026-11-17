@@ -26,7 +26,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `security/red-skill-inventory` | [security/RED-SKILL-INVENTORY.md](security/RED-SKILL-INVENTORY.md) | Opt-in red pack contents and authorization model |
 | `security/skill-authz` | [security/SKILL-AUTHZ-AND-LAB-DB-ISOLATION-2026-11-09.md](security/SKILL-AUTHZ-AND-LAB-DB-ISOLATION-2026-11-09.md) | Skill authorization rules and lab DB isolation as enforced |
 | `security/schema-audit` | [security/DATABASE-SCHEMA-AUDIT-2026-11-09.md](security/DATABASE-SCHEMA-AUDIT-2026-11-09.md) | Live-vs-source schema consistency evidence for 2.2.22 |
-| `compliance/current` | [SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md](SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) | Newest external compliance audit; older audits are in the archive |
+| `compliance/current` | [SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md](SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md) | Newest external compliance audit; older audits are in the archive |
 
 ## Setup per client
 

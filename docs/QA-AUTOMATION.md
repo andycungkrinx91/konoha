@@ -277,6 +277,7 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      - `KONOHA_DB_PATH`: points to `$HOME/.konoha/konoha.db`.
      - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
      - `KONOHA_TEST_SANDBOX`: set to `'1'`.
+     - `KONOHA_TEST_SKILL_PARITY_HOME`: set to `'1'`, which tells `tests/test_skill_tree_parity.js` that `$HOME` is this snapshot rather than the developer's own install, so it compares `src/templates/skills` against `~/.agents/skills`. The seed it copies is rebuilt from those templates whenever `src/` changes, so the comparison is meaningful; without the flag the test reports the skip, because an ambient install that is one release behind would fail the gate for reasons outside the diff.
    - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.
    - The suite list can be split across machines with `--shard=I/N` or `KONOHA_TEST_SHARD=I/N`. Assignment is round-robin over the discovered order (`tests/helpers/shard.js`), so the shards partition the list exactly once and need no duration data; a selector that does not parse or whose index is out of range exits 2 instead of silently running everything, and a shard that selects no suite exits 2 instead of reporting an empty run as passing.
 

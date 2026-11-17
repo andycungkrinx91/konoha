@@ -73,6 +73,8 @@ function getSkillsScanDirs(_targetCwd = null) {
     path.join(HOME, '.opencode', 'skills'),
     path.join(HOME, '.codex', 'skills'),
     path.join(HOME, '.omp', 'agent', 'skills'),
+    path.join(HOME, '.omp', 'skills'),
+    path.join(HOME, '.pi', 'agent', 'skills'),
   ];
   return Array.from(new Set(dirs.filter(d => {
     try { return fs.existsSync(d) && fs.statSync(d).isDirectory(); } catch { return false; }
@@ -515,6 +517,7 @@ module.exports = {
   embedSkillInAgent,
   unembedSkillFromAgent,
   syncAllClientSkills,
+  getSkillsScanDirs,
   autoMigrateProjectSkills,
   scanSkillDirectory: skillGuardian.scanSkillDirectory,
   installSkillWithGuardian: skillGuardian.installSkillWithGuardian,

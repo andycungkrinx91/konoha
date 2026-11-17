@@ -69,29 +69,50 @@ function _truncateSkillContent(content, normName, tokenBudget, requestedSection)
     ? Math.min(tokenBudget * 4, MAX_CONTENT_SIZE)
     : (isContract ? 12000 : MAX_CONTENT_SIZE);
 
-  if (tokenBudget > 0 || requestedSection) {
+  if (requestedSection) {
     const rawSections = shielded.split(/\n(?=#{1,3}\s)/);
     if (rawSections.length > 1) {
       const sliced = _sliceSectionContent(rawSections, requestedSection);
       finalContent = sliced.finalContent;
       remainingSections = sliced.remainingSections;
       truncated = remainingSections.length > 0;
-      if (Buffer.byteLength(finalContent, 'utf8') > maxBytes) {
-        const truncRes = smartTruncate(finalContent, maxBytes, normName);
-        finalContent = truncRes.text;
-        truncated = true;
-      } else if (truncated) {
-        finalContent += `\n\n[+${remainingSections.length} remaining sections: ${remainingSections.map(s => '#' + s).join(', ')}. Pass section parameter to read each.]`;
-      }
-    } else if (Buffer.byteLength(finalContent, 'utf8') > maxBytes) {
+    }
+    if (Buffer.byteLength(finalContent, 'utf8') > maxBytes) {
       const truncRes = smartTruncate(finalContent, maxBytes, normName);
       finalContent = truncRes.text;
-      truncated = truncRes.truncated;
+      truncated = true;
+    } else if (truncated) {
+      finalContent += `\n\n[+${remainingSections.length} remaining sections: ${remainingSections.map(s => '#' + s).join(', ')}. Pass section parameter to read each.]`;
     }
+  } else if (tokenBudget > 0) {
+    // A budget with no section request is a request for a digest of the whole
+    // skill. Slicing here returned rawSections[0] — the preamble — and dropped
+    // every invariant the caller paid for.
+    const digestSource = shielded.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+    const digest = smartTruncate(digestSource, maxBytes, normName);
+    finalContent = digest.text;
+    truncated = digest.truncated;
+    remainingSections = shielded
+      .split(/\n(?=##\s)/)
+      .slice(1)
+      .map(extractSectionTitle)
+      .filter(Boolean)
+      .slice(0, 10);
   } else if (Buffer.byteLength(finalContent, 'utf8') > maxBytes && !isContract) {
     const truncRes = smartTruncate(finalContent, maxBytes, normName);
     finalContent = truncRes.text;
     truncated = truncRes.truncated;
+    // A capped document must say what it dropped, or the caller re-requests the
+    // whole thing and pays for the bytes it just saved.
+    if (truncated) {
+      const keptTitles = new Set((finalContent.match(/^#{1,3}\s.+$/gm) || []).map((h) => h.replace(/^#+\s*/, '').trim()));
+      remainingSections = shielded
+        .split(/\n(?=##\s)/)
+        .slice(1)
+        .map(extractSectionTitle)
+        .filter((t) => t && !keptTitles.has(t.trim()))
+        .slice(0, 10);
+    }
   }
 
   return { finalContent, truncated, remainingSections, hash: contentHash(shielded) };
@@ -563,5 +584,6 @@ function optimizeReport(keyword = null, agentName = null) {
 module.exports = {
   getSkill,
   useSkills,
-  optimizeReport
+  optimizeReport,
+  truncateSkillContent: _truncateSkillContent
 };

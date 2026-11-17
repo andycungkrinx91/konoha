@@ -149,7 +149,7 @@ async function runTests() {
     query: 'verifySessionToken',
     conn,
     embed: false,
-    lspCommandOverride: `${process.execPath} ${mockLsp}`
+    lspCommandOverride: [process.execPath, mockLsp]
   });
   assert.ok(rAsync.lsp && rAsync.lsp.lsp_available === true, '9. Async retrieval must attach LSP enrichment');
   assert.strictEqual(rAsync.semantic_status, 'disabled', '9. Async retrieval under KONOHA_SEMANTIC_SEARCH=0 must keep semantic_status=disabled');
@@ -200,5 +200,12 @@ runTests().catch((err) => {
 }).finally(async () => {
   await lspManager.shutdownAll();
   store.closeConnection();
-  fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  // A Windows handle released by a killed child can outlive the process for a
+  // moment, and an uncaught EPERM here would abort every suite that runs after
+  // this file. The tree is disposable, so retry, then say so and carry on.
+  try {
+    fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+  } catch (err) {
+    console.error(`warning: could not remove temp tree ${tmpRoot}: ${err.code || err.message}`);
+  }
 });

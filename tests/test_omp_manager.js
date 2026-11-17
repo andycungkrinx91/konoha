@@ -54,6 +54,25 @@ assert.match(managedContract, /<!-- KONOHA-CONTRACT-START -->/, 'Must have contr
 assert.match(managedContract, /<!-- KONOHA-CONTRACT-END -->/, 'Must have contract end marker');
 console.log('  ✓ Managed contract syntax and markers verified.');
 
+// Redeploy must collapse every managed block, not just rewrite the first one.
+// A file that gained a second block during an upgrade keeps the stale copy
+// forever otherwise: the agent then reads two contract versions per turn.
+const contractModule = require('../src/agent_contract');
+const freshBlock = ompManager.buildOmpManagedContract();
+const staleBlock = freshBlock.replace(/Konoha runtime contract \([\d.]+\)/, 'Konoha runtime contract (0.0.1)');
+const accumulated = `${staleBlock}\n\nuser note kept verbatim\n\n${freshBlock}\n`;
+const collapsed = contractModule.buildManagedContract(accumulated, freshBlock);
+const startMarkers = collapsed.match(/<!-- KONOHA-CONTRACT-START -->/g) || [];
+assert.strictEqual(startMarkers.length, 1, 'Redeploy must leave exactly one managed contract block');
+assert.doesNotMatch(collapsed, /Konoha runtime contract \(0\.0\.1\)/, 'Redeploy must drop the stale contract version');
+assert.match(collapsed, /user note kept verbatim/, 'Redeploy must preserve text outside the markers');
+assert.strictEqual(
+  contractModule.buildManagedContract(collapsed, freshBlock),
+  collapsed,
+  'Redeploy must be idempotent'
+);
+console.log('  ✓ Redeploy collapses duplicate contract blocks.');
+
 // MCP Servers Configuration Verification
 const servers = ompManager.buildOmpMcpServers({
   nodeCmd: 'node',
@@ -97,6 +116,44 @@ try {
   assert.ok(fs.existsSync(testAgentsMd), 'AGENTS.md must be created');
   const agentsMdContent = fs.readFileSync(testAgentsMd, 'utf8');
   assert.match(agentsMdContent, /Konoha runtime contract/);
+
+  // A sandboxed home must not write the developer's project config. Suite runs used
+  // to point the repo's `.omp/mcp.json` at a temp launcher that no longer existed,
+  // and every delegated OMP agent then lost the Konoha MCP server entirely.
+  const fakeProject = path.join(tmpDir, 'project');
+  const fakeProjectMcp = path.join(fakeProject, '.omp', 'mcp.json');
+  fs.mkdirSync(path.dirname(fakeProjectMcp), { recursive: true });
+  fs.writeFileSync(fakeProjectMcp, JSON.stringify({ mcpServers: { konoha: { command: 'sentinel' } } }), 'utf8');
+  const cwdBefore = process.cwd();
+  try {
+    process.chdir(fakeProject);
+    ompManager.ensureOmpSetup({ home: tmpDir, silent: true });
+  } finally {
+    process.chdir(cwdBefore);
+  }
+  const afterProject = JSON.parse(fs.readFileSync(fakeProjectMcp, 'utf8'));
+  assert.strictEqual(afterProject.mcpServers.konoha.command, 'sentinel',
+    'A temp-home run must leave the project .omp/mcp.json untouched');
+
+  // A suite overrides the environment, not the `home` option, so the same guard must
+  // hold when HOME/USERPROFILE point at a sandbox. `paths.js` captures HOME at module
+  // load, so this has to run in a child process to reproduce the real condition.
+  const envHome = path.join(tmpDir, 'sandbox-home');
+  fs.mkdirSync(envHome, { recursive: true });
+  const childScript = `
+    const manager = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'omp_manager.js'))});
+    manager.ensureOmpSetup({ silent: true });
+  `;
+  const child = require('child_process').spawnSync(process.execPath, ['-e', childScript], {
+    cwd: fakeProject,
+    env: { ...process.env, HOME: envHome, USERPROFILE: envHome },
+    encoding: 'utf8',
+    timeout: 120000
+  });
+  assert.strictEqual(child.status, 0, `sandboxed ensureOmpSetup must exit 0: ${child.stderr}`);
+  const afterEnv = JSON.parse(fs.readFileSync(fakeProjectMcp, 'utf8'));
+  assert.strictEqual(afterEnv.mcpServers.konoha.command, 'sentinel',
+    'An overridden HOME must not let ensureOmpSetup rewrite the project .omp/mcp.json');
 
   // Status check
   const status = ompManager.getOmpStatus();

@@ -20,7 +20,9 @@ const {
   restoreDatabase,
   autoRecoverIfNeeded,
   salvageDatabase,
-  buildSafeTableDdl
+  buildSafeTableDdl,
+  createSchemaNeutralizedProbe,
+  salvageViaNeutralizedSchema
 } = require('../src/db_recovery');
 
 const CLI_PATH = path.join(__dirname, '..', 'bin', 'cli.js');
@@ -400,6 +402,73 @@ console.log('8. Verifying SQLite salvage against malicious schemas, triggers, PR
     false,
     'Virtual table DDL must be rejected'
   );
+
+  // Some SQLite builds refuse the whole file while initialising a schema row that
+  // carries a second statement, so the catalog cannot be read at all and every
+  // healthy table is lost with the poisoned one. The probe comments out the tail
+  // in a private copy; the copy must still salvage, and the repaired table must
+  // still be rejected because the comment stays in its DDL.
+  const neutralizedPath = createSchemaNeutralizedProbe(maliciousDbPath, dir, 'poison_tbl');
+  assert.ok(neutralizedPath, 'the schema probe must be built from a diagnosable malformed row');
+  const sourceBytes = fs.readFileSync(maliciousDbPath);
+  const probeBytes = fs.readFileSync(neutralizedPath);
+  assert.strictEqual(probeBytes.length, sourceBytes.length, 'the probe must keep the page layout byte-for-byte');
+  const differing = [...sourceBytes].reduce((acc, byte, i) => acc + (byte === probeBytes[i] ? 0 : 1), 0);
+  assert.strictEqual(differing, 2, `the probe must only comment out the separator (got ${differing} bytes)`);
+
+  const neutralizedOut = path.join(dir, 'neutralized_clean.db');
+  const neutralizedRes = salvageViaNeutralizedSchema(
+    maliciousDbPath,
+    neutralizedOut,
+    dir,
+    'malformed database schema (poison_tbl) (ERR_SQLITE_ERROR)'
+  );
+  assert.ok(neutralizedRes, 'a diagnosable malformed schema row must route through the neutralised copy');
+  assert.strictEqual(neutralizedRes.ok, true, `a neutralised schema must still salvage: ${neutralizedRes.reason}`);
+  assert.strictEqual(
+    fs.readdirSync(dir).some((entry) => entry.includes('schema_neutralized_probe')),
+    false,
+    'the neutralised copy must be removed from the staging directory'
+  );
+  assert.strictEqual(
+    salvageViaNeutralizedSchema(maliciousDbPath, neutralizedOut, dir, 'file is not a database'),
+    null,
+    'a reason that names no object must not trigger the neutralised copy'
+  );
+  const neutralizedDb = new DatabaseSync(neutralizedOut, { readOnly: true });
+  const neutralizedRows = neutralizedDb.prepare('SELECT payload FROM safe_records ORDER BY id ASC').all();
+  const neutralizedNames = neutralizedDb.prepare("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
+    .map((obj) => obj.name);
+  neutralizedDb.close();
+  assert.strictEqual(neutralizedRows.length, 4, 'a neutralised schema must still carry every row');
+  assert.ok(!neutralizedNames.includes('poison_tbl'), 'the repaired table must still be rejected');
+  assert.ok(!neutralizedNames.includes('evil_trigger'), 'a neutralised schema must not resurrect triggers');
+
+  // An object name that is not in the file must yield no probe rather than a scan
+  // of unrelated bytes.
+  assert.strictEqual(createSchemaNeutralizedProbe(maliciousDbPath, dir, 'not_there'), null);
+
+  // A record with no separator must not let the scan walk past its terminating NUL
+  // into the next row: that would rewrite an unrelated object's DDL.
+  const syntheticPath = path.join(dir, 'synthetic_schema.db');
+  fs.writeFileSync(syntheticPath, Buffer.concat([
+    Buffer.from('SQLite format 3\0', 'latin1'),
+    Buffer.from('CREATE TABLE boundary_tbl (id INT ', 'latin1'),
+    Buffer.from([0x00, 0x00, 0x3b, 0x20, 0x20]),
+    Buffer.from('; ATTACH DATABASE \'x\' AS y;', 'latin1'),
+    Buffer.from([0x00])
+  ]));
+  assert.strictEqual(
+    createSchemaNeutralizedProbe(syntheticPath, dir, 'boundary_tbl'),
+    null,
+    'a record with no separator must not be repaired by reaching into the next row'
+  );
+  assert.strictEqual(
+    createSchemaNeutralizedProbe(maliciousDbPath, dir, 'poison_tbl (id'),
+    null,
+    'an object name that is not an identifier must be refused'
+  );
+  console.log('  ✓ A schema row that no build can parse is neutralised instead of sinking the salvage');
   console.log('  ✓ Malicious triggers, views, writable_schema DDL, ATTACH, PRAGMAs, and dot-commands neutralized');
 }
 
@@ -446,6 +515,63 @@ console.log('9. Verifying B-tree page corruption row salvage and garbage file fa
   assert.strictEqual(garbageOutcome.method, 'none');
   assert.ok(fs.readFileSync(garbageDb).equals(garbageBytes), 'Failed salvage must leave original file untouched');
   console.log(`  ✓ B-tree partial salvage recovered ${surviving.c}/60 rows and garbage file failed closed safely`);
+
+  // A failed salvage must say why. A macOS leg once returned {ok:false, tables:0,
+  // rows:0} with no reason at all, which is unreportable: the caller could not
+  // tell a malformed image from a permissions problem.
+  const reasonless = salvageDatabase(garbageDb, path.join(dir, 'reasonless_out.db'), { stagingDir: dir });
+  assert.strictEqual(reasonless.ok, false, 'Garbage input must not salvage');
+  assert.strictEqual(typeof reasonless.reason, 'string', 'A failed salvage must carry a reason');
+  assert.ok(reasonless.reason.trim().length > 0, 'The salvage reason must not be empty');
+  // The wording is sqlite's and differs by version and platform ("malformed",
+  // "file is not a database"), so assert that the failure was described rather
+  // than pinned to one dialect. `_describeError` only yields this placeholder
+  // when it was handed nothing, which is the regression to catch.
+  assert.notStrictEqual(
+    reasonless.reason.trim().toLowerCase(),
+    'unknown error',
+    'The reason must describe the underlying sqlite failure, not fall back to a placeholder'
+  );
+
+  // A second, structurally different failure must also name itself: the point of
+  // the fix is that no failure path can return ok:false and stay silent.
+  const unwritable = salvageDatabase(garbageDb, path.join(dir, 'missing', 'parent', 'out.db'), { stagingDir: dir });
+  assert.strictEqual(unwritable.ok, false, 'An unwritable target must not salvage');
+  assert.ok(
+    typeof unwritable.reason === 'string' && unwritable.reason.trim().length > 0,
+    'A target-side failure must carry a reason too'
+  );
+
+  // Rejected tables carry a reason too, and one unusable table must not discard
+  // the rows rescued from the others.
+  const mixedDb = path.join(dir, 'mixed.db');
+  const mixed = new DatabaseSync(mixedDb);
+  mixed.exec('CREATE TABLE mixed_kept (id INTEGER PRIMARY KEY, v TEXT);');
+  mixed.prepare('INSERT INTO mixed_kept (v) VALUES (?)').run('survivor');
+  mixed.exec('CREATE TABLE mixed_bad (id INTEGER PRIMARY KEY /*____MIXED_PATCH_SLOT_0123456789____*/);');
+  mixed.close();
+  const mixedRaw = fs.readFileSync(mixedDb);
+  const mixedNeedle = Buffer.from('/*____MIXED_PATCH_SLOT_0123456789____*/', 'utf8');
+  const mixedReplacement = Buffer.from('); DROP TABLE mixed_kept;--'.padEnd(mixedNeedle.length, ' '), 'utf8');
+  const mixedIdx = mixedRaw.indexOf(mixedNeedle);
+  assert.ok(mixedIdx !== -1, 'Expected to locate the mixed-DDL patch slot');
+  mixedReplacement.copy(mixedRaw, mixedIdx);
+  fs.writeFileSync(mixedDb, mixedRaw);
+
+  const mixedOut = path.join(dir, 'mixed_out.db');
+  const mixedRes = salvageDatabase(mixedDb, mixedOut, { stagingDir: dir });
+  assert.strictEqual(mixedRes.ok, true, `One rejected table must not fail the pass: ${mixedRes.reason}`);
+  for (const rejected of mixedRes.rejectedObjects) {
+    assert.ok(
+      typeof rejected.reason === 'string' && rejected.reason.trim().length > 0,
+      `Rejected object ${rejected.name} must carry a reason`
+    );
+  }
+  const mixedVerify = new DatabaseSync(mixedOut, { readOnly: true });
+  const keptRows = mixedVerify.prepare('SELECT COUNT(*) AS c FROM mixed_kept').get();
+  mixedVerify.close();
+  assert.strictEqual(Number(keptRows.c), 1, 'The salvageable table must survive a sibling rejection');
+  console.log('  ✓ A failed salvage names its reason, and a rejected table does not sink its siblings');
 }
 
 // Atomic replacement rollback, WAL/SHM sidecar restoration, staging cleanup, and concurrency lock

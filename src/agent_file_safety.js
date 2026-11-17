@@ -61,6 +61,11 @@ function isKonohaOwnedAgentFile(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split(/\r?\n/);
+    // Konoha 2.2.x deployed agent files without the frontmatter marker, identifying
+    // themselves only by the managed contract block in the body. Without this the
+    // deploy sees its own older output as user-authored and parks every update as
+    // `.konoha-proposed`, so agents stay frozen at the version that first wrote them.
+    if (content.includes('<!-- KONOHA-CONTRACT-START -->')) return true;
     if (content.startsWith('---')) {
       const end = content.indexOf('\n---', 3);
       const frontmatter = end === -1 ? content : content.slice(0, end);
@@ -138,6 +143,12 @@ function _writeProtectedFileSafe(targetPath, content, isOwnedFn, conflictMeta = 
     options.onBeforeOverwrite(targetPath);
   }
   fs.writeFileSync(targetPath, content, 'utf8');
+  // A file Konoha now owns may still have a candidate parked from when it was
+  // misclassified; that candidate is exactly what was just written, so drop it.
+  const staleProposed = `${targetPath}.konoha-proposed`;
+  if (fileExists(staleProposed)) {
+    try { fs.unlinkSync(staleProposed); } catch (_) { /* best effort */ }
+  }
   return { status: 'written', path: targetPath };
 }
 

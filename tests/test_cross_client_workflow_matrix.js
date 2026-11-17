@@ -131,6 +131,15 @@ for (const client of CLIENTS) {
   }
   assert.ok(sanninRes.advisor_supervisor && sanninRes.advisor_supervisor.started_from_beginning === true && sanninRes.advisor_supervisor.state === 'idle', `Sannin must start @advisor idle from turn 0 for ${client}`);
   assert.ok(sanninRes.advisor_spawn_directive && sanninRes.advisor_spawn_directive.agent === 'advisor' && sanninRes.advisor_spawn_directive.started_from_beginning === true, `Sannin must return advisor_spawn_directive for ${client}`);
+  // The turn-0 instruction must be a call the client can actually make. A bare
+  // `--idle` CLI flag is meaningless to `task`/`Agent`/`Task`/`spawn_agent`.
+  assert.ok(typeof sanninRes.advisor_spawn_directive.spawn_call === 'string' && sanninRes.advisor_spawn_directive.spawn_call.length > 0, `Sannin must return an executable advisor spawn call for ${client}`);
+  // The instruction names the field instead of repeating the call: both live in
+  // the same response, and the duplicate cost ~300 bytes per client.
+  assert.ok(sanninRes.instructions.includes('advisor_spawn_directive.spawn_call'), `Sannin instructions must point at the executable advisor spawn call for ${client}`);
+  // A fallback that omits `--execute` only prints another directive, so a
+  // harness that cannot spawn natively would never start a supervisor at all.
+  assert.match(sanninRes.advisor_spawn_directive.cli_fallback, /--execute\b/, `Advisor CLI fallback must spawn a real process for ${client}`);
   console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}, advisor=${sanninRes.advisor_supervisor.state}`);
 
   // C. Genin invoked for exploration

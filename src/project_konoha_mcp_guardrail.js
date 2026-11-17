@@ -16,6 +16,16 @@ const { isKonohaRepository, KONOHA_CANONICAL_TOOLS } = require('./deploy_utils')
 const { checkCommandGuardrails } = require('./guardrails');
 const { isTrustedKonohaTaskReadPath } = require('./hook-base');
 const { isReadOnlyAgent } = require('./agent_file_safety');
+const {
+  readGuardrailExceptions,
+  recordGuardrailException,
+  revokeGuardrailExceptions,
+  appendGuardrailAudit,
+  guardrailExceptionsPath,
+  guardrailAuditPath,
+  GUARDRAIL_STATE_FILES,
+  NON_ACCEPTABLE_CODES
+} = require('./guardrail_exceptions');
 
 const SUPPORTED_HARNESSES = Object.freeze([
   'antigravity',
@@ -252,7 +262,78 @@ function _denyResult(harness, repoRoot, code, reason) {
   };
 }
 
+/**
+ * A denial is a decision point, not a dead end. Every code names the Konoha
+ * route that satisfies the rule, so "block and try another way" is actionable.
+ */
+const GUARDRAIL_REMEDIATION = Object.freeze({
+  KONOHA_MCP_REQUIRED_READ: 'konoha:read_file_range, konoha:read_file_head, or konoha:file_info',
+  KONOHA_MCP_REQUIRED_SEARCH: 'konoha:code_search, konoha:code_symbol, konoha:code_impact, or konoha:token_efficient_grep',
+  KONOHA_MCP_REQUIRED_DISCOVERY: 'konoha:find_files_clean',
+  KONOHA_MCP_REQUIRED_STRUCTURE: 'konoha:get_file_structure or konoha:code_symbol',
+  READ_ONLY_AGENT_WRITE_DENIED: 'hand the write to a write-capable agent such as @anbu or @jonin',
+  RETIRED_LEGACY_IPC: 'JSONL transcripts and structured MCP tool arguments',
+  SECRET_FILE_WRITE_DENIED: 'no alternative; secrets stay outside the repository',
+  SHELL_GUARDRAIL_VIOLATION: 'an rtk-wrapped, non-destructive command',
+  RTK_REQUIRED: 'the same command prefixed with "rtk "',
+  RETIRED_LEGACY_MCP: 'konoha:find_skill, konoha:use_skills, or konoha:build_from_source',
+  GUARDRAIL_STATE_WRITE_DENIED: 'no alternative; a human accepts risk at a terminal, and the guard CLI writes the store'
+});
+
+function describeGuardrailRemediation(code) {
+  return GUARDRAIL_REMEDIATION[code] || 'a Konoha MCP tool that performs the same operation';
+}
+
+/**
+ * An exception covers one denial code for one tool. The target path is recorded
+ * for the audit trail but is not part of the match: search tools carry their
+ * pattern where file tools carry a path, so path equality would reject the very
+ * calls the human just approved.
+ */
+function _exceptionCovers(entry, evalResult, toolName) {
+  if (entry.code !== evalResult.code) return false;
+  const tool = String(toolName || '').trim().toLowerCase();
+  return entry.tool === '*' || entry.tool === tool;
+}
+
 function evaluateProjectMcpGuardrail(payload = {}, options = {}) {
+  const result = _evaluateProjectMcpGuardrailRaw(payload, options);
+  if (result.allowed) return result;
+  // Some denials have no acceptable form: no store entry can unblock them.
+  if (NON_ACCEPTABLE_CODES.includes(result.code)) return result;
+
+  const repoRoot = options.repoRoot || result.repo_root;
+  if (!repoRoot) return result;
+
+  let exceptions = options.exceptions;
+  if (!Array.isArray(exceptions)) {
+    try {
+      exceptions = readGuardrailExceptions(repoRoot);
+    } catch (_) {
+      exceptions = [];
+    }
+  }
+  if (exceptions.length === 0) return result;
+
+  const toolName = String(payload.tool_name || payload.toolName || payload.tool || '').trim();
+  const accepted = exceptions.find(entry => _exceptionCovers(entry, result, toolName));
+  if (!accepted) return result;
+
+  return _allowResult(
+    result.harness,
+    true,
+    repoRoot,
+    `Risk accepted by ${accepted.accepted_by} until ${accepted.expires_at}: ${accepted.justification}`,
+    {
+      code: 'RISK_ACCEPTED',
+      risk_accepted: true,
+      exception: accepted,
+      denied_code: result.code
+    }
+  );
+}
+
+function _evaluateProjectMcpGuardrailRaw(payload = {}, options = {}) {
   const harness = normalizeHarness(options.harness || payload.harness || payload.client);
   const scope = resolveKonohaProjectScope(payload, options);
 
@@ -343,6 +424,16 @@ function evaluateProjectMcpGuardrail(payload = {}, options = {}) {
         `[${harness}] Writing secret file "${baseName}" is forbidden in the Konoha repository.`
       );
     }
+    // The exception store is the bypass itself: a tool call that could write it
+    // would grant its own permission, so it is closed like a secret.
+    if (GUARDRAIL_STATE_FILES.includes(baseName)) {
+      return _denyResult(
+        harness,
+        scope.repoRoot,
+        'GUARDRAIL_STATE_WRITE_DENIED',
+        `[${harness}] "${baseName}" records accepted guardrail risks and is written only by the guard CLI.`
+      );
+    }
     return _allowResult(harness, true, scope.repoRoot, 'File modification tool permitted in Konoha repository.');
   }
 
@@ -363,6 +454,16 @@ function evaluateProjectMcpGuardrail(payload = {}, options = {}) {
         scope.repoRoot,
         'RTK_REQUIRED',
         `[${harness}] Shell command without rtk wrapper is rejected in the Konoha repository: prefix with "rtk <command>".`
+      );
+    }
+    // An rtk-wrapped `node -e` would otherwise reach the store the same way.
+    const stateFile = GUARDRAIL_STATE_FILES.find(name => command.includes(name));
+    if (stateFile) {
+      return _denyResult(
+        harness,
+        scope.repoRoot,
+        'GUARDRAIL_STATE_WRITE_DENIED',
+        `[${harness}] "${stateFile}" records accepted guardrail risks and is written only by the guard CLI.`
       );
     }
     return _allowResult(harness, true, scope.repoRoot, 'Approved rtk-wrapped shell command.');
@@ -513,6 +614,13 @@ module.exports = {
 
 function _writeTextIfDifferent(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  // A tracked symlink would redirect this write to wherever it points, and a
+  // dangling one would make writeFileSync fail with ENOENT. Replace it instead.
+  let isLink = false;
+  try {
+    isLink = fs.lstatSync(filePath).isSymbolicLink();
+  } catch (_) { /* absent target */ }
+  if (isLink) fs.unlinkSync(filePath);
   if (fs.existsSync(filePath)) {
     try {
       if (fs.readFileSync(filePath, 'utf8') === content) return false;
@@ -559,5 +667,12 @@ module.exports = {
   formatHarnessDecision,
   handleHarnessToolCall,
   createHarnessInterceptor,
+  describeGuardrailRemediation,
+  readGuardrailExceptions,
+  recordGuardrailException,
+  revokeGuardrailExceptions,
+  appendGuardrailAudit,
+  guardrailExceptionsPath,
+  guardrailAuditPath,
   ensureProjectKonohaGuardPlugin
 };

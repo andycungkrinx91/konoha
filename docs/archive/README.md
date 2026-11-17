@@ -8,22 +8,22 @@ Treat every file below as a record of what a specific version looked like on a s
 
 | Directory | Files | Why archived |
 |---|---|---|
-| `security-compliance/` | 69 | Dated compliance, Socket, and QA audit output; superseded by the current compliance record |
+| `security-compliance/` | 70 | Dated compliance, Socket, and QA audit output; superseded by the current compliance record |
 | `security/` | 2 | Completed one-off audits of the skill set and of the architecture |
 | `reviews/` | 1 | Completed review whose recommendations already shipped |
 
 ## Reading the compliance series
 
-The 60 `security_compliance_report_*` files track the compliance posture release by release. Read them oldest to newest inside a series; each report states its own scope and pass/fail result, and later reports in the same series supersede earlier ones.
+The 61 `security_compliance_report_*` files track the compliance posture release by release. Read them oldest to newest inside a series; each report states its own scope and pass/fail result, and later reports in the same series supersede earlier ones.
 
 | Series | Reports | Distinct versions | Date range |
 |---|---|---|---|
 | pre-2.0.0 (`2.0.0-beta*`) | 21 | 7 | 2026-09-01 to 2026-09-20 |
 | 2.0.x | 7 | 3 | 2026-08-14 to 2026-10-02 |
 | 2.1.x | 19 | 19 | 2026-10-06 to 2026-10-15 |
-| 2.2.x | 13 | 13 | 2026-10-18 to 2026-11-04 |
+| 2.2.x | 14 | 14 | 2026-10-18 to 2026-11-09 |
 
-The live current record is [security_compliance_report_2.2.19_2026-11-09.md](../SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md). It is the newest external audit and the one `README.md` and `docs/SECURITY.md` cite. The 2.2.18 report is archived because 2.2.19 replaced it; the 2.2.20 release shipped dependency and install fixes, not a new external audit, so the v2.2.20 controls are documented in [docs/SECURITY.md](../SECURITY.md) rather than in a report of their own.
+The live current record is [security_compliance_report_2.2.23_2026-11-17.md](../SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md). It is the newest external audit and the one `README.md` and `docs/README.md` cite; current controls live in [docs/SECURITY.md](../SECURITY.md) rather than in the report. The 2.2.19 report is archived because 2.2.23 replaced it; the 2.2.20–2.2.22 releases shipped dependency and install fixes, not a new external audit, so their controls are documented in `docs/SECURITY.md` rather than in a report of their own.
 
 ## Socket, QA, and standalone audits
 
@@ -106,7 +106,7 @@ Compliance reports, by series:
 - `security_compliance_report_google_policy_2.1.8_2026-10-07.md`
 - `security_compliance_report_google_policy_2.1.9_2026-10-07.md`
 
-**2.2.x** (13)
+**2.2.x** (14)
 
 - `security_compliance_report_google_policy_2.2.0_2026-10-18.md`
 - `security_compliance_report_google_policy_2.2.1_2026-10-19.md`
@@ -118,6 +118,7 @@ Compliance reports, by series:
 - `security_compliance_report_google_policy_2.2.15_2026-10-30.md`
 - `security_compliance_report_google_policy_2.2.16_2026-11-01.md`
 - `security_compliance_report_google_policy_2.2.17_2026-11-01.md`
+- `security_compliance_report_2.2.19_2026-11-09.md`
 - `security_compliance_report_google_policy_2.2.18_2026-11-04.md`
 - `security_compliance_report_google_policy_2.2.2_2026-10-19.md`
 - `security_compliance_report_google_policy_2.2.3_2026-10-19.md`

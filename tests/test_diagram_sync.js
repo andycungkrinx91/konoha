@@ -110,7 +110,7 @@ assert.strictEqual(
   closeDiagramCount,
   `Every <diagram> must have a closing </diagram> tag (${openDiagramCount} vs ${closeDiagramCount})`
 );
-assert.strictEqual(pageMatches.length, 18, `Expected exactly 18 pages in drawio, found ${pageMatches.length}`);
+assert.strictEqual(pageMatches.length, 19, `Expected exactly 19 pages in drawio, found ${pageMatches.length}`);
 
 // Check unique mxCell IDs within each page
 for (const page of pageMatches) {
@@ -126,13 +126,13 @@ for (const page of pageMatches) {
     seenIds.add(cellId);
   }
 }
-console.log('  ✓ All 18 drawio pages have valid tags and strictly unique mxCell IDs.');
+console.log('  ✓ All 19 drawio pages have valid tags and strictly unique mxCell IDs.');
 
 // Manifest checks in docs/diagrams/README.md
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 assert.ok(
-  manifestContent.includes('eighteen pages'),
-  'docs/diagrams/README.md must declare eighteen pages'
+  manifestContent.includes('nineteen pages'),
+  'docs/diagrams/README.md must declare nineteen pages'
 );
 
 for (const page of pageMatches) {
@@ -180,7 +180,7 @@ for (const [docName, docDir, content] of [
 }
 console.log('  ✓ Relative diagram links resolve to existing files.');
 
-// Verify zero geometric collisions across all 18 pages (0 penetrations, 0 crossings, 0 overlaps)
+// Verify zero geometric collisions across all 19 pages (0 penetrations, 0 crossings, 0 overlaps)
 function parsePageGeometry(xml) {
   const cells = new Map();
   const cellRegex = /<mxCell\s+([^>]*?)(\/>|>([\s\S]*?)<\/mxCell>)/g;
@@ -333,7 +333,7 @@ for (const page of pageMatches) {
     }
   }
 }
-console.log('  ✓ Zero geometric collisions verified across all 18 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
+console.log('  ✓ Zero geometric collisions verified across all 19 drawio pages (0 penetrations, 0 crossings, 0 overlaps).');
 
 // Verify Production Architecture Diagram (konoha-infrastructure-architecture.drawio)
 const INFRA_DRAWIO_PATH = path.join(DIAGRAMS_DIR, 'konoha-infrastructure-architecture.drawio');

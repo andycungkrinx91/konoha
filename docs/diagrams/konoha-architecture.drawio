@@ -725,7 +725,7 @@
             <root>
                 <mxCell id="0" />
                 <mxCell id="1" parent="0" />
-                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.22)" vertex="1">
+                <mxCell id="p8-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="LangGraph.js Orchestrator Task Artifact Flow (v2.2.23)" vertex="1">
                     <mxGeometry height="40" width="900" x="40" y="20" as="geometry" />
                 </mxCell>
                 <mxCell id="p8-input" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="User Prompt / Resume" vertex="1">
@@ -1720,6 +1720,99 @@
                         <mxPoint x="560" y="320" />
                     </Array>
                     </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+
+    <diagram id="guardrail-hitl" name="19 Guardrail Denial &amp; Human-in-the-Loop Resolution">
+        <mxGraphModel dx="1250" dy="850" grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1250" pageHeight="850" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p19-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="19 Guardrail Denial &amp; Human-in-the-Loop Resolution" vertex="1">
+                    <mxGeometry height="34" width="900" x="40" y="20" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;align=left;" value="Hooks stay fail-closed and never prompt. The prompt reads the controlling terminal, because the denial payload owns stdin. A denial is a decision point: route the call through Konoha, or accept the risk with a written, expiring, audited exception." vertex="1">
+                    <mxGeometry height="18" width="1120" x="40" y="58" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-hook" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;agent=kage;" value="PreToolUse hook across 8 harnesses&#10;non-interactive, one JSON answer" vertex="1">
+                    <mxGeometry height="70" width="330" x="60" y="120" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-eval" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;" value="evaluateProjectMcpGuardrail()&#10;exceptions consulted before denying" vertex="1">
+                    <mxGeometry height="70" width="330" x="460" y="120" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-allow" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Allow: Konoha MCP route&#10;konoha tool or rtk-wrapped shell" vertex="1">
+                    <mxGeometry height="58" width="330" x="460" y="240" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-deny" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef2f2;strokeColor=#ef4444;fontColor=#991b1b;fontStyle=1;" value="Deny: code plus named alternative&#10;every denial names the Konoha route" vertex="1">
+                    <mxGeometry height="58" width="330" x="460" y="350" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-block" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="1 Block and try another way&#10;no state written, hook exits 2" vertex="1">
+                    <mxGeometry height="58" width="330" x="60" y="350" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-accept" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fffbeb;strokeColor=#f59e0b;fontColor=#92400e;fontStyle=1;" value="2 Accept with risk&#10;never for secrets, shell, or the store" vertex="1">
+                    <mxGeometry height="58" width="330" x="860" y="350" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-cancel" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontStyle=1;" value="3 Cancel or no terminal&#10;blocked, fail closed" vertex="1">
+                    <mxGeometry height="58" width="330" x="460" y="470" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Agent retries via Konoha MCP&#10;code_search, read_file_range, find_files_clean" vertex="1">
+                    <mxGeometry height="58" width="330" x="60" y="470" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-justify" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fffbeb;strokeColor=#f59e0b;fontColor=#92400e;fontStyle=1;" value="Written justification required&#10;at least 8 characters, recorded" vertex="1">
+                    <mxGeometry height="58" width="330" x="860" y="470" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-blocked" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;fontStyle=1;" value="Call rejected, reason returned&#10;guardrail never silently passes" vertex="1">
+                    <mxGeometry height="58" width="330" x="460" y="590" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-allow2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Allow: rule satisfied&#10;no exception needed" vertex="1">
+                    <mxGeometry height="58" width="330" x="60" y="590" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-exception" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fffbeb;strokeColor=#f59e0b;fontColor=#92400e;fontStyle=1;" value="Scoped exception written&#10;.konoha/guardrail-exceptions.json, code plus tool, 30 min TTL" vertex="1">
+                    <mxGeometry height="58" width="330" x="860" y="590" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-audit" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;" value="Audit line appended&#10;.konoha/guardrail-audit.jsonl, who and why" vertex="1">
+                    <mxGeometry height="58" width="330" x="860" y="700" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-summary" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#334155;fontStyle=1;" value="Invariant: an accepted risk is scoped to one denial code and one tool, capped at an hour, and always leaves an audit trail; the gated agent cannot write the store itself, and a blocked call never becomes a silent pass." vertex="1">
+                    <mxGeometry height="58" width="760" x="60" y="700" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e1" edge="1" parent="1" source="p19-hook" target="p19-eval" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="tool call">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e2" edge="1" parent="1" source="p19-eval" target="p19-allow" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="allowed">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e3" edge="1" parent="1" source="p19-allow" target="p19-deny" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ef4444;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="denied">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e4" edge="1" parent="1" source="p19-deny" target="p19-block" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" value="choose 1">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e5" edge="1" parent="1" source="p19-deny" target="p19-accept" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="choose 2">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e6" edge="1" parent="1" source="p19-deny" target="p19-cancel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#94a3b8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="choose 3">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e7" edge="1" parent="1" source="p19-block" target="p19-route" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="reroute">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e8" edge="1" parent="1" source="p19-route" target="p19-allow2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="passes">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e9" edge="1" parent="1" source="p19-cancel" target="p19-blocked" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#dc2626;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="exit 2">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e10" edge="1" parent="1" source="p19-accept" target="p19-justify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="justify">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e11" edge="1" parent="1" source="p19-justify" target="p19-exception" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="record">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p19-e12" edge="1" parent="1" source="p19-exception" target="p19-audit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="append">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
             </root>
         </mxGraphModel>

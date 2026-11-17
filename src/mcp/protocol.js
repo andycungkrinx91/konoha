@@ -59,8 +59,10 @@ function resolveClientFromInfo(clientInfo) {
   if (clientName.includes('opencode')) return 'opencode';
   if (clientName.includes('commandcode')) return 'commandcode';
   if (clientName.includes('codex')) return 'codex';
-  if (clientName.includes('pi')) return 'pi';
+  // OMP before Pi: OMP reuses Pi's environment and a reported name can carry
+  // both tokens, so the more specific harness must win.
   if (clientName.includes('omp')) return 'omp';
+  if (clientName.includes('pi')) return 'pi';
   if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'antigravity';
   // `agy` is the CLI binary name, not a client identity: CLI and IDE are one
   // harness, so both spellings resolve here and the database never sees two.
@@ -239,5 +241,6 @@ module.exports = {
   isInitialized: () => MCP_INITIALIZED,
   setInitialized: (val) => { MCP_INITIALIZED = Boolean(val); },
   handleRequest,
+  resolveClientFromInfo,
   main
 };

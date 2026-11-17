@@ -1,0 +1,21 @@
+diff --git a/dist/jszip.js b/dist/jszip.js
+deleted file mode 100644
+index fba9513f7fb02cd73ecf837f26626dc8054e2d0c..0000000000000000000000000000000000000000
+diff --git a/dist/jszip.min.js b/dist/jszip.min.js
+deleted file mode 100644
+index cf35e3c945d9600ce6795552eca87eac570b8ec2..0000000000000000000000000000000000000000
+diff --git a/package.json b/package.json
+index d167aab2597e79dd4a5f2332a82838dec76b5b9f..c41ce2e53fc2e89fc18c36b6c28d4708d4c1763e 100644
+--- a/package.json
++++ b/package.json
+@@ -27,10 +27,6 @@
+     }
+   ],
+   "main": "./lib/index",
+-  "browser": {
+-    "./lib/index": "./dist/jszip.min.js",
+-    "readable-stream": "./lib/readable-stream-browser.js"
+-  },
+   "types": "./index.d.ts",
+   "repository": {
+     "type": "git",

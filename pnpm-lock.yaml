@@ -206,7 +206,7 @@ overrides:
   is-weakmap: npm:@socketregistry/is-weakmap@1.0.9
   is-weakref: npm:@socketregistry/is-weakref@1.0.7
   is-weakset: npm:@socketregistry/is-weakset@1.0.9
-  isarray: npm:@socketregistry/isarray@1.0.7
+  isarray: npm:@socketregistry/isarray@1.0.8
   object-keys: npm:@socketregistry/object-keys@1.0.7
   object.assign: npm:@socketregistry/object.assign@1.0.7
   playwright-core: '>=1.55.1'
@@ -242,8 +242,10 @@ overrides:
 patchedDependencies:
   cfb@1.2.2: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
   docx@9.14.0: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
+  jszip@3.10.2: 89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c
   playwright-core@1.64.1: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
-  pptxgenjs@4.0.1: b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b
+  pptxgenjs@4.0.1: 1ab83fcbdbb94c0b5f9167cdf7f9c9366490eb0a667198bd1d9515bc5c47f0af
+  xlsx-populate@1.21.0: 92ac99484106ce1363351002a5892805e997b5dfde2cf73cce93467d67baa331
 
 importers:
 
@@ -268,13 +270,13 @@ importers:
         specifier: 1.2.2
         version: 1.2.2(patch_hash=86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9)
       docx:
-        specifier: ^9.14.0
+        specifier: 9.14.0
         version: 9.14.0(patch_hash=750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c)
       gpt-tokenizer:
         specifier: 4.1.0
         version: 4.1.0
       hash-wasm:
-        specifier: ^4.12.0
+        specifier: 4.12.0
         version: 4.12.0
       manifold-3d:
         specifier: 3.2.1
@@ -283,11 +285,11 @@ importers:
         specifier: 18.2.0
         version: 18.2.0
       playwright:
-        specifier: ^1.64.1
+        specifier: 1.64.1
         version: 1.64.1
       pptxgenjs:
-        specifier: ^4.0.1
-        version: 4.0.1(patch_hash=b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b)
+        specifier: 4.0.1
+        version: 4.0.1(patch_hash=1ab83fcbdbb94c0b5f9167cdf7f9c9366490eb0a667198bd1d9515bc5c47f0af)
       three:
         specifier: 0.187.0
         version: 0.187.0
@@ -295,8 +297,8 @@ importers:
         specifier: 0.27.2
         version: 0.27.2
       xlsx-populate:
-        specifier: ^1.21.0
-        version: 1.21.0
+        specifier: 1.21.0
+        version: 1.21.0(patch_hash=92ac99484106ce1363351002a5892805e997b5dfde2cf73cce93467d67baa331)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -992,9 +994,6 @@ packages:
   hash-wasm@4.12.0:
     resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
 
-  https@1.0.0:
-    resolution: {integrity: sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==}
-
   image-size@2.0.4:
     resolution: {integrity: sha512-QRUkFFsRV/6fuESxb9Vkq+a0LkSrgKXuc2NEqfikiXxxN/G3tjWt5EVUlMaImRBZRZK/jRBEbYvpPYZL8t08Zw==}
     engines: {node: '>=18'}
@@ -1199,9 +1198,6 @@ packages:
 
   locate-character@3.0.0:
     resolution: {integrity: sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA==}
-
-  lodash@4.18.1:
-    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
@@ -1930,7 +1926,7 @@ snapshots:
     dependencies:
       '@types/node': 26.6.5
       hash.js: '@noble/hashes@2.4.0'
-      jszip: 3.10.2
+      jszip: 3.10.2(patch_hash=89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c)
       nanoid: 6.0.2
 
   enhanced-resolve@5.26.0:
@@ -1976,8 +1972,6 @@ snapshots:
 
   hash-wasm@4.12.0: {}
 
-  https@1.0.0: {}
-
   image-size@2.0.4: {}
 
   immediate@3.0.6: {}
@@ -1998,7 +1992,7 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
 
-  jszip@3.10.2:
+  jszip@3.10.2(patch_hash=89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c):
     dependencies:
       lie: 3.3.0
       pako: 1.0.11
@@ -2113,8 +2107,6 @@ snapshots:
 
   locate-character@3.0.0: {}
 
-  lodash@4.18.1: {}
-
   long@5.3.2: {}
 
   magic-string@0.30.21:
@@ -2208,12 +2200,11 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  pptxgenjs@4.0.1(patch_hash=b89a4a9f5079b42ca7b215b0bc366c0c14735c9e76ff841240c10cae7866f35b):
+  pptxgenjs@4.0.1(patch_hash=1ab83fcbdbb94c0b5f9167cdf7f9c9366490eb0a667198bd1d9515bc5c47f0af):
     dependencies:
       '@types/node': 22.20.5
-      https: 1.0.0
       image-size: 2.0.4
-      jszip: 3.10.2
+      jszip: 3.10.2(patch_hash=89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c)
 
   protobufjs@7.6.6:
     dependencies:
@@ -2392,11 +2383,10 @@ snapshots:
 
   web-tree-sitter@0.27.2: {}
 
-  xlsx-populate@1.21.0:
+  xlsx-populate@1.21.0(patch_hash=92ac99484106ce1363351002a5892805e997b5dfde2cf73cce93467d67baa331):
     dependencies:
       cfb: 1.2.2(patch_hash=86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9)
-      jszip: 3.10.2
-      lodash: 4.18.1
+      jszip: 3.10.2(patch_hash=89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c)
       sax: 1.6.1
 
   zimmerframe@1.1.5: {}

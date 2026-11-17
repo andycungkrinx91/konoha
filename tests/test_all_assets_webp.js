@@ -5,8 +5,8 @@
  * tests/test_all_assets_webp.js
  *
  * Verifies that:
- * 1. All 33 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
- *    (19 of them are drawio-derived projections, 1 is the Tokubetsu-Jonin-only Anbu workflow,
+ * 1. All 34 canonical animation assets in `assets/` exist in native Animated WebP (.webp) format
+ *    (20 of them are drawio-derived projections, 1 is the Tokubetsu-Jonin-only Anbu workflow,
  *    13 are client demos; see docs/diagrams/README.md).
  * 2. Zero legacy .gif files remain in `assets/`.
  * 3. Every .webp file passes `validateAnimatedWebP` binary structural verification.
@@ -23,7 +23,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// Expected 33 canonical animation assets (13 demos + 19 drawio tabs + 1 tokubetsu workflow)
+// Expected 34 canonical animation assets (13 demos + 20 drawio tabs + 1 tokubetsu workflow)
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -56,6 +56,7 @@ const EXPECTED_WEBP_ASSETS = [
   'konoha-flow-10-persistent-project-context-auto-compaction.webp',
   'konoha-flow-12-cli-upgrade-progress-engine.webp',
   'konoha-flow-15-inbound-prompt-queue-worker-pipeline.webp',
+  'konoha-flow-19-guardrail-denial-human-in-the-loop-resolution.webp',
   'demo-omp.webp',
   'testing.webp'
 ];
@@ -79,7 +80,7 @@ const TOKUBETSU_ONLY_ASSETS = new Set([
   'konoha-telegram-flow.webp'
 ]);
 
-console.log('1. Checking that all 33 Animated WebP assets exist and legacy GIFs are removed...');
+console.log('1. Checking that all 34 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -156,5 +157,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 33 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 34 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

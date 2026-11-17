@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.22). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.23). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -62,7 +62,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Patched `cfb` reaches the installed tree | `KONOHA_RUN_INSTALL_TEST=1 node tests/test_global_install.js` | `patches/cfb@1.2.2.patch` only applies inside the pnpm workspace, so `cfb` and its sole consumer `xlsx-populate` are both in `bundleDependencies`. The test asserts the bundled `cfb.js` has no `Sh33tJ5` seed artifact, that `xlsx-populate` resolves *that* copy rather than a top-level registry copy, and that the installed tree writes an XLSX. | `PASS` (verified on Linux x64: patched copy bundled, `xlsx-populate` resolves it, XLSX written) |
 | Windows 10/11 install + upgrade | - | Requires a native Windows runner, including the `EBUSY` upgrade-marker path (marker written before install, cleared only after verification). | `BLOCKED` — not run on this host |
 | macOS arm64 / x64 install | - | Requires macOS runners; case-sensitive skill resolution verified only on Linux. | `BLOCKED` — not run on this host |
-| `konoha run-agent` | `--agent <name> --task <prompt> [--direct]` | CLI execution bridge for Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review when `--direct` is set. | `PASS` (verified) |
+| `konoha run-agent` | `--agent <name> --task <prompt> [--execute]` | CLI execution bridge for every harness, including Cursor, Codex, and Command Code; invokes a single specialist subagent and enforces mandatory Kage review. Without `--execute` it prints the spawn directive instead of launching. | `PASS` (verified: `--execute` on `omp` returned `child_pid` 785884 with `raw_stdout` `ALIVE`, `exit_code` 0). The Windows `.cmd`-shim path is covered by `tests/test_spawn_harness_contracts.js` check 13, not by a live Windows run |
 
 ### 1.1b Install & Upgrade Lifecycle Verification (2.2.19)
 
@@ -720,7 +720,7 @@ Authoritative verification matrix for the Konoha v2.2.16 Deep QA Pass: runtime p
 
 ---
 
-## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.22)
+## Section 30: LangGraph.js Production Orchestration & State-Machine Verification (v2.2.23)
 
 Authoritative verification matrix for the Konoha v2.2.18 LangGraph.js production activation, per-turn token budget governor, fault isolation with error edge routing, and multi-workflow state-machine guarantees.
 
@@ -785,7 +785,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 ---
 
-## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.22)
+## Section 32: Yamanaka 3D Runtime Dependency Linking, Live Staging Hot-Reload & 12-Hour Token Rotation (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -825,7 +825,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 
 
 
-## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.22)
+## Section 33: Real LLM Synthesis, Live Blender 5.2.2 LTS Execution & Turnaround Reference Sheets (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -856,7 +856,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
 | **24. Repo Lint Gate** | `node scripts/lint.js` | 518 backend files verified with 0 errors and 0 warnings (no numbered comments) | `PASS` (verified 2026-11-03) |
 | **25. Isolated Fresh Install & Upgrade** | `/tmp/konoha-iso` with isolated `HOME` | Six STRICT tables + migration applied, `dcc_mcp_version` column present, `three`/`manifold-3d` linked, worker + creature synthesizer deployed, and removed packages re-linked on the next run | `PASS` (verified 2026-11-03) |
 
-## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.22)
+## Section 34: Feedback Remediation, Delegation Repair & Isolated-Install QA (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -897,7 +897,7 @@ Authoritative verification matrix for the Konoha v2.2.18 turn-scoped token budge
   were not re-recorded in this pass; the reduced-motion and layout fixes are code-level and
   do not change what those clips depict structurally.
 
-## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.22)
+## Section 35: 3D GPU Cycles Activation, Modular Worker, Appliance Synthesis, Global-Only Configs & Upgrade Parity (v2.2.23)
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -944,10 +944,10 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **Config Backup & Append-Only Merge** | `PASS` | `PASS` | `PASS` | `tests/test_config_backup_and_append_only.js` (SHA-256 verified backups in `~/.konoha/backups/configs/<client>/<scope>/`, syntax-aware JSON/JSONC/YAML/TOML/XML/Markdown merge) | `PASS` |
 | **12. Ownership & Scoped Hook Isolation** | `PASS` | `PASS` | `PASS` | `tests/test_ownership_and_hook_scoping.js` (protects `agents/` & `conversations/`, `.konoha-owned` marker check, hooks pass through normal messages) | `PASS` |
 | **13. Project Knowledge RAG & External Skills** | `PASS` | `PASS` | `PASS` | `tests/test_project_rag_and_external_skills.js` (preserves SQLite FTS5 + 384-dim embeddings, zero cross-project leakage in `isPathVisible`, `@proj-<hash>` / `@global-<harness>` disambiguation) | `PASS` |
-| **14. Command Routing & 8-Client Spawning** | `PASS` | `PASS` | `PASS` | `tests/test_command_routing_and_spawning.js` (`/konoha` full LangGraph SDLC, `/<subagent>` direct execution + mandatory Kage gate, `konoha run-agent` CLI bridge) | `PASS` |
+| **14. Command Routing & 8-Client Spawning** | `PASS` | `PASS` | `PASS` | `tests/test_command_routing_and_spawning.js` (`/konoha` full LangGraph SDLC, `/<subagent>` direct execution + mandatory Kage gate, `konoha run-agent` CLI bridge) and `tests/test_spawn_harness_contracts.js` (OMP/Pi identity from the state directory, `omp` argv, OMP `task` schema conformance, `cli + --execute` harness probing, CLI/parallel fallbacks, Windows `.cmd` route simulated via `process.platform`) | `PASS` |
 | **15. 5-Stage Install Lifecycle & DB Safety** | `PASS` | `PASS` | `PASS` | `tests/test_install_lifecycle_and_db_preservation.js` (`backup -> install -> init --y -> embed -> ui build & restart` preserving existing SQLite rows) | `PASS` |
 | **15b. Init Embeds By Default** | `PASS` | `PASS` | `PASS` | `tests/test_init_embeds_by_default.js` (`konoha init` seeds canonical skills and builds 384-dim embeddings in one step; `--no-embed` is the explicit opt-out and prints a `konoha migrate` hint; partial coverage is measured post-migration and reported) | `PASS` |
-| **16. Zero `.gitignore` Pollution & Dynamic Scoping** | `PASS` | `PASS` | `PASS` | `tests/test_gitignore_no_pollution.js` (`init --client=antigravity` global-only by default, `sanitizePollutedProjectGitignore`, `stripLegacyKonohaPreamble`, `project_hash` isolation) | `PASS` |
+| **16. Zero `.gitignore` Pollution & Dynamic Scoping** | `PASS` | `PASS` | `PASS` | `tests/test_gitignore_no_pollution.js` (`init --client=antigravity` global-only by default, `sanitizePollutedProjectGitignore`, `stripLegacyKonohaPreamble`, `project_hash` isolation, and the `!.agents/` + `!.agents/**` re-inclusion this repo needs because Konoha writes `.agents/` into the global excludes file) | `PASS` |
 | **17. 8-Client Rsync-Like & Diff-and-Patch Skill Sync** | `PASS` | `PASS` | `PASS` | `tests/test_global_skill_sync_8_clients.js` (`src/global_skill_sync.js`, `--ignore-existing` on fresh install, targeted `applyTargetedTextPatch` on upgrade across all 8 harnesses) | `PASS` |
 | **18. Jonin Astra/Fable & Cross-Framework Motion Skills** | `PASS` | `PASS` | `PASS` | `tests/test_jonin_motion_skills.js` (`motion-nextjs`, `motion-nuxt`, `motion-svelte`, `motion-angular`, `framer-motion-animator`, dynamic storytelling directives) | `PASS` |
 | **19. Live Agent Activity Spider & Bottom Dock E2E** | `PASS` | `PASS` | `PASS` | `tests/e2e/agent_activity_and_ui.spec.js` (`GET /api/v1/activity/live`, `/activity` spider network, 180° flip animation, zoom/pan, node inspector, `BottomDock.svelte`, hidden Yamanaka/3D Studio menus) | `PASS` |
@@ -969,10 +969,10 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **11. Master E2E Suite & Web UI Playwright Automation** | `qa_e2e_run` -> `tests/e2e/web_ui_e2e.spec.js` & `tests/e2e/auth_login.spec.js` | Runs `sync_skills.js`, `pnpm --dir apps/web run build`, `test_konoha_2_2_18_master.js`, `scripts/lint.js` (729 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy), desktop (1440x900) and mobile (390x844) UI tests; verifies 2-field initial setup, Overview embedded Agent Activity, 6 execution states, spider 180° flip, full-screen modal, mobile-only dock, zero emojis, and hidden Yamanaka/3D Studio menus | `PASS` (verified) |
 | **12. Socket CLI Supply Chain & Zero-Vulnerability Gate** | `tests/test_socket_security_audit.js` & `docs/archive/security-compliance/socket_report_2.2.19_2026-11-08.md` | Verifies `socket fix --all --no-apply-fixes` (0 GHSAs/CVEs), `socket npm audit` (0 vulnerabilities), `pnpm audit` (0 unreviewed CVEs across root and apps/web), direct dependency scores (100% vulnerability score, 0 High, 0 Critical findings), and 0 shell invocations in `src/db_recovery.js` / `src/db_recovery_salvage.js` | `PASS` (verified 2026-11-08) |
 | **13. Fresh Install MCP Connection & Stdio Handshake (Cursor & OMP)** | `tests/test_fresh_install_mcp.js` & `tests/test_mcp_protocol_integrity.js` | Resolves unexpanded `${userHome}` in Cursor project MCP, resolves absolute `uvx` with GUI `env.PATH`, sanitizes stale `/tmp/` launcher paths in OMP, in-process launcher optimization for Node >= 24, and auto-detects installed clients on bare `konoha init` | `PASS` (verified 2026-11-08) |
-| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.22)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
-| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.22)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
+| **14. P0 SQLite Disaster Recovery & Adversarial Security Suite (v2.2.23)** | `tests/test_db_recovery.js` | Verifies shell metacharacter immunity (`$()`, backticks, quotes, pipes, spaces, Unicode, leading hyphens), path traversal & prefix-confusion blocking, symlink escape & `-wal`/`-shm` sidecar protection, constrained `node:sqlite` salvage neutralizing malicious triggers/views/`ATTACH`/dot-commands, B-tree partial page salvage, atomic rollback, and concurrency locking | `PASS` (verified 2026-11-08) |
+| **15. Jonin 4-Framework Motion & Interactive 3D Browser Benchmark (v2.2.23)** | `tests/test_jonin_motion_3d_benchmark.js` | Verifies Chunin Playwright REA handoff (`chunin_rea_findings`), `< 25 KB` `build_from_text` payload, and real-browser Playwright Chromium QA across Next.js (`motion/react` + R3F/Three.js + GSAP), Nuxt (`motion-v` + `motion` + TresJS/Three.js), SvelteKit (`svelte/motion` + `motion` + Threlte/Three.js), and Angular (`animate.enter`/`leave` + `motion` + GSAP + Three.js) across all 10 benchmark rows | `PASS` (verified 2026-11-08) |
 
-## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.22)
+## Section 38: Cross-Platform CI Parity — macOS Canonicalization, Orphan Guard & Stale UI (v2.2.23)
 
 GitHub Actions run `43160159738` failed on five macOS legs and five Windows VM legs. Each failure was reproduced locally — a symlinked `HOME`/`TMPDIR` for the macOS path class, the dockur Windows guest for the rest — and fixed at its cause; no assertion was relaxed.
 
@@ -998,7 +998,7 @@ A later `windows-latest` leg then failed row 5's *precondition* — `AssertionEr
 | **16. Windows leg: 3D model discovery HOME** | `tests/test_yamanaka_web_api.js` | win32 `os.homedir()` ignores `HOME` and reads `USERPROFILE`, so the pinned seeded config was never read and `client_default_model` came back `null`; the suite now pins both | `PASS` (local) |
 | **17. Playwright Web UI e2e suite** | `tests/e2e/*.spec.js` via `pnpm --dir apps/web run test:e2e` | 18 spec files, 59 tests on a clean auth store: docs index asserts the mirror contract instead of a pinned row count, the `/agents` roster gets a hydration budget, and the rasengan transition waits for the shared WebGL scene before the theme click | `PASS` (59/59, 19.9 min, 2026-11-12) |
 
-## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.22)
+## Section 39: HITL Gate Pickers & Sandbox-Only Test Enforcement (v2.2.23)
 
 A gate used to arrive as prose, so every client printed a numbered list and the human retyped a label; and the container sandbox was documented as the gate while `node tests/run_all.js` on a workstation still ran the suite against the developer's `~/.konoha`. Both are now code.
 
@@ -1015,7 +1015,7 @@ A gate used to arrive as prose, so every client printed a numbered list and the 
 | **9. Bindings are keyed by the canonical client names** | `tests/test_hitl_picker_binding.js` | `claudecode` and `antigravity` are explicit keys, and `claude`, `claude-code`, `antigravity-cli`, `agy` are absent — a second spelling for one harness was how `[CC]` silently downgraded to the web form | `PASS` |
 | **10. The MCP process serves the URL it hands out** | `tests/test_hitl_picker_binding.js` | `ensurePickerServer` binds a real port, bootstraps a session token when `konoha ui` never ran, renders a signed gate link as a 200 `<form>`, refuses an unsigned link with 403, and 404s any route beyond the two capability routes | `PASS` |
 
-## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.22)
+## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.23)
 
 > [!NOTE]
 > **Delivery & PR #16 Status (Open):** Issues `#11`, `#12`, and `#13` remain `OPEN` (`closingIssuesReferences: []` on PR #16, zero PR approvals / `reviewDecision: ""`). At audit time (`61e73b7f`), `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands, macOS (5 shards) and Windows (16 shards) remained unverified/`IN_PROGRESS`, and `Socket Security: Pull Request Alerts` reported `FAILURE` on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2` (`@emnapi/runtime`, `@img/sharp-wasm32`, `@protobufjs/codegen`, `@img/sharp-darwin-*`).
@@ -1033,13 +1033,14 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **7. FTS5-absent fallback is honest** | `tests/test_code_intel_search.js` | With FTS5 unavailable the query runs as a `LIKE` scan and the response carries `degraded: true` instead of throwing or silently returning nothing | `PASS` (verified) |
 | **8. Impact graph maps sites to enclosing symbols** | `tests/test_code_intel_graph.js` | Reverse reachability defaults to depth 3 / 200 nodes, a call cycle terminates instead of exploding, a capped result sets `truncated: true`, and each referencing site is reported as `<kind> <name>` | `PASS` (verified) |
 | **9. Isolation invariants hold** | `tests/test_code_intel_isolation.js` | No `src/code_intel/` module contains `new DatabaseSync(`, `child_process`, or `generateDeterministicVector`; the Akatsuki lab DB carries zero `code_*` tables and `db.getConnection(labPath)` throws `LAB_DB_ISOLATION_VIOLATION`; `.env`, `id_rsa`, `server.pem`, `.key`, and `.p12` never enter the index; a symlink is skipped rather than followed; hostile FTS input comes out inert | `PASS` (verified) |
-| **10. Deployment safety** | `tests/test_deploy_safety.js` | A customized `SOUL.md` keeps its user content inside the `<!-- KONOHA-START -->` managed block; an agent file without `generated_by: konoha` is backed up as `<file>.konoha-backup`, never overwritten | `PASS` (verified) |
+| **10. Deployment safety** | `tests/test_deploy_safety.js` | A customized `SOUL.md` keeps its user content inside the `<!-- KONOHA-START -->` managed block; an agent file without `generated_by: konoha` and without the contract block is backed up as `<file>.konoha-backup`, never overwritten; a legacy contract-managed file upgrades in place and its superseded `.konoha-proposed` is removed | `PASS` (verified) |
+| **10a. OMP config isolation** | `tests/test_omp_manager.js` | A temporary-home run leaves the project `.omp/mcp.json` byte-identical, so a sandboxed suite cannot leave delegated agents without the Konoha MCP server | `PASS` (verified) |
 | **11. Web dashboard route answers** | `tests/test_web_ui.js` | `/api/v1/code/status` lists the indexed root and `/api/v1/code/search` returns a real hit from a fixture index, not a vacuous 200 | `PASS` (34.9 s, sandboxed runner) |
 | **12. Web build** | `npx svelte-check --threshold error`, `npx vite build` | 69 files, 0 errors, 0 warnings; the production build exits 0 | `PASS` (verified) |
 | **13. The retired server stays retired** | `tests/test_fresh_install_mcp.js`, `tests/test_mcp_subagent_contract.js` | No client config declares `semble`; the deployed `.agents/skills/konoha/**` mirror is byte-identical to `src/templates/skills/konoha/**` | `PASS` (verified) |
 | **14. Zero-AI-Slop gate** | `npx aislop scan src` | Score 100 with zero non-informational findings | `PASS` (100/100) |
 
-## Section 41: Code Intelligence Hardening, Legacy Agents Upgrade & `2.2.*` Yamanaka Skip Gates (v2.2.22)
+## Section 41: Code Intelligence Hardening, Legacy Agents Upgrade & `2.2.*` Yamanaka Skip Gates (v2.2.23)
 
 > [!NOTE]
 > All Yamanaka 3D feature suites (`tests/test_yamanaka_*.js` in `tests/run_all.js` and `tests/e2e/yamanaka_3d_studio.spec.js` in Playwright) are automatically skipped across all `2.2.*` versions (`/^2\.2\./`) because Yamanaka 3D is a planned post-`2.2` feature. UI visibility checks (`agent_activity_and_ui.spec.js` and `web_ui_e2e.spec.js`) continue to verify Yamanaka/3D Studio navigation remains hidden.
@@ -1068,3 +1069,66 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **3. Schema v7→v8 migration & traceability** | `tests/test_memory_brain_migration_and_api.js`, `tests/test_schema_migrations_and_lifecycle.js`, `tests/test_schema_traceability.js` | `CURRENT_SCHEMA_VERSION = 9` (`45` raw / `33` declared tables), `memory_audit_events` & `memory_relations` created cleanly in savepoint, existing `persona_memories` backfilled, single `user_version` writer invariant preserved | `PASS` (verified) |
 | **4. Provenance, corrections, graph & provider boundary** | `tests/test_memory_brain_lifecycle_and_graph.js` | Unified `remember`/`recall` across domains, correction/supersession/withdrawal/verify/restore with append-only audit log, secret/transient boundary rejection, deterministic evidence-backed graph excluding inferred claims from confirmed facts, and optional `GBrainMemoryAdapter` isolation | `PASS` (verified) |
 | **5. Retrieval benchmark, semantic status & reversible maintenance** | `tests/test_memory_brain_retrieval_and_maintenance.js` | Confirmed phrase/AND hits outrank inferred partial hits (`MRR=1`, `stale_leaks=0`); today `src/memory_brain.js` omits `embedding` on `INSERT INTO persona_memories` and `src/vector_backfill.js` only backfills `skill_chunks`, so `_fuseVectorScores` selects zero rows and `recallAsync` reports `semantic_applied: false` (lexical FTS5/LIKE retrieval only); `KONOHA_SEMANTIC_SEARCH=0` reports `semantic_status: 'disabled'` (`degraded: false`), offline uncached `KONOHA_SEMANTIC_SEARCH=1` reports `semantic_status: 'degraded'` (`degraded: true`), conservative maintenance dryRun/apply/revert never alters confirmed facts, and existing `/api/v1/persona` (`src/web/controllers/skills_controller.js`) + CLI `konoha data` routes work | `PASS` (verified) |
+
+---
+
+## Section 43: Supply-Chain & Dynamic-Execution Hardening (v2.2.23)
+
+Authoritative verification matrix for the `v2.2.23` Socket alert remediation: `lodash` removal, dynamic-execution elimination, document-engine ingress boundaries, deterministic packaging, and the narrowed `socket.yml` suppressions.
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. `lodash` is absent from the tree and the tarball** | `tests/test_dependency_posture.js` | No `node_modules/lodash`; `pnpm-lock.yaml` has zero `lodash@` resolutions; `tar -tzf konoha-mcp-2.2.23.tgz \| grep -c node_modules/lodash` returns `0` | `PASS` |
+| **2. Patched `xlsx-populate` preserves lodash semantics** | `tests/test_xlsx_populate_lodash_lite.js` | 74 helper assertions against lodash 4 behaviour, plus an XLSX round-trip asserting merges, formulas, styles, and autoFilter survive the shim | `PASS` |
+| **3. The prebuilt browser bundles are gone** | `tests/test_dependency_posture.js`, `tests/test_package_tarball_files.js` | `xlsx-populate/browser`, `xlsx-populate/examples`, `pptxgenjs/dist/pptxgen.bundle.js` (+ `.map`), and `jszip/dist/` are absent from disk and tarball; the `browser` field is removed from the packaged `xlsx-populate` manifest; the shipped `pptxgen.cjs.js`/`.es.js`/`.min.js` contain no `Function(` or `eval(`; `main` still resolves `lib/XlsxPopulate.js` | `PASS` |
+| **4. Zero dynamic execution in the runtime** | `tests/test_no_dynamic_execution.js` | every runtime file free of `eval(`, `new Function(`, and `node:vm` code generation; emitted hook payloads declare `checkCommandGuardrails` as a function expression | `PASS` |
+| **5. Emitted guardrails still enforce** | `tests/test_no_dynamic_execution.js` | Generated Claude Code, Command Code, and Pi hook payloads deny the native read tool, block `rm -rf /`, and pass benign commands through | `PASS` |
+| **6. Presentation images are buffers, never paths** | `tests/test_document_engine_security.js` | `addInlineImage` rejects a non-Buffer, a sub-8-byte payload, and a wrong magic number; exactly one `addImage` call site exists in the engine | `PASS` |
+| **7. Spreadsheet formula blocklist covers both DDE halves and OLE** | `tests/test_document_engine_security.js` | `DDE(`, `REGISTER(`, `REGISTER.`, `WEBSERVICE(`, `ENCODEURL(`, `HYPERLINK(`, `CALL(`, `DDEREFERENCE(`, and `SQL.REQUEST(` are rejected; the link-operator form `=cmd|' /C calc'!A0` is rejected on its bare `|`; `=Sheet2!A1+1` and `="a|b"` still pass | `PASS` |
+| **8. Install scripts stay denied** | `tests/test_dependency_posture.js` | `allowBuilds` keeps `onnxruntime-node: false` and `protobufjs: false`, so the unverified CUDA EP download from NuGet never runs | `PASS` |
+| **9. Releases are reproducible** | `tests/test_dependency_posture.js`, `.github/workflows/publish.yml` | `publish.yml` runs `pnpm install --frozen-lockfile`; `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are exact pins | `PASS` |
+| **10. Socket suppressions narrowed, not widened** | `tests/test_socket_security_audit.js` | `socket.yml` contains no `usesEval: false`; `pnpm-lock.yaml` and `patches/**` are no longer in `projectIgnorePaths` | `PASS` |
+| **11. Redistributed licenses ship and are accurately attributed** | `tests/test_package_tarball_files.js`, `NOTICE` | Tarball ships `LICENSE` and `NOTICE`; `NOTICE` names all 19 redistributed packages with license and copyright (Apache-2.0, MIT, ISC, BlueOak-1.0.0), states `jszip` is redistributed under its MIT option, and each package ships its own unmodified license file; the patches do not relicense anything | `PASS` |
+| **12. Installed tree still produces documents** | `tests/test_global_install.js` (`KONOHA_RUN_INSTALL_TEST=1`) | Fresh global install of `konoha-mcp-2.2.23.tgz` writes a PPTX and an XLSX, resolves the bundled patched `cfb`, and reinstalls idempotently | `PASS` |
+| **13. Version metadata stays synchronized** | `node scripts/bump_version.js --check` | All 18 managed files at `2.2.23`, including the drawio version labels and `scripts/lib/data.json` | `PASS` |
+
+## Section 44: Guardrail Denial & Human-in-the-Loop Resolution (v2.2.23)
+
+Authoritative verification matrix for the `PreToolUse` guardrail's human decision path: named remediation per denial code, a three-way menu, a scoped and expiring risk acceptance, and an append-only audit trail. The hook contract itself stays non-interactive and fail-closed.
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. A denial names the route that satisfies it** | `tests/test_project_konoha_mcp_guardrail.js` (test 9) | `describeGuardrailRemediation('KONOHA_MCP_REQUIRED_READ')` returns the route that names `read_file_range` rather than the generic fallback; the table defines eleven codes, one per denial the guard emits | `PASS` |
+| **2. An accepted risk is scoped, expiring, and audited** | `tests/test_project_konoha_mcp_guardrail.js` (tests 9-11) | Acceptance writes the exception and one `risk_accepted` audit line, the next identical call returns `RISK_ACCEPTED`, a different code or tool stays denied, and an expired entry is pruned on read and ignored | `PASS` |
+| **3. Blocking writes nothing and the hook stays fail-closed** | `tests/test_project_konoha_mcp_guardrail.js` (tests 10, 12) | Blocking creates no exception store and no audit line; `--hitl` with no controlling terminal exits `2`, briefs on stderr, and records nothing | `PASS` |
+| **4. The interactive menu never accepts by default** | `tests/test_project_konoha_mcp_guardrail.js` (test 13) | EOF and a missing terminal resolve to block, a justification under 8 characters is refused, and an accepted risk returns the recorded exception id | `PASS` |
+| **5. A piped payload still prompts on the controlling terminal** | `tests/test_project_konoha_mcp_guardrail.js` (test 14) | With the denial JSON on stdin, the menu renders from `/dev/tty` (or `CONIN$`/`CONOUT$`), choice `1` exits `2` and writes nothing, and choice `2` records one exception scoped to the denied tool; `KONOHA_GUARD_NO_TTY=1` forces the fail-closed branch deterministically | `PASS` |
+| **6. A failed database salvage names its reason** | `tests/test_db_recovery.js` (test 9) | A garbage image returns `ok:false` with a non-empty `reason` that describes the underlying sqlite failure instead of a placeholder, a target-side failure is also described, and a table rejected by a binary-patched DDL is recorded in `rejectedObjects` without sinking its salvageable sibling | `PASS` |
+| **7. The deployed plugin copy still resolves `src/`** | `tests/test_project_konoha_mcp_guardrail.js` (tests 6, 7) | The tracked `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js` is a regular file byte-identical to the generator's output, every path under `.agents/` is a regular file rather than a symlink, and running the copy with `--hitl` and no controlling terminal exits `2` with the fail-closed briefing rather than a bare `Cannot find module` error | `PASS` |
+| **8. The gated agent cannot mint its own exception** | `tests/test_project_konoha_mcp_guardrail.js` (test 15) | A `Write` and an `rtk cp` naming `guardrail-exceptions.json` or `guardrail-audit.jsonl` are denied `GUARDRAIL_STATE_WRITE_DENIED`; an unconditional rule refuses to be recorded and is not covered by a forged store entry; an entry past the one-hour ceiling is pruned; a requested TTL is clamped; an ordinary write to `src/` stays allowed | `PASS` |
+| **9. A schema row no build can parse is neutralised, not fatal** | `tests/test_db_recovery.js` (test 8) | `createSchemaNeutralizedProbe` reproduces the source byte-for-byte except for the two bytes it comments out, the probe salvages the healthy sibling's rows while the poisoned table and its trigger stay absent, the staging probe is unlinked afterwards, a reason naming no object yields `null`, an object name that is not a bare identifier yields `null`, and a record with no separator is not repaired by reaching into the next row | `PASS` |
+
+
+## Section 45: Code-Intel First-Use Indexing & the Resident Supervisor (v2.2.23)
+
+Authoritative verification matrix for auto-indexing a root named for the first time, the async/read-only split, and the advisor charter that a row-less supervisor needs.
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. A named-but-unindexed directory is indexed on first query** | `tests/test_code_intel_tools.js` (auto-index leg) | `code_status` reports the root absent, `code_search` answers from it, `code_status` then reports one root | ✅ |
+| **2. A directory that does not exist names what is indexed** | `tests/test_code_intel_tools.js` (auto-index leg) | Error reads `root not indexed: <path> (indexed roots: …)` instead of a bare refusal | ✅ |
+| **3. The async path never takes the blocking indexer** | `tests/test_code_intel_tools.js` (async leg) | `indexRepository` is replaced by a throwing stub; `code_search_async` and `code_symbol_async` still return hits | ✅ |
+| **4. `code_status` stays read-only** | `tests/test_code_intel_tools.js` (auto-index leg), `src/code_intel/query.js#status` | A root cleared by `code_remove` is not resurrected by a status call | ✅ |
+| **5. A resident supervisor with no `agents` row still gets its charter** | `tests/test_advisor_realtime_monitor.js` (charter leg) | Spawned advisor carries title, purpose, constraints, and instructions; the table stays at 9 rows | ✅ |
+| **6. The sannin briefing carries an executable advisor spawn call** | `tests/test_cross_client_workflow_matrix.js` (spawn-call leg) | Instructions name `spawn_call` or the CLI fallback for every client, not just `--idle` prose | ✅ |
+| **7. A row left by an unfinished pass is retried, not answered from** | `tests/test_code_intel_tools.js` (never-finished leg) | A root whose row is `stale` with `indexed_at NULL` still returns hits, and the row becomes `fresh` | ✅ |
+| **8. A completed partial pass is reported as incomplete** | `tests/test_code_intel_tools.js` (`index_incomplete` leg) | `code_search` on a `stale` root returns `index_incomplete: true` through `_formatSearchResponse` | ✅ |
+| **9. A read-only session does not index on a read** | `tests/test_code_intel_tools.js` (read-only legs) | `KONOHA_READONLY=1` and a detected `@genin` both return `root not indexed: …` and leave `code_status` empty | ✅ |
+| **10. Concurrent first-use queries share one index pass** | `tests/test_code_intel_tools.js` (dedupe leg) | Three parallel `code_search_async` calls reach the indexer exactly once | ✅ |
+| **11. The advisor CLI fallback starts a process** | `tests/test_cross_client_workflow_matrix.js` (fallback leg) | `advisor_spawn_directive.cli_fallback` carries `--execute` for every client that cannot spawn natively | ✅ |
+| **12. An LSP override path containing spaces resolves** | `tests/test_code_intel_lsp.js` (`testOverridePathWithSpaces`) | The quoted and array forms both resolve a `Program Files`-style interpreter path, and so does the quoted `KONOHA_LSP_COMMAND_OVERRIDE` form; the unquoted form reports `server binary missing` instead of silently resolving a prefix | ✅ |
+| **13. An emptied directory is not a shipped bundle** | `tests/test_dependency_posture.js` (`shipsAnyFile`) | An empty `node_modules/xlsx-populate/browser` passes; one file under it fails the gate | ✅ |
+| **14. A locked temp tree does not abort the suite** | `tests/test_genin_unified_retrieval.js` (`finally`) | Cleanup retries, then reports the path it could not remove and lets the recorded result stand | ✅ |
+| **15. A search after an aborted pass reads the tables the rollback left** | `tests/test_code_intel_hardening.js#testContextAndPruningAndFtsRepair` | Pinning `options.rootResolved` keeps the search from re-indexing: the original symbol is still found, the aborted edit is not | ✅ |
+| **16. The sannin payload stays under budget on the longest client** | `tests/test_e2e_install_upgrade_reinstall.js` (payload leg) | Worst of the ten clients is under 3 400 bytes; the instruction points at `advisor_spawn_directive.spawn_call` instead of repeating it | ✅ |
+| **17. A dead field is deleted, not documented as carried** | `tests/test_subagent_spawning_p0.js` (per-client `supported_native`) | The startup descriptor keeps `supported_native` because a test asserts it; the markdown `directive` string no caller read is gone. A field nothing reads is not "carried". |

@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.22)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.23)
 
 ## 1. Overview & Threat Model
 
@@ -71,7 +71,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - Render pages intercept network calls: external HTTP/HTTPS and `file:` schemes are blocked. Local system font stacks replace external Google Fonts `@import` calls.
 
 ### 6.3 Formula Injection Guard
-- Spreadsheet generation validates formula strings, rejecting Excel DDE and dangerous functions: `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `REGISTER.ID`, `DDEREFERENCE`, `SQL.REQUEST`.
+- Spreadsheet generation validates formula strings, rejecting Excel DDE and dangerous functions: `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `REGISTER.ID`/`REGISTER(...)`, `DDE`, `DDEREFERENCE`, `SQL.REQUEST`. See §12.4 for the v2.2.23 additions.
 
 ---
 
@@ -128,7 +128,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.22)
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.23)
 
 ### 11.1 Bridge Request Budget
 - **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.
@@ -141,5 +141,130 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - **Magic-Byte Sniffing**: The declared filename extension is ignored. Only PNG, JPEG, and WebP signatures are accepted; anything else is refused with `415`.
 - **Filename Sanitisation**: the reference stem is reduced to `[a-zA-Z0-9_-]` before it is used as a filesystem name, so upload names cannot traverse directories.
 - **Authenticated Only**: the route requires an authenticated Web session like every other mutating `/api/v1/*` endpoint.
+
+---
+
+## 12. Supply Chain & Dynamic Execution Hardening (v2.2.23)
+
+### 12.1 Zero Dynamic Execution
+- **No `eval` / `Function` in the runtime**: `src/`, `bin/`, and `scripts/` contain no `eval(`, no `new Function(`, and no `node:vm` code-generation call. `tests/test_no_dynamic_execution.js` scans every runtime file and fails the build if one reappears.
+- **Guardrail checker is embedded, not compiled**: `src/mcp_clients/command_code.js`, `src/mcp_clients/claude_code_hooks.js`, and `src/pi_blocker_template.js` emit `buildGuardrailCheckerSource()` verbatim as a function expression (`const checkCommandGuardrails = function checkCommandGuardrails(command) {...}`) instead of wrapping the source in `new Function(...)()`. One source of truth, zero code generation in the generated hook.
+
+### 12.2 `lodash` Removal (`patches/xlsx-populate@1.21.0.patch`)
+- **Why**: `lodash` was a transitive dependency of `xlsx-populate@1.21.0` only, and its `template()` function compiles strings with `Function`, which is the static eval sink scanners flagged. Konoha never called `template`; the sink was nonetheless shipped inside the published tarball, because `xlsx-populate` is a `bundleDependency`.
+- **What**: the pnpm patch replaces all 19 `require("lodash")` call sites with `lib/lodash-lite.js`, a 27-helper shim implementing exactly the surface `xlsx-populate` uses, with lodash-4-faithful semantics (object-shorthand iteratees, `sortBy` identity default and iteratee-list flattening, `remove` mutation, `includes` SameValueZero, cycle-safe `cloneDeep`). `lodash` is dropped from the dependency list.
+- **Parity**: `tests/test_xlsx_populate_lodash_lite.js` asserts the helper behaviours against documented lodash 4 semantics, including sparse-array iteration and a full XLSX round-trip (merges, frozen pane, autofilter, formulas, styles) through the real `spreadsheet_create` tool.
+- **Bundle removal**: the patch also deletes `browser/` (13.9 MiB webpack bundle, 52 `Function(` occurrences, 154 `template` references) and `examples/`, and removes the `browser` field from the manifest. Konoha is Node-only (`main: lib/XlsxPopulate.js`), so no consumer path changes.
+
+### 12.3 Presentation Image Boundary (`src/workflow/tokubetsu-scribe/doc_engine_presentation.js`)
+- `pptxgenjs` resolves `addImage({ path })` with `fs.readFileSync` and `addImage({ path: 'http…' })` with an HTTPS GET. Konoha only embeds internally rendered cover artwork, so the engine routes every image through `addInlineImage(slide, buffer)`, which requires an in-memory PNG buffer (magic-byte checked) and emits a base64 data URI. No path or URL string can reach `addImage`; `tests/test_document_engine_security.js` asserts the single guarded call site.
+
+### 12.4 Spreadsheet Formula Blocklist
+- `sanitizeFormula()` now also rejects `DDE(` and `REGISTER.`/`REGISTER(`, closing the Excel DDE command-execution vector alongside the existing `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `DDEREFERENCE`, and `SQL.REQUEST` rules.
+- **DDE link operator**: the same payload has a second spelling, `=cmd|' /C calc'!A0`, which names none of those functions. `|` is not an Excel operator, so any pipe outside a quoted string literal is treated as a DDE link and rejected. `Sheet2!A1` references and `="a|b"` text still pass; `tests/test_document_engine_security.js` asserts all four directions.
+
+### 12.5 Install Scripts & Deterministic Releases
+- **Native install scripts stay denied**: `pnpm-workspace.yaml#allowBuilds` keeps `onnxruntime-node: false` and `protobufjs: false`. `onnxruntime-node`'s postinstall downloads CUDA EP binaries from NuGet without checksum verification; ONNX inference itself is unaffected because the JS binding ships prebuilt.
+- **Frozen installs**: `.github/workflows/publish.yml` installs with `--frozen-lockfile`. Release builds cannot resolve a dependency version that is not in the committed lockfile.
+- **Exact pins**: `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are pinned to exact versions, so the patched and bundled packages cannot drift between lockfile resolution and publish.
+- **No browser bundles in the shipped tree**: the three patched packages ship only the Node entry points Konoha loads. `xlsx-populate` loses `browser/` (13.9 MiB, 52 `Function(` occurrences) and `examples/`; `pptxgenjs` loses `dist/pptxgen.bundle.js` and its source map; `jszip` loses `dist/` and the `browser` manifest field. All three bundles carry a `setImmediate` polyfill of `new Function(""+e)`, and the remaining `pptxgen.cjs.js`/`.es.js`/`.min.js` and `jszip/lib/` contain none. A scan of the packed tarball finds zero `new Function(` or `eval(` occurrences across 205 bundled `.js` files. `tests/test_dependency_posture.js` asserts the installed trees, not just the patch files, so a stale `node_modules` cannot re-ship a deleted bundle.
+- **Socket suppressions narrowed**: `socket.yml` no longer suppresses `usesEval`, and no longer ignores `pnpm-lock.yaml` or `patches/**`, so supply-chain and patch changes are audited. `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` remain suppressed because those capabilities are Konoha's documented contract.
+
+### 12.6 Release-Time Dependency Audit
+- `tests/test_dependency_posture.js` fails the build if `lodash` reappears in the lockfile or manifest, if the `xlsx-populate` patch loses its `lodash-lite` shim or stops deleting the browser bundle, if the `pptxgenjs` or `jszip` patches stop deleting their browser builds, if an installed tree still contains a deleted bundle (a stale `node_modules` after a patch edit), if any bundled dependency loses its exact pin, if the publish workflow reverts to `--no-frozen-lockfile`, or if `onnxruntime-node` builds are re-enabled.
+- **License attribution is part of the audit.** The tarball redistributes `bundleDependencies` and their transitive closure — 19 packages across Apache-2.0, MIT, ISC, and BlueOak-1.0.0. `NOTICE` names each one with its license and copyright, records that `jszip` is redistributed under its MIT option rather than GPL-3.0-or-later, and `tests/test_package_tarball_files.js` reads the packed artifact to fail on an unattributed package or a missing license file. Patched files stay under the license of the package they patch.
+
+---
+
+## 13. Subagent Process Launch Hardening (v2.2.23)
+
+Delegation runs other coding harnesses as child processes, so the launch path is an execution boundary. Seven properties are enforced; the first five have a check in `tests/test_spawn_harness_contracts.js` that fails when the behaviour is removed, and the last two are pinned by `tests/test_deploy_safety.js` and `tests/test_omp_manager.js`.
+
+- **No shell interpolation of task text on POSIX.** The harness is spawned with `shell: false` and the task arrives as a single argv element, so `$HOME`, backticks, and quotes in a task reach the child literally. The CLI fallback that a model is told to run is POSIX-quoted (`'…'` with `'\''` for embedded quotes) rather than JSON-encoded, because a shell would expand a JSON string's `$` and backticks.
+- **Windows goes through `ComSpec` only for shims, with verbatim argv.** npm/pnpm install these harnesses as `.cmd` shims, and Node refuses to spawn those without a shell (EINVAL since the CVE-2024-27980 fix). A `.cmd`/`.bat` is launched as `ComSpec /d /s /c "<line>"` with `windowsVerbatimArguments`, so libuv does not re-quote the command line. Each argument is quoted and embedded quotes are doubled. `cmd.exe` treats a newline as a command separator, so on this one route newlines are flattened to spaces; a real executable (`.exe`) is spawned directly with no shell.
+- **`%NAME%` expansion remains possible inside a `cmd.exe` line.** Environment expansion is a property of the shell, not of the quoting, so a Windows task string containing `%USERPROFILE%` would expand. The task text originates from the orchestrating agent in the same trust domain, not from remote input; if that assumption ever changes, the upgrade path is to pass the prompt through a temp file rather than argv.
+- **Cancellation kills the tree, not the launcher.** Because the process held on Windows is `cmd.exe`, a plain `kill()` would leave the harness running. Timeout and abort escalation use `taskkill /pid <pid> /T`, with `/F` only on the escalation pass after the grace window; POSIX keeps the existing `SIGTERM`→`SIGKILL` sequence, which already reaches the child.
+- **Fail-closed capability gate.** A harness is only launched when its binary resolves on `PATH`; the probe is `PATHEXT`-aware on Windows and checks the execute bit on POSIX, so a same-named non-executable file cannot be selected and turned into an `EACCES`. When nothing resolves, the spawn returns `UNSUPPORTED_NATIVE_SPAWN` with an actionable message instead of falling back to a guess.
+- **Deployed agent files are overwritten only when Konoha wrote them.** Ownership is established by the `generated_by: konoha` frontmatter marker *or* the managed contract block, so an agent file Konoha deployed in an earlier release is upgraded in place instead of being treated as user-authored and parked as `.konoha-proposed`. Without the contract-block clause, every agent deployed before the marker existed kept the tool grants of the release that first wrote it — including `Write`/`Edit`/`Bash` on the read-only scout. The foreign-file path is unchanged: user-authored agents still receive a one-time `.konoha-backup` and a `.konoha-proposed` candidate, never an overwrite.
+- **A sandboxed home cannot rewrite project configuration.** `ensureOmpSetup` auto-detects a project from `cwd`, which is correct for the CLI and wrong for anything running under a temporary `HOME`: a test run rewrote the repository's `.omp/mcp.json` to point at its own throwaway launcher, after which every delegated agent in that checkout started without the Konoha MCP server. The sandbox check compares `options.home` against `os.userInfo().homedir`, not `process.env.HOME`, because the environment variable is exactly what a sandbox overrides.
+
+---
+
+## 14. Guardrail Denial & Human-in-the-Loop Resolution (v2.2.23)
+
+The project guardrail intercepts every harness `PreToolUse` call and denies native reads, searches, globs, outlines, and unwrapped shell inside a Konoha checkout. A denial is not a dead end: it is a decision point with exactly two real outcomes — route the call through the Konoha alternative, or accept the risk with a written, scoped, expiring, audited exception.
+
+### 14.1 Hooks stay fail-closed; the prompt is a separate front end
+
+A hook has one non-interactive JSON answer and cannot ask a question, so the automated path never prompts. `scripts/konoha_project_mcp_guard.js` keeps its hook contract (`--harness <name>`, stdin JSON, one JSON object on stdout, exit `2` on deny with `--exit-on-deny`) and adds an opt-in interactive path behind `--hitl`.
+
+The copy that ships is `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js`, which has no `src/` sibling, so both `project_konoha_mcp_guardrail` and `guardrail_hitl` resolve through one candidate search (`_resolveSrcModule`) rather than a relative `require`. Without it, `--hitl` on the deployed copy exited `2` with `Cannot find module '../src/guardrail_hitl'` and nothing else — the same code a real denial returns, with no briefing and no named alternative, so neither the harness nor the human could tell a crash from a block.
+
+The denial payload arrives on **stdin**, so stdin is a pipe whenever `--hitl` runs in a pipeline — and a pipe cannot answer a prompt. The menu therefore reads the **controlling terminal** (`/dev/tty`, or `CONIN$`/`CONOUT$` on Windows) instead of `process.stdin`. No controlling terminal — a hook, a CI job, a detached process — fails closed: the reason and the named alternative go to **stderr** (so a caller parsing stdout still gets clean JSON) and the exit code is `2`. Nothing is recorded. `KONOHA_GUARD_NO_TTY=1` forces the no-terminal branch explicitly, which is how the regression proves it from a script instead of waiting on a developer's keyboard; the override can only force a block, never an allow.
+
+### 14.2 Denials name the alternative
+
+Every denial carries a code, and every code maps to the Konoha route that satisfies it (`describeGuardrailRemediation`). A denial that only says "blocked" trains an agent to retry the same call; a denial that names `konoha:read_file_range` ends the loop in one step.
+
+| Denial code | Named alternative |
+|---|---|
+| `KONOHA_MCP_REQUIRED_READ` | `konoha:read_file_range`, `read_file_head`, `file_info` |
+| `KONOHA_MCP_REQUIRED_SEARCH` | `konoha:code_search`, `code_symbol`, `code_impact`, `token_efficient_grep` |
+| `KONOHA_MCP_REQUIRED_DISCOVERY` | `konoha:find_files_clean` |
+| `KONOHA_MCP_REQUIRED_STRUCTURE` | `konoha:get_file_structure`, `code_symbol` |
+| `READ_ONLY_AGENT_WRITE_DENIED` | delegate the edit to `@anbu` or `@jonin` |
+| `RTK_REQUIRED` | prefix the command with `rtk` |
+| `RETIRED_LEGACY_MCP` | `konoha:find_skill`, `use_skills`, `build_from_source` |
+| `RETIRED_LEGACY_IPC`, `SHELL_GUARDRAIL_VIOLATION` | no in-place alternative; rewrite the call |
+| `SECRET_FILE_WRITE_DENIED` | no alternative by design |
+| `GUARDRAIL_STATE_WRITE_DENIED` | nothing writes the store by hand; accept through the guard CLI at a human terminal |
+
+### 14.3 The three-way menu
+
+```mermaid
+flowchart TD
+  A["PreToolUse hook: 8 harnesses"] --> B["evaluateProjectMcpGuardrail()"]
+  B -->|allowed| C["Allow: Konoha MCP route"]
+  B -->|denied| D["Deny: code + named alternative"]
+  D --> E{"HITL menu"}
+  E -->|"1 Block and try another way"| F["No state written, hook exits 2"]
+  E -->|"2 Accept with risk"| G["Justification required, 8+ characters"]
+  E -->|"3 Cancel / no TTY"| H["Blocked, fail closed, exit 2"]
+  F --> I["Agent retries via Konoha MCP"]
+  I --> J["Allow: rule satisfied"]
+  G --> K["Scoped exception: code + tool, 30 min TTL"]
+  K --> L["Audit line in .konoha/guardrail-audit.jsonl"]
+  L --> M["Allow: RISK_ACCEPTED"]
+  H --> N["Call rejected, reason returned"]
+```
+
+The projection of this page is `assets/konoha-flow-19-guardrail-denial-human-in-the-loop-resolution.webp`; drawio page 19 is the editable source.
+
+### 14.4 An accepted risk is narrow by construction
+
+- **Scoped to one denial code and one tool.** `_exceptionCovers` compares the code and the tool name only. The target path is recorded for the audit trail but is deliberately *not* part of the match: `_extractTargetPath` returns a grep call's `pattern` before its `path`, so path equality rejected the very call the human had just approved. Accepting `KONOHA_MCP_REQUIRED_READ` for `Read` therefore leaves `Glob` and `Grep` denied.
+- **Time-limited.** Default TTL 30 minutes (`--ttl-minutes` overrides). Expired entries are pruned on read, so an acceptance cannot outlive its window by being left on disk.
+- **Justified.** `recordGuardrailException` throws below 8 characters; `--accept-with-risk` refuses the same way. An empty justification is a rubber stamp, not a decision.
+- **Audited.** `.konoha/guardrail-audit.jsonl` is append-only and records `risk_accepted` (id, code, tool, path, harness, who, why, expiry) and `exceptions_revoked` (count). A reviewer can reconstruct every acceptance without asking the operator.
+- **Revocable.** `--revoke-exceptions` deletes the store and audits the removal; `--list-exceptions` prints what is live.
+- **Not writable by the gated agent.** The store is the bypass, so a tool call that could write it would grant itself permission. Both the write-tool branch and the `rtk` shell branch deny `GUARDRAIL_STATE_WRITE_DENIED` when a call names `guardrail-exceptions.json` or `guardrail-audit.jsonl` — a plain `Write` and an `rtk cp` over the same path are closed the same way.
+- **Not available for every rule.** `NON_ACCEPTABLE_CODES` reserves `SECRET_FILE_WRITE_DENIED`, `SHELL_GUARDRAIL_VIOLATION`, `GUARDRAIL_STATE_WRITE_DENIED`, and the retired IPC paths: the menu withholds accept, `recordGuardrailException` throws, and `evaluateProjectMcpGuardrail` ignores any entry for them even if one is written into the store by hand. A rule whose only correct outcome is "no" would otherwise become a button.
+- **Capped.** A requested TTL is clamped to `MAX_EXCEPTION_TTL_MS` (one hour), and `readGuardrailExceptions` drops any entry older than that ceiling regardless of the expiry it claims, so neither `--ttl-minutes` nor a hand-edited `expires_at` can mint a permanent bypass.
+
+Both files are machine-local runtime state and are gitignored (`.konoha/guardrail-*.json`, `.konoha/guardrail-*.jsonl`). A risk acceptance is a decision about one checkout on one machine, so shipping it in a tag would hand a future clone an exception its operator never granted.
+
+### 14.5 Non-interactive acceptance
+
+An operator who has already decided does not need a prompt:
+
+```bash
+echo '{"tool_name":"Read","tool_input":{"file_path":"src/server.js"},"cwd":"'$PWD'"}' \
+  | node scripts/konoha_project_mcp_guard.js --harness omp \
+      --accept-with-risk --justification "auditing the guard for the CI fix" --ttl-minutes 15
+```
+
+The justification is still mandatory, the TTL still applies, and the audit line is still written — the only thing skipped is the menu.
+
+`tests/test_project_konoha_mcp_guardrail.js` covers all of it: tests 9-13 assert that acceptance writes the exception and the audit line and lets the next identical call through while a different code or tool stays denied, that blocking writes nothing, that an expired entry is pruned and ignored, that `--hitl` with no controlling terminal exits `2` and records nothing, and that the menu defaults to block on EOF and refuses a short justification. Test 14 drives the CLI under a real pty with the payload on stdin, which is the shipped shape of the command: the menu appears, choice `1` exits `2` and writes nothing, and choice `2` records exactly one exception scoped to the denied tool. Test 15 closes the self-minting loop: a `Write` and an `rtk cp` against the store are both denied `GUARDRAIL_STATE_WRITE_DENIED`, an unconditional rule refuses to be recorded and is not covered by a forged entry, an entry past the one-hour ceiling is pruned, a requested TTL is clamped, and an ordinary write to `src/` still passes. Each behaviour is proven to bite by a mutation (exception match disabled, expiry ignored, exit code softened, menu default flipped, payload re-read from a drained stdin, justification length unchecked, store write allowed, forged unconditional entry honoured, menu refusal disabled, ceiling removed, TTL uncapped — eleven mutations, all reported). Test 6 closes the loop on the copy that actually ships: it runs `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js` with `--hitl` and no terminal and asserts the fail-closed briefing on stderr, which is what a relative `require` into a directory with no `src/` sibling cannot produce.
 
 ---

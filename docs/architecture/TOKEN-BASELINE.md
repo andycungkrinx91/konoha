@@ -44,6 +44,19 @@ Aislop MCP                     493 tokens         493 tokens         314 tokens 
 Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens   -724 tokens (-17.4%)
 ```
 
+### The Figure That Matters: Serialized `tools/list` Surface
+
+The three columns above count description *text*, which is why they read in the low thousands. What a client actually pays per request is the serialized catalog:
+
+```
+JSON.stringify(listToolSchemas())   56 tools   28,986 bytes   6,598 tokens (cl100k_base)
+  of which: tool descriptions           3,777 bytes    769 tokens
+             parameter descriptions     3,700 bytes    833 tokens
+             JSON structure + keys    21,509 bytes   4,996 tokens
+```
+
+The structure — not the prose — is the cost, so trimming `description` strings cannot move this number materially; only removing or lazily loading tools can. The Phase 0 / Round 1 / Round 2 columns above are a historical record of a different metric and are **not** comparable with 6,598. `tests/test_token_regression_gate.js` now measures this surface in-process and fails above **7,300 tokens** or at any tool count other than 56, so a schema added without a budget shows up in CI instead of on the next invoice.
+
 ### Optimizations Applied & Drift Prevention:
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
@@ -309,11 +322,11 @@ Enforced mechanically via `tests/test_token_regression_gate.js` with automated +
 
 ## 10. Architecture & Non-Negotiable Contract Invariants Verification
 
-- **Single-Thread Inline Hierarchy**: Preserved completely. All agents execute within the single-thread inline hierarchy coordinated by Sannin and governed by Kage.
-- **Subagent Spawning**: **0 subagents spawned**. No dynamic subagents, background daemon forks, or multi-agent swarms introduced.
-- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) and 4 Aislop tools remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients.
+- **Single-Thread Inline Hierarchy**: Was preserved at the time of this measurement. It is **no longer the architecture**: `@sannin` routes to 8 spawnable specialists (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu-jonin`, `genin`, `akatsuki`, `yamanaka`) through `src/mcp/lazy_subagent.js`, with per-agent LangGraph checkpoints and optional git worktree isolation. The paragraphs in this document that assume one inline thread describe the phase they measured, not the current engine.
+- **Subagent Spawning**: Was **0 subagents** when this document was written. It is now the product's core path, and the spawn contract is pinned by `tests/test_spawn_harness_contracts.js` (16 checks) and `tests/test_subagent_spawning_p0.js` (9 checks).
+- **MCP Tool Protocol Compatibility**: All 58 manifest tools (56 canonical + 2 deprecated) remain fully functional and reachable via standard JSON-RPC dispatch across all 8 supported coding clients. The 4 `aislop_*` tools are served by the separate Aislop MCP server, not by `src/mcp/tool_dispatch.js`, and are not part of the 56.
 - **Stable Bridge Gateway**: Untouched. Local LLM Proxy Gateway, bridge servers, and Bridge Router logic were preserved without modifications.
-- **Token Savings Telemetry**: Strictly preserved. Telemetry tracking in `~/.konoha/konoha.db` and bounded file tool constraints remain active and intact.
+- **Token Savings Telemetry**: Active for what it measures: every tool call is recorded in `~/.konoha/konoha.db` with returned bytes and bytes saved. The `input_tokens`, `output_tokens`, and `cached_tokens` columns exist on `tool_calls` but nothing populates them, so Konoha cannot report its own prompt-cache hit rate.
 
 ---
 

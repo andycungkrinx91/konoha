@@ -44,7 +44,7 @@ async function run() {
     pages.push({ name: unescapedName, content: dMatch[2] });
   }
 
-  assert.strictEqual(pages.length, 18);
+  assert.strictEqual(pages.length, 19);
   const expectedPageNames = new Set([
     '01 System Architecture',
     '02 Runtime Query Lifecycle',
@@ -63,7 +63,8 @@ async function run() {
     '15 Inbound Prompt Queue & Worker Pipeline',
     '16 Akatsuki Security Controls & Dual-Mode Lab Lifecycle',
     '17 Yamanaka Image-to-3D Asset Pipeline',
-    '18 LangGraph.js Orchestration Runtime'
+    '18 LangGraph.js Orchestration Runtime',
+    '19 Guardrail Denial & Human-in-the-Loop Resolution'
   ]);
   assert.deepStrictEqual(new Set(pages.map(p => p.name)), expectedPageNames);
 

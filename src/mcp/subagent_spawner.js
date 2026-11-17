@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const { isReadOnlyAgent } = require('../agent_file_safety');
 const { normalizeAgentName } = require('../canonical_agents');
 const { resolveSpawnDescriptor, buildUnsupportedSpawnPayload } = require('./lazy_subagent');
@@ -22,17 +22,38 @@ const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 const activeChildren = new Set();
 let shutdownHooksRegistered = false;
 
+/**
+ * A `.cmd` harness is launched through `cmd.exe`, so the process we hold is not
+ * the process doing the work: killing it alone orphans the harness. Windows has
+ * no signal that reaches a tree, so `taskkill /T` is the only way to take the
+ * child down with its parent. Elsewhere the plain signals already reach it.
+ */
+function windowsKillInvocation(pid, force) {
+  const system32 = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'taskkill.exe') : null;
+  const taskkill = system32 && fs.existsSync(system32) ? system32 : 'taskkill';
+  return { command: taskkill, args: ['/pid', String(pid), '/T', ...(force ? ['/F'] : [])] };
+}
+
+function _killProcessTree(child, force) {
+  if (process.platform !== 'win32') {
+    child.kill(force ? 'SIGKILL' : 'SIGTERM');
+    return;
+  }
+  const { command, args } = windowsKillInvocation(child.pid, force);
+  spawnSync(command, args, { windowsHide: true, stdio: 'ignore', timeout: 10000 });
+}
+
 function terminateChildGracefully(child, graceMs = KILL_GRACE_MS) {
   if (!child || child.killed || child.exitCode !== null || child.signalCode !== null) {
     return;
   }
   try {
-    child.kill('SIGTERM');
+    _killProcessTree(child, false);
   } catch (_) { /* ignore ESRCH */ }
   const killTimer = setTimeout(() => {
     if (child.exitCode === null && child.signalCode === null) {
       try {
-        child.kill('SIGKILL');
+        _killProcessTree(child, true);
       } catch (_) { /* ignore ESRCH */ }
     }
   }, graceMs);
@@ -56,18 +77,103 @@ function getActiveChildCount() {
   return activeChildren.size;
 }
 
-function buildHarnessCommand(client, { agent, prompt, fullPrompt, harnessBin, readOnly }) {
-  const canonicalClient = String(client || '').toLowerCase() === 'claudecode' ? 'claude' : String(client || '').toLowerCase();
-  const bin = harnessBin || ({
-    claude: 'claude',
-    cursor: 'cursor-agent',
-    codex: 'codex',
-    opencode: 'opencode',
-    commandcode: 'command-code',
-    omp: 'omp',
-    antigravity: 'agy',
-    pi: 'pi'
-  })[canonicalClient];
+/**
+ * Harness binaries in preference order, paired with the client key their
+ * invocation template is registered under. Used only when a caller asks for a
+ * real child process without naming a harness — the `cli`/`universal` case,
+ * where the fallback exists precisely because no harness could be identified.
+ */
+const HARNESS_PATH_ORDER = Object.freeze([
+  ['omp', 'omp'],
+  ['claude', 'claude'],
+  ['codex', 'codex'],
+  ['cursor', 'cursor-agent'],
+  ['opencode', 'opencode'],
+  ['commandcode', 'command-code'],
+  ['antigravity', 'agy'],
+  ['pi', 'pi']
+]);
+
+function findExecutableOnPath(bin) {
+  const isWindows = process.platform === 'win32';
+  const exts = isWindows
+    ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
+    : [''];
+  for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      const candidate = path.join(dir, bin + ext);
+      try {
+        const stat = fs.statSync(candidate);
+        if (!stat.isFile()) continue;
+        // POSIX has no PATHEXT: a same-named non-executable file is not the
+        // binary, and selecting it would turn a resolvable harness into EACCES.
+        if (!isWindows && (stat.mode & 0o111) === 0) continue;
+        return candidate;
+      } catch (_) { /* not in this directory */ }
+    }
+  }
+  return null;
+}
+
+function resolveInstalledHarnessClient() {
+  for (const [client, bin] of HARNESS_PATH_ORDER) {
+    if (findExecutableOnPath(bin)) return client;
+  }
+  return null;
+}
+
+/** Harness client key → headless binary that can run a prompt non-interactively. */
+const HARNESS_BINARIES = Object.freeze({
+  claude: 'claude',
+  cursor: 'cursor-agent',
+  codex: 'codex',
+  opencode: 'opencode',
+  commandcode: 'command-code',
+  omp: 'omp',
+  antigravity: 'agy',
+  pi: 'pi'
+});
+
+function canonicalClientKey(client) {
+  const key = String(client || '').toLowerCase();
+  return key === 'claudecode' ? 'claude' : key;
+}
+
+/**
+ * Windows installs npm/pnpm CLIs as `.cmd` shims, and Node refuses to spawn a
+ * `.cmd`/`.bat` without a shell (EINVAL since the CVE-2024-27980 fix). cmd.exe
+ * also treats a newline as a command separator, so a multi-line prompt cannot
+ * ride the command line at all: newlines become spaces on this route only.
+ *
+ * `ponytail:` newline flattening is lossless for prose and cosmetic for code
+ * blocks; `%NAME%` still expands because cmd does that even inside quotes.
+ * Upgrade by writing the prompt to a file once a harness is known to read one.
+ */
+function _windowsShimSpec(binPath, args) {
+  const quote = (value) => `"${String(value).replace(/[\r\n]+/g, ' ').replace(/"/g, '""')}"`;
+  const line = [binPath, ...args].map(quote).join(' ');
+  return {
+    // The extra outer pair is what `/s` strips, leaving the inner quoting intact.
+    command: process.env.ComSpec || 'cmd.exe',
+    args: ['/d', '/s', '/c', `"${line}"`],
+    windowsVerbatimArguments: true
+  };
+}
+
+function _platformHarnessSpec(spec) {
+  const command = path.isAbsolute(spec.command)
+    ? spec.command
+    : (findExecutableOnPath(spec.command) || spec.command);
+  if (process.platform !== 'win32' || !/\.(cmd|bat)$/i.test(command)) {
+    return { ...spec, command };
+  }
+  return _windowsShimSpec(command, spec.args);
+}
+
+function _harnessInvocation(client, { agent, prompt, fullPrompt, harnessBin, readOnly }) {
+  const canonicalClient = canonicalClientKey(client);
+  const bin = harnessBin || HARNESS_BINARIES[canonicalClient];
 
   if (!bin) return null;
   const message = fullPrompt || prompt || '';
@@ -88,7 +194,12 @@ function buildHarnessCommand(client, { agent, prompt, fullPrompt, harnessBin, re
     case 'opencode':
       return { command: bin, args: ['run', '--format', 'json', '--agent', agent, message] };
     case 'omp':
-      return { command: bin, args: ['-p', '--agent', agent, message] };
+      // OMP has no `--agent` flag (oclif rejects it outright, exit 2), so the
+      // specialist identity travels as appended system-prompt text.
+      return {
+        command: bin,
+        args: ['-p', '--append-system-prompt', `You are the Konoha @${agent} subagent.`, message]
+      };
     case 'cursor':
     case 'commandcode':
     case 'antigravity':
@@ -97,6 +208,11 @@ function buildHarnessCommand(client, { agent, prompt, fullPrompt, harnessBin, re
     default:
       return null;
   }
+}
+
+function buildHarnessCommand(client, options = {}) {
+  const spec = _harnessInvocation(client, options);
+  return spec ? _platformHarnessSpec(spec) : null;
 }
 
 function buildChildEnv(agent, projectPath, cwd, client) {
@@ -118,15 +234,40 @@ function buildChildEnv(agent, projectPath, cwd, client) {
 
 function validateSpawnCapability(client, options = {}) {
   const key = String(client || 'cli').toLowerCase().trim();
-  if (key === 'cli' && !options.execute) {
+  const wantsChildProcess = Boolean(options.execute || options.harnessBin);
+  if (key === 'cli' && !wantsChildProcess) {
     return { ok: true, client: 'cli', descriptor: { supported: true, client: 'cli', tool: null, generic: true } };
   }
-  const descriptor = resolveSpawnDescriptor(key, options);
+  // `cli`/`universal` mean "no harness was identified"; for a real child process
+  // that has to become the installed one, or nothing can be launched at all.
+  const effectiveKey = (key === 'cli' || key === 'universal') && wantsChildProcess
+    ? (resolveInstalledHarnessClient() || key)
+    : canonicalClientKey(key);
+  if (wantsChildProcess) {
+    // A real child process needs the harness *binary*, not the harness's
+    // in-session subagent tool: `pi -p` runs a prompt fine without the
+    // pi-subagents extension, so requiring native tool support here refused a
+    // spawn the machine could actually perform.
+    const bin = options.harnessBin || HARNESS_BINARIES[effectiveKey];
+    if (!bin) {
+      return {
+        ok: false,
+        client: effectiveKey,
+        payload: buildUnsupportedSpawnPayload(effectiveKey, `No headless harness invocation configured for "${effectiveKey}".`)
+      };
+    }
+    return {
+      ok: true,
+      client: effectiveKey,
+      descriptor: { supported: true, client: effectiveKey, tool: null, generic: true, headlessBin: bin }
+    };
+  }
+  const descriptor = resolveSpawnDescriptor(effectiveKey, options);
   if (!descriptor.supported) {
     return {
       ok: false,
-      client: key,
-      payload: buildUnsupportedSpawnPayload(key, descriptor.error)
+      client: effectiveKey,
+      payload: buildUnsupportedSpawnPayload(effectiveKey, descriptor.error)
     };
   }
   return { ok: true, client: descriptor.client, descriptor };
@@ -251,6 +392,7 @@ function _prepareSpawnSpec(options) {
         useHarnessBinary: true,
         command: cmdSpec.command,
         args: cmdSpec.args,
+        windowsVerbatimArguments: Boolean(cmdSpec.windowsVerbatimArguments),
         stdinPayload: null
       }
     };
@@ -357,7 +499,7 @@ function _writeChildStdin(child, stdinPayload) {
 }
 
 function _executeSpawnSpec(spec, options, childEnv, startedAt) {
-  const { normalizedAgent, capability, projectPath, effectiveCwd, readOnly, timeoutMs, graceMs, useHarnessBinary, command, args, stdinPayload } = spec;
+  const { normalizedAgent, capability, projectPath, effectiveCwd, readOnly, timeoutMs, graceMs, useHarnessBinary, command, args, stdinPayload, windowsVerbatimArguments } = spec;
   return new Promise((resolve) => {
     let settled = false;
     let timedOut = false;
@@ -375,6 +517,7 @@ function _executeSpawnSpec(spec, options, childEnv, startedAt) {
         env: childEnv,
         shell: false,
         windowsHide: true,
+        ...(windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
         stdio: ['pipe', 'pipe', 'pipe']
       });
     } catch (spawnErr) {
@@ -539,6 +682,10 @@ module.exports = {
   KILL_GRACE_MS,
   getActiveChildCount,
   buildHarnessCommand,
+  buildRawHarnessInvocation: _harnessInvocation,
+  findExecutableOnPath,
+  resolveInstalledHarnessClient,
+  windowsKillInvocation,
   validateSpawnCapability,
   spawnSubagent,
   spawnParallelSubagents
