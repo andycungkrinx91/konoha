@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.22-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.22"></a>
-  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=v2.2.22&label=release%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on the latest release tag"></a>
+  <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=master&label=cross-platform%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on master"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
   <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
 </p>

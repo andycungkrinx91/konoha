@@ -4,18 +4,17 @@
 
 The `Cross-Platform` workflow (`.github/workflows/cross-platform.yml`) runs the repo
 checks on **ubuntu-latest, windows-latest, and macos-latest** for every push to
-`master`, every pull request, every `v*` tag, on manual dispatch
-(`workflow_dispatch`), and nightly at 02:00 UTC (`schedule`). The nightly run exists
-because a push-only trigger cannot catch a regression introduced by a runner image
-change or a dependency that resolves differently on one OS, and because
-cross-platform verification is a project rule, not an optional extra. It never
-publishes anything — the tag-only `publish.yml` and `release-assets.yml` workflows
-still own releases.
+`master`, every pull request, on manual dispatch (`workflow_dispatch`), and nightly
+at 02:00 UTC (`schedule`). The nightly run exists because a push-only trigger cannot
+catch a regression introduced by a runner image change or a dependency that resolves
+differently on one OS, and because cross-platform verification is a project rule, not
+an optional extra. It never publishes anything — the tag-only `publish.yml` and
+`release-assets.yml` workflows still own releases.
 
-Tag pushes are included so a release carries its own verdict rather than inheriting
-whatever `master` last produced: the README CI badge is pinned to the release tag
-(`cross-platform.yml?branch=v<version>`, rewritten by `scripts/bump_version.js` on
-every bump) and can only render a status once the tag has a run.
+A `v*` tag is a release event and triggers **only** those two workflows. The test
+matrix does not run on tags: tagging is not gated on, and does not wait behind, a
+35-job run. The README CI badge reads the default branch
+(`cross-platform.yml?branch=master`), which is the run that actually exists.
 
 There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
 `publish.yml`).
